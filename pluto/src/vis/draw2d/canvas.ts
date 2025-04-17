@@ -10,19 +10,24 @@
 import { box, type Destructor, dimensions, scale, xy } from "@synnaxlabs/x";
 
 import { applyOverScan } from "@/vis/render/util";
+import { type text } from "@/vis/text";
 
 export class SugaredOffscreenCanvasRenderingContext2D
   implements OffscreenCanvasRenderingContext2D
 {
   readonly scale_: scale.XY;
   readonly wrapped: OffscreenCanvasRenderingContext2D;
+  readonly atlasRegistry: text.AtlasRegistry;
+  currAtlas: text.Atlas | null = null;
 
   constructor(
     wrap: OffscreenCanvasRenderingContext2D,
+    atlasRegistry: text.AtlasRegistry,
     scale_: scale.XY = scale.XY.IDENTITY,
   ) {
     this.wrapped = wrap;
     this.scale_ = scale_;
+    this.atlasRegistry = atlasRegistry;
   }
 
   get fontStretch(): CanvasFontStretch {
@@ -74,7 +79,11 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   applyScale(scale: scale.XY): SugaredOffscreenCanvasRenderingContext2D {
-    return new SugaredOffscreenCanvasRenderingContext2D(this, scale);
+    return new SugaredOffscreenCanvasRenderingContext2D(
+      this,
+      this.atlasRegistry,
+      scale,
+    );
   }
 
   get canvas(): OffscreenCanvas {
@@ -536,13 +545,37 @@ export class SugaredOffscreenCanvasRenderingContext2D
     this.wrapped.save();
   }
 
-  fillText(text: string, x: number, y: number, maxWidth?: number | undefined): void {
+  fillText(
+    text: string,
+    x: number,
+    y: number,
+    maxWidth?: number | undefined,
+    atlas?: boolean,
+  ): void {
+    if (atlas) {
+      const atlas = this.atlasRegistry.get({
+        font: this.font,
+        textColor: this.fillStyle as string,
+        dpr: 2,
+      });
+      atlas.fillText(this, text, x, y);
+      return;
+    }
     this.wrapped.fillText(
       text,
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       maxWidth != null ? this.scale_.x.dim(maxWidth) : undefined,
     );
+  }
+
+  atlasMeasureText(text: string): dimensions.Dimensions {
+    const atlas = this.atlasRegistry.get({
+      font: this.font,
+      textColor: this.fillStyle as string,
+      dpr: 2,
+    });
+    return atlas.measureText(text);
   }
 
   measureText(text: string): TextMetrics {

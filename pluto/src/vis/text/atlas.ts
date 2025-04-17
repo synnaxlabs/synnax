@@ -1,9 +1,11 @@
-import { type dimensions } from "@synnaxlabs/x";
+import { type dimensions, unique } from "@synnaxlabs/x";
 
+import { color } from "@/color/core";
 import { type SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 
-interface AtlasProps {
+export interface AtlasProps {
   font: string;
+  textColor: color.Crude;
   dpr?: number;
   characters?: string;
 }
@@ -18,14 +20,12 @@ export class Atlas {
   private static readonly DEFAULT_CHARS = "0123456789.:-ums";
 
   constructor(props: AtlasProps) {
-    const { font, dpr = 2, characters = Atlas.DEFAULT_CHARS } = props;
+    const { font, dpr = 2, characters = Atlas.DEFAULT_CHARS, textColor } = props;
     this.dpr = dpr;
     this.charMap = new Map();
 
-    // Deduplicate characters
-    const uniqueChars = [...new Set(characters)];
+    const uniqueChars = unique.unique(Array.from(characters));
 
-    // Do the initial measurement to get character dimensions
     this.atlas = new OffscreenCanvas(1, 1);
     const ctx = this.atlas.getContext("2d") as OffscreenCanvasRenderingContext2D;
     ctx.font = font;
@@ -36,7 +36,6 @@ export class Atlas {
     this.charWidth = metrics.width;
     this.charHeight = ascent + descent;
 
-    // Calculate atlas dimensions - make it roughly square
     const totalChars = uniqueChars.length;
     const atlasCharWidth = this.charWidth + Atlas.PADDING * 2;
     const atlasCharHeight = this.charHeight + Atlas.PADDING * 2;
@@ -54,10 +53,9 @@ export class Atlas {
     atlasCtx.font = font;
     atlasCtx.textBaseline = "alphabetic";
     atlasCtx.textAlign = "left";
-    atlasCtx.fillStyle = "white";
+    atlasCtx.fillStyle = new color.Color(textColor).hex;
     atlasCtx.clearRect(0, 0, this.atlas.width, this.atlas.height);
 
-    // Draw characters to atlas and build character map
     uniqueChars.forEach((char, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
@@ -105,5 +103,22 @@ export class Atlas {
       width: text.length * this.charWidth,
       height: this.charHeight,
     };
+  }
+}
+
+export class AtlasRegistry {
+  private readonly atlases: Map<string, Atlas>;
+
+  constructor() {
+    this.atlases = new Map();
+  }
+
+  get(props: AtlasProps): Atlas {
+    const c = new color.Color(props.textColor);
+    const key = `${props.font}-${c.hex}-${props.dpr}-${props.characters}`;
+    if (this.atlases.has(key)) return this.atlases.get(key)!;
+    const atlas = new Atlas(props);
+    this.atlases.set(key, atlas);
+    return atlas;
   }
 }

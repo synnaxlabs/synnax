@@ -31,7 +31,7 @@ export interface ContextValue {
 
 const CONTEXT_KEY = "mosaic.context";
 
-export class Mosaic extends aether.Composite<typeof mosaicStateZ, {}, {}> {
+export class Mosaic extends aether.Composite<typeof mosaicStateZ, {}> {
   static readonly TYPE = "Mosaic";
   static readonly stateZ = mosaicStateZ;
   schema = Mosaic.stateZ;

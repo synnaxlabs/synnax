@@ -99,6 +99,7 @@ export interface ComponentConstructor {
  * arbitrarily nested children.
  */
 export interface Context {
+  instrumentation: alamos.Instrumentation;
   /**
    * Gets a context value, interpreting it as the given type, and returning it. This
    * method does no internal type checking - it is up to the caller to ensure that the
@@ -236,6 +237,7 @@ export abstract class Leaf<
 
   private get ctx(): Context {
     return {
+      instrumentation: this.instrumentation,
       get: (key: string) => this.parentCtxValues.get(key),
       getOptional: (key: string) => this.parentCtxValues.get(key),
       has: (key: string) => this.parentCtxValues.has(key),
@@ -257,6 +259,9 @@ export abstract class Leaf<
     _: CreateComponent,
   ): Promise<void> {
     if (this.deleted) return;
+    const endSpan = this.instrumentation.T.debug(
+      `${this.type}:${this.key}:updateState`,
+    );
     this.validatePath(path);
     const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
     if (this._state != null)
@@ -267,11 +272,16 @@ export abstract class Leaf<
     this._prevState = this._state ?? state_;
     this._state = state_;
     await this.afterUpdate(this.ctx);
+    endSpan();
   }
 
   async _updateContext(values: ContextMap): Promise<void> {
+    const endSpan = this.instrumentation.T.debug(
+      `${this.type}:${this.key}:updateContext`,
+    );
     values.forEach((value, key) => this.parentCtxValues.set(key, value));
     await this.afterUpdate(this.ctx);
+    endSpan();
   }
 
   /**
@@ -279,9 +289,11 @@ export abstract class Leaf<
    * AetherComposite.
    */
   async _delete(path: string[]): Promise<void> {
+    const endSpan = this.instrumentation.T.debug(`${this.type}:${this.key}:delete`);
     this.validatePath(path);
     this._deleted = true;
     await this.afterDelete(this.ctx);
+    endSpan();
   }
 
   /**

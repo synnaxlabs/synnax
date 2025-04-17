@@ -75,7 +75,7 @@ export interface PreciseTimeScaleProps {
  * const ticks = scale.ticks(5);
  * ```
  */
-class PreciseTimeScale {
+export class PreciseTimeScale {
   private _domain: [TimeStamp, TimeStamp];
   private _range: [number, number];
   private _span: TimeSpan;

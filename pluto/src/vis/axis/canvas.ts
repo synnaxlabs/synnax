@@ -21,7 +21,6 @@ import {
 } from "@/vis/axis/axis";
 import { newTickFactory, type Tick, type TickFactory } from "@/vis/axis/ticks";
 import { type render } from "@/vis/render";
-import { Atlas } from "@/vis/text/atlas";
 
 const TICK_LINE_SIZE = 5;
 
@@ -66,29 +65,21 @@ export class Canvas implements Axis {
   state: ParsedAxisState;
   tickFactory: TickFactory;
   dimensions: TickTextDimensions;
-  atlas: Atlas;
 
   constructor(ctx: render.Context, state: ParsedAxisState) {
     this.renderCtx = ctx;
     this.state = state;
     this.tickFactory = newTickFactory(this.state);
     this.dimensions = new TickTextDimensions(ctx.lower2d, state.font);
-    this.atlas = new Atlas({ font: state.font, dpr: ctx.dpr });
   }
 
   setState(state: AxisState): void {
     this.state = prettyParse(axisStateZ, state);
     this.tickFactory = newTickFactory(state);
     this.dimensions = new TickTextDimensions(this.renderCtx.lower2d, this.state.font);
-    this.atlas = new Atlas({ font: this.state.font, dpr: this.renderCtx.dpr });
   }
 
   render(props: AxisProps): RenderResult {
-    const { lower2d: canvas } = this.renderCtx;
-    canvas.font = this.state.font;
-    canvas.fillStyle = this.state.color.hex;
-    canvas.lineWidth = 1;
-
     switch (this.state.location) {
       case "left":
         return this.drawLeft(props);
@@ -102,36 +93,34 @@ export class Canvas implements Axis {
   }
 
   drawBottom(ctx: AxisProps): RenderResult {
-    // const { lower2d: canvas } = this.renderCtx;
-    // const { plot: plottingRegion } = ctx;
-    // const size = box.width(plottingRegion);
-    // const gridSize = box.height(plottingRegion);
-    // const p = ctx.position;
-    // const ticks = this.tickFactory.create({ ...ctx, size });
-    // this.maybeDrawGrid(size, ticks, (tick) => [
-    //   xy.translate(p, "x", tick.position),
-    //   xy.translate(p, { x: tick.position, y: -gridSize }),
-    // ]);
-    // canvas.strokeStyle = this.state.color.hex;
-    // this.drawLine(p, xy.translate(p, "x", size));
-    // const maxTickDims = this.drawTicks(ticks, (d, tick) => {
-    //   canvas.moveTo(p.x + tick.position, p.y);
-    //   canvas.lineTo(p.x + tick.position, p.y + TICK_LINE_SIZE);
-    //   canvas.stroke();
-    //   // this.atlas.fillText(
-    //   //   canvas,
-    //   //   tick.label,
-    //   //   p.x + tick.position - d.width / 2,
-    //   //   p.y + 6 + d.height,
-    //   // );
-    //   this.renderCtx.lower2d.fillText(
-    //     tick.label,
-    //     p.x + tick.position - d.width / 2,
-    //     p.y + 6 + d.height,
-    //   );
-    // });
-    // // Add some extra padding to the bottom of the axis.
-    return { size: 0 };
+    const { lower2d: canvas } = this.renderCtx;
+    const { plot: plottingRegion } = ctx;
+    const size = box.width(plottingRegion);
+    const gridSize = box.height(plottingRegion);
+    const p = ctx.position;
+    const ticks = this.tickFactory.create({ ...ctx, size });
+    canvas.beginPath();
+    canvas.strokeStyle = this.state.color.hex;
+    this.drawLine(p, xy.translate(p, "x", size));
+    const maxTickDims = this.drawTicks(ticks, (d, tick) => {
+      this.drawLine(
+        xy.translateX(p, tick.position),
+        xy.translate(p, { x: tick.position, y: TICK_LINE_SIZE }),
+      );
+      canvas.fillText(
+        tick.label,
+        p.x + tick.position - d.width / 2,
+        p.y + 6 + d.height,
+        undefined,
+        true,
+      );
+    });
+    canvas.stroke();
+    this.maybeDrawGrid(size, ticks, (tick) => [
+      xy.translate(p, "x", tick.position),
+      xy.translate(p, { x: tick.position, y: -gridSize }),
+    ]);
+    // Add some extra padding to the bottom of the axis.
     return { size: maxTickDims.height + TICK_LINE_SIZE + 6 };
   }
 
@@ -156,6 +145,8 @@ export class Canvas implements Axis {
         tick.label,
         p.x + tick.position - d.width / 2,
         p.y - 5 - d.height,
+        undefined,
+        true,
       );
     });
 
@@ -163,36 +154,33 @@ export class Canvas implements Axis {
   }
 
   drawLeft(ctx: AxisProps): RenderResult {
-    // const { lower2d: canvas } = this.renderCtx;
-    // const { plot: plottingRegion } = ctx;
-    // const size = box.height(plottingRegion);
-    // const gridSize = box.width(plottingRegion);
-    // const p = xy.translate(ctx.position, "x", ctx.size);
-    // const ticks = this.tickFactory.create({ ...ctx, size });
-    // this.maybeDrawGrid(size, ticks, (tick) => [
-    //   xy.translate(p, "y", tick.position),
-    //   xy.translate(p, { x: gridSize, y: tick.position }),
-    // ]);
-    // canvas.strokeStyle = this.state.color.hex;
-    // this.drawLine(p, xy.translate(p, "y", size));
-    // const maxTickSize = this.drawTicks(ticks, (d, tick) => {
-    //   canvas.moveTo(p.x, p.y + tick.position);
-    //   canvas.lineTo(p.x - TICK_LINE_SIZE, p.y + tick.position);
-    //   canvas.stroke();
-    //   this.atlas.fillText(
-    //     canvas,
-    //     tick.label,
-    //     p.x - d.width - TICK_LINE_SIZE * 2,
-    //     p.y + tick.position + d.height / 3
-    //   );
-    //   // this.renderCtx.lower2d.fillText(
-    //   //   tick.label,
-    //   //   p.x - d.width - TICK_LINE_SIZE * 2,
-    //   //   p.y + tick.position + d.height / 3,
-    //   // );
-    // });
-    return { size: 0 };
-
+    const { lower2d: canvas } = this.renderCtx;
+    const { plot: plottingRegion } = ctx;
+    const size = box.height(plottingRegion);
+    const gridSize = box.width(plottingRegion);
+    const p = xy.translate(ctx.position, "x", ctx.size);
+    const ticks = this.tickFactory.create({ ...ctx, size });
+    canvas.beginPath();
+    canvas.strokeStyle = this.state.color.hex;
+    this.drawLine(p, xy.translate(p, "y", size));
+    const maxTickSize = this.drawTicks(ticks, (d, tick) => {
+      this.drawLine(
+        xy.translateY(p, tick.position),
+        xy.translate(p, { x: -TICK_LINE_SIZE, y: tick.position }),
+      );
+      canvas.fillText(
+        tick.label,
+        p.x - d.width - TICK_LINE_SIZE * 2,
+        p.y + tick.position + d.height / 3,
+        undefined,
+        true,
+      );
+    });
+    canvas.stroke();
+    this.maybeDrawGrid(size, ticks, (tick) => [
+      xy.translate(p, "y", tick.position),
+      xy.translate(p, { x: gridSize, y: tick.position }),
+    ]);
     return { size: maxTickSize.width + TICK_LINE_SIZE * 2 };
   }
 
@@ -212,22 +200,22 @@ export class Canvas implements Axis {
     const maxTickSize = this.drawTicks(ticks, (d, tick) => {
       canvas.moveTo(p.x, p.y + tick.position);
       canvas.lineTo(p.x + TICK_LINE_SIZE, p.y + tick.position);
-      canvas.stroke();
       canvas.fillText(
         tick.label,
         p.x + TICK_LINE_SIZE + 2,
         p.y + tick.position + d.height / 3,
+        undefined,
+        true,
       );
     });
+    canvas.stroke();
     return { size: maxTickSize.width + TICK_LINE_SIZE * 2 };
   }
 
   private drawLine(start: xy.XY, end: xy.XY): void {
     const { lower2d: canvas } = this.renderCtx;
-    canvas.beginPath();
     canvas.moveTo(...xy.couple(start));
     canvas.lineTo(...xy.couple(end));
-    canvas.stroke();
   }
 
   private drawTicks(
@@ -236,7 +224,7 @@ export class Canvas implements Axis {
   ): dimensions.Dimensions {
     let maxDimensions = dimensions.ZERO;
     ticks.forEach((tick) => {
-      const d = this.atlas.measureText(tick.label);
+      const d = this.renderCtx.lower2d.atlasMeasureText(tick.label);
       maxDimensions = dimensions.max([maxDimensions, d]);
       f(d, tick);
     });
@@ -250,16 +238,20 @@ export class Canvas implements Axis {
   ): void {
     const { showGrid, gridColor } = this.state;
     if (showGrid) {
-      const startBound = bounds.construct(-1, 1);
+      const startBound = bounds.construct(-10, 10);
       const endBound = bounds.construct(size - 1, size + 1);
-      this.renderCtx.lower2d.strokeStyle = gridColor.hex;
-      ticks
-        .filter(
-          ({ position }) =>
-            !bounds.contains(startBound, position) &&
-            !bounds.contains(endBound, position),
+      const { lower2d: canvas } = this.renderCtx;
+      canvas.beginPath();
+      canvas.strokeStyle = gridColor.hex;
+      ticks.forEach((tick) => {
+        if (
+          bounds.contains(startBound, tick.position) &&
+          bounds.contains(endBound, tick.position)
         )
-        .forEach((tick) => this.drawLine(...f(tick)));
+          return;
+        this.drawLine(...f(tick));
+      });
+      canvas.stroke();
     }
   }
 }

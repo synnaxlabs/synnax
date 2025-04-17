@@ -11,7 +11,11 @@ import { type box, location, type xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { color } from "@/color/core";
-import { type TickFactoryContext, tickFactoryProps, tickType } from "@/vis/axis/ticks";
+import {
+  type TickFactoryRenderArgs,
+  tickFactoryProps,
+  tickType,
+} from "@/vis/axis/ticks";
 
 export interface RenderResult {
   size: number;
@@ -29,7 +33,7 @@ export const axisStateZ = tickFactoryProps.extend({
 export type AxisState = z.input<typeof axisStateZ>;
 export type ParsedAxisState = z.output<typeof axisStateZ>;
 
-export interface AxisProps extends Omit<TickFactoryContext, "size"> {
+export interface AxisProps extends Omit<TickFactoryRenderArgs, "size"> {
   plot: box.Box;
   position: xy.XY;
   size: number;
