@@ -11,6 +11,7 @@ package freightfluence
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/freighter"
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -32,19 +33,25 @@ func (r *Receiver[M]) Flow(ctx signal.Context, opts ...Option) {
 }
 
 func (r *Receiver[M]) receive(ctx context.Context) error {
+	data := make(chan message[M], 10)
+	go func() {
+		for {
+			msg, err := r.Receiver.Receive()
+			data <- message[M]{Res: msg, Err: err}
+			if err != nil {
+				return
+			}
+		}
+	}()
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
-			msg, rErr := r.Receiver.Receive()
-			if errors.Is(rErr, freighter.EOF) {
-				return nil
+		case msg := <-data:
+			if msg.Err != nil {
+				return errors.Skip(msg.Err, freighter.EOF)
 			}
-			if rErr != nil {
-				return rErr
-			}
-			if err := signal.SendUnderContext(ctx, r.Out.Inlet(), msg); err != nil {
+			if err := signal.SendUnderContext(ctx, r.Out.Inlet(), msg.Res); err != nil {
 				return err
 			}
 		}
@@ -64,21 +71,38 @@ func (r *TransformReceiver[I, M]) Flow(ctx signal.Context, opts ...Option) {
 	ctx.Go(r.receive, o.Signal...)
 }
 
+type message[I freighter.Payload] struct {
+	Res I
+	Err error
+}
+
 func (r *TransformReceiver[I, M]) receive(ctx context.Context) error {
+	data := make(chan message[M], 10)
+	go func() {
+		for {
+			msg, err := r.Receiver.Receive()
+			if ctxErr := signal.SendUnderContext(
+				ctx,
+				data,
+				message[M]{Res: msg, Err: err},
+			); ctxErr != nil {
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
 o:
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
-			res, err := r.Receiver.Receive()
-			if errors.Is(err, freighter.EOF) {
-				return nil
+		case msg := <-data:
+			if msg.Err != nil {
+				return errors.Skip(msg.Err, freighter.EOF)
 			}
-			if err != nil {
-				return err
-			}
-			tRes, ok, err := r.Transform(ctx, res)
+			tRes, ok, err := r.Transform(ctx, msg.Res)
 			if !ok {
 				continue o
 			}

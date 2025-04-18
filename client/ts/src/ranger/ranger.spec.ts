@@ -240,7 +240,7 @@ describe("Ranger", () => {
         const ch = await client.channels.create({
           name: "My New Channel",
           dataType: DataType.FLOAT32,
-          rate: Rate.hz(1),
+          virtual: true,
         });
         const rng = await client.ranges.create({
           name: "My New One Second Range",
@@ -256,7 +256,7 @@ describe("Ranger", () => {
         const ch = await client.channels.create({
           name: "My New Channel",
           dataType: DataType.FLOAT32,
-          rate: Rate.hz(1),
+          virtual: true,
         });
         const rng = await client.ranges.create({
           name: "My New One Second Range",
@@ -272,7 +272,7 @@ describe("Ranger", () => {
         const ch = await client.channels.create({
           name: "My New Channel",
           dataType: DataType.FLOAT32,
-          rate: Rate.hz(1),
+          virtual: true,
         });
         const rng = await client.ranges.create({
           name: "My New One Second Range",

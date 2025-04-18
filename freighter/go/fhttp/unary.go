@@ -13,9 +13,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"github.com/synnaxlabs/x/errors"
 	"net/http"
 	"strings"
+
+	"github.com/synnaxlabs/x/errors"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/samber/lo"

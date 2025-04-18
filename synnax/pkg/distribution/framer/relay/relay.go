@@ -13,9 +13,10 @@
 package relay
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"io"
 	"time"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"

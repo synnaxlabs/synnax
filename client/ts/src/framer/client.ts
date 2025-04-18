@@ -151,13 +151,13 @@ export class Client {
         start,
         channels: Object.keys(data_),
         mode: WriterMode.Persist,
+        errOnUnauthorized: true,
+        enableAutoCommit: true,
+        autoIndexPersistInterval: TimeSpan.MAX,
       });
-      try {
-        await w.write(data_);
-        await w.commit();
-      } finally {
-        await w.close();
-      }
+      await w.write(data_);
+      await w.commit();
+      await w.close();
       return;
     }
     const w = await this.openWriter({
@@ -168,11 +168,8 @@ export class Client {
       enableAutoCommit: true,
       autoIndexPersistInterval: TimeSpan.MAX,
     });
-    try {
-      await w.write(channels as channel.Params, data);
-    } finally {
-      await w.close();
-    }
+    await w.write(channels as channel.Params, data);
+    await w.close();
   }
 
   async read(tr: CrudeTimeRange, channel: channel.KeyOrName): Promise<MultiSeries>;

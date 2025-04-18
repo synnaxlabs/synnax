@@ -11,6 +11,9 @@ package cesium
 
 import (
 	"fmt"
+	"strconv"
+	"sync/atomic"
+
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -20,8 +23,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"strconv"
-	"sync/atomic"
 )
 
 // Open opens a Cesium database on the specified directory. If the directory is not
