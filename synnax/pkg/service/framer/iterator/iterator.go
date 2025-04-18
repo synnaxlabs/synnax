@@ -11,6 +11,7 @@ package iterator
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -77,6 +78,7 @@ func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
 	var routeOutletFrom address.Address = "distribution"
 	if t != nil {
 		plumber.SetSegment(p, "calculation", t)
+		plumber.MustConnect[Response](p, "distribution", "calculation", 25)
 		routeOutletFrom = "calculation"
 	}
 	return &plumber.Segment[Request, Response]{

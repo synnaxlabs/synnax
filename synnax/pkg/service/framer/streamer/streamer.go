@@ -11,6 +11,7 @@ package streamer
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -22,6 +23,13 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+)
+
+type (
+	Request         = Config
+	Response        = framer.StreamerResponse
+	Streamer        = confluence.Segment[Request, Response]
+	responseSegment = confluence.Segment[Response, Response]
 )
 
 type Config struct {
@@ -67,11 +75,6 @@ func (cfg ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-type (
-	Request  = Config
-	Streamer = confluence.Segment[Request, framer.StreamerResponse]
-)
-
 type Service struct {
 	cfg ServiceConfig
 }
@@ -81,33 +84,40 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg}, err
 }
 
+var (
+	distAddr       address.Address = "distribution"
+	utAddr         address.Address = "updater-transform"
+	downSampleAddr address.Address = "down-sample"
+	throttleAddr   address.Address = "throttle"
+)
+
 func (s *Service) New(ctx context.Context, cfg Config) (Streamer, error) {
 	p := plumber.New()
 	dist, err := s.cfg.Framer.NewStreamer(ctx, cfg.distribution())
 	if err != nil {
 		return nil, err
 	}
-	plumber.SetSegment(p, "distribution", dist)
+	plumber.SetSegment(p, distAddr, dist)
 	ut, err := s.newUpdaterTransform(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	plumber.SetSegment(p, "updater-transform", ut)
-	plumber.MustConnect[framer.StreamerRequest](p, "updater-transform", "distribution", 25)
-	var routeOutletFrom address.Address = "distribution"
+	plumber.SetSegment(p, utAddr, ut)
+	plumber.MustConnect[framer.StreamerRequest](p, utAddr, distAddr, 25)
+	var routeOutletFrom = distAddr
 	if cfg.ThrottleRate > 0 {
-		plumber.SetSegment(p, "throttle", newThrottle(cfg))
-		plumber.MustConnect[framer.StreamerResponse](p, routeOutletFrom, "throttle", 25)
-		routeOutletFrom = "throttle"
+		plumber.SetSegment(p, throttleAddr, newThrottle(cfg))
+		plumber.MustConnect[Response](p, routeOutletFrom, throttleAddr, 25)
+		routeOutletFrom = throttleAddr
 	}
 	if cfg.DownSampleFactor > 0 {
-		plumber.SetSegment(p, "down-sample", newDownSampler(cfg))
-		plumber.MustConnect[framer.StreamerResponse](p, routeOutletFrom, "down-sample", 25)
-		routeOutletFrom = "down-sample"
+		plumber.SetSegment(p, downSampleAddr, newDownSampler(cfg))
+		plumber.MustConnect[Response](p, routeOutletFrom, downSampleAddr, 25)
+		routeOutletFrom = downSampleAddr
 	}
-	return &plumber.Segment[Request, framer.StreamerResponse]{
+	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
-		RouteInletsTo:    []address.Address{"updater-transform"},
+		RouteInletsTo:    []address.Address{utAddr},
 		RouteOutletsFrom: []address.Address{routeOutletFrom},
 	}, nil
 }

@@ -108,7 +108,7 @@ func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource]
 	), nil
 }
 
-func (s *NodeOntologyService) update(ctx context.Context, state core.ClusterState) {
+func (s *NodeOntologyService) update(ctx context.Context, _ core.ClusterState) {
 	err := s.Ontology.DB.WithTx(ctx, func(txn gorp.Tx) error {
 		//w := s.Ontology.NewWriter(txn)
 		//clusterID := ClusterOntologyID(s.Cluster.Key())

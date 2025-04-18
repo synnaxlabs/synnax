@@ -11,26 +11,27 @@ package streamer
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type throttle struct {
-	confluence.LinearTransform[framer.StreamerResponse, framer.StreamerResponse]
+	confluence.LinearTransform[Response, Response]
 	cfg   Config
 	frame framer.Frame
 	last  telem.TimeStamp
 }
 
-func newThrottle(cfg Config) confluence.Segment[framer.StreamerResponse, framer.StreamerResponse] {
+func newThrottle(cfg Config) responseSegment {
 	return &throttle{cfg: cfg}
 }
 
 func (t *throttle) transform(
 	_ context.Context,
-	in framer.StreamerResponse,
-) (framer.StreamerResponse, bool, error) {
+	in Response,
+) (Response, bool, error) {
 	t.frame = t.frame.Extend(in.Frame)
 	return in, telem.Since(t.last) > t.cfg.ThrottleRate.Period(), nil
 }

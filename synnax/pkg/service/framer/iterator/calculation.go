@@ -11,6 +11,7 @@ package iterator
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/computron"
@@ -91,7 +92,7 @@ func newCalculationTransform(
 	return t
 }
 
-func (t *calculationTransform) transform(ctx context.Context, req framer.IteratorResponse) (framer.IteratorResponse, bool, error) {
+func (t *calculationTransform) transform(_ context.Context, req framer.IteratorResponse) (framer.IteratorResponse, bool, error) {
 	for _, c := range t.calculators {
 		s, err := c.Next(req.Frame)
 		if err != nil {

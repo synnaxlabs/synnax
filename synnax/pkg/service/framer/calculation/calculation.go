@@ -11,11 +11,12 @@ package calculation
 
 import (
 	"context"
+	"io"
+	"sync"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/control"
-	"io"
-	"sync"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -125,8 +126,8 @@ func (s *Service) SetState(ctx context.Context, key channel.Key, variant string,
 		Keys:   []channel.Key{s.stateKey},
 		Series: []telem.Series{ser},
 	}
-	s.w.Write(fr)
-	return nil
+	_, err = s.w.Write(fr)
+	return err
 }
 
 // Open opens the service with the provided configuration. The service must be closed
@@ -365,15 +366,17 @@ type streamCalculator struct {
 
 func (s *streamCalculator) transform(ctx context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
 	frame, err := s.internal.Transform(i.Frame)
-	if err != nil {
-		s.cfg.L.Error("calculation error",
-			zap.Error(err),
-			zap.String("channel_name", s.internal.ch.Name),
-			zap.String("expression", s.internal.ch.Expression))
-		s.setState(ctx, s.internal.ch.Key(), "error", err.Error())
-		return framer.WriterRequest{}, false, nil
+	if err == nil {
+		return framer.WriterRequest{Command: writer.Data, Frame: frame}, true, nil
 	}
-	return framer.WriterRequest{Command: writer.Data, Frame: frame}, true, nil
+	s.cfg.L.Error("calculation error",
+		zap.Error(err),
+		zap.String("channel_name", s.internal.ch.Name),
+		zap.String("expression", s.internal.ch.Expression))
+	if err = s.setState(ctx, s.internal.ch.Key(), "error", err.Error()); err != nil {
+		s.cfg.L.Error("failed to set state", zap.Error(err))
+	}
+	return framer.WriterRequest{}, false, nil
 }
 
 type Calculator struct {
@@ -421,9 +424,8 @@ func (c Calculator) Transform(fr framer.Frame) (framer.Frame, error) {
 	if err != nil {
 		return framer.Frame{}, err
 	}
-	of := framer.Frame{
+	return framer.Frame{
 		Keys:   []channel.Key{c.ch.Key()},
 		Series: []telem.Series{os},
-	}
-	return of, nil
+	}, nil
 }

@@ -11,23 +11,23 @@ package streamer
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+
 	"github.com/synnaxlabs/x/confluence"
 )
 
 type downSampler struct {
-	confluence.LinearTransform[framer.StreamerResponse, framer.StreamerResponse]
+	confluence.LinearTransform[Response, Response]
 	cfg Config
 }
 
-func newDownSampler(cfg Config) confluence.Segment[framer.StreamerResponse, framer.StreamerResponse] {
+func newDownSampler(cfg Config) responseSegment {
 	return &downSampler{cfg: cfg}
 }
 
 func (d *downSampler) transform(
 	_ context.Context,
-	in framer.StreamerResponse,
-) (out framer.StreamerResponse, ok bool, err error) {
+	in Response,
+) (out Response, ok bool, err error) {
 	in.Frame = in.Frame.ShallowCopy()
 	for i, s := range in.Frame.Series {
 		in.Frame.Series[i] = s.DownSample(d.cfg.DownSampleFactor)

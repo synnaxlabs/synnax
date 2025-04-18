@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -42,8 +41,8 @@ type (
 	WriterConfig     = writer.Config
 	IteratorConfig   = iterator.Config
 	StreamerConfig   = streamer.Config
-	StreamerRequest  = StreamerConfig
-	StreamerResponse = relay.Response
+	StreamerRequest  = streamer.Request
+	StreamerResponse = streamer.Response
 	Streamer         = streamer.Streamer
 	Deleter          = deleter.Deleter
 )
