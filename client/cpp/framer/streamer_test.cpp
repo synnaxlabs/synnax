@@ -42,7 +42,7 @@ TEST(StreamerTests, testStreamBasic) {
     frame.emplace(data.key, telem::Series(v));
     ASSERT_NIL(writer.write(frame));
     ASSERT_NIL_P(writer.commit());
-    auto res_frame  = ASSERT_NIL_P(streamer.read());
+    auto res_frame = ASSERT_NIL_P(streamer.read());
     ASSERT_EQ(res_frame.size(), 1);
     ASSERT_EQ(res_frame.series->at(0).at<float>(0), v);
 

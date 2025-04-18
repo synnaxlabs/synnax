@@ -25,6 +25,9 @@ extern synnax::Synnax new_test_client();
 /// outputs the seed to stdout for reproducibility.
 extern std::mt19937 random_generator(const std::string &suite_name);
 
-synnax::Channel create_virtual_channel(const synnax::Synnax &client, const telem::DataType &data_type = telem::FLOAT32_T);
+synnax::Channel create_virtual_channel(
+    const synnax::Synnax &client,
+    const telem::DataType &data_type = telem::FLOAT32_T
+);
 
 std::pair<synnax::Channel, synnax::Channel> create_indexed_pair(synnax::Synnax &client);
