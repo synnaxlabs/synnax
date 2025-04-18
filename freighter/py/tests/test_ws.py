@@ -235,4 +235,3 @@ class TestSyncWebsocket:
         assert err.code == 1
         assert err.message == "unexpected error"
         stream.close_send()
-

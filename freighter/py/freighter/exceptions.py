@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Callable
 
@@ -52,7 +53,6 @@ class ExceptionPayload(Payload):
         except ValueError:
             type_, data = "unknown", pld_or_type
         return ExceptionPayload(type=type_, data=data)
-
 
 
 EncoderFunc = Callable[[Exception], ExceptionPayload | None]
