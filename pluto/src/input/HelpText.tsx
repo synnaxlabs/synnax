@@ -9,15 +9,15 @@
 
 import "@/input/HelpText.css";
 
+import { status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Status } from "@/status";
 import { Text } from "@/text";
 
 /** Props for the {@link HelpText} component. */
 export interface HelpTextProps extends Omit<Text.TextProps<"small">, "level" | "ref"> {
-  variant?: Status.Variant;
+  variant?: status.Variant;
 }
 
 /**
@@ -28,12 +28,12 @@ export interface HelpTextProps extends Omit<Text.TextProps<"small">, "level" | "
  * @param props - Props for the help text component. Unlisted props are passed to the
  * underlying text element.
  * @param props.variant - The variant of the help text.
- * "success" | "error" | "warning" | "info" | "loading" | "disabled
- * @default "info"
+ * @see {@link status.Variant}
+ * @defaultValue {@link status.ERROR_VARIANT}
  */
 export const HelpText = ({
   className,
-  variant = "error",
+  variant = status.ERROR_VARIANT,
   ...rest
 }: HelpTextProps): ReactElement => (
   <Text.Text<"small">

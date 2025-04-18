@@ -22,7 +22,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, status } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { v4 as uuid } from "uuid";
@@ -110,7 +110,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       if (client == null) throw NULL_CLIENT_ERROR;
       if (!methods.validate()) throw new Error("Invalid configuration");
       await testConnectionMutation.mutateAsync();
-      if (connectionState?.variant !== "success")
+      if (connectionState?.variant !== status.SUCCESS_VARIANT)
         throw new Error("Connection test failed");
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
@@ -210,7 +210,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Status.Text level="p" variant={connectionState.variant as Status.Variant}>
+            <Status.Text level="p" variant={connectionState.variant}>
               {connectionState.details?.message}
             </Status.Text>
           )}
@@ -258,7 +258,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   });
   if (isPending)
     return (
-      <Status.Text.Centered level="h4" variant="loading">
+      <Status.Text.Centered level="h4" loading>
         Loading Configuration from Synnax Server
       </Status.Text.Centered>
     );

@@ -209,6 +209,8 @@ export class Channel {
   }
 }
 
+export const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
+
 const RETRIEVE_GROUP_ENDPOINT = "/channel/retrieve-group";
 
 const retrieveGroupReqZ = z.object({});

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate } from "@synnaxlabs/x/telem";
+import { DataType, Rate, status } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { nullableArrayZ } from "@/util/zod";
@@ -53,3 +53,10 @@ export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "channel";
 export type OntologyType = typeof ONTOLOGY_TYPE;
+
+export const calculationStateZ = z.object({
+  key: keyZ,
+  variant: status.variantZ,
+  message: z.string(),
+});
+export interface CalculationState extends z.infer<typeof calculationStateZ> {}

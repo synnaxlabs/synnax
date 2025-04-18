@@ -22,7 +22,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { deep, unique } from "@synnaxlabs/x";
+import { deep, status, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
@@ -101,17 +101,9 @@ export const createCalculatedLayout = ({
 
 const ZERO_FORM_VALUES: FormValues = {
   ...ZERO_CHANNEL,
-  virtual: true, // Set to true by default
+  virtual: true,
   expression: "return 0",
 };
-
-const calculationStateZ = z.object({
-  key: channel.keyZ,
-  variant: z.enum(["error", "success", "info"]),
-  message: z.string(),
-});
-
-const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
 
 export const useListenForCalculationState = (): void => {
   const client = Synnax.use();
@@ -121,16 +113,20 @@ export const useListenForCalculationState = (): void => {
     key: [client?.key, addStatus, handleError],
     open: async () => {
       if (client == null) return;
-      const s = await client.openStreamer({ channels: [CALCULATION_STATE_CHANNEL] });
+      const s = await client.openStreamer({
+        channels: [channel.CALCULATION_STATE_CHANNEL],
+      });
       return new framer.ObservableStreamer(s);
     },
     onChange: (frame) => {
-      const state = frame.get(CALCULATION_STATE_CHANNEL).parseJSON(calculationStateZ);
+      const state = frame
+        .get(channel.CALCULATION_STATE_CHANNEL)
+        .parseJSON(channel.calculationStateZ);
       state.forEach(({ key, variant, message }) => {
         client?.channels
           .retrieve(key)
           .then((ch) => {
-            if (variant !== "error") {
+            if (variant !== status.ERROR_VARIANT) {
               addStatus({ variant, message });
               return;
             }
@@ -164,7 +160,9 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
   if (res.isError)
     return (
       <Align.Space y grow style={{ height: "100%" }}>
-        <Status.Text.Centered variant="error">{res.error.message}</Status.Text.Centered>
+        <Status.Text.Centered variant={status.ERROR_VARIANT}>
+          {res.error.message}
+        </Status.Text.Centered>
       </Align.Space>
     );
 
@@ -198,7 +196,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     },
     onError: (error: Error) => {
       addStatus({
-        variant: "error",
+        variant: status.ERROR_VARIANT,
         message: "Error creating calculated channel: ".concat(methods.value().name),
         description: error.message,
       });

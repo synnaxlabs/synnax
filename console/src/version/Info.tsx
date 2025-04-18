@@ -9,7 +9,7 @@
 
 import { Logo } from "@synnaxlabs/media";
 import { Align, Button, Progress, Status, Text } from "@synnaxlabs/pluto";
-import { Size } from "@synnaxlabs/x";
+import { Size, status } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type DownloadEvent } from "@tauri-apps/plugin-updater";
@@ -65,21 +65,21 @@ export const Info: Layout.Renderer = () => {
   });
 
   let updateContent = (
-    <Status.Text level="h4" weight={350} variant="loading" size="medium">
+    <Status.Text level="h4" weight={350} loading size="medium">
       Checking for updates
     </Status.Text>
   );
   if (updateMutation.isPending)
     if (progressPercent === 100)
       updateContent = (
-        <Status.Text level="h4" variant="loading" size="medium">
+        <Status.Text level="h4" loading size="medium">
           Update downloaded. Restarting
         </Status.Text>
       );
     else
       updateContent = (
         <Align.Space y size="medium">
-          <Status.Text variant="loading" level="h4" size="medium">
+          <Status.Text loading level="h4" size="medium">
             Downloading update
           </Status.Text>
           <Align.Space x size="medium" align="center" justify="center">
@@ -96,7 +96,7 @@ export const Info: Layout.Renderer = () => {
       const version = updateQuery.data.version;
       updateContent = (
         <>
-          <Status.Text level="h4" variant="success">
+          <Status.Text level="h4" variant={status.SUCCESS_VARIANT}>
             Version {version} available
           </Status.Text>
           <Button.Button
@@ -110,19 +110,19 @@ export const Info: Layout.Renderer = () => {
       );
     } else
       updateContent = (
-        <Status.Text level="h4" variant="success">
+        <Status.Text level="h4" variant={status.SUCCESS_VARIANT}>
           Up to date
         </Status.Text>
       );
   else if (updateQuery.isError)
     updateContent = (
-      <Status.Text level="h4" variant="error">
+      <Status.Text level="h4" variant={status.ERROR_VARIANT}>
         Error checking for update: {updateQuery.error.message}
       </Status.Text>
     );
   else if (updateMutation.isError)
     updateContent = (
-      <Status.Text level="h4" variant="error">
+      <Status.Text level="h4" variant={status.ERROR_VARIANT}>
         Error updating: {updateMutation.error.message}
       </Status.Text>
     );

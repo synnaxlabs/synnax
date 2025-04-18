@@ -21,6 +21,7 @@ import {
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import {
@@ -134,7 +135,7 @@ const FallBackRenderContent = ({
           <Logo variant="icon" />
           <Align.Space y align="start" className={CSS.B("details")}>
             <Text.Text level="h1">Something went wrong</Text.Text>
-            <Status.Text variant="error" hideIcon level="h3">
+            <Status.Text variant={status.ERROR_VARIANT} hideIcon level="h3">
               {messageTranslation[error.message] ?? error.message}
             </Status.Text>
             <Text.Text className={CSS.B("stack")} level="p">

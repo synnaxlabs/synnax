@@ -112,7 +112,7 @@ export const wrap = <
       queryKey: [deviceKey, client?.key, layoutKey],
     });
     const content = isPending ? (
-      <Status.Text.Centered level="h4" variant="loading">
+      <Status.Text.Centered level="h4" loading>
         Fetching task from server
       </Status.Text.Centered>
     ) : isError ? (

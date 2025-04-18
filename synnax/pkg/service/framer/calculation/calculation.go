@@ -11,28 +11,29 @@ package calculation
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/control"
 	"io"
 	"sync"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/computron"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -90,9 +91,9 @@ type entry struct {
 }
 
 type State struct {
-	Key     channel.Key `json:"key"`
-	Variant string      `json:"variant"`
-	Message string      `json:"message"`
+	Key     channel.Key    `json:"key" msgpack:"key"`
+	Variant status.Variant `json:"variant" msgpack:"variant"`
+	Message string         `json:"message" msgpack:"message"`
 }
 
 // Service creates and operates calculations on channels.
@@ -107,7 +108,12 @@ type Service struct {
 	w                            *framer.Writer
 }
 
-func (s *Service) SetState(ctx context.Context, key channel.Key, variant string, message string) error {
+func (s *Service) SetState(
+	ctx context.Context,
+	key channel.Key,
+	variant status.Variant,
+	message string,
+) error {
 	state := State{
 		Key:     key,
 		Variant: variant,
@@ -273,7 +279,10 @@ func (s *Service) startCalculation(
 		if err == nil {
 			return
 		}
-		err = errors.Combine(err, s.SetState(ctx, key, "error", err.Error()))
+		err = errors.Combine(
+			err,
+			s.SetState(ctx, key, status.ErrorVariant, err.Error()),
+		)
 	}()
 	if err = s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
 		return nil, err
@@ -359,9 +368,13 @@ func (s *Service) startCalculation(
 type streamCalculator struct {
 	internal *Calculator
 	cfg      Config
-	lastErr  error
 	confluence.LinearTransform[framer.StreamerResponse, framer.WriterRequest]
-	setState func(ctx context.Context, key channel.Key, variant string, message string) error
+	setState func(
+		ctx context.Context,
+		key channel.Key,
+		variant status.Variant,
+		message string,
+	) error
 }
 
 func (s *streamCalculator) transform(ctx context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {

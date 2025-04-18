@@ -13,6 +13,7 @@ import {
   deep,
   type Destructor,
   shallowCopy,
+  status as xstatus,
   toArray,
   zod,
 } from "@synnaxlabs/x";
@@ -32,7 +33,6 @@ import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
 import { state } from "@/state";
 import { Status } from "@/status";
-import { type status } from "@/status/aether";
 
 /** Props for the @link useField hook */
 export interface UseFieldProps<I, O = I> {
@@ -50,8 +50,8 @@ export interface UseNullableFieldProps<I, O = I>
 export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I>
   extends FieldState<I> {
   onChange: (value: O) => void;
-  setStatus: (status: status.CrudeSpec) => void;
-  status: status.CrudeSpec;
+  setStatus: (status: Status.CrudeSpec) => void;
+  status: Status.CrudeSpec;
   variant?: Input.Variant;
 }
 
@@ -98,7 +98,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   );
 
   const handleSetStatus = useCallback(
-    (status: status.CrudeSpec) => setStatus(path, status),
+    (status: Status.CrudeSpec) => setStatus(path, status),
     [path, setStatus],
   );
 
@@ -175,7 +175,7 @@ export const useFieldValue = (<I extends Input.Value, O extends Input.Value = I>
 }) as UseFieldValue;
 
 export const useFieldValid = (path: string): boolean =>
-  useFieldState(path, true)?.status?.variant === "success";
+  useFieldState(path, true)?.status?.variant === xstatus.SUCCESS_VARIANT;
 
 export interface UseFieldListenerProps<
   I extends Input.Value,
@@ -332,7 +332,7 @@ export interface Listener<V = unknown> {
 
 export interface FieldState<V = unknown> {
   value: V;
-  status: status.CrudeSpec;
+  status: Status.CrudeSpec;
   touched: boolean;
   required: boolean;
 }
@@ -393,7 +393,7 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
   validate: (path?: string) => boolean;
   validateAsync: (path?: string) => Promise<boolean>;
   has: (path: string) => boolean;
-  setStatus: (path: string, status: status.CrudeSpec) => void;
+  setStatus: (path: string, status: Status.CrudeSpec) => void;
   clearStatuses: () => void;
   setCurrentStateAsInitialValues: () => void;
 }
@@ -406,7 +406,7 @@ const Context = createContext<ContextValue>({
   remove: () => {},
   get: <V extends any = unknown>(): FieldState<V> => ({
     value: undefined as V,
-    status: { key: "", variant: "success", message: "" },
+    status: { key: "", variant: xstatus.SUCCESS_VARIANT, message: "" },
     touched: false,
     required: false,
   }),
@@ -426,15 +426,15 @@ export const useContext = <Z extends z.ZodTypeAny = z.ZodTypeAny>(
   return override ?? (internal as unknown as ContextValue<Z>);
 };
 
-const NO_ERROR_STATUS = (path: string): status.CrudeSpec => ({
+const NO_ERROR_STATUS = (path: string): Status.CrudeSpec => ({
   key: path,
-  variant: "success",
+  variant: xstatus.SUCCESS_VARIANT,
   message: "",
 });
 
 interface UseRef<Z extends z.ZodTypeAny> {
   state: z.output<Z>;
-  statuses: Map<string, status.CrudeSpec>;
+  statuses: Map<string, Status.CrudeSpec>;
   touched: Set<string>;
   listeners: Map<string, Set<Listener>>;
   parentListeners: Map<string, Set<Listener>>;
@@ -462,12 +462,12 @@ export interface UseProps<Z extends z.ZodTypeAny> {
 
 export interface UseReturn<Z extends z.ZodTypeAny> extends ContextValue<Z> {}
 
-const getVariant = (issue: z.ZodIssue): status.Variant =>
+const getVariant = (issue: z.ZodIssue): xstatus.Variant =>
   issue.code === z.ZodIssueCode.custom &&
   issue.params != null &&
   "variant" in issue.params
     ? issue.params.variant
-    : "error";
+    : xstatus.ERROR_VARIANT;
 
 export const use = <Z extends z.ZodTypeAny>({
   values: initialValues,
@@ -660,7 +660,7 @@ export const use = <Z extends z.ZodTypeAny>({
         if (!matcher(issuePath, validationPath)) return;
 
         const variant = getVariant(issue);
-        if (variant !== "warning") success = false;
+        if (variant !== xstatus.WARNING_VARIANT) success = false;
 
         statuses.set(issuePath, { key: issuePath, variant, message });
         addTouched(issuePath);
@@ -738,7 +738,7 @@ export const use = <Z extends z.ZodTypeAny>({
     [],
   );
 
-  const setStatus = useCallback((path: string, status: status.CrudeSpec): void => {
+  const setStatus = useCallback((path: string, status: Status.CrudeSpec): void => {
     ref.current.statuses.set(path, status);
     addTouched(path);
     updateFieldState(path);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, type observe, type UnknownRecord } from "@synnaxlabs/x";
+import { binary, type observe, status, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key as RackKey } from "@/hardware/rack/payload";
@@ -21,12 +21,9 @@ export const keyZ = z.union([
 ]);
 export type Key = z.infer<typeof keyZ>;
 
-export const statusZ = z.enum(["info", "success", "error", "warning"]);
-export type Status = z.infer<typeof statusZ>;
-
 export const stateZ = z.object({
   task: keyZ,
-  variant: statusZ,
+  variant: status.variantZ,
   key: z.string().optional(),
   details: z
     .record(z.unknown())

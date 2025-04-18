@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
+import { status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { type Icon as PIcon } from "@/icon";
-import { type Variant } from "@/status/aether/types";
 import { VARIANT_COLORS } from "@/status/colors";
 import { Text as BaseText } from "@/text";
 
@@ -21,21 +21,25 @@ export interface TextProps extends Omit<BaseText.WithIconProps, "level" | "wrap"
   level?: BaseText.Level;
   hideIcon?: boolean;
   noColor?: boolean;
-  variant: Variant;
+  variant?: status.Variant;
+  loading?: boolean;
+  disabled?: boolean;
 }
 
 const Core = ({
-  variant = "info",
+  variant = status.INFO_VARIANT,
   level = "p",
   hideIcon = false,
+  loading = false,
+  disabled = false,
   className,
   ...rest
 }: TextProps): ReactElement => {
   let icon: PIcon.Element | undefined;
-  if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
+  if (!hideIcon) icon = loading ? <Icon.Loading /> : <Icon.Circle />;
   return (
     <BaseText.WithIcon
-      color={VARIANT_COLORS[variant]}
+      color={disabled ? "var(--pluto-gray-l8)" : VARIANT_COLORS[variant]}
       className={CSS(className, CSS.B("status-text"))}
       level={level}
       startIcon={icon}
