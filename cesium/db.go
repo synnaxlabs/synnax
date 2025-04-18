@@ -119,7 +119,7 @@ func (db *DB) Close() error {
 	// This function acquires the mutex lock internally, so there's no need to lock
 	// it here.
 	c.Exec(db.closeControlDigests)
-	// Shut down without locking mutex to allow existing goroutines (e.g. GC) that
+	// Shut down without locking mutex to allow existing goroutines (e.g. KeepGreaterThan) that
 	// require a mutex lock to exit.
 	c.Exec(db.shutdown.Close)
 	db.mu.Lock()

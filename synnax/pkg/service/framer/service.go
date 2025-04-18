@@ -11,25 +11,46 @@ package framer
 
 import (
 	"context"
+	"io"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/downsampler"
-	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/confluence/plumber"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
+)
+
+type (
+	Frame            = core.Frame
+	Iterator         = iterator.Iterator
+	IteratorRequest  = iterator.Request
+	IteratorResponse = iterator.Response
+	StreamIterator   = iterator.Iterator
+	Writer           = writer.Writer
+	WriterRequest    = writer.Request
+	WriterResponse   = writer.Response
+	StreamWriter     = writer.StreamWriter
+	WriterConfig     = writer.Config
+	IteratorConfig   = iterator.Config
+	StreamerConfig   = streamer.Config
+	StreamerRequest  = StreamerConfig
+	StreamerResponse = relay.Response
+	Streamer         = streamer.Streamer
+	Deleter          = deleter.Deleter
 )
 
 type Config struct {
 	alamos.Instrumentation
-	// Distribution layer framer service.
+	// Framer layer framer service.
 	Framer  *framer.Service
 	Channel channel.Service
 }
@@ -57,7 +78,9 @@ func (c Config) Override(other Config) Config {
 
 type Service struct {
 	Config
-	Calculation *calculation.Service
+	Streamer *streamer.Service
+	Iterator *iterator.Service
+	closer   io.Closer
 }
 
 func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (*framer.Iterator, error) {
@@ -65,7 +88,7 @@ func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (
 }
 
 func (s *Service) NewStreamIterator(ctx context.Context, cfg framer.IteratorConfig) (framer.StreamIterator, error) {
-	return s.Framer.NewStreamIterator(ctx, cfg)
+	return s.Iterator.New(ctx, cfg)
 }
 
 func (s *Service) NewStreamWriter(ctx context.Context, cfg framer.WriterConfig) (framer.StreamWriter, error) {
@@ -76,87 +99,12 @@ func (s *Service) NewDeleter() framer.Deleter {
 	return s.Framer.NewDeleter()
 }
 
-func (s *Service) NewStreamer(ctx context.Context, cfg framer.StreamerConfig) (framer.Streamer, error) {
-	ut := &updaterTransform{
-		Instrumentation: s.Instrumentation,
-		c:               s.Calculation,
-		readable:        s.Channel,
-	}
-	ut.Transform = ut.transform
-	if err := ut.update(ctx, cfg.Keys); err != nil {
-		return nil, err
-	}
-	p := plumber.New()
-
-	var streamer framer.Streamer
-	var err error
-	if cfg.DownsampleFactor > 1 {
-		streamer, err = downsampler.NewStreamer(ctx, cfg, s.Framer)
-	} else {
-		streamer, err = s.Framer.NewStreamer(ctx, cfg)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	plumber.SetSegment(p, "streamer", streamer)
-	plumber.SetSegment[framer.StreamerRequest, framer.StreamerRequest](p, "updater", ut)
-	plumber.MustConnect[framer.StreamerRequest](p, "updater", "streamer", 10)
-	seg := &plumber.Segment[framer.StreamerRequest, framer.StreamerResponse]{
-		Pipeline:         p,
-		RouteInletsTo:    []address.Address{"updater"},
-		RouteOutletsFrom: []address.Address{"streamer"},
-	}
-	return seg, nil
+func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
+	return s.Streamer.New(ctx, cfg)
 }
 
 func (s *Service) Close() error {
-	return s.Calculation.Close()
-}
-
-type updaterTransform struct {
-	alamos.Instrumentation
-	c        *calculation.Service
-	readable channel.Readable
-	closer   xio.MultiCloser
-	confluence.LinearTransform[framer.StreamerRequest, framer.StreamerRequest]
-}
-
-var _ confluence.Segment[framer.StreamerRequest, framer.StreamerRequest] = &updaterTransform{}
-
-func (t *updaterTransform) update(ctx context.Context, keys []channel.Key) error {
-	if err := t.closer.Close(); err != nil {
-		return err
-	}
-	var channels []channel.Channel
-	if err := t.readable.NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, nil); err != nil {
-		return err
-	}
-	for _, ch := range channels {
-		if ch.IsCalculated() {
-			closer, err := t.c.Request(ctx, ch.Key())
-			if err != nil {
-				return err
-			}
-			t.closer = append(t.closer, closer)
-		}
-	}
-	return nil
-}
-
-func (t *updaterTransform) transform(ctx context.Context, req framer.StreamerRequest) (framer.StreamerRequest, bool, error) {
-	if err := t.update(ctx, req.Keys); err != nil {
-		t.L.Error("failed to update calculated channels", zap.Error(err))
-	}
-	return req, true, nil
-}
-
-func (t *updaterTransform) Flow(ctx signal.Context, opts ...confluence.Option) {
-	t.LinearTransform.Flow(ctx, append(opts, confluence.Defer(func() {
-		if err := t.closer.Close(); err != nil {
-			t.L.Error("failed to close calculated channels", zap.Error(err))
-		}
-	}))...)
+	return s.closer.Close()
 }
 
 func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
@@ -164,13 +112,35 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg}
-	calc, err := calculation.Open(ctx, calculation.Config{
+	calcSvc, err := calculation.Open(ctx, calculation.Config{
 		Instrumentation:   cfg.Instrumentation.Child("calculated"),
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,
 		ChannelObservable: cfg.Channel.NewObservable(),
 	})
-	s.Calculation = calc
-	return s, err
+	if err != nil {
+		return nil, err
+	}
+	streamerSvc, err := streamer.NewService(streamer.ServiceConfig{
+		Instrumentation: cfg.Instrumentation.Child("streamer"),
+		Framer:          cfg.Framer,
+		Channel:         cfg.Channel,
+		Calculation:     calcSvc,
+	})
+	if err != nil {
+		return nil, err
+	}
+	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
+		Framer:  cfg.Framer,
+		Channel: cfg.Channel,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &Service{
+		Config:   cfg,
+		Streamer: streamerSvc,
+		Iterator: iteratorSvc,
+		closer:   xio.MultiCloser{calcSvc},
+	}, nil
 }

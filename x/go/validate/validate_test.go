@@ -115,7 +115,7 @@ var _ = Describe("Validate", func() {
 				})
 			})
 
-			Describe("GreaterThan", func() {
+			Describe("KeepGreaterThan", func() {
 				It("Should validate numbers greater than threshold", func() {
 					Expect(validate.GreaterThan(v, "field", 10, 5)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())

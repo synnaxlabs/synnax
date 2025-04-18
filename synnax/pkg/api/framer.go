@@ -11,15 +11,15 @@ package api
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"go/types"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	framesvc "github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -200,7 +200,7 @@ func (s *FrameService) openStreamer(
 	}); err != nil {
 		return nil, err
 	}
-	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{Keys: req.Keys, DownsampleFactor: req.DownsampleFactor})
+	reader, err := s.Internal.NewStreamer(ctx, req)
 	if err != nil {
 		return nil, err
 	}

@@ -364,7 +364,7 @@ type streamCalculator struct {
 }
 
 func (s *streamCalculator) transform(ctx context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
-	frame, err := s.internal.Calculate(i.Frame)
+	frame, err := s.internal.Transform(i.Frame)
 	if err != nil {
 		s.cfg.L.Error("calculation error",
 			zap.Error(err),
@@ -384,16 +384,11 @@ type Calculator struct {
 
 func (c Calculator) close() { c.calculation.Close() }
 
-func (c Calculator) Calculate(fr framer.Frame) (of framer.Frame, err error) {
-	if len(fr.Series) == 0 {
-		return
-	}
+func (c Calculator) Calculate(fr framer.Frame) (telem.Series, error) {
 	os := telem.AllocSeries(c.ch.DataType, fr.Series[0].Len())
 	// Mark the alignment of the output series as the same as the input series. Right now, we assume that all the
 	// input channels share the same index.
 	os.Alignment = fr.Series[0].Alignment
-	of.Keys = []channel.Key{c.ch.Key()}
-	of.Series = []telem.Series{os}
 	for i := range os.Len() {
 		for _, k := range c.ch.Requires {
 			sArray := fr.Get(k)
@@ -411,9 +406,24 @@ func (c Calculator) Calculate(fr framer.Frame) (of framer.Frame, err error) {
 		}
 		res, err := c.calculation.Run()
 		if err != nil {
-			return of, err
+			return os, err
 		}
 		computron.SetLValueOnSeries(res, os, i)
+	}
+	return os, nil
+}
+
+func (c Calculator) Transform(fr framer.Frame) (framer.Frame, error) {
+	if len(fr.Series) == 0 {
+		return framer.Frame{}, nil
+	}
+	os, err := c.Calculate(fr)
+	if err != nil {
+		return framer.Frame{}, err
+	}
+	of := framer.Frame{
+		Keys:   []channel.Key{c.ch.Key()},
+		Series: []telem.Series{os},
 	}
 	return of, nil
 }

@@ -146,7 +146,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						))).To(Succeed())
 					}
 
-					By("Deleting channel data, this should not trigger GC since we only deleted 240 bytes")
+					By("Deleting channel data, this should not trigger KeepGreaterThan since we only deleted 240 bytes")
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (20 * telem.SecondTS).Range(50*telem.SecondTS))).To(Succeed())
 
 					Consistently(func(g Gomega) uint32 {
@@ -155,7 +155,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						return uint32(i.Size())
 					}).Should(Equal(uint32(90 * telem.Int64T.Density())))
 
-					By("Deleting more data, which should trigger GC")
+					By("Deleting more data, which should trigger KeepGreaterThan")
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (60 * telem.SecondTS).Range(66*telem.SecondTS))).To(Succeed())
 
 					By("Checking the resulting file size")

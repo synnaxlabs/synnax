@@ -536,6 +536,7 @@ func NewAlignmentPair(domainIdx, sampleIdx uint32) AlignmentPair {
 // has not yet been persisted. This is useful for correctly ordering new data while
 // ensuring that it is significantly after any persisted data.
 const ZeroLeadingAlignment = math.MaxUint32 - 1e6
+const MaxAlignmentPair = AlignmentPair(math.MaxUint64)
 
 // LeadingAlignment returns an AlignmentPair whose array index is the maximum possible value
 // and whose sample index is the provided value.

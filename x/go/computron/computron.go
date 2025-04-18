@@ -55,6 +55,35 @@ func LValueFromSeries(series telem.Series, index int64) lua.LValue {
 	}
 }
 
+func LValueFromMultiSeriesAlignment(series telem.MultiSeries, a telem.AlignmentPair) lua.LValue {
+	switch series.DataType() {
+	case telem.Int8T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[int8](series, a))
+	case telem.Int16T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[int16](series, a))
+	case telem.Int32T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[int32](series, a))
+	case telem.Int64T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[int64](series, a))
+	case telem.Uint8T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[uint8](series, a))
+	case telem.Uint16T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[uint16](series, a))
+	case telem.Uint32T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[uint32](series, a))
+	case telem.Uint64T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[uint64](series, a))
+	case telem.Float32T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[float32](series, a))
+	case telem.Float64T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[float64](series, a))
+	case telem.StringT:
+		panic("not implemented")
+	default:
+		return lua.LNil
+	}
+}
+
 // SetLValueOnSeries sets the value of a series at an index to the given lua value. v must
 // be a valid numeric lua value, series must have sufficient capacity to store the value,
 // and index must be within the bounds of the series.

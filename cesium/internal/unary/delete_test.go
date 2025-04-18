@@ -59,7 +59,7 @@ var _ = Describe("Delete", func() {
 					},
 					Instrumentation: PanicLogger(),
 				}))
-				//rateDB = MustSucceed(unary.Open(unary.Config{
+				//rateDB = MustSucceed(unary.Open(unary.ThrottleConfig{
 				//	FS:        MustSucceed(fs.Sub("rate")),
 				//	MetaCodec: codec,
 				//	Channel: core.Channel{

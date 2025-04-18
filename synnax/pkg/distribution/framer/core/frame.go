@@ -11,6 +11,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/samber/lo"
 	"strings"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -108,6 +109,13 @@ func (f Frame) Extend(fr Frame) Frame {
 	return f
 }
 
+func (f Frame) ShallowCopy() Frame {
+	return Frame{
+		Keys:   lo.Map(f.Keys, func(k channel.Key, _ int) channel.Key { return k }),
+		Series: lo.Map(f.Series, func(s telem.Series, _ int) telem.Series { return s }),
+	}
+}
+
 func (f Frame) String() string {
 	if len(f.Keys) == 0 {
 		return "Frame{}"
@@ -116,7 +124,7 @@ func (f Frame) String() string {
 	var b strings.Builder
 	b.WriteString("Frame{\n")
 
-	// Calculate the maximum key width for alignment
+	// Transform the maximum key width for alignment
 	maxKeyWidth := 0
 	for _, key := range f.Keys {
 		if len(key.String()) > maxKeyWidth {
