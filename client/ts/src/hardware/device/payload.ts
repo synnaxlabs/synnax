@@ -36,7 +36,10 @@ export const deviceZ = z.object({
   location: z.string(),
   configured: z.boolean().optional(),
   properties: z.record(z.unknown()).or(z.string().transform(decodeJSONString)),
-  state: stateZ.optional(),
+  state: stateZ
+    .optional()
+    .nullable()
+    .transform((s) => (s === null ? undefined : s)),
 });
 
 export interface Device<

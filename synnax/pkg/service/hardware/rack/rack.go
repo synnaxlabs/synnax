@@ -86,7 +86,7 @@ type Rack struct {
 	// external rack.
 	Embedded bool `json:"embedded" msgpack:"embedded"`
 	// State is the current state of the rack.
-	State State `json:"state" msgpack:"state"`
+	State *State `json:"state" msgpack:"state"`
 }
 
 var _ gorp.Entry[Key] = Rack{}
@@ -95,7 +95,7 @@ var _ gorp.Entry[Key] = Rack{}
 func (r Rack) GorpKey() Key { return r.Key }
 
 // SetOptions implements gorp.Entry.
-func (r Rack) SetOptions() []interface{} { return []interface{}{r.Key.Node()} }
+func (r Rack) SetOptions() []any { return []any{r.Key.Node()} }
 
 // Validate implements config.Config.
 func (r Rack) Validate() error {

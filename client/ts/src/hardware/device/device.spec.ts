@@ -122,7 +122,7 @@ describe("Device", async () => {
         });
 
         const retrieved = await client.hardware.devices.retrieve(d.key);
-        expect(retrieved.state?.key).toHaveLength(0);
+        expect(retrieved.state).toBeUndefined();
       });
 
       it("should include state when includeState is true", async () => {

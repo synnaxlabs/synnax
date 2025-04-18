@@ -18,7 +18,7 @@ export const stateZ = z.object({
   key: keyZ,
   variant: status.variantZ,
   message: z.string(),
-  lastReceived: TimeStamp.z.optional(),
+  lastReceived: TimeStamp.z,
 });
 
 export interface State extends z.infer<typeof stateZ> {}
@@ -26,7 +26,10 @@ export interface State extends z.infer<typeof stateZ> {}
 export const rackZ = z.object({
   key: keyZ,
   name: z.string(),
-  state: stateZ.optional(),
+  state: stateZ
+    .optional()
+    .nullable()
+    .transform((s) => (s === null ? undefined : s)),
 });
 
 export interface Payload extends z.infer<typeof rackZ> {}
