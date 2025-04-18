@@ -189,7 +189,6 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 			},
 			Tasks: make(map[task.Key]task.State),
 		}
-		//rck.Key = r.Key
 
 		// Fetch and initialize tasks for this rack
 		var tasks []task.Task
@@ -476,8 +475,6 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 					Variant:      status.InfoVariant,
 					Message:      "",
 				}}
-				nState.LastReceived = telem.Now()
-				nState.Key = c.Key
 				t.mu.Racks[c.Key] = nState
 			}
 		}
