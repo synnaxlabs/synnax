@@ -406,13 +406,13 @@ public:
     /// @brief closes the writer and releases any resources associated with it. A
     /// writer MUST be closed after use, or the caller risks leaking resources.
     /// Calling any method on a closed writer will throw a runtime_error.
-    [[nodiscard]] xerrors::Error close() const;
+    [[nodiscard]] xerrors::Error close();
 
 private:
-    /// @brief whether an error has occurred in the write pipeline.
-    xerrors::Error accumulated_err = xerrors::NIL;
     /// @brief if close() has been called on the writer.
     bool closed = false;
+    xerrors::Error close_err = xerrors::NIL;
+
 
     /// @brief the configuration used to open the writer.
     WriterConfig cfg;
@@ -427,7 +427,10 @@ private:
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
-    std::pair<api::v1::FrameWriterResponse, xerrors::Error> ack(api::v1::FrameWriterRequest &req);
+    std::pair<api::v1::FrameWriterResponse, xerrors::Error> exec(
+        api::v1::FrameWriterRequest &req,
+        bool ack
+    );
 
     /// @brief opens a writer to the Synnax cluster.
     explicit Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg);

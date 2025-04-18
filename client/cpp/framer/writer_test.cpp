@@ -22,12 +22,7 @@
 /// @brief it should correctly write a frame of telemetry to the DB.
 TEST(WriterTests, testWriteBasic) {
     auto client = new_test_client();
-    auto time = ASSERT_NIL_P(client.channels.create("time", telem::TIMESTAMP_T, 0, true)
-    );
-    auto data = ASSERT_NIL_P(
-        client.channels.create("data", telem::UINT8_T, time.key, false)
-    );
-
+    auto [time, data] = create_indexed_pair(client);
     auto now = telem::TimeStamp::now();
     auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
         synnax::keys_from_channels(time, data),
@@ -52,7 +47,7 @@ TEST(WriterTests, testWriteBasic) {
     );
     frame.emplace(
         data.key,
-        telem::Series(std::vector<uint8_t>{2, 3, 4, 5, 6, 7, 8, 9})
+        telem::Series(std::vector<float>{2, 3, 4, 5, 6, 7, 8, 9})
     );
 
 
@@ -64,9 +59,8 @@ TEST(WriterTests, testWriteBasic) {
 
 TEST(WriterTests, testOpenWriterOnNonexistentChannel) {
     auto client = new_test_client();
-    auto time = ASSERT_NIL_P(client.channels.create("time", telem::TIMESTAMP_T, 0, true)
-    );
-    auto now = telem::TimeStamp::now();
+    auto [time, data] = create_indexed_pair(client);
+    const auto now = telem::TimeStamp::now();
     ASSERT_OCCURRED_AS_P(
         client.telem.open_writer(synnax::WriterConfig{
             std::vector<synnax::ChannelKey>{time.key, 1000},
@@ -80,8 +74,7 @@ TEST(WriterTests, testOpenWriterOnNonexistentChannel) {
 
 TEST(WriterTests, testWriteToUnspecifiedChannel) {
     auto client = new_test_client();
-    auto time = ASSERT_NIL_P(client.channels.create("time", telem::TIMESTAMP_T, 0, true)
-    );
+    auto [time, _] = create_indexed_pair(client);
     auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
         std::vector{time.key},
         telem::TimeStamp::now(),
@@ -91,7 +84,7 @@ TEST(WriterTests, testWriteToUnspecifiedChannel) {
     auto frame = synnax::Frame(1);
     frame.emplace(
         1000,
-        telem::Series(std::vector<uint8_t>{2, 3, 4, 5, 6, 7, 8, 9})
+        telem::Series(std::vector<float>{2, 3, 4, 5, 6, 7, 8, 9})
     );
     ASSERT_NIL(writer.write(frame));
     ASSERT_OCCURRED_AS_P(writer.commit(), xerrors::VALIDATION);

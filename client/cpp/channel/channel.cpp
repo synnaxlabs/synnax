@@ -35,9 +35,6 @@ Channel::Channel(const api::v1::Channel &ch):
     is_virtual(ch.is_virtual()),
     internal(ch.internal()) {}
 
-Channel::Channel(std::string name, telem::DataType data_type):
-    name(std::move(name)), data_type(std::move(data_type)) {}
-
 Channel::Channel(
     std::string name,
     telem::DataType data_type,
