@@ -257,12 +257,12 @@ func OpenService(configs ...ServiceConfig) (*Service, error) {
 
 const (
 	synchronizerAddr       = address.Address("synchronizer")
-	peerSenderAddr         = address.Address("peerSender")
-	gatewayWriterAddr      = address.Address("gatewayWriter")
-	freeWriterAddr         = address.Address("freeWriter")
-	peerGatewaySwitchAddr  = address.Address("peerGatewayFreeSwitch")
+	peerSenderAddr         = address.Address("peer_sender")
+	gatewayWriterAddr      = address.Address("gateway_writer")
+	freeWriterAddr         = address.Address("free_writer")
+	peerGatewaySwitchAddr  = address.Address("peer_gateway_free_switch")
 	validatorAddr          = address.Address("validator")
-	validatorResponsesAddr = address.Address("validatorResponses")
+	validatorResponsesAddr = address.Address("validator_responses")
 )
 
 // New opens a new writer using the given configuration. The provided context is used to

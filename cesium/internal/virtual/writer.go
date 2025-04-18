@@ -11,6 +11,7 @@ package virtual
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"

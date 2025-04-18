@@ -30,7 +30,7 @@ type ColumnType = "key" | "name" | null;
 
 export interface Digest extends Record<channel.KeyOrName, SeriesDigest[]> {}
 
-const columnType = (columns: channel.Params): ColumnType => {
+const columnType = (columns: channel.PrimitiveParams): ColumnType => {
   const arrKeys = toArray(columns);
   if (arrKeys.length === 0) return null;
   if (typeof arrKeys[0] === "number") return "key";
@@ -39,7 +39,7 @@ const columnType = (columns: channel.Params): ColumnType => {
 };
 
 const validateMatchedColsAndSeries = (
-  columns: channel.Params,
+  columns: channel.PrimitiveParams,
   series: Series[],
 ): void => {
   const colsArr = toArray(columns);
@@ -101,7 +101,7 @@ export class Frame {
   readonly series: Series[] = [];
 
   constructor(
-    columnsOrData: channel.Params | Crude = [],
+    columnsOrData: channel.PrimitiveParams | Crude = [],
     series: Series | Series[] = [],
   ) {
     if (columnsOrData instanceof Frame) {

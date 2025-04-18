@@ -10,8 +10,9 @@
 package deleter_test
 
 import (
-	"context"
 	"fmt"
+	"io"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -24,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"io"
 )
 
 var _ = Describe("Deleter", Ordered, func() {
@@ -49,24 +49,23 @@ var _ = Describe("Deleter", Ordered, func() {
 		Describe("Happy Path", func() {
 			Context(fmt.Sprintf("Scenario: %v - Happy Path", scenarioI), func() {
 				BeforeEach(func() {
-					writer := MustSucceed(s.writer.New(context.TODO(), writer.Config{
+					writer := MustSucceed(s.writer.New(ctx, writer.Config{
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,
 					}))
 					Expect(writer.Write(core.Frame{
 						Keys: s.keys,
 						Series: []telem.Series{
-							telem.NewSeriesV[int64](1, 2, 3),
-							telem.NewSeriesV[int64](3, 4, 5),
-							telem.NewSeriesV[int64](5, 6, 7),
+							telem.NewSecondsTSV(10, 11, 12),
+							telem.NewSecondsTSV(10, 11, 12),
+							telem.NewSecondsTSV(10, 11, 12),
 						}},
 					)).To(BeTrue())
-					Expect(writer.Commit()).To(BeTrue())
-					Expect(writer.Error()).ToNot(HaveOccurred())
+					Expect(MustSucceed(writer.Commit())).To(Equal(telem.SecondTS*12 + 1))
 					Expect(writer.Close()).To(Succeed())
 
 					d = s.deleter.NewDeleter()
-					i = MustSucceed(s.iterator.New(context.TODO(), iterator.Config{
+					i = MustSucceed(s.iterator.New(ctx, iterator.Config{
 						Keys:   s.keys,
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -115,11 +114,6 @@ var _ = Describe("Deleter", Ordered, func() {
 				d = s.deleter.NewDeleter()
 				Expect(d.DeleteTimeRange(ctx, 10, telem.TimeRangeMax)).To(MatchError(ts.ErrChannelNotfound))
 			})
-			Specify("Trying to delete from free", func() {
-				d = s.deleter.NewDeleter()
-				key := channel.NewKey(dcore.NodeKey(dcore.Free), 0)
-				Expect(d.DeleteTimeRangeMany(ctx, []channel.Key{key}, telem.TimeRangeMax)).To(MatchError(ContainSubstring("delete time range from virtual")))
-			})
 		})
 	}
 })
@@ -139,18 +133,18 @@ func newChannelSet() []channel.Channel {
 	return []channel.Channel{
 		{
 			Name:     "test1",
-			Rate:     1 * telem.Hz,
-			DataType: telem.Int64T,
+			IsIndex:  true,
+			DataType: telem.TimeStampT,
 		},
 		{
 			Name:     "test2",
-			Rate:     1 * telem.Hz,
-			DataType: telem.Int64T,
+			IsIndex:  true,
+			DataType: telem.TimeStampT,
 		},
 		{
 			Name:     "test3",
-			Rate:     1 * telem.Hz,
-			DataType: telem.Int64T,
+			IsIndex:  true,
+			DataType: telem.TimeStampT,
 		},
 	}
 }

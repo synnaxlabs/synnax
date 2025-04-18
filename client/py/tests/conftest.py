@@ -50,6 +50,7 @@ def indexed_pair(client: sy.Synnax) -> tuple[sy.Channel, sy.Channel]:
     )
     return idx, data
 
+
 @pytest.fixture
 def virtual_channel(client: sy.Synnax) -> sy.Channel:
     v = random.randint(0, 100000)

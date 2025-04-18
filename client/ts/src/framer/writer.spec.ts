@@ -136,6 +136,22 @@ describe("Writer", () => {
       expect(true).toBeTruthy();
     });
 
+    test("write with auto-commit off and incorrect data length validation error", async () => {
+      const channels = await newIndexedPair(client);
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels,
+      });
+      await expect(async () => {
+        await writer.write({
+          [channels[0].key]: secondsLinspace(1, 10),
+          [channels[1].key]: randomSeries(11, channels[1].dataType),
+        });
+        await writer.commit();
+        await writer.close();
+      }).rejects.toThrow(ValidationError);
+    });
+
     test("write with out of order timestamp", async () => {
       const indexCh = await client.channels.create({
         name: "idx",
@@ -212,12 +228,10 @@ describe("Writer", () => {
         [index.key]: secondsLinspace(5, 10),
         [data.key]: randomSeries(10, data.dataType),
       });
-
-      f = await index.read(TimeRange.MAX);
-      expect(f.length).toEqual(10);
-
       await w1.close();
       await w2.close();
+      f = await index.read(TimeRange.MAX);
+      expect(f.length).toEqual(10);
     });
 
     test("setAuthority with name keys", async () => {
@@ -248,12 +262,10 @@ describe("Writer", () => {
         [index.key]: secondsLinspace(5, 10),
         [data.key]: randomSeries(10, data.dataType),
       });
-
-      f = await index.read(TimeRange.MAX);
-      expect(f.length).toEqual(10);
-
       await w1.close();
       await w2.close();
+      f = await index.read(TimeRange.MAX);
+      expect(f.length).toEqual(10);
     });
   });
 });

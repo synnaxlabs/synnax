@@ -13,19 +13,17 @@ import numpy as np
 import pytest
 
 import synnax as sy
-
 from tests.telem import seconds_linspace
 
 
 @pytest.mark.channel
 class TestChannel:
     """Tests all things related to channel operations. Create, delete, retrieve, etc."""
+
     def test_create_index(self, client: sy.Synnax):
         """Should create an index channel."""
         channel = client.channels.create(
-            name="Time",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True
+            name="Time", data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         assert channel.name == "Time"
         assert channel.key != 0
@@ -36,39 +34,27 @@ class TestChannel:
     def test_create_index_channel_bad_data_type(self, client: sy.Synnax):
         """Should raise a validation error when creating an index channel with a bad data type"""
         with pytest.raises(sy.ValidationError):
-           client.channels.create(
-                name="Time",
-                data_type=sy.DataType.FLOAT64,
-                is_index=True
+            client.channels.create(
+                name="Time", data_type=sy.DataType.FLOAT64, is_index=True
             )
 
     def test_create_index_no_data_type_provided(self, client: sy.Synnax):
         """Should infer the data type as TimeStamp when creating an index channel without a data type"""
-        ch = client.channels.create(
-            name="Time",
-            is_index=True
-        )
+        ch = client.channels.create(name="Time", is_index=True)
         assert ch.data_type == sy.DataType.TIMESTAMP
 
     def test_create_index_no_name_provided(self, client: sy.Synnax):
         """Should raise a validation error when creating an index channel without a name"""
         with pytest.raises(sy.ValidationError):
-            client.channels.create(
-                data_type=sy.DataType.TIMESTAMP,
-                is_index=True
-            )
+            client.channels.create(data_type=sy.DataType.TIMESTAMP, is_index=True)
 
     def test_create_indexed_pair(self, client: sy.Synnax):
         """Should create a channel with an index channel"""
         idx = client.channels.create(
-            name="Time",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True
+            name="Time", data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name="Data",
-            data_type=sy.DataType.FLOAT64,
-            index=idx.key
+            name="Data", data_type=sy.DataType.FLOAT64, index=idx.key
         )
         assert data.name == "Data"
         assert data.key != 0
@@ -80,36 +66,24 @@ class TestChannel:
         """Should raise a validation error when creating a channel with a non-existent index"""
         with pytest.raises(sy.ValidationError):
             client.channels.create(
-                name="Data",
-                data_type=sy.DataType.FLOAT64,
-                index=1234
+                name="Data", data_type=sy.DataType.FLOAT64, index=1234
             )
 
     def test_create_indexed_pair_no_name(self, client: sy.Synnax):
         """Should raise a validation error when creating a data channel with no name"""
         idx = client.channels.create(
-            name="Time",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True
+            name="Time", data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         with pytest.raises(sy.ValidationError):
-            client.channels.create(
-                data_type=sy.DataType.FLOAT64,
-                index=idx.key
-            )
+            client.channels.create(data_type=sy.DataType.FLOAT64, index=idx.key)
 
     def test_create_indexed_pair_no_data_type(self, client: sy.Synnax):
         """Should raise a validation error when creating an index channel with no data type"""
         idx = client.channels.create(
-            name="Time",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True
+            name="Time", data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         with pytest.raises(sy.ValidationError):
-            client.channels.create(
-                name="Data",
-                index=idx.key
-            )
+            client.channels.create(name="Data", index=idx.key)
 
     def test_create_from_list(self, client: sy.Synnax):
         """Should create a list of valid channels"""
@@ -146,9 +120,7 @@ class TestChannel:
     def test_create_virtual(self, client: sy.Synnax):
         """Should create a virtual channel"""
         channel = client.channels.create(
-            name="test",
-            data_type=sy.DataType.JSON,
-            virtual=True
+            name="test", data_type=sy.DataType.JSON, virtual=True
         )
         res = client.channels.retrieve(channel.key)
         assert res.virtual is True
@@ -273,14 +245,10 @@ class TestChannel:
 
     def test_retrieve_bad_numeric_string(self, client: sy.Synnax):
         ch1 = client.channels.create(
-            data_type=sy.DataType.FLOAT32,
-            name="test1",
-            virtual=True
+            data_type=sy.DataType.FLOAT32, name="test1", virtual=True
         )
         ch2 = client.channels.create(
-            data_type=sy.DataType.FLOAT32,
-            name=str(ch1.key),
-            virtual=True
+            data_type=sy.DataType.FLOAT32, name=str(ch1.key), virtual=True
         )
 
         # Should get first channel since the numeric string gets converted to a key
@@ -460,6 +428,7 @@ class TestChannel:
             assert channel.key != ""
             assert isinstance(channel.data_type.density, sy.Density)
 
+
 class TestChannelRetriever:
     """Tests methods internal to the channel retriever that are not publicly availble
     through the ChannelClient.
@@ -477,6 +446,7 @@ class TestChannelRetriever:
     def test_retrieve_one_not_found(self, client: sy.Synnax):
         with pytest.raises(sy.NotFoundError):
             client.channels._retriever.retrieve_one(1234)
+
 
 @pytest.mark.framer
 class TestChannelWriteRead:
@@ -497,4 +467,3 @@ class TestChannelWriteRead:
         assert len(d) == len(data)
         assert data.time_range.end == start + (len(d) - 1) * sy.TimeSpan.SECOND + 1
         assert np.array_equal(data, d)
-

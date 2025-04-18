@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta, tzinfo
 from math import trunc
-from typing import ClassVar, Literal, TypeAlias, cast, get_args, Any
+from typing import Any, ClassVar, Literal, TypeAlias, cast, get_args
 
 import numpy as np
 import pandas as pd
@@ -64,8 +64,9 @@ class TimeStamp(int):
         return super().__new__(cls, value)
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any,
-                                     handler: GetCoreSchemaHandler):
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ):
         """Implemented for pydantic validation. Should not be used externally."""
         return core_schema.no_info_after_validator_function(cls, handler(int))
 
@@ -210,7 +211,9 @@ class TimeSpan(int):
         return super().__new__(cls, value)
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler):
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ):
         """Implemented for pydantic validation. Should not be used externally."""
         return core_schema.no_info_after_validator_function(cls, handler(int))
 
@@ -541,10 +544,11 @@ class Rate(float):
         return super().__new__(cls, value)
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any,
-                                         handler: GetCoreSchemaHandler):
-            """Implemented for pydantic validation. Should not be used externally."""
-            return core_schema.no_info_after_validator_function(cls, handler(float))
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ):
+        """Implemented for pydantic validation. Should not be used externally."""
+        return core_schema.no_info_after_validator_function(cls, handler(float))
 
     @classmethod
     def validate(cls, v, *args, **kwargs):
@@ -763,8 +767,9 @@ class Density(int):
         raise TypeError(f"Cannot convert {type(value)} to Density")
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any,
-                                     handler: GetCoreSchemaHandler):
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ):
         """Implemented for pydantic validation. Should not be used externally."""
         return core_schema.no_info_after_validator_function(cls, handler(int))
 
@@ -974,11 +979,10 @@ class DataType(str):
 
     @classmethod
     def __get_pydantic_core_schema__(
-        cls,
-        source_type: Any,
-     handler: GetCoreSchemaHandler):
-            """Implemented for pydantic validation. Should not be used externally."""
-            return core_schema.no_info_after_validator_function(cls, handler(str))
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ):
+        """Implemented for pydantic validation. Should not be used externally."""
+        return core_schema.no_info_after_validator_function(cls, handler(str))
 
     @classmethod
     def validate(cls, v, *args, **kwargs):

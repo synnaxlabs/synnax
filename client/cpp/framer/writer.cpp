@@ -36,10 +36,8 @@ std::pair<Writer, xerrors::Error> FrameClient::open_writer(const WriterConfig &c
     return {Writer(std::move(w), cfg), res_exc};
 }
 
-Writer::Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg) :
-    cfg(std::move(cfg)),
-    stream(std::move(s)) {
-}
+Writer::Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg):
+    cfg(std::move(cfg)), stream(std::move(s)) {}
 
 void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     this->subject.to_proto(f->mutable_control_subject());
@@ -53,12 +51,8 @@ void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
 }
 
 xerrors::Error Writer::write(const synnax::Frame &fr) {
-    this->assert_open();
-    if (this->accumulated_err) return this->accumulated_err;
     this->init_request(fr);
-    if (const auto err = this->stream->send(*cached_write_req))
-        this->accumulated_err = err;
-    return this->accumulated_err;
+    return this->exec(*this->cached_write_req, false).second;
 }
 
 void Writer::init_request(const Frame &fr) {
@@ -75,11 +69,9 @@ void Writer::init_request(const Frame &fr) {
 }
 
 std::pair<telem::TimeStamp, xerrors::Error> Writer::commit() {
-    this->assert_open();
-    if (this->accumulated_err) return {telem::TimeStamp(), this->accumulated_err};
     api::v1::FrameWriterRequest req;
     req.set_command(COMMIT);
-    const auto [res, err] = this->ack(req);
+    const auto [res, err] = this->exec(req, true);
     return {telem::TimeStamp(res.end()), err};
 }
 
@@ -87,10 +79,8 @@ xerrors::Error Writer::set_authority(const telem::Authority &auth) {
     return this->set_authority({}, std::vector{auth});
 }
 
-xerrors::Error Writer::set_authority(
-    const ChannelKey &key,
-    const telem::Authority &authority
-) {
+xerrors::Error
+Writer::set_authority(const ChannelKey &key, const telem::Authority &authority) {
     return this->set_authority(std::vector{key}, std::vector{authority});
 }
 
@@ -98,45 +88,34 @@ xerrors::Error Writer::set_authority(
     const std::vector<ChannelKey> &keys,
     const std::vector<telem::Authority> &authorities
 ) {
-    this->assert_open();
-    const WriterConfig config{
-        .channels = keys,
-        .authorities = authorities,
-    };
+    const WriterConfig config{.channels = keys, .authorities = authorities};
     api::v1::FrameWriterRequest req;
     req.set_command(SET_AUTHORITY);
     config.to_proto(req.mutable_config());
-    return this->ack(req).second;
+    return this->exec(req, true).second;
 }
 
-std::pair<api::v1::FrameWriterResponse, xerrors::Error> Writer::ack(api::v1::FrameWriterRequest &req) {
-    if (const auto err = this->stream->send(req); err) {
-        this->accumulated_err = err;
-        return {};
-    }
-    while (true) {
+std::pair<api::v1::FrameWriterResponse, xerrors::Error>
+Writer::exec(api::v1::FrameWriterRequest &req, const bool ack) {
+    if (this->closed) return {api::v1::FrameWriterResponse(), this->close_err};
+    if (const auto err = this->stream->send(req); err)
+        return {api::v1::FrameWriterResponse(), this->close()};
+    while (ack) {
         auto [res, res_err] = stream->receive();
-        if (res_err) {
-            this->accumulated_err = res_err;
-            return {res, this->accumulated_err};
-        }
-        if (res.command() == req.command()) {
-            const auto err_p = res.error();
-            this->accumulated_err = xerrors::Error(err_p);
-            return {res, this->accumulated_err};
-        }
+        if (res_err) return {res, this->close()};
+        if (res.command() == req.command()) return {res, xerrors::NIL};
     }
+    return {api::v1::FrameWriterResponse(), xerrors::NIL};
 }
 
-xerrors::Error Writer::close() const {
+xerrors::Error Writer::close() {
+    if (this->closed) return this->close_err;
+    this->closed = true;
     stream->close_send();
     while (true)
-        if (const auto rec_exc = stream->receive().second; rec_exc)
-            return rec_exc.skip(freighter::EOF_);
-}
-
-
-void Writer::assert_open() const {
-    if (closed) throw std::runtime_error("cannot call method on closed writer");
+        if (const auto rec_exc = stream->receive().second; rec_exc) {
+            this->close_err = rec_exc.skip(freighter::EOF_);
+            return this->close_err;
+        }
 }
 }

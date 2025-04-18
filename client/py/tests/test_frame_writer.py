@@ -8,13 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
+
 import numpy as np
 import pandas as pd
 import pytest
 
 import synnax as sy
-
 from tests.telem import seconds_linspace
+
 
 @pytest.mark.framer
 @pytest.mark.writer
@@ -23,34 +24,44 @@ class TestWriter:
         """Should write data to the Synnax database"""
         idx_ch, data_ch = indexed_pair
         with client.open_writer(
-            start=1 * sy.TimeSpan.SECOND,
-            channels=indexed_pair
+            start=1 * sy.TimeSpan.SECOND, channels=indexed_pair
         ) as w:
-            w.write({
-                idx_ch.key: 1 * sy.TimeSpan.SECOND,
-                data_ch.key: 123.4,
-            })
-            w.write({
-                idx_ch.key: 2 * sy.TimeSpan.SECOND,
-                data_ch.key: 123.5,
-            })
+            w.write(
+                {
+                    idx_ch.key: 1 * sy.TimeSpan.SECOND,
+                    data_ch.key: 123.4,
+                }
+            )
+            w.write(
+                {
+                    idx_ch.key: 2 * sy.TimeSpan.SECOND,
+                    data_ch.key: 123.5,
+                }
+            )
             w.commit()
 
     def test_write_by_name(self, indexed_pair: list[sy.Channel], client: sy.Synnax):
         """Should write data by name to the Synnax cluster"""
         idx_ch, data_ch = indexed_pair
         with client.open_writer(
-            start=1 * sy.TimeSpan.SECOND,
-            channels=indexed_pair
+            start=1 * sy.TimeSpan.SECOND, channels=indexed_pair
         ) as w:
-            w.write(pd.DataFrame({
-                idx_ch.name: [1 * sy.TimeSpan.SECOND],
-                data_ch.name: 253.2,
-            }))
-            w.write(pd.DataFrame({
-                idx_ch.name: [2 * sy.TimeSpan.SECOND],
-                data_ch.name: 253.3,
-            }))
+            w.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.name: [1 * sy.TimeSpan.SECOND],
+                        data_ch.name: 253.2,
+                    }
+                )
+            )
+            w.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.name: [2 * sy.TimeSpan.SECOND],
+                        data_ch.name: 253.3,
+                    }
+                )
+            )
             w.commit()
 
     def test_write_frame_unknown_channel_name(
@@ -59,10 +70,7 @@ class TestWriter:
         client: sy.Synnax,
     ):
         """Should throw a validation error when writing to an unknown channel"""
-        with client.open_writer(
-            start=sy.TimeStamp.now(),
-            channels=indexed_pair
-        ) as w:
+        with client.open_writer(start=sy.TimeStamp.now(), channels=indexed_pair) as w:
             data = np.random.rand(10).astype(np.float64)
             with pytest.raises(sy.ValidationError):
                 w.write(pd.DataFrame({"missing": data}))
@@ -73,10 +81,7 @@ class TestWriter:
         client: sy.Synnax,
     ):
         """Should throw a validation error when writing an unknown frame by key"""
-        with client.open_writer(
-            start=sy.TimeStamp.now(),
-            channels=indexed_pair
-        ) as w:
+        with client.open_writer(start=sy.TimeStamp.now(), channels=indexed_pair) as w:
             data = np.random.rand(10).astype(np.float64)
             with pytest.raises(sy.ValidationError):
                 w.write(pd.DataFrame({123: data}))
@@ -99,40 +104,31 @@ class TestWriter:
         """Should open an auto-committing writer to write data that persists after 1s"""
         idx_ch, data_ch = indexed_pair
         with client.open_writer(
-            start=sy.TimeSpan.SECOND * 1,
-            channels=indexed_pair,
-            enable_auto_commit=True
+            start=sy.TimeSpan.SECOND * 1, channels=indexed_pair, enable_auto_commit=True
         ) as w:
             data = np.random.rand(3).astype(np.float64)
-            w.write(pd.DataFrame({
-                idx_ch.name: seconds_linspace(1, 3),
-                data_ch.key: data
-            }))
-            w.write(pd.DataFrame({
-                idx_ch.key: seconds_linspace(4, 3),
-                data_ch.name: data
-            }))
+            w.write(
+                pd.DataFrame({idx_ch.name: seconds_linspace(1, 3), data_ch.key: data})
+            )
+            w.write(
+                pd.DataFrame({idx_ch.key: seconds_linspace(4, 3), data_ch.name: data})
+            )
 
         f = client.read(sy.TimeRange.MAX, data_ch.key)
         assert len(f) == 6
 
     def test_write_err_on_unauthorized(
-        self,
-        indexed_pair: list[sy.Channel], client: sy.Synnax
+        self, indexed_pair: list[sy.Channel], client: sy.Synnax
     ):
         """Should throw an error when a writer is opened to error on unauthorized"""
         start = sy.TimeStamp.now()
-        w1 = client.open_writer(
-            start=start,
-            channels=indexed_pair,
-            name="writer1"
-        )
+        w1 = client.open_writer(start=start, channels=indexed_pair, name="writer1")
         with pytest.raises(sy.UnauthorizedError):
             with client.open_writer(
                 start=start,
                 channels=indexed_pair,
                 err_on_unauthorized=True,
-                name="writer2"
+                name="writer2",
             ):
                 ...
 
@@ -170,15 +166,12 @@ class TestWriter:
         with client.open_writer(
             start=sy.TimeSpan.SECOND * 1,
             channels=indexed_pair,
-            mode=sy.WriterMode.PERSIST
+            mode=sy.WriterMode.PERSIST,
         ) as w:
             async with await client.open_async_streamer(indexed_pair) as s:
                 data = np.random.rand(5).astype(np.float64)
                 times = seconds_linspace(1, 5)
-                w.write(pd.DataFrame({
-                    idx_ch.key: times,
-                    data_ch.key: data
-                }))
+                w.write(pd.DataFrame({idx_ch.key: times, data_ch.key: data}))
                 with pytest.raises(TimeoutError):
                     async with asyncio.timeout(0.2):
                         await s.read()
@@ -243,96 +236,106 @@ class TestWriter:
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
         w1 = client.open_writer(
-            start=start,
-            channels=indexed_pair,
-            authorities=100,
-            enable_auto_commit=True
+            start=start, channels=indexed_pair, authorities=100, enable_auto_commit=True
         )
         w2 = client.open_writer(
-            start=start,
-            channels=indexed_pair,
-            authorities=200,
-            enable_auto_commit=True
+            start=start, channels=indexed_pair, authorities=200, enable_auto_commit=True
         )
         try:
-            w1.write(pd.DataFrame({
-                idx_ch.key: seconds_linspace(1, 10),
-                data_ch.key: np.random.rand(10).astype(np.float64)
-            }))
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 0
             w1.set_authority({data_ch.key: 255, idx_ch.key: 255})
-            w1.write(pd.DataFrame({
-                idx_ch.key: seconds_linspace(1, 10),
-                data_ch.key: np.random.rand(10).astype(np.float64)
-            }))
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 10
         finally:
             w1.close()
             w2.close()
 
-    def test_set_authority_by_name(self, client: sy.Synnax, indexed_pair: list[sy.channel]):
+    def test_set_authority_by_name(
+        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+    ):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
         w1 = client.open_writer(
-            start=start,
-            channels=indexed_pair,
-            authorities=100,
-            enable_auto_commit=True
+            start=start, channels=indexed_pair, authorities=100, enable_auto_commit=True
         )
         w2 = client.open_writer(
-            start=start,
-            channels=indexed_pair,
-            authorities=200,
-            enable_auto_commit=True
+            start=start, channels=indexed_pair, authorities=200, enable_auto_commit=True
         )
         try:
-            w1.write(pd.DataFrame({
-                idx_ch.key: seconds_linspace(1, 10),
-                data_ch.key: np.random.rand(10).astype(np.float64)
-            }))
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 0
             w1.set_authority({data_ch.name: 255, idx_ch.name: 255})
-            w1.write(pd.DataFrame({
-                idx_ch.key: seconds_linspace(1, 10),
-                data_ch.key: np.random.rand(10).astype(np.float64)
-            }))
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 10
         finally:
             w1.close()
             w2.close()
 
-    def test_set_authority_by_name_value(self, client: sy.Synnax, indexed_pair: list[sy.channel]):
+    def test_set_authority_by_name_value(
+        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+    ):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
         w1 = client.open_writer(
-            start=start,
-            channels=indexed_pair,
-            authorities=100,
-            enable_auto_commit=True
+            start=start, channels=indexed_pair, authorities=100, enable_auto_commit=True
         )
         w2 = client.open_writer(
-            start=start,
-            channels=indexed_pair,
-            authorities=200,
-            enable_auto_commit=True
+            start=start, channels=indexed_pair, authorities=200, enable_auto_commit=True
         )
         try:
-            w1.write(pd.DataFrame({
-                idx_ch.key: seconds_linspace(1, 10),
-                data_ch.key: np.random.rand(10).astype(np.float64)
-            }))
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 0
             w1.set_authority(data_ch.name, 255)
             w1.set_authority(idx_ch.name, 255)
-            w1.write(pd.DataFrame({
-                idx_ch.key: seconds_linspace(1, 10),
-                data_ch.key: np.random.rand(10).astype(np.float64)
-            }))
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 10
         finally:
@@ -347,20 +350,20 @@ class TestWriter:
         idx_ch, data_ch = indexed_pair
         start = sy.TimeSpan.SECOND * 30
         with client.open_writer(
-            start=start,
-            channels=indexed_pair,
-            enable_auto_commit=True
+            start=start, channels=indexed_pair, enable_auto_commit=True
         ) as w:
-            w.write({
-                idx_ch.key: seconds_linspace(30, 10),
-                data_ch.key: np.random.rand(10).astype(np.float64)
-            })
+            w.write(
+                {
+                    idx_ch.key: seconds_linspace(30, 10),
+                    data_ch.key: np.random.rand(10).astype(np.float64),
+                }
+            )
 
         with pytest.raises(sy.ValidationError):
             with client.open_writer(
                 start=start + sy.TimeSpan.SECOND * 3,
                 channels=indexed_pair,
-                enable_auto_commit=True
+                enable_auto_commit=True,
             ):
                 ...
 
@@ -370,29 +373,31 @@ class TestWriter:
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
         w1 = client.open_writer(
-            start=start,
-            channels=indexed_pair,
-            authorities=100,
-            enable_auto_commit=True
+            start=start, channels=indexed_pair, authorities=100, enable_auto_commit=True
         )
         w2 = client.open_writer(
-            start=start,
-            channels=indexed_pair,
-            authorities=200,
-            enable_auto_commit=True
+            start=start, channels=indexed_pair, authorities=200, enable_auto_commit=True
         )
         try:
-            w1.write(pd.DataFrame({
-                idx_ch.key: seconds_linspace(1, 10),
-                data_ch.key: np.random.rand(10).astype(np.float64)
-            }))
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 0
             w1.set_authority(255)
-            w1.write(pd.DataFrame({
-                idx_ch.key: seconds_linspace(1, 10),
-                data_ch.key: np.random.rand(10).astype(np.float64)
-            }))
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 10
         finally:

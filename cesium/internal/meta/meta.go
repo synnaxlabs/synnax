@@ -10,9 +10,10 @@
 package meta
 
 import (
+	"os"
+
 	"github.com/synnaxlabs/cesium/internal/migrate"
 	"github.com/synnaxlabs/cesium/internal/version"
-	"os"
 
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
@@ -49,7 +50,11 @@ func Open(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel, error) 
 				return ch, err
 			}
 		}
-		return state.Channel, Validate(state.Channel)
+		err = Validate(state.Channel)
+		if err != nil {
+			return state.Channel, err
+		}
+		return state.Channel, err
 	}
 
 	return ch, Create(fs, codec, ch)

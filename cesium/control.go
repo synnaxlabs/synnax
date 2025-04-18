@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -80,6 +81,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey,
 		confluence.CloseOutputInletsOnExit(),
 		confluence.CancelOnFail(),
 		confluence.RecoverWithErrOnPanic(),
+		confluence.WithAddress("control-writer"),
 	)
 	return nil
 }
