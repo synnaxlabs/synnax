@@ -22,7 +22,7 @@ client.channels.create(
     name=CMD_CHANNEL,
     data_type=sy.DataType.UINT16,
     virtual=True,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 with client.open_streamer(CMD_CHANNEL) as stream:
@@ -30,5 +30,3 @@ with client.open_streamer(CMD_CHANNEL) as stream:
         while True:
             frame = stream.read()
             writer.write(STATE_CHANNEL, frame[CMD_CHANNEL])
-
-

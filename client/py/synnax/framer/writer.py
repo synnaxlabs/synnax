@@ -186,21 +186,18 @@ class Writer:
             raise exc
 
     @overload
-    def write(self, channels_or_data: ChannelName, series: CrudeSeries):
-        ...
+    def write(self, channels_or_data: ChannelName, series: CrudeSeries): ...
 
     @overload
     def write(
         self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
-    ):
-        ...
+    ): ...
 
     @overload
     def write(
         self,
         channels_or_data: CrudeFrame,
-    ):
-        ...
+    ): ...
 
     def write(
         self,
@@ -249,28 +246,27 @@ class Writer:
         frame = self._adapter.adapt(channels_or_data, series)
         self.__check_keys(frame)
         self.__prep_data_types(frame)
-        self._handle_exc(self._stream.send(
-            _Request(command=_Command.WRITE, frame=frame.to_payload())
-        ))
+        self._handle_exc(
+            self._stream.send(
+                _Request(command=_Command.WRITE, frame=frame.to_payload())
+            )
+        )
 
     @overload
-    def set_authority(self, value: CrudeAuthority) -> bool:
-        ...
+    def set_authority(self, value: CrudeAuthority) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: ChannelKey | ChannelName,
         authority: CrudeAuthority,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     def set_authority(
         self,
@@ -340,8 +336,9 @@ class Writer:
                     return
                 raise exc
 
-    def _ack(self, cmd: _Command | None = None) -> (
-        tuple[_Response, None] | tuple[None, Exception]):
+    def _ack(
+        self, cmd: _Command | None = None
+    ) -> tuple[_Response, None] | tuple[None, Exception]:
         while True:
             res, exc = self._stream.receive()
             if exc is not None:

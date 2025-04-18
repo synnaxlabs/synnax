@@ -9,6 +9,7 @@
 
 import synnax as sy
 
+
 def seconds_linspace(start: int, count: int) -> list[sy.TimeSpan]:
     """Generates a list of TimeSpan values from start to start + count"""
     return [start * sy.TimeSpan.SECOND + i * sy.TimeSpan.SECOND for i in range(count)]

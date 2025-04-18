@@ -14,6 +14,7 @@ import pytest
 
 import synnax as sy
 
+
 @pytest.mark.framer
 @pytest.mark.calculations
 class TestCalculatedChannels:

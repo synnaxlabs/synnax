@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type change } from "@synnaxlabs/x";
-import { DataType, Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { DataType, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { QueryError } from "@/errors";

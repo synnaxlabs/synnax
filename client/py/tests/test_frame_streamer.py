@@ -16,6 +16,7 @@ import pytest
 import synnax as sy
 from synnax import TimeSpan
 
+
 @pytest.mark.framer
 @pytest.mark.streamer
 class TestStreamer:

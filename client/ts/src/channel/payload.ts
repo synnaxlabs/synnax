@@ -20,6 +20,7 @@ export type Name = z.infer<typeof nameZ>;
 export type Names = Name[];
 export type KeyOrName = Key | Name;
 export type KeysOrNames = Keys | Names;
+export type PrimitiveParams = Key | Name | Keys | Names;
 export type Params = Key | Name | Keys | Names | Payload | Payload[];
 
 export const channelZ = z.object({
