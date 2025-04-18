@@ -77,4 +77,4 @@ type State struct {
 func (s State) GorpKey() string { return s.Key }
 
 // SetOptions implements gorp.Entry.
-func (s State) SetOptions() []interface{} { return []interface{}{s.Rack.Node()} }
+func (s State) SetOptions() []any { return []any{s.Rack.Node()} }
