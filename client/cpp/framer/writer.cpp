@@ -36,10 +36,8 @@ std::pair<Writer, xerrors::Error> FrameClient::open_writer(const WriterConfig &c
     return {Writer(std::move(w), cfg), res_exc};
 }
 
-Writer::Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg) :
-    cfg(std::move(cfg)),
-    stream(std::move(s)) {
-}
+Writer::Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg):
+    cfg(std::move(cfg)), stream(std::move(s)) {}
 
 void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     this->subject.to_proto(f->mutable_control_subject());
@@ -81,10 +79,8 @@ xerrors::Error Writer::set_authority(const telem::Authority &auth) {
     return this->set_authority({}, std::vector{auth});
 }
 
-xerrors::Error Writer::set_authority(
-    const ChannelKey &key,
-    const telem::Authority &authority
-) {
+xerrors::Error
+Writer::set_authority(const ChannelKey &key, const telem::Authority &authority) {
     return this->set_authority(std::vector{key}, std::vector{authority});
 }
 
@@ -92,23 +88,21 @@ xerrors::Error Writer::set_authority(
     const std::vector<ChannelKey> &keys,
     const std::vector<telem::Authority> &authorities
 ) {
-    const WriterConfig config{.channels = keys,.authorities = authorities};
+    const WriterConfig config{.channels = keys, .authorities = authorities};
     api::v1::FrameWriterRequest req;
     req.set_command(SET_AUTHORITY);
     config.to_proto(req.mutable_config());
     return this->exec(req, true).second;
 }
 
-std::pair<api::v1::FrameWriterResponse, xerrors::Error> Writer::exec(
-    api::v1::FrameWriterRequest &req, const bool ack
-) {
+std::pair<api::v1::FrameWriterResponse, xerrors::Error>
+Writer::exec(api::v1::FrameWriterRequest &req, const bool ack) {
     if (this->closed) return {api::v1::FrameWriterResponse(), this->close_err};
     if (const auto err = this->stream->send(req); err)
         return {api::v1::FrameWriterResponse(), this->close()};
     while (ack) {
         auto [res, res_err] = stream->receive();
-        if (res_err)
-            return {res, this->close()};
+        if (res_err) return {res, this->close()};
         if (res.command() == req.command()) return {res, xerrors::NIL};
     }
     return {api::v1::FrameWriterResponse(), xerrors::NIL};

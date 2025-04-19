@@ -45,10 +45,7 @@ TEST(WriterTests, testWriteBasic) {
             (now + telem::SECOND * 8),
         })
     );
-    frame.emplace(
-        data.key,
-        telem::Series(std::vector<float>{2, 3, 4, 5, 6, 7, 8, 9})
-    );
+    frame.emplace(data.key, telem::Series(std::vector<float>{2, 3, 4, 5, 6, 7, 8, 9}));
 
 
     ASSERT_NIL(writer.write(frame));
@@ -82,10 +79,7 @@ TEST(WriterTests, testWriteToUnspecifiedChannel) {
         telem::ControlSubject{"test_writer"},
     }));
     auto frame = synnax::Frame(1);
-    frame.emplace(
-        1000,
-        telem::Series(std::vector<float>{2, 3, 4, 5, 6, 7, 8, 9})
-    );
+    frame.emplace(1000, telem::Series(std::vector<float>{2, 3, 4, 5, 6, 7, 8, 9}));
     ASSERT_NIL(writer.write(frame));
     ASSERT_OCCURRED_AS_P(writer.commit(), xerrors::VALIDATION);
 }

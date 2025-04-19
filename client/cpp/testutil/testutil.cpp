@@ -28,13 +28,16 @@ std::mt19937 random_generator(const std::string &suite_name) {
     return mt;
 }
 
-synnax::Channel create_virtual_channel(const synnax::Synnax &client, const telem::DataType &data_type) {
+synnax::Channel
+create_virtual_channel(const synnax::Synnax &client, const telem::DataType &data_type) {
     auto [ch, err] = client.channels.create("data", data_type, true);
     return ch;
 }
 
-std::pair<synnax::Channel, synnax::Channel> create_indexed_pair(synnax::Synnax &client) {
+std::pair<synnax::Channel, synnax::Channel> create_indexed_pair(synnax::Synnax &client
+) {
     auto [idx, err_one] = client.channels.create("index", telem::TIMESTAMP_T, 0, true);
-    auto [data, err_two] = client.channels.create("data", telem::FLOAT32_T, idx.key, false);
+    auto [data, err_two] = client.channels
+                               .create("data", telem::FLOAT32_T, idx.key, false);
     return {idx, data};
 }

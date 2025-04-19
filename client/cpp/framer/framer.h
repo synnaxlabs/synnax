@@ -365,8 +365,9 @@ public:
     /// For more information, see
     /// https://docs.synnaxlabs.com/reference/concepts/writes.
     ///
-    /// @returns false if an error occurred in the write pipeline. After an error occurs,
-    /// the caller must acknowledge the error by calling error() or close() on the writer.
+    /// @returns false if an error occurred in the write pipeline. After an error
+    /// occurs, the caller must acknowledge the error by calling error() or close() on
+    /// the writer.
     xerrors::Error write(const Frame &fr);
 
     /// @brief changes the authority of all channels in the writer to the given
@@ -381,10 +382,8 @@ public:
     /// @returns true if the authority was set successfully.
     /// @param key the channel to set the authority of.
     /// @param authority the authority level to set the channel to.
-    [[nodiscard]] xerrors::Error set_authority(
-        const ChannelKey &key,
-        const telem::Authority &authority
-    );
+    [[nodiscard]] xerrors::Error
+    set_authority(const ChannelKey &key, const telem::Authority &authority);
 
     /// @brief changes the authority of the given channels to the given authority
     /// levels.
@@ -427,10 +426,8 @@ private:
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
-    std::pair<api::v1::FrameWriterResponse, xerrors::Error> exec(
-        api::v1::FrameWriterRequest &req,
-        bool ack
-    );
+    std::pair<api::v1::FrameWriterResponse, xerrors::Error>
+    exec(api::v1::FrameWriterRequest &req, bool ack);
 
     /// @brief opens a writer to the Synnax cluster.
     explicit Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg);
