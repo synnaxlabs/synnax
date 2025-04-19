@@ -10,10 +10,12 @@
 package testutil
 
 import (
+	"fmt"
+	"math/rand"
+
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/telem"
-	"math/rand"
 )
 
 var k = atomic.Int64Counter{}
@@ -22,7 +24,11 @@ func GenerateChannelKey() cesium.ChannelKey {
 	return cesium.ChannelKey(k.Add(1))
 }
 
-func GenerateDataAndChannels(numIndexChannels, numDataChannels, numSamplesPerDomain int) (telem.Series, []cesium.Channel, []cesium.ChannelKey) {
+func GenerateDataAndChannels(
+	numIndexChannels,
+	numDataChannels,
+	numSamplesPerDomain int,
+) (telem.Series, []cesium.Channel, []cesium.ChannelKey) {
 	var (
 		numTotalChannels = numIndexChannels + numDataChannels
 		channels         = make([]cesium.Channel, numTotalChannels)
@@ -32,10 +38,20 @@ func GenerateDataAndChannels(numIndexChannels, numDataChannels, numSamplesPerDom
 	for i := 1; i <= numTotalChannels; i++ {
 		var ch cesium.Channel
 		if i <= numIndexChannels {
-			ch = cesium.Channel{Key: cesium.ChannelKey(i), IsIndex: true, DataType: telem.TimeStampT}
+			ch = cesium.Channel{
+				Name:     fmt.Sprintf("index-%d", i),
+				Key:      cesium.ChannelKey(i),
+				IsIndex:  true,
+				DataType: telem.TimeStampT,
+			}
 		} else if i <= numIndexChannels+numDataChannels {
 			correspondingIndexChannel := cesium.ChannelKey(i%numIndexChannels + 1)
-			ch = cesium.Channel{Key: cesium.ChannelKey(i), Index: correspondingIndexChannel, DataType: telem.Int64T}
+			ch = cesium.Channel{
+				Name:     fmt.Sprintf("data-%d", i),
+				Key:      cesium.ChannelKey(i),
+				Index:    correspondingIndexChannel,
+				DataType: telem.Int64T,
+			}
 		}
 
 		channelKeys[i-1] = cesium.ChannelKey(i)

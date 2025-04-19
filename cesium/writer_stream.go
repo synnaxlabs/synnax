@@ -168,17 +168,15 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	if len(cfg.Channels) == 0 {
 		for _, chW := range w.virtual.internal {
-			transfer := chW.SetAuthority(cfg.Authorities[0])
-			if transfer.Occurred() {
-				u.Transfers = append(u.Transfers, transfer)
+			if t := chW.SetAuthority(cfg.Authorities[0]); t.Occurred() {
+				u.Transfers = append(u.Transfers, t)
 			}
 		}
 
 		for _, idx := range w.internal {
 			for _, chW := range idx.internal {
-				transfer := chW.SetAuthority(cfg.Authorities[0])
-				if transfer.Occurred() {
-					u.Transfers = append(u.Transfers, transfer)
+				if t := chW.SetAuthority(cfg.Authorities[0]); t.Occurred() {
+					u.Transfers = append(u.Transfers, t)
 				}
 			}
 		}
@@ -187,18 +185,16 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 			for _, idx := range w.internal {
 				for _, chW := range idx.internal {
 					if chW.Channel.Key == ch {
-						transfer := chW.SetAuthority(cfg.authority(i))
-						if transfer.Occurred() {
-							u.Transfers = append(u.Transfers, transfer)
+						if t := chW.SetAuthority(cfg.authority(i)); t.Occurred() {
+							u.Transfers = append(u.Transfers, t)
 						}
 					}
 				}
 			}
 			for _, chW := range w.virtual.internal {
 				if chW.Channel.Key == ch {
-					transfer := chW.SetAuthority(cfg.authority(i))
-					if transfer.Occurred() {
-						u.Transfers = append(u.Transfers, transfer)
+					if t := chW.SetAuthority(cfg.authority(i)); t.Occurred() {
+						u.Transfers = append(u.Transfers, t)
 					}
 				}
 			}

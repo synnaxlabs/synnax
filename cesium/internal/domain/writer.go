@@ -35,13 +35,11 @@ type WriterConfig struct {
 	// be called with a strictly increasing timestamp.
 	// [OPTIONAL]
 	End telem.TimeStamp
-
 	// EnableAutoCommit determines whether the writer will automatically commit after each write.
 	// If EnableAutoCommit is true, then the writer will commit after each write, and will
 	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit *bool
-
 	// AutoIndexPersistInterval is the frequency at which the changes to index are persisted to the
 	// disk. If AutoIndexPersistInterval <=0, then the writer persists changes to disk after every commit.
 	// Setting an AutoIndexPersistInterval is invalid if EnableAutoCommit is off.
@@ -240,7 +238,12 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 		return span.Error(errWriterClosed)
 	}
 	if w.presetEnd && end.After(w.End) {
-		return span.Error(errors.Newf("commit timestamp %v cannot be greater than preset end timestamp %v: exceeded by a time span of %v", end, w.End, w.End.Span(end)))
+		return span.Error(errors.Newf(
+			"commit timestamp %v cannot be greater than preset end timestamp %v: exceeded by a time span of %v",
+			end,
+			w.End,
+			w.End.Span(end),
+		))
 	}
 
 	length := w.internal.Len()

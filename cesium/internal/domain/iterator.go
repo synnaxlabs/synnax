@@ -11,6 +11,7 @@ package domain
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/errors"
 
 	"github.com/synnaxlabs/alamos"
