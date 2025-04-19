@@ -13,6 +13,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"sync"
+	"testing"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/testutil"
@@ -22,8 +25,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"golang.org/x/sync/semaphore"
-	"sync"
-	"testing"
 )
 
 type BenchmarkConfig struct {
@@ -51,9 +52,8 @@ type StreamBenchmarkConfig struct {
 var (
 	domainsPerChannel = flag.Int("d", 10, "domains per channel")
 	samplesPerDomain  = flag.Int("s", 10, "samples per domain")
-	numIndexChannels  = flag.Int("index", 0, "index channel count")
-	numDataChannels   = flag.Int("data", 0, "data channel count")
-	numRateChannels   = flag.Int("rate", 0, "rate channel count")
+	numIndexChannels  = flag.Int("index", 10, "index channel count")
+	numDataChannels   = flag.Int("data", 10, "data channel count")
 	usingMemFS        = flag.Bool("mem", false, "memFS")
 	numWriters        = flag.Int("w", 1, "writer count")
 	numGoRoutines     = flag.Int64("g", 1, "goroutine count")
@@ -89,12 +89,16 @@ func BenchmarkCesium(b *testing.B) {
 	makeFS := testutil.FileSystemsWithoutAssertion[lo.Ternary(benchCfg.usingMemFS, "memFS", "osFS")]
 	fs, cleanUp := makeFS()
 
-	dataSeries, channels, keys := testutil.GenerateDataAndChannels(benchCfg.numIndexChannels, benchCfg.numDataChannels, benchCfg.samplesPerDomain)
+	dataSeries, channels, keys := testutil.GenerateDataAndChannels(
+		benchCfg.numIndexChannels,
+		benchCfg.numDataChannels,
+		benchCfg.samplesPerDomain,
+	)
 
-	b.Run("write", func(b *testing.B) { bench_write(b, writeCfg, dataSeries, channels, keys, fs) })
-	b.Run("read", func(b *testing.B) { bench_read(b, benchCfg, dataSeries, channels, keys, fs) })
+	b.Run("write", func(b *testing.B) { BenchWrite(b, writeCfg, dataSeries, channels, keys, fs) })
+	b.Run("read", func(b *testing.B) { BenchRead(b, benchCfg, dataSeries, channels, keys, fs) })
 	b.Run("stream", func(b *testing.B) {
-		bench_stream(b, streamCfg, dataSeries, channels, keys, fs)
+		BenchStream(b, streamCfg, dataSeries, channels, keys, fs)
 	})
 
 	err = cleanUp()
@@ -103,7 +107,7 @@ func BenchmarkCesium(b *testing.B) {
 	}
 }
 
-func bench_write(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
+func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		var (
@@ -263,7 +267,14 @@ func bench_write(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series
 	}
 }
 
-func bench_read(b *testing.B, cfg BenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
+func BenchRead(
+	b *testing.B,
+	cfg BenchmarkConfig,
+	dataSeries telem.Series,
+	channels []cesium.Channel,
+	keys []cesium.ChannelKey,
+	fs xfs.FS,
+) {
 	var (
 		db        *cesium.DB
 		err       error
@@ -273,6 +284,9 @@ func bench_read(b *testing.B, cfg BenchmarkConfig, dataSeries telem.Series, chan
 	)
 
 	db, err = cesium.Open("benchmark_read_test", cesium.WithFS(fs))
+	if err != nil {
+		b.Errorf("Error during DB creation: %s", err)
+	}
 	err = db.CreateChannel(ctx, channels...)
 	if err != nil {
 		b.Errorf("Error during channel creation: %s", err)
@@ -361,7 +375,14 @@ func bench_read(b *testing.B, cfg BenchmarkConfig, dataSeries telem.Series, chan
 	}
 }
 
-func bench_stream(b *testing.B, cfg StreamBenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
+func BenchStream(
+	b *testing.B,
+	cfg StreamBenchmarkConfig,
+	dataSeries telem.Series,
+	channels []cesium.Channel,
+	keys []cesium.ChannelKey,
+	fs xfs.FS,
+) {
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		var (

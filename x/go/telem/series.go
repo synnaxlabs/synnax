@@ -153,13 +153,12 @@ func (s Series) AlignmentBounds() bounds.Bounds[AlignmentPair] {
 // String implements the fmt.Stringer interface.
 func (s Series) String() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Series{TimeRange: %v, DataType: %v, Len: %d, Size: %d bytes, Contents: ",
+	_, _ = fmt.Fprintf(&b, "Series{TimeRange: %v, DataType: %v, Len: %d, Size: %d bytes, Contents: ",
 		s.TimeRange.RawString(),
 		s.DataType,
 		s.Len(),
 		s.Size(),
 	)
-
 	if s.Len() == 0 {
 		b.WriteString("[]}")
 		return b.String()

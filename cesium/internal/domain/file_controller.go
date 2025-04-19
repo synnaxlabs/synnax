@@ -12,13 +12,14 @@ package domain
 import (
 	"context"
 	"fmt"
-	"github.com/synnaxlabs/alamos"
 	"io"
 	"math"
 	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
+
+	"github.com/synnaxlabs/alamos"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
@@ -210,7 +211,10 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		delete(fc.writers.unopened, key)
 
 		s, err := file.Stat()
-		return &w, s.Size(), span.Error(err)
+		if err != nil {
+			return nil, 0, span.Error(err)
+		}
+		return &w, s.Size(), nil
 	}
 
 	if lastFileKey != 0 {
@@ -230,6 +234,9 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		delete(fc.writers.unopened, lastFileKey)
 
 		s, err := file.Stat()
+		if err != nil {
+			return nil, 0, span.Error(err)
+		}
 		return &w, s.Size(), span.Error(err)
 	}
 

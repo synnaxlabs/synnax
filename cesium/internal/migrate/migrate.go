@@ -11,6 +11,7 @@ package migrate
 
 import (
 	"fmt"
+
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/version"
 	xfs "github.com/synnaxlabs/x/io/fs"

@@ -11,6 +11,9 @@ package domain
 
 import (
 	"context"
+	"math"
+	"sync/atomic"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
@@ -21,8 +24,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"math"
-	"sync/atomic"
 )
 
 var (
@@ -196,14 +197,11 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	if db.closed.Load() {
 		return false, errDBClosed
 	}
-	i := db.OpenIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
+	i := db.OpenIterator(IterRange(telem.TimeRangeMax))
 	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
 		return true, i.Close()
 	}
-	if i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr) {
-		return true, i.Close()
-	}
-	return false, i.Close()
+	return i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr), i.Close()
 }
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
@@ -216,13 +214,16 @@ func (db *DB) Close() error {
 	}
 	count := db.entityCount.Load()
 	if count > 0 {
-		err := errors.Wrapf(core.ErrOpenEntity, "there are %d unclosed writers/iterators accessing it", count)
+		err := errors.Wrapf(
+			core.ErrOpenEntity,
+			"there are %d unclosed writers/iterators accessing it",
+			count,
+		)
 		db.closed.Store(false)
 		return err
 	}
 	w := errors.NewCatcher(errors.WithAggregation())
 	w.Exec(db.fc.close)
 	w.Exec(db.idx.close)
-
 	return w.Error()
 }

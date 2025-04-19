@@ -12,11 +12,12 @@ package confluence
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/timeout"
-	"time"
 )
 
 // Delta is an abstract Segment that reads values from an input Stream

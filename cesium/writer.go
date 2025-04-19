@@ -10,12 +10,13 @@
 package cesium
 
 import (
+	"io"
+
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
-	"io"
 )
 
 type Writer struct {
@@ -82,7 +83,7 @@ func (w *Writer) exec(req WriterRequest, sync bool) (res WriterResponse, err err
 	if !sync {
 		return
 	}
-	for res := range w.responses.Outlet() {
+	for res = range w.responses.Outlet() {
 		if res.Command == req.Command {
 			return res, nil
 		}

@@ -26,7 +26,7 @@ func (d DataType) IsVariable() bool {
 	return d == BytesT || d == StringT || d == JSONT
 }
 
-func NewDataType[T any](v T) DataType {
+func InferDataType[T any](v T) DataType {
 	t := reflect.TypeOf(v)
 	dt, ok := dataTypes[strings.ToLower(t.Name())]
 	if !ok {

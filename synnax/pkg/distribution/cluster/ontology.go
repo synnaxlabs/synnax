@@ -12,8 +12,9 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"strconv"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -37,9 +38,9 @@ func NodeOntologyID(key core.NodeKey) ontology.ID {
 	return ontology.ID{Type: nodeOntologyType, Key: strconv.Itoa(int(key))}
 }
 
-// ClusterOntologyID returns a unique identifier for a Cluster to use with a
+// OntologyID returns a unique identifier for a Cluster to use with a
 // resource Ontology.
-func ClusterOntologyID(key uuid.UUID) ontology.ID {
+func OntologyID(key uuid.UUID) ontology.ID {
 	return ontology.ID{Type: clusterOntologyType, Key: key.String()}
 }
 
@@ -111,7 +112,7 @@ func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource]
 func (s *NodeOntologyService) update(ctx context.Context, _ core.ClusterState) {
 	err := s.Ontology.DB.WithTx(ctx, func(txn gorp.Tx) error {
 		//w := s.Ontology.NewWriter(txn)
-		//clusterID := ClusterOntologyID(s.Cluster.Key())
+		//clusterID := OntologyID(s.Cluster.Key())
 		//if err := w.DefineResource(ctx, clusterID); err != nil {
 		//	return err
 		//}
@@ -191,7 +192,7 @@ func (s *OntologyService) OpenNexter() (iter.NexterCloser[schema.Resource], erro
 }
 
 func newClusterResource(key uuid.UUID) ontology.Resource {
-	r := schema.NewResource(_clusterSchema, ClusterOntologyID(key), "Cluster")
+	r := schema.NewResource(_clusterSchema, OntologyID(key), "Cluster")
 	schema.Set(r, "key", key.String())
 	return r
 }

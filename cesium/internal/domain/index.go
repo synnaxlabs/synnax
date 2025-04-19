@@ -11,10 +11,11 @@ package domain
 
 import (
 	"context"
+	"sync"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
-	"sync"
 )
 
 type index struct {
@@ -33,9 +34,10 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	{
 		_, span := idx.T.Bench(ctx, "domain/index.insert")
 		idx.mu.Lock()
-		defer idx.mu.Unlock()
-
-		defer span.End()
+		defer func() {
+			idx.mu.Unlock()
+			span.End()
+		}()
 
 		insertAt := 0
 
@@ -61,7 +63,11 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		} else if insertAt == len(idx.mu.pointers) {
 			idx.mu.pointers = append(idx.mu.pointers, p)
 		} else {
-			idx.mu.pointers = append(idx.mu.pointers[:insertAt], append([]pointer{p}, idx.mu.pointers[insertAt:]...)...)
+			idx.mu.pointers = append(
+				idx.mu.pointers[:insertAt],
+				append([]pointer{p},
+					idx.mu.pointers[insertAt:]...)...,
+			)
 		}
 
 		idx.persistHead = min(idx.persistHead, insertAt)

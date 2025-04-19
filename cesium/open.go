@@ -45,25 +45,25 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	db.mu.unaryDBs = make(map[core.ChannelKey]unary.DB, len(info))
 	db.mu.virtualDBs = make(map[core.ChannelKey]virtual.DB, len(info))
 	for _, i := range info {
-		if i.IsDir() {
-			key, err := strconv.Atoi(i.Name())
-			if err != nil {
-				db.options.L.Error(fmt.Sprintf(
-					"failed parsing existing folder <%s> to channel key",
-					i.Name()),
-					zap.Error(err),
-				)
-				continue
-			}
-
-			if err = db.openVirtualOrUnary(Channel{Key: ChannelKey(key)}); err != nil {
-				return nil, err
-			}
-		} else {
+		if !i.IsDir() {
 			db.options.L.Warn(fmt.Sprintf(
 				"Found unknown file %s in database root directory",
 				i.Name(),
 			))
+			continue
+		}
+		key, err := strconv.Atoi(i.Name())
+		if err != nil {
+			db.options.L.Error(fmt.Sprintf(
+				"failed parsing existing folder <%s> to channel key",
+				i.Name()),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		if err = db.openVirtualOrUnary(Channel{Key: ChannelKey(key)}); err != nil {
+			return nil, err
 		}
 	}
 
@@ -116,13 +116,15 @@ func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
 		if ok {
 			u.SetIndex(idxDB.Index())
 		}
-		err = db.openVirtualOrUnary(Channel{Key: u.Channel().Index})
-		if err != nil {
+		if err = db.openVirtualOrUnary(Channel{Key: u.Channel().Index}); err != nil {
 			return err
 		}
 		idxDB, ok = db.mu.unaryDBs[u.Channel().Index]
 		if !ok {
-			return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index)}
+			return validate.FieldError{
+				Field:   "index",
+				Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index),
+			}
 		}
 	}
 	db.mu.unaryDBs[ch.Key] = *u
