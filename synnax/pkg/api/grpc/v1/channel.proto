@@ -29,13 +29,12 @@ message Channel {
     uint32 key = 1;
     string name = 2;
     uint32 leaseholder = 3;
-    float rate = 4;
-    string data_type = 5;
-    int64 density = 6;
-    bool is_index = 7;
-    uint32 index = 8;
-    bool is_virtual = 9;
-    bool internal = 10;
+    string data_type = 4;
+    int64 density = 5;
+    bool is_index = 6;
+    uint32 index = 7;
+    bool is_virtual = 8;
+    bool internal = 9;
 }
 
 message ChannelRetrieveRequest {

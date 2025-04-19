@@ -30,14 +30,10 @@ Channel::Channel(const api::v1::Channel &ch):
     data_type(telem::DataType(ch.data_type())),
     key(ch.key()),
     index(ch.index()),
-    rate(telem::Rate(ch.rate())),
     is_index(ch.is_index()),
     leaseholder(ch.leaseholder()),
     is_virtual(ch.is_virtual()),
     internal(ch.internal()) {}
-
-Channel::Channel(std::string name, telem::DataType data_type, const telem::Rate rate):
-    name(std::move(name)), data_type(std::move(data_type)), rate(rate) {}
 
 Channel::Channel(
     std::string name,
@@ -56,7 +52,6 @@ Channel::Channel(std::string name, telem::DataType data_type, const bool is_virt
 void Channel::to_proto(api::v1::Channel *ch) const {
     ch->set_name(name);
     ch->set_data_type(data_type.name());
-    ch->set_rate(rate.hz());
     ch->set_is_index(is_index);
     ch->set_leaseholder(leaseholder);
     ch->set_index(index);
@@ -74,7 +69,6 @@ xerrors::Error ChannelClient::create(synnax::Channel &channel) const {
     channel.key = first.key();
     channel.name = first.name();
     channel.data_type = telem::DataType(first.data_type());
-    channel.rate = telem::Rate(first.rate());
     channel.is_index = first.is_index();
     channel.leaseholder = first.leaseholder();
     channel.index = first.index();
@@ -89,16 +83,6 @@ std::pair<Channel, xerrors::Error> ChannelClient::create(
     const bool is_index
 ) const {
     auto ch = Channel(name, data_type, index, is_index);
-    auto err = create(ch);
-    return {ch, err};
-}
-
-std::pair<Channel, xerrors::Error> ChannelClient::create(
-    const std::string &name,
-    const telem::DataType &data_type,
-    const telem::Rate rate
-) const {
-    auto ch = Channel(name, data_type, rate);
     auto err = create(ch);
     return {ch, err};
 }

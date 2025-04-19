@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package mathutil
+import { TimeStamp } from "@synnaxlabs/x";
 
-import "github.com/synnaxlabs/x/types"
-
-const MaxUint20 types.Uint20 = 2<<19 - 1
-const MaxUint12 types.Uint12 = 2<<11 - 1
+export const secondsLinspace = (start: number, n: number): TimeStamp[] =>
+  Array.from({ length: n }, (_, i) => start + i).map((n) => TimeStamp.seconds(n));

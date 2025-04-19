@@ -68,10 +68,13 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should work with a preset end", func() {
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 					Expect(w.Write([]byte{10, 11, 12, 13, 14})).To(Equal(5))
+					Expect(w.Len()).To(Equal(int64(5)))
 					Expect(w.Commit(ctx, 14*telem.SecondTS+1)).To(Succeed())
 					Expect(w.Write([]byte{15, 16, 17, 18, 19})).To(Equal(5))
+					Expect(w.Len()).To(Equal(int64(10)))
 					Expect(w.Commit(ctx, 19*telem.SecondTS+1)).To(Succeed())
 					Expect(w.Write([]byte{100, 101, 102, 103, 104})).To(Equal(5))
+					Expect(w.Len()).To(Equal(int64(15)))
 					Expect(w.Commit(ctx, 104*telem.SecondTS+1)).To(MatchError(ContainSubstring("cannot be greater than preset end timestamp")))
 					Expect(w.Close()).To(Succeed())
 				})

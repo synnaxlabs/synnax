@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package version_test
+package migrate_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -33,7 +33,7 @@ var _ = Describe("Migration Test", func() {
 			)
 			BeforeEach(func() { fs, cleanUp = makeFS() })
 			AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
-			Specify("Unversioned to v1", func() {
+			Specify("Unversioned to V1", func() {
 				By("Making a copy of an unversioned database")
 				sourceFS := MustSucceed(xfs.Default.Sub("../testdata/v1/db-data"))
 				destFS := fs
@@ -45,7 +45,7 @@ var _ = Describe("Migration Test", func() {
 				By("Asserting that the version got migrated, the meta file got changed, and the format is correct")
 				for _, ch := range testdata.Channels {
 					chInDB := MustSucceed(db.RetrieveChannel(ctx, ch.Key))
-					Expect(chInDB.Version).To(Equal(uint8(1)))
+					Expect(chInDB.Version).To(Equal(uint8(2)))
 
 					var (
 						channelFS = MustSucceed(fs.Sub(strconv.Itoa(int(ch.Key))))

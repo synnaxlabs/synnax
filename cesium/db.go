@@ -11,15 +11,16 @@ package cesium
 
 import (
 	"context"
+	"io"
+	"sync"
+	"sync/atomic"
+
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
-	"io"
-	"sync"
-	"sync/atomic"
 )
 
 type (
@@ -66,8 +67,12 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	if err != nil {
 		return span.Error(err)
 	}
-	w.Write(frame)
-	w.Commit()
+	if _, err = w.Write(frame); err != nil {
+		return err
+	}
+	if _, err = w.Commit(); err != nil {
+		return err
+	}
 	return span.Error(w.Close())
 }
 

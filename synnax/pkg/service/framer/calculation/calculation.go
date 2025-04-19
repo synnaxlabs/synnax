@@ -334,7 +334,6 @@ func (s *Service) startCalculation(
 	o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
 		s.cfg.L.DPanic(
 			"write of calculated channel value failed",
-			zap.Error(i.Error),
 			zap.Stringer("channel", ch),
 		)
 	})

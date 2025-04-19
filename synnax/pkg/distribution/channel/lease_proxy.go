@@ -63,7 +63,7 @@ func newLeaseProxy(
 		return nil, err
 	}
 	externalNonVirtualKeys := KeysFromChannels(externalNonVirtualChannels)
-	externalNonVirtualSet := set.NewInteger(externalNonVirtualKeys...)
+	externalNonVirtualSet := set.NewInteger[Key](externalNonVirtualKeys...)
 
 	p := &leaseProxy{
 		ServiceConfig:         cfg,
@@ -222,6 +222,12 @@ func (lp *leaseProxy) validateFreeVirtual(
 	tx gorp.Tx,
 ) error {
 	for _, ch := range *channels {
+		if len(ch.Name) == 0 {
+			return validate.FieldError{
+				Field:   "name",
+				Message: "name cannot be empty",
+			}
+		}
 		if ch.IsCalculated() {
 			if len(ch.Requires) == 0 {
 				return validate.FieldError{

@@ -12,6 +12,9 @@ package meta
 import (
 	"os"
 
+	"github.com/synnaxlabs/cesium/internal/migrate"
+	"github.com/synnaxlabs/cesium/internal/version"
+
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
@@ -22,11 +25,13 @@ import (
 
 const metaFile = "meta.json"
 
-// ReadOrCreate reads the metadata file for a database whose data is kept in fs and is
+var ErrorPurge = errors.New("channel should be purged")
+
+// Open reads the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. If the file does not exist, it will be created. If
 // the file does exist, it will be read and returned. The provided channel should have
 // all fields required by the DB correctly set.
-func ReadOrCreate(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel, error) {
+func Open(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel, error) {
 	exists, err := fs.Exists(metaFile)
 	if err != nil {
 		return ch, err
@@ -36,7 +41,20 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel,
 		if err != nil {
 			return ch, err
 		}
-		return ch, validateMeta(ch)
+		state := migrate.Migrate(migrate.DBState{Channel: ch, FS: fs})
+		if state.Purge {
+			return ch, ErrorPurge
+		}
+		if state.Channel.Version != ch.Version {
+			if err := Create(fs, codec, state.Channel); err != nil {
+				return ch, err
+			}
+		}
+		err = Validate(state.Channel)
+		if err != nil {
+			return state.Channel, err
+		}
+		return state.Channel, err
 	}
 
 	return ch, Create(fs, codec, ch)
@@ -59,7 +77,9 @@ func Read(fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
 	if err != nil {
 		err = errors.Wrapf(err, "error decoding meta in folder for channel %s", s.Name())
 	}
-
+	if ch.Version == version.Current {
+		return
+	}
 	return
 }
 
@@ -67,7 +87,7 @@ func Read(fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
 // encoded by the provided encoder. The provided channel should have all fields
 // required by the DB correctly set.
 func Create(fs xfs.FS, codec binary.Codec, ch core.Channel) error {
-	err := validateMeta(ch)
+	err := Validate(ch)
 	if err != nil {
 		return err
 	}
@@ -86,22 +106,21 @@ func Create(fs xfs.FS, codec binary.Codec, ch core.Channel) error {
 	return metaF.Close()
 }
 
-// validateMeta checks that the meta file read from or about to be written to a meta file
+// Validate checks that the meta file read from or about to be written to a meta file
 // is well-defined.
-func validateMeta(ch core.Channel) error {
+func Validate(ch core.Channel) error {
 	v := validate.New("meta")
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "dataType", ch.DataType)
 	if ch.Virtual {
 		v.Ternaryf("index", ch.Index != 0, "virtual channel cannot be indexed")
-		v.Ternaryf("rate", ch.Rate != 0, "virtual channel cannot have a rate")
 	} else {
 		v.Ternary("data_type", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
 		if ch.IsIndex {
 			v.Ternary("data_type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
-		} else if ch.Index == 0 {
-			validate.Positive(v, "rate", ch.Rate)
+		} else {
+			v.Ternaryf("index", ch.Index == 0, "non-indexed channel must have an index")
 		}
 	}
 	return v.Error()

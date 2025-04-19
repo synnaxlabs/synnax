@@ -57,7 +57,11 @@ type WriterConfig struct {
 	// ErrOnUnauthorized controls whether the writer will return an error on open when
 	// attempting to write to a channel that is does not have authority over.
 	// [OPTIONAL] - Defaults to false
-	ErrOnUnauthorized    *bool
+	ErrOnUnauthorized *bool
+	// AlignmentDomainIndex is the index of the domain that this writer is aligned to.
+	// This value is almost always set to the index of the domain within the 'Index'
+	// channel that is being written to at the same time as this writer. This value
+	// is used to guarantee alignment between samples written to index and data channels.
 	AlignmentDomainIndex uint32
 }
 
@@ -79,6 +83,8 @@ func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
 	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
+	validate.NotNil(v, "Persist", c.Persist)
+	validate.NotNil(v, "EnableAutoCommit", c.EnableAutoCommit)
 	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
 	return v.Error()
 }
@@ -98,7 +104,12 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 }
 
 func (c WriterConfig) domain() domain.WriterConfig {
-	return domain.WriterConfig{Start: c.Start, End: c.End, EnableAutoCommit: c.EnableAutoCommit, AutoIndexPersistInterval: c.AutoIndexPersistInterval}
+	return domain.WriterConfig{
+		Start:                    c.Start,
+		End:                      c.End,
+		EnableAutoCommit:         c.EnableAutoCommit,
+		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
+	}
 }
 
 func (c WriterConfig) controlTimeRange() telem.TimeRange {

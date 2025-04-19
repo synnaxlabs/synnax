@@ -11,7 +11,6 @@ package domain
 
 import (
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/telem"
 )
 
 // Reader is a readable domain of telemetry within the DB implementing the io.ReaderAt
@@ -23,6 +22,3 @@ type Reader struct {
 
 // Len returns the number of bytes in the entire domain.
 func (r *Reader) Len() int64 { return int64(r.ptr.length) }
-
-// Domain returns the time interval occupied by the domain.
-func (r *Reader) Domain() telem.TimeRange { return r.ptr.TimeRange }

@@ -11,10 +11,11 @@ package domain
 
 import (
 	"context"
+	"sync"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
-	"sync"
 )
 
 type index struct {
@@ -30,50 +31,54 @@ type index struct {
 
 // insert adds a new pointer to the index.
 func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
-	_, span := idx.T.Bench(ctx, "domain/index.insert")
-	idx.mu.Lock()
+	{
+		_, span := idx.T.Bench(ctx, "domain/index.insert")
+		idx.mu.Lock()
+		defer func() {
+			idx.mu.Unlock()
+			span.End()
+		}()
 
-	defer span.End()
+		insertAt := 0
 
-	insertAt := 0
-
-	if p.fileKey == 0 {
-		idx.L.DPanic("fileKey must be set")
-		idx.mu.Unlock()
-		return span.Error(errors.New("inserted pointer cannot have key 0"))
-	}
-	if len(idx.mu.pointers) != 0 {
-		// Hot path optimization for appending to the end of the index.
-		if idx.afterLast(p.Start) {
-			insertAt = len(idx.mu.pointers)
-		} else if !idx.beforeFirst(p.End) {
-			i, overlap := idx.unprotectedSearch(p.TimeRange)
-			if overlap {
-				idx.mu.Unlock()
-				return span.Error(NewErrWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
+		if p.fileKey == 0 {
+			idx.L.DPanic("fileKey must be set")
+			return span.Error(errors.New("inserted pointer cannot have key 0"))
+		}
+		if len(idx.mu.pointers) != 0 {
+			// Hot path optimization for appending to the end of the index.
+			if idx.afterLast(p.Start) {
+				insertAt = len(idx.mu.pointers)
+			} else if !idx.beforeFirst(p.End) {
+				i, overlap := idx.unprotectedSearch(p.TimeRange)
+				if overlap {
+					return span.Error(RangeWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
+				}
+				insertAt = i + 1
 			}
-			insertAt = i + 1
+		}
+
+		if insertAt == 0 {
+			idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
+		} else if insertAt == len(idx.mu.pointers) {
+			idx.mu.pointers = append(idx.mu.pointers, p)
+		} else {
+			idx.mu.pointers = append(
+				idx.mu.pointers[:insertAt],
+				append([]pointer{p},
+					idx.mu.pointers[insertAt:]...)...,
+			)
+		}
+
+		idx.persistHead = min(idx.persistHead, insertAt)
+
+		if !persist {
+			return nil
 		}
 	}
 
-	if insertAt == 0 {
-		idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
-	} else if insertAt == len(idx.mu.pointers) {
-		idx.mu.pointers = append(idx.mu.pointers, p)
-	} else {
-		idx.mu.pointers = append(idx.mu.pointers[:insertAt], append([]pointer{p}, idx.mu.pointers[insertAt:]...)...)
-	}
-
-	idx.persistHead = min(idx.persistHead, insertAt)
-
-	if persist {
-		persistPointers := idx.indexPersist.prepare(idx.persistHead)
-		idx.mu.Unlock()
-		return persistPointers()
-	}
-
-	idx.mu.Unlock()
-	return nil
+	persistPointers := idx.indexPersist.prepare(idx.persistHead)
+	return persistPointers()
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {
@@ -125,10 +130,10 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
 	if overlapsWithPrev {
 		idx.mu.Unlock()
-		return span.Error(NewErrWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
+		return span.Error(RangeWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
 	} else if overlapsWithNext {
 		idx.mu.Unlock()
-		return span.Error(NewErrWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
+		return span.Error(RangeWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
 	} else {
 		idx.mu.pointers[updateAt] = p
 	}

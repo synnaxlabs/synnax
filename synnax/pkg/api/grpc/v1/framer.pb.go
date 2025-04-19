@@ -416,11 +416,10 @@ func (x *FrameWriterRequest) GetFrame() *Frame {
 type FrameWriterResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
-	Ack           bool                   `protobuf:"varint,2,opt,name=ack,proto3" json:"ack,omitempty"`
-	NodeKey       int32                  `protobuf:"varint,3,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
-	Counter       int32                  `protobuf:"varint,4,opt,name=counter,proto3" json:"counter,omitempty"`
-	Error         *errors.PBPayload      `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
-	End           int64                  `protobuf:"varint,6,opt,name=end,proto3" json:"end,omitempty"`
+	NodeKey       int32                  `protobuf:"varint,2,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
+	Counter       int32                  `protobuf:"varint,3,opt,name=counter,proto3" json:"counter,omitempty"`
+	Error         *errors.PBPayload      `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	End           int64                  `protobuf:"varint,5,opt,name=end,proto3" json:"end,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -460,13 +459,6 @@ func (x *FrameWriterResponse) GetCommand() int32 {
 		return x.Command
 	}
 	return 0
-}
-
-func (x *FrameWriterResponse) GetAck() bool {
-	if x != nil {
-		return x.Ack
-	}
-	return false
 }
 
 func (x *FrameWriterResponse) GetNodeKey() int32 {
@@ -697,14 +689,13 @@ const file_synnax_pkg_api_grpc_v1_framer_proto_rawDesc = "" +
 	"\x12FrameWriterRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x121\n" +
 	"\x06config\x18\x02 \x01(\v2\x19.api.v1.FrameWriterConfigR\x06config\x12#\n" +
-	"\x05frame\x18\x03 \x01(\v2\r.api.v1.FrameR\x05frame\"\xb1\x01\n" +
+	"\x05frame\x18\x03 \x01(\v2\r.api.v1.FrameR\x05frame\"\x9f\x01\n" +
 	"\x13FrameWriterResponse\x12\x18\n" +
-	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x10\n" +
-	"\x03ack\x18\x02 \x01(\bR\x03ack\x12\x19\n" +
-	"\bnode_key\x18\x03 \x01(\x05R\anodeKey\x12\x18\n" +
-	"\acounter\x18\x04 \x01(\x05R\acounter\x12'\n" +
-	"\x05error\x18\x05 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x10\n" +
-	"\x03end\x18\x06 \x01(\x03R\x03end\"W\n" +
+	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x19\n" +
+	"\bnode_key\x18\x02 \x01(\x05R\anodeKey\x12\x18\n" +
+	"\acounter\x18\x03 \x01(\x05R\acounter\x12'\n" +
+	"\x05error\x18\x04 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x10\n" +
+	"\x03end\x18\x05 \x01(\x03R\x03end\"W\n" +
 	"\x14FrameStreamerRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12+\n" +
 	"\x11downsample_factor\x18\x02 \x01(\x05R\x10downsampleFactor\"e\n" +

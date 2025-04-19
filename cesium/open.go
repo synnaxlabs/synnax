@@ -11,7 +11,11 @@ package cesium
 
 import (
 	"fmt"
+	"strconv"
+	"sync/atomic"
+
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
@@ -19,8 +23,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"strconv"
-	"sync/atomic"
 )
 
 // Open opens a Cesium database on the specified directory. If the directory is not
@@ -43,25 +45,25 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	db.mu.unaryDBs = make(map[core.ChannelKey]unary.DB, len(info))
 	db.mu.virtualDBs = make(map[core.ChannelKey]virtual.DB, len(info))
 	for _, i := range info {
-		if i.IsDir() {
-			key, err := strconv.Atoi(i.Name())
-			if err != nil {
-				db.options.L.Error(fmt.Sprintf(
-					"failed parsing existing folder <%s> to channel key",
-					i.Name()),
-					zap.Error(err),
-				)
-				continue
-			}
-
-			if err = db.openVirtualOrUnary(Channel{Key: ChannelKey(key)}); err != nil {
-				return nil, err
-			}
-		} else {
+		if !i.IsDir() {
 			db.options.L.Warn(fmt.Sprintf(
 				"Found unknown file %s in database root directory",
 				i.Name(),
 			))
+			continue
+		}
+		key, err := strconv.Atoi(i.Name())
+		if err != nil {
+			db.options.L.Error(fmt.Sprintf(
+				"failed parsing existing folder <%s> to channel key",
+				i.Name()),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		if err = db.openVirtualOrUnary(Channel{Key: ChannelKey(key)}); err != nil {
+			return nil, err
 		}
 	}
 
@@ -114,13 +116,15 @@ func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
 		if ok {
 			u.SetIndex(idxDB.Index())
 		}
-		err = db.openVirtualOrUnary(Channel{Key: u.Channel().Index})
-		if err != nil {
+		if err = db.openVirtualOrUnary(Channel{Key: u.Channel().Index}); err != nil {
 			return err
 		}
 		idxDB, ok = db.mu.unaryDBs[u.Channel().Index]
 		if !ok {
-			return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index)}
+			return validate.FieldError{
+				Field:   "index",
+				Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index),
+			}
 		}
 	}
 	db.mu.unaryDBs[ch.Key] = *u
@@ -128,7 +132,7 @@ func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
 }
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
-	fs, err := db.fs.Sub(strconv.Itoa(int(ch.Key)))
+	fs, err := db.fs.Sub(keyToDirName(ch.Key))
 	if err != nil {
 		return err
 	}
@@ -136,7 +140,10 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 	if errors.Is(err, virtual.ErrNotVirtual) {
 		return db.openUnary(ch, fs)
 	}
-	return err
+	if !errors.Is(err, meta.ErrorPurge) {
+		return err
+	}
+	return db.fs.Remove(keyToDirName(ch.Key))
 }
 
 func openFS(opts *options) error {

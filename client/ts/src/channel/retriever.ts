@@ -20,6 +20,8 @@ import {
   type Keys,
   type KeysOrNames,
   keyZ,
+  type Name,
+  type Names,
   type Params,
   type Payload,
 } from "@/channel/payload";
@@ -53,8 +55,15 @@ const resZ = z.object({ channels: nullableArrayZ(channelZ) });
 
 export const analyzeParams = (
   channels: Params,
-): ParamAnalysisResult<KeyOrName, { number: "keys"; string: "names" }> =>
-  analyzeParameters(channels, { number: "keys", string: "names" });
+): ParamAnalysisResult<KeyOrName, { number: "keys"; string: "names" }> => {
+  if (Array.isArray(channels) && channels.length > 0 && typeof channels[0] === "object")
+    channels = (channels as Payload[]).map((c) => c.key);
+  else if (typeof channels === "object" && "key" in channels) channels = [channels.key];
+  return analyzeParameters(channels as Key | Name | Keys | Names, {
+    number: "keys",
+    string: "names",
+  });
+};
 
 export interface Retriever {
   retrieve: (channels: Params, opts?: RetrieveOptions) => Promise<Payload[]>;
@@ -120,10 +129,7 @@ export class CacheRetriever implements Retriever {
   }
 
   async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
-    const { normalized } = analyzeParameters<string | number>(channels, {
-      string: "names",
-      number: "keys",
-    });
+    const { normalized } = analyzeParams(channels);
     const results: Payload[] = [];
     const toFetch: KeysOrNames = [];
     normalized.forEach((keyOrName) => {

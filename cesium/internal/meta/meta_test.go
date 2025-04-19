@@ -37,7 +37,7 @@ var _ = Describe("Meta", Ordered, func() {
 				db := MustSucceed(cesium.Open("", cesium.WithFS(fs), cesium.WithInstrumentation(PanicLogger())))
 				key := GenerateChannelKey()
 
-				Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "Faraday", Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+				Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "Faraday", Virtual: true, DataType: telem.Int64T})).To(Succeed())
 				Expect(db.Close()).To(Succeed())
 
 				f, err := fs.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY)
@@ -58,7 +58,7 @@ var _ = Describe("Meta", Ordered, func() {
 
 				DescribeTable("meta configs", func(badCh cesium.Channel, badField string) {
 					db := MustSucceed(cesium.Open("", cesium.WithFS(fs), cesium.WithInstrumentation(PanicLogger())))
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "John", Virtual: true, DataType: telem.Int64T})).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 
 					f := MustSucceed(fs.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY))
@@ -72,10 +72,9 @@ var _ = Describe("Meta", Ordered, func() {
 					Expect(err).To(HaveOccurred())
 					Expect(err).To(MatchError(ContainSubstring(badField)))
 				},
-					Entry("datatype not set", cesium.Channel{Key: key, Rate: 1 * telem.Hz}, "dataType"),
-					Entry("virtual with rate", cesium.Channel{Key: key, Virtual: true, Rate: 1 * telem.Hz, DataType: telem.Int64T}, "virtual channel cannot have a rate"),
-					Entry("virtual indexed", cesium.Channel{Key: key, Virtual: true, Index: key + 100, DataType: telem.Int64T}, "virtual channel cannot be indexed"),
-					Entry("index not type timestamp", cesium.Channel{Key: key, IsIndex: true, DataType: telem.Float32T}, "index channel must be of type timestamp"),
+					Entry("datatype not set", cesium.Channel{Key: key, Name: "Wick", Virtual: true}, "dataType"),
+					Entry("virtual indexed", cesium.Channel{Key: key, Virtual: true, Name: "Snow?", Index: key + 100, DataType: telem.Int64T}, "virtual channel cannot be indexed"),
+					Entry("index not type timestamp", cesium.Channel{Key: key, Name: "Mulaney?", IsIndex: true, DataType: telem.Float32T}, "index channel must be of type timestamp"),
 				)
 			})
 		})

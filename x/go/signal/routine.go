@@ -254,7 +254,7 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	defer r.ctx.mu.Unlock()
 
 	if r.key == "" {
-		r.key = "anonymous-" + strconv.Itoa(len(r.ctx.mu.routines))
+		r.key = "anonymous_" + strconv.Itoa(len(r.ctx.mu.routines))
 	}
 
 	if r.useBreaker {
@@ -365,6 +365,7 @@ func (r *routine) zapFields() []zap.Field {
 	opts := []zap.Field{
 		zap.String("key", r.path()),
 		zap.Stringer("state", r.state.state),
+		zap.Strings("running", r.ctx.unsafeRunningKeys()),
 		zap.Error(r.state.err),
 	}
 	deferralKeys := make([]string, len(r.deferrals))

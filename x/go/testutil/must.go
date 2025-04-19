@@ -14,7 +14,7 @@ import (
 )
 
 func MustSucceed[T any](value T, err error) T {
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return value
 }
 

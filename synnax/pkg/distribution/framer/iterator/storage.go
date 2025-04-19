@@ -32,13 +32,20 @@ func newStorageResponseTranslator(
 	}
 }
 
-func newStorageRequestTranslator() func(ctx context.Context, in Request) (ts.IteratorRequest, bool, error) {
+func newStorageRequestTranslator(generateSeqNums bool) func(ctx context.Context, in Request) (ts.IteratorRequest, bool, error) {
+	seqNum := 0
 	return func(ctx context.Context, req Request) (ts.IteratorRequest, bool, error) {
-		return ts.IteratorRequest{
+		oReq := ts.IteratorRequest{
 			Command: ts.IteratorCommand(req.Command),
 			Span:    req.Span,
 			Stamp:   req.Stamp,
 			Bounds:  req.Bounds,
-		}, true, nil
+			SeqNum:  req.SeqNum,
+		}
+		if generateSeqNums {
+			seqNum++
+			oReq.SeqNum = seqNum
+		}
+		return oReq, true, nil
 	}
 }

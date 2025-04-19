@@ -10,6 +10,9 @@
 package cesium_test
 
 import (
+	"math"
+	"path"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -17,8 +20,6 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"math"
-	"path"
 )
 
 var _ = Describe("Garbage collection", Ordered, func() {
@@ -27,7 +28,6 @@ var _ = Describe("Garbage collection", Ordered, func() {
 			ShouldNotLeakRoutinesJustBeforeEach()
 			var (
 				db      *cesium.DB
-				rate    = testutil.GenerateChannelKey()
 				basic   = testutil.GenerateChannelKey()
 				index   = testutil.GenerateChannelKey()
 				fs      xfs.FS
@@ -51,58 +51,13 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
 				})
-				It("Should recycle properly for deletion on a rate channel", func() {
-					By("Creating a channel")
-					Expect(db.CreateChannel(
-						ctx,
-						cesium.Channel{Key: rate, DataType: telem.Uint64T, Rate: 1 * telem.Hz},
-					)).To(Succeed())
-
-					By("Writing data to the channel")
-					for i := 1; i <= 9; i++ {
-						var data []uint64
-						for j := 0; j <= 9; j++ {
-							data = append(data, uint64(i*100+j*10))
-						}
-
-						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, cesium.NewFrame(
-							[]cesium.ChannelKey{rate},
-							[]telem.Series{
-								telem.NewSeriesV[uint64](data...),
-							},
-						))).To(Succeed())
-					}
-
-					By("Deleting channel data")
-					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{rate}, telem.TimeRange{
-						Start: 20 * telem.SecondTS,
-						End:   50 * telem.SecondTS,
-					})).To(Succeed())
-
-					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{rate}, telem.TimeRange{
-						Start: 60 * telem.SecondTS,
-						End:   66 * telem.SecondTS,
-					})).To(Succeed())
-
-					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{rate}, telem.TimeRange{
-						Start: 63 * telem.SecondTS,
-						End:   78 * telem.SecondTS,
-					}))
-
-					By("Checking the resulting file size")
-					Eventually(func(g Gomega) uint32 {
-						i, err := fs.Stat(channelKeyToPath(rate) + "/1.domain")
-						g.Expect(err).ToNot(HaveOccurred())
-						return uint32(i.Size())
-					}).Should(Equal(uint32(42 * telem.Uint64T.Density())))
-				})
 
 				It("Should recycle properly for deletion on an indexed channel", func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: index, DataType: telem.TimeStampT, IsIndex: true},
-						cesium.Channel{Key: basic, DataType: telem.Int64T, Index: index},
+						cesium.Channel{Key: index, Name: "Muir", DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: basic, Name: "Carson", DataType: telem.Int64T, Index: index},
 					)).To(Succeed())
 
 					By("Writing data to the channel")
@@ -169,8 +124,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: index, DataType: telem.TimeStampT, IsIndex: true},
-						cesium.Channel{Key: basic, DataType: telem.Int64T, Index: index},
+						cesium.Channel{Key: index, Name: "Leopold", DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: basic, Name: "Goodall", DataType: telem.Int64T, Index: index},
 					)).To(Succeed())
 
 					By("Writing data to the channel")
@@ -246,8 +201,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					By("Creating channels")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: index, DataType: telem.TimeStampT, IsIndex: true},
-						cesium.Channel{Key: basic, DataType: telem.Int64T, Index: index},
+						cesium.Channel{Key: index, Name: "Attenborough", DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: basic, Name: "Cousteau", DataType: telem.Int64T, Index: index},
 					)).To(Succeed())
 
 					By("Writing data to the channel")

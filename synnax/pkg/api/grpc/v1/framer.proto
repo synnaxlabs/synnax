@@ -64,11 +64,10 @@ message FrameWriterRequest {
 
 message FrameWriterResponse {
     int32 command = 1;
-    bool ack = 2;
-    int32 node_key = 3;
-    int32 counter = 4;
-    errors.PBPayload error = 5;
-    int64 end = 6;
+    int32 node_key = 2;
+    int32 counter = 3;
+    errors.PBPayload error = 4;
+    int64 end = 5;
 }
 
 message FrameStreamerRequest {

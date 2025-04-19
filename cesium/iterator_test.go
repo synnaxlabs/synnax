@@ -48,10 +48,10 @@ var _ = Describe("Iterator Behavior", func() {
 				BeforeAll(func() {
 					data1Key, index1Key, data2Key, index2Key = GenerateChannelKey(),
 						GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
-					index1 = cesium.Channel{Key: index1Key, IsIndex: true, DataType: telem.TimeStampT}
-					data1 = cesium.Channel{Key: data1Key, Index: index1Key, DataType: telem.Uint16T}
-					index2 = cesium.Channel{Key: index2Key, IsIndex: true, DataType: telem.TimeStampT}
-					data2 = cesium.Channel{Key: data2Key, Index: index2Key, DataType: telem.Uint16T}
+					index1 = cesium.Channel{Key: index1Key, Name: "Magellan", IsIndex: true, DataType: telem.TimeStampT}
+					data1 = cesium.Channel{Key: data1Key, Name: "Columbus", Index: index1Key, DataType: telem.Uint16T}
+					index2 = cesium.Channel{Key: index2Key, Name: "DaGama", IsIndex: true, DataType: telem.TimeStampT}
+					data2 = cesium.Channel{Key: data2Key, Name: "Vespucci", Index: index2Key, DataType: telem.Uint16T}
 
 					Expect(db.CreateChannel(ctx, index1, data1, index2, data2)).To(Succeed())
 					Expect(db.Write(ctx, 0, cesium.NewFrame(
@@ -193,6 +193,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(f.Get(data2Key)[1].Data).To(EqualUnmarshal([]uint16{11, 12}))
 					Expect(i.Close()).To(Succeed())
 				})
+
 				Specify("No bound", func() {
 					i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 						Bounds:   telem.TimeRangeMax,
@@ -222,6 +223,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Next(1 * telem.Second)).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
 				})
+
 				Specify("Auto-Span", func() {
 					// Index1: [ 0  1  2 / _  4]  _  _  [7  _  9  /  10  _  12]   _   _  15
 					// Data1:  [10 11 12 / _ 14]  _  _ [17  _ 19  /  20  _  22]   _   _  25
@@ -255,10 +257,29 @@ var _ = Describe("Iterator Behavior", func() {
 				})
 			})
 
+			Describe("Open", func() {
+				It("Should return an error when attempting to open an iterator on a virtual channel", func() {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Marco",
+						DataType: telem.Float32T,
+						Virtual:  true,
+					})).To(Succeed())
+					_, err := db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{key}})
+					Expect(err).To(MatchError(ContainSubstring("virtual")))
+				})
+			})
+
 			Describe("Close", func() {
 				It("Should not allow operations on a closed iterator", func() {
 					key := GenerateChannelKey()
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Cook",
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					})).To(Succeed())
 					var (
 						i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{key}}))
 						e = core.EntityClosed("cesium.iterator")
@@ -275,7 +296,12 @@ var _ = Describe("Iterator Behavior", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Drake",
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{key}})
 					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
@@ -287,7 +313,12 @@ var _ = Describe("Iterator Behavior", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Polo",
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{key}})
 					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
@@ -299,7 +330,12 @@ var _ = Describe("Iterator Behavior", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Zheng",
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.Read(ctx, telem.TimeRangeMax, key)
 					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))

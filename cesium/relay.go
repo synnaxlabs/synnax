@@ -31,6 +31,7 @@ func openRelay(sCtx signal.Context) *relay {
 		sCtx,
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
+		confluence.WithAddress("relay"),
 	)
 	return &relay{
 		delta: delta,

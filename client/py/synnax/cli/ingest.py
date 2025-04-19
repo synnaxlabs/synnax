@@ -417,7 +417,6 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
                     name=ch.name,
                     is_index=False,
                     index="" if is_rate else rate_or_index,
-                    rate=rate_or_index if is_rate else 0,
                     data_type=[dt for dt, chs in dt_grouped.items() if ch in chs][0],
                 )
             )

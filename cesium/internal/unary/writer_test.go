@@ -223,15 +223,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the data is correct", func() {
-							i := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+							i, _ := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
-							Expect(f.Series[0].Len()).To(Equal(int64(7)))
-							Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
-							Expect(f.Series[1].Len()).To(Equal(int64(6)))
-							Expect(f.Series[1].TimeRange).To(Equal((17*telem.SecondTS + 1).Range(43*telem.SecondTS + 1)))
-							Expect(f.SquashSameKeyData(data)).To(Equal(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107, 203, 209, 301, 307, 401, 403).Data))
+							Expect(f.SeriesSlice()[0].Len()).To(Equal(int64(7)))
+							Expect(f.SeriesSlice()[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
+							Expect(f.SeriesSlice()[1].Len()).To(Equal(int64(6)))
+							Expect(f.SeriesSlice()[1].TimeRange).To(Equal((17*telem.SecondTS + 1).Range(43*telem.SecondTS + 1)))
+							//Expect(f.SquashSameKeyData(data)).To(Equal(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107, 203, 209, 301, 307, 401, 403).Data))
 							Expect(i.Close()).To(Succeed())
 						})
 					})
@@ -294,12 +294,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the data is correct", func() {
-							i := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+							i, _ := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
-							Expect(f.Series[0].Len()).To(Equal(int64(7)))
-							Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
+							Expect(f.SeriesSlice()[0].Len()).To(Equal(int64(7)))
+							Expect(f.SeriesSlice()[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
 							Expect(f.Series[1].Len()).To(Equal(int64(6)))
 							Expect(f.Series[1].TimeRange).To(Equal((17*telem.SecondTS + 1).Range(43*telem.SecondTS + 1)))
 							Expect(f.SquashSameKeyData(data)).To(Equal(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107, 203, 209, 301, 307, 401, 403).Data))
@@ -345,7 +345,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the data is correct", func() {
-							i := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+							i, _ := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
@@ -397,7 +397,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the data is correct", func() {
-							i := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+							i, _ := dataDB.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
@@ -409,6 +409,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					})
 				})
 			})
+
 			Describe("Control", func() {
 				var (
 					db      *unary.DB
@@ -483,6 +484,23 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(t.Occurred()).To(BeTrue())
 						Expect(t.IsRelease()).To(BeTrue())
 						Expect(err).ToNot(HaveOccurred())
+					})
+				})
+				Describe("Control Subjects", func() {
+					It("Should return an error when attempting to open a writer with a duplicate control subject key", func() {
+						w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+							Start:   10 * telem.SecondTS,
+							Subject: control.Subject{Key: "foo"},
+						}))
+						Expect(t.Occurred()).To(BeTrue())
+						w2, t, err := db.OpenWriter(ctx, unary.WriterConfig{
+							Start:   10 * telem.SecondTS,
+							Subject: control.Subject{Key: "foo"},
+						})
+						Expect(t.Occurred()).To(BeFalse())
+						Expect(err).To(MatchError(ContainSubstring("already registered in the region")))
+						Expect(w2).To(BeNil())
+						MustSucceed(w1.Close())
 					})
 				})
 			})

@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -140,7 +141,6 @@ func (db *DB) createChannel(ch Channel) (err error) {
 			"creating channel",
 			zap.Uint32("key", ch.Key),
 			zap.Uint32("index", ch.Index),
-			zap.Float64("rate", float64(ch.Rate)),
 			zap.String("datatype", string(ch.DataType)),
 			zap.Bool("isIndex", ch.IsIndex),
 			zap.Error(err),
@@ -162,6 +162,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	v := validate.New("cesium")
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data_type", ch.DataType)
+	validate.NotEmptyString(v, "name", ch.Name)
 	v.Exec(func() error {
 		_, uOk := db.mu.unaryDBs[ch.Key]
 		_, vOk := db.mu.virtualDBs[ch.Key]
@@ -172,7 +173,6 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	})
 	if ch.Virtual {
 		v.Ternaryf("index", ch.Index != 0, "virtual channel cannot be indexed")
-		v.Ternaryf("index", ch.Rate != 0, "virtual channel cannot have a rate")
 	} else {
 		v.Ternary("index", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
 		if ch.IsIndex {
@@ -185,7 +185,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 				v.Ternaryf("index", !indexDB.Channel().IsIndex, "channel %v is not an index", indexDB.Channel())
 			}
 		} else {
-			validate.Positive(v, "rate", ch.Rate)
+			v.Ternaryf("index", ch.Index != 0, "non-indexed channel must have an index")
 		}
 	}
 	return v.Error()
@@ -198,9 +198,9 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	_, uok := db.mu.unaryDBs[newKey]
-	_, vok := db.mu.virtualDBs[newKey]
-	if uok || vok {
+	_, uOk := db.mu.unaryDBs[newKey]
+	_, vOk := db.mu.virtualDBs[newKey]
+	if uOk || vOk {
 		return errors.Newf(
 			"cannot rekey channel to %d since a channel with the same key already exists in the database",
 			newKey,
@@ -209,9 +209,9 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 
 	oldDir := keyToDirName(oldKey)
 	newDir := keyToDirName(newKey)
-	udb, uok := db.mu.unaryDBs[oldKey]
-	if uok {
-		if err := udb.Close(); err != nil {
+	uDB, uOk := db.mu.unaryDBs[oldKey]
+	if uOk {
+		if err := uDB.Close(); err != nil {
 			return err
 		}
 		if err := db.fs.Rename(oldDir, newDir); err != nil {
@@ -221,7 +221,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		if err != nil {
 			return err
 		}
-		newCh := udb.Channel()
+		newCh := uDB.Channel()
 		newCh.Key = newKey
 		if newCh.IsIndex {
 			newCh.Index = newKey
@@ -243,7 +243,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 
 		// If the DB is an index channel, we need to update the databases that depend
 		// on this channel.
-		if udb.Channel().IsIndex {
+		if uDB.Channel().IsIndex {
 			for otherDBKey := range db.mu.unaryDBs {
 				otherDB := db.mu.unaryDBs[otherDBKey]
 				// If the other database uses this channel as its index, and it's not
@@ -259,9 +259,9 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		}
 		return nil
 	}
-	vdb, vok := db.mu.virtualDBs[oldKey]
-	if vok {
-		if err := vdb.Close(); err != nil {
+	vDB, vOk := db.mu.virtualDBs[oldKey]
+	if vOk {
+		if err := vDB.Close(); err != nil {
 			return err
 		}
 		if err := db.fs.Rename(oldDir, newDir); err != nil {
@@ -271,7 +271,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		if err != nil {
 			return err
 		}
-		newChannel := vdb.Channel()
+		newChannel := vDB.Channel()
 		newChannel.Key = newKey
 		_vdb, err := virtual.Open(virtual.Config{
 			Instrumentation: db.Instrumentation,

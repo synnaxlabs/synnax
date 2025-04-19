@@ -171,10 +171,8 @@ func (t frameWriterResponseTranslator) Forward(
 ) (*gapi.FrameWriterResponse, error) {
 	return &gapi.FrameWriterResponse{
 		Command: int32(msg.Command),
-		Ack:     msg.Ack,
 		Counter: int32(msg.SeqNum),
 		NodeKey: int32(msg.NodeKey),
-		Error:   fgrpc.EncodeError(ctx, msg.Error, false),
 		End:     int64(msg.End),
 	}, nil
 }
@@ -185,10 +183,8 @@ func (t frameWriterResponseTranslator) Backward(
 ) (api.FrameWriterResponse, error) {
 	return api.FrameWriterResponse{
 		Command: writer.Command(msg.Command),
-		Ack:     msg.Ack,
 		SeqNum:  int(msg.Counter),
 		NodeKey: core.NodeKey(msg.NodeKey),
-		Error:   fgrpc.DecodeError(ctx, msg.Error),
 		End:     telem.TimeStamp(msg.End),
 	}, nil
 }

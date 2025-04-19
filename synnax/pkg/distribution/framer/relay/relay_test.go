@@ -12,6 +12,9 @@ package relay_test
 import (
 	"context"
 	"fmt"
+	"io"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -28,8 +31,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"io"
-	"time"
 )
 
 type scenario struct {
@@ -119,17 +120,17 @@ func newChannelSet() []channel.Channel {
 	return []channel.Channel{
 		{
 			Name:     "test1",
-			Rate:     1 * telem.Hz,
+			Virtual:  true,
 			DataType: telem.Int64T,
 		},
 		{
 			Name:     "test2",
-			Rate:     1 * telem.Hz,
+			Virtual:  true,
 			DataType: telem.Int64T,
 		},
 		{
 			Name:     "test3",
-			Rate:     1 * telem.Hz,
+			Virtual:  true,
 			DataType: telem.Int64T,
 		},
 	}

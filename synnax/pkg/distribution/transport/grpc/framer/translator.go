@@ -105,10 +105,11 @@ func (writerResponseTranslator) Backward(
 	res *framerv1.WriterResponse,
 ) (writer.Response, error) {
 	return writer.Response{
-		Command: writer.Command(res.Command),
-		SeqNum:  int(res.SeqNum),
-		Ack:     res.Ack,
-		Error:   fgrpc.DecodeError(ctx, res.Error),
+		Command:    writer.Command(res.Command),
+		SeqNum:     int(res.SeqNum),
+		NodeKey:    dcore.NodeKey(res.NodeKey),
+		Authorized: res.Authorized,
+		End:        telem.TimeStamp(res.End),
 	}, nil
 }
 
@@ -118,10 +119,11 @@ func (writerResponseTranslator) Forward(
 	res writer.Response,
 ) (*framerv1.WriterResponse, error) {
 	return &framerv1.WriterResponse{
-		Command: int32(res.Command),
-		SeqNum:  int32(res.SeqNum),
-		Ack:     res.Ack,
-		Error:   fgrpc.EncodeError(ctx, res.Error, true),
+		Command:    int32(res.Command),
+		SeqNum:     int32(res.SeqNum),
+		NodeKey:    int32(res.NodeKey),
+		End:        int64(res.End),
+		Authorized: res.Authorized,
 	}, nil
 }
 

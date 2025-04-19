@@ -18,15 +18,12 @@ package memkv
 import (
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/cockroachdb/pebble/v2/vfs"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 )
 
 // New opens a new in-memory key-value store implementing the kv.DB interface.
 func New() kv.DB {
-	db, err := pebble.Open("", &pebble.Options{FS: vfs.NewMem()})
-	if err != nil {
-		panic(err)
-	}
-	return pebblekv.Wrap(db)
+	return pebblekv.Wrap(lo.Must(pebble.Open("", &pebble.Options{FS: vfs.NewMem()})))
 }

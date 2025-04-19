@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/meta"
-	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -91,7 +90,7 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Channel, err = meta.ReadOrCreate(cfg.FS, cfg.Channel, cfg.MetaCodec)
+	cfg.Channel, err = meta.Open(cfg.FS, cfg.Channel, cfg.MetaCodec)
 	if err != nil {
 		return nil, err
 	}
@@ -123,23 +122,6 @@ func Open(configs ...Config) (*DB, error) {
 	db.leadingAlignment.Store(telem.ZeroLeadingAlignment)
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation, Channel: cfg.Channel}
-	} else if cfg.Channel.Index == 0 {
-		db._idx = index.Rate{Rate: cfg.Channel.Rate, Channel: cfg.Channel}
 	}
-	return db, db.checkMigration()
-}
-
-// checkMigration compares the version stored in channel to the current version of the
-// data engine format. If there is a migration to be performed, data is migrated and
-// persisted to the new version.
-func (db *DB) checkMigration() error {
-	if db.cfg.Channel.Version == version.Current {
-		return nil
-	}
-	err := version.Migrate(db.cfg.FS, db.cfg.Channel.Version, version.Current)
-	if err != nil {
-		return err
-	}
-	db.cfg.Channel.Version = version.Current
-	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+	return db, nil
 }

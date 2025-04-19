@@ -21,7 +21,6 @@ var (
 	index2   cesium.ChannelKey = 4
 	basic3   cesium.ChannelKey = 5
 	basic4   cesium.ChannelKey = 6
-	rate     cesium.ChannelKey = 7
 	virtual  cesium.ChannelKey = 8
 	Channels                   = []cesium.Channel{
 		{Key: index1, IsIndex: true, DataType: telem.TimeStampT},
@@ -31,17 +30,15 @@ var (
 		{Key: basic3, Index: index2, DataType: telem.Uint16T},
 		{Key: basic4, Index: index2, DataType: telem.Int64T},
 		{Key: virtual, Virtual: true, DataType: telem.StringT},
-		{Key: rate, Rate: 2 * telem.Hz, DataType: telem.Uint32T},
 	}
 	Frames = []cesium.Frame{
 		cesium.NewFrame(
-			[]cesium.ChannelKey{index1, basic1, basic2, index2, rate},
+			[]cesium.ChannelKey{index1, basic1, basic2, index2},
 			[]telem.Series{
 				telem.NewSecondsTSV(0, 1, 2, 3, 5, 6, 7, 9),
 				telem.NewSeriesV[uint8](10, 11, 12, 13, 15, 16, 17, 19),
 				telem.NewSeriesV[int64](100, 101, 102, 103, 105, 106, 107, 109),
 				telem.NewSecondsTSV(0, 1, 2, 3, 6, 7, 8, 9),
-				telem.NewSeriesV[uint32](0, 5, 10, 15, 20, 25, 30, 35),
 			}),
 		cesium.NewFrame([]cesium.ChannelKey{basic3, basic4},
 			[]telem.Series{
@@ -49,12 +46,11 @@ var (
 				telem.NewSeriesV[int64](1, 11, 21, 31, 61),
 			}),
 		cesium.NewFrame(
-			[]cesium.ChannelKey{index1, basic1, basic2, rate},
+			[]cesium.ChannelKey{index1, basic1, basic2},
 			[]telem.Series{
 				telem.NewSecondsTSV(10, 13, 17, 18, 19),
 				telem.NewSeriesV[uint8](100, 103, 107, 108, 109),
 				telem.NewSeriesV[int64](100, 103, 107, 108, 109),
-				telem.NewSeriesV[uint32](1000, 1050, 1100, 1150, 1200),
 			}),
 		cesium.NewFrame(
 			[]cesium.ChannelKey{index2, basic3, basic4},

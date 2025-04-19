@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/atomic"
 )
 
-var _ = Describe("SeqNum", func() {
+var _ = Describe("Counter", func() {
 	Describe("Int32Counter", func() {
 		It("Should increment the counter atomically", func() {
 			wg := sync.WaitGroup{}
@@ -57,5 +57,14 @@ var _ = Describe("SeqNum", func() {
 			wg.Wait()
 			Expect(c.Value()).To(Equal(int64(10000)))
 		})
+
+		Describe("Set", func() {
+			It("Should set the counter value", func() {
+				c := atomic.Int64Counter{}
+				c.Set(42)
+				Expect(c.Value()).To(Equal(int64(42)))
+			})
+		})
 	})
+
 })

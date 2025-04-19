@@ -11,6 +11,8 @@ package unary
 
 import (
 	"context"
+	"io"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -19,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
-	"io"
 )
 
 type IteratorConfig struct {
@@ -69,7 +70,10 @@ type Iterator struct {
 	closed   bool
 }
 
-func (db *DB) OpenIterator(cfgs ...IteratorConfig) *Iterator {
+func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
+	if db.closed.Load() {
+		return nil, db.wrapError(ErrDBClosed)
+	}
 	// Safe to ignore error here as Validate will always return nil
 	cfg, _ := config.New(DefaultIteratorConfig, cfgs...)
 	iter := db.domain.OpenIterator(cfg.domainIteratorConfig())
@@ -80,7 +84,7 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) *Iterator {
 		IteratorConfig: cfg,
 	}
 	i.SetBounds(cfg.Bounds)
-	return i
+	return i, nil
 }
 
 const AutoSpan telem.TimeSpan = -1

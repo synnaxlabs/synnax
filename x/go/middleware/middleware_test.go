@@ -43,7 +43,7 @@ func (m *myFinalizer) Finalize(req *request) (*response, error) {
 	return nil, nil
 }
 
-var _ = Describe("ExecSequentially", func() {
+var _ = Describe("Middleware", func() {
 	It("Should execute middleware in the correct order", func() {
 		chain := &middleware.Chain[*request, *response]{
 			&myFirstMiddleware{},
@@ -51,6 +51,16 @@ var _ = Describe("ExecSequentially", func() {
 		}
 		req := &request{}
 		_, err := chain.Exec(req, &myFinalizer{})
+		Expect(err).To(BeNil())
+		Expect(req.value).To(Equal("request"))
+	})
+
+	It("Should collect middleware correctly", func() {
+		collector := &middleware.Collector[*request, *response]{}
+		collector.Use(&myFirstMiddleware{})
+		collector.Use(&myFirstMiddleware{})
+		req := &request{}
+		_, err := collector.Chain.Exec(req, &myFinalizer{})
 		Expect(err).To(BeNil())
 		Expect(req.value).To(Equal("request"))
 	})
