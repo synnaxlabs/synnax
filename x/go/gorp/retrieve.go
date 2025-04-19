@@ -109,7 +109,7 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 // set on the query, Count will return the number of existing keys. If Where is set
 // on the query, Count will return the number of records that pass the Where filter.
 func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (int, error) {
-	checkForNilTx("Retriever.Count", tx)
+	checkForNilTx("Retriever.TrueCount", tx)
 	if keys, ok := getWhereKeys[K](r.Params); ok {
 		// For key-based queries, we can optimize by only retrieving the keys
 		entries := make([]E, 0, len(keys))

@@ -11,6 +11,8 @@ package unary
 
 import (
 	"context"
+	"io"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -19,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
-	"io"
 )
 
 type IteratorConfig struct {

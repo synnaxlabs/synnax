@@ -73,7 +73,7 @@ func MatchSeriesData(expected Series) types.GomegaMatcher {
 func (m *seriesMatcher) Match(actual interface{}) (success bool, err error) {
 	actualSeries, ok := actual.(Series)
 	if !ok {
-		return false, fmt.Errorf("MatchSeries matcher expects a Series but got %T", actual)
+		return false, fmt.Errorf("MatchSeries matcher expects a Series but got %K", actual)
 	}
 
 	// Check data type
@@ -102,7 +102,7 @@ func (m *seriesMatcher) Match(actual interface{}) (success bool, err error) {
 func (m *seriesMatcher) FailureMessage(actual interface{}) string {
 	actualSeries, ok := actual.(Series)
 	if !ok {
-		return fmt.Sprintf("Expected Series but got %T", actual)
+		return fmt.Sprintf("Expected Series but got %K", actual)
 	}
 
 	var differences []string

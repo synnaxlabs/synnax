@@ -165,41 +165,42 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	if len(cfg.Authorities) == 0 {
 		return nil
 	}
-	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
-	if len(cfg.Channels) == 0 {
-		for _, chW := range w.virtual.internal {
-			if t := chW.SetAuthority(cfg.Authorities[0]); t.Occurred() {
+	var (
+		u       = ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
+		getAuth = func(ch ChannelKey) (control.Authority, bool) {
+			return cfg.Authorities[0], true
+		}
+	)
+
+	if len(cfg.Channels) > 0 {
+		values := make(map[ChannelKey]control.Authority, len(cfg.Channels))
+		for i, ch := range cfg.Channels {
+			values[ch] = cfg.authority(i)
+		}
+		getAuth = func(ch ChannelKey) (control.Authority, bool) {
+			v, ok := values[ch]
+			return v, ok
+		}
+
+	}
+	for _, chW := range w.virtual.internal {
+		if auth, ok := getAuth(chW.Channel.Key); ok {
+			if t := chW.SetAuthority(auth); t.Occurred() {
 				u.Transfers = append(u.Transfers, t)
 			}
 		}
+	}
 
-		for _, idx := range w.internal {
-			for _, chW := range idx.internal {
-				if t := chW.SetAuthority(cfg.Authorities[0]); t.Occurred() {
+	for _, idx := range w.internal {
+		for _, chW := range idx.internal {
+			if auth, ok := getAuth(chW.Channel.Key); ok {
+				if t := chW.SetAuthority(auth); t.Occurred() {
 					u.Transfers = append(u.Transfers, t)
 				}
 			}
 		}
-	} else {
-		for i, ch := range cfg.Channels {
-			for _, idx := range w.internal {
-				for _, chW := range idx.internal {
-					if chW.Channel.Key == ch {
-						if t := chW.SetAuthority(cfg.authority(i)); t.Occurred() {
-							u.Transfers = append(u.Transfers, t)
-						}
-					}
-				}
-			}
-			for _, chW := range w.virtual.internal {
-				if chW.Channel.Key == ch {
-					if t := chW.SetAuthority(cfg.authority(i)); t.Occurred() {
-						u.Transfers = append(u.Transfers, t)
-					}
-				}
-			}
-		}
 	}
+
 	if len(u.Transfers) > 0 {
 		return w.updateDBControl(ctx, u)
 	}

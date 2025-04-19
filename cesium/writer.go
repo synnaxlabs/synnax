@@ -83,7 +83,7 @@ func (w *Writer) exec(req WriterRequest, sync bool) (res WriterResponse, err err
 	if !sync {
 		return
 	}
-	for res := range w.responses.Outlet() {
+	for res = range w.responses.Outlet() {
 		if res.Command == req.Command {
 			return res, nil
 		}
