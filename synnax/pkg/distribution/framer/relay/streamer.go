@@ -96,7 +96,7 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			case f := <-responses.Outlet():
 				filtered := f.Frame.FilterKeys(r.cfg.Keys)
 				// Don't send if the frame is empty.
-				if len(filtered.Keys) == 0 {
+				if filtered.Empty() {
 					continue
 				}
 				res := Response{Error: f.Error, Frame: f.Frame.FilterKeys(r.cfg.Keys)}

@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"io"
 )
@@ -39,53 +39,53 @@ var _ = Describe("Iterator", func() {
 				writer := MustSucceed(s.writerService.New(context.TODO(), writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
+					Sync:  config.True(),
 				}))
-				Expect(writer.Write(core.Frame{
+				MustSucceed(writer.Write(core.Frame{
 					Keys: s.keys,
 					Series: []telem.Series{
-						telem.NewSeriesV[int64](10, 11, 12),
+						telem.NewSecondsTSV(10, 11, 12),
 					}},
-				)).To(BeTrue())
-				Expect(writer.Write(core.Frame{
+				))
+				MustSucceed(writer.Write(core.Frame{
 					Keys: s.keys,
 					Series: []telem.Series{
-						telem.NewSeriesV[int64](13, 14, 15, 16, 17),
+						telem.NewSecondsTSV(13, 14, 15, 16, 17),
 					}},
-				)).To(BeTrue())
-				Expect(writer.Write(core.Frame{
+				))
+				MustSucceed(writer.Write(core.Frame{
 					Keys: s.keys,
 					Series: []telem.Series{
-						telem.NewSeriesV[int64](18, 19, 20, 21, 22),
+						telem.NewSecondsTSV(18, 19, 20, 21, 22),
 					},
-				})).To(BeTrue())
-				Expect(writer.Commit()).To(BeTrue())
-				Expect(writer.Error()).To(Succeed())
+				}))
+				MustSucceed(writer.Commit())
 				Expect(writer.Close()).To(Succeed())
 			})
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
-				iter := MustSucceed(s.iteratorService.New(context.TODO(), iterator.Config{
+				iter := MustSucceed(s.iteratorService.New(ctx, iterator.Config{
 					Keys:   s.keys,
 					Bounds: telem.TimeRangeMax,
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(4 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{10, 11, 12, 13}))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(10, 11, 12, 13)))
 				Expect(iter.SeekLast()).To(BeTrue())
 				Expect(iter.Prev(6 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{17, 18, 19, 20, 21, 22}))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(17, 18, 19, 20, 21, 22)))
 
 				Expect(iter.SeekGE(100 * telem.SecondTS)).To(BeFalse())
 				Expect(iter.Valid()).To(BeFalse())
 				Expect(iter.SeekLE(22*telem.SecondTS + 1)).To(BeTrue())
 				Expect(iter.Prev(2 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{21, 22}))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(21, 22)))
 
 				Expect(iter.SeekLE(0 * telem.SecondTS)).To(BeFalse())
 				Expect(iter.Valid()).To(BeFalse())
 				Expect(iter.SeekGE(13 * telem.SecondTS)).To(BeTrue())
 				Expect(iter.Next(20 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{13, 14, 15, 16, 17, 18, 19, 20, 21, 22}))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(13, 14, 15, 16, 17, 18, 19, 20, 21, 22)))
 
 				Expect(iter.Close()).To(Succeed())
 			})
@@ -98,11 +98,11 @@ var _ = Describe("Iterator", func() {
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{10, 11, 12}))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(10, 11, 12)))
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{13, 14, 15}))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(13, 14, 15)))
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{16, 17, 18}))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(16, 17, 18)))
 
 				Expect(iter.Close()).To(Succeed())
 			})
@@ -123,8 +123,8 @@ func newChannelSet() []channel.Channel {
 	return []channel.Channel{
 		{
 			Name:     "test1",
-			Rate:     1 * telem.Hz,
-			DataType: telem.Int64T,
+			IsIndex:  true,
+			DataType: telem.TimeStampT,
 		},
 	}
 }

@@ -11,6 +11,9 @@ package domain
 
 import (
 	"context"
+	"math"
+	"sync/atomic"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
@@ -21,8 +24,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"math"
-	"sync/atomic"
 )
 
 var (
@@ -30,19 +31,34 @@ var (
 	ErrWriteConflict = errors.Wrap(validate.Error, "write overlaps with existing data in database")
 	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
 	ErrRangeNotFound = errors.Wrap(query.NotFound, "time range not found")
-	ErrOpenEntity    = errors.New("cannot close database because there are open entities on it")
 	errDBClosed      = core.EntityClosed("domain.db")
 )
 
-func NewErrWriteConflict(tr1, tr2 telem.TimeRange) error {
-	intersection := tr1.Intersection(tr2)
+func RangeWriteConflict(writerTr, existingTr telem.TimeRange) error {
+	if writerTr.Span().IsZero() {
+		return PointWriteConflict(writerTr.Start, existingTr)
+	}
+	intersection := writerTr.Intersection(existingTr)
 	return errors.Wrapf(
 		ErrWriteConflict,
-		"write for bounds %v overlaps with existing data occupying time range "+
-			"%v for a time span of %v",
-		tr1,
-		tr2,
+		"write for range %s overlaps with existing data occupying time range "+
+			"%s for a time span of %s",
+		writerTr,
+		existingTr,
 		intersection.Span(),
+	)
+}
+
+func PointWriteConflict(ts telem.TimeStamp, existingTr telem.TimeRange) error {
+	before, after := existingTr.PointIntersection(ts)
+	return errors.Wrapf(
+		ErrWriteConflict,
+		"%s overlaps with existing data occupying time range %s. Timestamp occurs "+
+			"%s after the start and %s before the end of the range",
+		ts,
+		existingTr,
+		before,
+		after,
 	)
 }
 
@@ -90,7 +106,7 @@ type Config struct {
 	// to exceed by much with frequent commits.
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
-	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a KeepGreaterThan.
 	// Must be in (0, 1].
 	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
@@ -181,14 +197,11 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	if db.closed.Load() {
 		return false, errDBClosed
 	}
-	i := db.OpenIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
+	i := db.OpenIterator(IterRange(telem.TimeRangeMax))
 	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
 		return true, i.Close()
 	}
-	if i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr) {
-		return true, i.Close()
-	}
-	return false, i.Close()
+	return i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr), i.Close()
 }
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
@@ -201,13 +214,16 @@ func (db *DB) Close() error {
 	}
 	count := db.entityCount.Load()
 	if count > 0 {
-		err := errors.Wrapf(ErrOpenEntity, "there are %d unclosed writers/iterators accessing it", count)
+		err := errors.Wrapf(
+			core.ErrOpenEntity,
+			"there are %d unclosed writers/iterators accessing it",
+			count,
+		)
 		db.closed.Store(false)
 		return err
 	}
 	w := errors.NewCatcher(errors.WithAggregation())
 	w.Exec(db.fc.close)
 	w.Exec(db.idx.close)
-
 	return w.Error()
 }

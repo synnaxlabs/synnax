@@ -108,7 +108,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 	if db.closed.Load() {
 		return frame, ErrDBClosed
 	}
-	iter := db.OpenIterator(IterRange(tr))
+	iter, _ := db.OpenIterator(IterRange(tr))
 	if err != nil {
 		return
 	}
@@ -117,7 +117,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 		return
 	}
 	for iter.Next(ctx, telem.TimeSpanMax) {
-		frame = frame.AppendFrame(iter.Value())
+		frame = frame.Extend(iter.Value())
 	}
 	return
 }
@@ -135,7 +135,7 @@ func (db *DB) Close() error {
 	}
 	err := db.domain.Close()
 	if err != nil {
-		if errors.Is(err, domain.ErrOpenEntity) {
+		if errors.Is(err, core.ErrOpenEntity) {
 			// If the close failed because of an open entity, the database should not
 			// be marked as closed and can still serve reads/writes.
 			db.closed.Store(false)
@@ -163,7 +163,7 @@ func (db *DB) RenameChannelInMeta(newName string) error {
 // and persists the change to the underlying file system.
 func (db *DB) SetIndexKeyInMeta(key core.ChannelKey) error {
 	if db.closed.Load() {
-		return ErrDBClosed
+		return db.wrapError(ErrDBClosed)
 	}
 	db.cfg.Channel.Index = key
 	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)

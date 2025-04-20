@@ -10,7 +10,7 @@
 package node
 
 import (
-	"github.com/synnaxlabs/x/mathutil"
+	"github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/types"
 	"strconv"
 
@@ -23,7 +23,7 @@ type Key types.Uint12
 
 const (
 	Bootstrapper Key = 1
-	Free             = Key(mathutil.MaxUint12)
+	Free             = Key(math.MaxUint12)
 )
 
 func (k Key) Parse(str string) (Key, error) {

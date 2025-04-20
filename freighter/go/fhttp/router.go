@@ -11,14 +11,14 @@ package fhttp
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/override"
-	"sync"
-	"time"
 )
 
 type route struct {
@@ -142,9 +142,6 @@ func UnaryServer[RQ, RS freighter.Payload](r *Router, path string, opts ...Serve
 		serverOptions: newServerOptions(opts),
 		Reporter:      unaryReporter,
 		path:          path,
-		requestParser: func(c *fiber.Ctx, codec httputil.Codec) (req RQ, _ error) {
-			return req, c.BodyParser(&req)
-		},
 	}
 	r.register(path, "POST", us, us.fiberHandler)
 	return us

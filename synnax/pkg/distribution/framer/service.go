@@ -165,9 +165,9 @@ func (s *Service) NewDeleter() Deleter {
 	return s.deleter.NewDeleter()
 }
 
-func (s *Service) ConfigureControlUpdateChannel(ctx context.Context, ch channel.Key) error {
+func (s *Service) ConfigureControlUpdateChannel(ctx context.Context, ch channel.Key, name string) error {
 	s.controlStateKey = ch
-	return s.config.TS.ConfigureControlUpdateChannel(ctx, ts.ChannelKey(ch))
+	return s.config.TS.ConfigureControlUpdateChannel(ctx, ts.ChannelKey(ch), name)
 }
 
 // Close closes the Service.

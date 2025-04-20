@@ -80,7 +80,10 @@ markers = [
     "telem: mark test as a telem test",
     "timing: mark test as a timing test",
     "tsconvert: mark test as a tsconvert test",
-    "writer: mark test as a writer test",
+    "writer: mark test as a frame writer test",
+    "streamer: mark test as a frame streamer test",
+    "calculations: mark test as a calculated channels test",
+    "delete: mark test as a data deletion test",
     "focus: marker to temporarily focus a test",
 ]
 

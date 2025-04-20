@@ -20,17 +20,16 @@ import (
 	"go/types"
 	"io"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	framesvc "github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -48,8 +47,8 @@ type FrameService struct {
 	authProvider
 	dbProvider
 	accessProvider
-	Internal *framesvc.Service
 	Channel  channel.Readable
+	Internal *framer.Service
 }
 
 func NewFrameService(p Provider) *FrameService {
@@ -95,8 +94,6 @@ func (s *FrameService) FrameDelete(
 		return c.Error()
 	})
 }
-
-const FrameIteratorAutoSpan = ts.AutoSpan
 
 type (
 	FrameIteratorRequest  = framer.IteratorRequest
@@ -212,7 +209,7 @@ func (s *FrameService) openStreamer(
 	}); err != nil {
 		return nil, err
 	}
-	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{Keys: req.Keys, DownsampleFactor: req.DownsampleFactor})
+	reader, err := s.Internal.NewStreamer(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -324,14 +321,8 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 			return r, true, nil
 		},
 	}
-	sender := &freightfluence.TransformSender[framer.WriterResponse, framer.WriterResponse]{
+	sender := &freightfluence.Sender[framer.WriterResponse]{
 		Sender: freighter.SenderNopCloser[framer.WriterResponse]{StreamSender: stream},
-		Transform: func(ctx context.Context, resp framer.WriterResponse) (framer.WriterResponse, bool, error) {
-			if resp.Error != nil {
-				resp.Error = errors.Encode(ctx, resp.Error, false)
-			}
-			return resp, true, nil
-		},
 	}
 
 	pipe := plumber.New()
@@ -342,8 +333,9 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	plumber.MustConnect[framer.WriterRequest](pipe, "receiver", "writer", 1)
 	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", 1)
 
-	pipe.Flow(ctx, confluence.CloseOutputInletsOnExit())
-	return ctx.Wait()
+	pipe.Flow(ctx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
+	err = ctx.Wait()
+	return err
 }
 
 func (s *FrameService) openWriter(
@@ -388,10 +380,7 @@ func (s *FrameService) openWriter(
 		return
 	}
 	// Let the client know the writer is ready to receive segments.
-	return w, srv.Send(FrameWriterResponse{
-		Command: writer.Open,
-		Ack:     true,
-	})
+	return w, srv.Send(FrameWriterResponse{Command: writer.Open})
 }
 
 type WSFramerCodec struct {

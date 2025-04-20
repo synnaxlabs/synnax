@@ -13,9 +13,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"github.com/synnaxlabs/x/errors"
 	"net/http"
 	"strings"
+
+	"github.com/synnaxlabs/x/errors"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/samber/lo"
@@ -28,11 +29,12 @@ import (
 
 type unaryServer[RQ, RS freighter.Payload] struct {
 	serverOptions
-	path string
 	freighter.Reporter
 	freighter.MiddlewareCollector
 	requestParser func(*fiber.Ctx, httputil.Codec) (RQ, error)
 	handle        func(ctx context.Context, rq RQ) (RS, error)
+	internal bool
+	path     string
 }
 
 func (s *unaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, rq RQ) (RS, error)) {
@@ -50,7 +52,8 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx *fiber.Ctx) error {
 	oMD, err := s.MiddlewareCollector.Exec(
 		parseRequestCtx(fCtx.Context(), fCtx, address.Address(fCtx.Path())),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
-			req, err := s.requestParser(fCtx, codec)
+			var req RQ
+			err := codec.Decode(fCtx.Context(), fCtx.BodyRaw(), &req)
 			oCtx := freighter.Context{Protocol: ctx.Protocol, Params: make(freighter.Params)}
 			if err != nil {
 				return oCtx, err

@@ -28,6 +28,18 @@ import { ontology } from "@/ontology";
 export const ontologyID = (key: channel.Key): ontology.ID =>
   new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
 
+const normalizeConfig = <T extends { channels: channel.Params }>(
+  config: T | channel.Params,
+): T => {
+  if (
+    Array.isArray(config) ||
+    typeof config !== "object" ||
+    (typeof config === "object" && "key" in config)
+  )
+    return { channels: config } as T;
+  return config;
+};
+
 export class Client {
   private readonly streamClient: WebSocketClient;
   private readonly retriever: channel.Retriever;
@@ -67,9 +79,11 @@ export class Client {
    * @returns a new {@link Writer}.
    */
   async openWriter(config: WriterConfig | channel.Params): Promise<Writer> {
-    if (Array.isArray(config) || typeof config !== "object")
-      config = { channels: config as channel.Params };
-    return await Writer._open(this.retriever, this.streamClient, config);
+    return await Writer._open(
+      this.retriever,
+      this.streamClient,
+      normalizeConfig<WriterConfig>(config),
+    );
   }
 
   /***
@@ -97,9 +111,11 @@ export class Client {
   async openStreamer(config: StreamerConfig | channel.Params): Promise<Streamer>;
 
   async openStreamer(config: StreamerConfig | channel.Params): Promise<Streamer> {
-    if (Array.isArray(config) || typeof config !== "object")
-      config = { channels: config as channel.Params, downsampleFactor: 1 };
-    return await Streamer._open(this.retriever, this.streamClient, config);
+    return await Streamer._open(
+      this.retriever,
+      this.streamClient,
+      normalizeConfig<StreamerConfig>(config),
+    );
   }
 
   async write(
@@ -139,13 +155,13 @@ export class Client {
         start,
         channels: Object.keys(data_),
         mode: WriterMode.Persist,
+        errOnUnauthorized: true,
+        enableAutoCommit: true,
+        autoIndexPersistInterval: TimeSpan.MAX,
       });
-      try {
-        await w.write(data_);
-        await w.commit();
-      } finally {
-        await w.close();
-      }
+      await w.write(data_);
+      await w.commit();
+      await w.close();
       return;
     }
     const w = await this.openWriter({
@@ -156,11 +172,8 @@ export class Client {
       enableAutoCommit: true,
       autoIndexPersistInterval: TimeSpan.MAX,
     });
-    try {
-      await w.write(channels as channel.Params, data);
-    } finally {
-      await w.close();
-    }
+    await w.write(channels as channel.Params, data);
+    await w.close();
   }
 
   async read(tr: CrudeTimeRange, channel: channel.KeyOrName): Promise<MultiSeries>;

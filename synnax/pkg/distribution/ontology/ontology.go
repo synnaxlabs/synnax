@@ -26,6 +26,7 @@ package ontology
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -72,7 +73,7 @@ type Config struct {
 var (
 	_             config.Config[Config] = Config{}
 	DefaultConfig                       = Config{
-		EnableSearch: config.True(),
+		EnableSearch: config.False(),
 	}
 )
 

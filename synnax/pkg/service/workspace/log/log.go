@@ -10,8 +10,8 @@
 package log
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // Log is the data for a visualization component used to view a log of telemetry over

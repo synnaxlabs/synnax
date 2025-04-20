@@ -33,13 +33,13 @@ const (
 	WriterWrite WriterCommand = iota + 1
 	// WriterCommit represents a call to Writer.Commit.
 	WriterCommit
-	// WriterError represents a call to Writer.Error.
-	WriterError
 	// WriterSetAuthority represents a call to Writer.SetAuthority.
 	WriterSetAuthority
 )
 
-// WriterRequest is a request containing an arrow.Record to write to the DB.
+var validateWriterCommand = validate.NewEnumBoundsChecker(WriterWrite, WriterSetAuthority)
+
+// WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
 	// Command is the command to execute on the Writer.
 	Command WriterCommand
@@ -47,23 +47,24 @@ type WriterRequest struct {
 	Frame Frame
 	// Config is used for updating the parameters in WriterSetAuthority and WriterSetMode.
 	Config WriterConfig
+	// SeqNum is used to match the request with the response. The sequence number should
+	// be incremented with each request.
+	SeqNum int
 }
 
 // WriterResponse contains any errors that occurred during write execution.
 type WriterResponse struct {
 	// Command is the command that is being responded to.
 	Command WriterCommand
-	// Ack represents the return frame of the command.
-	Ack bool
-	// SeqNum is the current sequence number of the command being executed. SeqNum is
-	// incremented for WriterError and WriterCommit calls, but NOT WriterWrite calls.
+	// SeqNum is the current sequence number of the command being executed. This value
+	// will correspond to the WriterRequest.SeqNum that executed the command.
 	SeqNum int
-	// Err is the return frame of WriterError. Err is nil during calls to
-	// WriterWrite and WriterCommit.
-	Err error
 	// End is the end timestamp of the domain on commit. It is only valid during calls
 	// to WriterCommit.
 	End telem.TimeStamp
+	// Authorized flags whether the write or commit operation was authorized. It is only
+	// valid during calls to WriterWrite and WriterCommit.
+	Authorized bool
 }
 
 // StreamWriter provides a streaming interface for writing telemetry to the DB.
@@ -99,7 +100,6 @@ type streamWriter struct {
 	internal        []*idxWriter
 	virtual         *virtualWriter
 	seqNum          int
-	err             error
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 }
 
@@ -115,9 +115,6 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			// Using context.TODO() is not ideal, but it is the best we can do here.
 			err = errors.Combine(err, w.close(context.TODO()))
 		}()
-		if w.OpenSignal != nil {
-			close(w.OpenSignal)
-		}
 		for {
 			select {
 			case <-ctx.Done():
@@ -127,139 +124,125 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return
 				}
-				w.process(ctx, req)
+				if err = w.process(ctx, req); err != nil {
+					return
+				}
 			}
 		}
 	}, o.Signal...)
 }
 
-func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
-	if req.Command < WriterWrite || req.Command > WriterSetAuthority {
-		return
-	}
-	if req.Command == WriterError {
-		w.seqNum++
-		w.sendRes(req, false, w.err, 0)
-		w.err = nil
-		return
+func (w *streamWriter) process(ctx context.Context, req WriterRequest) error {
+	if err := validateWriterCommand(req.Command); err != nil {
+		return err
 	}
 	if req.Command == WriterSetAuthority {
-		w.seqNum++
-		w.setAuthority(ctx, req.Config)
-		w.sendRes(req, true, nil, 0)
-		return
-	}
-	if w.err != nil {
-		w.seqNum++
-		w.sendRes(req, false, nil, 0)
-		return
+		if err := w.setAuthority(ctx, req.Config); err != nil {
+			return err
+		}
+		return w.sendRes(ctx, req, 0, true)
 	}
 	if req.Command == WriterCommit {
-		w.seqNum++
-		var end telem.TimeStamp
-		end, w.err = w.commit(ctx)
-		w.sendRes(req, w.err == nil, nil, end)
-	} else {
-		if w.err = w.write(ctx, req); w.err != nil {
-			w.seqNum++
-			w.sendRes(req, false, nil, 0)
+		ts, err := w.commit(ctx)
+		isUnauthorized := errors.Is(err, control.Unauthorized)
+		if err != nil && !isUnauthorized {
+			return err
 		}
+		return w.sendRes(ctx, req, ts, !isUnauthorized)
 	}
+	err := w.write(ctx, req)
+	isUnauthorized := errors.Is(err, control.Unauthorized)
+	if err != nil && !isUnauthorized {
+		return err
+	}
+	if *w.Sync {
+		return w.sendRes(ctx, req, 0, !isUnauthorized)
+	}
+	return nil
 }
 
-func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
+func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
 	if len(cfg.Authorities) == 0 {
-		return
+		return nil
 	}
-	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
-	if len(cfg.Channels) == 0 {
-		for _, chW := range w.virtual.internal {
-			transfer := chW.SetAuthority(cfg.Authorities[0])
-			if transfer.Occurred() {
-				u.Transfers = append(u.Transfers, transfer)
-			}
+	var (
+		u       = ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
+		getAuth = func(ch ChannelKey) (control.Authority, bool) {
+			return cfg.Authorities[0], true
+		}
+	)
+
+	if len(cfg.Channels) > 0 {
+		values := make(map[ChannelKey]control.Authority, len(cfg.Channels))
+		for i, ch := range cfg.Channels {
+			values[ch] = cfg.authority(i)
+		}
+		getAuth = func(ch ChannelKey) (control.Authority, bool) {
+			v, ok := values[ch]
+			return v, ok
 		}
 
-		for _, idx := range w.internal {
-			for _, chW := range idx.internal {
-				transfer := chW.SetAuthority(cfg.Authorities[0])
-				if transfer.Occurred() {
-					u.Transfers = append(u.Transfers, transfer)
-				}
+	}
+	for _, chW := range w.virtual.internal {
+		if auth, ok := getAuth(chW.Channel.Key); ok {
+			if t := chW.SetAuthority(auth); t.Occurred() {
+				u.Transfers = append(u.Transfers, t)
 			}
 		}
-	} else {
-		for i, ch := range cfg.Channels {
-			for _, idx := range w.internal {
-				for _, chW := range idx.internal {
-					if chW.Channel.Key == ch {
-						transfer := chW.SetAuthority(cfg.authority(i))
-						if transfer.Occurred() {
-							u.Transfers = append(u.Transfers, transfer)
-						}
-					}
-				}
-			}
-			for _, chW := range w.virtual.internal {
-				if chW.Channel.Key == ch {
-					transfer := chW.SetAuthority(cfg.authority(i))
-					if transfer.Occurred() {
-						u.Transfers = append(u.Transfers, transfer)
-					}
+	}
+
+	for _, idx := range w.internal {
+		for _, chW := range idx.internal {
+			if auth, ok := getAuth(chW.Channel.Key); ok {
+				if t := chW.SetAuthority(auth); t.Occurred() {
+					u.Transfers = append(u.Transfers, t)
 				}
 			}
 		}
 	}
+
 	if len(u.Transfers) > 0 {
-		if err := w.updateDBControl(ctx, u); err != nil {
-			w.err = err
-		}
+		return w.updateDBControl(ctx, u)
 	}
+	return nil
 }
 
-func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem.TimeStamp) {
-	w.Out.Inlet() <- WriterResponse{
-		Command: req.Command,
-		Ack:     ack,
-		SeqNum:  w.seqNum,
-		Err:     err,
-		End:     end,
-	}
+func (w *streamWriter) sendRes(
+	ctx context.Context,
+	req WriterRequest,
+	end telem.TimeStamp,
+	authorized bool,
+) error {
+	return signal.SendUnderContext(ctx, w.Out.Inlet(), WriterResponse{
+		Command:    req.Command,
+		SeqNum:     req.SeqNum,
+		End:        end,
+		Authorized: authorized,
+	})
 }
 
 func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error) {
 	for _, idx := range w.internal {
 		req.Frame, err = idx.Write(req.Frame)
 		if err != nil {
-			if errors.Is(err, control.Unauthorized) && !*w.SendAuthErrors {
-				return nil
-			}
-			return err
+			return
 		}
 
 		if *w.EnableAutoCommit {
-			_, err = idx.Commit(ctx)
-			if err != nil {
-				if errors.Is(err, control.Unauthorized) && !*w.SendAuthErrors {
-					return nil
-				}
-				return err
+			if _, err = idx.Commit(ctx); err != nil {
+				return
 			}
 		}
 	}
 	if w.virtual.internal != nil {
-		req.Frame, err = w.virtual.write(req.Frame)
-		if err != nil {
-			if errors.Is(err, control.Unauthorized) && !*w.SendAuthErrors {
-				return nil
-			}
-			return err
+		if req.Frame, err = w.virtual.write(req.Frame); err != nil {
+			return
 		}
 	}
 	if w.Mode.Stream() {
 		w.relay.Inlet() <- req.Frame
 	}
-	return nil
+	return
 }
 
 func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
@@ -311,7 +294,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 		}
 	}
 
-	return errors.Combine(w.err, c.Error())
+	return c.Error()
 }
 
 type unaryWriterState struct {
@@ -356,10 +339,9 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 
 	var incrementedSampleCount bool
 
-	for i, series := range fr.Series {
-		key := fr.Keys[i]
+	for i, key := range fr.KeysI() {
 		uWriter, ok := w.internal[key]
-
+		series := fr.SeriesAt(i)
 		if !ok || series.Len() == 0 {
 			continue
 		}
@@ -379,7 +361,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 			incrementedSampleCount = true
 		}
 		series.Alignment = alignment
-		fr.Series[i] = series
+		fr.SetSeriesAt(i, series)
 	}
 
 	return fr, nil
@@ -425,14 +407,13 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		lengthOfFrame        int64 = -1
 		numChannelsWrittenTo       = 0
 	)
-	for i, k := range fr.Keys {
+	for k, s := range fr.Entries() {
 		uWriter, ok := w.internal[k]
 		if !ok {
 			continue
 		}
 
 		if lengthOfFrame == -1 {
-			s := fr.Series[i]
 			// Data type of first series must be known since we use it to calculate the
 			// length of series in the frame
 			if s.DataType.Density() == telem.DensityUnknown {
@@ -455,14 +436,14 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		uWriter.timesWritten++
 		numChannelsWrittenTo++
 
-		if fr.Series[i].Len() != lengthOfFrame {
+		if s.Len() != lengthOfFrame {
 			return errors.Wrapf(
 				validate.Error,
 				`frame must have the same length for all series, expected %d, got %d. \n
 				See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1
 				`,
 				lengthOfFrame,
-				fr.Series[i].Len(),
+				s.Len(),
 			)
 		}
 	}
@@ -516,18 +497,18 @@ type virtualWriter struct {
 }
 
 func (w virtualWriter) write(fr Frame) (Frame, error) {
-	for i, k := range fr.Keys {
+	for i, k := range fr.KeysI() {
 		v, ok := w.internal[k]
 		if !ok {
 			continue
 		}
-		series := fr.Series[i]
-		alignment, err := v.Write(series)
+		s := fr.SeriesAt(i)
+		alignment, err := v.Write(s)
 		if err != nil {
 			return fr, err
 		}
-		series.Alignment = alignment
-		fr.Series[i] = series
+		s.Alignment = alignment
+		fr.SetSeriesAt(i, s)
 	}
 	return fr, nil
 }

@@ -11,7 +11,7 @@ package cesium
 
 import (
 	"context"
-	"github.com/google/uuid"
+
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 type ControlUpdate struct {
@@ -28,7 +29,7 @@ type ControlUpdate struct {
 
 // ConfigureControlUpdateChannel configures a channel to be the update channel for the
 // database. If the channel is not found, it is created.
-func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey) error {
+func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey, name string) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
@@ -43,6 +44,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 		ch.Key = key
 		ch.DataType = telem.StringT
 		ch.Virtual = true
+		ch.Name = name
 		if err = db.createChannel(ch); err != nil {
 			return err
 		}
@@ -79,6 +81,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 		confluence.CloseOutputInletsOnExit(),
 		confluence.CancelOnFail(),
 		confluence.RecoverWithErrOnPanic(),
+		confluence.WithAddress("control-writer"),
 	)
 	return nil
 }
@@ -144,10 +147,7 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 	if err != nil {
 		panic(err)
 	}
-	return Frame{
-		Keys:   []ChannelKey{db.mu.digests.key},
-		Series: []telem.Series{d},
-	}
+	return telem.UnaryFrame[ChannelKey](db.mu.digests.key, d)
 }
 
 func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {

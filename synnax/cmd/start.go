@@ -20,7 +20,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -58,6 +57,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xsignal "github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/uuid"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

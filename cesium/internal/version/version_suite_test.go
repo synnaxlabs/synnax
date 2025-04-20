@@ -13,13 +13,11 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/testutil"
 	"testing"
 )
 
 var (
-	ctx         = context.Background()
-	fileSystems = testutil.FileSystems
+	ctx = context.Background()
 )
 
 func TestVersion(t *testing.T) {

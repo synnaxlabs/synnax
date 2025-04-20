@@ -10,8 +10,8 @@
 package ranger
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // KVPair is a unique, key-value pair tied directly to a specific range.

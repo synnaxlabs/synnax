@@ -19,9 +19,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 type (

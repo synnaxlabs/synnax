@@ -11,6 +11,8 @@ package signals
 
 import (
 	"context"
+	"io"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/change"
@@ -23,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"io"
 )
 
 type ObservableSubscriberConfig struct {
@@ -68,8 +69,8 @@ func resolveChannelKey(
 	return ch.Key(), err
 }
 
-func decodeChanges(variant change.Variant, series []telem.Series) (changes []change.Change[[]byte, struct{}]) {
-	for _, s := range series {
+func decodeChanges(variant change.Variant, series telem.MultiSeries) (changes []change.Change[[]byte, struct{}]) {
+	for _, s := range series.Series {
 		for _, k := range s.Split() {
 			changes = append(changes, change.Change[[]byte, struct{}]{
 				Variant: variant,

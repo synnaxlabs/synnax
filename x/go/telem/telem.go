@@ -37,8 +37,8 @@ func (ts *TimeStamp) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-func (ts *TimeStamp) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + strconv.Itoa(int(*ts)) + "\""), nil
+func (ts TimeStamp) MarshalJSON() ([]byte, error) {
+	return binary.MarshalStringInt64(int64(ts))
 }
 
 // Now returns the current time as a TimeStamp.
@@ -195,10 +195,66 @@ func (tr TimeRange) RawString() string {
 	return tr.Start.RawString() + " - " + tr.End.RawString()
 }
 
-// String displays the time range with both timestamps as formatted time.
-// String implements fmt.Stringer.
+// String displays the time range with both timestamps in a human-readable format,
+// omitting redundant time components between start and end times.
 func (tr TimeRange) String() string {
-	return tr.Start.String() + " - " + tr.End.String()
+	if tr.Start == TimeStampMax || tr.End == TimeStampMax {
+		return "end of time"
+	}
+
+	start := tr.Start.Time().UTC()
+	end := tr.End.Time().UTC()
+
+	startYear, startMonth, startDay := start.Date()
+	endYear, endMonth, endDay := end.Date()
+	startHour, startMin, startSec := start.Clock()
+	endHour, endMin, endSec := end.Clock()
+	startNano := start.Nanosecond()
+	endNano := end.Nanosecond()
+
+	var endStr string
+	if startYear != endYear {
+		endStr = end.Format("2006-01-02T15:04:05") + formatNanos(endNano)
+	} else if startMonth != endMonth || startDay != endDay {
+		endStr = end.Format("01-02T15:04:05") + formatNanos(endNano)
+	} else if startHour != endHour {
+		endStr = end.Format("15:04:05") + formatNanos(endNano)
+	} else if startMin != endMin {
+		endStr = end.Format("04:05") + formatNanos(endNano)
+	} else if startSec != endSec {
+		endStr = end.Format(":05") + formatNanos(endNano)
+	} else if startNano != endNano {
+		endStr = "." + formatSubsecond(endNano)
+	} else {
+		endStr = end.Format("15:04:05")
+	}
+
+	startStr := start.Format("2006-01-02T15:04:05")
+	if startNano > 0 {
+		startStr += "." + formatSubsecond(startNano)
+	}
+	startStr += "Z"
+
+	return startStr + " - " + endStr + " (" + tr.Span().String() + ")"
+}
+
+func formatNanos(nanos int) string {
+	if nanos == 0 {
+		return ""
+	}
+	return "." + formatSubsecond(nanos)
+}
+
+func formatSubsecond(nanos int) string {
+	if nanos < 1000 { // nanoseconds
+		return fmt.Sprintf("%09d", nanos)
+	} else if nanos < 1000000 { // microseconds
+		microseconds := nanos / 1000
+		return fmt.Sprintf("%06d", microseconds)
+	}
+	// milliseconds
+	milliseconds := nanos / 1000000
+	return fmt.Sprintf("%03d", milliseconds)
 }
 
 func (tr TimeRange) Union(rng TimeRange) (ret TimeRange) {
@@ -223,14 +279,16 @@ func (tr TimeRange) Intersection(rng TimeRange) (ret TimeRange) {
 	} else {
 		ret.Start = tr.Start
 	}
-
 	if tr.End.After(rng.End) {
 		ret.End = rng.End
 	} else {
 		ret.End = tr.End
 	}
-
 	return
+}
+
+func (tr TimeRange) PointIntersection(ts TimeStamp) (before TimeSpan, after TimeSpan) {
+	return tr.Start.Span(ts), -tr.End.Span(ts)
 }
 
 var (
@@ -245,8 +303,8 @@ var (
 // TimeSpan represents a duration of time in nanoseconds.
 type TimeSpan int64
 
-func (ts *TimeSpan) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + strconv.Itoa(int(*ts)) + "\""), nil
+func (ts TimeSpan) MarshalJSON() ([]byte, error) {
+	return binary.MarshalStringInt64(int64(ts))
 }
 
 const (
@@ -258,7 +316,7 @@ const (
 
 var (
 	_ json.Unmarshaler = (*TimeSpan)(nil)
-	_ json.Marshaler   = (*TimeSpan)(nil)
+	_ json.Marshaler   = TimeSpan(0)
 )
 
 func (ts *TimeSpan) UnmarshalJSON(b []byte) error {
@@ -478,6 +536,7 @@ func NewAlignmentPair(domainIdx, sampleIdx uint32) AlignmentPair {
 // has not yet been persisted. This is useful for correctly ordering new data while
 // ensuring that it is significantly after any persisted data.
 const ZeroLeadingAlignment = math.MaxUint32 - 1e6
+const MaxAlignmentPair = AlignmentPair(math.MaxUint64)
 
 // LeadingAlignment returns an AlignmentPair whose array index is the maximum possible value
 // and whose sample index is the provided value.
@@ -499,8 +558,8 @@ func (a *AlignmentPair) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON implements json.Marshaler.
-func (a *AlignmentPair) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + strconv.FormatUint(uint64(*a), 10) + "\""), nil
+func (a AlignmentPair) MarshalJSON() ([]byte, error) {
+	return binary.MarshalStringUint64(uint64(a))
 }
 
 func (a AlignmentPair) AddSamples(samples uint32) AlignmentPair {

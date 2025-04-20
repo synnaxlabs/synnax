@@ -11,8 +11,8 @@ package schematic
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // Retrieve is a query builder for retrieving schematics. It should not be instantiated

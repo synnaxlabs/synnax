@@ -11,10 +11,10 @@ package telem
 
 import (
 	"encoding/binary"
-	xbinary "github.com/synnaxlabs/x/binary"
 	"math"
-
 	"fmt"
+
+	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/types"
 )
@@ -30,7 +30,7 @@ func NewSeries[T Value](data []T) (series Series) {
 	if len(data) == 0 {
 		panic("cannot infer data type from empty array")
 	}
-	series.DataType = NewDataType[T](data[0])
+	series.DataType = InferDataType[T](data[0])
 	series.Data = MarshalSlice(data, series.DataType)
 	return series
 }
@@ -151,7 +151,7 @@ func Unmarshal[T Value](series Series) []T {
 // The package uses little-endian byte order by default.
 var ByteOrder = binary.LittleEndian
 
-// MarshalF returns a function that can marshal a single value of type T
+// MarshalF returns a function that can marshal a single value of type K
 // into a byte slice according to the specified DataType.
 // Panics if the DataType is not supported.
 func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
@@ -189,7 +189,7 @@ func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 }
 
 // UnmarshalF returns a function that can unmarshal a byte slice into
-// a single value of type T according to the specified DataType.
+// a single value of type K according to the specified DataType.
 // Panics if the DataType is not supported.
 func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) (res T) {
 	switch dt {

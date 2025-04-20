@@ -11,13 +11,14 @@ package writer
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 )
 
-func (s *Service) newFree(mode Mode) StreamWriter {
-	w := &freeWriter{freeWrites: s.FreeWrites, mode: mode}
+func (s *Service) newFree(mode Mode, sync bool) StreamWriter {
+	w := &freeWriter{freeWrites: s.FreeWrites, mode: mode, sync: sync}
 	w.Transform = w.transform
 	return w
 }
@@ -25,15 +26,18 @@ func (s *Service) newFree(mode Mode) StreamWriter {
 type freeWriter struct {
 	confluence.LinearTransform[Request, Response]
 	freeWrites confluence.Inlet[relay.Response]
-	seqNum     int
 	mode       Mode
+	sync       bool
 }
 
 func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, ok bool, err error) {
-	if req.Command == Write && w.mode.Stream() {
-		err = signal.SendUnderContext(ctx, w.freeWrites.Inlet(), relay.Response{Frame: req.Frame})
-		return
+	if req.Command == Data && w.mode.Stream() {
+		if err = signal.SendUnderContext(
+			ctx, w.freeWrites.Inlet(),
+			relay.Response{Frame: req.Frame},
+		); err != nil || !w.sync {
+			return
+		}
 	}
-	w.seqNum++
-	return Response{Command: req.Command, Ack: true, SeqNum: w.seqNum}, true, nil
+	return Response{Command: req.Command, SeqNum: req.SeqNum}, true, nil
 }

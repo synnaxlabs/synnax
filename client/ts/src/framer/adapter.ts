@@ -114,9 +114,11 @@ export class WriteAdapter {
     );
   }
 
-  private async fetchChannel(ch: channel.Key | channel.Name): Promise<channel.Payload> {
+  private async fetchChannel(
+    ch: channel.Key | channel.Name | channel.Payload,
+  ): Promise<channel.Payload> {
     const res = await this.retriever.retrieve(ch);
-    if (res.length === 0) throw new Error(`Channel ${ch} not found`);
+    if (res.length === 0) throw new Error(`Channel ${JSON.stringify(ch)} not found`);
     return res[0];
   }
 

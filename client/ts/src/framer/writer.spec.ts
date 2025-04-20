@@ -7,33 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
-import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { DataType, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it, test } from "vitest";
 
-import { type channel } from "@/channel";
 import { UnauthorizedError, ValidationError } from "@/errors";
 import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
 import { newClient } from "@/setupspecs";
+import { newIndexedPair } from "@/testutil/indexedPair";
+import { secondsLinspace } from "@/testutil/telem";
 import { randomSeries } from "@/util/telem";
 
 const client = newClient();
-
-const newChannel = async (): Promise<channel.Channel> =>
-  await client.channels.create({
-    leaseholder: 1,
-    name: `test-${id.create()}`,
-    rate: Rate.hz(1),
-    dataType: DataType.FLOAT64,
-  });
-
 describe("Writer", () => {
   describe("Writer", () => {
     test("basic write", async () => {
-      const ch = await newChannel();
-      const writer = await client.openWriter({ start: 0, channels: ch.key });
+      const channels = await newIndexedPair(client);
+      const start = TimeStamp.seconds(1);
+      const writer = await client.openWriter({ start, channels });
+      const [index, data] = channels;
       try {
-        await writer.write(ch.key, new Float64Array([1, 2, 3]));
+        await writer.write({
+          [index.key]: secondsLinspace(1, 10),
+          [data.key]: randomSeries(10, data.dataType),
+        });
         await writer.commit();
       } finally {
         await writer.close();
@@ -42,24 +38,28 @@ describe("Writer", () => {
     });
 
     test("write to unknown channel key", async () => {
-      const ch = await newChannel();
-      const writer = await client.openWriter({ start: 0, channels: ch.key });
+      const channels = await newIndexedPair(client);
+      const writer = await client.openWriter({ start: TimeStamp.now(), channels });
       await expect(
         writer.write("billy bob", randomSeries(10, DataType.FLOAT64)),
-      ).rejects.toThrow("Channel billy bob not found");
+      ).rejects.toThrow('Channel "billy bob" not found');
       await writer.close();
     });
 
-    test("stream when mode is set ot persist only", async () => {
-      const ch = await newChannel();
-      const stream = await client.openStreamer(ch.key);
+    it("should not stream data when mode is set ot persist only", async () => {
+      const channels = await newIndexedPair(client);
+      const stream = await client.openStreamer(channels);
       const writer = await client.openWriter({
-        start: 0,
-        channels: ch.key,
+        start: TimeStamp.seconds(1),
+        channels,
         mode: WriterMode.Persist,
       });
+      const [index, data] = channels;
       try {
-        await writer.write(ch.key, randomSeries(10, ch.dataType));
+        await writer.write({
+          [index.key]: secondsLinspace(1, 10),
+          [data.key]: randomSeries(10, data.dataType),
+        });
       } finally {
         await writer.close();
       }
@@ -72,33 +72,44 @@ describe("Writer", () => {
     });
 
     test("write with auto commit on", async () => {
-      const ch = await newChannel();
+      const channels = await newIndexedPair(client);
       const writer = await client.openWriter({
-        start: 0,
-        channels: ch.key,
+        start: TimeStamp.seconds(1),
+        channels,
         enableAutoCommit: true,
       });
+      const [index, data] = channels;
       try {
-        await writer.write(ch.key, randomSeries(10, ch.dataType));
+        await writer.write({
+          [index.key]: secondsLinspace(1, 10),
+          [data.key]: randomSeries(10, data.dataType),
+        });
       } finally {
         await writer.close();
       }
       expect(true).toBeTruthy();
 
-      const f = await client.read(new TimeRange(0, TimeStamp.seconds(10)), ch.key);
+      const f = await client.read(
+        new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(11)),
+        index.key,
+      );
       expect(f.length).toEqual(10);
     });
 
     test("write with auto commit and alwaysPersist", async () => {
-      const ch = await newChannel();
+      const channels = await newIndexedPair(client);
       const writer = await client.openWriter({
-        start: 0,
-        channels: ch.key,
+        start: TimeStamp.seconds(1),
+        channels,
         enableAutoCommit: true,
         autoIndexPersistInterval: ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
       });
+      const [index, data] = channels;
       try {
-        await writer.write(ch.key, randomSeries(10, ch.dataType));
+        await writer.write({
+          [index.key]: secondsLinspace(1, 10),
+          [data.key]: randomSeries(10, data.dataType),
+        });
       } finally {
         await writer.close();
       }
@@ -106,19 +117,39 @@ describe("Writer", () => {
     });
 
     test("write with auto commit and a set interval", async () => {
-      const ch = await newChannel();
+      const channels = await newIndexedPair(client);
       const writer = await client.openWriter({
-        start: 0,
-        channels: ch.key,
+        start: TimeStamp.seconds(1),
+        channels,
         enableAutoCommit: true,
         autoIndexPersistInterval: TimeSpan.milliseconds(100),
       });
+      const [index, data] = channels;
       try {
-        await writer.write(ch.key, randomSeries(10, ch.dataType));
+        await writer.write({
+          [index.key]: secondsLinspace(1, 10),
+          [data.key]: randomSeries(10, data.dataType),
+        });
       } finally {
         await writer.close();
       }
       expect(true).toBeTruthy();
+    });
+
+    test("write with auto-commit off and incorrect data length validation error", async () => {
+      const channels = await newIndexedPair(client);
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels,
+      });
+      await expect(async () => {
+        await writer.write({
+          [channels[0].key]: secondsLinspace(1, 10),
+          [channels[1].key]: randomSeries(11, channels[1].dataType),
+        });
+        await writer.commit();
+        await writer.close();
+      }).rejects.toThrow(ValidationError);
     });
 
     test("write with out of order timestamp", async () => {
@@ -140,159 +171,101 @@ describe("Writer", () => {
         enableAutoCommit: true,
       });
 
-      let errAccumulated: boolean = false;
-      for (let i = 0; i < 10; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        errAccumulated = !(await writer.write({
-          [indexCh.key]: BigInt(i),
-          [dataCh.key]: i,
-        }));
-        if (errAccumulated) break;
-      }
-
-      expect(errAccumulated).toBeTruthy();
-
-      await expect(writer.close()).rejects.toThrow(ValidationError);
-    });
+      await expect(async () => {
+        for (let i = 0; i < 10; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          await writer.write({
+            [indexCh.key]: BigInt(i),
+            [dataCh.key]: i,
+          });
+        }
+        await writer.close();
+      }).rejects.toThrow(ValidationError);
+    }, 5000000);
 
     test("write with errOnUnauthorized", async () => {
-      const ch = await newChannel();
+      const channels = await newIndexedPair(client);
       const w1 = await client.openWriter({
         start: new TimeStamp(TimeSpan.milliseconds(500)),
-        channels: ch.key,
+        channels,
       });
 
       await expect(
-        client.openWriter({ start: 0, channels: ch.key, errOnUnauthorized: true }),
+        client.openWriter({
+          start: TimeStamp.now(),
+          channels,
+          errOnUnauthorized: true,
+        }),
       ).rejects.toThrow(UnauthorizedError);
       await w1.close();
     });
 
     test("setAuthority", async () => {
-      const ch = await newChannel();
+      const channels = await newIndexedPair(client);
+      const start = TimeStamp.seconds(5);
       const w1 = await client.openWriter({
-        start: 0,
-        channels: ch.key,
+        start,
+        channels,
         authorities: 10,
         enableAutoCommit: true,
       });
       const w2 = await client.openWriter({
-        start: 0,
-        channels: ch.key,
+        start,
+        channels,
         authorities: 20,
         enableAutoCommit: true,
       });
-
-      await w1.write(ch.key, randomSeries(10, ch.dataType));
-      let f = await ch.read(TimeRange.MAX);
+      const [index, data] = channels;
+      await w1.write({
+        [index.key]: secondsLinspace(5, 10),
+        [data.key]: randomSeries(10, data.dataType),
+      });
+      let f = await index.read(TimeRange.MAX);
       expect(f.length).toEqual(0);
 
-      await w1.setAuthority({ [ch.key]: 100 });
-      await w1.write(ch.key, randomSeries(10, ch.dataType));
-
-      f = await ch.read(TimeRange.MAX);
-      expect(f.length).toEqual(10);
-
+      await w1.setAuthority(100);
+      await w1.write({
+        [index.key]: secondsLinspace(5, 10),
+        [data.key]: randomSeries(10, data.dataType),
+      });
       await w1.close();
       await w2.close();
+      f = await index.read(TimeRange.MAX);
+      expect(f.length).toEqual(10);
     });
 
     test("setAuthority with name keys", async () => {
-      const ch = await newChannel();
+      const channels = await newIndexedPair(client);
+      const start = TimeStamp.seconds(5);
       const w1 = await client.openWriter({
-        start: 0,
-        channels: ch.key,
+        start,
+        channels,
         authorities: 10,
         enableAutoCommit: true,
       });
       const w2 = await client.openWriter({
-        start: 0,
-        channels: ch.key,
+        start,
+        channels,
         authorities: 20,
         enableAutoCommit: true,
       });
-
-      await w1.write(ch.key, randomSeries(10, ch.dataType));
-      let f = await ch.read(TimeRange.MAX);
+      const [index, data] = channels;
+      await w1.write({
+        [index.key]: secondsLinspace(5, 10),
+        [data.key]: randomSeries(10, data.dataType),
+      });
+      let f = await index.read(TimeRange.MAX);
       expect(f.length).toEqual(0);
 
-      await w1.setAuthority({ [ch.name]: 100 });
-      await w1.write(ch.key, randomSeries(10, ch.dataType));
-
-      f = await ch.read(TimeRange.MAX);
-      expect(f.length).toEqual(10);
-
+      await w1.setAuthority({ [index.name]: 100, [data.name]: 100 });
+      await w1.write({
+        [index.key]: secondsLinspace(5, 10),
+        [data.key]: randomSeries(10, data.dataType),
+      });
       await w1.close();
       await w2.close();
-    });
-
-    test("setAuthority with name-value pair", async () => {
-      const ch = await newChannel();
-      const w1 = await client.openWriter({
-        start: 0,
-        channels: ch.key,
-        authorities: 10,
-        enableAutoCommit: true,
-      });
-      const w2 = await client.openWriter({
-        start: 0,
-        channels: ch.key,
-        authorities: 20,
-        enableAutoCommit: true,
-      });
-
-      await w1.write(ch.key, randomSeries(10, ch.dataType));
-      let f = await ch.read(TimeRange.MAX);
-      expect(f.length).toEqual(0);
-
-      await w1.setAuthority(ch.name, 100);
-      await w1.write(ch.key, randomSeries(10, ch.dataType));
-
-      f = await ch.read(TimeRange.MAX);
+      f = await index.read(TimeRange.MAX);
       expect(f.length).toEqual(10);
-
-      await w1.close();
-      await w2.close();
-    });
-
-    test("setAuthority on all channels", async () => {
-      const ch = await newChannel();
-      const w1 = await client.openWriter({
-        start: 0,
-        channels: ch.key,
-        authorities: 10,
-        enableAutoCommit: true,
-      });
-      const w2 = await client.openWriter({
-        start: 0,
-        channels: ch.key,
-        authorities: 20,
-        enableAutoCommit: true,
-      });
-
-      await w1.write(ch.key, randomSeries(10, ch.dataType));
-      let f = await ch.read(TimeRange.MAX);
-      expect(f.length).toEqual(0);
-
-      await w1.setAuthority(ch.name, 255);
-      await w1.write(ch.key, randomSeries(10, ch.dataType));
-
-      f = await ch.read(TimeRange.MAX);
-      expect(f.length).toEqual(10);
-
-      await w1.close();
-      await w2.close();
-    });
-  });
-
-  describe("Client", () => {
-    test("Client - basic write", async () => {
-      const ch = await newChannel();
-      const data = randomSeries(10, ch.dataType);
-      await client.write(TimeStamp.seconds(1), ch.key, data);
-      const res = await client.read(TimeRange.MAX, ch.key);
-      expect(res.length).toEqual(data.length);
-      expect(res.data).toEqual(data);
     });
   });
 

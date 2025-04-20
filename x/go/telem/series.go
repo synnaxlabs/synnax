@@ -14,6 +14,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/bounds"
+
 	"go.uber.org/zap"
 
 	"github.com/synnaxlabs/x/types"
@@ -89,6 +92,16 @@ func ValueAt[T types.Numeric](s Series, i int64) (o T) {
 	return UnmarshalF[T](s.DataType)(b)
 }
 
+func MultiSeriesAtAlignment[T types.Numeric](ms MultiSeries, alignment AlignmentPair) (o T) {
+	for _, s := range ms.Series {
+		if s.AlignmentBounds().Contains(alignment) {
+			return ValueAt[T](s, int64(alignment-s.Alignment))
+		}
+	}
+	zap.S().DPanic("no series found at alignment")
+	return
+}
+
 // SetValueAt sets the value at the given index in the series. SetValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
@@ -102,6 +115,16 @@ func SetValueAt[T types.Numeric](s Series, i int64, v T) {
 	}
 	f := MarshalF[T](s.DataType)
 	f(s.Data[i*int64(s.DataType.Density()):], v)
+}
+
+func SetMultiSeriesAtAlignment[T types.Numeric](ms MultiSeries, alignment AlignmentPair, v T) {
+	for _, s := range ms.Series {
+		if s.AlignmentBounds().Contains(alignment) {
+			SetValueAt[T](s, int64(alignment-s.Alignment), v)
+			return
+		}
+	}
+	zap.S().DPanic("no series found at alignment")
 }
 
 const maxDisplayValues = 12
@@ -125,21 +148,64 @@ func truncateSlice[T any](slice []T) string {
 	return fmt.Sprintf("[%s ... %s]", firstStr, lastStr)
 }
 
+func (s Series) AlignmentBounds() bounds.Bounds[AlignmentPair] {
+	return bounds.Bounds[AlignmentPair]{
+		Lower: s.Alignment,
+		Upper: NewAlignmentPair(s.Alignment.DomainIndex(), s.Alignment.SampleIndex()+uint32(s.Len())),
+	}
+}
+
 // String implements the fmt.Stringer interface.
 func (s Series) String() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Series{TimeRange: %v, DataType: %v, Len: %d, Size: %d bytes, Contents: ",
+	_, _ = fmt.Fprintf(&b, "Series{TimeRange: %v, DataType: %v, Len: %d, Size: %d bytes, Contents: ",
 		s.TimeRange.RawString(),
 		s.DataType,
 		s.Len(),
 		s.Size(),
 	)
-
 	if s.Len() == 0 {
 		b.WriteString("[]}")
 		return b.String()
 	}
+	b.WriteString(s.DataString())
+	b.WriteString("}")
+	return b.String()
+}
 
+func (s Series) DownSample(factor int) Series {
+	length := len(s.Data)
+	if factor <= 1 || length <= factor {
+		return s
+	}
+	var oData []byte
+	if s.DataType.IsVariable() {
+		iLines := bytes.Split(s.Data, []byte("\n"))
+		oLines := make([][]byte, 0, len(iLines)/factor+1)
+		for i := 0; i < len(iLines); i += factor {
+			if i < len(iLines) {
+				oLines = append(oLines, iLines[i])
+			}
+		}
+		oData = bytes.Join(oLines, []byte("\n"))
+	} else {
+		seriesLength := len(s.Data) / factor
+		oData = make([]byte, 0, seriesLength)
+		for i := int64(0); i < s.Len(); i += int64(factor) {
+			start := i * int64(s.DataType.Density())
+			end := start + int64(s.DataType.Density())
+			oData = append(oData, s.Data[start:end]...)
+		}
+	}
+	return Series{
+		TimeRange: s.TimeRange,
+		DataType:  s.DataType,
+		Data:      oData,
+		Alignment: s.Alignment,
+	}
+}
+
+func (s Series) DataString() string {
 	var contents string
 	if s.DataType.IsVariable() {
 		contents = truncateSlice(UnmarshalStrings(s.Data))
@@ -175,8 +241,70 @@ func (s Series) String() string {
 			contents = fmt.Sprintf("%v", s.Data)
 		}
 	}
+	return contents
 
-	b.WriteString(contents)
-	b.WriteString("}")
-	return b.String()
+}
+
+type AlignmentBounds = bounds.Bounds[AlignmentPair]
+
+type MultiSeries struct {
+	Series []Series
+}
+
+func (m MultiSeries) AlignmentBounds() AlignmentBounds {
+	if len(m.Series) == 0 {
+		return AlignmentBounds{}
+	}
+	return AlignmentBounds{
+		Lower: m.Series[0].AlignmentBounds().Lower,
+		Upper: m.Series[len(m.Series)-1].AlignmentBounds().Upper,
+	}
+}
+
+func (m MultiSeries) TimeRange() TimeRange {
+	if len(m.Series) == 0 {
+		return TimeRange{}
+	}
+	return TimeRange{
+		Start: m.Series[0].TimeRange.Start,
+		End:   m.Series[len(m.Series)-1].TimeRange.End,
+	}
+}
+
+func (m MultiSeries) Append(series Series) MultiSeries {
+	m.Series = append(m.Series, series)
+	return m
+}
+
+func (m MultiSeries) KeepGreaterThan(a AlignmentPair) MultiSeries {
+	return MultiSeries{
+		Series: lo.Filter(m.Series, func(s Series, _ int) bool {
+			return s.AlignmentBounds().Upper >= a
+		}),
+	}
+}
+
+func (m MultiSeries) Len() int64 {
+	if len(m.Series) == 0 {
+		return 0
+	}
+	return lo.SumBy(m.Series, func(s Series) int64 { return s.Len() })
+}
+
+func (m MultiSeries) DataType() DataType {
+	if len(m.Series) == 0 {
+		return UnknownT
+	}
+	return m.Series[0].DataType
+}
+
+func (m MultiSeries) Data() []byte {
+	if len(m.Series) == 0 {
+		return nil
+	}
+	data := make([]byte, 0, m.Len())
+	for _, s := range m.Series {
+		data = append(data, s.Data...)
+	}
+	return data
 }

@@ -11,6 +11,8 @@ package unary
 
 import (
 	"context"
+	"io"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -19,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
-	"io"
 )
 
 type IteratorConfig struct {
@@ -69,7 +70,10 @@ type Iterator struct {
 	closed   bool
 }
 
-func (db *DB) OpenIterator(cfgs ...IteratorConfig) *Iterator {
+func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
+	if db.closed.Load() {
+		return nil, db.wrapError(ErrDBClosed)
+	}
 	// Safe to ignore error here as Validate will always return nil
 	cfg, _ := config.New(DefaultIteratorConfig, cfgs...)
 	iter := db.domain.OpenIterator(cfg.domainIteratorConfig())
@@ -80,7 +84,7 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) *Iterator {
 		IteratorConfig: cfg,
 	}
 	i.SetBounds(cfg.Bounds)
-	return i
+	return i, nil
 }
 
 const AutoSpan telem.TimeSpan = -1
@@ -289,12 +293,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 }
 
 // Len returns the number of samples in the iterator's frame.
-func (i *Iterator) Len() (l int64) {
-	for _, series := range i.frame.Series {
-		l += series.Len()
-	}
-	return
-}
+func (i *Iterator) Len() int64 { return i.frame.Len() }
 
 // Error returns the error that caused the iterator to stop moving. If the iterator is
 // still moving, Error returns nil.
@@ -345,7 +344,7 @@ func (i *Iterator) insert(series telem.Series) {
 	if series.Len() == 0 {
 		return
 	}
-	if len(i.frame.Series) == 0 || i.frame.Series[len(i.frame.Series)-1].TimeRange.End.BeforeEq(series.TimeRange.Start) {
+	if i.frame.Empty() || i.frame.SeriesAt(-1).TimeRange.End.BeforeEq(series.TimeRange.Start) {
 		i.frame = i.frame.Append(i.Channel.Key, series)
 	} else {
 		i.frame = i.frame.Prepend(i.Channel.Key, series)
@@ -462,12 +461,12 @@ func (i *Iterator) satisfied() bool {
 	if !i.partiallySatisfied() {
 		return false
 	}
-	start := i.frame.Series[0].TimeRange.Start
-	end := i.frame.Series[len(i.frame.Series)-1].TimeRange.End
+	start := i.frame.SeriesAt(0).TimeRange.Start
+	end := i.frame.SeriesAt(-1).TimeRange.End
 	return i.view == start.Range(end)
 }
 
-func (i *Iterator) partiallySatisfied() bool { return len(i.frame.Series) > 0 }
+func (i *Iterator) partiallySatisfied() bool { return i.frame.HasData() }
 
 func (i *Iterator) reset(nextView telem.TimeRange) {
 	i.frame = core.Frame{}

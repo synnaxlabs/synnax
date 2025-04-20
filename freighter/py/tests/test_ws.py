@@ -214,3 +214,24 @@ class TestSyncWebsocket:
                 cycle_count += 1
                 pass
         assert cycle_count < max_cycles, "test timed out"
+
+    def test_receive_error(self, sync_client: WebsocketClient) -> None:
+        """Should correctly decode a custom error from the server."""
+        stream = sync_client.stream("/receiveAndExitWithErr", Message, Message)
+        err = stream.send(Message(id=1, message="hello"))
+        assert err is None
+        msg, err = stream.receive()
+        assert isinstance(err, Error)
+        assert err.code == 1
+        assert err.message == "unexpected error"
+        stream.close_send()
+
+    def test_exit_immediately_with_err(self, sync_client: WebsocketClient) -> None:
+        stream = sync_client.stream("/immediatelyExitWithErr", Message, Message)
+        for i in range(100):
+            stream.send(Message(id=1, message="hello"))
+        msg, err = stream.receive()
+        assert isinstance(err, Error)
+        assert err.code == 1
+        assert err.message == "unexpected error"
+        stream.close_send()

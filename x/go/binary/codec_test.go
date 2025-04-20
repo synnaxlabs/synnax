@@ -11,6 +11,7 @@ package binary_test
 
 import (
 	"bytes"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/binary"
@@ -87,26 +88,189 @@ var _ = Describe("Codec", func() {
 			jsonB := MustSucceed(js.Encode(nil, v))
 			gobB := MustSucceed(gb.Encode(nil, v))
 			var res abc
-			fbc := &binary.DecodeFallbackCodec{
-				Codecs: []binary.Codec{
-					&binary.GobCodec{},
-					&binary.JSONCodec{},
-				},
-			}
+			fbc := binary.NewDecodeFallbackCodec(&binary.GobCodec{}, &binary.JSONCodec{})
 			Expect(fbc.Decode(nil, jsonB, &res)).To(Succeed())
 			Expect(res.Value).To(Equal(12))
 			Expect(fbc.Decode(nil, gobB, &res)).To(Succeed())
 			Expect(res.Value).To(Equal(12))
 		})
 		It("Should return the error of the last decoder if all codecs fail", func() {
-			fbc := &binary.DecodeFallbackCodec{
-				Codecs: []binary.Codec{
-					&binary.GobCodec{},
-					&binary.JSONCodec{},
-				},
-			}
+			fbc := binary.NewDecodeFallbackCodec(&binary.GobCodec{}, &binary.JSONCodec{})
 			_, err := fbc.Encode(nil, make(chan int))
 			Expect(err).To(HaveOccurred())
 		})
+		It("Should handle DecodeStream fallback correctly", func() {
+			js := &binary.JSONCodec{}
+			type abc struct {
+				Value int `json:"value"`
+			}
+			v := abc{Value: 12}
+			jsonB := MustSucceed(js.Encode(nil, v))
+
+			var res abc
+			fbc := binary.NewDecodeFallbackCodec(&binary.MsgPackCodec{}, &binary.JSONCodec{})
+
+			// Create a bytes.Buffer that implements io.Reader
+			buf := bytes.NewBuffer(jsonB)
+			Expect(fbc.DecodeStream(nil, buf, &res)).To(Succeed())
+			Expect(res.Value).To(Equal(12))
+		})
+		It("Should return error when DecodeStream fails for all codecs", func() {
+			fbc := binary.NewDecodeFallbackCodec(&binary.GobCodec{}, &binary.JSONCodec{})
+
+			invalidData := []byte("completely invalid data")
+			var res struct{ Value int }
+			err := fbc.DecodeStream(nil, bytes.NewReader(invalidData), &res)
+			Expect(err).To(HaveOccurred())
+		})
 	})
+	Describe("Tracing", func() {
+		It("Should properly wrap encoding and decoding operations", func() {
+			underlying := &binary.GobCodec{}
+			codec := &binary.TracingCodec{
+				Codec: underlying,
+			}
+
+			// Test encoding
+			b, err := codec.Encode(nil, toEncode{1})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Test decoding
+			var d toEncode
+			Expect(codec.Decode(nil, b, &d)).To(Succeed())
+			Expect(d.Value).To(Equal(1))
+
+			// Test stream decoding
+			var d2 toEncode
+			Expect(codec.DecodeStream(nil, bytes.NewReader(b), &d2)).To(Succeed())
+			Expect(d2.Value).To(Equal(1))
+		})
+
+		It("Should properly handle encoding errors", func() {
+			underlying := &binary.JSONCodec{}
+			codec := &binary.TracingCodec{
+				Codec: underlying,
+			}
+
+			// Try to encode an unencodable type
+			_, err := codec.Encode(nil, make(chan int))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to encode value"))
+		})
+
+		It("Should properly handle decoding errors", func() {
+			underlying := &binary.JSONCodec{}
+			codec := &binary.TracingCodec{
+				Codec: underlying,
+			}
+
+			// Try to decode invalid data
+			invalidData := []byte("invalid json")
+			var d toEncode
+			err := codec.Decode(nil, invalidData, &d)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to decode"))
+
+			// Try to decode invalid data through stream
+			err = codec.DecodeStream(nil, bytes.NewReader(invalidData), &d)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to decode"))
+		})
+	})
+	Describe("String Number Unmarshaling", func() {
+		DescribeTable("UnmarshalStringInt64", func(input string, expected int64, shouldError bool) {
+			b := []byte(input)
+			val, err := binary.UnmarshalStringInt64(b)
+			if shouldError {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+				Expect(val).To(Equal(expected))
+			}
+		},
+			Entry("direct number", `123`, int64(123), false),
+			Entry("string number", `"123"`, int64(123), false),
+			Entry("negative number", `-123`, int64(-123), false),
+			Entry("negative string", `"-123"`, int64(-123), false),
+			Entry("max int64", `9223372036854775807`, int64(9223372036854775807), false),
+			Entry("invalid string", `"abc"`, int64(0), true),
+			Entry("invalid json", `{invalid}`, int64(0), true),
+		)
+
+		DescribeTable("UnmarshalStringUint64", func(input string, expected uint64, shouldError bool) {
+			b := []byte(input)
+			val, err := binary.UnmarshalStringUint64(b)
+			if shouldError {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+				Expect(val).To(Equal(expected))
+			}
+		},
+			Entry("direct number", `123`, uint64(123), false),
+			Entry("string number", `"123"`, uint64(123), false),
+			Entry("max uint64", `18446744073709551615`, uint64(18446744073709551615), false),
+			Entry("negative number", `-123`, uint64(0), true),
+			Entry("negative string", `"-123"`, uint64(0), true),
+			Entry("invalid string", `"abc"`, uint64(0), true),
+			Entry("invalid json", `{invalid}`, uint64(0), true),
+		)
+	})
+	Describe("MustEncodeJSONtoString", func() {
+		It("Should encode valid values to JSON string", func() {
+			type testStruct struct {
+				Value string `json:"value"`
+			}
+			str := binary.MustEncodeJSONtoString(testStruct{Value: "test"})
+			Expect(str).To(Equal(`{"value":"test"}`))
+		})
+
+		It("Should panic on unencodable values", func() {
+			Expect(func() {
+				binary.MustEncodeJSONtoString(make(chan int))
+			}).To(Panic())
+		})
+	})
+
+	//Describe("MsgPack", func() {
+	//	It("Should encode and decode a TimeRange", func() {
+	//		type Channel struct {
+	//			Key         channel.Key          `json:"key" msgpack:"key"`
+	//			Name        string               `json:"name" msgpack:"name"`
+	//			Leaseholder distribution.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
+	//			DataType    telem.DataType       `json:"data_type" msgpack:"data_type"`
+	//			Density     telem.Density        `json:"density" msgpack:"density"`
+	//			IsIndex     bool                 `json:"is_index" msgpack:"is_index"`
+	//			Index       channel.Key          `json:"index" msgpack:"index"`
+	//			Alias       string               `json:"alias" msgpack:"alias"`
+	//			Virtual     bool                 `json:"virtual" msgpack:"virtual"`
+	//			Internal    bool                 `json:"internal" msgpack:"internal"`
+	//			Requires    channel.Keys         `json:"requires" msgpack:"requires"`
+	//			Expression  string               `json:"expression" msgpack:"expression"`
+	//		}
+	//		type ChannelCreateRequest struct {
+	//			// Channel is a template for the Channel to create.
+	//			Channels             []Channel `json:"channels" msgpack:"channels"`
+	//			RetrieveIfNameExists bool      `json:"retrieve_if_name_exists" msgpack:"retrieve_if_name_exists"`
+	//		}
+	//
+	//		data := []byte{
+	//			0x81, 0xa8, 0x63, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x73,
+	//			0x91, 0x86, 0xa4, 0x6e, 0x61, 0x6d, 0x65, 0xa4, 0x74, 0x65,
+	//			0x73, 0x74, 0xa9, 0x64, 0x61, 0x74, 0x61, 0x5f, 0x74, 0x79,
+	//			0x70, 0x65, 0xa7, 0x66, 0x6c, 0x6f, 0x61, 0x74, 0x33, 0x32,
+	//			0xa8, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0xc2,
+	//			0xa7, 0x76, 0x69, 0x72, 0x74, 0x75, 0x61, 0x6c, 0xc3, 0xaa,
+	//			0x65, 0x78, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e,
+	//			0xa0, 0xa8, 0x72, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x73,
+	//			0x90,
+	//		}
+	//		var res map[string]interface{}
+	//		var res2 ChannelCreateRequest
+	//		Expect((&binary.MsgPackCodec{}).Decode(nil, data, &res)).To(Succeed())
+	//		fmt.Print(res)
+	//		Expect((&binary.MsgPackCodec{}).Decode(nil, data, &res2)).To(Succeed())
+	//		fmt.Println(res2)
+	//	})
+	//})
 })

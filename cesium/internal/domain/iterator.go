@@ -11,6 +11,9 @@ package domain
 
 import (
 	"context"
+
+	"github.com/synnaxlabs/x/errors"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/telem"
@@ -75,6 +78,29 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	}
 	i.SetBounds(cfg.Bounds)
 	return i
+}
+
+func Read(ctx context.Context, db *DB, tr telem.TimeRange) (b []byte, err error) {
+	i := db.OpenIterator(IterRange(tr))
+	defer func() {
+		err = errors.Combine(err, i.Close())
+	}()
+	var data []byte
+	for i.SeekFirst(ctx); i.Valid(); i.Next() {
+		r, err := i.OpenReader(ctx)
+		if err != nil {
+			return nil, err
+		}
+		chunk := make([]byte, r.Len())
+		if _, err := r.ReadAt(chunk, 0); err != nil {
+			return nil, errors.Combine(err, r.Close())
+		}
+		data = append(data, chunk...)
+		if err := r.Close(); err != nil {
+			return nil, err
+		}
+	}
+	return data, nil
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be

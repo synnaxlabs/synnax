@@ -29,12 +29,12 @@ export class Transport {
   constructor(url: URL, breakerCfg: breaker.Config = {}, secure: boolean = false) {
     this.secure = secure;
     this.url = url.child(baseAPIEndpoint);
-    const codec = new binary.JSONCodec();
+    const codec = new binary.MsgPackCodec();
     this.unary = unaryWithBreaker(
       new HTTPClient(this.url, codec, this.secure),
       breakerCfg,
     );
-    this.stream = new WebSocketClient(this.url, codec, this.secure);
+    this.stream = new WebSocketClient(this.url, new binary.MsgPackCodec(), this.secure);
   }
 
   use(...middleware: Middleware[]): void {

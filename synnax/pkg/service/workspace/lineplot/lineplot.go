@@ -10,8 +10,8 @@
 package lineplot
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // LinePlot is the data for a visualization used to plott lines of telemetry.

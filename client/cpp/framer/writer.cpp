@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
+#include <utility>
 
 #include "client/cpp/framer/framer.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
@@ -19,9 +20,7 @@ enum WriterCommand : uint32_t {
     OPEN = 0,
     WRITE = 1,
     COMMIT = 2,
-    ERROR_MODE = 3,
-    SET_AUTHORITY = 4,
-    SET_MODE = 5,
+    SET_AUTHORITY = 3,
 };
 
 namespace synnax {
@@ -44,8 +43,8 @@ FrameClient::open_writer(const WriterConfig &cfg) const {
     return {std::move(w2), res_exc};
 }
 
-Writer::Writer(std::unique_ptr<WriterStream> s, const WriterConfig &cfg):
-    cfg(cfg), stream(std::move(s)) {}
+Writer::Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg):
+    cfg(std::move(cfg)), stream(std::move(s)) {}
 
 void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     this->subject.to_proto(f->mutable_control_subject());
@@ -58,13 +57,9 @@ void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     f->set_err_on_unauthorized(this->err_on_unauthorized);
 }
 
-bool Writer::write(const synnax::Frame &fr) {
-    this->assert_open();
-    if (this->err_accumulated) return false;
+xerrors::Error Writer::write(const synnax::Frame &fr) {
     this->init_request(fr);
-    if (const auto err = this->stream->send(*cached_write_req))
-        this->err_accumulated = true;
-    return !this->err_accumulated;
+    return this->exec(*this->cached_write_req, false).second;
 }
 
 void Writer::init_request(const Frame &fr) {
@@ -91,71 +86,54 @@ void Writer::init_request(const Frame &fr) {
     fr.to_proto(cached_frame);
 }
 
-std::pair<telem::TimeStamp, bool> Writer::commit() {
-    this->assert_open();
-    if (err_accumulated) return {telem::TimeStamp(), false};
+std::pair<telem::TimeStamp, xerrors::Error> Writer::commit() {
     api::v1::FrameWriterRequest req;
     req.set_command(COMMIT);
-    const auto res = this->ack(req);
-    return {telem::TimeStamp(res.end()), res.ack() && !this->err_accumulated};
+    const auto [res, err] = this->exec(req, true);
+    return {telem::TimeStamp(res.end()), err};
 }
 
-xerrors::Error Writer::error() {
-    assert_open();
-    api::v1::FrameWriterRequest req;
-    req.set_command(ERROR_MODE);
-    const auto res = this->ack(req);
-    return xerrors::Error(res.error());
-}
-
-bool Writer::set_authority(const telem::Authority &auth) {
+xerrors::Error Writer::set_authority(const telem::Authority &auth) {
     return this->set_authority({}, std::vector{auth});
 }
 
-bool Writer::set_authority(const ChannelKey &key, const telem::Authority &authority) {
+xerrors::Error
+Writer::set_authority(const ChannelKey &key, const telem::Authority &authority) {
     return this->set_authority(std::vector{key}, std::vector{authority});
 }
 
-bool Writer::set_authority(
+xerrors::Error Writer::set_authority(
     const std::vector<ChannelKey> &keys,
     const std::vector<telem::Authority> &authorities
 ) {
-    this->assert_open();
-    const WriterConfig config{
-        .channels = keys,
-        .authorities = authorities,
-    };
+    const WriterConfig config{.channels = keys, .authorities = authorities};
     api::v1::FrameWriterRequest req;
     req.set_command(SET_AUTHORITY);
     config.to_proto(req.mutable_config());
-    this->ack(req);
-    return !this->err_accumulated;
+    return this->exec(req, true).second;
 }
 
-api::v1::FrameWriterResponse Writer::ack(api::v1::FrameWriterRequest &req) {
-    if (const auto err = this->stream->send(req); err) {
-        this->err_accumulated = true;
-        return {};
-    }
-    while (true) {
+std::pair<api::v1::FrameWriterResponse, xerrors::Error>
+Writer::exec(api::v1::FrameWriterRequest &req, const bool ack) {
+    if (this->closed) return {api::v1::FrameWriterResponse(), this->close_err};
+    if (const auto err = this->stream->send(req); err)
+        return {api::v1::FrameWriterResponse(), this->close()};
+    while (ack) {
         auto [res, res_err] = stream->receive();
-        if (res_err) {
-            this->err_accumulated = true;
-            return res;
-        }
-        if (res.command() == req.command()) return res;
+        if (res_err) return {res, this->close()};
+        if (res.command() == req.command()) return {res, xerrors::NIL};
     }
+    return {api::v1::FrameWriterResponse(), xerrors::NIL};
 }
 
-xerrors::Error Writer::close() const {
+xerrors::Error Writer::close() {
+    if (this->closed) return this->close_err;
+    this->closed = true;
     stream->close_send();
     while (true)
-        if (const auto rec_exc = stream->receive().second; rec_exc)
-            return rec_exc.skip(freighter::EOF_);
-}
-
-
-void Writer::assert_open() const {
-    if (closed) throw std::runtime_error("cannot call method on closed writer");
+        if (const auto rec_exc = stream->receive().second; rec_exc) {
+            this->close_err = rec_exc.skip(freighter::EOF_);
+            return this->close_err;
+        }
 }
 }

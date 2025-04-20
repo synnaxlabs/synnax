@@ -12,13 +12,13 @@ package channel_test
 import (
 	"fmt"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 var _ = Describe("getAttributes", Ordered, func() {
@@ -35,12 +35,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a set of channels", func() {
 			ch1 := channel.Channel{
-				Rate:     25 * telem.Hz,
+				Virtual:  true,
 				DataType: telem.Float32T,
 				Name:     "SG02",
 			}
 			ch2 := channel.Channel{
-				Rate:     25 * telem.Hz,
+				Virtual:  true,
 				DataType: telem.Float32T,
 				Name:     "SG03",
 			}
@@ -74,12 +74,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 		It("Should correctly retrieve a channel by its key", func() {
 			created := []channel.Channel{
 				{
-					Rate:     25 * telem.Hz,
+					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     "SG02",
 				},
 				{
-					Rate:     25 * telem.Hz,
+					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     "SG03",
 				},
@@ -101,7 +101,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 			n := uuid.New().String()
 			created := []channel.Channel{
 				{
-					Rate:     25 * telem.Hz,
+					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     n,
 				},
@@ -122,12 +122,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 		It("Should correctly retrieve channels by regex expression", func() {
 			created := []channel.Channel{
 				{
-					Rate:     25 * telem.Hz,
+					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     "SG222",
 				},
 				{
-					Rate:     25 * telem.Hz,
+					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     "SG223",
 				},
@@ -158,12 +158,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 		It("Should correctly filter channels by search term", func() {
 			created := []channel.Channel{
 				{
-					Rate:     25 * telem.Hz,
+					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     "SG-----222",
 				},
 				{
-					Rate:     25 * telem.Hz,
+					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     "SG-----223",
 				},
@@ -186,12 +186,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 		It("Should return true if a channel exists", func() {
 			created := []channel.Channel{
 				{
-					Rate:     25 * telem.Hz,
+					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     "SG02",
 				},
 				{
-					Rate:     25 * telem.Hz,
+					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     "SG03",
 				},
@@ -213,8 +213,8 @@ var _ = Describe("getAttributes", Ordered, func() {
 			createdChannels := make([]channel.Channel, int(limit))
 			for i := range limit {
 				ch := channel.Channel{
-					Rate:        10 * telem.Hz,
-					DataType:    telem.Float64T,
+					IsIndex:     true,
+					DataType:    telem.TimeStampT,
 					Name:        fmt.Sprintf("LimitTest%d", i),
 					Leaseholder: 1,
 				}
@@ -224,8 +224,8 @@ var _ = Describe("getAttributes", Ordered, func() {
 
 			// Try to create one more channel over the limit
 			overLimitCh := channel.Channel{
-				Rate:        10 * telem.Hz,
-				DataType:    telem.Float64T,
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
 				Name:        "OverLimit",
 				Leaseholder: 1,
 			}

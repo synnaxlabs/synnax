@@ -491,15 +491,15 @@ public:
     /// https://docs.synnaxlabs.com/reference/concepts/writes.
     ///
     /// @returns false if an error occurred in the write pipeline. After an error
-    /// occurs, the caller must acknowledge the error by calling error() or close()
-    /// on the writer.
-    bool write(const Frame &fr);
+    /// occurs, the caller must acknowledge the error by calling error() or close() on
+    /// the writer.
+    xerrors::Error write(const Frame &fr);
 
     /// @brief changes the authority of all channels in the writer to the given
     /// authority level.
     /// @returns true if the authority was set successfully.
     /// @param auth the authority level to set all channels to.
-    [[nodiscard]] bool set_authority(const telem::Authority &auth);
+    [[nodiscard]] xerrors::Error set_authority(const telem::Authority &auth);
 
     /// @brief changes the authority of the given channel to the given authority
     /// level. This does not affect the authority levels of any other channels in
@@ -507,7 +507,7 @@ public:
     /// @returns true if the authority was set successfully.
     /// @param key the channel to set the authority of.
     /// @param authority the authority level to set the channel to.
-    [[nodiscard]] bool
+    [[nodiscard]] xerrors::Error
     set_authority(const ChannelKey &key, const telem::Authority &authority);
 
     /// @brief changes the authority of the given channels to the given authority
@@ -515,7 +515,7 @@ public:
     /// @returns true if the authority was set successfully.
     /// @param keys the channels to set the authority of.
     /// @param authorities the authority levels to set the channels to.
-    [[nodiscard]] bool set_authority(
+    [[nodiscard]] xerrors::Error set_authority(
         const std::vector<ChannelKey> &keys,
         const std::vector<telem::Authority> &authorities
     );
@@ -525,22 +525,18 @@ public:
     ///
     /// @returns false if the commit failed. After a commit fails, the caller must
     /// acknowledge the error by calling error() or close() on the writer.
-    std::pair<telem::TimeStamp, bool> commit();
-
-    /// @brief returns any error accumulated during the write process. If no err has
-    /// occurred, err.ok() will be true.
-    [[nodiscard]] xerrors::Error error();
+    std::pair<telem::TimeStamp, xerrors::Error> commit();
 
     /// @brief closes the writer and releases any resources associated with it. A
     /// writer MUST be closed after use, or the caller risks leaking resources.
     /// Calling any method on a closed writer will throw a runtime_error.
-    [[nodiscard]] xerrors::Error close() const;
+    [[nodiscard]] xerrors::Error close();
 
 private:
-    /// @brief whether an error has occurred in the write pipeline.
-    bool err_accumulated = false;
     /// @brief if close() has been called on the writer.
     bool closed = false;
+    xerrors::Error close_err = xerrors::NIL;
+
 
     /// @brief the configuration used to open the writer.
     WriterConfig cfg;
@@ -556,10 +552,11 @@ private:
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
-    api::v1::FrameWriterResponse ack(api::v1::FrameWriterRequest &req);
+    std::pair<api::v1::FrameWriterResponse, xerrors::Error>
+    exec(api::v1::FrameWriterRequest &req, bool ack);
 
     /// @brief opens a writer to the Synnax cluster.
-    explicit Writer(std::unique_ptr<WriterStream> s, const WriterConfig &cfg);
+    explicit Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg);
 
     /// @brief initializes the cached request with the frame structure
     void init_request(const Frame &fr);
