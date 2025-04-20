@@ -54,11 +54,19 @@ func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame, free F
 }
 
 func (f Frame) ToStorage() (fr ts.Frame) {
-	return cesium.NewFrame(channel.Keys(f.KeysSlice()).Storage(), f.SeriesSlice())
+	return telem.MultiFrame[cesium.ChannelKey](channel.Keys(f.KeysSlice()).Storage(), f.SeriesSlice())
 }
 
 func (f Frame) FilterKeys(keys channel.Keys) Frame {
 	return Frame{f.Frame.FilterKeys(keys)}
+}
+
+func (f Frame) Extend(frame Frame) Frame {
+	return Frame{f.Frame.Extend(frame.Frame)}
+}
+
+func (f Frame) ShallowCopy() Frame {
+	return Frame{f.Frame.ShallowCopy()}
 }
 
 func MergeFrames(frames []Frame) (f Frame) {
@@ -77,5 +85,5 @@ func MergeFrames(frames []Frame) (f Frame) {
 }
 
 func NewFrameFromStorage(frame ts.Frame) Frame {
-	return MultiFrame(channel.KeysFromUint32(frame.KeysSlice()), frame.SeriesSlice())
+	return Frame{telem.ReinterpretKeysAs[cesium.ChannelKey, channel.Key](frame)}
 }

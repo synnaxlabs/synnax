@@ -12,13 +12,13 @@ package channel_test
 import (
 	"fmt"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 var _ = Describe("getAttributes", Ordered, func() {

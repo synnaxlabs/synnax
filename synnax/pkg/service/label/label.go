@@ -10,10 +10,10 @@
 package label
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // Label represents a label that can be applied to arbitrary resources within the

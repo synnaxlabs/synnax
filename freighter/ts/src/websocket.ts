@@ -38,7 +38,7 @@ type ReceiveCallbacksQueue = Array<{
 class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   implements Stream<RQ, RS>
 {
-  private readonly encoder: binary.Codec;
+  private readonly codec: binary.Codec;
   private readonly reqSchema: RQ;
   private readonly resSchema: RS;
   private readonly ws: WebSocket;
@@ -48,7 +48,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
 
   constructor(ws: WebSocket, encoder: binary.Codec, reqSchema: RQ, resSchema: RS) {
-    this.encoder = encoder;
+    this.codec = encoder;
     this.reqSchema = reqSchema;
     this.resSchema = resSchema;
     this.ws = ws;
@@ -70,7 +70,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   send(req: z.input<RQ>): Error | null {
     if (this.serverClosed != null) return new EOF();
     if (this.sendClosed) throw new StreamClosed();
-    this.ws.send(this.encoder.encode({ type: "data", payload: req }));
+    this.ws.send(this.codec.encode({ type: "data", payload: req }));
     return null;
   }
 
@@ -96,7 +96,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
     if (this.sendClosed || this.serverClosed != null) return undefined;
     const msg: Message = { type: "close" };
     try {
-      this.ws.send(this.encoder.encode(msg));
+      this.ws.send(this.codec.encode(msg));
     } finally {
       this.sendClosed = true;
     }
@@ -119,7 +119,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
 
   private listenForMessages(): void {
     this.ws.onmessage = (ev: MessageEvent<Uint8Array>) =>
-      this.addMessage(this.encoder.decode(ev.data, MessageSchema));
+      this.addMessage(this.codec.decode(ev.data, MessageSchema));
 
     this.ws.onclose = (ev: CloseEvent) =>
       this.addMessage({

@@ -14,10 +14,12 @@ import (
 	"context"
 	"encoding/gob"
 	"encoding/json"
-	"github.com/samber/lo"
+	"fmt"
 	"io"
 	"reflect"
 	"strconv"
+
+	"github.com/samber/lo"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
@@ -154,6 +156,7 @@ func (m *MsgPackCodec) Encode(_ context.Context, value interface{}) ([]byte, err
 func (m *MsgPackCodec) Decode(ctx context.Context, data []byte, value interface{}) error {
 	err := m.DecodeStream(ctx, bytes.NewReader(data), value)
 	if err != nil {
+		fmt.Println(data)
 		return sugarDecodingErr(data, value, err)
 	}
 	return nil
@@ -256,6 +259,14 @@ func UnmarshalStringUint64(b []byte) (n uint64, err error) {
 	}
 	n, err = strconv.ParseUint(str, 10, 64)
 	return n, err
+}
+
+func MarshalStringInt64(n int64) ([]byte, error) {
+	return []byte("\"" + strconv.Itoa(int(n)) + "\""), nil
+}
+
+func MarshalStringUint64(n uint64) ([]byte, error) {
+	return []byte("\"" + strconv.FormatUint(n, 10) + "\""), nil
 }
 
 // decodeFallbackCodec wraps a set of Codecs. When the first Codec in the chain fails to

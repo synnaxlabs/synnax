@@ -13,7 +13,6 @@ import (
 	"context"
 	"regexp"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -23,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // Range (short for time range) is an interesting, user defined regions of time in a

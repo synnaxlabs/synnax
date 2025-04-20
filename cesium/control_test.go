@@ -100,7 +100,7 @@ var _ = Describe("Control", func() {
 						Eventually(stOut.Outlet()).Should(Receive())
 
 						By("Writing to the first writer")
-						Expect(MustSucceed(w1.Write(core.NewFrame(
+						Expect(MustSucceed(w1.Write(telem.MultiFrame[cesium.ChannelKey](
 							[]cesium.ChannelKey{indexCHKey, dataChKey},
 							[]telem.Series{
 								telem.NewSecondsTSV(10, 11, 12),
@@ -109,7 +109,7 @@ var _ = Describe("Control", func() {
 						)))).To(BeTrue())
 
 						By("Failing to write to the second writer")
-						w2Frame := core.NewFrame(
+						w2Frame := telem.MultiFrame[cesium.ChannelKey](
 							[]cesium.ChannelKey{indexCHKey, dataChKey},
 							[]telem.Series{
 								telem.NewSecondsTSV(12, 13, 14),
@@ -146,8 +146,8 @@ var _ = Describe("Control", func() {
 							start.SpanRange(10*telem.Second),
 							dataChKey,
 						))
-						Expect(f.Series).To(HaveLen(1))
-						Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
+						Expect(f.Count()).To(Equal(1))
+						Expect(f.SeriesAt(0).Data).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
 					})
 
 					It("Should correctly hand off control authority when a writer is force closed via context cancellation", func() {
@@ -207,7 +207,7 @@ var _ = Describe("Control", func() {
 						By("Writing to the first writer")
 						w1In.Inlet() <- cesium.WriterRequest{
 							Command: cesium.WriterWrite,
-							Frame: core.NewFrame(
+							Frame: telem.MultiFrame[cesium.ChannelKey](
 								[]cesium.ChannelKey{indexCHKey, dataChKey},
 								[]telem.Series{
 									telem.NewSecondsTSV(10, 11, 12),
@@ -218,7 +218,7 @@ var _ = Describe("Control", func() {
 						var res cesium.StreamerResponse
 						Eventually(stOut.Outlet()).Should(Receive(&res))
 						var d cesium.ControlUpdate
-						Expect(json.Unmarshal(res.Frame.Series[0].Data, &d)).To(Succeed())
+						Expect(json.Unmarshal(res.Frame.SeriesAt(0).Data, &d)).To(Succeed())
 						Expect(d.Transfers).To(HaveLen(2))
 						Expect(d.Transfers[0].To).ToNot(BeNil())
 						Expect(d.Transfers[0].To.Subject.Name).To(Equal("Writer One"))
@@ -229,7 +229,7 @@ var _ = Describe("Control", func() {
 
 						By("Propagating the control transfer")
 						Eventually(stOut.Outlet()).Should(Receive(&res))
-						Expect(json.Unmarshal(res.Frame.Series[0].Data, &d)).To(Succeed())
+						Expect(json.Unmarshal(res.Frame.SeriesAt(0).Data, &d)).To(Succeed())
 						Expect(d.Transfers).To(HaveLen(2))
 						Expect(d.Transfers[0].To).ToNot(BeNil())
 						Expect(d.Transfers[0].To.Subject.Name).To(Equal("Writer Two"))
@@ -237,7 +237,7 @@ var _ = Describe("Control", func() {
 						By("Writing to the second writer")
 						w2In.Inlet() <- cesium.WriterRequest{
 							Command: cesium.WriterWrite,
-							Frame: core.NewFrame(
+							Frame: telem.MultiFrame[cesium.ChannelKey](
 								[]cesium.ChannelKey{indexCHKey, dataChKey},
 								[]telem.Series{
 									telem.NewSecondsTSV(13, 14, 15),
@@ -264,8 +264,8 @@ var _ = Describe("Control", func() {
 							start.SpanRange(10*telem.Second),
 							dataChKey,
 						))
-						Expect(f.Series).To(HaveLen(1))
-						Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
+						Expect(f.Count()).To(Equal(1))
+						Expect(f.SeriesAt(0).Data).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
 					})
 				})
 

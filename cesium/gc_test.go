@@ -69,7 +69,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							timestamps = append(timestamps, telem.TimeStamp(i*10+j))
 						}
 
-						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, cesium.NewFrame(
+						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
 								telem.NewSeriesV[int64](data...),
@@ -137,7 +137,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							timestamps = append(timestamps, telem.TimeStamp(i*10+j))
 						}
 
-						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, cesium.NewFrame(
+						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
 								telem.NewSeriesV[int64](data...),
@@ -167,15 +167,15 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 					By("Asserting that the data is still correct", func() {
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic))
-						Expect(f.Series).To(HaveLen(6))
-						Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(19*telem.SecondTS + 1)))
-						Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](100, 110, 120, 130, 140, 150, 160, 170, 180, 190).Data))
+						Expect(f.Count()).To(Equal(6))
+						Expect(f.SeriesAt(0).TimeRange).To(Equal((10 * telem.SecondTS).Range(19*telem.SecondTS + 1)))
+						Expect(f.SeriesAt(0).Data).To(Equal(telem.NewSeriesV[int64](100, 110, 120, 130, 140, 150, 160, 170, 180, 190).Data))
 
-						Expect(f.Series[1].TimeRange).To(Equal((50 * telem.SecondTS).Range(59*telem.SecondTS + 1)))
-						Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](500, 510, 520, 530, 540, 550, 560, 570, 580, 590).Data))
+						Expect(f.SeriesAt(1).TimeRange).To(Equal((50 * telem.SecondTS).Range(59*telem.SecondTS + 1)))
+						Expect(f.SeriesAt(1).Data).To(Equal(telem.NewSeriesV[int64](500, 510, 520, 530, 540, 550, 560, 570, 580, 590).Data))
 
-						Expect(f.Series[2].TimeRange).To(Equal((66 * telem.SecondTS).Range(69*telem.SecondTS + 1)))
-						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](660, 670, 680, 690).Data))
+						Expect(f.SeriesAt(2).TimeRange).To(Equal((66 * telem.SecondTS).Range(69*telem.SecondTS + 1)))
+						Expect(f.SeriesAt(2).Data).To(Equal(telem.NewSeriesV[int64](660, 670, 680, 690).Data))
 					})
 				})
 			})
@@ -214,7 +214,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							timestamps = append(timestamps, telem.TimeStamp(i*10+j))
 						}
 
-						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, cesium.NewFrame(
+						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
 								telem.NewSeriesV[int64](data...),
@@ -243,14 +243,14 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 					By("Writing more data – they should go to the newly freed files, i.e. file 3 or file 4")
 					// This should go to file 10.
-					Expect(db.Write(ctx, 200*telem.SecondTS, cesium.NewFrame(
+					Expect(db.Write(ctx, 200*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{basic, index},
 						[]telem.Series{
 							telem.NewSeriesV[int64](2000, 2010, 2020, 2030, 2040),
 							telem.NewSecondsTSV(200, 201, 202, 203, 204),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 300*telem.SecondTS, cesium.NewFrame(
+					Expect(db.Write(ctx, 300*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{basic, index},
 						[]telem.Series{
 							telem.NewSeriesV[int64](3000, 3010, 3020),
@@ -263,15 +263,15 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 					By("Asserting that the data is correct", func() {
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic))
-						Expect(f.Series).To(HaveLen(9))
-						Expect(f.Series[1].TimeRange).To(Equal((20 * telem.SecondTS).Range(26 * telem.SecondTS)))
-						Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](200, 210, 220, 230, 240, 250).Data))
-						Expect(f.Series[2].TimeRange).To(Equal((55 * telem.SecondTS).Range(59*telem.SecondTS + 1)))
-						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](550, 560, 570, 580, 590).Data))
-						Expect(f.Series[7].TimeRange).To(Equal((200 * telem.SecondTS).Range(204*telem.SecondTS + 1)))
-						Expect(f.Series[7].Data).To(Equal(telem.NewSeriesV[int64](2000, 2010, 2020, 2030, 2040).Data))
-						Expect(f.Series[8].TimeRange).To(Equal((300 * telem.SecondTS).Range(302*telem.SecondTS + 1)))
-						Expect(f.Series[8].Data).To(Equal(telem.NewSeriesV[int64](3000, 3010, 3020).Data))
+						Expect(f.Count()).To(Equal(9))
+						Expect(f.SeriesAt(1).TimeRange).To(Equal((20 * telem.SecondTS).Range(26 * telem.SecondTS)))
+						Expect(f.SeriesAt(1).Data).To(Equal(telem.NewSeriesV[int64](200, 210, 220, 230, 240, 250).Data))
+						Expect(f.SeriesAt(2).TimeRange).To(Equal((55 * telem.SecondTS).Range(59*telem.SecondTS + 1)))
+						Expect(f.SeriesAt(2).Data).To(Equal(telem.NewSeriesV[int64](550, 560, 570, 580, 590).Data))
+						Expect(f.SeriesAt(7).TimeRange).To(Equal((200 * telem.SecondTS).Range(204*telem.SecondTS + 1)))
+						Expect(f.SeriesAt(7).Data).To(Equal(telem.NewSeriesV[int64](2000, 2010, 2020, 2030, 2040).Data))
+						Expect(f.SeriesAt(8).TimeRange).To(Equal((300 * telem.SecondTS).Range(302*telem.SecondTS + 1)))
+						Expect(f.SeriesAt(8).Data).To(Equal(telem.NewSeriesV[int64](3000, 3010, 3020).Data))
 					})
 				})
 			})

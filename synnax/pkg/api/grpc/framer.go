@@ -18,7 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/control"
@@ -91,18 +92,19 @@ var (
 
 func translateFrameForward(f api.Frame) *gapi.Frame {
 	return &gapi.Frame{
-		Keys:   translateChannelKeysForward(f.Keys),
-		Series: telem.TranslateManySeriesForward(f.Series),
+		Keys:   translateChannelKeysForward(f.KeysSlice()),
+		Series: telem.TranslateManySeriesForward(f.SeriesSlice()),
 	}
 }
 
-func translateFrameBackward(f *gapi.Frame) (of api.Frame) {
+func translateFrameBackward(f *gapi.Frame) api.Frame {
 	if f == nil {
-		return
+		return api.Frame{}
 	}
-	of.Keys = translateChannelKeysBackward(f.Keys)
-	of.Series = telem.TranslateManySeriesBackward(f.Series)
-	return
+	return core.MultiFrame(
+		translateChannelKeysBackward(f.Keys),
+		telem.TranslateManySeriesBackward(f.Series),
+	)
 }
 
 func translateControlSubjectForward(cs control.Subject) *control.ControlSubject {
@@ -184,7 +186,7 @@ func (t frameWriterResponseTranslator) Backward(
 	return api.FrameWriterResponse{
 		Command: writer.Command(msg.Command),
 		SeqNum:  int(msg.Counter),
-		NodeKey: core.NodeKey(msg.NodeKey),
+		NodeKey: dcore.NodeKey(msg.NodeKey),
 		End:     telem.TimeStamp(msg.End),
 	}, nil
 }
@@ -239,7 +241,7 @@ func (t frameIteratorResponseTranslator) Backward(
 	return api.FrameIteratorResponse{
 		Variant: iterator.ResponseVariant(msg.Variant),
 		Command: iterator.Command(msg.Command),
-		NodeKey: core.NodeKey(msg.NodeKey),
+		NodeKey: dcore.NodeKey(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int(msg.SeqNum),
 		Frame:   translateFrameBackward(msg.Frame),

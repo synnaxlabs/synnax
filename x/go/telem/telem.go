@@ -37,8 +37,8 @@ func (ts *TimeStamp) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-func (ts *TimeStamp) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + strconv.Itoa(int(*ts)) + "\""), nil
+func (ts TimeStamp) MarshalJSON() ([]byte, error) {
+	return binary.MarshalStringInt64(int64(ts))
 }
 
 // Now returns the current time as a TimeStamp.
@@ -303,8 +303,8 @@ var (
 // TimeSpan represents a duration of time in nanoseconds.
 type TimeSpan int64
 
-func (ts *TimeSpan) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + strconv.Itoa(int(*ts)) + "\""), nil
+func (ts TimeSpan) MarshalJSON() ([]byte, error) {
+	return binary.MarshalStringInt64(int64(ts))
 }
 
 const (
@@ -316,7 +316,7 @@ const (
 
 var (
 	_ json.Unmarshaler = (*TimeSpan)(nil)
-	_ json.Marshaler   = (*TimeSpan)(nil)
+	_ json.Marshaler   = TimeSpan(0)
 )
 
 func (ts *TimeSpan) UnmarshalJSON(b []byte) error {
@@ -558,8 +558,8 @@ func (a *AlignmentPair) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON implements json.Marshaler.
-func (a *AlignmentPair) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + strconv.FormatUint(uint64(*a), 10) + "\""), nil
+func (a AlignmentPair) MarshalJSON() ([]byte, error) {
+	return binary.MarshalStringUint64(uint64(a))
 }
 
 func (a AlignmentPair) AddSamples(samples uint32) AlignmentPair {

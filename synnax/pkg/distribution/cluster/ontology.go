@@ -16,7 +16,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -24,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/uuid"
 	"go.uber.org/zap"
 )
 

@@ -13,10 +13,10 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // Delete deletes the specified time range from the database. Note that the start of the

@@ -29,8 +29,8 @@ func (d *downSampler) transform(
 	in Response,
 ) (out Response, ok bool, err error) {
 	in.Frame = in.Frame.ShallowCopy()
-	for i, s := range in.Frame.Series {
-		in.Frame.Series[i] = s.DownSample(d.cfg.DownSampleFactor)
+	for i, s := range in.Frame.SeriesI() {
+		in.Frame.SetSeriesAt(i, s.DownSample(d.cfg.DownSampleFactor))
 	}
 	return in, true, nil
 }

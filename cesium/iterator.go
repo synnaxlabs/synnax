@@ -131,7 +131,7 @@ func (i *Iterator) execErr(req IteratorRequest) (bool, error) {
 		if res.Variant == IteratorAckResponse {
 			return res.Ack, res.Err
 		}
-		i.frame = i.frame.AppendFrame(res.Frame)
+		i.frame = i.frame.Extend(res.Frame)
 	}
 	i.logger.DPanic(unexpectedSteamClosure)
 	return false, nil

@@ -10,6 +10,8 @@
 package unary_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -17,7 +19,6 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"math"
 )
 
 var _ = Describe("Garbage Collection", func() {
@@ -97,14 +98,14 @@ var _ = Describe("Garbage Collection", func() {
 
 					By("Reading data from the channel")
 					frame := MustSucceed(dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
-					Expect(frame.Series).To(HaveLen(6))
+					Expect(frame.Count()).To(Equal(6))
 
-					Expect(frame.Series[2].TimeRange.End).To(Equal(33 * telem.SecondTS))
-					series2Data := telem.UnmarshalSlice[int](frame.Series[2].Data, telem.Int64T)
+					Expect(frame.SeriesAt(2).TimeRange.End).To(Equal(33 * telem.SecondTS))
+					series2Data := telem.UnmarshalSlice[int](frame.SeriesAt(2).Data, telem.Int64T)
 					Expect(series2Data).To(ConsistOf(30, 31, 32))
 
-					Expect(frame.Series[3].TimeRange.Start).To(Equal(75 * telem.SecondTS))
-					series3Data := telem.UnmarshalSlice[int](frame.Series[3].Data, telem.Int64T)
+					Expect(frame.SeriesAt(3).TimeRange.Start).To(Equal(75 * telem.SecondTS))
+					series3Data := telem.UnmarshalSlice[int](frame.SeriesAt(3).Data, telem.Int64T)
 					Expect(series3Data).To(ConsistOf(75, 76, 77, 78, 79))
 				})
 			})
@@ -177,18 +178,27 @@ var _ = Describe("Garbage Collection", func() {
 
 					By("Asserting that the data is correct")
 					f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
-					Expect(f.Series).To(HaveLen(5))
+					Expect(f.Count()).To(Equal(5))
 
-					Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(17 * telem.SecondTS)))
-					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16).Data))
-					Expect(f.Series[1].TimeRange).To(Equal((17 * telem.SecondTS).Range(18*telem.SecondTS + 1)))
-					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](17, 18).Data))
-					Expect(f.Series[2].TimeRange).To(Equal((26 * telem.SecondTS).Range(26*telem.SecondTS + 1)))
-					Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](26).Data))
-					Expect(f.Series[3].TimeRange).To(Equal((34 * telem.SecondTS).Range(41*telem.SecondTS + 1)))
-					Expect(f.Series[3].Data).To(Equal(telem.NewSeriesV[int64](34, 35, 36, 37, 38, 39, 40, 41).Data))
-					Expect(f.Series[4].TimeRange).To(Equal((50 * telem.SecondTS).Range(56*telem.SecondTS + 1)))
-					Expect(f.Series[4].Data).To(Equal(telem.NewSeriesV[int64](50, 51, 52, 53, 54, 55, 56).Data))
+					first := f.SeriesAt(0)
+					Expect(first.TimeRange).To(Equal((10 * telem.SecondTS).Range(17 * telem.SecondTS)))
+					Expect(first.Data).To(Equal(telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16).Data))
+
+					second := f.SeriesAt(1)
+					Expect(second.TimeRange).To(Equal((17 * telem.SecondTS).Range(18*telem.SecondTS + 1)))
+					Expect(second.Data).To(Equal(telem.NewSeriesV[int64](17, 18).Data))
+
+					third := f.SeriesAt(2)
+					Expect(third.TimeRange).To(Equal((26 * telem.SecondTS).Range(26*telem.SecondTS + 1)))
+					Expect(third.Data).To(Equal(telem.NewSeriesV[int64](26).Data))
+
+					fourth := f.SeriesAt(3)
+					Expect(fourth.TimeRange).To(Equal((34 * telem.SecondTS).Range(41*telem.SecondTS + 1)))
+					Expect(fourth.Data).To(Equal(telem.NewSeriesV[int64](34, 35, 36, 37, 38, 39, 40, 41).Data))
+
+					fifth := f.SeriesAt(4)
+					Expect(fifth.TimeRange).To(Equal((50 * telem.SecondTS).Range(56*telem.SecondTS + 1)))
+					Expect(fifth.Data).To(Equal(telem.NewSeriesV[int64](50, 51, 52, 53, 54, 55, 56).Data))
 				})
 			})
 		})

@@ -3,7 +3,9 @@ package telem_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Frame", func() {
@@ -241,10 +243,10 @@ var _ = Describe("Frame", func() {
 				})
 
 			series := fr.Get(1)
-			Expect(series).To(Equal([]telem.Series{
+			Expect(series).To(Equal(telem.MultiSeries{Series: []telem.Series{
 				telem.NewSeriesV[int32](1, 2),
 				telem.NewSeriesV[int32](5, 6),
-			}))
+			}}))
 		})
 
 		It("Should respect masking when getting series", func() {
@@ -258,10 +260,10 @@ var _ = Describe("Frame", func() {
 
 			filtered := fr.FilterKeys([]int{1})
 			series := filtered.Get(1)
-			Expect(series).To(Equal([]telem.Series{
+			Expect(series).To(Equal(telem.MultiSeries{Series: []telem.Series{
 				telem.NewSeriesV[int32](1, 2),
 				telem.NewSeriesV[int32](5, 6),
-			}))
+			}}))
 		})
 
 		It("Should return empty slice for non-existent key", func() {
@@ -273,7 +275,7 @@ var _ = Describe("Frame", func() {
 				})
 
 			series := fr.Get(3)
-			Expect(series).To(BeEmpty())
+			Expect(series.Series).To(BeEmpty())
 		})
 	})
 
@@ -497,5 +499,38 @@ var _ = Describe("Frame", func() {
 			f := telem.MultiFrame[int]([]int{}, []telem.Series{})
 			Expect(f.String()).To(Equal("Frame{}"))
 		})
+	})
+
+	Describe("Encode + Decode", func() {
+		codecs := []binary.Codec{
+			&binary.JSONCodec{},
+			&binary.MsgPackCodec{},
+		}
+		for _, codec := range codecs {
+			It("Should encode and decode a frame", func() {
+				original := telem.MultiFrame[int](
+					[]int{1, 2},
+					[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](3, 4)},
+				)
+				buf := MustSucceed(codec.Encode(ctx, original))
+				var decoded telem.Frame[int]
+				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			})
+			It("Should respect masking", func() {
+				original := telem.MultiFrame[int](
+					[]int{1, 2},
+					[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](3, 4)},
+				).FilterKeys([]int{1})
+				buf := MustSucceed(codec.Encode(ctx, original))
+				var decoded telem.Frame[int]
+				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(telem.UnaryFrame[int](
+					1,
+					telem.NewSeriesV[int64](1, 2),
+				)))
+			})
+		}
+
 	})
 })

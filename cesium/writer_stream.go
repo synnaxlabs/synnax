@@ -339,10 +339,9 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 
 	var incrementedSampleCount bool
 
-	for i, series := range fr.Series {
-		key := fr.Keys[i]
+	for i, key := range fr.KeysI() {
 		uWriter, ok := w.internal[key]
-
+		series := fr.SeriesAt(i)
 		if !ok || series.Len() == 0 {
 			continue
 		}
@@ -362,7 +361,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 			incrementedSampleCount = true
 		}
 		series.Alignment = alignment
-		fr.Series[i] = series
+		fr.SetSeriesAt(i, series)
 	}
 
 	return fr, nil
@@ -408,14 +407,13 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		lengthOfFrame        int64 = -1
 		numChannelsWrittenTo       = 0
 	)
-	for i, k := range fr.Keys {
+	for k, s := range fr.Entries() {
 		uWriter, ok := w.internal[k]
 		if !ok {
 			continue
 		}
 
 		if lengthOfFrame == -1 {
-			s := fr.Series[i]
 			// Data type of first series must be known since we use it to calculate the
 			// length of series in the frame
 			if s.DataType.Density() == telem.DensityUnknown {
@@ -438,14 +436,14 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		uWriter.timesWritten++
 		numChannelsWrittenTo++
 
-		if fr.Series[i].Len() != lengthOfFrame {
+		if s.Len() != lengthOfFrame {
 			return errors.Wrapf(
 				validate.Error,
 				`frame must have the same length for all series, expected %d, got %d. \n
 				See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1
 				`,
 				lengthOfFrame,
-				fr.Series[i].Len(),
+				s.Len(),
 			)
 		}
 	}
@@ -499,18 +497,18 @@ type virtualWriter struct {
 }
 
 func (w virtualWriter) write(fr Frame) (Frame, error) {
-	for i, k := range fr.Keys {
+	for i, k := range fr.KeysI() {
 		v, ok := w.internal[k]
 		if !ok {
 			continue
 		}
-		series := fr.Series[i]
-		alignment, err := v.Write(series)
+		s := fr.SeriesAt(i)
+		alignment, err := v.Write(s)
 		if err != nil {
 			return fr, err
 		}
-		series.Alignment = alignment
-		fr.Series[i] = series
+		s.Alignment = alignment
+		fr.SetSeriesAt(i, s)
 	}
 	return fr, nil
 }

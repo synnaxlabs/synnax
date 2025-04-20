@@ -32,7 +32,7 @@ var (
 		{Key: virtual, Virtual: true, DataType: telem.StringT},
 	}
 	Frames = []cesium.Frame{
-		cesium.NewFrame(
+		telem.MultiFrame[cesium.ChannelKey](
 			[]cesium.ChannelKey{index1, basic1, basic2, index2},
 			[]telem.Series{
 				telem.NewSecondsTSV(0, 1, 2, 3, 5, 6, 7, 9),
@@ -40,26 +40,26 @@ var (
 				telem.NewSeriesV[int64](100, 101, 102, 103, 105, 106, 107, 109),
 				telem.NewSecondsTSV(0, 1, 2, 3, 6, 7, 8, 9),
 			}),
-		cesium.NewFrame([]cesium.ChannelKey{basic3, basic4},
+		telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{basic3, basic4},
 			[]telem.Series{
 				telem.NewSeriesV[uint16](100, 101, 102, 103, 106),
 				telem.NewSeriesV[int64](1, 11, 21, 31, 61),
 			}),
-		cesium.NewFrame(
+		telem.MultiFrame[cesium.ChannelKey](
 			[]cesium.ChannelKey{index1, basic1, basic2},
 			[]telem.Series{
 				telem.NewSecondsTSV(10, 13, 17, 18, 19),
 				telem.NewSeriesV[uint8](100, 103, 107, 108, 109),
 				telem.NewSeriesV[int64](100, 103, 107, 108, 109),
 			}),
-		cesium.NewFrame(
+		telem.MultiFrame[cesium.ChannelKey](
 			[]cesium.ChannelKey{index2, basic3, basic4},
 			[]telem.Series{
 				telem.NewSecondsTSV(13, 14, 15),
 				telem.NewSeriesV[uint16](130, 140, 150),
 				telem.NewSeriesV[int64](13, 14, 15),
 			}),
-		cesium.NewFrame(
+		telem.MultiFrame[cesium.ChannelKey](
 			[]cesium.ChannelKey{index2, basic4},
 			[]telem.Series{
 				telem.NewSecondsTSV(20, 25, 30),

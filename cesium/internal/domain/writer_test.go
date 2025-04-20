@@ -11,9 +11,12 @@ package domain_test
 
 import (
 	"encoding/binary"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"os"
 	"sync"
+
+	"github.com/synnaxlabs/cesium/internal/core"
+
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,7 +27,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
-	"time"
 )
 
 func extractPointer(f xfs.File) (p struct {

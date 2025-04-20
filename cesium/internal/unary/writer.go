@@ -12,7 +12,6 @@ package unary
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -23,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/validate"
 )
 

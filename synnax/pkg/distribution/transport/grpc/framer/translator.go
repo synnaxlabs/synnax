@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
@@ -234,13 +235,13 @@ func (w relayResponseTranslator) Forward(
 func translateFrameForward(frame *framerv1.Frame) framer.Frame {
 	keys := channel.KeysFromUint32(frame.Keys)
 	series := telem.TranslateManySeriesBackward(frame.Series)
-	return framer.Frame{Keys: keys, Series: series}
+	return core.MultiFrame(keys, series)
 }
 
 func translateFrameBackward(frame framer.Frame) *framerv1.Frame {
 	return &framerv1.Frame{
-		Keys:   frame.Keys.Uint32(),
-		Series: telem.TranslateManySeriesForward(frame.Series),
+		Keys:   channel.Keys(frame.KeysSlice()).Uint32(),
+		Series: telem.TranslateManySeriesForward(frame.SeriesSlice()),
 	}
 }
 

@@ -11,12 +11,12 @@ package label
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // Retrieve is a builder for querying labels.

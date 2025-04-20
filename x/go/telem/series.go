@@ -12,9 +12,10 @@ package telem
 import (
 	"bytes"
 	"fmt"
+	"strings"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bounds"
-	"strings"
 
 	"go.uber.org/zap"
 
@@ -256,6 +257,16 @@ func (m MultiSeries) AlignmentBounds() AlignmentBounds {
 	}
 }
 
+func (m MultiSeries) TimeRange() TimeRange {
+	if len(m.Series) == 0 {
+		return TimeRange{}
+	}
+	return TimeRange{
+		Start: m.Series[0].TimeRange.Start,
+		End:   m.Series[len(m.Series)-1].TimeRange.End,
+	}
+}
+
 func (m MultiSeries) Append(series Series) MultiSeries {
 	m.Series = append(m.Series, series)
 	return m
@@ -269,9 +280,27 @@ func (m MultiSeries) KeepGreaterThan(a AlignmentPair) MultiSeries {
 	}
 }
 
+func (m MultiSeries) Len() int64 {
+	if len(m.Series) == 0 {
+		return 0
+	}
+	return lo.SumBy(m.Series, func(s Series) int64 { return s.Len() })
+}
+
 func (m MultiSeries) DataType() DataType {
 	if len(m.Series) == 0 {
 		return UnknownT
 	}
 	return m.Series[0].DataType
+}
+
+func (m MultiSeries) Data() []byte {
+	if len(m.Series) == 0 {
+		return nil
+	}
+	data := make([]byte, 0, m.Len())
+	for _, s := range m.Series {
+		data = append(data, s.Data...)
+	}
+	return data
 }

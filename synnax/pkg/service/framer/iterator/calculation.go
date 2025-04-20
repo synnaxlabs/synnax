@@ -47,9 +47,9 @@ func newCalculator(
 
 func (c *calculator) Next(fr framer.Frame) (telem.Series, error) {
 	minAlignment := telem.MaxAlignmentPair
-	for i, k := range fr.Keys {
+	for k, s := range fr.Entries() {
 		if v, ok := c.requiredValues[k]; !ok {
-			v = v.Append(fr.Series[i]).KeepGreaterThan(c.hwm)
+			v = v.Append(s).KeepGreaterThan(c.hwm)
 			c.requiredValues[k] = v
 			if v.AlignmentBounds().Upper < minAlignment {
 				minAlignment = v.AlignmentBounds().Upper
@@ -99,8 +99,7 @@ func (t *calculationTransform) transform(_ context.Context, req framer.IteratorR
 			return framer.IteratorResponse{}, false, err
 		}
 		if s.Len() > 0 {
-			req.Frame.Series = append(req.Frame.Series, s)
-			req.Frame.Keys = append(req.Frame.Keys, c.ch.Key())
+			req.Frame = req.Frame.Append(c.ch.Key(), s)
 		}
 	}
 	return req, true, nil

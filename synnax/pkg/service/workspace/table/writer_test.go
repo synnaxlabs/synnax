@@ -10,11 +10,11 @@
 package table_test
 
 import (
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 var _ = Describe("Writer", func() {

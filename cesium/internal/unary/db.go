@@ -117,7 +117,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 		return
 	}
 	for iter.Next(ctx, telem.TimeSpanMax) {
-		frame = frame.AppendFrame(iter.Value())
+		frame = frame.Extend(iter.Value())
 	}
 	return
 }

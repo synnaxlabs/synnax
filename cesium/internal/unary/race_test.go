@@ -10,6 +10,8 @@
 package unary_test
 
 import (
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -18,7 +20,6 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"sync"
 )
 
 var _ = Describe("Unary racing", func() {
@@ -90,13 +91,16 @@ var _ = Describe("Unary racing", func() {
 					// remaining: 10, 15, 20, 21, 22, 24
 
 					f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
-					Expect(f.Series).To(HaveLen(3))
-					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10).Data))
-					Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
-					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](15).Data))
-					Expect(f.Series[1].TimeRange).To(Equal((15 * telem.SecondTS).Range(16 * telem.SecondTS)))
-					Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](20, 21, 22, 24).Data))
-					Expect(f.Series[2].TimeRange).To(Equal((20 * telem.SecondTS).Range(24*telem.SecondTS + 1)))
+					Expect(f.Count()).To(Equal(3))
+					first := f.SeriesAt(0)
+					Expect(first.Data).To(Equal(telem.NewSeriesV[int64](10).Data))
+					Expect(first.TimeRange).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
+					second := f.SeriesAt(1)
+					Expect(second.Data).To(Equal(telem.NewSeriesV[int64](15).Data))
+					Expect(second.TimeRange).To(Equal((15 * telem.SecondTS).Range(16 * telem.SecondTS)))
+					third := f.SeriesAt(2)
+					Expect(third.Data).To(Equal(telem.NewSeriesV[int64](20, 21, 22, 24).Data))
+					Expect(third.TimeRange).To(Equal((20 * telem.SecondTS).Range(24*telem.SecondTS + 1)))
 				})
 			})
 		})

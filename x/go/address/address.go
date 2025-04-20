@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 type Address string

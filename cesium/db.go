@@ -29,10 +29,6 @@ type (
 	Frame      = core.Frame
 )
 
-func NewFrame(keys []core.ChannelKey, series []telem.Series) Frame {
-	return core.NewFrame(keys, series)
-}
-
 var (
 	errDBClosed        = core.EntityClosed("cesium.db")
 	ErrChannelNotFound = core.ErrChannelNotFound
@@ -63,7 +59,7 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	}
 	_, span := db.T.Bench(ctx, "write")
 	defer span.End()
-	w, err := db.OpenWriter(ctx, WriterConfig{Start: start, Channels: frame.Keys})
+	w, err := db.OpenWriter(ctx, WriterConfig{Start: start, Channels: frame.KeysSlice()})
 	if err != nil {
 		return span.Error(err)
 	}
@@ -81,7 +77,7 @@ func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.T
 	if db.closed.Load() {
 		return errDBClosed
 	}
-	return db.Write(ctx, start, core.NewFrame([]core.ChannelKey{key}, []telem.Series{series}))
+	return db.Write(ctx, start, telem.UnaryFrame[core.ChannelKey](key, series))
 }
 
 // Read reads from the database at the specified time range and outputs a frame.
@@ -100,7 +96,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 		return
 	}
 	for iter.Next(telem.TimeSpanMax) {
-		frame = frame.AppendFrame(iter.Value())
+		frame = frame.Extend(iter.Value())
 	}
 	return
 }

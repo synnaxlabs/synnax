@@ -12,6 +12,14 @@ package bit
 // Mask128 is a bitmask with 128 values.
 type Mask128 [16]byte
 
+func (m *Mask128) Copy() *Mask128 {
+	if m == nil {
+		return nil
+	}
+	cpy := *m
+	return &cpy
+}
+
 // Size returns the size of the mask (128).
 func (m *Mask128) Size() int { return 128 }
 

@@ -69,13 +69,13 @@ var _ = Describe("Open", func() {
 					Expect(ch.Key).To(Equal(key))
 					Expect(ch.IsIndex).To(BeTrue())
 
-					Expect(db.Write(ctx, 1*telem.SecondTS, cesium.NewFrame(
+					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{key},
 						[]telem.Series{telem.NewSecondsTSV(1, 2, 3, 4, 5)},
 					))).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
-					Expect(f.Series[0]).To(telem.MatchSeriesData(telem.NewSecondsTSV(1, 2, 3, 4, 5)))
+					Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSecondsTSV(1, 2, 3, 4, 5)))
 					Expect(db.Close()).To(Succeed())
 				})
 
@@ -98,7 +98,7 @@ var _ = Describe("Open", func() {
 						Index:    indexKey,
 						DataType: telem.Int64T,
 					})).To(Succeed())
-					Expect(db.Write(ctx, 1*telem.SecondTS, cesium.NewFrame(
+					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{indexKey, key},
 						[]telem.Series{telem.NewSecondsTSV(1, 2, 3, 4, 5), telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
 					))).To(Succeed())
@@ -121,17 +121,17 @@ var _ = Describe("Open", func() {
 					Expect(ch.DataType).To(Equal(telem.TimeStampT))
 
 					By("Asserting that writes to the db still occurs normally")
-					Expect(db.Write(ctx, 11*telem.SecondTS, cesium.NewFrame(
+					Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{key, indexKey},
 						[]telem.Series{telem.NewSeriesV[int64](11, 12, 13, 14, 15), telem.NewSecondsTSV(11, 12, 13, 14, 15)},
 					))).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
-					Expect(f.Series[0].TimeRange).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
-					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
+					Expect(f.SeriesAt(0).TimeRange).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
+					Expect(f.SeriesAt(0).Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
 
-					Expect(f.Series[1].TimeRange).To(Equal((11 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
-					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](11, 12, 13, 14, 15).Data))
+					Expect(f.SeriesAt(1).TimeRange).To(Equal((11 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
+					Expect(f.SeriesAt(1).Data).To(Equal(telem.NewSeriesV[int64](11, 12, 13, 14, 15).Data))
 
 					Expect(db.Close()).To(Succeed())
 				})

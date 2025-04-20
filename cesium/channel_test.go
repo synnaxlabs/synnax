@@ -203,9 +203,9 @@ var _ = Describe("Channel", Ordered, func() {
 					series3 := telem.NewSecondsTSV(10, 11, 12, 13, 14)
 					Expect(db.WriteArray(ctx, unaryKeyNew, 10*telem.SecondTS, series3)).To(Succeed())
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, unaryKeyNew))
-					Expect(f.Series[0]).To(telem.MatchWrittenSeries(series1))
-					Expect(f.Series[1]).To(telem.MatchWrittenSeries(series2))
-					Expect(f.Series[2]).To(telem.MatchWrittenSeries(series3))
+					Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(series1))
+					Expect(f.SeriesAt(1)).To(telem.MatchWrittenSeries(series2))
+					Expect(f.SeriesAt(2)).To(telem.MatchWrittenSeries(series3))
 
 					By("Asserting that the meta file got changed too", func() {
 						f := MustSucceed(fs.Open(channelKeyToPath(unaryKeyNew)+"/meta.json", os.O_RDWR))
@@ -259,7 +259,7 @@ var _ = Describe("Channel", Ordered, func() {
 					dataSeries1 := telem.NewSeriesV[int64](2, 3, 5, 7, 11)
 					data2Series1 := telem.NewSeriesV[int64](20, 30, 50, 70, 110)
 
-					Expect(db.Write(ctx, 2*telem.SecondTS, cesium.NewFrame(
+					Expect(db.Write(ctx, 2*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]core.ChannelKey{indexKey, dataKey, data2Key},
 						[]telem.Series{indexSeries1, dataSeries1, data2Series1},
 					))).To(Succeed())
@@ -281,20 +281,20 @@ var _ = Describe("Channel", Ordered, func() {
 					dataSeries2 := telem.NewSeriesV[int64](13, 17, 19, 23, 29)
 					data2Series2 := telem.NewSeriesV[int64](130, 170, 190, 230, 290)
 
-					Expect(db.Write(ctx, 13*telem.SecondTS, cesium.NewFrame(
+					Expect(db.Write(ctx, 13*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]core.ChannelKey{indexKeyNew, dataKey, data2Key},
 						[]telem.Series{indexSeries2, dataSeries2, data2Series2},
 					))).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, indexKeyNew, dataKey, data2Key))
-					Expect(f.Series[0]).To(telem.MatchWrittenSeries(indexSeries1))
-					Expect(f.Series[1]).To(telem.MatchWrittenSeries(indexSeries2))
+					Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(indexSeries1))
+					Expect(f.SeriesAt(1)).To(telem.MatchWrittenSeries(indexSeries2))
 
-					Expect(f.Series[2]).To(telem.MatchWrittenSeries(dataSeries1))
-					Expect(f.Series[3]).To(telem.MatchWrittenSeries(dataSeries2))
+					Expect(f.SeriesAt(2)).To(telem.MatchWrittenSeries(dataSeries1))
+					Expect(f.SeriesAt(3)).To(telem.MatchWrittenSeries(dataSeries2))
 
-					Expect(f.Series[4]).To(telem.MatchWrittenSeries(data2Series1))
-					Expect(f.Series[5]).To(telem.MatchWrittenSeries(data2Series2))
+					Expect(f.SeriesAt(4)).To(telem.MatchWrittenSeries(data2Series1))
+					Expect(f.SeriesAt(5)).To(telem.MatchWrittenSeries(data2Series2))
 
 					By("Asserting that the meta file got changed too", func() {
 						f := MustSucceed(fs.Open(channelKeyToPath(indexKeyNew)+"/meta.json", os.O_RDWR))
@@ -346,7 +346,7 @@ var _ = Describe("Channel", Ordered, func() {
 						series1 := telem.NewSecondsTSV(10, 11, 12, 13, 14)
 						Expect(db.WriteArray(ctx, errorKey1New, 10*telem.SecondTS, series1)).To(Succeed())
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, errorKey1New))
-						Expect(f.Series[0]).To(telem.MatchWrittenSeries(series1))
+						Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(series1))
 
 						By("Asserting that the meta file got changed too", func() {
 							f := MustSucceed(fs.Open(channelKeyToPath(errorKey1New)+"/meta.json", os.O_RDWR))
@@ -415,18 +415,18 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "fermat", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}, EnableAutoCommit: config.True()}))
 					series1 := telem.NewSecondsTSV(10, 11, 12, 13, 14)
-					MustSucceed(w.Write(cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{series1})))
+					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{key}, []telem.Series{series1})))
 
 					Expect(db.RenameChannel(ctx, key, "laplace")).To(Succeed())
 					series2 := telem.NewSecondsTSV(20, 21, 22)
-					MustSucceed(w.Write(cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{series2})))
+					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{key}, []telem.Series{series2})))
 					Expect(w.Close()).To(Succeed())
 
 					ch := MustSucceed(db.RetrieveChannel(ctx, key))
 					Expect(ch.Name).To(Equal("laplace"))
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
-					Expect(f.Series).To(HaveLen(1))
-					Expect(f.Series[0]).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(10, 11, 12, 13, 14, 20, 21, 22)))
+					Expect(f.Count()).To(Equal(1))
+					Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(10, 11, 12, 13, 14, 20, 21, 22)))
 
 					var (
 						subFS = MustSucceed(fs.Sub(strconv.Itoa(int(key))))

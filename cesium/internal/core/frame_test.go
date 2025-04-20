@@ -19,7 +19,7 @@ import (
 var _ = Describe("Frame", func() {
 	Describe("NewFrame", func() {
 		It("Should correctly create a new frame", func() {
-			f := core.NewFrame(
+			f := telem.MultiFrame[cesium.ChannelKey](
 				[]core.ChannelKey{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3, 4),
@@ -27,20 +27,22 @@ var _ = Describe("Frame", func() {
 					telem.NewSecondsTSV(1, 2, 3, 4),
 				})
 			Expect(f.Keys).To(Equal([]core.ChannelKey{1, 2, 3}))
-			Expect(f.Series).To(HaveLen(3))
-			Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4).Data))
-			Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[uint32](1, 2, 3, 4).Data))
-			Expect(f.Series[2].Data).To(Equal(telem.NewSecondsTSV(1, 2, 3, 4).Data))
+			Expect(f.Count()).To(Equal(3))
+			Expect(f.SeriesAt(0).Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4).Data))
+			Expect(f.SeriesAt(1).Data).To(Equal(telem.NewSeriesV[uint32](1, 2, 3, 4).Data))
+			Expect(f.SeriesAt(2).Data).To(Equal(telem.NewSecondsTSV(1, 2, 3, 4).Data))
 		})
 
 		It("Should panic when creating a new frame with not same keys and series", func() {
-			Expect(func() { core.NewFrame([]core.ChannelKey{1, 2}, []telem.Series{telem.NewSeriesV(1, 2, 3, 4)}) }).To(Panic())
+			Expect(func() {
+				telem.MultiFrame[cesium.ChannelKey]([]core.ChannelKey{1, 2}, []telem.Series{telem.NewSeriesV(1, 2, 3, 4)})
+			}).To(Panic())
 		})
 	})
 
 	Describe("Len", func() {
 		It("Should correctly return the length of a frame", func() {
-			f := core.NewFrame(
+			f := telem.MultiFrame[cesium.ChannelKey](
 				[]core.ChannelKey{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3, 4),
@@ -51,7 +53,7 @@ var _ = Describe("Frame", func() {
 		})
 
 		It("Should panic when the frame is uneven", func() {
-			f := core.NewFrame(
+			f := telem.MultiFrame[cesium.ChannelKey](
 				[]core.ChannelKey{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3, 4),

@@ -10,7 +10,6 @@
 package signals_test
 
 import (
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -22,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/uuid"
 	"io"
 	"time"
 )
@@ -85,8 +85,8 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 		var streamRes framer.StreamerResponse
 		Eventually(responses.Outlet(), "5s").Should(Receive(&streamRes))
 		Expect(streamRes.Frame.Keys).To(ConsistOf(cfg.SetChannel.Key()))
-		Expect(streamRes.Frame.Series[0].Data).To(HaveLen(int(telem.Bit128)))
-		Expect(streamRes.Frame.Series[0].Data).To(Equal(uid[:]))
+		Expect(streamRes.Frame.SeriesAt(0).Data).To(HaveLen(int(telem.Bit128)))
+		Expect(streamRes.Frame.SeriesAt(0).Data).To(Equal(uid[:]))
 	})
 	It("Should not send an empty frame if an empty list of changes is provided", func() {
 		obs.Notify(ctx, []change.Change[[]byte, struct{}]{})

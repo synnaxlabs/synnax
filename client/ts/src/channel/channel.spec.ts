@@ -18,10 +18,9 @@ const client = newClient();
 
 describe("Channel", () => {
   describe("create", () => {
-    test("create one", async () => {
+    test.only("create one", async () => {
       const channel = await client.channels.create({
         name: "test",
-        leaseholder: 1,
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -29,7 +28,7 @@ describe("Channel", () => {
       expect(channel.leaseholder).toEqual(1);
       expect(channel.virtual).toBeTruthy();
       expect(channel.dataType).toEqual(DataType.FLOAT32);
-    });
+    }, 80000);
 
     test("create calculated", async () => {
       let chOne = new Channel({

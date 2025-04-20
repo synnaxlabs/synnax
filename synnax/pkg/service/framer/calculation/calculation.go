@@ -14,7 +14,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/control"
 
@@ -122,10 +123,7 @@ func (s *Service) SetState(ctx context.Context, key channel.Key, variant string,
 		DataType: telem.JSONT,
 		Data:     append(b, []byte("\n")...),
 	}
-	fr := framer.Frame{
-		Keys:   []channel.Key{s.stateKey},
-		Series: []telem.Series{ser},
-	}
+	fr := core.UnaryFrame(s.stateKey, ser)
 	_, err = s.w.Write(fr)
 	return err
 }
@@ -142,7 +140,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Service, error) {
 		Name:        "sy_calculation_state",
 		DataType:    telem.JSONT,
 		Virtual:     true,
-		Leaseholder: core.Free,
+		Leaseholder: dcore.Free,
 		Internal:    true,
 	}
 
@@ -388,23 +386,22 @@ type Calculator struct {
 func (c Calculator) close() { c.calculation.Close() }
 
 func (c Calculator) Calculate(fr framer.Frame) (telem.Series, error) {
-	os := telem.AllocSeries(c.ch.DataType, fr.Series[0].Len())
+	os := telem.AllocSeries(c.ch.DataType, fr.SeriesAt(0).Len())
 	// Mark the alignment of the output series as the same as the input series. Right now, we assume that all the
 	// input channels share the same index.
-	os.Alignment = fr.Series[0].Alignment
+	os.Alignment = fr.SeriesAt(0).Alignment
 	for i := range os.Len() {
 		for _, k := range c.ch.Requires {
-			sArray := fr.Get(k)
-			if len(sArray) == 0 {
+			s := fr.Get(k)
+			if s.Len() == 0 {
 				continue
 			}
-			s := sArray[0]
 			idx := i
 			if idx >= s.Len() {
 				idx = s.Len() - 1
 			}
 			if ch, found := c.requires[k]; found {
-				c.calculation.Set(ch.Name, computron.LValueFromSeries(sArray[0], idx))
+				c.calculation.Set(ch.Name, computron.LValueFromSeries(s.Series[0], idx))
 			}
 		}
 		res, err := c.calculation.Run()
@@ -417,15 +414,9 @@ func (c Calculator) Calculate(fr framer.Frame) (telem.Series, error) {
 }
 
 func (c Calculator) Transform(fr framer.Frame) (framer.Frame, error) {
-	if len(fr.Series) == 0 {
+	if fr.Empty() {
 		return framer.Frame{}, nil
 	}
 	os, err := c.Calculate(fr)
-	if err != nil {
-		return framer.Frame{}, err
-	}
-	return framer.Frame{
-		Keys:   []channel.Key{c.ch.Key()},
-		Series: []telem.Series{os},
-	}, nil
+	return core.UnaryFrame(c.ch.Key(), os), err
 }

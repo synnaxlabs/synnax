@@ -68,16 +68,15 @@ var _ = Describe("Streamer Behavior", func() {
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					d := telem.NewSecondsTSV(10, 11, 12)
-					MustSucceed(w.Write(cesium.NewFrame(
+					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{basic1},
 						[]telem.Series{d},
 					)))
 
 					f := <-o.Outlet()
-					Expect(f.Frame.Keys).To(HaveLen(1))
-					Expect(f.Frame.Series).To(HaveLen(1))
+					Expect(f.Frame.Count()).To(Equal(1))
 					d.Alignment = telem.LeadingAlignment(1, 0)
-					Expect(f.Frame.Series[0]).To(Equal(d))
+					Expect(f.Frame.SeriesAt(0)).To(Equal(d))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
@@ -106,7 +105,7 @@ var _ = Describe("Streamer Behavior", func() {
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					d := telem.NewSecondsTSV(10, 11, 12)
-					MustSucceed(w.Write(cesium.NewFrame(
+					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{d},
 					)))
@@ -139,16 +138,15 @@ var _ = Describe("Streamer Behavior", func() {
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					written := telem.NewSeriesV[int64](1, 2, 3)
-					MustSucceed(w.Write(cesium.NewFrame(
+					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{written},
 					)))
 					var f cesium.StreamerResponse
 					Eventually(o.Outlet()).Should(Receive(&f))
-					Expect(f.Frame.Keys).To(HaveLen(1))
-					Expect(f.Frame.Series).To(HaveLen(1))
+					Expect(f.Frame.Count()).To(Equal(1))
 					written.Alignment = telem.LeadingAlignment(1, 0)
-					Expect(f.Frame.Series[0]).To(Equal(written))
+					Expect(f.Frame.SeriesAt(0)).To(Equal(written))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
@@ -178,8 +176,8 @@ var _ = Describe("Streamer Behavior", func() {
 					}))
 					var r cesium.StreamerResponse
 					Eventually(o.Outlet()).Should(Receive(&r))
-					Expect(r.Frame.Keys).To(HaveLen(1))
-					u := MustSucceed(cesium.DecodeControlUpdate(ctx, r.Frame.Series[0]))
+					Expect(r.Frame.Count()).To(Equal(1))
+					u := MustSucceed(cesium.DecodeControlUpdate(ctx, r.Frame.SeriesAt(0)))
 					t, ok := lo.Find(u.Transfers, func(t controller.Transfer) bool {
 						return t.To.Resource == basic3
 					})
@@ -187,7 +185,7 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(t.To.Subject.Name).To(Equal("Writer"))
 					Expect(w.Close()).To(Succeed())
 					Eventually(o.Outlet()).Should(Receive(&r))
-					Expect(r.Frame.Keys).To(HaveLen(1))
+					Expect(r.Frame.Count()).To(Equal(1))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
 				})

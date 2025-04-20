@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -25,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 type ChannelKey = channel.Key
@@ -35,7 +35,7 @@ type Channel struct {
 	Key         channel.Key          `json:"key" msgpack:"key"`
 	Name        string               `json:"name" msgpack:"name"`
 	Leaseholder distribution.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
-	DataType    telem.DataType       `json:"data_type" msgpack:"data_type" validate:"required"`
+	DataType    telem.DataType       `json:"data_type" msgpack:"data_type"`
 	Density     telem.Density        `json:"density" msgpack:"density"`
 	IsIndex     bool                 `json:"is_index" msgpack:"is_index"`
 	Index       channel.Key          `json:"index" msgpack:"index"`

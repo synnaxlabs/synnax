@@ -293,12 +293,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 }
 
 // Len returns the number of samples in the iterator's frame.
-func (i *Iterator) Len() (l int64) {
-	for _, series := range i.frame.Series {
-		l += series.Len()
-	}
-	return
-}
+func (i *Iterator) Len() int64 { return i.frame.Len() }
 
 // Error returns the error that caused the iterator to stop moving. If the iterator is
 // still moving, Error returns nil.
@@ -349,7 +344,7 @@ func (i *Iterator) insert(series telem.Series) {
 	if series.Len() == 0 {
 		return
 	}
-	if len(i.frame.Series) == 0 || i.frame.Series[len(i.frame.Series)-1].TimeRange.End.BeforeEq(series.TimeRange.Start) {
+	if i.frame.Empty() || i.frame.SeriesAt(-1).TimeRange.End.BeforeEq(series.TimeRange.Start) {
 		i.frame = i.frame.Append(i.Channel.Key, series)
 	} else {
 		i.frame = i.frame.Prepend(i.Channel.Key, series)
@@ -466,12 +461,12 @@ func (i *Iterator) satisfied() bool {
 	if !i.partiallySatisfied() {
 		return false
 	}
-	start := i.frame.Series[0].TimeRange.Start
-	end := i.frame.Series[len(i.frame.Series)-1].TimeRange.End
+	start := i.frame.SeriesAt(0).TimeRange.Start
+	end := i.frame.SeriesAt(-1).TimeRange.End
 	return i.view == start.Range(end)
 }
 
-func (i *Iterator) partiallySatisfied() bool { return len(i.frame.Series) > 0 }
+func (i *Iterator) partiallySatisfied() bool { return i.frame.HasData() }
 
 func (i *Iterator) reset(nextView telem.TimeRange) {
 	i.frame = core.Frame{}

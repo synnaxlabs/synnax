@@ -109,7 +109,7 @@ var _ = Describe("Signals", Ordered, func() {
 			})
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			ids := MustSucceed(ontologycdc.DecodeIDs(res.Frame.Series[0].Data))
+			ids := MustSucceed(ontologycdc.DecodeIDs(res.Frame.SeriesAt(0).Data))
 			// There's a condition here where we might receive the channel creation
 			// signal, so we just do a length assertion.
 			Expect(len(ids)).To(BeNumerically(">", 0))
@@ -141,7 +141,7 @@ var _ = Describe("Signals", Ordered, func() {
 			})
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			ids := MustSucceed(ontologycdc.DecodeIDs(res.Frame.Series[0].Data))
+			ids := MustSucceed(ontologycdc.DecodeIDs(res.Frame.SeriesAt(0).Data))
 			// There's a condition here where we might receive the channel creation
 			// signal, so we just do a length assertion.
 			Expect(len(ids)).To(BeNumerically(">", 0))
@@ -176,7 +176,7 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(w.DefineRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), 10*time.Second).Should(Receive(&res))
-		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.Series[0].Data))
+		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.SeriesAt(0).Data))
 		// There's a condition here where we might receive the channel creation
 		// signal, so we just do a length assertion.
 		Expect(len(relationships)).To(BeNumerically(">", 0))
@@ -216,7 +216,7 @@ var _ = Describe("Signals", Ordered, func() {
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		By("Decoding the relationships")
-		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.Series[0].Data))
+		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.SeriesAt(0).Data))
 		// There's a condition here where we might receive the channel creation
 		// signal, so we just do a length assertion.
 		Expect(len(relationships)).To(BeNumerically(">", 0))

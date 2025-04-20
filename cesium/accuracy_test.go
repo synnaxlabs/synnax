@@ -64,7 +64,7 @@ var _ = Describe("Accuracy", func() {
 							frame  = MustSucceed(db.Read(ctx, tr, key))
 							actual = make([]int64, 0, len(expected))
 						)
-						for _, series := range frame.Series {
+						for series := range frame.Series() {
 							actual = append(actual, telem.Unmarshal[int64](series)...)
 						}
 						Expect(actual).To(Equal(expected))
@@ -149,8 +149,8 @@ var _ = Describe("Accuracy", func() {
 								actual1 = make([]int64, 0, len(expected1))
 								actual2 = make([]int64, 0, len(expected2))
 							)
-							for i, series := range frame.Series {
-								if frame.Keys[i] == key1 {
+							for k, series := range frame.Entries() {
+								if k == key1 {
 									actual1 = append(actual1, telem.Unmarshal[int64](series)...)
 								} else {
 									actual2 = append(actual2, telem.Unmarshal[int64](series)...)

@@ -266,7 +266,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		// For base values [1, 2]:
 		// calc1 should be [2, 4] (base * 2)
 		// calc2 should be [3, 5] (calc1 + 1)
-		series := res.Frame.Series[0]
+		series := res.Frame.SeriesAt(0)
 		Expect(series.Len()).To(Equal(int64(2)))
 		Expect(telem.ValueAt[int64](series, 0)).To(Equal(int64(3)))
 		Expect(telem.ValueAt[int64](series, 1)).To(Equal(int64(5)))
@@ -343,10 +343,10 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.Series[0].DataType).To(Equal(telem.JSONT))
+		Expect(res.Frame.SeriesAt(0).DataType).To(Equal(telem.JSONT))
 
 		var state calculation.State
-		data := res.Frame.Series[0].Data
+		data := res.Frame.SeriesAt(0).Data
 		Expect(json.Unmarshal(data[:len(data)-1], &state)).To(Succeed()) // -1 to remove newline
 
 		Expect(state.Key).To(Equal(calculatedCH.Key()))
