@@ -20,6 +20,7 @@ export default defineConfig({
     lib: {
       entry: {
         index: path.resolve(".", "src/index.ts"),
+        noop: path.resolve(".", "src/noop.ts"),
         react: path.resolve(".", "src/react/index.ts"),
         tauri: path.resolve(".", "src/tauri/index.ts"),
         electron: path.resolve(".", "src/electron/index.ts"),

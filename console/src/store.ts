@@ -16,7 +16,8 @@ import {
   Tuple,
 } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW, type Runtime } from "@synnaxlabs/drift";
-import { NoopRuntime,TauriRuntime } from "@synnaxlabs/drift/tauri";
+import { NoopRuntime } from "@synnaxlabs/drift/noop";
+import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { type deep, type UnknownRecord } from "@synnaxlabs/x";
 import { isTauri } from "@tauri-apps/api/core";
 
@@ -164,11 +165,11 @@ const BASE_MIDDLEWARE = [
 const createStore = async (): Promise<RootStore> => {
   const { initialState, persistMiddleware } = await openPersist();
   let runtime: Runtime<RootState, RootAction>;
-  if (isTauri()) 
+  if (isTauri())
     runtime = new TauriRuntime();
-   else 
+  else
     runtime = new NoopRuntime();
-  
+
   return await Drift.configureStore<RootState, RootAction>({
     runtime,
     preloadedState: initialState,
