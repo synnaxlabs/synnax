@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp } from "@synnaxlabs/x";
+import { id, status, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -61,7 +61,7 @@ export interface AsyncErrorHandler {
 export const fromException = (exc: unknown, message?: string): CrudeSpec => {
   if (!(exc instanceof Error)) throw exc;
   return {
-    variant: "error",
+    variant: status.ERROR_VARIANT,
     message: message ?? exc.message,
     description: message != null ? exc.message : undefined,
   };

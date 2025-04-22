@@ -43,10 +43,10 @@ import (
 	"go.uber.org/zap"
 )
 
-// RackState is the state of a hardware rack. Unfortunately, we can't put this into
-// the rack package because it would create a circular dependency.
+// RackState is the state of a hardware rack. Unfortunately, we can't put this into the
+// rack package because it would create a circular dependency.
 type RackState struct {
-	rack.State
+	*rack.State
 	// Tasks is the state of the tasks associated with the rack.
 	Tasks map[task.Key]task.State `json:"tasks" msgpack:"tasks"`
 }
@@ -69,12 +69,12 @@ type Tracker struct {
 		Devices map[string]device.State
 	}
 	// saveNotifications is used to signal an observing go-routine to save the state of
-	// a task to gorp. This ensures that the most recent task state is persisted
-	// across reloads.
+	// a task to gorp. This ensures that the most recent task state is persisted across
+	// reloads.
 	saveNotifications chan task.Key
-	// deviceSaveNotifications is used to signal an observing go-routine to save the state of
-	// a device to gorp. This ensures that the most recent device state is persisted
-	// across reloads.
+	// deviceSaveNotifications is used to signal an observing go-routine to save the
+	// state of a device to gorp. This ensures that the most recent device state is
+	// persisted across reloads.
 	deviceSaveNotifications chan string
 	// closer shuts down all go-routines needed to keep the tracker service running.
 	closer io.Closer
@@ -139,7 +139,8 @@ func (c Config) Override(other Config) Config {
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.RackStateAliveThreshold = override.Numeric(c.RackStateAliveThreshold, other.RackStateAliveThreshold)
+	c.RackStateAliveThreshold =
+		override.Numeric(c.RackStateAliveThreshold, other.RackStateAliveThreshold)
 	c.Device = override.Nil(c.Device, other.Device)
 	return c
 }
@@ -180,9 +181,14 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	for _, r := range racks {
 		// Initialize rack state with empty maps
 		rck := &RackState{
+			State: &rack.State{
+				Key:          r.Key,
+				LastReceived: telem.Now(),
+				Variant:      status.InfoVariant,
+				Message:      "",
+			},
 			Tasks: make(map[task.Key]task.State),
 		}
-		rck.Key = r.Key
 
 		// Fetch and initialize tasks for this rack
 		var tasks []task.Task
@@ -221,7 +227,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	for _, dev := range allDevices {
 		deviceState := device.State{
 			Key:     dev.Key,
-			Variant: "info",
+			Variant: status.InfoVariant,
 			Details: "",
 			Rack:    dev.Rack,
 		}
@@ -234,7 +240,8 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 		t.mu.Devices[dev.Key] = deviceState
 	}
 
-	if err := cfg.Channels.DeleteByName(ctx, "sy_rack_heartbeat", true); err != nil {
+	if err :=
+		cfg.Channels.DeleteByName(ctx, "sy_rack_heartbeat", true); err != nil {
 		return nil, err
 	}
 	channels := []channel.Channel{
@@ -423,7 +430,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 				state := task.State{
 					Task:    c.Key,
 					Variant: status.WarningVariant,
-					Details: xjson.NewStaticString(ctx, map[string]interface{}{
+					Details: xjson.NewStaticString(ctx, map[string]any{
 						"message": "rack is not alive",
 						"running": false,
 					}),
@@ -436,7 +443,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 						Exec(ctx, t.cfg.DB); err != nil {
 						t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
 					}
-					state.Details = xjson.NewStaticString(ctx, map[string]interface{}{
+					state.Details = xjson.NewStaticString(ctx, map[string]any{
 						"running": "false",
 						"message": fmt.Sprintf("Synnax Driver on %s is not running, so the task may fail to configure. Driver was last alive %s ago.", rck.Name, telem.Since(rackState.LastReceived).Truncate(telem.Second)),
 					})
@@ -462,9 +469,12 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 			delete(t.mu.Racks, c.Key)
 		} else {
 			if _, rackOk := t.mu.Racks[c.Key]; !rackOk {
-				nState := &RackState{Tasks: make(map[task.Key]task.State)}
-				nState.LastReceived = telem.Now()
-				nState.Key = c.Key
+				nState := &RackState{Tasks: make(map[task.Key]task.State), State: &rack.State{
+					Key:          c.Key,
+					LastReceived: telem.Now(),
+					Variant:      status.InfoVariant,
+					Message:      "",
+				}}
 				t.mu.Racks[c.Key] = nState
 			}
 		}
@@ -480,9 +490,9 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 		if r.Alive(t.cfg.RackStateAliveThreshold) {
 			continue
 		}
-		r.State.Variant = "warning"
+		r.State.Variant = status.WarningVariant
 		r.State.Message = fmt.Sprintf("Driver %s is not alive", r.Key)
-		rackStates = append(rackStates, r.State)
+		rackStates = append(rackStates, *r.State)
 
 		var rck rack.Rack
 		if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
@@ -496,7 +506,7 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 		msg := fmt.Sprintf("Synnax Driver on %s is not running. Driver was last alive %s ago.", rck.Name, telem.Since(r.LastReceived).Truncate(telem.Second))
 		for _, taskState := range r.Tasks {
 			taskState.Variant = status.WarningVariant
-			taskState.Details = xjson.NewStaticString(ctx, map[string]interface{}{
+			taskState.Details = xjson.NewStaticString(ctx, map[string]any{
 				"message": msg,
 				"running": false,
 			})
@@ -506,7 +516,7 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 		for _, dev := range t.mu.Devices {
 			if dev.Rack == r.Key {
 				dev.Variant = status.WarningVariant
-				dev.Details = xjson.NewStaticString(ctx, map[string]interface{}{
+				dev.Details = xjson.NewStaticString(ctx, map[string]any{
 					"message": msg,
 				})
 				deviceStates = append(deviceStates, dev)
@@ -552,7 +562,7 @@ func (t *Tracker) handleRackState(_ context.Context, changes []change.Change[[]b
 			t.cfg.L.Warn("rack not found for state update", zap.Uint32("rack", uint32(rackState.Key)))
 			continue
 		}
-		r.State = rackState
+		r.State = &rackState
 		r.LastReceived = telem.Now()
 	}
 }

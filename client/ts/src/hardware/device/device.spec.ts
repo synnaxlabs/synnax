@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, type UnknownRecord } from "@synnaxlabs/x";
+import { id, status, type UnknownRecord } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -19,16 +19,17 @@ describe("Device", async () => {
   const testRack = await client.hardware.racks.create({ name: "test" });
   describe("create", () => {
     it("should create a device on a rack", async () => {
+      const key = id.create();
       const d = await client.hardware.devices.create({
         rack: testRack.key,
         location: "Dev1",
-        key: "SN222",
+        key,
         name: "test",
         make: "ni",
         model: "dog",
         properties: { cat: "dog" },
       });
-      expect(d.key).toEqual("SN222");
+      expect(d.key).toEqual(key);
       expect(d.name).toBe("test");
       expect(d.make).toBe("ni");
     });
@@ -41,7 +42,7 @@ describe("Device", async () => {
       outputChannels: [{ port2: 232 }],
     };
     const d = await client.hardware.devices.create({
-      key: "SN222",
+      key: id.create(),
       rack: testRack.key,
       location: "Dev1",
       name: "test",
@@ -55,7 +56,7 @@ describe("Device", async () => {
   describe("retrieve", () => {
     it("should retrieve a device by its key", async () => {
       const d = await client.hardware.devices.create({
-        key: "SN222",
+        key: id.create(),
         rack: testRack.key,
         location: "Dev1",
         name: "test",
@@ -112,7 +113,7 @@ describe("Device", async () => {
     describe("state", () => {
       it("should not include state by default", async () => {
         const d = await client.hardware.devices.create({
-          key: "SN_STATE_TEST1",
+          key: id.create(),
           rack: testRack.key,
           location: "Dev1",
           name: "state_test1",
@@ -122,12 +123,12 @@ describe("Device", async () => {
         });
 
         const retrieved = await client.hardware.devices.retrieve(d.key);
-        expect(retrieved.state?.key).toHaveLength(0);
+        expect(retrieved.state).toBeUndefined();
       });
 
       it("should include state when includeState is true", async () => {
         const d = await client.hardware.devices.create({
-          key: "SN_STATE_TEST2",
+          key: id.create(),
           rack: testRack.key,
           location: "Dev1",
           name: "state_test2",
@@ -136,20 +137,23 @@ describe("Device", async () => {
           properties: { cat: "dog" },
         });
 
-        const retrieved = await client.hardware.devices.retrieve(d.key, {
-          includeState: true,
-        });
-        expect(retrieved.state).toBeDefined();
-        if (retrieved.state) {
-          expect(retrieved.state.variant).toBeDefined();
-          expect(retrieved.state.key).toBeDefined();
-          expect(retrieved.state.details).toBeDefined();
-        }
+        await expect
+          .poll(async () => {
+            const retrieved = await client.hardware.devices.retrieve(d.key, {
+              includeState: true,
+            });
+            if (retrieved.state == null) return false;
+            expect(retrieved.state.variant).toBeDefined();
+            expect(retrieved.state.key).toBeDefined();
+            expect(retrieved.state.details).toBeDefined();
+            return true;
+          })
+          .toBeTruthy();
       });
 
       it("should include state for multiple devices", async () => {
         const d1 = await client.hardware.devices.create({
-          key: "SN_STATE_TEST3",
+          key: id.create(),
           rack: testRack.key,
           location: "Dev1",
           name: "state_test3",
@@ -159,7 +163,7 @@ describe("Device", async () => {
         });
 
         const d2 = await client.hardware.devices.create({
-          key: "SN_STATE_TEST4",
+          key: id.create(),
           rack: testRack.key,
           location: "Dev2",
           name: "state_test4",
@@ -168,18 +172,20 @@ describe("Device", async () => {
           properties: { cat: "dog" },
         });
 
-        const retrieved = await client.hardware.devices.retrieve([d1.key, d2.key], {
-          includeState: true,
-        });
-        expect(retrieved).toHaveLength(2);
-        retrieved.forEach((device) => {
-          expect(device.state).toBeDefined();
-          if (device.state) {
-            expect(device.state.variant).toBeDefined();
-            expect(device.state.key).toBeDefined();
-            expect(device.state.details).toBeDefined();
-          }
-        });
+        await expect
+          .poll(async () => {
+            const retrieved = await client.hardware.devices.retrieve([d1.key, d2.key], {
+              includeState: true,
+            });
+            return retrieved.every((device) => {
+              if (device.state == null) return false;
+              expect(device.state.variant).toBeDefined();
+              expect(device.state.key).toBeDefined();
+              expect(device.state.details).toBeDefined();
+              return true;
+            });
+          })
+          .toBeTruthy();
       });
 
       it("should handle state with type-safe details", async () => {
@@ -209,7 +215,7 @@ describe("Device", async () => {
             >(key, { includeState: true });
             return (
               retrieved.state !== undefined &&
-              retrieved.state.variant === "info" &&
+              retrieved.state.variant === status.INFO_VARIANT &&
               retrieved.state.key === key
             );
           })

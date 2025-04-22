@@ -42,7 +42,7 @@ export const Log = ({
   className,
   visible = true,
   emptyContent = (
-    <Status.Text.Centered level="h3" variant="disabled" hideIcon>
+    <Status.Text.Centered level="h3" disabled hideIcon>
       Empty Log
     </Status.Text.Centered>
   ),

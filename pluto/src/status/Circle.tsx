@@ -8,15 +8,28 @@
 // included in the file licenses/APL.txt.
 
 import { Icon, type IconProps } from "@synnaxlabs/media";
+import { status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { type status } from "@/status/aether";
 import { VARIANT_COLORS } from "@/status/colors";
 
 export interface CircleProps extends IconProps {
   variant?: status.Variant;
+  disabled?: boolean;
+  loading?: boolean;
 }
 
-export const Circle = ({ variant = "info", ...rest }: CircleProps): ReactElement => (
-  <Icon.Circle color={VARIANT_COLORS[variant]} {...rest} />
-);
+export const Circle = ({
+  variant = status.INFO_VARIANT,
+  disabled = false,
+  loading = false,
+  ...rest
+}: CircleProps): ReactElement =>
+  loading ? (
+    <Icon.Loading {...rest} />
+  ) : (
+    <Icon.Circle
+      color={disabled ? "var(--pluto-gray-l8)" : VARIANT_COLORS[variant]}
+      {...rest}
+    />
+  );

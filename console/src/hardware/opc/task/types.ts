@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -53,7 +54,7 @@ const validateNodeIDs = (channels: Channel[], { addIssue }: z.RefinementCtx) => 
       code: z.ZodIssueCode.custom,
       path: ["channels", i, "nodeId"],
       message: "This node ID has already been used elsewhere in the configuration",
-      params: { variant: "warning" },
+      params: { variant: status.WARNING_VARIANT },
     });
   });
 };

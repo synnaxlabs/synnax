@@ -37,7 +37,7 @@ type Device struct {
 	Properties string `json:"properties" msgpack:"properties"`
 	// State is the state of the device. This field is not stored directly with the
 	// device inside of gorp, and is not guaranteed to be valid.
-	State State `json:"state" msgpack:"state"`
+	State *State `json:"state" msgpack:"state"`
 }
 
 var _ gorp.Entry[string] = Device{}
@@ -77,4 +77,4 @@ type State struct {
 func (s State) GorpKey() string { return s.Key }
 
 // SetOptions implements gorp.Entry.
-func (s State) SetOptions() []interface{} { return []interface{}{s.Rack.Node()} }
+func (s State) SetOptions() []any { return []any{s.Rack.Node()} }

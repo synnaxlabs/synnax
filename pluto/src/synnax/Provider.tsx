@@ -13,7 +13,7 @@ import {
   type SynnaxProps,
   TimeSpan,
 } from "@synnaxlabs/client";
-import { caseconv, migrate } from "@synnaxlabs/x";
+import { caseconv, migrate, status } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -39,11 +39,11 @@ export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxProps;
 }
 
-const CONNECTION_STATE_VARIANT: Record<connection.Status, Status.Variant> = {
-  connected: "success",
-  connecting: "info",
-  disconnected: "info",
-  failed: "error",
+export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
+  connected: status.SUCCESS_VARIANT,
+  connecting: status.INFO_VARIANT,
+  disconnected: status.INFO_VARIANT,
+  failed: status.ERROR_VARIANT,
 };
 
 export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
@@ -72,7 +72,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     (state: connection.State) => {
       if (ref.current.state.status !== state.status)
         addStatus({
-          variant: CONNECTION_STATE_VARIANT[state.status],
+          variant: CONNECTION_STATE_VARIANTS[state.status],
           message: state.message ?? caseconv.capitalize(state.status),
         });
       setState((prev) => ({ ...prev, state }));
@@ -104,7 +104,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
 
     setState({ synnax: client, state: connectivity });
     addStatus({
-      variant: CONNECTION_STATE_VARIANT[connectivity.status],
+      variant: CONNECTION_STATE_VARIANTS[connectivity.status],
       message: connectivity.message ?? connectivity.status.toUpperCase(),
     });
 
@@ -120,7 +120,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
       );
 
       addStatus({
-        variant: "warning",
+        variant: status.WARNING_VARIANT,
         message: "Incompatible cluster version",
         description,
         data: {

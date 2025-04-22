@@ -195,7 +195,7 @@ export const Configure = <
   });
   if (isPending)
     return (
-      <Status.Text.Centered level="h4" variant="loading">
+      <Status.Text.Centered level="h4" loading>
         Fetching device from server
       </Status.Text.Centered>
     );
