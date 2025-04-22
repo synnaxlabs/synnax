@@ -82,7 +82,7 @@ func configureRootFlags() {
 	)
 
 	rootCmd.PersistentFlags().BoolP(
-		versionFlag,
+		verboseFlag,
 		"v",
 		false,
 		"Enable verbose debugging.",
