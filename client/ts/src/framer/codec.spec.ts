@@ -192,8 +192,7 @@ describe("encoder", () => {
       const msg: WebsocketMessage<WriteRequest> = { type: "data", payload: writeReq };
       const codec = new WSWriterCodec(baseCodec);
       const encoded = codec.encode(msg);
-      const dv = new DataView(encoded);
-      expect(dv.getUint8(0)).toEqual(HIGH_PERF_SPECIAL_CHAR);
+      expect(encoded[0]).toEqual(HIGH_PERF_SPECIAL_CHAR);
       const decoded = codec.decode<WebsocketMessage<WriteRequest>>(encoded);
       expect(decoded.payload?.command).toEqual(WriterCommand.Write);
       const decodedFr = new Frame(decoded.payload?.frame);
@@ -209,8 +208,7 @@ describe("encoder", () => {
       const codec = new WSWriterCodec(baseCodec);
       const msg: WebsocketMessage<WriteRequest> = { type: "data", payload: writeReq };
       const encoded = codec.encode(msg);
-      const dv = new DataView(encoded);
-      expect(dv.getUint8(0)).toEqual(LOW_PER_SPECIAL_CHAR);
+      expect(encoded[0]).toEqual(LOW_PER_SPECIAL_CHAR);
       const decoded = codec.decode(encoded);
       expect(decoded).toEqual(msg);
     });

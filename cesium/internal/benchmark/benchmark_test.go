@@ -212,11 +212,11 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 						}
 					} else {
 						indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
-						for l := len(frame.Keys) - 1; l >= 0; l-- {
+						for l := len(frame.KeysSlice()) - 1; l >= 0; l-- {
 							if l > cfg.numIndexChannels {
 								break
 							}
-							frame.Series[l] = indexDataSeries
+							frame.SetSeriesAt(i, indexDataSeries)
 						}
 					}
 
@@ -330,11 +330,11 @@ func BenchRead(
 			}
 		} else {
 			indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
-			for l := len(frame.Keys) - 1; l >= 0; l-- {
+			for l := len(frame.KeysSlice()) - 1; l >= 0; l-- {
 				if l > cfg.numIndexChannels {
 					break
 				}
-				frame.Series[l] = indexDataSeries
+				frame.SetSeriesAt(l, indexDataSeries)
 			}
 		}
 
@@ -498,11 +498,11 @@ func BenchStream(
 						}
 					} else {
 						indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
-						for l := len(frame.Keys) - 1; l >= 0; l-- {
+						for l := len(frame.KeysSlice()) - 1; l >= 0; l-- {
 							if l > cfg.numIndexChannels {
 								break
 							}
-							frame.Series[l] = indexDataSeries
+							frame.SetSeriesAt(l, indexDataSeries)
 						}
 					}
 

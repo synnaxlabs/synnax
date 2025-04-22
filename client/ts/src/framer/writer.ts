@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  decodeError,
-  errorZ,
-  type Stream,
-  type WebSocketClient,
-} from "@synnaxlabs/freighter";
+import { type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import { control } from "@synnaxlabs/x";
 import {
   type CrudeSeries,
@@ -183,8 +178,8 @@ export class Writer {
     }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await WriteAdapter.open(retriever, channels);
-    // if (useExperimentalCodec)
-    //   client = client.withCodec(new WSWriterCodec(adapter.codec));
+    if (useExperimentalCodec)
+      client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({
@@ -231,7 +226,7 @@ export class Writer {
   ): Promise<void> {
     if (this.stream.received()) return await this.close();
     const frame = await this.adapter.adapt(channelsOrData, series);
-    this.stream.send({ command: Command.Write, frame: frame.toPayload() });
+    this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
   }
 
   async setAuthority(value: number): Promise<void>;

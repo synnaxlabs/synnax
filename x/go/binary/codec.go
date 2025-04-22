@@ -14,7 +14,6 @@ import (
 	"context"
 	"encoding/gob"
 	"encoding/json"
-	"fmt"
 	"io"
 	"reflect"
 	"strconv"
@@ -28,14 +27,21 @@ import (
 
 // sugarEncodingErr adds additional context to encoding errors.
 func sugarEncodingErr(value interface{}, err error) error {
-	val := reflect.ValueOf(value)
-	return errors.Wrapf(err, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
+	if err != nil {
+		val := reflect.ValueOf(value)
+		err = errors.Wrapf(err, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
+	}
+	return err
 }
 
 // sugarDecodingErr adds additional context to decoding errors.
 func sugarDecodingErr(data []byte, value interface{}, err error) error {
-	val := reflect.ValueOf(value)
-	return errors.Wrapf(err, "failed to decode into value: kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
+	if err != nil {
+		val := reflect.ValueOf(value)
+		err = errors.Wrapf(err, "failed to decode into value: kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
+	}
+	return err
+
 }
 
 // Codec is an interface that encodes and decodes values.
@@ -155,11 +161,7 @@ func (m *MsgPackCodec) Encode(_ context.Context, value interface{}) ([]byte, err
 // Decode implements the Decoder interface.
 func (m *MsgPackCodec) Decode(ctx context.Context, data []byte, value interface{}) error {
 	err := m.DecodeStream(ctx, bytes.NewReader(data), value)
-	if err != nil {
-		fmt.Println(data)
-		return sugarDecodingErr(data, value, err)
-	}
-	return nil
+	return sugarDecodingErr(data, value, err)
 }
 
 // DecodeStream implements the Decoder interface.
@@ -298,7 +300,11 @@ func (f *decodeFallbackCodec) Decode(ctx context.Context, data []byte, value int
 }
 
 // DecodeStream implements the Decoder interface.
-func (f *decodeFallbackCodec) DecodeStream(ctx context.Context, r io.Reader, value interface{}) (err error) {
+func (f *decodeFallbackCodec) DecodeStream(
+	ctx context.Context,
+	r io.Reader,
+	value interface{},
+) (err error) {
 	if len(f.Codecs) == 0 {
 		panic("[binary] - no codecs provided to decodeFallbackCodec")
 	}

@@ -11,7 +11,7 @@ from typing import overload
 
 import pandas as pd
 from alamos import NOOP, Instrumentation
-from freighter import AsyncStreamClient, StreamClient, UnaryClient
+from freighter import AsyncStreamClient, StreamClient, UnaryClient, WebsocketClient
 
 from synnax.channel.payload import (
     ChannelKey,
@@ -49,7 +49,7 @@ class Client:
     directly, but rather used through the synnax.Synnax class.
     """
 
-    __stream_client: StreamClient
+    __stream_client: WebsocketClient
     __async_client: AsyncStreamClient
     __unary_client: UnaryClient
     __channels: ChannelRetriever
@@ -58,7 +58,7 @@ class Client:
 
     def __init__(
         self,
-        stream_client: StreamClient,
+        stream_client: WebsocketClient,
         async_client: AsyncStreamClient,
         unary_client: UnaryClient,
         retriever: ChannelRetriever,
@@ -86,6 +86,7 @@ class Client:
         enable_auto_commit: bool = False,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
         err_on_extra_chans: bool = True,
+        use_experimental_codec: bool = True,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
@@ -130,6 +131,7 @@ class Client:
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
+            use_experimental_codec=use_experimental_codec,
         )
 
     def open_iterator(
@@ -257,7 +259,10 @@ class Client:
         return series
 
     def open_streamer(
-        self, channels: ChannelParams, downsample_factor: int = 1
+        self,
+        channels: ChannelParams,
+        downsample_factor: int = 1,
+        use_experimental_codec: bool = False,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
         being receiving frames of data from the given channels.
@@ -273,6 +278,7 @@ class Client:
             adapter=adapter,
             client=self.__stream_client,
             downsample_factor=downsample_factor,
+            use_experimental_codec=use_experimental_codec,
         )
 
     async def open_async_streamer(

@@ -65,7 +65,7 @@ for sensor in SENSORS:
     )
     print(s.name, s.key)
 
-loop = sy.Loop(sy.Rate.HZ * 300, precise=True)
+# loop = sy.Loop(sy.Rate.HZ * 300, precise=True)
 
 DAQ_STATE = {
     OX_VENT_CMD: 0,
@@ -131,7 +131,7 @@ with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
         channels=[*SENSORS, *[state for state in VALVES.values()], DAQ_TIME],
         enable_auto_commit=True,
     ) as writer:
-        while loop.wait():
+        while True:
             try:
                 while True:
                     frame = streamer.read(0)

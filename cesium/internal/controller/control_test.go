@@ -14,337 +14,395 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
-type testEntity struct {
+type testResource struct {
 	value int
 }
 
-func (t testEntity) ChannelKey() core.ChannelKey { return core.ChannelKey(0) }
+var _ controller.Resource = (*testResource)(nil)
 
-func createEntityAndNoError() (t testEntity, err error) {
-	return testEntity{}, nil
+func (t testResource) ChannelKey() core.ChannelKey { return core.ChannelKey(0) }
+
+func createResourceNoErr(value int) (func() (t testResource, err error), func() int) {
+	var count int
+	return func() (t testResource, err error) {
+			count++
+			return testResource{value: value}, nil
+		}, func() int {
+			return count
+		}
+}
+
+func baseConfig(value int) (controller.GateConfig[testResource], func() int) {
+	openResource, count := createResourceNoErr(value)
+	return controller.GateConfig[testResource]{
+		Subject:      control.Subject{Key: "test", Name: "test"},
+		TimeRange:    telem.TimeRangeMax,
+		Authority:    control.Absolute,
+		OpenResource: openResource,
+	}, count
 }
 
 var _ = Describe("Control", func() {
-
-	Describe("Register", func() {
-		It("Should correctly register an entity with the controller", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-		})
-		It("Should return an error if time range is already registered", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-			err := c.Register(telem.TimeRangeMax, testEntity{})
-			Expect(err).To(MatchError(controller.ErrRegionOverlap))
-		})
+	var (
+		c   *controller.Controller[testResource]
+		cfg = controller.Config{Concurrency: control.Exclusive}
+	)
+	JustBeforeEach(func() {
+		c = MustSucceed(controller.New[testResource](cfg))
 	})
 
-	Describe("RegisterRegionAndOpenGate", func() {
-		It("Should register a region and open a gate at the same time", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			g, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				Subject: control.Subject{
-					Key: "test",
-				},
-				TimeRange: telem.TimeRangeMax,
-				Authority: control.Absolute,
-			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeTrue())
-			Expect(t.From).To(BeNil())
-			Expect(t.To).ToNot(BeNil())
-			Expect(g).ToNot(BeNil())
+	Context("Exclusive", func() {
+		BeforeEach(func() {
+			cfg.Concurrency = control.Exclusive
 		})
-		It("Should return an error when the configuration is invalid", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			_, _, err := c.OpenGateAndMaybeRegister(controller.GateConfig{
-				TimeRange: telem.TimeRangeZero,
-				Subject:   control.Subject{Key: "a"},
-			}, createEntityAndNoError)
-			Expect(err).To(MatchError(ContainSubstring("must be non-zero")))
-		})
-		It("Should return an error when the configuration is invalid", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			_, _, err := c.OpenGateAndMaybeRegister(controller.GateConfig{
-				TimeRange: telem.TimeRangeMax,
-				Subject:   control.Subject{Key: ""},
-			}, createEntityAndNoError)
-			Expect(err).To(MatchError(ContainSubstring("subject.key:field must be set")))
-		})
-		It("Should return an error when opening a gate of same name", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			g, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				Subject: control.Subject{
-					Key: "test",
-				},
-				TimeRange: telem.TimeRangeMax,
-				Authority: control.Absolute,
-			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeTrue())
-			Expect(t.From).To(BeNil())
-			Expect(t.To).ToNot(BeNil())
-			Expect(g).ToNot(BeNil())
 
-			_, _, err := c.OpenGateAndMaybeRegister(controller.GateConfig{
-				Subject: control.Subject{
-					Key: "test",
-				},
-				TimeRange: telem.TimeRangeMax,
-				Authority: control.Absolute,
-			}, createEntityAndNoError)
-			Expect(err).To(MatchError(ContainSubstring("control subject <test> is already registered")))
-		})
-	})
-
-	Describe("LeadingState", func() {
-		It("Should return the leading State of the controller", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-			g, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				Subject: control.Subject{
-					Key:  "test",
-					Name: "test",
-				},
-				TimeRange: telem.TimeRangeMax,
-				Authority: control.Absolute,
-			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeTrue())
-			Expect(t.IsAcquire()).To(BeTrue())
-			Expect(g).ToNot(BeNil())
-			lead := c.LeadingState()
-			Expect(lead).ToNot(BeNil())
-			Expect(lead.Subject).To(Equal(control.Subject{
-				Key:  "test",
-				Name: "test",
-			}))
-		})
-	})
-
-	Describe("OpenGateAndMaybeRegister", func() {
-		It("Should return an error if the gate overlaps with multiple regions", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			Expect(c.Register(telem.TimeRange{Start: 0, End: 10}, testEntity{})).To(Succeed())
-			Expect(c.Register(telem.TimeRange{Start: 10, End: 20}, testEntity{})).To(Succeed())
-			_, _, err := c.OpenGateAndMaybeRegister(controller.GateConfig{
-				Subject: control.Subject{
-					Key: "test",
-				},
-				TimeRange: telem.TimeRange{Start: 5, End: 15},
-			}, createEntityAndNoError)
-			Expect(err).To(HaveOccurred())
-		})
-		It("Should return an error if callback is invalid", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			_, _, err := c.OpenGateAndMaybeRegister(controller.GateConfig{
-				Subject: control.Subject{
-					Key: "test",
-				},
-				TimeRange: telem.TimeRange{Start: 5, End: 15},
-			}, func() (testEntity, error) {
-				return testEntity{value: 11}, errors.New("haha error")
-			})
-			Expect(err).To(MatchError(Equal("haha error")))
-		})
-		It("Should work if a new region was created", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			g, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				Subject: control.Subject{
-					Key: "test",
-				},
-				TimeRange: telem.TimeRangeMax,
-				Authority: control.Absolute,
-			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeTrue())
-			Expect(g).ToNot(BeNil())
-		})
-		It("Should work if a new region was not created", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			Expect(c.Register(telem.TimeRangeMax, testEntity{value: 12})).To(Succeed())
-			g, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				Subject: control.Subject{
-					Key: "test",
-				},
-				TimeRange: telem.TimeRangeMax,
-				Authority: control.Absolute,
-			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeTrue())
-			Expect(g).ToNot(BeNil())
-		})
-		It("Should open a control gate for the given time range", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-			_, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				Subject: control.Subject{
-					Key: "test",
-				},
-				TimeRange: telem.TimeRangeMax,
-				Authority: control.Absolute,
-			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeTrue())
-			Expect(t.From).To(BeNil())
-			Expect(t.To).ToNot(BeNil())
-		})
-	})
-
-	Context("Single Gate", func() {
-		It("Already existing region", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			Expect(c.Register(telem.TimeRangeMax, testEntity{value: 10})).To(Succeed())
-			g, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				Subject: control.Subject{
-					Key: "test",
-				},
-				TimeRange: telem.TimeRangeMax,
-				Authority: control.Absolute,
-			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeTrue())
-			v, authorized := g.Authorized()
-			Expect(authorized).To(BeTrue())
-			Expect(v.value).To(Equal(10))
-		})
-		It("Should delete a region when all gates from that region are removed", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			Expect(c.Register(telem.TimeRangeMax, testEntity{value: 11})).To(Succeed())
-			g, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				Subject:   control.Subject{Key: "test"},
-				TimeRange: telem.TimeRangeMax,
-				Authority: control.Absolute,
-			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeTrue())
-			v, t := g.Release()
-			Expect(t.Occurred()).To(BeTrue())
-			Expect(t.IsRelease()).To(BeTrue())
-			Expect(v.value).To(Equal(11))
-			By("Returning false when opening a new gate")
-			_, t = MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				Subject:   control.Subject{Key: "test2"},
-				TimeRange: telem.TimeRangeMax,
-				Authority: control.Absolute,
-			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeTrue())
-		})
-	})
-
-	Context("Multiple Gates", func() {
-		Context("Exclusive Control", func() {
-			It("Should authorize the gate with the highest authority", func() {
-				c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-				Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-				g1, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-					Subject:   control.Subject{Key: "g1"},
-					TimeRange: telem.TimeRangeMax,
-					Authority: control.Absolute,
-				}, createEntityAndNoError))
+		Describe("OpenGate", func() {
+			It("Should create a new region if the time range is not controller", func() {
+				cfg, createCount := baseConfig(1)
+				g, t := MustSucceed2(c.OpenGate(cfg))
 				Expect(t.Occurred()).To(BeTrue())
-				Expect(t.From).To(BeNil())
-				Expect(t.To).ToNot(BeNil())
-				Expect(t.To.Subject).To(Equal(control.Subject{Key: "g1"}))
-				g2, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-					Subject:   control.Subject{Key: "g2"},
-					TimeRange: telem.TimeRangeMax,
-					Authority: control.Absolute - 1,
-				}, createEntityAndNoError))
+				Expect(t.IsAcquire()).To(BeTrue())
+				Expect(t.IsTransfer()).To(BeFalse())
+				Expect(createCount()).To(Equal(1))
+				Expect(g).ToNot(BeNil())
+				Expect(g.Authority()).To(Equal(control.Absolute))
+				Expect(g.Subject().Key).To(Equal("test"))
+				Expect(g.Subject().Name).To(Equal("test"))
+			})
+
+			It("Should not create a new region if the time range is already in the controller", func() {
+				cfg1, createCount1 := baseConfig(1)
+				cfg1.TimeRange = telem.NewSecondsRange(1, 5)
+				cfg1.Subject.Key = "test1"
+				g1, t1 := MustSucceed2(c.OpenGate(cfg1))
+				Expect(g1).ToNot(BeNil())
+				Expect(t1.IsAcquire()).To(BeTrue())
+				Expect(createCount1()).To(Equal(1))
+
+				By("Not creating a new region when the time range is identical")
+				cfg2, createCount2 := baseConfig(1)
+				cfg2.TimeRange = telem.NewSecondsRange(1, 5)
+				cfg2.Subject.Key = "test2"
+				g2, t2 := MustSucceed2(c.OpenGate(cfg2))
+				Expect(g2).ToNot(BeNil())
+				Expect(t2.Occurred()).To(BeFalse())
+				Expect(createCount2()).To(Equal(0))
+
+				By("Not creating a new region when the time ranges overlap")
+				cfg3, createCount3 := baseConfig(1)
+				cfg3.TimeRange = telem.NewSecondsRange(1, 10)
+				cfg3.Subject.Key = "test3"
+				g3, t3 := MustSucceed2(c.OpenGate(cfg3))
+				Expect(g3).ToNot(BeNil())
+				Expect(t3.Occurred()).To(BeFalse())
+				Expect(createCount3()).To(Equal(0))
+			})
+
+			It("Should return an error if the gate overlaps with multiple regions", func() {
+				cfg1, count1 := baseConfig(1)
+				cfg1.TimeRange = telem.NewSecondsRange(1, 5)
+				cfg1.Subject.Key = "test1"
+				g1, t1 := MustSucceed2(c.OpenGate(cfg1))
+				Expect(g1).ToNot(BeNil())
+				Expect(t1.IsAcquire()).To(BeTrue())
+				Expect(count1()).To(Equal(1))
+
+				cfg2, count2 := baseConfig(1)
+				cfg2.TimeRange = telem.NewSecondsRange(5, 10)
+				cfg2.Subject.Key = "test2"
+				g2, t2 := MustSucceed2(c.OpenGate(cfg2))
+				Expect(g2).ToNot(BeNil())
+				Expect(t2.IsAcquire()).To(BeTrue())
+				Expect(count2()).To(Equal(1))
+
+				cfg3, count3 := baseConfig(1)
+				cfg3.TimeRange = telem.NewSecondsRange(0, 20)
+				cfg3.Subject.Key = "test3"
+				g3, t3, err := c.OpenGate(cfg3)
+				Expect(g3).To(BeNil())
+				Expect(t3.Occurred()).To(BeFalse())
+				Expect(count3()).To(Equal(0))
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("encountered multiple control regions")))
+			})
+
+			It("Should return an error if the controlled resource cannot be created", func() {
+				cfg, _ := baseConfig(1)
+				count := 0
+				cfg.OpenResource = func() (testResource, error) {
+					count++
+					return testResource{value: 11}, errors.Wrapf(validate.Error, "could not great gate")
+				}
+				g, t, err := c.OpenGate(cfg)
+				Expect(err).To(HaveOccurredAs(validate.Error))
 				Expect(t.Occurred()).To(BeFalse())
+				Expect(g).To(BeNil())
+			})
+
+			It("Should return an error if the caller attempts to register a duplicate control subject", func() {
+				cfg, _ := baseConfig(1)
+				g, t := MustSucceed2(c.OpenGate(cfg))
+				Expect(t.Occurred()).To(BeTrue())
+				Expect(g).ToNot(BeNil())
+				g, t, err := c.OpenGate(cfg)
+				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(MatchError(ContainSubstring("control subject [test]<test> is already registered in the region.")))
+				Expect(t.Occurred()).To(BeFalse())
+				Expect(g).To(BeNil())
+			})
+
+			It("Should return an error if the user tries to create a gate with a zero time range", func() {
+				cfg, _ := baseConfig(1)
+				cfg.TimeRange = telem.TimeRange{}
+				g, t, err := c.OpenGate(cfg)
+				Expect(err).To(HaveOccurredAs(validate.FieldError{
+					Field:   "time_range",
+					Message: "must be non-zero",
+				}))
+				Expect(t.Occurred()).To(BeFalse())
+				Expect(g).To(BeNil())
+			})
+
+			It("Should return an error if the resource subject key is an empty string", func() {
+				cfg, _ := baseConfig(1)
+				cfg.Subject.Key = ""
+				g, t, err := c.OpenGate(cfg)
+				Expect(err).To(HaveOccurredAs(validate.FieldError{
+					Field:   "subject.key",
+					Message: "field must be set",
+				}))
+				Expect(t.Occurred()).To(BeFalse())
+				Expect(g).To(BeNil())
+			})
+		})
+
+		Describe("ErrOnControlled", func() {
+			It("Should take control when there are no other gates in the region", func() {
+				By("Getting an absolute gate on an uncontrolled region")
+				cfg1, _ := baseConfig(1)
+				cfg1.Subject.Key = "g1"
+				cfg1.ErrIfControlled = config.True()
+				g1, t := MustSucceed2(c.OpenGate(cfg1))
+				Expect(t.Occurred()).To(BeTrue())
 				_, authorized := g1.Authorized()
+				Expect(authorized).To(BeTrue())
+
+				By("Creating another gate on that region")
+				cfg2, _ := baseConfig(1)
+				cfg2.Subject.Key = "g2"
+				cfg2.Authority = control.Absolute
+				g2, t := MustSucceed2(c.OpenGate(cfg2))
+				Expect(t.Occurred()).To(BeFalse())
+				_, authorized = g1.Authorized()
 				Expect(authorized).To(BeTrue())
 				_, authorized = g2.Authorized()
 				Expect(authorized).To(BeFalse())
 			})
-			It("Should authorize the most recently opened gate if gates are equal", func() {
-				c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-				Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-				g1, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-					Subject:   control.Subject{Key: "g1"},
-					TimeRange: telem.TimeRangeMax,
-					Authority: control.Absolute,
-				}, createEntityAndNoError))
+
+			It("Should fail when there is another gate in the region", func() {
+				cfg1, createCount := baseConfig(1)
+				cfg1.Subject.Key = "g1"
+				cfg1.Authority = 0
+				cfg1.ErrIfControlled = config.True()
+				g, t := MustSucceed2(c.OpenGate(cfg1))
 				Expect(t.Occurred()).To(BeTrue())
-				g2, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-					Subject:   control.Subject{Key: "g2"},
-					TimeRange: telem.TimeRangeMax,
-					Authority: control.Absolute,
-				}, createEntityAndNoError))
+				Expect(createCount()).To(Equal(1))
+				_, authorized := g.Authorized()
+				Expect(authorized).To(BeTrue())
+				cfg2, _ := baseConfig(1)
+				cfg2.Subject.Key = "g2"
+				cfg2.Authority = 0
+				cfg2.ErrIfControlled = config.True()
+				g1, t, err := c.OpenGate(cfg2)
 				Expect(t.Occurred()).To(BeFalse())
-				_, authorized := g1.Authorized()
-				Expect(authorized).To(BeTrue())
-				_, authorized = g2.Authorized()
-				Expect(authorized).To(BeFalse())
-			})
-			It("Should return control to the next highest authority when the highest authority gate is released", func() {
-				c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-				Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-				g1, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-					Subject:   control.Subject{Key: "g1"},
-					TimeRange: telem.TimeRangeMax,
-					Authority: control.Absolute,
-				}, createEntityAndNoError))
-				Expect(t.Occurred()).To(BeTrue())
-				g2, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-					Subject:   control.Subject{Key: "g2"},
-					TimeRange: telem.TimeRangeMax,
-					Authority: control.Absolute - 1,
-				}, createEntityAndNoError))
+				Expect(g1).To(BeNil())
 				Expect(t.Occurred()).To(BeFalse())
-				_, authorized := g1.Authorized()
-				Expect(authorized).To(BeTrue())
-				By("Returning false that the region is released")
-				_, t = g1.Release()
-				Expect(t.IsRelease()).To(BeFalse())
-				Expect(t.From).ToNot(BeNil())
-				Expect(t.To).ToNot(BeNil())
-				_, authorized = g2.Authorized()
-				Expect(authorized).To(BeTrue())
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("overlaps with a controlled region")))
 			})
-			Describe("SetAuthority", func() {
-				Context("To higher authority than all other gates", func() {
-					It("Should transfer authority to the gate that called SetAuthority", func() {
-						c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-						Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-						g1, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-							Subject:   control.Subject{Key: "g1"},
-							TimeRange: telem.TimeRangeMax,
-							Authority: control.Absolute - 1,
-						}, createEntityAndNoError))
-						Expect(t.Occurred()).To(BeTrue())
-						g2, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-							Subject:   control.Subject{Key: "g2"},
-							TimeRange: telem.TimeRangeMax,
-							Authority: control.Absolute - 2,
-						}, createEntityAndNoError))
-						Expect(t.Occurred()).To(BeFalse())
-						_, authorized := g1.Authorized()
-						Expect(authorized).To(BeTrue())
-						_, authorized = g2.Authorized()
-						Expect(authorized).To(BeFalse())
-						t = g2.SetAuthority(control.Absolute)
-						Expect(t.Occurred()).To(BeTrue())
-						Expect(t.From.Subject).To(Equal(control.Subject{Key: "g1"}))
-						Expect(t.To.Subject).To(Equal(control.Subject{Key: "g2"}))
-						_, authorized = g2.Authorized()
-						Expect(authorized).To(BeTrue())
+		})
+
+		Describe("Authorization, Transfer, and Release", func() {
+
+			Context("One Gate", func() {
+				It("Should authorize the gate with absolute control", func() {
+					cfg, createCount := baseConfig(10)
+					g, t := MustSucceed2(c.OpenGate(cfg))
+					Expect(createCount()).To(Equal(1))
+					Expect(t.Occurred()).To(BeTrue())
+					Expect(t.IsAcquire()).To(BeTrue())
+					Expect(t.IsTransfer()).To(BeFalse())
+					v, authorized := g.Authorized()
+					Expect(authorized).To(BeTrue())
+					Expect(v.value).To(Equal(10))
+				})
+
+				It("Should authorize the gate with 0 control", func() {
+					cfg, createCount := baseConfig(10)
+					cfg.Authority = 0
+					g, t := MustSucceed2(c.OpenGate(cfg))
+					Expect(createCount()).To(Equal(1))
+					Expect(t.Occurred()).To(BeTrue())
+					Expect(t.IsAcquire()).To(BeTrue())
+					Expect(t.IsTransfer()).To(BeFalse())
+					v, authorized := g.Authorized()
+					Expect(authorized).To(BeTrue())
+					Expect(v.value).To(Equal(10))
+				})
+
+				It("Should return false for authorize after the gate has been released", func() {
+					cfg, _ := baseConfig(1)
+					g, t := MustSucceed2(c.OpenGate(cfg))
+					e, t := g.Release()
+					Expect(e.value).To(Equal(1))
+					Expect(t.Occurred()).To(BeTrue())
+					v, err := g.Authorize()
+					Expect(err).To(HaveOccurredAs(control.Unauthorized))
+					Expect(v.value).To(Equal(0))
+				})
+
+				It("Should delete a region when all gates from that region are removed", func() {
+					cfg1, createCount1 := baseConfig(11)
+					g, t := MustSucceed2(c.OpenGate(cfg1))
+					Expect(t.Occurred()).To(BeTrue())
+					Expect(createCount1()).To(Equal(1))
+					v, t := g.Release()
+					Expect(t.Occurred()).To(BeTrue())
+					Expect(t.IsRelease()).To(BeTrue())
+					Expect(v.value).To(Equal(11))
+
+					cfg2, createCount2 := baseConfig(42)
+					g2, t2 := MustSucceed2(c.OpenGate(cfg2))
+					Expect(t2.Occurred()).To(BeTrue())
+					Expect(t2.IsAcquire()).To(BeTrue())
+					Expect(createCount2()).To(Equal(1))
+					v = MustSucceed(g2.Authorize())
+					Expect(v.value).To(Equal(42))
+				})
+			})
+
+			Context("Two Gates", func() {
+				Describe("Open", func() {
+					Context("Open gate 2 with lower authority", func() {
+						Specify("The first gate should maintain control", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+							Expect(t.From).To(BeNil())
+							Expect(t.To).ToNot(BeNil())
+							Expect(t.To.Subject.Key).To(Equal("g1"))
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute - 1
+							g2, t2 := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t2.Occurred()).To(BeFalse())
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeTrue())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeFalse())
+						})
+					})
+
+					Context("Open gate 2 with equal authority", func() {
+						Specify("The first gate should maintain control", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t.Occurred()).To(BeFalse())
+							Expect(t.Occurred()).To(BeFalse())
+
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeTrue())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeFalse())
+						})
+					})
+
+					Context("Open gate 2 with higher authority", func() {
+						Specify("The second gate should take control", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute - 1
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t.Occurred()).To(BeTrue())
+							Expect(t.IsTransfer()).To(BeTrue())
+							Expect(t.From.Subject.Key).To(Equal("g1"))
+							Expect(t.To.Subject.Key).To(Equal("g2"))
+
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeTrue())
+						})
 					})
 				})
-				Context("To the same authority as highest gate", func() {
-					Context("Where the next highest gate has a less precedent position", func() {
-						It("Should not transfer authority", func() {
-							c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-							Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-							g1, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-								Subject:   control.Subject{Key: "g1"},
-								TimeRange: telem.TimeRangeMax,
-								Authority: control.Absolute,
-							}, createEntityAndNoError))
+
+				Describe("SetAuthority", func() {
+					Context("Open gate 2 with lower authority, raise authority to higher than gate 1", func() {
+						It("Should transfer authority to gate 2", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute - 1
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
 							Expect(t.Occurred()).To(BeTrue())
-							g2, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-								Subject:   control.Subject{Key: "g2"},
-								TimeRange: telem.TimeRangeMax,
-								Authority: control.Absolute - 1,
-							}, createEntityAndNoError))
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute - 2
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t.Occurred()).To(BeFalse())
+
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeTrue())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeFalse())
+
+							t = g2.SetAuthority(control.Absolute)
+							Expect(t.Occurred()).To(BeTrue())
+							Expect(t.From.Subject.Key).To(Equal("g1"))
+							Expect(t.To.Subject.Key).To(Equal("g2"))
+
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeTrue())
+							_, authorized = g1.Authorized()
+							Expect(authorized).To(BeFalse())
+						})
+					})
+
+					Context("Open gate 2 with lower authority, raise authority to equal to gate 1", func() {
+						It("Should not transfer authority to gate 2", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute - 1
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
 							Expect(t.Occurred()).To(BeFalse())
 							_, authorized := g1.Authorized()
 							Expect(authorized).To(BeTrue())
@@ -358,156 +416,512 @@ var _ = Describe("Control", func() {
 							Expect(authorized).To(BeTrue())
 						})
 					})
-					Context("Where the next highest gate has a more precedent position", func() {
-						It("Should transfer authority to the next highest gate", func() {
-							c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-							Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-							g1, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-								Subject:   control.Subject{Key: "g1"},
-								TimeRange: telem.TimeRangeMax,
-								Authority: control.Absolute - 1,
-							}, createEntityAndNoError))
+
+					Context("Open gate 2 with higher authority, lower authority to equal than gate 1", func() {
+						It("Should transfer authority back to gate 1", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute - 1
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
 							Expect(t.Occurred()).To(BeTrue())
-							g2, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-								Subject:   control.Subject{Key: "g2"},
-								TimeRange: telem.TimeRangeMax,
-								Authority: control.Absolute,
-							}, createEntityAndNoError))
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
 							Expect(t.Occurred()).To(BeTrue())
+
 							_, authorized := g1.Authorized()
 							Expect(authorized).To(BeFalse())
 							_, authorized = g2.Authorized()
 							Expect(authorized).To(BeTrue())
 							t = g2.SetAuthority(control.Absolute - 1)
 							Expect(t.Occurred()).To(BeTrue())
-							Expect(t.From.Subject).To(Equal(control.Subject{Key: "g2"}))
-							Expect(t.To.Subject).To(Equal(control.Subject{Key: "g1"}))
+							Expect(t.From.Subject.Key).To(Equal("g2"))
+							Expect(t.To.Subject.Key).To(Equal("g1"))
 							_, authorized = g2.Authorized()
 							Expect(authorized).To(BeFalse())
 							_, authorized = g1.Authorized()
 							Expect(authorized).To(BeTrue())
 						})
 					})
+
+					Context("Open gate 2 with higher authority, lower authority to lower than gate 1", func() {
+						It("Should transfer control to gate 1", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute - 1
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t.Occurred()).To(BeFalse())
+
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeTrue())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeFalse())
+
+							t = g1.SetAuthority(control.Absolute - 2)
+							Expect(t.Occurred()).To(BeTrue())
+							Expect(t.From.Subject.Key).To(Equal("g1"))
+							Expect(t.To.Subject.Key).To(Equal("g2"))
+
+							_, authorized = g1.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeTrue())
+						})
+					})
 				})
-				Context("To a lower authority than the next highest gate", func() {
-					It("Should transfer authority to the next highest gate", func() {
-						c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-						Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-						g1, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-							Subject:   control.Subject{Key: "g1"},
-							TimeRange: telem.TimeRangeMax,
-							Authority: control.Absolute,
-						}, createEntityAndNoError))
+
+				Describe("Release", func() {
+					Context("Open gate 2 with lower authority, release gate 1", func() {
+						It("Should transfer control to gate 2", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute - 1
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t.Occurred()).To(BeFalse())
+
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeTrue())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeFalse())
+
+							v, t := g1.Release()
+							Expect(t.Occurred()).To(BeTrue())
+							Expect(t.IsTransfer()).To(BeTrue())
+							Expect(v.value).To(Equal(1))
+							_, authorized = g1.Authorized()
+							Expect(authorized).To(BeFalse())
+						})
+
+					})
+
+					Context("Open gate 2 with equal authority, release gate 1", func() {
+						It("Should transfer control to gate 2", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t.Occurred()).To(BeFalse())
+
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeTrue())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeFalse())
+
+							v, t := g1.Release()
+							Expect(t.Occurred()).To(BeTrue())
+							Expect(t.IsTransfer()).To(BeTrue())
+							Expect(v.value).To(Equal(1))
+						})
+
+					})
+
+					Context("Open gate 2 with higher authority, release gate 1", func() {
+						Specify("Gate 2 should remain in control", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute - 1
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t.Occurred()).To(BeTrue())
+
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeTrue())
+
+							v, t := g1.Release()
+							Expect(t.Occurred()).To(BeFalse())
+							Expect(v.value).To(Equal(0))
+
+							_, authorized = g1.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeTrue())
+						})
+					})
+
+					Context("Open gate 1 with higher authority, transfer control to gate 2, release gate 1", func() {
+						Specify("Gate 2 should remain in control", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute - 1
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute - 2
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t.Occurred()).To(BeFalse())
+
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeTrue())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeFalse())
+
+							t = g2.SetAuthority(control.Absolute)
+							Expect(t.Occurred()).To(BeTrue())
+							Expect(t.IsTransfer()).To(BeTrue())
+
+							v, t := g1.Release()
+							Expect(t.Occurred()).To(BeFalse())
+							Expect(v.value).To(Equal(0))
+
+							_, authorized = g1.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeTrue())
+						})
+
+					})
+
+					Context("Release both gates", func() {
+						It("Should transfer control to the first gate", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute - 1
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t.Occurred()).To(BeTrue())
+
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeTrue())
+
+							v, t := g1.Release()
+							Expect(t.Occurred()).To(BeFalse())
+							Expect(v.value).To(Equal(0))
+
+							v, t = g2.Release()
+							Expect(t.Occurred()).To(BeTrue())
+							Expect(t.IsTransfer()).To(BeFalse())
+							Expect(t.IsRelease()).To(BeTrue())
+							Expect(v.value).To(Equal(1))
+						})
+					})
+				})
+			})
+
+			Context("Three Gates", func() {
+				Context("Open gate 1 lowest, gate 2 medium, gate 3 highest", func() {
+					It("Should transfer control to each subsequent gate", func() {
+						cfg1, _ := baseConfig(1)
+						cfg1.Subject.Key = "g1"
+						cfg1.Authority = control.Absolute - 2
+						g1, t := MustSucceed2(c.OpenGate(cfg1))
 						Expect(t.Occurred()).To(BeTrue())
-						g2, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-							Subject:   control.Subject{Key: "g2"},
-							TimeRange: telem.TimeRangeMax,
-							Authority: control.Absolute - 1,
-						}, createEntityAndNoError))
+						Expect(t.IsAcquire()).To(BeTrue())
+						Expect(t.IsTransfer()).To(BeFalse())
+						Expect(t.From).To(BeNil())
+						Expect(t.To).ToNot(BeNil())
+						Expect(t.To.Subject.Key).To(Equal("g1"))
+
+						cfg2, _ := baseConfig(1)
+						cfg2.Subject.Key = "g2"
+						cfg2.Authority = control.Absolute - 1
+						g2, t := MustSucceed2(c.OpenGate(cfg2))
+						Expect(t.Occurred()).To(BeTrue())
+						Expect(t.IsTransfer()).To(BeTrue())
+						Expect(t.From.Subject.Key).To(Equal("g1"))
+						Expect(t.To.Subject.Key).To(Equal("g2"))
+
+						_, authorized := g1.Authorized()
+						Expect(authorized).To(BeFalse())
+						_, authorized = g2.Authorized()
+						Expect(authorized).To(BeTrue())
+
+						cfg3, _ := baseConfig(1)
+						cfg3.Subject.Key = "g3"
+						cfg3.Authority = control.Absolute
+						g3, t := MustSucceed2(c.OpenGate(cfg3))
+						Expect(t.Occurred()).To(BeTrue())
+						Expect(t.IsTransfer()).To(BeTrue())
+						Expect(t.From.Subject.Key).To(Equal("g2"))
+						Expect(t.To.Subject.Key).To(Equal("g3"))
+
+						_, authorized = g1.Authorized()
+						Expect(authorized).To(BeFalse())
+						_, authorized = g2.Authorized()
+						Expect(authorized).To(BeFalse())
+						_, authorized = g3.Authorized()
+						Expect(authorized).To(BeTrue())
+					})
+				})
+
+				Context("Open gate 1 highest, gate 2 medium, gate 3 lowest", func() {
+					Specify("Gate 1 should remain in control", func() {
+						cfg1, _ := baseConfig(1)
+						cfg1.Subject.Key = "g1"
+						cfg1.Authority = control.Absolute
+						g1, t := MustSucceed2(c.OpenGate(cfg1))
+						Expect(t.Occurred()).To(BeTrue())
+						Expect(t.IsAcquire()).To(BeTrue())
+						Expect(t.IsTransfer()).To(BeFalse())
+						Expect(t.From).To(BeNil())
+						Expect(t.To).ToNot(BeNil())
+						Expect(t.To.Subject.Key).To(Equal("g1"))
+
+						cfg2, _ := baseConfig(1)
+						cfg2.Subject.Key = "g2"
+						cfg2.Authority = control.Absolute - 1
+						g2, t := MustSucceed2(c.OpenGate(cfg2))
 						Expect(t.Occurred()).To(BeFalse())
+
 						_, authorized := g1.Authorized()
 						Expect(authorized).To(BeTrue())
 						_, authorized = g2.Authorized()
 						Expect(authorized).To(BeFalse())
-						t = g1.SetAuthority(control.Absolute - 2)
-						Expect(t.Occurred()).To(BeTrue())
-						Expect(t.From.Subject).To(Equal(control.Subject{Key: "g1"}))
-						Expect(t.To.Subject).To(Equal(control.Subject{Key: "g2"}))
-						_, authorized = g2.Authorized()
-						Expect(authorized).To(BeTrue())
+
+						cfg3, _ := baseConfig(1)
+						cfg3.Subject.Key = "g3"
+						cfg3.Authority = control.Absolute - 2
+						g3, t := MustSucceed2(c.OpenGate(cfg3))
+						Expect(t.Occurred()).To(BeFalse())
+
 						_, authorized = g1.Authorized()
+						Expect(authorized).To(BeTrue())
+						_, authorized = g2.Authorized()
+						Expect(authorized).To(BeFalse())
+						_, authorized = g3.Authorized()
 						Expect(authorized).To(BeFalse())
 					})
 				})
+
+				Describe("Release", func() {
+					Context("Open gate 1 highest, gate 2 then gate 3 equal, release gate 1", func() {
+						It("Should transfer control to gate 2", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+
+							cfg2, _ := baseConfig(2)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute - 1
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t.Occurred()).To(BeFalse())
+
+							cfg3, _ := baseConfig(3)
+							cfg3.Subject.Key = "g3"
+							cfg3.Authority = control.Absolute - 1
+							g3, t := MustSucceed2(c.OpenGate(cfg3))
+							Expect(t.Occurred()).To(BeFalse())
+
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeTrue())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g3.Authorized()
+							Expect(authorized).To(BeFalse())
+
+							v, t := g1.Release()
+							Expect(t.Occurred()).To(BeTrue())
+							Expect(t.IsTransfer()).To(BeTrue())
+							Expect(t.From.Subject.Key).To(Equal("g1"))
+							Expect(t.To.Subject.Key).To(Equal("g2"))
+							Expect(v.value).To(Equal(1))
+
+							_, authorized = g1.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeTrue())
+							_, authorized = g3.Authorized()
+							Expect(authorized).To(BeFalse())
+						})
+					})
+
+					Context("Open gate 1 highest, gate 2 lowest, gate 3 medium, release g1", func() {
+						It("Should transfer control to gate 3", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+
+							cfg2, _ := baseConfig(2)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute - 2
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t.Occurred()).To(BeFalse())
+
+							cfg3, _ := baseConfig(3)
+							cfg3.Subject.Key = "g3"
+							cfg3.Authority = control.Absolute - 1
+							g3, t := MustSucceed2(c.OpenGate(cfg3))
+							Expect(t.Occurred()).To(BeFalse())
+
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeTrue())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g3.Authorized()
+							Expect(authorized).To(BeFalse())
+
+							v, t := g1.Release()
+							Expect(t.Occurred()).To(BeTrue())
+							Expect(t.IsTransfer()).To(BeTrue())
+							Expect(t.From.Subject.Key).To(Equal("g1"))
+							Expect(t.To.Subject.Key).To(Equal("g3"))
+							Expect(v.value).To(Equal(1))
+
+							_, authorized = g1.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g3.Authorized()
+							Expect(authorized).To(BeTrue())
+						})
+
+					})
+
+					Context("Open gate 1 highest, gate 2 medium, gate 3 lowest, release g1", func() {
+						It("Should transfer control to gate 2", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							cfg1.Authority = control.Absolute
+							g1, t := MustSucceed2(c.OpenGate(cfg1))
+							Expect(t.Occurred()).To(BeTrue())
+
+							cfg2, _ := baseConfig(2)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = control.Absolute - 1
+							g2, t := MustSucceed2(c.OpenGate(cfg2))
+							Expect(t.Occurred()).To(BeFalse())
+
+							cfg3, _ := baseConfig(3)
+							cfg3.Subject.Key = "g3"
+							cfg3.Authority = control.Absolute - 2
+							g3, t := MustSucceed2(c.OpenGate(cfg3))
+							Expect(t.Occurred()).To(BeFalse())
+
+							_, authorized := g1.Authorized()
+							Expect(authorized).To(BeTrue())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g3.Authorized()
+							Expect(authorized).To(BeFalse())
+
+							v, t := g1.Release()
+							Expect(t.Occurred()).To(BeTrue())
+							Expect(t.IsTransfer()).To(BeTrue())
+							Expect(t.From.Subject.Key).To(Equal("g1"))
+							Expect(t.To.Subject.Key).To(Equal("g2"))
+							Expect(v.value).To(Equal(1))
+
+							_, authorized = g1.Authorized()
+							Expect(authorized).To(BeFalse())
+							_, authorized = g2.Authorized()
+							Expect(authorized).To(BeTrue())
+						})
+					})
+				})
+			})
+
+		})
+
+		Describe("PeekResource", func() {
+			It("Should allow the caller to peek at a gate's resource without being controlled", func() {
+				cfg1, _ := baseConfig(12)
+				cfg1.Subject.Key = "test"
+				cfg1.Subject.Name = "test"
+				cfg1.Authority = control.Absolute
+				g, t := MustSucceed2(c.OpenGate(cfg1))
+				Expect(t.Occurred()).To(BeTrue())
+				v := g.PeekResource()
+				Expect(v.value).To(Equal(12))
 			})
 		})
-		Context("Shared Control", func() {
-			It("Should authorize gate with the highest authority", func() {
-				c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Shared}))
-				Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-				g1, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-					Subject:   control.Subject{Key: "g1"},
-					TimeRange: telem.TimeRangeMax,
-					Authority: control.Absolute,
-				}, createEntityAndNoError))
+
+		Describe("LeadingState", func() {
+			It("Should return the leading State of the controller", func() {
+				cfg1, _ := baseConfig(1)
+				cfg1.Subject.Key = "test"
+				cfg1.Subject.Name = "test"
+				cfg1.Authority = control.Absolute
+				g, t := MustSucceed2(c.OpenGate(cfg1))
 				Expect(t.Occurred()).To(BeTrue())
-				g2, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-					Subject:   control.Subject{Key: "g2"},
-					TimeRange: telem.TimeRangeMax,
-					Authority: control.Absolute - 1,
-				}, createEntityAndNoError))
-				Expect(t.Occurred()).To(BeFalse())
-				_, authorized := g1.Authorized()
-				Expect(authorized).To(BeTrue())
-				_, authorized = g2.Authorized()
-				Expect(authorized).To(BeFalse())
-			})
-			It("Should authorize gates with equal authority", func() {
-				c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Shared}))
-				Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-				g1, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-					Subject:   control.Subject{Key: "g1"},
-					TimeRange: telem.TimeRangeMax,
-					Authority: control.Absolute,
-				}, createEntityAndNoError))
-				Expect(t.Occurred()).To(BeTrue())
-				g2, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-					Subject:   control.Subject{Key: "g2"},
-					TimeRange: telem.TimeRangeMax,
-					Authority: control.Absolute,
-				}, createEntityAndNoError))
-				Expect(t.Occurred()).To(BeFalse())
-				_, authorized := g1.Authorized()
-				Expect(authorized).To(BeTrue())
-				_, authorized = g2.Authorized()
-				Expect(authorized).To(BeTrue())
+				Expect(t.IsAcquire()).To(BeTrue())
+				Expect(g).ToNot(BeNil())
+				lead := c.LeadingState()
+				Expect(lead).ToNot(BeNil())
+				Expect(lead.Subject).To(Equal(control.Subject{Key: "test", Name: "test"}))
 			})
 		})
 	})
-	Context("OpenAbsoluteGateIfUncontrolled", func() {
-		It("Should take control when there are no other gates in the region", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-			By("Getting an absolute gate on an uncontrolled region")
-			g, t := MustSucceed2(c.OpenAbsoluteGateIfUncontrolled(telem.TimeRangeMax, control.Subject{Key: "g"}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeTrue())
-			_, authorized := g.Authorized()
-			Expect(authorized).To(BeTrue())
 
-			By("Creating another gate on that region")
-			g1, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				TimeRange: telem.TimeRangeMax,
-				Authority: control.Absolute,
-				Subject:   control.Subject{Key: "g1"},
-			}, createEntityAndNoError))
+	Context("Shared Control", func() {
+		BeforeEach(func() {
+			cfg.Concurrency = control.Shared
+		})
+		It("Should authorize gate with the highest authority", func() {
+			cfg1, _ := baseConfig(1)
+			cfg1.Subject.Key = "g1"
+			cfg1.Authority = control.Absolute
+			g1, t := MustSucceed2(c.OpenGate(cfg1))
+			Expect(t.Occurred()).To(BeTrue())
+
+			cfg2, _ := baseConfig(1)
+			cfg2.Subject.Key = "g2"
+			cfg2.Authority = control.Absolute - 1
+			g2, t := MustSucceed2(c.OpenGate(cfg2))
 			Expect(t.Occurred()).To(BeFalse())
-			_, authorized = g1.Authorized()
-			Expect(authorized).To(BeFalse())
-			_, authorized = g.Authorized()
+
+			_, authorized := g1.Authorized()
 			Expect(authorized).To(BeTrue())
+			_, authorized = g2.Authorized()
+			Expect(authorized).To(BeFalse())
 		})
 
-		It("Should fail when there is another gate in the region", func() {
-			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
-			g1, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				TimeRange: telem.TimeRange{
-					Start: 10 * telem.SecondTS,
-					End:   100 * telem.SecondTS,
-				},
-				Authority: 0,
-				Subject:   control.Subject{Key: "g1"},
-			}, createEntityAndNoError))
+		It("Should authorize gates with equal authority", func() {
+			cfg1, _ := baseConfig(1)
+			cfg1.Subject.Key = "g1"
+			cfg1.Authority = control.Absolute
+			g1, t := MustSucceed2(c.OpenGate(cfg1))
+
 			Expect(t.Occurred()).To(BeTrue())
+			cfg2, _ := baseConfig(1)
+			cfg2.Subject.Key = "g2"
+			cfg2.Authority = control.Absolute
+			g2, t := MustSucceed2(c.OpenGate(cfg2))
+			Expect(t.Occurred()).To(BeFalse())
 			_, authorized := g1.Authorized()
 			Expect(authorized).To(BeTrue())
 
-			_, t, err := c.OpenAbsoluteGateIfUncontrolled(telem.TimeRange{
-				Start: 99 * telem.SecondTS,
-				End:   110 * telem.SecondTS,
-			}, control.Subject{Key: "g2"}, createEntityAndNoError)
-			Expect(t.Occurred()).To(BeFalse())
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("overlaps with a controlled region"))
+			_, authorized = g2.Authorized()
+			Expect(authorized).To(BeTrue())
 		})
+
 	})
 })

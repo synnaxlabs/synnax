@@ -62,7 +62,7 @@ func (v *validator) validate(req Request) error {
 	if err := validateCommand(req.Command); err != nil {
 		return err
 	}
-	if req.Command == Data {
+	if req.Command == Write {
 		for k := range req.Frame.Keys() {
 			if !lo.Contains(v.keys, k) {
 				return errors.Wrapf(validate.Error, "invalid key: %s", k)

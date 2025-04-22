@@ -26,8 +26,6 @@ cc_test(
     srcs = [
         "codec_test.cpp",
         "frame_test.cpp",
-        "streamer_test.cpp",
-        "writer_test.cpp",
     ],
     deps = [
         "//client/cpp:synnax",

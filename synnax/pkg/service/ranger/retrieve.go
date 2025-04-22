@@ -13,12 +13,12 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // Retrieve is used to retrieve ranges from the cluster using a builder pattern.

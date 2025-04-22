@@ -14,7 +14,7 @@ import (
 	"os/exec"
 	"sync"
 
-	"github.com/synnaxlabs/x/uuid"
+	"github.com/google/uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"

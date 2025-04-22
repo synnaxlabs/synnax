@@ -14,8 +14,8 @@
 package user
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // A User is a representation of a user in the Synnax cluster.

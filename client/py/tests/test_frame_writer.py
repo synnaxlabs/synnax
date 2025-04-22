@@ -24,7 +24,9 @@ class TestWriter:
         """Should write data to the Synnax database"""
         idx_ch, data_ch = indexed_pair
         with client.open_writer(
-            start=1 * sy.TimeSpan.SECOND, channels=indexed_pair
+            start=1 * sy.TimeSpan.SECOND,
+            channels=indexed_pair,
+            use_experimental_codec=True
         ) as w:
             w.write(
                 {
@@ -304,6 +306,7 @@ class TestWriter:
             w1.close()
             w2.close()
 
+    @pytest.mark.focus
     def test_set_authority_by_name_value(
         self, client: sy.Synnax, indexed_pair: list[sy.channel]
     ):

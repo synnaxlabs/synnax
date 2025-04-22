@@ -12,8 +12,8 @@ package rbac
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 type Writer struct {

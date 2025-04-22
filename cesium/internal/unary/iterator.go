@@ -54,7 +54,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 }
 
 var (
-	errIteratorClosed = core.EntityClosed("unary.iterator")
+	errIteratorClosed = core.NewErrEntityClosed("unary.iterator")
 )
 
 type Iterator struct {
@@ -187,7 +187,7 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 	i.reset(i.view.End.SpanRange(span).BoundBy(i.bounds))
 
-	if i.view.IsZero() || i.view.End.BeforeEq(i.internal.TimeRange().Start) {
+	if i.view.Span().IsZero() || i.view.End.BeforeEq(i.internal.TimeRange().Start) {
 		return
 	}
 
@@ -276,7 +276,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 	i.reset(i.view.Start.SpanRange(-1 * span).BoundBy(i.bounds))
 
-	if i.view.IsZero() || i.view.Start.AfterEq(i.internal.TimeRange().End) {
+	if i.view.Span().IsZero() || i.view.Start.AfterEq(i.internal.TimeRange().End) {
 		return
 	}
 
@@ -298,7 +298,7 @@ func (i *Iterator) Len() int64 { return i.frame.Len() }
 // Error returns the error that caused the iterator to stop moving. If the iterator is
 // still moving, Error returns nil.
 func (i *Iterator) Error() error {
-	wrap := core.NewErrorWrapper(i.Channel)
+	wrap := core.NewChannelErrWrapper(i.Channel)
 	return wrap(i.err)
 }
 
@@ -316,7 +316,7 @@ func (i *Iterator) Close() (err error) {
 		return nil
 	}
 	i.closed = true
-	wrap := core.NewErrorWrapper(i.Channel)
+	wrap := core.NewChannelErrWrapper(i.Channel)
 	return wrap(i.internal.Close())
 }
 
@@ -353,7 +353,7 @@ func (i *Iterator) insert(series telem.Series) {
 
 func (i *Iterator) read(
 	ctx context.Context,
-	alignment telem.AlignmentPair,
+	alignment telem.Alignment,
 	offset telem.Offset,
 	size telem.Size,
 ) (series telem.Series, err error) {
@@ -382,7 +382,7 @@ func (i *Iterator) read(
 
 func (i *Iterator) sliceDomain(ctx context.Context) (
 	telem.Offset,
-	telem.AlignmentPair,
+	telem.Alignment,
 	telem.Size,
 	error,
 ) {
@@ -430,7 +430,7 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 // before the start of the range, the returned value will be zero.
 func (i *Iterator) approximateStart(ctx context.Context) (
 	index.DistanceApproximation,
-	telem.AlignmentPair,
+	telem.Alignment,
 	error,
 ) {
 	target := i.internal.TimeRange().Start.SpanRange(0)

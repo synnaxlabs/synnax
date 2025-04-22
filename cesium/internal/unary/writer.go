@@ -12,6 +12,7 @@ package unary
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -22,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -73,7 +73,7 @@ var (
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorized:        config.False(),
 	}
-	errWriterClosed = core.EntityClosed("unary.writer")
+	errWriterClosed = core.NewErrEntityClosed("unary.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -125,12 +125,12 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 type controlledWriter struct {
 	*domain.Writer
 	channelKey core.ChannelKey
-	alignment  telem.AlignmentPair
+	alignment  telem.Alignment
 }
 
-var _ controller.Entity = controlledWriter{}
+var _ controller.Resource = controlledWriter{}
 
-// ChannelKey implements controller.Entity.
+// ChannelKey implements controller.Resource.
 func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
 
 type Writer struct {
@@ -175,23 +175,24 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		idx:       db.index(),
 		wrapError: db.wrapError,
 	}
-	gateCfg := controller.GateConfig{
-		TimeRange: cfg.controlTimeRange(),
-		Authority: cfg.Authority,
-		Subject:   cfg.Subject,
-	}
 	var g *controller.Gate[*controlledWriter]
-	g, transfer, err = db.controller.OpenGateAndMaybeRegister(gateCfg, func() (*controlledWriter, error) {
-		dw, err := db.domain.OpenWriter(ctx, cfg.domain())
-		cw := &controlledWriter{
-			Writer:     dw,
-			channelKey: db.cfg.Channel.Key,
-			alignment:  telem.NewAlignmentPair(cfg.AlignmentDomainIndex, 0),
-		}
-		if cfg.AlignmentDomainIndex == 0 {
-			cw.alignment = telem.NewAlignmentPair(db.leadingAlignment.Add(1), 0)
-		}
-		return cw, err
+	g, transfer, err = db.controller.OpenGate(controller.GateConfig[*controlledWriter]{
+		ErrIfControlled: config.False(),
+		TimeRange:       cfg.controlTimeRange(),
+		Authority:       cfg.Authority,
+		Subject:         cfg.Subject,
+		OpenResource: func() (*controlledWriter, error) {
+			dw, err := db.domain.OpenWriter(ctx, cfg.domain())
+			cw := &controlledWriter{
+				Writer:     dw,
+				channelKey: db.cfg.Channel.Key,
+				alignment:  telem.NewAlignment(cfg.AlignmentDomainIndex, 0),
+			}
+			if cfg.AlignmentDomainIndex == 0 {
+				cw.alignment = telem.NewAlignment(db.leadingAlignment.Add(1), 0)
+			}
+			return cw, err
+		},
 	})
 	if err != nil {
 		return nil, transfer, w.wrapError(err)
@@ -236,7 +237,7 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 }
 
 // Write validates and writes the given array.
-func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
+func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
 		return 0, w.wrapError(errWriterClosed)
 	}
@@ -251,7 +252,7 @@ func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 		w.updateHwm(series)
 	}
 	if *w.cfg.Persist {
-		dw.alignment = telem.NewAlignmentPair(dw.alignment.DomainIndex(), uint32(w.len(dw.Writer)))
+		dw.alignment = telem.NewAlignment(dw.alignment.DomainIndex(), uint32(w.len(dw.Writer)))
 		_, err = dw.Write(series.Data)
 	} else {
 		dw.alignment = dw.alignment.AddSamples(uint32(series.Len()))
@@ -260,7 +261,7 @@ func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 }
 
 func (w *Writer) DomainIndex() uint32 {
-	return w.control.PeekEntity().alignment.DomainIndex()
+	return w.control.PeekResource().alignment.DomainIndex()
 }
 
 func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
@@ -268,10 +269,9 @@ func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 }
 
 func (w *Writer) updateHwm(series telem.Series) {
-	if series.Len() == 0 {
-		return
+	if series.Len() != 0 {
+		w.hwm = telem.ValueAt[telem.TimeStamp](series, -1)
 	}
-	w.hwm = telem.ValueAt[telem.TimeStamp](series, series.Len()-1)
 }
 
 // Commit commits the written series to the database.

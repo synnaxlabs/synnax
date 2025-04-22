@@ -350,7 +350,7 @@ func (fc *fileController) gcReaders() (successful bool, err error) {
 					return true
 				}
 				successful = true
-				// Good to KeepGreaterThan, remove from open.
+				// Good to FilterLessThan, remove from open.
 				return false
 			})
 			if len(fc.readers.files[k].open) == 0 {

@@ -61,7 +61,7 @@ func (db *DB) Delete(
 	defer span.End()
 
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	db.entityCount.Add(1)
 	defer db.entityCount.Add(-1)
@@ -195,7 +195,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	defer span.End()
 
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	db.entityCount.Add(1)
 	defer db.entityCount.Add(-1)
@@ -208,10 +208,10 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	// acquire those readers will be symlinked to the old file, causing them to read
 	// bad data since the new pointers no longer correspond to the old file.
 	//
-	// WE ARE BLOCKING ALL READ OPERATIONS ON THE FILE DURING THE ENTIRE DURATION OF KeepGreaterThan:
+	// WE ARE BLOCKING ALL READ OPERATIONS ON THE FILE DURING THE ENTIRE DURATION OF FilterLessThan:
 	// this is a behaviour that we ideally change in the future to reduce downtime, but
 	// for now, this is what we implemented.
-	// The challenge is with the two files during KeepGreaterThan: one copy file is made and an
+	// The challenge is with the two files during FilterLessThan: one copy file is made and an
 	// original file is made. However, existing file handles will point to the original
 	// file instead of the new file, even after the original file is renamed and "deleted"
 	// (unix does not actually delete the file when there is a file handle open on it).
@@ -222,8 +222,8 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	// There are some potential solutions to this:
 	//     1. Add a lock on readers before each read operation, and swap the underlying
 	// file handle for each reader under a lock.
-	//     2. Use a one-file KeepGreaterThan system where no duplicate file is created.
-	//     3. Wait during KeepGreaterThan until all file handles are closed, then swap the file under
+	//     2. Use a one-file FilterLessThan system where no duplicate file is created.
+	//     3. Wait during FilterLessThan until all file handles are closed, then swap the file under
 	// a lock on the file to disallow additional readers from being created. (This might
 	// be problematic since some readers may never get closed).
 	if _, err := db.fc.gcReaders(); err != nil {
@@ -287,7 +287,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	}
 
 	// Find all pointers using the file: there cannot be more pointers using the file
-	// during KeepGreaterThan since the file must be already full – however, there can be less due
+	// during FilterLessThan since the file must be already full – however, there can be less due
 	// to deletion.
 	db.idx.mu.RLock()
 	for _, ptr := range db.idx.mu.pointers {
@@ -298,7 +298,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	}
 	db.idx.mu.RUnlock()
 
-	// Decide whether we should KeepGreaterThan
+	// Decide whether we should FilterLessThan
 	if tombstoneSize < int64(db.cfg.GCThreshold*float32(db.cfg.FileSize)) {
 		return nil
 	}
@@ -346,7 +346,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	// Note: the index might be different at this point than before: old pointers on
 	// this file may be split into multiple smaller pointers with different offsets.
 	// (Understand that since this deletion occurred after garbage collection, it should
-	// not be garbage collected in this run of KeepGreaterThan.)
+	// not be garbage collected in this run of FilterLessThan.)
 	// However, two things cannot change:
 	// 1. The resulting pointers from a pointer deletion, no matter into how many,
 	// cannot end up in a larger time range than the original pointer.

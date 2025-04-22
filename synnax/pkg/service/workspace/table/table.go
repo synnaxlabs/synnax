@@ -10,8 +10,8 @@
 package table
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // Table is the data for a visualization component used to view a table of telemetry over

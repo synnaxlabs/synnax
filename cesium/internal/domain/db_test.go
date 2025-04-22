@@ -31,15 +31,22 @@ var _ = Describe("DB", func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
 				})
+
 				It("Should return true if the domain DB has data for particular time range", func() {
 					tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
 					Expect(domain.Write(ctx, db, tr, []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 					Expect(db.HasDataFor(ctx, tr)).To(BeTrue())
 				})
+
 				It("Should return false if the domain DB does not have data for particular time range", func() {
 					tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
 					Expect(domain.Write(ctx, db, tr, []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 					Expect(db.HasDataFor(ctx, (20 * telem.SecondTS).SpanRange(10*telem.Second))).To(BeFalse())
+				})
+
+				It("Should return false if the DB is empty", func() {
+					tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
+					Expect(db.HasDataFor(ctx, tr)).To(BeFalse())
 				})
 			})
 
@@ -57,7 +64,20 @@ var _ = Describe("DB", func() {
 					Expect(db.Close()).To(MatchError(core.ErrOpenEntity))
 				})
 			})
-
 		})
 	}
+
+	Describe("Attempting Operations on a Closed DB", func() {
+		Describe("HasDataFor", func() {
+			It("Should return ErrDBClosed", func() {
+				db := MustSucceed(domain.Open(domain.Config{
+					FS:              xfs.NewMem(),
+					Instrumentation: PanicLogger(),
+				}))
+				Expect(db.Close()).To(Succeed())
+				_, err := db.HasDataFor(ctx, telem.TimeRange{})
+				Expect(err).To(HaveOccurredAs(domain.ErrDBClosed))
+			})
+		})
+	})
 })

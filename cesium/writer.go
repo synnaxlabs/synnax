@@ -30,7 +30,7 @@ type Writer struct {
 
 const unexpectedSteamClosure = "unexpected early closure of response stream"
 
-var errWriterClosed = core.EntityClosed("cesium.writer")
+var errWriterClosed = core.NewErrEntityClosed("cesium.writer")
 
 func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
 	sCtx, cancel := signal.Isolated()

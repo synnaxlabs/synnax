@@ -73,7 +73,7 @@ type Config struct {
 var (
 	_             config.Config[Config] = Config{}
 	DefaultConfig                       = Config{
-		EnableSearch: config.False(),
+		EnableSearch: config.True(),
 	}
 )
 

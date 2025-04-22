@@ -31,7 +31,8 @@ var (
 	ErrWriteConflict = errors.Wrap(validate.Error, "write overlaps with existing data in database")
 	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
 	ErrRangeNotFound = errors.Wrap(query.NotFound, "time range not found")
-	errDBClosed      = core.EntityClosed("domain.db")
+	// ErrDBClosed is returned when an operation is attempted on a closed DB.
+	ErrDBClosed = core.NewErrEntityClosed("domain.db")
 )
 
 func RangeWriteConflict(writerTr, existingTr telem.TimeRange) error {
@@ -106,7 +107,7 @@ type Config struct {
 	// to exceed by much with frequent commits.
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
-	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a KeepGreaterThan.
+	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a FilterLessThan.
 	// Must be in (0, 1].
 	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
@@ -195,7 +196,7 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 // HasDataFor returns whether any time stamp in the time range tr exists in the database.
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
 	if db.closed.Load() {
-		return false, errDBClosed
+		return false, ErrDBClosed
 	}
 	i := db.OpenIterator(IterRange(telem.TimeRangeMax))
 	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {

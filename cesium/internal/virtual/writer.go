@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var errWriterClosed = core.EntityClosed("virtual.writer")
+var errWriterClosed = core.NewErrEntityClosed("virtual.writer")
 
 type WriterConfig struct {
 	Subject           control.Subject
@@ -59,14 +59,6 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 	return telem.TimeRange{Start: cfg.Start, End: lo.Ternary(cfg.End.IsZero(), telem.TimeStampMax, cfg.End)}
 }
 
-func (cfg WriterConfig) gateConfig() controller.GateConfig {
-	return controller.GateConfig{
-		TimeRange: cfg.domain(),
-		Authority: cfg.Authority,
-		Subject:   cfg.Subject,
-	}
-}
-
 type Writer struct {
 	WriterConfig
 	// Channel stores information about the channel being written to, most importantly
@@ -100,15 +92,18 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		wrapError:    db.wrapError,
 	}
 	var g *controller.Gate[*controlEntity]
-	g, transfer, err = db.controller.OpenGateAndMaybeRegister(
-		cfg.gateConfig(),
-		func() (*controlEntity, error) {
+
+	g, transfer, err = db.controller.OpenGate(controller.GateConfig[*controlEntity]{
+		TimeRange: cfg.domain(),
+		Authority: cfg.Authority,
+		Subject:   cfg.Subject,
+		OpenResource: func() (*controlEntity, error) {
 			return &controlEntity{
 				ck:        db.cfg.Channel.Key,
-				alignment: telem.NewAlignmentPair(db.leadingAlignment.Add(1), 0),
+				alignment: telem.NewAlignment(db.leadingAlignment.Add(1), 0),
 			}, nil
 		},
-	)
+	})
 	if err != nil {
 		return nil, transfer, db.wrapError(err)
 	}
@@ -126,7 +121,7 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 	return w, transfer, nil
 }
 
-func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
+func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
 		return 0, w.wrapError(errWriterClosed)
 	}

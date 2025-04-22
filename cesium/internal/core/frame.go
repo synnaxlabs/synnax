@@ -9,8 +9,6 @@
 
 package core
 
-import (
-	"github.com/synnaxlabs/x/telem"
-)
+import "github.com/synnaxlabs/x/telem"
 
 type Frame = telem.Frame[ChannelKey]

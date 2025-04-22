@@ -365,7 +365,7 @@ type streamCalculator struct {
 func (s *streamCalculator) transform(ctx context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
 	frame, err := s.internal.Transform(i.Frame)
 	if err == nil {
-		return framer.WriterRequest{Command: writer.Data, Frame: frame}, true, nil
+		return framer.WriterRequest{Command: writer.Write, Frame: frame}, true, nil
 	}
 	s.cfg.L.Error("calculation error",
 		zap.Error(err),

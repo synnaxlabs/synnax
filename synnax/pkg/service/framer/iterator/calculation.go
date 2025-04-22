@@ -22,7 +22,7 @@ import (
 type calculator struct {
 	c                *computron.Calculator
 	ch               channel.Channel
-	hwm              telem.AlignmentPair
+	hwm              telem.Alignment
 	requiredValues   map[channel.Key]telem.MultiSeries
 	requiredChannels map[channel.Key]channel.Channel
 }
@@ -49,7 +49,7 @@ func (c *calculator) Next(fr framer.Frame) (telem.Series, error) {
 	minAlignment := telem.MaxAlignmentPair
 	for k, s := range fr.Entries() {
 		if v, ok := c.requiredValues[k]; !ok {
-			v = v.Append(s).KeepGreaterThan(c.hwm)
+			v = v.Append(s).FilterLessThan(c.hwm)
 			c.requiredValues[k] = v
 			if v.AlignmentBounds().Upper < minAlignment {
 				minAlignment = v.AlignmentBounds().Upper

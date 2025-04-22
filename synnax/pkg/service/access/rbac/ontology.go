@@ -10,9 +10,9 @@
 package rbac
 
 import (
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 const PolicyOntologyType ontology.Type = "policy"

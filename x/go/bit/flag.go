@@ -7,20 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package version_test
+package bit
 
-import (
-	"context"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"testing"
-)
+import "github.com/synnaxlabs/x/types"
 
-var (
-	ctx = context.Background()
-)
+type FlagPos int
 
-func TestVersion(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Version Suite")
+func (f FlagPos) Get(b byte) bool {
+	return ((b >> f) & 1) == 1
+}
+
+func (f FlagPos) Set(b byte, value bool) byte {
+	v := types.BoolToUint8(value) << f
+	return b | v
 }

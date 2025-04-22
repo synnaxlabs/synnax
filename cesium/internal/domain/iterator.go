@@ -12,10 +12,9 @@ package domain
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/errors"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -28,7 +27,7 @@ type IteratorConfig struct {
 	Bounds telem.TimeRange
 }
 
-var errIteratorClosed = core.EntityClosed("domain.iterator")
+var errIteratorClosed = core.NewErrEntityClosed("domain.iterator")
 
 // IterRange generates an IteratorConfig that iterates over the provided time domain.
 func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }
@@ -92,7 +91,7 @@ func Read(ctx context.Context, db *DB, tr telem.TimeRange) (b []byte, err error)
 			return nil, err
 		}
 		chunk := make([]byte, r.Len())
-		if _, err := r.ReadAt(chunk, 0); err != nil {
+		if _, err = r.ReadAt(chunk, 0); err != nil {
 			return nil, errors.Combine(err, r.Close())
 		}
 		data = append(data, chunk...)

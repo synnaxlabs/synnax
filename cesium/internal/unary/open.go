@@ -50,7 +50,7 @@ type Config struct {
 	// to exceed by much with frequent commits.
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
-	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a KeepGreaterThan.
+	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a FilterLessThan.
 	// Must be in (0, 1].
 	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
@@ -94,7 +94,7 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	wrapError := core.NewErrorWrapper(cfg.Channel)
+	wrapError := core.NewChannelErrWrapper(cfg.Channel)
 	if cfg.Channel.Virtual {
 		return nil, wrapError(ErrVirtual)
 	}

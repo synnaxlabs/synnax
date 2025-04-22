@@ -136,7 +136,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 						Expect(iter.Close()).To(Succeed())
 					})
-					Specify("Value", func() {
+					Specify("Sample", func() {
 						// Test case added to fix the bug where immediately contiguous
 						// domains get flipped in order by read.
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18))).To(Succeed())
@@ -289,13 +289,13 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						})
 						// This spec was added due to a bug in the SeekFirst and SeekLast methods
 						// that would cause the iterator view to immediately go out of bounds,
-						// and then cause iter.Value() to return duplicate data even after
+						// and then cause iter.Sample() to return duplicate data even after
 						// calling iter.Next(ctx, unary.AutoSpan)
 						//
 						// In this case (before the fix), calling iter.SeekFirst(ctx) would
 						// return an invalid view of (6 * telem.SecondTS).SpanRange(0), and then
 						// advancing the iterator the first time would cause it to go to
-						// (10 * telem.SecondTS).SpanRange(0), and then calling iter.Value()
+						// (10 * telem.SecondTS).SpanRange(0), and then calling iter.Sample()
 						// would still return 2 values, and then calling Next(ctx, unary.AutoSpan)
 						// would advance the iterator to (10 * telem.SecondTS).SpanRange(2 * telem.Second),
 						// returning the same 2 values again.
@@ -687,7 +687,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						fr := iter.Value()
 						Expect(fr.Len()).To(Equal(int64(3)))
 						s := fr.SeriesAt(0)
-						Expect(s.Alignment).To(Equal(telem.NewAlignmentPair(1, 0)))
+						Expect(s.Alignment).To(Equal(telem.NewAlignment(1, 0)))
 					})
 
 					// This test case is added due to a behaviour change in the iterator.
@@ -879,7 +879,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				It("Should not allow operations on a closed iterator", func() {
 					var (
 						i = MustSucceed(db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax}))
-						e = core.EntityClosed("unary.iterator")
+						e = core.NewErrEntityClosed("unary.iterator")
 					)
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())

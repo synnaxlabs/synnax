@@ -33,8 +33,8 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 	freighter.MiddlewareCollector
 	requestParser func(*fiber.Ctx, httputil.Codec) (RQ, error)
 	handle        func(ctx context.Context, rq RQ) (RS, error)
-	internal bool
-	path     string
+	internal      bool
+	path          string
 }
 
 func (s *unaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, rq RQ) (RS, error)) {
@@ -53,7 +53,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx *fiber.Ctx) error {
 		parseRequestCtx(fCtx.Context(), fCtx, address.Address(fCtx.Path())),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			var req RQ
-			err := codec.Decode(fCtx.Context(), fCtx.BodyRaw(), &req)
+			err := fCtx.BodyParser(&req)
 			oCtx := freighter.Context{Protocol: ctx.Protocol, Params: make(freighter.Params)}
 			if err != nil {
 				return oCtx, err

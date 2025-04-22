@@ -90,7 +90,6 @@ var _ = Describe("Write", func() {
 
 		Describe("SetAuthority", func() {
 			It("Should correctly set the authority of the writer", func() {
-
 				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:             10 * telem.SecondTS,
 					Authority:         control.Absolute - 2,
@@ -98,19 +97,24 @@ var _ = Describe("Write", func() {
 					ErrOnUnauthorized: config.True(),
 				}))
 				Expect(t.Occurred()).To(BeTrue())
+
 				w2, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.Absolute - 3,
 					Subject:   control.Subject{Key: "bar"},
 				}))
+
 				Expect(t.Occurred()).To(BeFalse())
+
 				_, err := w2.Write(telem.NewSecondsTSV(10, 11, 12))
 				Expect(err).To(HaveOccurredAs(control.Unauthorized))
 				t = w2.SetAuthority(control.Absolute - 1)
 				Expect(t.Occurred()).To(BeTrue())
+
 				MustSucceed(w2.Write(telem.NewSecondsTSV(10, 11, 12)))
 				t = MustSucceed(w1.Close())
 				Expect(t.Occurred()).To(BeFalse())
+
 				t = MustSucceed(w2.Close())
 				Expect(t.Occurred()).To(BeTrue())
 			})

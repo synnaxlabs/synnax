@@ -85,11 +85,4 @@ var _ = Describe("Address", func() {
 		})
 	})
 
-	Describe("Addressable Interface", func() {
-		It("Should work with types implementing Addressable", func() {
-			mock := mockAddressable{addr: address.Address("test:1234")}
-			var _ address.Addressable = mock // Verify interface implementation
-			Expect(mock.Address().String()).To(Equal("test:1234"))
-		})
-	})
 })

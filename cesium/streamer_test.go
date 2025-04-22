@@ -204,7 +204,7 @@ var _ = Describe("Streamer Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})

@@ -49,7 +49,7 @@ type Index interface {
 	// alignment of the lower and upper bounds. The alignment pair is a 64-bit integer
 	// where the lower 32 bits represent the domain and the upper 32 bits represent the
 	// sample index within the domain.
-	Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (DistanceApproximation, telem.AlignmentPair, error)
+	Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (DistanceApproximation, telem.Alignment, error)
 	// Stamp calculates an approximate ending timestamp for a range given a known distance
 	// in the number of samples. This operation may be understood as the
 	// opposite of Distance.

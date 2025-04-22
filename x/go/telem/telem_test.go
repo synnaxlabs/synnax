@@ -16,7 +16,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+func DataTypeInferTest[T any](expected telem.DataType) func() {
+	return func() {
+		dt := telem.InferDataType[T]()
+		ExpectWithOffset(1, dt).To(Equal(expected))
+	}
+}
 
 var _ = Describe("Telem", func() {
 
@@ -326,32 +334,32 @@ var _ = Describe("Telem", func() {
 
 		})
 
-		Describe("Union", func() {
+		Describe("MaxUnion", func() {
 			Specify("Overlap, first before second", func() {
 				tr := (0 * telem.SecondTS).Range(5 * telem.SecondTS)
 				tr2 := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
-				union := tr.Union(tr2)
+				union := tr.MaxUnion(tr2)
 				Expect(union.Start).To(Equal(telem.TimeStamp(0)))
 				Expect(union.End).To(Equal(8 * telem.SecondTS))
 			})
 			Specify("Overlap, second before first", func() {
 				tr2 := (0 * telem.SecondTS).Range(5 * telem.SecondTS)
 				tr := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
-				union := tr.Union(tr2)
+				union := tr.MaxUnion(tr2)
 				Expect(union.Start).To(Equal(telem.TimeStamp(0)))
 				Expect(union.End).To(Equal(8 * telem.SecondTS))
 			})
 			Specify("1 Fully contain 2", func() {
 				tr := (0 * telem.SecondTS).Range(10 * telem.SecondTS)
 				tr2 := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
-				union := tr.Union(tr2)
+				union := tr.MaxUnion(tr2)
 				Expect(union.Start).To(Equal(0 * telem.SecondTS))
 				Expect(union.End).To(Equal(10 * telem.SecondTS))
 			})
 			Specify("2 Fully contain 1", func() {
 				tr := (2 * telem.SecondTS).Range(5 * telem.SecondTS)
 				tr2 := (1 * telem.SecondTS).Range(8 * telem.SecondTS)
-				union := tr.Union(tr2)
+				union := tr.MaxUnion(tr2)
 				Expect(union.Start).To(Equal(1 * telem.SecondTS))
 				Expect(union.End).To(Equal(8 * telem.SecondTS))
 			})
@@ -514,12 +522,93 @@ var _ = Describe("Telem", func() {
 			})
 		})
 	})
+
 	Describe("Marshal", func() {
 		Specify("marshal int", func() {
 			og := []int16{1, 2, 3, 4}
-			marshalled := telem.MarshalSlice(og, telem.Int16T)
+			marshalled := telem.MarshalSlice(og)
 			unmarshalled := telem.UnmarshalSlice[int16](marshalled, telem.Int16T)
 			Expect(og).To(Equal(unmarshalled))
+		})
+	})
+
+	Describe("DataType", func() {
+		Describe("Infer", func() {
+			Specify("float64", DataTypeInferTest[float64](telem.Float64T))
+			Specify("float32", DataTypeInferTest[float32](telem.Float32T))
+			Specify("int64", DataTypeInferTest[int64](telem.Int64T))
+			Specify("int32", DataTypeInferTest[int32](telem.Int32T))
+			Specify("int16", DataTypeInferTest[int16](telem.Int16T))
+			Specify("int8", DataTypeInferTest[int8](telem.Int8T))
+			Specify("uint64", DataTypeInferTest[uint64](telem.Uint64T))
+			Specify("uint32", DataTypeInferTest[uint32](telem.Uint32T))
+			Specify("uint16", DataTypeInferTest[uint16](telem.Uint16T))
+			Specify("uint8", DataTypeInferTest[uint8](telem.Uint8T))
+			Specify("string", DataTypeInferTest[string](telem.StringT))
+		})
+	})
+
+	DescribeTable("Density", func(dataType telem.DataType, expected telem.Density) {
+		Expect(dataType.Density()).To(Equal(expected))
+	},
+		Entry("float64", telem.Float64T, telem.Bit64),
+		Entry("float32", telem.Float32T, telem.Bit32),
+		Entry("int64", telem.Int64T, telem.Bit64),
+		Entry("int32", telem.Int32T, telem.Bit32),
+		Entry("int16", telem.Int16T, telem.Bit16),
+		Entry("int8", telem.Int8T, telem.Bit8),
+		Entry("uint64", telem.Uint64T, telem.Bit64),
+		Entry("uint32", telem.Uint32T, telem.Bit32),
+		Entry("uint16", telem.Uint16T, telem.Bit16),
+		Entry("uint8", telem.Uint8T, telem.Bit8),
+		Entry("string", telem.StringT, telem.DensityUnknown),
+		Entry("timestamp", telem.TimeStampT, telem.Bit64),
+		Entry("uuid", telem.UUIDT, telem.Bit128),
+	)
+
+	Describe("Alignment", func() {
+		Describe("NewAlignment", func() {
+			It("Should construct the alignment from the given domain and sample indexes", func() {
+				align := telem.NewAlignment(2, 1)
+				Expect(align.SampleIndex()).To(Equal(uint32(1)))
+				Expect(align.DomainIndex()).To(Equal(uint32(2)))
+			})
+			It("Should construct a zero alignment", func() {
+				Expect(uint64(telem.NewAlignment(0, 0))).To(Equal(uint64(0)))
+			})
+		})
+
+		Describe("MarshalJSON", func() {
+			It("Should marshal the alignment as a JSON string", func() {
+				align := telem.NewAlignment(2, 1)
+				marshalled := MustSucceed(align.MarshalJSON())
+				Expect(string(marshalled)).To(Equal(fmt.Sprintf("\"%v\"", align)))
+			})
+		})
+
+		Describe("UnmarshalJSON", func() {
+			It("Should unmarshal the alignment from a JSON string", func() {
+				align := telem.NewAlignment(2, 1)
+				marshalled := MustSucceed(align.MarshalJSON())
+				var unmarshalled telem.Alignment
+				Expect(unmarshalled.UnmarshalJSON(marshalled)).To(Succeed())
+				Expect(unmarshalled).To(Equal(align))
+			})
+		})
+
+		Describe("AddSamples", func() {
+			It("Should add to the alignment sample index", func() {
+				align := telem.NewAlignment(2, 1)
+				align = align.AddSamples(3)
+				Expect(align.SampleIndex()).To(Equal(uint32(4)))
+			})
+		})
+
+		Describe("LeadingAlignment", func() {
+			It("Should return the global leading alignment standard", func() {
+				align := telem.LeadingAlignment(2, 1)
+				Expect(align.DomainIndex()).To(Equal(telem.ZeroLeadingAlignment + 2))
+			})
 		})
 	})
 })

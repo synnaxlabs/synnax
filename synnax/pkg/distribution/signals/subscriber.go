@@ -69,12 +69,15 @@ func resolveChannelKey(
 	return ch.Key(), err
 }
 
-func decodeChanges(variant change.Variant, series telem.MultiSeries) (changes []change.Change[[]byte, struct{}]) {
+func decodeChanges(
+	variant change.Variant,
+	series telem.MultiSeries,
+) (changes []change.Change[[]byte, struct{}]) {
 	for _, s := range series.Series {
-		for _, k := range s.Split() {
+		for sample := range s.Samples() {
 			changes = append(changes, change.Change[[]byte, struct{}]{
 				Variant: variant,
-				Key:     k,
+				Key:     sample,
 			})
 		}
 	}

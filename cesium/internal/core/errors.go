@@ -18,21 +18,19 @@ import (
 var (
 	ErrChannelNotFound = errors.Wrap(query.NotFound, "channel not found")
 	ErrOpenEntity      = errors.New("cannot close database because there are open entities on it")
+	ErrClosedEntity    = errors.New("entity closed")
 )
 
 func NewErrChannelNotFound(ch ChannelKey) error {
-	return errors.Wrapf(ErrChannelNotFound, "channel %d not found in the database", ch)
+	return errors.Wrapf(ErrChannelNotFound, "channel %d not found", ch)
 }
 
-func EntityClosed(entityName string) error {
-	return errors.Newf("operation on %s is invalid because it is already closed", entityName)
+func NewErrEntityClosed(entityName string) error {
+	return errors.Wrapf(ErrClosedEntity, "cannot complete operation on closed %s", entityName)
 }
 
-func NewErrorWrapper(ch Channel) func(error) error {
+func NewChannelErrWrapper(ch Channel) func(error) error {
 	return func(err error) error {
-		if err == nil {
-			return nil
-		}
 		return errors.Wrapf(err, "channel %v", ch)
 	}
 }

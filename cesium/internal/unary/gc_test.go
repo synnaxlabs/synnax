@@ -110,7 +110,7 @@ var _ = Describe("Garbage Collection", func() {
 				})
 			})
 
-			Describe("KeepGreaterThan with threshold and many files", func() {
+			Describe("FilterLessThan with threshold and many files", func() {
 				BeforeEach(func() {
 					var fs xfs.FS
 					fs, cleanUp = makeFS()
@@ -148,7 +148,7 @@ var _ = Describe("Garbage Collection", func() {
 					Expect(cleanUp()).To(Succeed())
 				})
 
-				Specify("Only some files KeepGreaterThan", func() {
+				Specify("Only some files FilterLessThan", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18)))
 					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26)))
 					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41)))

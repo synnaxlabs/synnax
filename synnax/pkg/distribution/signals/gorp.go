@@ -15,6 +15,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
@@ -24,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
-	"github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -101,7 +101,7 @@ func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpPublisher
 		DB:             db,
 		DeleteDataType: telem.UUIDT,
 		SetDataType:    telem.JSONT,
-		MarshalDelete:  func(k uuid.UUID) ([]byte, error) { return k.Bytes(), nil },
+		MarshalDelete:  func(k uuid.UUID) ([]byte, error) { return k[:], nil },
 		MarshalSet:     marshalJSON[uuid.UUID, E],
 	}
 }

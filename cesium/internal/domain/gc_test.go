@@ -590,7 +590,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 
 			Context("Regression", func() {
-				// This regression test is used to verify that when KeepGreaterThan is run, there is
+				// This regression test is used to verify that when FilterLessThan is run, there is
 				// no readers on the old file that is still symlinking to the old file,
 				// causing the reading of incorrect data.
 				Specify("Reader should be recycled", func() {
@@ -653,7 +653,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 
 			Context("Close", func() {
-				It("Should not allow KeepGreaterThan on a closed DB", func() {
+				It("Should not allow FilterLessThan on a closed DB", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        20 * telem.ByteSize,
@@ -661,7 +661,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					Expect(db.Close()).To(Succeed())
-					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(core.EntityClosed("domain.db")))
+					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(core.NewErrEntityClosed("domain.db")))
 				})
 			})
 		})

@@ -94,7 +94,7 @@ var _ = Describe("Relay", func() {
 					ws := writeF.Series[wi]
 					Expect(s.Data).To(Equal(ws.Data))
 					Expect(s.DataType).To(Equal(ws.DataType))
-					Expect(s.Alignment).To(BeNumerically(">", telem.AlignmentPair(0)))
+					Expect(s.Alignment).To(BeNumerically(">", telem.Alignment(0)))
 				}
 				streamerReq.Close()
 				confluence.Drain(readerRes)

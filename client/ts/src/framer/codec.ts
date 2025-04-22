@@ -56,10 +56,14 @@ const allChannelsPresentFlagPos = 0;
 
 export class Codec {
   contentType: string = "application/sy-framer";
-  private readonly keys: channel.Keys;
-  private readonly keyDataTypes: Map<channel.Key, DataType>;
+  private keys: channel.Keys = [];
+  private keyDataTypes: Map<channel.Key, DataType> = new Map();
 
   constructor(keys: channel.Keys, dataTypes: DataType[]) {
+    this.update(keys, dataTypes);
+  }
+
+  update(keys: channel.Keys, dataTypes: DataType[]): void {
     this.keys = keys;
     this.keyDataTypes = new Map();
     keys.forEach((k, i) => this.keyDataTypes.set(k, dataTypes[i]));
@@ -226,9 +230,9 @@ export class Codec {
     this.keys.forEach((k) => {
       if (!channelFlag) {
         if (index + 4 > view.byteLength) return;
-        const ok = view.getUint32(index, true);
+        const frameKey = view.getUint32(index, true);
         index += 4;
-        if (ok !== k) return;
+        if (frameKey !== k) return;
         returnFrame.keys.push(k);
       }
       const dataType = this.keyDataTypes.get(k) as DataType;
@@ -289,18 +293,18 @@ export class WSWriterCodec implements binary.Codec {
     this.lowPerfCodec = binary.JSON_CODEC;
   }
 
-  encode(payload: unknown): ArrayBuffer {
+  encode(payload: unknown): Uint8Array {
     const pld = payload as WebsocketMessage<WriteRequest>;
     if (pld.type == "close" || pld.payload?.command != WriterCommand.Write) {
       const data = this.lowPerfCodec.encode(pld);
       const b = new Uint8Array({ length: data.byteLength + 1 });
       b.set(LOW_PERF_SPECIAL_CHAR_BUF, 0);
       b.set(new Uint8Array(data), 1);
-      return b.buffer;
+      return b;
     }
     const data = this.base.encode(pld.payload?.frame, 1);
     data.set(HIGH_PERF_SPECIAL_CHAR_BUF, 0);
-    return data.buffer as ArrayBuffer;
+    return data;
   }
 
   decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
@@ -325,8 +329,7 @@ export class WSStreamerCodec implements binary.Codec {
     this.lowPerfCodec = binary.JSON_CODEC;
   }
 
-  encode(payload: unknown): ArrayBuffer {
-    console.log("ECD");
+  encode(payload: unknown): Uint8Array {
     return this.lowPerfCodec.encode(payload);
   }
 
@@ -335,9 +338,10 @@ export class WSStreamerCodec implements binary.Codec {
     const codec = dv.getUint8(0);
     if (codec === LOW_PER_SPECIAL_CHAR)
       return this.lowPerfCodec.decode(data.slice(1), schema);
-    const v: WebsocketMessage<StreamerResponse> = { type: "data" };
-    const frame = this.base.decode(data, 1);
-    v.payload = { frame };
+    const v: WebsocketMessage<StreamerResponse> = {
+      type: "data",
+      payload: { frame: this.base.decode(data, 1) },
+    };
     return v as P;
   }
 }

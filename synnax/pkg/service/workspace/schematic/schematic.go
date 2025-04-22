@@ -10,8 +10,8 @@
 package schematic
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // Schematic is the data for a visualization used to view and operate a schematic of a

@@ -28,7 +28,7 @@ import (
 
 type controlEntity struct {
 	ck        core.ChannelKey
-	alignment telem.AlignmentPair
+	alignment telem.Alignment
 }
 
 func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
@@ -46,7 +46,7 @@ var (
 	// ErrNotVirtual is returned when the caller opens a DB on a non-virtual channel.
 	ErrNotVirtual = errors.New("channel is not virtual")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
-	ErrDBClosed = core.EntityClosed("virtual.db")
+	ErrDBClosed = core.NewErrEntityClosed("virtual.db")
 )
 
 // Config is the configuration for opening a DB.
@@ -97,7 +97,7 @@ func Open(configs ...Config) (db *DB, err error) {
 	if err != nil {
 		return nil, err
 	}
-	wrapError := core.NewErrorWrapper(cfg.Channel)
+	wrapError := core.NewChannelErrWrapper(cfg.Channel)
 	if !cfg.Channel.Virtual {
 		return nil, wrapError(ErrNotVirtual)
 	}

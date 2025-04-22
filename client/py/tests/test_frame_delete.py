@@ -56,7 +56,6 @@ class TestDeleter:
             sy.TimeStamp(50 * sy.TimeSpan.SECOND) + 1,
         )
 
-    @pytest.mark.focus
     def test_delete_channel_not_found_name(
         self, indexed_pair: sy.Channel, client: sy.Synnax
     ):

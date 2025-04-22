@@ -339,9 +339,12 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 
 	var incrementedSampleCount bool
 
-	for i, key := range fr.KeysI() {
+	for i, key := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(i) {
+			continue
+		}
 		uWriter, ok := w.internal[key]
-		series := fr.SeriesAt(i)
+		series := fr.RawSeriesAt(i)
 		if !ok || series.Len() == 0 {
 			continue
 		}
@@ -361,7 +364,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 			incrementedSampleCount = true
 		}
 		series.Alignment = alignment
-		fr.SetSeriesAt(i, series)
+		fr.SetRawSeriesAt(i, series)
 	}
 
 	return fr, nil
@@ -407,7 +410,11 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		lengthOfFrame        int64 = -1
 		numChannelsWrittenTo       = 0
 	)
-	for k, s := range fr.Entries() {
+	for rawI, k := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(rawI) {
+			continue
+		}
+		s := fr.RawSeriesAt(rawI)
 		uWriter, ok := w.internal[k]
 		if !ok {
 			continue
@@ -477,7 +484,7 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 			s.DataType,
 		)
 	}
-	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, s.Len()-1)
+	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, -1)
 	return nil
 }
 
@@ -497,18 +504,21 @@ type virtualWriter struct {
 }
 
 func (w virtualWriter) write(fr Frame) (Frame, error) {
-	for i, k := range fr.KeysI() {
+	for rawI, k := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(rawI) {
+			continue
+		}
 		v, ok := w.internal[k]
 		if !ok {
 			continue
 		}
-		s := fr.SeriesAt(i)
+		s := fr.RawSeriesAt(rawI)
 		alignment, err := v.Write(s)
 		if err != nil {
 			return fr, err
 		}
 		s.Alignment = alignment
-		fr.SetSeriesAt(i, s)
+		fr.SetRawSeriesAt(rawI, s)
 	}
 	return fr, nil
 }

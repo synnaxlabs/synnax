@@ -31,6 +31,10 @@ func MultiFrame(keys []channel.Key, series []telem.Series) Frame {
 	return Frame{telem.MultiFrame(keys, series)}
 }
 
+func AllocFrame(cap int) Frame {
+	return Frame{telem.AllocFrame[channel.Key](cap)}
+}
+
 func (f Frame) SplitByLeaseholder() map[core.NodeKey]Frame {
 	frames := make(map[core.NodeKey]Frame)
 	for key, ser := range f.Entries() {
@@ -38,6 +42,10 @@ func (f Frame) SplitByLeaseholder() map[core.NodeKey]Frame {
 		frames[nodeKey] = frames[nodeKey].Append(key, ser)
 	}
 	return frames
+}
+
+func (f *Frame) Sort() {
+	f.Frame.Sort()
 }
 
 func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame, free Frame) {
@@ -85,5 +93,5 @@ func MergeFrames(frames []Frame) (f Frame) {
 }
 
 func NewFrameFromStorage(frame ts.Frame) Frame {
-	return Frame{telem.ReinterpretKeysAs[cesium.ChannelKey, channel.Key](frame)}
+	return Frame{telem.UnsafeReinterpretKeysAs[cesium.ChannelKey, channel.Key](frame)}
 }

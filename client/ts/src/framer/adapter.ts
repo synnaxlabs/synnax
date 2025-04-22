@@ -11,8 +11,8 @@ import { type CrudeSeries, Series } from "@synnaxlabs/x/telem";
 
 import { channel } from "@/channel";
 import { ValidationError } from "@/errors";
-import { type Crude, Frame } from "@/framer/frame";
 import { Codec } from "@/framer/codec";
+import { type Crude, Frame } from "@/framer/frame";
 
 export class ReadAdapter {
   private adapter: Map<channel.Key, channel.Name> | null;
@@ -39,7 +39,7 @@ export class ReadAdapter {
   async update(channels: channel.Params): Promise<void> {
     const { variant, normalized } = channel.analyzeParams(channels);
     const fetched = await this.retriever.retrieve(normalized);
-    this.codec = new Codec(
+    this.codec.update(
       fetched.map((c) => c.key),
       fetched.map((c) => c.dataType),
     );

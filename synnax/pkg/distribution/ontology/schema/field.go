@@ -9,7 +9,7 @@
 
 package schema
 
-import "github.com/synnaxlabs/x/uuid"
+import "github.com/google/uuid"
 
 // Field represents a dynamically typed field in a Schema.
 type Field struct {

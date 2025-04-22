@@ -11,8 +11,8 @@ package table
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // Retrieve is a query builder for retrieving tables. It should not be instantiated

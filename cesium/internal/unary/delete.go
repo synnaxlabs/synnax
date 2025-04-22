@@ -13,10 +13,12 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
+	"github.com/google/uuid"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // Delete deletes the specified time range from the database. Note that the start of the
@@ -37,34 +39,29 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	return db.wrapError(db.domain.GarbageCollect(ctx))
 }
 
+func (db *DB) lockControllerForNonWriteOp(tr telem.TimeRange, opName string) (release func(), err error) {
+	g, _, err := db.controller.OpenGate(controller.GateConfig[*controlledWriter]{
+		ErrIfControlled: config.True(),
+		TimeRange:       tr,
+		Authority:       control.Absolute,
+		Subject:         control.Subject{Key: uuid.NewString(), Name: opName},
+		OpenResource: func() (*controlledWriter, error) {
+			return &controlledWriter{Writer: nil, channelKey: db.cfg.Channel.Key}, nil
+		},
+	})
+	return func() { g.Release() }, err
+}
+
 func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 	if !tr.Valid() {
 		return errors.Newf("delete start %d cannot be after delete end %d", tr.Start, tr.End)
 	}
-
-	// Open an absolute gate to avoid deleting a time range in write.
-	g, _, err := db.controller.OpenAbsoluteGateIfUncontrolled(
-		tr,
-		control.Subject{Key: uuid.NewString(), Name: "delete_writer"},
-		func() (*controlledWriter, error) {
-			return &controlledWriter{Writer: nil, channelKey: db.cfg.Channel.Key}, nil
-		})
+	release, err := db.lockControllerForNonWriteOp(tr, "delete")
 	if err != nil {
 		return err
 	}
-
-	_, err = g.Authorize()
-	if err != nil {
-		return err
-	}
-	defer g.Release()
-
-	return db.domain.Delete(
-		ctx,
-		tr,
-		db.calculateStartOffset,
-		db.calculateEndOffset,
-	)
+	defer release()
+	return db.domain.Delete(ctx, tr, db.calculateStartOffset, db.calculateEndOffset)
 }
 
 // calculateStartOffset calculates the distance from a domain's start to the given time stamp.

@@ -16,12 +16,15 @@ from freighter import (
     ExceptionPayload,
     Payload,
     Stream,
-    StreamClient,
+    WebsocketClient,
+
 )
+from freighter.websocket import Message
 
 from synnax.channel.payload import ChannelKeys, ChannelParams
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
+from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeSpan
 
@@ -34,6 +37,18 @@ class _Request(Payload):
 class _Response(Payload):
     frame: FramePayload
     error: ExceptionPayload | None
+
+
+class WSStreamerCodec(WSFramerCodec):
+    def encode(self, pld: Message) -> bytes:
+        return self.lower_perf_codec.encode(pld)
+
+    def decode(self, data: bytes, pld_t: Message[_Response]) -> object:
+        if data[0] == LOW_PERF_SPECIAL_CHAR:
+            msg = self.lower_perf_codec.decode(data[1:], pld_t)
+            return msg
+        frame = self.codec.decode(data, 1)
+        return Message(type="data", payload=_Response(frame=frame, error=None))
 
 
 _ENDPOINT = "/frame/stream"
@@ -63,16 +78,17 @@ class Streamer:
 
     def __init__(
         self,
-        client: StreamClient,
+        client: WebsocketClient,
         adapter: ReadFrameAdapter,
-        downsample_factor: int,
+        downsample_factor: int = 1,
+        use_experimental_codec: bool = False
     ) -> None:
-        self._stream = client.stream(_ENDPOINT, _Request, _Response)
         self._adapter = adapter
-        self._downsample_factor = downsample_factor
-        self.__open()
+        if use_experimental_codec:
+            client = client.with_codec(WSStreamerCodec(self._adapter.codec))
 
-    def __open(self):
+        self._stream = client.stream(_ENDPOINT, _Request, _Response)
+        self._downsample_factor = downsample_factor
         self._stream.send(
             _Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor)
         )

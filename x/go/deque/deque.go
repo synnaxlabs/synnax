@@ -201,7 +201,7 @@ func (q *Deque[T]) Set(i int, item T) {
 
 // Clear removes all elements from the queue, but retains the current capacity.
 // This is useful when repeatedly reusing the queue at high frequency to avoid
-// KeepGreaterThan during reuse. The queue will not be resized smaller as long as items are
+// FilterLessThan during reuse. The queue will not be resized smaller as long as items are
 // only added. Only when items are removed is the queue subject to getting
 // resized smaller.
 func (q *Deque[T]) Clear() {

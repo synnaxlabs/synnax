@@ -17,14 +17,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	xbinary "github.com/synnaxlabs/x/binary"
-	xbits "github.com/synnaxlabs/x/bits"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
 	"io"
 	"slices"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	xbinary "github.com/synnaxlabs/x/binary"
+	xbits "github.com/synnaxlabs/x/bit"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type LazyCodec struct {
@@ -89,12 +91,12 @@ type flags struct {
 }
 
 const (
-	zeroAlignmentsFlagPos     xbits.Pos = 5
-	equalAlignmentsFlagPos    xbits.Pos = 4
-	equalLengthsFlagPos       xbits.Pos = 3
-	equalTimeRangesFlagPos    xbits.Pos = 2
-	timeRangesZeroFlagPos     xbits.Pos = 1
-	allChannelsPresentFlagPos xbits.Pos = 0
+	zeroAlignmentsFlagPos     xbits.FlagPos = 5
+	equalAlignmentsFlagPos    xbits.FlagPos = 4
+	equalLengthsFlagPos       xbits.FlagPos = 3
+	equalTimeRangesFlagPos    xbits.FlagPos = 2
+	timeRangesZeroFlagPos     xbits.FlagPos = 1
+	allChannelsPresentFlagPos xbits.FlagPos = 0
 )
 
 func (f flags) encode() byte {
@@ -138,17 +140,18 @@ func (m Codec) Encode(src framer.Frame, startOffset int) (dst []byte, err error)
 	var (
 		curDataSize  = -1
 		refTr        = telem.TimeRangeZero
-		refAlignment = telem.AlignmentPair(0)
+		refAlignment = telem.Alignment(0)
 		// include an extra byte for the flags
 		byteArraySize = startOffset + 1
 		fgs           = newFlags()
 	)
-	if len(src.Keys) != len(m.keys) {
+	// TODO: Fix this check
+	if src.Count() != len(m.keys) {
 		fgs.allChannelsPresent = false
-		byteArraySize += len(src.Keys) * 4
+		byteArraySize += src.Count() * 4
 	}
 	src.Sort()
-	for _, s := range src.Series {
+	for s := range src.Series() {
 		if curDataSize == -1 {
 			curDataSize = int(s.Len())
 			refTr = s.TimeRange
@@ -169,27 +172,27 @@ func (m Codec) Encode(src framer.Frame, startOffset int) (dst []byte, err error)
 	fgs.timeRangesZero = fgs.equalTimeRanges && refTr.Start.IsZero() && refTr.End.IsZero()
 	fgs.zeroAlignments = fgs.equalAlignments && refAlignment == 0
 	if !fgs.equalLens {
-		byteArraySize += len(src.Keys) * 4
+		byteArraySize += src.Count() * 4
 	} else {
 		byteArraySize += 4
 	}
 	if !fgs.timeRangesZero {
 		if !fgs.equalTimeRanges {
-			byteArraySize += len(src.Keys) * 16
+			byteArraySize += src.Count() * 16
 		} else {
 			byteArraySize += 16
 		}
 	}
 	if !fgs.zeroAlignments {
 		if !fgs.equalAlignments {
-			byteArraySize += len(src.Keys) * 8
+			byteArraySize += src.Count() * 8
 		} else {
 			byteArraySize += 8
 		}
 	}
-	buf := xbinary.NewWriter(byteArraySize, startOffset)
+	buf := xbinary.NewWriter(byteArraySize, startOffset, byteOrder)
 	buf.Uint8(fgs.encode())
-	// It's impossible for writing to the buffer to fail, so we just ignore all of the
+	// It's impossible for writing to the buffer to fail, so just ignore all of the
 	// errors.
 	if fgs.equalLens {
 		buf.Uint32(uint32(curDataSize))
@@ -200,11 +203,11 @@ func (m Codec) Encode(src framer.Frame, startOffset int) (dst []byte, err error)
 	if fgs.equalAlignments && !fgs.zeroAlignments {
 		buf.Uint64(uint64(refAlignment))
 	}
-	for i, s := range src.Series {
+	for k, s := range src.Entries() {
 		seriesDataLength := uint32(len(s.Data))
 		dataSize := uint32(s.DataType.Density())
 		if !fgs.allChannelsPresent {
-			buf.Uint32(uint32(src.Keys[i]))
+			buf.Uint32(uint32(k))
 		}
 		if !fgs.equalLens {
 			buf.Uint32(seriesDataLength / dataSize)
@@ -242,7 +245,7 @@ func (m Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 	var (
 		dataLen      uint32
 		refTr        telem.TimeRange
-		refAlignment telem.AlignmentPair
+		refAlignment telem.Alignment
 		flagB        byte
 	)
 	if err = read(reader, &flagB); err != nil {
@@ -295,12 +298,12 @@ func (m Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 				return
 			}
 		}
-		frame.Keys = append(frame.Keys, key)
-		frame.Series = append(frame.Series, s)
+		frame = frame.Append(key, s)
 		return
 	}
 
 	if fgs.allChannelsPresent {
+		frame = core.AllocFrame(len(m.keys))
 		for _, k := range m.keys {
 			if err = decodeSeries(k); err != nil {
 				return

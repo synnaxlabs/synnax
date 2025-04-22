@@ -11,6 +11,7 @@ package core
 
 import (
 	"fmt"
+
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -62,18 +63,19 @@ func (c Channel) String() string {
 	return fmt.Sprintf("<%d>", c.Key)
 }
 
-func (c Channel) ValidateSeries(series telem.Series) error {
-	if (series.DataType == telem.Int64T || series.DataType == telem.TimeStampT) && (c.DataType == telem.Int64T || c.DataType == telem.TimeStampT) {
-		return nil
-	}
-	if series.DataType != c.DataType {
-		return errors.Wrapf(
+func (c Channel) ValidateSeries(series telem.Series) (err error) {
+	sDt := series.DataType
+	cDt := c.DataType
+	isEquivalent := (sDt == telem.Int64T || sDt == telem.TimeStampT) && (cDt == telem.Int64T || cDt == telem.TimeStampT)
+	if cDt != sDt && !isEquivalent {
+		err = errors.Wrapf(
 			validate.Error,
 			"invalid data type for channel %v, expected %s, got %s",
 			c,
 			c.DataType,
 			series.DataType,
 		)
+
 	}
-	return nil
+	return
 }

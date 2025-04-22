@@ -23,7 +23,7 @@ import (
 
 const AutoSpan = unary.AutoSpan
 
-var errIteratorClosed = core.EntityClosed("cesium.iterator")
+var errIteratorClosed = core.NewErrEntityClosed("cesium.iterator")
 
 type Iterator struct {
 	inlet    confluence.Inlet[IteratorRequest]

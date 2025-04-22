@@ -71,7 +71,7 @@ describe("Writer", () => {
       expect(v).toEqual(123);
     });
 
-    test("write with auto commit on", async () => {
+    test.only("write with auto commit on", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),

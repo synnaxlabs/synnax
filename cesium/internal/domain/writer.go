@@ -48,7 +48,7 @@ type WriterConfig struct {
 }
 
 var (
-	errWriterClosed     = core.EntityClosed("domain.writer")
+	errWriterClosed     = core.NewErrEntityClosed("domain.writer")
 	DefaultWriterConfig = WriterConfig{EnableAutoCommit: config.False(), AutoIndexPersistInterval: 1 * telem.Second}
 )
 
@@ -144,7 +144,7 @@ type Writer struct {
 // If err is nil, then the writer must be closed.
 func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	if db.closed.Load() {
-		return nil, errDBClosed
+		return nil, ErrDBClosed
 	}
 
 	cfg, err := config.New(DefaultWriterConfig, cfg)

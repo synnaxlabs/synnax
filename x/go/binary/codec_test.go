@@ -232,45 +232,16 @@ var _ = Describe("Codec", func() {
 		})
 	})
 
-	//Describe("MsgPack", func() {
-	//	It("Should encode and decode a TimeRange", func() {
-	//		type Channel struct {
-	//			Key         channel.Key          `json:"key" msgpack:"key"`
-	//			Name        string               `json:"name" msgpack:"name"`
-	//			Leaseholder distribution.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
-	//			DataType    telem.DataType       `json:"data_type" msgpack:"data_type"`
-	//			Density     telem.Density        `json:"density" msgpack:"density"`
-	//			IsIndex     bool                 `json:"is_index" msgpack:"is_index"`
-	//			Index       channel.Key          `json:"index" msgpack:"index"`
-	//			Alias       string               `json:"alias" msgpack:"alias"`
-	//			Virtual     bool                 `json:"virtual" msgpack:"virtual"`
-	//			Internal    bool                 `json:"internal" msgpack:"internal"`
-	//			Requires    channel.Keys         `json:"requires" msgpack:"requires"`
-	//			Expression  string               `json:"expression" msgpack:"expression"`
-	//		}
-	//		type ChannelCreateRequest struct {
-	//			// Channel is a template for the Channel to create.
-	//			Channels             []Channel `json:"channels" msgpack:"channels"`
-	//			RetrieveIfNameExists bool      `json:"retrieve_if_name_exists" msgpack:"retrieve_if_name_exists"`
-	//		}
-	//
-	//		data := []byte{
-	//			0x81, 0xa8, 0x63, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x73,
-	//			0x91, 0x86, 0xa4, 0x6e, 0x61, 0x6d, 0x65, 0xa4, 0x74, 0x65,
-	//			0x73, 0x74, 0xa9, 0x64, 0x61, 0x74, 0x61, 0x5f, 0x74, 0x79,
-	//			0x70, 0x65, 0xa7, 0x66, 0x6c, 0x6f, 0x61, 0x74, 0x33, 0x32,
-	//			0xa8, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0xc2,
-	//			0xa7, 0x76, 0x69, 0x72, 0x74, 0x75, 0x61, 0x6c, 0xc3, 0xaa,
-	//			0x65, 0x78, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e,
-	//			0xa0, 0xa8, 0x72, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x73,
-	//			0x90,
-	//		}
-	//		var res map[string]interface{}
-	//		var res2 ChannelCreateRequest
-	//		Expect((&binary.MsgPackCodec{}).Decode(nil, data, &res)).To(Succeed())
-	//		fmt.Print(res)
-	//		Expect((&binary.MsgPackCodec{}).Decode(nil, data, &res2)).To(Succeed())
-	//		fmt.Println(res2)
-	//	})
-	//})
+	Describe("MarshalStringInt64", func() {
+		It("Should encode an int64 value as a string", func() {
+			Expect(binary.MarshalStringInt64(12)).To(Equal([]byte("\"12\"")))
+			Expect(binary.MarshalStringInt64(-1)).To(Equal([]byte("\"-1\"")))
+		})
+	})
+
+	Describe("MarshalStringUint64", func() {
+		It("Should encode a uint64 value as a string", func() {
+			Expect(binary.MarshalStringUint64(12)).To(Equal([]byte("\"12\"")))
+		})
+	})
 })

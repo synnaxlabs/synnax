@@ -13,12 +13,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"go/types"
+	"io"
+
 	"github.com/synnaxlabs/freighter/fhttp"
 	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/httputil"
-	"go/types"
-	"io"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -470,7 +471,10 @@ func (w *WSFramerCodec) decodeWriteRequest(
 		if err := w.lowPerfDecode(ctx, r, v); err != nil {
 			return err
 		}
-		return w.Bootstrap(ctx, v.Payload.Config.Keys)
+		if v.Payload.Command == writer.Open {
+			return w.Bootstrap(ctx, v.Payload.Config.Keys)
+		}
+		return nil
 	}
 	v.Type = fhttp.WSMsgTypeData
 	fr, err := w.LazyCodec.DecodeStream(r)
@@ -523,7 +527,7 @@ func (w *WSFramerCodec) encodeStreamResponse(
 	ctx context.Context,
 	v fhttp.WSMessage[FrameStreamerResponse],
 ) (b []byte, err error) {
-	if v.Type != fhttp.WSMsgTypeData {
+	if v.Type != fhttp.WSMsgTypeData || v.Payload.Frame.Empty() {
 		return w.lowPerfEncode(ctx, v)
 	}
 	if b, err = w.LazyCodec.Encode(v.Payload.Frame, 1); err != nil {

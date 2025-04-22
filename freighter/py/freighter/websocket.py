@@ -28,14 +28,14 @@ from freighter.transport import RQ, RS, AsyncMiddlewareCollector, MiddlewareColl
 from freighter.url import URL
 
 
-class _Message(BaseModel, Generic[P]):
+class Message(BaseModel, Generic[P]):
     type: Literal["data", "close", "open"]
     payload: P | None = None
     error: ExceptionPayload | None = None
 
 
-def _new_res_msg_t(res_t: type[RS]) -> type[_Message[RS]]:
-    class _ResMsg(_Message[RS]):
+def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
+    class _ResMsg(Message[RS]):
         payload: RS | None = None
 
         @classmethod
@@ -68,7 +68,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
     __internal: AsyncClientConnection
     __server_closed: Exception | None
     __send_closed: bool
-    __res_msg_t: type[_Message[RS]]
+    __res_msg_t: type[Message[RS]]
 
     def __init__(self, encoder: Codec, ws: AsyncClientConnection, res_t: type[RS]):
         self.__encoder = encoder
@@ -106,7 +106,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         if self.__send_closed:
             raise StreamClosed
 
-        msg = _Message[RQ](type="data", payload=payload, error=None)
+        msg = Message[RQ](type="data", payload=payload, error=None)
         encoded = self.__encoder.encode(msg)
 
         # If the server closed with an error, we return freighter.EOF to the
@@ -121,7 +121,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
     async def receive_open_ack(self) -> Exception | None:
         msg = await self.__internal.recv()
         assert isinstance(msg, bytes)
-        decoded_msg = self.__encoder.decode(msg, _Message)
+        decoded_msg = self.__encoder.decode(msg, Message)
         if decoded_msg.type == "open":
             return None
         return decode_exception(decoded_msg.error)
@@ -131,7 +131,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         if self.__send_closed or self.__server_closed is not None:
             return None
 
-        msg = _Message[RQ](type="close", payload=None, error=None)
+        msg = Message[RQ](type="close", payload=None, error=None)
         try:
             await self.__internal.send(self.__encoder.encode(msg))
         finally:
@@ -156,7 +156,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
     __internal: SyncClientProtocol
     __server_closed: Exception | None
     __send_closed: bool
-    __res_msg_t: type[_Message[RS]]
+    __res_msg_t: type[Message[RS]]
 
     def __init__(
         self,
@@ -195,7 +195,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
     def receive_open_ack(self) -> Exception | None:
         msg = self.__internal.recv()
         assert isinstance(msg, bytes)
-        decoded_msg = self.__encoder.decode(msg, _Message)
+        decoded_msg = self.__encoder.decode(msg, self.__res_msg_t)
         if decoded_msg.type == "open":
             return None
         return decode_exception(decoded_msg.error)
@@ -207,7 +207,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         if self.__send_closed:
             raise StreamClosed
 
-        msg = _Message[RQ](type="data", payload=payload, error=None)
+        msg = Message[RQ](type="data", payload=payload, error=None)
         encoded = self.__encoder.encode(msg)
 
         try:
@@ -220,7 +220,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         if self.__send_closed or self.__server_closed is not None:
             return None
 
-        msg = _Message[RQ](type="close", payload=None, error=None)
+        msg = Message[RQ](type="close", payload=None, error=None)
         try:
             self.__internal.send(self.__encoder.encode(msg))
         finally:
@@ -271,7 +271,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         """
         :param encoder: The encoder to use for this client.
         :param base_url: A base url to use as a prefix for all requests.
-        :param max_message_size: The maximum size of a message to receive. Defaults to
+        :param maxMessage_size: The maximum size of a message to receive. Defaults to
         DEFAULT_MAX_SIZE.
         :param secure: Whether to use TLS encryption on the connection or not.
         """
@@ -314,6 +314,28 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         assert socket is not None
         return socket
 
+    def with_codec(self, codec: Codec) -> 'AsyncWebsocketClient':
+        """
+        Create a new client with a different codec.
+
+        Args:
+            codec: The codec to use for the new client
+
+        Returns:
+            A new AsyncWebsocketClient with the specified codec
+        """
+        client = AsyncWebsocketClient(
+            encoder=codec,
+            base_url=self._endpoint,
+            max_size=self._max_message_size,
+            secure=self._secure,
+            **self._kwargs
+        )
+        # Copy middleware
+        for middleware in self._middleware:
+            client.use(middleware)
+        return client
+
 
 class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
     def __init__(self, **kwargs: Any) -> None:
@@ -326,7 +348,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
     def stream(
         self,
         target: str,
-        _req_t: type[RQ],
+        req_t: type[RQ],
         res_t: type[RS],
     ) -> SyncWebsocketStream[RQ, RS]:
         socket_container: list[SyncWebsocketStream[RQ, RS] | None] = [None]
@@ -353,3 +375,25 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
         socket = socket_container[0]
         assert socket is not None
         return socket
+
+    def with_codec(self, codec: Codec) -> 'WebsocketClient':
+        """
+        Create a new client with a different codec.
+
+        Args:
+            codec: The codec to use for the new client
+
+        Returns:
+            A new WebsocketClient with the specified codec
+        """
+        client = WebsocketClient(
+            encoder=codec,
+            base_url=self._endpoint,
+            max_message_size=self._max_message_size,
+            secure=self._secure,
+            **self._kwargs
+        )
+        # Copy middleware
+        for middleware in self._middleware:
+            client.use(middleware)
+        return client
