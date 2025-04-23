@@ -30,9 +30,9 @@ import { signals } from "@/signals";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
-const SET_CHANNEL_NAME = "sy_device_set";
-const DELETE_CHANNEL_NAME = "sy_device_delete";
-const STATE_CHANNEL_NAME = "sy_device_state";
+export const SET_CHANNEL_NAME = "sy_device_set";
+export const DELETE_CHANNEL_NAME = "sy_device_delete";
+export const STATE_CHANNEL_NAME = "sy_device_state";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 const CREATE_ENDPOINT = "/hardware/device/create";

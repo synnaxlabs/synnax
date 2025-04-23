@@ -38,10 +38,10 @@ import { signals } from "@/signals";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
-const STATE_CHANNEL_NAME = "sy_task_state";
-const COMMAND_CHANNEL_NAME = "sy_task_cmd";
-const SET_CHANNEL_NAME = "sy_task_set";
-const DELETE_CHANNEL_NAME = "sy_task_delete";
+export const STATE_CHANNEL_NAME = "sy_task_state";
+export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
+export const SET_CHANNEL_NAME = "sy_task_set";
+export const DELETE_CHANNEL_NAME = "sy_task_delete";
 
 const NOT_CREATED_ERROR = new Error("Task not created");
 
@@ -130,7 +130,7 @@ export class Task<
     while (true) {
       const frame = (await Promise.any([streamer.read(), to])) as framer.Frame | false;
       if (frame === false) throw new Error("Command timed out");
-      const parsed = stateZ.safeParse(frame.at(-1).sy_task_state);
+      const parsed = stateZ.safeParse(frame.at(-1)[STATE_CHANNEL_NAME]);
       if (parsed.success) {
         res = parsed.data as State<Details>;
         if (res.key === cmdKey) break;
