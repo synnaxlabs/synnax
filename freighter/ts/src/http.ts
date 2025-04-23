@@ -72,7 +72,6 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     const request: RequestInit = {};
     request.method = "POST";
     request.body = this.encoder.encode(req ?? {});
-
     const [, err] = await this.executeMiddleware(
       {
         target: url.toString(),
@@ -95,7 +94,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           if (err.message === "Load failed") err = new Unreachable({ url });
           return [outCtx, err];
         }
-        const data = await httpRes.arrayBuffer();
+        const data = new Uint8Array(await (await httpRes.blob()).arrayBuffer());
         if (httpRes?.ok) {
           if (resSchema != null) res = this.encoder.decode(data, resSchema);
           return [outCtx, null];

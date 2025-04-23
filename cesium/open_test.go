@@ -1,13 +1,14 @@
 package cesium_test
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"os"
 
 	"github.com/synnaxlabs/cesium"
 )
@@ -53,7 +54,12 @@ var _ = Describe("Open", func() {
 					db := openDBOnFS(s)
 					key := GenerateChannelKey()
 
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Edison",
+						IsIndex:  true,
+						DataType: telem.TimeStampT,
+					})).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 
 					db = openDBOnFS(s)
@@ -61,15 +67,15 @@ var _ = Describe("Open", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(ch.Key).To(Equal(key))
-					Expect(ch.Rate).To(Equal(1 * telem.Hz))
+					Expect(ch.IsIndex).To(BeTrue())
 
-					Expect(db.Write(ctx, 1*telem.SecondTS, cesium.NewFrame(
+					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{key},
-						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
+						[]telem.Series{telem.NewSecondsTSV(1, 2, 3, 4, 5)},
 					))).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
-					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
+					Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSecondsTSV(1, 2, 3, 4, 5)))
 					Expect(db.Close()).To(Succeed())
 				})
 
@@ -80,9 +86,19 @@ var _ = Describe("Open", func() {
 					key := GenerateChannelKey()
 
 					By("Opening two channels")
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: indexKey, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Index: indexKey, DataType: telem.Int64T})).To(Succeed())
-					Expect(db.Write(ctx, 1*telem.SecondTS, cesium.NewFrame(
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      indexKey,
+						Name:     "Tesla",
+						IsIndex:  true,
+						DataType: telem.TimeStampT,
+					})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Faraday",
+						Index:    indexKey,
+						DataType: telem.Int64T,
+					})).To(Succeed())
+					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{indexKey, key},
 						[]telem.Series{telem.NewSecondsTSV(1, 2, 3, 4, 5), telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
 					))).To(Succeed())
@@ -105,17 +121,17 @@ var _ = Describe("Open", func() {
 					Expect(ch.DataType).To(Equal(telem.TimeStampT))
 
 					By("Asserting that writes to the db still occurs normally")
-					Expect(db.Write(ctx, 11*telem.SecondTS, cesium.NewFrame(
+					Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{key, indexKey},
 						[]telem.Series{telem.NewSeriesV[int64](11, 12, 13, 14, 15), telem.NewSecondsTSV(11, 12, 13, 14, 15)},
 					))).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
-					Expect(f.Series[0].TimeRange).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
-					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
+					Expect(f.SeriesAt(0).TimeRange).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
+					Expect(f.SeriesAt(0).Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
 
-					Expect(f.Series[1].TimeRange).To(Equal((11 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
-					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](11, 12, 13, 14, 15).Data))
+					Expect(f.SeriesAt(1).TimeRange).To(Equal((11 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
+					Expect(f.SeriesAt(1).Data).To(Equal(telem.NewSeriesV[int64](11, 12, 13, 14, 15).Data))
 
 					Expect(db.Close()).To(Succeed())
 				})

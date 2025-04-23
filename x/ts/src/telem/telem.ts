@@ -1181,22 +1181,29 @@ export const sortTimeRange = (a: TimeRange, b: TimeRange): -1 | 0 | 1 => {
 };
 
 /** DataType is a string that represents a data type. */
-export class DataType extends String implements Stringer {
+export class DataType implements Stringer {
+  readonly value: string;
+  readonly encodeValue = true;
+
+  valueOf(): string {
+    return this.value;
+  }
+
   constructor(value: CrudeDataType) {
     if (
       value instanceof DataType ||
       typeof value === "string" ||
       typeof value.valueOf() === "string"
     ) {
-      super(value.valueOf());
+      this.value = value.valueOf() as string;
       return;
     }
     const t = DataType.ARRAY_CONSTRUCTOR_DATA_TYPES.get(value.constructor.name);
     if (t != null) {
-      super(t.valueOf());
+      this.value = t.valueOf();
       return;
     }
-    super(DataType.UNKNOWN.valueOf());
+    this.value = DataType.UNKNOWN.valueOf();
     throw new Error(`unable to find data type for ${value.toString()}`);
   }
 

@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -101,7 +102,7 @@ func (s *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				s.Channels = req.Channels
 			case f := <-frames.Outlet():
 				filtered := f.FilterKeys(s.Channels)
-				if len(filtered.Keys) == 0 {
+				if filtered.Empty() {
 					continue
 				}
 				if err := signal.SendUnderContext(

@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -23,14 +24,18 @@ type relay struct {
 	inlet confluence.Inlet[Frame]
 }
 
-func openRelay(sCtx signal.Context) *relay {
-	delta := confluence.NewDynamicDeltaMultiplier[Frame](20 * time.Millisecond)
+func openRelay(sCtx signal.Context, ins alamos.Instrumentation) *relay {
+	delta := confluence.NewDynamicDeltaMultiplier[Frame](
+		20*time.Millisecond,
+		ins,
+	)
 	frames := confluence.NewStream[Frame](10)
 	delta.InFrom(frames)
 	delta.Flow(
 		sCtx,
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
+		confluence.WithAddress("relay"),
 	)
 	return &relay{
 		delta: delta,

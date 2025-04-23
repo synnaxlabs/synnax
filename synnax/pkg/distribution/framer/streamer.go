@@ -90,7 +90,6 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			l.Out.Inlet() <- StreamerResponse{Frame: core.NewFrameFromStorage(u)}
 		}
 
-		// Then we'll tap into the Relay for stream updates
 		for {
 			select {
 			case <-ctx.Done():
@@ -128,9 +127,8 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 }
 
 type StreamerConfig struct {
-	Keys             channel.Keys `json:"keys" msgpack:"keys"`
-	DownsampleFactor int          `json:"downsample_factor" msgpack:"downsample_factor"`
-	SendOpenAck      bool         `json:"send_open_ack" msgpack:"send_open_ack"`
+	Keys        channel.Keys `json:"keys" msgpack:"keys"`
+	SendOpenAck bool         `json:"send_open_ack" msgpack:"send_open_ack"`
 }
 
 type StreamerRequest = StreamerConfig

@@ -12,17 +12,17 @@ package calculation_test
 import (
 	"time"
 
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
-
 	"encoding/json"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -63,7 +63,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: core.Free,
+			Leaseholder: dcore.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base * 2",
 		}
@@ -71,17 +71,13 @@ var _ = Describe("Calculation", Ordered, func() {
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
-		w := MustSucceed(
-			dist.Framer.NewStreamWriter(
-				ctx,
-				framer.WriterConfig{
-					Start: telem.Now(),
-					Keys:  []channel.Key{baseCH.Key()},
-				},
-			),
-		)
-		wInlet, _ := confluence.Attach[framer.WriterRequest, framer.WriterResponse](w, 1, 1)
-		w.Flow(sCtx)
+		w := MustSucceed(dist.Framer.OpenWriter(
+			ctx,
+			framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  []channel.Key{baseCH.Key()},
+			},
+		))
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
 				ctx,
@@ -93,16 +89,11 @@ var _ = Describe("Calculation", Ordered, func() {
 		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
 		streamer.Flow(sCtx)
 		time.Sleep(sleepInterval)
-		wInlet.Inlet() <- framer.WriterRequest{
-			Command: writer.Data,
-			Frame: framer.Frame{
-				Keys:   channel.Keys{baseCH.Key()},
-				Series: []telem.Series{telem.NewSeriesV[int64](1, 2)},
-			},
-		}
+		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.Keys).To(Equal(channel.Keys{calculatedCH.Key()}))
+		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
+		Expect(w.Close()).To(Succeed())
 	})
 
 	It("Handle undefined symbols", func() {
@@ -116,7 +107,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: core.Free,
+			Leaseholder: dcore.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base * fake",
 		}
@@ -124,26 +115,20 @@ var _ = Describe("Calculation", Ordered, func() {
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
-		w := MustSucceed(dist.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+		w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 			Start: telem.Now(),
 			Keys:  []channel.Key{baseCH.Key()},
 		}))
-		wInlet, _ := confluence.Attach[framer.WriterRequest, framer.WriterResponse](w, 1, 1)
-		w.Flow(sCtx)
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-			Keys: []channel.Key{calculatedCH.Key()},
+			Keys:        []channel.Key{calculatedCH.Key()},
+			SendOpenAck: true,
 		}))
 		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
 		streamer.Flow(sCtx)
-		time.Sleep(sleepInterval)
-		wInlet.Inlet() <- framer.WriterRequest{
-			Command: writer.Data,
-			Frame: framer.Frame{
-				Keys:   channel.Keys{baseCH.Key()},
-				Series: []telem.Series{telem.NewSeriesV[int64](1, 2)},
-			},
-		}
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
+		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		Consistently(sOutlet.Outlet(), 500*time.Millisecond).ShouldNot(Receive())
+		Expect(w.Close()).To(Succeed())
 	})
 
 	It("Return a warning for dividing by zero", func() {
@@ -157,7 +142,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: core.Free,
+			Leaseholder: dcore.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base / 0",
 		}
@@ -165,28 +150,24 @@ var _ = Describe("Calculation", Ordered, func() {
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
-		w := MustSucceed(dist.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+		w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 			Start: telem.Now(),
 			Keys:  []channel.Key{baseCH.Key()},
 		}))
-		wInlet, _ := confluence.Attach[framer.WriterRequest, framer.WriterResponse](w, 1, 1)
-		w.Flow(sCtx)
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-			Keys: []channel.Key{calculatedCH.Key()},
+			Keys:        []channel.Key{calculatedCH.Key()},
+			SendOpenAck: true,
 		}))
 		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
 		streamer.Flow(sCtx)
-		time.Sleep(sleepInterval)
-		wInlet.Inlet() <- framer.WriterRequest{
-			Command: writer.Data,
-			Frame: framer.Frame{
-				Keys:   channel.Keys{baseCH.Key()},
-				Series: []telem.Series{telem.NewSeriesV[int64](1, 2)},
-			},
-		}
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
+		MustSucceed(w.Write(core.UnaryFrame(
+			baseCH.Key(),
+			telem.NewSeriesV[int64](1, 2),
+		)))
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.Keys).To(Equal(channel.Keys{calculatedCH.Key()}))
+		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
 	})
 
 	It("Should handle nested calculations", func() {
@@ -202,7 +183,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calc1",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: core.Free,
+			Leaseholder: dcore.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base * 2",
 		}
@@ -213,7 +194,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calc2",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: core.Free,
+			Leaseholder: dcore.Free,
 			Requires:    []channel.Key{calc1CH.Key()},
 			Expression:  "return calc1 + 1",
 		}
@@ -225,48 +206,34 @@ var _ = Describe("Calculation", Ordered, func() {
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
 
-		w := MustSucceed(
-			dist.Framer.NewStreamWriter(
-				ctx,
-				framer.WriterConfig{
-					Start: telem.Now(),
-					Keys:  []channel.Key{baseCH.Key()},
-				},
-			),
-		)
-		wInlet, _ := confluence.Attach[framer.WriterRequest, framer.WriterResponse](w, 1, 1)
-		w.Flow(sCtx)
-
+		w := MustSucceed(dist.Framer.OpenWriter(ctx,
+			framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  []channel.Key{baseCH.Key()},
+			},
+		))
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
 				ctx,
 				framer.StreamerConfig{
-					Keys: []channel.Key{calc2CH.Key()},
+					Keys:        []channel.Key{calc2CH.Key()},
+					SendOpenAck: true,
 				},
 			),
 		)
 		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
 		streamer.Flow(sCtx)
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 
-		time.Sleep(sleepInterval)
-
-		// Write base values [1, 2]
-		wInlet.Inlet() <- framer.WriterRequest{
-			Command: writer.Data,
-			Frame: framer.Frame{
-				Keys:   channel.Keys{baseCH.Key()},
-				Series: []telem.Series{telem.NewSeriesV[int64](1, 2)},
-			},
-		}
-
+		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.Keys).To(Equal(channel.Keys{calc2CH.Key()}))
+		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calc2CH.Key()}))
 
 		// For base values [1, 2]:
 		// calc1 should be [2, 4] (base * 2)
 		// calc2 should be [3, 5] (calc1 + 1)
-		series := res.Frame.Series[0]
+		series := res.Frame.SeriesAt(0)
 		Expect(series.Len()).To(Equal(int64(2)))
 		Expect(telem.ValueAt[int64](series, 0)).To(Equal(int64(3)))
 		Expect(telem.ValueAt[int64](series, 1)).To(Equal(int64(5)))
@@ -284,7 +251,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: core.Free,
+			Leaseholder: dcore.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return fake1 + fake2",
 		}
@@ -305,7 +272,7 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		// Set up writer for base channel
 		w := MustSucceed(
-			dist.Framer.NewStreamWriter(
+			dist.Framer.OpenWriter(
 				ctx,
 				framer.WriterConfig{
 					Start: telem.Now(),
@@ -313,40 +280,32 @@ var _ = Describe("Calculation", Ordered, func() {
 				},
 			),
 		)
-		wInlet, _ := confluence.Attach[framer.WriterRequest, framer.WriterResponse](w, 1, 1)
-		w.Flow(sCtx)
-
 		// Set up a streamer to watch for state changes
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
 				ctx,
 				framer.StreamerConfig{
-					Keys: []channel.Key{stateCH.Key()},
+					Keys:        []channel.Key{stateCH.Key()},
+					SendOpenAck: true,
 				},
 			),
 		)
 		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
 		streamer.Flow(sCtx)
-
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
+		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 
-		time.Sleep(sleepInterval)
-
-		// Write some data to trigger the calculation
-		wInlet.Inlet() <- framer.WriterRequest{
-			Command: writer.Data,
-			Frame: framer.Frame{
-				Keys:   channel.Keys{baseCH.Key()},
-				Series: []telem.Series{telem.NewSeriesV[int64](1, 2)},
-			},
-		}
+		MustSucceed(w.Write(core.UnaryFrame(
+			baseCH.Key(),
+			telem.NewSeriesV[int64](1, 2),
+		)))
 
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.Series[0].DataType).To(Equal(telem.JSONT))
+		Expect(res.Frame.SeriesAt(0).DataType).To(Equal(telem.JSONT))
 
 		var state calculation.State
-		data := res.Frame.Series[0].Data
+		data := res.Frame.SeriesAt(0).Data
 		Expect(json.Unmarshal(data[:len(data)-1], &state)).To(Succeed()) // -1 to remove newline
 
 		Expect(state.Key).To(Equal(calculatedCH.Key()))

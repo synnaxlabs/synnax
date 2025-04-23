@@ -26,7 +26,7 @@ message IteratorResponse {
     int32 variant = 1;
     int32 command = 2;
     Frame frame = 3;
-    int32 node_key =43;
+    int32 node_key = 43;
     bool ack = 5;
     int32 seq_num = 6;
     errors.PBPayload error = 7;
@@ -74,11 +74,10 @@ message WriterConfig {
 
 message WriterResponse {
     int32 command = 1;
-    bool ack = 2;
-    int32 seq_num = 3;
-    int32 node_key = 4;
-    errors.PBPayload error = 5;
-    int64 time_stamp = 6;
+    int32 seq_num = 2;
+    int32 node_key = 3;
+    int64 end = 4;
+    bool authorized = 5;
 }
 
 service DeleteService {

@@ -10,71 +10,69 @@
 package writer
 
 import (
+	"io"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/signal"
-	"io"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type StreamWriter = confluence.Segment[Request, Response]
 
+var ErrClosed = errors.New("writer closed")
+
 type Writer struct {
-	requests          confluence.Inlet[Request]
-	responses         confluence.Outlet[Response]
-	wg                signal.WaitGroup
-	shutdown          io.Closer
-	hasAccumulatedErr bool
+	cfg       Config
+	requests  confluence.Inlet[Request]
+	responses confluence.Outlet[Response]
+	shutdown  io.Closer
+	closed    bool
 }
 
 // Write implements Writer.
-func (w *Writer) Write(frame core.Frame) bool {
-	if w.hasAccumulatedErr {
-		return false
+func (w *Writer) Write(frame core.Frame) (authorized bool, err error) {
+	res, err := w.exec(Request{Frame: frame, Command: Write}, *w.cfg.Sync)
+	if err != nil {
+		return false, err
 	}
-	select {
-	case <-w.wg.Stopped():
-		return false
-	case <-w.responses.Outlet():
-		w.hasAccumulatedErr = true
-		return false
-	case w.requests.Inlet() <- Request{Command: Data, Frame: frame}:
-		return true
-	}
+	authorized = !*w.cfg.Sync || res.Authorized
+	return
 }
 
-func (w *Writer) Commit() bool {
-	if w.hasAccumulatedErr {
-		return false
-	}
-	select {
-	case <-w.wg.Stopped():
-		return false
-	case <-w.responses.Outlet():
-		w.hasAccumulatedErr = true
-		return false
-	case w.requests.Inlet() <- Request{Command: Commit}:
-	}
-	for res := range w.responses.Outlet() {
-		if res.Command == Commit {
-			return res.Ack
-		}
-	}
-	return false
+func (w *Writer) Commit() (telem.TimeStamp, error) {
+	res, err := w.exec(Request{Command: Commit}, true)
+	return res.End, err
 }
 
-func (w *Writer) Error() error {
-	w.requests.Inlet() <- Request{Command: Error}
-	for res := range w.responses.Outlet() {
-		if res.Command == Error {
-			return res.Error
+func (w *Writer) SetAuthority(cfg Config) error {
+	_, err := w.exec(Request{Command: SetAuthority, Config: cfg}, true)
+	return err
+}
+
+func (w *Writer) exec(req Request, sync bool) (res Response, err error) {
+	if w.closed {
+		return res, ErrClosed
+	}
+	select {
+	case <-w.responses.Outlet():
+		return res, w.Close()
+	case w.requests.Inlet() <- req:
+	}
+	if !sync {
+		return
+	}
+	for res = range w.responses.Outlet() {
+		if res.Command == req.Command {
+			return res, nil
 		}
 	}
-	return nil
+	return res, w.Close()
 }
 
 func (w *Writer) Close() error {
+	w.closed = true
 	w.requests.Close()
-	for range w.responses.Outlet() {
-	}
+	confluence.Drain(w.responses)
 	return w.shutdown.Close()
 }

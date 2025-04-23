@@ -41,7 +41,7 @@ type DB struct {
 }
 
 // ErrDBClosed is returned when an operation is attempted on a closed unary database.
-var ErrDBClosed = core.EntityClosed("unary.db")
+var ErrDBClosed = core.NewErrEntityClosed("unary.db")
 
 // Channel returns the channel for this unary database.
 func (db *DB) Channel() core.Channel { return db.cfg.Channel }
@@ -78,38 +78,20 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	if db.closed.Load() {
 		return false, ErrDBClosed
 	}
-	g, _, err := db.controller.OpenAbsoluteGateIfUncontrolled(
-		tr,
-		control.Subject{Key: "has_data_for"},
-		func() (*controlledWriter, error) {
-			return &controlledWriter{Writer: nil, channelKey: db.cfg.Channel.Key}, nil
-		})
-
+	release, err := db.lockControllerForNonWriteOp(tr, "has_data_for")
 	if err != nil {
-		if errors.Is(err, control.Unauthorized) {
-			return true, nil
-		}
-		return true, err
+		return true, errors.Skip(err, control.Unauthorized)
 	}
-
-	_, ok := g.Authorized()
-	if !ok {
-		return true, nil
-	}
-	defer g.Release()
-
-	ok, err = db.domain.HasDataFor(ctx, tr)
-	return ok, db.wrapError(err)
+	defer release()
+	hasData, err := db.domain.HasDataFor(ctx, tr)
+	return hasData, db.wrapError(err)
 }
 
 // Read reads a Time Range of data at the unary level.
 func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
 	defer func() { err = db.wrapError(err) }()
-	if db.closed.Load() {
-		return frame, ErrDBClosed
-	}
-	iter := db.OpenIterator(IterRange(tr))
-	if err != nil {
+	var iter *Iterator
+	if iter, err = db.OpenIterator(IterRange(tr)); err != nil {
 		return
 	}
 	defer func() { err = iter.Close() }()
@@ -117,7 +99,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 		return
 	}
 	for iter.Next(ctx, telem.TimeSpanMax) {
-		frame = frame.AppendFrame(iter.Value())
+		frame = frame.Extend(iter.Value())
 	}
 	return
 }
@@ -135,7 +117,7 @@ func (db *DB) Close() error {
 	}
 	err := db.domain.Close()
 	if err != nil {
-		if errors.Is(err, domain.ErrOpenEntity) {
+		if errors.Is(err, core.ErrOpenEntity) {
 			// If the close failed because of an open entity, the database should not
 			// be marked as closed and can still serve reads/writes.
 			db.closed.Store(false)
@@ -163,7 +145,7 @@ func (db *DB) RenameChannelInMeta(newName string) error {
 // and persists the change to the underlying file system.
 func (db *DB) SetIndexKeyInMeta(key core.ChannelKey) error {
 	if db.closed.Load() {
-		return ErrDBClosed
+		return db.wrapError(ErrDBClosed)
 	}
 	db.cfg.Channel.Index = key
 	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)

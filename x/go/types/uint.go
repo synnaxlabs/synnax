@@ -16,3 +16,14 @@ type Uint20 uint32
 func NewUint12(v uint16) Uint12 {
 	return Uint12(v)
 }
+
+func BoolToUint8(b bool) uint8 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func NumericToTBool[T Numeric](u T) bool {
+	return u != 0
+}

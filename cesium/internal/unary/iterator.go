@@ -11,6 +11,8 @@ package unary
 
 import (
 	"context"
+	"io"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -19,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
-	"io"
 )
 
 type IteratorConfig struct {
@@ -53,7 +54,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 }
 
 var (
-	errIteratorClosed = core.EntityClosed("unary.iterator")
+	errIteratorClosed = core.NewErrEntityClosed("unary.iterator")
 )
 
 type Iterator struct {
@@ -69,7 +70,10 @@ type Iterator struct {
 	closed   bool
 }
 
-func (db *DB) OpenIterator(cfgs ...IteratorConfig) *Iterator {
+func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
+	if db.closed.Load() {
+		return nil, db.wrapError(ErrDBClosed)
+	}
 	// Safe to ignore error here as Validate will always return nil
 	cfg, _ := config.New(DefaultIteratorConfig, cfgs...)
 	iter := db.domain.OpenIterator(cfg.domainIteratorConfig())
@@ -80,7 +84,7 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) *Iterator {
 		IteratorConfig: cfg,
 	}
 	i.SetBounds(cfg.Bounds)
-	return i
+	return i, nil
 }
 
 const AutoSpan telem.TimeSpan = -1
@@ -183,7 +187,7 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 	i.reset(i.view.End.SpanRange(span).BoundBy(i.bounds))
 
-	if i.view.IsZero() || i.view.End.BeforeEq(i.internal.TimeRange().Start) {
+	if i.view.Span().IsZero() || i.view.End.BeforeEq(i.internal.TimeRange().Start) {
 		return
 	}
 
@@ -272,7 +276,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 	i.reset(i.view.Start.SpanRange(-1 * span).BoundBy(i.bounds))
 
-	if i.view.IsZero() || i.view.Start.AfterEq(i.internal.TimeRange().End) {
+	if i.view.Span().IsZero() || i.view.Start.AfterEq(i.internal.TimeRange().End) {
 		return
 	}
 
@@ -289,17 +293,12 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 }
 
 // Len returns the number of samples in the iterator's frame.
-func (i *Iterator) Len() (l int64) {
-	for _, series := range i.frame.Series {
-		l += series.Len()
-	}
-	return
-}
+func (i *Iterator) Len() int64 { return i.frame.Len() }
 
 // Error returns the error that caused the iterator to stop moving. If the iterator is
 // still moving, Error returns nil.
 func (i *Iterator) Error() error {
-	wrap := core.NewErrorWrapper(i.Channel)
+	wrap := core.NewChannelErrWrapper(i.Channel)
 	return wrap(i.err)
 }
 
@@ -317,7 +316,7 @@ func (i *Iterator) Close() (err error) {
 		return nil
 	}
 	i.closed = true
-	wrap := core.NewErrorWrapper(i.Channel)
+	wrap := core.NewChannelErrWrapper(i.Channel)
 	return wrap(i.internal.Close())
 }
 
@@ -345,7 +344,7 @@ func (i *Iterator) insert(series telem.Series) {
 	if series.Len() == 0 {
 		return
 	}
-	if len(i.frame.Series) == 0 || i.frame.Series[len(i.frame.Series)-1].TimeRange.End.BeforeEq(series.TimeRange.Start) {
+	if i.frame.Empty() || i.frame.SeriesAt(-1).TimeRange.End.BeforeEq(series.TimeRange.Start) {
 		i.frame = i.frame.Append(i.Channel.Key, series)
 	} else {
 		i.frame = i.frame.Prepend(i.Channel.Key, series)
@@ -354,7 +353,7 @@ func (i *Iterator) insert(series telem.Series) {
 
 func (i *Iterator) read(
 	ctx context.Context,
-	alignment telem.AlignmentPair,
+	alignment telem.Alignment,
 	offset telem.Offset,
 	size telem.Size,
 ) (series telem.Series, err error) {
@@ -371,8 +370,7 @@ func (i *Iterator) read(
 	if err != nil && !errors.Is(err, io.EOF) {
 		return
 	}
-	err = r.Close()
-	if err != nil {
+	if err = r.Close(); err != nil {
 		return
 	}
 	if n < len(series.Data) {
@@ -383,7 +381,7 @@ func (i *Iterator) read(
 
 func (i *Iterator) sliceDomain(ctx context.Context) (
 	telem.Offset,
-	telem.AlignmentPair,
+	telem.Alignment,
 	telem.Size,
 	error,
 ) {
@@ -431,7 +429,7 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 // before the start of the range, the returned value will be zero.
 func (i *Iterator) approximateStart(ctx context.Context) (
 	index.DistanceApproximation,
-	telem.AlignmentPair,
+	telem.Alignment,
 	error,
 ) {
 	target := i.internal.TimeRange().Start.SpanRange(0)
@@ -462,12 +460,12 @@ func (i *Iterator) satisfied() bool {
 	if !i.partiallySatisfied() {
 		return false
 	}
-	start := i.frame.Series[0].TimeRange.Start
-	end := i.frame.Series[len(i.frame.Series)-1].TimeRange.End
+	start := i.frame.SeriesAt(0).TimeRange.Start
+	end := i.frame.SeriesAt(-1).TimeRange.End
 	return i.view == start.Range(end)
 }
 
-func (i *Iterator) partiallySatisfied() bool { return len(i.frame.Series) > 0 }
+func (i *Iterator) partiallySatisfied() bool { return i.frame.HasData() }
 
 func (i *Iterator) reset(nextView telem.TimeRange) {
 	i.frame = core.Frame{}

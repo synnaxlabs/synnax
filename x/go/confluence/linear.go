@@ -92,12 +92,12 @@ func (t *translator[I, IT, O, OT]) Flow(ctx signal.Context, opts ...Option) {
 			return err
 		}
 		return signal.SendUnderContext(ctx, t.inlet.Inlet(), o)
-	}, append(o.Signal, signal.WithKey("request-translator"))...)
+	}, append(o.Signal, signal.WithKey("request_translator"))...)
 	signal.GoRange(ctx, t.outlet.Outlet(), func(ctx context.Context, v OT) error {
 		o, err := t.responseT(v)
 		if err != nil {
 			return err
 		}
 		return signal.SendUnderContext(ctx, t.Out.Inlet(), o)
-	}, append(o.Signal, signal.WithKey("response-translator"))...)
+	}, append(o.Signal, signal.WithKey("response_translator"))...)
 }

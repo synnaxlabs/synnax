@@ -32,7 +32,7 @@ type GCConfig struct {
 	// are started.
 	GCTryInterval time.Duration
 
-	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a FilterLessThan.
 	// Must be in (0, 1].
 	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
@@ -213,11 +213,8 @@ func (db *DB) DeleteTimeRange(
 	for _, ch := range chs {
 		udb, uok := db.mu.unaryDBs[ch]
 		if !uok {
-			if vdb, vok := db.mu.virtualDBs[ch]; vok {
-				return errors.Newf(
-					"cannot delete time range from virtual channel %v",
-					vdb.Channel(),
-				)
+			if _, vok := db.mu.virtualDBs[ch]; vok {
+				continue
 			}
 			return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
 		}
@@ -296,5 +293,9 @@ func (db *DB) startGC(sCtx signal.Context, opts *options) {
 			db.L.Error("garbage collection error", zap.Error(err))
 		}
 		return nil
-	}, signal.WithRetryOnPanic(10), signal.RecoverWithoutErrOnPanic())
+	},
+		signal.WithRetryOnPanic(10),
+		signal.RecoverWithoutErrOnPanic(),
+		signal.WithKey("gc-ticker"),
+	)
 }

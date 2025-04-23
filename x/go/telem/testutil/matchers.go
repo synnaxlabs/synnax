@@ -11,11 +11,12 @@ package testutil
 
 import (
 	"fmt"
+	"slices"
+
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	xt "github.com/synnaxlabs/x/types"
-	"slices"
 )
 
 func EqualUnmarshal[T xt.Numeric](expected []T) types.GomegaMatcher {
@@ -32,9 +33,9 @@ type equalAfterUnmarshalMatcher[T xt.Numeric] struct {
 func (m *equalAfterUnmarshalMatcher[T]) Match(actual interface{}) (bool, error) {
 	v, ok := actual.([]byte)
 	if !ok {
-		return false, errors.Newf("EqualUnmarshal matcher expects a byte slice (actual: %T)", actual)
+		return false, errors.Newf("EqualUnmarshal matcher expects a byte slice (actual: %K)", actual)
 	}
-	expectedT := telem.NewDataType[T](m.expected[0])
+	expectedT := telem.InferDataType[T]()
 
 	m.actualUnmarshalled = telem.UnmarshalSlice[T](v, expectedT)
 	return slices.Equal(m.actualUnmarshalled, m.expected), nil

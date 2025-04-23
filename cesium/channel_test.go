@@ -10,6 +10,10 @@
 package cesium_test
 
 import (
+	"math"
+	"os"
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -23,9 +27,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
-	"math"
-	"os"
-	"strconv"
 )
 
 var _ = Describe("Channel", Ordered, func() {
@@ -52,37 +53,39 @@ var _ = Describe("Channel", Ordered, func() {
 				},
 					Entry("ChannelKey has no datatype",
 						validate.FieldError{Field: "data_type", Message: "field must be set"},
-						cesium.Channel{Key: 9990, Rate: 10 * telem.Hz},
+						cesium.Channel{Name: "cat", Key: 9990, IsIndex: true},
+						cesium.Channel{Name: "dog", Key: 9991, Index: 9990},
 					),
 					Entry("ChannelKey key already exists",
-						errors.Wrap(validate.Error, "cannot create channel [Isaac]<9991> because it already exists"),
-						cesium.Channel{Key: 9991, DataType: telem.Float32T, Rate: 10 * telem.Hz},
-						cesium.Channel{Key: 9991, Name: "Isaac", Rate: 10 * telem.Hz, DataType: telem.Float64T},
+						errors.Wrap(validate.Error, "cannot create channel [Isaac]<9992> because it already exists"),
+						cesium.Channel{Name: "Bob", Key: 9992, DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Key: 9992, Name: "Isaac", DataType: telem.TimeStampT, IsIndex: true},
 					),
 					Entry("ChannelKey IsIndex - Non Int64 Series Variant",
 						validate.FieldError{Field: "data_type", Message: "index channel must be of type timestamp"},
-						cesium.Channel{Key: 9992, IsIndex: true, DataType: telem.Float32T},
+						cesium.Channel{Name: "Richard", Key: 9993, IsIndex: true, DataType: telem.Float32T},
 					),
 					Entry("ChannelKey IsIndex - LocalIndex non-zero",
 						validate.FieldError{Field: "index", Message: "index channel cannot be indexed by another channel"},
-						cesium.Channel{Key: 9995, IsIndex: true, DataType: telem.TimeStampT},
-						cesium.Channel{Key: 9996, IsIndex: true, Index: 9995, DataType: telem.TimeStampT},
+						cesium.Channel{Name: "Feynman", Key: 9995, IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Name: "Cavendish", Key: 9996, IsIndex: true, Index: 9995, DataType: telem.TimeStampT},
 					),
 					Entry("ChannelKey has index - LocalIndex does not exist",
 						errors.Wrapf(validate.Error, "[cesium] - index channel <%s> does not exist", "9994"),
-						cesium.Channel{Key: 9997, Index: 9994, DataType: telem.Float64T},
+						cesium.Channel{Name: "Laplatz", Key: 9997, Index: 9994, DataType: telem.Float64T},
 					),
-					Entry("ChannelKey has no index - fixed rate not provided",
-						validate.FieldError{Field: "rate", Message: "must be positive"},
-						cesium.Channel{Key: 9998, DataType: telem.Float32T},
+					Entry("ChannelKey has no index",
+						validate.FieldError{Field: "index", Message: "non-indexed channel must have an index"},
+						cesium.Channel{Name: "Steinbeck", Key: 9998, DataType: telem.Float32T},
 					),
 					Entry("ChannelKey has index - provided index key is not an indexed channel",
 						validate.FieldError{
 							Field:   "index",
-							Message: "channel <9980> is not an index",
+							Message: "channel [Sarah]<9981> is not an index",
 						},
-						cesium.Channel{Key: 9980, DataType: telem.Float32T, Rate: 1 * telem.Hz},
-						cesium.Channel{Key: 9981, Index: 9980, DataType: telem.Float32T},
+						cesium.Channel{Name: "Hemingway", Key: 9980, DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Name: "Sarah", Key: 9981, DataType: telem.Float64T, Index: 9980},
+						cesium.Channel{Name: "Kathy", Key: 9982, Index: 9981, DataType: telem.Float32T},
 					),
 				)
 				Describe("DB Closed", func() {
@@ -91,8 +94,8 @@ var _ = Describe("Channel", Ordered, func() {
 						key := cesium.ChannelKey(1)
 						subDB := openDBOnFS(sub)
 						Expect(subDB.Close()).To(Succeed())
-						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.BytesT})
-						Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})
+						Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -100,13 +103,18 @@ var _ = Describe("Channel", Ordered, func() {
 						sub := MustSucceed(fs.Sub("closed-fs"))
 						key := cesium.ChannelKey(1)
 						subDB := openDBOnFS(sub)
-						Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.BytesT})).To(Succeed())
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Lebron",
+							IsIndex:  true,
+							DataType: telem.TimeStampT,
+						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 
 						_, err := subDB.RetrieveChannel(ctx, key)
-						Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
 						_, err = subDB.RetrieveChannels(ctx, key)
-						Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -118,9 +126,9 @@ var _ = Describe("Channel", Ordered, func() {
 				BeforeEach(func() {
 					k1, k2, k3 = GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, []cesium.Channel{
-						{Key: k1, DataType: telem.TimeStampT, IsIndex: true},
-						{Key: k2, DataType: telem.Uint32T, Index: k1},
-						{Key: k3, DataType: telem.Int8T, Rate: 1 * telem.KHz},
+						{Name: "Christian", Key: k1, DataType: telem.TimeStampT, IsIndex: true},
+						{Name: "Ben", Key: k2, DataType: telem.Uint32T, Index: k1},
+						{Name: "Bohmer", Key: k3, DataType: telem.Int8T, Index: k1},
 					}...)).To(Succeed())
 				})
 				It("Should retrieve multiple channels", func() {
@@ -158,15 +166,15 @@ var _ = Describe("Channel", Ordered, func() {
 					jsonDecoder   = &binary.JSONCodec{}
 
 					channels = []cesium.Channel{
-						{Key: unaryKey, DataType: telem.Int64T, Rate: 1 * telem.Hz},
-						{Key: virtualKey, Virtual: true, DataType: telem.Int64T},
-						{Key: indexKey, DataType: telem.TimeStampT, IsIndex: true},
-						{Key: dataKey, DataType: telem.Int64T, Index: indexKey},
-						{Key: data2Key, DataType: telem.Int64T, Index: indexKey},
-						{Key: indexErrorKey, DataType: telem.TimeStampT, IsIndex: true},
-						{Key: dataKey1, DataType: telem.Int64T, Index: indexErrorKey},
-						{Key: errorKey1, DataType: telem.Int64T, Rate: 1 * telem.Hz},
-						{Key: errorKey2, Virtual: true, DataType: telem.Int64T},
+						{Name: "John", Key: unaryKey, DataType: telem.TimeStampT, IsIndex: true},
+						{Name: "Woodcock", Key: virtualKey, Virtual: true, DataType: telem.Int64T},
+						{Name: "Alex", Key: indexKey, DataType: telem.TimeStampT, IsIndex: true},
+						{Name: "Van", Key: dataKey, DataType: telem.Int64T, Index: indexKey},
+						{Name: "Humboldt", Key: data2Key, DataType: telem.Int64T, Index: indexKey},
+						{Name: "Napoleon", Key: indexErrorKey, DataType: telem.TimeStampT, IsIndex: true},
+						{Name: "Bonaparte", Key: dataKey1, DataType: telem.Int64T, Index: indexErrorKey},
+						{Name: "Michael", Key: errorKey1, DataType: telem.TimeStampT, IsIndex: true},
+						{Name: "Keaton", Key: errorKey2, Virtual: true, DataType: telem.Int64T},
 					}
 				)
 				BeforeAll(func() {
@@ -174,8 +182,10 @@ var _ = Describe("Channel", Ordered, func() {
 				})
 				It("Should rekey a unary channel into another", func() {
 					By("Writing some data into the channel")
-					Expect(db.WriteArray(ctx, unaryKey, 0, telem.NewSeriesV[int64](2, 3, 5, 7, 11))).To(Succeed())
-					Expect(db.WriteArray(ctx, unaryKey, 5*telem.SecondTS, telem.NewSeriesV[int64](13, 17, 19, 23, 29))).To(Succeed())
+					series1 := telem.NewSecondsTSV(0, 1, 2, 3, 4)
+					series2 := telem.NewSecondsTSV(5, 6, 7, 8, 9)
+					Expect(db.WriteArray(ctx, unaryKey, 0, series1)).To(Succeed())
+					Expect(db.WriteArray(ctx, unaryKey, 5*telem.SecondTS, series2)).To(Succeed())
 
 					By("Re-keying the channel")
 					Expect(db.RekeyChannel(unaryKey, unaryKeyNew)).To(Succeed())
@@ -190,11 +200,12 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(ch.Key).To(Equal(unaryKeyNew))
 
 					By("Asserting that reads and writes on the channel still work")
-					Expect(db.WriteArray(ctx, unaryKeyNew, 10*telem.SecondTS, telem.NewSeriesV[int64](31, 37, 41, 43, 47))).To(Succeed())
+					series3 := telem.NewSecondsTSV(10, 11, 12, 13, 14)
+					Expect(db.WriteArray(ctx, unaryKeyNew, 10*telem.SecondTS, series3)).To(Succeed())
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, unaryKeyNew))
-					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](2, 3, 5, 7, 11).Data))
-					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](13, 17, 19, 23, 29).Data))
-					Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](31, 37, 41, 43, 47).Data))
+					Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(series1))
+					Expect(f.SeriesAt(1)).To(telem.MatchWrittenSeries(series2))
+					Expect(f.SeriesAt(2)).To(telem.MatchWrittenSeries(series3))
 
 					By("Asserting that the meta file got changed too", func() {
 						f := MustSucceed(fs.Open(channelKeyToPath(unaryKeyNew)+"/meta.json", os.O_RDWR))
@@ -244,9 +255,13 @@ var _ = Describe("Channel", Ordered, func() {
 
 				It("Should rekey an index channel", func() {
 					By("Writing some data into the channel")
-					Expect(db.Write(ctx, 2*telem.SecondTS, cesium.NewFrame(
+					indexSeries1 := telem.NewSecondsTSV(2, 3, 5, 7, 11)
+					dataSeries1 := telem.NewSeriesV[int64](2, 3, 5, 7, 11)
+					data2Series1 := telem.NewSeriesV[int64](20, 30, 50, 70, 110)
+
+					Expect(db.Write(ctx, 2*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]core.ChannelKey{indexKey, dataKey, data2Key},
-						[]telem.Series{telem.NewSecondsTSV(2, 3, 5, 7, 11), telem.NewSeriesV[int64](2, 3, 5, 7, 11), telem.NewSeriesV[int64](20, 30, 50, 70, 110)},
+						[]telem.Series{indexSeries1, dataSeries1, data2Series1},
 					))).To(Succeed())
 
 					By("Re-keying the channel")
@@ -262,19 +277,24 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(ch.Key).To(Equal(indexKeyNew))
 
 					By("Asserting that reads and writes on the channel still work")
-					Expect(db.Write(ctx, 13*telem.SecondTS, cesium.NewFrame(
+					indexSeries2 := telem.NewSecondsTSV(13, 17, 19, 23, 29)
+					dataSeries2 := telem.NewSeriesV[int64](13, 17, 19, 23, 29)
+					data2Series2 := telem.NewSeriesV[int64](130, 170, 190, 230, 290)
+
+					Expect(db.Write(ctx, 13*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]core.ChannelKey{indexKeyNew, dataKey, data2Key},
-						[]telem.Series{telem.NewSecondsTSV(13, 17, 19, 23, 29), telem.NewSeriesV[int64](13, 17, 19, 23, 29), telem.NewSeriesV[int64](130, 170, 190, 230, 290)},
+						[]telem.Series{indexSeries2, dataSeries2, data2Series2},
 					))).To(Succeed())
+
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, indexKeyNew, dataKey, data2Key))
-					Expect(f.Series[0].Data).To(Equal(telem.NewSecondsTSV(2, 3, 5, 7, 11).Data))
-					Expect(f.Series[1].Data).To(Equal(telem.NewSecondsTSV(13, 17, 19, 23, 29).Data))
+					Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(indexSeries1))
+					Expect(f.SeriesAt(1)).To(telem.MatchWrittenSeries(indexSeries2))
 
-					Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](2, 3, 5, 7, 11).Data))
-					Expect(f.Series[3].Data).To(Equal(telem.NewSeriesV[int64](13, 17, 19, 23, 29).Data))
+					Expect(f.SeriesAt(2)).To(telem.MatchWrittenSeries(dataSeries1))
+					Expect(f.SeriesAt(3)).To(telem.MatchWrittenSeries(dataSeries2))
 
-					Expect(f.Series[4].Data).To(Equal(telem.NewSeriesV[int64](20, 30, 50, 70, 110).Data))
-					Expect(f.Series[5].Data).To(Equal(telem.NewSeriesV[int64](130, 170, 190, 230, 290).Data))
+					Expect(f.SeriesAt(4)).To(telem.MatchWrittenSeries(data2Series1))
+					Expect(f.SeriesAt(5)).To(telem.MatchWrittenSeries(data2Series2))
 
 					By("Asserting that the meta file got changed too", func() {
 						f := MustSucceed(fs.Open(channelKeyToPath(indexKeyNew)+"/meta.json", os.O_RDWR))
@@ -295,7 +315,14 @@ var _ = Describe("Channel", Ordered, func() {
 				Describe("Rekey of channel with a writer", func() {
 					Specify("Unary", func() {
 						By("Opening a writer")
-						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{errorKey1}, ControlSubject: control.Subject{Key: "rekey writer"}}))
+						w := MustSucceed(db.OpenWriter(
+							ctx,
+							cesium.WriterConfig{
+								Start:          0,
+								Channels:       []cesium.ChannelKey{errorKey1},
+								ControlSubject: control.Subject{Key: "rekey writer"},
+							}),
+						)
 
 						By("Trying to rekey")
 						Expect(db.RekeyChannel(errorKey1, errorKey1New)).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
@@ -316,9 +343,10 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(ch.Key).To(Equal(errorKey1New))
 
 						By("Asserting that reads and writes on the channel still work")
-						Expect(db.WriteArray(ctx, errorKey1New, 10*telem.SecondTS, telem.NewSeriesV[int64](31, 37, 41, 43, 47))).To(Succeed())
+						series1 := telem.NewSecondsTSV(10, 11, 12, 13, 14)
+						Expect(db.WriteArray(ctx, errorKey1New, 10*telem.SecondTS, series1)).To(Succeed())
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, errorKey1New))
-						Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](31, 37, 41, 43, 47).Data))
+						Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(series1))
 
 						By("Asserting that the meta file got changed too", func() {
 							f := MustSucceed(fs.Open(channelKeyToPath(errorKey1New)+"/meta.json", os.O_RDWR))
@@ -384,19 +412,21 @@ var _ = Describe("Channel", Ordered, func() {
 			Describe("Rename", func() {
 				It("Should rename a channel into a different name while channel is being used", func() {
 					key := GenerateChannelKey()
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "fermat", Rate: 2 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "fermat", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}, EnableAutoCommit: config.True()}))
-					Expect(w.Write(cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](10, 11, 12, 13)}))).To(BeTrue())
+					series1 := telem.NewSecondsTSV(10, 11, 12, 13, 14)
+					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{key}, []telem.Series{series1})))
 
 					Expect(db.RenameChannel(ctx, key, "laplace")).To(Succeed())
-					Expect(w.Write(cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](20, 21, 22)}))).To(BeTrue())
+					series2 := telem.NewSecondsTSV(20, 21, 22)
+					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{key}, []telem.Series{series2})))
 					Expect(w.Close()).To(Succeed())
 
 					ch := MustSucceed(db.RetrieveChannel(ctx, key))
 					Expect(ch.Name).To(Equal("laplace"))
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
-					Expect(f.Series).To(HaveLen(1))
-					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10, 11, 12, 13, 20, 21, 22).Data))
+					Expect(f.Count()).To(Equal(1))
+					Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(10, 11, 12, 13, 14, 20, 21, 22)))
 
 					var (
 						subFS = MustSucceed(fs.Sub(strconv.Itoa(int(key))))
@@ -418,9 +448,9 @@ var _ = Describe("Channel", Ordered, func() {
 					key2 := GenerateChannelKey()
 					key3 := GenerateChannelKey()
 					key4 := GenerateChannelKey()
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key1, Name: "fermat", Rate: 2 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key2, Name: "laplace", Rate: 2 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key3, Name: "newton", Rate: 2 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key1, Name: "fermat", IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key2, Name: "laplace", Index: key1, DataType: telem.Float32T})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key3, Name: "newton", IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key4, Name: "descartes", Virtual: true, DataType: telem.StringT})).To(Succeed())
 
 					Expect(db.RenameChannels(ctx,
@@ -439,7 +469,7 @@ var _ = Describe("Channel", Ordered, func() {
 				})
 				It("Should correctly rename if a channel is provided twice", func() {
 					key := GenerateChannelKey()
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "1", Rate: 2 * telem.KHz, DataType: telem.Uint32T})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "1", IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 					Expect(db.RenameChannels(ctx,
 						[]cesium.ChannelKey{key, key, key, key},
 						[]string{"2", "3", "4", "5"},

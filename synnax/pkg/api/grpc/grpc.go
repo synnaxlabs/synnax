@@ -10,6 +10,7 @@
 package grpc
 
 import (
+	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"go/types"
 
 	"github.com/synnaxlabs/freighter/fgrpc"
@@ -17,10 +18,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 )
 
-func New() (a api.Transport, transports []fgrpc.BindableTransport) {
+func New(framerCodec *framercodec.LazyCodec) (a api.Transport, transports []fgrpc.BindableTransport) {
 	transports = make([]fgrpc.BindableTransport, 0, 20)
 	transports = append(transports, newChannel(&a)...)
-	transports = append(transports, newFramer(&a))
+	transports = append(transports, newFramer(&a, framerCodec))
 	transports = append(transports, newConnectivity(&a))
 	transports = append(transports, newAuth(&a))
 	transports = append(transports, newRanger(&a))

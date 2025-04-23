@@ -310,7 +310,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	t.stateWriter = taskStateWriterStream
 	obs := confluence.NewObservableSubscriber[framer.WriterResponse]()
 	obs.OnChange(func(ctx context.Context, r framer.WriterResponse) {
-		cfg.L.Error("unexpected writer error", zap.Error(r.Error))
+		cfg.L.Error("unexpected writer error", zap.Int("seqNum", r.SeqNum))
 	})
 	outlets := confluence.NewStream[framer.WriterResponse](1)
 	obs.InFrom(outlets)
@@ -442,11 +442,11 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 					})
 				}
 				t.stateWriter.Inlet() <- framer.WriterRequest{
-					Command: writer.Data,
-					Frame: core.Frame{
-						Keys:   channel.Keys{t.taskStateChannelKey},
-						Series: []telem.Series{telem.NewStaticJSONV(state)},
-					},
+					Command: writer.Write,
+					Frame: core.UnaryFrame(
+						t.taskStateChannelKey,
+						telem.NewStaticJSONV(state),
+					),
 				}
 			}
 		}
@@ -517,23 +517,19 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 
 	fr := core.Frame{}
 	if len(rackStates) > 0 {
-		fr.Keys = append(fr.Keys, t.rackStateChannelKey)
-		fr.Series = append(fr.Series, telem.NewStaticJSONV(rackStates...))
+		fr = fr.Append(t.rackStateChannelKey, telem.NewStaticJSONV(rackStates...))
 	}
 	if len(taskStates) > 0 {
-		fr.Keys = append(fr.Keys, t.taskStateChannelKey)
-		fr.Series = append(fr.Series, telem.NewStaticJSONV(taskStates...))
+		fr = fr.Append(t.taskStateChannelKey, telem.NewStaticJSONV(taskStates...))
 	}
 	if len(deviceStates) > 0 {
-		fr.Keys = append(fr.Keys, t.deviceStateChannelKey)
-		fr.Series = append(fr.Series, telem.NewStaticJSONV(deviceStates...))
+		fr = fr.Append(t.deviceStateChannelKey, telem.NewStaticJSONV(deviceStates...))
 	}
-
-	if len(fr.Keys) == 0 {
+	if fr.Empty() {
 		return
 	}
 
-	t.stateWriter.Inlet() <- framer.WriterRequest{Command: writer.Data, Frame: fr}
+	t.stateWriter.Inlet() <- framer.WriterRequest{Command: writer.Write, Frame: fr}
 }
 
 // handleRackState handles heartbeat changes.

@@ -36,37 +36,37 @@ var (
 	_ config.Config[ClientFactoryConfig]     = ClientFactoryConfig{}
 )
 
-// messageType is used to differentiate between the different types of messages
+// MsgType is used to differentiate between the different types of messages
 // use to implement the websocket stream transport.
-type messageType string
+type MsgType string
 
 const (
-	// msgTypeData is used for normal data movement between the ClientStream and
+	// WSMsgTypeData is used for normal data movement between the ClientStream and
 	// ServerStream implementations.
-	msgTypeData messageType = "data"
-	// msgTypeClose is used to signal the end of the stream. We need to use this
+	WSMsgTypeData MsgType = "data"
+	// WSMsgTypeClose is used to signal the end of the stream. We need to use this
 	// instead of the regular websocket Close message because the 'reason' can't
 	// have more than 123 bytes.
-	msgTypeClose messageType = "close"
-	// msgTypeOpen is used to acknowledge the successful opening of the stream.
+	WSMsgTypeClose MsgType = "close"
+	// WSMsgTypeOpen is used to acknowledge the successful opening of the stream.
 	// We need to do this in order to correctly handle the case where middleware
 	// returns an error early. We can't just use the regular HTTP request/response
 	// cycle because JavaScript implementations of the WebSocket's don't allow for
 	// accessing the response body.
-	msgTypeOpen messageType = "open"
+	WSMsgTypeOpen MsgType = "open"
 )
 
-// message wraps a user payload with additional information needed for the websocket
+// WSMessage wraps a user payload with additional information needed for the websocket
 // transport to correctly implement the Stream interface. Namely, we need a custom
-// close message type to correctly encode and transfer information about a closure
+// close WSMessage type to correctly encode and transfer information about a closure
 // error across the socket.
-type message[P freighter.Payload] struct {
-	// Type represents the type of message being sent. One of msgTypeData
-	// or msgTypeClose.
-	Type messageType `json:"type" msgpack:"type"`
-	// Err is the error payload to send if the message type is msgTypeClose.
+type WSMessage[P freighter.Payload] struct {
+	// Type represents the type of WSMessage being sent. One of WSMsgTypeData
+	// or WSMsgTypeClose.
+	Type MsgType `json:"type" msgpack:"type"`
+	// Err is the error payload to send if the WSMessage type is WSMsgTypeClose.
 	Err errors.Payload `json:"error" msgpack:"error"`
-	// Payload is the user payload to send if the message type is msgTypeData.
+	// Payload is the user payload to send if the WSMessage type is WSMsgTypeData.
 	Payload P `json:"payload" msgpack:"payload"`
 }
 
@@ -101,20 +101,26 @@ type streamCore[I, O freighter.Payload] struct {
 	peerClosed      error
 }
 
-func (c *streamCore[I, O]) send(msg message[O]) error {
-	b, err := c.codec.Encode(nil, msg)
+func (c *streamCore[I, O]) send(msg WSMessage[O]) (err error) {
+	var w io.WriteCloser
+	w, err = c.conn.NextWriter(ws.BinaryMessage)
 	if err != nil {
-		return err
+		return
 	}
-	if c.writeDeadline > 0 {
-		if err = c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline)); err != nil {
-			return err
-		}
+	defer func() {
+		err = errors.Combine(err, w.Close())
+	}()
+	if err = c.codec.EncodeStream(nil, w, msg); err != nil {
+		return
 	}
-	return c.conn.WriteMessage(ws.BinaryMessage, b)
+	if c.writeDeadline <= 0 {
+		return
+	}
+	err = c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline))
+	return
 }
 
-func (c *streamCore[I, O]) receive() (msg message[I], err error) {
+func (c *streamCore[I, O]) receive() (msg WSMessage[I], err error) {
 	var r io.Reader
 	_, r, err = c.conn.NextReader()
 	if err != nil {
@@ -195,7 +201,7 @@ func (s *streamClient[RQ, RS]) Stream(
 			if err != nil {
 				return
 			}
-			if msg.Type != msgTypeOpen {
+			if msg.Type != WSMsgTypeOpen {
 				return oCtx, errors.Decode(ctx, msg.Err)
 			}
 			stream = &clientStream[RQ, RS]{streamCore: core}
@@ -221,7 +227,7 @@ func (s *clientStream[RQ, RS]) Send(req RQ) error {
 	if s.ctx.Err() != nil {
 		return s.ctx.Err()
 	}
-	if err := s.streamCore.send(message[RQ]{Type: msgTypeData, Payload: req}); err != nil {
+	if err := s.streamCore.send(WSMessage[RQ]{Type: WSMsgTypeData, Payload: req}); err != nil {
 		close(s.contextListener)
 		return freighter.EOF
 	}
@@ -245,8 +251,8 @@ func (s *clientStream[RQ, RS]) Receive() (res RS, err error) {
 	if err != nil {
 		return res, err
 	}
-	// A close message means the server handler exited.
-	if msg.Type == msgTypeClose {
+	// A close WSMessage means the server handler exited.
+	if msg.Type == WSMsgTypeClose {
 		close(s.contextListener)
 		s.peerClosed = errors.Decode(s.ctx, msg.Err)
 		return res, s.peerClosed
@@ -260,7 +266,7 @@ func (s *clientStream[RQ, RS]) CloseSend() error {
 		return nil
 	}
 	s.sendClosed = true
-	return s.streamCore.send(message[RQ]{Type: msgTypeClose})
+	return s.streamCore.send(WSMessage[RQ]{Type: WSMsgTypeClose})
 }
 
 func mdToHeaders(md freighter.Context) http.Header {
@@ -274,12 +280,12 @@ func mdToHeaders(md freighter.Context) http.Header {
 }
 
 type streamServer[RQ, RS freighter.Payload] struct {
+	serverOptions
 	freighter.Reporter
 	freighter.MiddlewareCollector
 	alamos.Instrumentation
 	serverCtx     context.Context
 	path          string
-	internal      bool
 	handler       func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
 	writeDeadline time.Duration
 	wg            *sync.WaitGroup
@@ -310,7 +316,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 	// valid context instead of the fiber context itself.
 	iCtx := parseRequestCtx(s.serverCtx, fiberCtx, address.Address(s.path))
 	headerContentType := iCtx.Params.GetDefault(fiber.HeaderContentType, "").(string)
-	codec, err := httputil.DetermineCodec(headerContentType)
+	codec, err := s.codecResolver(headerContentType)
 	if err != nil {
 		// If we can't determine the encoder/decoder, we can't continue, so we send
 		// a best effort string.
@@ -343,11 +349,11 @@ func (s *streamServer[RQ, RS]) handleSocket(
 				s.L.Error("error closing connection", zap.Error(err))
 			}
 		}()
-		oCtx, err := s.MiddlewareCollector.Exec(
+		oCtx, handlerErr := s.MiddlewareCollector.Exec(
 			ctx,
 			freighter.FinalizerFunc(func(iFreighterCtx freighter.Context) (oFreighterCtx freighter.Context, err error) {
 				// Send a confirmation message to the client that the stream is open.
-				if err = stream.send(message[RS]{Type: msgTypeOpen}); err != nil {
+				if err = stream.send(WSMessage[RS]{Type: WSMsgTypeOpen}); err != nil {
 					return
 				}
 				err = s.handler(iFreighterCtx, stream)
@@ -360,7 +366,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 				return
 			}),
 		)
-		errPld := errors.Encode(oCtx, err, s.internal)
+		errPld := errors.Encode(oCtx, handlerErr, s.internal)
 		if errPld.Type == errors.TypeNil {
 			// If everything went well, we use an EOF to signal smooth closure of
 			// the stream.
@@ -369,13 +375,16 @@ func (s *streamServer[RQ, RS]) handleSocket(
 		if stream.ctx.Err() != nil {
 			return stream.ctx.Err()
 		}
-		if err = stream.send(message[RS]{Type: msgTypeClose, Err: errPld}); err != nil {
+		if err := stream.send(WSMessage[RS]{Type: WSMsgTypeClose, Err: errPld}); err != nil {
 			return err
 		}
 		stream.peerClosed = freighter.StreamClosed
+		if handlerErr != nil {
+			time.Sleep(closeReadWriteDeadline)
+		}
 		// Tell the client we're closing the connection. Make sure to include
 		// a write deadline here in-case the client is stuck.
-		if err = stream.conn.WriteControl(
+		if err := stream.conn.WriteControl(
 			ws.CloseMessage,
 			ws.FormatCloseMessage(ws.CloseNormalClosure, ""),
 			time.Now().Add(closeReadWriteDeadline),
@@ -383,14 +392,19 @@ func (s *streamServer[RQ, RS]) handleSocket(
 			return err
 		}
 		// Again, make sure a stuck client doesn't cause problems with shutdown.
-		if err = stream.conn.SetReadDeadline(
+		if err := stream.conn.SetReadDeadline(
 			time.Now().Add(closeReadWriteDeadline),
 		); err != nil {
 			return err
 		}
-		if _, err = stream.receive(); err != nil &&
-			!ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
-			s.L.Error("expected normal closure, received error instead", zap.Error(err))
+		for {
+			_, err := stream.receive()
+			if err != nil {
+				if !ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
+					s.L.Error("expected normal closure, received error instead", zap.Error(err))
+				}
+				break
+			}
 		}
 		// Shut down the routine that listens for context cancellation, as we don't
 		// want to leak
@@ -426,8 +440,8 @@ func (s *serverStream[RQ, RS]) Receive() (req RQ, err error) {
 	if err != nil {
 		return req, err
 	}
-	// A close message means the client called CloseSend.
-	if msg.Type == msgTypeClose {
+	// A close WSMessage means the client called CloseSend.
+	if msg.Type == WSMsgTypeClose {
 		s.peerClosed = freighter.EOF
 		return req, s.peerClosed
 	}
@@ -439,7 +453,7 @@ func (s *serverStream[RQ, RS]) Send(res RS) error {
 	if s.ctx.Err() != nil {
 		return s.ctx.Err()
 	}
-	return s.streamCore.send(message[RS]{Payload: res, Type: msgTypeData})
+	return s.streamCore.send(WSMessage[RS]{Payload: res, Type: WSMsgTypeData})
 }
 
 func isRemoteContextCancellation(err error) bool {

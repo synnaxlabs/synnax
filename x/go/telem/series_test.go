@@ -10,10 +10,29 @@
 package telem_test
 
 import (
+	"bytes"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
 )
+
+func MarshalTest[T telem.Sample](data []T, dt telem.DataType) func() {
+	return func() {
+		s := telem.NewSeries[T](data)
+		ExpectWithOffset(1, s.DataType).To(Equal(dt))
+		ExpectWithOffset(1, s.Len()).To(Equal(int64(len(data))))
+		ExpectWithOffset(1, telem.Unmarshal[T](s)).To(Equal(data))
+	}
+}
+
+func ValueAtTest[T telem.Sample](value T, dt telem.DataType) func() {
+	return func() {
+		s := telem.NewSeriesV[T](value)
+		ExpectWithOffset(1, s.DataType).To(Equal(dt))
+		ExpectWithOffset(1, telem.ValueAt[T](s, 0)).To(Equal(value))
+	}
+}
 
 var _ = Describe("Series", func() {
 	Describe("Len", func() {
@@ -26,142 +45,66 @@ var _ = Describe("Series", func() {
 			Expect(s.Len()).To(Equal(int64(3)))
 		})
 	})
+
 	Describe("Factory", func() {
-		It("Should marshal and unmarshal a float64 series correctly", func() {
-			d := []float64{1.0, 2.0, 3.0}
-			s := telem.NewSeries[float64](d)
-			Expect(s.DataType).To(Equal(telem.Float64T))
-			Expect(s.Len()).To(Equal(int64(3)))
-			Expect(telem.Unmarshal[float64](s)).To(Equal(d))
-		})
-		It("Should marshal and unmarshal a float32 series correctly", func() {
-			d := []float32{1.0, 2.0, 3.0}
-			s := telem.NewSeries[float32](d)
-			Expect(s.DataType).To(Equal(telem.Float32T))
-			Expect(s.Len()).To(Equal(int64(3)))
-			Expect(telem.Unmarshal[float32](s)).To(Equal(d))
-		})
-		It("Should marshal and unmarshal a int64 series correctly", func() {
-			d := []int64{1, 2, 3}
-			s := telem.NewSeries[int64](d)
-			Expect(s.DataType).To(Equal(telem.Int64T))
-			Expect(s.Len()).To(Equal(int64(3)))
-			Expect(telem.Unmarshal[int64](s)).To(Equal(d))
-		})
-		It("Should marshal and unmarshal a int32 series correctly", func() {
-			d := []int32{1, 2, 3}
-			s := telem.NewSeries[int32](d)
-			Expect(s.DataType).To(Equal(telem.Int32T))
-			Expect(s.Len()).To(Equal(int64(3)))
-			Expect(telem.Unmarshal[int32](s)).To(Equal(d))
-		})
-		It("Should marshal and unmarshal a int16 series correctly", func() {
-			d := []int16{1, 2, 3}
-			s := telem.NewSeries[int16](d)
-			Expect(s.DataType).To(Equal(telem.Int16T))
-			Expect(s.Len()).To(Equal(int64(3)))
-			Expect(telem.Unmarshal[int16](s)).To(Equal(d))
-		})
-		It("Should marshal and unmarshal a int8 series correctly", func() {
-			d := []int8{1, 2, 3}
-			s := telem.NewSeries[int8](d)
-			Expect(s.DataType).To(Equal(telem.Int8T))
-			Expect(s.Len()).To(Equal(int64(3)))
-			Expect(telem.Unmarshal[int8](s)).To(Equal(d))
-		})
-		It("Should marshal and unmarshal a uint64 series correctly", func() {
-			d := []uint64{1, 2, 3}
-			s := telem.NewSeries[uint64](d)
-			Expect(s.DataType).To(Equal(telem.Uint64T))
-			Expect(s.Len()).To(Equal(int64(3)))
-			Expect(telem.Unmarshal[uint64](s)).To(Equal(d))
-		})
-		It("Should marshal and unmarshal a uint32 series correctly", func() {
-			d := []uint32{1, 2, 3}
-			s := telem.NewSeries[uint32](d)
-			Expect(s.DataType).To(Equal(telem.Uint32T))
-			Expect(s.Len()).To(Equal(int64(3)))
-			Expect(telem.Unmarshal[uint32](s)).To(Equal(d))
-		})
-		It("Should marshal and unmarshal a uint16 series correctly", func() {
-			d := []uint16{1, 2, 3}
-			s := telem.NewSeries[uint16](d)
-			Expect(s.DataType).To(Equal(telem.Uint16T))
-			Expect(s.Len()).To(Equal(int64(3)))
-			Expect(telem.Unmarshal[uint16](s)).To(Equal(d))
-		})
-		It("Should marshal and unmarshal a uint8 series correctly", func() {
-			d := []uint8{1, 2, 3}
-			s := telem.NewSeries[uint8](d)
-			Expect(s.DataType).To(Equal(telem.Uint8T))
-			Expect(s.Len()).To(Equal(int64(3)))
-			Expect(telem.Unmarshal[uint8](s)).To(Equal(d))
+		Describe("Marshal", func() {
+			Specify("float64", MarshalTest([]float64{1.0, 2.0, 3.0}, telem.Float64T))
+			Specify("float32", MarshalTest([]float32{1.0, 2.0, 3.0}, telem.Float32T))
+			Specify("int64", MarshalTest([]int64{1, 2, 3}, telem.Int64T))
+			Specify("int32", MarshalTest([]int32{1, 2, 3}, telem.Int32T))
+			Specify("int16", MarshalTest([]int16{1, 2, 3}, telem.Int16T))
+			Specify("int8", MarshalTest([]int8{1, 2, 3}, telem.Int8T))
+			Specify("uint64", MarshalTest([]uint64{1, 2, 3}, telem.Uint64T))
+			Specify("uint32", MarshalTest([]uint32{1, 2, 3}, telem.Uint32T))
+			Specify("uint16", MarshalTest([]uint16{1, 2, 3}, telem.Uint16T))
+			Specify("uint8", MarshalTest([]uint8{1, 2, 3}, telem.Uint8T))
 		})
 
+		Describe("StaticJSONV", func() {
+			It("Should correctly marshal a static JSON data structure", func() {
+				data := map[string]interface{}{
+					"cat": map[string]interface{}{
+						"one": "two",
+					},
+				}
+				s := telem.NewStaticJSONV(data)
+				Expect(s.Len()).To(Equal(int64(1)))
+			})
+		})
 	})
+
+	Describe("At", func() {
+		Context("Fixed Density", func() {
+			It("Should return the the value at the given index", func() {
+				s := telem.NewSeriesV[uint8](1, 2, 3)
+				Expect(s.At(0)).To(Equal([]byte{1}))
+				Expect(s.At(1)).To(Equal([]byte{2}))
+				Expect(s.At(2)).To(Equal([]byte{3}))
+			})
+		})
+
+		Context("Variable Density", func() {
+			It("Should return the value at the given index", func() {
+				s := telem.NewStringsV("a", "b", "c")
+				Expect(s.At(0)).To(Equal([]byte("a")))
+				Expect(s.At(1)).To(Equal([]byte("b")))
+				Expect(s.At(2)).To(Equal([]byte("c")))
+			})
+		})
+	})
+
 	Describe("ValueAt", func() {
 		Describe("Happy Path", func() {
-
-			It("Should return a uint8 value at the given index", func() {
-				s := telem.NewSeriesV[uint8](1, 2, 3)
-				Expect(telem.ValueAt[uint8](s, 0)).To(Equal(uint8(1)))
-				Expect(telem.ValueAt[uint8](s, 1)).To(Equal(uint8(2)))
-				Expect(telem.ValueAt[uint8](s, 2)).To(Equal(uint8(3)))
-			})
-			It("Should return a uint16 value at the given index", func() {
-				s := telem.NewSeriesV[uint16](1, 2, 3)
-				Expect(telem.ValueAt[uint16](s, 0)).To(Equal(uint16(1)))
-				Expect(telem.ValueAt[uint16](s, 1)).To(Equal(uint16(2)))
-				Expect(telem.ValueAt[uint16](s, 2)).To(Equal(uint16(3)))
-			})
-			It("Should return a uint32 value at the given index", func() {
-				s := telem.NewSeriesV[uint32](1, 2, 3)
-				Expect(telem.ValueAt[uint32](s, 0)).To(Equal(uint32(1)))
-				Expect(telem.ValueAt[uint32](s, 1)).To(Equal(uint32(2)))
-				Expect(telem.ValueAt[uint32](s, 2)).To(Equal(uint32(3)))
-			})
-			It("Should return a uint64 value at the given index", func() {
-				s := telem.NewSeriesV[uint64](1, 2, 3)
-				Expect(telem.ValueAt[uint64](s, 0)).To(Equal(uint64(1)))
-				Expect(telem.ValueAt[uint64](s, 1)).To(Equal(uint64(2)))
-				Expect(telem.ValueAt[uint64](s, 2)).To(Equal(uint64(3)))
-			})
-			It("Should return a int8 value at the given index", func() {
-				s := telem.NewSeriesV[int8](1, 2, 3)
-				Expect(telem.ValueAt[int8](s, 0)).To(Equal(int8(1)))
-				Expect(telem.ValueAt[int8](s, 1)).To(Equal(int8(2)))
-				Expect(telem.ValueAt[int8](s, 2)).To(Equal(int8(3)))
-			})
-			It("Should return a int16 value at the given index", func() {
-				s := telem.NewSeriesV[int16](1, 2, 3)
-				Expect(telem.ValueAt[int16](s, 0)).To(Equal(int16(1)))
-				Expect(telem.ValueAt[int16](s, 1)).To(Equal(int16(2)))
-				Expect(telem.ValueAt[int16](s, 2)).To(Equal(int16(3)))
-			})
-			It("Should return a int32 value at the given index", func() {
-				s := telem.NewSeriesV[int32](1, 2, 3)
-				Expect(telem.ValueAt[int32](s, 0)).To(Equal(int32(1)))
-				Expect(telem.ValueAt[int32](s, 1)).To(Equal(int32(2)))
-				Expect(telem.ValueAt[int32](s, 2)).To(Equal(int32(3)))
-			})
-			It("Should return a int64 value at the given index", func() {
-				s := telem.NewSeriesV[int64](1, 2, 3)
-				Expect(telem.ValueAt[int64](s, 0)).To(Equal(int64(1)))
-				Expect(telem.ValueAt[int64](s, 1)).To(Equal(int64(2)))
-				Expect(telem.ValueAt[int64](s, 2)).To(Equal(int64(3)))
-			})
-			It("Should return a float32 value at the given index", func() {
-				s := telem.NewSeriesV[float32](1.0, 2.0, 3.0)
-				Expect(telem.ValueAt[float32](s, 0)).To(Equal(float32(1.0)))
-				Expect(telem.ValueAt[float32](s, 1)).To(Equal(float32(2.0)))
-				Expect(telem.ValueAt[float32](s, 2)).To(Equal(float32(3.0)))
-			})
-			It("Should return a float64 value at the given index", func() {
-				s := telem.NewSeriesV[float64](1.0, 2.0, 3.0)
-				Expect(telem.ValueAt[float64](s, 0)).To(Equal(float64(1.0)))
-				Expect(telem.ValueAt[float64](s, 1)).To(Equal(float64(2.0)))
-				Expect(telem.ValueAt[float64](s, 2)).To(Equal(float64(3.0)))
-			})
+			Specify("uint8", ValueAtTest(uint8(1), telem.Uint8T))
+			Specify("uint16", ValueAtTest(uint16(1), telem.Uint16T))
+			Specify("uint32", ValueAtTest(uint32(1), telem.Uint32T))
+			Specify("uint64", ValueAtTest(uint64(1), telem.Uint64T))
+			Specify("int8", ValueAtTest(int8(1), telem.Int8T))
+			Specify("int16", ValueAtTest(int16(1), telem.Int16T))
+			Specify("int32", ValueAtTest(int32(1), telem.Int32T))
+			Specify("int64", ValueAtTest(int64(1), telem.Int64T))
+			Specify("float32", ValueAtTest(float32(1.0), telem.Float32T))
+			Specify("float64", ValueAtTest(float64(1.0), telem.Float64T))
 		})
 		Describe("Negative Index", func() {
 			It("Should return a value at the given negative index", func() {
@@ -179,6 +122,7 @@ var _ = Describe("Series", func() {
 			})
 		})
 	})
+
 	Describe("SetValueAt", func() {
 		It("Should set the value at the given index", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3)
@@ -196,6 +140,7 @@ var _ = Describe("Series", func() {
 			Expect(func() { telem.SetValueAt[int64](s, -4, 4) }).To(Panic())
 		})
 	})
+
 	Describe("String", func() {
 		Context("Empty Series", func() {
 			It("Should properly format an empty series", func() {
@@ -268,6 +213,272 @@ var _ = Describe("Series", func() {
 				Expect(s.String()).To(ContainSubstring("DataType: int16"))
 				Expect(s.String()).To(ContainSubstring("[1000 2000 3000]"))
 			})
+		})
+	})
+
+	Describe("DownSample", func() {
+		Context("Fixed Length Data Types", func() {
+			It("Should correctly downsample a series with a factor of 2", func() {
+				original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8)
+				downsampled := original.DownSample(2)
+
+				Expect(downsampled.Len()).To(Equal(int64(4)))
+				Expect(telem.Unmarshal[int64](downsampled)).To(Equal([]int64{1, 3, 5, 7}))
+				Expect(downsampled.DataType).To(Equal(original.DataType))
+				Expect(downsampled.TimeRange).To(Equal(original.TimeRange))
+				Expect(downsampled.Alignment).To(Equal(original.Alignment))
+			})
+
+			It("Should correctly downsample a series with a factor of 3", func() {
+				original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8, 9)
+				downsampled := original.DownSample(3)
+
+				Expect(downsampled.Len()).To(Equal(int64(3)))
+				Expect(telem.Unmarshal[int64](downsampled)).To(Equal([]int64{1, 4, 7}))
+			})
+
+			It("Should work with different numeric types", func() {
+				original := telem.NewSeriesV[float64](1.1, 2.2, 3.3, 4.4, 5.5, 6.6)
+				downsampled := original.DownSample(2)
+
+				Expect(downsampled.Len()).To(Equal(int64(3)))
+				Expect(telem.Unmarshal[float64](downsampled)).To(Equal([]float64{1.1, 3.3, 5.5}))
+			})
+
+			It("Should preserve alignment information", func() {
+				original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6)
+				original.Alignment = telem.NewAlignment(1, 5)
+				downsampled := original.DownSample(2)
+
+				Expect(downsampled.Alignment).To(Equal(original.Alignment))
+			})
+
+			It("Should preserve time range information", func() {
+				original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6)
+				original.TimeRange = telem.TimeRange{Start: 100, End: 600}
+				downsampled := original.DownSample(2)
+
+				Expect(downsampled.TimeRange).To(Equal(original.TimeRange))
+			})
+		})
+
+		Context("Variable Length Data Types", func() {
+			It("Should correctly down sample a string series", func() {
+				original := telem.NewStringsV("a", "b", "c", "d", "e", "f")
+				downSampled := original.DownSample(2)
+
+				Expect(downSampled.Len()).To(Equal(int64(3)))
+				Expect(telem.UnmarshalStrings(downSampled.Data)).To(Equal([]string{"a", "c", "e"}))
+			})
+
+			It("Should correctly down sample a JSON series", func() {
+				data := []map[string]interface{}{
+					{"id": 1},
+					{"id": 2},
+					{"id": 3},
+					{"id": 4},
+				}
+
+				s := telem.NewStaticJSONV(data...)
+				downSampled := s.DownSample(2)
+				Expect(downSampled.Len()).To(Equal(int64(2)))
+				split := bytes.Split(downSampled.Data, []byte("\n"))
+				Expect(len(split)).To(Equal(3)) // 2 items + empty string after last newline
+			})
+		})
+
+		Context("Edge Cases", func() {
+			It("Should return the original series if factor is <= 1", func() {
+				original := telem.NewSeriesV[int64](1, 2, 3)
+				downSampled := original.DownSample(0)
+				Expect(downSampled).To(Equal(original))
+				downSampled = original.DownSample(1)
+				Expect(downSampled).To(Equal(original))
+				downSampled = original.DownSample(-1)
+				Expect(downSampled).To(Equal(original))
+			})
+
+			It("Should return the maximum possible downSampling if series length is <= factor", func() {
+				original := telem.NewSeriesV[int64](1, 2, 3)
+				downSampled := original.DownSample(3)
+				Expect(downSampled.Len()).To(Equal(int64(1)))
+				Expect(telem.Unmarshal[int64](downSampled)).To(Equal([]int64{1}))
+				downSampled = original.DownSample(10)
+				Expect(downSampled.Len()).To(Equal(int64(1)))
+				Expect(telem.Unmarshal[int64](downSampled)).To(Equal([]int64{1}))
+			})
+
+			It("Should handle empty series correctly", func() {
+				original := telem.Series{DataType: telem.Int64T}
+				downSampled := original.DownSample(2)
+				Expect(downSampled).To(Equal(original))
+				Expect(downSampled.Len()).To(Equal(int64(0)))
+			})
+		})
+	})
+
+	Describe("MultiSeries", func() {
+		Describe("NewMultiSeries", func() {
+			It("Should construct a multi-series from a slice of series", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s2 := telem.NewSecondsTSV(4, 5, 6)
+				ms := telem.NewMultiSeriesV(s1, s2)
+				Expect(ms.Len()).To(Equal(int64(6)))
+			})
+			It("Should sort the series by alignment on construction", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1.Alignment = telem.NewAlignment(0, 0)
+				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2.Alignment = telem.NewAlignment(0, 3)
+				ms := telem.NewMultiSeriesV(s2, s1)
+				Expect(ms.Series[0].Alignment).To(Equal(s1.Alignment))
+				Expect(ms.Series[1].Alignment).To(Equal(s2.Alignment))
+			})
+			It("Should panic when trying to construct the series out of different data types", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s2 := telem.NewStringsV("a", "b", "c")
+				Expect(func() { telem.NewMultiSeriesV(s1, s2) }).To(Panic())
+			})
+		})
+
+		Describe("AlignmentBounds", func() {
+			It("Should return the alignment bounds of the multi-series", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1.Alignment = telem.NewAlignment(0, 0)
+				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2.Alignment = telem.NewAlignment(0, 3)
+				ms := telem.NewMultiSeriesV(s1, s2)
+				Expect(ms.AlignmentBounds()).To(Equal(telem.AlignmentBounds{
+					Lower: 0,
+					Upper: 6,
+				}))
+			})
+		})
+
+		Describe("TimeRange", func() {
+			It("Should return the time range of the multi-series", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1.TimeRange = telem.TimeRange{Start: 0, End: 3}
+				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2.TimeRange = telem.TimeRange{Start: 3, End: 6}
+				ms := telem.NewMultiSeriesV(s1, s2)
+				Expect(ms.TimeRange()).To(Equal(telem.TimeRange{
+					Start: s1.TimeRange.Start,
+					End:   s2.TimeRange.End,
+				}))
+			})
+		})
+
+		Describe("Append", func() {
+			It("Should append a series to the multi-series", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s2 := telem.NewSecondsTSV(4, 5, 6)
+				ms := telem.NewMultiSeriesV(s1)
+				ms = ms.Append(s2)
+				Expect(ms.Len()).To(Equal(int64(6)))
+				Expect(ms.Series[0].Alignment).To(Equal(s1.Alignment))
+				Expect(ms.Series[1].Alignment).To(Equal(s2.Alignment))
+			})
+		})
+
+		Describe("FilterLessThan", func() {
+			It("Should remove series with alignment bounds that are less than the target threshold", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1.Alignment = telem.NewAlignment(0, 0)
+				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2.Alignment = telem.NewAlignment(0, 3)
+				ms := telem.NewMultiSeriesV(s1, s2)
+				ms = ms.FilterLessThan(telem.NewAlignment(0, 3))
+				Expect(ms.Len()).To(Equal(int64(3)))
+				Expect(ms.Series[0].Alignment).To(Equal(s2.Alignment))
+			})
+		})
+
+		Describe("Len", func() {
+			It("Should return the accumulated length of all series", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s2 := telem.NewSecondsTSV(4, 5, 6)
+				ms := telem.NewMultiSeriesV(s1, s2)
+				Expect(ms.Len()).To(Equal(int64(6)))
+			})
+		})
+
+		Describe("DataType", func() {
+			It("Should return the data type of the multi-series", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s2 := telem.NewSecondsTSV(4, 5, 6)
+				ms := telem.NewMultiSeriesV(s1, s2)
+				Expect(ms.DataType()).To(Equal(telem.TimeStampT))
+			})
+		})
+
+		Describe("Data", func() {
+			It("Should return the aggregate data of the multi-series as a single byte array", func() {
+				s1 := telem.NewSeriesV[uint8](1, 2, 3)
+				s2 := telem.NewSeriesV[uint8](4, 5, 6)
+				ms := telem.NewMultiSeriesV(s1, s2)
+				Expect(ms.Data()).To(Equal([]byte{1, 2, 3, 4, 5, 6}))
+			})
+
+			It("Should return an empty byte array if there are no series in the frame", func() {
+				ts := telem.NewMultiSeriesV()
+				Expect(ts.Data()).To(HaveLen(0))
+			})
+		})
+
+		Describe("MultiSeriesAtAlignment", func() {
+			It("Should return the data at the specified alignment", func() {
+				s1 := telem.NewSeriesV[uint8](1, 2, 3)
+				s1.Alignment = telem.NewAlignment(1, 0)
+				s2 := telem.NewSeriesV[uint8](4, 5, 6)
+				s2.Alignment = telem.NewAlignment(1, 3)
+				ms := telem.NewMultiSeriesV(s1, s2)
+				Expect(telem.MultiSeriesAtAlignment[uint8](ms, telem.NewAlignment(1, 3))).To(Equal(uint8(4)))
+			})
+		})
+	})
+
+	Describe("Samples", func() {
+		It("iterates fixed length correctly", func() {
+			s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
+			values := make([]int64, 0, 5)
+			s.Samples()(func(sample []byte) bool {
+				values = append(values, telem.UnmarshalF[int64](s.DataType)(sample))
+				return true
+			})
+			Expect(values).To(Equal([]int64{1, 2, 3, 4, 5}))
+		})
+
+		It("iterates variable length correctly", func() {
+			s := telem.NewStringsV("foo", "bar", "baz")
+			values := make([]string, 0, 3)
+			s.Samples()(func(sample []byte) bool {
+				values = append(values, string(sample))
+				return true
+			})
+			Expect(values).To(Equal([]string{"foo", "bar", "baz"}))
+		})
+
+		It("allows early termination", func() {
+			s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
+			values := make([]int64, 0, 3)
+			count := 0
+			s.Samples()(func(sample []byte) bool {
+				values = append(values, telem.UnmarshalF[int64](s.DataType)(sample))
+				count++
+				return count < 3
+			})
+			Expect(values).To(Equal([]int64{1, 2, 3}))
+		})
+
+		It("handles empty series", func() {
+			s := telem.Series{DataType: telem.Int64T}
+			count := 0
+			s.Samples()(func(sample []byte) bool {
+				count++
+				return true
+			})
+			Expect(count).To(Equal(0))
 		})
 	})
 })

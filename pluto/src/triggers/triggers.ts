@@ -56,9 +56,14 @@ export const ALPHANUMERIC_KEYS = [
   "X",
   "Y",
   "Z",
-];
+] as const;
 
 export const ALPHANUMERIC_KEYS_SET = new Set(ALPHANUMERIC_KEYS);
+
+export type AlphanumericKey = (typeof ALPHANUMERIC_KEYS)[number];
+
+export const isAlphanumericKey = (key: Key): key is AlphanumericKey =>
+  ALPHANUMERIC_KEYS_SET.has(key as AlphanumericKey);
 
 /** The set of all possible keyboard and mouse inputs that can be used in a trigger */
 export const KEYS = [
@@ -142,8 +147,11 @@ export const KEYS = [
 ] as const;
 
 export const keyZ = z.enum(KEYS);
-/** An enum of all the possible keyboard and mouse inputs that can be used in a trigger */
-export type Key = z.infer<typeof keyZ>;
+/**
+ * A union of literal string types representing all possible keyboard and mouse inputs
+ * that can be used in a trigger. This includes all values from {@link KEYS} array.
+ */
+export type Key = (typeof KEYS)[number];
 
 export const triggerZ = z.array(keyZ);
 /**
@@ -151,7 +159,7 @@ export const triggerZ = z.array(keyZ);
  * a trigger. Repeated keys that represent double presses are allowed, but must be
  * placed next to each other.
  */
-export type Trigger = z.infer<typeof triggerZ>;
+export type Trigger = Key[];
 
 /**
  * The stage of a trigger. The 'start' event fires when the trigger is first activated.
@@ -203,11 +211,12 @@ const INCLUDES_KEYS: Key[] = ["Control", "Alt", "Shift"];
 export const keyboardKey = (
   e: KeyboardEvent | React.KeyboardEvent<HTMLElement>,
 ): Key => {
-  if (["Digit", "Key"].some((k) => e.code.startsWith(k))) return e.code.slice(-1);
+  if (["Digit", "Key"].some((k) => e.code.startsWith(k)))
+    return e.code.slice(-1) as Key;
   if (e.code.includes("Meta")) return "Control";
   const includeKey = INCLUDES_KEYS.find((k) => e.code.includes(k));
   if (includeKey != null) return includeKey;
-  return e.code;
+  return e.code as Key;
 };
 
 const MOUSE_BUTTONS: Record<number, MouseKey> = {

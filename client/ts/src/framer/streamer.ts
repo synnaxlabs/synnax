@@ -7,24 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF, errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
+import { EOF, errorZ, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import { observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { ReadAdapter } from "@/framer/adapter";
+import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
-const reqZ = z.object({ keys: z.number().array(), downsampleFactor: z.number() });
+const reqZ = z.object({ keys: z.number().array(), downSampleFactor: z.number() });
 
-const resZ = z.object({ frame: frameZ, error: errorZ.optional().nullable() });
+export type StreamerRequest = z.infer<typeof reqZ>;
+
+const resZ = z.object({
+  frame: frameZ,
+  error: errorZ.optional().nullable(),
+});
+
+export type StreamerResponse = z.infer<typeof resZ>;
 
 const ENDPOINT = "/frame/stream";
 
 export interface StreamerConfig {
   channels: channel.Params;
-  downsampleFactor?: number;
+  downSampleFactor?: number;
+  useExperimentalCodec?: boolean;
 }
 
 export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
@@ -44,13 +53,15 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
 
   static async _open(
     retriever: channel.Retriever,
-    client: StreamClient,
-    { channels, downsampleFactor }: StreamerConfig,
+    client: WebSocketClient,
+    { channels, downSampleFactor, useExperimentalCodec = true }: StreamerConfig,
   ): Promise<Streamer> {
     const adapter = await ReadAdapter.open(retriever, channels);
+    if (useExperimentalCodec)
+      client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream(ENDPOINT, reqZ, resZ);
     const streamer = new Streamer(stream, adapter);
-    stream.send({ keys: adapter.keys, downsampleFactor: downsampleFactor ?? 1 });
+    stream.send({ keys: adapter.keys, downSampleFactor: downSampleFactor ?? 1 });
     const [, err] = await stream.receive();
     if (err != null) throw err;
     return streamer;
@@ -74,7 +85,7 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     await this.adapter.update(channels);
     this.stream.send({
       keys: this.adapter.keys,
-      downsampleFactor: this.downsampleFactor,
+      downSampleFactor: this.downsampleFactor,
     });
   }
 

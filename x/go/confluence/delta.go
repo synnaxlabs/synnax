@@ -12,11 +12,13 @@ package confluence
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/timeout"
-	"time"
 )
 
 // Delta is an abstract Segment that reads values from an input Stream
@@ -62,6 +64,7 @@ func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(ctx context.Contex
 }
 
 type DynamicDeltaMultiplier[V Value] struct {
+	alamos.Instrumentation
 	UnarySink[V]
 	Source         AbstractMultiSource[V]
 	connections    chan []Inlet[V]
@@ -69,12 +72,17 @@ type DynamicDeltaMultiplier[V Value] struct {
 	timeout        time.Duration
 }
 
-func NewDynamicDeltaMultiplier[V Value](timeout time.Duration, connectionBuffers ...int) *DynamicDeltaMultiplier[V] {
+func NewDynamicDeltaMultiplier[V Value](
+	timeout time.Duration,
+	instrumentation alamos.Instrumentation,
+	connectionBuffers ...int,
+) *DynamicDeltaMultiplier[V] {
 	buf := parseBuffer(connectionBuffers)
 	return &DynamicDeltaMultiplier[V]{
-		connections:    make(chan []Inlet[V], buf),
-		disconnections: make(chan []Inlet[V], buf),
-		timeout:        timeout,
+		Instrumentation: instrumentation,
+		connections:     make(chan []Inlet[V], buf),
+		disconnections:  make(chan []Inlet[V], buf),
+		timeout:         timeout,
 	}
 }
 
@@ -129,7 +137,7 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 					if !errors.Is(err, timeout.Timeout) {
 						return err
 					}
-					fmt.Println("delta - slow consumer")
+					d.Instrumentation.L.Warn(fmt.Sprintf("delta: %s", err))
 				}
 			}
 		}

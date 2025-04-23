@@ -15,7 +15,7 @@ alamos = { path = "../../alamos/py", develop = true }
 msgpack = "^1.1.0"
 pydantic = "^2.10.6"
 urllib3 = "^2.3.0"
-websockets = "^13.1"
+websockets = "^15.0.1"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -20,26 +20,34 @@ from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.exceptions import ValidationError
 from synnax.framer.frame import CrudeFrame, Frame
 from synnax.telem.series import CrudeSeries, Series
+from synnax.framer.codec import Codec
 
 
 class ReadFrameAdapter:
     __adapter: dict[ChannelKey, ChannelName] | None
     retriever: ChannelRetriever
     keys: list[ChannelKey]
+    codec: Codec
 
     def __init__(self, retriever: ChannelRetriever):
         self.retriever = retriever
         self.__adapter = None
         self.keys = list()
+        self.codec = Codec(keys=[], data_types=[])
 
     def update(self, channels: ChannelParams):
         normal = normalize_channel_params(channels)
+        fetched = self.retriever.retrieve(normal.channels)
+        self.codec.update(
+            [ch.key for ch in fetched],
+            [ch.data_type for ch in fetched],
+        )
+
         if normal.variant == "keys":
             self.__adapter = None
             self.keys = normal.channels
             return
 
-        fetched = self.retriever.retrieve(normal.channels)
         self.__adapter = dict[int, str]()
         for name in normal.channels:
             ch = next((c for c in fetched if c.name == name), None)
@@ -62,17 +70,23 @@ class WriteFrameAdapter:
     retriever: ChannelRetriever
     __keys: list[ChannelKey] | None
     __err_on_extra_chans: bool
+    codec: Codec
 
     def __init__(self, retriever: ChannelRetriever, err_on_extra_chans: bool = True):
         self.retriever = retriever
         self.__adapter = None
         self.__keys = None
         self.__err_on_extra_chans = err_on_extra_chans
+        self.codec = Codec(keys=[], data_types=[])
 
     def update(self, channels: ChannelParams):
         results = retrieve_required(self.retriever, channels)
         self.__adapter = {ch.name: ch.key for ch in results}
         self.__keys = [ch.key for ch in results]
+        self.codec.update(
+            self.__keys,
+            [ch.data_type for ch in results],
+        )
 
     def adapt_dict_keys(
         self, data: dict[ChannelPayload | ChannelKey | ChannelName, any]

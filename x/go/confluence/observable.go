@@ -11,6 +11,7 @@ package confluence
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 )

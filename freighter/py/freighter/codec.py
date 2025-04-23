@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Protocol
+import json
 
 import msgpack
 from alamos import Instrumentation, trace
@@ -66,7 +67,7 @@ class JSONCodec(Codec):
         return payload.model_dump_json().encode()
 
     def decode(self, data: bytes, pld_t: type[P]) -> P:
-        return pld_t.model_validate_json(data.decode(JSONCodec.STRING_ENCODING))
+        return pld_t.model_validate(json.loads(data.decode(JSONCodec.STRING_ENCODING)))
 
 
 CODECS: list[Codec] = [

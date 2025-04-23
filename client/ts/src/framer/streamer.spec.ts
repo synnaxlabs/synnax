@@ -7,25 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeStamp } from "@synnaxlabs/x/telem";
+import { DataType, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it, test } from "vitest";
 
-import { type channel } from "@/channel";
 import { newClient } from "@/setupspecs";
+import { newVirtualChannel } from "@/testutil/indexedPair";
 
 const client = newClient();
 
-const newChannel = async (): Promise<channel.Channel> =>
-  await client.channels.create({
-    name: "test",
-    leaseholder: 1,
-    rate: Rate.hz(25),
-    dataType: DataType.FLOAT64,
-  });
-
 describe("Streamer", () => {
   test("happy path", async () => {
-    const ch = await newChannel();
+    const ch = await newVirtualChannel(client);
     const streamer = await client.openStreamer(ch.key);
     const writer = await client.openWriter({
       start: TimeStamp.now(),
@@ -40,7 +32,7 @@ describe("Streamer", () => {
     expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
   });
   test("open with config", async () => {
-    const ch = await newChannel();
+    const ch = await newVirtualChannel(client);
     await expect(client.openStreamer({ channels: ch.key })).resolves.not.toThrow();
   });
   it("should not throw an error when the streamer is opened with zero channels", async () => {
@@ -50,10 +42,10 @@ describe("Streamer", () => {
     await expect(client.openStreamer([5678])).rejects.toThrow("not found");
   });
   test("downsample factor of 1", async () => {
-    const ch = await newChannel();
+    const ch = await newVirtualChannel(client);
     const streamer = await client.openStreamer({
       channels: ch.key,
-      downsampleFactor: 1,
+      downSampleFactor: 1,
     });
     const writer = await client.openWriter({
       start: TimeStamp.now(),
@@ -68,10 +60,10 @@ describe("Streamer", () => {
     expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3, 4, 5]);
   });
   test("downsample factor of 2", async () => {
-    const ch = await newChannel();
+    const ch = await newVirtualChannel(client);
     const streamer = await client.openStreamer({
       channels: ch.key,
-      downsampleFactor: 2,
+      downSampleFactor: 2,
     });
     const writer = await client.openWriter({
       start: TimeStamp.now(),
@@ -86,10 +78,10 @@ describe("Streamer", () => {
     expect(Array.from(d.get(ch.key))).toEqual([1, 3, 5, 7, 9]);
   });
   test("downsample factor of 10", async () => {
-    const ch = await newChannel();
+    const ch = await newVirtualChannel(client);
     const streamer = await client.openStreamer({
       channels: ch.key,
-      downsampleFactor: 10,
+      downSampleFactor: 10,
     });
     const writer = await client.openWriter({
       start: TimeStamp.now(),

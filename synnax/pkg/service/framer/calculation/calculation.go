@@ -11,11 +11,13 @@ package calculation
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/control"
 	"io"
 	"sync"
+
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/control"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -121,12 +123,9 @@ func (s *Service) SetState(ctx context.Context, key channel.Key, variant string,
 		DataType: telem.JSONT,
 		Data:     append(b, []byte("\n")...),
 	}
-	fr := framer.Frame{
-		Keys:   []channel.Key{s.stateKey},
-		Series: []telem.Series{ser},
-	}
-	s.w.Write(fr)
-	return nil
+	fr := core.UnaryFrame(s.stateKey, ser)
+	_, err = s.w.Write(fr)
+	return err
 }
 
 // Open opens the service with the provided configuration. The service must be closed
@@ -141,7 +140,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Service, error) {
 		Name:        "sy_calculation_state",
 		DataType:    telem.JSONT,
 		Virtual:     true,
-		Leaseholder: core.Free,
+		Leaseholder: dcore.Free,
 		Internal:    true,
 	}
 
@@ -334,7 +333,6 @@ func (s *Service) startCalculation(
 	o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
 		s.cfg.L.DPanic(
 			"write of calculated channel value failed",
-			zap.Error(i.Error),
 			zap.Stringer("channel", ch),
 		)
 	})
@@ -365,16 +363,18 @@ type streamCalculator struct {
 }
 
 func (s *streamCalculator) transform(ctx context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
-	frame, err := s.internal.Calculate(i.Frame)
-	if err != nil {
-		s.cfg.L.Error("calculation error",
-			zap.Error(err),
-			zap.String("channel_name", s.internal.ch.Name),
-			zap.String("expression", s.internal.ch.Expression))
-		s.setState(ctx, s.internal.ch.Key(), "error", err.Error())
-		return framer.WriterRequest{}, false, nil
+	frame, err := s.internal.Transform(i.Frame)
+	if err == nil {
+		return framer.WriterRequest{Command: writer.Write, Frame: frame}, true, nil
 	}
-	return framer.WriterRequest{Command: writer.Data, Frame: frame}, true, nil
+	s.cfg.L.Error("calculation error",
+		zap.Error(err),
+		zap.String("channel_name", s.internal.ch.Name),
+		zap.String("expression", s.internal.ch.Expression))
+	if err = s.setState(ctx, s.internal.ch.Key(), "error", err.Error()); err != nil {
+		s.cfg.L.Error("failed to set state", zap.Error(err))
+	}
+	return framer.WriterRequest{}, false, nil
 }
 
 type Calculator struct {
@@ -385,36 +385,38 @@ type Calculator struct {
 
 func (c Calculator) close() { c.calculation.Close() }
 
-func (c Calculator) Calculate(fr framer.Frame) (of framer.Frame, err error) {
-	if len(fr.Series) == 0 {
-		return
-	}
-	os := telem.AllocSeries(c.ch.DataType, fr.Series[0].Len())
+func (c Calculator) Calculate(fr framer.Frame) (telem.Series, error) {
+	os := telem.AllocSeries(c.ch.DataType, fr.SeriesAt(0).Len())
 	// Mark the alignment of the output series as the same as the input series. Right now, we assume that all the
 	// input channels share the same index.
-	os.Alignment = fr.Series[0].Alignment
-	of.Keys = []channel.Key{c.ch.Key()}
-	of.Series = []telem.Series{os}
+	os.Alignment = fr.SeriesAt(0).Alignment
 	for i := range os.Len() {
 		for _, k := range c.ch.Requires {
-			sArray := fr.Get(k)
-			if len(sArray) == 0 {
+			s := fr.Get(k)
+			if s.Len() == 0 {
 				continue
 			}
-			s := sArray[0]
 			idx := i
 			if idx >= s.Len() {
 				idx = s.Len() - 1
 			}
 			if ch, found := c.requires[k]; found {
-				c.calculation.Set(ch.Name, computron.LValueFromSeries(sArray[0], idx))
+				c.calculation.Set(ch.Name, computron.LValueFromSeries(s.Series[0], int(idx)))
 			}
 		}
 		res, err := c.calculation.Run()
 		if err != nil {
-			return of, err
+			return os, err
 		}
 		computron.SetLValueOnSeries(res, os, i)
 	}
-	return of, nil
+	return os, nil
+}
+
+func (c Calculator) Transform(fr framer.Frame) (framer.Frame, error) {
+	if fr.Empty() {
+		return framer.Frame{}, nil
+	}
+	os, err := c.Calculate(fr)
+	return core.UnaryFrame(c.ch.Key(), os), err
 }

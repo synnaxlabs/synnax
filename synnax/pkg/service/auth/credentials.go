@@ -18,8 +18,8 @@ import (
 // authenticate an entity (user, client, etc.). These credentials are NOT safe to store
 // on disk.
 type InsecureCredentials struct {
-	Username string       `json:"username" validate:"required"`
-	Password password.Raw `json:"password" validate:"required"`
+	Username string       `json:"username"  msgpack:"username"`
+	Password password.Raw `json:"password"  msgpack:"password"`
 }
 
 // Validate validates the InsecureCredentials.

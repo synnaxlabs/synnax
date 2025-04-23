@@ -126,7 +126,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needPeerRouting {
 		routeInletTo = peerSenderAddr
-		sender, receivers, err := s.openManyPeers(ctx, cfg.Bounds, cfg.ChunkSize, batch.Peers)
+		sender, receivers, err := s.openManyPeers(ctx, cfg.Bounds, cfg.ChunkSize, batch.Peers, !needGatewayRouting)
 		if err != nil {
 			return nil, err
 		}
@@ -141,7 +141,10 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needGatewayRouting {
 		routeInletTo = gatewayIterAddr
-		gatewayIter, err := s.newGateway(Config{Keys: batch.Gateway, Bounds: cfg.Bounds, ChunkSize: cfg.ChunkSize})
+		gatewayIter, err := s.newGateway(
+			Config{Keys: batch.Gateway, Bounds: cfg.Bounds, ChunkSize: cfg.ChunkSize},
+			!needPeerRouting,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +157,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		plumber.SetSegment[Request, Request](
 			pipe,
 			broadcasterAddr,
-			&confluence.DeltaMultiplier[Request]{},
+			newBroadcaster(),
 		)
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{broadcasterAddr},
@@ -167,7 +170,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueLeaseholders())),
+		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.Instrumentation),
 	)
 
 	plumber.MultiRouter[Response]{

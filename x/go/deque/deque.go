@@ -30,17 +30,17 @@ type Deque[T any] struct {
 // operates on items of the type specified by the type argument. For example,
 // to create a Deque that contains strings,
 //
-//	stringDeque := deque.New[string]()
+//	stringDeque := deque.Open[string]()
 //
 // To create a Deque with capacity to store 2048 ints without resizing, and
 // that will not resize below space for 32 items when removing items:
 //
-//	d := deque.New[int](2048, 32)
+//	d := deque.Open[int](2048, 32)
 //
 // To create a Deque that has not yet allocated memory, but after it does will
 // never resize to have space for less than 64 items:
 //
-//	d := deque.New[int](0, 64)
+//	d := deque.Open[int](0, 64)
 //
 // Any size values supplied here are rounded up to the nearest power of 2.
 func New[T any](size ...int) *Deque[T] {
@@ -96,7 +96,7 @@ func (q *Deque[T]) PushBack(elem T) {
 	q.growIfFull()
 
 	q.buf[q.tail] = elem
-	// Calculate new tail position.
+	// Transform new tail position.
 	q.tail = q.next(q.tail)
 	q.count++
 }
@@ -105,7 +105,7 @@ func (q *Deque[T]) PushBack(elem T) {
 func (q *Deque[T]) PushFront(elem T) {
 	q.growIfFull()
 
-	// Calculate new head position.
+	// Transform new head position.
 	q.head = q.prev(q.head)
 	q.buf[q.head] = elem
 	q.count++
@@ -121,7 +121,7 @@ func (q *Deque[T]) PopFront() T {
 	ret := q.buf[q.head]
 	var zero T
 	q.buf[q.head] = zero
-	// Calculate new head position.
+	// Transform new head position.
 	q.head = q.next(q.head)
 	q.count--
 
@@ -137,7 +137,7 @@ func (q *Deque[T]) PopBack() T {
 		panic("deque: PopBack() called on empty queue")
 	}
 
-	// Calculate new tail position
+	// Transform new tail position
 	q.tail = q.prev(q.tail)
 
 	// Remove value at tail.
@@ -201,7 +201,7 @@ func (q *Deque[T]) Set(i int, item T) {
 
 // Clear removes all elements from the queue, but retains the current capacity.
 // This is useful when repeatedly reusing the queue at high frequency to avoid
-// GC during reuse. The queue will not be resized smaller as long as items are
+// FilterLessThan during reuse. The queue will not be resized smaller as long as items are
 // only added. Only when items are removed is the queue subject to getting
 // resized smaller.
 func (q *Deque[T]) Clear() {
@@ -233,7 +233,7 @@ func (q *Deque[T]) Rotate(n int) {
 	modBits := len(q.buf) - 1
 	// If no empty space in buffer, only move head and tail indexes.
 	if q.head == q.tail {
-		// Calculate new head and tail using bitwise modulus.
+		// Transform new head and tail using bitwise modulus.
 		q.head = (q.head + n) & modBits
 		q.tail = q.head
 		return
@@ -244,7 +244,7 @@ func (q *Deque[T]) Rotate(n int) {
 	if n < 0 {
 		// Rotate back to front.
 		for ; n < 0; n++ {
-			// Calculate new head and tail using bitwise modulus.
+			// Transform new head and tail using bitwise modulus.
 			q.head = (q.head - 1) & modBits
 			q.tail = (q.tail - 1) & modBits
 			// Put tail value at head and remove value at tail.
@@ -259,7 +259,7 @@ func (q *Deque[T]) Rotate(n int) {
 		// Put head value at tail and remove value at head.
 		q.buf[q.tail] = q.buf[q.head]
 		q.buf[q.head] = zero
-		// Calculate new head and tail using bitwise modulus.
+		// Transform new head and tail using bitwise modulus.
 		q.head = (q.head + 1) & modBits
 		q.tail = (q.tail + 1) & modBits
 	}

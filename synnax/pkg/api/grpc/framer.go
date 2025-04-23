@@ -13,12 +13,15 @@ import (
 	"context"
 	"go/types"
 
+	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/control"
@@ -28,7 +31,9 @@ import (
 )
 
 type (
-	frameWriterRequestTranslator    struct{}
+	frameWriterRequestTranslator struct {
+		codec *framercodec.LazyCodec
+	}
 	frameWriterResponseTranslator   struct{}
 	frameIteratorRequestTranslator  struct{}
 	frameIteratorResponseTranslator struct{}
@@ -91,18 +96,19 @@ var (
 
 func translateFrameForward(f api.Frame) *gapi.Frame {
 	return &gapi.Frame{
-		Keys:   translateChannelKeysForward(f.Keys),
-		Series: telem.TranslateManySeriesForward(f.Series),
+		Keys:   translateChannelKeysForward(f.KeysSlice()),
+		Series: telem.TranslateManySeriesForward(f.SeriesSlice()),
 	}
 }
 
-func translateFrameBackward(f *gapi.Frame) (of api.Frame) {
+func translateFrameBackward(f *gapi.Frame) api.Frame {
 	if f == nil {
-		return
+		return api.Frame{}
 	}
-	of.Keys = translateChannelKeysBackward(f.Keys)
-	of.Series = telem.TranslateManySeriesBackward(f.Series)
-	return
+	return core.MultiFrame(
+		translateChannelKeysBackward(f.Keys),
+		telem.TranslateManySeriesBackward(f.Series),
+	)
 }
 
 func translateControlSubjectForward(cs control.Subject) *control.ControlSubject {
@@ -125,7 +131,7 @@ func (t frameWriterRequestTranslator) Forward(
 	ctx context.Context,
 	msg api.FrameWriterRequest,
 ) (*gapi.FrameWriterRequest, error) {
-	return &gapi.FrameWriterRequest{
+	r := &gapi.FrameWriterRequest{
 		Command: int32(msg.Command),
 		Config: &gapi.FrameWriterConfig{
 			Keys:                     translateChannelKeysForward(msg.Config.Keys),
@@ -138,7 +144,12 @@ func (t frameWriterRequestTranslator) Forward(
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		},
 		Frame: translateFrameForward(msg.Frame),
-	}, nil
+	}
+	var err error
+	if t.codec != nil {
+		r.Buffer, err = t.codec.Encode(msg.Frame)
+	}
+	return r, err
 }
 
 func (t frameWriterRequestTranslator) Backward(
@@ -150,8 +161,9 @@ func (t frameWriterRequestTranslator) Backward(
 	}
 	r.Command = writer.Command(msg.Command)
 	if msg.Config != nil {
+		keys := translateChannelKeysBackward(msg.Config.Keys)
 		r.Config = api.FrameWriterConfig{
-			Keys:                     translateChannelKeysBackward(msg.Config.Keys),
+			Keys:                     keys,
 			Start:                    telem.TimeStamp(msg.Config.Start),
 			Mode:                     writer.Mode(msg.Config.Mode),
 			Authorities:              msg.Config.Authorities,
@@ -160,8 +172,17 @@ func (t frameWriterRequestTranslator) Backward(
 			ControlSubject:           translateControlSubjectBackward(msg.Config.ControlSubject),
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		}
+		if err = t.codec.Update(ctx, keys); err != nil {
+			return
+		}
 	}
 	r.Frame = translateFrameBackward(msg.Frame)
+	if t.codec != nil && len(msg.Buffer) > 0 {
+		r.Frame, err = t.codec.Decode(msg.Buffer)
+		if err != nil {
+			return
+		}
+	}
 	return
 }
 
@@ -171,10 +192,8 @@ func (t frameWriterResponseTranslator) Forward(
 ) (*gapi.FrameWriterResponse, error) {
 	return &gapi.FrameWriterResponse{
 		Command: int32(msg.Command),
-		Ack:     msg.Ack,
 		Counter: int32(msg.SeqNum),
 		NodeKey: int32(msg.NodeKey),
-		Error:   fgrpc.EncodeError(ctx, msg.Error, false),
 		End:     int64(msg.End),
 	}, nil
 }
@@ -185,10 +204,8 @@ func (t frameWriterResponseTranslator) Backward(
 ) (api.FrameWriterResponse, error) {
 	return api.FrameWriterResponse{
 		Command: writer.Command(msg.Command),
-		Ack:     msg.Ack,
 		SeqNum:  int(msg.Counter),
-		NodeKey: core.NodeKey(msg.NodeKey),
-		Error:   fgrpc.DecodeError(ctx, msg.Error),
+		NodeKey: dcore.NodeKey(msg.NodeKey),
 		End:     telem.TimeStamp(msg.End),
 	}, nil
 }
@@ -243,7 +260,7 @@ func (t frameIteratorResponseTranslator) Backward(
 	return api.FrameIteratorResponse{
 		Variant: iterator.ResponseVariant(msg.Variant),
 		Command: iterator.Command(msg.Command),
-		NodeKey: core.NodeKey(msg.NodeKey),
+		NodeKey: dcore.NodeKey(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int(msg.SeqNum),
 		Frame:   translateFrameBackward(msg.Frame),
@@ -257,7 +274,7 @@ func (t frameStreamerRequestTranslator) Forward(
 ) (*gapi.FrameStreamerRequest, error) {
 	return &gapi.FrameStreamerRequest{
 		Keys:             translateChannelKeysForward(msg.Keys),
-		DownsampleFactor: int32(msg.DownsampleFactor),
+		DownsampleFactor: int32(msg.DownSampleFactor),
 	}, nil
 }
 
@@ -267,7 +284,7 @@ func (t frameStreamerRequestTranslator) Backward(
 ) (api.FrameStreamerRequest, error) {
 	return api.FrameStreamerRequest{
 		Keys:             translateChannelKeysBackward(msg.Keys),
-		DownsampleFactor: int(msg.DownsampleFactor),
+		DownSampleFactor: int(msg.DownsampleFactor),
 	}, nil
 }
 
@@ -349,11 +366,13 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 	gapi.RegisterFrameStreamerServiceServer(reg, f)
 }
 
-func newFramer(a *api.Transport) fgrpc.BindableTransport {
+func newFramer(a *api.Transport, framerCodec *framercodec.LazyCodec) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
-				RequestTranslator:  frameWriterRequestTranslator{},
+				RequestTranslator: frameWriterRequestTranslator{
+					codec: framerCodec,
+				},
 				ResponseTranslator: frameWriterResponseTranslator{},
 				ServiceDesc:        &gapi.FrameWriterService_ServiceDesc,
 			},

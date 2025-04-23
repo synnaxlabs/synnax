@@ -16,7 +16,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+func DataTypeInferTest[T any](expected telem.DataType) func() {
+	return func() {
+		dt := telem.InferDataType[T]()
+		ExpectWithOffset(1, dt).To(Equal(expected))
+	}
+}
 
 var _ = Describe("Telem", func() {
 
@@ -121,11 +129,55 @@ var _ = Describe("Telem", func() {
 	Describe("TimeRange", func() {
 
 		Describe("Stringer", func() {
-			It("Should format a time range properly", func() {
-				ts1 := 2*telem.DayTS + 20*telem.MinuteTS + 283*telem.MillisecondTS + 900*telem.MicrosecondTS
-				ts2 := 4*telem.DayTS + 20*telem.MinuteTS + 283*telem.MillisecondTS + 900*telem.MicrosecondTS
-				Expect(fmt.Sprintf("%v", ts1.Range(ts2))).To(Equal("1970-01-03T00:20:00.283Z - 1970-01-05T00:20:00.283Z"))
-			})
+			DescribeTable("Should format time ranges with appropriate precision",
+				func(start, end time.Time, expected string) {
+					tr := telem.TimeRange{
+						Start: telem.NewTimeStamp(start),
+						End:   telem.NewTimeStamp(end),
+					}
+					Expect(tr.String()).To(Equal(expected))
+				},
+				Entry("nanoseconds differ",
+					time.Date(2024, 3, 15, 10, 30, 45, 100, time.UTC),
+					time.Date(2024, 3, 15, 10, 30, 45, 500, time.UTC),
+					"2024-03-15T10:30:45.000000100Z - .000000500 (400ns)"),
+				Entry("microseconds differ",
+					time.Date(2024, 3, 15, 10, 30, 45, 100000, time.UTC),
+					time.Date(2024, 3, 15, 10, 30, 45, 500000, time.UTC),
+					"2024-03-15T10:30:45.000100Z - .000500 (400µs)"),
+				Entry("milliseconds differ",
+					time.Date(2024, 3, 15, 10, 30, 45, 0, time.UTC),
+					time.Date(2024, 3, 15, 10, 30, 45, 500e6, time.UTC),
+					"2024-03-15T10:30:45Z - .500 (500ms)"),
+				Entry("seconds differ",
+					time.Date(2024, 3, 15, 10, 30, 45, 0, time.UTC),
+					time.Date(2024, 3, 15, 10, 30, 55, 0, time.UTC),
+					"2024-03-15T10:30:45Z - :55 (10s)"),
+				Entry("minutes differ",
+					time.Date(2024, 3, 15, 10, 30, 0, 0, time.UTC),
+					time.Date(2024, 3, 15, 10, 45, 0, 0, time.UTC),
+					"2024-03-15T10:30:00Z - 45:00 (15m)"),
+				Entry("hours differ",
+					time.Date(2024, 3, 15, 10, 30, 0, 0, time.UTC),
+					time.Date(2024, 3, 15, 11, 45, 0, 0, time.UTC),
+					"2024-03-15T10:30:00Z - 11:45:00 (1h 15m)"),
+				Entry("days differ",
+					time.Date(2024, 3, 15, 23, 45, 0, 0, time.UTC),
+					time.Date(2024, 3, 16, 0, 15, 0, 0, time.UTC),
+					"2024-03-15T23:45:00Z - 03-16T00:15:00 (30m)"),
+				Entry("months differ",
+					time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+					time.Date(2024, 2, 15, 10, 30, 0, 0, time.UTC),
+					"2024-01-15T10:30:00Z - 02-15T10:30:00 (31d)"),
+				Entry("years differ",
+					time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+					time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
+					"2024-01-15T10:30:00Z - 2025-01-15T10:30:00 (366d)"),
+				Entry("identical timestamps",
+					time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+					time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+					"2024-01-15T10:30:00Z - 10:30:00 (0s)"),
+			)
 		})
 
 		Describe("SpanTo", func() {
@@ -282,32 +334,32 @@ var _ = Describe("Telem", func() {
 
 		})
 
-		Describe("Union", func() {
+		Describe("MaxUnion", func() {
 			Specify("Overlap, first before second", func() {
 				tr := (0 * telem.SecondTS).Range(5 * telem.SecondTS)
 				tr2 := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
-				union := tr.Union(tr2)
+				union := tr.MaxUnion(tr2)
 				Expect(union.Start).To(Equal(telem.TimeStamp(0)))
 				Expect(union.End).To(Equal(8 * telem.SecondTS))
 			})
 			Specify("Overlap, second before first", func() {
 				tr2 := (0 * telem.SecondTS).Range(5 * telem.SecondTS)
 				tr := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
-				union := tr.Union(tr2)
+				union := tr.MaxUnion(tr2)
 				Expect(union.Start).To(Equal(telem.TimeStamp(0)))
 				Expect(union.End).To(Equal(8 * telem.SecondTS))
 			})
 			Specify("1 Fully contain 2", func() {
 				tr := (0 * telem.SecondTS).Range(10 * telem.SecondTS)
 				tr2 := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
-				union := tr.Union(tr2)
+				union := tr.MaxUnion(tr2)
 				Expect(union.Start).To(Equal(0 * telem.SecondTS))
 				Expect(union.End).To(Equal(10 * telem.SecondTS))
 			})
 			Specify("2 Fully contain 1", func() {
 				tr := (2 * telem.SecondTS).Range(5 * telem.SecondTS)
 				tr2 := (1 * telem.SecondTS).Range(8 * telem.SecondTS)
-				union := tr.Union(tr2)
+				union := tr.MaxUnion(tr2)
 				Expect(union.Start).To(Equal(1 * telem.SecondTS))
 				Expect(union.End).To(Equal(8 * telem.SecondTS))
 			})
@@ -470,12 +522,93 @@ var _ = Describe("Telem", func() {
 			})
 		})
 	})
+
 	Describe("Marshal", func() {
 		Specify("marshal int", func() {
 			og := []int16{1, 2, 3, 4}
-			marshalled := telem.MarshalSlice(og, telem.Int16T)
+			marshalled := telem.MarshalSlice(og)
 			unmarshalled := telem.UnmarshalSlice[int16](marshalled, telem.Int16T)
 			Expect(og).To(Equal(unmarshalled))
+		})
+	})
+
+	Describe("DataType", func() {
+		Describe("Infer", func() {
+			Specify("float64", DataTypeInferTest[float64](telem.Float64T))
+			Specify("float32", DataTypeInferTest[float32](telem.Float32T))
+			Specify("int64", DataTypeInferTest[int64](telem.Int64T))
+			Specify("int32", DataTypeInferTest[int32](telem.Int32T))
+			Specify("int16", DataTypeInferTest[int16](telem.Int16T))
+			Specify("int8", DataTypeInferTest[int8](telem.Int8T))
+			Specify("uint64", DataTypeInferTest[uint64](telem.Uint64T))
+			Specify("uint32", DataTypeInferTest[uint32](telem.Uint32T))
+			Specify("uint16", DataTypeInferTest[uint16](telem.Uint16T))
+			Specify("uint8", DataTypeInferTest[uint8](telem.Uint8T))
+			Specify("string", DataTypeInferTest[string](telem.StringT))
+		})
+	})
+
+	DescribeTable("Density", func(dataType telem.DataType, expected telem.Density) {
+		Expect(dataType.Density()).To(Equal(expected))
+	},
+		Entry("float64", telem.Float64T, telem.Bit64),
+		Entry("float32", telem.Float32T, telem.Bit32),
+		Entry("int64", telem.Int64T, telem.Bit64),
+		Entry("int32", telem.Int32T, telem.Bit32),
+		Entry("int16", telem.Int16T, telem.Bit16),
+		Entry("int8", telem.Int8T, telem.Bit8),
+		Entry("uint64", telem.Uint64T, telem.Bit64),
+		Entry("uint32", telem.Uint32T, telem.Bit32),
+		Entry("uint16", telem.Uint16T, telem.Bit16),
+		Entry("uint8", telem.Uint8T, telem.Bit8),
+		Entry("string", telem.StringT, telem.DensityUnknown),
+		Entry("timestamp", telem.TimeStampT, telem.Bit64),
+		Entry("uuid", telem.UUIDT, telem.Bit128),
+	)
+
+	Describe("Alignment", func() {
+		Describe("NewAlignment", func() {
+			It("Should construct the alignment from the given domain and sample indexes", func() {
+				align := telem.NewAlignment(2, 1)
+				Expect(align.SampleIndex()).To(Equal(uint32(1)))
+				Expect(align.DomainIndex()).To(Equal(uint32(2)))
+			})
+			It("Should construct a zero alignment", func() {
+				Expect(uint64(telem.NewAlignment(0, 0))).To(Equal(uint64(0)))
+			})
+		})
+
+		Describe("MarshalJSON", func() {
+			It("Should marshal the alignment as a JSON string", func() {
+				align := telem.NewAlignment(2, 1)
+				marshalled := MustSucceed(align.MarshalJSON())
+				Expect(string(marshalled)).To(Equal(fmt.Sprintf("\"%v\"", align)))
+			})
+		})
+
+		Describe("UnmarshalJSON", func() {
+			It("Should unmarshal the alignment from a JSON string", func() {
+				align := telem.NewAlignment(2, 1)
+				marshalled := MustSucceed(align.MarshalJSON())
+				var unmarshalled telem.Alignment
+				Expect(unmarshalled.UnmarshalJSON(marshalled)).To(Succeed())
+				Expect(unmarshalled).To(Equal(align))
+			})
+		})
+
+		Describe("AddSamples", func() {
+			It("Should add to the alignment sample index", func() {
+				align := telem.NewAlignment(2, 1)
+				align = align.AddSamples(3)
+				Expect(align.SampleIndex()).To(Equal(uint32(4)))
+			})
+		})
+
+		Describe("LeadingAlignment", func() {
+			It("Should return the global leading alignment standard", func() {
+				align := telem.LeadingAlignment(2, 1)
+				Expect(align.DomainIndex()).To(Equal(telem.ZeroLeadingAlignment + 2))
+			})
 		})
 	})
 })

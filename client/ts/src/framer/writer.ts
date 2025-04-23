@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  decodeError,
-  errorZ,
-  type Stream,
-  type StreamClient,
-} from "@synnaxlabs/freighter";
+import { type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import { control } from "@synnaxlabs/x";
 import {
   type CrudeSeries,
@@ -25,15 +20,15 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { WriteAdapter } from "@/framer/adapter";
+import { WSWriterCodec } from "@/framer/codec";
 import { type Crude, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
-enum Command {
+export enum WriterCommand {
   Open = 0,
   Write = 1,
   Commit = 2,
-  Error = 3,
-  SetAuthority = 4,
+  SetAuthority = 3,
 }
 
 export enum WriterMode {
@@ -74,17 +69,17 @@ const netConfigZ = z.object({
 interface Config extends z.infer<typeof netConfigZ> {}
 
 const reqZ = z.object({
-  command: z.nativeEnum(Command),
+  command: z.nativeEnum(WriterCommand),
   config: netConfigZ.optional(),
   frame: frameZ.optional(),
+  buffer: z.instanceof(Uint8Array).optional(),
 });
 
-interface Request extends z.infer<typeof reqZ> {}
+export interface WriteRequest extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({
-  ack: z.boolean(),
-  command: z.nativeEnum(Command),
-  error: errorZ.optional().nullable(),
+  command: z.nativeEnum(WriterCommand),
+  end: TimeStamp.z,
 });
 
 interface Response extends z.infer<typeof resZ> {}
@@ -114,6 +109,7 @@ export interface WriterConfig {
   // persisted. To persist every commit to guarantee minimal loss of data, set
   // auto_index_persist_interval to AlwaysAutoIndexPersist.
   autoIndexPersistInterval?: TimeSpan;
+  useExperimentalCodec?: boolean;
 }
 
 /**
@@ -158,6 +154,7 @@ export class Writer {
   private static readonly ENDPOINT = "/frame/write";
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: WriteAdapter;
+  private _bytesWritten: number = 0;
   private errAccumulated: boolean = false;
 
   private constructor(stream: Stream<typeof reqZ, typeof resZ>, adapter: WriteAdapter) {
@@ -167,7 +164,7 @@ export class Writer {
 
   static async _open(
     retriever: channel.Retriever,
-    client: StreamClient,
+    client: WebSocketClient,
     {
       channels,
       start = TimeStamp.now(),
@@ -177,13 +174,16 @@ export class Writer {
       errOnUnauthorized = false,
       enableAutoCommit = false,
       autoIndexPersistInterval = TimeSpan.SECOND,
+      useExperimentalCodec = false,
     }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await WriteAdapter.open(retriever, channels);
+    if (useExperimentalCodec)
+      client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({
-      command: Command.Open,
+      command: WriterCommand.Open,
       config: {
         start: new TimeStamp(start),
         keys: adapter.keys,
@@ -198,21 +198,13 @@ export class Writer {
     return writer;
   }
 
-  private async checkForAccumulatedError(): Promise<boolean> {
-    if (!this.errAccumulated && this.stream.received()) {
-      this.errAccumulated = true;
-      while (this.stream.received()) await this.stream.receive();
-    }
-    return this.errAccumulated;
-  }
-
-  async write(channel: channel.KeyOrName, data: CrudeSeries): Promise<boolean>;
-  async write(channel: channel.KeysOrNames, data: CrudeSeries[]): Promise<boolean>;
-  async write(frame: Crude | Record<channel.KeyOrName, CrudeSeries>): Promise<boolean>;
+  async write(channel: channel.KeyOrName, data: CrudeSeries): Promise<void>;
+  async write(channel: channel.KeysOrNames, data: CrudeSeries[]): Promise<void>;
+  async write(frame: Crude | Record<channel.KeyOrName, CrudeSeries>): Promise<void>;
   async write(
     channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
     series?: CrudeSeries | CrudeSeries[],
-  ): Promise<boolean>;
+  ): Promise<void>;
 
   /**
    * Writes the given frame to the database.
@@ -231,29 +223,28 @@ export class Writer {
   async write(
     channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
     series?: CrudeSeries | CrudeSeries[],
-  ): Promise<boolean> {
-    if (await this.checkForAccumulatedError()) return false;
+  ): Promise<void> {
+    if (this.stream.received()) return await this.close();
     const frame = await this.adapter.adapt(channelsOrData, series);
-    this.stream.send({ command: Command.Write, frame: frame.toPayload() });
-    return true;
+    this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
   }
 
-  async setAuthority(value: number): Promise<boolean>;
+  async setAuthority(value: number): Promise<void>;
 
   async setAuthority(
     key: channel.KeyOrName,
     authority: control.Authority,
-  ): Promise<boolean>;
+  ): Promise<void>;
 
   async setAuthority(
     value: Record<channel.KeyOrName, control.Authority>,
-  ): Promise<boolean>;
+  ): Promise<void>;
 
   async setAuthority(
     value: Record<channel.KeyOrName, control.Authority> | channel.KeyOrName | number,
     authority?: control.Authority,
-  ): Promise<boolean> {
-    if (await this.checkForAccumulatedError()) return false;
+  ): Promise<void> {
+    if (this.stream.received()) return await this.close();
     let config: Config;
     if (typeof value === "number" && authority == null)
       config = { keys: [], authorities: [value] };
@@ -268,8 +259,7 @@ export class Writer {
         authorities: Object.values(oValue),
       };
     }
-    const response = await this.execute({ command: Command.SetAuthority, config });
-    return response.ack;
+    await this.execute({ command: WriterCommand.SetAuthority, config });
   }
 
   /**
@@ -280,19 +270,13 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    * After the caller acknowledges the error, they can attempt to commit again.
    */
-  async commit(): Promise<boolean> {
-    if (await this.checkForAccumulatedError()) return false;
-    const res = await this.execute({ command: Command.Commit });
-    return res.ack;
-  }
-
-  /**
-   * @returns  The accumulated error, if any. This method will clear the writer's error
-   * state, allowing the writer to be used again.
-   */
-  async error(): Promise<Error | null> {
-    const res = await this.execute({ command: Command.Error });
-    return res.error != null ? decodeError(res.error) : null;
+  async commit(): Promise<TimeStamp> {
+    if (this.stream.received()) {
+      await this.close();
+      return TimeStamp.ZERO;
+    }
+    const res = await this.execute({ command: WriterCommand.Commit });
+    return res.end;
   }
 
   /**
@@ -304,16 +288,12 @@ export class Writer {
     await this.stream.closeAndAck();
   }
 
-  async execute(req: Request): Promise<Response> {
+  async execute(req: WriteRequest): Promise<Response> {
     this.stream.send(req);
     while (true) {
       const res = await this.stream.receive();
       if (res.command === req.command) return res;
       console.warn("writer received unexpected response", res);
     }
-  }
-
-  private get errorAccumulated(): boolean {
-    return this.stream.received();
   }
 }

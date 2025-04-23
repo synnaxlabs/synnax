@@ -35,13 +35,11 @@ type WriterConfig struct {
 	// be called with a strictly increasing timestamp.
 	// [OPTIONAL]
 	End telem.TimeStamp
-
 	// EnableAutoCommit determines whether the writer will automatically commit after each write.
 	// If EnableAutoCommit is true, then the writer will commit after each write, and will
 	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit *bool
-
 	// AutoIndexPersistInterval is the frequency at which the changes to index are persisted to the
 	// disk. If AutoIndexPersistInterval <=0, then the writer persists changes to disk after every commit.
 	// Setting an AutoIndexPersistInterval is invalid if EnableAutoCommit is off.
@@ -50,7 +48,7 @@ type WriterConfig struct {
 }
 
 var (
-	errWriterClosed     = core.EntityClosed("domain.writer")
+	errWriterClosed     = core.NewErrEntityClosed("domain.writer")
 	DefaultWriterConfig = WriterConfig{EnableAutoCommit: config.False(), AutoIndexPersistInterval: 1 * telem.Second}
 )
 
@@ -82,18 +80,18 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 // Write writes the given data to the DB new telemetry domain occupying the provided time
 // range. If the time domain overlaps with any other domains in the DB, Write will return
 // an error.
-func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
+func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) (err error) {
 	w, err := db.OpenWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = errors.Combine(err, w.Close())
+	}()
 	if _, err = w.Write(data); err != nil {
 		return err
 	}
-	if err = w.Commit(ctx /* ignored */, tr.End); err != nil {
-		return err
-	}
-	return w.Close()
+	return w.Commit(ctx, tr.End)
 }
 
 // Writer is used to write a telemetry domain to the DB. A Writer is opened using DB.OpenWriter
@@ -146,7 +144,7 @@ type Writer struct {
 // If err is nil, then the writer must be closed.
 func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	if db.closed.Load() {
-		return nil, errDBClosed
+		return nil, ErrDBClosed
 	}
 
 	cfg, err := config.New(DefaultWriterConfig, cfg)
@@ -155,7 +153,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 	}
 	if db.idx.overlap(cfg.Domain()) {
 		return nil, errors.Wrap(
-			NewErrWriteConflict(cfg.Domain(), db.idx.timeRange()),
+			RangeWriteConflict(cfg.Domain(), db.idx.timeRange()),
 			"cannot open writer because there is already data in the writer's time range",
 		)
 	}
@@ -240,7 +238,12 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 		return span.Error(errWriterClosed)
 	}
 	if w.presetEnd && end.After(w.End) {
-		return span.Error(errors.Newf("commit timestamp %v cannot be greater than preset end timestamp %v: exceeded by a time span of %v", end, w.End, w.End.Span(end)))
+		return span.Error(errors.Newf(
+			"commit timestamp %v cannot be greater than preset end timestamp %v: exceeded by a time span of %v",
+			end,
+			w.End,
+			w.End.Span(end),
+		))
 	}
 
 	length := w.internal.Len()
@@ -291,7 +294,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 
 // resolveCommitEnd returns whether a file change is needed, the resolved commit end, and any errors.
 func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (telem.TimeStamp, bool) {
-	// fc.Config.Filesize is the nominal file size to not exceed, in reality, this value
+	// fc.ThrottleConfig.Filesize is the nominal file size to not exceed, in reality, this value
 	// is set to 0.8 * the actual file size cap. Therefore, we only need to switch files
 	// once we write to over 1.25 * that nominal value.
 	if w.fileSize >= w.fc.realFileSizeCap() {
