@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, framer } from "@synnaxlabs/client";
-import { deep } from "@synnaxlabs/x";
+import { strings, toArray } from "@synnaxlabs/x";
 import { type PropsWithChildren, useCallback, useRef } from "react";
 
 import { useAsyncEffect } from "@/hooks";
@@ -19,39 +19,12 @@ import { Synnax } from "@/synnax";
 
 export interface ProviderProps extends PropsWithChildren {}
 
-const LOGGING = false;
-
 export const Provider: React.FC<ProviderProps> = (props) => {
   const client = Synnax.use();
-  const handlersRef = useRef(new Map<channel.Key, Set<FrameHandler>>());
+  const handlersRef = useRef(new Map<channel.Name, Set<FrameHandler>>());
   const streamerRef = useRef<framer.Streamer>(null);
-  const logProviderState = useCallback(
-    (name: string) => {
-      if (!LOGGING) return;
-      console.group(name);
-
-      // Log client state
-      if (client == null) console.log("Client: null");
-      else console.log(`Client Key: ${client.key}`);
-
-      // Log handlers state
-      const handlersRecord: Record<channel.Key, number> = {};
-      handlersRef.current.forEach((handlers, key) => {
-        handlersRecord[key] = handlers.size;
-      });
-      console.log("Handlers:", deep.copy(handlersRecord));
-
-      // Log streamer state
-      if (streamerRef.current == null) console.log("Streamer: null");
-      else console.log("Streamer keys:", deep.copy(streamerRef.current.keys));
-
-      console.groupEnd();
-    },
-    [client],
-  );
   const handleError = Status.useErrorHandler();
   useAsyncEffect(async () => {
-    logProviderState("Synch.Provider.tsx useAsyncEffect Start");
     if (client == null) {
       streamerRef.current?.close();
       streamerRef.current = null;
@@ -60,57 +33,55 @@ export const Provider: React.FC<ProviderProps> = (props) => {
     streamerRef.current = await client.openStreamer([...handlersRef.current.keys()]);
     const observableStreamer = new framer.ObservableStreamer(streamerRef.current);
     observableStreamer.onChange((frame) => {
-      logProviderState("Observable streamer changed");
       const calledHandlers = new Set<FrameHandler>();
-      frame.uniqueKeys.forEach((key) => {
-        const handlers = handlersRef.current.get(key);
-        handlers?.forEach((handler) => {
+      frame.uniqueNames.forEach((name) => {
+        handlersRef.current.get(name)?.forEach((handler) => {
           if (calledHandlers.has(handler)) return;
-          handleError(handler(frame), "Error calling Synch Frame Handler");
+          try {
+            handler(frame);
+          } catch (e) {
+            handleError(e, `Error calling Synch Frame Handler on channel ${name}`);
+          }
           calledHandlers.add(handler);
         });
       });
-      console.log(`${calledHandlers.size} handlers called for frame:`, frame);
     });
-    logProviderState("Synch.Provider.tsx useAsyncEffect end");
-    return async () => {
-      console.log("Closing streamer");
-      logProviderState("Synch.Provider.tsx useAsyncEffect return start");
-      await observableStreamer.close();
-      logProviderState("Synch.Provider.tsx useAsyncEffect return end");
-      console.log("Streamer closed");
-    };
-  }, [client?.key]);
+    return async () => await observableStreamer.close();
+  }, [client, handleError]);
 
   const addListener: ListenerAdder = useCallback(
     ({ channels, handler }) => {
-      logProviderState("Synch.Provider.tsx addListener start");
-      let isListeningToNewChannels = false;
-      channels.forEach((channel) => {
-        if (handlersRef.current.has(channel))
-          handlersRef.current.get(channel)?.add(handler);
+      const addedChannels: channel.Names = [];
+      const channelNames = toArray(channels);
+      channelNames.forEach((ch) => {
+        if (handlersRef.current.has(ch)) handlersRef.current.get(ch)?.add(handler);
         else {
-          isListeningToNewChannels = true;
-          handlersRef.current.set(channel, new Set([handler]));
+          addedChannels.push(ch);
+          handlersRef.current.set(ch, new Set([handler]));
         }
       });
-      if (isListeningToNewChannels)
-        streamerRef.current?.updateKeys([...handlersRef.current.keys()]);
-      logProviderState("Synch.Provider.tsx addListener end");
+      if (addedChannels.length > 0)
+        handleError(
+          async () =>
+            await streamerRef.current?.update([...handlersRef.current.keys()]),
+          `Failed to add ${strings.naturalLanguageJoin(addedChannels)} to the Synch.Provider streamer`,
+        );
       return () => {
-        logProviderState("Synch.Provider.tsx destructing listener start");
-        let isDeletingChannels = false;
-        channels.forEach((channel) => {
-          const handlerSet = handlersRef.current.get(channel);
+        const removedChannels: channel.Names = [];
+        channelNames.forEach((ch) => {
+          const handlerSet = handlersRef.current.get(ch);
           handlerSet?.delete(handler);
           if (handlerSet?.size === 0) {
-            isDeletingChannels = true;
-            handlersRef.current.delete(channel);
+            removedChannels.push(ch);
+            handlersRef.current.delete(ch);
           }
         });
-        if (isDeletingChannels)
-          streamerRef.current?.updateKeys([...handlersRef.current.keys()]);
-        logProviderState("Synch.Provider.tsx destructing listener end");
+        if (removedChannels.length > 0)
+          handleError(
+            async () =>
+              await streamerRef.current?.update([...handlersRef.current.keys()]),
+            `Failed to remove ${strings.naturalLanguageJoin(removedChannels)} from the Synch.Provider streamer`,
+          );
       };
     },
     [client],

@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type framer } from "@synnaxlabs/client";
-import { type Destructor, type observe } from "@synnaxlabs/x";
+import { type z } from "zod";
 
-export interface FrameHandler extends observe.Handler<framer.Frame> {}
+import { type FrameHandler } from "@/synch/types";
 
-export interface Subscriber {
-  channels: channel.Name | channel.Names;
-  handler: FrameHandler;
-}
-
-export interface ListenerAdder {
-  (subscriber: Subscriber): Destructor;
-}
+export const getFrameHandlerForStateChannel =
+  <Z extends z.ZodTypeAny>(
+    channel: channel.Name,
+    schema: Z,
+    onStateReceived: (state: z.output<Z>) => void,
+  ): FrameHandler =>
+  (frame: framer.Frame): void =>
+    frame.get(channel).parseJSON(schema).forEach(onStateReceived);
