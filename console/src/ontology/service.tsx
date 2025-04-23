@@ -21,7 +21,7 @@ import { type FC } from "react";
 import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
 
-export interface BaseProps {
+export interface BaseParams {
   client: Synnax;
   store: RootStore;
   placeLayout: Layout.Placer;
@@ -31,15 +31,15 @@ export interface BaseProps {
   handleError: Status.ErrorHandler;
 }
 
-export interface HandleSelectProps extends BaseProps {
+export interface HandleSelectParams extends BaseParams {
   selection: ontology.Resource[];
 }
 
 export interface HandleSelect {
-  (props: HandleSelectProps): void;
+  (params: HandleSelectParams): void;
 }
 
-export interface HandleMosaicDropProps {
+export interface HandleMosaicDropParams {
   client: Synnax;
   store: RootStore;
   placeLayout: Layout.Placer;
@@ -51,10 +51,10 @@ export interface HandleMosaicDropProps {
 }
 
 export interface HandleMosaicDrop {
-  (props: HandleMosaicDropProps): void;
+  (params: HandleMosaicDropParams): void;
 }
 
-export interface TreeContextMenuProps extends BaseProps {
+export interface TreeContextMenuProps extends BaseParams {
   selection: {
     parentID: ontology.ID;
     rootID: ontology.ID;
@@ -75,7 +75,7 @@ export interface TreeContextMenuProps extends BaseProps {
 
 export interface TreeContextMenu extends FC<TreeContextMenuProps> {}
 
-export interface HandleTreeRenameProps extends BaseProps {
+export interface HandleTreeRenameParams extends BaseParams {
   id: ontology.ID;
   name: string;
   state: {
@@ -87,17 +87,13 @@ export interface HandleTreeRenameProps extends BaseProps {
 }
 
 export interface HandleTreeRename {
-  eager?: (props: HandleTreeRenameProps) => void;
-  execute: (props: HandleTreeRenameProps) => Promise<void>;
-  rollback?: (props: HandleTreeRenameProps, prevName: string) => void;
-}
-
-export interface NodeAdapterProps extends BaseProps {
-  node: Tree.FlattenedNode;
+  eager?: (params: HandleTreeRenameParams) => void;
+  execute: (params: HandleTreeRenameParams) => Promise<void>;
+  rollback?: (params: HandleTreeRenameParams, prevName: string) => void;
 }
 
 export interface AllowRename {
-  (res: ontology.Resource): boolean;
+  (resource: ontology.Resource): boolean;
 }
 
 export interface PaletteListItem

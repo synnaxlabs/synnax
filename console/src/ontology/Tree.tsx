@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { group, ontology, QueryError, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Haul,
   Menu,
   type state,
   Status,
+  Synch,
   Synnax,
   Tree as Core,
   useAsyncEffect,
@@ -22,52 +23,24 @@ import {
 import { deep, type Optional, unique } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";
-import {
-  isValidElement,
-  memo,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { memo, type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 import { useStore } from "react-redux";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
 import {
-  type BaseProps,
-  type HandleTreeRenameProps,
+  type BaseParams,
+  type HandleTreeRenameParams,
   type Services,
   type TreeContextMenuProps,
 } from "@/ontology/service";
 import { useServices } from "@/ontology/ServicesProvider";
+import { toTreeNode, toTreeNodes } from "@/ontology/toTreeNode";
 import { type RootAction, type RootState } from "@/store";
 
-export const toTreeNodes = (
-  services: Services,
-  resources: ontology.Resource[],
-): Core.Node[] => resources.map((res) => toTreeNode(services, res));
-
-export const toTreeNode = (
-  services: Services,
-  resource: ontology.Resource,
-): Core.Node => {
-  const { id, name } = resource;
-  const { icon, hasChildren, haulItems } = services[id.type];
-  return {
-    key: id.toString(),
-    name,
-    icon: isValidElement(icon) ? icon : icon(resource),
-    hasChildren,
-    haulItems: haulItems(resource),
-    allowRename: services[id.type].allowRename(resource),
-    extraData: resource.data ?? undefined,
-  };
-};
-
 const updateResources = (
-  p: ontology.Resource[],
+  resources: ontology.Resource[],
   additions: ontology.Resource[] = [],
   removals: ontology.ID[] = [],
 ): ontology.Resource[] => {
@@ -77,12 +50,12 @@ const updateResources = (
     (resource) => resource.id.toString(),
     false,
   );
-  const addedIds = uniqueAdditions.map(({ id }) => id.toString());
-  const removedIds = removals.map((id) => id.toString());
+  const addedIds = new Set(uniqueAdditions.map(({ id }) => id.toString()));
+  const removedIds = new Set(removals.map((id) => id.toString()));
   return [
-    ...p.filter(({ id }) => {
-      const str = id.toString();
-      return !removedIds.includes(str) && !addedIds.includes(str);
+    ...resources.filter(({ id }) => {
+      const idAsStr = id.toString();
+      return !removedIds.has(idAsStr) && !addedIds.has(idAsStr);
     }),
     ...uniqueAdditions,
   ];
@@ -102,8 +75,6 @@ const loadInitialTree = async (
   setResources((p) => updateResources(p, fetched));
 };
 
-const mu = new Mutex();
-
 const handleResourcesChange = async (
   changes: ontology.ResourceChange[],
   services: Services,
@@ -111,8 +82,9 @@ const handleResourcesChange = async (
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
   resources: ontology.Resource[],
+  mu: Mutex,
 ): Promise<void> =>
-  await mu.runExclusive(async () => {
+  await mu.runExclusive(() => {
     const removed = changes
       .filter(({ variant }) => variant === "delete")
       .map(({ key }) => key);
@@ -151,6 +123,7 @@ const handleRelationshipsChange = async (
   setResources: state.Set<ontology.Resource[]>,
   resources: ontology.Resource[],
   root: ontology.ID,
+  mu: Mutex,
 ): Promise<void> =>
   await mu.runExclusive(async () => {
     // Remove any relationships that were deleted
@@ -209,11 +182,11 @@ const sortFunc = (a: Core.Node, b: Core.Node) => {
   return Core.defaultSort(a, b);
 };
 
-export interface TreeProps {
+export interface InternalProps {
   root: ontology.ID;
 }
 
-const Internal = ({ root }: TreeProps): ReactElement => {
+const Internal = ({ root }: InternalProps): ReactElement => {
   const client = Synnax.use();
   const services = useServices();
   const store = useStore<RootState, RootAction>();
@@ -226,8 +199,9 @@ const Internal = ({ root }: TreeProps): ReactElement => {
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const menuProps = Menu.useContextMenu();
+  const mutexRef = useRef(new Mutex());
 
-  const baseProps: BaseProps = useMemo<BaseProps>(
+  const baseProps: BaseParams = useMemo<BaseParams>(
     () => ({
       client: client as Client,
       store,
@@ -240,39 +214,92 @@ const Internal = ({ root }: TreeProps): ReactElement => {
     [client, store, placeLayout, removeLayout, services, addStatus, handleError],
   );
 
-  // Processes incoming changes to the ontology from the cluster.
+  const addListener = Synch.useAddListener();
+
+  // Processes incoming changes to the ontology from the cluster
   useAsyncEffect(async () => {
     if (client == null) return;
     await loadInitialTree(client, services, setNodes, setResources, root);
-
-    const ct = await client.ontology.openChangeTracker();
-
-    ct.resources.onChange((changes) => {
-      void handleResourcesChange(
-        changes,
-        services,
-        nodesRef.current,
-        setNodes,
-        setResources,
-        resourcesRef.current,
-      );
+    const unsubscribeFromResourcesHandler = addListener({
+      channels: [
+        ontology.RESOURCE_SET_CHANNEL_NAME,
+        ontology.RESOURCE_DELETE_CHANNEL_NAME,
+      ],
+      handler: (frame) => {
+        handleError(async () => {
+          //todo: set/delete abstraction
+          let resourceSets: ontology.ResourceChange[];
+          const sets = frame.get(ontology.RESOURCE_SET_CHANNEL_NAME);
+          if (sets.length === 0) resourceSets = [];
+          else {
+            const ids = Array.from(sets.as("string")).map((id) => new ontology.ID(id));
+            try {
+              const resources = await client.ontology.retrieve(ids);
+              resourceSets = resources.map((res) => ({
+                key: res.id,
+                value: res,
+                variant: "set",
+              }));
+            } catch (e) {
+              if (e instanceof QueryError) resourceSets = [];
+              else throw e;
+            }
+          }
+          const deletes = frame.get(ontology.RESOURCE_DELETE_CHANNEL_NAME);
+          const resourceDeletes = Array.from(deletes.as("string")).map((id) => ({
+            key: new ontology.ID(id),
+            variant: "delete" as const,
+          }));
+          await handleResourcesChange(
+            [...resourceSets, ...resourceDeletes],
+            services,
+            nodesRef.current,
+            setNodes,
+            setResources,
+            resourcesRef.current,
+            mutexRef.current,
+          );
+        }, "Failed to process ontology resource changes");
+      },
     });
 
-    ct.relationships.onChange((changes) => {
-      void handleRelationshipsChange(
-        client,
-        changes,
-        services,
-        nodesRef.current,
-        setNodes,
-        setResources,
-        resourcesRef.current,
-        root,
-      );
+    const unsubscribeFromRelationshipsHandler = addListener({
+      channels: [
+        ontology.RELATIONSHIP_SET_CHANNEL_NAME,
+        ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
+      ],
+      handler: (frame) => {
+        //todo: set/delete abstraction
+        const sets = frame.get(ontology.RELATIONSHIP_SET_CHANNEL_NAME);
+        const relationshipSets = Array.from(sets.as("string")).map((rel) => ({
+          variant: "set" as const,
+          key: ontology.parseRelationship(rel),
+          value: undefined,
+        }));
+        const deletes = frame.get(ontology.RELATIONSHIP_DELETE_CHANNEL_NAME);
+        const relationshipDeletes = Array.from(deletes.as("string")).map((rel) => ({
+          variant: "delete" as const,
+          key: ontology.parseRelationship(rel),
+        }));
+        handleError(async () => {
+          await handleRelationshipsChange(
+            client,
+            [...relationshipSets, ...relationshipDeletes],
+            services,
+            nodesRef.current,
+            setNodes,
+            setResources,
+            resourcesRef.current,
+            root,
+            mutexRef.current,
+          );
+        }, "Failed to process ontology relationship changes");
+      },
     });
 
     return () => {
-      void ct.close();
+      unsubscribeFromResourcesHandler();
+      unsubscribeFromRelationshipsHandler();
     };
   }, [client, root]);
 
@@ -395,7 +422,7 @@ const Internal = ({ root }: TreeProps): ReactElement => {
   );
 
   const getRenameProps = useCallback(
-    (key: string, name: string): HandleTreeRenameProps => {
+    (key: string, name: string): HandleTreeRenameParams => {
       const id = new ontology.ID(key);
       return {
         id,
@@ -595,16 +622,16 @@ interface AdapterItemProps extends Core.ItemProps {
   services: Services;
 }
 
-export const Tree = ({ root }: Optional<TreeProps, "root">): ReactElement | null => {
-  if (root == null) return null;
-  return <Internal root={root} />;
-};
-
 const AdapterItem = memo<AdapterItemProps>(
   ({ loading, services, ...rest }): ReactElement => {
-    const id = new ontology.ID(rest.entry.key);
-    const Item = useMemo(() => services[id.type]?.Item ?? Core.DefaultItem, [id.type]);
+    const { type } = new ontology.ID(rest.entry.key);
+    const Item = useMemo(() => services[type].Item ?? Core.DefaultItem, [type]);
     return <Item loading={loading} {...rest} />;
   },
 );
 AdapterItem.displayName = "AdapterItem";
+
+export interface TreeProps extends Optional<InternalProps, "root"> {}
+
+export const Tree = ({ root }: TreeProps): ReactElement | null =>
+  root == null ? null : <Internal root={root} />;
