@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type ranger } from "@synnaxlabs/client";
-import { createContext, use, useState } from "react";
+import { createContext, use, useCallback, useState } from "react";
 
 import { useAsyncEffect } from "@/hooks";
+import { Synnax } from "@/synnax";
 
 export interface Aliases extends Record<channel.Key, string> {}
 
@@ -45,16 +46,34 @@ export const useAlias = (key: channel.Key): string | null =>
 
 export const useAliases = (): Aliases => useContext().aliases;
 
-// this one needs work
-export const useName = (key: channel.Key, def: string = ""): string => {
-  const { getName } = useContext();
-  const [name, setName] = useState<string | undefined>(def);
+export const useName = (
+  key: channel.Key,
+  defaultName: string = "",
+): [string, (newName: string) => Promise<void>] => {
+  const currentAlias = useAlias(key);
+  const { getName, setAlias } = useContext();
+  const [name, setName] = useState<string | undefined>(defaultName);
+  const client = Synnax.use();
   useAsyncEffect(async () => {
-    // needs to listen to a channel name change
     const n = await getName(key);
     setName(n);
   }, [key, getName]);
-  return name ?? def;
+  const rename = useCallback(
+    async (newName: string) => {
+      if (client == null) return;
+      const oldName = name;
+      setName(newName);
+      try {
+        if (currentAlias != null) await setAlias?.(key, newName);
+        else await client.channels.rename(key, newName);
+      } catch (e) {
+        setName(oldName);
+        throw e;
+      }
+    },
+    [client, name, currentAlias, setAlias],
+  );
+  return [name ?? defaultName, rename];
 };
 
 export const useAliasSetter = (): AliasSetter | null => useContext().setAlias;

@@ -21,11 +21,11 @@ import { useAsyncEffect } from "@/hooks";
 import { Synch } from "@/synch";
 import { Synnax } from "@/synnax";
 
+const EMPTY_ALIASES: Aliases = {};
+
 export interface AliasProviderProps extends PropsWithChildren {
   activeRange?: string | null;
 }
-
-const EMPTY_ALIASES: Aliases = {};
 
 export const AliasProvider = ({
   activeRange,
@@ -42,31 +42,24 @@ export const AliasProvider = ({
     const rng = await client.ranges.retrieve(activeRange);
     const newAliases = await rng.listAliases();
     setAliases(newAliases);
-    const { key: setChannelKey } = await client.channels.retrieve(
-      ranger.SET_ALIAS_CHANNEL_NAME,
-    );
-    const { key: deleteChannelKey } = await client.channels.retrieve(
-      ranger.DELETE_ALIAS_CHANNEL_NAME,
-    );
     return addListener({
-      channels: new Set([setChannelKey, deleteChannelKey]),
+      channels: [ranger.SET_ALIAS_CHANNEL_NAME, ranger.DELETE_ALIAS_CHANNEL_NAME],
       handler: (frame) => {
         // TODO: some type of function that takes in a set channel name and a delete
         // channel name, and a decoder and returns a FrameHandler
-        const settedAliases: ranger.Alias[] = frame
-          .get(setChannelKey)
-          .series.flatMap((s) => s.parseJSON(ranger.aliasZ));
-        const deletedAliases: string[] = frame
-          .get(deleteChannelKey)
-          .series.flatMap((s) => s.toStrings());
+        const createdAliases: ranger.Alias[] = frame
+          .get(ranger.SET_ALIAS_CHANNEL_NAME)
+          .parseJSON(ranger.aliasZ);
+        const deletedAliases: ranger.DecodedDeleteAliasChange[] = frame
+          .get(ranger.DELETE_ALIAS_CHANNEL_NAME)
+          .series.flatMap((s) => s.toStrings())
+          .map(ranger.decodeDeleteAliasChange);
         setAliases((prevAliases) => {
           const nextAliases: Aliases = { ...prevAliases };
-          deletedAliases.forEach((alias) => {
-            const rangeKey = alias.split("---")[0];
-            const channelKey = Number(alias.split("---")[1]);
-            if (rangeKey === activeRange) delete nextAliases[channelKey];
+          deletedAliases.forEach(({ channel, range }) => {
+            if (range === activeRange) delete nextAliases[channel];
           });
-          settedAliases.forEach(({ range, channel, alias }) => {
+          createdAliases.forEach(({ alias, channel, range }) => {
             if (range === activeRange) nextAliases[channel] = alias;
           });
           return nextAliases;

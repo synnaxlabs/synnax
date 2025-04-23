@@ -32,7 +32,7 @@ export const AliasInput = ({
   const [loading, setLoading] = useState(false);
   const setAlias = useAliasSetter();
   const alias = useAlias(channelKey);
-  const name = useName(channelKey);
+  const [name] = useName(channelKey);
   let icon = <Icon.Rename />;
   if (loading) icon = <Icon.Loading />;
   else if (alias === value) icon = <Icon.Check />;
