@@ -47,7 +47,8 @@ export const useSyncLayout = (): void => {
       if (QueryError.matches(e)) {
         addStatus({
           variant: status.ERROR_VARIANT,
-          message: "Layout not found in cluster. Clearing.",
+          message: "Failed to save workspace.",
+          description: "The workspace was not found in the cluster.",
         });
         store.dispatch(setActive(null));
         return;
