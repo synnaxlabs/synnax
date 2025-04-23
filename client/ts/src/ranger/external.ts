@@ -11,7 +11,8 @@ export {
   type Alias,
   type AliasChange,
   aliasZ,
-  decodeDeleteAliasChanges,
+  type DecodedDeleteAliasChange,
+  decodeDeleteAliasChange,
   DELETE_ALIAS_CHANNEL_NAME,
   SET_ALIAS_CHANNEL_NAME,
 } from "@/ranger/alias";

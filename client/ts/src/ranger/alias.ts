@@ -140,12 +140,14 @@ export type AliasChange = change.Change<string, Alias>;
 
 const SEPARATOR = "---";
 
-export const decodeDeleteAliasChanges = (
-  deletedAlias: string,
-): {
+export interface DecodedDeleteAliasChange {
   range: Key;
   channel: channel.Key;
-} => {
+}
+
+export const decodeDeleteAliasChange = (
+  deletedAlias: string,
+): DecodedDeleteAliasChange => {
   const [range, channel] = deletedAlias.split(SEPARATOR);
   return { range, channel: Number(channel) };
 };
@@ -156,7 +158,7 @@ const decodeAliasChanges =
     if (variant === "delete")
       return data
         .toStrings()
-        .filter((k) => decodeDeleteAliasChanges(k).range === rangeKey)
+        .filter((k) => decodeDeleteAliasChange(k).range === rangeKey)
         .map((alias) => ({
           variant,
           key: alias,
