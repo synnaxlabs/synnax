@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
-import { Observe, Synnax, useSyncedRef } from "@synnaxlabs/pluto";
+import { task } from "@synnaxlabs/client";
+import { Synch, useSyncedRef } from "@synnaxlabs/pluto";
 import { status as xstatus } from "@synnaxlabs/x";
 import { useCallback, useState as useReactState } from "react";
 
@@ -41,13 +41,14 @@ const parseState = <D extends StateDetails>(state?: task.State<D>): State => ({
  * Explicit return type for the useState hook.
  * The object consists of:
  *  - state: The current state of the task.
+ *  - triggerError: A function to set the state to "paused" with an error message.
  *  - triggerLoading: A function to set the state to "loading".
  */
-export type UseStateReturn = {
+export interface UseStateReturn {
   state: State;
   triggerError: (message: string) => void;
   triggerLoading: () => void;
-};
+}
 
 /**
  * useState takes in a task key and an optional initial state.
@@ -66,27 +67,20 @@ export const useState = <D extends StateDetails>(
   key: task.Key,
   initialState?: task.State<D>,
 ): UseStateReturn => {
-  const [state, setState] = useReactState<State>(parseState(initialState));
-  const client = Synnax.use();
+  const [state, setState] = useReactState<State>(() => parseState(initialState));
   const status = state.status;
   const keyRef = useSyncedRef(key);
   const statusRef = useSyncedRef(status);
-  Observe.useListener({
-    key: [client?.key],
-    open: async () => client?.hardware.tasks.openCommandObserver(),
-    onChange: ({ task, type }) => {
-      if (task !== keyRef.current) return;
-      if (shouldExecuteCommand(statusRef.current, type)) setState(LOADING_STATE);
-    },
-  });
-  Observe.useListener({
-    key: [client?.key],
-    open: async () => await client?.hardware.tasks.openStateObserver(),
-    onChange: (state) => {
-      if (state.task !== keyRef.current) return;
-      setState(parseState(state as task.State<D>));
-    },
-  });
+  const handleStateUpdate = useCallback((state: task.State) => {
+    if (state.task !== keyRef.current) return;
+    setState(parseState(state as task.State<D>));
+  }, []);
+  Synch.useStateChannel(task.STATE_CHANNEL_NAME, task.stateZ, handleStateUpdate);
+  const handleCommandUpdate = useCallback(({ task, type }: task.Command) => {
+    if (task !== keyRef.current) return;
+    if (shouldExecuteCommand(statusRef.current, type)) setState(LOADING_STATE);
+  }, []);
+  Synch.useStateChannel(task.COMMAND_CHANNEL_NAME, task.commandZ, handleCommandUpdate);
   const triggerLoading = useCallback(() => setState(LOADING_STATE), []);
   const triggerError = useCallback(
     (message: string) =>

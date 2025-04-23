@@ -19,6 +19,7 @@ import {
   Observe,
   Status,
   Synnax,
+  Task,
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
@@ -187,19 +188,15 @@ const Content = () => {
     );
     setTasks(shownTasks.map(sugarTask));
   }, [client?.key]);
-  Observe.useListener({
-    key: [client?.key],
-    open: async () => client?.hardware.tasks.openStateObserver(),
-    onChange: (state) => {
-      const key = state.task;
-      setTasks((prev) => {
-        const tsk = prev.find((t) => t.key === key);
-        if (tsk == null) return prev;
-        updateTaskStatus(tsk, state);
-        return [...prev];
-      });
-    },
-  });
+  const handleStateUpdate = useCallback((state: task.State) => {
+    setTasks((prevTasks) => {
+      const tsk = prevTasks.find((t) => t.key === state.task);
+      if (tsk == null) return prevTasks;
+      updateTaskStatus(tsk, state);
+      return [...prevTasks];
+    });
+  }, []);
+  Task.useStateSynchronizer(handleStateUpdate);
   Observe.useListener({
     key: [client?.key],
     open: async () => client?.hardware.tasks.openTracker(),
@@ -236,10 +233,8 @@ const Content = () => {
       }, "Failed to update task toolbar");
     },
   });
-  Observe.useListener({
-    key: [client?.key],
-    open: async () => client?.hardware.tasks.openCommandObserver(),
-    onChange: ({ type, task }) => {
+  const handleCommandUpdate = useCallback(
+    ({ task, type }: task.Command) => {
       const status = tasks.find(({ key }) => key === task)?.state.details.status;
       if (status == null) return;
       if (Common.Task.shouldExecuteCommand(status, type))
@@ -250,7 +245,9 @@ const Content = () => {
           }),
         );
     },
-  });
+    [tasks, setLoading],
+  );
+  Task.useCommandSynchronizer(handleCommandUpdate);
   const handleDelete = useMutation({
     mutationFn: async (keys: string[]) => {
       setSelected([]);

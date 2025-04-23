@@ -9,12 +9,14 @@
 
 import { type device, ontology, type rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Align, Device, Rack, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import {
   createContext,
+  type PropsWithChildren,
   type ReactElement,
   use,
+  useCallback,
   useState as reactUseState,
 } from "react";
 
@@ -23,73 +25,61 @@ import { Toolbar } from "@/components";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
-export interface StateContextValue extends Record<string, device.State> {}
+export interface DeviceStates extends Record<device.Key, device.State> {}
 
-const StateContext = createContext<StateContextValue>({});
+const StateContext = createContext<DeviceStates>({});
 
-const StateProvider = ({ children }: { children: ReactElement }) => {
+const StateProvider = (props: PropsWithChildren) => {
   const client = Synnax.use();
-  const [states, setStates] = reactUseState<StateContextValue>({});
-
+  const [states, setStates] = reactUseState<DeviceStates>({});
   useAsyncEffect(async () => {
     if (client == null) return;
-    const devs = await client.hardware.devices.retrieve([], { includeState: true });
-    const initialStates: StateContextValue = Object.fromEntries(
-      devs.filter((d) => d.state != null).map((d) => [d.key, d.state as device.State]),
+    const devices = await client.hardware.devices.retrieve([], { includeState: true });
+    const initialStates: DeviceStates = Object.fromEntries(
+      devices
+        .filter(({ state }) => state != null)
+        .map(({ key, state }) => [key, state as device.State]),
     );
     setStates(initialStates);
-    const observer = await client.hardware.devices.openStateObserver();
-    const disconnect = observer.onChange((states) => {
-      console.log("states", states);
-      setStates((prevStates) => {
-        const nextStates = Object.fromEntries(states.map((s) => [s.key, s]));
-        return { ...prevStates, ...nextStates };
-      });
-    });
-    return async () => {
-      disconnect();
-      await observer.close();
-    };
-  }, []);
+  }, [client]);
 
-  return <StateContext value={states}>{children}</StateContext>;
+  const handleStateUpdate = useCallback((state: device.State) => {
+    setStates((prevStates) => ({ ...prevStates, [state.key]: state }));
+  }, []);
+  Device.useStateSynchronizer(handleStateUpdate);
+  return <StateContext {...props} value={states} />;
 };
 
-interface RackStateContextValue extends Record<string, rack.State> {}
+interface RackStates extends Record<string, rack.State> {}
 
-const RackStateContext = createContext<RackStateContextValue>({});
+const RackStateContext = createContext<RackStates>({});
 
-const RackStateProvider = ({ children }: { children: ReactElement }) => {
+const RackStateProvider = (props: PropsWithChildren) => {
   const client = Synnax.use();
-  const [states, setStates] = reactUseState<RackStateContextValue>({});
-
+  const [states, setStates] = reactUseState<RackStates>({});
   useAsyncEffect(async () => {
     if (client == null) return;
     const racks = await client.hardware.racks.retrieve([], { includeState: true });
-    const initialStates: RackStateContextValue = Object.fromEntries(
-      racks.filter((r) => r.state != null).map((r) => [r.key, r.state as rack.State]),
+    const initialStates: RackStates = Object.fromEntries(
+      racks
+        .filter(({ state }) => state != null)
+        .map(({ key, state }) => [key, state as rack.State]),
     );
     setStates(initialStates);
-    const observer = await client.hardware.racks.openStateObserver();
-    const disconnect = observer.onChange((states) => {
-      setStates((prevStates) => {
-        const nextStates = Object.fromEntries(states.map((s) => [s.key, s]));
-        return { ...prevStates, ...nextStates };
-      });
-    });
-    return async () => {
-      disconnect();
-      await observer.close();
-    };
-  }, []);
+  }, [client]);
 
-  return <RackStateContext value={states}>{children}</RackStateContext>;
+  const handleStateUpdate = useCallback((state: rack.State) => {
+    setStates((prevStates) => ({ ...prevStates, [state.key]: state }));
+  }, []);
+  Rack.useStateSynchronizer(handleStateUpdate);
+
+  return <RackStateContext {...props} value={states} />;
 };
 
 export const useRackState = (key: string): rack.State | undefined =>
   use(RackStateContext)[key];
 
-export const useState = (key: string): device.State | undefined =>
+export const useState = (key: device.Key): device.State | undefined =>
   use(StateContext)[key];
 
 const Content = (): ReactElement => {
@@ -101,7 +91,7 @@ const Content = (): ReactElement => {
       const res = await client?.ontology.retrieveChildren(ontology.ROOT_ID, {
         includeSchema: false,
       });
-      return res?.filter((r) => r.name === "Devices")[0].id;
+      return res?.find(({ name }) => name === "Devices")?.id;
     },
   });
 

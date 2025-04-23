@@ -7,40 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
-import { Status, Synch, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { type channel } from "@synnaxlabs/client";
+import { Channel, Status, Synnax } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
+import { useCallback } from "react";
+
+import { NULL_CLIENT_ERROR } from "@/errors";
 
 export const useListenForCalculationState = (): void => {
-  const addListener = Synch.useAddListener();
   const client = Synnax.use();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const handler = Synch.getFrameHandlerForStateChannel(
-      channel.CALCULATION_STATE_CHANNEL_NAME,
-      channel.calculationStateZ,
-      ({ key, message, variant }) => {
-        const baseStatus = { message, variant };
-        if (variant !== status.ERROR_VARIANT) {
+  const handleStateUpdate = useCallback(
+    ({ key, message, variant }: channel.CalculationState) => {
+      const baseStatus = { message, variant };
+      if (variant !== status.ERROR_VARIANT) {
+        addStatus(baseStatus);
+        return;
+      }
+      handleError(async () => {
+        if (client == null) throw NULL_CLIENT_ERROR;
+        try {
+          const { name } = await client.channels.retrieve(key);
+          addStatus({
+            ...baseStatus,
+            description: message,
+            message: `Calculation for ${name} failed`,
+          });
+        } catch {
           addStatus(baseStatus);
-          return;
         }
-        handleError(async () => {
-          try {
-            const { name } = await client.channels.retrieve(key);
-            addStatus({
-              ...baseStatus,
-              description: message,
-              message: `Calculation for ${name} failed`,
-            });
-          } catch {
-            addStatus(baseStatus);
-          }
-        });
-      },
-    );
-    return addListener({ channels: channel.CALCULATION_STATE_CHANNEL_NAME, handler });
-  }, [client, addListener, addStatus, handleError]);
+      });
+    },
+    [addStatus, client, handleError],
+  );
+  Channel.useCalculationStateSynchronizer(handleStateUpdate);
 };
