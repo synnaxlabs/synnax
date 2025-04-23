@@ -23,10 +23,7 @@ const Content = (): ReactElement => {
   const client = Synnax.use();
   const group = useQuery<group.Group | null>({
     queryKey: [client?.key, "channel-group"],
-    queryFn: async () => {
-      if (client == null) return null;
-      return await client?.channels.retrieveGroup();
-    },
+    queryFn: async () => (await client?.channels.retrieveGroup()) ?? null,
   });
   const placeLayout = Layout.usePlacer();
   return (

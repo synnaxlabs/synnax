@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, framer } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -15,7 +15,6 @@ import {
   Form,
   Input,
   Nav,
-  Observe,
   Select,
   Status,
   Synnax,
@@ -27,6 +26,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
+import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
 import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
@@ -40,10 +40,6 @@ import { Triggers } from "@/triggers";
 
 const FAILED_TO_UPDATE_AUTOCOMPLETE =
   "Failed to update calculated channel auto-complete";
-
-export interface CalculatedLayoutArgs {
-  channelKey?: number;
-}
 
 const DEFAULT_ARGS: CalculatedLayoutArgs = { channelKey: undefined };
 
@@ -65,81 +61,10 @@ const schema = createFormValidator(
 
 type FormValues = z.infer<typeof schema>;
 
-export const CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
-
-export interface CalculatedLayout extends Layout.BaseState<CalculatedLayoutArgs> {}
-
-export const CALCULATED_LAYOUT: CalculatedLayout = {
-  beta: true,
-  name: "Channel.Create.Calculated",
-  icon: "Channel",
-  location: "modal",
-  tab: { closable: true, editable: false },
-  window: {
-    resizable: false,
-    size: { height: 600, width: 1000 },
-    navTop: true,
-    showTitle: true,
-  },
-  type: CALCULATED_LAYOUT_TYPE,
-  key: CALCULATED_LAYOUT_TYPE,
-};
-
-export interface CreateCalculatedLayoutArgs {
-  key: channel.Key;
-  name: channel.Name;
-}
-
-export const createCalculatedLayout = ({
-  key,
-  name,
-}: CreateCalculatedLayoutArgs): CalculatedLayout => ({
-  ...CALCULATED_LAYOUT,
-  args: { channelKey: key },
-  name: `${name}.Edit`,
-});
-
 const ZERO_FORM_VALUES: FormValues = {
   ...ZERO_CHANNEL,
   virtual: true,
   expression: "return 0",
-};
-
-export const useListenForCalculationState = (): void => {
-  const client = Synnax.use();
-  const addStatus = Status.useAdder();
-  const handleError = Status.useErrorHandler();
-  Observe.useListener({
-    key: [client?.key, addStatus, handleError],
-    open: async () => {
-      if (client == null) return;
-      const s = await client.openStreamer({
-        channels: [channel.CALCULATION_STATE_CHANNEL],
-      });
-      return new framer.ObservableStreamer(s);
-    },
-    onChange: (frame) => {
-      const state = frame
-        .get(channel.CALCULATION_STATE_CHANNEL)
-        .parseJSON(channel.calculationStateZ);
-      state.forEach(({ key, variant, message }) => {
-        client?.channels
-          .retrieve(key)
-          .then((ch) => {
-            if (variant !== status.ERROR_VARIANT) {
-              addStatus({ variant, message });
-              return;
-            }
-            addStatus({
-              variant,
-              message: `Calculation for ${ch.name} failed`,
-              description: message,
-            });
-          })
-          .catch((e) => handleError(e, "Calculated channel failed"));
-      });
-    },
-  });
 };
 
 export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
@@ -320,7 +245,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   );
 };
 
-export interface EditorProps extends Code.EditorProps {
+interface EditorProps extends Code.EditorProps {
   globals?: UsePhantomGlobalsReturn;
 }
 
