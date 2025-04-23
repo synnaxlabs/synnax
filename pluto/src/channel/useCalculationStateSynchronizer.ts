@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export {
-  type Aliases,
-  useActiveRange,
-  useAlias,
-  useAliases,
-  useAliasSetter,
-  useName,
-} from "@/channel/AliasContext";
-export * from "@/channel/AliasInput";
-export * from "@/channel/AliasProvider";
-export * from "@/channel/LinePlot";
-export * from "@/channel/Select";
-export * from "@/channel/useCalculationStateSynchronizer";
+import { channel } from "@synnaxlabs/client";
+
+import { Synch } from "@/synch";
+
+export const useCalculationStateSynchronizer = (
+  onStateUpdate: (state: channel.CalculationState) => void,
+): void =>
+  Synch.useStateChannel(
+    channel.CALCULATION_STATE_CHANNEL_NAME,
+    channel.calculationStateZ,
+    onStateUpdate,
+  );

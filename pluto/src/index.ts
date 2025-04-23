@@ -23,6 +23,7 @@ export { Form } from "@/form";
 export { Generic } from "@/generic";
 export { Device } from "@/hardware/device";
 export { Rack } from "@/hardware/rack";
+export { Task } from "@/hardware/task";
 export { Haul } from "@/haul";
 export { Header } from "@/header";
 export * from "@/hooks";
