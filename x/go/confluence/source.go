@@ -12,10 +12,12 @@ package confluence
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/timeout"
-	"time"
 )
 
 // AbstractMultiSource is a basic implementation of a Source that can send values to
@@ -52,19 +54,19 @@ func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
 	t time.Duration,
 	timer *time.Timer,
 ) error {
-	timerExpired := false
-	for _, inlet := range ams.Out {
+	var timedOutInlet = -1
+	for i, inlet := range ams.Out {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timer.C:
 			timer.Reset(t)
-			timerExpired = true
+			timedOutInlet = i
 		case inlet.Inlet() <- v:
 		}
 	}
-	if timerExpired {
-		return timeout.Timeout
+	if timedOutInlet >= 0 {
+		return errors.Wrapf(timeout.Timeout, "timed out sending to inlet %s", ams.Out[timedOutInlet].InletAddress())
 	}
 	return nil
 }

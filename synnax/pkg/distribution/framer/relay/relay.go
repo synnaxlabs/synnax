@@ -127,7 +127,10 @@ func Open(configs ...Config) (*Relay, error) {
 	tpr.InFrom(demands)
 	r.demands = demands
 
-	r.delta = confluence.NewDynamicDeltaMultiplier[Response](20 * time.Millisecond)
+	r.delta = confluence.NewDynamicDeltaMultiplier[Response](
+		20*time.Millisecond,
+		cfg.Instrumentation,
+	)
 	writes := confluence.NewStream[Response](defaultBuffer)
 	writes.SetInletAddress("delta")
 	writes.SetOutletAddress("taps")
