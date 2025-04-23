@@ -25,10 +25,10 @@ const Content = (): ReactElement => {
     queryKey: [client?.key, "workspace-group"],
     queryFn: async () => {
       if (client == null) return undefined;
-      const res = await client?.ontology.retrieveChildren(ontology.ROOT_ID, {
+      const res = await client.ontology.retrieveChildren(ontology.ROOT_ID, {
         includeSchema: false,
       });
-      return res?.filter((r) => r.name === "Workspaces")[0].id;
+      return res.find(({ name }) => name === "Workspaces")?.id;
     },
   });
   const placeLayout = Layout.usePlacer();
