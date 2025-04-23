@@ -114,8 +114,7 @@ func (db *DB) Delete(
 	if exact {
 		end = db.idx.mu.pointers[endDomain]
 		db.idx.mu.RUnlock()
-		endOffset, tr.End, err = calculateEndOffset(ctx, end.Start, tr.End)
-		if err != nil {
+		if endOffset, tr.End, err = calculateEndOffset(ctx, end.Start, tr.End); err != nil {
 			return
 		}
 		endOffset = telem.Size(end.length) - endOffset

@@ -19,6 +19,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Write", func() {
@@ -38,20 +39,20 @@ var _ = Describe("Write", func() {
 		Expect(db.Close()).To(Succeed())
 	})
 	Describe("Control", func() {
-		Describe("ErrOnUnauthorized", func() {
+		Describe("ErrOnUnauthorizedOpen", func() {
 			It("Should return an error if the writer does not acquire control", func() {
 				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:             10 * telem.SecondTS,
-					Authority:         control.Absolute,
-					Subject:           control.Subject{Key: "foo"},
-					ErrOnUnauthorized: config.True(),
+					Start:                 10 * telem.SecondTS,
+					Authority:             control.Absolute,
+					Subject:               control.Subject{Key: "foo"},
+					ErrOnUnauthorizedOpen: config.True(),
 				}))
 				Expect(t.Occurred()).To(BeTrue())
 				w2, t, err := db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:             10 * telem.SecondTS,
-					Authority:         control.Absolute - 1,
-					Subject:           control.Subject{Key: "bar"},
-					ErrOnUnauthorized: config.True(),
+					Start:                 10 * telem.SecondTS,
+					Authority:             control.Absolute - 1,
+					Subject:               control.Subject{Key: "bar"},
+					ErrOnUnauthorizedOpen: config.True(),
 				})
 				Expect(err).To(HaveOccurredAs(control.Unauthorized))
 				Expect(t.Occurred()).To(BeFalse())
@@ -65,10 +66,10 @@ var _ = Describe("Write", func() {
 		Describe("Write", func() {
 			It("Should return an unauthorized error when the write is not authorized", func() {
 				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:             10 * telem.SecondTS,
-					Authority:         control.Absolute,
-					Subject:           control.Subject{Key: "foo"},
-					ErrOnUnauthorized: config.True(),
+					Start:                 10 * telem.SecondTS,
+					Authority:             control.Absolute,
+					Subject:               control.Subject{Key: "foo"},
+					ErrOnUnauthorizedOpen: config.True(),
 				}))
 				Expect(t.Occurred()).To(BeTrue())
 				w2, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
@@ -86,15 +87,57 @@ var _ = Describe("Write", func() {
 				Expect(t.Occurred()).To(BeTrue())
 			})
 
+			It("Should return an error when writing a series with the wrong data type", func() {
+				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
+					Start:     10 * telem.SecondTS,
+					Authority: control.Absolute,
+					Subject:   control.Subject{Key: "foo"},
+				}))
+				Expect(t.Occurred()).To(BeTrue())
+				_, err := w.Write(telem.NewSeriesV[uint8](1, 2, 3))
+				Expect(err).To(HaveOccurredAs(validate.Error))
+				t = MustSucceed(w.Close())
+				Expect(t.Occurred()).To(BeTrue())
+			})
+
+		})
+
+		Describe("Close", func() {
+			It("Should not return an error when the same writer is closed multiple times", func() {
+				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
+					Start:     10 * telem.SecondTS,
+					Authority: control.Absolute,
+					Subject:   control.Subject{Key: "foo"},
+				}))
+				Expect(t.Occurred()).To(BeTrue())
+				t = MustSucceed(w.Close())
+				Expect(t.Occurred()).To(BeTrue())
+				t = MustSucceed(w.Close())
+				Expect(t.Occurred()).To(BeFalse())
+			})
+
+			It("Should return an error on Write when the DB is closed", func() {
+				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
+					Start:     10 * telem.SecondTS,
+					Authority: control.Absolute,
+					Subject:   control.Subject{Key: "foo"},
+				}))
+				Expect(t.Occurred()).To(BeTrue())
+				t = MustSucceed(w.Close())
+				Expect(t.Occurred()).To(BeTrue())
+				_, err := w.Write(telem.NewSecondsTSV(10, 11, 12))
+				Expect(err).To(HaveOccurredAs(core.ErrClosedEntity))
+			})
+
 		})
 
 		Describe("SetAuthority", func() {
 			It("Should correctly set the authority of the writer", func() {
 				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:             10 * telem.SecondTS,
-					Authority:         control.Absolute - 2,
-					Subject:           control.Subject{Key: "foo"},
-					ErrOnUnauthorized: config.True(),
+					Start:                 10 * telem.SecondTS,
+					Authority:             control.Absolute - 2,
+					Subject:               control.Subject{Key: "foo"},
+					ErrOnUnauthorizedOpen: config.True(),
 				}))
 				Expect(t.Occurred()).To(BeTrue())
 

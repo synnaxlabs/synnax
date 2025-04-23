@@ -370,8 +370,7 @@ func (i *Iterator) read(
 	if err != nil && !errors.Is(err, io.EOF) {
 		return
 	}
-	err = r.Close()
-	if err != nil {
+	if err = r.Close(); err != nil {
 		return
 	}
 	if n < len(series.Data) {

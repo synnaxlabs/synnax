@@ -148,6 +148,7 @@ func (r *region[R]) open(
 		)
 		return
 	}
+
 	g = &Gate[R]{
 		region:      r,
 		subject:     cfg.Subject,
@@ -155,6 +156,7 @@ func (r *region[R]) open(
 		position:    r.counter,
 		concurrency: con,
 	}
+
 	// Check if any gates have the same subject key.
 	for existingG := range r.gates {
 		if existingG.subject.Key == g.subject.Key {
@@ -171,12 +173,22 @@ func (r *region[R]) open(
 	// Expand the time range to include the new gate's time range.
 	r.timeRange = r.timeRange.MaxUnion(cfg.TimeRange)
 
+	// If no one is in control or this gate has a higher authority, take control.
 	if r.curr == nil || g.authority > r.curr.authority {
 		if r.curr != nil {
 			t.From = r.curr.State()
 		}
 		r.curr = g
 		t.To = g.State()
+	} else if *cfg.ErrOnUnauthorizedOpen {
+		err = errors.Wrapf(
+			control.Unauthorized,
+			"%s has no control authority - it is currently held by %s",
+			g.Subject(),
+			r.curr.Subject(),
+		)
+		g = nil
+		return
 	}
 	r.gates[g] = struct{}{}
 	r.counter++
@@ -309,21 +321,31 @@ func New[R Resource](cfg Config) (*Controller[R], error) {
 
 // GateConfig is the configuration for opening a gate.
 type GateConfig[R Resource] struct {
-	// ErrIfControlled
-	ErrIfControlled *bool
 	// TimeRange sets the time range for the gate. Any subsequent calls to OpenGate
 	// with overlapping time ranges will bind themselves to the same control region.
+	// [REQUIRED]
 	TimeRange telem.TimeRange
 	// Authority sets the authority of the gate over the resource. For a complete
 	// discussion of authority, see the package level documentation.
+	// [REQUIRED]
 	Authority control.Authority
 	// Subject sets the identity of the gate, and is used to track changes in control
 	// within the db.
+	// [REQUIRED]
 	Subject control.Subject
 	// CreateResource is a callback that is called when the gate is opened. It should return
 	// the resource that is being controlled. This is used to create the resource in the
 	// database.
+	// [REQUIRED}
 	OpenResource func() (R, error)
+	// ErrIfControlled indicates whether the controller should return an error if any
+	// other gates are currently controlling the resource.
+	// [OPTIONAL] Defaults to false.
+	ErrIfControlled *bool
+	// ErrOnUnauthorizedOpen indicates whether the controller should return an error
+	// if the gate does not immediately take control when it is opened.
+	// [OPTIONAL] Defaults to false.
+	ErrOnUnauthorizedOpen *bool
 }
 
 var (
@@ -332,28 +354,33 @@ var (
 
 // DefaultGateConfig is the default configuration for opening a Gate.
 func DefaultGateConfig[R Resource]() GateConfig[R] {
-	return GateConfig[R]{ErrIfControlled: config.False()}
+	return GateConfig[R]{
+		ErrIfControlled:       config.False(),
+		ErrOnUnauthorizedOpen: config.False(),
+	}
 }
 
 // Validate implements config.Config.
 func (c GateConfig[R]) Validate() error {
 	v := validate.New("gate_config")
-	validate.NotNil(v, "err_if_controlled", c.ErrIfControlled)
 	validate.NotEmptyString(v, "subject.key", c.Subject.Key)
 	validate.NonZeroable(v, "time_range", c.TimeRange)
 	validate.NotNil(v, "open_resource", c.OpenResource)
+	validate.NotNil(v, "err_if_controlled", c.ErrIfControlled)
+	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (c GateConfig[R]) Override(other GateConfig[R]) GateConfig[R] {
-	c.ErrIfControlled = override.Nil(c.ErrIfControlled, other.ErrIfControlled)
 	c.Authority = override.Numeric(c.Authority, other.Authority)
 	c.Subject.Key = override.String(c.Subject.Key, other.Subject.Key)
 	c.Subject.Name = override.String(c.Subject.Name, other.Subject.Name)
 	c.TimeRange.Start = override.Numeric(c.TimeRange.Start, other.TimeRange.Start)
 	c.TimeRange.End = override.Numeric(c.TimeRange.End, other.TimeRange.End)
 	c.OpenResource = override.Nil(c.OpenResource, other.OpenResource)
+	c.ErrIfControlled = override.Nil(c.ErrIfControlled, other.ErrIfControlled)
+	c.ErrOnUnauthorizedOpen = override.Nil(c.ErrOnUnauthorizedOpen, other.ErrOnUnauthorizedOpen)
 	return c
 }
 
@@ -407,7 +434,9 @@ func (c *Controller[R]) OpenGate(
 		return
 	}
 	reg := c.insertNewRegion(cfg.TimeRange, res)
-	g, t, err = reg.open(cfg, c.Concurrency)
+	if g, t, err = reg.open(cfg, c.Concurrency); err != nil {
+		return
+	}
 	return
 }
 

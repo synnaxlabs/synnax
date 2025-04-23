@@ -25,24 +25,24 @@ import (
 var errWriterClosed = core.NewErrEntityClosed("virtual.writer")
 
 type WriterConfig struct {
-	Subject           control.Subject
-	Start             telem.TimeStamp
-	End               telem.TimeStamp
-	Authority         control.Authority
-	ErrOnUnauthorized *bool
+	Subject               control.Subject
+	Start                 telem.TimeStamp
+	End                   telem.TimeStamp
+	Authority             control.Authority
+	ErrOnUnauthorizedOpen *bool
 }
 
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
 	DefaultWriterConfig                             = WriterConfig{
-		ErrOnUnauthorized: config.False(),
+		ErrOnUnauthorizedOpen: config.False(),
 	}
 )
 
 func (cfg WriterConfig) Validate() error {
 	v := validate.New("virtual.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", cfg.Subject.Key)
-	validate.NotNil(v, "ErrOnUnauthorized", cfg.ErrOnUnauthorized)
+	validate.NotNil(v, "ErrOnUnauthorizedOpen", cfg.ErrOnUnauthorizedOpen)
 	return v.Error()
 }
 
@@ -51,7 +51,7 @@ func (cfg WriterConfig) Override(other WriterConfig) WriterConfig {
 	cfg.End = override.Zero(cfg.End, other.End)
 	cfg.Subject = override.If(cfg.Subject, other.Subject, other.Subject.Key != "")
 	cfg.Authority = override.Numeric(cfg.Authority, other.Authority)
-	cfg.ErrOnUnauthorized = override.Nil(cfg.ErrOnUnauthorized, other.ErrOnUnauthorized)
+	cfg.ErrOnUnauthorizedOpen = override.Nil(cfg.ErrOnUnauthorizedOpen, other.ErrOnUnauthorizedOpen)
 	return cfg
 }
 
@@ -92,26 +92,19 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		wrapError:    db.wrapError,
 	}
 	var g *controller.Gate[*controlEntity]
-
-	g, transfer, err = db.controller.OpenGate(controller.GateConfig[*controlEntity]{
-		TimeRange: cfg.domain(),
-		Authority: cfg.Authority,
-		Subject:   cfg.Subject,
+	if g, transfer, err = db.controller.OpenGate(controller.GateConfig[*controlEntity]{
+		TimeRange:             cfg.domain(),
+		ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
+		Authority:             cfg.Authority,
+		Subject:               cfg.Subject,
 		OpenResource: func() (*controlEntity, error) {
 			return &controlEntity{
 				ck:        db.cfg.Channel.Key,
 				alignment: telem.NewAlignment(db.leadingAlignment.Add(1), 0),
 			}, nil
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, transfer, db.wrapError(err)
-	}
-	if *cfg.ErrOnUnauthorized {
-		if _, err = g.Authorize(); err != nil {
-			g.Release()
-			return nil, transfer, db.wrapError(err)
-		}
 	}
 	w.control = g
 	db.openWriters.Add(1)

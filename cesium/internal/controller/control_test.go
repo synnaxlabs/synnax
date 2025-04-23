@@ -182,51 +182,81 @@ var _ = Describe("Control", func() {
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(g).To(BeNil())
 			})
-		})
 
-		Describe("ErrOnControlled", func() {
-			It("Should take control when there are no other gates in the region", func() {
-				By("Getting an absolute gate on an uncontrolled region")
-				cfg1, _ := baseConfig(1)
-				cfg1.Subject.Key = "g1"
-				cfg1.ErrIfControlled = config.True()
-				g1, t := MustSucceed2(c.OpenGate(cfg1))
-				Expect(t.Occurred()).To(BeTrue())
-				_, authorized := g1.Authorized()
-				Expect(authorized).To(BeTrue())
+			Describe("ErrOnControlled", func() {
+				It("Should take control when there are no other gates in the region", func() {
+					By("Getting an absolute gate on an uncontrolled region")
+					cfg1, _ := baseConfig(1)
+					cfg1.Subject.Key = "g1"
+					cfg1.ErrIfControlled = config.True()
+					g1, t := MustSucceed2(c.OpenGate(cfg1))
+					Expect(t.Occurred()).To(BeTrue())
+					_, authorized := g1.Authorized()
+					Expect(authorized).To(BeTrue())
 
-				By("Creating another gate on that region")
-				cfg2, _ := baseConfig(1)
-				cfg2.Subject.Key = "g2"
-				cfg2.Authority = control.Absolute
-				g2, t := MustSucceed2(c.OpenGate(cfg2))
-				Expect(t.Occurred()).To(BeFalse())
-				_, authorized = g1.Authorized()
-				Expect(authorized).To(BeTrue())
-				_, authorized = g2.Authorized()
-				Expect(authorized).To(BeFalse())
+					By("Creating another gate on that region")
+					cfg2, _ := baseConfig(1)
+					cfg2.Subject.Key = "g2"
+					cfg2.Authority = control.Absolute
+					g2, t := MustSucceed2(c.OpenGate(cfg2))
+					Expect(t.Occurred()).To(BeFalse())
+					_, authorized = g1.Authorized()
+					Expect(authorized).To(BeTrue())
+					_, authorized = g2.Authorized()
+					Expect(authorized).To(BeFalse())
+				})
+
+				It("Should fail when there is another gate in the region", func() {
+					cfg1, createCount := baseConfig(1)
+					cfg1.Subject.Key = "g1"
+					cfg1.Authority = 0
+					cfg1.ErrIfControlled = config.True()
+					g, t := MustSucceed2(c.OpenGate(cfg1))
+					Expect(t.Occurred()).To(BeTrue())
+					Expect(createCount()).To(Equal(1))
+					_, authorized := g.Authorized()
+					Expect(authorized).To(BeTrue())
+					cfg2, _ := baseConfig(1)
+					cfg2.Subject.Key = "g2"
+					cfg2.Authority = 0
+					cfg2.ErrIfControlled = config.True()
+					g1, t, err := c.OpenGate(cfg2)
+					Expect(t.Occurred()).To(BeFalse())
+					Expect(g1).To(BeNil())
+					Expect(t.Occurred()).To(BeFalse())
+					Expect(err).To(HaveOccurred())
+					Expect(err).To(MatchError(ContainSubstring("overlaps with a controlled region")))
+				})
 			})
 
-			It("Should fail when there is another gate in the region", func() {
-				cfg1, createCount := baseConfig(1)
-				cfg1.Subject.Key = "g1"
-				cfg1.Authority = 0
-				cfg1.ErrIfControlled = config.True()
-				g, t := MustSucceed2(c.OpenGate(cfg1))
-				Expect(t.Occurred()).To(BeTrue())
-				Expect(createCount()).To(Equal(1))
-				_, authorized := g.Authorized()
-				Expect(authorized).To(BeTrue())
-				cfg2, _ := baseConfig(1)
-				cfg2.Subject.Key = "g2"
-				cfg2.Authority = 0
-				cfg2.ErrIfControlled = config.True()
-				g1, t, err := c.OpenGate(cfg2)
-				Expect(t.Occurred()).To(BeFalse())
-				Expect(g1).To(BeNil())
-				Expect(t.Occurred()).To(BeFalse())
-				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(ContainSubstring("overlaps with a controlled region")))
+			Describe("ErrOnUnauthorizedOpen", func() {
+				It("Should return nil if gate is authorized on open", func() {
+					cfg, _ := baseConfig(1)
+					cfg.Authority = 0
+					cfg.ErrOnUnauthorizedOpen = config.True()
+					g, t := MustSucceed2(c.OpenGate(cfg))
+					Expect(t.Occurred()).To(BeTrue())
+					Expect(t.IsAcquire()).To(BeTrue())
+					Expect(g).ToNot(BeNil())
+				})
+
+				It("Should return an error if a higher priority gate is already open", func() {
+					cfg1, _ := baseConfig(1)
+					cfg1.Subject.Key = "g1"
+					cfg1.Authority = control.Absolute
+					g1, t := MustSucceed2(c.OpenGate(cfg1))
+					Expect(t.Occurred()).To(BeTrue())
+					Expect(g1).ToNot(BeNil())
+
+					cfg2, _ := baseConfig(1)
+					cfg2.Subject.Key = "g2"
+					cfg2.Authority = control.Absolute - 1
+					cfg2.ErrOnUnauthorizedOpen = config.True()
+					g2, t, err := c.OpenGate(cfg2)
+					Expect(t.Occurred()).To(BeFalse())
+					Expect(g2).To(BeNil())
+					Expect(err).To(HaveOccurredAs(control.Unauthorized))
+				})
 			})
 		})
 

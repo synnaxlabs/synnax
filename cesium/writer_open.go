@@ -105,7 +105,7 @@ func DefaultWriterConfig() WriterConfig {
 func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.WriterConfig")
 	validate.NotEmptySlice(v, "Channels", c.Channels)
-	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
+	validate.NotNil(v, "ErrOnUnauthorizedOpen", c.ErrOnUnauthorized)
 	validate.NotNil(v, "Sync", c.Sync)
 	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)
 	v.Ternary(
@@ -188,7 +188,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	) unary.WriterConfig {
 		return unary.WriterConfig{
 			Subject:                  cfg.ControlSubject,
-			ErrOnUnauthorized:        cfg.ErrOnUnauthorized,
+			ErrOnUnauthorizedOpen:    cfg.ErrOnUnauthorized,
 			EnableAutoCommit:         cfg.EnableAutoCommit,
 			AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
 			Start:                    cfg.Start,
@@ -223,10 +223,10 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
 			}
 			virtualWriters[key], transfer, err = v.OpenWriter(ctx, virtual.WriterConfig{
-				Subject:           cfg.ControlSubject,
-				Start:             cfg.Start,
-				Authority:         auth,
-				ErrOnUnauthorized: cfg.ErrOnUnauthorized,
+				Subject:               cfg.ControlSubject,
+				Start:                 cfg.Start,
+				Authority:             auth,
+				ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorized,
 			})
 			if err != nil {
 				return nil, err

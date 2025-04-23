@@ -1230,7 +1230,7 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 
-			Describe("Frame Errors", Ordered, func() {
+			Describe("Write Errors", Ordered, func() {
 				ShouldNotLeakRoutinesJustBeforeEach()
 				var (
 					idx  = GenerateChannelKey()
@@ -1415,7 +1415,7 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 
-			Describe("ErrOnUnauthorized", func() {
+			Describe("ErrOnUnauthorizedOpen", func() {
 				ShouldNotLeakRoutinesJustBeforeEach()
 				var (
 					key        cesium.ChannelKey
