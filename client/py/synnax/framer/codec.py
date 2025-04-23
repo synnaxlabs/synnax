@@ -30,15 +30,10 @@ EQUAL_TIME_RANGES_FLAG_POS = 2
 TIME_RANGES_ZERO_FLAG_POS = 1
 ALL_CHANNELS_PRESENT_FLAG_POS = 0
 
-LOW_PERF_SPECIAL_CHAR = 254
-HIGH_PERF_SPECIAL_CHAR = 255
-
 TIME_RANGE_SIZE = 16
 ALIGNMENT_SIZE = 8
 DATA_LENGTH_SIZE = 4
 KEY_SIZE = 4
-
-CONTENT_TYPE = "application/sy-framer"
 
 
 class CodecFlags:
@@ -81,12 +76,14 @@ class CodecFlags:
 class Codec:
     _keys: ChannelKeys
     _keys_data_types: Dict[ChannelKey, DataType]
+    _has_variable_data_types: bool
 
     def __init__(
         self, keys: ChannelKeys, data_types: List[DataType]
     ) -> None:
         self._keys_data_types = {k: dt for k, dt in zip(keys, data_types)}
         self._keys = sorted(keys)
+        self._has_variable_data_types = any(dt.is_variable for dt in data_types)
 
     def update(self, keys: ChannelKeys, data_types: list[DataType]):
         self._keys_data_types = {k: dt for k, dt in zip(keys, data_types)}
@@ -99,6 +96,7 @@ class Codec:
         sorted_series = [pld.series[i] for i in indices]
 
         flg = CodecFlags()
+        flg.eq_len = not self._has_variable_data_types
         curr_data_size = -1
         ref_tr = None
         ref_align = None
@@ -155,16 +153,21 @@ class Codec:
                 offset += KEY_SIZE
 
             if not flg.eq_len:
-                struct.pack_into("<I", buffer, offset, len(ser))
+                len_or_size = len(ser)
+                if ser.data_type.is_variable:
+                    len_or_size = len(ser.data)
+                struct.pack_into("<I", buffer, offset, len_or_size)
                 offset += DATA_LENGTH_SIZE
 
             buffer[offset:offset + len(ser.data)] = ser.data
             offset += len(ser.data)
 
             if not flg.eq_tr and not flg.time_ranges_zero:
-                struct.pack_into("<QQ", buffer, offset,
-                                 ser.time_range.start,
-                                 ser.time_range.end)
+                if ser.time_range is None:
+                    tr = TimeRange.ZERO
+                else:
+                    tr = ser.time_range
+                struct.pack_into("<QQ", buffer, offset, tr.start, tr.end)
                 offset += TIME_RANGE_SIZE
 
             if not flg.eq_align and not flg.zero_alignments:
@@ -210,7 +213,9 @@ class Codec:
                 curr_len = struct.unpack_from("<I", buffer, idx)[0]
                 idx += 4
 
-            data_byte_len = curr_len * data_type.density
+            data_byte_len = curr_len
+            if not data_type.is_variable:
+                data_byte_len = curr_len * data_type.density
 
             series_data = bytes(buffer[idx:idx + data_byte_len])
             idx += data_byte_len
@@ -238,6 +243,11 @@ class Codec:
             ))
 
         return FramePayload(keys=keys, series=series_list)
+
+
+LOW_PERF_SPECIAL_CHAR = 254
+HIGH_PERF_SPECIAL_CHAR = 255
+CONTENT_TYPE = "application/sy-framer"
 
 
 class WSFramerCodec(FreighterCodec):

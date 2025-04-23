@@ -24,7 +24,7 @@ import (
 )
 
 var _ = Describe("Membership", Serial, Ordered, func() {
-	Describe("Bootstrap cluster", func() {
+	Describe("Update cluster", func() {
 
 		It("Should correctly bootstrap a cluster", func() {
 			db, err := aspen.Open(

@@ -11,6 +11,7 @@ package writer
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"

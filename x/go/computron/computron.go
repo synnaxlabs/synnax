@@ -49,7 +49,7 @@ func LValueFromSeries(s telem.Series, i int) lua.LValue {
 	case telem.Float64T:
 		return lua.LNumber(telem.ValueAt[float64](s, i))
 	case telem.StringT:
-		return lua.LString(s.StringAt(i))
+		return lua.LString(s.At(i))
 	default:
 		return lua.LNil
 	}

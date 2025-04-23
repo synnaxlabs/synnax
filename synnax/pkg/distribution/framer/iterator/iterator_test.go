@@ -12,6 +12,8 @@ package iterator_test
 import (
 	"context"
 	"fmt"
+	"io"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -22,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"io"
 )
 
 var _ = Describe("Iterator", func() {
@@ -36,29 +37,29 @@ var _ = Describe("Iterator", func() {
 			var s scenario
 			BeforeAll(func() {
 				s = _sF()
-				writer := MustSucceed(s.writerService.New(context.TODO(), writer.Config{
+				writer := MustSucceed(s.writerService.Open(context.TODO(), writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  config.True(),
 				}))
-				MustSucceed(writer.Write(core.Frame{
-					Keys: s.keys,
-					Series: []telem.Series{
+				MustSucceed(writer.Write(core.MultiFrame(
+					s.keys,
+					[]telem.Series{
 						telem.NewSecondsTSV(10, 11, 12),
-					}},
-				))
-				MustSucceed(writer.Write(core.Frame{
-					Keys: s.keys,
-					Series: []telem.Series{
+					},
+				)))
+				MustSucceed(writer.Write(core.MultiFrame(
+					s.keys,
+					[]telem.Series{
 						telem.NewSecondsTSV(13, 14, 15, 16, 17),
-					}},
-				))
-				MustSucceed(writer.Write(core.Frame{
-					Keys: s.keys,
-					Series: []telem.Series{
+					},
+				)))
+				MustSucceed(writer.Write(core.MultiFrame(
+					s.keys,
+					[]telem.Series{
 						telem.NewSecondsTSV(18, 19, 20, 21, 22),
 					},
-				}))
+				)))
 				MustSucceed(writer.Commit())
 				Expect(writer.Close()).To(Succeed())
 			})

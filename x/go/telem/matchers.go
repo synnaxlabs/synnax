@@ -14,6 +14,8 @@ import (
 	"fmt"
 
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/x/errors"
+	xtypes "github.com/synnaxlabs/x/types"
 )
 
 // SeriesMatcherOption configures the behavior of the series matcher
@@ -73,7 +75,7 @@ func MatchSeriesData(expected Series) types.GomegaMatcher {
 func (m *seriesMatcher) Match(actual interface{}) (success bool, err error) {
 	actualSeries, ok := actual.(Series)
 	if !ok {
-		return false, fmt.Errorf("MatchSeries matcher expects a Series but got %K", actual)
+		return false, errors.Newf("MatchSeries matcher expects a Series but got %K", actual)
 	}
 
 	// Check data type
@@ -157,4 +159,77 @@ func formatDifferences(differences []string) string {
 		result += diff
 	}
 	return result
+}
+
+type frameMatcher[K xtypes.Numeric] struct {
+	expected Frame[K]
+}
+
+func MatchFrame[K xtypes.Numeric](expected Frame[K]) types.GomegaMatcher {
+	return &frameMatcher[K]{expected: expected}
+}
+
+func (m *frameMatcher[K]) Match(actual interface{}) (success bool, err error) {
+	actualFrame, ok := actual.(Frame[K])
+	if !ok {
+		return false, errors.Newf("MatchFrame matcher expects a Frame but got %K", actual)
+	}
+	if actualFrame.Count() != m.expected.Count() {
+		return false, nil
+	}
+	for k := range actualFrame.Keys() {
+		decodedSeries := actualFrame.Get(k)
+		originalSeries := m.expected.Get(k)
+		for i, s := range decodedSeries.Series {
+			m := &seriesMatcher{expected: originalSeries.Series[i]}
+			return m.Match(s)
+		}
+	}
+	return true, nil
+}
+
+func (m *frameMatcher[K]) FailureMessage(actual interface{}) string {
+	actualFrame, ok := actual.(Frame[K])
+	if !ok {
+		return fmt.Sprintf("Expected Frame but got %K", actual)
+	}
+	if actualFrame.Count() != m.expected.Count() {
+		return fmt.Sprintf("Frames have different counts: expected %d, got %d",
+			m.expected.Count(), actualFrame.Count())
+	}
+	for k := range actualFrame.Keys() {
+		decodedSeries := actualFrame.Get(k)
+		originalSeries := m.expected.Get(k)
+		for i, s := range decodedSeries.Series {
+			m := &seriesMatcher{expected: originalSeries.Series[i]}
+			success, _ := m.Match(s)
+			if !success {
+				return m.FailureMessage(s)
+			}
+		}
+	}
+	return "Frames match"
+}
+
+func (m *frameMatcher[K]) NegatedFailureMessage(actual interface{}) string {
+	actualFrame, ok := actual.(Frame[K])
+	if !ok {
+		return fmt.Sprintf("Expected Frame but got %K", actual)
+	}
+	if actualFrame.Count() != m.expected.Count() {
+		return fmt.Sprintf("Frames have different counts: expected %d, got %d",
+			m.expected.Count(), actualFrame.Count())
+	}
+	for k := range actualFrame.Keys() {
+		decodedSeries := actualFrame.Get(k)
+		originalSeries := m.expected.Get(k)
+		for i, s := range decodedSeries.Series {
+			m := &seriesMatcher{expected: originalSeries.Series[i]}
+			success, _ := m.Match(s)
+			if success {
+				return fmt.Sprintf("Frames match for key %v", k)
+			}
+		}
+	}
+	return "Frames do not match"
 }

@@ -401,7 +401,7 @@ func (c Calculator) Calculate(fr framer.Frame) (telem.Series, error) {
 				idx = s.Len() - 1
 			}
 			if ch, found := c.requires[k]; found {
-				c.calculation.Set(ch.Name, computron.LValueFromSeries(s.Series[0], idx))
+				c.calculation.Set(ch.Name, computron.LValueFromSeries(s.Series[0], int(idx)))
 			}
 		}
 		res, err := c.calculation.Run()

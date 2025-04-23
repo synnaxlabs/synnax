@@ -10,6 +10,9 @@
 package signals_test
 
 import (
+	"io"
+	"time"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,8 +25,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"io"
-	"time"
 )
 
 const (
@@ -84,7 +85,7 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 		}})
 		var streamRes framer.StreamerResponse
 		Eventually(responses.Outlet(), "5s").Should(Receive(&streamRes))
-		Expect(streamRes.Frame.Keys).To(ConsistOf(cfg.SetChannel.Key()))
+		Expect(streamRes.Frame.KeysSlice()).To(ConsistOf(cfg.SetChannel.Key()))
 		Expect(streamRes.Frame.SeriesAt(0).Data).To(HaveLen(int(telem.Bit128)))
 		Expect(streamRes.Frame.SeriesAt(0).Data).To(Equal(uid[:]))
 	})

@@ -31,7 +31,7 @@ from synnax.telem import TimeSpan
 
 class _Request(Payload):
     keys: ChannelKeys
-    downsample_factor: int
+    down_sample_factor: int
 
 
 class _Response(Payload):
@@ -80,7 +80,7 @@ class Streamer:
         self,
         client: WebsocketClient,
         adapter: ReadFrameAdapter,
-        downsample_factor: int = 1,
+        down_sample_factor: int = 1,
         use_experimental_codec: bool = False
     ) -> None:
         self._adapter = adapter
@@ -88,9 +88,9 @@ class Streamer:
             client = client.with_codec(WSStreamerCodec(self._adapter.codec))
 
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
-        self._downsample_factor = downsample_factor
+        self._down_sample_factor = down_sample_factor
         self._stream.send(
-            _Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor)
+            _Request(keys=self._adapter.keys, down_sample_factor=self._down_sample_factor)
         )
         _, exc = self._stream.receive()
         if exc is not None:
@@ -149,7 +149,7 @@ class Streamer:
         """
         self._adapter.update(channels)
         self._stream.send(
-            _Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor)
+            _Request(keys=self._adapter.keys, down_sample_factor=self._down_sample_factor)
         )
 
     def close(self, timeout: float | int | TimeSpan | None = None):
@@ -221,18 +221,18 @@ class AsyncStreamer:
         self,
         client: AsyncStreamClient,
         adapter: ReadFrameAdapter,
-        downsample_factor: int,
+        down_sample_factor: int,
     ) -> None:
         self._client = client
         self._adapter = adapter
-        self._downsample_factor = downsample_factor
+        self._down_sample_factor = down_sample_factor
 
     async def _open(self):
         self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
         await self._stream.send(
             _Request(
                 keys=self._adapter.keys,
-                downsample_factor=self._downsample_factor,
+                down_sample_factor=self._down_sample_factor,
             )
         )
         _, exc = await self._stream.receive()

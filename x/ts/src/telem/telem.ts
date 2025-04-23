@@ -1010,14 +1010,6 @@ export class TimeRange implements Stringer {
    */
   end: TimeStamp;
 
-  encodeValue = true;
-  get value(): CrudeTimeRange {
-    return {
-      start: this.start.valueOf().toString(),
-      end: this.end.valueOf().toString(),
-    };
-  }
-
   constructor(tr: CrudeTimeRange);
 
   constructor(start: CrudeTimeStamp, end: CrudeTimeStamp);

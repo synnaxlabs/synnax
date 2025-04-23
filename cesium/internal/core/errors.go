@@ -10,6 +10,8 @@
 package core
 
 import (
+	"fmt"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -30,7 +32,8 @@ func NewErrEntityClosed(entityName string) error {
 }
 
 func NewChannelErrWrapper(ch Channel) func(error) error {
+	msg := fmt.Sprintf("channel %v", ch)
 	return func(err error) error {
-		return errors.Wrapf(err, "channel %v", ch)
+		return errors.Wrap(err, msg)
 	}
 }

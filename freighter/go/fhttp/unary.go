@@ -53,7 +53,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx *fiber.Ctx) error {
 		parseRequestCtx(fCtx.Context(), fCtx, address.Address(fCtx.Path())),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			var req RQ
-			err := fCtx.BodyParser(&req)
+			err := codec.Decode(ctx, fCtx.BodyRaw(), &req)
 			oCtx := freighter.Context{Protocol: ctx.Protocol, Params: make(freighter.Params)}
 			if err != nil {
 				return oCtx, err

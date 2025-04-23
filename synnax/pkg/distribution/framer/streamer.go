@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -89,7 +90,6 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			l.Out.Inlet() <- StreamerResponse{Frame: core.NewFrameFromStorage(u)}
 		}
 
-		// Then we'll tap into the Relay for stream updates
 		for {
 			select {
 			case <-ctx.Done():

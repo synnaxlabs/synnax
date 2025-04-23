@@ -338,7 +338,7 @@ func start(cmd *cobra.Command) {
 		_api.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(dist.Channel)))
 
 		// Configure the GRPC API Transport.
-		grpcAPI, grpcAPITrans := grpcapi.New(&framercodec.LazyCodec{Readable: dist.Channel})
+		grpcAPI, grpcAPITrans := grpcapi.New(&framercodec.LazyCodec{Channels: dist.Channel})
 		*grpcServerTransports = append(*grpcServerTransports, grpcAPITrans...)
 		_api.BindTo(grpcAPI)
 

@@ -162,6 +162,25 @@ describe("encoder", () => {
           ],
         ),
       },
+      {
+        name: "Variable Data Types",
+        channels: [1, 2, 3],
+        dataTypes: [DataType.UINT8, DataType.STRING, DataType.JSON],
+        frame: new framer.Frame(
+          [1, 2, 3],
+          [
+            new Series(new Uint8Array([1])),
+            new Series({
+              data: ["one", "two", "three"],
+              dataType: DataType.STRING,
+            }),
+            new Series({
+              data: [{ a: 1 }, { b: 2 }, { c: 3 }],
+              dataType: DataType.JSON,
+            }),
+          ],
+        ),
+      },
     ];
 
     SPECS.forEach((spec) => {

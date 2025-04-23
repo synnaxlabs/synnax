@@ -64,34 +64,34 @@ var _ = Describe("Relay", func() {
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				// We need to give a few milliseconds for the reader to boot up.
 				time.Sleep(10 * time.Millisecond)
-				writer := MustSucceed(s.writer.New(context.TODO(), writer.Config{
+				w := MustSucceed(s.writer.Open(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 				}))
 				defer func() {
 					defer GinkgoRecover()
-					Expect(writer.Close()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
 				}()
-				writeF := core.Frame{
-					Keys: s.keys,
-					Series: []telem.Series{
+				writeF := core.MultiFrame(
+					s.keys,
+					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
 						telem.NewSeriesV[int64](3, 4, 5),
 						telem.NewSeriesV[int64](5, 6, 7),
 					},
-				}
-				Expect(writer.Write(writeF)).To(BeTrue())
+				)
+				Expect(w.Write(writeF)).To(BeTrue())
 				var f framer.Frame
 				for i := 0; i < s.resCount; i++ {
 					var res relay.Response
 					Eventually(readerRes.Outlet()).Should(Receive(&res))
 					f = core.MergeFrames([]core.Frame{f, res.Frame})
 				}
-				Expect(f.Keys).To(HaveLen(3))
-				for i, k := range f.Keys {
+				Expect(f.Count()).To(Equal(3))
+				for i, k := range f.KeysSlice() {
 					wi := lo.IndexOf(s.keys, k)
-					s := f.Series[i]
-					ws := writeF.Series[wi]
+					s := f.SeriesAt(i)
+					ws := writeF.SeriesAt(wi)
 					Expect(s.Data).To(Equal(ws.Data))
 					Expect(s.DataType).To(Equal(ws.DataType))
 					Expect(s.Alignment).To(BeNumerically(">", telem.Alignment(0)))

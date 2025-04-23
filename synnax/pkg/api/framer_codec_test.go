@@ -7,11 +7,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"testing"
 )
 
 var _ = Describe("FramerCodec", func() {
@@ -19,25 +19,28 @@ var _ = Describe("FramerCodec", func() {
 		It("Should encode and decode the request correctly", func() {
 			dataTypes := []telem.DataType{"int32"}
 			keys := channel.Keys{1}
-			cd := codec.NewCodec(dataTypes, keys)
-			v := api.WSFramerCodec{BaseCodec: &cd, LowerPerfCodec: &binary.JSONCodec{}}
+			v := api.WSFramerCodec{
+				LazyCodec:      codec.WrapWithLazy(codec.NewCodec(dataTypes, keys)),
+				LowerPerfCodec: &binary.JSONCodec{},
+			}
 			req := api.FrameWriterRequest{
 				Command: writer.Write,
-				Frame: api.Frame{
-					Keys:   keys,
-					Series: []telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
-				},
+				Frame: core.MultiFrame(
+					keys,
+					[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
+				),
 			}
 			msg := fhttp.WSMessage[api.FrameWriterRequest]{Type: "data", Payload: req}
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			Expect(encoded[0]).To(Equal(uint8(255)))
 			var resMsg fhttp.WSMessage[api.FrameWriterRequest]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
+			frm := resMsg.Payload.Frame
 			Expect(resMsg.Type).To(Equal(fhttp.WSMsgTypeData))
-			Expect(resMsg.Payload.Frame.Keys).To(Equal(channel.Keys{1}))
-			Expect(len(resMsg.Payload.Frame.Series)).To(Equal(1))
-			Expect(resMsg.Payload.Frame.Series[0].Data).To(
-				Equal(telem.NewSeriesV[int32](1, 2, 3).Data),
+			Expect(frm.KeysSlice()).To(Equal([]channel.Key{1}))
+			Expect(frm.Count()).To(Equal(1))
+			Expect(frm.SeriesAt(0)).To(
+				telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)),
 			)
 		})
 	})
@@ -45,59 +48,26 @@ var _ = Describe("FramerCodec", func() {
 		It("Should encode and decode the response correctly", func() {
 			dataTypes := []telem.DataType{"int32"}
 			keys := channel.Keys{1}
-			cd := codec.NewCodec(dataTypes, keys)
-			v := api.WSFramerCodec{BaseCodec: &cd, LowerPerfCodec: &binary.JSONCodec{}}
+			v := api.WSFramerCodec{
+				LazyCodec:      codec.WrapWithLazy(codec.NewCodec(dataTypes, keys)),
+				LowerPerfCodec: &binary.JSONCodec{},
+			}
 			res := api.FrameStreamerResponse{
-				Frame: api.Frame{
-					Keys:   keys,
-					Series: []telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
-				},
+				Frame: core.MultiFrame(
+					keys,
+					[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
+				),
 			}
 			msg := fhttp.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			Expect(encoded[0]).To(Equal(uint8(255)))
 			var resMsg fhttp.WSMessage[api.FrameStreamerResponse]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
+			frm := resMsg.Payload.Frame
 			Expect(resMsg.Type).To(Equal(fhttp.WSMsgTypeData))
-			Expect(resMsg.Payload.Frame.Keys).To(Equal(channel.Keys{1}))
-			Expect(len(resMsg.Payload.Frame.Series)).To(Equal(1))
-			Expect(resMsg.Payload.Frame.Series[0].Data).To(
-				Equal(telem.NewSeriesV[int32](1, 2, 3).Data),
-			)
+			Expect(frm.KeysSlice()).To(Equal([]channel.Key{1}))
+			Expect(frm.Count()).To(Equal(1))
+			Expect(frm.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
 	})
 })
-
-func BenchmarkFrameCodec(b *testing.B) {
-	dataTypes := []telem.DataType{"int32"}
-	keys := channel.Keys{1}
-	cd := codec.NewCodec(dataTypes, keys)
-	v := api.WSFramerCodec{BaseCodec: &cd, LowerPerfCodec: &binary.JSONCodec{}}
-	res := api.FrameStreamerResponse{
-		Frame: api.Frame{
-			Keys:   keys,
-			Series: []telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
-		},
-	}
-	msg := fhttp.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
-	for range b.N {
-		v.Encode(ctx, msg)
-	}
-
-}
-
-func BenchmarkFrameCodecJSON(b *testing.B) {
-	keys := channel.Keys{1}
-	res := api.FrameStreamerResponse{
-		Frame: api.Frame{
-			Keys:   keys,
-			Series: []telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
-		},
-	}
-	msg := fhttp.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
-	codec := &binary.JSONCodec{}
-	for range b.N {
-		codec.Encode(ctx, msg)
-	}
-
-}

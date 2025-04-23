@@ -16,6 +16,8 @@ from synnax.framer.codec import Codec
 from synnax.framer.frame import Frame
 from synnax.telem import DataType, Series, TimeRange
 
+
+@pytest.mark.frame_codec
 class TestCodec:
     class Spec:
         def __init__(
@@ -187,6 +189,26 @@ class TestCodec:
                     ),
                 ],
             )
+        ),
+        Spec(
+            name="Variable Data Types",
+            channels=[1, 2],
+            data_types=[DataType.UINT8, DataType.STRING, DataType.JSON],
+            frame=Frame(
+                channels=[1, 2],
+                series=[
+                    Series(
+                        data_type=DataType.UINT8,
+                        data=np.array([1], dtype=np.uint8),
+                        time_range=TimeRange(start=0, end=5)
+                    ),
+                    Series(["cat", "dog", "orange"]),
+                    Series(
+                        [{"key": "value"}, {"key1": "value1"}],
+                        data_type=DataType.JSON
+                    ),
+                ],
+            )
         )
     ])
     def test_encoder_decoder(self, spec: Spec):
@@ -197,7 +219,7 @@ class TestCodec:
         for i, key in enumerate(decoded.keys):
             dec_ser = decoded.series[i]
             or_ser = spec.frame[key].series[0]
-            assert np.array_equal(dec_ser, or_ser)
+            assert np.array_equal(list(dec_ser), list(or_ser))
             if or_ser.time_range is None:
                 assert dec_ser.time_range == TimeRange.ZERO
             else:

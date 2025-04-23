@@ -23,11 +23,16 @@ func (s *Service) newFree(mode Mode, sync bool) StreamWriter {
 	return w
 }
 
+// freeWriter is used to write data for free channels into the distribution relay.
 type freeWriter struct {
 	confluence.LinearTransform[Request, Response]
+	// freeWrites is the inlet for communicating free frames to the relay
 	freeWrites confluence.Inlet[relay.Response]
-	mode       Mode
-	sync       bool
+	// mode is the mode of the writer.
+	mode Mode
+	// sync is true if the writer should receive acknowledgements for all requires,
+	// including Write commands.
+	sync bool
 }
 
 func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, ok bool, err error) {

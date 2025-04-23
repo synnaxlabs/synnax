@@ -10,10 +10,10 @@
 import { type WebsocketMessage } from "@synnaxlabs/freighter";
 import {
   binary,
-  type DataType,
+  DataType,
   type SeriesPayload,
   TimeRange,
-  type TimeStamp,
+  TimeStamp,
 } from "@synnaxlabs/x";
 import { type ZodSchema } from "zod";
 
@@ -44,29 +44,38 @@ const sortFramePayloadByKey = (framePayload: Payload): void => {
   series.forEach((ser) => delete (ser as KeyedSeries).key);
 };
 
-// Adjusted TypeScript Codec Class
+const ZERO_ALIGNMENTS_FLAG_POS = 5;
+const EQUAL_ALIGNMENTS_FLAG_POS = 4;
+const EQUAL_LENGTHS_FLAG_POS = 3;
+const EQUAL_TIME_RANGES_FLAG_POS = 2;
+const TIME_RANGES_ZERO_FLAG_POS = 1;
+const ALL_CHANNELS_PRESENT_FLAG_POS = 0;
 
-// Constants for flag positions
-const zeroAlignmentsFlagPos = 5;
-const equalAlignmentsFlagPos = 4;
-const equalLengthsFlagPos = 3;
-const equalTimeRangesFlagPos = 2;
-const timeRangesZeroFlagPos = 1;
-const allChannelsPresentFlagPos = 0;
+const TIMESTAMP_SIZE = DataType.TIMESTAMP.density.valueOf();
+const ALIGNMENT_SIZE = 8;
+const DATA_LENGTH_SIZE = 4;
+const KEY_SIZE = 4;
 
 export class Codec {
   contentType: string = "application/sy-framer";
   private keys: channel.Keys = [];
+  private prevKeys: channel.Keys = [];
   private keyDataTypes: Map<channel.Key, DataType> = new Map();
+  private hasVariableDataTypes: boolean = false;
 
   constructor(keys: channel.Keys, dataTypes: DataType[]) {
     this.update(keys, dataTypes);
   }
 
   update(keys: channel.Keys, dataTypes: DataType[]): void {
+    this.prevKeys = [...this.keys];
     this.keys = keys;
     this.keyDataTypes = new Map();
-    keys.forEach((k, i) => this.keyDataTypes.set(k, dataTypes[i]));
+    keys.forEach((k, i) => {
+      const dt = dataTypes[i];
+      this.keyDataTypes.set(k, dt);
+      if (dt.isVariable) this.hasVariableDataTypes = true;
+    });
     this.keys.sort();
   }
 
@@ -78,7 +87,7 @@ export class Codec {
     let endTime: TimeStamp | undefined;
     let currAlignment: bigint | undefined;
     let byteArraySize = startOffset + 1;
-    let sizeFlag = true;
+    let equalLengthsFlag = !this.hasVariableDataTypes;
     let equalTimeRangesFlag = true;
     let timeRangesZeroFlag = true;
     let channelFlag = true;
@@ -87,25 +96,26 @@ export class Codec {
 
     if (src.keys.length !== this.keys.length) {
       channelFlag = false;
-      byteArraySize += src.keys.length * 4;
+      byteArraySize += src.keys.length * KEY_SIZE;
     }
 
     src.series.forEach((series) => {
       const pldLength = seriesPldLength(series);
+      byteArraySize += series.data.byteLength;
       if (currDataSize === -1) {
         currDataSize = pldLength;
         startTime = series.timeRange?.start;
         endTime = series.timeRange?.end;
         currAlignment = BigInt(series.alignment ?? 0n);
+        return;
       }
-      if (currDataSize !== pldLength) sizeFlag = false;
+      if (currDataSize !== pldLength) equalLengthsFlag = false;
       if (
         startTime?.valueOf() !== series.timeRange?.start.valueOf() ||
         endTime?.valueOf() !== series.timeRange?.end.valueOf()
       )
         equalTimeRangesFlag = false;
       if (currAlignment !== BigInt(series.alignment ?? 0)) equalAlignmentsFlag = false;
-      byteArraySize += series.data.byteLength;
     });
 
     timeRangesZeroFlag = equalTimeRangesFlag && startTime == null && endTime == null;
@@ -113,75 +123,66 @@ export class Codec {
     zeroAlignmentsFlag =
       equalAlignmentsFlag && (currAlignment === undefined || currAlignment === 0n);
 
-    if (sizeFlag) byteArraySize += 4;
-    else byteArraySize += src.keys.length * 4;
+    if (equalLengthsFlag) byteArraySize += DATA_LENGTH_SIZE;
+    else byteArraySize += src.keys.length * DATA_LENGTH_SIZE;
 
     if (!timeRangesZeroFlag)
-      if (equalTimeRangesFlag) byteArraySize += 16;
-      else byteArraySize += src.keys.length * 16;
+      if (equalTimeRangesFlag) byteArraySize += TIMESTAMP_SIZE * 2;
+      else byteArraySize += src.keys.length * TIMESTAMP_SIZE * 2;
 
     if (!zeroAlignmentsFlag)
-      if (equalAlignmentsFlag) byteArraySize += 8;
-      else byteArraySize += src.keys.length * 8;
+      if (equalAlignmentsFlag) byteArraySize += ALIGNMENT_SIZE;
+      else byteArraySize += src.keys.length * ALIGNMENT_SIZE;
 
     const buffer = new Uint8Array(byteArraySize);
     const view = new DataView(buffer.buffer);
-    byteArraySize = startOffset;
-    buffer[byteArraySize] =
-      (Number(zeroAlignmentsFlag) << zeroAlignmentsFlagPos) |
-      (Number(equalAlignmentsFlag) << equalAlignmentsFlagPos) |
-      (Number(sizeFlag) << equalLengthsFlagPos) |
-      (Number(equalTimeRangesFlag) << equalTimeRangesFlagPos) |
-      (Number(timeRangesZeroFlag) << timeRangesZeroFlagPos) |
-      (Number(channelFlag) << allChannelsPresentFlagPos);
-    byteArraySize++;
+    let offset = startOffset;
+    buffer[offset] =
+      (Number(zeroAlignmentsFlag) << ZERO_ALIGNMENTS_FLAG_POS) |
+      (Number(equalAlignmentsFlag) << EQUAL_ALIGNMENTS_FLAG_POS) |
+      (Number(equalLengthsFlag) << EQUAL_LENGTHS_FLAG_POS) |
+      (Number(equalTimeRangesFlag) << EQUAL_TIME_RANGES_FLAG_POS) |
+      (Number(timeRangesZeroFlag) << TIME_RANGES_ZERO_FLAG_POS) |
+      (Number(channelFlag) << ALL_CHANNELS_PRESENT_FLAG_POS);
+    offset++;
 
-    if (sizeFlag) {
-      view.setUint32(byteArraySize, currDataSize, true);
-      byteArraySize += 4;
+    if (equalLengthsFlag) {
+      view.setUint32(offset, currDataSize, true);
+      offset += DATA_LENGTH_SIZE;
     }
 
     if (equalTimeRangesFlag && !timeRangesZeroFlag) {
-      view.setBigUint64(byteArraySize, BigInt(startTime?.valueOf() ?? 0n), true);
-      byteArraySize += 8;
-      view.setBigUint64(byteArraySize, BigInt(endTime?.valueOf() ?? 0n), true);
-      byteArraySize += 8;
+      view.setBigUint64(offset, startTime?.valueOf() ?? 0n, true);
+      view.setBigUint64(offset, endTime?.valueOf() ?? 0n, true);
+      offset += TIMESTAMP_SIZE * 2;
     }
 
     if (equalAlignmentsFlag && !zeroAlignmentsFlag) {
-      view.setBigUint64(byteArraySize, BigInt(currAlignment ?? 0n), true);
-      byteArraySize += 8;
+      view.setBigUint64(offset, currAlignment ?? 0n, true);
+      offset += ALIGNMENT_SIZE;
     }
 
     src.series.forEach((series, i) => {
       if (!channelFlag) {
-        view.setUint32(byteArraySize, src.keys[i], true);
-        byteArraySize += 4;
+        view.setUint32(offset, src.keys[i], true);
+        offset += KEY_SIZE;
       }
-      if (!sizeFlag) {
-        const seriesLength = seriesPldLength(series);
-        view.setUint32(byteArraySize, seriesLength, true);
-        byteArraySize += 4;
+      if (!equalLengthsFlag) {
+        let seriesLengthOrSize = series.data.byteLength;
+        if (!series.dataType.isVariable) seriesLengthOrSize = seriesPldLength(series);
+        view.setUint32(offset, seriesLengthOrSize, true);
+        offset += DATA_LENGTH_SIZE;
       }
-      buffer.set(new Uint8Array(series.data), byteArraySize);
-      byteArraySize += series.data.byteLength;
+      buffer.set(new Uint8Array(series.data), offset);
+      offset += series.data.byteLength;
       if (!equalTimeRangesFlag && !timeRangesZeroFlag) {
-        view.setBigUint64(
-          byteArraySize,
-          BigInt(series.timeRange?.start.valueOf() ?? 0n),
-          true,
-        );
-        byteArraySize += 8;
-        view.setBigUint64(
-          byteArraySize,
-          BigInt(series.timeRange?.end.valueOf() ?? 0n),
-          true,
-        );
-        byteArraySize += 8;
+        view.setBigUint64(offset, series.timeRange?.start.valueOf() ?? 0n, true);
+        view.setBigUint64(offset, series.timeRange?.end.valueOf() ?? 0n, true);
+        offset += TIMESTAMP_SIZE * 2;
       }
       if (!equalAlignmentsFlag && !zeroAlignmentsFlag) {
-        view.setBigUint64(byteArraySize, BigInt(series.alignment ?? 0n), true);
-        byteArraySize += 8;
+        view.setBigUint64(offset, series.alignment ?? 0n, true);
+        offset += ALIGNMENT_SIZE;
       }
     });
     return buffer;
@@ -193,87 +194,93 @@ export class Codec {
     let index = offset;
     let sizeRepresentation = 0;
     let currSize = 0;
-    let startTime = 0n;
-    let endTime = 0n;
-    let currAlignment = 0n;
+    let startTime: TimeStamp | undefined;
+    let endTime: TimeStamp | undefined;
+    let currAlignment: bigint | undefined;
 
     const view = new DataView(src.buffer, src.byteOffset, src.byteLength);
-    const zeroAlignmentsFlag = Boolean((src[index] >> zeroAlignmentsFlagPos) & 1);
-    const equalAlignmentsFlag = Boolean((src[index] >> equalAlignmentsFlagPos) & 1);
-    const sizeFlag = Boolean((src[index] >> equalLengthsFlagPos) & 1);
-    const equalTimeRangesFlag = Boolean((src[index] >> equalTimeRangesFlagPos) & 1);
-    const timeRangesZeroFlag = Boolean((src[index] >> timeRangesZeroFlagPos) & 1);
-    const channelFlag = Boolean((src[index] >> allChannelsPresentFlagPos) & 1);
+    const zeroAlignmentsFlag = Boolean((src[index] >> ZERO_ALIGNMENTS_FLAG_POS) & 1);
+    const equalAlignmentsFlag = Boolean((src[index] >> EQUAL_ALIGNMENTS_FLAG_POS) & 1);
+    const sizeFlag = Boolean((src[index] >> EQUAL_LENGTHS_FLAG_POS) & 1);
+    const equalTimeRangesFlag = Boolean((src[index] >> EQUAL_TIME_RANGES_FLAG_POS) & 1);
+    const timeRangesZeroFlag = Boolean((src[index] >> TIME_RANGES_ZERO_FLAG_POS) & 1);
+    const channelFlag = Boolean((src[index] >> ALL_CHANNELS_PRESENT_FLAG_POS) & 1);
     index++;
 
     if (sizeFlag) {
-      if (index + 4 > view.byteLength) return returnFrame;
+      if (index + DATA_LENGTH_SIZE > view.byteLength) return returnFrame;
       sizeRepresentation = view.getUint32(index, true);
-      index += 4;
+      index += DATA_LENGTH_SIZE;
     }
 
     if (equalTimeRangesFlag && !timeRangesZeroFlag) {
-      if (index + 16 > view.byteLength) return returnFrame;
-      startTime = view.getBigUint64(index, true);
-      index += 8;
-      endTime = view.getBigUint64(index, true);
-      index += 8;
+      if (index + TIMESTAMP_SIZE > view.byteLength) return returnFrame;
+      startTime = new TimeStamp(view.getBigUint64(index, true));
+      index += TIMESTAMP_SIZE;
+      endTime = new TimeStamp(view.getBigUint64(index, true));
+      index += TIMESTAMP_SIZE;
     }
 
     if (equalAlignmentsFlag && !zeroAlignmentsFlag) {
-      if (index + 8 > view.byteLength) return returnFrame;
+      if (index + ALIGNMENT_SIZE > view.byteLength) return returnFrame;
       currAlignment = view.getBigUint64(index, true);
-      index += 8;
+      index += ALIGNMENT_SIZE;
     }
 
-    if (channelFlag) returnFrame.keys = this.keys;
-    this.keys.forEach((k) => {
+    if (channelFlag) returnFrame.keys = [...this.keys];
+    this.keys.forEach((k, i) => {
       if (!channelFlag) {
-        if (index + 4 > view.byteLength) return;
+        if (index + KEY_SIZE > view.byteLength) return;
         const frameKey = view.getUint32(index, true);
-        index += 4;
         if (frameKey !== k) return;
+        index += KEY_SIZE;
         returnFrame.keys.push(k);
       }
       const dataType = this.keyDataTypes.get(k) as DataType;
       currSize = 0;
       if (!sizeFlag) {
-        if (index + 4 > view.byteLength) return;
+        if (index + DATA_LENGTH_SIZE > view.byteLength) return;
         currSize = view.getUint32(index, true);
-        index += 4;
+        index += DATA_LENGTH_SIZE;
       } else currSize = sizeRepresentation;
 
-      const dataByteLength = currSize * dataType.density.valueOf();
-      if (index + dataByteLength > view.byteLength) return;
+      let dataByteLength = currSize;
+      if (!dataType.isVariable) dataByteLength *= dataType.density.valueOf();
+      if (index + dataByteLength > view.byteLength) {
+        returnFrame.keys.splice(i, 1);
+        return;
+      }
       const currSeries: SeriesPayload = {
         dataType,
         data: src.slice(index, index + dataByteLength).buffer,
       };
       index += dataByteLength;
       if (!equalTimeRangesFlag && !timeRangesZeroFlag) {
-        if (index + 16 > view.byteLength) return;
+        if (index + TIMESTAMP_SIZE * 2 > view.byteLength) return;
         const start = view.getBigUint64(index, true);
-        index += 8;
+        index += TIMESTAMP_SIZE;
         const end = view.getBigUint64(index, true);
-        index += 8;
+        index += TIMESTAMP_SIZE;
         currSeries.timeRange = new TimeRange({ start, end });
       } else if (!timeRangesZeroFlag)
         currSeries.timeRange = new TimeRange({
-          start: BigInt(startTime),
-          end: BigInt(endTime),
+          start: startTime?.valueOf() ?? 0n,
+          end: endTime?.valueOf() ?? 0n,
         });
       else currSeries.timeRange = new TimeRange({ start: 0n, end: 0n });
 
       if (!equalAlignmentsFlag && !zeroAlignmentsFlag) {
-        if (index + 8 > view.byteLength) return;
+        if (index + ALIGNMENT_SIZE > view.byteLength) return;
         currAlignment = view.getBigUint64(index, true);
-        index += 8;
+        index += ALIGNMENT_SIZE;
         currSeries.alignment = currAlignment;
       } else if (!zeroAlignmentsFlag) currSeries.alignment = currAlignment;
       else currSeries.alignment = 0n;
 
       returnFrame.series.push(currSeries);
     });
+    if (returnFrame.keys.length !== returnFrame.series.length)
+      return { keys: [], series: [] };
     return returnFrame;
   }
 }
@@ -282,11 +289,12 @@ export const LOW_PER_SPECIAL_CHAR = 254;
 const LOW_PERF_SPECIAL_CHAR_BUF = new Uint8Array([LOW_PER_SPECIAL_CHAR]);
 export const HIGH_PERF_SPECIAL_CHAR = 255;
 const HIGH_PERF_SPECIAL_CHAR_BUF = new Uint8Array([HIGH_PERF_SPECIAL_CHAR]);
+const CONTENT_TYPE = "application/sy-framer";
 
 export class WSWriterCodec implements binary.Codec {
-  contentType: string = "application/sy-framer";
-  base: Codec;
-  lowPerfCodec: binary.Codec;
+  contentType = CONTENT_TYPE;
+  private base: Codec;
+  private lowPerfCodec: binary.Codec;
 
   constructor(base: Codec) {
     this.base = base;
@@ -320,9 +328,9 @@ export class WSWriterCodec implements binary.Codec {
 }
 
 export class WSStreamerCodec implements binary.Codec {
-  contentType = "application/sy-framer";
-  base: Codec;
-  lowPerfCodec: binary.Codec;
+  contentType = CONTENT_TYPE;
+  private base: Codec;
+  private lowPerfCodec: binary.Codec;
 
   constructor(base: Codec) {
     this.base = base;

@@ -265,10 +265,10 @@ const (
 	validatorResponsesAddr = address.Address("validator_responses")
 )
 
-// New opens a new writer using the given configuration. The provided context is used to
+// Open a new writer using the given configuration. The provided context is used to
 // control the lifetime of goroutines spawned by the writer. If the given context is cancelled,
 // the writer will immediately abort all pending writes and return an error.
-func (s *Service) New(ctx context.Context, cfgs ...Config) (*Writer, error) {
+func (s *Service) Open(ctx context.Context, cfgs ...Config) (*Writer, error) {
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
 	cfg, err := config.New(DefaultConfig(), cfgs...)
 	if err != nil {

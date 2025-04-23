@@ -18,7 +18,7 @@ const client = newClient();
 
 describe("Channel", () => {
   describe("create", () => {
-    test.only("create one", async () => {
+    test("create one", async () => {
       const channel = await client.channels.create({
         name: "test",
         dataType: DataType.FLOAT32,

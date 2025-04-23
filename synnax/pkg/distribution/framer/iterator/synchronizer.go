@@ -11,6 +11,7 @@ package iterator
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/confluence"
 	"go.uber.org/zap"

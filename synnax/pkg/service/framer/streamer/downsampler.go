@@ -21,7 +21,9 @@ type downSampler struct {
 }
 
 func newDownSampler(cfg Config) responseSegment {
-	return &downSampler{cfg: cfg}
+	d := &downSampler{cfg: cfg}
+	d.Transform = d.transform
+	return d
 }
 
 func (d *downSampler) transform(

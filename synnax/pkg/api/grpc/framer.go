@@ -11,8 +11,9 @@ package grpc
 
 import (
 	"context"
-	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"go/types"
+
+	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
@@ -146,7 +147,7 @@ func (t frameWriterRequestTranslator) Forward(
 	}
 	var err error
 	if t.codec != nil {
-		r.Buffer, err = t.codec.Encode(msg.Frame, 0)
+		r.Buffer, err = t.codec.Encode(msg.Frame)
 	}
 	return r, err
 }
@@ -171,7 +172,7 @@ func (t frameWriterRequestTranslator) Backward(
 			ControlSubject:           translateControlSubjectBackward(msg.Config.ControlSubject),
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		}
-		if err = t.codec.Bootstrap(ctx, keys); err != nil {
+		if err = t.codec.Update(ctx, keys); err != nil {
 			return
 		}
 	}

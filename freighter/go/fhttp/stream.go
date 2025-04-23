@@ -101,17 +101,23 @@ type streamCore[I, O freighter.Payload] struct {
 	peerClosed      error
 }
 
-func (c *streamCore[I, O]) send(msg WSMessage[O]) error {
-	b, err := c.codec.Encode(nil, msg)
+func (c *streamCore[I, O]) send(msg WSMessage[O]) (err error) {
+	var w io.WriteCloser
+	w, err = c.conn.NextWriter(ws.BinaryMessage)
 	if err != nil {
-		return err
+		return
 	}
-	if c.writeDeadline > 0 {
-		if err = c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline)); err != nil {
-			return err
-		}
+	defer func() {
+		err = errors.Combine(err, w.Close())
+	}()
+	if err = c.codec.EncodeStream(nil, w, msg); err != nil {
+		return
 	}
-	return c.conn.WriteMessage(ws.BinaryMessage, b)
+	if c.writeDeadline <= 0 {
+		return
+	}
+	err = c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline))
+	return
 }
 
 func (c *streamCore[I, O]) receive() (msg WSMessage[I], err error) {

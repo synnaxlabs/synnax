@@ -1010,10 +1010,8 @@ class DataType(str):
         return cast(np.dtype, npt)
 
     @property
-    def has_fixed_density(self) -> bool:
-        """:returns: True if the DataType has a fixed density"""
-        d = DataType._DENSITIES.get(self, None)
-        return d is not None and d != Density.UNKNOWN
+    def is_variable(self) -> bool:
+        return self == DataType.STRING or self == DataType.JSON
 
     @property
     def has_np(self) -> bool:

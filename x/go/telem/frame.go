@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"iter"
+	"slices"
 	"sort"
 	"strings"
 
@@ -130,6 +131,10 @@ func (f Frame[K]) SeriesSlice() []Series {
 // RawSeries returns the raw slice of series in the frame. This includes any series
 // that have been filtered out by FilterKeys. To check whether an index in this slice
 // has been filtered out, use ShouldExcludeRaw.
+//
+// It is generally recommended to avoid using this function except for performance
+// critical paths where the overhead of allocating returned closures through Series()
+// and SeriesI() is too high.
 //
 // It is not safe to modify the contents of the returned slice.
 func (f Frame[K]) RawSeries() []Series { return f.series }
@@ -251,22 +256,26 @@ func (f Frame[K]) Keys() iter.Seq[K] {
 	}
 }
 
+func (f Frame[K]) KeysAtRaw(i int) K {
+	return f.keys[i]
+}
+
 // frameSorter is a helper type that implements sort.Interface for sorting Frame.
 type frameSorter[K types.Numeric] struct{ *Frame[K] }
 
 // Len returns the number of Keys in the Frame.
-func (fs *frameSorter[K]) Len() int {
+func (fs frameSorter[K]) Len() int {
 	return len(fs.keys)
 }
 
 // Less compares two Keys in the Frame.
 // Modify this method if channel.Key requires a different comparison mechanism.
-func (fs *frameSorter[K]) Less(i, j int) bool {
+func (fs frameSorter[K]) Less(i, j int) bool {
 	return fs.keys[i] < fs.keys[j]
 }
 
 // Swap exchanges the Keys and corresponding Series at indices i and j.
-func (fs *frameSorter[K]) Swap(i, j int) {
+func (fs frameSorter[K]) Swap(i, j int) {
 	fs.keys[i], fs.keys[j] = fs.keys[j], fs.keys[i]
 	fs.series[i], fs.series[j] = fs.series[j], fs.series[i]
 	if fs.mask.enabled {
@@ -275,7 +284,11 @@ func (fs *frameSorter[K]) Swap(i, j int) {
 }
 
 // Sort sorts the frame in place.
-func (f *Frame[K]) Sort() { sort.Sort(&frameSorter[K]{f}) }
+func (f *Frame[K]) Sort() {
+	if !slices.IsSorted(f.keys) {
+		sort.Sort(frameSorter[K]{f})
+	}
+}
 
 var (
 	_ json.Marshaler        = Frame[int]{}
@@ -435,10 +448,19 @@ func (f Frame[K]) Count() int {
 }
 
 // Extend extends the frame by appending the keys and series from another frame to it.
-func (f Frame[K]) Extend(fr Frame[K]) Frame[K] {
-	f.keys = append(f.keys, fr.KeysSlice()...)
-	f.series = append(f.series, fr.SeriesSlice()...)
+func (f Frame[K]) Extend(frames ...Frame[K]) Frame[K] {
+	for _, fr := range frames {
+		f.keys = append(f.keys, fr.KeysSlice()...)
+		f.series = append(f.series, fr.SeriesSlice()...)
+	}
 	return f
+}
+
+func MergeFrames[K types.Numeric](frames []Frame[K]) Frame[K] {
+	if len(frames) == 0 {
+		return Frame[K]{}
+	}
+	return frames[0].Extend(frames[1:]...)
 }
 
 // ShallowCopy returns a shallow copy of the frame i.e. the keys and series slices

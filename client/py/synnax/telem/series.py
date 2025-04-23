@@ -59,7 +59,7 @@ class Series(Payload):
     __len_cache: int | None = PrivateAttr(None)
 
     def __len__(self) -> int:
-        if self.data_type.has_fixed_density:
+        if not self.data_type.is_variable:
             return self.data_type.density.sample_count(len(self.data))
         if self.__len_cache is None:
             self.__len_cache = self.data.count(b"\n")

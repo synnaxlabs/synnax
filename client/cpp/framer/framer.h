@@ -21,6 +21,7 @@
 #include "x/cpp/telem/control.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/binary/binary.h"
 
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
@@ -179,43 +180,6 @@ public:
 };
 
 
-/// @brief A simple binary writer to help with frame encoding
-class BinaryWriter {
-    std::vector<uint8_t> &buf;
-    size_t offset;
-
-public:
-    /// @brief Creates a new binary writer that writes to an existing buffer
-    /// @param buffer The buffer to write to
-    /// @param size The size to resize the buffer to
-    /// @param offset The starting offset
-    BinaryWriter(std::vector<uint8_t> &buffer, size_t size, size_t offset = 0):
-        buf(buffer), offset(offset) {
-        buf.resize(size);
-    }
-
-    /// @brief Writes a byte to the buffer
-    /// @param value The byte to write
-    void uint8(uint8_t value);
-
-    /// @brief Writes a 32-bit unsigned integer to the buffer
-    /// @param value The uint32 to write
-    void uint32(uint32_t value);
-
-    /// @brief Writes a 64-bit unsigned integer to the buffer
-    /// @param value The uint64 to write
-    void uint64(uint64_t value);
-
-    /// @brief Writes raw bytes to the buffer
-    /// @param data The bytes to write
-    /// @param size The number of bytes to write
-    void write(const void *data, size_t size);
-
-    /// @brief Returns the buffer
-    /// @return The buffer as a byte vector
-    std::vector<uint8_t> bytes() const;
-};
-
 /// @brief Bit positions for flags in the frame codec
 enum class FlagPosition : uint8_t {
     ZeroAlignments = 5,
@@ -248,6 +212,10 @@ struct CodecFlags {
 /// @brief Codec for encoding and decoding frames efficiently.
 /// This implements the Frame Flight Protocol (RFC 0016)
 class Codec {
+    std::vector<ChannelKey> keys;
+    std::unordered_map<ChannelKey, telem::DataType> key_data_types;
+    std::vector<std::pair<ChannelKey, size_t>> sorting_indices;
+    bool has_variable_data_types;
 public:
     Codec() = default;
 
@@ -272,35 +240,9 @@ public:
     /// @brief Decodes a frame from a byte array
     /// @param data The byte array to decode
     /// @return The decoded frame
-    Frame decode(const std::vector<uint8_t> &data) const;
-
-    /// @brief Decodes a frame from a stream
-    /// @param stream The stream to read from
-    /// @return The decoded frame
-    Frame decode_stream(std::istream &stream) const;
-
-    std::vector<ChannelKey> keys;
-    std::unordered_map<ChannelKey, telem::DataType> key_data_types;
-    std::vector<std::pair<ChannelKey, size_t>> sorting_indices;
-
-    /// @brief Reads a time range from a stream
-    /// @param stream The stream to read from
-    /// @return The time range
-    static telem::TimeRange read_time_range(std::istream &stream);
-
-    /// @brief Writes a time range to a binary writer
-    /// @param writer The writer to write to
-    /// @param tr The time range to write
-    static void write_time_range(BinaryWriter &writer, const telem::TimeRange &tr);
+    [[nodiscard]] Frame decode(const std::vector<uint8_t> &data) const;
 };
-inline bool get_bit(const uint8_t byte, FlagPosition pos) {
-    return byte >> static_cast<uint8_t>(pos) & 1;
-}
 
-inline uint8_t set_bit(const uint8_t byte, FlagPosition pos, const bool value) {
-    if (value) return byte | 1 << static_cast<uint8_t>(pos);
-    return byte & ~(1 << static_cast<uint8_t>(pos));
-}
 
 /// @brief configuration for opening a new streamer.
 class StreamerConfig {
@@ -536,7 +478,6 @@ private:
     /// @brief if close() has been called on the writer.
     bool closed = false;
     xerrors::Error close_err = xerrors::NIL;
-
 
     /// @brief the configuration used to open the writer.
     WriterConfig cfg;

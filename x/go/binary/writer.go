@@ -21,6 +21,18 @@ func NewWriter(size int, offset int, order binary.ByteOrder) *Writer {
 	return &Writer{buf: make([]byte, size), offset: offset, byteOrder: order}
 }
 
+func (w *Writer) Reset() {
+	w.offset = 0
+}
+
+func (w *Writer) Resize(size int) {
+	if size < len(w.buf) {
+		w.buf = w.buf[:size]
+	} else if size > len(w.buf) {
+		w.buf = make([]byte, size)
+	}
+}
+
 // Uint8 writes a new Uint8 to the buffer. If the buffer is already at capacity, returns
 // 0, otherwise returns 1.
 func (w *Writer) Uint8(value uint8) int {

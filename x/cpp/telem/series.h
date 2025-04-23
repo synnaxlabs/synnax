@@ -20,6 +20,7 @@
 #include "nlohmann/json.hpp"
 
 /// internal
+#include "x/cpp/binary/binary.h"
 #include "x/cpp/telem/telem.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
 
@@ -997,64 +998,16 @@ public:
         return sum / static_cast<T>(size);
     }
 
-    /// @brief Writes data from an input stream to the series with a specified byte size.
-    /// @param stream The input stream to read from
-    /// @param byte_count The number of bytes to read from the stream
-    /// @returns The number of bytes successfully written
-    size_t write_from_stream(std::istream& stream, const size_t byte_count) {
-        if (this->size() >= this->cap()) return 0;
-        
-        const size_t available_bytes = this->byte_cap() - this->byte_size();
-        const size_t bytes_to_write = std::min(byte_count, available_bytes);
-        
-        if (bytes_to_write == 0) return 0;
-        
-        auto* dest = this->data_.get() + this->byte_size();
-        
+    size_t fill_from(binary::Reader &reader) {
+        auto n_read = reader.read(this->data(), this->byte_cap());
+        this->cached_byte_size += n_read;
         if (this->data_type().is_variable()) {
-            std::vector<char> buffer(bytes_to_write);
-            stream.read(buffer.data(), bytes_to_write);
-            
-            const size_t bytes_read = stream.gcount();
-            if (bytes_read == 0) return 0;
-            
-            std::string input(buffer.data(), bytes_read);
-            size_t bytes_written = 0;
-            size_t samples_added = 0;
-            
-            size_t pos = 0;
-            size_t next_pos = 0;
-            while ((next_pos = input.find('\n', pos)) != std::string::npos) {
-                std::string token = input.substr(pos, next_pos - pos);
-                if (this->size() + samples_added >= this->cap()) break;
-                memcpy(dest + bytes_written, token.data(), token.size());
-                bytes_written += token.size();
-                dest[bytes_written] = NEWLINE_TERMINATOR;
-                bytes_written++;
-                samples_added++;
-                pos = next_pos + 1;
-            }
-            
-            if (pos < input.size() && this->size() + samples_added < this->cap()) {
-                const std::string token = input.substr(pos);
-                memcpy(dest + bytes_written, token.data(), token.size());
-                bytes_written += token.size();
-                dest[bytes_written] = NEWLINE_TERMINATOR;
-                bytes_written++;
-                
-                samples_added++;
-            }
-            
-            this->size_ += samples_added;
-            this->cached_byte_size += bytes_written;
-            return bytes_written;
-        }
-        stream.read(reinterpret_cast<char*>(dest), bytes_to_write);
-        const size_t bytes_read = stream.gcount();
-        if (bytes_read == 0) return 0;
-        const size_t samples_added = bytes_read / this->data_type().density();
-        this->size_ += samples_added;
-        return bytes_read;
+            this->size_ = 0;
+            for (size_t i = 0; i < this->byte_size(); i++)
+                if (this->data_[i] == NEWLINE_TERMINATOR) ++this->size_;
+        } else
+            this->size_ += n_read / this->data_type().density();
+        return n_read;
     }
 };
 }

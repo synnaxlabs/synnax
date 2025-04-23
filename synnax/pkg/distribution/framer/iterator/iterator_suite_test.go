@@ -11,8 +11,9 @@ package iterator_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"testing"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

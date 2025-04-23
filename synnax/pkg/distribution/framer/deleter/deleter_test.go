@@ -49,18 +49,18 @@ var _ = Describe("Deleter", Ordered, func() {
 		Describe("Happy Path", func() {
 			Context(fmt.Sprintf("Scenario: %v - Happy Path", scenarioI), func() {
 				BeforeEach(func() {
-					writer := MustSucceed(s.writer.New(ctx, writer.Config{
+					writer := MustSucceed(s.writer.Open(ctx, writer.Config{
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,
 					}))
-					Expect(writer.Write(core.Frame{
-						Keys: s.keys,
-						Series: []telem.Series{
+					Expect(writer.Write(core.MultiFrame(
+						s.keys,
+						[]telem.Series{
 							telem.NewSecondsTSV(10, 11, 12),
 							telem.NewSecondsTSV(10, 11, 12),
 							telem.NewSecondsTSV(10, 11, 12),
-						}},
-					)).To(BeTrue())
+						},
+					))).To(BeTrue())
 					Expect(MustSucceed(writer.Commit())).To(Equal(telem.SecondTS*12 + 1))
 					Expect(writer.Close()).To(Succeed())
 
@@ -79,29 +79,29 @@ var _ = Describe("Deleter", Ordered, func() {
 					Expect(d.DeleteTimeRange(ctx, s.keys[0], (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-					Expect(i.Value().Get(s.keys[0])).To(HaveLen(1))
-					Expect(i.Value().Get(s.keys[0])[0].TimeRange).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+					Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(1)))
+					Expect(i.Value().Get(s.keys[0]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
 				It("Should delete one channel by name", func() {
 					Expect(d.DeleteTimeRangeByName(ctx, s.names[0], (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-					Expect(i.Value().Get(s.keys[0])).To(HaveLen(1))
-					Expect(i.Value().Get(s.keys[0])[0].TimeRange).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+					Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(1)))
+					Expect(i.Value().Get(s.keys[0]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
 				It("Should delete many channels by keys", func() {
 					Expect(d.DeleteTimeRangeMany(ctx, s.keys, (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-					Expect(i.Value().Get(s.keys[1])).To(HaveLen(1))
-					Expect(i.Value().Get(s.keys[1])[0].TimeRange).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+					Expect(i.Value().Get(s.keys[1]).Len()).To(Equal(int64(1)))
+					Expect(i.Value().Get(s.keys[1]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
 				It("Should delete many channels by names", func() {
 					Expect(d.DeleteTimeRangeManyByNames(ctx, s.names, (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-					Expect(i.Value().Get(s.keys[1])).To(HaveLen(1))
-					Expect(i.Value().Get(s.keys[1])[0].TimeRange).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+					Expect(i.Value().Get(s.keys[1]).Len()).To(Equal(int64(1)))
+					Expect(i.Value().Get(s.keys[1]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
 			})
 		})

@@ -30,17 +30,17 @@ type Deque[T any] struct {
 // operates on items of the type specified by the type argument. For example,
 // to create a Deque that contains strings,
 //
-//	stringDeque := deque.New[string]()
+//	stringDeque := deque.Open[string]()
 //
 // To create a Deque with capacity to store 2048 ints without resizing, and
 // that will not resize below space for 32 items when removing items:
 //
-//	d := deque.New[int](2048, 32)
+//	d := deque.Open[int](2048, 32)
 //
 // To create a Deque that has not yet allocated memory, but after it does will
 // never resize to have space for less than 64 items:
 //
-//	d := deque.New[int](0, 64)
+//	d := deque.Open[int](0, 64)
 //
 // Any size values supplied here are rounded up to the nearest power of 2.
 func New[T any](size ...int) *Deque[T] {
