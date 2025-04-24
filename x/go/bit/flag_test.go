@@ -11,11 +11,11 @@ var _ = Describe("Flag", func() {
 		It("Should set a bit flag at a particular position", func() {
 			var (
 				b    uint8
-				flag bit.FlagPos = 8
+				flag bit.FlagPos = 7
 			)
 			b = flag.Set(b, true)
 			Expect(flag.Get(b)).To(BeTrue())
-			Expect(b).To(Equal(255))
+			Expect(b).To(Equal(uint8(128)))
 		})
 	})
 

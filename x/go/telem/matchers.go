@@ -72,6 +72,10 @@ func MatchSeriesData(expected Series) types.GomegaMatcher {
 	return MatchSeries(expected, ExcludeSeriesFields("DataType", "TimeRange", "Alignment"))
 }
 
+func MatchSeriesDataV[T Sample](data ...T) types.GomegaMatcher {
+	return MatchSeriesData(NewSeriesV[T](data...))
+}
+
 func (m *seriesMatcher) Match(actual interface{}) (success bool, err error) {
 	actualSeries, ok := actual.(Series)
 	if !ok {

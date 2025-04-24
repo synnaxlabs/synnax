@@ -11,10 +11,12 @@ package confluence_test
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Delta", func() {
@@ -112,7 +114,7 @@ var _ = Describe("Delta", func() {
 	})
 	Describe("DynamicDeltaMultiplier", func() {
 		It("Should allow the caller to add and remove outlets dynamically", func() {
-			delta := NewDynamicDeltaMultiplier[int](0)
+			delta := NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()

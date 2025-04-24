@@ -25,6 +25,8 @@ import (
 
 const newLineChar = '\n'
 
+// Series is a strongly typed  array of telemetry samples backed by an underlying
+// binary buffer.
 type Series struct {
 	// TimeRange represents the time range occupied by the series' data.
 	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
