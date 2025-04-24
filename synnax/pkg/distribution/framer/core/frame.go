@@ -17,8 +17,12 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// Frame is an extension of telem.Frame that provides a distribution layer specific
+// API.
 type Frame struct{ telem.Frame[channel.Key] }
 
+// Append appends a series to the frame with the given key. For more details, see the
+// telem.Frame.Append implementation.
 func (f Frame) Append(key channel.Key, series telem.Series) Frame {
 	return Frame{f.Frame.Append(key, series)}
 }

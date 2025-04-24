@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { instrumentation } from "@synnaxlabs/alamos/dev";
 import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
@@ -68,5 +69,6 @@ export const render = (): void => {
   void aether.render({
     comms: w.route("vis"),
     registry: REGISTRY,
+    instrumentation: instrumentation(),
   });
 };

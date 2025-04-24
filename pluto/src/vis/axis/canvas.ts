@@ -224,7 +224,7 @@ export class Canvas implements Axis {
   ): dimensions.Dimensions {
     let maxDimensions = dimensions.ZERO;
     ticks.forEach((tick) => {
-      const d = this.renderCtx.lower2d.atlasMeasureText(tick.label);
+      const d = this.renderCtx.lower2d.textDimensions(tick.label);
       maxDimensions = dimensions.max([maxDimensions, d]);
       f(d, tick);
     });
