@@ -26,7 +26,7 @@ type OffsetResolver = func(
 ) (telem.Size, telem.TimeStamp, error)
 
 // Delete deletes a set of samples in the DB, purging and splitting underlying domains
-// as necessary. The operation is performance in the following way.
+// as necessary. The operation is performed in the following manner.
 //
 // 1. The positions of the start and end domains are found within the database index.
 // 2. calculateStartOffset(startDomainPosition) is called to find the start offset (in
@@ -207,10 +207,10 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	// acquire those readers will be symlinked to the old file, causing them to read
 	// bad data since the new pointers no longer correspond to the old file.
 	//
-	// WE ARE BLOCKING ALL READ OPERATIONS ON THE FILE DURING THE ENTIRE DURATION OF FilterLessThan:
+	// WE ARE BLOCKING ALL READ OPERATIONS ON THE FILE DURING THE ENTIRE DURATION OF GC:
 	// this is a behaviour that we ideally change in the future to reduce downtime, but
 	// for now, this is what we implemented.
-	// The challenge is with the two files during FilterLessThan: one copy file is made and an
+	// The challenge is with the two files during GC: one copy file is made and an
 	// original file is made. However, existing file handles will point to the original
 	// file instead of the new file, even after the original file is renamed and "deleted"
 	// (unix does not actually delete the file when there is a file handle open on it).
@@ -221,8 +221,8 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	// There are some potential solutions to this:
 	//     1. Add a lock on readers before each read operation, and swap the underlying
 	// file handle for each reader under a lock.
-	//     2. Use a one-file FilterLessThan system where no duplicate file is created.
-	//     3. Wait during FilterLessThan until all file handles are closed, then swap the file under
+	//     2. Use a one-file GC system where no duplicate file is created.
+	//     3. Wait during GC until all file handles are closed, then swap the file under
 	// a lock on the file to disallow additional readers from being created. (This might
 	// be problematic since some readers may never get closed).
 	if _, err := db.fc.gcReaders(); err != nil {
@@ -286,7 +286,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	}
 
 	// Find all pointers using the file: there cannot be more pointers using the file
-	// during FilterLessThan since the file must be already full – however, there can be less due
+	// during GC since the file must be already full – however, there can be less due
 	// to deletion.
 	db.idx.mu.RLock()
 	for _, ptr := range db.idx.mu.pointers {
@@ -297,7 +297,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	}
 	db.idx.mu.RUnlock()
 
-	// Decide whether we should FilterLessThan
+	// Decide whether we should GC
 	if tombstoneSize < int64(db.cfg.GCThreshold*float32(db.cfg.FileSize)) {
 		return nil
 	}
@@ -345,7 +345,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	// Note: the index might be different at this point than before: old pointers on
 	// this file may be split into multiple smaller pointers with different offsets.
 	// (Understand that since this deletion occurred after garbage collection, it should
-	// not be garbage collected in this run of FilterLessThan.)
+	// not be garbage collected in this run of GC.)
 	// However, two things cannot change:
 	// 1. The resulting pointers from a pointer deletion, no matter into how many,
 	// cannot end up in a larger time range than the original pointer.
@@ -354,7 +354,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	//
 	// Using these two principles, we can find the new offset for any pointer with a
 	// time range contained in the original pointer by subtracting it by the same delta.
-	{
+	if err := func() error {
 		db.idx.mu.Lock()
 		defer db.idx.mu.Unlock()
 		for i, ptr := range db.idx.mu.pointers {
@@ -368,9 +368,9 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		if err = db.cfg.FS.Rename(name, name+"_temp"); err != nil {
 			return err
 		}
-		if err = db.cfg.FS.Rename(copyName, name); err != nil {
-			return err
-		}
+		return db.cfg.FS.Rename(copyName, name)
+	}(); err != nil {
+		return err
 	}
 
 	if err = db.fc.rejuvenate(key); err != nil {

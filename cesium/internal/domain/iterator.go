@@ -79,6 +79,8 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
+// Read reads data for all domains that overlap with the two time ranges and accumulates
+// it into a single buffer.
 func Read(ctx context.Context, db *DB, tr telem.TimeRange) (b []byte, err error) {
 	i := db.OpenIterator(IterRange(tr))
 	defer func() {

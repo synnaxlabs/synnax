@@ -25,7 +25,7 @@ import (
 
 const metaFile = "meta.json"
 
-var ErrorPurge = errors.New("channel should be purged")
+var ErrorIgnoreChannel = errors.New("channel should be ignored")
 
 // Open reads the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. If the file does not exist, it will be created. If
@@ -42,8 +42,8 @@ func Open(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel, error) 
 			return ch, err
 		}
 		state := migrate.Migrate(migrate.DBState{Channel: ch, FS: fs})
-		if state.Purge {
-			return ch, ErrorPurge
+		if state.ShouldIgnoreChannel {
+			return ch, ErrorIgnoreChannel
 		}
 		if state.Channel.Version != ch.Version {
 			if err := Create(fs, codec, state.Channel); err != nil {

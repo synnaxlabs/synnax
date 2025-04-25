@@ -47,7 +47,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	for _, i := range info {
 		if !i.IsDir() {
 			db.options.L.Warn(fmt.Sprintf(
-				"Found unknown file %s in database root directory",
+				"found unknown file %s in database root directory",
 				i.Name(),
 			))
 			continue
@@ -75,8 +75,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 }
 
 func (db *DB) openVirtual(ch Channel, fs xfs.FS) error {
-	_, isOpen := db.mu.virtualDBs[ch.Key]
-	if isOpen {
+	if _, isOpen := db.mu.virtualDBs[ch.Key]; isOpen {
 		return nil
 	}
 	v, err := virtual.Open(virtual.Config{
@@ -93,8 +92,7 @@ func (db *DB) openVirtual(ch Channel, fs xfs.FS) error {
 }
 
 func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
-	_, isOpen := db.mu.unaryDBs[ch.Key]
-	if isOpen {
+	if _, isOpen := db.mu.unaryDBs[ch.Key]; isOpen {
 		return nil
 	}
 	u, err := unary.Open(unary.Config{
@@ -138,12 +136,9 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 	}
 	err = db.openVirtual(ch, fs)
 	if errors.Is(err, virtual.ErrNotVirtual) {
-		return db.openUnary(ch, fs)
+		err = db.openUnary(ch, fs)
 	}
-	if !errors.Is(err, meta.ErrorPurge) {
-		return err
-	}
-	return db.fs.Remove(keyToDirName(ch.Key))
+	return errors.Skip(err, meta.ErrorIgnoreChannel)
 }
 
 func openFS(opts *options) error {

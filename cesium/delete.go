@@ -27,12 +27,10 @@ type GCConfig struct {
 	// MaxGoroutine is the maximum number of GoRoutines that can be launched for
 	// each try of garbage collection.
 	MaxGoroutine int64
-
 	// GCTryInterval is the interval of time between two tries of garbage collection
 	// are started.
 	GCTryInterval time.Duration
-
-	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a FilterLessThan.
+	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
 	// Must be in (0, 1].
 	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
@@ -181,9 +179,9 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 		delete(db.mu.unaryDBs, ch)
 		return nil
 	}
-	vdb, vok := db.mu.virtualDBs[ch]
-	if vok {
-		if err := vdb.Close(); err != nil {
+	vDB, vOk := db.mu.virtualDBs[ch]
+	if vOk {
+		if err := vDB.Close(); err != nil {
 			return err
 		}
 		delete(db.mu.virtualDBs, ch)
@@ -211,16 +209,17 @@ func (db *DB) DeleteTimeRange(
 	)
 
 	for _, ch := range chs {
-		udb, uok := db.mu.unaryDBs[ch]
-		if !uok {
-			if _, vok := db.mu.virtualDBs[ch]; vok {
+		uDB, uOk := db.mu.unaryDBs[ch]
+		if !uOk {
+			// If the channel is virtual, delete is a no-op but we don't return an error.
+			if _, vOk := db.mu.virtualDBs[ch]; vOk {
 				continue
 			}
 			return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
 		}
 
 		// Cannot delete an index channel that other channels rely on.
-		if udb.Channel().IsIndex {
+		if uDB.Channel().IsIndex {
 			indexChannels = append(indexChannels, ch)
 			continue
 		}

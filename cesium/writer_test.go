@@ -79,9 +79,8 @@ var _ = Describe("Writer Behavior", func() {
 							}),
 						))
 						end := MustSucceed(w.Commit())
-						Expect(w.Close()).To(Succeed())
-
 						Expect(end).To(Equal(13*telem.SecondTS + 1))
+						Expect(w.Close()).To(Succeed())
 
 						By("Reading the data back")
 						frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1))
@@ -1278,7 +1277,7 @@ var _ = Describe("Writer Behavior", func() {
 						},
 					)))
 					_, err := w.Commit()
-					Expect(err).To(HaveOccurred())
+					Expect(err).To(HaveOccurredAs(validate.Error))
 					err = w.Close()
 					Expect(err).To(MatchError(validate.Error))
 					Expect(err).To(MatchError(ContainSubstring("exactly one")))
@@ -1298,9 +1297,9 @@ var _ = Describe("Writer Behavior", func() {
 						},
 					)))
 					_, err := w.Commit()
-					Expect(err).To(HaveOccurred())
+					Expect(err).To(HaveOccurredAs(validate.Error))
 					err = w.Close()
-					Expect(err).To(MatchError(validate.Error))
+					Expect(err).To(HaveOccurredAs(validate.Error))
 					Expect(err.Error()).To(ContainSubstring("duplicate channel"))
 				})
 			})
@@ -1351,9 +1350,8 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						)))
 						_, err := w.Commit()
-						Expect(err).To(HaveOccurred())
-						err = w.Close()
-						Expect(err).To(MatchError(index.ErrDiscontinuous))
+						Expect(err).To(HaveOccurredAs(index.ErrDiscontinuous))
+						Expect(w.Close()).To(HaveOccurredAs(index.ErrDiscontinuous))
 					})
 					Specify("Index not defined at all", func() {
 						Expect(db.CreateChannel(
@@ -1410,8 +1408,8 @@ var _ = Describe("Writer Behavior", func() {
 						[]telem.Series{telem.NewSeriesV[int64](10, 11, 12, 13)},
 					)))
 					_, err := w.Commit()
-					Expect(err).To(MatchError(validate.Error))
-					Expect(w.Close()).To(MatchError(validate.Error))
+					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(w.Close()).To(HaveOccurredAs(validate.Error))
 				})
 			})
 
@@ -1447,7 +1445,7 @@ var _ = Describe("Writer Behavior", func() {
 				Context("True", func() {
 					It("Should return an error if writer is not authorized to write", func() {
 						w2, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS, ErrOnUnauthorized: config.True()})
-						Expect(err).To(MatchError(control.Unauthorized))
+						Expect(err).To(HaveOccurredAs(control.Unauthorized))
 						Expect(w2).To(BeNil())
 					})
 				})

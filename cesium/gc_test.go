@@ -155,7 +155,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						return uint32(i.Size())
 					}).Should(Equal(uint32(90 * telem.Int64T.Density())))
 
-					By("Deleting more data, which should trigger FilterLessThan")
+					By("Deleting more data, which should trigger GC")
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (60 * telem.SecondTS).Range(66*telem.SecondTS))).To(Succeed())
 
 					By("Checking the resulting file size")

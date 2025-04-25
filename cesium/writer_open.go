@@ -79,7 +79,12 @@ type WriterConfig struct {
 	// to AlwaysIndexPersistOnAutoCommit.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// Sync
+	// Sync sets whether the writer should acknowledge all write requests with a corresponding
+	// writer respond. Defaults to false, in which the writer will acknowledge Commit()
+	// and SetAuthority() commands, but not Write commands. Using sync mode is
+	// useful for acknowledging writes, but can clobber performance as the next write
+	// cannot be started before the previous write is completed.
+	// [OPTIONAL] - Defaults to false.
 	Sync *bool
 }
 
