@@ -378,11 +378,11 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 			SourceTargets: []address.Address{peerGatewaySwitchAddr},
 			SinkTargets:   switchTargets,
 			Stitch:        plumber.StitchWeave,
-			Capacity:      len(switchTargets),
+			Capacity:      len(switchTargets) * 5,
 		}.MustRoute(pipe)
 	}
 
-	plumber.MustConnect[Request](pipe, validatorAddr, routeValidatorTo, 1)
+	plumber.MustConnect[Request](pipe, validatorAddr, routeValidatorTo, 30)
 
 	plumber.MultiRouter[Response]{
 		SourceTargets: receiverAddresses,

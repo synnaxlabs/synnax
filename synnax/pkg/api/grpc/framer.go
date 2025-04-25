@@ -289,23 +289,17 @@ func (t frameStreamerRequestTranslator) Backward(
 }
 
 func (t frameStreamerResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	msg api.FrameStreamerResponse,
 ) (*gapi.FrameStreamerResponse, error) {
-	return &gapi.FrameStreamerResponse{
-		Frame: translateFrameForward(msg.Frame),
-		Error: fgrpc.EncodeError(ctx, msg.Error, false),
-	}, nil
+	return &gapi.FrameStreamerResponse{Frame: translateFrameForward(msg.Frame)}, nil
 }
 
 func (t frameStreamerResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *gapi.FrameStreamerResponse,
 ) (api.FrameStreamerResponse, error) {
-	return api.FrameStreamerResponse{
-		Frame: translateFrameBackward(msg.Frame),
-		Error: fgrpc.DecodeError(ctx, msg.Error),
-	}, nil
+	return api.FrameStreamerResponse{Frame: translateFrameBackward(msg.Frame)}, nil
 }
 
 func (t FrameDeleteRequestTranslator) Forward(

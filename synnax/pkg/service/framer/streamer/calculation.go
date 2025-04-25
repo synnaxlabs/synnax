@@ -56,7 +56,7 @@ func (t *calculationUpdaterTransform) transform(ctx context.Context, req Request
 	if err := t.update(ctx, req.Keys); err != nil {
 		t.L.Error("failed to update calculated channels", zap.Error(err))
 	}
-	return req.distribution(), true, nil
+	return framer.StreamerRequest{Keys: req.Keys}, true, nil
 }
 
 func (t *calculationUpdaterTransform) Flow(ctx signal.Context, opts ...confluence.Option) {

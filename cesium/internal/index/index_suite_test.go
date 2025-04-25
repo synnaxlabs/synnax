@@ -11,8 +11,9 @@ package index_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/cesium/internal/testutil"
 	"testing"
+
+	"github.com/synnaxlabs/cesium/internal/testutil"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

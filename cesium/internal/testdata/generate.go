@@ -23,7 +23,7 @@ var (
 )
 
 func Generate() error {
-	db, err := cesium.Open("data", cesium.WithFileSize(20*telem.ByteSize))
+	db, err := cesium.Open("data", cesium.WithFileSizeCap(20*telem.ByteSize))
 	if err != nil {
 		return err
 	}

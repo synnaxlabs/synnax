@@ -37,7 +37,6 @@ type (
 	IteratorRequest  = cesium.IteratorRequest
 	IteratorResponse = cesium.IteratorResponse
 	IteratorCommand  = cesium.IteratorCommand
-	Streamer         = cesium.Streamer
 	StreamerConfig   = cesium.StreamerConfig
 	StreamerRequest  = cesium.StreamerRequest
 	StreamerResponse = cesium.StreamerResponse

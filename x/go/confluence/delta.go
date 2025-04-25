@@ -155,10 +155,11 @@ func (d *DynamicDeltaMultiplier[V]) disconnect(inlets []Inlet[V]) {
 	for _, inlet := range inlets {
 		i, ok := d.findInletIndex(inlet)
 		if !ok {
-			panic(fmt.Sprintf(
+			d.L.DPanic(fmt.Sprintf(
 				"[confluence] - attempted to disconnect inlet %v, but it was never connected",
 				inlet,
 			))
+			return
 		}
 		d.Source.Out = append(d.Source.Out[:i], d.Source.Out[i+1:]...)
 		inlet.Close()
@@ -167,11 +168,11 @@ func (d *DynamicDeltaMultiplier[V]) disconnect(inlets []Inlet[V]) {
 
 func (d *DynamicDeltaMultiplier[V]) connect(inlets []Inlet[V]) {
 	for _, inlet := range inlets {
-		_, ok := d.findInletIndex(inlet)
-		if ok {
-			panic(fmt.Sprintf(
+		if _, ok := d.findInletIndex(inlet); ok {
+			d.L.DPanic(fmt.Sprintf(
 				"[confluence] - attempted to connect inlet that was already connected: %s",
-				inlet.InletAddress()))
+				inlet.InletAddress(),
+			))
 		}
 		inlet.Acquire(1)
 		d.Source.Out = append(d.Source.Out, inlet)

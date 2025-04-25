@@ -110,7 +110,7 @@ type Relay struct {
 
 // defaultBuffer is the default buffer size for channels in the relay.
 // TODO: Figure out what the optimal buffer size is.
-const defaultBuffer = 25
+const defaultBuffer = 200
 
 func Open(configs ...Config) (*Relay, error) {
 	cfg, err := config.New(DefaultConfig, configs...)

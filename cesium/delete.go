@@ -16,9 +16,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 )
@@ -38,10 +41,28 @@ type GCConfig struct {
 	GCThreshold float32
 }
 
-var DefaultGCConfig = GCConfig{
-	MaxGoroutine:  10,
-	GCTryInterval: 30 * time.Second,
-	GCThreshold:   0.2,
+var (
+	_               config.Config[GCConfig] = GCConfig{}
+	DefaultGCConfig                         = GCConfig{
+		MaxGoroutine:  10,
+		GCTryInterval: 30 * time.Second,
+		GCThreshold:   0.2,
+	}
+)
+
+// Override implements config.Config.
+func (g GCConfig) Override(other GCConfig) GCConfig {
+	g.GCTryInterval = override.Numeric(g.GCTryInterval, other.GCTryInterval)
+	g.GCThreshold = override.Numeric(g.GCThreshold, other.GCThreshold)
+	return g
+}
+
+// Validate implements config.Config.
+func (g GCConfig) Validate() error {
+	v := validate.New("cesium.GCConfig")
+	validate.Positive(v, "gc_try_interval", g.GCTryInterval)
+	validate.Positive(v, "gc_threshold", g.GCThreshold)
+	return v.Error()
 }
 
 func keyToDirName(ch ChannelKey) string {

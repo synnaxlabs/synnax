@@ -15,6 +15,7 @@ import (
 	"io"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -187,8 +188,14 @@ func (t *tapper) tapInto(
 
 // tapIntoGateway opens a new tap over the given storage layer streamer.
 func (t *tapper) tapIntoGateway(ctx context.Context, keys channel.Keys) (tap, error) {
-	sr, err := t.TS.NewStreamer(ctx, ts.StreamerConfig{Channels: keys.Storage()})
-	return confluence.NewTranslator(sr, reqToStorage, resFromStorage), err
+	sr, err := cesium.NewTranslatedStreamer[Request, Response](
+		ctx,
+		t.TS,
+		ts.StreamerConfig{Channels: keys.Storage()},
+		reqToStorage,
+		resFromStorage,
+	)
+	return sr, err
 }
 
 // tapIntoPeer opens a new tap that sends requests and receives responses

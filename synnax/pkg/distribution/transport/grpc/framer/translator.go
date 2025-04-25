@@ -216,20 +216,14 @@ func (w relayResponseTranslator) Backward(
 	ctx context.Context,
 	res *framerv1.RelayResponse,
 ) (relay.Response, error) {
-	return relay.Response{
-		Frame: translateFrameForward(res.Frame),
-		Error: fgrpc.DecodeError(ctx, res.Error),
-	}, nil
+	return relay.Response{Frame: translateFrameForward(res.Frame)}, nil
 }
 
 func (w relayResponseTranslator) Forward(
 	ctx context.Context,
 	res relay.Response,
 ) (*framerv1.RelayResponse, error) {
-	return &framerv1.RelayResponse{
-		Frame: translateFrameBackward(res.Frame),
-		Error: fgrpc.EncodeError(ctx, res.Error, true),
-	}, nil
+	return &framerv1.RelayResponse{Frame: translateFrameBackward(res.Frame)}, nil
 }
 
 func translateFrameForward(frame *framerv1.Frame) framer.Frame {

@@ -50,8 +50,7 @@ func (ts *ObservableTransformPublisher[V, T]) Flow(ctx signal.Context, opts ...O
 	o.AttachClosables(ts.Out)
 	ctx.Go(func(ctx context.Context) error {
 		remove := ts.Observable.OnChange(func(ctx context.Context, v V) {
-			t, ok, _ := ts.Transform(ctx, v)
-			if ok {
+			if t, ok, _ := ts.Transform(ctx, v); ok {
 				_ = signal.SendUnderContext(ctx, ts.Out.Inlet(), t)
 			}
 		})

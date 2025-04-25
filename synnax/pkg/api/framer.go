@@ -102,6 +102,11 @@ type (
 	FrameIteratorStream   = freighter.ServerStream[FrameIteratorRequest, FrameIteratorResponse]
 )
 
+const (
+	iteratorResponseBufferSize = 50
+	iteratorRequestBufferSize  = 2
+)
+
 func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) error {
 	iter, err := s.openIterator(ctx, stream)
 	if err != nil {
@@ -127,8 +132,8 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	plumber.SetSegment(pipe, "iterator", iter)
 	plumber.SetSink[iterator.Response](pipe, "sender", sender)
 	plumber.SetSource[iterator.Request](pipe, "receiver", receiver)
-	plumber.MustConnect[iterator.Response](pipe, "iterator", "sender", 1)
-	plumber.MustConnect[iterator.Request](pipe, "receiver", "iterator", 1)
+	plumber.MustConnect[iterator.Response](pipe, "iterator", "sender", iteratorResponseBufferSize)
+	plumber.MustConnect[iterator.Request](pipe, "receiver", "iterator", iteratorRequestBufferSize)
 
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	return sCtx.Wait()
@@ -164,6 +169,11 @@ type (
 	StreamerStream        = freighter.ServerStream[FrameStreamerRequest, FrameStreamerResponse]
 )
 
+const (
+	streamingRequestBufferSize  = 5
+	streamingResponseBufferSize = 200
+)
+
 func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error {
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_streamer")))
 	defer cancel()
@@ -173,14 +183,8 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 	}
 	var (
 		receiver = &freightfluence.Receiver[FrameStreamerRequest]{Receiver: stream}
-		sender   = &freightfluence.TransformSender[FrameStreamerResponse, FrameStreamerResponse]{
+		sender   = &freightfluence.Sender[FrameStreamerResponse]{
 			Sender: freighter.SenderNopCloser[FrameStreamerResponse]{StreamSender: stream},
-			Transform: func(ctx context.Context, res FrameStreamerResponse) (FrameStreamerResponse, bool, error) {
-				if res.Error != nil {
-					res.Error = errors.Encode(ctx, res.Error, false)
-				}
-				return res, true, nil
-			},
 		}
 		pipe = plumber.New()
 	)
@@ -188,8 +192,8 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 	plumber.SetSegment[FrameStreamerRequest, FrameStreamerResponse](pipe, "streamer", streamer)
 	plumber.SetSink[FrameStreamerResponse](pipe, "sender", sender)
 	plumber.SetSource[FrameStreamerRequest](pipe, "receiver", receiver)
-	plumber.MustConnect[FrameStreamerResponse](pipe, "streamer", "sender", 70)
-	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "streamer", 70)
+	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "streamer", streamingRequestBufferSize)
+	plumber.MustConnect[FrameStreamerResponse](pipe, "streamer", "sender", streamingResponseBufferSize)
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	return sCtx.Wait()
 }
@@ -270,6 +274,11 @@ type (
 	FrameWriterStream   = freighter.ServerStream[FrameWriterRequest, FrameWriterResponse]
 )
 
+const (
+	writerResponseBufferSize = 2
+	writerRequestBufferSize  = 50
+)
+
 // Write exposes a high level api for writing segmented telemetry to the delta
 // cluster. The client is expected to send an initial request containing the
 // keys of the channels to write to. The server will acquire an exclusive lock on
@@ -331,8 +340,8 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	plumber.SetSegment(pipe, "writer", w)
 	plumber.SetSource[framer.WriterRequest](pipe, "receiver", receiver)
 	plumber.SetSink[framer.WriterResponse](pipe, "sender", sender)
-	plumber.MustConnect[framer.WriterRequest](pipe, "receiver", "writer", 1)
-	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", 1)
+	plumber.MustConnect[framer.WriterRequest](pipe, "receiver", "writer", writerRequestBufferSize)
+	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", writerResponseBufferSize)
 
 	pipe.Flow(ctx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	err = ctx.Wait()

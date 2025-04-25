@@ -36,7 +36,6 @@ class _Request(Payload):
 
 class _Response(Payload):
     frame: FramePayload
-    error: ExceptionPayload | None
 
 
 class WSStreamerCodec(WSFramerCodec):
@@ -48,7 +47,7 @@ class WSStreamerCodec(WSFramerCodec):
             msg = self.lower_perf_codec.decode(data[1:], pld_t)
             return msg
         frame = self.codec.decode(data, 1)
-        return Message(type="data", payload=_Response(frame=frame, error=None))
+        return Message(type="data", payload=_Response(frame=frame))
 
 
 _ENDPOINT = "/frame/stream"
