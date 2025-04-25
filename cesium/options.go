@@ -45,9 +45,9 @@ func newOptions(dirname string, opts ...Option) *options {
 func mergeDefaultOptions(o *options) {
 	o.metaCodec = override.Nil[binary.Codec](&binary.JSONCodec{}, o.metaCodec)
 	o.fs = override.Nil[xfs.FS](xfs.Default, o.fs)
-	o.gcCfg = o.gcCfg.Override(DefaultGCConfig)
+	o.gcCfg = DefaultGCConfig.Override(o.gcCfg)
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
-	o.streamingConfig = o.streamingConfig.Override(DefaultDBStreamingConfig)
+	o.streamingConfig = DefaultDBStreamingConfig.Override(o.streamingConfig)
 }
 
 // WithFS sets the file system that cesium will use to store data. This defaults to

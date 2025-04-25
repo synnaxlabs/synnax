@@ -29,7 +29,7 @@ import (
 type GCConfig struct {
 	// MaxGoroutine is the maximum number of GoRoutines that can be launched for
 	// each try of garbage collection.
-	MaxGoroutine int64
+	MaxGoroutine uint
 	// GCTryInterval is the interval of time between two tries of garbage collection
 	// are started.
 	GCTryInterval time.Duration
@@ -54,6 +54,7 @@ var (
 func (g GCConfig) Override(other GCConfig) GCConfig {
 	g.GCTryInterval = override.Numeric(g.GCTryInterval, other.GCTryInterval)
 	g.GCThreshold = override.Numeric(g.GCThreshold, other.GCThreshold)
+	g.MaxGoroutine = override.Numeric(g.MaxGoroutine, other.MaxGoroutine)
 	return g
 }
 
@@ -62,6 +63,7 @@ func (g GCConfig) Validate() error {
 	v := validate.New("cesium.GCConfig")
 	validate.Positive(v, "gc_try_interval", g.GCTryInterval)
 	validate.Positive(v, "gc_threshold", g.GCThreshold)
+	validate.Positive(v, "max_goroutine", g.MaxGoroutine)
 	return v.Error()
 }
 
@@ -282,12 +284,12 @@ func (db *DB) DeleteTimeRange(
 	return nil
 }
 
-func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
+func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 	_, span := db.T.Debug(ctx, "garbage_collect")
 	defer span.End()
 	db.mu.RLock()
 	var (
-		sem          = semaphore.NewWeighted(maxGoRoutine)
+		sem          = semaphore.NewWeighted(int64(maxGoRoutine))
 		sCtx, cancel = signal.WithCancel(ctx)
 	)
 	defer cancel()
