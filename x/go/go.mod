@@ -1,6 +1,8 @@
 module github.com/synnaxlabs/x
 
-go 1.24
+go 1.24.2
+
+replace github.com/synnaxlabs/alamos => ../../alamos/go
 
 require (
 	github.com/cockroachdb/errors v1.11.3
@@ -21,8 +23,6 @@ require (
 	golang.org/x/sync v0.13.0
 	google.golang.org/protobuf v1.36.6
 )
-
-replace github.com/synnaxlabs/alamos => ../../alamos/go
 
 require (
 	github.com/DataDog/zstd v1.5.7 // indirect

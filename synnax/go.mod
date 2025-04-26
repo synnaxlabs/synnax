@@ -1,8 +1,14 @@
 module github.com/synnaxlabs/synnax
 
-go 1.24
+go 1.24.2
 
-toolchain go1.24.0
+replace (
+	github.com/synnaxlabs/alamos => ../alamos/go
+	github.com/synnaxlabs/aspen => ../aspen
+	github.com/synnaxlabs/cesium => ../cesium
+	github.com/synnaxlabs/freighter => ../freighter/go
+	github.com/synnaxlabs/x => ../x/go
+)
 
 require (
 	github.com/blevesearch/bleve/v2 v2.5.0
@@ -28,18 +34,6 @@ require (
 	google.golang.org/grpc v1.71.1
 	google.golang.org/protobuf v1.36.6
 )
-
-replace github.com/synnaxlabs/aspen => ../aspen
-
-replace github.com/synnaxlabs/cesium => ../cesium
-
-replace github.com/synnaxlabs/freighter => ../freighter/go
-
-replace github.com/synnaxlabs/x => ../x/go
-
-replace github.com/synnaxlabs/alamos => ../alamos/go
-
-replace github.com/synnaxlabs/computron => ../computron
 
 require (
 	github.com/DataDog/zstd v1.5.7 // indirect

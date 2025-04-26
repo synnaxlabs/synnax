@@ -1,8 +1,11 @@
 module github.com/synnaxlabs/freighter
 
-go 1.24
+go 1.24.2
 
-toolchain go1.24.0
+replace (
+	github.com/synnaxlabs/alamos => ../../alamos/go
+	github.com/synnaxlabs/x => ../../x/go
+)
 
 require (
 	github.com/cockroachdb/cmux v0.0.0-20170110192607-30d10be49292
@@ -17,11 +20,6 @@ require (
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.71.1
 	google.golang.org/protobuf v1.36.6
-)
-
-replace (
-	github.com/synnaxlabs/alamos => ../../alamos/go
-	github.com/synnaxlabs/x => ../../x/go
 )
 
 require (

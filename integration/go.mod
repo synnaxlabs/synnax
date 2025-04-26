@@ -1,14 +1,21 @@
 module github.com/synnaxlabs/integration
 
-go 1.24
+go 1.24.2
 
-toolchain go1.24.2
+replace (
+	github.com/synnaxlabs/alamos => ../alamos/go
+	github.com/synnaxlabs/aspen => ../aspen
+	github.com/synnaxlabs/cesium => ../cesium
+	github.com/synnaxlabs/freighter => ../freighter/go
+	github.com/synnaxlabs/synnax => ../synnax
+	github.com/synnaxlabs/x => ../x/go
+)
 
-require golang.org/x/sync v0.13.0
-
-require github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
-
-require github.com/synnaxlabs/synnax v0.0.0-20250101015019-dde1732a3d6e
+require (
+	github.com/synnaxlabs/synnax v0.0.0-20250101015019-dde1732a3d6e
+	github.com/synnaxlabs/x v0.0.0-20220801122519-e4a5e96a532d
+	golang.org/x/sync v0.13.0
+)
 
 require (
 	github.com/DataDog/zstd v1.5.7 // indirect
@@ -85,15 +92,3 @@ require (
 	google.golang.org/grpc v1.71.1 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 )
-
-replace github.com/synnaxlabs/x => ../x/go
-
-replace github.com/synnaxlabs/synnax => ../synnax
-
-replace github.com/synnaxlabs/freighter => ../freighter/go
-
-replace github.com/synnaxlabs/aspen => ../aspen
-
-replace github.com/synnaxlabs/alamos => ../alamos/go
-
-replace github.com/synnaxlabs/cesium => ../cesium

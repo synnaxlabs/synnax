@@ -1,8 +1,11 @@
 module github.com/synnaxlabs/cesium
 
-go 1.24
+go 1.24.2
 
-toolchain go1.24.0
+replace (
+	github.com/synnaxlabs/alamos => ../alamos/go
+	github.com/synnaxlabs/x => ../x/go
+)
 
 require (
 	github.com/cockroachdb/errors v1.11.3
@@ -16,10 +19,6 @@ require (
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 	golang.org/x/sync v0.13.0
 )
-
-replace github.com/synnaxlabs/x => ../x/go
-
-replace github.com/synnaxlabs/alamos => ../alamos/go
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
