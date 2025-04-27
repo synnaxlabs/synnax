@@ -54,7 +54,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 }
 
 var (
-	errIteratorClosed = core.NewErrEntityClosed("unary.iterator")
+	errIteratorClosed = core.NewErrResourceClosed("unary.iterator")
 )
 
 type Iterator struct {

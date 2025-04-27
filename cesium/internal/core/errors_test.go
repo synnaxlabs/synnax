@@ -18,10 +18,10 @@ var _ = Describe("Errors", func() {
 		})
 	})
 
-	Describe("NewErrEntityClosed", func() {
+	Describe("NewErrResourceClosed", func() {
 		It("Should return an error with the correct message", func() {
-			err := core.NewErrEntityClosed("writer")
-			Expect(err).To(HaveOccurredAs(core.ErrClosedEntity))
+			err := core.NewErrResourceClosed("writer")
+			Expect(err).To(HaveOccurredAs(core.ErrClosedResource))
 			Expect(err).To(MatchError(ContainSubstring("cannot complete operation on closed writer")))
 		})
 	})

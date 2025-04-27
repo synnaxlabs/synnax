@@ -54,10 +54,9 @@ Codec::Codec(
     std::sort(pairs.begin(), pairs.end(), [](const auto &a, const auto &b) {
         return a.first < b.first;
     });
-    this->keys.reserve(channels.size());
     this->key_data_types.reserve(channels.size());
     for (const auto &[key, data_type]: pairs) {
-        this->keys.push_back(key);
+        this->keys.insert(key);
         this->key_data_types[key] = data_type;
         if (data_type.is_variable()) this->has_variable_data_types = true;
     }
@@ -65,37 +64,39 @@ Codec::Codec(
 
 Codec::Codec(const std::vector<Channel> &channels) {
     this->key_data_types.reserve(channels.size());
-    this->keys.reserve(channels.size());
     for (const auto &ch: channels) {
         this->key_data_types[ch.key] = ch.data_type;
         if (ch.data_type.is_variable()) this->has_variable_data_types = true;
-        this->keys.push_back(ch.key);
+        this->keys.insert(ch.key);
     }
-    std::sort(this->keys.begin(), this->keys.end());
 }
 
-void Codec::encode(
+xerrors::Error Codec::encode(
     const Frame &frame,
     const size_t start_offset,
     std::vector<uint8_t> &data
 ) {
-    this->sorting_indices.resize(frame.size());
-    for (size_t i = 0; i < frame.channels->size(); i++)
-        this->sorting_indices[i] = {frame.channels->at(i), i};
-    std::sort(sorting_indices.begin(), sorting_indices.end());
-
     CodecFlags flags;
-    flags.equal_lens = !this->has_variable_data_types;
-    size_t cur_data_size = -1;
-    telem::TimeRange ref_tr = {};
-    uint64_t ref_alignment = 0;
-
     size_t byte_array_size = start_offset + 1;
 
     if (frame.channels->size() != keys.size()) {
         flags.all_channels_present = false;
         byte_array_size += frame.channels->size() * 4; // 4 bytes per channel key
     }
+
+    this->sorting_indices.resize(frame.size());
+    for (size_t i = 0; i < frame.channels->size(); i++) {
+        auto k = frame.channels->at(i);
+        if (!this->keys.contains(k))
+            return xerrors::Error(xerrors::VALIDATION, "frame contains extra key " + std::to_string(k) + "not provided when opening the writer");
+        this->sorting_indices[i] = {k, i};
+    }
+    std::sort(sorting_indices.begin(), sorting_indices.end());
+
+    flags.equal_lens = !this->has_variable_data_types;
+    size_t cur_data_size = -1;
+    telem::TimeRange ref_tr = {};
+    uint64_t ref_alignment = 0;
 
     for (const auto &[key, idx]: sorting_indices) {
         const telem::Series &series = frame.series->at(idx);
@@ -122,11 +123,12 @@ void Codec::encode(
     else
         byte_array_size += 4;
 
-    if (!flags.time_ranges_zero)
+    if (!flags.time_ranges_zero) {
         if (!flags.equal_time_ranges)
             byte_array_size += frame.channels->size() * 16;
         else
             byte_array_size += 16;
+    }
 
     if (!flags.zero_alignments) {
         if (!flags.equal_alignments)
@@ -162,10 +164,17 @@ void Codec::encode(
         }
         if (!flags.equal_alignments) buf.uint64(ser.alignment);
     }
+
+    return xerrors::NIL;
 }
 
-Frame Codec::decode(const std::vector<uint8_t> &data) const {
-    auto reader = binary::Reader(data);
+std::pair<Frame, xerrors::Error> Codec::decode(const std::vector<uint8_t> &data) const {
+    return this->decode(data.data(), data.size());
+}
+
+
+std::pair<Frame, xerrors::Error> Codec::decode(const uint8_t * data, const size_t size) const {
+    auto reader = binary::Reader(data, size);
     Frame frame;
     uint32_t data_len = 0;
     telem::TimeRange ref_tr = {};
@@ -179,17 +188,20 @@ Frame Codec::decode(const std::vector<uint8_t> &data) const {
     } else if (flags.time_ranges_zero)
         ref_tr = telem::TimeRange{telem::TimeStamp(0), telem::TimeStamp(0)};
 
-    if (flags.equal_alignments && !flags.zero_alignments) ref_alignment = reader.uint64();
+    if (flags.equal_alignments && !flags.zero_alignments)
+        ref_alignment = reader.uint64();
 
     auto decode_series = [&](const ChannelKey key) {
-        uint32_t local_data_len = data_len;
-        if (!flags.equal_lens) local_data_len = reader.uint32();
+        // when the series is a variable data type, we use its byte capacity instead
+        // of its length.
+        uint32_t local_data_len_or_byte_cap = data_len;
+        if (!flags.equal_lens) local_data_len_or_byte_cap = reader.uint32();
 
         const auto it = key_data_types.find(key);
         if (it == key_data_types.end())
             throw std::runtime_error("Unknown channel key: " + std::to_string(key));
 
-        auto s = telem::Series(it->second, local_data_len);
+        auto s = telem::Series(it->second, local_data_len_or_byte_cap);
         s.time_range = ref_tr;
         s.alignment = ref_alignment;
 
@@ -218,6 +230,6 @@ Frame Codec::decode(const std::vector<uint8_t> &data) const {
     } else
         while (decode_series(reader.uint32())) {}
 
-    return frame;
+    return {std::move(frame), xerrors::NIL};
 }
 }

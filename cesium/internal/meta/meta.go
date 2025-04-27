@@ -12,10 +12,8 @@ package meta
 import (
 	"os"
 
-	"github.com/synnaxlabs/cesium/internal/migrate"
-	"github.com/synnaxlabs/cesium/internal/version"
-
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/migrate"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -50,11 +48,7 @@ func Open(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel, error) 
 				return ch, err
 			}
 		}
-		err = Validate(state.Channel)
-		if err != nil {
-			return state.Channel, err
-		}
-		return state.Channel, err
+		return state.Channel, Validate(state.Channel)
 	}
 
 	return ch, Create(fs, codec, ch)
@@ -73,12 +67,8 @@ func Read(fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
 	}
 	defer func() { err = errors.Combine(err, metaF.Close()) }()
 
-	err = codec.DecodeStream(nil, metaF, &ch)
-	if err != nil {
+	if err = codec.DecodeStream(nil, metaF, &ch); err != nil {
 		err = errors.Wrapf(err, "error decoding meta in folder for channel %s", s.Name())
-	}
-	if ch.Version == version.Current {
-		return
 	}
 	return
 }
@@ -87,8 +77,7 @@ func Read(fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
 // encoded by the provided encoder. The provided channel should have all fields
 // required by the DB correctly set.
 func Create(fs xfs.FS, codec binary.Codec, ch core.Channel) error {
-	err := Validate(ch)
-	if err != nil {
+	if err := Validate(ch); err != nil {
 		return err
 	}
 

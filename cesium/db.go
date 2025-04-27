@@ -30,7 +30,7 @@ type (
 )
 
 var (
-	errDBClosed        = core.NewErrEntityClosed("cesium.db")
+	errDBClosed        = core.NewErrResourceClosed("cesium.db")
 	ErrChannelNotFound = core.ErrChannelNotFound
 )
 

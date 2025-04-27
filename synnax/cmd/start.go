@@ -17,8 +17,6 @@ import (
 	"os/signal"
 	"time"
 
-	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 
 	"github.com/google/uuid"
@@ -326,9 +324,7 @@ func start(cmd *cobra.Command) {
 		// where bleve would concurrently read and write to a map.
 		// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
 		// for more details on this issue.
-		sCtx.Go(func(ctx context.Context) error {
-			return dist.Ontology.RunStartupSearchIndexing(ctx)
-		})
+		sCtx.Go(dist.Ontology.RunStartupSearchIndexing, xsignal.WithKey("startup_search_indexing"))
 
 		// Configure the HTTP API Transport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{
@@ -338,7 +334,7 @@ func start(cmd *cobra.Command) {
 		_api.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(dist.Channel)))
 
 		// Configure the GRPC API Transport.
-		grpcAPI, grpcAPITrans := grpcapi.New(&framercodec.LazyCodec{Channels: dist.Channel})
+		grpcAPI, grpcAPITrans := grpcapi.New(dist.Channel)
 		*grpcServerTransports = append(*grpcServerTransports, grpcAPITrans...)
 		_api.BindTo(grpcAPI)
 

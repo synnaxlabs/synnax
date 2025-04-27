@@ -279,7 +279,7 @@ const (
 	writerRequestBufferSize  = 50
 )
 
-// Write exposes a high level api for writing segmented telemetry to the delta
+// Write exposes a high-level api for writing segmented telemetry to the delta
 // cluster. The client is expected to send an initial request containing the
 // keys of the channels to write to. The server will acquire an exclusive lock on
 // these channels. If the channels are already locked, Write will return with
@@ -288,7 +288,7 @@ const (
 // persisting them to disk.
 //
 // If the client cancels the provided context, the server will immediately
-// abort all pending writes, release the locks, and return an errors.Canceled.
+// abort all pending writes, release the locks, and return errors.Canceled.
 //
 // To ensure writes are durable, the client can issue a Close request
 // (i.e. calling freighter.ClientStream.close_send()) after sending all segments,

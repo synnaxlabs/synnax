@@ -79,13 +79,20 @@ public:
 };
 
 class Reader {
-    const std::vector<uint8_t> &buf;
+    const uint8_t *buf;
+    const size_t size;
     size_t offset;
 public:
     explicit Reader(
         const std::vector<uint8_t> &buffer,
         const size_t starting_offset = 0
-    ): buf(buffer), offset(starting_offset) {}
+    ): Reader(buffer.data(), buffer.size(), starting_offset) {}
+
+    Reader(
+        const uint8_t *buffer,
+        const size_t size,
+        const size_t starting_offset = 0
+    ): buf(buffer), size(size), offset(starting_offset) {}
 
     /// @brief Reads a byte from the buffer
     /// @return The byte read
@@ -123,15 +130,15 @@ public:
         return static_cast<int64_t>(this->uint64());
     }
 
-    [[nodiscard]] bool exhausted() const { return offset >= buf.size(); }
+    [[nodiscard]] bool exhausted() const { return offset >= this->size; }
 
     /// @brief Reads raw bytes from the buffer into a provided memory location
     /// @param data Pointer to the memory location to write to
     /// @param size The number of bytes to read
     size_t read(void* data, const size_t size) {
         size_t read_size = size;
-        if (offset + size > buf.size()) read_size = buf.size() - offset;
-        std::memcpy(data, buf.data() + offset, read_size);
+        if (offset + size > this->size) read_size = this->size - offset;
+        std::memcpy(data, buf + offset, read_size);
         offset += read_size;
         return read_size;
     }

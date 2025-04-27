@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// ReportProvider is an entity that can provide a Report to a Reporter.
+// ReportProvider can provide a Report to a Reporter.
 type ReportProvider interface {
 	// Report generates and returns a Report.
 	Report() Report

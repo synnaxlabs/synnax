@@ -73,7 +73,7 @@ var (
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorizedOpen:    config.False(),
 	}
-	errWriterClosed = core.NewErrEntityClosed("unary.writer")
+	errWriterClosed = core.NewErrResourceClosed("unary.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1

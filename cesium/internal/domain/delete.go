@@ -63,8 +63,8 @@ func (db *DB) Delete(
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
-	db.entityCount.Add(1)
-	defer db.entityCount.Add(-1)
+	db.resourceCount.Add(1)
+	defer db.resourceCount.Add(-1)
 
 	// Ensure that there cannot be deletion operations on the index between index lookup
 	// as that would invalidate the offsets.
@@ -196,8 +196,8 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
-	db.entityCount.Add(1)
-	defer db.entityCount.Add(-1)
+	db.resourceCount.Add(1)
+	defer db.resourceCount.Add(-1)
 
 	if _, err := db.fc.gcWriters(); err != nil {
 		return span.Error(err)

@@ -174,29 +174,25 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	return
 }
 
-// removeChannel removes ch from db.mu.unaryDBs or db.mu.virtualDBs. If the key does not exist
-// or if there is an open entity on the specified database.
+// removeChannel removes ch from db.mu.unaryDBs or db.mu.virtualDBs. If the channel
+// or if there is an open resource on the specified database.
 func (db *DB) removeChannel(ch ChannelKey) error {
-	udb, uok := db.mu.unaryDBs[ch]
-	if uok {
-		if udb.Channel().IsIndex {
-			for otherDBKey := range db.mu.unaryDBs {
-				if otherDBKey == ch {
-					continue
-				}
-				otherDB := db.mu.unaryDBs[otherDBKey]
-				if otherDB.Channel().Index == udb.Channel().Key {
+	uDB, uOk := db.mu.unaryDBs[ch]
+	if uOk {
+		if uDB.Channel().IsIndex {
+			for otherDBKey, otherDB := range db.mu.unaryDBs {
+				if otherDBKey != ch && otherDB.Channel().Index == uDB.Channel().Key {
 					return errors.Newf(
 						"cannot delete channel %v "+
 							"because it indexes data in channel %v",
-						udb.Channel(),
+						uDB.Channel(),
 						otherDB.Channel(),
 					)
 				}
 			}
 		}
 
-		if err := udb.Close(); err != nil {
+		if err := uDB.Close(); err != nil {
 			return err
 		}
 		delete(db.mu.unaryDBs, ch)
@@ -293,16 +289,16 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 		sCtx, cancel = signal.WithCancel(ctx)
 	)
 	defer cancel()
-	for _, udb := range db.mu.unaryDBs {
+	for _, uDB := range db.mu.unaryDBs {
 		if err := sem.Acquire(ctx, 1); err != nil {
 			db.mu.RUnlock()
 			return err
 		}
-		udb := udb
+		uDB := uDB
 		sCtx.Go(func(_ctx context.Context) error {
 			defer sem.Release(1)
-			return udb.GarbageCollect(_ctx)
-		}, signal.RecoverWithErrOnPanic())
+			return uDB.GarbageCollect(_ctx)
+		}, signal.RecoverWithErrOnPanic(), signal.WithKeyf("garbage_collect_%v", uDB.Channel()))
 	}
 	db.mu.RUnlock()
 	return sCtx.Wait()

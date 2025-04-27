@@ -31,9 +31,9 @@ type State[R comparable] struct {
 	Authority Authority `json:"authority" msgpack:"authority"`
 }
 
-// Transfer represents a transfer of control over an entity. It is represented as a
+// Transfer represents a transfer of control over a resource. It is represented as a
 // transition from one state to another. If From is nil, the entity was uncontrolled
-// before the transfer. If To is nil, the entity is uncontrolled after the transfer.
+// before the transfer. If To is nil, the resource is uncontrolled after the transfer.
 // If both From and To are nil, no transfer occurred. If both From and To are not nil,
 // and From.Subject != To.Subject, a transfer occurred.
 type Transfer[R comparable] struct {

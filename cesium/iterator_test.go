@@ -285,7 +285,7 @@ var _ = Describe("Iterator Behavior", func() {
 					})).To(Succeed())
 					var (
 						i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{key}}))
-						e = core.NewErrEntityClosed("cesium.iterator")
+						e = core.NewErrResourceClosed("cesium.iterator")
 					)
 					Expect(i.Close()).To(Succeed())
 					Expect(i.Valid()).To(BeFalse())
@@ -307,7 +307,7 @@ var _ = Describe("Iterator Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
@@ -324,7 +324,7 @@ var _ = Describe("Iterator Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
@@ -341,7 +341,7 @@ var _ = Describe("Iterator Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.Read(ctx, telem.TimeRangeMax, key)
-					Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})

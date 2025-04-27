@@ -42,10 +42,12 @@ type LazyCodec struct {
 }
 
 func (l *LazyCodec) panicIfNotInitialized() {
-	if l.core == nil {
+	if !l.Initialized() {
 		panic("[framer] - LazyCodec was not initialized. Call Update() before using the codec.")
 	}
 }
+
+func (l *LazyCodec) Initialized() bool { return l.core != nil }
 
 func (l *LazyCodec) Encode(src framer.Frame) ([]byte, error) {
 	return l.core.Encode(src)

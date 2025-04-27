@@ -33,8 +33,8 @@ func fileKeyToName(key uint16) string {
 	return strconv.Itoa(int(key)) + extension
 }
 
-func newErrEntityInUse(entity string, fileKey uint16) error {
-	return errors.Newf("%s for file %d is in use and cannot be closed", entity, fileKey)
+func newErrResourceInUse(resource string, fileKey uint16) error {
+	return errors.Newf("%s for file %d is in use and cannot be closed", resource, fileKey)
 }
 
 // fileReaders represents readers on a file. It provides a mutex lock to prevent any
@@ -88,7 +88,7 @@ func openFileController(cfg Config) (*fileController, error) {
 
 // realFileSizeCap returns the maximum allowed size of a file – though it may be exceeded
 // if commits are sparse.
-// fc.ThrottleConfig.Filesize is the nominal file size to not exceed, in reality, this value
+// fc.Config.Filesize is the nominal file size to not exceed, in reality, this value
 // is set to 0.8 * the actual file size cap, therefore the real value is 1.25 * the nominal
 // value.
 func (fc *fileController) realFileSizeCap() telem.Size {
@@ -401,7 +401,7 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 
 	if w, ok := fc.writers.open[fileKey]; ok {
 		if !w.tryAcquire() {
-			return newErrEntityInUse("writer", fileKey)
+			return newErrResourceInUse("writer", fileKey)
 		}
 		if err := w.TrackedWriteCloser.Close(); err != nil {
 			return err
@@ -446,7 +446,7 @@ func (fc *fileController) close() error {
 	for _, w := range fc.writers.open {
 		c.Exec(func() error {
 			if !w.tryAcquire() {
-				return newErrEntityInUse("writer", w.fileKey)
+				return newErrResourceInUse("writer", w.fileKey)
 			}
 			return w.HardClose()
 		})
@@ -456,7 +456,7 @@ func (fc *fileController) close() error {
 		for _, r := range f.open {
 			c.Exec(func() error {
 				if !r.tryAcquire() {
-					return newErrEntityInUse("reader", r.fileKey)
+					return newErrResourceInUse("reader", r.fileKey)
 				}
 				return r.HardClose()
 			})

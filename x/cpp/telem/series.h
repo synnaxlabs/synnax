@@ -11,10 +11,10 @@
 
 /// std
 #include <cstddef>
+#include <iostream>
 #include <string>
 #include <variant>
 #include <vector>
-#include <iostream>
 
 /// external
 #include "nlohmann/json.hpp"
@@ -76,6 +76,9 @@ class Series {
     /// @brief cached_byte_size is an optimization for variable rate channels that
     /// caches the byte size of the series so it doesn't need to be re-calculated.
     size_t cached_byte_size = 0;
+    /// @brief cached_bye_cap is an optimization for variable rate channels that caches
+    /// the byte capacity of the series so it doesn't need to be re-calculated.
+    size_t cached_byte_cap = 0;
     /// @brief the size of the series in number of samples.
     size_t size_;
     /// @brief Holds the underlying data_.
@@ -90,6 +93,7 @@ class Series {
 public:
     telem::TimeRange time_range = telem::TimeRange();
     std::uint64_t alignment = 0;
+
 private:
     /// @brief validates the input index is within the bounds of the series. If the
     /// write size is provided, it will also validate that the write does not exceed
@@ -175,6 +179,7 @@ public:
 
     /// @brief returns the capacity of the series in bytes.
     [[nodiscard]] size_t byte_cap() const {
+        if (this->cached_byte_cap != 0) return this->cached_byte_cap;
         if (this->cap() == 0 || this->data_type().is_variable())
             return this->cached_byte_size;
         return this->cap() * this->data_type().density();
@@ -191,26 +196,28 @@ public:
         other.data_ = nullptr;
     }
 
-    std::byte *data() const { return this->data_.get(); }
+    /// @brief returns a raw pointer to the underlying buffer backing the series. This
+    /// buffer is only safe for use through the lifetime of the series.
+    [[nodiscard]] std::byte *data() const { return this->data_.get(); }
 
-    /// @brief allocates a series with the given data type and capacity (in
-    /// samples). Allocated series are treated as buffers and are not initialized
-    /// with any data_. Calls to write can be used to populate the series.
+    /// @brief allocates a series with the given data type and capacity. If the data
+    /// type of the series is variable, then the capacity is treated as the number
+    /// of bytes to allocate. If fixed, it is treated as the number of samples.
+    /// Allocated series are treated as buffers and are not initialized
+    /// with any data. Calls to write can be used to populate the series.
     /// @param data_type the type of data being stored.
     /// @param cap the number of samples that can be stored in the series.
     Series(const DataType &data_type, const size_t cap):
-        data_type_(data_type),
-        cap_(cap),
-        size_(0),
-        data_(std::make_unique<std::byte[]>(cap * data_type.density())) {
-        if (data_type == UNKNOWN_T && cap > 0)
-            throw std::runtime_error(
-                "cannot allocate a series with an unknown data type"
-            );
-        if (data_type.is_variable())
-            throw std::runtime_error(
-                "cannot pre-allocate a series with a variable data type"
-            );
+        data_type_(data_type), size_(0) {
+        if (data_type.is_variable()) {
+            this->data_ = std::make_unique<std::byte[]>(cap);
+            this->cached_byte_cap = cap;
+            this->cap_ = 0;
+        } else {
+            this->data_ = std::make_unique<std::byte[]>(cap * data_type.density());
+            this->cap_ = cap;
+            this->cached_byte_cap = cap * data_type.density();
+        }
     }
 
     /// @brief constructs a series from the given array of numeric data and a
@@ -223,7 +230,8 @@ public:
         data_type_(telem::DataType::infer<NumericType>(dt)),
         cap_(size),
         size_(size),
-        data_(std::make_unique<std::byte[]>(this->size() * this->data_type().density())
+        data_(
+            std::make_unique<std::byte[]>(this->size() * this->data_type().density())
         ) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
@@ -243,7 +251,7 @@ public:
     explicit Series(const std::vector<NumericType> &d, const DataType &dt = UNKNOWN_T):
         Series(d.data(), d.size(), dt) {}
 
-    /// @brief constructs a series with data type TIMESTAMP containing the given
+    /// @brief constructs a series with a data type of TIMESTAMP containing the given
     /// vector of timestamps.
     explicit Series(const std::vector<telem::TimeStamp> &d):
         data_type_(telem::TIMESTAMP_T),
@@ -374,7 +382,7 @@ public:
     /// @param values the vector of JSON values to be used.
     explicit Series(const std::vector<json> &values):
         data_type_(JSON_T), cap_(values.size()), size_(values.size()) {
-        // Calculate total byte size needed (including newline terminators)
+        // Calculate the total byte size needed (including newline terminators)
         this->cached_byte_size = 0;
         for (const auto &value: values)
             this->cached_byte_size += value.dump().size() + 1;
@@ -470,7 +478,7 @@ public:
             );
             const size_t count = std::min(d.size(), this->cap() - this->size());
             if (count == 0) return 0;
-            memcpy(this->data_.get(), d.data_(), count * this->data_type().density());
+            memcpy(this->data_.get(), d.data(), count * this->data_type().density());
             this->size_ += count;
             return count;
         }
@@ -495,7 +503,8 @@ public:
         if constexpr (std::is_same_v<T, std::string> ||
                       std::is_same_v<T, const char *> || std::is_same_v<T, char *>) {
             if (!this->data_type().matches({STRING_T, JSON_T}))
-                throw std::runtime_error("cannot write string to non-string/JSON series"
+                throw std::runtime_error(
+                    "cannot write string to non-string/JSON series"
                 );
             if (this->size() >= this->cap()) return 0;
 
@@ -737,12 +746,13 @@ public:
 
         const auto adjusted_count = inclusive ? write_count - 1 : write_count;
         const int64_t start_ns = start.nanoseconds();
-        const int64_t step_ns = (end - start).nanoseconds() / adjusted_count;
+        const int64_t step_ns = (end - start).nanoseconds() /
+                                static_cast<int64_t>(adjusted_count);
         auto *data_ptr = reinterpret_cast<int64_t *>(
             this->data_.get() + this->size() * this->data_type().density()
         );
 #pragma omp simd
-        for (size_t i = 0; i < write_count; i++)
+        for (int64_t i = 0; i < write_count; i++)
             data_ptr[i] = start_ns + step_ns * i;
         this->size_ += write_count;
         return write_count;
@@ -776,28 +786,27 @@ public:
     write_casted(const void *data, const size_t size, const DataType &source_type) {
         if (source_type == FLOAT64_T)
             return write_casted(static_cast<const double *>(data), size);
-        else if (source_type == FLOAT32_T)
+        if (source_type == FLOAT32_T)
             return write_casted(static_cast<const float *>(data), size);
-        else if (source_type == INT64_T)
+        if (source_type == INT64_T)
             return write_casted(static_cast<const int64_t *>(data), size);
-        else if (source_type == INT32_T)
+        if (source_type == INT32_T)
             return write_casted(static_cast<const int32_t *>(data), size);
-        else if (source_type == INT16_T)
+        if (source_type == INT16_T)
             return write_casted(static_cast<const int16_t *>(data), size);
-        else if (source_type == INT8_T)
+        if (source_type == INT8_T)
             return write_casted(static_cast<const int8_t *>(data), size);
-        else if (source_type == UINT64_T)
+        if (source_type == UINT64_T)
             return write_casted(static_cast<const uint64_t *>(data), size);
-        else if (source_type == UINT32_T)
+        if (source_type == UINT32_T)
             return write_casted(static_cast<const uint32_t *>(data), size);
-        else if (source_type == UINT16_T)
+        if (source_type == UINT16_T)
             return write_casted(static_cast<const uint16_t *>(data), size);
-        else if (source_type == UINT8_T)
+        if (source_type == UINT8_T)
             return write_casted(static_cast<const uint8_t *>(data), size);
-        else
-            throw std::runtime_error(
-                "Unsupported data type for casting: " + source_type.name()
-            );
+        throw std::runtime_error(
+            "Unsupported data type for casting: " + source_type.name()
+        );
     }
 
     /// @brief constructor that conditionally casts that provided data array to the
@@ -998,8 +1007,11 @@ public:
         return sum / static_cast<T>(size);
     }
 
+    /// @brief fills the series with data from the given binary reader. Reads until
+    /// the series is full or the reader is exhausted, whichever comes first. Returns
+    /// // the total number of samples read.
     size_t fill_from(binary::Reader &reader) {
-        auto n_read = reader.read(this->data(), this->byte_cap());
+        auto n_read = reader.read(this->data() + this->byte_size(), this->byte_cap());
         this->cached_byte_size += n_read;
         if (this->data_type().is_variable()) {
             this->size_ = 0;

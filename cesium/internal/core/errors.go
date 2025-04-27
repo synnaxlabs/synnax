@@ -16,24 +16,33 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-// ErrChannelNotFound is returned when a channel or a range of data cannot be found in the DB.
 var (
+	// ErrChannelNotFound is returned when a particular channel cannot be found in the DB.
 	ErrChannelNotFound = errors.Wrap(query.NotFound, "channel not found")
-	ErrOpenEntity      = errors.New("cannot close database because there are open entities on it")
-	ErrClosedEntity    = errors.New("entity closed")
+	// ErrOpenResource is returned when a resource cannot be closed because there are still
+	// open resources on it (readers, writers, etc.).
+	ErrOpenResource = errors.New("cannot close database because there are open resources on it")
+	// ErrClosedResource is returns when an operation cannot be completed because the resource
+	// being operator on is already closed.
+	ErrClosedResource = errors.New("resource closed")
 )
 
+// NewErrChannelNotFound returns a wrapper around ErrChannelNotFound that includes the
+// key of the missing channel.
 func NewErrChannelNotFound(ch ChannelKey) error {
 	return errors.Wrapf(ErrChannelNotFound, "channel %d not found", ch)
 }
 
-func NewErrEntityClosed(entityName string) error {
-	return errors.Wrapf(ErrClosedEntity, "cannot complete operation on closed %s", entityName)
+// NewErrResourceClosed returns a new error that wraps ErrClosedResource and includes the
+// name of the resource that is closed. This is used to indicate that an operation cannot
+// be completed because the resource is closed.
+func NewErrResourceClosed(resourceName string) error {
+	return errors.Wrapf(ErrClosedResource, "cannot complete operation on closed %s", resourceName)
 }
 
+// NewChannelErrWrapper returns a function that wraps an error with information about
+// the channel that caused the error.
 func NewChannelErrWrapper(ch Channel) func(error) error {
 	msg := fmt.Sprintf("channel %v", ch)
-	return func(err error) error {
-		return errors.Wrap(err, msg)
-	}
+	return func(err error) error { return errors.Wrap(err, msg) }
 }

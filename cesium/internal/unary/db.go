@@ -41,7 +41,7 @@ type DB struct {
 }
 
 // ErrDBClosed is returned when an operation is attempted on a closed unary database.
-var ErrDBClosed = core.NewErrEntityClosed("unary.db")
+var ErrDBClosed = core.NewErrResourceClosed("unary.db")
 
 // Channel returns the channel for this unary database.
 func (db *DB) Channel() core.Channel { return db.cfg.Channel }
@@ -117,7 +117,7 @@ func (db *DB) Close() error {
 	}
 	err := db.domain.Close()
 	if err != nil {
-		if errors.Is(err, core.ErrOpenEntity) {
+		if errors.Is(err, core.ErrOpenResource) {
 			// If the close failed because of an open entity, the database should not
 			// be marked as closed and can still serve reads/writes.
 			db.closed.Store(false)

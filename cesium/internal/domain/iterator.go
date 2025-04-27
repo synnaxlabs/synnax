@@ -27,7 +27,7 @@ type IteratorConfig struct {
 	Bounds telem.TimeRange
 }
 
-var errIteratorClosed = core.NewErrEntityClosed("domain.iterator")
+var errIteratorClosed = core.NewErrResourceClosed("domain.iterator")
 
 // IterRange generates an IteratorConfig that iterates over the provided time domain.
 func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }
@@ -68,12 +68,12 @@ type Iterator struct {
 // OpenIterator opens a new invalidated Iterator using the given configuration.
 // A seeking call is required before it can be used.
 func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
-	db.entityCount.Add(1)
+	db.resourceCount.Add(1)
 	i := &Iterator{
 		Instrumentation: db.cfg.Instrumentation.Child("iterator"),
 		idx:             db.idx,
 		readerFactory:   db.newReader,
-		onClose:         func() { db.entityCount.Add(-1) },
+		onClose:         func() { db.resourceCount.Add(-1) },
 	}
 	i.SetBounds(cfg.Bounds)
 	return i

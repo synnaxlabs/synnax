@@ -19,17 +19,24 @@ namespace synnax {
 void StreamerConfig::to_proto(api::v1::FrameStreamerRequest &f) const {
     f.mutable_keys()->Add(channels.begin(), channels.end());
     f.set_downsample_factor(downsample_factor);
+    f.set_enable_experimental_codec(enable_experimental_codec);
 }
 
 std::pair<Streamer, xerrors::Error>
 FrameClient::open_streamer(const StreamerConfig &config) const {
-    auto [s, err] = streamer_client->stream(STREAM_ENDPOINT);
+    auto [net_stream, err] = streamer_client->stream(STREAM_ENDPOINT);
     if (err) return {Streamer(), err};
     api::v1::FrameStreamerRequest req;
     config.to_proto(req);
-    if (!s->send(req).ok()) s->close_send();
-    auto [_, res_err] = s->receive();
-    return {Streamer(std::move(s)), res_err};
+    if (!net_stream->send(req).ok()) net_stream->close_send();
+    auto [_, res_err] = net_stream->receive();
+    auto streamer = Streamer(std::move(net_stream));
+    if (config.enable_experimental_codec) {
+        auto [channels, err] = this->retrieve_channels(config.channels);
+        if (err) return {Streamer(), err};
+        streamer.codec = Codec(channels);
+    }
+    return {std::move(streamer), res_err};
 }
 
 Streamer::Streamer(std::unique_ptr<StreamerStream> stream): stream(std::move(stream)) {}
@@ -37,6 +44,8 @@ Streamer::Streamer(std::unique_ptr<StreamerStream> stream): stream(std::move(str
 std::pair<synnax::Frame, xerrors::Error> Streamer::read() const {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
+    if (!fr.buffer().empty()) return this->codec.decode(
+            reinterpret_cast<const std::uint8_t *>(fr.buffer().data()), fr.buffer().size());
     auto api_frame = fr.frame();
     return {synnax::Frame(fr.frame()), exc};
 }

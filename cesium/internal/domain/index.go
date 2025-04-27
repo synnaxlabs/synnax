@@ -31,50 +31,48 @@ type index struct {
 
 // insert adds a new pointer to the index.
 func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
-	{
-		_, span := idx.T.Bench(ctx, "domain/index.insert")
-		idx.mu.Lock()
-		defer func() {
-			idx.mu.Unlock()
-			span.End()
-		}()
+	_, span := idx.T.Bench(ctx, "domain/index.insert")
+	idx.mu.Lock()
+	defer span.End()
 
-		insertAt := 0
+	insertAt := 0
 
-		if p.fileKey == 0 {
-			idx.L.DPanic("fileKey must be set")
-			return span.Error(errors.New("inserted pointer cannot have key 0"))
-		}
-		if len(idx.mu.pointers) != 0 {
-			// Hot path optimization for appending to the end of the index.
-			if idx.afterLast(p.Start) {
-				insertAt = len(idx.mu.pointers)
-			} else if !idx.beforeFirst(p.End) {
-				i, overlap := idx.unprotectedSearch(p.TimeRange)
-				if overlap {
-					return span.Error(RangeWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
-				}
-				insertAt = i + 1
+	if p.fileKey == 0 {
+		idx.mu.Unlock()
+		idx.L.DPanic("fileKey must be set")
+		return span.Error(errors.New("inserted pointer cannot have key 0"))
+	}
+	if len(idx.mu.pointers) != 0 {
+		// Hot path optimization for appending to the end of the index.
+		if idx.afterLast(p.Start) {
+			insertAt = len(idx.mu.pointers)
+		} else if !idx.beforeFirst(p.End) {
+			i, overlap := idx.unprotectedSearch(p.TimeRange)
+			if overlap {
+				idx.mu.Unlock()
+				return span.Error(RangeWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
 			}
+			insertAt = i + 1
 		}
+	}
 
-		if insertAt == 0 {
-			idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
-		} else if insertAt == len(idx.mu.pointers) {
-			idx.mu.pointers = append(idx.mu.pointers, p)
-		} else {
-			idx.mu.pointers = append(
-				idx.mu.pointers[:insertAt],
-				append([]pointer{p},
-					idx.mu.pointers[insertAt:]...)...,
-			)
-		}
+	if insertAt == 0 {
+		idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
+	} else if insertAt == len(idx.mu.pointers) {
+		idx.mu.pointers = append(idx.mu.pointers, p)
+	} else {
+		idx.mu.pointers = append(
+			idx.mu.pointers[:insertAt],
+			append([]pointer{p},
+				idx.mu.pointers[insertAt:]...)...,
+		)
+	}
 
-		idx.persistHead = min(idx.persistHead, insertAt)
+	idx.persistHead = min(idx.persistHead, insertAt)
 
-		if !persist {
-			return nil
-		}
+	idx.mu.Unlock()
+	if !persist {
+		return nil
 	}
 
 	persistPointers := idx.indexPersist.prepare(idx.persistHead)

@@ -119,7 +119,7 @@ func (db *DB) closeControlDigests() error {
 
 func (db *DB) digestsConfigured() bool { return db.mu.digests.key != 0 }
 
-// ControlStates returns the leading control entity in each unary and virtual channel
+// ControlStates returns the leading control resource in each unary and virtual channel
 // in the Cesium database at the snapshot at which ControlStates is called: the
 // controlState may change during the call.
 func (db *DB) ControlStates() (u ControlUpdate) {
