@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"slices"
 
@@ -52,7 +53,7 @@ type Codec struct {
 
 var byteOrder = binary.LittleEndian
 
-func NewStatic(dataTypes []telem.DataType, channelKeys channel.Keys) *Codec {
+func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
 	if len(dataTypes) != len(channelKeys) {
 		panic("data types and channel keys must be the same length")
 	}
@@ -116,7 +117,7 @@ type flags struct {
 	// This lets us consolidate the length of all series into one number.
 	equalLens bool
 	// equalTimeRanges is true when all series in the frame have the same time range.
-	// This lets use consolidate all time ranges into one, 16 byte section.
+	// This lets use consolidate all time ranges into one, 16-byte section.
 	equalTimeRanges bool
 	// timeRangesZero is true when the start and end timestamps are all zero.
 	// This lets us omit time ranges entirely.
@@ -176,10 +177,16 @@ func read(r io.Reader, data any) error {
 	return binary.Read(r, byteOrder, data)
 }
 
-func (c *Codec) Encode(src framer.Frame) ([]byte, error) {
+func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 	w := bytes.NewBuffer([]byte{})
-	err := c.EncodeStream(w, src)
+	err := c.EncodeStream(ctx, w, src)
 	return w.Bytes(), err
+}
+
+func (c *Codec) panicIfNotUpdated(opName string) {
+	if c.seqNum < 1 {
+		panic(fmt.Sprintf("[framer.codec] - dynamic codec was not updated for first call to %s", opName))
+	}
 }
 
 const (
@@ -187,7 +194,8 @@ const (
 	seqNumSize = 4
 )
 
-func (c *Codec) EncodeStream(w io.Writer, src framer.Frame) (err error) {
+func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame) (err error) {
+	c.panicIfNotUpdated("Encode")
 	var (
 		curDataSize                   = -1
 		refTr                         = telem.TimeRangeZero
@@ -206,6 +214,21 @@ func (c *Codec) EncodeStream(w io.Writer, src framer.Frame) (err error) {
 	for rawI, s := range src.RawSeries() {
 		if src.ShouldExcludeRaw(rawI) {
 			continue
+		}
+		key := src.RawKeyAt(rawI)
+		dt, ok := c.currState.keyDataTypes[key]
+		if !ok {
+			return errors.Wrapf(
+				validate.Error,
+				"encoder was provided a key %s not present in current state",
+				channel.TryToRetrieveStringer(ctx, c.channels, key),
+			)
+		}
+		if dt != s.DataType {
+			return errors.Wrapf(
+				validate.Error, "data type for channel %s does not",
+				channel.TryToRetrieveStringer(ctx, c.channels, key),
+			)
 		}
 		sLen := int(s.Len())
 		byteArraySize += int(s.Size())
@@ -264,7 +287,7 @@ func (c *Codec) EncodeStream(w io.Writer, src framer.Frame) (err error) {
 			continue
 		}
 		if !fgs.allChannelsPresent {
-			c.buf.Uint32(uint32(src.KeysAtRaw(rawI)))
+			c.buf.Uint32(uint32(src.RawKeyAt(rawI)))
 		}
 		if !fgs.equalLens {
 			if s.DataType.IsVariable() {
@@ -303,6 +326,7 @@ func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
 }
 
 func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
+	c.panicIfNotUpdated("Decode")
 	var (
 		dataLen      uint32
 		refTr        telem.TimeRange

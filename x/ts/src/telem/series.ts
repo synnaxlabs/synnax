@@ -158,7 +158,7 @@ export class Series<T extends TelemValue = TelemValue> {
   private readonly gl: GL;
   /** The underlying data. */
   private readonly _data: ArrayBuffer;
-  readonly _timeRange?: TimeRange;
+  readonly timeRange: TimeRange = TimeRange.ZERO;
   readonly alignment: bigint = 0n;
   /** A cached minimum value. */
   private _cachedMin?: math.Numeric;
@@ -211,7 +211,7 @@ export class Series<T extends TelemValue = TelemValue> {
       this.sampleOffset = data_.sampleOffset;
       this.gl = data_.gl;
       this._data = data_._data;
-      this._timeRange = data_._timeRange;
+      this.timeRange = data_.timeRange;
       this.alignment = data_.alignment;
       this._cachedMin = data_._cachedMin;
       this._cachedMax = data_._cachedMax;
@@ -287,7 +287,7 @@ export class Series<T extends TelemValue = TelemValue> {
     this.key = key;
     this.alignment = alignment;
     this.sampleOffset = sampleOffset ?? 0;
-    this._timeRange = timeRange;
+    this.timeRange = timeRange ?? TimeRange.ZERO;
     this.gl = {
       control: null,
       buffer: null,
@@ -445,12 +445,6 @@ export class Series<T extends TelemValue = TelemValue> {
       .map((s) => schema.parse(binary.JSON_CODEC.decodeString(s)));
   }
 
-  /** @returns the time range of this array. */
-  get timeRange(): TimeRange {
-    if (this._timeRange == null) throw new Error("time range not set on series");
-    return this._timeRange;
-  }
-
   /** @returns the capacity of the series in bytes. */
   get byteCapacity(): Size {
     return new Size(this.underlyingData.byteLength);
@@ -509,7 +503,7 @@ export class Series<T extends TelemValue = TelemValue> {
     return new Series({
       data: data.buffer,
       dataType: target,
-      timeRange: this._timeRange,
+      timeRange: this.timeRange,
       sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment,
@@ -720,7 +714,7 @@ export class Series<T extends TelemValue = TelemValue> {
         lower: alignmentDigest(this.alignmentBounds.lower),
         upper: alignmentDigest(this.alignmentBounds.upper),
       },
-      timeRange: this._timeRange?.toString(),
+      timeRange: this.timeRange?.toString(),
       length: this.length,
       capacity: this.capacity,
     };
@@ -789,7 +783,7 @@ export class Series<T extends TelemValue = TelemValue> {
     return new Series({
       data,
       dataType: this.dataType,
-      timeRange: this._timeRange,
+      timeRange: this.timeRange,
       sampleOffset: this.sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment + BigInt(start),
@@ -804,7 +798,7 @@ export class Series<T extends TelemValue = TelemValue> {
     return new Series({
       data,
       dataType: this.dataType,
-      timeRange: this._timeRange,
+      timeRange: this.timeRange,
       sampleOffset: this.sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment + BigInt(start),

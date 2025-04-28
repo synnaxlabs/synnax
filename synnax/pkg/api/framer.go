@@ -516,7 +516,7 @@ func (c *WSFramerCodec) encodeWriteRequest(
 	if _, err = w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return
 	}
-	err = c.Codec.EncodeStream(w, v.Payload.Frame)
+	err = c.Codec.EncodeStream(nil, w, v.Payload.Frame)
 	return
 }
 
@@ -554,7 +554,7 @@ func (c *WSFramerCodec) encodeStreamResponse(
 	if _, err = w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	err = c.Codec.EncodeStream(w, v.Payload.Frame)
+	err = c.Codec.EncodeStream(nil, w, v.Payload.Frame)
 	return
 }
 

@@ -107,6 +107,13 @@ describe("Series", () => {
       expect(s.length).toEqual(3);
     });
 
+    it("should construct a series from an int32 array", () => {
+      const s = new Series(new Int32Array([1, 2, 3]));
+      expect(s.dataType.equals(DataType.INT32)).toBeTruthy();
+      expect(s.length).toEqual(3);
+      expect(Array.from(s)).toEqual([1, 2, 3]);
+    });
+
     it("should assume string when a single string is passed as data", () => {
       const s = new Series("abc");
       expect(s.dataType.equals(DataType.STRING)).toBeTruthy();

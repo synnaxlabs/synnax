@@ -12,6 +12,7 @@ package security
 import (
 	"crypto"
 	"crypto/tls"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/x/config"
