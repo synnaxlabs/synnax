@@ -33,7 +33,7 @@ class ReadFrameAdapter:
         self.retriever = retriever
         self.__adapter = None
         self.keys = list()
-        self.codec = Codec(keys=[], data_types=[])
+        self.codec = Codec()
 
     def update(self, channels: ChannelParams):
         normal = normalize_channel_params(channels)
@@ -77,7 +77,7 @@ class WriteFrameAdapter:
         self.__adapter = None
         self.__keys = None
         self.__err_on_extra_chans = err_on_extra_chans
-        self.codec = Codec(keys=[], data_types=[])
+        self.codec = Codec()
 
     def update(self, channels: ChannelParams):
         results = retrieve_required(self.retriever, channels)

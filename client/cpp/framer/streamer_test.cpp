@@ -206,7 +206,6 @@ void test_downsample_string(
 ) {
     auto client = new_test_client();
 
-    // Create a virtual channel
     synnax::Channel virtual_channel("virtual_string_channel", telem::STRING_T, true);
     ASSERT_NIL(client.channels.create(virtual_channel));
 
@@ -223,7 +222,6 @@ void test_downsample_string(
         client.telem.open_streamer(synnax::StreamerConfig{channels, downsample_factor})
     );
 
-    // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = synnax::Frame(
@@ -233,7 +231,6 @@ void test_downsample_string(
     ASSERT_NIL(writer.write(frame));
     auto res_frame = ASSERT_NIL_P(streamer.read());
 
-    // Get the downsampled strings
     std::vector<std::string> received_strings = res_frame.series->at(0).strings();
 
     ASSERT_EQ(received_strings.size(), expected.size());

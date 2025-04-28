@@ -32,9 +32,8 @@ FrameClient::open_streamer(const StreamerConfig &config) const {
     auto [_, res_err] = net_stream->receive();
     auto streamer = Streamer(std::move(net_stream));
     if (config.enable_experimental_codec) {
-        auto [channels, err] = this->retrieve_channels(config.channels);
-        if (err) return {Streamer(), err};
-        streamer.codec = Codec(channels);
+        streamer.codec = Codec(this->retrieve_channels);
+        if (const auto codec_err = streamer.codec.update(config.channels)) return {Streamer(), codec_err};
     }
     return {std::move(streamer), res_err};
 }
@@ -60,8 +59,9 @@ xerrors::Error Streamer::close() const {
     return err.skip(freighter::EOF_);
 }
 
-xerrors::Error Streamer::set_channels(std::vector<ChannelKey> channels) const {
+xerrors::Error Streamer::set_channels(std::vector<ChannelKey> channels) {
     this->assert_open();
+    if (const auto err = this->codec.update(channels)) return err;
     api::v1::FrameStreamerRequest req;
     req.mutable_keys()->Add(channels.begin(), channels.end());
     return this->stream->send(req);

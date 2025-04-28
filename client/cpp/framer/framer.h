@@ -20,7 +20,6 @@
 
 /// module
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/binary/binary.h"
 #include "x/cpp/telem/control.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
@@ -211,19 +210,36 @@ struct CodecFlags {
     static CodecFlags decode(uint8_t b);
 };
 
+using RetrieveChannels = std::function<
+    std::pair<std::vector<synnax::Channel>, xerrors::Error>(
+        std::vector<synnax::ChannelKey>
+    )>;
+
 /// @brief Codec for encoding and decoding frames efficiently.
 /// This implements the Frame Flight Protocol (RFC 0016)
 class Codec {
-    /// @brief the ordered set of channel keys for the codec.
-    std::set<ChannelKey> keys;
-    /// @brief the data types for each channel in keys.
-    std::unordered_map<ChannelKey, telem::DataType> key_data_types;
+    struct State {
+        /// @brief the ordered set of channel keys for the codec.
+        std::set<ChannelKey> keys;
+        /// @brief the data types for each channel in keys.
+        std::unordered_map<ChannelKey, telem::DataType> key_data_types;
+        /// @brief whether the codec has any channels with variable density data types.
+        bool has_variable_data_types = false;
+    };
     /// @brief a cached set of sorting indices for ensuring that encoded/decoded
     /// frames are properly sorted.
     std::vector<std::pair<ChannelKey, size_t>> sorting_indices;
-    /// @brief whether the codec has any channels with variable density data types.
-    bool has_variable_data_types = false;
 
+    /// @brief the current sequence number for the codec. This is used to identify
+    /// which codec state to use when encoding/decoding frames.
+    std::uint32_t seq_num = 0;
+
+    /// @brief the codec state for each sequence number. This is used to identify the
+    /// relevant channel keys and data types for encoding/decoding frames.
+    std::unordered_map<std::uint32_t, State> states;
+
+    /// @brief used to retrieve channels when updating the codec state.
+    RetrieveChannels retrieve_channels;
 public:
     Codec() = default;
 
@@ -231,27 +247,33 @@ public:
     /// @param data_types The data types corresponding to each channel
     /// @param channels The channel keys
     Codec(
-        const std::vector<telem::DataType> &data_types,
-        const std::vector<ChannelKey> &channels
+        const std::vector<ChannelKey> &channels,
+        const std::vector<telem::DataType> &data_types
     );
 
-    /// @brief Creates a new codec from a list of channels
-    /// @param channels The channels to create the codec from
-    explicit Codec(const std::vector<Channel> &channels);
+    /// @brief instantiates a dynamic codec that uses the provided function to look up
+    /// the relevant channels when update() is called.
+    explicit Codec(RetrieveChannels retrieve_channels): retrieve_channels(std::move(retrieve_channels)) {}
+
+    /// @brief updates the codec to use the given channels. If the channels do not
+    /// exist, the codec will return a query::NOT_FOUND error.
+    xerrors::Error update(const std::vector<ChannelKey> &keys);
 
     /// @brief Encodes a frame into a byte array
     /// @param frame The frame to encode
-    /// @param start_offset The starting offset in the output buffer
+    /// @param output The byte array to encode the frame into.
     /// @return The encoded frame as a byte vector
-    xerrors::Error
-    encode(const Frame &frame, size_t start_offset, std::vector<uint8_t> &data);
+    xerrors::Error encode(const Frame &frame, std::vector<uint8_t> &output);
 
-    /// @brief Decodes a frame from a byte array
-    /// @param data The byte array to decode
-    /// @return The decoded frame
+    /// @brief Decodes a frame from a byte vector.
+    /// @param data The byte vector to decode.
+    /// @return The decoded frame.
     [[nodiscard]] std::pair<Frame, xerrors::Error>
     decode(const std::vector<std::uint8_t> &data) const;
 
+    /// @brief decodes a frame from the provided byte array and size.
+    /// @param data The byte array to decode.
+    /// @param size The size of the byte array.
     [[nodiscard]] std::pair<Frame, xerrors::Error>
     decode(const std::uint8_t *data, std::size_t size) const;
 };
@@ -302,7 +324,7 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with
     /// close(), but it is safe to call concurrently with read().
-    [[nodiscard]] xerrors::Error set_channels(std::vector<ChannelKey> channels) const;
+    [[nodiscard]] xerrors::Error set_channels(std::vector<ChannelKey> channels);
 
     /// @brief closes the streamer and releases any resources associated with it. If
     /// any errors occurred during the stream, they will be returned. A streamer
@@ -501,7 +523,12 @@ private:
 
     /// @brief the configuration used to open the writer.
     WriterConfig cfg;
+
+    /// @brief the custom synnax frame codec for encoding/decoding frames. This codec
+    /// is only used when cfg.enable_experimental_codec is true.
     Codec codec;
+    /// @brief the data buffer for storing encoded frames.
+    std::vector<std::uint8_t> codec_data;
 
     /// @brief the stream transport for the writer.
     std::unique_ptr<WriterStream> stream;
@@ -525,10 +552,7 @@ private:
     friend class FrameClient;
 };
 
-using RetrieveChannels = std::function<
-    std::pair<std::vector<synnax::Channel>, xerrors::Error>(
-        std::vector<synnax::ChannelKey>
-    )>;
+
 
 class FrameClient {
 public:
@@ -567,6 +591,8 @@ private:
     /// @brief freighter transport implementation for opening writers to the Synnax
     /// cluster.
     std::unique_ptr<WriterClient> writer_client;
+    /// @brief a utility function used to retrieve information about channels from the
+    /// cluster.
     RetrieveChannels retrieve_channels;
 };
 

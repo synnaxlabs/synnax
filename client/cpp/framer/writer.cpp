@@ -36,9 +36,8 @@ FrameClient::open_writer(const WriterConfig &cfg) const {
     auto [_, res_exc] = net_writer->receive();
     auto writer = Writer(std::move(net_writer), cfg);
     if (cfg.enable_experimental_codec) {
-        auto [channels, err] = this->retrieve_channels(cfg.channels);
-        if (err) return {Writer(), err};
-        writer.codec = Codec(channels);
+        writer.codec = Codec(this->retrieve_channels);
+        if (const auto codec_err = writer.codec.update(cfg.channels)) return {Writer(), codec_err};
     }
     return {std::move(writer), res_exc};
 }
@@ -69,19 +68,18 @@ xerrors::Error Writer::write(const synnax::Frame &fr) {
 
 xerrors::Error Writer::init_request(const Frame &fr) {
     if (this->cfg.enable_experimental_codec) {
-        if (this->cached_write_req == nullptr) this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
+        if (this->cached_write_req == nullptr)
+            this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
         this->cached_write_req->set_command(WRITE);
-        // this->cached_frame = this->cached_write_req->mutable_frame();
-        // fr.to_proto(this->cached_frame);
-        std::vector<uint8_t> data;
-        if (const auto err = this->codec.encode(fr, 0, data)) return err;
-        this->cached_write_req->set_buffer(data.data(), data.size());
+        if (const auto err = this->codec.encode(fr, this->codec_data)) return err;
+        this->cached_write_req->set_buffer(this->codec_data.data(), this->codec_data.size());
         return xerrors::NIL;
     }
 
     if (this->cached_write_req != nullptr && this->cfg.enable_proto_frame_caching) {
         for (size_t i = 0; i < fr.series->size(); i++)
-            fr.series->at(i).to_proto(cached_frame->mutable_series(static_cast<int>(i)));
+            fr.series->at(i).to_proto(cached_frame->mutable_series(static_cast<int>(i))
+            );
         return xerrors::NIL;
     }
     this->cached_write_req = nullptr;

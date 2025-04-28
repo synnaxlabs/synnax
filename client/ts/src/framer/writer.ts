@@ -174,7 +174,7 @@ export class Writer {
       errOnUnauthorized = false,
       enableAutoCommit = false,
       autoIndexPersistInterval = TimeSpan.SECOND,
-      useExperimentalCodec = false,
+      useExperimentalCodec = true,
     }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await WriteAdapter.open(retriever, channels);

@@ -394,14 +394,14 @@ func (s *FrameService) openWriter(
 }
 
 type WSFramerCodec struct {
-	*framercodec.LazyCodec
+	*framercodec.Codec
 	LowerPerfCodec xbinary.Codec
 }
 
 func NewWSFramerCodec(channels channel.Readable) httputil.Codec {
 	return &WSFramerCodec{
 		LowerPerfCodec: httputil.JSONCodec,
-		LazyCodec:      framercodec.NewLazyCodec(channels),
+		Codec:          framercodec.NewDynamic(channels),
 	}
 }
 
@@ -496,7 +496,7 @@ func (c *WSFramerCodec) decodeWriteRequest(
 		return nil
 	}
 	v.Type = fhttp.WSMsgTypeData
-	fr, err := c.LazyCodec.DecodeStream(r)
+	fr, err := c.Codec.DecodeStream(r)
 	if err != nil {
 		return err
 	}
@@ -516,7 +516,7 @@ func (c *WSFramerCodec) encodeWriteRequest(
 	if _, err = w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return
 	}
-	err = c.LazyCodec.EncodeStream(w, v.Payload.Frame)
+	err = c.Codec.EncodeStream(w, v.Payload.Frame)
 	return
 }
 
@@ -535,7 +535,7 @@ func (c *WSFramerCodec) decodeStreamResponse(
 		}
 	}
 	v.Type = fhttp.WSMsgTypeData
-	fr, err := c.LazyCodec.DecodeStream(r)
+	fr, err := c.Codec.DecodeStream(r)
 	if err != nil {
 		return err
 	}
@@ -554,7 +554,7 @@ func (c *WSFramerCodec) encodeStreamResponse(
 	if _, err = w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	err = c.LazyCodec.EncodeStream(w, v.Payload.Frame)
+	err = c.Codec.EncodeStream(w, v.Payload.Frame)
 	return
 }
 

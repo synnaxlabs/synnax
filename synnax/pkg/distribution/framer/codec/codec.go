@@ -20,6 +20,7 @@ import (
 	"io"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -27,61 +28,13 @@ import (
 	xbits "github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// LazyCodec is an extension of Codec that can lazily load the channels it needs to
-// decode a frame. This is useful for cases where the channels are not known when
-// initializing the codec, or the list of channels needs ot be updated through the
-// codec's lifetime.
-//
-// Update must be called at least once before any decoding/encoding methods are called.
-type LazyCodec struct {
-	core *Codec
-	// Channels is used to retrieve channel information to update the codec.
-	Channels channel.Readable
-}
-
-func (l *LazyCodec) panicIfNotInitialized() {
-	if !l.Initialized() {
-		panic("[framer] - LazyCodec was not initialized. Call Update() before using the codec.")
-	}
-}
-
-func (l *LazyCodec) Initialized() bool { return l.core != nil }
-
-func (l *LazyCodec) Encode(src framer.Frame) ([]byte, error) {
-	return l.core.Encode(src)
-}
-
-func (l *LazyCodec) EncodeStream(w io.Writer, src framer.Frame) error {
-	return l.core.EncodeStream(w, src)
-}
-
-func (l *LazyCodec) Decode(src []byte) (framer.Frame, error) {
-	l.panicIfNotInitialized()
-	return l.core.Decode(src)
-}
-
-func (l *LazyCodec) DecodeStream(reader io.Reader) (framer.Frame, error) {
-	l.panicIfNotInitialized()
-	return l.core.DecodeStream(reader)
-}
-
-func NewLazyCodec(channels channel.Readable) *LazyCodec {
-	return &LazyCodec{Channels: channels}
-}
-
-func WrapWithLazy(codec *Codec) *LazyCodec {
-	return &LazyCodec{core: codec}
-}
-
-// Update updates the codec to use the channels with the given keys. If channels with
-// the given keys are not found, Update returns a query.NotFound error.
-func (l *LazyCodec) Update(ctx context.Context, keys channel.Keys) error {
-	channels := make([]channel.Channel, 0, len(keys))
-	err := l.Channels.NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, nil)
-	l.core = NewCodecFromChannels(channels)
-	return err
+type state struct {
+	keys                 channel.Keys
+	keyDataTypes         map[channel.Key]telem.DataType
+	hasVariableDataTypes bool
 }
 
 // Codec is a high-performance encoder/decoder specifically designed for moving
@@ -90,15 +43,16 @@ func (l *LazyCodec) Update(ctx context.Context, keys channel.Keys) error {
 // before any encoding or decoding can occur.
 type Codec struct {
 	// keys is the numerically sorted list of keys that the codec will encode/decode.
-	keys                channel.Keys
-	keyDataTypes        map[channel.Key]telem.DataType
-	hasVariableDataType bool
-	buf                 *xbinary.Writer
+	states    map[uint32]*state
+	currState *state
+	buf       *xbinary.Writer
+	seqNum    uint32
+	channels  channel.Readable
 }
 
 var byteOrder = binary.LittleEndian
 
-func NewCodec(dataTypes []telem.DataType, channelKeys channel.Keys) *Codec {
+func NewStatic(dataTypes []telem.DataType, channelKeys channel.Keys) *Codec {
 	if len(dataTypes) != len(channelKeys) {
 		panic("data types and channel keys must be the same length")
 	}
@@ -106,34 +60,55 @@ func NewCodec(dataTypes []telem.DataType, channelKeys channel.Keys) *Codec {
 	for i, key := range channelKeys {
 		keyDataTypes[key] = dataTypes[i]
 	}
-	return newCodec(channelKeys, keyDataTypes)
+	c := newCodec()
+	c.update(channelKeys, keyDataTypes)
+	return c
 }
 
-func NewCodecFromChannels(channels []channel.Channel) *Codec {
-	keyDataTypes := make(map[channel.Key]telem.DataType, len(channels))
-	keys := make([]channel.Key, len(channels))
-	for i, ch := range channels {
-		keyDataTypes[ch.Key()] = ch.DataType
-		keys[i] = ch.Key()
+func NewDynamic(channels channel.Readable) *Codec {
+	c := newCodec()
+	c.channels = channels
+	return c
+}
+
+func newCodec() *Codec {
+	return &Codec{buf: xbinary.NewWriter(0, 0, byteOrder), states: make(map[uint32]*state)}
+}
+
+func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
+	channels := make([]channel.Channel, 0, len(keys))
+	if err := c.channels.NewRetrieve().
+		WhereKeys(keys...).
+		Entries(&channels).Exec(ctx, nil); err != nil {
+		return err
 	}
-	return newCodec(keys, keyDataTypes)
+	keyDataTypes := make(map[channel.Key]telem.DataType, len(channels))
+	for _, ch := range channels {
+		keyDataTypes[ch.Key()] = ch.DataType
+	}
+	c.update(keys, keyDataTypes)
+	return nil
 }
 
-func newCodec(keys channel.Keys, keyDataTypes map[channel.Key]telem.DataType) *Codec {
-	hasVariableDataType := false
+func (c *Codec) Initialized() bool { return c.seqNum > 0 }
+
+func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.DataType) {
+	s := &state{
+		keys:                 keys,
+		keyDataTypes:         keyDataTypes,
+		hasVariableDataTypes: false,
+	}
 	for _, dt := range keyDataTypes {
 		if dt.IsVariable() {
-			hasVariableDataType = true
+			s.hasVariableDataTypes = true
 			break
 		}
 	}
-	slices.Sort(keys)
-	return &Codec{
-		keys:                keys,
-		keyDataTypes:        keyDataTypes,
-		hasVariableDataType: hasVariableDataType,
-		buf:                 xbinary.NewWriter(0, 0, byteOrder),
-	}
+	slices.Sort(s.keys)
+	c.buf = xbinary.NewWriter(0, 0, byteOrder)
+	c.seqNum++
+	c.currState = s
+	c.states[c.seqNum] = s
 }
 
 type flags struct {
@@ -201,24 +176,29 @@ func read(r io.Reader, data any) error {
 	return binary.Read(r, byteOrder, data)
 }
 
-func (m *Codec) Encode(src framer.Frame) ([]byte, error) {
+func (c *Codec) Encode(src framer.Frame) ([]byte, error) {
 	w := bytes.NewBuffer([]byte{})
-	err := m.EncodeStream(w, src)
+	err := c.EncodeStream(w, src)
 	return w.Bytes(), err
 }
 
-func (m *Codec) EncodeStream(w io.Writer, src framer.Frame) (err error) {
+const (
+	flagsSize  = 1
+	seqNumSize = 4
+)
+
+func (c *Codec) EncodeStream(w io.Writer, src framer.Frame) (err error) {
 	var (
 		curDataSize                   = -1
 		refTr                         = telem.TimeRangeZero
 		refAlignment  telem.Alignment = 0
-		byteArraySize                 = 1
+		byteArraySize                 = flagsSize + seqNumSize
 		fgs                           = newFlags()
 	)
-	if m.hasVariableDataType {
+	if c.currState.hasVariableDataTypes {
 		fgs.equalLens = false
 	}
-	if src.Count() != len(m.keys) {
+	if src.Count() != len(c.currState.keys) {
 		fgs.allChannelsPresent = false
 		byteArraySize += src.Count() * 4
 	}
@@ -266,46 +246,47 @@ func (m *Codec) EncodeStream(w io.Writer, src framer.Frame) (err error) {
 			byteArraySize += 8
 		}
 	}
-	m.buf.Resize(byteArraySize)
-	m.buf.Reset()
-	m.buf.Uint8(fgs.encode())
+	c.buf.Resize(byteArraySize)
+	c.buf.Reset()
+	c.buf.Uint8(fgs.encode())
+	c.buf.Uint32(c.seqNum)
 	if fgs.equalLens {
-		m.buf.Uint32(uint32(curDataSize))
+		c.buf.Uint32(uint32(curDataSize))
 	}
 	if fgs.equalTimeRanges && !fgs.timeRangesZero {
-		writeTimeRange(m.buf, refTr)
+		writeTimeRange(c.buf, refTr)
 	}
 	if fgs.equalAlignments && !fgs.zeroAlignments {
-		m.buf.Uint64(uint64(refAlignment))
+		c.buf.Uint64(uint64(refAlignment))
 	}
 	for rawI, s := range src.RawSeries() {
 		if src.ShouldExcludeRaw(rawI) {
 			continue
 		}
 		if !fgs.allChannelsPresent {
-			m.buf.Uint32(uint32(src.KeysAtRaw(rawI)))
+			c.buf.Uint32(uint32(src.KeysAtRaw(rawI)))
 		}
 		if !fgs.equalLens {
 			if s.DataType.IsVariable() {
-				m.buf.Uint32(uint32(s.Size()))
+				c.buf.Uint32(uint32(s.Size()))
 			} else {
-				m.buf.Uint32(uint32(s.Len()))
+				c.buf.Uint32(uint32(s.Len()))
 			}
 		}
-		m.buf.Write(s.Data)
+		c.buf.Write(s.Data)
 		if !fgs.equalTimeRanges {
-			writeTimeRange(m.buf, s.TimeRange)
+			writeTimeRange(c.buf, s.TimeRange)
 		}
 		if !fgs.equalAlignments {
-			m.buf.Uint64(uint64(s.Alignment))
+			c.buf.Uint64(uint64(s.Alignment))
 		}
 	}
-	_, err = w.Write(m.buf.Bytes())
+	_, err = w.Write(c.buf.Bytes())
 	return err
 }
 
-func (m *Codec) Decode(src []byte) (dst framer.Frame, err error) {
-	return m.DecodeStream(bytes.NewReader(src))
+func (c *Codec) Decode(src []byte) (dst framer.Frame, err error) {
+	return c.DecodeStream(bytes.NewReader(src))
 }
 
 func readTimeRange(reader io.Reader) (tr telem.TimeRange, err error) {
@@ -321,14 +302,24 @@ func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
 	w.Uint64(uint64(tr.End))
 }
 
-func (m *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
+func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 	var (
 		dataLen      uint32
 		refTr        telem.TimeRange
 		refAlignment telem.Alignment
+		seqNum       uint32
 		flagB        byte
 	)
 	if err = read(reader, &flagB); err != nil {
+		return
+	}
+	if err = read(reader, &seqNum); err != nil {
+		return
+	}
+	cState, ok := c.states[seqNum]
+	if !ok {
+		states := lo.Keys(c.states)
+		err = errors.Wrapf(validate.Error, "[framer.codec] - remote sent invalid sequence number %d. Valid values are %v", seqNum, states)
 		return
 	}
 	fgs := decodeFlags(flagB)
@@ -356,7 +347,7 @@ func (m *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 				return
 			}
 		}
-		dataType, exists := m.keyDataTypes[key]
+		dataType, exists := cState.keyDataTypes[key]
 		if !exists {
 			return errors.Newf("unknown channel key: %v", key)
 		}
@@ -384,8 +375,8 @@ func (m *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 	}
 
 	if fgs.allChannelsPresent {
-		frame = core.AllocFrame(len(m.keys))
-		for _, k := range m.keys {
+		frame = core.AllocFrame(len(cState.keys))
+		for _, k := range cState.keys {
 			if err = decodeSeries(k); err != nil {
 				return
 			}

@@ -32,18 +32,16 @@ import (
 
 type (
 	frameWriterRequestTranslator struct {
-		codec *framercodec.LazyCodec
+		codec *framercodec.Codec
 	}
 	frameWriterResponseTranslator   struct{}
 	frameIteratorRequestTranslator  struct{}
-	frameIteratorResponseTranslator struct {
-		codec *framercodec.LazyCodec
-	}
-	frameStreamerRequestTranslator struct {
-		codec *framercodec.LazyCodec
+	frameIteratorResponseTranslator struct{}
+	frameStreamerRequestTranslator  struct {
+		codec *framercodec.Codec
 	}
 	frameStreamerResponseTranslator struct {
-		codec *framercodec.LazyCodec
+		codec *framercodec.Codec
 	}
 	FrameDeleteRequestTranslator struct{}
 	framerWriterServerCore       = fgrpc.StreamServerCore[
@@ -385,7 +383,7 @@ func newFramer(a *api.Transport, channels channel.Readable) fgrpc.BindableTransp
 					fgrpc.Translator[api.FrameWriterRequest, *gapi.FrameWriterRequest],
 					fgrpc.Translator[api.FrameWriterResponse, *gapi.FrameWriterResponse],
 				) {
-					codec := framercodec.NewLazyCodec(channels)
+					codec := framercodec.NewDynamic(channels)
 					return frameWriterRequestTranslator{codec: codec}, frameWriterResponseTranslator{}
 				},
 				ServiceDesc: &gapi.FrameWriterService_ServiceDesc,
@@ -401,7 +399,7 @@ func newFramer(a *api.Transport, channels channel.Readable) fgrpc.BindableTransp
 		ss = &streamerServer{
 			frameStreamerServerCore: &frameStreamerServerCore{
 				CreateTranslators: func() (fgrpc.Translator[api.FrameStreamerRequest, *gapi.FrameStreamerRequest], fgrpc.Translator[api.FrameStreamerResponse, *gapi.FrameStreamerResponse]) {
-					codec := framercodec.NewLazyCodec(channels)
+					codec := framercodec.NewDynamic(channels)
 					return frameStreamerRequestTranslator{codec: codec}, frameStreamerResponseTranslator{codec: codec}
 				},
 				ServiceDesc: &gapi.FrameStreamerService_ServiceDesc,

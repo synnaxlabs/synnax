@@ -34,6 +34,8 @@ TIME_RANGE_SIZE = 16
 ALIGNMENT_SIZE = 8
 DATA_LENGTH_SIZE = 4
 KEY_SIZE = 4
+FLAGS_SIZE = 1
+SEQ_NUM_SIZE = 4
 
 
 class CodecFlags:
@@ -73,21 +75,37 @@ class CodecFlags:
         return flags
 
 
+class CodecState:
+    keys: ChannelKeys
+    data_types: Dict[ChannelKey, DataType]
+    has_variable_data_types: bool
+
+    def __init__(self, keys: ChannelKeys, data_types: List[DataType]) -> None:
+        self.keys = sorted(keys)
+        self.data_types = {k: dt for k, dt in zip(keys, data_types)}
+        self.has_variable_data_types = any(dt.is_variable for dt in data_types)
+
+
 class Codec:
-    _keys: ChannelKeys
-    _keys_data_types: Dict[ChannelKey, DataType]
     _has_variable_data_types: bool
+    _seq_num: int
+    _states: dict[int, CodecState]
+    _curr_state: CodecState
 
     def __init__(
-        self, keys: ChannelKeys, data_types: List[DataType]
+        self,
+        keys: ChannelKeys = None,
+        data_types: List[DataType] = None
     ) -> None:
-        self._keys_data_types = {k: dt for k, dt in zip(keys, data_types)}
-        self._keys = sorted(keys)
-        self._has_variable_data_types = any(dt.is_variable for dt in data_types)
+        self._seq_num = 0
+        self._states = dict()
+        if keys is not None:
+            self.update(keys, data_types)
 
     def update(self, keys: ChannelKeys, data_types: list[DataType]):
-        self._keys_data_types = {k: dt for k, dt in zip(keys, data_types)}
-        self._keys = sorted(keys)
+        self._seq_num += 1
+        self._curr_state = CodecState(keys, data_types)
+        self._states[self._seq_num] = self._curr_state
 
     def encode(self, frame: Union[Frame, FramePayload], start_offset: int = 0) -> bytes:
         pld = frame if isinstance(frame, FramePayload) else frame.to_payload()
@@ -96,13 +114,13 @@ class Codec:
         sorted_series = [pld.series[i] for i in indices]
 
         flg = CodecFlags()
-        flg.eq_len = not self._has_variable_data_types
+        flg.eq_len = not self._curr_state.has_variable_data_types
         curr_data_size = -1
         ref_tr = None
         ref_align = None
-        byte_array_size = start_offset + 1
+        byte_array_size = start_offset + FLAGS_SIZE + SEQ_NUM_SIZE
 
-        if len(sorted_keys) != len(self._keys):
+        if len(sorted_keys) != len(self._curr_state.keys):
             flg.all_channels_present = False
             byte_array_size += len(sorted_keys) * KEY_SIZE
 
@@ -133,7 +151,10 @@ class Codec:
         offset = start_offset
 
         buffer[offset] = flg.encode()
-        offset += 1
+        offset += FLAGS_SIZE
+
+        struct.pack_into("<I", buffer, offset, self._seq_num)
+        offset += SEQ_NUM_SIZE
 
         if flg.eq_len:
             struct.pack_into("<I", buffer, offset, curr_data_size)
@@ -181,6 +202,18 @@ class Codec:
         idx = offset
         flags = CodecFlags.decode(buffer[idx])
         idx += 1
+
+        curr_seq_num = struct.unpack_from("<I", buffer, idx)[0]
+        idx += SEQ_NUM_SIZE
+
+        state = self._states.get(curr_seq_num)
+        if state is None:
+            return FramePayload()
+
+        for seq_num in self._states.keys():
+            if seq_num < curr_seq_num:
+                del self._states[seq_num]
+
         data_len = 0
         start_time = 0
         end_time = 0
@@ -188,30 +221,30 @@ class Codec:
 
         if flags.eq_len:
             data_len = struct.unpack_from("<I", buffer, idx)[0]
-            idx += 4
+            idx += DATA_LENGTH_SIZE
 
         if flags.eq_tr and not flags.time_ranges_zero:
             start_time, end_time = struct.unpack_from("<QQ", buffer, idx)
-            idx += 16
+            idx += TIME_RANGE_SIZE
 
         if flags.eq_align and not flags.zero_alignments:
             alignment = struct.unpack_from("<Q", buffer, idx)[0]
-            idx += 8
+            idx += ALIGNMENT_SIZE
 
         keys = list()
         series_list = list()
 
-        for key in self._keys:
+        for key in state.keys:
             if not flags.all_channels_present:
                 frame_key = struct.unpack_from("<I", buffer, idx)[0]
                 if frame_key != key:
                     continue
-                idx += 4
-            data_type = self._keys_data_types[key]
+                idx += KEY_SIZE
+            data_type = state.data_types[key]
             curr_len = data_len
             if not flags.eq_len:
                 curr_len = struct.unpack_from("<I", buffer, idx)[0]
-                idx += 4
+                idx += DATA_LENGTH_SIZE
 
             data_byte_len = curr_len
             if not data_type.is_variable:
@@ -227,12 +260,12 @@ class Codec:
             else:
                 s, e = struct.unpack_from("<QQ", buffer, idx)
                 tr = TimeRange(start=s, end=e)
-                idx += 16
+                idx += TIME_RANGE_SIZE
 
             curr_alignment = alignment
             if not flags.eq_align and not flags.zero_alignments:
                 curr_alignment = struct.unpack_from("<Q", buffer, idx)[0]
-                idx += 8
+                idx += ALIGNMENT_SIZE
 
             keys.append(key)
             series_list.append(Series(

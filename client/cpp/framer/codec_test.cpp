@@ -182,9 +182,9 @@ TEST(CodecTests, EncodeDecodeVariedFrame) {
         telem::INT32_T
     };
     const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
-    synnax::Codec codec(data_types, channels);
+    synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
-    codec.encode(original_frame, 0, encoded);
+    codec.encode(original_frame, encoded);
     const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(original_frame, decoded_frame);
 }
@@ -198,9 +198,9 @@ TEST(CodecTests, EncodeDecodeEqualPropertiesFrame) {
         telem::FLOAT32_T
     };
     const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
-    synnax::Codec codec(data_types, channels);
+    synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
-    codec.encode(original_frame, 0, encoded);
+    codec.encode(original_frame, encoded);
     const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(original_frame, decoded_frame);
 }
@@ -212,9 +212,9 @@ TEST(CodecTests, EncodeDecodeZeroPropertiesFrame) {
         telem::FLOAT32_T, telem::FLOAT32_T, telem::FLOAT32_T
     };
     std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
-    synnax::Codec codec(data_types, channels);
+    synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
-    codec.encode(original_frame, 0, encoded);
+    codec.encode(original_frame, encoded);
     const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(original_frame, decoded_frame);
 }
@@ -228,9 +228,9 @@ TEST(CodecTests, EncodeDecodeDifferentLengthsFrame) {
         telem::FLOAT32_T
     };
     const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
-    synnax::Codec codec(data_types, channels);
+    synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
-    codec.encode(original_frame, 0, encoded);
+    codec.encode(original_frame, encoded);
     const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(original_frame, decoded_frame);
 }
@@ -241,25 +241,10 @@ TEST(CodecTests, EncodeDecodeChannelSubset) {
     const std::vector data_types =
         {telem::FLOAT32_T, telem::FLOAT64_T, telem::INT32_T, telem::FLOAT32_T};
     const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539, 65540};
-    synnax::Codec codec(data_types, channels);
+    synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
-    codec.encode(original_frame, 0, encoded);
+    codec.encode(original_frame, encoded);
     const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
-    assert_frames_equal(original_frame, decoded_frame);
-}
-
-/// @brief Test encoding with a start offset
-TEST(CodecTests, EncodeWithOffset) {
-    const auto original_frame = create_test_frame();
-    const std::vector data_types = {telem::FLOAT32_T, telem::FLOAT64_T, telem::INT32_T};
-    const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
-    synnax::Codec codec(data_types, channels);
-    constexpr size_t offset = 10;
-    std::vector<uint8_t> encoded;
-    codec.encode(original_frame, offset, encoded);
-    ASSERT_GT(encoded.size(), offset);
-    const std::vector without_offset(encoded.begin() + offset, encoded.end());
-    const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(without_offset));
     assert_frames_equal(original_frame, decoded_frame);
 }
 
@@ -273,14 +258,15 @@ TEST(CodecTests, LargeFrame) {
     frame.emplace(65537, std::move(large_series));
     const std::vector data_types = {telem::FLOAT32_T};
     std::vector<synnax::ChannelKey> channels = {65537};
-    synnax::Codec codec(data_types, channels);
+    synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
-    codec.encode(frame, 0, encoded);
+    codec.encode(frame, encoded);
     const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(frame, decoded_frame);
 }
 
 // Replace the performance test with this updated version
+//
 // TEST(CodecTests, TestPerformance) {
 //     auto start = telem::TimeStamp::now();
 //     const auto original_frame = create_large_equal_frame();
