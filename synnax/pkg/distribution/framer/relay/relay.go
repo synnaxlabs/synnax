@@ -122,7 +122,7 @@ func Open(configs ...Config) (*Relay, error) {
 
 	tpr := newTapper(cfg)
 	demands := confluence.NewStream[demand](defaultBuffer)
-	demands.SetOutletAddress("peer-demands")
+	demands.SetOutletAddress("peer_demands")
 	demands.Acquire(1)
 	tpr.InFrom(demands)
 	r.demands = demands
@@ -168,7 +168,7 @@ func (r *Relay) Close() error {
 func (r *Relay) connectToDelta(buf int) (confluence.Outlet[Response], observe.Disconnect) {
 	var (
 		data = confluence.NewStream[Response](buf)
-		addr = address.Newf("%s-%s", r.ins.Meta.Path, address.Rand().String())
+		addr = address.Newf("%s_%s", r.ins.Meta.Path, address.Rand().String())
 	)
 	data.SetInletAddress(addr)
 	r.delta.Connect(data)

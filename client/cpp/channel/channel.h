@@ -123,9 +123,11 @@ map_channel_Keys(const std::vector<Channel> &channels) {
 /// @brief ChannelClient for creating and retrieving channels from a Synnax cluster.
 class ChannelClient {
 public:
+    ChannelClient() = default;
+
     ChannelClient(
-        std::unique_ptr<ChannelRetrieveClient> retrieve_client,
-        std::unique_ptr<ChannelCreateClient> create_client
+        std::shared_ptr<ChannelRetrieveClient> retrieve_client,
+        std::shared_ptr<ChannelCreateClient> create_client
     ):
         retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)) {}
@@ -215,8 +217,8 @@ public:
 
 private:
     /// @brief transport for retrieving channels.
-    std::unique_ptr<ChannelRetrieveClient> retrieve_client;
+    std::shared_ptr<ChannelRetrieveClient> retrieve_client;
     /// @brief transport for creating channels.
-    std::unique_ptr<ChannelCreateClient> create_client;
+    std::shared_ptr<ChannelCreateClient> create_client;
 };
 }

@@ -180,7 +180,7 @@ func (r *region[R]) open(
 		}
 		r.curr = g
 		t.To = g.State()
-	} else if *cfg.ErrOnUnauthorizedOpen {
+	} else if *cfg.ErrOnUnauthorizedOpen && !(r.controller.Concurrency == control.Shared && g.authority == r.curr.authority) {
 		err = errors.Wrapf(
 			control.Unauthorized,
 			"%s has no control authority - it is currently held by %s",

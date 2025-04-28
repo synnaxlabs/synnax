@@ -210,11 +210,6 @@ struct CodecFlags {
     static CodecFlags decode(uint8_t b);
 };
 
-using RetrieveChannels = std::function<
-    std::pair<std::vector<synnax::Channel>, xerrors::Error>(
-        std::vector<synnax::ChannelKey>
-    )>;
-
 /// @brief Codec for encoding and decoding frames efficiently.
 /// This implements the Frame Flight Protocol (RFC 0016)
 class Codec {
@@ -239,7 +234,7 @@ class Codec {
     std::unordered_map<std::uint32_t, State> states;
 
     /// @brief used to retrieve channels when updating the codec state.
-    RetrieveChannels retrieve_channels;
+    ChannelClient channel_client;
 public:
     Codec() = default;
 
@@ -253,7 +248,7 @@ public:
 
     /// @brief instantiates a dynamic codec that uses the provided function to look up
     /// the relevant channels when update() is called.
-    explicit Codec(RetrieveChannels retrieve_channels): retrieve_channels(std::move(retrieve_channels)) {}
+    explicit Codec(ChannelClient channel_client): channel_client(std::move(channel_client)) {}
 
     /// @brief updates the codec to use the given channels. If the channels do not
     /// exist, the codec will return a query::NOT_FOUND error.
@@ -286,6 +281,7 @@ public:
     std::vector<ChannelKey> channels;
     /// @brief the downsample factor for the streamer.
     int downsample_factor = 1;
+    /// @brief enable experimental high-performance codec for the writer.
     bool enable_experimental_codec = true;
 
 private:
@@ -346,7 +342,8 @@ private:
     /// @brief true if the streamer has been closed.
     bool closed = false;
 
-    StreamerConfig cfg;
+    /// @brief custom framing codec. only used when cfg.enable_experimental_codec is
+    /// set to true.
     Codec codec;
 
     /// @brief throws if methods have been called on the streamer before it is open.
@@ -423,7 +420,7 @@ struct WriterConfig {
     /// Defaults to 1s when auto-commit is enabled.
     telem::TimeSpan auto_index_persist_interval = 1 * telem::SECOND;
 
-    /// @brief whether to enable protobuf frame caching for the writer. This allows
+    /// @brief enable protobuf frame caching for the writer. This allows
     /// the writer to avoid repeated allocation and deallocation of protobuf frames,
     /// releasing significant heap pressure.
     ///
@@ -434,6 +431,7 @@ struct WriterConfig {
     /// FOLLOW THIS RULE.
     bool enable_proto_frame_caching = false;
 
+    /// @brief enable experimental high-performance codec for the writer.
     bool enable_experimental_codec = true;
 
 private:
@@ -559,11 +557,11 @@ public:
     FrameClient(
         std::unique_ptr<StreamerClient> streamer_client,
         std::unique_ptr<WriterClient> writer_client,
-        RetrieveChannels retrieve_channels
+        ChannelClient channel_client
     ):
         streamer_client(std::move(streamer_client)),
         writer_client(std::move(writer_client)),
-        retrieve_channels(std::move(retrieve_channels)) {}
+        channel_client(std::move(channel_client)) {}
 
     /// @brief opens a new frame writer using the given configuration. For
     /// information on configuration parameters, see WriterConfig.
@@ -593,7 +591,7 @@ private:
     std::unique_ptr<WriterClient> writer_client;
     /// @brief a utility function used to retrieve information about channels from the
     /// cluster.
-    RetrieveChannels retrieve_channels;
+    ChannelClient channel_client;
 };
 
 

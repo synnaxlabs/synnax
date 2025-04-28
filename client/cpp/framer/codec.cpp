@@ -45,7 +45,7 @@ CodecFlags CodecFlags::decode(const uint8_t b) {
 
 xerrors::Error Codec::update(const std::vector<ChannelKey> &keys) {
     this->seq_num++;
-    auto [channels, err] = this->retrieve_channels(keys);
+    auto [channels, err] = this->channel_client.retrieve(keys);
     if (err) return err;
     Codec::State state;
     for (const auto &ch: channels) {
@@ -60,7 +60,8 @@ xerrors::Error Codec::update(const std::vector<ChannelKey> &keys) {
 Codec::Codec(
     const std::vector<ChannelKey> &channels,
     const std::vector<telem::DataType> &data_types
-): seq_num(1) {
+):
+    seq_num(1), channel_client(nullptr, nullptr) {
     Codec::State state;
     state.key_data_types.reserve(channels.size());
     for (auto i = 0; i < channels.size(); i++) {
@@ -73,10 +74,7 @@ Codec::Codec(
     this->states[this->seq_num] = state;
 }
 
-xerrors::Error Codec::encode(
-    const Frame &frame,
-    std::vector<uint8_t> &output
-) {
+xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
     CodecFlags flags;
     size_t byte_array_size = 1 + 4;
 
@@ -91,7 +89,11 @@ xerrors::Error Codec::encode(
     for (size_t i = 0; i < frame.channels->size(); i++) {
         auto k = frame.channels->at(i);
         if (!state.keys.contains(k))
-            return xerrors::Error(xerrors::VALIDATION, "frame contains extra key " + std::to_string(k) + "not provided when opening the writer");
+            return xerrors::Error(
+                xerrors::VALIDATION,
+                "frame contains extra key " + std::to_string(k) +
+                    "not provided when opening the writer"
+            );
         this->sorting_indices[i] = {k, i};
     }
     std::sort(sorting_indices.begin(), sorting_indices.end());
@@ -177,7 +179,8 @@ std::pair<Frame, xerrors::Error> Codec::decode(const std::vector<uint8_t> &data)
 }
 
 
-std::pair<Frame, xerrors::Error> Codec::decode(const uint8_t * data, const size_t size) const {
+std::pair<Frame, xerrors::Error>
+Codec::decode(const uint8_t *data, const size_t size) const {
     auto reader = binary::Reader(data, size);
     Frame frame;
     uint32_t data_len = 0;

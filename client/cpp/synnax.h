@@ -143,7 +143,7 @@ public:
     /// in a cluster.
     RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
     /// @brief Client for reading and writing telemetry to a cluster.
-    FrameClient telem = FrameClient(nullptr, nullptr, nullptr);
+    FrameClient telem = FrameClient(nullptr, nullptr, ChannelClient());
     /// @brief Client for managing devices and their configuration.
     HardwareClient hardware = HardwareClient(
         nullptr,
@@ -175,7 +175,7 @@ public:
             cfg.clock_skew_threshold
         );
         t.use(this->auth);
-        this->channels = ChannelClient(std::move(t.chan_retrieve), std::move(t.chan_create));
+        this->channels = ChannelClient(t.chan_retrieve, t.chan_create);
         this->ranges = RangeClient(
             std::move(t.range_retrieve),
             std::move(t.range_create),
@@ -186,10 +186,7 @@ public:
         this->telem = FrameClient(
             std::move(t.frame_stream),
             std::move(t.frame_write),
-            [&](const std::vector<synnax::ChannelKey> &keys
-            ) -> std::pair<std::vector<synnax::Channel>, xerrors::Error> {
-                return this->channels.retrieve(keys);
-            }
+            ChannelClient(t.chan_retrieve, t.chan_create)
         );
         this->hardware = HardwareClient(
             std::move(t.rack_create_client),

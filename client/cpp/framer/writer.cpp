@@ -36,8 +36,9 @@ FrameClient::open_writer(const WriterConfig &cfg) const {
     auto [_, res_exc] = net_writer->receive();
     auto writer = Writer(std::move(net_writer), cfg);
     if (cfg.enable_experimental_codec) {
-        writer.codec = Codec(this->retrieve_channels);
-        if (const auto codec_err = writer.codec.update(cfg.channels)) return {Writer(), codec_err};
+        writer.codec = Codec(this->channel_client);
+        if (const auto codec_err = writer.codec.update(cfg.channels))
+            return {Writer(), codec_err};
     }
     return {std::move(writer), res_exc};
 }
@@ -72,7 +73,10 @@ xerrors::Error Writer::init_request(const Frame &fr) {
             this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
         this->cached_write_req->set_command(WRITE);
         if (const auto err = this->codec.encode(fr, this->codec_data)) return err;
-        this->cached_write_req->set_buffer(this->codec_data.data(), this->codec_data.size());
+        this->cached_write_req->set_buffer(
+            this->codec_data.data(),
+            this->codec_data.size()
+        );
         return xerrors::NIL;
     }
 
@@ -136,7 +140,7 @@ xerrors::Error Writer::close() {
     stream->close_send();
     while (true)
         if (const auto rec_exc = stream->receive().second; rec_exc) {
-            this->close_err = rec_exc.skip(freighter::EOF_);
+            this->close_err = rec_exc.skip(freighter::EOF_ERR);
             return this->close_err;
         }
 }
