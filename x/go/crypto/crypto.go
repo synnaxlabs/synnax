@@ -7,28 +7,51 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// crypto is a package that handles cryptographic functions.
-
+// Package crypto provides simple cryptographic and encoding utilities.
 package crypto
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/synnaxlabs/x/math"
 )
 
-// Cipher takes a number entry of digits numDigits and shifts it down by
-// distance. This does not output negative numbers, allowing for a one-to-one
-// cipher for every number between 0 and 10^numDigits - 1.
-func Cipher(entry int, distance int, numDigits int) (int, error) {
+// Cipher applies a reversible shift cipher to an integer.
+//
+// It interprets the input entry as a number with 'numDigits' digits,
+// and shifts it downward by distance. If the result is negative,
+// it wraps around at 10^numDigits, ensuring the output remains in the range [10,
+// 10^numDigits).
+//
+// For example, if numDigits = 3 (range 0-999):
+//
+//	Cipher(5, 7, 3)  => 998
+//
+// Returns an error if 'entry' is out of bounds or if invalid parameters are given.
+//
+// See: https://en.wikipedia.org/wiki/Caesar_cipher
+func Cipher(entry, distance, numDigits int) (int, error) {
 	if entry < 0 {
-		return entry, errors.New("entry is below 0")
-	} else if entry >= math.IntPow(10, numDigits) {
-		return entry, errors.New("entry is above 10^numDigits-1")
+		return 0, fmt.Errorf(
+			"crypto: entry (%d) must be nonnegative",
+			entry,
+		)
 	}
-	entry -= distance
-	if entry < 0 {
-		entry += math.IntPow(10, numDigits)
+	if numDigits <= 0 {
+		return 0, fmt.Errorf(
+			"crypto: numDigits (%d) must be positive",
+			numDigits,
+		)
 	}
-	return entry, nil
+	ceiling := math.IntPow(10, numDigits)
+	if entry >= ceiling {
+		return 0, fmt.Errorf(
+			"crypto: entry (%d) must be less than 10^numDigits (%d)", entry, numDigits,
+		)
+	}
+	shifted := (entry - distance) % ceiling
+	if shifted < 0 {
+		shifted += ceiling
+	}
+	return shifted, nil
 }
