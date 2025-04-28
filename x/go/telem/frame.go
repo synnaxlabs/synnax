@@ -256,7 +256,7 @@ func (f Frame[K]) Keys() iter.Seq[K] {
 	}
 }
 
-func (f Frame[K]) KeysAtRaw(i int) K {
+func (f Frame[K]) RawKeyAt(i int) K {
 	return f.keys[i]
 }
 

@@ -18,7 +18,8 @@ import {
 import { type ZodSchema } from "zod";
 
 import { type channel } from "@/channel";
-import { type Payload } from "@/framer/frame";
+import { ValidationError } from "@/errors";
+import { type Frame, type Payload } from "@/framer/frame";
 import { type StreamerResponse } from "@/framer/streamer";
 import { WriterCommand, type WriteRequest } from "@/framer/writer";
 
@@ -57,6 +58,7 @@ const DATA_LENGTH_SIZE = 4;
 const KEY_SIZE = 4;
 const SEQ_NUM_SIZE = 4;
 const FLAGS_SIZE = 1;
+
 interface CodecState {
   keys: channel.Keys;
   keyDataTypes: Map<channel.Key, DataType>;
@@ -90,8 +92,19 @@ export class Codec {
     this.currState = state;
   }
 
+  private throwIfNotUpdated(op: string): void {
+    if (this.seqNum < 1)
+      throw new ValidationError(`
+      The codec has not been updated with a list of channels and data types.
+      Please call the update method before calling ${op}.
+      `);
+  }
+
   encode(payload: unknown, startOffset: number = 0): Uint8Array {
-    const src = payload as Payload;
+    this.throwIfNotUpdated("encode");
+    let src = payload as Payload;
+    if (payload != null && typeof payload === "object" && "toPayload" in payload)
+      src = (payload as Frame).toPayload();
     sortFramePayloadByKey(src);
     let currDataSize = -1;
     let startTime: TimeStamp | undefined;
@@ -110,8 +123,19 @@ export class Codec {
       byteArraySize += src.keys.length * KEY_SIZE;
     }
 
-    src.series.forEach((series) => {
+    src.series.forEach((series, i) => {
       const pldLength = seriesPldLength(series);
+      const key = src.keys[i];
+      const dt = this.currState?.keyDataTypes.get(key);
+      if (dt == null)
+        throw new ValidationError(
+          `Channel ${key} was not provided in the list of channels when opening the writer`,
+        );
+      if (!dt.equals(series.dataType))
+        throw new ValidationError(
+          `Series data type of ${series.dataType.toString()} does not match the data type of ${dt.toString()} for channel ${key}`,
+        );
+
       byteArraySize += series.data.byteLength;
       if (currDataSize === -1) {
         currDataSize = pldLength;
@@ -202,6 +226,7 @@ export class Codec {
   }
 
   decode(data: Uint8Array | ArrayBuffer, offset: number = 0): Payload {
+    this.throwIfNotUpdated("decode");
     const src = data instanceof Uint8Array ? data : new Uint8Array(data);
     const returnFrame: Payload = { keys: [], series: [] };
     let index = offset;

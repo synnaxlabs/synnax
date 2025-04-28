@@ -151,7 +151,7 @@ func (t frameWriterRequestTranslator) Forward(
 	}
 	var err error
 	if t.codec != nil {
-		r.Buffer, err = t.codec.Encode(msg.Frame)
+		r.Buffer, err = t.codec.Encode(ctx, msg.Frame)
 	}
 	return r, err
 }
@@ -297,12 +297,12 @@ func (t frameStreamerRequestTranslator) Backward(
 }
 
 func (t frameStreamerResponseTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	msg api.FrameStreamerResponse,
 ) (res *gapi.FrameStreamerResponse, err error) {
 	res = &gapi.FrameStreamerResponse{}
 	if t.codec.Initialized() {
-		res.Buffer, err = t.codec.Encode(msg.Frame)
+		res.Buffer, err = t.codec.Encode(ctx, msg.Frame)
 		return
 	}
 	res.Frame = translateFrameForward(msg.Frame)

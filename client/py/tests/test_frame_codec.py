@@ -15,6 +15,7 @@ from synnax.channel.payload import ChannelKeys
 from synnax.framer.codec import Codec
 from synnax.framer.frame import Frame
 from synnax.telem import DataType, Series, TimeRange
+import synnax as sy
 
 
 @pytest.mark.frame_codec
@@ -225,3 +226,82 @@ class TestCodec:
             else:
                 assert dec_ser.time_range == or_ser.time_range
             assert dec_ser.alignment == or_ser.alignment
+
+    def test_dynamic_codec_update(self):
+        """Tests that the codec can be updated with new channels and correctly encode/decode after update"""
+        codec = Codec()
+        # First update and verification
+        codec.update([1], [DataType.INT32])
+        frame = Frame(
+            channels=[1],
+            series=[Series(data=np.array([1, 2, 3], dtype=np.int32))]
+        )
+        encoded = codec.encode(frame)
+        decoded = codec.decode(encoded)
+        assert len(decoded.keys) == 1
+        assert decoded.keys[0] == 1
+        assert np.array_equal(list(decoded.series[0]), [1, 2, 3])
+
+        # Second update and verification
+        codec.update([2], [DataType.INT64])
+        frame2 = Frame(
+            channels=[2],
+            series=[Series(data=np.array([1, 2, 3], dtype=np.int64))]
+        )
+        encoded2 = codec.encode(frame2)
+        decoded2 = codec.decode(encoded2)
+        assert len(decoded2.keys) == 1
+        assert decoded2.keys[0] == 2
+        assert np.array_equal(list(decoded2.series[0]), [1, 2, 3])
+
+    def test_uninitialized_codec(self):
+        """Tests that using an uninitialized codec raises appropriate errors"""
+        codec = Codec()
+        frame = Frame(
+            channels=[1],
+            series=[Series(data=np.array([1, 2, 3], dtype=np.int32))]
+        )
+        with pytest.raises(ValueError):
+            codec.encode(frame)
+
+    def test_out_of_sync_codecs(self):
+        """Tests correct behavior when encoder and decoder are out of sync with different states"""
+        encoder = Codec()
+        decoder = Codec()
+
+        # Initial state - both in sync
+        encoder.update([1], [DataType.INT32])
+        decoder.update([1], [DataType.INT32])
+        frame = Frame(
+            channels=[1],
+            series=[Series(data=np.array([1, 2, 3], dtype=np.int32))]
+        )
+        encoded = encoder.encode(frame)
+        decoded = decoder.decode(encoded)
+        assert len(decoded.keys) == 1
+        assert decoded.keys[0] == 1
+        assert np.array_equal(list(decoded.series[0]), [1, 2, 3])
+
+        # Decoder updates but encoder doesn't - should still work with old format
+        decoder.update([2], [DataType.INT64])
+        encoded = encoder.encode(frame)
+        decoded = decoder.decode(encoded)
+        assert len(decoded.keys) == 1
+        assert decoded.keys[0] == 1
+        assert np.array_equal(list(decoded.series[0]), [1, 2, 3])
+
+        # Encoder updates - old frame should now fail
+        encoder.update([2], [DataType.INT64])
+        with pytest.raises(sy.ValidationError):
+            encoder.encode(frame)
+
+        # New frame with updated channel should work
+        frame2 = Frame(
+            channels=[2],
+            series=[Series(data=np.array([1, 2, 3], dtype=np.int64))]
+        )
+        encoded2 = encoder.encode(frame2)
+        decoded2 = decoder.decode(encoded2)
+        assert len(decoded2.keys) == 1
+        assert decoded2.keys[0] == 2
+        assert np.array_equal(list(decoded2.series[0]), [1, 2, 3])

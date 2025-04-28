@@ -10,6 +10,7 @@
 package meta
 
 import (
+	"context"
 	"os"
 
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -85,7 +86,7 @@ func Create(fs xfs.FS, codec binary.Codec, ch core.Channel) error {
 	if err != nil {
 		return err
 	}
-	b, err := codec.Encode(nil, ch)
+	b, err := codec.Encode(context.TODO(), ch)
 	if err != nil {
 		return err
 	}

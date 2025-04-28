@@ -3,6 +3,7 @@ import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
+import { ValidationError } from "@/errors";
 import { framer } from "@/framer";
 import {
   Codec,
@@ -194,14 +195,69 @@ describe("encoder", () => {
           expect(ser.series.length).toBeGreaterThan(0);
           const os = ser.series[0];
           if (dcs.timeRange != null && !dcs.timeRange.isZero)
-            expect(dcs.timeRange.toString()).toEqual(os._timeRange?.toString());
+            expect(dcs.timeRange.toString()).toEqual(os.timeRange?.toString());
           expect(new Series(dcs).toString()).toEqual(os.toString());
         });
       });
     });
   });
-  describe("writer codec", () => {
-    it("should correctly e + d a WS write request", () => {
+
+  describe("dynamic codec", () => {
+    it("should allow the caller to update the codec", () => {
+      const codec = new Codec();
+      codec.update([1], [DataType.INT32]);
+      const encoded = codec.encode(
+        new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]),
+      );
+      const decoded1 = new Frame(codec.decode(encoded));
+      expect(Array.from(decoded1.series[0])).toEqual([1, 2, 3]);
+      expect(decoded1.keys[0]).toEqual(1);
+      codec.update([2], [DataType.INT64]);
+      const encoded2 = codec.encode(
+        new framer.Frame([2], [new Series(new BigInt64Array([1n, 2n, 3n]))]),
+      );
+      const decoded2 = new Frame(codec.decode(encoded2));
+      expect(Array.from(decoded2.series[0])).toEqual([1n, 2n, 3n]);
+      expect(decoded2.keys[0]).toEqual(2);
+    });
+
+    it("should throw an error if the codec is not initialized", () => {
+      const codec = new Codec();
+      expect(() =>
+        codec.encode(new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))])),
+      ).toThrow(ValidationError);
+    });
+
+    it("should use the correct encode/decode state even if the codecs are out of sync", () => {
+      const encoder = new Codec();
+      const decoder = new Codec();
+      encoder.update([1], [DataType.INT32]);
+      decoder.update([1], [DataType.INT32]);
+
+      const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
+      let encoded = encoder.encode(fr);
+      let decoded = new Frame(decoder.decode(encoded));
+      expect(decoded.keys[0]).toEqual(1);
+      expect(decoded.series[0].data).toEqual(fr.series[0].data);
+
+      decoder.update([2], [DataType.INT64]);
+      encoded = encoder.encode(fr);
+      decoded = new Frame(decoder.decode(encoded));
+      expect(decoded.keys[0]).toEqual(1);
+      expect(decoded.series[0].data).toEqual(fr.series[0].data);
+
+      encoder.update([2], [DataType.INT64]);
+      expect(() => encoder.encode(fr)).toThrow(ValidationError);
+      const fr2 = new framer.Frame([2], [new Series(new BigInt64Array([1n, 2n, 3n]))]);
+      encoded = encoder.encode(fr2);
+      decoded = new Frame(decoder.decode(encoded));
+      expect(decoded.keys[0]).toEqual(2);
+      expect(decoded.series[0].data).toEqual(fr2.series[0].data);
+    });
+  });
+
+  describe("websocket writer codec", () => {
+    it("should correctly e + d a websocket write request", () => {
       const baseCodec = new Codec([1], [DataType.INT32]);
       const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
       const writeReq: WriteRequest = {

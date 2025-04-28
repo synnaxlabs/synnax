@@ -19,6 +19,7 @@ from typing import Dict, List, Union
 from freighter import JSONCodec
 from freighter.codec import Codec as FreighterCodec
 
+from synnax.exceptions import ValidationError
 from synnax.channel.payload import ChannelKey, ChannelKeys
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import DataType, Series, TimeRange
@@ -90,7 +91,7 @@ class Codec:
     _has_variable_data_types: bool
     _seq_num: int
     _states: dict[int, CodecState]
-    _curr_state: CodecState
+    _curr_state: CodecState = None
 
     def __init__(
         self,
@@ -107,7 +108,15 @@ class Codec:
         self._curr_state = CodecState(keys, data_types)
         self._states[self._seq_num] = self._curr_state
 
+    def throw_if_not_updated(self, op_name: str):
+        if self._curr_state is None:
+            raise ValueError(
+                "Codec has not been updated with keys and data types. "
+                f"Please call update() before calling {op_name}()."
+            )
+
     def encode(self, frame: Union[Frame, FramePayload], start_offset: int = 0) -> bytes:
+        self.throw_if_not_updated("encode")
         pld = frame if isinstance(frame, FramePayload) else frame.to_payload()
         indices = sorted(range(len(pld.keys)), key=lambda i: pld.keys[i])
         sorted_keys = [pld.keys[i] for i in indices]
@@ -169,9 +178,21 @@ class Codec:
             offset += ALIGNMENT_SIZE
 
         for i, ser in enumerate(sorted_series):
+            k = sorted_keys[i]
+            dt = self._curr_state.data_types.get(k, None)
+            if dt is None:
+                raise ValidationError(
+                    f"Codec state does not contain data type for key {k}."
+                )
+            elif dt != ser.data_type:
+                raise ValidationError(
+                    f"Codec state does not contain data type for key {k}."
+                )
+
             if not flg.all_channels_present:
                 struct.pack_into("<I", buffer, offset, sorted_keys[i])
                 offset += KEY_SIZE
+
 
             if not flg.eq_len:
                 len_or_size = len(ser)
@@ -198,6 +219,7 @@ class Codec:
         return bytes(buffer)
 
     def decode(self, data: bytes, offset: int = 0) -> FramePayload:
+        self.throw_if_not_updated("decode")
         buffer = memoryview(data)
         idx = offset
         flags = CodecFlags.decode(buffer[idx])
@@ -210,8 +232,15 @@ class Codec:
         if state is None:
             return FramePayload()
 
+        to_del = None
         for seq_num in self._states.keys():
             if seq_num < curr_seq_num:
+                if to_del is None:
+                    to_del = set()
+                to_del.add(seq_num)
+
+        if to_del is not None:
+            for seq_num in to_del:
                 del self._states[seq_num]
 
         data_len = 0

@@ -80,7 +80,7 @@ class Streamer:
         client: WebsocketClient,
         adapter: ReadFrameAdapter,
         down_sample_factor: int = 1,
-        use_experimental_codec: bool = False
+        use_experimental_codec: bool = True
     ) -> None:
         self._adapter = adapter
         if use_experimental_codec:

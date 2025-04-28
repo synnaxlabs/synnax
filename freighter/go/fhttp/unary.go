@@ -89,7 +89,7 @@ func (u *unaryClient[RQ, RS]) Send(
 			Target:   target,
 		},
 		freighter.FinalizerFunc(func(iMD freighter.Context) (oMD freighter.Context, err error) {
-			b, err := u.codec.Encode(nil, req)
+			b, err := u.codec.Encode(iMD, req)
 			if err != nil {
 				return oMD, err
 			}
@@ -125,7 +125,7 @@ func (u *unaryClient[RQ, RS]) Send(
 }
 
 func encodeAndWrite(c *fiber.Ctx, codec httputil.Codec, v interface{}) error {
-	b, err := codec.Encode(nil, v)
+	b, err := codec.Encode(c.Context(), v)
 	if err != nil {
 		return err
 	}
