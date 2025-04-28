@@ -7,24 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// math is a package that extends math functionality.
-
+// Package math provides extended math functionality.
 package math
 
-// IntPow returns x^n for two integers x and n. IntPow requires n to be a
-// nonnegative integer.
-func IntPow(x, n int) int {
-	return exp_by_squaring(1, x, n)
-}
-
-// exp_by_squaring returns y*x^n for integers y, x, and n. This requires n to be
-// a nonnegative integer.
-func exp_by_squaring(y, x, n int) int {
-	if n == 0 {
-		return y
+// IntPow efficiently returns the result of the operation base^exponent for two
+// numbers. IntPow panics if exponent is negative. This implementation uses
+// exponentiation by squaring. See
+// https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+func IntPow(base, exponent int) int {
+	if exponent < 0 {
+		panic("[math] IntPow: negative exponent")
 	}
-	if n%2 == 0 {
-		return exp_by_squaring(y, x*x, n/2)
+	y := 1
+	for exponent > 0 {
+		if exponent%2 == 1 {
+			y *= base
+		}
+		base *= base
+		exponent /= 2
 	}
-	return exp_by_squaring(x*y, x*x, (n-1)/2)
+	return y
 }
