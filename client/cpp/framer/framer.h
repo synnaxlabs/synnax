@@ -235,6 +235,8 @@ class Codec {
 
     /// @brief used to retrieve channels when updating the codec state.
     ChannelClient channel_client;
+
+    void throw_if_uninitialized() const;
 public:
     Codec() = default;
 
@@ -289,6 +291,7 @@ private:
     void to_proto(api::v1::FrameStreamerRequest &f) const;
 
     friend class FrameClient;
+    friend class Streamer;
 };
 
 /// @brief used to stream frames of telemetry from a set of channels in real-time.
@@ -320,7 +323,7 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with
     /// close(), but it is safe to call concurrently with read().
-    [[nodiscard]] xerrors::Error set_channels(std::vector<ChannelKey> channels);
+    [[nodiscard]] xerrors::Error set_channels(const std::vector<ChannelKey>& channels);
 
     /// @brief closes the streamer and releases any resources associated with it. If
     /// any errors occurred during the stream, they will be returned. A streamer
@@ -342,6 +345,8 @@ private:
     /// @brief true if the streamer has been closed.
     bool closed = false;
 
+    StreamerConfig cfg;
+
     /// @brief custom framing codec. only used when cfg.enable_experimental_codec is
     /// set to true.
     Codec codec;
@@ -350,7 +355,7 @@ private:
     void assert_open() const;
 
     /// @brief constructs the streamer from a configured stream and moves ownership.
-    explicit Streamer(std::unique_ptr<StreamerStream> stream);
+    explicit Streamer(std::unique_ptr<StreamerStream> stream, StreamerConfig config);
 
     /// @brief the stream transport for the streamer.
     std::unique_ptr<StreamerStream> stream;

@@ -44,11 +44,10 @@ type state struct {
 // before any encoding or decoding can occur.
 type Codec struct {
 	// keys is the numerically sorted list of keys that the codec will encode/decode.
-	states    map[uint32]*state
-	currState *state
-	buf       *xbinary.Writer
-	seqNum    uint32
-	channels  channel.Readable
+	states   map[uint32]state
+	buf      *xbinary.Writer
+	seqNum   uint32
+	channels channel.Readable
 }
 
 var byteOrder = binary.LittleEndian
@@ -73,7 +72,10 @@ func NewDynamic(channels channel.Readable) *Codec {
 }
 
 func newCodec() *Codec {
-	return &Codec{buf: xbinary.NewWriter(0, 0, byteOrder), states: make(map[uint32]*state)}
+	return &Codec{
+		buf:    xbinary.NewWriter(0, 0, byteOrder),
+		states: make(map[uint32]state),
+	}
 }
 
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
@@ -94,7 +96,7 @@ func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
 func (c *Codec) Initialized() bool { return c.seqNum > 0 }
 
 func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.DataType) {
-	s := &state{
+	s := state{
 		keys:                 keys,
 		keyDataTypes:         keyDataTypes,
 		hasVariableDataTypes: false,
@@ -108,7 +110,6 @@ func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.Dat
 	slices.Sort(s.keys)
 	c.buf = xbinary.NewWriter(0, 0, byteOrder)
 	c.seqNum++
-	c.currState = s
 	c.states[c.seqNum] = s
 }
 
@@ -202,11 +203,12 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 		refAlignment  telem.Alignment = 0
 		byteArraySize                 = flagsSize + seqNumSize
 		fgs                           = newFlags()
+		currState                     = c.states[c.seqNum]
 	)
-	if c.currState.hasVariableDataTypes {
+	if currState.hasVariableDataTypes {
 		fgs.equalLens = false
 	}
-	if src.Count() != len(c.currState.keys) {
+	if src.Count() != len(currState.keys) {
 		fgs.allChannelsPresent = false
 		byteArraySize += src.Count() * 4
 	}
@@ -216,7 +218,7 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 			continue
 		}
 		key := src.RawKeyAt(rawI)
-		dt, ok := c.currState.keyDataTypes[key]
+		dt, ok := currState.keyDataTypes[key]
 		if !ok {
 			return errors.Wrapf(
 				validate.Error,

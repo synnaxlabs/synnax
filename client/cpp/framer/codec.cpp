@@ -57,6 +57,10 @@ xerrors::Error Codec::update(const std::vector<ChannelKey> &keys) {
     return xerrors::NIL;
 }
 
+void Codec::throw_if_uninitialized() const {
+    if (this->seq_num < 1) throw std::runtime_error("codec is uninitialized");
+}
+
 Codec::Codec(
     const std::vector<ChannelKey> &channels,
     const std::vector<telem::DataType> &data_types
@@ -75,6 +79,7 @@ Codec::Codec(
 }
 
 xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
+    this->throw_if_uninitialized();
     CodecFlags flags;
     size_t byte_array_size = 1 + 4;
 
@@ -181,6 +186,7 @@ std::pair<Frame, xerrors::Error> Codec::decode(const std::vector<uint8_t> &data)
 
 std::pair<Frame, xerrors::Error>
 Codec::decode(const uint8_t *data, const size_t size) const {
+    this->throw_if_uninitialized();
     auto reader = binary::Reader(data, size);
     Frame frame;
     uint32_t data_len = 0;

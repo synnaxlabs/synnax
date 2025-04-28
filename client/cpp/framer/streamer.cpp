@@ -30,7 +30,7 @@ FrameClient::open_streamer(const StreamerConfig &config) const {
     config.to_proto(req);
     if (!net_stream->send(req).ok()) net_stream->close_send();
     auto [_, res_err] = net_stream->receive();
-    auto streamer = Streamer(std::move(net_stream));
+    auto streamer = Streamer(std::move(net_stream), config);
     if (config.enable_experimental_codec) {
         streamer.codec = Codec(this->channel_client);
         if (const auto codec_err = streamer.codec.update(config.channels)) return {Streamer(), codec_err};
@@ -38,7 +38,10 @@ FrameClient::open_streamer(const StreamerConfig &config) const {
     return {std::move(streamer), res_err};
 }
 
-Streamer::Streamer(std::unique_ptr<StreamerStream> stream): stream(std::move(stream)) {}
+Streamer::Streamer(
+    std::unique_ptr<StreamerStream> stream,
+    StreamerConfig config
+): stream(std::move(stream)), cfg(std::move(config)) {}
 
 std::pair<synnax::Frame, xerrors::Error> Streamer::read() const {
     this->assert_open();
@@ -59,11 +62,12 @@ xerrors::Error Streamer::close() const {
     return err.skip(freighter::EOF_ERR);
 }
 
-xerrors::Error Streamer::set_channels(std::vector<ChannelKey> channels) {
+xerrors::Error Streamer::set_channels(const std::vector<ChannelKey>& channels) {
     this->assert_open();
     if (const auto err = this->codec.update(channels)) return err;
+    this->cfg.channels = channels;
     api::v1::FrameStreamerRequest req;
-    req.mutable_keys()->Add(channels.begin(), channels.end());
+    this->cfg.to_proto(req);
     return this->stream->send(req);
 }
 
