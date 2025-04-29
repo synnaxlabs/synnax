@@ -116,3 +116,17 @@ class TestIterator:
 
             assert not i.seek_le(-1)
             assert not i.seek_ge(sy.TimeStamp(20 * sy.TimeSpan.SECOND))
+
+    def test_calculator(self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]):
+        idx_ch, data_ch = indexed_pair
+        idx_ch.write(0, np.array([0, 1, 2, 3, 4, 5]).astype(np.int64))
+        data_ch.write(0, np.array([0, 1, 2, 3, 4, 5]).astype(np.int64))
+
+        calc = client.channels.create(
+            name="calc",
+            expression=f"return 2 * {data_ch.name}",
+            requires=[data_ch.key],
+            data_type=data_ch.data_type,
+        )
+        data = calc.read(sy.TimeRange.MAX)
+        assert np.array_equal(data, np.array([0, 2, 4, 6, 8, 10]))

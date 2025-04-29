@@ -306,7 +306,6 @@ class TestWriter:
             w1.close()
             w2.close()
 
-    @pytest.mark.focus
     def test_set_authority_by_name_value(
         self, client: sy.Synnax, indexed_pair: list[sy.channel]
     ):

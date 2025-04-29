@@ -1,0 +1,153 @@
+package calculation_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/x/computron"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+var _ = Describe("Calculator", func() {
+
+	Context("Single Channel Calculation", func() {
+		It("Should correctly calculate the output value", func() {
+			base := MustSucceed(computron.Open("return in_ch * 2"))
+			out := channel.Channel{
+				Leaseholder: 1,
+				LocalKey:    1,
+				Name:        "out",
+				DataType:    telem.Float32T,
+			}
+			in := channel.Channel{
+				Leaseholder: 1,
+				LocalKey:    2,
+				Name:        "in_ch",
+				DataType:    telem.Float32T,
+			}
+			calc := calculation.NewCalculator(
+				base,
+				out,
+				map[channel.Key]channel.Channel{in.Key(): in},
+			)
+			outSeries := MustSucceed(calc.Next(core.UnaryFrame(in.Key(), telem.NewSeriesV[float32](1, 2, 3))))
+			Expect(outSeries.Len()).To(Equal(int64(3)))
+			Expect(outSeries).To(telem.MatchSeriesDataV[float32](2, 4, 6))
+		})
+	})
+
+	Context("Multi-Channel Calculation", func() {
+		var (
+			inCh1 = channel.Channel{
+				Leaseholder: 1,
+				LocalKey:    1,
+				Name:        "in_ch_1",
+				DataType:    telem.Float32T,
+			}
+			inCh2 = channel.Channel{
+				Leaseholder: 1,
+				LocalKey:    2,
+				Name:        "in_ch_2",
+				DataType:    telem.Float32T,
+			}
+			out = channel.Channel{
+				Leaseholder: 1,
+				LocalKey:    1,
+				Name:        "out",
+				DataType:    telem.Float32T,
+			}
+			baseCalculator = MustSucceed(computron.Open("return in_ch_1 * in_ch_2"))
+			calc           = calculation.NewCalculator(
+				baseCalculator,
+				out,
+				map[channel.Key]channel.Channel{
+					inCh1.Key(): inCh1,
+					inCh2.Key(): inCh2,
+				},
+			)
+		)
+		Context("Aligned", func() {
+			It("Should correctly calculate the output value", func() {
+				outSeries := MustSucceed(calc.Next(core.MultiFrame(
+					[]channel.Key{inCh1.Key(), inCh2.Key()},
+					[]telem.Series{
+						telem.NewSeriesV[float32](1, 2, 3),
+						telem.NewSeriesV[float32](1, 2, 3),
+					},
+				)))
+				Expect(outSeries.Len()).To(Equal(int64(3)))
+				Expect(outSeries).To(telem.MatchSeriesDataV[float32](1, 4, 9))
+			})
+		})
+
+		Context("Misaligned", func() {
+			It("Should correctly align the series and calculate the output value", func() {
+				inCh1Series := telem.NewSeriesV[float32](1, 2, 3)
+				inCh1Series.Alignment = 3
+
+				inCh2Series := telem.NewSeriesV[float32](1, 2, 3)
+				inCh2Series.Alignment = 3
+				outSeries := MustSucceed(calc.Next(core.UnaryFrame(
+					inCh1.Key(),
+					inCh1Series,
+				)))
+				Expect(outSeries.Len()).To(Equal(int64(0)))
+
+				outSeries = MustSucceed(calc.Next(core.UnaryFrame(
+					inCh2.Key(),
+					inCh2Series,
+				)))
+				Expect(outSeries.Len()).To(Equal(int64(3)))
+
+				Expect(outSeries).To(telem.MatchSeriesDataV[float32](1, 4, 9))
+			})
+		})
+	})
+})
+
+func BenchmarkCalculator(b *testing.B) {
+	inCh1 := channel.Channel{
+		Leaseholder: 1,
+		LocalKey:    1,
+		Name:        "in_ch_1",
+		DataType:    telem.Float32T,
+	}
+	inCh2 := channel.Channel{
+		Leaseholder: 1,
+		LocalKey:    2,
+		Name:        "in_ch_2",
+		DataType:    telem.Float32T,
+	}
+	out := channel.Channel{
+		Leaseholder: 1,
+		LocalKey:    3,
+		Name:        "out",
+		DataType:    telem.Float32T,
+	}
+	baseCalculator := MustSucceed(computron.Open("return in_ch_1 * in_ch_2"))
+	calc := calculation.NewCalculator(
+		baseCalculator,
+		out,
+		map[channel.Key]channel.Channel{
+			inCh1.Key(): inCh1,
+			inCh2.Key(): inCh2,
+		},
+	)
+	data1 := telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+	data2 := telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = calc.Next(core.MultiFrame(
+			[]channel.Key{inCh1.Key(), inCh2.Key()},
+			[]telem.Series{data1, data2},
+		))
+		data1.Alignment = data1.AlignmentBounds().Upper
+		data2.Alignment = data2.AlignmentBounds().Upper
+	}
+}

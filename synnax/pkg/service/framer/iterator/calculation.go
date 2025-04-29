@@ -12,95 +12,36 @@ package iterator
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/x/computron"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/telem"
 )
-
-type calculator struct {
-	c                *computron.Calculator
-	ch               channel.Channel
-	hwm              telem.Alignment
-	requiredValues   map[channel.Key]telem.MultiSeries
-	requiredChannels map[channel.Key]channel.Channel
-}
-
-func newCalculator(
-	c *computron.Calculator,
-	ch channel.Channel,
-	required map[channel.Key]channel.Channel,
-) *calculator {
-	requiredValues := make(map[channel.Key]telem.MultiSeries, len(required))
-	for k := range required {
-		requiredValues[k] = telem.MultiSeries{}
-	}
-	return &calculator{
-		c:                c,
-		ch:               ch,
-		hwm:              0,
-		requiredValues:   requiredValues,
-		requiredChannels: required,
-	}
-}
-
-func (c *calculator) Next(fr framer.Frame) (telem.Series, error) {
-	minAlignment := telem.MaxAlignmentPair
-	for k, s := range fr.Entries() {
-		if v, ok := c.requiredValues[k]; !ok {
-			v = v.Append(s).FilterLessThan(c.hwm)
-			c.requiredValues[k] = v
-			if v.AlignmentBounds().Upper < minAlignment {
-				minAlignment = v.AlignmentBounds().Upper
-			}
-		}
-	}
-	if minAlignment <= c.hwm {
-		return telem.Series{}, nil
-	}
-	var (
-		start = c.hwm
-		end   = minAlignment
-		os    = telem.AllocSeries(c.ch.DataType, int64(end-start))
-	)
-	c.hwm = minAlignment
-	for i := start; i <= end; i++ {
-		for k, v := range c.requiredValues {
-			ch := c.requiredChannels[k]
-			c.c.Set(ch.Name, computron.LValueFromMultiSeriesAlignment(v, i))
-		}
-		v, err := c.c.Run()
-		if err != nil {
-			return telem.Series{}, err
-		}
-		computron.SetLValueOnSeries(v, os, int64(i-start))
-	}
-	return os, nil
-}
 
 type calculationTransform struct {
 	confluence.LinearTransform[framer.IteratorResponse, framer.IteratorResponse]
-	calculators []*calculator
+	calculators []*calculation.Calculator
 }
 
 func newCalculationTransform(
-	calculators []*calculator,
+	calculators []*calculation.Calculator,
 ) ResponseSegment {
 	t := &calculationTransform{calculators: calculators}
 	t.Transform = t.transform
 	return t
 }
 
-func (t *calculationTransform) transform(_ context.Context, req framer.IteratorResponse) (framer.IteratorResponse, bool, error) {
+func (t *calculationTransform) transform(
+	_ context.Context,
+	res framer.IteratorResponse,
+) (framer.IteratorResponse, bool, error) {
 	for _, c := range t.calculators {
-		s, err := c.Next(req.Frame)
+		s, err := c.Next(res.Frame)
 		if err != nil {
 			return framer.IteratorResponse{}, false, err
 		}
 		if s.Len() > 0 {
-			req.Frame = req.Frame.Append(c.ch.Key(), s)
+			res.Frame = res.Frame.Append(c.Channel().Key(), s)
 		}
 	}
-	return req, true, nil
+	return res, true, nil
 }

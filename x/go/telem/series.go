@@ -328,7 +328,7 @@ func (m MultiSeries) TimeRange() (tr TimeRange) {
 // Append appends a series to the MultiSeries. The series must have the same data type
 // as the MultiSeries. If the data types are different, a panic will occur.
 func (m MultiSeries) Append(series Series) MultiSeries {
-	if series.DataType != m.DataType() {
+	if series.DataType != m.DataType() && len(m.Series) > 0 {
 		panic(fmt.Sprintf("cannot append series with different data types: %v != %v", m.DataType(), series.DataType))
 	}
 	m.Series = append(m.Series, series)

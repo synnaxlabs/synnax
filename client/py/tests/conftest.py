@@ -39,12 +39,12 @@ def client() -> sy.Synnax:
 def indexed_pair(client: sy.Synnax) -> tuple[sy.Channel, sy.Channel]:
     v = random.randint(0, 100000)
     idx = client.channels.create(
-        name=f"test-{v}-time",
+        name=f"test_{v}_time",
         is_index=True,
         data_type=sy.DataType.TIMESTAMP,
     )
     data = client.channels.create(
-        name=f"test-{v}-data",
+        name=f"test_{v}_data",
         index=idx.key,
         data_type=sy.DataType.FLOAT64,
     )
@@ -55,7 +55,7 @@ def indexed_pair(client: sy.Synnax) -> tuple[sy.Channel, sy.Channel]:
 def virtual_channel(client: sy.Synnax) -> sy.Channel:
     v = random.randint(0, 100000)
     return client.channels.create(
-        name=f"test-{v}-virtual",
+        name=f"test_{v}_virtual",
         virtual=True,
         data_type=sy.DataType.FLOAT64,
     )

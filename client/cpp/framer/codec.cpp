@@ -100,7 +100,7 @@ xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
     this->sorting_indices.resize(frame.size());
     for (size_t i = 0; i < frame.channels->size(); i++) {
         auto k = frame.channels->at(i);
-        if (!state.keys.contains(k))
+        if (state.keys.find(k) == state.keys.end())
             return xerrors::Error(
                 xerrors::VALIDATION,
                 "frame contains extra key " + std::to_string(k) +

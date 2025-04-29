@@ -77,7 +77,7 @@ formatted_count=0
 for file in "${files_to_format[@]}"; do
     fullpath="$path/$file"
     echo "Formatting $file..."
-    clang-format -i "$fullpath"
+    clang-format-18 -i "$fullpath"
     if [ $? -eq 0 ]; then
         formatted_count=$((formatted_count + 1))
     else
