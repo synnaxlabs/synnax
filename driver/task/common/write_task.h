@@ -103,11 +103,6 @@ public:
         };
     }
 
-    void wait() {
-        std::unique_lock lock(chan_state_lock);
-        this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono());
-    }
-
     void set_state(const synnax::Frame &frame) {
         std::lock_guard lock{this->chan_state_lock};
         this->chan_state_cv.notify_all();
@@ -120,7 +115,8 @@ public:
     }
 
     xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
-        this->wait();
+        std::unique_lock lock(chan_state_lock);
+        this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono());
         fr.clear();
         fr.reserve(this->chan_state.size());
         for (const auto &[key, value]: this->chan_state)
