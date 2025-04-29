@@ -26,7 +26,7 @@ struct BaseWriteTaskConfig : BaseTaskConfig {
     const std::string device_key;
 
     BaseWriteTaskConfig(BaseWriteTaskConfig &&other) noexcept:
-        BaseTaskConfig(std::move(other)), device_key(std::move(other.device_key)) {}
+        BaseTaskConfig(std::move(other)), device_key(other.device_key) {}
 
     BaseWriteTaskConfig(const BaseWriteTaskConfig &) = delete;
 
@@ -36,9 +36,6 @@ struct BaseWriteTaskConfig : BaseTaskConfig {
         BaseTaskConfig(cfg), device_key(cfg.required<std::string>("device")) {}
 };
 class Sink : public pipeline::Sink, public pipeline::Source {
-    /// @brief a timer that is used to control the rate at which the state is
-    /// propagated.
-    loop::Timer state_timer;
     /// @brief the vector of channels to stream for commands.
     const std::vector<synnax::ChannelKey> cmd_channels;
     /// @brief the vector of channels to write state updates for.
@@ -49,17 +46,22 @@ class Sink : public pipeline::Sink, public pipeline::Source {
     bool data_saving;
 
 public:
+    /// @brief the rate at which to communicate state values down the channel.
+    telem::Rate state_rate;
     /// @brief used to lock concurrent access to the channel state.
     std::mutex chan_state_lock;
+    /// @brief used to signal the state source to send values whenever a command
+    /// has been executed.
+    std::condition_variable chan_state_cv;
     /// @brief the current state of all the outputs. This is shared between
     /// the command sink and state source.
     std::unordered_map<synnax::ChannelKey, telem::SampleValue> chan_state;
 
     explicit Sink(std::vector<synnax::ChannelKey> cmd_channels):
-        state_timer(telem::Rate(0)),
         cmd_channels(std::move(cmd_channels)),
         state_indexes({}),
-        data_saving(false) {}
+        data_saving(false),
+        state_rate(0) {}
 
     Sink(
         const telem::Rate state_rate,
@@ -68,10 +70,10 @@ public:
         std::vector<synnax::ChannelKey> cmd_channels,
         const bool data_saving
     ):
-        state_timer(state_rate),
         cmd_channels(std::move(cmd_channels)),
         state_indexes(std::move(state_indexes)),
-        data_saving(data_saving) {
+        data_saving(data_saving),
+        state_rate(state_rate) {
         auto idx = 0;
         for (const auto &ch: state_channels) {
             this->chan_state[ch.key] = ch.data_type.cast(0);
@@ -101,8 +103,14 @@ public:
         };
     }
 
+    void wait() {
+        std::unique_lock lock(chan_state_lock);
+        this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono());
+    }
+
     void set_state(const synnax::Frame &frame) {
         std::lock_guard lock{this->chan_state_lock};
+        this->chan_state_cv.notify_all();
         for (const auto &[cmd_key, s]: frame) {
             const auto it = this->state_channels.find(cmd_key);
             if (it == this->state_channels.end()) continue;
@@ -112,8 +120,7 @@ public:
     }
 
     xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
-        this->state_timer.wait(breaker);
-        std::lock_guard lock{this->chan_state_lock};
+        this->wait();
         fr.clear();
         fr.reserve(this->chan_state.size());
         for (const auto &[key, value]: this->chan_state)
@@ -200,13 +207,13 @@ public:
     /// @brief primary constructor that uses the task context's Synnax client for
     /// cluster communication.
     explicit WriteTask(
-        synnax::Task task,
+        const synnax::Task &task,
         const std::shared_ptr<task::Context> &ctx,
         const breaker::Config &breaker_cfg,
         std::unique_ptr<Sink> sink
     ):
         WriteTask(
-            std::move(task),
+            task,
             ctx,
             breaker_cfg,
             std::move(sink),
