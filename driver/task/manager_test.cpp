@@ -191,10 +191,12 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     );
     ASSERT_FALSE(s_err) << s_err;
     auto [sy_task_cmd, c_err] = client->channels.retrieve("sy_task_cmd");
-    auto [writer, w_err] = client->telem.open_writer(synnax::WriterConfig{
-        .channels = {sy_task_cmd.key},
-        .start = telem::TimeStamp::now(),
-    });
+    auto [writer, w_err] = client->telem.open_writer(
+        synnax::WriterConfig{
+            .channels = {sy_task_cmd.key},
+            .start = telem::TimeStamp::now(),
+        }
+    );
     ASSERT_FALSE(w_err) << w_err;
     auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
     auto t_err = rack.tasks.create(echo_task);
@@ -210,8 +212,9 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
         "test_command",
         json{{"message", "hello world"}}
     );
-    ASSERT_NIL(writer.write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json()))
-    ));
+    ASSERT_NIL(
+        writer.write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())))
+    );
     auto w_close_err = writer.close();
     ASSERT_FALSE(w_close_err) << w_close_err;
 

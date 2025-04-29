@@ -65,12 +65,14 @@ public:
         const synnax::WriterConfig &writer_config,
         const breaker::Config &breaker_config
     ):
-        pipe(pipeline::Acquisition(
-            ctx->client,
-            writer_config,
-            std::move(source),
-            breaker_config
-        )) {
+        pipe(
+            pipeline::Acquisition(
+                ctx->client,
+                writer_config,
+                std::move(source),
+                breaker_config
+            )
+        ) {
         pipe.start();
     }
 

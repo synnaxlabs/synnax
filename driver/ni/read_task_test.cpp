@@ -336,12 +336,15 @@ TEST_F(AnalogReadTest, testErrorOnStart) {
 /// @brief it should communicate an error when the hardware fails to stop.
 TEST_F(AnalogReadTest, testErrorOnStop) {
     parse_config();
-    auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>(
-        std::vector{xerrors::NIL},
-        std::vector{
-            xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to stop hardware")
-        }
-    ));
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{xerrors::NIL},
+            std::vector{xerrors::Error(
+                driver::CRITICAL_HARDWARE_ERROR,
+                "Failed to stop hardware"
+            )}
+        )
+    );
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto start_state = ctx->states[0];
@@ -358,14 +361,19 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
 /// @brief it should communicate an error when the hardware fails to read.
 TEST_F(AnalogReadTest, testErrorOnRead) {
     parse_config();
-    auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>(
-        std::vector{xerrors::NIL},
-        std::vector{xerrors::NIL},
-        std::vector<std::pair<std::vector<double>, xerrors::Error>>{
-            {{},
-             xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to read hardware")}
-        }
-    ));
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{xerrors::NIL},
+            std::vector{xerrors::NIL},
+            std::vector<std::pair<std::vector<double>, xerrors::Error>>{
+                {{},
+                 xerrors::Error(
+                     driver::CRITICAL_HARDWARE_ERROR,
+                     "Failed to read hardware"
+                 )}
+            }
+        )
+    );
 
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
@@ -388,13 +396,15 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
     data_channel.data_type = telem::FLOAT32_T;
     parse_config();
 
-    auto rt = create_task(std::make_unique<hardware::mock::Reader<double>>(
-        std::vector{xerrors::NIL},
-        std::vector{xerrors::NIL},
-        std::vector<std::pair<std::vector<double>, xerrors::Error>>{
-            {{1.23456789}, xerrors::NIL}
-        }
-    ));
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{xerrors::NIL},
+            std::vector{xerrors::NIL},
+            std::vector<std::pair<std::vector<double>, xerrors::Error>>{
+                {{1.23456789}, xerrors::NIL}
+            }
+        )
+    );
 
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
@@ -556,12 +566,15 @@ protected:
 /// @brief it should run a basic digital read task using a mock hardware implementation.
 TEST_F(DigitalReadTest, testBasicDigitalRead) {
     parse_config();
-    auto rt = create_task(std::make_unique<hardware::mock::Reader<uint8_t>>(
-        std::vector{xerrors::NIL},
-        std::vector{xerrors::NIL},
-        std::vector<std::pair<std::vector<uint8_t>, xerrors::Error>>{{{1}, xerrors::NIL}
-        } // Digital high
-    ));
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<uint8_t>>(
+            std::vector{xerrors::NIL},
+            std::vector{xerrors::NIL},
+            std::vector<std::pair<std::vector<uint8_t>, xerrors::Error>>{
+                {{1}, xerrors::NIL}
+            } // Digital high
+        )
+    );
 
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);

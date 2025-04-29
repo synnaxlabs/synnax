@@ -419,7 +419,7 @@ public:
         return start == other.start && end == other.end;
     }
 
-    bool operator !=(const TimeRange &other) const {
+    bool operator!=(const TimeRange &other) const {
         return start != other.start || end != other.end;
     }
 };
