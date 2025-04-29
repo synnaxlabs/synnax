@@ -320,7 +320,7 @@ func (impl *httpStreamImplementation) start(
 	impl.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
-	server := fhttp.StreamServer[request, response](router, true, "/")
+	server := fhttp.StreamServer[request, response](router, "/")
 	router.BindTo(impl.app)
 	go func() {
 		defer GinkgoRecover()

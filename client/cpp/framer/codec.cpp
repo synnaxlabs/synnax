@@ -70,7 +70,7 @@ Codec::Codec(
     state.key_data_types.reserve(channels.size());
     for (auto i = 0; i < channels.size(); i++) {
         auto k = channels[i];
-        auto dt = data_types[i];
+        const auto &dt = data_types[i];
         state.keys.insert(k);
         state.key_data_types[k] = dt;
         if (dt.is_variable()) state.has_variable_data_types = true;
@@ -78,10 +78,17 @@ Codec::Codec(
     this->states[this->seq_num] = state;
 }
 
+constexpr std::size_t ALIGNMENT_SIZE = 8;
+constexpr std::size_t DATA_LENGTH_SIZE = 4;
+constexpr std::size_t KEY_SIZE = 4;
+constexpr std::size_t FLAGS_SIZE = 1;
+constexpr std::size_t SEQ_NUM_SIZE = 4;
+constexpr std::size_t TIME_RANGE_SIZE = 16;
+
 xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
     this->throw_if_uninitialized();
     CodecFlags flags;
-    size_t byte_array_size = 1 + 4;
+    size_t byte_array_size = FLAGS_SIZE + SEQ_NUM_SIZE;
 
     auto state = this->states[this->seq_num];
 
@@ -129,22 +136,22 @@ xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
     flags.zero_alignments = flags.equal_alignments && ref_alignment == 0;
 
     if (!flags.equal_lens)
-        byte_array_size += frame.channels->size() * 4;
+        byte_array_size += frame.channels->size() * DATA_LENGTH_SIZE;
     else
-        byte_array_size += 4;
+        byte_array_size += DATA_LENGTH_SIZE;
 
     if (!flags.time_ranges_zero) {
         if (!flags.equal_time_ranges)
-            byte_array_size += frame.channels->size() * 16;
+            byte_array_size += frame.channels->size() * TIME_RANGE_SIZE;
         else
-            byte_array_size += 16;
+            byte_array_size += TIME_RANGE_SIZE;
     }
 
     if (!flags.zero_alignments) {
         if (!flags.equal_alignments)
-            byte_array_size += frame.channels->size() * 8;
+            byte_array_size += frame.channels->size() * ALIGNMENT_SIZE;
         else
-            byte_array_size += 8;
+            byte_array_size += ALIGNMENT_SIZE;
     }
 
     binary::Writer buf(output, byte_array_size);

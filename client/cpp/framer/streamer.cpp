@@ -41,7 +41,7 @@ FrameClient::open_streamer(const StreamerConfig &config) const {
 Streamer::Streamer(
     std::unique_ptr<StreamerStream> stream,
     StreamerConfig config
-): stream(std::move(stream)), cfg(std::move(config)) {}
+): cfg(std::move(config)), stream(std::move(stream)) {}
 
 std::pair<synnax::Frame, xerrors::Error> Streamer::read() const {
     this->assert_open();

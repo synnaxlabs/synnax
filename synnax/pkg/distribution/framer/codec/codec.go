@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"sync/atomic"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -43,10 +44,13 @@ type state struct {
 // encoding and decoding side must agree on the set of channels and their order
 // before any encoding or decoding can occur.
 type Codec struct {
-	// keys is the numerically sorted list of keys that the codec will encode/decode.
-	states   map[uint32]state
+	mu struct {
+		states          map[uint32]state
+		seqNum          uint32
+		updateAvailable atomic.Bool
+		updates         chan state
+	}
 	buf      *xbinary.Writer
-	seqNum   uint32
 	channels channel.Readable
 }
 
@@ -72,10 +76,11 @@ func NewDynamic(channels channel.Readable) *Codec {
 }
 
 func newCodec() *Codec {
-	return &Codec{
-		buf:    xbinary.NewWriter(0, 0, byteOrder),
-		states: make(map[uint32]state),
-	}
+	c := &Codec{buf: xbinary.NewWriter(0, 0, byteOrder)}
+	c.mu.updates = make(chan state, 50)
+	c.mu.updateAvailable.Store(false)
+	c.mu.states = make(map[uint32]state)
+	return c
 }
 
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
@@ -93,7 +98,7 @@ func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
 	return nil
 }
 
-func (c *Codec) Initialized() bool { return c.seqNum > 0 }
+func (c *Codec) Initialized() bool { return c.mu.seqNum > 0 }
 
 func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.DataType) {
 	s := state{
@@ -108,9 +113,23 @@ func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.Dat
 		}
 	}
 	slices.Sort(s.keys)
-	c.buf = xbinary.NewWriter(0, 0, byteOrder)
-	c.seqNum++
-	c.states[c.seqNum] = s
+	c.mu.updateAvailable.Store(true)
+	c.mu.updates <- s
+}
+
+func (c *Codec) processUpdates() {
+	if !c.mu.updateAvailable.CompareAndSwap(true, false) {
+		return
+	}
+	for {
+		select {
+		case s := <-c.mu.updates:
+			c.mu.seqNum++
+			c.mu.states[c.mu.seqNum] = s
+		default:
+			return
+		}
+	}
 }
 
 type flags struct {
@@ -185,7 +204,7 @@ func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 }
 
 func (c *Codec) panicIfNotUpdated(opName string) {
-	if c.seqNum < 1 {
+	if c.mu.seqNum < 1 {
 		panic(fmt.Sprintf("[framer.codec] - dynamic codec was not updated for first call to %s", opName))
 	}
 }
@@ -196,6 +215,7 @@ const (
 )
 
 func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame) (err error) {
+	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
 	var (
 		curDataSize                   = -1
@@ -203,7 +223,7 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 		refAlignment  telem.Alignment = 0
 		byteArraySize                 = flagsSize + seqNumSize
 		fgs                           = newFlags()
-		currState                     = c.states[c.seqNum]
+		currState                     = c.mu.states[c.mu.seqNum]
 	)
 	if currState.hasVariableDataTypes {
 		fgs.equalLens = false
@@ -274,7 +294,7 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 	c.buf.Resize(byteArraySize)
 	c.buf.Reset()
 	c.buf.Uint8(fgs.encode())
-	c.buf.Uint32(c.seqNum)
+	c.buf.Uint32(c.mu.seqNum)
 	if fgs.equalLens {
 		c.buf.Uint32(uint32(curDataSize))
 	}
@@ -328,6 +348,7 @@ func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
 }
 
 func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
+	c.processUpdates()
 	c.panicIfNotUpdated("Decode")
 	var (
 		dataLen      uint32
@@ -342,9 +363,9 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 	if err = read(reader, &seqNum); err != nil {
 		return
 	}
-	cState, ok := c.states[seqNum]
+	cState, ok := c.mu.states[seqNum]
 	if !ok {
-		states := lo.Keys(c.states)
+		states := lo.Keys(c.mu.states)
 		err = errors.Wrapf(validate.Error, "[framer.codec] - remote sent invalid sequence number %d. Valid values are %v", seqNum, states)
 		return
 	}
