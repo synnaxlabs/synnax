@@ -314,7 +314,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         assert socket is not None
         return socket
 
-    def with_codec(self, codec: Codec) -> 'AsyncWebsocketClient':
+    def with_codec(self, codec: Codec) -> "AsyncWebsocketClient":
         """
         Create a new client with a different codec.
 
@@ -329,7 +329,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
             base_url=self._endpoint,
             max_size=self._max_message_size,
             secure=self._secure,
-            **self._kwargs
+            **self._kwargs,
         )
         # Copy middleware
         for middleware in self._middleware:
@@ -376,7 +376,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
         assert socket is not None
         return socket
 
-    def with_codec(self, codec: Codec) -> 'WebsocketClient':
+    def with_codec(self, codec: Codec) -> "WebsocketClient":
         """
         Create a new client with a different codec.
 
@@ -391,7 +391,7 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
             base_url=self._endpoint,
             max_message_size=self._max_message_size,
             secure=self._secure,
-            **self._kwargs
+            **self._kwargs,
         )
         # Copy middleware
         for middleware in self._middleware:

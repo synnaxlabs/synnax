@@ -19,8 +19,8 @@ from typing import Dict, List, Union
 from freighter import JSONCodec
 from freighter.codec import Codec as FreighterCodec
 
-from synnax.exceptions import ValidationError
 from synnax.channel.payload import ChannelKey, ChannelKeys
+from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import DataType, Series, TimeRange
 
@@ -51,17 +51,17 @@ class CodecFlags:
     def encode(self) -> int:
         b = 0
         if self.eq_len:
-            b |= (1 << EQUAL_LENGTHS_FLAG_POS)
+            b |= 1 << EQUAL_LENGTHS_FLAG_POS
         if self.eq_tr:
-            b |= (1 << EQUAL_TIME_RANGES_FLAG_POS)
+            b |= 1 << EQUAL_TIME_RANGES_FLAG_POS
         if self.time_ranges_zero:
-            b |= (1 << TIME_RANGES_ZERO_FLAG_POS)
+            b |= 1 << TIME_RANGES_ZERO_FLAG_POS
         if self.all_channels_present:
-            b |= (1 << ALL_CHANNELS_PRESENT_FLAG_POS)
+            b |= 1 << ALL_CHANNELS_PRESENT_FLAG_POS
         if self.eq_align:
-            b |= (1 << EQUAL_ALIGNMENTS_FLAG_POS)
+            b |= 1 << EQUAL_ALIGNMENTS_FLAG_POS
         if self.zero_alignments:
-            b |= (1 << ZERO_ALIGNMENTS_FLAG_POS)
+            b |= 1 << ZERO_ALIGNMENTS_FLAG_POS
         return b
 
     @classmethod
@@ -94,9 +94,7 @@ class Codec:
     _curr_state: CodecState = None
 
     def __init__(
-        self,
-        keys: ChannelKeys = None,
-        data_types: List[DataType] = None
+        self, keys: ChannelKeys = None, data_types: List[DataType] = None
     ) -> None:
         self._seq_num = 0
         self._states = dict()
@@ -193,7 +191,6 @@ class Codec:
                 struct.pack_into("<I", buffer, offset, sorted_keys[i])
                 offset += KEY_SIZE
 
-
             if not flg.eq_len:
                 len_or_size = len(ser)
                 if ser.data_type.is_variable:
@@ -201,7 +198,7 @@ class Codec:
                 struct.pack_into("<I", buffer, offset, len_or_size)
                 offset += DATA_LENGTH_SIZE
 
-            buffer[offset:offset + len(ser.data)] = ser.data
+            buffer[offset : offset + len(ser.data)] = ser.data
             offset += len(ser.data)
 
             if not flg.eq_tr and not flg.time_ranges_zero:
@@ -279,7 +276,7 @@ class Codec:
             if not data_type.is_variable:
                 data_byte_len = curr_len * data_type.density
 
-            series_data = bytes(buffer[idx:idx + data_byte_len])
+            series_data = bytes(buffer[idx : idx + data_byte_len])
             idx += data_byte_len
 
             if flags.time_ranges_zero:
@@ -297,12 +294,14 @@ class Codec:
                 idx += ALIGNMENT_SIZE
 
             keys.append(key)
-            series_list.append(Series(
-                data_type=data_type,
-                data=series_data,
-                time_range=tr,
-                alignment=curr_alignment
-            ))
+            series_list.append(
+                Series(
+                    data_type=data_type,
+                    data=series_data,
+                    time_range=tr,
+                    alignment=curr_alignment,
+                )
+            )
 
         return FramePayload(keys=keys, series=series_list)
 

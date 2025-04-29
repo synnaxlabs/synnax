@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Protocol
 import json
+from typing import Protocol
 
 import msgpack
 from alamos import Instrumentation, trace
