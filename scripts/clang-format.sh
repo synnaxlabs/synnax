@@ -10,7 +10,7 @@
 # included in the file licenses/APL.txt.
 
 echo "Clang format version"
-clang-format-18 --version
+clang-format --version
 
 # Check for correct usage
 if [ "$#" -ne 1 ]; then
@@ -77,7 +77,7 @@ formatted_count=0
 for file in "${files_to_format[@]}"; do
     fullpath="$path/$file"
     echo "Formatting $file..."
-    clang-format-18 -i "$fullpath"
+    clang-format -i "$fullpath"
     if [ $? -eq 0 ]; then
         formatted_count=$((formatted_count + 1))
     else
