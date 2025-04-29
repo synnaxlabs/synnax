@@ -343,12 +343,10 @@ INSTANTIATE_TEST_SUITE_P(
             .jitter_func =
                 [](int cycle) {
                     // Sinusoidal jitter with 1ms amplitude and 100-cycle period
-                    return telem::TimeSpan(
-                        static_cast<int64_t>(
-                            std::sin(2 * M_PI * cycle / 100.0) *
-                            telem::MILLISECOND.nanoseconds()
-                        )
-                    );
+                    return telem::TimeSpan(static_cast<int64_t>(
+                        std::sin(2 * M_PI * cycle / 100.0) *
+                        telem::MILLISECOND.nanoseconds()
+                    ));
                 },
             .n_cycles = 1000
         },
