@@ -1027,7 +1027,7 @@ var _ = Describe("Frame", func() {
 			fr := telem.Frame[int]{}
 
 			hasEntries := false
-			for _, _ = range fr.SeriesI() {
+			for range fr.SeriesI() {
 				hasEntries = true
 			}
 
