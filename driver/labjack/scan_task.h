@@ -99,10 +99,9 @@ class Scanner final : public common::Scanner {
                 .key = sy_dev.key,
                 .variant = status::VARIANT_SUCCESS,
                 .rack = rack,
-                .details =
-                    json{
-                        {"message", "Device present"},
-                    }
+                .details = json{
+                    {"message", "Device present"},
+                }
             };
 
             devices.push_back(sy_dev);

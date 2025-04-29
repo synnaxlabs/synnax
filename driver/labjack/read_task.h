@@ -270,9 +270,7 @@ template<typename T>
 using InputChanFactory = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
 
 #define INPUT_CHAN_FACTORY(type, class)                                                \
-    {                                                                                  \
-        type, [](xjson::Parser &cfg) { return std::make_unique<class>(cfg); }          \
-    }
+    {type, [](xjson::Parser &cfg) { return std::make_unique<class>(cfg); }}
 
 inline std::map<std::string, InputChanFactory<InputChan>> INPUTS = {
     INPUT_CHAN_FACTORY("TC", ThermocoupleChan),
@@ -431,8 +429,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         return false;
     }
 
-    [[nodiscard]] xerrors::Error apply(const std::shared_ptr<device::Device> &dev
-    ) const {
+    [[nodiscard]] xerrors::Error
+    apply(const std::shared_ptr<device::Device> &dev) const {
         for (const auto &ch: this->channels)
             if (const auto err = ch->apply(dev, this->dev_model)) return err;
         return xerrors::NIL;
@@ -552,11 +550,13 @@ public:
     StreamSource(const std::shared_ptr<device::Device> &dev, ReadTaskConfig cfg):
         cfg(std::move(cfg)),
         dev(dev),
-        sample_clock(common::HardwareTimedSampleClockConfig::create_simple(
-            this->cfg.sample_rate,
-            this->cfg.stream_rate,
-            this->cfg.timing.correct_skew
-        )),
+        sample_clock(
+            common::HardwareTimedSampleClockConfig::create_simple(
+                this->cfg.sample_rate,
+                this->cfg.stream_rate,
+                this->cfg.timing.correct_skew
+            )
+        ),
         interleaved_buf(this->cfg.samples_per_chan * this->cfg.channels.size()),
         channel_grouped_buf(this->cfg.samples_per_chan * this->cfg.channels.size()) {}
 

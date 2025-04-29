@@ -33,21 +33,23 @@ FrameClient::open_streamer(const StreamerConfig &config) const {
     auto streamer = Streamer(std::move(net_stream), config);
     if (config.enable_experimental_codec) {
         streamer.codec = Codec(this->channel_client);
-        if (const auto codec_err = streamer.codec.update(config.channels)) return {Streamer(), codec_err};
+        if (const auto codec_err = streamer.codec.update(config.channels))
+            return {Streamer(), codec_err};
     }
     return {std::move(streamer), res_err};
 }
 
-Streamer::Streamer(
-    std::unique_ptr<StreamerStream> stream,
-    StreamerConfig config
-): cfg(std::move(config)), stream(std::move(stream)) {}
+Streamer::Streamer(std::unique_ptr<StreamerStream> stream, StreamerConfig config):
+    cfg(std::move(config)), stream(std::move(stream)) {}
 
 std::pair<synnax::Frame, xerrors::Error> Streamer::read() const {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
-    if (!fr.buffer().empty()) return this->codec.decode(
-            reinterpret_cast<const std::uint8_t *>(fr.buffer().data()), fr.buffer().size());
+    if (!fr.buffer().empty())
+        return this->codec.decode(
+            reinterpret_cast<const std::uint8_t *>(fr.buffer().data()),
+            fr.buffer().size()
+        );
     auto api_frame = fr.frame();
     return {synnax::Frame(fr.frame()), exc};
 }
@@ -62,7 +64,7 @@ xerrors::Error Streamer::close() const {
     return err.skip(freighter::EOF_ERR);
 }
 
-xerrors::Error Streamer::set_channels(const std::vector<ChannelKey>& channels) {
+xerrors::Error Streamer::set_channels(const std::vector<ChannelKey> &channels) {
     this->assert_open();
     if (const auto err = this->codec.update(channels)) return err;
     this->cfg.channels = channels;

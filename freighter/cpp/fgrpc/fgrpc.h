@@ -264,7 +264,8 @@ public:
         if (this->closed) return {outbound, this->close_err};
         const grpc::Status status = this->stream->Finish();
         this->closed = true;
-        this->close_err = status.ok() ? freighter::EOF_ERR : priv::err_from_status(status);
+        this->close_err = status.ok() ? freighter::EOF_ERR
+                                      : priv::err_from_status(status);
         return {outbound, this->close_err, nullptr};
     }
 };

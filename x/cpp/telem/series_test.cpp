@@ -223,7 +223,8 @@ TEST(TestSeries, testConstructionSingleValue) {
     ASSERT_EQ(s.at<std::uint64_t>(0), value);
 }
 
-/// @brief it should construct a variable density series from it's protobuf representation.
+/// @brief it should construct a variable density series from it's protobuf
+/// representation.
 TEST(TestSeries, testConstrucitonFromVariableProtoSeries) {
     const std::vector<std::string> vals = {"hello", "world22"};
     const telem::Series s{vals};
@@ -927,12 +928,12 @@ TEST(TestSeries, testFillFromFixedSize) {
     std::vector<uint8_t> binary_data;
     binary::Writer writer(binary_data, source_data.size() * sizeof(uint32_t));
     writer.write(source_data.data(), source_data.size() * sizeof(uint32_t));
-    
+
     telem::Series series(telem::UINT32_T, 10);
     binary::Reader reader(binary_data);
-    
+
     size_t bytes_read = series.fill_from(reader);
-    
+
     ASSERT_EQ(bytes_read, source_data.size() * sizeof(uint32_t));
     ASSERT_EQ(series.size(), source_data.size());
     auto values = series.values<uint32_t>();
@@ -943,20 +944,20 @@ TEST(TestSeries, testFillFromString) {
     std::vector<std::string> source_strings = {"hello", "world", "test"};
     std::vector<uint8_t> binary_data;
     size_t total_size = 0;
-    for (const auto& str : source_strings) 
-        total_size += str.size() + 1;  // +1 for newline terminator
-    
+    for (const auto &str: source_strings)
+        total_size += str.size() + 1; // +1 for newline terminator
+
     binary::Writer writer(binary_data, total_size);
-    for (const auto& str : source_strings) {
+    for (const auto &str: source_strings) {
         writer.write(str.data(), str.size());
         writer.uint8('\n');
     }
-    
+
     telem::Series series(telem::STRING_T, total_size);
     binary::Reader reader(binary_data);
-    
+
     size_t bytes_read = series.fill_from(reader);
-    
+
     ASSERT_EQ(bytes_read, total_size);
     ASSERT_EQ(series.size(), source_strings.size());
     auto values = series.strings();
@@ -968,12 +969,12 @@ TEST(TestSeries, testFillFromPartial) {
     std::vector<uint8_t> binary_data;
     binary::Writer writer(binary_data, source_data.size() * sizeof(uint16_t));
     writer.write(source_data.data(), source_data.size() * sizeof(uint16_t));
-    
-    telem::Series series(telem::UINT16_T, 3);  // Only space for 3 elements
+
+    telem::Series series(telem::UINT16_T, 3); // Only space for 3 elements
     binary::Reader reader(binary_data);
-    
+
     size_t bytes_read = series.fill_from(reader);
-    
+
     ASSERT_EQ(bytes_read, 3 * sizeof(uint16_t));
     ASSERT_EQ(series.size(), 3);
     auto values = series.values<uint16_t>();
@@ -985,10 +986,10 @@ TEST(TestSeries, testFillFromPartial) {
 TEST(TestSeries, testFillFromEmpty) {
     std::vector<uint8_t> empty_data;
     binary::Reader reader(empty_data);
-    
+
     telem::Series series(telem::UINT32_T, 5);
     size_t bytes_read = series.fill_from(reader);
-    
+
     ASSERT_EQ(bytes_read, 0);
     ASSERT_EQ(series.size(), 0);
 }
@@ -996,26 +997,26 @@ TEST(TestSeries, testFillFromEmpty) {
 TEST(TestSeries, testFillFromMultipleReads) {
     std::vector source_data1 = {1.0f, 2.0f, 3.0f};
     std::vector source_data2 = {4.0f, 5.0f};
-    
+
     std::vector<uint8_t> binary_data1, binary_data2;
     binary::Writer writer1(binary_data1, source_data1.size() * sizeof(float));
     binary::Writer writer2(binary_data2, source_data2.size() * sizeof(float));
-    
+
     writer1.write(source_data1.data(), source_data1.size() * sizeof(float));
     writer2.write(source_data2.data(), source_data2.size() * sizeof(float));
-    
+
     telem::Series series(telem::FLOAT32_T, 5);
-    
+
     binary::Reader reader1(binary_data1);
     size_t bytes_read1 = series.fill_from(reader1);
     ASSERT_EQ(bytes_read1, source_data1.size() * sizeof(float));
     ASSERT_EQ(series.size(), source_data1.size());
-    
+
     binary::Reader reader2(binary_data2);
     size_t bytes_read2 = series.fill_from(reader2);
     ASSERT_EQ(bytes_read2, source_data2.size() * sizeof(float));
     ASSERT_EQ(series.size(), source_data1.size() + source_data2.size());
-    
+
     auto values = series.values<float>();
     std::vector<float> expected;
     expected.insert(expected.end(), source_data1.begin(), source_data1.end());

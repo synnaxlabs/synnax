@@ -29,7 +29,8 @@ public:
         std::vector<uint8_t> &buffer,
         const size_t size,
         const size_t starting_offset = 0
-    ): buf(buffer), offset(starting_offset) {
+    ):
+        buf(buffer), offset(starting_offset) {
         buf.resize(size);
     }
 
@@ -61,9 +62,7 @@ public:
 
     /// @brief Writes a 64-bit signed integer to the buffer
     /// @param value The int64 to write
-    void int64(const int64_t value) {
-        this->uint64(static_cast<uint64_t>(value));
-    }
+    void int64(const int64_t value) { this->uint64(static_cast<uint64_t>(value)); }
 
     /// @brief Writes raw bytes to the buffer
     /// @param data The bytes to write
@@ -82,17 +81,16 @@ class Reader {
     const uint8_t *buf;
     const size_t size;
     size_t offset;
+
 public:
     explicit Reader(
         const std::vector<uint8_t> &buffer,
         const size_t starting_offset = 0
-    ): Reader(buffer.data(), buffer.size(), starting_offset) {}
+    ):
+        Reader(buffer.data(), buffer.size(), starting_offset) {}
 
-    Reader(
-        const uint8_t *buffer,
-        const size_t size,
-        const size_t starting_offset = 0
-    ): buf(buffer), size(size), offset(starting_offset) {}
+    Reader(const uint8_t *buffer, const size_t size, const size_t starting_offset = 0):
+        buf(buffer), size(size), offset(starting_offset) {}
 
     /// @brief Reads a byte from the buffer
     /// @return The byte read
@@ -126,16 +124,14 @@ public:
 
     /// @brief Reads a 64-bit signed integer from the buffer
     /// @return The int64 read
-    [[nodiscard]] int64_t int64() {
-        return static_cast<int64_t>(this->uint64());
-    }
+    [[nodiscard]] int64_t int64() { return static_cast<int64_t>(this->uint64()); }
 
     [[nodiscard]] bool exhausted() const { return offset >= this->size; }
 
     /// @brief Reads raw bytes from the buffer into a provided memory location
     /// @param data Pointer to the memory location to write to
     /// @param size The number of bytes to read
-    size_t read(void* data, const size_t size) {
+    size_t read(void *data, const size_t size) {
         size_t read_size = size;
         if (offset + size > this->size) read_size = this->size - offset;
         std::memcpy(data, buf + offset, read_size);

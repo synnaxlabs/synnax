@@ -306,13 +306,13 @@ TEST(CodecTests, DynamicCodecUpdate) {
 TEST(CodecTests, UninitializedCodec) {
     auto client = new_test_client();
     synnax::Codec codec(client.channels);
-    
+
     auto [idx_ch, _] = create_indexed_pair(client);
     auto frame = synnax::Frame(
         idx_ch.key,
         telem::Series(telem::TimeStamp(telem::SECOND))
     );
-    
+
     std::vector<uint8_t> encoded;
     ASSERT_THROW(codec.encode(frame, encoded), std::runtime_error);
 }
@@ -320,19 +320,19 @@ TEST(CodecTests, UninitializedCodec) {
 TEST(CodecTests, OutOfSyncCodecs) {
     auto client = new_test_client();
     auto [idx_ch, data_ch] = create_indexed_pair(client);
-    
+
     synnax::Codec encoder(client.channels);
     synnax::Codec decoder(client.channels);
-    
+
     // Initial state - both in sync
     ASSERT_NIL(encoder.update(std::vector{idx_ch.key}));
     ASSERT_NIL(decoder.update(std::vector{idx_ch.key}));
-    
+
     auto frame = synnax::Frame(
         idx_ch.key,
         telem::Series(telem::TimeStamp(telem::SECOND))
     );
-    
+
     std::vector<uint8_t> encoded;
     ASSERT_NIL(encoder.encode(frame, encoded));
     auto [decoded_frame, err] = decoder.decode(encoded);

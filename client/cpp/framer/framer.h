@@ -237,6 +237,7 @@ class Codec {
     ChannelClient channel_client;
 
     void throw_if_uninitialized() const;
+
 public:
     Codec() = default;
 
@@ -250,7 +251,8 @@ public:
 
     /// @brief instantiates a dynamic codec that uses the provided function to look up
     /// the relevant channels when update() is called.
-    explicit Codec(ChannelClient channel_client): channel_client(std::move(channel_client)) {}
+    explicit Codec(ChannelClient channel_client):
+        channel_client(std::move(channel_client)) {}
 
     /// @brief updates the codec to use the given channels. If the channels do not
     /// exist, the codec will return a query::NOT_FOUND error.
@@ -323,7 +325,7 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with
     /// close(), but it is safe to call concurrently with read().
-    [[nodiscard]] xerrors::Error set_channels(const std::vector<ChannelKey>& channels);
+    [[nodiscard]] xerrors::Error set_channels(const std::vector<ChannelKey> &channels);
 
     /// @brief closes the streamer and releases any resources associated with it. If
     /// any errors occurred during the stream, they will be returned. A streamer
@@ -554,7 +556,6 @@ private:
 
     friend class FrameClient;
 };
-
 
 
 class FrameClient {
