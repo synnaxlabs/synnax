@@ -10,6 +10,9 @@
 package migrate_test
 
 import (
+	"os"
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -17,9 +20,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/binary"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"os"
-	"strconv"
 )
 
 var _ = Describe("Migration Test", func() {
@@ -44,7 +46,13 @@ var _ = Describe("Migration Test", func() {
 
 				By("Asserting that the version got migrated, the meta file got changed, and the format is correct")
 				for _, ch := range testdata.Channels {
-					chInDB := MustSucceed(db.RetrieveChannel(ctx, ch.Key))
+					chInDB, err := db.RetrieveChannel(ctx, ch.Key)
+					if ch.Key == testdata.LegacyRate {
+						Expect(err).To(HaveOccurredAs(query.NotFound))
+						continue
+					} else {
+						Expect(err).ToNot(HaveOccurred())
+					}
 					Expect(chInDB.Version).To(Equal(uint8(2)))
 
 					var (
@@ -55,7 +63,7 @@ var _ = Describe("Migration Test", func() {
 						chInMeta  cesium.Channel
 					)
 
-					_, err := r.Read(buf)
+					_, err = r.Read(buf)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(r.Close()).To(Succeed())
 

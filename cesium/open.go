@@ -138,11 +138,15 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 	if errors.Is(err, virtual.ErrNotVirtual) {
 		err = db.openUnary(ch, fs)
 	}
+	// For legacy, rate-based channels (V1), attempting to open a unary DB on them
+	// will return a meta.ErrorIgnoreChannel error, which tells us to just ignore
+	// and not open that directory as an actual channel. This is a better alternative
+	// to deleting the channel, as we don't want to risk losing user data.
 	return errors.Skip(err, meta.ErrorIgnoreChannel)
 }
 
 func openFS(opts *options) error {
-	_fs, err := opts.fs.Sub(opts.dirname)
-	opts.fs = _fs
+	subFS, err := opts.fs.Sub(opts.dirname)
+	opts.fs = subFS
 	return err
 }
