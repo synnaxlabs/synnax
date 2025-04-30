@@ -295,6 +295,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 
+		time.Sleep(5 * time.Millisecond)
 		MustSucceed(w.Write(core.UnaryFrame(
 			baseCH.Key(),
 			telem.NewSeriesV[int64](1, 2),

@@ -8,7 +8,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
-	"github.com/synnaxlabs/x/computron"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -17,12 +16,12 @@ var _ = Describe("Calculator", func() {
 
 	Context("Single Channel Calculation", func() {
 		It("Should correctly calculate the output value", func() {
-			base := MustSucceed(computron.Open("return in_ch * 2"))
 			out := channel.Channel{
 				Leaseholder: 1,
 				LocalKey:    1,
 				Name:        "out",
 				DataType:    telem.Float32T,
+				Expression:  "return in_ch * 2",
 			}
 			in := channel.Channel{
 				Leaseholder: 1,
@@ -30,11 +29,10 @@ var _ = Describe("Calculator", func() {
 				Name:        "in_ch",
 				DataType:    telem.Float32T,
 			}
-			calc := calculation.NewCalculator(
-				base,
+			calc := MustSucceed(calculation.OpenCalculator(
 				out,
-				map[channel.Key]channel.Channel{in.Key(): in},
-			)
+				[]channel.Channel{in},
+			))
 			outSeries := MustSucceed(calc.Next(core.UnaryFrame(in.Key(), telem.NewSeriesV[float32](1, 2, 3))))
 			Expect(outSeries.Len()).To(Equal(int64(3)))
 			Expect(outSeries).To(telem.MatchSeriesDataV[float32](2, 4, 6))
@@ -60,16 +58,12 @@ var _ = Describe("Calculator", func() {
 				LocalKey:    1,
 				Name:        "out",
 				DataType:    telem.Float32T,
+				Expression:  "return in_ch_1 * in_ch_2",
 			}
-			baseCalculator = MustSucceed(computron.Open("return in_ch_1 * in_ch_2"))
-			calc           = calculation.NewCalculator(
-				baseCalculator,
+			calc = MustSucceed(calculation.OpenCalculator(
 				out,
-				map[channel.Key]channel.Channel{
-					inCh1.Key(): inCh1,
-					inCh2.Key(): inCh2,
-				},
-			)
+				[]channel.Channel{inCh1, inCh2},
+			))
 		)
 		Context("Aligned", func() {
 			It("Should correctly calculate the output value", func() {
@@ -108,6 +102,51 @@ var _ = Describe("Calculator", func() {
 			})
 		})
 	})
+
+	Describe("Channel", func() {
+		It("Should return information about the channel being calculated", func() {
+			in := channel.Channel{
+				Name:     "Cat",
+				LocalKey: 12,
+				DataType: telem.Float32T,
+			}
+			c := MustSucceed(calculation.OpenCalculator(in, []channel.Channel{}))
+			Expect(c.Channel().Name).To(Equal("Cat"))
+			Expect(c.Channel().LocalKey).To(BeEquivalentTo(12))
+		})
+	})
+
+	Describe("Error Handling", func() {
+		It("Should return an error if the calculation fails to compile", func() {
+			out := channel.Channel{
+				Name:       "Cat",
+				LocalKey:   12,
+				DataType:   telem.Float32T,
+				Expression: "/////",
+			}
+			c, err := calculation.OpenCalculator(out, []channel.Channel{})
+			Expect(err).To(MatchError(ContainSubstring("syntax error")))
+			Expect(c).To(BeNil())
+		})
+
+		It("Should return an error if the calculation has an undefined variable", func() {
+			out := channel.Channel{
+				Name:       "Cat",
+				LocalKey:   12,
+				DataType:   telem.Float32T,
+				Expression: "return dog * cat",
+			}
+			in := channel.Channel{
+				Name:     "cat",
+				LocalKey: 12,
+				DataType: telem.Float32T,
+			}
+			c := MustSucceed(calculation.OpenCalculator(out, []channel.Channel{in}))
+			o, err := c.Next(core.UnaryFrame(in.Key(), telem.NewSeriesV[float32](1, 2, 3)))
+			Expect(o.Len()).To(Equal(int64(0)))
+			Expect(err).To(MatchError(ContainSubstring("nil")))
+		})
+	})
 })
 
 func BenchmarkCalculator(b *testing.B) {
@@ -128,16 +167,12 @@ func BenchmarkCalculator(b *testing.B) {
 		LocalKey:    3,
 		Name:        "out",
 		DataType:    telem.Float32T,
+		Expression:  "return in_ch_1 * in_ch_2",
 	}
-	baseCalculator := MustSucceed(computron.Open("return in_ch_1 * in_ch_2"))
-	calc := calculation.NewCalculator(
-		baseCalculator,
+	calc := MustSucceed(calculation.OpenCalculator(
 		out,
-		map[channel.Key]channel.Channel{
-			inCh1.Key(): inCh1,
-			inCh2.Key(): inCh2,
-		},
-	)
+		[]channel.Channel{inCh1, inCh2},
+	))
 	data1 := telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 	data2 := telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 

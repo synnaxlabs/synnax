@@ -108,9 +108,11 @@ type Relay struct {
 	shutdown io.Closer
 }
 
-// defaultBuffer is the default buffer size for channels in the relay.
-// TODO: Figure out what the optimal buffer size is.
-const defaultBuffer = 200
+// defaultResponseBuffer is the default buffer size for channels in the relay.
+const (
+	defaultResponseBuffer = 1000
+	defaultDemandBuffer   = 50
+)
 
 func Open(configs ...Config) (*Relay, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
@@ -121,7 +123,7 @@ func Open(configs ...Config) (*Relay, error) {
 	r := &Relay{cfg: cfg, ins: cfg.Instrumentation}
 
 	tpr := newTapper(cfg)
-	demands := confluence.NewStream[demand](defaultBuffer)
+	demands := confluence.NewStream[demand](defaultDemandBuffer)
 	demands.SetOutletAddress("peer_demands")
 	demands.Acquire(1)
 	tpr.InFrom(demands)
@@ -131,7 +133,7 @@ func Open(configs ...Config) (*Relay, error) {
 		20*time.Millisecond,
 		cfg.Instrumentation,
 	)
-	writes := confluence.NewStream[Response](defaultBuffer)
+	writes := confluence.NewStream[Response](defaultResponseBuffer)
 	writes.SetInletAddress("delta")
 	writes.SetOutletAddress("taps")
 	r.delta.InFrom(writes)

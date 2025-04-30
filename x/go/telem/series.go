@@ -44,6 +44,9 @@ type Series struct {
 
 // Len returns the number of samples currently in the Series.
 func (s Series) Len() int64 {
+	if len(s.Data) == 0 {
+		return 0
+	}
 	if s.DataType.IsVariable() {
 		if s.cachedLength == nil {
 			cl := int64(bytes.Count(s.Data, []byte("\n")))
@@ -339,6 +342,14 @@ func (m MultiSeries) Append(series Series) MultiSeries {
 // alignment bound greater than the given alignment. This is useful for filtering
 // out series that are not relevant to the given alignment.
 func (m MultiSeries) FilterLessThan(a Alignment) MultiSeries {
+	if len(m.Series) == 0 {
+		return m
+	}
+	// Hot path optimization that does a quick check that the alignment of all series
+	// is above the filter threshold, so we don't need to re-allocate a new slice.
+	if m.Series[0].AlignmentBounds().Upper > a {
+		return m
+	}
 	return MultiSeries{
 		Series: lo.Filter(m.Series, func(s Series, _ int) bool {
 			return s.AlignmentBounds().Upper > a

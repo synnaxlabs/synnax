@@ -16,54 +16,79 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Calculator struct {
-	base             *computron.Calculator
-	ch               channel.Channel
-	hwm              telem.Alignment
-	requiredValues   map[channel.Key]telem.MultiSeries
-	requiredChannels map[channel.Key]channel.Channel
+type requiredInfo struct {
+	ch   channel.Channel
+	data telem.MultiSeries
 }
 
-func NewCalculator(
-	base *computron.Calculator,
+// Calculator is an extension of the lua-based computron.Calculator to provide
+// specific functionality for evaluating calculations on channels using frame data.
+type Calculator struct {
+	// base is the underlying computron calculator.
+	base *computron.Calculator
+	// ch is the calculated channel we're operating on.
+	ch channel.Channel
+	// hwm is the high-water mark of the sample that we've run the calculation on.
+	hwm telem.Alignment
+	// required is a map of required channels and an accumulated buffer of data. Data
+	// is accumulated for each channel until a calculation can be performed, and is
+	// then flushed.
+	required map[channel.Key]requiredInfo
+}
+
+// OpenCalculator opens a new calculator that evaluates the Expression of the provided
+// channel. The requiredChannels provided must include ALL and ONLY the channels
+// corresponding to the keys specified in ch.Requires.
+//
+// The calculator mustbe closed by calling Close() after use, or memory leaks will occur.
+func OpenCalculator(
 	ch channel.Channel,
-	required map[channel.Key]channel.Channel,
-) *Calculator {
-	requiredValues := make(map[channel.Key]telem.MultiSeries, len(required))
-	for k := range required {
-		requiredValues[k] = telem.MultiSeries{}
+	requiredChannels []channel.Channel,
+) (*Calculator, error) {
+	base, err := computron.Open(ch.Expression)
+	if err != nil {
+		return nil, err
+	}
+	required := make(map[channel.Key]requiredInfo, len(requiredChannels))
+	for _, requiredCh := range requiredChannels {
+		required[requiredCh.Key()] = requiredInfo{ch: requiredCh}
 	}
 	return &Calculator{
-		base:             base,
-		ch:               ch,
-		hwm:              0,
-		requiredValues:   requiredValues,
-		requiredChannels: required,
-	}
+		base:     base,
+		ch:       ch,
+		hwm:      0,
+		required: required,
+	}, nil
 }
 
-func (c *Calculator) Channel() channel.Channel {
-	return c.ch
-}
+// Channel returns information about the channel being calculated.
+func (c *Calculator) Channel() channel.Channel { return c.ch }
 
+// Next executes the next calculation step. It takes in the given frame and determines
+// if enough data is available to perform the next set of calculations. The returned
+// telem.Series will have a length equal to the number of new calculations completed.
+// If no calculations are completed, the length of the series will be 0, and the caller
+// is free to discard the returned value.
+//
+// Any error encountered during calculations is returned as well.
 func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 	for rawI, s := range fr.RawSeries() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
 		k := fr.RawKeyAt(rawI)
-		if v, ok := c.requiredValues[k]; ok {
-			v = v.Append(s).FilterLessThan(c.hwm)
-			c.requiredValues[k] = v
+		if v, ok := c.required[k]; ok {
+			v.data = v.data.Append(s).FilterLessThan(c.hwm)
+			c.required[k] = v
 			if c.hwm == 0 {
-				c.hwm = v.AlignmentBounds().Lower
+				c.hwm = v.data.AlignmentBounds().Lower
 			}
 		}
 	}
 	minAlignment := telem.MaxAlignmentPair
-	for _, v := range c.requiredValues {
-		if v.AlignmentBounds().Upper < minAlignment {
-			minAlignment = v.AlignmentBounds().Upper
+	for _, v := range c.required {
+		if v.data.AlignmentBounds().Upper < minAlignment {
+			minAlignment = v.data.AlignmentBounds().Upper
 		}
 	}
 	if minAlignment <= c.hwm {
@@ -75,20 +100,19 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		os    = telem.AllocSeries(c.ch.DataType, int64(end-start))
 	)
 	c.hwm = minAlignment
-	for i := start; i < end; i++ {
-		for k, v := range c.requiredValues {
-			ch := c.requiredChannels[k]
-			c.base.Set(ch.Name, computron.LValueFromMultiSeriesAlignment(v, i))
+	for a := start; a < end; a++ {
+		for _, v := range c.required {
+			c.base.Set(v.ch.Name, computron.LValueFromMultiSeriesAlignment(v.data, a))
 		}
 		v, err := c.base.Run()
 		if err != nil {
-			return telem.Series{}, err
+			return telem.Series{DataType: c.ch.DataType}, err
 		}
-		computron.SetLValueOnSeries(v, os, int64(i-start))
+		computron.SetLValueOnSeries(v, os, int64(a-start))
 	}
 	return os, nil
 }
 
-func (c *Calculator) Close() {
-	c.base.Close()
-}
+// Close closes the calculator, releasing internal resources. No other methods can be
+// called on the calculator after Close has been called.
+func (c *Calculator) Close() { c.base.Close() }

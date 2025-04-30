@@ -25,14 +25,16 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Frame is a performance optimized record of numeric keys to series.
+// Frame is a performance-optimized record of numeric keys to series.
 type Frame[K types.Numeric] struct {
 	// keys are the keys of the frame record. keys is guaranteed to have the same length
 	// as series. Note that keys are not guaranteed to be unique.
+	// 24 bytes
 	keys []K
 	// series is the series of the frame record. series is guaranteed to have the same length
 	// as keys.
 	series []Series
+	// 24 bytes
 	// mask is used as a high-performance filter for removing entries from the frame.
 	// it allows for an alternative to filtering by creating copies of the key and
 	// series slices. Mask can only handle frames with up to 128 entries. If enabled

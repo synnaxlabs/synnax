@@ -131,7 +131,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 		if err != nil {
 			return nil, err
 		}
-		calculators[i] = calculation.NewCalculator(c, v, required)
+		calculators[i] = calculation.OpenCalculator(c, v, required)
 	}
 	return newCalculationTransform(calculators), nil
 }

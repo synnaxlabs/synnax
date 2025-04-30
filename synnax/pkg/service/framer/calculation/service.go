@@ -19,13 +19,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/status"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/computron"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -53,7 +52,9 @@ type Config struct {
 	// ChannelObservable is used to listen to real-time changes in calculated channels
 	// so the calculation routines can be updated accordingly.
 	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
-	StateCodec        binary.Codec
+	// StateCodec is the encoder/decoder used to communicate calculation state
+	// changes.
+	StateCodec binary.Codec
 }
 
 var (
@@ -97,9 +98,9 @@ type entry struct {
 }
 
 type State struct {
-	Key     channel.Key `json:"key"`
-	Variant string      `json:"variant"`
-	Message string      `json:"message"`
+	Key     channel.Key    `json:"key"`
+	Variant status.Variant `json:"variant"`
+	Message string         `json:"message"`
 }
 
 // Service creates and operates calculations on channels.
@@ -114,7 +115,12 @@ type Service struct {
 	w                            *framer.Writer
 }
 
-func (s *Service) SetState(ctx context.Context, ch channel.Channel, variant string, message string) {
+func (s *Service) SetState(
+	ctx context.Context,
+	ch channel.Channel,
+	variant status.Variant,
+	message string,
+) {
 	state := State{
 		Key:     ch.Key(),
 		Variant: variant,
@@ -256,7 +262,7 @@ func (s *Service) Close() error {
 // Request requests that the Service starts calculation the channel with the provided
 // key. The calculation will be started if the channel is calculated and not already
 // being calculated. If the channel is already being calculated, the number of active
-// requests will be incremented. The caller must close the returned io.Closer when the
+// requests will be increased. The caller must close the returned io.Closer when the
 // calculation is no longer needed, which will decrement the number of active requests.
 func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, error) {
 	s.mu.Lock()
@@ -314,17 +320,10 @@ func (s *Service) startCalculation(
 	plumber.SetSegment(p, "streamer", streamer_)
 	plumber.SetSegment(p, "writer", writer_)
 
-	calculation, err := computron.Open(ch.Expression)
+	c, err := OpenCalculator(ch, requires)
 	if err != nil {
 		return nil, err
 	}
-	c := NewCalculator(
-		calculation,
-		ch,
-		lo.SliceToMap(requires, func(ch channel.Channel) (channel.Key, channel.Channel) {
-			return ch.Key(), ch
-		}),
-	)
 	sc := newCalculationTransform([]*Calculator{c}, s.SetState)
 	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](
 		p,
@@ -361,7 +360,7 @@ func (s *Service) startCalculation(
 type onStateChange func(
 	ctx context.Context,
 	channel channel.Channel,
-	variant string,
+	variant status.Variant,
 	message string,
 )
 
@@ -389,7 +388,7 @@ func (t *streamCalculationTransform) transform(
 	for _, c := range t.calculators {
 		s, err := c.Next(req.Frame)
 		if err != nil {
-			t.onStateChange(ctx, c.ch, "error", err.Error())
+			t.onStateChange(ctx, c.ch, status.ErrorVariant, err.Error())
 		} else if s.Len() > 0 {
 			res.Frame = res.Frame.Append(c.ch.Key(), s)
 			send = true
