@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/computron"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -115,23 +114,17 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 		return !calculated.Contains(item)
 	})
 	cfg.Keys = append(cfg.Keys, required.Keys()...)
-	var requiredV []channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
+	var requiredCh []channel.Channel
+	err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(required.Keys()...).
-		Entries(&requiredV).
-		Exec(ctx, nil); err != nil {
+		Entries(&requiredCh).
+		Exec(ctx, nil)
+	if err != nil {
 		return nil, err
-	}
-	for _, ch := range requiredV {
-		required[ch.Key()] = ch
 	}
 	calculators := make([]*calculation.Calculator, len(calculated))
 	for i, v := range calculated.Values() {
-		c, err := computron.Open(v.Expression)
-		if err != nil {
-			return nil, err
-		}
-		calculators[i] = calculation.OpenCalculator(c, v, required)
+		calculators[i], err = calculation.OpenCalculator(v, requiredCh)
 	}
 	return newCalculationTransform(calculators), nil
 }

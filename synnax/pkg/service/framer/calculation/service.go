@@ -115,29 +115,6 @@ type Service struct {
 	w                            *framer.Writer
 }
 
-func (s *Service) SetState(
-	ctx context.Context,
-	ch channel.Channel,
-	variant status.Variant,
-	message string,
-) {
-	state := State{
-		Key:     ch.Key(),
-		Variant: variant,
-		Message: message,
-	}
-	b, err := (&binary.JSONCodec{}).Encode(ctx, state)
-	if err != nil {
-		s.cfg.L.Error("failed to encode state", zap.Error(err))
-	}
-	ser := telem.Series{
-		DataType: telem.JSONT,
-		Data:     append(b, []byte("\n")...),
-	}
-	fr := core.UnaryFrame(s.stateKey, ser)
-	_, err = s.w.Write(fr)
-}
-
 // Open opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
 func Open(ctx context.Context, cfgs ...Config) (*Service, error) {
@@ -176,6 +153,24 @@ func Open(ctx context.Context, cfgs ...Config) (*Service, error) {
 	s.mu.entries = make(map[channel.Key]*entry)
 
 	return s, nil
+}
+
+func (s *Service) setState(
+	_ context.Context,
+	ch channel.Channel,
+	variant status.Variant,
+	message string,
+) {
+	if _, err := s.w.Write(core.UnaryFrame(
+		s.stateKey,
+		telem.NewStaticJSONV(State{
+			Key:     ch.Key(),
+			Variant: variant,
+			Message: message,
+		}),
+	)); err != nil {
+		s.cfg.L.Error("failed to encode state", zap.Error(err))
+	}
 }
 
 func (s *Service) handleChange(
@@ -282,7 +277,7 @@ func (s *Service) startCalculation(
 	ch.Leaseholder = key.Leaseholder()
 	defer func() {
 		if err != nil {
-			s.SetState(ctx, ch, "error", err.Error())
+			s.setState(ctx, ch, "error", err.Error())
 		}
 	}()
 	if err = s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
@@ -324,7 +319,7 @@ func (s *Service) startCalculation(
 	if err != nil {
 		return nil, err
 	}
-	sc := newCalculationTransform([]*Calculator{c}, s.SetState)
+	sc := newCalculationTransform([]*Calculator{c}, s.setState)
 	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](
 		p,
 		"Calculator",
