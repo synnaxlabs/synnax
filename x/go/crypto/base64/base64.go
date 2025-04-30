@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package crypto
+// Package base64 provides extensions of the encoding/base64 package.
+package base64
 
 import "encoding/base64"
 
-// MustDecodeBase64 tries to decode the base64 encoded string. If decoding fails,
-// MustDecodeBase64 will panic to simplify safe initialization of global variables.
-func MustDecodeBase64(str string) string {
+// MustDecode tries to decode the base64 encoded string. If decoding fails,
+// MustDecode will panic to simplify safe initialization of global variables.
+func MustDecode(str string) string {
 	msg, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
 		panic(err)

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package crypto_test
+package base64_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/crypto"
+	"github.com/synnaxlabs/x/crypto/base64"
 )
 
 var _ = Describe(
@@ -24,7 +24,7 @@ var _ = Describe(
 						DescribeTable(
 							"it should decode the string",
 							func(encoded, decoded string) {
-								Expect(crypto.MustDecodeBase64(encoded)).To(Equal(decoded))
+								Expect(base64.MustDecode(encoded)).To(Equal(decoded))
 							}, Entry("empty", "", ""),
 							Entry("simple", "aGVsbG8=", "hello"),
 							Entry("complex", "dGVzdA==", "test"),
@@ -39,7 +39,7 @@ var _ = Describe(
 						DescribeTable(
 							"it should panic when it can't decode",
 							func(encoded string) {
-								Expect(func() { crypto.MustDecodeBase64(encoded) }).To(Panic())
+								Expect(func() { base64.MustDecode(encoded) }).To(Panic())
 							},
 							Entry("with space", " "),
 							Entry("with invalid characters", "!"),
