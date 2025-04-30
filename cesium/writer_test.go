@@ -79,9 +79,8 @@ var _ = Describe("Writer Behavior", func() {
 							}),
 						))
 						end := MustSucceed(w.Commit())
-						Expect(w.Close()).To(Succeed())
-
 						Expect(end).To(Equal(13*telem.SecondTS + 1))
+						Expect(w.Close()).To(Succeed())
 
 						By("Reading the data back")
 						frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1))
@@ -746,7 +745,7 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("With AutoCommit", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(40*telem.ByteSize),
+							cesium.WithFileSizeCap(40*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
 
@@ -827,7 +826,7 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("With AutoCommit: should not commit a tiny domain", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(80*telem.ByteSize),
+							cesium.WithFileSizeCap(80*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
 
@@ -911,7 +910,7 @@ var _ = Describe("Writer Behavior", func() {
 
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(64*telem.ByteSize),
+							cesium.WithFileSizeCap(64*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
 
@@ -963,7 +962,7 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("Without AutoCommit", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(40*telem.ByteSize),
+							cesium.WithFileSizeCap(40*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
 
@@ -1041,7 +1040,7 @@ var _ = Describe("Writer Behavior", func() {
 					It("Should not break when auto committing to not all channels", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(40*telem.ByteSize),
+							cesium.WithFileSizeCap(40*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
 
@@ -1278,7 +1277,7 @@ var _ = Describe("Writer Behavior", func() {
 						},
 					)))
 					_, err := w.Commit()
-					Expect(err).To(HaveOccurred())
+					Expect(err).To(HaveOccurredAs(validate.Error))
 					err = w.Close()
 					Expect(err).To(MatchError(validate.Error))
 					Expect(err).To(MatchError(ContainSubstring("exactly one")))
@@ -1298,9 +1297,9 @@ var _ = Describe("Writer Behavior", func() {
 						},
 					)))
 					_, err := w.Commit()
-					Expect(err).To(HaveOccurred())
+					Expect(err).To(HaveOccurredAs(validate.Error))
 					err = w.Close()
-					Expect(err).To(MatchError(validate.Error))
+					Expect(err).To(HaveOccurredAs(validate.Error))
 					Expect(err.Error()).To(ContainSubstring("duplicate channel"))
 				})
 			})
@@ -1351,9 +1350,8 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						)))
 						_, err := w.Commit()
-						Expect(err).To(HaveOccurred())
-						err = w.Close()
-						Expect(err).To(MatchError(index.ErrDiscontinuous))
+						Expect(err).To(HaveOccurredAs(index.ErrDiscontinuous))
+						Expect(w.Close()).To(HaveOccurredAs(index.ErrDiscontinuous))
 					})
 					Specify("Index not defined at all", func() {
 						Expect(db.CreateChannel(
@@ -1410,8 +1408,8 @@ var _ = Describe("Writer Behavior", func() {
 						[]telem.Series{telem.NewSeriesV[int64](10, 11, 12, 13)},
 					)))
 					_, err := w.Commit()
-					Expect(err).To(MatchError(validate.Error))
-					Expect(w.Close()).To(MatchError(validate.Error))
+					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(w.Close()).To(HaveOccurredAs(validate.Error))
 				})
 			})
 
@@ -1447,7 +1445,7 @@ var _ = Describe("Writer Behavior", func() {
 				Context("True", func() {
 					It("Should return an error if writer is not authorized to write", func() {
 						w2, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS, ErrOnUnauthorized: config.True()})
-						Expect(err).To(MatchError(control.Unauthorized))
+						Expect(err).To(HaveOccurredAs(control.Unauthorized))
 						Expect(w2).To(BeNil())
 					})
 				})
@@ -1483,7 +1481,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "Close 1", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					var (
 						w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{key}, Start: 10 * telem.SecondTS}))
-						e = core.NewErrEntityClosed("cesium.writer")
+						e = core.NewErrResourceClosed("cesium.writer")
 					)
 					Expect(w.Close()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
@@ -1510,7 +1508,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: k, Name: "Close 5", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					var (
 						w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{k}, Start: 10 * telem.SecondTS}))
-						e = core.NewErrEntityClosed("cesium.writer")
+						e = core.NewErrResourceClosed("cesium.writer")
 					)
 					Expect(w.Close()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
@@ -1527,7 +1525,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{Name: "It", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
@@ -1539,7 +1537,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{Name: "Our", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
 
@@ -1550,9 +1548,9 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{Name: "Was", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					err := subDB.Write(ctx, 0, telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](1, 2, 3)}))
-					Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 					err = subDB.WriteArray(ctx, key, 0, telem.NewSeriesV[int64](1, 2, 3))
-					Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
 			})

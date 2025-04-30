@@ -126,7 +126,7 @@ var _ = Describe("Write", func() {
 				t = MustSucceed(w.Close())
 				Expect(t.Occurred()).To(BeTrue())
 				_, err := w.Write(telem.NewSecondsTSV(10, 11, 12))
-				Expect(err).To(HaveOccurredAs(core.ErrClosedEntity))
+				Expect(err).To(HaveOccurredAs(core.ErrClosedResource))
 			})
 
 		})

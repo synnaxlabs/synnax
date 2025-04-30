@@ -20,7 +20,7 @@ var _ = Describe("FramerCodec", func() {
 			dataTypes := []telem.DataType{"int32"}
 			keys := channel.Keys{1}
 			v := api.WSFramerCodec{
-				LazyCodec:      codec.WrapWithLazy(codec.NewCodec(dataTypes, keys)),
+				Codec:          codec.NewStatic(keys, dataTypes),
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
 			req := api.FrameWriterRequest{
@@ -49,7 +49,7 @@ var _ = Describe("FramerCodec", func() {
 			dataTypes := []telem.DataType{"int32"}
 			keys := channel.Keys{1}
 			v := api.WSFramerCodec{
-				LazyCodec:      codec.WrapWithLazy(codec.NewCodec(dataTypes, keys)),
+				Codec:          codec.NewStatic(keys, dataTypes),
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
 			res := api.FrameStreamerResponse{

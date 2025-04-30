@@ -85,7 +85,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not allow opening a writer on a closed database", func() {
 					Expect(db.Close()).To(Succeed())
 					_, err := db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
-					Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("domain.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("domain.db")))
 				})
 			})
 			Describe("Start Validation", func() {
@@ -566,7 +566,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not allow operations on a closed writer", func() {
 					var (
 						w = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
-						e = core.NewErrEntityClosed("domain.writer")
+						e = core.NewErrResourceClosed("domain.writer")
 					)
 					Expect(w.Close()).To(Succeed())
 					err := w.Commit(ctx, telem.TimeStampMax)
@@ -579,12 +579,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not open a writer on a closed database", func() {
 					Expect(db.Close()).To(Succeed())
 					_, err := db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
-					Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("domain.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("domain.db")))
 				})
 
 				It("Should not write on a closed database", func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(HaveOccurredAs(core.NewErrEntityClosed("domain.db")))
+					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(HaveOccurredAs(core.NewErrResourceClosed("domain.db")))
 				})
 			})
 		})

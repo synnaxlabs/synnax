@@ -61,7 +61,7 @@ var _ = Describe("DB", func() {
 						Expect(cleanUp()).To(Succeed())
 					}()
 					_ = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
-					Expect(db.Close()).To(MatchError(core.ErrOpenEntity))
+					Expect(db.Close()).To(MatchError(core.ErrOpenResource))
 				})
 			})
 		})

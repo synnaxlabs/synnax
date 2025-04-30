@@ -153,7 +153,7 @@ std::pair<std::vector<Channel>, xerrors::Error>
 ChannelClient::retrieve(const std::vector<ChannelKey> &keys) const {
     auto req = api::v1::ChannelRetrieveRequest();
     req.mutable_keys()->Add(keys.begin(), keys.end());
-    auto [res, exc] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    auto [res, exc] = this->retrieve_client->send(RETRIEVE_ENDPOINT, req);
     std::vector<Channel> channels = {res.channels().begin(), res.channels().end()};
     return {channels, exc};
 }

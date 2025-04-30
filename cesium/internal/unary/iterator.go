@@ -54,7 +54,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 }
 
 var (
-	errIteratorClosed = core.NewErrEntityClosed("unary.iterator")
+	errIteratorClosed = core.NewErrResourceClosed("unary.iterator")
 )
 
 type Iterator struct {
@@ -205,7 +205,7 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 func (i *Iterator) autoNext(ctx context.Context) bool {
 	i.view.Start = i.view.End
-	endApprox, err := i.idx.Stamp(ctx, i.view.Start, i.IteratorConfig.AutoChunkSize, false)
+	endApprox, err := i.idx.Stamp(ctx, i.view.Start, i.IteratorConfig.AutoChunkSize, index.AllowDiscontinuous)
 	if err != nil {
 		i.err = err
 		return false
@@ -436,7 +436,7 @@ func (i *Iterator) approximateStart(ctx context.Context) (
 	if i.internal.TimeRange().Start.Before(i.view.Start) {
 		target.End = i.view.Start
 	}
-	startApprox, alignment, err := i.idx.Distance(ctx, target, true)
+	startApprox, alignment, err := i.idx.Distance(ctx, target, index.MustBeContinuous)
 	return startApprox, alignment, err
 }
 
@@ -448,7 +448,7 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 	endApprox.Approximation = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
-		endApprox, _, err = i.idx.Distance(ctx, target, true)
+		endApprox, _, err = i.idx.Distance(ctx, target, index.MustBeContinuous)
 	}
 	return
 }

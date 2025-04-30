@@ -33,6 +33,7 @@ type StreamClient[RQ, RQT, RS, RST freighter.Payload] struct {
 type StreamServerCore[RQ, RQT, RS, RST freighter.Payload] struct {
 	RequestTranslator  Translator[RQ, RQT]
 	ResponseTranslator Translator[RS, RST]
+	CreateTranslators  func() (Translator[RQ, RQT], Translator[RS, RST])
 	ServiceDesc        *grpc.ServiceDesc
 	Internal           bool
 	handler            func(context.Context, freighter.ServerStream[RQ, RS]) error
@@ -129,9 +130,16 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 func (s *StreamServerCore[RQ, RQT, RS, RST]) adaptStream(
 	stream grpcServerStream[RQT, RST],
 ) freighter.ServerStream[RQ, RS] {
+	var (
+		requestTranslator  = s.RequestTranslator
+		responseTranslator = s.ResponseTranslator
+	)
+	if s.CreateTranslators != nil {
+		requestTranslator, responseTranslator = s.CreateTranslators()
+	}
 	return &ServerStream[RQ, RQT, RS, RST]{
-		requestTranslator:  s.RequestTranslator,
-		responseTranslator: s.ResponseTranslator,
+		requestTranslator:  requestTranslator,
+		responseTranslator: responseTranslator,
 		internal:           stream,
 	}
 }

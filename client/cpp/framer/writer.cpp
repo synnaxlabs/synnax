@@ -24,23 +24,23 @@ enum WriterCommand : uint32_t {
 };
 
 namespace synnax {
-std::pair<Writer, xerrors::Error>
-FrameClient::open_writer(const WriterConfig &cfg) const {
-    auto [w, err] = this->writer_client->stream(WRITE_ENDPOINT);
+std::pair<Writer, xerrors::Error> FrameClient::open_writer(const WriterConfig &cfg
+) const {
+    auto [net_writer, err] = this->writer_client->stream(WRITE_ENDPOINT);
     if (err) return {Writer(), err};
 
     api::v1::FrameWriterRequest req;
     req.set_command(OPEN);
     cfg.to_proto(req.mutable_config());
-    if (!w->send(req).ok()) w->close_send();
-    auto [_, res_exc] = w->receive();
-    auto w2 = Writer(std::move(w), cfg);
+    if (!net_writer->send(req).ok()) net_writer->close_send();
+    auto [_, res_exc] = net_writer->receive();
+    auto writer = Writer(std::move(net_writer), cfg);
     if (cfg.enable_experimental_codec) {
-        auto [channels, err] = this->retrieve_channels(cfg.channels);
-        if (err) return {Writer(), err};
-        w2.codec = Codec(channels);
+        writer.codec = Codec(this->channel_client);
+        if (const auto codec_err = writer.codec.update(cfg.channels))
+            return {Writer(), codec_err};
     }
-    return {std::move(w2), res_exc};
+    return {std::move(writer), res_exc};
 }
 
 Writer::Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg):
@@ -58,32 +58,40 @@ void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
 }
 
 xerrors::Error Writer::write(const synnax::Frame &fr) {
-    this->init_request(fr);
+    if (this->closed) return this->close_err;
+    if (const auto err = this->init_request(fr)) {
+        auto _ = this->close();
+        this->close_err = err;
+        return this->close_err;
+    }
     return this->exec(*this->cached_write_req, false).second;
 }
 
-void Writer::init_request(const Frame &fr) {
+xerrors::Error Writer::init_request(const Frame &fr) {
     if (this->cfg.enable_experimental_codec) {
-        if (this->cached_write_req == nullptr) this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
+        if (this->cached_write_req == nullptr)
+            this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
         this->cached_write_req->set_command(WRITE);
-        // this->cached_frame = this->cached_write_req->mutable_frame();
-        // fr.to_proto(this->cached_frame);
-        std::vector<uint8_t> data;
-        this->codec.encode(fr, 0, data);
-        this->cached_write_req->set_buffer(data.data(), data.size());
-        return;
+        if (const auto err = this->codec.encode(fr, this->codec_data)) return err;
+        this->cached_write_req->set_buffer(
+            this->codec_data.data(),
+            this->codec_data.size()
+        );
+        return xerrors::NIL;
     }
 
     if (this->cached_write_req != nullptr && this->cfg.enable_proto_frame_caching) {
         for (size_t i = 0; i < fr.series->size(); i++)
-            fr.series->at(i).to_proto(cached_frame->mutable_series(i));
-        return;
+            fr.series->at(i).to_proto(cached_frame->mutable_series(static_cast<int>(i))
+            );
+        return xerrors::NIL;
     }
     this->cached_write_req = nullptr;
     this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
     this->cached_write_req->set_command(WRITE);
     this->cached_frame = cached_write_req->mutable_frame();
     fr.to_proto(cached_frame);
+    return xerrors::NIL;
 }
 
 std::pair<telem::TimeStamp, xerrors::Error> Writer::commit() {
@@ -132,7 +140,7 @@ xerrors::Error Writer::close() {
     stream->close_send();
     while (true)
         if (const auto rec_exc = stream->receive().second; rec_exc) {
-            this->close_err = rec_exc.skip(freighter::EOF_);
+            this->close_err = rec_exc.skip(freighter::EOF_ERR);
             return this->close_err;
         }
 }

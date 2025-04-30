@@ -32,15 +32,19 @@ import (
 
 type (
 	frameWriterRequestTranslator struct {
-		codec *framercodec.LazyCodec
+		codec *framercodec.Codec
 	}
 	frameWriterResponseTranslator   struct{}
 	frameIteratorRequestTranslator  struct{}
 	frameIteratorResponseTranslator struct{}
-	frameStreamerRequestTranslator  struct{}
-	frameStreamerResponseTranslator struct{}
-	FrameDeleteRequestTranslator    struct{}
-	framerWriterServerCore          = fgrpc.StreamServerCore[
+	frameStreamerRequestTranslator  struct {
+		codec *framercodec.Codec
+	}
+	frameStreamerResponseTranslator struct {
+		codec *framercodec.Codec
+	}
+	FrameDeleteRequestTranslator struct{}
+	framerWriterServerCore       = fgrpc.StreamServerCore[
 		api.FrameWriterRequest,
 		*gapi.FrameWriterRequest,
 		api.FrameWriterResponse,
@@ -147,7 +151,7 @@ func (t frameWriterRequestTranslator) Forward(
 	}
 	var err error
 	if t.codec != nil {
-		r.Buffer, err = t.codec.Encode(msg.Frame)
+		r.Buffer, err = t.codec.Encode(ctx, msg.Frame)
 	}
 	return r, err
 }
@@ -282,30 +286,34 @@ func (t frameStreamerRequestTranslator) Backward(
 	ctx context.Context,
 	msg *gapi.FrameStreamerRequest,
 ) (api.FrameStreamerRequest, error) {
-	return api.FrameStreamerRequest{
+	rq := api.FrameStreamerRequest{
 		Keys:             translateChannelKeysBackward(msg.Keys),
 		DownSampleFactor: int(msg.DownsampleFactor),
-	}, nil
+	}
+	if msg.EnableExperimentalCodec {
+		return rq, t.codec.Update(ctx, rq.Keys)
+	}
+	return rq, nil
 }
 
 func (t frameStreamerResponseTranslator) Forward(
 	ctx context.Context,
 	msg api.FrameStreamerResponse,
-) (*gapi.FrameStreamerResponse, error) {
-	return &gapi.FrameStreamerResponse{
-		Frame: translateFrameForward(msg.Frame),
-		Error: fgrpc.EncodeError(ctx, msg.Error, false),
-	}, nil
+) (res *gapi.FrameStreamerResponse, err error) {
+	res = &gapi.FrameStreamerResponse{}
+	if t.codec.Initialized() {
+		res.Buffer, err = t.codec.Encode(ctx, msg.Frame)
+		return
+	}
+	res.Frame = translateFrameForward(msg.Frame)
+	return
 }
 
 func (t frameStreamerResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	msg *gapi.FrameStreamerResponse,
 ) (api.FrameStreamerResponse, error) {
-	return api.FrameStreamerResponse{
-		Frame: translateFrameBackward(msg.Frame),
-		Error: fgrpc.DecodeError(ctx, msg.Error),
-	}, nil
+	return api.FrameStreamerResponse{Frame: translateFrameBackward(msg.Frame)}, nil
 }
 
 func (t FrameDeleteRequestTranslator) Forward(
@@ -366,15 +374,19 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 	gapi.RegisterFrameStreamerServiceServer(reg, f)
 }
 
-func newFramer(a *api.Transport, framerCodec *framercodec.LazyCodec) fgrpc.BindableTransport {
+func newFramer(a *api.Transport, channels channel.Readable) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
-				RequestTranslator: frameWriterRequestTranslator{
-					codec: framerCodec,
-				},
 				ResponseTranslator: frameWriterResponseTranslator{},
-				ServiceDesc:        &gapi.FrameWriterService_ServiceDesc,
+				CreateTranslators: func() (
+					fgrpc.Translator[api.FrameWriterRequest, *gapi.FrameWriterRequest],
+					fgrpc.Translator[api.FrameWriterResponse, *gapi.FrameWriterResponse],
+				) {
+					codec := framercodec.NewDynamic(channels)
+					return frameWriterRequestTranslator{codec: codec}, frameWriterResponseTranslator{}
+				},
+				ServiceDesc: &gapi.FrameWriterService_ServiceDesc,
 			},
 		}
 		is = &iteratorServer{
@@ -386,9 +398,11 @@ func newFramer(a *api.Transport, framerCodec *framercodec.LazyCodec) fgrpc.Binda
 		}
 		ss = &streamerServer{
 			frameStreamerServerCore: &frameStreamerServerCore{
-				RequestTranslator:  frameStreamerRequestTranslator{},
-				ResponseTranslator: frameStreamerResponseTranslator{},
-				ServiceDesc:        &gapi.FrameStreamerService_ServiceDesc,
+				CreateTranslators: func() (fgrpc.Translator[api.FrameStreamerRequest, *gapi.FrameStreamerRequest], fgrpc.Translator[api.FrameStreamerResponse, *gapi.FrameStreamerResponse]) {
+					codec := framercodec.NewDynamic(channels)
+					return frameStreamerRequestTranslator{codec: codec}, frameStreamerResponseTranslator{codec: codec}
+				},
+				ServiceDesc: &gapi.FrameStreamerService_ServiceDesc,
 			},
 		}
 		ds = &frameDeleteServer{

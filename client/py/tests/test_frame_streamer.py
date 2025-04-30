@@ -20,12 +20,10 @@ from synnax import TimeSpan
 @pytest.mark.framer
 @pytest.mark.streamer
 class TestStreamer:
-    @pytest.mark.focus
     def test_basic_stream(self, virtual_channel: sy.Channel, client: sy.Synnax):
         """Should correctly stream data for a channel"""
         with client.open_streamer(
-            virtual_channel.key,
-            use_experimental_codec=True
+            virtual_channel.key, use_experimental_codec=True
         ) as s:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 data = np.random.rand(10).astype(np.float64)

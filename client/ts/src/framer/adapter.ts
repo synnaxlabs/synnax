@@ -24,7 +24,7 @@ export class ReadAdapter {
     this.retriever = retriever;
     this.adapter = null;
     this.keys = [];
-    this.codec = new Codec([], []);
+    this.codec = new Codec();
   }
 
   static async open(
@@ -82,7 +82,7 @@ export class WriteAdapter {
     this.retriever = retriever;
     this.adapter = null;
     this.keys = [];
-    this.codec = new Codec([], []);
+    this.codec = new Codec();
   }
 
   static async open(
@@ -108,7 +108,7 @@ export class WriteAdapter {
       results.map((c) => [c.name, c.key]),
     );
     this.keys = results.map((c) => c.key);
-    this.codec = new Codec(
+    this.codec.update(
       this.keys,
       results.map((c) => c.dataType),
     );

@@ -7,12 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <include/gtest/gtest.h>
+/// std
 #include <thread>
 
+/// external
+#include "gtest/gtest.h"
+
+/// module
+#include "x/cpp/xtest/xtest.h"
+
+/// internal
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
 
 void test_downsample(
     const std::vector<int> &raw_data,
@@ -127,6 +133,34 @@ TEST(StreamerTests, TestStreamDownsample) {
     test_downsample(data, data, 0);
 }
 
+/// @brief it should correctly stream data from a variable density channel.
+TEST(StreamerTests, TestStreamVariableChannel) {
+    auto client = new_test_client();
+    auto data = ASSERT_NIL_P(client.channels.create("data", telem::STRING_T, true));
+    auto now = telem::TimeStamp::now();
+    std::vector channels = {data.key};
+    auto streamer = ASSERT_NIL_P(client.telem.open_streamer(synnax::StreamerConfig{
+        .channels = {data.key},
+    }));
+
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
+        channels,
+        now,
+        std::vector{telem::AUTH_ABSOLUTE},
+        telem::ControlSubject{"test_writer"}
+    }));
+
+    const std::string value = "cat";
+    auto frame = synnax::Frame(data.key, telem::Series(value));
+    ASSERT_NIL(writer.write(frame));
+
+    auto res_frame = ASSERT_NIL_P(streamer.read());
+    ASSERT_EQ(res_frame.size(), 1);
+    ASSERT_EQ(res_frame.series->at(0).at<std::string>(0), "cat");
+    ASSERT_NIL(writer.close());
+    ASSERT_NIL(streamer.close());
+}
+
 void test_downsample(
     const std::vector<int> &raw_data,
     std::vector<int> expected,
@@ -169,7 +203,6 @@ void test_downsample_string(
 ) {
     auto client = new_test_client();
 
-    // Create a virtual channel
     synnax::Channel virtual_channel("virtual_string_channel", telem::STRING_T, true);
     ASSERT_NIL(client.channels.create(virtual_channel));
 
@@ -186,7 +219,6 @@ void test_downsample_string(
         client.telem.open_streamer(synnax::StreamerConfig{channels, downsample_factor})
     );
 
-    // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = synnax::Frame(
@@ -196,7 +228,6 @@ void test_downsample_string(
     ASSERT_NIL(writer.write(frame));
     auto res_frame = ASSERT_NIL_P(streamer.read());
 
-    // Get the downsampled strings
     std::vector<std::string> received_strings = res_frame.series->at(0).strings();
 
     ASSERT_EQ(received_strings.size(), expected.size());

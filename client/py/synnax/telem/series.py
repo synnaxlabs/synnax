@@ -316,6 +316,9 @@ class MultiSeries:
         for s in self.series:
             yield from s
 
+    def __str__(self):
+        return str(list(self))
+
     @property
     def size(self) -> Size:
         return Size(sum(s.size for s in self.series))

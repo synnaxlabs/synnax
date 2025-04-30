@@ -56,7 +56,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         software_timed(other.software_timed),
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
-        skew_warn_on_count(std::move(other.skew_warn_on_count)) {}
+        skew_warn_on_count(other.skew_warn_on_count) {}
 
     /// @brief delete copy constructor and copy assignment to prevent accidental
     /// copies.
@@ -165,9 +165,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
     [[nodiscard]]
 
-    xerrors::Error
-    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, const TaskHandle handle)
-        const {
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        const TaskHandle handle
+    ) const {
         for (const auto &ch: this->channels)
             if (auto err = ch->apply(dmx, handle)) return err;
         if (this->software_timed) return xerrors::NIL;

@@ -74,11 +74,12 @@ message FrameWriterResponse {
 message FrameStreamerRequest {
     repeated uint32 keys = 1;
     int32 downsample_factor = 2;
+    bool enable_experimental_codec = 3;
 }
 
 message FrameStreamerResponse {
     Frame frame = 1;
-    errors.PBPayload error = 2;
+    bytes buffer = 2;
 }
 
 service FrameDeleteService {

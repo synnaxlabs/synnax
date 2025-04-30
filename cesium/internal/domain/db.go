@@ -32,7 +32,7 @@ var (
 	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
 	ErrRangeNotFound = errors.Wrap(query.NotFound, "time range not found")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
-	ErrDBClosed = core.NewErrEntityClosed("domain.db")
+	ErrDBClosed = core.NewErrResourceClosed("domain.db")
 )
 
 func RangeWriteConflict(writerTr, existingTr telem.TimeRange) error {
@@ -87,11 +87,11 @@ func NewErrRangeNotFound(tr telem.TimeRange) error {
 //
 // A DB must be closed after use to avoid leaking any underlying resources/locks.
 type DB struct {
-	cfg         Config
-	idx         *index
-	fc          *fileController
-	closed      *atomic.Bool
-	entityCount *atomic.Int64
+	cfg           Config
+	idx           *index
+	fc            *fileController
+	closed        *atomic.Bool
+	resourceCount *atomic.Int64
 }
 
 // Config is the configuration for opening a DB.
@@ -107,7 +107,7 @@ type Config struct {
 	// to exceed by much with frequent commits.
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
-	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a FilterLessThan.
+	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
 	// Must be in (0, 1].
 	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
@@ -176,11 +176,11 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 	return &DB{
-		cfg:         cfg,
-		idx:         idx,
-		fc:          controller,
-		closed:      &atomic.Bool{},
-		entityCount: &atomic.Int64{},
+		cfg:           cfg,
+		idx:           idx,
+		fc:            controller,
+		closed:        &atomic.Bool{},
+		resourceCount: &atomic.Int64{},
 	}, nil
 }
 
@@ -213,10 +213,10 @@ func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-	count := db.entityCount.Load()
+	count := db.resourceCount.Load()
 	if count > 0 {
 		err := errors.Wrapf(
-			core.ErrOpenEntity,
+			core.ErrOpenResource,
 			"there are %d unclosed writers/iterators accessing it",
 			count,
 		)

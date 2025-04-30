@@ -228,11 +228,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
 							f := i.Value()
-							Expect(f.SeriesSlice()[0].Len()).To(Equal(int64(7)))
-							Expect(f.SeriesSlice()[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
-							Expect(f.SeriesSlice()[1].Len()).To(Equal(int64(6)))
-							Expect(f.SeriesSlice()[1].TimeRange).To(Equal((17*telem.SecondTS + 1).Range(43*telem.SecondTS + 1)))
-							//Expect(f.SquashSameKeyData(data)).To(Equal(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107, 203, 209, 301, 307, 401, 403).Data))
+							Expect(f.SeriesAt(0)).To(telem.MatchSeriesDataV[int64](100, 101, 103, 104, 105, 106, 107))
+							Expect(f.SeriesAt(0).TimeRange).To(Equal((10 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
+							Expect(f.SeriesAt(1)).To(telem.MatchSeriesDataV[int64](203, 209, 301, 307, 401, 403))
+							Expect(f.SeriesAt(1).TimeRange).To(Equal((17*telem.SecondTS + 1).Range(43*telem.SecondTS + 1)))
 							Expect(i.Close()).To(Succeed())
 						})
 					})
@@ -537,7 +536,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start:   10 * telem.SecondTS,
 							Subject: control.Subject{Key: "foo"}},
 						))
-						e = core.NewErrEntityClosed("unary.writer")
+						e = core.NewErrResourceClosed("unary.writer")
 					)
 					Expect(t.Occurred()).To(BeTrue())
 					_, err := w.Close()
@@ -556,12 +555,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"}},
 					)
-					Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("unary.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("unary.db")))
 					Expect(err).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))
 				})
 				It("Should not write on a closed database", func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](0, 1, 2))).To(HaveOccurredAs(core.NewErrEntityClosed("unary.db")))
+					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](0, 1, 2))).To(HaveOccurredAs(core.NewErrResourceClosed("unary.db")))
 				})
 			})
 		})

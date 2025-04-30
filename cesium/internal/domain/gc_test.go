@@ -590,7 +590,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 
 			Context("Regression", func() {
-				// This regression test is used to verify that when FilterLessThan is run, there is
+				// This regression test is used to verify that when GC is run, there is
 				// no readers on the old file that is still symlinking to the old file,
 				// causing the reading of incorrect data.
 				Specify("Reader should be recycled", func() {
@@ -661,7 +661,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					Expect(db.Close()).To(Succeed())
-					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(core.NewErrEntityClosed("domain.db")))
+					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(core.NewErrResourceClosed("domain.db")))
 				})
 			})
 		})

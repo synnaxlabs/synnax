@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
-	testutil2 "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -795,8 +794,8 @@ var _ = Describe("Delete", func() {
 
 					f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax))
 					Expect(f.Count()).To(Equal(2))
-					Expect(f.SeriesAt(0).Data).To(testutil2.EqualUnmarshal([]int64{10, 12, 14, 16, 18}))
-					Expect(f.SeriesAt(1).Data).To(testutil2.EqualUnmarshal([]int64{28, 30}))
+					Expect(f.SeriesAt(0)).To(telem.MatchSeriesDataV[int64](10, 12, 14, 16, 18))
+					Expect(f.SeriesAt(1)).To(telem.MatchSeriesDataV[int64](28, 30))
 
 					Expect(indexDB2.Close()).To(Succeed())
 					Expect(db2.Close()).To(Succeed())
@@ -849,8 +848,8 @@ var _ = Describe("Delete", func() {
 
 					f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax))
 					Expect(f.Count()).To(Equal(2))
-					Expect(f.SeriesAt(0).Data).To(testutil2.EqualUnmarshal([]int64{10, 12, 14, 16, 18, 20}))
-					Expect(f.SeriesAt(1).Data).To(testutil2.EqualUnmarshal([]int64{28, 30}))
+					Expect(f.SeriesAt(0)).To(telem.MatchSeriesDataV[int64](10, 12, 14, 16, 18, 20))
+					Expect(f.SeriesAt(1)).To(telem.MatchSeriesDataV[int64](28, 30))
 
 					Expect(indexDB2.Close()).To(Succeed())
 					Expect(db2.Close()).To(Succeed())
@@ -900,9 +899,9 @@ var _ = Describe("Delete", func() {
 
 					f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax))
 					Expect(f.Count()).To(Equal(3))
-					Expect(f.SeriesAt(0).Data).To(testutil2.EqualUnmarshal([]int64{10, 12, 14, 16, 18, 20}))
-					Expect(f.SeriesAt(1).Data).To(testutil2.EqualUnmarshal([]int64{22}))
-					Expect(f.SeriesAt(2).Data).To(testutil2.EqualUnmarshal([]int64{28, 30}))
+					Expect(f.SeriesAt(0)).To(telem.MatchSeriesDataV[int64](10, 12, 14, 16, 18, 20))
+					Expect(f.SeriesAt(1)).To(telem.MatchSeriesDataV[int64](22))
+					Expect(f.SeriesAt(2)).To(telem.MatchSeriesDataV[int64](28, 30))
 
 					Expect(indexDB2.Close()).To(Succeed())
 					Expect(db2.Close()).To(Succeed())

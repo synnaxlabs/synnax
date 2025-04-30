@@ -11,6 +11,8 @@
 
 /// std
 #include <memory>
+#include <set>
+#include <utility>
 #include <vector>
 
 /// internal
@@ -21,7 +23,6 @@
 #include "x/cpp/telem/control.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/binary/binary.h"
 
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
@@ -201,7 +202,7 @@ struct CodecFlags {
 
     /// @brief Encodes the flags into a byte
     /// @return The encoded flags
-    uint8_t encode() const;
+    [[nodiscard]] uint8_t encode() const;
 
     /// @brief Decodes flags from a byte
     /// @param b The byte to decode
@@ -212,10 +213,31 @@ struct CodecFlags {
 /// @brief Codec for encoding and decoding frames efficiently.
 /// This implements the Frame Flight Protocol (RFC 0016)
 class Codec {
-    std::vector<ChannelKey> keys;
-    std::unordered_map<ChannelKey, telem::DataType> key_data_types;
+    struct State {
+        /// @brief the ordered set of channel keys for the codec.
+        std::set<ChannelKey> keys;
+        /// @brief the data types for each channel in keys.
+        std::unordered_map<ChannelKey, telem::DataType> key_data_types;
+        /// @brief whether the codec has any channels with variable density data types.
+        bool has_variable_data_types = false;
+    };
+    /// @brief a cached set of sorting indices for ensuring that encoded/decoded
+    /// frames are properly sorted.
     std::vector<std::pair<ChannelKey, size_t>> sorting_indices;
-    bool has_variable_data_types;
+
+    /// @brief the current sequence number for the codec. This is used to identify
+    /// which codec state to use when encoding/decoding frames.
+    std::uint32_t seq_num = 0;
+
+    /// @brief the codec state for each sequence number. This is used to identify the
+    /// relevant channel keys and data types for encoding/decoding frames.
+    std::unordered_map<std::uint32_t, State> states;
+
+    /// @brief used to retrieve channels when updating the codec state.
+    ChannelClient channel_client;
+
+    void throw_if_uninitialized() const;
+
 public:
     Codec() = default;
 
@@ -223,24 +245,36 @@ public:
     /// @param data_types The data types corresponding to each channel
     /// @param channels The channel keys
     Codec(
-        const std::vector<telem::DataType> &data_types,
-        const std::vector<ChannelKey> &channels
+        const std::vector<ChannelKey> &channels,
+        const std::vector<telem::DataType> &data_types
     );
 
-    /// @brief Creates a new codec from a list of channels
-    /// @param channels The channels to create the codec from
-    explicit Codec(const std::vector<Channel> &channels);
+    /// @brief instantiates a dynamic codec that uses the provided function to look up
+    /// the relevant channels when update() is called.
+    explicit Codec(ChannelClient channel_client):
+        channel_client(std::move(channel_client)) {}
+
+    /// @brief updates the codec to use the given channels. If the channels do not
+    /// exist, the codec will return a query::NOT_FOUND error.
+    xerrors::Error update(const std::vector<ChannelKey> &keys);
 
     /// @brief Encodes a frame into a byte array
     /// @param frame The frame to encode
-    /// @param start_offset The starting offset in the output buffer
+    /// @param output The byte array to encode the frame into.
     /// @return The encoded frame as a byte vector
-    void encode(const Frame &frame, size_t start_offset, std::vector<uint8_t> &data);
+    xerrors::Error encode(const Frame &frame, std::vector<uint8_t> &output);
 
-    /// @brief Decodes a frame from a byte array
-    /// @param data The byte array to decode
-    /// @return The decoded frame
-    [[nodiscard]] Frame decode(const std::vector<uint8_t> &data) const;
+    /// @brief Decodes a frame from a byte vector.
+    /// @param data The byte vector to decode.
+    /// @return The decoded frame.
+    [[nodiscard]] std::pair<Frame, xerrors::Error>
+    decode(const std::vector<std::uint8_t> &data) const;
+
+    /// @brief decodes a frame from the provided byte array and size.
+    /// @param data The byte array to decode.
+    /// @param size The size of the byte array.
+    [[nodiscard]] std::pair<Frame, xerrors::Error>
+    decode(const std::uint8_t *data, std::size_t size) const;
 };
 
 
@@ -251,12 +285,15 @@ public:
     std::vector<ChannelKey> channels;
     /// @brief the downsample factor for the streamer.
     int downsample_factor = 1;
+    /// @brief enable experimental high-performance codec for the writer.
+    bool enable_experimental_codec = true;
 
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void to_proto(api::v1::FrameStreamerRequest &f) const;
 
     friend class FrameClient;
+    friend class Streamer;
 };
 
 /// @brief used to stream frames of telemetry from a set of channels in real-time.
@@ -288,7 +325,7 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with
     /// close(), but it is safe to call concurrently with read().
-    [[nodiscard]] xerrors::Error set_channels(std::vector<ChannelKey> channels) const;
+    [[nodiscard]] xerrors::Error set_channels(const std::vector<ChannelKey> &channels);
 
     /// @brief closes the streamer and releases any resources associated with it. If
     /// any errors occurred during the stream, they will be returned. A streamer
@@ -310,11 +347,17 @@ private:
     /// @brief true if the streamer has been closed.
     bool closed = false;
 
+    StreamerConfig cfg;
+
+    /// @brief custom framing codec. only used when cfg.enable_experimental_codec is
+    /// set to true.
+    Codec codec;
+
     /// @brief throws if methods have been called on the streamer before it is open.
     void assert_open() const;
 
     /// @brief constructs the streamer from a configured stream and moves ownership.
-    explicit Streamer(std::unique_ptr<StreamerStream> stream);
+    explicit Streamer(std::unique_ptr<StreamerStream> stream, StreamerConfig config);
 
     /// @brief the stream transport for the streamer.
     std::unique_ptr<StreamerStream> stream;
@@ -381,11 +424,11 @@ struct WriterConfig {
     /// @brief sets the interval at which commits will be flushed to disk and
     /// durable when auto commit is enabled. Setting this value to zero will make
     /// all writes durable immediately. Lower values will decrease write throughput.
-    /// Defaults to 1s when auto commit is enabled.
+    /// Defaults to 1s when auto-commit is enabled.
     telem::TimeSpan auto_index_persist_interval = 1 * telem::SECOND;
 
-    /// @brief whether to enable protobuf frame caching for the writer. This allows
-    /// the writer to avoid repeatedly allocation and deallocating protobuf frames,
+    /// @brief enable protobuf frame caching for the writer. This allows
+    /// the writer to avoid repeated allocation and deallocation of protobuf frames,
     /// releasing significant heap pressure.
     ///
     /// @details IMPORTANT: This option should only be used for writers that write
@@ -395,7 +438,9 @@ struct WriterConfig {
     /// FOLLOW THIS RULE.
     bool enable_proto_frame_caching = false;
 
-    bool enable_experimental_codec = false;
+    /// @brief enable experimental high-performance codec for the writer.
+    bool enable_experimental_codec = true;
+
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void to_proto(api::v1::FrameWriterConfig *f) const;
@@ -475,13 +520,20 @@ public:
     [[nodiscard]] xerrors::Error close();
 
 private:
-    /// @brief if close() has been called on the writer.
+    /// @brief if close() has been called on the writer, or an error has cause the
+    /// writer to self-close.
     bool closed = false;
+    /// @brief the error accumulated if the writer has closed with an error.
     xerrors::Error close_err = xerrors::NIL;
 
     /// @brief the configuration used to open the writer.
     WriterConfig cfg;
+
+    /// @brief the custom synnax frame codec for encoding/decoding frames. This codec
+    /// is only used when cfg.enable_experimental_codec is true.
     Codec codec;
+    /// @brief the data buffer for storing encoded frames.
+    std::vector<std::uint8_t> codec_data;
 
     /// @brief the stream transport for the writer.
     std::unique_ptr<WriterStream> stream;
@@ -500,29 +552,22 @@ private:
     explicit Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg);
 
     /// @brief initializes the cached request with the frame structure
-    void init_request(const Frame &fr);
-
-    /// @brief throws a runtime error if the writer is closed.
-    void assert_open() const;
+    xerrors::Error init_request(const Frame &fr);
 
     friend class FrameClient;
 };
 
-using RetrieveChannels = std::function<
-    std::pair<std::vector<synnax::Channel>, xerrors::Error>(
-        std::vector<synnax::ChannelKey>
-    )>;
 
 class FrameClient {
 public:
     FrameClient(
         std::unique_ptr<StreamerClient> streamer_client,
         std::unique_ptr<WriterClient> writer_client,
-        const RetrieveChannels &retrieve_channels
+        ChannelClient channel_client
     ):
         streamer_client(std::move(streamer_client)),
         writer_client(std::move(writer_client)),
-        retrieve_channels(retrieve_channels) {}
+        channel_client(std::move(channel_client)) {}
 
     /// @brief opens a new frame writer using the given configuration. For
     /// information on configuration parameters, see WriterConfig.
@@ -530,8 +575,8 @@ public:
     /// if the writer could not be opened. In the case where ok() is false, the
     /// writer will be in an invalid state and does not need to be closed. If ok()
     /// is true, The writer must be closed after use to avoid leaking resources.
-    [[nodiscard]] std::pair<Writer, xerrors::Error>
-    open_writer(const WriterConfig &cfg) const;
+    [[nodiscard]] std::pair<Writer, xerrors::Error> open_writer(const WriterConfig &cfg
+    ) const;
 
     /// @brief opens a new frame streamer using the given configuration. For
     /// information on configuration parameters, see StreamerConfig.
@@ -550,7 +595,9 @@ private:
     /// @brief freighter transport implementation for opening writers to the Synnax
     /// cluster.
     std::unique_ptr<WriterClient> writer_client;
-    RetrieveChannels retrieve_channels;
+    /// @brief a utility function used to retrieve information about channels from the
+    /// cluster.
+    ChannelClient channel_client;
 };
 
 

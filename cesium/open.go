@@ -47,7 +47,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	for _, i := range info {
 		if !i.IsDir() {
 			db.options.L.Warn(fmt.Sprintf(
-				"Found unknown file %s in database root directory",
+				"found unknown file %s in database root directory",
 				i.Name(),
 			))
 			continue
@@ -68,15 +68,14 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	}
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
-	db.relay = openRelay(sCtx, o.Instrumentation)
+	db.relay = openRelay(sCtx, o.Instrumentation, db.options.streamingConfig)
 	db.startGC(sCtx, o)
 	db.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	return db, nil
 }
 
 func (db *DB) openVirtual(ch Channel, fs xfs.FS) error {
-	_, isOpen := db.mu.virtualDBs[ch.Key]
-	if isOpen {
+	if _, isOpen := db.mu.virtualDBs[ch.Key]; isOpen {
 		return nil
 	}
 	v, err := virtual.Open(virtual.Config{
@@ -93,8 +92,7 @@ func (db *DB) openVirtual(ch Channel, fs xfs.FS) error {
 }
 
 func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
-	_, isOpen := db.mu.unaryDBs[ch.Key]
-	if isOpen {
+	if _, isOpen := db.mu.unaryDBs[ch.Key]; isOpen {
 		return nil
 	}
 	u, err := unary.Open(unary.Config{
@@ -138,16 +136,17 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 	}
 	err = db.openVirtual(ch, fs)
 	if errors.Is(err, virtual.ErrNotVirtual) {
-		return db.openUnary(ch, fs)
+		err = db.openUnary(ch, fs)
 	}
-	if !errors.Is(err, meta.ErrorPurge) {
-		return err
-	}
-	return db.fs.Remove(keyToDirName(ch.Key))
+	// For legacy, rate-based channels (V1), attempting to open a unary DB on them
+	// will return a meta.ErrorIgnoreChannel error, which tells us to just ignore
+	// and not open that directory as an actual channel. This is a better alternative
+	// to deleting the channel, as we don't want to risk losing user data.
+	return errors.Skip(err, meta.ErrorIgnoreChannel)
 }
 
 func openFS(opts *options) error {
-	_fs, err := opts.fs.Sub(opts.dirname)
-	opts.fs = _fs
+	subFS, err := opts.fs.Sub(opts.dirname)
+	opts.fs = subFS
 	return err
 }

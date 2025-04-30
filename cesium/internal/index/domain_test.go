@@ -37,6 +37,7 @@ var _ = Describe("Domain", func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(cleanUp()).To(Succeed())
 			})
+
 			Describe("Distance", func() {
 				Context("Continuous", func() {
 					BeforeEach(func() {
@@ -256,13 +257,21 @@ var _ = Describe("Domain", func() {
 						),
 					)
 				})
-				Context("Effectively continuous", func() {
+
+				Context("Quasi Continuous (Many Continuous Domains)", func() {
 					var (
 						db2  *domain.DB
 						idx2 *index.Domain
 					)
 					BeforeEach(func() {
-						db2 = MustSucceed(domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger(), FileSize: 24 * telem.ByteSize}))
+						// Open a new domain DB with a file size that corresponds
+						// 3 timestamp samples, so that we trigger automatic rollovers.
+						db2 = MustSucceed(domain.Open(domain.Config{
+							FS:              fs,
+							Instrumentation: PanicLogger(),
+							FileSize:        telem.TimeStampT.Density().Size(3),
+						}))
+
 						w := MustSucceed(db2.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
 						MustSucceed(w.Write(telem.NewSecondsTSV(10, 11, 16, 17).Data))
 						Expect(w.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
@@ -271,7 +280,17 @@ var _ = Describe("Domain", func() {
 						MustSucceed(w.Write(telem.NewSecondsTSV(25, 26).Data))
 						Expect(w.Commit(ctx, 26*telem.SecondTS+1)).To(Succeed())
 						Expect(w.Close()).To(Succeed())
-						Expect(domain.Write(ctx, db2, (30 * telem.SecondTS).Range(33*telem.SecondTS+1), telem.NewSecondsTSV(30, 32, 33).Data)).To(Succeed())
+
+						// Write an additional domain that starts several seconds after
+						// the previous one i.e. we have an extra domain that is not
+						// continuous.
+						Expect(domain.Write(
+							ctx,
+							db2,
+							(30 * telem.SecondTS).Range(33*telem.SecondTS+1),
+							telem.NewSecondsTSV(30, 32, 33).Data,
+						)).To(Succeed())
+
 						idx2 = &index.Domain{DB: db2}
 					})
 					AfterEach(func() {
@@ -297,7 +316,7 @@ var _ = Describe("Domain", func() {
 							telem.NewAlignment(1, 3),
 							nil,
 						),
-						Entry("exact exact - between domains",
+						Entry("exact exact - between effectively continuous domains",
 							(16*telem.SecondTS).Range(26*telem.SecondTS),
 							index.Exactly[int64](7),
 							telem.NewAlignment(2, 1),
@@ -318,6 +337,7 @@ var _ = Describe("Domain", func() {
 					)
 				})
 			})
+
 			Describe("Stamp", func() {
 				Context("Continuous", func() {
 					BeforeEach(func() {
@@ -393,7 +413,7 @@ var _ = Describe("Domain", func() {
 					)
 				})
 
-				Context("Quasi-continuous (many contiguous domains)", func() {
+				Context("Quasi-Continuous (Many Continuous domains)", func() {
 					BeforeEach(func() {
 						Expect(domain.Write(
 							ctx,
@@ -535,7 +555,8 @@ var _ = Describe("Domain", func() {
 						),
 					)
 				})
-				Specify("Quasi-continuous without ending domain", func() {
+
+				Specify("Quasi-Continuous Without Ending Domain", func() {
 					Expect(domain.Write(
 						ctx,
 						db,
@@ -566,6 +587,7 @@ var _ = Describe("Domain", func() {
 					_, err = idx.Stamp(ctx, 24*telem.SecondTS, 9, true)
 					Expect(err).To(MatchError(index.ErrDiscontinuous))
 				})
+
 				Context("Discontinuous", func() {
 					BeforeEach(func() {
 						Expect(domain.Write(

@@ -12,12 +12,7 @@ from typing import Literal, TypeAlias, overload
 from uuid import uuid4
 from warnings import warn
 
-from freighter import (
-    JSONCodec, MsgPackCodec, Payload,
-    Stream,
-    WebsocketClient,
-    EOF
-)
+from freighter import EOF, JSONCodec, MsgPackCodec, Payload, Stream, WebsocketClient
 from freighter.websocket import Message
 from numpy import can_cast as np_can_cast
 from pandas import DataFrame
@@ -33,8 +28,11 @@ from synnax.channel.payload import (
 )
 from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
-from synnax.framer.codec import HIGH_PERF_SPECIAL_CHAR, LOW_PERF_SPECIAL_CHAR, \
-    WSFramerCodec
+from synnax.framer.codec import (
+    HIGH_PERF_SPECIAL_CHAR,
+    LOW_PERF_SPECIAL_CHAR,
+    WSFramerCodec,
+)
 from synnax.framer.frame import CrudeFrame, Frame, FramePayload
 from synnax.telem import CrudeSeries, CrudeTimeStamp, DataType, TimeSpan, TimeStamp
 from synnax.telem.control import Authority, CrudeAuthority, Subject
@@ -212,21 +210,18 @@ class Writer:
             raise exc
 
     @overload
-    def write(self, channels_or_data: ChannelName, series: CrudeSeries):
-        ...
+    def write(self, channels_or_data: ChannelName, series: CrudeSeries): ...
 
     @overload
     def write(
         self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
-    ):
-        ...
+    ): ...
 
     @overload
     def write(
         self,
         channels_or_data: CrudeFrame,
-    ):
-        ...
+    ): ...
 
     def write(
         self,
@@ -282,23 +277,20 @@ class Writer:
         )
 
     @overload
-    def set_authority(self, value: CrudeAuthority) -> bool:
-        ...
+    def set_authority(self, value: CrudeAuthority) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: ChannelKey | ChannelName,
         authority: CrudeAuthority,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     @overload
     def set_authority(
         self,
         value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     def set_authority(
         self,
@@ -325,7 +317,8 @@ class Writer:
                 authorities=list(value.values()),
             )
         exc = self._stream.send(
-            WriterRequest(command=WriterCommand.SET_AUTHORITY, config=cfg))
+            WriterRequest(command=WriterCommand.SET_AUTHORITY, config=cfg)
+        )
         if exc is not None:
             raise exc
         _, exc = self._ack(WriterCommand.SET_AUTHORITY)

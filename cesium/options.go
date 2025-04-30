@@ -21,17 +21,16 @@ type Option func(*options)
 
 type options struct {
 	alamos.Instrumentation
-	dirname   string
-	fs        xfs.FS
-	metaCodec binary.Codec
-	gcCfg     *GCConfig
-	fileSize  telem.Size
+	dirname         string
+	fs              xfs.FS
+	metaCodec       binary.Codec
+	streamingConfig DBStreamingConfig
+	gcCfg           GCConfig
+	fileSize        telem.Size
 }
 
 func (o *options) Report() alamos.Report {
-	return alamos.Report{
-		"dirname": o.dirname,
-	}
+	return alamos.Report{"dirname": o.dirname}
 }
 
 func newOptions(dirname string, opts ...Option) *options {
@@ -46,35 +45,36 @@ func newOptions(dirname string, opts ...Option) *options {
 func mergeDefaultOptions(o *options) {
 	o.metaCodec = override.Nil[binary.Codec](&binary.JSONCodec{}, o.metaCodec)
 	o.fs = override.Nil[xfs.FS](xfs.Default, o.fs)
-	o.gcCfg = override.Nil[*GCConfig](&DefaultGCConfig, o.gcCfg)
+	o.gcCfg = DefaultGCConfig.Override(o.gcCfg)
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
+	o.streamingConfig = DefaultDBStreamingConfig.Override(o.streamingConfig)
 }
 
-func WithFS(fs xfs.FS) Option {
-	return func(o *options) {
-		o.fs = fs
-	}
-}
+// WithFS sets the file system that cesium will use to store data. This defaults to
+// the OS file system.
+func WithFS(fs xfs.FS) Option { return func(o *options) { o.fs = fs } }
 
-func WithGC(config *GCConfig) Option {
-	return func(o *options) {
-		o.gcCfg = config
-	}
-}
+// WithGCConfig sets the garbage collection configuration for the DB. See the GCConfig
+// struct for more details.
+func WithGCConfig(config GCConfig) Option { return func(o *options) { o.gcCfg = config } }
 
+// WithInstrumentation sets the instrumentation the DB will use for logging, tracing,
+// etc. Defaults to noop instrumentation.
 func WithInstrumentation(i alamos.Instrumentation) Option {
-	return func(o *options) {
-		o.Instrumentation = i
-	}
+	return func(o *options) { o.Instrumentation = i }
 }
 
-// WithFileSize sets the FileSize parameter of the database.
+// WithFileSizeCap sets the FileSize parameter of the database.
 // FileSize is the maximum size, in bytes, for a writer to be created on a file.
 // Note while that a file's size may still exceed this value, it is not likely
 // to exceed by much with frequent commits.
-// [OPTIONAL] Default: 1GB
-func WithFileSize(cap telem.Size) Option {
-	return func(o *options) {
-		o.fileSize = cap
-	}
+// Defaults to 1GB
+func WithFileSizeCap(cap telem.Size) Option { return func(o *options) { o.fileSize = cap } }
+
+// WithStreamingConfig sets the size of the channel buffer used inside the cesium
+// streaming relay mechanism. A larger buffer size will reduce the change of the relay
+// deadlocking, but will consume more memory.
+// Defaults to 100.
+func WithStreamingConfig(cfg DBStreamingConfig) Option {
+	return func(o *options) { o.streamingConfig = cfg }
 }

@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var errWriterClosed = core.NewErrEntityClosed("virtual.writer")
+var errWriterClosed = core.NewErrResourceClosed("virtual.writer")
 
 type WriterConfig struct {
 	Subject               control.Subject
@@ -68,7 +68,7 @@ type Writer struct {
 	onClose func()
 	// control stores the control gate held by the virtual writer, and used to track control
 	// handoff scenarios with other writers.
-	control *controller.Gate[*controlEntity]
+	control *controller.Gate[*controlResource]
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
@@ -91,14 +91,14 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		Channel:      db.cfg.Channel,
 		wrapError:    db.wrapError,
 	}
-	var g *controller.Gate[*controlEntity]
-	if g, transfer, err = db.controller.OpenGate(controller.GateConfig[*controlEntity]{
+	var g *controller.Gate[*controlResource]
+	if g, transfer, err = db.controller.OpenGate(controller.GateConfig[*controlResource]{
 		TimeRange:             cfg.domain(),
 		ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
 		Authority:             cfg.Authority,
 		Subject:               cfg.Subject,
-		OpenResource: func() (*controlEntity, error) {
-			return &controlEntity{
+		OpenResource: func() (*controlResource, error) {
+			return &controlResource{
 				ck:        db.cfg.Channel.Key,
 				alignment: telem.NewAlignment(db.leadingAlignment.Add(1), 0),
 			}, nil

@@ -38,13 +38,13 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				BeforeAll(func() {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(cesium.Open("",
-						cesium.WithGC(&cesium.GCConfig{
+						cesium.WithGCConfig(cesium.GCConfig{
 							MaxGoroutine:  10,
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
 							GCThreshold:   math.SmallestNonzeroFloat32,
 						}),
 						cesium.WithFS(fs),
-						cesium.WithFileSize(899*telem.ByteSize),
+						cesium.WithFileSizeCap(899*telem.ByteSize),
 						cesium.WithInstrumentation(PanicLogger())))
 				})
 				AfterAll(func() {
@@ -107,13 +107,13 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				BeforeAll(func() {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(cesium.Open("",
-						cesium.WithGC(&cesium.GCConfig{
+						cesium.WithGCConfig(cesium.GCConfig{
 							MaxGoroutine:  10,
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
 							GCThreshold:   float32(250) / 719,
 						}),
 						cesium.WithFS(fs),
-						cesium.WithFileSize(899*telem.ByteSize),
+						cesium.WithFileSizeCap(899*telem.ByteSize),
 						cesium.WithInstrumentation(PanicLogger())))
 				})
 				AfterAll(func() {
@@ -155,7 +155,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						return uint32(i.Size())
 					}).Should(Equal(uint32(90 * telem.Int64T.Density())))
 
-					By("Deleting more data, which should trigger FilterLessThan")
+					By("Deleting more data, which should trigger GC")
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (60 * telem.SecondTS).Range(66*telem.SecondTS))).To(Succeed())
 
 					By("Checking the resulting file size")
@@ -183,13 +183,13 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				BeforeAll(func() {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(cesium.Open("",
-						cesium.WithGC(&cesium.GCConfig{
+						cesium.WithGCConfig(cesium.GCConfig{
 							MaxGoroutine:  10,
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
 							GCThreshold:   1,
 						}),
 						cesium.WithFS(fs),
-						cesium.WithFileSize(49*telem.ByteSize),
+						cesium.WithFileSizeCap(49*telem.ByteSize),
 						cesium.WithInstrumentation(PanicLogger()),
 					))
 				})

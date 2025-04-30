@@ -19,10 +19,17 @@ import (
 	xversion "github.com/synnaxlabs/x/version"
 )
 
+// DBState is meta-data about a single-channel database that can be migrated. This data
+// structure is passed into migration functions on bootup.
 type DBState struct {
+	// Channel is the channel specification for the DB.
 	Channel core.Channel
-	FS      xfs.FS
-	Purge   bool
+	// FS is the file-system for that channel in the DB. This is not the
+	// top level cesium directory, but the channel-specific directory itself.
+	FS xfs.FS
+	// ShouldIgnoreChannel can be set to true by the migration function if the channel
+	// should be ignored on database startup.
+	ShouldIgnoreChannel bool
 }
 
 // GetVersion implements migrate.Migratable.
@@ -47,7 +54,9 @@ var (
 			if state.Channel.Virtual || state.Channel.IsIndex {
 				return state, nil
 			}
-			state.Purge = state.Channel.Index == 0
+			// Any persisted channel with an index of 0 is rate based, so it should
+			// be removed.
+			state.ShouldIgnoreChannel = state.Channel.Index == 0
 			return state, nil
 		},
 	})

@@ -29,10 +29,6 @@ func (s Set[T, V]) Contains(v T) bool {
 	return ok
 }
 
-func (s Set[T, V]) ContainsI(v T, _ int) bool {
-	return s.Contains(v)
-}
-
 func (s Set[T, V]) Keys() []T {
 	values := make([]T, 0, len(s))
 	for k := range s {

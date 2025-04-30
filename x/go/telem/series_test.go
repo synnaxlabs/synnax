@@ -353,6 +353,14 @@ var _ = Describe("Series", func() {
 					Upper: 6,
 				}))
 			})
+
+			It("Should return [0, 0) for an empty multi-series", func() {
+				var ms telem.MultiSeries
+				Expect(ms.AlignmentBounds()).To(Equal(telem.AlignmentBounds{
+					Lower: 0,
+					Upper: 0,
+				}))
+			})
 		})
 
 		Describe("TimeRange", func() {
@@ -378,6 +386,23 @@ var _ = Describe("Series", func() {
 				Expect(ms.Len()).To(Equal(int64(6)))
 				Expect(ms.Series[0].Alignment).To(Equal(s1.Alignment))
 				Expect(ms.Series[1].Alignment).To(Equal(s2.Alignment))
+			})
+
+			It("Should panic if the series data types do not match", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s2 := telem.NewSeriesV[int32](1, 2, 3)
+				ms := telem.NewMultiSeriesV(s1)
+				Expect(func() {
+					ms = ms.Append(s2)
+				}).To(Panic())
+			})
+
+			It("Should not panic when appending to an empty series", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				ms := telem.MultiSeries{}
+				Expect(func() {
+					ms.Append(s1)
+				}).NotTo(Panic())
 			})
 		})
 

@@ -48,7 +48,7 @@ type WriterConfig struct {
 }
 
 var (
-	errWriterClosed     = core.NewErrEntityClosed("domain.writer")
+	errWriterClosed     = core.NewErrResourceClosed("domain.writer")
 	DefaultWriterConfig = WriterConfig{EnableAutoCommit: config.False(), AutoIndexPersistInterval: 1 * telem.Second}
 )
 
@@ -161,7 +161,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 	if err != nil {
 		return nil, err
 	}
-	db.entityCount.Add(1)
+	db.resourceCount.Add(1)
 	w := &Writer{
 		WriterConfig:     cfg,
 		Instrumentation:  db.cfg.Instrumentation.Child("writer"),
@@ -173,7 +173,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		presetEnd:        !cfg.End.IsZero(),
 		lastIndexPersist: telem.Now(),
 		onClose: func() {
-			db.entityCount.Add(-1)
+			db.resourceCount.Add(-1)
 		},
 	}
 
@@ -294,7 +294,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 
 // resolveCommitEnd returns whether a file change is needed, the resolved commit end, and any errors.
 func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (telem.TimeStamp, bool) {
-	// fc.ThrottleConfig.Filesize is the nominal file size to not exceed, in reality, this value
+	// fc.Config.Filesize is the nominal file size to not exceed, in reality, this value
 	// is set to 0.8 * the actual file size cap. Therefore, we only need to switch files
 	// once we write to over 1.25 * that nominal value.
 	if w.fileSize >= w.fc.realFileSizeCap() {

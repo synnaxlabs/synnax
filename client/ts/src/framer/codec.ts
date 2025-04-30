@@ -18,7 +18,8 @@ import {
 import { type ZodSchema } from "zod";
 
 import { type channel } from "@/channel";
-import { type Payload } from "@/framer/frame";
+import { ValidationError } from "@/errors";
+import { type Frame, type Payload } from "@/framer/frame";
 import { type StreamerResponse } from "@/framer/streamer";
 import { WriterCommand, type WriteRequest } from "@/framer/writer";
 
@@ -55,52 +56,86 @@ const TIMESTAMP_SIZE = DataType.TIMESTAMP.density.valueOf();
 const ALIGNMENT_SIZE = 8;
 const DATA_LENGTH_SIZE = 4;
 const KEY_SIZE = 4;
+const SEQ_NUM_SIZE = 4;
+const FLAGS_SIZE = 1;
+
+interface CodecState {
+  keys: channel.Keys;
+  keyDataTypes: Map<channel.Key, DataType>;
+  hasVariableDataTypes: boolean;
+}
 
 export class Codec {
   contentType: string = "application/sy-framer";
-  private keys: channel.Keys = [];
-  private prevKeys: channel.Keys = [];
-  private keyDataTypes: Map<channel.Key, DataType> = new Map();
-  private hasVariableDataTypes: boolean = false;
+  private states: Map<number, CodecState> = new Map();
+  private currState: CodecState | undefined;
+  private seqNum: number = 0;
 
-  constructor(keys: channel.Keys, dataTypes: DataType[]) {
-    this.update(keys, dataTypes);
+  constructor(keys: channel.Keys = [], dataTypes: DataType[] = []) {
+    if (keys.length > 0 || dataTypes.length > 0) this.update(keys, dataTypes);
   }
 
   update(keys: channel.Keys, dataTypes: DataType[]): void {
-    this.prevKeys = [...this.keys];
-    this.keys = keys;
-    this.keyDataTypes = new Map();
+    this.seqNum++;
+    const state = {
+      keys,
+      keyDataTypes: new Map(),
+      hasVariableDataTypes: false,
+    };
     keys.forEach((k, i) => {
       const dt = dataTypes[i];
-      this.keyDataTypes.set(k, dt);
-      if (dt.isVariable) this.hasVariableDataTypes = true;
+      state.keyDataTypes.set(k, dt);
+      if (dt.isVariable) state.hasVariableDataTypes = true;
     });
-    this.keys.sort();
+    state.keys.sort();
+    this.states.set(this.seqNum, state);
+    this.currState = state;
+  }
+
+  private throwIfNotUpdated(op: string): void {
+    if (this.seqNum < 1)
+      throw new ValidationError(`
+      The codec has not been updated with a list of channels and data types.
+      Please call the update method before calling ${op}.
+      `);
   }
 
   encode(payload: unknown, startOffset: number = 0): Uint8Array {
-    const src = payload as Payload;
+    this.throwIfNotUpdated("encode");
+    let src = payload as Payload;
+    if (payload != null && typeof payload === "object" && "toPayload" in payload)
+      src = (payload as Frame).toPayload();
     sortFramePayloadByKey(src);
     let currDataSize = -1;
     let startTime: TimeStamp | undefined;
     let endTime: TimeStamp | undefined;
     let currAlignment: bigint | undefined;
-    let byteArraySize = startOffset + 1;
-    let equalLengthsFlag = !this.hasVariableDataTypes;
+    let byteArraySize = startOffset + FLAGS_SIZE + SEQ_NUM_SIZE;
+    let equalLengthsFlag = !this.currState?.hasVariableDataTypes;
     let equalTimeRangesFlag = true;
     let timeRangesZeroFlag = true;
     let channelFlag = true;
     let equalAlignmentsFlag = true;
     let zeroAlignmentsFlag = true;
 
-    if (src.keys.length !== this.keys.length) {
+    if (src.keys.length !== this.currState?.keys.length) {
       channelFlag = false;
       byteArraySize += src.keys.length * KEY_SIZE;
     }
 
-    src.series.forEach((series) => {
+    src.series.forEach((series, i) => {
       const pldLength = seriesPldLength(series);
+      const key = src.keys[i];
+      const dt = this.currState?.keyDataTypes.get(key);
+      if (dt == null)
+        throw new ValidationError(
+          `Channel ${key} was not provided in the list of channels when opening the writer`,
+        );
+      if (!dt.equals(series.dataType))
+        throw new ValidationError(
+          `Series data type of ${series.dataType.toString()} does not match the data type of ${dt.toString()} for channel ${key}`,
+        );
+
       byteArraySize += series.data.byteLength;
       if (currDataSize === -1) {
         currDataSize = pldLength;
@@ -145,6 +180,8 @@ export class Codec {
       (Number(timeRangesZeroFlag) << TIME_RANGES_ZERO_FLAG_POS) |
       (Number(channelFlag) << ALL_CHANNELS_PRESENT_FLAG_POS);
     offset++;
+    view.setUint32(offset, this.seqNum, true);
+    offset += SEQ_NUM_SIZE;
 
     if (equalLengthsFlag) {
       view.setUint32(offset, currDataSize, true);
@@ -189,6 +226,7 @@ export class Codec {
   }
 
   decode(data: Uint8Array | ArrayBuffer, offset: number = 0): Payload {
+    this.throwIfNotUpdated("decode");
     const src = data instanceof Uint8Array ? data : new Uint8Array(data);
     const returnFrame: Payload = { keys: [], series: [] };
     let index = offset;
@@ -206,6 +244,11 @@ export class Codec {
     const timeRangesZeroFlag = Boolean((src[index] >> TIME_RANGES_ZERO_FLAG_POS) & 1);
     const channelFlag = Boolean((src[index] >> ALL_CHANNELS_PRESENT_FLAG_POS) & 1);
     index++;
+
+    const seqNum = view.getUint32(index, true);
+    index += SEQ_NUM_SIZE;
+    const state = this.states.get(seqNum);
+    if (state == null) return returnFrame;
 
     if (sizeFlag) {
       if (index + DATA_LENGTH_SIZE > view.byteLength) return returnFrame;
@@ -227,8 +270,8 @@ export class Codec {
       index += ALIGNMENT_SIZE;
     }
 
-    if (channelFlag) returnFrame.keys = [...this.keys];
-    this.keys.forEach((k, i) => {
+    if (channelFlag) returnFrame.keys = [...state.keys];
+    state.keys.forEach((k, i) => {
       if (!channelFlag) {
         if (index + KEY_SIZE > view.byteLength) return;
         const frameKey = view.getUint32(index, true);
@@ -236,7 +279,7 @@ export class Codec {
         index += KEY_SIZE;
         returnFrame.keys.push(k);
       }
-      const dataType = this.keyDataTypes.get(k) as DataType;
+      const dataType = state.keyDataTypes.get(k) as DataType;
       currSize = 0;
       if (!sizeFlag) {
         if (index + DATA_LENGTH_SIZE > view.byteLength) return;
@@ -279,8 +322,6 @@ export class Codec {
 
       returnFrame.series.push(currSeries);
     });
-    if (returnFrame.keys.length !== returnFrame.series.length)
-      return { keys: [], series: [] };
     return returnFrame;
   }
 }

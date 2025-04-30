@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF, errorZ, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
+import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import { observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -21,10 +21,7 @@ const reqZ = z.object({ keys: z.number().array(), downSampleFactor: z.number() }
 
 export type StreamerRequest = z.infer<typeof reqZ>;
 
-const resZ = z.object({
-  frame: frameZ,
-  error: errorZ.optional().nullable(),
-});
+const resZ = z.object({ frame: frameZ });
 
 export type StreamerResponse = z.infer<typeof resZ>;
 

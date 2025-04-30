@@ -15,8 +15,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/computron"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -66,15 +66,15 @@ type ResponseSegment = confluence.Segment[Response, Response]
 
 func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
 	p := plumber.New()
+	t, err := s.newCalculationTransform(ctx, &cfg)
+	if err != nil {
+		return nil, err
+	}
 	dist, err := s.cfg.Framer.NewStreamIterator(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 	plumber.SetSegment(p, "distribution", dist)
-	t, err := s.newCalculationTransform(ctx, &cfg)
-	if err != nil {
-		return nil, err
-	}
 	var routeOutletFrom address.Address = "distribution"
 	if t != nil {
 		plumber.SetSegment(p, "calculation", t)
@@ -110,25 +110,21 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 	if !hasCalculated {
 		return nil, nil
 	}
-	cfg.Keys = lo.Filter(cfg.Keys, calculated.ContainsI)
+	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
+		return !calculated.Contains(item)
+	})
 	cfg.Keys = append(cfg.Keys, required.Keys()...)
-	var requiredV []channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
+	var requiredCh []channel.Channel
+	err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(required.Keys()...).
-		Entries(&requiredV).
-		Exec(ctx, nil); err != nil {
+		Entries(&requiredCh).
+		Exec(ctx, nil)
+	if err != nil {
 		return nil, err
 	}
-	for _, ch := range requiredV {
-		required[ch.Key()] = ch
-	}
-	calculators := make([]*calculator, len(calculated))
+	calculators := make([]*calculation.Calculator, len(calculated))
 	for i, v := range calculated.Values() {
-		c, err := computron.Open(v.Expression)
-		if err != nil {
-			return nil, err
-		}
-		calculators[i] = newCalculator(c, v, required)
+		calculators[i], err = calculation.OpenCalculator(v, requiredCh)
 	}
 	return newCalculationTransform(calculators), nil
 }

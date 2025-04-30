@@ -95,7 +95,7 @@ var _ = Describe("Channel", Ordered, func() {
 						subDB := openDBOnFS(sub)
 						Expect(subDB.Close()).To(Succeed())
 						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})
-						Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -112,9 +112,9 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						_, err := subDB.RetrieveChannel(ctx, key)
-						Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 						_, err = subDB.RetrieveChannels(ctx, key)
-						Expect(err).To(HaveOccurredAs(core.NewErrEntityClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})

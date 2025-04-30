@@ -14,9 +14,11 @@
 #include "gtest/gtest.h"
 
 /// module
+#include "x/cpp/xtest/xtest.h"
+
+/// internal
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
 
 
 /// @brief it should correctly write a frame of telemetry to the DB.
@@ -80,8 +82,9 @@ TEST(WriterTests, testWriteToUnspecifiedChannel) {
     }));
     auto frame = synnax::Frame(1);
     frame.emplace(1000, telem::Series(std::vector<float>{2, 3, 4, 5, 6, 7, 8, 9}));
-    ASSERT_NIL(writer.write(frame));
+    ASSERT_OCCURRED_AS(writer.write(frame), xerrors::VALIDATION);
     ASSERT_OCCURRED_AS_P(writer.commit(), xerrors::VALIDATION);
+    ASSERT_OCCURRED_AS(writer.close(), xerrors::VALIDATION);
 }
 
 TEST(WriterTests, testWriteErrOnUnauthorized) {

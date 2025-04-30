@@ -76,10 +76,12 @@ struct SynnaxClusterAPI final : ClusterAPI {
             );
             if (ch_err) return ch_err;
             this->state_channel = state_channel;
-            auto [w, err] = this->client->telem.open_writer(synnax::WriterConfig{
-                .channels = {this->state_channel.key},
-                .start = telem::TimeStamp::now(),
-            });
+            auto [w, err] = this->client->telem.open_writer(
+                synnax::WriterConfig{
+                    .channels = {this->state_channel.key},
+                    .start = telem::TimeStamp::now(),
+                }
+            );
             if (err) return err;
             this->state_writer = std::make_unique<synnax::Writer>(std::move(w));
         }
@@ -250,11 +252,10 @@ public:
                 .key = dev.dev.key,
                 .variant = status::VARIANT_WARNING,
                 .rack = dev.dev.rack,
-                .details =
-                    json{
-                        {"message", "Device disconnected"},
-                        {"last_available", dev.last_available.nanoseconds()}
-                    }
+                .details = json{
+                    {"message", "Device disconnected"},
+                    {"last_available", dev.last_available.nanoseconds()}
+                }
             };
             std::vector keys{dev.dev.key};
             auto [remote_devs, err] = this->client->retrieve_devices(keys);

@@ -86,9 +86,14 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 var (
 	distAddr       address.Address = "distribution"
-	utAddr         address.Address = "updater-transform"
-	downSampleAddr address.Address = "down-sample"
+	utAddr         address.Address = "updater_transform"
+	downSampleAddr address.Address = "down_sample"
 	throttleAddr   address.Address = "throttle"
+)
+
+const (
+	responseBufferSize = 200
+	requestBufferSize  = 10
 )
 
 func (s *Service) New(ctx context.Context, cfg Config) (Streamer, error) {
@@ -103,16 +108,16 @@ func (s *Service) New(ctx context.Context, cfg Config) (Streamer, error) {
 		return nil, err
 	}
 	plumber.SetSegment(p, utAddr, ut)
-	plumber.MustConnect[framer.StreamerRequest](p, utAddr, distAddr, 25)
+	plumber.MustConnect[framer.StreamerRequest](p, utAddr, distAddr, requestBufferSize)
 	var routeOutletFrom = distAddr
 	if cfg.ThrottleRate > 0 {
 		plumber.SetSegment(p, throttleAddr, newThrottle(cfg))
-		plumber.MustConnect[Response](p, routeOutletFrom, throttleAddr, 25)
+		plumber.MustConnect[Response](p, routeOutletFrom, throttleAddr, responseBufferSize)
 		routeOutletFrom = throttleAddr
 	}
-	if cfg.DownSampleFactor > 0 {
+	if cfg.DownSampleFactor > 1 {
 		plumber.SetSegment(p, downSampleAddr, newDownSampler(cfg))
-		plumber.MustConnect[Response](p, routeOutletFrom, downSampleAddr, 25)
+		plumber.MustConnect[Response](p, routeOutletFrom, downSampleAddr, responseBufferSize)
 		routeOutletFrom = downSampleAddr
 	}
 	return &plumber.Segment[Request, Response]{

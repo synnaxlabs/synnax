@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Codec", func() {
@@ -32,8 +33,8 @@ var _ = Describe("Codec", func() {
 		dataTypes []telem.DataType,
 		fr framer.Frame,
 	) {
-		cdc := codec.NewCodec(dataTypes, channels)
-		encoded := MustSucceed(cdc.Encode(fr))
+		cdc := codec.NewStatic(channels, dataTypes)
+		encoded := MustSucceed(cdc.Encode(nil, fr))
 		decoded := MustSucceed(cdc.Decode(encoded))
 		Expect(fr.Frame).To(telem.MatchFrame(decoded.Frame))
 	},
@@ -218,50 +219,118 @@ var _ = Describe("Codec", func() {
 				},
 			)
 
-			cdc := codec.NewCodec(dataTypes, keys)
-			encoded := MustSucceed(cdc.Encode(originalFrame))
+			cdc := codec.NewStatic(keys, dataTypes)
+			encoded := MustSucceed(cdc.Encode(ctx, originalFrame))
 			decoded := MustSucceed(cdc.Decode(encoded))
 			Expect(originalFrame.Frame).To(telem.MatchFrame(decoded.Frame))
 		})
 	})
 
-	Describe("Lazy Codec", func() {
-		It("Should allow the caller to update the list of channels", func() {
-			builder := mock.NewBuilder()
+	Describe("Error Handling", func() {
+		It("Should return a validation error when a channel in a frame was not provided to the codec", func() {
+			c := codec.NewStatic(
+				[]channel.Key{1, 2, 3},
+				[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
+			)
+			fr := core.UnaryFrame(4, telem.NewSecondsTSV(1, 2, 3))
+			encoded, err := c.Encode(ctx, fr)
+			Expect(encoded).To(HaveLen(0))
+			Expect(err).To(HaveOccurredAs(validate.Error))
+		})
+
+		It("Should return a validation error when a series has the wrong data type", func() {
+			c := codec.NewStatic(
+				[]channel.Key{1},
+				[]telem.DataType{telem.Uint8T},
+			)
+			fr := core.UnaryFrame(1, telem.NewSecondsTSV(1, 2, 3))
+			encoded, err := c.Encode(ctx, fr)
+			Expect(encoded).To(HaveLen(0))
+			Expect(err).To(HaveOccurredAs(validate.Error))
+		})
+	})
+
+	Describe("Dynamic Codec", Ordered, func() {
+		var (
+			builder    *mock.Builder
+			channelSvc channel.Service
+			idxCh      channel.Channel
+			dataCh     channel.Channel
+		)
+		BeforeAll(func() {
+			builder = mock.NewBuilder()
 			dist := builder.New(ctx)
+			channelSvc = dist.Channel
 			w := dist.Channel.NewWriter(nil)
-			idx := channel.Channel{
+			idxCh = channel.Channel{
 				DataType: telem.TimeStampT,
 				Name:     "time",
 				IsIndex:  true,
 			}
-			Expect(w.Create(ctx, &idx)).To(Succeed())
-			dataCh := channel.Channel{
+			Expect(w.Create(ctx, &idxCh)).To(Succeed())
+			dataCh = channel.Channel{
 				Name:       "data",
 				DataType:   telem.Float32T,
-				LocalIndex: idx.Key().LocalKey(),
+				LocalIndex: idxCh.Key().LocalKey(),
 			}
 			Expect(w.Create(ctx, &dataCh)).To(Succeed())
-			lazyCodec := codec.NewLazyCodec(dist.Channel)
-			Expect(lazyCodec.Update(ctx, []channel.Key{dataCh.Key(), idx.Key()})).To(Succeed())
+		})
+		AfterAll(func() {
+			Expect(builder.Close()).To(Succeed())
+			Expect(builder.Cleanup()).To(Succeed())
+		})
+		ShouldNotLeakGoroutinesDuringEach()
+
+		It("Should allow the caller to update the list of channels", func() {
+			codec := codec.NewDynamic(channelSvc)
+			Expect(codec.Update(ctx, []channel.Key{dataCh.Key(), idxCh.Key()})).To(Succeed())
 			fr := core.MultiFrame(
-				channel.Keys{dataCh.Key(), idx.Key()},
+				channel.Keys{dataCh.Key(), idxCh.Key()},
 				[]telem.Series{
 					telem.NewSeriesV[float32](1, 2, 3, 4),
 					telem.NewSecondsTSV(1, 2, 3, 4),
 				},
 			)
-			encoded := MustSucceed(lazyCodec.Encode(fr))
-			decoded := MustSucceed(lazyCodec.Decode(encoded))
+			encoded := MustSucceed(codec.Encode(ctx, fr))
+			decoded := MustSucceed(codec.Decode(encoded))
 			Expect(fr.Frame).To(telem.MatchFrame[channel.Key](decoded.Frame))
 		})
 
 		It("Should panic if the codec is not initialized", func() {
-			lazyCodec := codec.NewLazyCodec(nil)
+			codec := codec.NewDynamic(nil)
 			Expect(func() {
 				fr := framer.Frame{}
-				lazyCodec.Encode(fr)
+				_, _ = codec.Encode(ctx, fr)
 			}).To(Panic())
+		})
+
+		It("Should use the correct encode/decode state even if the codecs are out of sync", func() {
+			encoder := codec.NewDynamic(channelSvc)
+			decoder := codec.NewDynamic(channelSvc)
+			By("Correctly encoding and decoding when the two codecs are in sync")
+			Expect(decoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
+			Expect(encoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
+
+			frame1 := core.UnaryFrame(idxCh.Key(), telem.NewSecondsTSV(1, 2, 3))
+			encoded := MustSucceed(encoder.Encode(ctx, frame1))
+			decoded := MustSucceed(decoder.Decode(encoded))
+			Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame1.Frame))
+
+			By("Correctly using the previous encoding state when the two codecs are out of sync")
+			Expect(decoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
+
+			encoded = MustSucceed(encoder.Encode(ctx, frame1))
+			decoded = MustSucceed(decoder.Decode(encoded))
+			Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame1.Frame))
+
+			By("Correctly using he most up to date state after the codec are in sync again")
+			Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
+			_, err := encoder.Encode(ctx, frame1)
+			Expect(err).To(HaveOccurredAs(validate.Error))
+			frame2 := core.UnaryFrame(dataCh.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
+			encoded = MustSucceed(encoder.Encode(ctx, frame2))
+			decoded = MustSucceed(decoder.Decode(encoded))
+			Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame2.Frame))
 		})
 	})
 })
@@ -273,13 +342,13 @@ func BenchmarkEncode(b *testing.B) {
 		keys,
 		[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 	)
-	cd := codec.NewCodec(dataTypes, keys)
+	cd := codec.NewStatic(keys, dataTypes)
 	w := bytes.NewBuffer(nil)
-	if err := cd.EncodeStream(w, fr); err != nil {
+	if err := cd.EncodeStream(nil, w, fr); err != nil {
 		b.Fatalf("failed to encode stream: %v", err)
 	}
 	for range b.N {
-		if err := cd.EncodeStream(w, fr); err != nil {
+		if err := cd.EncodeStream(nil, w, fr); err != nil {
 			b.Fatalf("failed to encode stream: %v", err)
 		}
 		w.Reset()
@@ -287,7 +356,6 @@ func BenchmarkEncode(b *testing.B) {
 }
 
 func BenchmarkJSONEncode(b *testing.B) {
-	b.Skip()
 	keys := channel.Keys{1}
 	fr := core.MultiFrame(
 		keys,
@@ -308,9 +376,9 @@ func BenchmarkDecode(b *testing.B) {
 			keys,
 			[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 		)
-		cd      = codec.NewCodec(dataTypes, keys)
-		encoded = MustSucceed(cd.Encode(fr))
-		r       = bytes.NewReader(encoded)
+		cd         = codec.NewStatic(keys, dataTypes)
+		encoded, _ = cd.Encode(nil, fr)
+		r          = bytes.NewReader(encoded)
 	)
 	for range b.N {
 		if _, err := r.Seek(0, 0); err != nil {
@@ -323,7 +391,6 @@ func BenchmarkDecode(b *testing.B) {
 }
 
 func BenchmarkJSONDecode(b *testing.B) {
-	b.Skip()
 	keys := channel.Keys{1}
 	encoded, err := json.Marshal(core.MultiFrame(
 		keys,

@@ -226,7 +226,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		if newCh.IsIndex {
 			newCh.Index = newKey
 		}
-		_udb, err := unary.Open(unary.Config{
+		newDB, err := unary.Open(unary.Config{
 			Instrumentation: db.Instrumentation,
 			MetaCodec:       db.metaCodec,
 			Channel:         newCh,
@@ -235,11 +235,11 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		if err != nil {
 			return err
 		}
-		if err = _udb.SetChannelKeyInMeta(newKey); err != nil {
+		if err = newDB.SetChannelKeyInMeta(newKey); err != nil {
 			return err
 		}
 		delete(db.mu.unaryDBs, oldKey)
-		db.mu.unaryDBs[newKey] = *_udb
+		db.mu.unaryDBs[newKey] = *newDB
 
 		// If the DB is an index channel, we need to update the databases that depend
 		// on this channel.
@@ -252,7 +252,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 					if err = otherDB.SetIndexKeyInMeta(newKey); err != nil {
 						return err
 					}
-					otherDB.SetIndex((*_udb).Index())
+					otherDB.SetIndex((*newDB).Index())
 					db.mu.unaryDBs[otherDBKey] = otherDB
 				}
 			}
@@ -273,7 +273,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		}
 		newChannel := vDB.Channel()
 		newChannel.Key = newKey
-		_vdb, err := virtual.Open(virtual.Config{
+		newDB, err := virtual.Open(virtual.Config{
 			Instrumentation: db.Instrumentation,
 			Channel:         newChannel,
 			MetaCodec:       db.metaCodec,
@@ -282,11 +282,11 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 		if err != nil {
 			return err
 		}
-		if err = _vdb.SetChannelKeyInMeta(newKey); err != nil {
+		if err = newDB.SetChannelKeyInMeta(newKey); err != nil {
 			return err
 		}
 		delete(db.mu.virtualDBs, oldKey)
-		db.mu.virtualDBs[newKey] = *_vdb
+		db.mu.virtualDBs[newKey] = *newDB
 	}
 
 	return nil

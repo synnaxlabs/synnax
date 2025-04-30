@@ -262,7 +262,7 @@ class Client:
         self,
         channels: ChannelParams,
         down_sample_factor: int = 1,
-        use_experimental_codec: bool = False,
+        use_experimental_codec: bool = True,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
         being receiving frames of data from the given channels.

@@ -172,7 +172,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 		Exec(ctx, nil); err != nil {
 		return
 	}
-	sCtx, cancel := signal.Isolated()
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	t = &Tracker{cfg: cfg}
 	t.mu.Racks = make(map[rack.Key]*RackState, len(racks))
 	t.mu.Devices = make(map[string]device.State)
@@ -318,11 +318,9 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	stateWriter.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	dcTaskStateObs := taskStateObs.OnChange(t.handleTaskState)
 	t.saveNotifications = make(chan task.Key, 10)
-	signal.GoRange(sCtx, t.saveNotifications, t.saveTaskState)
+	signal.GoRange(sCtx, t.saveNotifications, t.saveTaskState, signal.WithKey("save_task_state"))
 	t.deviceSaveNotifications = make(chan string, 10)
-	signal.GoRange(sCtx, t.deviceSaveNotifications, func(ctx context.Context, notification string) error {
-		return t.saveDeviceState(ctx, notification)
-	})
+	signal.GoRange(sCtx, t.deviceSaveNotifications, t.saveDeviceState, signal.WithKey("save_device_state"))
 	deviceStateObs, closeDeviceStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
 		SetChannelName: "sy_device_state",
 	})
@@ -337,7 +335,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 		defer t.mu.RUnlock()
 		t.checkRackState(ctx)
 		return nil
-	})
+	}, signal.WithKey("check_rack_state"))
 	t.closer = xio.MultiCloser{
 		xio.CloserFunc(func() error {
 			defer cancel()

@@ -25,6 +25,8 @@ import (
 
 const newLineChar = '\n'
 
+// Series is a strongly typed  array of telemetry samples backed by an underlying
+// binary buffer.
 type Series struct {
 	// TimeRange represents the time range occupied by the series' data.
 	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
@@ -42,6 +44,9 @@ type Series struct {
 
 // Len returns the number of samples currently in the Series.
 func (s Series) Len() int64 {
+	if len(s.Data) == 0 {
+		return 0
+	}
 	if s.DataType.IsVariable() {
 		if s.cachedLength == nil {
 			cl := int64(bytes.Count(s.Data, []byte("\n")))
@@ -326,7 +331,7 @@ func (m MultiSeries) TimeRange() (tr TimeRange) {
 // Append appends a series to the MultiSeries. The series must have the same data type
 // as the MultiSeries. If the data types are different, a panic will occur.
 func (m MultiSeries) Append(series Series) MultiSeries {
-	if series.DataType != m.DataType() {
+	if series.DataType != m.DataType() && len(m.Series) > 0 {
 		panic(fmt.Sprintf("cannot append series with different data types: %v != %v", m.DataType(), series.DataType))
 	}
 	m.Series = append(m.Series, series)
@@ -337,6 +342,14 @@ func (m MultiSeries) Append(series Series) MultiSeries {
 // alignment bound greater than the given alignment. This is useful for filtering
 // out series that are not relevant to the given alignment.
 func (m MultiSeries) FilterLessThan(a Alignment) MultiSeries {
+	if len(m.Series) == 0 {
+		return m
+	}
+	// Hot path optimization that does a quick check that the alignment of all series
+	// is above the filter threshold, so we don't need to re-allocate a new slice.
+	if m.Series[0].AlignmentBounds().Upper > a {
+		return m
+	}
 	return MultiSeries{
 		Series: lo.Filter(m.Series, func(s Series, _ int) bool {
 			return s.AlignmentBounds().Upper > a

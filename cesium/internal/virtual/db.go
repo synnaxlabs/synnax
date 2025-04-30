@@ -26,16 +26,16 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type controlEntity struct {
+type controlResource struct {
 	ck        core.ChannelKey
 	alignment telem.Alignment
 }
 
-func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
+func (e *controlResource) ChannelKey() core.ChannelKey { return e.ck }
 
 type DB struct {
 	cfg              Config
-	controller       *controller.Controller[*controlEntity]
+	controller       *controller.Controller[*controlResource]
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
@@ -46,7 +46,7 @@ var (
 	// ErrNotVirtual is returned when the caller opens a DB on a non-virtual channel.
 	ErrNotVirtual = errors.New("channel is not virtual")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
-	ErrDBClosed = core.NewErrEntityClosed("virtual.db")
+	ErrDBClosed = core.NewErrResourceClosed("virtual.db")
 )
 
 // Config is the configuration for opening a DB.
@@ -101,7 +101,7 @@ func Open(configs ...Config) (db *DB, err error) {
 	if !cfg.Channel.Virtual {
 		return nil, wrapError(ErrNotVirtual)
 	}
-	c, err := controller.New[*controlEntity](controller.Config{
+	c, err := controller.New[*controlResource](controller.Config{
 		Concurrency:     control.Shared,
 		Instrumentation: cfg.Instrumentation,
 	})
@@ -134,7 +134,7 @@ func (db *DB) Close() error {
 	}
 	count := db.openWriters.Load()
 	if count > 0 {
-		err := db.wrapError(errors.Wrapf(core.ErrOpenEntity, "cannot close channel because there are %d unclosed writers accessing it", count))
+		err := db.wrapError(errors.Wrapf(core.ErrOpenResource, "cannot close channel because there are %d unclosed writers accessing it", count))
 		db.closed.Store(false)
 		return err
 	}

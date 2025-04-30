@@ -448,7 +448,7 @@ func BenchStream(
 					indexData                   = make([]telem.TimeStamp, cfg.samplesPerDomain)
 					frame       cesium.Frame
 					w           *cesium.Writer
-					s           cesium.Streamer
+					s           cesium.Streamer[cesium.StreamerRequest, cesium.StreamerResponse]
 				)
 
 				w, err := db.OpenWriter(ctx, cesium.WriterConfig{

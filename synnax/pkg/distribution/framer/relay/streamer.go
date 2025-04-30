@@ -31,8 +31,8 @@ type streamer struct {
 }
 
 type StreamerConfig struct {
-	Keys        channel.Keys
-	SendOpenAck bool
+	Keys        channel.Keys `json:"keys" msgpack:"keys"`
+	SendOpenAck bool         `json:"send_open_ack" msgpack:"send-open_ack"`
 }
 
 func (r *Relay) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
@@ -62,7 +62,7 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
-		responses, disconnect := r.relay.connectToDelta(defaultBuffer)
+		responses, disconnect := r.relay.connectToDelta(defaultResponseBuffer)
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
 			// we do this before updating our demands, otherwise we may deadlock.
@@ -94,14 +94,11 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					return err
 				}
 			case f := <-responses.Outlet():
-				filtered := f.Frame.FilterKeys(r.cfg.Keys)
-				// Don't send if the frame is empty.
-				if filtered.Empty() {
-					continue
-				}
-				res := Response{Error: f.Error, Frame: f.Frame.FilterKeys(r.cfg.Keys)}
-				if err := signal.SendUnderContext(ctx, r.Out.Inlet(), res); err != nil {
-					return err
+				if filtered := f.Frame.FilterKeys(r.cfg.Keys); !filtered.Empty() {
+					res := Response{Frame: f.Frame.FilterKeys(r.cfg.Keys)}
+					if err := signal.SendUnderContext(ctx, r.Out.Inlet(), res); err != nil {
+						return err
+					}
 				}
 			}
 		}

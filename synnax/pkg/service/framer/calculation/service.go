@@ -16,16 +16,15 @@ import (
 
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/status"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/computron"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -53,12 +52,17 @@ type Config struct {
 	// ChannelObservable is used to listen to real-time changes in calculated channels
 	// so the calculation routines can be updated accordingly.
 	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
+	// StateCodec is the encoder/decoder used to communicate calculation state
+	// changes.
+	StateCodec binary.Codec
 }
 
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for opening the calculation service.
-	DefaultConfig = Config{}
+	DefaultConfig = Config{
+		StateCodec: &binary.JSONCodec{},
+	}
 )
 
 // Validate implements config.Config.
@@ -67,6 +71,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "Framer", c.Framer)
 	validate.NotNil(v, "Channel", c.Channel)
 	validate.NotNil(v, "ChannelObservable", c.ChannelObservable)
+	validate.NotNil(v, "StateCodec", c.StateCodec)
 	return v.Error()
 }
 
@@ -76,6 +81,7 @@ func (c Config) Override(other Config) Config {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
+	c.StateCodec = override.Nil(c.StateCodec, other.StateCodec)
 	return c
 }
 
@@ -92,9 +98,9 @@ type entry struct {
 }
 
 type State struct {
-	Key     channel.Key `json:"key"`
-	Variant string      `json:"variant"`
-	Message string      `json:"message"`
+	Key     channel.Key    `json:"key"`
+	Variant status.Variant `json:"variant"`
+	Message string         `json:"message"`
 }
 
 // Service creates and operates calculations on channels.
@@ -107,25 +113,6 @@ type Service struct {
 	disconnectFromChannelChanges observe.Disconnect
 	stateKey                     channel.Key
 	w                            *framer.Writer
-}
-
-func (s *Service) SetState(ctx context.Context, key channel.Key, variant string, message string) error {
-	state := State{
-		Key:     key,
-		Variant: variant,
-		Message: message,
-	}
-	b, err := (&binary.JSONCodec{}).Encode(ctx, state)
-	if err != nil {
-		return err
-	}
-	ser := telem.Series{
-		DataType: telem.JSONT,
-		Data:     append(b, []byte("\n")...),
-	}
-	fr := core.UnaryFrame(s.stateKey, ser)
-	_, err = s.w.Write(fr)
-	return err
 }
 
 // Open opens the service with the provided configuration. The service must be closed
@@ -166,6 +153,24 @@ func Open(ctx context.Context, cfgs ...Config) (*Service, error) {
 	s.mu.entries = make(map[channel.Key]*entry)
 
 	return s, nil
+}
+
+func (s *Service) setState(
+	_ context.Context,
+	ch channel.Channel,
+	variant status.Variant,
+	message string,
+) {
+	if _, err := s.w.Write(core.UnaryFrame(
+		s.stateKey,
+		telem.NewStaticJSONV(State{
+			Key:     ch.Key(),
+			Variant: variant,
+			Message: message,
+		}),
+	)); err != nil {
+		s.cfg.L.Error("failed to encode state", zap.Error(err))
+	}
 }
 
 func (s *Service) handleChange(
@@ -252,7 +257,7 @@ func (s *Service) Close() error {
 // Request requests that the Service starts calculation the channel with the provided
 // key. The calculation will be started if the channel is calculated and not already
 // being calculated. If the channel is already being calculated, the number of active
-// requests will be incremented. The caller must close the returned io.Closer when the
+// requests will be increased. The caller must close the returned io.Closer when the
 // calculation is no longer needed, which will decrement the number of active requests.
 func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, error) {
 	s.mu.Lock()
@@ -268,11 +273,12 @@ func (s *Service) startCalculation(
 	initialCount int,
 ) (closer io.Closer, err error) {
 	var ch channel.Channel
+	ch.LocalKey = key.LocalKey()
+	ch.Leaseholder = key.Leaseholder()
 	defer func() {
-		if err == nil {
-			return
+		if err != nil {
+			s.setState(ctx, ch, "error", err.Error())
 		}
-		err = errors.Combine(err, s.SetState(ctx, key, "error", err.Error()))
 	}()
 	if err = s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
 		return nil, err
@@ -287,7 +293,7 @@ func (s *Service) startCalculation(
 	}
 
 	var requires []channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
+	if err = s.cfg.Channel.NewRetrieve().
 		WhereKeys(ch.Requires...).
 		Entries(&requires).
 		Exec(ctx, nil); err != nil {
@@ -309,24 +315,16 @@ func (s *Service) startCalculation(
 	plumber.SetSegment(p, "streamer", streamer_)
 	plumber.SetSegment(p, "writer", writer_)
 
-	calculation, err := computron.Open(ch.Expression)
+	c, err := OpenCalculator(ch, requires)
 	if err != nil {
 		return nil, err
 	}
-	c := &Calculator{
-		ch:          ch,
-		calculation: calculation,
-		requires: lo.SliceToMap(requires, func(item channel.Channel) (channel.Key, channel.Channel) {
-			return item.Key(), item
-		}),
-	}
-	sc := &streamCalculator{internal: c, cfg: s.cfg, setState: s.SetState}
-	sc.Transform = sc.transform
+	sc := newCalculationTransform([]*Calculator{c}, s.setState)
 	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](
 		p,
-		"calculator",
+		"Calculator",
 		sc,
-		confluence.Defer(sc.internal.close),
+		confluence.Defer(sc.close),
 	)
 
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
@@ -337,8 +335,8 @@ func (s *Service) startCalculation(
 		)
 	})
 	plumber.SetSink[framer.WriterResponse](p, "obs", o)
-	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "calculator", defaultPipelineBufferSize)
-	plumber.MustConnect[framer.WriterRequest](p, "calculator", "writer", defaultPipelineBufferSize)
+	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "Calculator", defaultPipelineBufferSize)
+	plumber.MustConnect[framer.WriterRequest](p, "Calculator", "writer", defaultPipelineBufferSize)
 	plumber.MustConnect[framer.WriterResponse](p, "writer", "obs", defaultPipelineBufferSize)
 	streamerRequests := confluence.NewStream[framer.StreamerRequest](1)
 	streamer_.InFrom(streamerRequests)
@@ -354,69 +352,48 @@ func (s *Service) startCalculation(
 	return s.releaseEntryCloser(key), nil
 }
 
-type streamCalculator struct {
-	internal *Calculator
-	cfg      Config
-	lastErr  error
+type onStateChange func(
+	ctx context.Context,
+	channel channel.Channel,
+	variant status.Variant,
+	message string,
+)
+
+type streamCalculationTransform struct {
 	confluence.LinearTransform[framer.StreamerResponse, framer.WriterRequest]
-	setState func(ctx context.Context, key channel.Key, variant string, message string) error
+	calculators   []*Calculator
+	onStateChange onStateChange
 }
 
-func (s *streamCalculator) transform(ctx context.Context, i framer.StreamerResponse) (framer.WriterRequest, bool, error) {
-	frame, err := s.internal.Transform(i.Frame)
-	if err == nil {
-		return framer.WriterRequest{Command: writer.Write, Frame: frame}, true, nil
-	}
-	s.cfg.L.Error("calculation error",
-		zap.Error(err),
-		zap.String("channel_name", s.internal.ch.Name),
-		zap.String("expression", s.internal.ch.Expression))
-	if err = s.setState(ctx, s.internal.ch.Key(), "error", err.Error()); err != nil {
-		s.cfg.L.Error("failed to set state", zap.Error(err))
-	}
-	return framer.WriterRequest{}, false, nil
+func newCalculationTransform(
+	calculators []*Calculator,
+	onChange onStateChange,
+) *streamCalculationTransform {
+	t := &streamCalculationTransform{calculators: calculators}
+	t.Transform = t.transform
+	t.onStateChange = onChange
+	return t
 }
 
-type Calculator struct {
-	ch          channel.Channel
-	calculation *computron.Calculator
-	requires    map[channel.Key]channel.Channel
-}
-
-func (c Calculator) close() { c.calculation.Close() }
-
-func (c Calculator) Calculate(fr framer.Frame) (telem.Series, error) {
-	os := telem.AllocSeries(c.ch.DataType, fr.SeriesAt(0).Len())
-	// Mark the alignment of the output series as the same as the input series. Right now, we assume that all the
-	// input channels share the same index.
-	os.Alignment = fr.SeriesAt(0).Alignment
-	for i := range os.Len() {
-		for _, k := range c.ch.Requires {
-			s := fr.Get(k)
-			if s.Len() == 0 {
-				continue
-			}
-			idx := i
-			if idx >= s.Len() {
-				idx = s.Len() - 1
-			}
-			if ch, found := c.requires[k]; found {
-				c.calculation.Set(ch.Name, computron.LValueFromSeries(s.Series[0], int(idx)))
-			}
-		}
-		res, err := c.calculation.Run()
+func (t *streamCalculationTransform) transform(
+	ctx context.Context,
+	req framer.StreamerResponse,
+) (res framer.WriterRequest, send bool, err error) {
+	res.Command = writer.Write
+	for _, c := range t.calculators {
+		s, err := c.Next(req.Frame)
 		if err != nil {
-			return os, err
+			t.onStateChange(ctx, c.ch, status.ErrorVariant, err.Error())
+		} else if s.Len() > 0 {
+			res.Frame = res.Frame.Append(c.ch.Key(), s)
+			send = true
 		}
-		computron.SetLValueOnSeries(res, os, i)
 	}
-	return os, nil
+	return res, send, nil
 }
 
-func (c Calculator) Transform(fr framer.Frame) (framer.Frame, error) {
-	if fr.Empty() {
-		return framer.Frame{}, nil
+func (t *streamCalculationTransform) close() {
+	for _, c := range t.calculators {
+		c.Close()
 	}
-	os, err := c.Calculate(fr)
-	return core.UnaryFrame(c.ch.Key(), os), err
 }

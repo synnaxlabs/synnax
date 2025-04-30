@@ -17,7 +17,6 @@ from freighter import (
     Payload,
     Stream,
     WebsocketClient,
-
 )
 from freighter.websocket import Message
 
@@ -36,7 +35,6 @@ class _Request(Payload):
 
 class _Response(Payload):
     frame: FramePayload
-    error: ExceptionPayload | None
 
 
 class WSStreamerCodec(WSFramerCodec):
@@ -48,7 +46,7 @@ class WSStreamerCodec(WSFramerCodec):
             msg = self.lower_perf_codec.decode(data[1:], pld_t)
             return msg
         frame = self.codec.decode(data, 1)
-        return Message(type="data", payload=_Response(frame=frame, error=None))
+        return Message(type="data", payload=_Response(frame=frame))
 
 
 _ENDPOINT = "/frame/stream"
@@ -81,7 +79,7 @@ class Streamer:
         client: WebsocketClient,
         adapter: ReadFrameAdapter,
         down_sample_factor: int = 1,
-        use_experimental_codec: bool = False
+        use_experimental_codec: bool = True,
     ) -> None:
         self._adapter = adapter
         if use_experimental_codec:
@@ -90,7 +88,9 @@ class Streamer:
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
         self._down_sample_factor = down_sample_factor
         self._stream.send(
-            _Request(keys=self._adapter.keys, down_sample_factor=self._down_sample_factor)
+            _Request(
+                keys=self._adapter.keys, down_sample_factor=self._down_sample_factor
+            )
         )
         _, exc = self._stream.receive()
         if exc is not None:
@@ -149,7 +149,9 @@ class Streamer:
         """
         self._adapter.update(channels)
         self._stream.send(
-            _Request(keys=self._adapter.keys, down_sample_factor=self._down_sample_factor)
+            _Request(
+                keys=self._adapter.keys, down_sample_factor=self._down_sample_factor
+            )
         )
 
     def close(self, timeout: float | int | TimeSpan | None = None):

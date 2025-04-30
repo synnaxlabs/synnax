@@ -48,9 +48,7 @@ func (f Frame) SplitByLeaseholder() map[core.NodeKey]Frame {
 	return frames
 }
 
-func (f *Frame) Sort() {
-	f.Frame.Sort()
-}
+func (f *Frame) Sort() { f.Frame.Sort() }
 
 func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame, free Frame) {
 	for key, series := range f.Entries() {
