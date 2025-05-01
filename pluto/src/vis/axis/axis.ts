@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type box, location, type xy } from "@synnaxlabs/x";
+import { type box, color, location, type xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { color } from "@/color/core";
 import {
   type TickFactoryRenderArgs,
   tickFactoryProps,
@@ -22,12 +21,12 @@ export interface RenderResult {
 }
 
 export const axisStateZ = tickFactoryProps.extend({
-  color: color.Color.z,
+  color: color.colorZ,
   type: tickType.optional().default("linear"),
   font: z.string(),
   showGrid: z.boolean().optional().default(true),
   location: location.outer,
-  gridColor: color.Color.z,
+  gridColor: color.colorZ,
 });
 
 export type AxisState = z.input<typeof axisStateZ>;

@@ -9,7 +9,16 @@
 
 import { z } from "zod";
 
-import { Color, crudeZ, ZERO } from "@/color/core/color";
+import {
+  aValue,
+  bValue,
+  type Color,
+  construct,
+  crudeZ,
+  gValue,
+  rValue,
+  ZERO,
+} from "@/color/color";
 
 export const stopZ = z.object({
   key: z.string(),
@@ -28,9 +37,9 @@ export const fromGradient = (gradient: Gradient, position: number): Color => {
   if (gradient.length === 0) return ZERO;
 
   gradient = gradient.slice().sort((a, b) => a.position - b.position);
-  if (position <= gradient[0].position) return new Color(gradient[0].color);
+  if (position <= gradient[0].position) return construct(gradient[0].color);
   if (position >= gradient[gradient.length - 1].position)
-    return new Color(gradient[gradient.length - 1].color);
+    return construct(gradient[gradient.length - 1].color);
 
   // Find the two stops between which the position lies
   for (let i = 0; i < gradient.length - 1; i++) {
@@ -38,26 +47,32 @@ export const fromGradient = (gradient: Gradient, position: number): Color => {
     const end = gradient[i + 1];
 
     if (position >= start.position && position <= end.position) {
-      if (position === start.position) return new Color(start.color);
+      if (position === start.position) return construct(start.color);
 
-      if (position === end.position) return new Color(end.color);
+      if (position === end.position) return construct(end.color);
 
       // Interpolate
       const t = (position - start.position) / (end.position - start.position);
 
       // Convert colors to RGBA
-      const startColor = new Color(start.color);
-      const endColor = new Color(end.color);
+      const startColor = construct(start.color);
+      const endColor = construct(end.color);
 
-      const r = Math.round(startColor.r + t * (endColor.r - startColor.r));
-      const g = Math.round(startColor.g + t * (endColor.g - startColor.g));
-      const b = Math.round(startColor.b + t * (endColor.b - startColor.b));
-      const a = startColor.a + t * (endColor.a - startColor.a); // Interpolate alpha directly
+      const r = Math.round(
+        rValue(startColor) + t * (rValue(endColor) - rValue(startColor)),
+      );
+      const g = Math.round(
+        gValue(startColor) + t * (gValue(endColor) - gValue(startColor)),
+      );
+      const b = Math.round(
+        bValue(startColor) + t * (bValue(endColor) - bValue(startColor)),
+      );
+      const a = aValue(startColor) + t * (aValue(endColor) - aValue(startColor)); // Interpolate alpha directly
 
-      return new Color([r, g, b, a]);
+      return construct([r, g, b, a]);
     }
   }
 
   // If position didn't match any interval, return the last color
-  return new Color(gradient[gradient.length - 1].color);
+  return construct(gradient[gradient.length - 1].color);
 };

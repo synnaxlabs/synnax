@@ -10,6 +10,7 @@
 import { type alamos } from "@synnaxlabs/alamos";
 import {
   box,
+  color,
   type Destructor,
   dimensions,
   type runtime,
@@ -18,7 +19,6 @@ import {
 } from "@synnaxlabs/x";
 
 import { type aether } from "@/aether/aether";
-import { color } from "@/color/core";
 import { CSS } from "@/css";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 import { clear } from "@/vis/render/clear";
@@ -263,7 +263,7 @@ export class Context {
   private eraseGL(box: box.Box, overscan: xy.XY = xy.ZERO): void {
     const { gl } = this;
     const removeScissor = this.scissorGL(applyOverScan(box, overscan));
-    gl.clearColor(...color.ZERO.rgba1);
+    gl.clearColor(...color.rgba1(color.ZERO));
     gl.clear(gl.COLOR_BUFFER_BIT);
     // See the documentation for the clear program for why this is necessary.
     if (this.os === "Windows") this.clearProgram?.exec();

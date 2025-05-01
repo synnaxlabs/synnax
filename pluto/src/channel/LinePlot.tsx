@@ -10,12 +10,12 @@
 import "@/channel/LinePlot.css";
 
 import { type channel } from "@synnaxlabs/client";
+import { type color } from "@synnaxlabs/x";
 import { box, location as loc, type xy } from "@synnaxlabs/x/spatial";
 import { type TimeRange, type TimeSpan } from "@synnaxlabs/x/telem";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { HAUL_TYPE } from "@/channel/types";
-import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { usePrevious } from "@/hooks";
@@ -38,7 +38,7 @@ export interface BaseLineProps {
   key: string;
   axes: { x: string; y: string };
   channels: { y: channel.KeyOrName; x?: channel.KeyOrName };
-  color: Color.Crude;
+  color: color.Crude;
   strokeWidth?: number;
   label?: string;
   downsample?: number;
@@ -59,7 +59,7 @@ export type LineProps = StaticLineProps | DynamicLineProps;
 export interface RuleProps {
   key: string;
   position: number;
-  color: Color.Crude;
+  color: color.Crude;
   axis: string;
   label: string;
   lineWidth?: number;

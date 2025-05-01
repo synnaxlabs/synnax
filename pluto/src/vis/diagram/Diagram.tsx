@@ -11,7 +11,7 @@ import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { box, location, xy } from "@synnaxlabs/x";
+import { box, color, location, xy } from "@synnaxlabs/x";
 import {
   addEdge as rfAddEdge,
   applyEdgeChanges as rfApplyEdgeChanges,
@@ -245,7 +245,7 @@ const Core = ({
   });
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
-  const defaultEdgeColor = Theming.use().colors.gray.l11.hex;
+  const defaultEdgeColor = color.hex(Theming.use().colors.gray.l11);
 
   const triggers = useMemoCompare(
     () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,

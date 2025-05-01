@@ -21,7 +21,7 @@ import {
   List,
   Text,
 } from "@synnaxlabs/pluto";
-import { type change } from "@synnaxlabs/x";
+import { type change, color } from "@synnaxlabs/x";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
@@ -53,7 +53,7 @@ const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
           showLabel={false}
         >
           {({ onChange, variant: _, ...p }) => (
-            <Color.Swatch onChange={(color) => onChange(color.hex)} {...p} />
+            <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
           )}
         </Form.Field>
         <Form.TextField
@@ -115,7 +115,7 @@ export const Edit: Layout.Renderer = () => {
       const idx = Number(path.split(".")[1]);
       const label = values.labels[idx];
       if (label == null) return;
-      await client.labels.create({ ...label, color: Color.toHex(label.color) });
+      await client.labels.create({ ...label, color: color.hex(label.color) });
     },
   });
 
@@ -148,11 +148,11 @@ export const Edit: Layout.Renderer = () => {
             <Button.Button
               onClick={() => {
                 const newColors = theme?.colors.visualization.palettes.default ?? [];
-                const color = newColors[arr.value.length % newColors.length].hex;
+                const v = color.hex(newColors[arr.value.length % newColors.length]);
                 arr.push({
                   key: uuid(),
                   name: "New Label",
-                  color,
+                  color: v,
                 });
               }}
               startIcon={<Icon.Add />}
