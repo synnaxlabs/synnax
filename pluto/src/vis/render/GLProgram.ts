@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, xy } from "@synnaxlabs/x";
+import { color, type Destructor, xy } from "@synnaxlabs/x";
 
-import { type color } from "@/color/core";
 import { type Context } from "@/vis/render/context";
 
 const errorCompile = (msg: string): Error =>
@@ -72,7 +71,7 @@ export class GLProgram {
    * @param value - The value to set.
    */
   uniformColor(name: string, value: color.Color): void {
-    this.renderCtx.gl.uniform4fv(this.getUniformLoc(name), value.rgba1);
+    this.renderCtx.gl.uniform4fv(this.getUniformLoc(name), color.rgba1(value));
   }
 
   private getUniformLoc(name: string): WebGLUniformLocation {

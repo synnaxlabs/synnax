@@ -9,9 +9,9 @@
 
 import "@/text/Text.css";
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
-import { color as Color } from "@/color/core";
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
 import { type text } from "@/text/core";
@@ -22,7 +22,7 @@ export interface CoreProps<L extends text.Level = text.Level> {
   /* The text to display */
   children?: ReactNode;
   /* The color of the text */
-  color?: Color.Crude | boolean;
+  color?: color.Crude | boolean;
   /* NoWrap prevents the text from wrapping */
   noWrap?: boolean;
   shade?: text.Shade;
@@ -58,12 +58,12 @@ export const Text = <L extends text.Level = text.Level>({
 );
 
 export const evalColor = (
-  color?: Color.Crude | boolean,
+  colorVal?: color.Crude | boolean,
   shade?: number,
 ): string | undefined => {
-  if (color != null) {
-    if (typeof color === "boolean") return undefined;
-    return Color.cssString(color) as string;
+  if (colorVal != null) {
+    if (typeof colorVal === "boolean") return undefined;
+    return color.cssString(colorVal);
   }
   if (shade != null) return `var(--pluto-gray-l${shade})`;
   return undefined;

@@ -14,8 +14,8 @@ import {
   type UnknownAction,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
-import { type deep, type direction, id, type location } from "@synnaxlabs/x";
+import { type Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
+import { color, type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
 import * as latest from "@/layout/types";
@@ -541,7 +541,7 @@ export const { actions, reducer } = createSlice({
       mosaic.focused = key;
     },
     setColorContext: (state, { payload }: PayloadAction<SetColorContextPayload>) => {
-      state.colorContext = Color.transformColorsToHex(payload.state);
+      state.colorContext = color.transformColorsToHex(payload.state);
     },
     setUnsavedChanges: (
       state,

@@ -16,7 +16,6 @@ import { Icon } from "@synnaxlabs/media";
 import {
   type axis,
   Channel,
-  Color,
   type Legend,
   Menu as PMenu,
   Status,
@@ -28,6 +27,7 @@ import {
 } from "@synnaxlabs/pluto";
 import {
   box,
+  color,
   DataType,
   getEntries,
   location,
@@ -160,7 +160,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   >(
     (d): void => {
       const newLine = { ...d } as const as LineState;
-      if (d.color != null) newLine.color = Color.toHex(d.color);
+      if (d.color != null) newLine.color = color.hex(d.color);
       syncDispatch(setLine({ key: layoutKey, line: [newLine] }));
     },
     [syncDispatch, layoutKey],
@@ -170,7 +170,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     Exclude<Channel.LinePlotProps["onRuleChange"], undefined>
   >(
     (rule) => {
-      if (rule.color != null) rule.color = Color.toHex(rule.color);
+      if (rule.color != null) rule.color = color.hex(rule.color);
       syncDispatch(
         setRule({
           key: layoutKey,

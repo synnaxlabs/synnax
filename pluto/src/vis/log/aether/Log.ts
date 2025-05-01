@@ -7,12 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type Destructor, MultiSeries, type TelemValue } from "@synnaxlabs/x";
+import {
+  color,
+  DataType,
+  type Destructor,
+  MultiSeries,
+  type TelemValue,
+} from "@synnaxlabs/x";
 import { box, xy } from "@synnaxlabs/x/spatial";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { color } from "@/color/core";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import { text } from "@/text/core";
@@ -28,7 +33,7 @@ export const logState = z.object({
   visible: z.boolean(),
   telem: telem.seriesSourceSpecZ.optional().default(telem.noopSeriesSourceSpec),
   font: text.levelZ.optional().default("p"),
-  color: color.Color.z.optional().default(color.ZERO),
+  color: color.colorZ.optional().default(color.ZERO),
   overshoot: xy.xy.optional().default({ x: 0, y: 0 }),
 });
 
@@ -66,7 +71,8 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l11;
+    if (color.isZero(this.state.color))
+      this.internal.textColor = i.theme.colors.gray.l11;
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(ctx, this.state.telem, i.telem);
     const handleError = status.useErrorHandler(ctx);
@@ -218,7 +224,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         { width: 6, height: scrollbarHeight },
       ),
       bordered: false,
-      backgroundColor: (t) => t.colors.gray.l6,
+      backgroundColor: (t: theming.Theme) => t.colors.gray.l6,
     });
   }
 
