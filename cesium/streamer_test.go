@@ -161,13 +161,15 @@ var _ = Describe("Streamer Behavior", func() {
 						cesium.Channel{Key: basic3, Name: "Schrodinger", DataType: telem.TimeStampT, IsIndex: true},
 					)).To(Succeed())
 					streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
-						Channels: []cesium.ChannelKey{controlKey},
+						Channels:    []cesium.ChannelKey{controlKey},
+						SendOpenAck: true,
 					}))
 					i, o := confluence.Attach(streamer, 1)
 					sCtx, cancel := signal.WithCancel(ctx)
 					defer cancel()
 					streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 					// Do a best effort schedule for the streamer to boot up
+					Eventually(o.Outlet()).Should(Receive())
 					runtime.Gosched()
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{basic3},
