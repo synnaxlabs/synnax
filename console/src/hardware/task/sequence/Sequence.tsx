@@ -27,7 +27,7 @@ import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom"
 import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { Common } from "@/hardware/common";
 import { Controls } from "@/hardware/common/task/Controls";
-import { useForm } from "@/hardware/common/task/Form";
+import { type Schema, useForm } from "@/hardware/common/task/Form";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
   type Config,
@@ -140,7 +140,7 @@ const Internal = ({
 
   return (
     <Align.Space style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
-      <Form.Form<typeof schema> {...methods}>
+      <Form.Form<Schema<Config>> {...methods}>
         <Form.Field<string>
           path="config.script"
           showLabel={false}

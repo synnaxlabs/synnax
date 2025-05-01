@@ -237,7 +237,7 @@ export class Color {
   }
 
   static readonly z = z
-    .union([hexZ, rgbaZ, rgbZ, z.instanceof(Color), crudeColor])
+    .union([hexZ, rgbaZ, rgbZ, crudeColor])
     .transform((v) => new Color(v as string));
 
   private static fromHex(hex_: string, alpha: number = 1): RGBA {

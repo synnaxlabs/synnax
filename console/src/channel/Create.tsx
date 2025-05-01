@@ -44,27 +44,28 @@ export const CREATE_LAYOUT: Layout.BaseState = {
   },
 };
 
-export const baseFormSchema = channel.newZ.extend({
-  name: z.string().min(1, "Name must not be empty"),
-  dataType: DataType.z.transform((v) => v.toString()),
-});
-
-export const createFormValidator = (v: typeof baseFormSchema) =>
-  v
-    .refine((v) => !v.isIndex || new DataType(v.dataType).equals(DataType.TIMESTAMP), {
+export const baseFormSchema = channel.newZ
+  .extend({
+    name: z.string().min(1, "Name must not be empty"),
+    dataType: DataType.z.transform((v) => v.toString()),
+  })
+  .refine(
+    (v) => !v.isIndex || DataType.z.parse(v.dataType).equals(DataType.TIMESTAMP),
+    {
       message: "Index channel must have data type TIMESTAMP",
       path: ["dataType"],
-    })
-    .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
-      message: "Data channel must have an index",
-      path: ["index"],
-    })
-    .refine((v) => v.virtual || !new DataType(v.dataType).isVariable, {
-      message: "Persisted channels must have a fixed-size data type",
-      path: ["dataType"],
-    });
+    },
+  )
+  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
+    message: "Data channel must have an index",
+    path: ["index"],
+  })
+  .refine((v) => v.virtual || !DataType.z.parse(v.dataType).isVariable, {
+    message: "Persisted channels must have a fixed-size data type",
+    path: ["dataType"],
+  });
 
-const createFormSchema = createFormValidator(baseFormSchema);
+const createFormSchema = baseFormSchema;
 
 type Schema = typeof createFormSchema;
 

@@ -48,6 +48,7 @@ export const newZ = channelZ.extend({
   expression: z.string().optional().default(""),
   requires: nullableArrayZ(keyZ).optional().default([]),
 });
+
 export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "channel";

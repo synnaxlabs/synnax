@@ -40,7 +40,7 @@ export const override = <T>(base: T, ...overrides: Array<Partial<T>>): T => {
 export const overrideValidItems = <A, B>(
   base: A,
   override: B,
-  schema: z.ZodObject<z.ZodRawShape>,
+  schema: z.ZodType<A>,
 ): A => {
   const mergeValidFields = (
     baseObj: any,
