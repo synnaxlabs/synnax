@@ -45,7 +45,7 @@ import {
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
 
-export type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
+export type FormSchema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
   name: z.ZodString;
   config: ConfigSchema<Config>;
 }>;
@@ -54,7 +54,7 @@ export type FormProps<
   Config extends UnknownRecord = UnknownRecord,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
-> = { methods: PForm.ContextValue<Schema<Config>> } & (
+> = { methods: PForm.ContextValue<FormSchema<Config>> } & (
   | {
       configured: false;
       task: task.Payload<Config, Details, Type>;
@@ -130,7 +130,7 @@ export const useForm = <
     },
     [dispatch, layoutKey],
   );
-  const methods = PForm.use<Schema<Config>>({
+  const methods = PForm.use<FormSchema<Config>>({
     schema,
     values,
     onHasTouched: handleUnsavedChanges,
@@ -240,7 +240,7 @@ export const wrapForm = <
         empty
       >
         <Align.Space grow>
-          <PForm.Form<Schema<Config>>
+          <PForm.Form<FormSchema<Config>>
             {...methods}
             mode={isSnapshot ? "preview" : "normal"}
           >

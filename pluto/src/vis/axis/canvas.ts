@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, dimensions, xy } from "@synnaxlabs/x";
+import { bounds, box, color, dimensions, xy } from "@synnaxlabs/x";
 
 import { dimensions as textDimensions } from "@/text/dimensions";
 import { prettyParse } from "@/util/zod";
@@ -100,7 +100,7 @@ export class Canvas implements Axis {
     const p = ctx.position;
     const ticks = this.tickFactory.create({ ...ctx, size });
     canvas.beginPath();
-    canvas.strokeStyle = this.state.color.hex;
+    canvas.strokeStyle = color.hex(this.state.color);
     this.drawLine(p, xy.translate(p, "x", size));
     const maxTickDims = this.drawTicks(ticks, (d, tick) => {
       this.drawLine(
@@ -135,7 +135,7 @@ export class Canvas implements Axis {
       xy.translate(p, "x", tick.position),
       xy.translate(p, { x: tick.position, y: gridSize }),
     ]);
-    canvas.strokeStyle = this.state.color.hex;
+    canvas.strokeStyle = color.hex(this.state.color);
     this.drawLine(p, xy.translate(p, "x", size));
     const maxTickDims = this.drawTicks(ticks, (d, tick) => {
       canvas.moveTo(p.x + tick.position, p.y);
@@ -161,7 +161,7 @@ export class Canvas implements Axis {
     const p = xy.translate(ctx.position, "x", ctx.size);
     const ticks = this.tickFactory.create({ ...ctx, size });
     canvas.beginPath();
-    canvas.strokeStyle = this.state.color.hex;
+    canvas.strokeStyle = color.hex(this.state.color);
     this.drawLine(p, xy.translate(p, "y", size));
     const maxTickSize = this.drawTicks(ticks, (d, tick) => {
       this.drawLine(
@@ -195,7 +195,7 @@ export class Canvas implements Axis {
       xy.translate(p, "y", tick.position),
       xy.translate(p, { x: -gridSize, y: tick.position }),
     ]);
-    canvas.strokeStyle = this.state.color.hex;
+    canvas.strokeStyle = color.hex(this.state.color);
     this.drawLine(p, xy.translate(p, "y", size));
     const maxTickSize = this.drawTicks(ticks, (d, tick) => {
       canvas.moveTo(p.x, p.y + tick.position);
@@ -242,7 +242,7 @@ export class Canvas implements Axis {
       const endBound = bounds.construct(size - 1, size + 1);
       const { lower2d: canvas } = this.renderCtx;
       canvas.beginPath();
-      canvas.strokeStyle = gridColor.hex;
+      canvas.strokeStyle = color.hex(gridColor);
       ticks.forEach((tick) => {
         if (
           bounds.contains(startBound, tick.position) &&

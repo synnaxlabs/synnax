@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { type Optional } from "@synnaxlabs/x";
+import { type color, type Optional } from "@synnaxlabs/x";
 import { memo, type ReactElement, useState } from "react";
 
 import { Align } from "@/align";
@@ -21,7 +21,7 @@ import { Container, type ContainerProps } from "@/vis/legend/Container";
 interface SimpleEntry {
   key: string;
   label: string;
-  color: Color.Crude;
+  color: color.Crude;
   visible: boolean;
 }
 

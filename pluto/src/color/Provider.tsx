@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { color, TimeStamp } from "@synnaxlabs/x";
 import React, {
   createContext,
   type PropsWithChildren,
@@ -18,7 +18,6 @@ import React, {
 } from "react";
 import { z } from "zod";
 
-import { color } from "@/color/core";
 import { useSyncedRef } from "@/hooks";
 import { type state } from "@/state";
 
@@ -96,9 +95,9 @@ export const Provider = ({
   const valueRef = useSyncedRef(value);
 
   const updateFrequent = useCallback(
-    (color: color.Color) => {
+    (colorVal: color.Color) => {
       const prev = valueRef.current;
-      const hex = color.hex;
+      const hex = color.hex(colorVal);
       const count = prev.frequent[hex]?.count ?? 0;
       const next: Frequent = {
         ...prev.frequent,
@@ -123,7 +122,7 @@ export const Provider = ({
 
 export const useFrequent = (): color.Color[] => {
   const { frequent } = useContext();
-  return Object.keys(frequent).map((hex) => new color.Color(hex));
+  return Object.keys(frequent).map((hex) => color.construct(hex));
 };
 
 export const usePalette = (key: string): color.Palette | null => {

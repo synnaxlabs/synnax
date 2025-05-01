@@ -1,5 +1,6 @@
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { getCurrentWindow as getTauriWindow } from "@tauri-apps/api/window";
+import { type Event, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWindow as getTauriWindow, type Theme } from "@tauri-apps/api/window";
 
 interface TauriWindow {
   show: () => Promise<void>;
@@ -7,6 +8,8 @@ interface TauriWindow {
   maximize: () => Promise<void>;
   minimize: () => Promise<void>;
   close: () => Promise<void>;
+  theme: () => Promise<Theme | null>;
+  onThemeChanged: (callback: (theme: Event<Theme>) => void) => Promise<UnlistenFn>;
   label: string;
 }
 
@@ -22,6 +25,8 @@ export const getCurrentWindow = (): TauriWindow => {
       minimize: async () => {},
       close: async () => {},
       label: MAIN_WINDOW,
+      theme: async () => null,
+      onThemeChanged: async () => () => {},
     };
   }
 };

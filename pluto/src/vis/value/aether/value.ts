@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { notation } from "@synnaxlabs/x";
+import { color, notation } from "@synnaxlabs/x";
 import { box, location, scale, xy } from "@synnaxlabs/x/spatial";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { color } from "@/color/core";
 import { telem } from "@/telem/aether";
 import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { text } from "@/text/core";
@@ -25,7 +24,7 @@ const valueState = z.object({
   telem: telem.stringSourceSpecZ.optional().default(telem.noopStringSourceSpec),
   backgroundTelem: telem.colorSourceSpecZ.optional().default(telem.noopColorSourceSpec),
   level: text.levelZ.optional().default("p"),
-  color: color.Color.z.optional().default(color.ZERO),
+  color: color.colorZ.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
   minWidth: z.number().optional().default(60),
   width: z.number().optional(),
@@ -63,7 +62,8 @@ export class Value
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l10;
+    if (color.isZero(this.state.color))
+      this.internal.textColor = i.theme.colors.gray.l10;
     else i.textColor = this.state.color;
     i.telem = await telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
@@ -153,20 +153,20 @@ export class Value
 
     let setDefaultFillStyle = true;
     if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
-      const color = await backgroundTelem.value();
-      setDefaultFillStyle = color.isZero;
-      if (!color.isZero) {
+      const colorValue = await backgroundTelem.value();
+      const isZero = color.isZero(colorValue);
+      setDefaultFillStyle = isZero;
+      if (!isZero) {
         const lower2d = renderCtx.lower2d.applyScale(viewportScale);
-        lower2d.fillStyle = color.hex;
+        lower2d.fillStyle = color.hex(colorValue);
         lower2d.rect(...xy.couple(bTopLeft), bWidth, bHeight);
         lower2d.fill();
-        canvas.fillStyle = color.pickByContrast(
-          theme.colors.gray.l0,
-          theme.colors.gray.l11,
-        ).hex;
+        canvas.fillStyle = color.hex(
+          color.pickByContrast(colorValue, theme.colors.gray.l0, theme.colors.gray.l11),
+        );
       }
     }
-    if (setDefaultFillStyle) canvas.fillStyle = this.internal.textColor.hex;
+    if (setDefaultFillStyle) canvas.fillStyle = color.hex(this.internal.textColor);
 
     // If the value is negative, chop of the negative sign and draw it separately
     // so that the first digit always stays in the same position, regardless of the sign.

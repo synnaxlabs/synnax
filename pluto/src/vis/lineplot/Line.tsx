@@ -10,7 +10,6 @@
 import { type ReactElement, useEffect } from "react";
 
 import { type Aether } from "@/aether";
-import { type Color } from "@/color";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Line as Core } from "@/vis/line";
 import { useContext } from "@/vis/lineplot/LinePlot";
@@ -27,7 +26,7 @@ export const Line = ({
   const cKey = useUniqueKey(aetherKey);
   const { setLine, removeLine } = useContext("Line");
   useEffect(() => {
-    setLine({ key: cKey, color: color as Color.Crude, label, visible });
+    setLine({ key: cKey, color, label, visible });
     return () => removeLine(cKey);
   }, [label, color, visible]);
   return (

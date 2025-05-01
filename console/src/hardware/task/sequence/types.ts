@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type task } from "@synnaxlabs/client";
+import { channel, rack, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const TYPE = "sequence";
@@ -15,6 +15,7 @@ export type Type = typeof TYPE;
 
 export const configZ = z.object({
   rate: z.number().min(1),
+  rack: rack.keyZ.optional().default(0),
   read: z.array(channel.keyZ),
   write: z.array(channel.keyZ),
   script: z.string(),
@@ -23,6 +24,7 @@ export const configZ = z.object({
 export type Config = z.infer<typeof configZ>;
 export const ZERO_CONFIG: Config = {
   rate: 10,
+  rack: 0,
   read: [],
   write: [],
   script: "",

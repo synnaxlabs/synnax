@@ -18,7 +18,7 @@ import {
   Schematic,
   Status,
 } from "@synnaxlabs/pluto";
-import { box, deep, location, xy } from "@synnaxlabs/x";
+import { box, color, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -114,9 +114,9 @@ const EdgeProperties = ({
     <Align.Space style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
-          value={edge.color ?? Color.ZERO}
-          onChange={(color: Color.Color) => {
-            onChange(edge.key, { color: color.hex });
+          value={edge.color ?? color.ZERO}
+          onChange={(v: color.Color) => {
+            onChange(edge.key, { color: color.hex(v) });
           }}
         />
       </Input.Item>
@@ -145,11 +145,11 @@ const MultiElementProperties = ({
 
   const groups: Record<string, ElementInfo[]> = {};
   elements.forEach((e) => {
-    let color: Color.Color | null = null;
-    if (e.type === "edge") color = new Color.Color(e.edge.color);
-    else if (e.props.color != null) color = new Color.Color(e.props.color);
-    if (color === null) return;
-    const hex = color.hex;
+    let colorVal: color.Color | null = null;
+    if (e.type === "edge") colorVal = color.construct(e.edge.color);
+    else if (e.props.color != null) colorVal = color.construct(e.props.color);
+    if (colorVal === null) return;
+    const hex = color.hex(colorVal);
     if (!(hex in groups)) groups[hex] = [];
     groups[hex].push(e);
   });
@@ -199,8 +199,8 @@ const MultiElementProperties = ({
             <Color.Swatch
               key={elements[0].key}
               value={hex}
-              onChange={(color: Color.Color) => {
-                elements.forEach((e) => onChange(e.key, { color: color.hex }));
+              onChange={(v: color.Color) => {
+                elements.forEach((e) => onChange(e.key, { color: color.hex(v) }));
               }}
             />
           ))}

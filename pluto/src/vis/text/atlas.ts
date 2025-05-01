@@ -1,6 +1,4 @@
-import { type dimensions, unique } from "@synnaxlabs/x";
-
-import { color } from "@/color/core";
+import { color, type dimensions, unique } from "@synnaxlabs/x";
 
 export interface AtlasProps {
   font: string;
@@ -52,7 +50,7 @@ export class Atlas {
     atlasCtx.font = font;
     atlasCtx.textBaseline = "alphabetic";
     atlasCtx.textAlign = "left";
-    atlasCtx.fillStyle = new color.Color(textColor).hex;
+    atlasCtx.fillStyle = color.hex(textColor);
     atlasCtx.clearRect(0, 0, this.atlas.width, this.atlas.height);
 
     uniqueChars.forEach((char, i) => {
@@ -113,8 +111,7 @@ export class AtlasRegistry {
   }
 
   get(props: AtlasProps): Atlas {
-    const c = new color.Color(props.textColor);
-    const key = `${props.font}-${c.hex}-${props.dpr}-${props.characters}`;
+    const key = `${props.font}-${color.hex(props.textColor)}-${props.dpr}-${props.characters}`;
     if (this.atlases.has(key)) return this.atlases.get(key)!;
     const atlas = new Atlas(props);
     this.atlases.set(key, atlas);
