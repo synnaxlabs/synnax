@@ -273,12 +273,11 @@ const InternalSVG = ({
   const theme = Theming.use();
   if (colorVal != null) {
     // @ts-expect-error - css variables
-    style[CSS.var("symbol-color")] = new color.Color(colorVal).rgbString;
+    style[CSS.var("symbol-color")] = color.rgbString(colorVal);
     // @ts-expect-error - css variables
-    style[CSS.var("symbol-color-contrast")] = new color.Color(colorVal).pickByContrast(
-      theme.colors.gray.l0,
-      theme.colors.gray.l11,
-    ).rgbString;
+    style[CSS.var("symbol-color-contrast")] = color.rgbString(
+      color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
+    );
   }
   return (
     <svg

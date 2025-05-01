@@ -105,17 +105,19 @@ export class Context {
     this.glCanvas = glCanvas;
     this.os = os;
     this.instrumentation = instrumentation;
+    this.dpr = 1;
+
     const lowerCtx = this.lower2dCanvas.getContext("2d");
     if (lowerCtx == null) throw new Error("Could not get 2D context");
     const atlas = new text.AtlasRegistry();
     this.lower2d = applyDefaultCanvasOpts(
-      new SugaredOffscreenCanvasRenderingContext2D(lowerCtx, atlas),
+      new SugaredOffscreenCanvasRenderingContext2D(lowerCtx, atlas, this.dpr),
     );
 
     const upperCtx = this.upper2dCanvas.getContext("2d");
     if (upperCtx == null) throw new Error("Could not get 2D context");
     this.upper2d = applyDefaultCanvasOpts(
-      new SugaredOffscreenCanvasRenderingContext2D(upperCtx, atlas),
+      new SugaredOffscreenCanvasRenderingContext2D(upperCtx, atlas, this.dpr),
     );
 
     const webGlOpts: WebGLContextAttributes = {
@@ -145,7 +147,6 @@ export class Context {
     });
 
     this.region = box.ZERO;
-    this.dpr = 1;
 
     if (this.os === "Windows") this.clearProgram = new clear.Program(this);
   }

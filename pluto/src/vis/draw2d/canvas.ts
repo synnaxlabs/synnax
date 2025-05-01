@@ -13,6 +13,10 @@ import { dimensionsFromMetrics } from "@/text/dimensions";
 import { applyOverScan } from "@/vis/render/util";
 import { type text } from "@/vis/text";
 
+export interface FillTextOptions {
+  useAtlas?: boolean;
+}
+
 export class SugaredOffscreenCanvasRenderingContext2D
   implements OffscreenCanvasRenderingContext2D
 {
@@ -29,15 +33,18 @@ export class SugaredOffscreenCanvasRenderingContext2D
   private cachedLineCap: CanvasLineCap | null = null;
   private cachedLineJoin: CanvasLineJoin | null = null;
   private cachedMiterLimit: number | null = null;
+  private dpr: number;
 
   constructor(
     wrap: OffscreenCanvasRenderingContext2D,
     atlasRegistry: text.AtlasRegistry,
+    dpr: number,
     scale_: scale.XY = scale.XY.IDENTITY,
   ) {
     this.wrapped = wrap;
     this.scale_ = scale_;
     this.atlasRegistry = atlasRegistry;
+    this.dpr = dpr;
   }
 
   get fontStretch(): CanvasFontStretch {
@@ -92,6 +99,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     return new SugaredOffscreenCanvasRenderingContext2D(
       this,
       this.atlasRegistry,
+      this.dpr,
       scale,
     );
   }
@@ -596,13 +604,14 @@ export class SugaredOffscreenCanvasRenderingContext2D
     x: number,
     y: number,
     maxWidth?: number | undefined,
-    atlas?: boolean,
+    options: FillTextOptions = {},
   ): void {
-    if (atlas) {
+    const { useAtlas } = options;
+    if (useAtlas == true) {
       const atlas = this.atlasRegistry.get({
         font: this.font,
         textColor: this.fillStyle as string,
-        dpr: 2,
+        dpr: this.dpr,
       });
       atlas.fillText(this, text, x, y);
       return;
@@ -619,7 +628,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     const atlas = this.atlasRegistry.get({
       font: this.font,
       textColor: this.fillStyle as string,
-      dpr: 2,
+      dpr: this.dpr,
     });
     return atlas.measureText(text);
   }
@@ -628,7 +637,8 @@ export class SugaredOffscreenCanvasRenderingContext2D
     return this.wrapped.measureText(text);
   }
 
-  textDimensions(text: string, useAtlas: boolean = false): dimensions.Dimensions {
+  textDimensions(text: string, options: FillTextOptions = {}): dimensions.Dimensions {
+    const { useAtlas } = options;
     let result: dimensions.Dimensions;
     if (useAtlas) result = this.atlasMeasureText(text);
     else result = dimensionsFromMetrics(this.measureText(text));
@@ -705,6 +715,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
 
   scale(x: number, y: number): void {
     this.wrapped.scale(x, y);
+    this.dpr = x;
   }
 
   scissor(region: box.Box, overScan: xy.XY = xy.ZERO): Destructor {

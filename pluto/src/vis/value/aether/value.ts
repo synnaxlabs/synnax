@@ -17,7 +17,10 @@ import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { text } from "@/text/core";
 import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
+import { type FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
+
+const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
 const valueState = z.object({
   box: box.box,
@@ -138,7 +141,7 @@ export class Value
     if (isNegative) value = value.slice(1);
 
     const { theme } = this.internal;
-    const dims = canvas.textDimensions(value, true);
+    const dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
     const width = dims.width + theme.sizes.base;
     const height = dims.height;
     if (requestRender == null) renderCtx.erase(box.construct(this.prevState.box));
@@ -147,7 +150,11 @@ export class Value
     const labelOffset = { ...xy.ZERO };
     if (location.x === "left") labelOffset.x = 6 + fontHeight * 0.75;
     if (location.x === "center") labelOffset.x = bWidth / 2 - width / 2;
-    if (location.y === "center") labelOffset.y = bHeight / 2 + height / 3;
+    if (location.y === "center") labelOffset.y = bHeight / 2 + height / 2;
+
+    // canvas.fillStyle = "red";
+    // canvas.rect(...xy.couple(box.topLeft(b)), box.width(b), box.height(b));
+    // canvas.fill();
 
     const labelPosition = xy.translate(bTopLeft, labelOffset);
 
@@ -177,9 +184,9 @@ export class Value
         // the right place.
         ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
         undefined,
-        true,
+        FILL_TEXT_OPTIONS,
       );
-    canvas.fillText(value, ...xy.couple(labelPosition), undefined, true);
+    canvas.fillText(value, ...xy.couple(labelPosition), undefined, FILL_TEXT_OPTIONS);
   }
 }
 

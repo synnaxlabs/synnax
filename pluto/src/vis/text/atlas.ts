@@ -1,48 +1,58 @@
 import { color, type dimensions, unique } from "@synnaxlabs/x";
 
+import { dimensionsFromMetrics } from "@/text/dimensions";
+
 export interface AtlasProps {
   font: string;
   textColor: color.Crude;
-  dpr?: number;
+  dpr: number;
   characters?: string;
 }
 
-export class Atlas {
+const PADDING = 2;
+
+/**
+ * @desc a text atlas that allows for efficient caching and rendering of monospaced
+ * characters.
+ */
+export class MonospacedAtlas {
+  // A canvas buffer that holds rendered characters.
   private readonly atlas: OffscreenCanvas;
-  private readonly charWidth: number;
-  private readonly charHeight: number;
+  // Cached dimensions of a character.
+  private readonly charDims: dimensions.Dimensions;
+  // The device pixel ratio of the atlas.
   private readonly dpr: number;
+  // A map of characters to their index in the atlas.
   private readonly charMap: Map<string, number>;
-  private static readonly PADDING = 2;
+  // The default characters to include in the atlas.
   private static readonly DEFAULT_CHARS = "0123456789.:-ums";
 
   constructor(props: AtlasProps) {
-    const { font, dpr = 2, characters = Atlas.DEFAULT_CHARS, textColor } = props;
+    const { font, dpr, characters = MonospacedAtlas.DEFAULT_CHARS, textColor } = props;
     this.dpr = dpr;
     this.charMap = new Map();
 
     const uniqueChars = unique.unique(Array.from(characters));
 
-    this.atlas = new OffscreenCanvas(1, 1);
-    const ctx = this.atlas.getContext("2d") as OffscreenCanvasRenderingContext2D;
+    const tempCanvas = new OffscreenCanvas(1, 1);
+    const ctx = tempCanvas.getContext("2d") as OffscreenCanvasRenderingContext2D;
     ctx.font = font;
     const metrics = ctx.measureText("0");
-    const ascent = metrics.fontBoundingBoxAscent || metrics.actualBoundingBoxAscent;
-    const descent = metrics.fontBoundingBoxDescent || metrics.actualBoundingBoxDescent;
-
-    this.charWidth = metrics.width;
-    this.charHeight = ascent + descent;
+    this.charDims = dimensionsFromMetrics(metrics);
+    this.charDims.width += PADDING;
+    this.charDims.height += PADDING;
+    console.log(metrics, this.charDims);
 
     const totalChars = uniqueChars.length;
-    const atlasCharWidth = this.charWidth + Atlas.PADDING * 2;
-    const atlasCharHeight = this.charHeight + Atlas.PADDING * 2;
+    const atlasCharWidth = this.charDims.width;
+    const atlasCharHeight = this.charDims.height;
 
     const cols = Math.ceil(Math.sqrt(totalChars));
     const rows = Math.ceil(totalChars / cols);
 
     this.atlas = new OffscreenCanvas(
       atlasCharWidth * cols * this.dpr,
-      atlasCharHeight * rows * this.dpr,
+      atlasCharHeight * (rows + 1) * this.dpr,
     );
 
     const atlasCtx = this.atlas.getContext("2d") as OffscreenCanvasRenderingContext2D;
@@ -56,8 +66,8 @@ export class Atlas {
     uniqueChars.forEach((char, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
-      const x = col * atlasCharWidth + Atlas.PADDING;
-      const y = row * atlasCharHeight + ascent + Atlas.PADDING;
+      const x = col * atlasCharWidth;
+      const y = (row + 1) * atlasCharHeight;
       atlasCtx.fillText(char, x, y);
       this.charMap.set(char, i);
     });
@@ -69,8 +79,7 @@ export class Atlas {
     x: number,
     y: number,
   ): void {
-    const atlasCharWidth = this.charWidth + Atlas.PADDING * 2;
-    const atlasCharHeight = this.charHeight + Atlas.PADDING * 2;
+    const { width, height } = this.charDims;
     const cols = Math.ceil(Math.sqrt(this.charMap.size));
 
     for (let i = 0; i < text.length; i++) {
@@ -80,40 +89,53 @@ export class Atlas {
 
       const col = index % cols;
       const row = Math.floor(index / cols);
-
       ctx.drawImage(
         this.atlas,
-        col * atlasCharWidth * this.dpr,
-        row * atlasCharHeight * this.dpr,
-        atlasCharWidth * this.dpr,
-        atlasCharHeight * this.dpr,
-        x + i * this.charWidth,
-        y - this.charHeight,
-        this.charWidth + Atlas.PADDING * 2,
-        this.charHeight + Atlas.PADDING * 2,
+        col * width * this.dpr,
+        row * height * this.dpr + PADDING,
+        width * this.dpr,
+        height * this.dpr,
+        x + i * width,
+        y - height - PADDING / this.dpr,
+        width,
+        height,
       );
     }
   }
 
+  drawEntireAtlas(ctx: OffscreenCanvasRenderingContext2D, x: number, y: number): void {
+    ctx.drawImage(
+      this.atlas,
+      0,
+      0,
+      this.atlas.width,
+      this.atlas.height,
+      x,
+      y,
+      this.atlas.width,
+      this.atlas.height,
+    );
+  }
+
   measureText(text: string): dimensions.Dimensions {
     return {
-      width: text.length * this.charWidth,
-      height: this.charHeight,
+      width: text.length * this.charDims.width,
+      height: this.charDims.height,
     };
   }
 }
 
 export class AtlasRegistry {
-  private readonly atlases: Map<string, Atlas>;
+  private readonly atlases: Map<string, MonospacedAtlas>;
 
   constructor() {
     this.atlases = new Map();
   }
 
-  get(props: AtlasProps): Atlas {
+  get(props: AtlasProps): MonospacedAtlas {
     const key = `${props.font}-${color.hex(props.textColor)}-${props.dpr}-${props.characters}`;
     if (this.atlases.has(key)) return this.atlases.get(key)!;
-    const atlas = new Atlas(props);
+    const atlas = new MonospacedAtlas(props);
     this.atlases.set(key, atlas);
     return atlas;
   }
