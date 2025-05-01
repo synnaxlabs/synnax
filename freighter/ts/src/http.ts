@@ -65,9 +65,9 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     req: z.input<RQ> | z.output<RQ>,
     reqSchema: RQ,
     resSchema: RS,
-  ): Promise<[z.output<RS> | null, Error | null]> {
+  ): Promise<[z.output<RS>, null] | [null, Error]> {
     req = reqSchema?.parse(req);
-    let res: RS | null = null;
+    let res: z.output<RS> | null = null;
     const url = this.endpoint.child(target);
     const request: RequestInit = {};
     request.method = "POST";
@@ -96,7 +96,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         }
         const data = new Uint8Array(await (await httpRes.blob()).arrayBuffer());
         if (httpRes?.ok) {
-          if (resSchema != null) res = this.encoder.decode(data, resSchema);
+          if (resSchema != null) res = this.encoder.decode<RS>(data, resSchema);
           return [outCtx, null];
         }
         try {
@@ -117,6 +117,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
       },
     );
 
-    return [res, err];
+    if (err != null) return [null, err];
+    return [res, null];
   }
 }

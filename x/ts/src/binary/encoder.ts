@@ -35,7 +35,10 @@ export interface Codec {
    * @param data - The data to decode.
    * @param schema - The schema to decode the data with.
    */
-  decode: <P>(data: Uint8Array | ArrayBuffer, schema?: z.ZodSchema<P>) => P;
+  decode: <P extends z.ZodTypeAny>(
+    data: Uint8Array | ArrayBuffer,
+    schema?: P,
+  ) => z.output<P>;
 }
 
 /** JSONCodec is a JSON implementation of Codec. */

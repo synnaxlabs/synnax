@@ -33,6 +33,10 @@ export const transferString = (t: Transfer): string => {
   } (${t.to.authority.toString()})`;
 };
 
+const updateZ = z.object({
+  transfers: z.array(control.transferZ),
+});
+
 interface Update {
   transfers: control.Transfer<channel.Key>[];
 }
@@ -46,7 +50,7 @@ export class StateTracker
 
   constructor(streamer: framer.Streamer) {
     super(streamer, (frame) => {
-      const update: Update = this.codec.decode(frame.series[0].buffer);
+      const update: Update = this.codec.decode(frame.series[0].buffer, updateZ);
       this.merge(update);
       return [update.transfers, true];
     });

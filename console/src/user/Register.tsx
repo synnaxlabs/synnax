@@ -71,7 +71,7 @@ export const Register: Layout.Renderer = ({ onClose }) => {
         style={{ padding: "1rem 3rem" }}
         grow
       >
-        <Form.Form {...methods}>
+        <Form.Form<typeof formSchema> {...methods}>
           <Align.Space y>
             <Align.Space x>
               <Form.Field<string> path="firstName" label="First Name">

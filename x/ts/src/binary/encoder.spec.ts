@@ -221,7 +221,7 @@ describe("MsgPack", () => {
       value: binaryData,
     };
     const encoded = binary.MSGPACK_CODEC.encode(sample);
-    const decoded = binary.MSGPACK_CODEC.decode(encoded);
+    const decoded = binary.MSGPACK_CODEC.decode<typeof sampleSchema>(encoded);
 
     // Check that the structure is preserved
     expect(decoded.channelKey).toEqual(sample.channelKey);
@@ -247,7 +247,7 @@ describe("MsgPack", () => {
       value: new CustomValueEncoder(),
     };
     const encoded = binary.MSGPACK_CODEC.encode(sample);
-    const decoded = binary.MSGPACK_CODEC.decode(encoded);
+    const decoded = binary.MSGPACK_CODEC.decode(encoded, sampleSchema);
     expect(decoded).toEqual({ ...sample, value: "cat" });
   });
 });

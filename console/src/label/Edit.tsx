@@ -124,7 +124,7 @@ export const Edit: Layout.Renderer = () => {
 
   return (
     <Align.Space y style={{ padding: "2rem" }} grow>
-      <Form.Form {...methods}>
+      <Form.Form<typeof formSchema> {...methods}>
         <List.List
           data={arr.value}
           emptyContent={

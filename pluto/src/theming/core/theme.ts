@@ -84,9 +84,9 @@ export const themeZ = z
       error: scaleZ,
       secondary: scaleZ,
       warning: scaleZ,
-      palettes: z.record(color.paletteZ),
+      palettes: z.record(z.string(), color.paletteZ),
       visualization: z
-        .object({ palettes: z.record(z.array(color.Color.z)) })
+        .object({ palettes: z.record(z.string(), z.array(color.Color.z)) })
         .optional()
         .default({ palettes: {} }),
       white: color.Color.z,

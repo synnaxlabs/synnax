@@ -14,6 +14,7 @@ import {
   type Key,
   type Optional,
   type UnknownRecord,
+  unknownRecordZ,
   xy,
 } from "@synnaxlabs/x";
 import React, {
@@ -38,7 +39,7 @@ export const itemZ = z.object({
   key: z.string().or(z.number()),
   type: z.string(),
   elementID: z.string().optional(),
-  data: z.record(z.unknown()).optional(),
+  data: unknownRecordZ.optional(),
 });
 
 // Item represents a draggable item.

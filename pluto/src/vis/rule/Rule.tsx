@@ -118,7 +118,7 @@ export const Rule = ({
 
   if (propsPosition == null || pixelPosition == null) return null;
 
-  const pColor = new Color.Color(color);
+  const pColor = new Color.Color(color as Color.Crude);
   const textColor = pColor.pickByContrast("#000000", "#ffffff");
 
   const content = (
@@ -141,8 +141,8 @@ export const Rule = ({
         size={1}
         rounded
         style={{
-          borderColor: Color.cssString(color),
-          backgroundColor: new Color.Color(color).setAlpha(0.7).hex,
+          borderColor: Color.cssString(color as Color.Crude),
+          backgroundColor: new Color.Color(color as Color.Crude).setAlpha(0.7).hex,
           ...style,
         }}
         {...rest}
@@ -154,7 +154,10 @@ export const Rule = ({
           onChange={setInternalLabel}
           color={textColor}
         />
-        <Divider.Divider y style={{ borderColor: Color.cssString(color) }} />
+        <Divider.Divider
+          y
+          style={{ borderColor: Color.cssString(color as Color.Crude) }}
+        />
         <Align.Space size="small" x align="center">
           <Text.Editable
             value={propsPosition.toFixed(2)}

@@ -39,23 +39,58 @@ type state struct {
 	hasVariableDataTypes bool
 }
 
+func readTimeRange(reader io.Reader) (tr telem.TimeRange, err error) {
+	if err = read(reader, &tr.Start); err != nil {
+		return
+	}
+	err = read(reader, &tr.End)
+	return
+}
+
+func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
+	w.Uint64(uint64(tr.Start))
+	w.Uint64(uint64(tr.End))
+}
+
 // Codec is a high-performance encoder/decoder specifically designed for moving
 // telemetry frames over the network. Codec is stateful, meaning that both the
 // encoding and decoding side must agree on the set of channels and their order
 // before any encoding or decoding can occur.
 type Codec struct {
+	// mu is non-routine safe structures that must be used carefully.
 	mu struct {
-		states          map[uint32]state
-		seqNum          uint32
+		// states is the current backlog of encoding states. We keep multiple states
+		// to allow for temporary de-sync between the encoding and decoding sides. For
+		// example, when updating the keys of a streamer, the receiving codec may get
+		// the updated set of channel in its state before the sending codec may get
+		// updated, which means that the receiving codec needs to decode according
+		// to the previous state. seqNum and the states backlog are used to keep the
+		// two in sync.
+		states map[uint32]state
+		// seqNum corresponds to the most recent update in states. This is incremented
+		// and communicated each time a state is added.
+		seqNum uint32
+		// updateAvailable is an atomic flag indicating that a new state update is
+		// available for processing on the encoding/decoding routine. Checking this
+		// boolean is more performant than using a non-blocking select on every
+		// encode/decode operation.
 		updateAvailable atomic.Bool
-		updates         chan state
+		// updates is a channel that the routine in Update pushes a new state down
+		// for processing within Encode/Decode.
+		updates chan state
 	}
-	buf      *xbinary.Writer
+	// buf is reused for each encode operation.
+	buf *xbinary.Writer
+	// channels used in dynamic codecs to retrieve information about channels
+	// when Update is called.
 	channels channel.Readable
 }
 
 var byteOrder = binary.LittleEndian
 
+// NewStatic creates a new codec that uses the given channel keys and data types as
+// its encoding state. It is not safe to call Update on a codec instantiated using
+// NewStatic.
 func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
 	if len(dataTypes) != len(channelKeys) {
 		panic("data types and channel keys must be the same length")
@@ -69,6 +104,9 @@ func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
 	return c
 }
 
+// NewDynamic creates a new codec that can be dynamically updated by retrieving channels
+// from the provided channel store. Codec.Update must be called before the first call
+// to Codec.Encode and Codec.Decode.
 func NewDynamic(channels channel.Readable) *Codec {
 	c := newCodec()
 	c.channels = channels
@@ -83,6 +121,7 @@ func newCodec() *Codec {
 	return c
 }
 
+// Update updates the codec to use the given keys in its state.
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
 	channels := make([]channel.Channel, 0, len(keys))
 	if err := c.channels.NewRetrieve().
@@ -98,6 +137,8 @@ func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
 	return nil
 }
 
+// Initialized returns true if the codec was initialized using NewStatic or Update
+// has been called at least once when using NewDynamic.
 func (c *Codec) Initialized() bool { return c.mu.seqNum > 0 }
 
 func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.DataType) {
@@ -197,6 +238,7 @@ func read(r io.Reader, data any) error {
 	return binary.Read(r, byteOrder, data)
 }
 
+// Encode encodes the given frame into bytes.
 func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 	w := bytes.NewBuffer([]byte{})
 	err := c.EncodeStream(ctx, w, src)
@@ -214,6 +256,8 @@ const (
 	seqNumSize = 4
 )
 
+// EncodeStream encodes the given frame into the provided io writer, returning any
+// encoding errors encountered.
 func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame) (err error) {
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
@@ -330,23 +374,12 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 	return err
 }
 
+// Decode decodes a frame from the given src bytes.
 func (c *Codec) Decode(src []byte) (dst framer.Frame, err error) {
 	return c.DecodeStream(bytes.NewReader(src))
 }
 
-func readTimeRange(reader io.Reader) (tr telem.TimeRange, err error) {
-	if err = read(reader, &tr.Start); err != nil {
-		return
-	}
-	err = read(reader, &tr.End)
-	return
-}
-
-func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
-	w.Uint64(uint64(tr.Start))
-	w.Uint64(uint64(tr.End))
-}
-
+// DecodeStream decodes a frame from the given io reader.
 func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 	c.processUpdates()
 	c.panicIfNotUpdated("Decode")

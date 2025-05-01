@@ -26,7 +26,7 @@ export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().optional().default(false),
-  grid: z.record(grid.regionZ),
+  grid: z.record(z.string(), grid.regionZ),
   visible: z.boolean().optional().default(true),
   clearOverScan: xy.crudeZ.optional().default(xy.ZERO),
 });

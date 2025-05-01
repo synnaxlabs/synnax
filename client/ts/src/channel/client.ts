@@ -10,6 +10,7 @@
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import {
+  type CrudeDataType,
   type CrudeDensity,
   type CrudeTimeStamp,
   DataType,
@@ -129,7 +130,7 @@ export class Channel {
   }: New & { frameClient?: framer.Client; density?: CrudeDensity }) {
     this.key = key;
     this.name = name;
-    this.dataType = new DataType(dataType);
+    this.dataType = new DataType(dataType as CrudeDataType);
     this.leaseholder = leaseholder;
     this.index = index;
     this.isIndex = isIndex;

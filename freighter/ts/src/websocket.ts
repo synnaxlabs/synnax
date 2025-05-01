@@ -79,7 +79,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   }
 
   /** Implements the Stream protocol */
-  async receive(): Promise<[z.output<RS> | null, Error | null]> {
+  async receive(): Promise<[z.output<RS>, null] | [null, Error]> {
     if (this.serverClosed != null) return [null, this.serverClosed];
     const msg = await this.receiveMsg();
     if (msg.type === "close") {

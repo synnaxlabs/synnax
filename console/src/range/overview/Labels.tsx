@@ -52,7 +52,7 @@ export const Labels = ({ rangeKey }: LabelsProps) => {
   });
 
   return (
-    <Form.Form {...formCtx}>
+    <Form.Form<typeof labelFormSchema> {...formCtx}>
       <Form.Field<string[]> required={false} path="labels">
         {({ variant: _, ...p }) => (
           <Label.SelectMultiple

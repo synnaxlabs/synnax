@@ -26,11 +26,11 @@ const VARIANTS = ["text", "value"] as const;
 export const variantZ = z.enum(VARIANTS);
 export type Variant = z.infer<typeof variantZ>;
 
-export interface Spec<Z extends z.ZodSchema> {
+export interface Spec<Z extends z.ZodObject> {
   key: Variant;
   name: string;
   Form: FC<FormProps>;
-  Cell: FC<CellProps<z.infer<Z>>>;
+  Cell: FC<CellProps<z.output<Z>>>;
   schema: Z;
   defaultProps: (t: Theming.Theme) => z.infer<Z>;
 }

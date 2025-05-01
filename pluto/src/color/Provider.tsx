@@ -33,8 +33,8 @@ export const frequentZ = z.record(z.string(), relevancyZ);
 export interface Frequent extends z.infer<typeof frequentZ> {}
 
 export const contextStateZ = z.object({
-  palettes: z.record(color.paletteZ),
-  frequent: z.record(relevancyZ),
+  palettes: z.record(z.string(), color.paletteZ),
+  frequent: z.record(z.string(), relevancyZ),
 });
 
 export interface ContextState extends z.infer<typeof contextStateZ> {}

@@ -31,8 +31,7 @@ const basicFormSchema = z
         path: ["name"],
         params: { variant: "warning" },
       });
-  })
-  .sourceType();
+  });
 
 const initialFormValues: z.infer<typeof basicFormSchema> = {
   name: "John Doe",
@@ -42,11 +41,11 @@ const initialFormValues: z.infer<typeof basicFormSchema> = {
 };
 
 const FormContainer = (props: PropsWithChildren): ReactElement => {
-  const methods = Form.use({
+  const methods = Form.use<typeof basicFormSchema>({
     values: deep.copy(initialFormValues),
     schema: basicFormSchema,
   });
-  return <Form.Form {...methods}>{props.children}</Form.Form>;
+  return <Form.Form<typeof basicFormSchema> {...methods}>{props.children}</Form.Form>;
 };
 
 const wrapper = ({ children }: PropsWithChildren): ReactElement => (

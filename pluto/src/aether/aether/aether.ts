@@ -9,7 +9,12 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { type Sender, type SenderHandler, type UnknownRecord } from "@synnaxlabs/x";
+import {
+  type Sender,
+  type SenderHandler,
+  shallowCopy,
+  type UnknownRecord,
+} from "@synnaxlabs/x";
 import { deep } from "@synnaxlabs/x/deep";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
@@ -208,7 +213,7 @@ export abstract class Leaf<
     >,
   ): void {
     const nextState: z.input<StateSchema> = state.executeSetter(next, this._state);
-    this._prevState = { ...this._state };
+    this._prevState = shallowCopy(this._state);
     this._state = prettyParse(this._schema, nextState, `${this.type}:${this.key}`);
     this.sender.send({ key: this.key, state: nextState });
   }
@@ -266,7 +271,7 @@ export abstract class Leaf<
     const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
     if (this._state != null)
       this.instrumentation.L.debug("updating state", () => ({
-        diff: deep.difference(this.state, state_),
+        diff: deep.difference(this.state as UnknownRecord, state_ as UnknownRecord),
       }));
     else this.instrumentation.L.debug("setting initial state", { state });
     this._prevState = this._state ?? state_;

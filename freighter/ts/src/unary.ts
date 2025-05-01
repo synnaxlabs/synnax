@@ -57,7 +57,8 @@ export const unaryWithBreaker = (
       const brk = breaker.create(cfg);
       do {
         const [res, err] = await this.wrapped.send(target, req, reqSchema, resSchema);
-        if (err == null || !Unreachable.matches(err)) return [res, err];
+        if (err != null) return [null, err];
+        if (!Unreachable.matches(err)) return [null, err];
         if (!(await brk())) return [res, err];
       } while (true);
     }

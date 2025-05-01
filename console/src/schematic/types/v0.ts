@@ -70,7 +70,7 @@ export const copyBufferZ = z.object({
   pos: xy.xy,
   nodes: z.array(Diagram.nodeZ),
   edges: z.array(z.unknown()),
-  props: z.record(z.unknown()),
+  props: z.record(z.string(), z.unknown()),
 });
 
 export interface CopyBuffer {

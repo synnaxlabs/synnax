@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, Rate } from "@synnaxlabs/client";
+import { channel, DataType } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -44,7 +44,12 @@ export const CREATE_LAYOUT: Layout.BaseState = {
   },
 };
 
-export const createFormValidator = (v: z.ZodSchema) =>
+export const baseFormSchema = channel.newZ.extend({
+  name: z.string().min(1, "Name must not be empty"),
+  dataType: DataType.z.transform((v) => v.toString()),
+});
+
+export const createFormValidator = (v: typeof baseFormSchema) =>
   v
     .refine((v) => !v.isIndex || new DataType(v.dataType).equals(DataType.TIMESTAMP), {
       message: "Index channel must have data type TIMESTAMP",
@@ -59,11 +64,6 @@ export const createFormValidator = (v: z.ZodSchema) =>
       path: ["dataType"],
     });
 
-export const baseFormSchema = channel.newZ.extend({
-  name: z.string().min(1, "Name must not be empty"),
-  dataType: DataType.z.transform((v) => v.toString()),
-});
-
 const createFormSchema = createFormValidator(baseFormSchema);
 
 type Schema = typeof createFormSchema;
@@ -76,7 +76,6 @@ export const ZERO_CHANNEL: z.infer<Schema> = {
   internal: false,
   isIndex: false,
   leaseholder: 0,
-  rate: Rate.hz(0),
   virtual: false,
   expression: "",
   requires: [],
@@ -115,7 +114,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
       <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
-        <Form.Form {...methods}>
+        <Form.Form<typeof createFormSchema> {...methods}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
               <Input.Text

@@ -275,7 +275,7 @@ export const useUnidirectional = <S extends z.ZodTypeAny>({
   ...rest
 }: UseUnidirectionalProps<S>): ComponentContext => {
   const { path, setState } = useLifecycle({ ...rest, initialState: state });
-  const ref = useRef(null);
+  const ref = useRef<z.output<S> | null>(null);
   if (!deep.equal(ref.current, state)) {
     ref.current = state;
     setState(state);

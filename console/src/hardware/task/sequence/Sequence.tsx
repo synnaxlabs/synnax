@@ -140,7 +140,7 @@ const Internal = ({
 
   return (
     <Align.Space style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
-      <Form.Form {...methods}>
+      <Form.Form<typeof schema> {...methods}>
         <Form.Field<string>
           path="config.script"
           showLabel={false}

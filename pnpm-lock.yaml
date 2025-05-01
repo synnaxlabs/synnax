@@ -21,7 +21,7 @@ overrides:
   typescript: ^5.8.3
   vite: ^6.2.5
   vitest: ^3.1.1
-  zod: ^3.24.2
+  zod: ^4.0.0-beta
 
 importers:
 
@@ -86,8 +86,8 @@ importers:
         specifier: ^11.1.0
         version: 11.1.0
       zod:
-        specifier: ^3.24.2
-        version: 3.24.2
+        specifier: ^4.0.0-beta
+        version: 4.0.0-beta.20250424T163858
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
@@ -308,8 +308,8 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
       zod:
-        specifier: ^3.24.2
-        version: 3.24.2
+        specifier: ^4.0.0-beta
+        version: 4.0.0-beta.20250424T163858
     devDependencies:
       '@codingame/esbuild-import-meta-url-plugin':
         specifier: ^1.0.3
@@ -414,8 +414,8 @@ importers:
         specifier: ^1.29.2
         version: 1.29.2
       zod:
-        specifier: ^3.24.2
-        version: 3.24.2
+        specifier: ^4.0.0-beta
+        version: 4.0.0-beta.20250424T163858
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
@@ -517,8 +517,8 @@ importers:
         specifier: ^9.2.0
         version: 9.2.0(@types/react@19.1.0)(react@19.1.0)(redux@5.0.1)
       zod:
-        specifier: ^3.24.2
-        version: 3.24.2
+        specifier: ^4.0.0-beta
+        version: 4.0.0-beta.20250424T163858
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
@@ -566,8 +566,8 @@ importers:
         specifier: ^8.18.1
         version: 8.18.1
       zod:
-        specifier: ^3.24.2
-        version: 3.24.2
+        specifier: ^4.0.0-beta
+        version: 4.0.0-beta.20250424T163858
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
@@ -694,8 +694,8 @@ importers:
         specifier: ^2.19.3
         version: 2.19.3(react@19.1.0)
       zod:
-        specifier: ^3.24.2
-        version: 3.24.2
+        specifier: ^4.0.0-beta
+        version: 4.0.0-beta.20250424T163858
     devDependencies:
       '@juggle/resize-observer':
         specifier: ^3.4.0
@@ -810,8 +810,8 @@ importers:
         specifier: ^5.1.5
         version: 5.1.5
       zod:
-        specifier: ^3.24.2
-        version: 3.24.2
+        specifier: ^4.0.0-beta
+        version: 4.0.0-beta.20250424T163858
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
@@ -2317,7 +2317,7 @@ packages:
   '@remotion/zod-types@4.0.285':
     resolution: {integrity: sha512-7Cemr0HYeK+Zj04WnG+kHdVYQ1EUwaEsBMEo5oMAs/x/JC1XY/30gA1if9COl/Dp2Rg/ECCJ6G7ojf3KW+jr8g==}
     peerDependencies:
-      zod: ^3.24.2
+      zod: ^4.0.0-beta
 
   '@rollup/pluginutils@5.1.4':
     resolution: {integrity: sha512-USm05zrsFxYLPdWWq+K3STlWiT/3ELn3RcV5hJMghpeAIhxfsUIg6mt12CBJBInWMV4VneoV7SfGv8xIwo2qNQ==}
@@ -3024,6 +3024,9 @@ packages:
 
   '@xyflow/system@0.0.55':
     resolution: {integrity: sha512-6cngWlE4oMXm+zrsbJxerP3wUNUFJcv/cE5kDfu0qO55OWK3fAeSOLW9td3xEVQlomjIW5knds1MzeMnBeCfqw==}
+
+  '@zod/core@0.9.0':
+    resolution: {integrity: sha512-bVfPiV2kDUkAJ4ArvV4MHcPZA8y3xOX6/SjzSy2kX2ACopbaaAP4wk6hd/byRmfi9MLNai+4SFJMmcATdOyclg==}
 
   abbrev@3.0.0:
     resolution: {integrity: sha512-+/kfrslGQ7TNV2ecmQwMJj/B65g5KVq1/L3SGVZ3tCYGqlzFuFCGBZJtMP99wH3NpEUyAjn0zPdPUg0D+DwrOA==}
@@ -6976,16 +6979,16 @@ packages:
   zod-to-json-schema@3.24.5:
     resolution: {integrity: sha512-/AuWwMP+YqiPbsJx5D6TfgRTc4kTLjsh5SOcd4bLsfUg2RcEXrFMJl1DGgdHy2aCfsIA/cr/1JM0xcB2GZji8g==}
     peerDependencies:
-      zod: ^3.24.2
+      zod: ^4.0.0-beta
 
   zod-to-ts@1.2.0:
     resolution: {integrity: sha512-x30XE43V+InwGpvTySRNz9kB7qFU8DlyEy7BsSTCHPH1R0QasMmHWZDCzYm6bVXtj/9NNJAZF3jW8rzFvH5OFA==}
     peerDependencies:
       typescript: ^5.8.3
-      zod: ^3.24.2
+      zod: ^4.0.0-beta
 
-  zod@3.24.2:
-    resolution: {integrity: sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ==}
+  zod@4.0.0-beta.20250424T163858:
+    resolution: {integrity: sha512-fKhW+lEJnfUGo0fvQjmam39zUytARR2UdCEh7/OXJSBbKScIhD343K74nW+UUHu/r6dkzN6Uc/GqwogFjzpCXg==}
 
   zustand@4.5.6:
     resolution: {integrity: sha512-ibr/n1hBzLLj5Y+yUcU7dYw8p6WnIVzdJbnX+1YpaScvZVF2ziugqHs+LAmHw4lWO9c/zRj+K1ncgWDQuthEdQ==}
@@ -7302,14 +7305,14 @@ snapshots:
       await-lock: 2.2.2
       multiformats: 9.9.0
       tlds: 1.256.0
-      zod: 3.24.2
+      zod: 4.0.0-beta.20250424T163858
 
   '@atproto/common-web@0.4.1':
     dependencies:
       graphemer: 1.4.0
       multiformats: 9.9.0
       uint8arrays: 3.0.0
-      zod: 3.24.2
+      zod: 4.0.0-beta.20250424T163858
 
   '@atproto/lexicon@0.4.10':
     dependencies:
@@ -7317,7 +7320,7 @@ snapshots:
       '@atproto/syntax': 0.4.0
       iso-datestring-validator: 2.2.2
       multiformats: 9.9.0
-      zod: 3.24.2
+      zod: 4.0.0-beta.20250424T163858
 
   '@atproto/syntax@0.3.4': {}
 
@@ -7326,7 +7329,7 @@ snapshots:
   '@atproto/xrpc@0.6.12':
     dependencies:
       '@atproto/lexicon': 0.4.10
-      zod: 3.24.2
+      zod: 4.0.0-beta.20250424T163858
 
   '@babel/code-frame@7.26.2':
     dependencies:
@@ -8987,14 +8990,14 @@ snapshots:
     dependencies:
       '@remotion/studio': 4.0.285(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@remotion/studio-shared': 4.0.285(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      css-loader: 5.2.7(webpack@5.96.1)
+      css-loader: 5.2.7(webpack@5.96.1(esbuild@0.25.0))
       esbuild: 0.25.0
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
       react-refresh: 0.9.0
       remotion: 4.0.285(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       source-map: 0.7.3
-      style-loader: 2.0.0(webpack@5.96.1)
+      style-loader: 2.0.0(webpack@5.96.1(esbuild@0.25.0))
       webpack: 5.96.1(esbuild@0.25.0)
     transitivePeerDependencies:
       - '@swc/core'
@@ -9123,7 +9126,7 @@ snapshots:
       '@remotion/player': 4.0.285(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@remotion/renderer': 4.0.285(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@remotion/studio-shared': 4.0.285(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@remotion/zod-types': 4.0.285(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(zod@3.24.2)
+      '@remotion/zod-types': 4.0.285(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(zod@4.0.0-beta.20250424T163858)
       memfs: 3.4.3
       open: 8.4.2
       react: 19.1.0
@@ -9131,16 +9134,16 @@ snapshots:
       remotion: 4.0.285(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       semver: 7.5.3
       source-map: 0.7.3
-      zod: 3.24.2
+      zod: 4.0.0-beta.20250424T163858
     transitivePeerDependencies:
       - bufferutil
       - supports-color
       - utf-8-validate
 
-  '@remotion/zod-types@4.0.285(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(zod@3.24.2)':
+  '@remotion/zod-types@4.0.285(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(zod@4.0.0-beta.20250424T163858)':
     dependencies:
       remotion: 4.0.285(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      zod: 3.24.2
+      zod: 4.0.0-beta.20250424T163858
     transitivePeerDependencies:
       - react
       - react-dom
@@ -9971,6 +9974,8 @@ snapshots:
       d3-selection: 3.0.0
       d3-zoom: 3.0.0
 
+  '@zod/core@0.9.0': {}
+
   abbrev@3.0.0: {}
 
   acorn-import-attributes@1.9.5(acorn@8.14.1):
@@ -10243,9 +10248,9 @@ snapshots:
       xxhash-wasm: 1.1.0
       yargs-parser: 21.1.1
       yocto-spinner: 0.2.1
-      zod: 3.24.2
-      zod-to-json-schema: 3.24.5(zod@3.24.2)
-      zod-to-ts: 1.2.0(typescript@5.8.3)(zod@3.24.2)
+      zod: 4.0.0-beta.20250424T163858
+      zod-to-json-schema: 3.24.5(zod@4.0.0-beta.20250424T163858)
+      zod-to-ts: 1.2.0(typescript@5.8.3)(zod@4.0.0-beta.20250424T163858)
     optionalDependencies:
       sharp: 0.33.5
     transitivePeerDependencies:
@@ -10580,7 +10585,7 @@ snapshots:
 
   css-functions-list@3.2.3: {}
 
-  css-loader@5.2.7(webpack@5.96.1):
+  css-loader@5.2.7(webpack@5.96.1(esbuild@0.25.0)):
     dependencies:
       icss-utils: 5.1.0(postcss@8.5.3)
       loader-utils: 2.0.4
@@ -13871,7 +13876,7 @@ snapshots:
 
   strip-json-comments@3.1.1: {}
 
-  style-loader@2.0.0(webpack@5.96.1):
+  style-loader@2.0.0(webpack@5.96.1(esbuild@0.25.0)):
     dependencies:
       loader-utils: 2.0.4
       schema-utils: 3.3.0
@@ -14777,16 +14782,18 @@ snapshots:
 
   yoctocolors@2.1.1: {}
 
-  zod-to-json-schema@3.24.5(zod@3.24.2):
+  zod-to-json-schema@3.24.5(zod@4.0.0-beta.20250424T163858):
     dependencies:
-      zod: 3.24.2
+      zod: 4.0.0-beta.20250424T163858
 
-  zod-to-ts@1.2.0(typescript@5.8.3)(zod@3.24.2):
+  zod-to-ts@1.2.0(typescript@5.8.3)(zod@4.0.0-beta.20250424T163858):
     dependencies:
       typescript: 5.8.3
-      zod: 3.24.2
+      zod: 4.0.0-beta.20250424T163858
 
-  zod@3.24.2: {}
+  zod@4.0.0-beta.20250424T163858:
+    dependencies:
+      '@zod/core': 0.9.0
 
   zustand@4.5.6(@types/react@19.1.0)(immer@10.1.1)(react@19.1.0):
     dependencies:
