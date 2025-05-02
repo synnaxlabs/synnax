@@ -30,7 +30,10 @@ import (
 // the subdirectories are not in the Cesium format, an error is logged and Open continues
 // execution.
 func Open(dirname string, opts ...Option) (*DB, error) {
-	o := newOptions(dirname, opts...)
+	o, err := newOptions(dirname, opts...)
+	if err != nil {
+		return nil, err
+	}
 	if err := openFS(o); err != nil {
 		return nil, err
 	}
@@ -117,8 +120,7 @@ func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
 		if err = db.openVirtualOrUnary(Channel{Key: u.Channel().Index}); err != nil {
 			return err
 		}
-		idxDB, ok = db.mu.unaryDBs[u.Channel().Index]
-		if !ok {
+		if idxDB, ok = db.mu.unaryDBs[u.Channel().Index]; !ok {
 			return validate.FieldError{
 				Field:   "index",
 				Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index),

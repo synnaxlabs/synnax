@@ -129,16 +129,20 @@ var _ = Describe("Series", func() {
 			telem.SetValueAt[int64](s, 0, 4)
 			Expect(telem.ValueAt[int64](s, 0)).To(Equal(int64(4)))
 		})
+
 		It("Should support negative indices", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3)
 			telem.SetValueAt[int64](s, -1, 4)
 			Expect(telem.ValueAt[int64](s, -1)).To(Equal(int64(4)))
 		})
+
 		It("Should panic when the index is out of bounds", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3)
 			Expect(func() { telem.SetValueAt[int64](s, 3, 4) }).To(Panic())
 			Expect(func() { telem.SetValueAt[int64](s, -4, 4) }).To(Panic())
 		})
+
+		It("Should panic when attempting to set a variable length value")
 	})
 
 	Describe("String", func() {
@@ -417,6 +421,31 @@ var _ = Describe("Series", func() {
 				Expect(ms.Len()).To(Equal(int64(3)))
 				Expect(ms.Series[0].Alignment).To(Equal(s2.Alignment))
 			})
+
+			It("Should correctly handle an empty multi-series", func() {
+				var ms telem.MultiSeries
+				Expect(ms.FilterLessThan(0).Len()).To(Equal(int64(0)))
+			})
+
+			It("Should keep all series when alignment bounds is very low", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1.Alignment = 500
+				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2.Alignment = 5000
+				ms := telem.NewMultiSeriesV(s1, s2)
+				ms = ms.FilterLessThan(5)
+				Expect(ms.Len()).To(Equal(int64(6)))
+			})
+
+			It("Should filter all series when alignment bounds is very high", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1.Alignment = 0
+				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2.Alignment = 3
+				ms := telem.NewMultiSeriesV(s1, s2)
+				ms = ms.FilterLessThan(5000)
+				Expect(ms.Len()).To(Equal(int64(0)))
+			})
 		})
 
 		Describe("Len", func() {
@@ -467,20 +496,18 @@ var _ = Describe("Series", func() {
 		It("iterates fixed length correctly", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 			values := make([]int64, 0, 5)
-			s.Samples()(func(sample []byte) bool {
+			for sample := range s.Samples() {
 				values = append(values, telem.UnmarshalF[int64](s.DataType)(sample))
-				return true
-			})
+			}
 			Expect(values).To(Equal([]int64{1, 2, 3, 4, 5}))
 		})
 
 		It("iterates variable length correctly", func() {
 			s := telem.NewStringsV("foo", "bar", "baz")
 			values := make([]string, 0, 3)
-			s.Samples()(func(sample []byte) bool {
+			for sample := range s.Samples() {
 				values = append(values, string(sample))
-				return true
-			})
+			}
 			Expect(values).To(Equal([]string{"foo", "bar", "baz"}))
 		})
 
@@ -488,12 +515,28 @@ var _ = Describe("Series", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 			values := make([]int64, 0, 3)
 			count := 0
-			s.Samples()(func(sample []byte) bool {
+			for sample := range s.Samples() {
 				values = append(values, telem.UnmarshalF[int64](s.DataType)(sample))
 				count++
-				return count < 3
-			})
+				if count > 2 {
+					break
+				}
+			}
 			Expect(values).To(Equal([]int64{1, 2, 3}))
+		})
+
+		It("Should allow for early termination in variable length series", func() {
+			s := telem.NewStringsV("foo", "bar", "baz")
+			values := make([]string, 0, 3)
+			count := 0
+			for sample := range s.Samples() {
+				count++
+				values = append(values, string(sample))
+				if count > 1 {
+					break
+				}
+			}
+			Expect(values).To(Equal([]string{"foo", "bar"}))
 		})
 
 		It("handles empty series", func() {

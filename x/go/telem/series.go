@@ -26,7 +26,7 @@ import (
 
 const newLineChar = '\n'
 
-// Series is a strongly typed  array of telemetry samples backed by an underlying
+// Series is a strongly typed array of telemetry samples backed by an underlying
 // binary buffer.
 type Series struct {
 	// TimeRange represents the time range occupied by the series' data.
@@ -338,6 +338,9 @@ func (m MultiSeries) FilterLessThan(a Alignment) MultiSeries {
 	// is above the filter threshold, so we don't need to re-allocate a new slice.
 	if m.Series[0].AlignmentBounds().Upper > a {
 		return m
+	}
+	if m.Series[len(m.Series)-1].AlignmentBounds().Upper < a {
+		return MultiSeries{}
 	}
 	return MultiSeries{
 		Series: lo.Filter(m.Series, func(s Series, _ int) bool {

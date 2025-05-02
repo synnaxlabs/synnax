@@ -33,21 +33,24 @@ func (o *options) Report() alamos.Report {
 	return alamos.Report{"dirname": o.dirname}
 }
 
-func newOptions(dirname string, opts ...Option) *options {
+func newOptions(dirname string, opts ...Option) (*options, error) {
 	o := &options{dirname: dirname}
 	for _, opt := range opts {
 		opt(o)
 	}
-	mergeDefaultOptions(o)
-	return o
+	return o, mergeAndValidateOptions(o)
 }
 
-func mergeDefaultOptions(o *options) {
+func mergeAndValidateOptions(o *options) error {
 	o.metaCodec = override.Nil[binary.Codec](&binary.JSONCodec{}, o.metaCodec)
 	o.fs = override.Nil[xfs.FS](xfs.Default, o.fs)
 	o.gcCfg = DefaultGCConfig.Override(o.gcCfg)
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
 	o.streamingConfig = DefaultDBStreamingConfig.Override(o.streamingConfig)
+	if err := o.gcCfg.Validate(); err != nil {
+		return err
+	}
+	return o.streamingConfig.Validate()
 }
 
 // WithFS sets the file system that cesium will use to store data. This defaults to
