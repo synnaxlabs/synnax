@@ -40,7 +40,7 @@ type Calculator struct {
 // channel. The requiredChannels provided must include ALL and ONLY the channels
 // corresponding to the keys specified in ch.Requires.
 //
-// The calculator mustbe closed by calling Close() after use, or memory leaks will occur.
+// The calculator must be closed by calling Close() after use, or memory leaks will occur.
 func OpenCalculator(
 	ch channel.Channel,
 	requiredChannels []channel.Channel,
@@ -100,6 +100,7 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		os    = telem.AllocSeries(c.ch.DataType, int64(end-start))
 	)
 	c.hwm = minAlignment
+	os.Alignment = start
 	for a := start; a < end; a++ {
 		for _, v := range c.required {
 			c.base.Set(v.ch.Name, computron.LValueFromMultiSeriesAlignment(v.data, a))

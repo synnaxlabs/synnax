@@ -75,6 +75,8 @@ var _ = Describe("Calculator", func() {
 					},
 				)))
 				Expect(outSeries.Len()).To(Equal(int64(3)))
+				Expect(outSeries.Alignment).To(Equal(telem.Alignment(0)))
+				Expect(outSeries.AlignmentBounds().Upper).To(Equal(telem.Alignment(3)))
 				Expect(outSeries).To(telem.MatchSeriesDataV[float32](1, 4, 9))
 			})
 		})
@@ -91,12 +93,15 @@ var _ = Describe("Calculator", func() {
 					inCh1Series,
 				)))
 				Expect(outSeries.Len()).To(Equal(int64(0)))
+				Expect(outSeries.Alignment).To(Equal(telem.Alignment(0)))
 
 				outSeries = MustSucceed(calc.Next(core.UnaryFrame(
 					inCh2.Key(),
 					inCh2Series,
 				)))
 				Expect(outSeries.Len()).To(Equal(int64(3)))
+				Expect(outSeries.Alignment).To(Equal(telem.Alignment(3)))
+				Expect(outSeries.AlignmentBounds().Upper).To(Equal(telem.Alignment(6)))
 
 				Expect(outSeries).To(telem.MatchSeriesDataV[float32](1, 4, 9))
 			})
