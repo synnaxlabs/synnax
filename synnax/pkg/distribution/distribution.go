@@ -12,8 +12,6 @@ package distribution
 import (
 	"context"
 	"fmt"
-	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/override"
 	"io"
 
 	"github.com/synnaxlabs/aspen"
@@ -28,7 +26,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
 
