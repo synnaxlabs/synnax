@@ -11,8 +11,8 @@ import { type Action, type Middleware } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 
-import { getCurrentWindow } from "@/abc/abc";
 import { openTauriKV, type SugaredKV } from "@/persist/kv";
+import { getCurrentWindow } from "@/tauriShim";
 import { type Version } from "@/version";
 
 export const PERSISTED_STATE_KEY = "console-persisted-state";

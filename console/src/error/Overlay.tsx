@@ -29,7 +29,7 @@ import {
 } from "react-error-boundary";
 import { useDispatch } from "react-redux";
 
-import { getCurrentWindow } from "@/abc/abc";
+import { getCurrentWindow } from "@/tauriShim";
 import { CSS } from "@/css";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";

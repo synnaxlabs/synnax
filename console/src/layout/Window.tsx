@@ -15,11 +15,11 @@ import { Align, Haul, Menu as PMenu, OS } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { getCurrentWindow } from "@/abc/abc";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
 import { useSelect } from "@/layout/selectors";
+import { getCurrentWindow } from "@/tauriShim";
 
 export const DefaultContextMenu = (): ReactElement => (
   <PMenu.Menu>

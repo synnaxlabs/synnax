@@ -82,46 +82,47 @@ export class Canvas implements Axis {
     this.dimensions = new TickTextDimensions(this.renderCtx.lower2d, this.state.font);
   }
 
-  render(props: AxisProps): RenderResult {
+  render(args: AxisProps): RenderResult {
     switch (this.state.location) {
       case "left":
-        return this.drawLeft(props);
+        return this.drawLeft(args);
       case "right":
-        return this.drawRight(props);
+        return this.drawRight(args);
       case "top":
-        return this.drawTop(props);
+        return this.drawTop(args);
       default:
-        return this.drawBottom(props);
+        return this.drawBottom(args);
     }
   }
 
-  drawBottom(ctx: AxisProps): RenderResult {
+  drawBottom(props: AxisProps): RenderResult {
     const { lower2d: canvas } = this.renderCtx;
-    const { plot: plottingRegion } = ctx;
+    const { plot: plottingRegion } = props;
     const size = box.width(plottingRegion);
     const gridSize = box.height(plottingRegion);
-    const p = ctx.position;
-    const ticks = this.tickFactory.create({ ...ctx, size });
+    const pos = props.position;
+    const ticks = this.tickFactory.create({ ...props, size });
     canvas.beginPath();
     canvas.strokeStyle = color.hex(this.state.color);
-    this.drawLine(p, xy.translate(p, "x", size));
+    canvas.fillStyle = color.hex(this.state.color);
+    this.drawLine(pos, xy.translate(pos, "x", size));
     const maxTickDims = this.drawTicks(ticks, (d, tick) => {
       this.drawLine(
-        xy.translateX(p, tick.position),
-        xy.translate(p, { x: tick.position, y: TICK_LINE_SIZE }),
+        xy.translateX(pos, tick.position),
+        xy.translate(pos, { x: tick.position, y: TICK_LINE_SIZE }),
       );
       canvas.fillText(
         tick.label,
-        p.x + tick.position - d.width / 2,
-        p.y + TICK_LINE_SIZE + d.height + TICK_PADDING,
+        pos.x + tick.position - d.width / 2,
+        pos.y + TICK_LINE_SIZE + d.height + TICK_PADDING,
         undefined,
         FILL_TEXT_OPTIONS,
       );
     });
     canvas.stroke();
     this.maybeDrawGrid(size, ticks, (tick) => [
-      xy.translate(p, "x", tick.position),
-      xy.translate(p, { x: tick.position, y: -gridSize }),
+      xy.translate(pos, "x", tick.position),
+      xy.translate(pos, { x: tick.position, y: -gridSize }),
     ]);
     // Add some extra padding to the bottom of the axis.
     return { size: maxTickDims.height + TICK_LINE_SIZE + TICK_PADDING };
@@ -139,6 +140,7 @@ export class Canvas implements Axis {
       xy.translate(p, { x: tick.position, y: gridSize }),
     ]);
     canvas.strokeStyle = color.hex(this.state.color);
+    canvas.fillStyle = color.hex(this.state.color);
     this.drawLine(p, xy.translate(p, "x", size));
     const maxTickDims = this.drawTicks(ticks, (d, tick) => {
       canvas.moveTo(p.x + tick.position, p.y);
@@ -165,6 +167,7 @@ export class Canvas implements Axis {
     const ticks = this.tickFactory.create({ ...props, size });
     canvas.beginPath();
     canvas.strokeStyle = color.hex(this.state.color);
+    canvas.fillStyle = color.hex(this.state.color);
     this.drawLine(p, xy.translate(p, "y", size));
     const maxTickSize = this.drawTicks(ticks, (d, tick) => {
       this.drawLine(
@@ -187,26 +190,27 @@ export class Canvas implements Axis {
     return { size: maxTickSize.width + TICK_LINE_SIZE * 2 };
   }
 
-  drawRight(ctx: AxisProps): RenderResult {
+  drawRight(props: AxisProps): RenderResult {
     const { lower2d: canvas } = this.renderCtx;
-    const { plot: plottingRegion } = ctx;
+    const { plot: plottingRegion } = props;
     const size = box.height(plottingRegion);
     const gridSize = box.width(plottingRegion);
-    const p = ctx.position;
-    const ticks = this.tickFactory.create({ ...ctx, size });
+    const pos = props.position;
+    const ticks = this.tickFactory.create({ ...props, size });
     this.maybeDrawGrid(size, ticks, (tick) => [
-      xy.translate(p, "y", tick.position),
-      xy.translate(p, { x: -gridSize, y: tick.position }),
+      xy.translate(pos, "y", tick.position),
+      xy.translate(pos, { x: -gridSize, y: tick.position }),
     ]);
     canvas.strokeStyle = color.hex(this.state.color);
-    this.drawLine(p, xy.translate(p, "y", size));
+    canvas.fillStyle = color.hex(this.state.color);
+    this.drawLine(pos, xy.translate(pos, "y", size));
     const maxTickSize = this.drawTicks(ticks, (d, tick) => {
-      canvas.moveTo(p.x, p.y + tick.position);
-      canvas.lineTo(p.x + TICK_LINE_SIZE, p.y + tick.position);
+      canvas.moveTo(pos.x, pos.y + tick.position);
+      canvas.lineTo(pos.x + TICK_LINE_SIZE, pos.y + tick.position);
       canvas.fillText(
         tick.label,
-        p.x + TICK_LINE_SIZE + TICK_PADDING,
-        p.y + tick.position + d.height / 2,
+        pos.x + TICK_LINE_SIZE + TICK_PADDING,
+        pos.y + tick.position + d.height / 2,
         undefined,
         FILL_TEXT_OPTIONS,
       );

@@ -11,8 +11,8 @@ import { type box, color, location, type xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
-  type TickFactoryRenderArgs,
   tickFactoryProps,
+  type TickFactoryRenderArgs,
   tickType,
 } from "@/vis/axis/ticks";
 

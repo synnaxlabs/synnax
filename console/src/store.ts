@@ -16,10 +16,9 @@ import {
   Tuple,
 } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { NoopRuntime } from "@synnaxlabs/drift/noop";
+import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { type deep, type UnknownRecord } from "@synnaxlabs/x";
 
-import { getCurrentWindow } from "@/abc/abc";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
@@ -27,10 +26,10 @@ import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Permissions } from "@/permissions";
 import { Persist } from "@/persist";
-import { openLocalStorageKV, type SugaredKV } from "@/persist/kv";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
+import { getCurrentWindow } from "@/tauriShim";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -148,7 +147,6 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
     initial: ZERO_STATE,
     migrator: migrateState,
     exclude: PERSIST_EXCLUDE,
-    openKV: async (): Promise<SugaredKV> => openLocalStorageKV(`${label}-console`),
   });
   return {
     initialState: engine.initialState,
@@ -165,7 +163,7 @@ const BASE_MIDDLEWARE = [
 const createStore = async (): Promise<RootStore> => {
   const { initialState, persistMiddleware } = await openPersist();
   return await Drift.configureStore<RootState, RootAction>({
-    runtime: new NoopRuntime(),
+    runtime: new TauriRuntime(),
     preloadedState: initialState,
     middleware: (def) => new Tuple(...def(), persistMiddleware, ...BASE_MIDDLEWARE),
     reducer,

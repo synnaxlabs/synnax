@@ -13,9 +13,9 @@ import { type AsyncDestructor, Theming, useAsyncEffect } from "@synnaxlabs/pluto
 import { type Dispatch } from "react";
 import { useDispatch } from "react-redux";
 
-import { getCurrentWindow } from "@/abc/abc";
 import { useSelectTheme } from "@/layout/selectors";
 import { setActiveTheme, toggleActiveTheme } from "@/layout/slice";
+import { getCurrentWindow } from "@/tauriShim";
 
 /**
  * useThemeProvider is a hook that returns the props to pass to a ThemeProvider from
