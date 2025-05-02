@@ -359,6 +359,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const [[, xData], [, yData]] = await Promise.all([xTelem.value(), yTelem.value()]);
     xData.forEach((x) => x.updateGLBuffer(ctx.gl));
     yData.forEach((y) => y.updateGLBuffer(ctx.gl));
+    console.log(xData, yData);
     if (xData.length === 0 || yData.length === 0) return;
     const prog = ctx.getProgram(yData[0].dataType);
     const ops = buildDrawOperations(
