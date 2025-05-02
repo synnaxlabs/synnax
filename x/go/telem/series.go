@@ -18,6 +18,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bounds"
+	"github.com/synnaxlabs/x/stringer"
 	"go.uber.org/zap"
 
 	"github.com/synnaxlabs/x/types"
@@ -149,24 +150,6 @@ func SetValueAt[T types.Numeric](s Series, i int64, v T) {
 	f(s.Data[i*int64(s.DataType.Density()):], v)
 }
 
-const maxDisplayValues = 12
-const endDisplayCount = 5
-
-// truncateSlice returns a string representation of a slice, showing only the first and last few elements
-// if the slice is longer than maxDisplayValues
-func truncateSlice[T any](slice []T) string {
-	if len(slice) <= maxDisplayValues {
-		return fmt.Sprintf("%v", slice)
-	}
-	var (
-		first    = slice[:5]
-		last     = slice[len(slice)-endDisplayCount:]
-		firstStr = strings.Trim(fmt.Sprintf("%v", first), "[]")
-		lastStr  = strings.Trim(fmt.Sprintf("%v", last), "[]")
-	)
-	return fmt.Sprintf("[%s ... %s]", firstStr, lastStr)
-}
-
 // AlignmentBounds returns the alignment bounds of the series. The lower bound is the
 // alignment of the first sample, and the upper bound is the alignment of the last
 // sample + 1. The lower bound is inclusive, while the upper bound is exclusive.
@@ -225,6 +208,12 @@ func (s Series) DownSample(factor int) Series {
 		Data:      oData,
 		Alignment: s.Alignment,
 	}
+}
+
+const maxDisplayValues = 12
+
+func truncateSlice[T any](slice []T) string {
+	return stringer.TruncateSlice(slice, maxDisplayValues)
 }
 
 func (s Series) DataString() string {

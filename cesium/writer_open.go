@@ -333,7 +333,7 @@ func (db *DB) openDomainIdxWriter(
 		return nil, core.NewErrChannelNotFound(idxKey)
 	}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
-	w.idx.key = idxKey
+	w.idx.ch = u.Channel()
 	w.idx.Index = u.Index()
 	w.idx.highWaterMark = cfg.Start
 	w.writingToIdx = false

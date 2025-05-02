@@ -66,14 +66,18 @@ type Config struct {
 	// ChannelReader is used for retrieving channel information from the cluster.
 	// [REQUIRED]
 	ChannelReader channel.Readable
+	// SlowConsumerTimeout
+	SlowConsumerTimeout time.Duration
 }
 
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for opening a relay. This configuration
-	// is not valid on its own, and must be overridden with the required fields. See
+	// is not valid on its own and must be overridden with the required fields. See
 	// Config for more information.
-	DefaultConfig = Config{}
+	DefaultConfig = Config{
+		SlowConsumerTimeout: time.Millisecond * 20,
+	}
 )
 
 // Override implements config.Config.
@@ -84,6 +88,7 @@ func (c Config) Override(other Config) Config {
 	c.TS = override.Nil(c.TS, other.TS)
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
 	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
+	c.SlowConsumerTimeout = override.Numeric(c.SlowConsumerTimeout, other.SlowConsumerTimeout)
 	return c
 }
 
@@ -95,6 +100,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "FreeWrites", c.FreeWrites)
 	validate.NotNil(v, "ChannelReader", c.ChannelReader)
+	validate.Positive(v, "SlowConsumerTimeout", c.SlowConsumerTimeout)
 	return v.Error()
 }
 
@@ -130,7 +136,7 @@ func Open(configs ...Config) (*Relay, error) {
 	r.demands = demands
 
 	r.delta = confluence.NewDynamicDeltaMultiplier[Response](
-		20*time.Millisecond,
+		cfg.SlowConsumerTimeout,
 		cfg.Instrumentation,
 	)
 	writes := confluence.NewStream[Response](defaultResponseBuffer)

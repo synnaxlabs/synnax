@@ -458,13 +458,6 @@ func (f Frame[K]) Extend(frames ...Frame[K]) Frame[K] {
 	return f
 }
 
-func MergeFrames[K types.Numeric](frames []Frame[K]) Frame[K] {
-	if len(frames) == 0 {
-		return Frame[K]{}
-	}
-	return frames[0].Extend(frames[1:]...)
-}
-
 // ShallowCopy returns a shallow copy of the frame i.e. the keys and series slices
 // are copied, but the series themselves are not.
 func (f Frame[K]) ShallowCopy() Frame[K] {

@@ -283,9 +283,8 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 // runPostlude decides the state of the goroutine upon exiting and combines err with
 // any errors from deferred functions.
 func (r *routine) runPostlude(err error) error {
-	r.ctx.L.Debug("stopping routine", r.zapFields()...)
-
 	r.ctx.mu.Lock()
+	r.ctx.L.Debug("stopping routine", r.zapFields()...)
 	r.state.state = Stopping
 	r.ctx.mu.Unlock()
 
