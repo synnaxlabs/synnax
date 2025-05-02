@@ -141,8 +141,6 @@ var _ = Describe("Series", func() {
 			Expect(func() { telem.SetValueAt[int64](s, 3, 4) }).To(Panic())
 			Expect(func() { telem.SetValueAt[int64](s, -4, 4) }).To(Panic())
 		})
-
-		It("Should panic when attempting to set a variable length value")
 	})
 
 	Describe("String", func() {
@@ -174,6 +172,24 @@ var _ = Describe("Series", func() {
 				Expect(str).To(ContainSubstring("[a b c]"))
 			})
 		})
+
+		DescribeTable("DataString", func(s telem.Series, expected string) {
+			Expect(s.DataString()).To(Equal(expected))
+		},
+			Entry("uint8", telem.NewSeriesV[uint8](1, 2, 3), "[1 2 3]"),
+			Entry("uint16", telem.NewSeriesV[uint16](1, 2, 3), "[1 2 3]"),
+			Entry("uint32", telem.NewSeriesV[uint32](1, 2, 3), "[1 2 3]"),
+			Entry("uint64", telem.NewSeriesV[uint64](1, 2, 3), "[1 2 3]"),
+			Entry("int8", telem.NewSeriesV[int8](1, 2, 3), "[1 2 3]"),
+			Entry("int16", telem.NewSeriesV[int16](1, 2, 3), "[1 2 3]"),
+			Entry("int32", telem.NewSeriesV[int32](1, 2, 3), "[1 2 3]"),
+			Entry("int64", telem.NewSeriesV[int64](1, 2, 3), "[1 2 3]"),
+			Entry("float32", telem.NewSeriesV[float32](1.0, 2.0, 3.0), "[1 2 3]"),
+			Entry("float64", telem.NewSeriesV[float64](1.0, 2.0, 3.0), "[1 2 3]"),
+			Entry("string", telem.NewStringsV("a", "b", "c"), "[a b c]"),
+			Entry("json", telem.NewStaticJSONV(map[string]interface{}{"a": 1, "b": 2, "c": 3}), "[{\"a\":1,\"b\":2,\"c\":3}]"),
+			Entry("timestamp", telem.NewSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z 1970-01-01T00:00:02Z 1970-01-01T00:00:03Z]"),
+		)
 
 		Context("Long Series", func() {
 			It("Should truncate series with > 14 elements", func() {
@@ -488,6 +504,15 @@ var _ = Describe("Series", func() {
 				s2.Alignment = telem.NewAlignment(1, 3)
 				ms := telem.NewMultiSeriesV(s1, s2)
 				Expect(telem.MultiSeriesAtAlignment[uint8](ms, telem.NewAlignment(1, 3))).To(Equal(uint8(4)))
+			})
+
+			It("Should panic when querying a value outside of the expected alignment", func() {
+				s1 := telem.NewSeriesV[uint8](1, 2, 3)
+				s1.Alignment = telem.NewAlignment(1, 0)
+				ms := telem.NewMultiSeriesV(s1)
+				Expect(func() {
+					telem.MultiSeriesAtAlignment[uint8](ms, 5000)
+				}).To(Panic())
 			})
 		})
 	})

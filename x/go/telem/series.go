@@ -19,8 +19,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bounds"
 	"github.com/synnaxlabs/x/stringer"
-	"go.uber.org/zap"
-
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -114,10 +112,6 @@ func (s Series) At(i int) []byte {
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
 func ValueAt[T Sample](s Series, i int) (o T) {
-	if s.DataType.IsVariable() {
-		zap.S().DPanic("ValueAt cannot be used on variable density series")
-		return
-	}
 	return UnmarshalF[T](s.DataType)(s.At(i))
 }
 
@@ -131,18 +125,13 @@ func MultiSeriesAtAlignment[T types.Numeric](
 			return ValueAt[T](s, int(alignment-s.Alignment))
 		}
 	}
-	zap.S().DPanic("no series found at alignment")
-	return
+	panic(fmt.Sprintf("alignment %v out of bounds for multi series with alignment bounds %v", alignment, ms.AlignmentBounds()))
 }
 
 // SetValueAt sets the value at the given index in the series. SetValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
 func SetValueAt[T types.Numeric](s Series, i int64, v T) {
-	if s.DataType.IsVariable() {
-		zap.S().DPanic("ValueAt cannot be used on variable density series")
-		return
-	}
 	if i < 0 {
 		i += s.Len()
 	}
@@ -247,10 +236,6 @@ func (s Series) DataString() string {
 			contents = truncateSlice(Unmarshal[uint8](s))
 		case TimeStampT:
 			contents = truncateSlice(Unmarshal[TimeStamp](s))
-		case StringT:
-			contents = truncateSlice(UnmarshalStrings(s.Data))
-		case JSONT:
-			contents = truncateSlice(UnmarshalStrings(s.Data))
 		default:
 			contents = fmt.Sprintf("%v", s.Data)
 		}

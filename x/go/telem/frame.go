@@ -81,7 +81,7 @@ func AllocFrame[K types.Numeric](cap int) Frame[K] {
 }
 
 // String returns a nicely formatted string representation of the frame. This function
-// should not be used in performance critical paths.
+// should not be used in performance-critical paths.
 func (f Frame[K]) String() string {
 	if f.Empty() {
 		return "Frame{}"
@@ -134,7 +134,7 @@ func (f Frame[K]) SeriesSlice() []Series {
 // that have been filtered out by FilterKeys. To check whether an index in this slice
 // has been filtered out, use ShouldExcludeRaw.
 //
-// It is generally recommended to avoid using this function except for performance
+// It is generally recommended to avoid using this function except for performance-
 // critical paths where the overhead of allocating returned closures through Series()
 // and SeriesI() is too high.
 //

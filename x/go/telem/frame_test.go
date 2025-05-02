@@ -1034,4 +1034,81 @@ var _ = Describe("Frame", func() {
 			Expect(hasEntries).To(BeFalse())
 		})
 	})
+
+	Describe("HasData", func() {
+		It("Should return true when the frame contains at least one sample", func() {
+			Expect(telem.UnaryFrame[int](1, telem.NewSecondsTSV(1, 2, 3)).HasData()).To(BeTrue())
+		})
+
+		It("Should return false when the series in the frame is empty", func() {
+			Expect(telem.UnaryFrame[int](1, telem.NewSecondsTSV()).HasData()).To(BeFalse())
+		})
+
+		It("Should return false when the frame has no series", func() {
+			Expect(telem.Frame[int]{}.HasData()).To(BeFalse())
+		})
+	})
+
+	Describe("At", func() {
+		It("Should return the correct key and series for valid indices", func() {
+			fr := telem.MultiFrame(
+				[]int{10, 20, 30},
+				[]telem.Series{
+					telem.NewSeriesV[int32](100),
+					telem.NewSeriesV[int32](200),
+					telem.NewSeriesV[int32](300),
+				},
+			)
+			k, s := fr.At(0)
+			Expect(k).To(Equal(10))
+			Expect(s).To(Equal(telem.NewSeriesV[int32](100)))
+
+			k, s = fr.At(2)
+			Expect(k).To(Equal(30))
+			Expect(s).To(Equal(telem.NewSeriesV[int32](300)))
+
+			// Negative index
+			k, s = fr.At(-1)
+			Expect(k).To(Equal(30))
+			Expect(s).To(Equal(telem.NewSeriesV[int32](300)))
+		})
+
+		It("Should panic for out-of-bounds indices", func() {
+			fr := telem.MultiFrame(
+				[]int{10, 20},
+				[]telem.Series{
+					telem.NewSeriesV[int32](100),
+					telem.NewSeriesV[int32](200),
+				},
+			)
+			Expect(func() { fr.At(2) }).To(Panic())
+			Expect(func() { fr.At(-3) }).To(Panic())
+		})
+	})
+
+	Describe("RawKeyAt", func() {
+		It("Should return the correct key for valid indices", func() {
+			fr := telem.MultiFrame(
+				[]int{10, 20, 30},
+				[]telem.Series{
+					telem.NewSeriesV[int32](100),
+					telem.NewSeriesV[int32](200),
+					telem.NewSeriesV[int32](300),
+				},
+			)
+			Expect(fr.RawKeyAt(0)).To(Equal(10))
+			Expect(fr.RawKeyAt(2)).To(Equal(30))
+		})
+
+		It("Should panic for out-of-bounds indices", func() {
+			fr := telem.MultiFrame(
+				[]int{10, 20},
+				[]telem.Series{
+					telem.NewSeriesV[int32](100),
+					telem.NewSeriesV[int32](200),
+				},
+			)
+			Expect(func() { _ = fr.RawKeyAt(2) }).To(Panic())
+		})
+	})
 })

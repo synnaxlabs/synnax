@@ -82,7 +82,7 @@ const newLine = '\n'
 
 // MarshalStrings converts a slice of strings into a byte slice.
 // Each string is terminated with a newline character.
-// Panics if the DataType is not variable length.
+// Panics if the DataType is not variable.
 func MarshalStrings(data []string, dt DataType) []byte {
 	if !dt.IsVariable() {
 		panic("data type must be variable length")
