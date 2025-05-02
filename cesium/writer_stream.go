@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/stringer"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -444,12 +445,14 @@ length %d, while series for channel %v has length %d. See https://docs.synnaxlab
 func missingChannelError(
 	index Channel,
 	missing Channel,
+	dataChannels []Channel,
 ) error {
 	if index.Key == missing.Key {
 		return errors.Wrapf(
 			validate.Error,
-			`data for index channel %v must be provided when writing to related data channels`,
+			`received no data for index channel %v that must be provided when writing to related data channels %v`,
 			missing,
+			stringer.TruncateSlice(dataChannels, 8),
 		)
 	}
 	return errors.Wrapf(
@@ -521,7 +524,13 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 			keys := set.FromSlice(fr.KeysSlice())
 			for k, db := range w.internal {
 				if !keys.Contains(k) {
-					return missingChannelError(w.idx.ch, db.Channel)
+					dataChannels := make([]Channel, 0, len(keys))
+					for _, db := range w.internal {
+						if k != db.Channel.Key {
+							dataChannels = append(dataChannels, db.Channel)
+						}
+					}
+					return missingChannelError(w.idx.ch, db.Channel, dataChannels)
 				}
 			}
 		}

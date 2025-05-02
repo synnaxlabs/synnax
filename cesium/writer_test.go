@@ -1309,7 +1309,7 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(err).To(MatchError(validate.Error))
 						Expect(err).To(MatchError(
 							ContainSubstring(fmt.Sprintf(
-								"frame must have exactly one series for each data channel associated with index [uneven 1]<%d>, but is missing a series for channel [uneven 2]<%d>", idx, data))))
+								"received no data for index channel [uneven 1]<%v> that must be provided when writing to related data channels [[uneven 2]<%v>]", idx, data))))
 					})
 				})
 
