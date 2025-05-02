@@ -120,7 +120,9 @@ export class StreamChannelValue
 }
 
 interface SelectedChannelProperties
-  extends Pick<channel.Payload, "key" | "dataType" | "virtual"> {}
+  extends Pick<channel.Payload, "key" | "dataType" | "virtual"> {
+  isCalculated: boolean;
+}
 
 const fetchChannelProperties = async (
   client: client.ChannelClient,
@@ -129,9 +131,11 @@ const fetchChannelProperties = async (
 ): Promise<SelectedChannelProperties | null> => {
   let c = await client.retrieveChannel(ch);
   if (c == null) return null;
+  const isCalculated = channel.isCalculated(c);
   if (!fetchIndex || c.isIndex)
-    return { key: c.key, dataType: c.dataType, virtual: c.virtual };
-  if (channel.isCalculated(c)) {
+    return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
+
+  if (isCalculated) {
     const indexKey = await channel.resolveCalculatedIndex(
       client.retrieveChannel.bind(client),
       c,
@@ -139,10 +143,10 @@ const fetchChannelProperties = async (
     if (indexKey == null) throw new ValidationError("Cannot resolve calculated index");
     c = await client.retrieveChannel(indexKey);
     if (c == null) return null;
-    return { key: c.key, dataType: DataType.TIMESTAMP, virtual: false };
+    return { key: c.key, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
   }
   if (c.virtual) throw new ValidationError("Cannot plot data from virtual channels");
-  return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false };
+  return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
 };
 
 const channelDataSourcePropsZ = z.object({
@@ -246,9 +250,13 @@ export class StreamChannelData
     return [b, this.data];
   }
 
-  private async read({ key, virtual }: SelectedChannelProperties): Promise<void> {
+  private async read({
+    key,
+    virtual,
+    isCalculated,
+  }: SelectedChannelProperties): Promise<void> {
     const tr = TimeStamp.now().spanRange(-this.props.timeSpan);
-    if (!virtual) {
+    if (!virtual || isCalculated) {
       const res = await this.client.read(tr, [key]);
       const newData = res[key].data;
       newData.forEach((d) => d.acquire());

@@ -29,7 +29,10 @@ type Calculator struct {
 	// ch is the calculated channel we're operating on.
 	ch channel.Channel
 	// hwm is the high-water mark of the sample that we've run the calculation on.
-	hwm telem.Alignment
+	hwm struct {
+		alignment telem.Alignment
+		timestamp telem.TimeStamp
+	}
 	// required is a map of required channels and an accumulated buffer of data. Data
 	// is accumulated for each channel until a calculation can be performed, and is
 	// then flushed.
@@ -56,7 +59,6 @@ func OpenCalculator(
 	return &Calculator{
 		base:     base,
 		ch:       ch,
-		hwm:      0,
 		required: required,
 	}, nil
 }
@@ -78,30 +80,39 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		}
 		k := fr.RawKeyAt(rawI)
 		if v, ok := c.required[k]; ok {
-			v.data = v.data.Append(s).FilterLessThan(c.hwm)
+			v.data = v.data.Append(s).FilterLessThan(c.hwm.alignment)
 			c.required[k] = v
-			if c.hwm == 0 {
-				c.hwm = v.data.AlignmentBounds().Lower
+			if c.hwm.alignment == 0 {
+				c.hwm.alignment = v.data.AlignmentBounds().Lower
+				c.hwm.timestamp = v.data.TimeRange().Start
 			}
 		}
 	}
 	minAlignment := telem.MaxAlignmentPair
+	minTimeStamp := telem.TimeStamp(0)
 	for _, v := range c.required {
 		if v.data.AlignmentBounds().Upper < minAlignment {
 			minAlignment = v.data.AlignmentBounds().Upper
+			minTimeStamp = v.data.TimeRange().End
 		}
 	}
-	if minAlignment <= c.hwm {
+	if minAlignment <= c.hwm.alignment {
 		return telem.Series{DataType: c.ch.DataType}, nil
 	}
 	var (
-		start = c.hwm
-		end   = minAlignment
-		os    = telem.AllocSeries(c.ch.DataType, int64(end-start))
+		startAlign = c.hwm.alignment
+		startTS    = c.hwm.timestamp
+		end        = minAlignment
+		os         = telem.AllocSeries(c.ch.DataType, int64(end-startAlign))
 	)
-	c.hwm = minAlignment
-	os.Alignment = start
-	for a := start; a < end; a++ {
+	c.hwm.alignment = minAlignment
+	c.hwm.timestamp = minTimeStamp
+	os.Alignment = startAlign
+	os.TimeRange = telem.TimeRange{
+		Start: startTS,
+		End:   minTimeStamp,
+	}
+	for a := startAlign; a < end; a++ {
 		for _, v := range c.required {
 			c.base.Set(v.ch.Name, computron.LValueFromMultiSeriesAlignment(v.data, a))
 		}
@@ -109,7 +120,7 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		if err != nil {
 			return telem.Series{DataType: c.ch.DataType}, err
 		}
-		computron.SetLValueOnSeries(v, os, int64(a-start))
+		computron.SetLValueOnSeries(v, os, int64(a-startAlign))
 	}
 	return os, nil
 }
