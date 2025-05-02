@@ -108,7 +108,7 @@ export class Loop {
    */
   async set(req: Request): Promise<void> {
     let releaser: (() => void) | undefined;
-    // if (req.priority === "high") releaser = await this.mutex.acquire();
+    if (req.priority === "high") releaser = await this.mutex.acquire();
     const existing = this.requests.get(req.key);
     if (existing == null) this.requests.set(req.key, req);
     else {
@@ -122,20 +122,21 @@ export class Loop {
 
   /** Execute the render. */
   private async render(): Promise<void> {
-    // await this.mutex.runExclusive(async () => {
-    const { requests } = this;
-    if (requests.size === 0) return;
+    await this.mutex.runExclusive(async () => {
+      const { requests } = this;
+      if (requests.size === 0) return;
 
-    const endCycle = this.instrumentation.T.debug("render-cycle");
-    const endCleanup = this.instrumentation.T.debug("render-cycle-cleanup");
-    await this.runCleanupsSync();
-    endCleanup();
-    const endRender = this.instrumentation.T.debug("render-cycle-render");
-    await this.renderSync();
-    endRender();
-    endCycle();
-    this.requests.clear();
-    this.afterRender?.();
+      const endCycle = this.instrumentation.T.debug("render-cycle");
+      const endCleanup = this.instrumentation.T.debug("render-cycle-cleanup");
+      await this.runCleanupsSync();
+      endCleanup();
+      const endRender = this.instrumentation.T.debug("render-cycle-render");
+      await this.renderSync();
+      endRender();
+      endCycle();
+      this.requests.clear();
+      this.afterRender?.();
+    });
   }
 
   private async runCleanupsSync(): Promise<void> {

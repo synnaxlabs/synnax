@@ -190,7 +190,6 @@ func (s *Service) handleChange(
 	if !found {
 		s.update(ctx, c.Value)
 		return
-
 	}
 	if existing.ch.Equals(c.Value, "Name") {
 		return

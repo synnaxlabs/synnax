@@ -108,10 +108,7 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 	c.hwm.alignment = minAlignment
 	c.hwm.timestamp = minTimeStamp
 	os.Alignment = startAlign
-	os.TimeRange = telem.TimeRange{
-		Start: startTS,
-		End:   minTimeStamp,
-	}
+	os.TimeRange = telem.TimeRange{Start: startTS, End: minTimeStamp}
 	for a := startAlign; a < end; a++ {
 		for _, v := range c.required {
 			c.base.Set(v.ch.Name, computron.LValueFromMultiSeriesAlignment(v.data, a))
