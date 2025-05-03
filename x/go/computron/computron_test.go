@@ -90,7 +90,7 @@ var _ = Describe("Computron", func() {
 			c := MustSucceed(computron.Open("return 1"))
 			defer c.Close()
 			v := MustSucceed(c.Run())
-			series := telem.AllocSeries(telem.Uint32T, 1)
+			series := telem.AllocSeriesWithLen(telem.Uint32T, 1)
 			computron.SetLValueOnSeries(v, series, 0)
 		})
 	})

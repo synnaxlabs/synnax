@@ -73,6 +73,15 @@ var _ = Describe("Series", func() {
 		})
 	})
 
+	Describe("AllocSeriesWithLen", func() {
+		Context("Fixed Density", func() {
+			It("Should allocate a series with a fixed underlying capacity", func() {
+				s := telem.AllocSeriesWithLen(telem.Int64T, 12)
+				Expect(s.Len()).To(Equal(int64(12)))
+			})
+		})
+	})
+
 	Describe("At", func() {
 		Context("Fixed Density", func() {
 			It("Should return the the value at the given index", func() {

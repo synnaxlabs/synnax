@@ -36,9 +36,9 @@ func NewSeries[T Sample](data []T) Series {
 // from individual numeric values.
 func NewSeriesV[T Sample](data ...T) (series Series) { return NewSeries[T](data) }
 
-// AllocSeries allocates a new Series with the specified DataType and length. Note that
+// AllocSeriesWithLen allocates a new Series with the specified DataType and length. Note that
 // this function allocates a length and not a capacity.
-func AllocSeries(dt DataType, size int64) (series Series) {
+func AllocSeriesWithLen(dt DataType, size int64) (series Series) {
 	series.DataType = dt
 	series.Data = make([]byte, size*int64(dt.Density()))
 	return series

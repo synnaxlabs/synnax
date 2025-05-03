@@ -167,7 +167,7 @@ func (s Series) String() string {
 }
 
 // DownSample returns a copy of the Series with the data down sampled by the given
-// factor i.e. 1 out of every factor samples is kept.
+// factor i.e., 1 out of every factor samples is kept.
 func (s Series) DownSample(factor int) Series {
 	if factor <= 1 || len(s.Data) == 0 {
 		return s
@@ -205,6 +205,8 @@ func truncateSlice[T any](slice []T) string {
 	return stringer.TruncateSlice(slice, maxDisplayValues)
 }
 
+// DataString returns a string representation of the decoded series data in its native
+// data type.
 func (s Series) DataString() string {
 	if s.Len() == 0 {
 		return "[]"
@@ -319,8 +321,9 @@ func (m MultiSeries) FilterLessThan(a Alignment) MultiSeries {
 	if len(m.Series) == 0 {
 		return m
 	}
-	// Hot path optimization that does a quick check that the alignment of all series
-	// is above the filter threshold, so we don't need to re-allocate a new slice.
+	// Hot path optimizations that do quick checks of alignments that are completely
+	// above or completely below series bounds. Both allow us to avoid allocating new
+	// slices during filters.
 	if m.Series[0].AlignmentBounds().Upper > a {
 		return m
 	}
