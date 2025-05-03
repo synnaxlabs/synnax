@@ -88,7 +88,8 @@ interface ComponentConstructorProps {
   sender: Sender<WorkerMessage>;
   /** Instrumentation used for logging and tracing. */
   instrumentation: alamos.Instrumentation;
-  /** Initial parent context values for the component. These should be intentionally
+  /**
+   * Initial parent context values for the component. These should be intentionally
    * set to null if no values exists.
    */
   parentCtxValues: ContextMap | null;
@@ -104,7 +105,6 @@ export interface ComponentConstructor {
  * arbitrarily nested children.
  */
 export interface Context {
-  instrumentation: alamos.Instrumentation;
   /**
    * Gets a context value, interpreting it as the given type, and returning it. This
    * method does no internal type checking - it is up to the caller to ensure that the
@@ -143,7 +143,7 @@ export interface Context {
    * itself, as opposed to whether it has been set by a parent.
    * @returns true if the component has set the value itself, false otherwise.
    */
-  setPreviously(key: string): boolean;
+  wasSetPreviously(key: string): boolean;
 }
 
 /**
@@ -242,11 +242,10 @@ export abstract class Leaf<
 
   private get ctx(): Context {
     return {
-      instrumentation: this.instrumentation,
       get: (key: string) => this.parentCtxValues.get(key),
       getOptional: (key: string) => this.parentCtxValues.get(key),
       has: (key: string) => this.parentCtxValues.has(key),
-      setPreviously: (key: string) => this.childCtxValues.has(key),
+      wasSetPreviously: (key: string) => this.childCtxValues.has(key),
       set: (key: string, value: any, trigger: boolean = true) => {
         this.childCtxValues.set(key, value);
         if (trigger) this.childCtxChangedKeys.add(key);

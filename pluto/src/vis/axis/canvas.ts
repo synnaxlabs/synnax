@@ -107,6 +107,7 @@ export class Base {
     const hexColor = color.hex(colorValue);
     this.renderCtx.lower2d.strokeStyle = hexColor;
     this.renderCtx.lower2d.fillStyle = hexColor;
+    this.renderCtx.lower2d.font = this.state.font;
   }
 }
 

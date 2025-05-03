@@ -84,8 +84,12 @@ export class Loop {
   private readonly requests = new Map<string, Request>();
   /** Stores render cleanup functions for clearing canvases and other resources. */
   private readonly cleanup = new Map<string, Cleanup>();
+  /** A callback to run after each render call. */
   private readonly afterRender?: () => void;
+  /** Instrumentation for logging, tracing, metrics, etc. */
   private readonly instrumentation: alamos.Instrumentation;
+  /** The total number of renders */
+  private count = 0;
 
   constructor({
     afterRender,
@@ -126,11 +130,11 @@ export class Loop {
       const { requests } = this;
       if (requests.size === 0) return;
 
-      const endCycle = this.instrumentation.T.debug("render-cycle");
-      const endCleanup = this.instrumentation.T.debug("render-cycle-cleanup");
+      const endCycle = this.instrumentation.T.bench("render-cycle");
+      const endCleanup = this.instrumentation.T.bench("render-cycle-cleanup");
       await this.runCleanupsSync();
       endCleanup();
-      const endRender = this.instrumentation.T.debug("render-cycle-render");
+      const endRender = this.instrumentation.T.bench("render-cycle-render");
       await this.renderSync();
       endRender();
       endCycle();

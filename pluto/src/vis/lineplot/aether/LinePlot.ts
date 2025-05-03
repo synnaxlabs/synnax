@@ -45,6 +45,9 @@ const calculateExposure = (viewport: box.Box, region: box.Box): number => {
   return vpArea / regArea;
 };
 
+const RENDER_CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"] as const;
+const TOOL_RENDER_CANVASES: render.CanvasVariant[] = ["upper2d"];
+
 export class LinePlot extends aether.Composite<
   typeof linePlotStateZ,
   InternalState,
@@ -204,10 +207,10 @@ export class LinePlot extends aether.Composite<
 
   requestRender(priority: render.Priority, reason: string): void {
     const { renderCtx: ctx } = this.internal;
-    let canvases: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"];
+    let canvases = RENDER_CANVASES;
     // Optimization for tooltips, measures and other utilities. In this case, we only
     // need to render the upper2d canvas.
-    if (reason === render.REASON_TOOL) canvases = ["upper2d"];
+    if (reason === render.REASON_TOOL) canvases = TOOL_RENDER_CANVASES;
     void ctx.loop.set({
       key: `${this.type}-${this.key}`,
       render: async () => await this.render(canvases),

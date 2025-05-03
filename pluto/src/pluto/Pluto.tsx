@@ -23,7 +23,6 @@ import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { canDisable, type CanDisabledProps } from "@/util/canDisable";
-import { Performance } from "@/vis/performance/Performance";
 import { Worker } from "@/worker";
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
@@ -67,7 +66,6 @@ export const Provider = ({
                     <Color.Provider {...color}>
                       <Theming.Provider {...theming}>
                         <CanDisableTelem {...telem}>
-                          <Performance />
                           <Control.StateProvider>{children}</Control.StateProvider>
                         </CanDisableTelem>
                       </Theming.Provider>

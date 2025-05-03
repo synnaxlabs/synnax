@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type alamos } from "@synnaxlabs/alamos";
+import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
   box,
   color,
@@ -19,6 +19,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { type aether } from "@/aether/aether";
+import { alamos } from "@/alamos/aether";
 import { CSS } from "@/css";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 import { clear } from "@/vis/render/clear";
@@ -73,7 +74,8 @@ export class Context {
   private readonly os: runtime.OS;
 
   private static readonly CONTEXT_KEY = CSS.B("render-context");
-  instrumentation: alamos.Instrumentation;
+
+  private readonly instrumentation: Instrumentation;
 
   static create(
     ctx: aether.Context,
@@ -82,12 +84,13 @@ export class Context {
     upper2dCanvas: OffscreenCanvas,
     os: runtime.OS,
   ): Context {
+    const instrumentation = alamos.useInstrumentation(ctx, "render_context");
     const render = new Context(
       glCanvas,
       lower2dCanvas,
       upper2dCanvas,
       os,
-      ctx.instrumentation,
+      instrumentation,
     );
     ctx.set(Context.CONTEXT_KEY, render);
     return render;
@@ -98,7 +101,7 @@ export class Context {
     lower2dCanvas: OffscreenCanvas,
     upper2dCanvas: OffscreenCanvas,
     os: runtime.OS,
-    instrumentation: alamos.Instrumentation,
+    instrumentation: Instrumentation,
   ) {
     this.upper2dCanvas = upper2dCanvas;
     this.lower2dCanvas = lower2dCanvas;
