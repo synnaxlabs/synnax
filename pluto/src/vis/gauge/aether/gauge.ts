@@ -111,8 +111,6 @@ export class Gauge
       position: xy.translateY(box.center(b), -6),
       shade: 9,
       level: "h2",
-      align: "middle",
-      baseline: "middle",
       code: true,
     });
     draw2d.text({
@@ -120,8 +118,6 @@ export class Gauge
       position: xy.translateY(box.center(b), 27),
       shade: 7,
       level: "p",
-      align: "center",
-      baseline: "middle",
     });
     draw2d.circle({
       fill: this.internal.theme.colors.gray.l5,

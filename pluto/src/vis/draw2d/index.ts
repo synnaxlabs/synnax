@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type bounds,
   box,
   color,
   type Destructor,
@@ -40,8 +41,9 @@ export interface Draw2DRuleProps extends Omit<Draw2DLineProps, "start" | "end"> 
 
 export interface Draw2DCircleProps {
   fill: color.Color;
-  radius: number;
+  radius: number | bounds.Bounds;
   position: xy.XY;
+  angle?: number | bounds.Bounds;
 }
 
 export interface Draw2DContainerProps {
@@ -143,11 +145,22 @@ export class Draw2D {
     ctx.stroke();
   }
 
-  circle({ fill, radius, position }: Draw2DCircleProps): void {
+  circle({ fill, radius, position, angle = 2 * Math.PI }: Draw2DCircleProps): void {
     const ctx = this.canvas;
     ctx.fillStyle = color.hex(fill);
     ctx.beginPath();
-    ctx.arc(...xy.couple(position), radius, 0, 2 * Math.PI);
+
+    const startAngle = typeof angle === "number" ? 0 : angle.lower;
+    const endAngle = typeof angle === "number" ? angle : angle.upper;
+
+    if (typeof radius === "number")
+      ctx.arc(...xy.couple(position), radius, startAngle, endAngle);
+    else {
+      ctx.arc(...xy.couple(position), radius.upper, startAngle, endAngle);
+      ctx.arc(...xy.couple(position), radius.lower, endAngle, startAngle, true);
+      ctx.closePath();
+    }
+
     ctx.fill();
   }
 
