@@ -98,8 +98,7 @@ class TestWriter:
         """
         [idx, data_ch] = indexed_pair
         with pytest.raises(
-            sy.ValidationError,
-            match="received no data for index channel"
+            sy.ValidationError, match="received no data for index channel"
         ):
             with client.open_writer(0, [idx.key, data_ch.key]) as w:
                 data = np.random.rand(10).astype(np.float64)
@@ -140,9 +139,7 @@ class TestWriter:
         assert w1.close() is None
 
     def test_write_err_first_timestamp_before_start(
-        self,
-        client: sy.Synnax,
-        indexed_pair: list[sy.Channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         """Should raise a validation error when the first timestamp written to an index
         channel is before the start time of the writer."""
@@ -157,9 +154,7 @@ class TestWriter:
                     w.write({time_ch.key: [i], data_ch.key: [i]})
 
     def test_write_out_of_order_timestamps(
-        self,
-        client: sy.Synnax,
-        indexed_pair: list[sy.Channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         """Should raise a validation error when writing timestamps that are out of
         order"""
@@ -171,7 +166,7 @@ class TestWriter:
                 enable_auto_commit=True,
             ) as w:
                 for i in range(100):
-                    time = sy.TimeSpan.SECOND * (101-i)
+                    time = sy.TimeSpan.SECOND * (101 - i)
                     w.write({time_ch.key: time, data_ch.key: [i]})
 
     @pytest.mark.asyncio
