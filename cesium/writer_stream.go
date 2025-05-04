@@ -592,7 +592,7 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
 	for _, chW := range w.internal {
-		// We do not want to clean up digest channel since we want to use it to
+		// We do not want to clean up the digest channel since we want to use it to
 		// send updates for closures.
 		if chW.Channel.Key == w.digestKey {
 			continue
