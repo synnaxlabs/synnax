@@ -315,7 +315,7 @@ type idxWriter struct {
 	// channel. This is typically true, which allows us to avoid
 	// unnecessary lookups.
 	writingToIdx bool
-	// numWriteCalls tracks the number of writing calls made to the idxWriter.
+	// numWriteCalls tracks the number of write calls made to the idxWriter.
 	numWriteCalls int
 	idx           struct {
 		// Index is the index used to resolve timestamps for domains in the DB.

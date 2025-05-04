@@ -66,8 +66,18 @@ type Config struct {
 	// ChannelReader is used for retrieving channel information from the cluster.
 	// [REQUIRED]
 	ChannelReader channel.Readable
-	// SlowConsumerTimeout
+	// SlowConsumerTimeout sets the maximum amount of time that the relay will wait for
+	// a streamer to receive a response before dropping the frame.
 	SlowConsumerTimeout time.Duration
+	// ResponseBufferSize sets the channel buffer size for the main response streaming
+	// pipe. All written frames will be moved through this pipe, so the value should be
+	// relatively large.
+	// [OPTIONAL: Default is 1000 or 72 KB]
+	ResponseBufferSize int
+	// DemandBufferSize sets the channel buffer size for channel demands to the relay.
+	// This value should be relatively small.
+	// [OPTIONAL: Default is 50]
+	DemandBufferSize int
 }
 
 var (
@@ -77,6 +87,9 @@ var (
 	// Config for more information.
 	DefaultConfig = Config{
 		SlowConsumerTimeout: time.Millisecond * 20,
+		// 72 B * 1000 = 72 KB
+		ResponseBufferSize: 1000,
+		DemandBufferSize:   50,
 	}
 )
 
@@ -89,6 +102,8 @@ func (c Config) Override(other Config) Config {
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
 	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
 	c.SlowConsumerTimeout = override.Numeric(c.SlowConsumerTimeout, other.SlowConsumerTimeout)
+	c.ResponseBufferSize = override.Nil(c.ResponseBufferSize, other.ResponseBufferSize)
+	c.DemandBufferSize = override.Nil(c.DemandBufferSize, other.DemandBufferSize)
 	return c
 }
 
@@ -100,7 +115,9 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "FreeWrites", c.FreeWrites)
 	validate.NotNil(v, "ChannelReader", c.ChannelReader)
-	validate.Positive(v, "SlowConsumerTimeout", c.SlowConsumerTimeout)
+	validate.NonNegative(v, "SlowConsumerTimeout", c.SlowConsumerTimeout)
+	validate.NonNegative(v, "ResponseBufferSize", c.ResponseBufferSize)
+	validate.NonNegative(v, "DemandBufferSize", c.DemandBufferSize)
 	return v.Error()
 }
 
@@ -114,12 +131,6 @@ type Relay struct {
 	shutdown io.Closer
 }
 
-// defaultResponseBuffer is the default buffer size for channels in the relay.
-const (
-	defaultResponseBuffer = 1000
-	defaultDemandBuffer   = 50
-)
-
 func Open(configs ...Config) (*Relay, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
@@ -129,7 +140,7 @@ func Open(configs ...Config) (*Relay, error) {
 	r := &Relay{cfg: cfg, ins: cfg.Instrumentation}
 
 	tpr := newTapper(cfg)
-	demands := confluence.NewStream[demand](defaultDemandBuffer)
+	demands := confluence.NewStream[demand](cfg.DemandBufferSize)
 	demands.SetOutletAddress("peer_demands")
 	demands.Acquire(1)
 	tpr.InFrom(demands)
@@ -139,7 +150,7 @@ func Open(configs ...Config) (*Relay, error) {
 		cfg.SlowConsumerTimeout,
 		cfg.Instrumentation,
 	)
-	writes := confluence.NewStream[Response](defaultResponseBuffer)
+	writes := confluence.NewStream[Response](cfg.ResponseBufferSize)
 	writes.SetInletAddress("delta")
 	writes.SetOutletAddress("taps")
 	r.delta.InFrom(writes)

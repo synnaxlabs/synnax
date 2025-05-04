@@ -175,6 +175,9 @@ var _ = Describe("Streamer Behavior", func() {
 						Start:          10 * telem.SecondTS,
 					}))
 					var r cesium.StreamerResponse
+					// Move this into an eventual closure, as we may be getting
+					// latent control updates from other tests, so we just assert on
+					// updates until we get one that matches.
 					Eventually(func(g Gomega) {
 						g.Eventually(o.Outlet()).Should(Receive(&r))
 						g.Expect(r.Frame.Count()).To(Equal(1))

@@ -116,7 +116,7 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 			sem                       = semaphore.NewWeighted(cfg.numGoRoutines)
 		)
 
-		db, err := cesium.Open("benchmark_write_test", cesium.WithFS(fs))
+		db, err := cesium.Open(ctx, "benchmark_write_test", cesium.WithFS(fs))
 		if err != nil {
 			b.Errorf("Error during DB creation: %s", err)
 		}
@@ -283,7 +283,7 @@ func BenchRead(
 		hwm       telem.TimeStamp = 0
 	)
 
-	db, err = cesium.Open("benchmark_read_test", cesium.WithFS(fs))
+	db, err = cesium.Open(ctx, "benchmark_read_test", cesium.WithFS(fs))
 	if err != nil {
 		b.Errorf("Error during DB creation: %s", err)
 	}
@@ -391,7 +391,7 @@ func BenchStream(
 			sem                       = semaphore.NewWeighted(cfg.numGoRoutines)
 		)
 
-		db, err := cesium.Open("benchmark_stream_test", cesium.WithFS(fs))
+		db, err := cesium.Open(ctx, "benchmark_stream_test", cesium.WithFS(fs))
 		if err != nil {
 			b.Errorf("Error during DB creation: %s", err)
 		}

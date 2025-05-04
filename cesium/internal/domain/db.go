@@ -35,22 +35,26 @@ var (
 	ErrDBClosed = core.NewErrResourceClosed("domain.db")
 )
 
-func RangeWriteConflict(writerTr, existingTr telem.TimeRange) error {
-	if writerTr.Span().IsZero() {
-		return PointWriteConflict(writerTr.Start, existingTr)
+// NewErrRangeWriteConflict creates a new error returned when existing data in the
+// database overlaps with a callers attempt to write new data.
+func NewErrRangeWriteConflict(newTR, existingTR telem.TimeRange) error {
+	if newTR.Span().IsZero() {
+		return NewErrPointWriteConflict(newTR.Start, existingTR)
 	}
-	intersection := writerTr.Intersection(existingTr)
+	intersection := newTR.Intersection(existingTR)
 	return errors.Wrapf(
 		ErrWriteConflict,
 		"write for range %s overlaps with existing data occupying time range "+
 			"%s for a time span of %s",
-		writerTr,
-		existingTr,
+		newTR,
+		existingTR,
 		intersection.Span(),
 	)
 }
 
-func PointWriteConflict(ts telem.TimeStamp, existingTr telem.TimeRange) error {
+// NewErrPointWriteConflict creates a new error that details a callers attempt to
+// open a new writer on a region that already has existing data.
+func NewErrPointWriteConflict(ts telem.TimeStamp, existingTr telem.TimeRange) error {
 	before, after := existingTr.PointIntersection(ts)
 	return errors.Wrapf(
 		ErrWriteConflict,
@@ -63,6 +67,8 @@ func PointWriteConflict(ts telem.TimeStamp, existingTr telem.TimeRange) error {
 	)
 }
 
+// NewErrRangeNotFound is returned when a resource for a specified time range is not o
+// found in the DB.
 func NewErrRangeNotFound(tr telem.TimeRange) error {
 	return errors.Wrapf(ErrRangeNotFound, "time range %s cannot be found", tr)
 }
@@ -133,8 +139,8 @@ var (
 // Validate implements config.GateConfig.
 func (c Config) Validate() error {
 	v := validate.New("domain")
-	validate.Positive(v, "fileSize", c.FileSize)
-	validate.Positive(v, "maxDescriptors", c.MaxDescriptors)
+	validate.NonNegative(v, "fileSize", c.FileSize)
+	validate.NonNegative(v, "maxDescriptors", c.MaxDescriptors)
 	validate.NotNil(v, "fs", c.FS)
 	validate.GreaterThanEq(v, "gcThreshold", c.GCThreshold, 0)
 	validate.LessThanEq(v, "gcThreshold", c.GCThreshold, 1)

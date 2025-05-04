@@ -103,19 +103,19 @@ var _ = Describe("Validate", func() {
 		})
 
 		Describe("Numeric Validations", func() {
-			Describe("Positive", func() {
+			Describe("NonNegative", func() {
 				It("Should validate positive numbers", func() {
-					Expect(validate.Positive(v, "field", 42)).To(BeFalse())
+					Expect(validate.NonNegative(v, "field", 42)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())
 				})
 
 				It("Should catch non-positive numbers", func() {
-					Expect(validate.Positive(v, "field", 0)).To(BeTrue())
+					Expect(validate.NonNegative(v, "field", 0)).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 			})
 
-			Describe("FilterLessThan", func() {
+			Describe("Filtering", func() {
 				It("Should validate numbers greater than threshold", func() {
 					Expect(validate.GreaterThan(v, "field", 10, 5)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())

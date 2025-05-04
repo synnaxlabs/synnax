@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync/atomic"
@@ -29,7 +30,7 @@ import (
 // empty, Open attempts to parse its subdirectories into Cesium channels. If any of
 // the subdirectories are not in the Cesium format, an error is logged and Open continues
 // execution.
-func Open(dirname string, opts ...Option) (*DB, error) {
+func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	o, err := newOptions(dirname, opts...)
 	if err != nil {
 		return nil, err
@@ -65,7 +66,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 			continue
 		}
 
-		if err = db.openVirtualOrUnary(Channel{Key: ChannelKey(key)}); err != nil {
+		if err = db.openVirtualOrUnary(ctx, Channel{Key: ChannelKey(key)}); err != nil {
 			return nil, err
 		}
 	}
@@ -77,11 +78,11 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	return db, nil
 }
 
-func (db *DB) openVirtual(ch Channel, fs xfs.FS) error {
+func (db *DB) openVirtual(ctx context.Context, ch Channel, fs xfs.FS) error {
 	if _, isOpen := db.mu.virtualDBs[ch.Key]; isOpen {
 		return nil
 	}
-	v, err := virtual.Open(virtual.Config{
+	v, err := virtual.Open(ctx, virtual.Config{
 		MetaCodec:       db.metaCodec,
 		FS:              fs,
 		Channel:         ch,
@@ -94,11 +95,11 @@ func (db *DB) openVirtual(ch Channel, fs xfs.FS) error {
 	return nil
 }
 
-func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
+func (db *DB) openUnary(ctx context.Context, ch Channel, fs xfs.FS) error {
 	if _, isOpen := db.mu.unaryDBs[ch.Key]; isOpen {
 		return nil
 	}
-	u, err := unary.Open(unary.Config{
+	u, err := unary.Open(ctx, unary.Config{
 		FS:              fs,
 		MetaCodec:       db.metaCodec,
 		Channel:         ch,
@@ -117,7 +118,7 @@ func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
 		if ok {
 			u.SetIndex(idxDB.Index())
 		}
-		if err = db.openVirtualOrUnary(Channel{Key: u.Channel().Index}); err != nil {
+		if err = db.openVirtualOrUnary(ctx, Channel{Key: u.Channel().Index}); err != nil {
 			return err
 		}
 		if idxDB, ok = db.mu.unaryDBs[u.Channel().Index]; !ok {
@@ -131,20 +132,20 @@ func (db *DB) openUnary(ch Channel, fs xfs.FS) error {
 	return nil
 }
 
-func (db *DB) openVirtualOrUnary(ch Channel) error {
+func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
 	fs, err := db.fs.Sub(keyToDirName(ch.Key))
 	if err != nil {
 		return err
 	}
-	err = db.openVirtual(ch, fs)
+	err = db.openVirtual(ctx, ch, fs)
 	if errors.Is(err, virtual.ErrNotVirtual) {
-		err = db.openUnary(ch, fs)
+		err = db.openUnary(ctx, ch, fs)
 	}
 	// For legacy, rate-based channels (V1), attempting to open a unary DB on them
-	// will return a meta.ErrorIgnoreChannel error, which tells us to just ignore
+	// will return a meta.ErrIgnoreChannel error, which tells us to just ignore
 	// and not open that directory as an actual channel. This is a better alternative
 	// to deleting the channel, as we don't want to risk losing user data.
-	return errors.Skip(err, meta.ErrorIgnoreChannel)
+	return errors.Skip(err, meta.ErrIgnoreChannel)
 }
 
 func openFS(opts *options) error {

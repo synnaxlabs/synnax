@@ -35,14 +35,14 @@ var _ = Describe("Migration Test", func() {
 			)
 			BeforeEach(func() { fs, cleanUp = makeFS() })
 			AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
-			Specify("Unversioned to V1", func() {
+			Specify("V1 to V2", func() {
 				By("Making a copy of an unversioned database")
 				sourceFS := MustSucceed(xfs.Default.Sub("../testdata/v1/db-data"))
 				destFS := fs
 				Expect(testutil.CopyFS(sourceFS, destFS)).To(Succeed())
 
 				By("Opening the V1 database in V2")
-				db = MustSucceed(cesium.Open("", cesium.WithFS(fs), cesium.WithInstrumentation(PanicLogger())))
+				db = MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fs), cesium.WithInstrumentation(PanicLogger())))
 
 				By("Asserting that the version got migrated, the meta file got changed, and the format is correct")
 				for _, ch := range testdata.Channels {

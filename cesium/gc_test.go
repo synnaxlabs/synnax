@@ -37,7 +37,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 			Context("GCThreshold = 0", Ordered, func() {
 				BeforeAll(func() {
 					fs, cleanUp = makeFS()
-					db = MustSucceed(cesium.Open("",
+					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
 							MaxGoroutine:  10,
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
@@ -106,7 +106,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 			Context("GCThreshold != 0", Ordered, func() {
 				BeforeAll(func() {
 					fs, cleanUp = makeFS()
-					db = MustSucceed(cesium.Open("",
+					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
 							MaxGoroutine:  10,
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
@@ -146,7 +146,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						))).To(Succeed())
 					}
 
-					By("Deleting channel data, this should not trigger FilterLessThan since we only deleted 240 bytes")
+					By("Deleting channel data, this should not trigger GC since we only deleted 240 bytes")
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (20 * telem.SecondTS).Range(50*telem.SecondTS))).To(Succeed())
 
 					Consistently(func(g Gomega) uint32 {
@@ -182,7 +182,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 			Context("Multiple files", func() {
 				BeforeAll(func() {
 					fs, cleanUp = makeFS()
-					db = MustSucceed(cesium.Open("",
+					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
 							MaxGoroutine:  10,
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
