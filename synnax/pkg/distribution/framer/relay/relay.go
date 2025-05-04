@@ -102,8 +102,8 @@ func (c Config) Override(other Config) Config {
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
 	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
 	c.SlowConsumerTimeout = override.Numeric(c.SlowConsumerTimeout, other.SlowConsumerTimeout)
-	c.ResponseBufferSize = override.Nil(c.ResponseBufferSize, other.ResponseBufferSize)
-	c.DemandBufferSize = override.Nil(c.DemandBufferSize, other.DemandBufferSize)
+	c.ResponseBufferSize = override.Numeric(c.ResponseBufferSize, other.ResponseBufferSize)
+	c.DemandBufferSize = override.Numeric(c.DemandBufferSize, other.DemandBufferSize)
 	return c
 }
 

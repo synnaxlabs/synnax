@@ -10,6 +10,8 @@
 package ts
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/config"
@@ -84,12 +86,13 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-func Open(configs ...Config) (*DB, error) {
+func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	return cesium.Open(ctx,
+	return cesium.Open(
+		ctx,
 		cfg.Dirname,
 		cesium.WithFS(cfg.FS),
 		cesium.WithInstrumentation(cfg.Instrumentation),
