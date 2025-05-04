@@ -24,9 +24,9 @@ import (
 )
 
 type (
-	// State is the control State of a gate over a channel bound resource.
+	// State is the control State of a gate over a channel-bound resource.
 	State = control.State[core.ChannelKey]
-	// Transfer is a transfer of control over a channel bound resource.
+	// Transfer is a transfer of control over a channel-bound resource.
 	Transfer = control.Transfer[core.ChannelKey]
 )
 

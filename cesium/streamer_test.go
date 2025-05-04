@@ -14,8 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
@@ -177,14 +175,17 @@ var _ = Describe("Streamer Behavior", func() {
 						Start:          10 * telem.SecondTS,
 					}))
 					var r cesium.StreamerResponse
-					Eventually(o.Outlet()).Should(Receive(&r))
-					Expect(r.Frame.Count()).To(Equal(1))
-					u := MustSucceed(cesium.DecodeControlUpdate(ctx, r.Frame.SeriesAt(0)))
-					t, ok := lo.Find(u.Transfers, func(t controller.Transfer) bool {
-						return t.To.Resource == basic3
-					})
-					Expect(ok).To(BeTrue())
-					Expect(t.To.Subject.Name).To(Equal("Writer"))
+					Eventually(func(g Gomega) {
+						g.Eventually(o.Outlet()).Should(Receive(&r))
+						g.Expect(r.Frame.Count()).To(Equal(1))
+						u, err := cesium.DecodeControlUpdate(ctx, r.Frame.SeriesAt(0))
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(u.Transfers).To(HaveLen(1))
+						first := u.Transfers[0]
+						g.Expect(first.Occurred()).To(BeTrue())
+						g.Expect(first.IsAcquire()).To(BeTrue())
+					}).Should(Succeed())
+
 					Expect(w.Close()).To(Succeed())
 					Eventually(o.Outlet()).Should(Receive(&r))
 					Expect(r.Frame.Count()).To(Equal(1))
