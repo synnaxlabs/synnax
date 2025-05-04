@@ -37,13 +37,19 @@ type Resource interface {
 	ChannelKey() core.ChannelKey
 }
 
-// Gate controls access to an resource for a given region of time.
+// Gate controls access to a resource for a given region of time.
 type Gate[R Resource] struct {
-	subject     control.Subject
-	authority   control.Authority
-	region      *region[R]
-	position    int64
-	concurrency control.Concurrency
+	// subject is the subject attempting to control the resource that the gate
+	// is guarding access to.
+	subject control.Subject
+	// authority is the authority that the subject has over the resource.
+	authority control.Authority
+	// region is the control region in time for the resource
+	region *region[R]
+	// position is the number of gates that had been opened in the region before
+	// this gate. Gates with a higher position yet equal authority take precedence
+	// over this gate. This position is constant for the lifetime of the gate.
+	position uint
 }
 
 // Subject returns information about the subject controlling this gate.
@@ -53,7 +59,7 @@ func (g *Gate[R]) Subject() control.Subject { return g.subject }
 func (g *Gate[R]) Authority() control.Authority { return g.authority }
 
 // State returns the current control State of the gate.
-func (g *Gate[R]) State() *State {
+func (g *Gate[R]) state() *State {
 	return &State{
 		Subject:   g.subject,
 		Resource:  g.region.resource.ChannelKey(),
@@ -61,7 +67,7 @@ func (g *Gate[R]) State() *State {
 	}
 }
 
-// PeekResource returns the resource that is controlled by the gate. The resource is NOT valid
+// PeekResource returns the resource controlled by the gate. The resource is NOT valid
 // for modification or use.
 func (g *Gate[R]) PeekResource() R {
 	g.region.RLock()
@@ -69,7 +75,7 @@ func (g *Gate[R]) PeekResource() R {
 	return g.region.resource
 }
 
-// Authorized authorizes the gates access to the resource. If another gate has precedence,
+// Authorized authorizes the gates' access to the resource. If another gate has precedence,
 // Authorized will return false.
 func (g *Gate[R]) Authorized() (e R, ok bool) {
 	e, err := g.Authorize()
@@ -78,14 +84,14 @@ func (g *Gate[R]) Authorized() (e R, ok bool) {
 
 // Authorize authorizes the gate's access to the resource. If another gate has precedence,
 // Authorize will return a control.Unauthorized error, and the zero value for the resource.
-// If the gate is the current gate, returns the resource and a nil error.
+// If the gate has control over the resource, returns the resource and a nil error.
 func (g *Gate[R]) Authorize() (r R, err error) {
 	g.region.RLock()
 	defer g.region.RUnlock()
 	// In the case of exclusive concurrency, we only need to check if the gate is the
 	// current gate.
 	var ok bool
-	if g.concurrency == control.Exclusive {
+	if g.region.controller.Concurrency == control.Exclusive {
 		ok = g.region.curr == g
 	} else {
 		// In the case of shared concurrency, we need to check if the gate has equal to
@@ -111,7 +117,7 @@ func (g *Gate[R]) Authorize() (r R, err error) {
 }
 
 // Release releases the gate's access to the resource. If the gate is the last gate in
-// region (i.e. transfer.IsRelease() == true), the resource will be returned. Otherwise,
+// a region, i.e., transfer.IsRelease() == true, the resource will be returned. Otherwise,
 // the zero value of the resource will be returned.
 func (g *Gate[R]) Release() (resource R, transfer Transfer) { return g.region.release(g) }
 
@@ -122,20 +128,35 @@ func (g *Gate[R]) SetAuthority(auth control.Authority) Transfer {
 }
 
 type region[R Resource] struct {
+	// RWMutex locks access to the region's state. Only specified fields in a region are
+	// safe for concurrent access without locking the mutex.
 	sync.RWMutex
-	timeRange  telem.TimeRange
-	resource   R
-	counter    int64
-	curr       *Gate[R]
-	gates      map[*Gate[R]]struct{}
+	// timeRange tracks the time period that the region controls. Gates that access
+	// independent regions can access a resource at the same time.
+	// [not safe for unprotected concurrent access]
+	timeRange telem.TimeRange
+	// resource is the resource being controlled by the region
+	// [not safe for unprotected concurrent access by external callers, but safe to
+	// call static properties like ChannelKey() concurrently]
+	resource R
+	// counter tracks the total number of gates opened in the region. This counter
+	// does not get decremented.
+	// [not safe for unprotected concurrent access]
+	counter uint
+	// curr is the gate currently in control of the region.
+	// [not safe for unprotected concurrent access]
+	curr *Gate[R]
+	// gates are the gates vying for control of the region. curr is one of the gates
+	// in this map.
+	// [not safe for unprotected concurrent access]
+	gates map[*Gate[R]]struct{}
+	// controller is the parent controller.
+	// [not safe for unprotected concurrent access]
 	controller *Controller[R]
 }
 
 // open opens a new gate on the region with the given config.
-func (r *region[R]) open(
-	cfg GateConfig[R],
-	con control.Concurrency,
-) (g *Gate[R], t Transfer, err error) {
+func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) {
 	r.Lock()
 	defer r.Unlock()
 	if *cfg.ErrIfControlled && r.curr != nil {
@@ -150,11 +171,10 @@ func (r *region[R]) open(
 	}
 
 	g = &Gate[R]{
-		region:      r,
-		subject:     cfg.Subject,
-		authority:   cfg.Authority,
-		position:    r.counter,
-		concurrency: con,
+		region:    r,
+		subject:   cfg.Subject,
+		authority: cfg.Authority,
+		position:  r.counter,
 	}
 
 	// Check if any gates have the same subject key.
@@ -176,10 +196,10 @@ func (r *region[R]) open(
 	// If no one is in control or this gate has a higher authority, take control.
 	if r.curr == nil || g.authority > r.curr.authority {
 		if r.curr != nil {
-			t.From = r.curr.State()
+			t.From = r.curr.state()
 		}
 		r.curr = g
-		t.To = g.State()
+		t.To = g.state()
 	} else if *cfg.ErrOnUnauthorizedOpen && !(r.controller.Concurrency == control.Shared && g.authority == r.curr.authority) {
 		err = errors.Wrapf(
 			control.Unauthorized,
@@ -196,34 +216,46 @@ func (r *region[R]) open(
 }
 
 // release a gate from the region.
-func (r *region[R]) release(g *Gate[R]) (e R, transfer Transfer) {
+func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 	r.Lock()
-	r.Unlock()
-	e, transfer = r.unprotectedRelease(g)
+	defer r.Unlock()
+	delete(r.gates, g)
+	if wasInControl := r.curr == g; !wasInControl {
+		return
+	}
+	r.curr = nil
+	transfer.From = g.state()
+	for existingG := range r.gates {
+		if r.curr == nil {
+			r.curr = existingG
+			transfer.To = existingG.state()
+		} else {
+			// Three cases here: no one is in control, provided-gate has higher authority,
+			// a provided gate has equal authority and a higher position.
+			higherAuth := existingG.authority > r.curr.authority
+			betterPos := existingG.authority == r.curr.authority && existingG.position < r.curr.position
+			if higherAuth || betterPos {
+				r.curr = existingG
+				transfer.To = existingG.state()
+			}
+		}
+	}
 	if transfer.IsRelease() {
 		r.controller.remove(r)
 	}
-	return
+	return r.resource, transfer
 }
 
 // update a gate's authority.
-func (r *region[R]) update(g *Gate[R], auth control.Authority) Transfer {
+func (r *region[R]) update(g *Gate[R], auth control.Authority) (t Transfer) {
 	r.Lock()
-	t := r.unprotectedUpdate(g, auth)
-	r.Unlock()
-	return t
-}
-
-func (r *region[R]) unprotectedUpdate(
-	g *Gate[R],
-	auth control.Authority,
-) (t Transfer) {
+	defer r.Unlock()
 	prevAuth := g.authority
 	g.authority = auth
 
 	// Gate is in control, should it not be?
 	if g == r.curr {
-		t.From = g.State()
+		t.From = g.state()
 		t.From.Authority = prevAuth
 		for existingGate := range r.gates {
 			var (
@@ -233,13 +265,13 @@ func (r *region[R]) unprotectedUpdate(
 			)
 			if !isGate && (higherAuth || betterPos) {
 				r.curr = existingGate
-				t.From = g.State()
-				t.To = existingGate.State()
+				t.From = g.state()
+				t.To = existingGate.state()
 				return t
 			}
 		}
 		// No transfer happened, gate remains in control.
-		t.To = g.State()
+		t.To = g.state()
 		return t
 	}
 
@@ -247,44 +279,18 @@ func (r *region[R]) unprotectedUpdate(
 	higherAuth := g.authority > r.curr.authority
 	betterPos := g.authority == r.curr.authority && g.position < r.curr.position
 	if higherAuth || betterPos {
-		t.From = r.curr.State()
+		t.From = r.curr.state()
 		r.curr = g
-		t.To = g.State()
+		t.To = g.state()
 	}
 	return
-}
-
-// unprotectedRelease releases a gate from the region without locking.
-// If the gate is the last gate in the region, the region will be removed from
-// the controller.
-func (r *region[R]) unprotectedRelease(g *Gate[R]) (res R, t Transfer) {
-	delete(r.gates, g)
-	if wasInControl := r.curr == g; !wasInControl {
-		return
-	}
-	r.curr = nil
-	t.From = g.State()
-	for existingG := range r.gates {
-		if r.curr == nil {
-			r.curr = existingG
-			t.To = existingG.State()
-		} else {
-			// Three cases here: no one is in control, provided gate has higher authority,
-			// provided gate has equal authority and a higher position.
-			higherAuth := existingG.authority > r.curr.authority
-			betterPos := existingG.authority == r.curr.authority && existingG.position < r.curr.position
-			if higherAuth || betterPos {
-				r.curr = existingG
-				t.To = existingG.State()
-			}
-		}
-	}
-	return r.resource, t
 }
 
 // Config is the configuration for opening a controller.
 type Config struct {
 	alamos.Instrumentation
+	// Concurrency specifies whether shared control is allowed over regions in the
+	// controller.
 	Concurrency control.Concurrency
 }
 
@@ -294,9 +300,8 @@ var (
 	DefaultConfig = Config{Concurrency: control.Exclusive}
 )
 
-func (c Config) Validate() error {
-	return nil
-}
+// Validate implements config.Config.
+func (c Config) Validate() error { return nil }
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
@@ -305,18 +310,23 @@ func (c Config) Override(other Config) Config {
 	return other
 }
 
+// Controller controls access to a specified resource type over discrete time regions.
+// A Controller maintains a set of regions that occupy non-overlapping time ranges.
+// If the controller is open with control.Exclusive, each region can only have one
+// subject, managed by a Gate, controlling it at a single time. Each region manages
+// an independent set of gates that bid for control over the resource using a mix
+// of both first-come-first-serve precedence and specified control authorities
+// (control.Authority).
 type Controller[R Resource] struct {
 	Config
 	mu      sync.RWMutex
 	regions []*region[R]
 }
 
+// New creates a new Controller that controls access to the specified resource type.
 func New[R Resource](cfg Config) (*Controller[R], error) {
 	cfg, err := config.New(DefaultConfig, cfg)
-	return &Controller[R]{
-		Config:  cfg,
-		regions: []*region[R]{},
-	}, err
+	return &Controller[R]{Config: cfg, regions: []*region[R]{}}, err
 }
 
 // GateConfig is the configuration for opening a gate.
@@ -348,9 +358,7 @@ type GateConfig[R Resource] struct {
 	ErrOnUnauthorizedOpen *bool
 }
 
-var (
-	_ config.Config[GateConfig[Resource]] = GateConfig[Resource]{}
-)
+var _ config.Config[GateConfig[Resource]] = GateConfig[Resource]{}
 
 // DefaultGateConfig is the default configuration for opening a Gate.
 func DefaultGateConfig[R Resource]() GateConfig[R] {
@@ -390,7 +398,7 @@ func (c *Controller[R]) LeadingState() (state *State) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if len(c.regions) != 0 && len(c.regions[0].gates) != 0 {
-		state = c.regions[0].curr.State()
+		state = c.regions[0].curr.state()
 	}
 	return
 }
@@ -400,9 +408,7 @@ func (c *Controller[R]) LeadingState() (state *State) {
 // If the region does exist, the new gate will be added to the authority chain for the
 // existing region. If requiresUncontrolled is true, the region must not be controlled by
 // another gate. If it is, an error will be returned.
-func (c *Controller[R]) OpenGate(
-	cfg GateConfig[R],
-) (g *Gate[R], t Transfer, err error) {
+func (c *Controller[R]) OpenGate(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if cfg, err = config.New(DefaultGateConfig[R](), cfg); err != nil {
@@ -420,7 +426,7 @@ func (c *Controller[R]) OpenGate(
 				return nil, t, err
 			}
 			// If there is an existing region, we open a new gate on that region.
-			if g, t, err = reg.open(cfg, c.Concurrency); err != nil {
+			if g, t, err = reg.open(cfg); err != nil {
 				return
 			}
 			exists = true
@@ -433,14 +439,12 @@ func (c *Controller[R]) OpenGate(
 	if res, err = cfg.OpenResource(); err != nil {
 		return
 	}
-	reg := c.insertNewRegion(cfg.TimeRange, res)
-	if g, t, err = reg.open(cfg, c.Concurrency); err != nil {
-		return
-	}
+	reg := c.unsafeInsertNewRegion(cfg.TimeRange, res)
+	g, t, err = reg.open(cfg)
 	return
 }
 
-func (c *Controller[R]) insertNewRegion(
+func (c *Controller[R]) unsafeInsertNewRegion(
 	t telem.TimeRange,
 	resource R,
 ) *region[R] {
@@ -459,11 +463,11 @@ func (c *Controller[R]) insertNewRegion(
 
 func (c *Controller[R]) remove(r *region[R]) {
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	for i, reg := range c.regions {
 		if reg == r {
 			c.regions = append(c.regions[:i], c.regions[i+1:]...)
 			break
 		}
 	}
-	c.mu.Unlock()
 }
