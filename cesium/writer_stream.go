@@ -20,9 +20,12 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/stringer"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // WriterCommand is an enumeration of commands that can be sent to a Writer.
@@ -317,9 +320,8 @@ type idxWriter struct {
 	idx           struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
 		index.Index
-		// Key is the channel key of the index. This field is not applicable when
-		// the index is rate based.
-		key core.ChannelKey
+		// Key is the channel key of the index.
+		ch core.Channel
 		// highWaterMark is the highest timestamp written to the index. This watermark
 		// is only relevant when writingToIdx is true.
 		highWaterMark telem.TimeStamp
@@ -349,7 +351,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 			continue
 		}
 
-		if w.writingToIdx && w.idx.key == key {
+		if w.writingToIdx && w.idx.ch.Key == key {
 			if err = w.updateHighWater(series); err != nil {
 				return fr, err
 			}
@@ -405,6 +407,78 @@ func (w *idxWriter) Close() (ControlUpdate, error) {
 	return update, c.Error()
 }
 
+func invalidDataTypeError(expectedCh Channel, received telem.DataType) error {
+	return errors.Wrapf(
+		validate.Error,
+		`invalid data type for channel %v, expected %s, got %s`,
+		expectedCh,
+		expectedCh.DataType,
+		received,
+	)
+}
+
+func oneSeriesPerChannelError(expected Channel) error {
+	return errors.Wrapf(
+		validate.Error,
+		`frame must have exactly one series per channel, found more than one for channel %v`,
+		expected,
+	)
+}
+
+func sameLengthForAllSeriesError(
+	expectedCh Channel,
+	lengthOfFrame int64,
+	series telem.Series,
+) error {
+	return errors.Wrapf(
+		validate.Error,
+		`
+frame must have the same length for all series. Rest of the series in the frame have
+length %d, while series for channel %v has length %d. See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1
+`,
+		lengthOfFrame,
+		expectedCh,
+		series.Len(),
+	)
+}
+
+func missingChannelError(
+	index Channel,
+	missing Channel,
+	dataChannels []Channel,
+) error {
+	if index.Key == missing.Key {
+		return errors.Wrapf(
+			validate.Error,
+			`received no data for index channel %v that must be provided when writing to related data channels %v`,
+			missing,
+			stringer.TruncateSlice(dataChannels, 8),
+		)
+	}
+	return errors.Wrapf(
+		validate.Error,
+		`frame must have exactly one series for each data channel associated with index %v, but is missing a series for channel %v`,
+		index,
+		missing,
+	)
+}
+
+func incorrectNumberOfSeriesError(
+	expected int,
+	received int,
+
+) error {
+	return errors.Wrapf(
+		validate.Error,
+		`frame must have exactly one series for each data channel associated with an index. Expected
+			%d series, got %d.
+			See https://docs.synnaxlabs.com/reference/concepts/writes#the-rules-of-writes
+			`,
+		expected,
+		received,
+	)
+}
+
 func (w *idxWriter) validateWrite(fr Frame) error {
 	var (
 		lengthOfFrame        int64 = -1
@@ -424,35 +498,21 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 			// Data type of first series must be known since we use it to calculate the
 			// length of series in the frame
 			if s.DataType.Density() == telem.DensityUnknown {
-				return errors.Wrapf(
-					validate.Error,
-					"invalid data type for channel %d, expected %s, got %s",
-					k, uWriter.Channel.DataType, s.DataType)
+				return invalidDataTypeError(uWriter.Channel, s.DataType)
 			}
 			lengthOfFrame = s.Len()
 		}
 
 		if uWriter.timesWritten == w.numWriteCalls {
-			return errors.Wrapf(
-				validate.Error,
-				"frame must have exactly one series per channel, duplicate channel %d",
-				k,
-			)
+			return oneSeriesPerChannelError(uWriter.Channel)
+		}
+
+		if s.Len() != lengthOfFrame {
+			return sameLengthForAllSeriesError(uWriter.Channel, lengthOfFrame, s)
 		}
 
 		uWriter.timesWritten++
 		numChannelsWrittenTo++
-
-		if s.Len() != lengthOfFrame {
-			return errors.Wrapf(
-				validate.Error,
-				`frame must have the same length for all series, expected %d, got %d. \n
-				See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1
-				`,
-				lengthOfFrame,
-				s.Len(),
-			)
-		}
 	}
 
 	if numChannelsWrittenTo == 0 {
@@ -460,15 +520,24 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 	}
 
 	if numChannelsWrittenTo != len(w.internal) {
-		return errors.Wrapf(
-			validate.Error,
-			`frame must have exactly one series for each data channel associated with an index. Expected
-			%d series, got %d.
-			See https://docs.synnaxlabs.com/reference/concepts/writes#the-rules-of-writes
-			`,
-			len(w.internal),
-			numChannelsWrittenTo,
-		)
+		if numChannelsWrittenTo < len(w.internal) {
+			keys := set.FromSlice(fr.KeysSlice())
+			for k, db := range w.internal {
+				if !keys.Contains(k) {
+					dataChannels := make([]Channel, 0, len(keys))
+					for _, db := range w.internal {
+						if k != db.Channel.Key {
+							dataChannels = append(dataChannels, db.Channel)
+						}
+					}
+					return missingChannelError(w.idx.ch, db.Channel, dataChannels)
+				}
+			}
+		}
+		err := incorrectNumberOfSeriesError(len(w.internal), numChannelsWrittenTo)
+		// This is an impossible condition
+		zap.S().DPanic(err.Error())
+		return err
 	}
 
 	return nil
@@ -476,13 +545,7 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 
 func (w *idxWriter) updateHighWater(s telem.Series) error {
 	if s.DataType != telem.TimeStampT && s.DataType != telem.Int64T {
-		return errors.Wrapf(
-			validate.Error,
-			"invalid data type for channel %d, expected %s, got %s",
-			w.idx.key,
-			telem.TimeStampT,
-			s.DataType,
-		)
+		return invalidDataTypeError(w.idx.ch, s.DataType)
 	}
 	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, -1)
 	return nil
@@ -529,7 +592,7 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
 	for _, chW := range w.internal {
-		// We do not want to clean up digest channel since we want to use it to
+		// We do not want to clean up the digest channel since we want to use it to
 		// send updates for closures.
 		if chW.Channel.Key == w.digestKey {
 			continue

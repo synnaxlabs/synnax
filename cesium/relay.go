@@ -30,14 +30,19 @@ type relay struct {
 
 // DBStreamingConfig is the configuration for cesium's streaming mechanisms.
 type DBStreamingConfig struct {
-	BufferSize          int
+	// BufferSize sets the buffer size for the main streaming pipe. All written frames
+	// are moved through this pipe, so the value should be relatively large.
+	BufferSize int
+	// SlowConsumerTimeout sets the maximum amount of time the relay will wait for a consumer to receive
+	// a frame before dropping the frame.
 	SlowConsumerTimeout time.Duration
 }
 
 var (
 	_                        config.Config[DBStreamingConfig] = DBStreamingConfig{}
 	DefaultDBStreamingConfig                                  = DBStreamingConfig{
-		BufferSize:          100,
+		// 1000 * 72 bytes = 72kb
+		BufferSize:          1000,
 		SlowConsumerTimeout: 20 * time.Millisecond,
 	}
 )
@@ -51,8 +56,8 @@ func (sc DBStreamingConfig) Override(other DBStreamingConfig) DBStreamingConfig 
 
 func (sc DBStreamingConfig) Validate() error {
 	v := validate.New("cesium.DBStreamingConfig")
-	validate.Positive(v, "buffer_size", sc.BufferSize)
-	validate.Positive(v, "slow_consumer_timeout", sc.SlowConsumerTimeout)
+	validate.NonNegative(v, "buffer_size", sc.BufferSize)
+	validate.NonNegative(v, "slow_consumer_timeout", sc.SlowConsumerTimeout)
 	return v.Error()
 }
 

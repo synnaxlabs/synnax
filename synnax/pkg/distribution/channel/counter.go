@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/math"
 
 	"github.com/synnaxlabs/x/errors"

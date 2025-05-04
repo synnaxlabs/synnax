@@ -123,7 +123,7 @@ func NotNil(v *Validator, field string, value any) bool {
 	return v.Ternary(field, isNil, "must be non-nil")
 }
 
-func Positive[T types.Numeric](v *Validator, field string, value T) bool {
+func NonNegative[T types.Numeric](v *Validator, field string, value T) bool {
 	return v.Ternaryf(field, value <= 0, "must be positive")
 }
 

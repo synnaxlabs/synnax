@@ -32,6 +32,11 @@ const (
 // TimeStamp stores an epoch time in nanoseconds.
 type TimeStamp int64
 
+var (
+	_ json.Marshaler   = TimeStamp(0)
+	_ json.Unmarshaler = (*TimeStamp)(nil)
+)
+
 func (ts *TimeStamp) UnmarshalJSON(b []byte) error {
 	n, err := binary.UnmarshalStringInt64(b)
 	*ts = TimeStamp(n)
@@ -89,13 +94,6 @@ func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp {
 // Sub returns a new TimeStamp with the provided TimeSpan subtracted from it.
 func (ts TimeStamp) Sub(tspan TimeSpan) TimeStamp { return ts.Add(-tspan) }
 
-func (ts TimeStamp) Abs() TimeStamp {
-	if ts < 0 {
-		return -ts
-	}
-	return ts
-}
-
 // SpanRange constructs a new TimeRange with the TimeStamp and provided TimeSpan.
 func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
 	rng := ts.Range(ts.Add(span))
@@ -120,11 +118,9 @@ type TimeRange struct {
 	End TimeStamp `json:"end" msgpack:"end"`
 }
 
+// NewSecondsRange creates a new TimeRange between start and end seconds.
 func NewSecondsRange(start, end int) TimeRange {
-	return TimeRange{
-		Start: TimeStamp(start) * SecondTS,
-		End:   TimeStamp(end) * SecondTS,
-	}
+	return TimeRange{Start: TimeStamp(start) * SecondTS, End: TimeStamp(end) * SecondTS}
 }
 
 // Span returns the TimeSpan that the TimeRange occupies.
@@ -155,7 +151,7 @@ func (tr TimeRange) ContainsStamp(stamp TimeStamp) bool {
 	return stamp.AfterEq(tr.Start) && stamp.Before(tr.End)
 }
 
-// ContainsRange returns true if provided TimeRange contains the provided TimeRange.
+// ContainsRange returns true if the TimeRange contains the provided TimeRange.
 // Returns true if the two ranges are equal.
 func (tr TimeRange) ContainsRange(rng TimeRange) bool {
 	return rng.Start.AfterEq(tr.Start) && rng.End.BeforeEq(tr.End)
@@ -168,14 +164,14 @@ func (tr TimeRange) OverlapsWith(rng TimeRange) bool {
 		return true
 	}
 
-	vTr := tr.MakeValid()
+	validTR := tr.MakeValid()
 	rng = rng.MakeValid()
 
-	if rng.Start == vTr.Start {
+	if rng.Start == validTR.Start {
 		return true
 	}
 
-	if rng.End == vTr.Start || rng.Start == vTr.End {
+	if rng.End == validTR.Start || rng.Start == validTR.End {
 		return false
 	}
 
@@ -294,6 +290,8 @@ func (tr TimeRange) Intersection(rng TimeRange) (ret TimeRange) {
 	return
 }
 
+// PointIntersection returns the time between the start of the time range and the given
+// timestamp and the time between the end of the time range and the given timestamp.
 func (tr TimeRange) PointIntersection(ts TimeStamp) (before TimeSpan, after TimeSpan) {
 	return tr.Start.Span(ts), -tr.End.Span(ts)
 }
@@ -310,6 +308,11 @@ var (
 // TimeSpan represents a duration of time in nanoseconds.
 type TimeSpan int64
 
+var (
+	_ json.Unmarshaler = (*TimeSpan)(nil)
+	_ json.Marshaler   = TimeSpan(0)
+)
+
 func (ts TimeSpan) MarshalJSON() ([]byte, error) {
 	return binary.MarshalStringInt64(int64(ts))
 }
@@ -319,11 +322,6 @@ const (
 	TimeSpanZero = TimeSpan(0)
 	// TimeSpanMax represents the maximum possible TimeSpan.
 	TimeSpanMax = TimeSpan(^uint64(0) >> 1)
-)
-
-var (
-	_ json.Unmarshaler = (*TimeSpan)(nil)
-	_ json.Marshaler   = TimeSpan(0)
 )
 
 func (ts *TimeSpan) UnmarshalJSON(b []byte) error {

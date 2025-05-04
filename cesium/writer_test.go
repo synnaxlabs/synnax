@@ -11,6 +11,7 @@ package cesium_test
 
 import (
 	"encoding/binary"
+	"fmt"
 	"os"
 	"runtime"
 	"strconv"
@@ -743,7 +744,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 
 					Specify("With AutoCommit", func() {
-						db2 = MustSucceed(cesium.Open("size-capped-db",
+						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(40*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -824,7 +825,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 
 					Specify("With AutoCommit: should not commit a tiny domain", func() {
-						db2 = MustSucceed(cesium.Open("size-capped-db",
+						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(80*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -908,7 +909,7 @@ var _ = Describe("Writer Behavior", func() {
 						By("Closing an reopening the db")
 						Expect(db2.Close()).To(Succeed())
 
-						db2 = MustSucceed(cesium.Open("size-capped-db",
+						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(64*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -960,7 +961,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 
 					Specify("Without AutoCommit", func() {
-						db2 = MustSucceed(cesium.Open("size-capped-db",
+						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(40*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -1038,7 +1039,7 @@ var _ = Describe("Writer Behavior", func() {
 						})
 					})
 					It("Should not break when auto committing to not all channels", func() {
-						db2 = MustSucceed(cesium.Open("size-capped-db",
+						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(40*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -1242,6 +1243,7 @@ var _ = Describe("Writer Behavior", func() {
 						cesium.Channel{Key: data, Name: "uneven 2", DataType: telem.Float32T, Index: idx},
 					))
 				})
+
 				Specify("Uneven Frame", func() {
 					w := MustSucceed(
 						db.OpenWriter(ctx,
@@ -1263,25 +1265,54 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(err).To(MatchError(validate.Error))
 					Expect(err).To(MatchError(ContainSubstring("same length")))
 				})
-				Specify("Frame Without All Channels", func() {
-					w := MustSucceed(db.OpenWriter(
-						ctx,
-						cesium.WriterConfig{
-							Channels: []cesium.ChannelKey{idx, data},
-							Start:    10 * telem.SecondTS,
-						}))
-					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
-						[]cesium.ChannelKey{idx},
-						[]telem.Series{
-							telem.NewSecondsTSV(10, 11, 12, 13),
-						},
-					)))
-					_, err := w.Commit()
-					Expect(err).To(HaveOccurredAs(validate.Error))
-					err = w.Close()
-					Expect(err).To(MatchError(validate.Error))
-					Expect(err).To(MatchError(ContainSubstring("exactly one")))
+
+				Context("Missing Channels", func() {
+
+					Specify("Frame With Index Channel but without Data Channel", func() {
+						w := MustSucceed(db.OpenWriter(
+							ctx,
+							cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+								Start:    10 * telem.SecondTS,
+							}))
+						MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
+							[]cesium.ChannelKey{idx},
+							[]telem.Series{
+								telem.NewSecondsTSV(10, 11, 12, 13),
+							},
+						)))
+						_, err := w.Commit()
+						Expect(err).To(HaveOccurredAs(validate.Error))
+						err = w.Close()
+						Expect(err).To(MatchError(validate.Error))
+						Expect(err).To(MatchError(
+							ContainSubstring(fmt.Sprintf(
+								"frame must have exactly one series for each data channel associated with index [uneven 1]<%d>, but is missing a series for channel [uneven 2]<%d>", idx, data))))
+					})
+
+					Specify("Frame With Data Channel but without Index", func() {
+						w := MustSucceed(db.OpenWriter(
+							ctx,
+							cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+								Start:    10 * telem.SecondTS,
+							}))
+						MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
+							[]cesium.ChannelKey{data},
+							[]telem.Series{
+								telem.NewSeriesV[float32](10, 11, 12, 13),
+							},
+						)))
+						_, err := w.Commit()
+						Expect(err).To(HaveOccurredAs(validate.Error))
+						err = w.Close()
+						Expect(err).To(MatchError(validate.Error))
+						Expect(err).To(MatchError(
+							ContainSubstring(fmt.Sprintf(
+								"received no data for index channel [uneven 1]<%v> that must be provided when writing to related data channels [[uneven 2]<%v>]", idx, data))))
+					})
 				})
+
 				Specify("Frame with Duplicate Channels", func() {
 					w := MustSucceed(db.OpenWriter(
 						ctx,
@@ -1300,7 +1331,9 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(err).To(HaveOccurredAs(validate.Error))
 					err = w.Close()
 					Expect(err).To(HaveOccurredAs(validate.Error))
-					Expect(err.Error()).To(ContainSubstring("duplicate channel"))
+					Expect(err.Error()).To(ContainSubstring(
+						fmt.Sprintf("frame must have exactly one series per channel, found more than one for channel [uneven 1]<%v>: validation error", idx),
+					))
 				})
 			})
 
@@ -1475,24 +1508,23 @@ var _ = Describe("Writer Behavior", func() {
 			})
 
 			Describe("Close", func() {
-				ShouldNotLeakRoutinesJustBeforeEach()
-				It("Should not allow operations on a closed writer", func() {
-					key := GenerateChannelKey()
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "Close 1", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
-					var (
-						w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{key}, Start: 10 * telem.SecondTS}))
-						e = core.NewErrResourceClosed("cesium.writer")
-					)
-					Expect(w.Close()).To(Succeed())
-					Expect(w.Close()).To(Succeed())
-					_, err := w.Write(telem.UnaryFrame[cesium.ChannelKey](key, telem.NewSeriesV[uint8](1, 2, 3)))
-					Expect(err).To(HaveOccurred())
-					_, err = w.Commit()
-					Expect(err).To(HaveOccurredAs(e))
+				Describe("Without Leaks", func() {
+					ShouldNotLeakRoutinesJustBeforeEach()
+					It("Should not allow operations on a closed writer", func() {
+						key := GenerateChannelKey()
+						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "Close 1", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
+						var (
+							w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{key}, Start: 10 * telem.SecondTS}))
+							e = core.NewErrResourceClosed("cesium.writer")
+						)
+						Expect(w.Close()).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						_, err := w.Write(telem.UnaryFrame[cesium.ChannelKey](key, telem.NewSeriesV[uint8](1, 2, 3)))
+						Expect(err).To(HaveOccurred())
+						_, err = w.Commit()
+						Expect(err).To(HaveOccurredAs(e))
+					})
 				})
-			})
-
-			Describe("Close", func() {
 
 				It("Should close properly with a control setup", func() {
 					k2, k3, k4 := GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()

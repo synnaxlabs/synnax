@@ -89,7 +89,7 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return cesium.Open(
+	return cesium.Open(ctx,
 		cfg.Dirname,
 		cesium.WithFS(cfg.FS),
 		cesium.WithInstrumentation(cfg.Instrumentation),

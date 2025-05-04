@@ -37,7 +37,7 @@ var _ = Describe("Unary racing", func() {
 				dataKey = GenerateChannelKey()
 				fs, cleanUp = makeFS()
 				indexFS, dataFS := MustSucceed(fs.Sub("index")), MustSucceed(fs.Sub("data"))
-				indexDB = MustSucceed(unary.Open(unary.Config{
+				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
@@ -48,7 +48,7 @@ var _ = Describe("Unary racing", func() {
 					FileSize:        1 * telem.ByteSize,
 					Instrumentation: PanicLogger(),
 				}))
-				dataDB = MustSucceed(unary.Open(unary.Config{
+				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        dataFS,
 					MetaCodec: codec,
 					Channel: core.Channel{

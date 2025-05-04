@@ -45,7 +45,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey,
 		ch.DataType = telem.StringT
 		ch.Virtual = true
 		ch.Name = name
-		if err = db.createChannel(ch); err != nil {
+		if err = db.createChannel(ctx, ch); err != nil {
 			return err
 		}
 	} else if err != nil {

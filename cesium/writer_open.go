@@ -249,7 +249,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				return nil, err
 			}
 			// Hot path optimization: in the common case we only write to a rate based
-			// index or a domain indexed channel, not both. In either case we can avoid a
+			// index or a domain-indexed channel, not both. In either case we can avoid a
 			// map allocation.
 			if domainWriters == nil {
 				domainWriters = make(map[ChannelKey]*idxWriter)
@@ -269,10 +269,10 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		}
 	}
 
-	// On the second pass, we open all domain indexed writers that have indexes.
+	// On the second pass, we open all domain-indexed writers that have indexes.
 	for i, key := range cfg.Channels {
 		u, uOk := db.mu.unaryDBs[key]
-		// Ignore virtual, index, and rate based channels.
+		// Ignore virtual, index, and rate-based channels.
 		if !uOk || u.Channel().IsIndex || u.Channel().Index == 0 {
 			continue
 		}
@@ -333,7 +333,7 @@ func (db *DB) openDomainIdxWriter(
 		return nil, core.NewErrChannelNotFound(idxKey)
 	}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
-	w.idx.key = idxKey
+	w.idx.ch = u.Channel()
 	w.idx.Index = u.Index()
 	w.idx.highWaterMark = cfg.Start
 	w.writingToIdx = false

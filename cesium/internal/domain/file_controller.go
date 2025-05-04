@@ -510,9 +510,8 @@ func (c *controlledReader) HardClose() error {
 }
 
 type controllerEntry struct {
-	ins alamos.Instrumentation
-	// flag is "true" when the controlled entity is currently in use.
-	flag    *atomic.Bool
+	ins     alamos.Instrumentation
+	inUse   *atomic.Bool
 	fileKey uint16
 	release chan struct{}
 }
@@ -522,14 +521,14 @@ func newPoolEntry(key uint16, release chan struct{}, ins alamos.Instrumentation)
 		ins:     ins,
 		release: release,
 		fileKey: key,
-		flag:    &atomic.Bool{},
+		inUse:   &atomic.Bool{},
 	}
-	ce.flag.Store(true)
+	ce.inUse.Store(true)
 	return ce
 }
 
 func (ce *controllerEntry) Close() error {
-	if !ce.flag.CompareAndSwap(true, false) {
+	if !ce.inUse.CompareAndSwap(true, false) {
 		ce.ins.L.DPanic(fmt.Sprintf("controller: entry %d already closed", ce.fileKey))
 		return nil
 	}
@@ -541,5 +540,5 @@ func (ce *controllerEntry) Close() error {
 }
 
 func (ce *controllerEntry) tryAcquire() bool {
-	return ce.flag.CompareAndSwap(false, true)
+	return ce.inUse.CompareAndSwap(false, true)
 }

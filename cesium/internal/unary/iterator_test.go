@@ -36,7 +36,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				)
 				BeforeEach(func() {
 					fs, cleanUp = makeFS()
-					indexDB = MustSucceed(unary.Open(unary.Config{
+					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("index")),
 						MetaCodec: codec,
 						Channel: core.Channel{
@@ -47,7 +47,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						},
 						Instrumentation: PanicLogger(),
 					}))
-					db = MustSucceed(unary.Open(unary.Config{
+					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("data")),
 						MetaCodec: codec,
 						Channel: core.Channel{
@@ -724,7 +724,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						var (
 							iKey     = GenerateChannelKey()
 							dbKey    = GenerateChannelKey()
-							indexDB2 = MustSucceed(unary.Open(unary.Config{
+							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("index")),
 								MetaCodec: codec,
 								Channel: core.Channel{
@@ -736,7 +736,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Instrumentation: PanicLogger(),
 								FileSize:        40 * telem.ByteSize,
 							}))
-							dataDB2 = MustSucceed(unary.Open(unary.Config{
+							dataDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("data")),
 								MetaCodec: codec,
 								Channel: core.Channel{
@@ -775,7 +775,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						)
 						BeforeEach(func() {
 							iKey = GenerateChannelKey()
-							indexDB2 = MustSucceed(unary.Open(unary.Config{
+							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("index3")),
 								MetaCodec: codec,
 								Channel: core.Channel{
@@ -859,7 +859,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				BeforeEach(func() {
 					fs, cleanUp = makeFS()
 					key = GenerateChannelKey()
-					db = MustSucceed(unary.Open(unary.Config{
+					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: codec,
 						Channel: core.Channel{
@@ -926,7 +926,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				fs := xfs.NewMem()
 				indexFS := MustSucceed(fs.Sub("index"))
 				unaryFS := MustSucceed(fs.Sub("data"))
-				indexDB := MustSucceed(unary.Open(unary.Config{
+				indexDB := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
@@ -938,7 +938,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Instrumentation: PanicLogger(),
 					FileSize:        fileSizeLimit,
 				}))
-				db := MustSucceed(unary.Open(unary.Config{
+				db := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        unaryFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
@@ -1013,7 +1013,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				indexFS := MustSucceed(fs.Sub("index"))
 				uFS1 := MustSucceed(fs.Sub("data1"))
 				uFS2 := MustSucceed(fs.Sub("data2"))
-				indexDB := MustSucceed(unary.Open(unary.Config{
+				indexDB := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
@@ -1023,7 +1023,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					},
 					FileSize: fileSizeLimit,
 				}))
-				db1 := MustSucceed(unary.Open(unary.Config{
+				db1 := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        uFS1,
 					MetaCodec: codec,
 					Channel: core.Channel{
@@ -1034,7 +1034,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					FileSize: fileSizeLimit,
 				}))
 				db1.SetIndex(indexDB.Index())
-				db2 := MustSucceed(unary.Open(unary.Config{
+				db2 := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        uFS2,
 					MetaCodec: codec,
 					Channel: core.Channel{

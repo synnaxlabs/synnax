@@ -129,11 +129,13 @@ var _ = Describe("Series", func() {
 			telem.SetValueAt[int64](s, 0, 4)
 			Expect(telem.ValueAt[int64](s, 0)).To(Equal(int64(4)))
 		})
+
 		It("Should support negative indices", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3)
 			telem.SetValueAt[int64](s, -1, 4)
 			Expect(telem.ValueAt[int64](s, -1)).To(Equal(int64(4)))
 		})
+
 		It("Should panic when the index is out of bounds", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3)
 			Expect(func() { telem.SetValueAt[int64](s, 3, 4) }).To(Panic())
@@ -171,8 +173,26 @@ var _ = Describe("Series", func() {
 			})
 		})
 
+		DescribeTable("DataString", func(s telem.Series, expected string) {
+			Expect(s.DataString()).To(Equal(expected))
+		},
+			Entry("uint8", telem.NewSeriesV[uint8](1, 2, 3), "[1 2 3]"),
+			Entry("uint16", telem.NewSeriesV[uint16](1, 2, 3), "[1 2 3]"),
+			Entry("uint32", telem.NewSeriesV[uint32](1, 2, 3), "[1 2 3]"),
+			Entry("uint64", telem.NewSeriesV[uint64](1, 2, 3), "[1 2 3]"),
+			Entry("int8", telem.NewSeriesV[int8](1, 2, 3), "[1 2 3]"),
+			Entry("int16", telem.NewSeriesV[int16](1, 2, 3), "[1 2 3]"),
+			Entry("int32", telem.NewSeriesV[int32](1, 2, 3), "[1 2 3]"),
+			Entry("int64", telem.NewSeriesV[int64](1, 2, 3), "[1 2 3]"),
+			Entry("float32", telem.NewSeriesV[float32](1.0, 2.0, 3.0), "[1 2 3]"),
+			Entry("float64", telem.NewSeriesV[float64](1.0, 2.0, 3.0), "[1 2 3]"),
+			Entry("string", telem.NewStringsV("a", "b", "c"), "[a b c]"),
+			Entry("json", telem.NewStaticJSONV(map[string]interface{}{"a": 1, "b": 2, "c": 3}), "[{\"a\":1,\"b\":2,\"c\":3}]"),
+			Entry("timestamp", telem.NewSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z 1970-01-01T00:00:02Z 1970-01-01T00:00:03Z]"),
+		)
+
 		Context("Long Series", func() {
-			It("Should truncate series with > 12 elements", func() {
+			It("Should truncate series with > 14 elements", func() {
 				values := make([]int64, 20)
 				for i := range values {
 					values[i] = int64(i + 1)
@@ -180,7 +200,7 @@ var _ = Describe("Series", func() {
 				s := telem.NewSeriesV(values...)
 				str := s.String()
 				Expect(str).To(ContainSubstring("Len: 20"))
-				Expect(str).To(ContainSubstring("[1 2 3 4 5 ... 16 17 18 19 20]"))
+				Expect(str).To(ContainSubstring("[1 2 3 4 5 6 ... 15 16 17 18 19 20]"))
 			})
 
 			It("Should truncate long float series", func() {
@@ -190,14 +210,14 @@ var _ = Describe("Series", func() {
 				}
 				s := telem.NewSeriesV(values...)
 				str := s.String()
-				Expect(str).To(ContainSubstring("[0.5 1.5 2.5 3.5 4.5 ... 10.5 11.5 12.5 13.5 14.5]"))
+				Expect(str).To(ContainSubstring("[0.5 1.5 2.5 3.5 4.5 5.5 ... 9.5 10.5 11.5 12.5 13.5 14.5]"))
 			})
 
 			It("Should truncate long string series", func() {
 				values := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"}
 				s := telem.NewStringsV(values...)
 				str := s.String()
-				Expect(str).To(ContainSubstring("[a b c d e ... j k l m n]"))
+				Expect(str).To(ContainSubstring("[a b c d e f ... i j k l m n]"))
 			})
 		})
 
@@ -417,6 +437,31 @@ var _ = Describe("Series", func() {
 				Expect(ms.Len()).To(Equal(int64(3)))
 				Expect(ms.Series[0].Alignment).To(Equal(s2.Alignment))
 			})
+
+			It("Should correctly handle an empty multi-series", func() {
+				var ms telem.MultiSeries
+				Expect(ms.FilterLessThan(0).Len()).To(Equal(int64(0)))
+			})
+
+			It("Should keep all series when alignment bounds is very low", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1.Alignment = 500
+				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2.Alignment = 5000
+				ms := telem.NewMultiSeriesV(s1, s2)
+				ms = ms.FilterLessThan(5)
+				Expect(ms.Len()).To(Equal(int64(6)))
+			})
+
+			It("Should filter all series when alignment bounds is very high", func() {
+				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1.Alignment = 0
+				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2.Alignment = 3
+				ms := telem.NewMultiSeriesV(s1, s2)
+				ms = ms.FilterLessThan(5000)
+				Expect(ms.Len()).To(Equal(int64(0)))
+			})
 		})
 
 		Describe("Len", func() {
@@ -460,6 +505,15 @@ var _ = Describe("Series", func() {
 				ms := telem.NewMultiSeriesV(s1, s2)
 				Expect(telem.MultiSeriesAtAlignment[uint8](ms, telem.NewAlignment(1, 3))).To(Equal(uint8(4)))
 			})
+
+			It("Should panic when querying a value outside of the expected alignment", func() {
+				s1 := telem.NewSeriesV[uint8](1, 2, 3)
+				s1.Alignment = telem.NewAlignment(1, 0)
+				ms := telem.NewMultiSeriesV(s1)
+				Expect(func() {
+					telem.MultiSeriesAtAlignment[uint8](ms, 5000)
+				}).To(Panic())
+			})
 		})
 	})
 
@@ -467,20 +521,18 @@ var _ = Describe("Series", func() {
 		It("iterates fixed length correctly", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 			values := make([]int64, 0, 5)
-			s.Samples()(func(sample []byte) bool {
+			for sample := range s.Samples() {
 				values = append(values, telem.UnmarshalF[int64](s.DataType)(sample))
-				return true
-			})
+			}
 			Expect(values).To(Equal([]int64{1, 2, 3, 4, 5}))
 		})
 
 		It("iterates variable length correctly", func() {
 			s := telem.NewStringsV("foo", "bar", "baz")
 			values := make([]string, 0, 3)
-			s.Samples()(func(sample []byte) bool {
+			for sample := range s.Samples() {
 				values = append(values, string(sample))
-				return true
-			})
+			}
 			Expect(values).To(Equal([]string{"foo", "bar", "baz"}))
 		})
 
@@ -488,12 +540,28 @@ var _ = Describe("Series", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 			values := make([]int64, 0, 3)
 			count := 0
-			s.Samples()(func(sample []byte) bool {
+			for sample := range s.Samples() {
 				values = append(values, telem.UnmarshalF[int64](s.DataType)(sample))
 				count++
-				return count < 3
-			})
+				if count > 2 {
+					break
+				}
+			}
 			Expect(values).To(Equal([]int64{1, 2, 3}))
+		})
+
+		It("Should allow for early termination in variable length series", func() {
+			s := telem.NewStringsV("foo", "bar", "baz")
+			values := make([]string, 0, 3)
+			count := 0
+			for sample := range s.Samples() {
+				count++
+				values = append(values, string(sample))
+				if count > 1 {
+					break
+				}
+			}
+			Expect(values).To(Equal([]string{"foo", "bar"}))
 		})
 
 		It("handles empty series", func() {

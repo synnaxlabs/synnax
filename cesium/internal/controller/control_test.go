@@ -895,7 +895,7 @@ var _ = Describe("Control", func() {
 		})
 
 		Describe("LeadingState", func() {
-			It("Should return the leading State of the controller", func() {
+			It("Should return the leading state of the controller", func() {
 				cfg1, _ := baseConfig(1)
 				cfg1.Subject.Key = "test"
 				cfg1.Subject.Name = "test"

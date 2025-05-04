@@ -21,7 +21,7 @@ from tests.telem import seconds_linspace
 @pytest.mark.writer
 class TestWriter:
     def test_basic_write(self, indexed_pair: list[sy.Channel], client: sy.Synnax):
-        """Should write data to the Synnax database"""
+        """Should write a small amount of data to Synnax"""
         idx_ch, data_ch = indexed_pair
         with client.open_writer(
             start=1 * sy.TimeSpan.SECOND,
@@ -97,7 +97,9 @@ class TestWriter:
         w/o the correct timing
         """
         [idx, data_ch] = indexed_pair
-        with pytest.raises(sy.ValidationError):
+        with pytest.raises(
+            sy.ValidationError, match="received no data for index channel"
+        ):
             with client.open_writer(0, [idx.key, data_ch.key]) as w:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({data_ch.key: data}))
@@ -136,19 +138,13 @@ class TestWriter:
 
         assert w1.close() is None
 
-    def test_write_err_out_of_order_timestamps(self, client: sy.Synnax):
-        """Should throw an error when writing out of order timestamps"""
-        time_ch = client.channels.create(
-            name="time",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-        )
-        data_ch = client.channels.create(
-            name="data",
-            data_type=sy.DataType.FLOAT32,
-            index=time_ch.key,
-        )
-        with pytest.raises(sy.ValidationError):
+    def test_write_err_first_timestamp_before_start(
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
+    ):
+        """Should raise a validation error when the first timestamp written to an index
+        channel is before the start time of the writer."""
+        time_ch, data_ch = indexed_pair
+        with pytest.raises(sy.ValidationError, match="commit timestamp"):
             with client.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=[time_ch.key, data_ch.key],
@@ -156,6 +152,22 @@ class TestWriter:
             ) as w:
                 for i in range(100):
                     w.write({time_ch.key: [i], data_ch.key: [i]})
+
+    def test_write_out_of_order_timestamps(
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
+    ):
+        """Should raise a validation error when writing timestamps that are out of
+        order"""
+        time_ch, data_ch = indexed_pair
+        with pytest.raises(sy.ValidationError, match="commit timestamp"):
+            with client.open_writer(
+                start=sy.TimeSpan.SECOND,
+                channels=[time_ch.key, data_ch.key],
+                enable_auto_commit=True,
+            ) as w:
+                for i in range(100):
+                    time = sy.TimeSpan.SECOND * (101 - i)
+                    w.write({time_ch.key: time, data_ch.key: [i]})
 
     @pytest.mark.asyncio
     async def test_write_persist_only_mode(

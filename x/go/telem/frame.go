@@ -26,13 +26,14 @@ import (
 )
 
 // Frame is a performance-optimized record of numeric keys to series.
+// size = 24 + 24 + 1 + 16 + (7 buffer) = 72 bytes.
 type Frame[K types.Numeric] struct {
-	// keys are the keys of the frame record. keys is guaranteed to have the same length
-	// as series. Note that keys are not guaranteed to be unique.
+	// keys are the keys of the frame record. the keys slice is guaranteed to have the
+	// same length as the series slice. Note that keys are not guaranteed to be unique.
 	// 24 bytes
 	keys []K
-	// series is the series of the frame record. series is guaranteed to have the same length
-	// as keys.
+	// series is the series of the frame record. the series slice is guaranteed to have
+	// the same length as the keys slice.
 	series []Series
 	// 24 bytes
 	// mask is used as a high-performance filter for removing entries from the frame.
@@ -40,7 +41,9 @@ type Frame[K types.Numeric] struct {
 	// series slices. Mask can only handle frames with up to 128 entries. If enabled
 	// is true, the mask is enabled and will be used to filter the frame.
 	mask struct {
+		// 1 byte
 		enabled bool
+		// 16 bytes
 		bit.Mask128
 	}
 }
@@ -81,7 +84,7 @@ func AllocFrame[K types.Numeric](cap int) Frame[K] {
 }
 
 // String returns a nicely formatted string representation of the frame. This function
-// should not be used in performance critical paths.
+// should not be used in performance-critical paths.
 func (f Frame[K]) String() string {
 	if f.Empty() {
 		return "Frame{}"
@@ -134,7 +137,7 @@ func (f Frame[K]) SeriesSlice() []Series {
 // that have been filtered out by FilterKeys. To check whether an index in this slice
 // has been filtered out, use ShouldExcludeRaw.
 //
-// It is generally recommended to avoid using this function except for performance
+// It is generally recommended to avoid using this function except for performance-
 // critical paths where the overhead of allocating returned closures through Series()
 // and SeriesI() is too high.
 //
@@ -456,13 +459,6 @@ func (f Frame[K]) Extend(frames ...Frame[K]) Frame[K] {
 		f.series = append(f.series, fr.SeriesSlice()...)
 	}
 	return f
-}
-
-func MergeFrames[K types.Numeric](frames []Frame[K]) Frame[K] {
-	if len(frames) == 0 {
-		return Frame[K]{}
-	}
-	return frames[0].Extend(frames[1:]...)
 }
 
 // ShallowCopy returns a shallow copy of the frame i.e. the keys and series slices

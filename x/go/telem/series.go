@@ -18,14 +18,13 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bounds"
-	"go.uber.org/zap"
-
+	"github.com/synnaxlabs/x/stringer"
 	"github.com/synnaxlabs/x/types"
 )
 
 const newLineChar = '\n'
 
-// Series is a strongly typed  array of telemetry samples backed by an underlying
+// Series is a strongly typed array of telemetry samples backed by an underlying
 // binary buffer.
 type Series struct {
 	// TimeRange represents the time range occupied by the series' data.
@@ -113,10 +112,6 @@ func (s Series) At(i int) []byte {
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
 func ValueAt[T Sample](s Series, i int) (o T) {
-	if s.DataType.IsVariable() {
-		zap.S().DPanic("ValueAt cannot be used on variable density series")
-		return
-	}
 	return UnmarshalF[T](s.DataType)(s.At(i))
 }
 
@@ -130,41 +125,18 @@ func MultiSeriesAtAlignment[T types.Numeric](
 			return ValueAt[T](s, int(alignment-s.Alignment))
 		}
 	}
-	zap.S().DPanic("no series found at alignment")
-	return
+	panic(fmt.Sprintf("alignment %v out of bounds for multi series with alignment bounds %v", alignment, ms.AlignmentBounds()))
 }
 
 // SetValueAt sets the value at the given index in the series. SetValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
 func SetValueAt[T types.Numeric](s Series, i int64, v T) {
-	if s.DataType.IsVariable() {
-		zap.S().DPanic("ValueAt cannot be used on variable density series")
-		return
-	}
 	if i < 0 {
 		i += s.Len()
 	}
 	f := MarshalF[T](s.DataType)
 	f(s.Data[i*int64(s.DataType.Density()):], v)
-}
-
-const maxDisplayValues = 12
-const endDisplayCount = 5
-
-// truncateSlice returns a string representation of a slice, showing only the first and last few elements
-// if the slice is longer than maxDisplayValues
-func truncateSlice[T any](slice []T) string {
-	if len(slice) <= maxDisplayValues {
-		return fmt.Sprintf("%v", slice)
-	}
-	var (
-		first    = slice[:5]
-		last     = slice[len(slice)-endDisplayCount:]
-		firstStr = strings.Trim(fmt.Sprintf("%v", first), "[]")
-		lastStr  = strings.Trim(fmt.Sprintf("%v", last), "[]")
-	)
-	return fmt.Sprintf("[%s ... %s]", firstStr, lastStr)
 }
 
 // AlignmentBounds returns the alignment bounds of the series. The lower bound is the
@@ -227,6 +199,12 @@ func (s Series) DownSample(factor int) Series {
 	}
 }
 
+const maxDisplayValues = 12
+
+func truncateSlice[T any](slice []T) string {
+	return stringer.TruncateSlice(slice, maxDisplayValues)
+}
+
 func (s Series) DataString() string {
 	if s.Len() == 0 {
 		return "[]"
@@ -258,10 +236,6 @@ func (s Series) DataString() string {
 			contents = truncateSlice(Unmarshal[uint8](s))
 		case TimeStampT:
 			contents = truncateSlice(Unmarshal[TimeStamp](s))
-		case StringT:
-			contents = truncateSlice(UnmarshalStrings(s.Data))
-		case JSONT:
-			contents = truncateSlice(UnmarshalStrings(s.Data))
 		default:
 			contents = fmt.Sprintf("%v", s.Data)
 		}
@@ -349,6 +323,9 @@ func (m MultiSeries) FilterLessThan(a Alignment) MultiSeries {
 	// is above the filter threshold, so we don't need to re-allocate a new slice.
 	if m.Series[0].AlignmentBounds().Upper > a {
 		return m
+	}
+	if m.Series[len(m.Series)-1].AlignmentBounds().Upper < a {
+		return MultiSeries{}
 	}
 	return MultiSeries{
 		Series: lo.Filter(m.Series, func(s Series, _ int) bool {

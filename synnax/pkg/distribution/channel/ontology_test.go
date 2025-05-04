@@ -56,25 +56,28 @@ var _ = Describe("Ontology", Ordered, func() {
 	Describe("OnChange", func() {
 		Context("Create", func() {
 			It("Should correctly propagate a create change", func() {
-				var (
-					v        schema.Change
-					ok       bool
-					secondOk = true
-				)
-				services[1].OnChange(func(ctx context.Context, nexter iter.Nexter[schema.Change]) {
-					v_, ok_ := nexter.Next(ctx)
-					if ok_ {
-						ok = ok_
-						v = v_
+				changes := make(chan []schema.Change, 5)
+				dc := services[1].OnChange(func(ctx context.Context, nexter iter.Nexter[schema.Change]) {
+					changesSlice := make([]schema.Change, 0)
+					for {
+						v, ok := nexter.Next(ctx)
+						if !ok {
+							break
+						}
+						changesSlice = append(changesSlice, v)
 					}
-					_, secondOk = nexter.Next(ctx)
+					changes <- changesSlice
 				})
+				defer dc()
 				ch := &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true}
 				Expect(services[1].Create(ctx, ch))
-				Eventually(func() bool { return ok }, 1*time.Second).Should(BeTrue())
-				Expect(v.Variant).To(Equal(change.Set))
-				Expect(v.Key.Key).To(Equal(ch.Key().String()))
-				Expect(secondOk).To(BeFalse())
+				Eventually(func(g Gomega) {
+					c := <-changes
+					g.Expect(c).To(HaveLen(1))
+					v := c[0]
+					g.Expect(v.Variant).To(Equal(change.Set))
+					g.Expect(v.Key.Key).To(Equal(ch.Key().String()))
+				}, 1*time.Second).Should(Succeed())
 			})
 		})
 	})

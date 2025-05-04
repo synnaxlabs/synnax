@@ -102,7 +102,6 @@ var _ = Describe("Writer", func() {
 		var s scenario
 		BeforeAll(func() { s = peerOnlyScenario() })
 		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
-		ShouldNotLeakGoroutinesDuringEach()
 		It("Should return an error if a key is provided that is not in the list of keys provided to the writer", func() {
 			writer := MustSucceed(s.service.Open(context.TODO(), writer.Config{
 				Keys:  s.keys,

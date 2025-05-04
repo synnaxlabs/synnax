@@ -11,6 +11,12 @@ package set
 
 type Set[T comparable, V any] map[T]V
 
+func FromSlice[T comparable](values []T) Set[T, struct{}] {
+	s := make(Set[T, struct{}], len(values))
+	s.Add(values...)
+	return s
+}
+
 func (s Set[T, V]) Add(values ...T) {
 	var v V
 	for _, k := range values {

@@ -25,7 +25,7 @@ import (
 var _ = Describe("Write", func() {
 	var db *virtual.DB
 	BeforeEach(func() {
-		db = MustSucceed(virtual.Open(virtual.Config{
+		db = MustSucceed(virtual.Open(ctx, virtual.Config{
 			MetaCodec: codec,
 			Channel: core.Channel{
 				Key:      2,

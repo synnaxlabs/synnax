@@ -15,9 +15,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
 )
 
 var ctx = context.Background()
+
+var _ = BeforeSuite(func() {
+	zap.ReplaceGlobals(MustSucceed(zap.NewDevelopment()))
+})
 
 func TestTelem(t *testing.T) {
 	RegisterFailHandler(Fail)

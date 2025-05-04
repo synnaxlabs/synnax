@@ -10,6 +10,7 @@
 package unary
 
 import (
+	"context"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
@@ -85,12 +86,12 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
-func Open(configs ...Config) (*DB, error) {
+func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	cfg.Channel, err = meta.Open(cfg.FS, cfg.Channel, cfg.MetaCodec)
+	cfg.Channel, err = meta.Open(ctx, cfg.FS, cfg.Channel, cfg.MetaCodec)
 	if err != nil {
 		return nil, err
 	}
