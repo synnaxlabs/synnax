@@ -57,12 +57,9 @@ public:
         int *err_addr
     ) const = 0;
 
-    [[nodiscard]] virtual xerrors::Error names_to_addrs(
-        size_t num_frames,
-        const char **names,
-        int *addrs,
-        int *types
-    ) const = 0;
+    [[nodiscard]] virtual xerrors::Error
+    names_to_addrs(size_t num_frames, const char **names, int *addrs, int *types)
+        const = 0;
 
     [[nodiscard]] virtual xerrors::Error
     wait_for_next_interval(int interval_handle, int *skipped_intervals) const = 0;
@@ -100,11 +97,9 @@ public:
             LOG(WARNING) << "[labjack] failed to close device: " << err;
     }
 
-    xerrors::Error e_stream_read(
-        double *data,
-        int *dev_scan_backlog,
-        int *ljm_scan_backlog
-    ) const override {
+    xerrors::Error
+    e_stream_read(double *data, int *dev_scan_backlog, int *ljm_scan_backlog)
+        const override {
         return parse_error(
             this->ljm,
             this->ljm->e_stream_read(
@@ -156,8 +151,8 @@ public:
         );
     }
 
-    [[nodiscard]] xerrors::Error
-    clean_interval(const int interval_handle) const override {
+    [[nodiscard]] xerrors::Error clean_interval(const int interval_handle
+    ) const override {
         return parse_error(this->ljm, this->ljm->clean_interval(interval_handle));
     }
 
@@ -184,12 +179,9 @@ public:
         );
     }
 
-    [[nodiscard]] xerrors::Error names_to_addrs(
-        const size_t num_frames,
-        const char **names,
-        int *addrs,
-        int *types
-    ) const override {
+    [[nodiscard]] xerrors::Error
+    names_to_addrs(const size_t num_frames, const char **names, int *addrs, int *types)
+        const override {
         return parse_error(
             this->ljm,
             this->ljm->names_to_addrs(static_cast<int>(num_frames), names, addrs, types)
