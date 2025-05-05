@@ -44,5 +44,5 @@ func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, 
 			return
 		}
 	}
-	return Response{Command: req.Command, SeqNum: req.SeqNum}, true, nil
+	return Response{Command: req.Command, SeqNum: req.SeqNum, Authorized: true}, true, nil
 }

@@ -268,10 +268,16 @@ type FrameWriterRequest struct {
 	Frame   Frame             `json:"frame" msgpack:"frame"`
 }
 
+type FrameWriterResponse struct {
+	Command    writer.Command  `json:"command" msgpack:"command"`
+	End        telem.TimeStamp `json:"end" msgpack:"end"`
+	Authorized bool            `json:"authorized" msgpack:"authorized"`
+	Err        errors.Payload  `json:"err" msgpack:"err"`
+}
+
 type (
-	WriterCommand       = writer.Command
-	FrameWriterResponse = framer.WriterResponse
-	FrameWriterStream   = freighter.ServerStream[FrameWriterRequest, FrameWriterResponse]
+	WriterCommand     = writer.Command
+	FrameWriterStream = freighter.ServerStream[FrameWriterRequest, FrameWriterResponse]
 )
 
 const (
@@ -331,8 +337,15 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 			return r, true, nil
 		},
 	}
-	sender := &freightfluence.Sender[framer.WriterResponse]{
-		Sender: freighter.SenderNopCloser[framer.WriterResponse]{StreamSender: stream},
+	sender := &freightfluence.TransformSender[framer.WriterResponse, FrameWriterResponse]{
+		Sender: freighter.SenderNopCloser[FrameWriterResponse]{StreamSender: stream},
+		Transform: func(ctx context.Context, i framer.WriterResponse) (o FrameWriterResponse, ok bool, err error) {
+			o.Command = i.Command
+			o.Authorized = i.Authorized
+			o.Err = errors.Encode(ctx, i.Err, false)
+			o.End = i.End
+			return o, true, nil
+		},
 	}
 
 	pipe := plumber.New()
@@ -341,7 +354,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	plumber.SetSource[framer.WriterRequest](pipe, "receiver", receiver)
 	plumber.SetSink[framer.WriterResponse](pipe, "sender", sender)
 	plumber.MustConnect[framer.WriterRequest](pipe, "receiver", "writer", writerRequestBufferSize)
-	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", writerResponseBufferSize)
+	plumber.MustConnect[framer.WriterResponse](pipe, "writer", "sender", writerResponseBufferSize)
 
 	pipe.Flow(ctx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	err = ctx.Wait()

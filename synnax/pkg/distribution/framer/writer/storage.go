@@ -35,6 +35,7 @@ func newResponseTranslator(host core.NodeKey) func(ctx context.Context, in ts.Wr
 			NodeKey:    host,
 			End:        in.End,
 			Authorized: in.Authorized,
+			Err:        in.Err,
 		}, true, nil
 	}
 }

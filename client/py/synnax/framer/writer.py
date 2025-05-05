@@ -12,7 +12,16 @@ from typing import Literal, TypeAlias, overload
 from uuid import uuid4
 from warnings import warn
 
-from freighter import EOF, JSONCodec, MsgPackCodec, Payload, Stream, WebsocketClient
+from freighter import (
+    EOF,
+    ExceptionPayload,
+    JSONCodec,
+    MsgPackCodec,
+    Payload,
+    Stream,
+    WebsocketClient,
+    decode_exception,
+)
 from freighter.websocket import Message
 from numpy import can_cast as np_can_cast
 from pandas import DataFrame
@@ -81,6 +90,7 @@ class WriterRequest(Payload):
 class WriterResponse(Payload):
     command: WriterCommand
     end: TimeStamp | None
+    err: ExceptionPayload | None = None
 
 
 class WSWriterCodec(WSFramerCodec):
@@ -117,7 +127,6 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
         except:
             ...
     raise ValueError(f"invalid writer mode {mode}")
-
 
 ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
@@ -168,7 +177,6 @@ class Writer:
     _adapter: WriteFrameAdapter
     _suppress_warnings: bool = False
     _strict: bool = False
-    _closed: Exception | None = None
 
     start: CrudeTimeStamp
 
@@ -204,7 +212,10 @@ class Writer:
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
         )
-        self._stream.send(WriterRequest(command=WriterCommand.OPEN, config=config))
+        exc = self._stream.send(WriterRequest(command=WriterCommand.OPEN,
+                                              config=config))
+        if exc is not None:
+            raise exc
         _, exc = self._stream.receive()
         if exc is not None:
             raise exc
@@ -270,11 +281,13 @@ class Writer:
         frame = self._adapter.adapt(channels_or_data, series)
         self.__check_keys(frame)
         self.__prep_data_types(frame)
-        self._handle_exc(
-            self._stream.send(
-                WriterRequest(command=WriterCommand.WRITE, frame=frame.to_payload())
+        try:
+            self._exec(
+                WriterRequest(command=WriterCommand.WRITE, frame=frame.to_payload()),
+                timeout=0
             )
-        )
+        except TimeoutError:
+            ...
 
     @overload
     def set_authority(self, value: CrudeAuthority) -> bool: ...
@@ -316,21 +329,7 @@ class Writer:
                 keys=list(value.keys()),
                 authorities=list(value.values()),
             )
-        exc = self._stream.send(
-            WriterRequest(command=WriterCommand.SET_AUTHORITY, config=cfg)
-        )
-        if exc is not None:
-            raise exc
-        _, exc = self._ack(WriterCommand.SET_AUTHORITY)
-        if exc is not None:
-            raise exc
-
-    def _handle_exc(self, exc: Exception | None) -> None:
-        if exc is None:
-            return
-        if isinstance(exc, EOF):
-            return self.close()
-        raise exc
+        self._exec(WriterRequest(command=WriterCommand.SET_AUTHORITY, config=cfg))
 
     def commit(self) -> TimeStamp:
         """Commits the written frames to the database. Commit is synchronous, meaning
@@ -340,11 +339,7 @@ class Writer:
         should acknowledge the error by calling the error method or closing the writer.
         After the error is acknowledged, the caller can attempt to commit again.
         """
-        exc = self._stream.send(WriterRequest(command=WriterCommand.COMMIT))
-        if exc is not None:
-            raise exc
-        res, exc = self._ack(WriterCommand.COMMIT)
-        self._handle_exc(exc)
+        res = self._exec(WriterRequest(command=WriterCommand.COMMIT))
         return res.end
 
     def close(self):
@@ -352,25 +347,29 @@ class Writer:
         operation. A writer MUST be closed after use, and this method should probably
         be placed in a 'finally' block.
         """
-        if self._closed is not None:
-            raise self._closed
         self._stream.close_send()
-        while True:
-            _, exc = self._stream.receive()
-            if exc is not None:
-                if isinstance(exc, EOF):
-                    return
-                raise exc
+        try:
+            self._exec()
+        except EOF:
+            return None
 
-    def _ack(
-        self, cmd: WriterCommand | None = None
-    ) -> tuple[WriterResponse, None] | tuple[None, Exception]:
-        while True:
-            res, exc = self._stream.receive()
+    def _exec(
+        self,
+        req: WriterRequest | None = None,
+        timeout: int | None = None
+    ) -> WriterResponse |None:
+        if req is not None:
+            exc = self._stream.send(req)
             if exc is not None:
-                return res, exc
-            elif cmd is not None and res.command == cmd:
-                return res, None
+                raise exc
+        while True:
+            res, exc = self._stream.receive(timeout)
+            if exc is None and res is not None and res.err is not None:
+                exc = decode_exception(res.err)
+            if exc is not None:
+                raise exc
+            if req is not None and res.command == req.command:
+                return res
 
     def __enter__(self):
         return self
@@ -420,53 +419,3 @@ class Writer:
                         the writer."""
                     )
                 frame.series[i] = series.astype(ch.data_type)
-
-
-class BufferedWriter(io.DataFrameWriter):
-    """BufferedWriter extends the Writer class by buffering
-    writes to the underlying stream. This can improve performance by reducing the
-    number of round trips to the server.
-    """
-
-    size_threshold: int
-    time_threshold: TimeSpan
-    last_flush: TimeStamp
-    _wrapped: Writer
-    _buf: DataFrame
-
-    def __init__(
-        self,
-        wrapped: Writer,
-        size_threshold: int = int(1e6),
-        time_threshold: TimeSpan = TimeSpan.MAX,
-    ) -> None:
-        self._wrapped = wrapped
-        self._buf = DataFrame()
-        self.last_flush = TimeStamp.now()
-        self.size_threshold = size_threshold
-        self.time_threshold = time_threshold
-
-    def _(self) -> io.DataFrameWriter:
-        return self
-
-    def write(self, frame: DataFrame):
-        self._buf = pd_concat([self._buf, frame], ignore_index=True)
-        if self._exceeds_any:
-            self.__flush()
-
-    def close(self):
-        self.__flush()
-        self._wrapped.close()
-
-    @property
-    def _exceeds_any(self) -> bool:
-        return (
-            len(self._buf) * len(self._buf.columns) >= self.size_threshold
-            or TimeSpan.since(self.last_flush) >= self.time_threshold
-        )
-
-    def __flush(self):
-        self._wrapped.write(self._buf)
-        self._wrapped.commit()
-        self.last_flush = TimeStamp.now()
-        self._buf = DataFrame()

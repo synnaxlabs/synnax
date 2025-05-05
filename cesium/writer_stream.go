@@ -68,6 +68,7 @@ type WriterResponse struct {
 	// Authorized flags whether the write or commit operation was authorized. It is only
 	// valid during calls to WriterWrite and WriterCommit.
 	Authorized bool
+	Err        error
 }
 
 // StreamWriter provides a streaming interface for writing telemetry to the DB.
@@ -104,6 +105,7 @@ type streamWriter struct {
 	virtual         *virtualWriter
 	seqNum          int
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
+	accumulatedErr  error
 }
 
 // Flow implements the confluence.Flow interface.
@@ -122,46 +124,41 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			select {
 			case <-ctx.Done():
 				err = ctx.Err()
+				if w.accumulatedErr != nil {
+					err = w.accumulatedErr
+				}
 				return
 			case req, ok := <-w.In.Outlet():
 				if !ok {
+					err = w.accumulatedErr
 					return
 				}
-				if err = w.process(ctx, req); err != nil {
-					return
+				var commitEnd telem.TimeStamp
+				if w.accumulatedErr == nil {
+					commitEnd, w.accumulatedErr = w.process(ctx, req)
+				}
+				if err := w.maybeSendRes(ctx, req, commitEnd); err != nil {
+					return err
 				}
 			}
 		}
 	}, o.Signal...)
 }
 
-func (w *streamWriter) process(ctx context.Context, req WriterRequest) error {
-	if err := validateWriterCommand(req.Command); err != nil {
-		return err
+func (w *streamWriter) process(ctx context.Context, req WriterRequest) (commitEnd telem.TimeStamp, err error) {
+	if err = validateWriterCommand(req.Command); err != nil {
+		return 0, err
 	}
 	if req.Command == WriterSetAuthority {
-		if err := w.setAuthority(ctx, req.Config); err != nil {
-			return err
-		}
-		return w.sendRes(ctx, req, 0, true)
+		err = w.setAuthority(ctx, req.Config)
+		return
 	}
 	if req.Command == WriterCommit {
-		ts, err := w.commit(ctx)
-		isUnauthorized := errors.Is(err, control.Unauthorized)
-		if err != nil && !isUnauthorized {
-			return err
-		}
-		return w.sendRes(ctx, req, ts, !isUnauthorized)
+		commitEnd, err = w.commit(ctx)
+		return
 	}
-	err := w.write(ctx, req)
-	isUnauthorized := errors.Is(err, control.Unauthorized)
-	if err != nil && !isUnauthorized {
-		return err
-	}
-	if *w.Sync {
-		return w.sendRes(ctx, req, 0, !isUnauthorized)
-	}
-	return nil
+	err = w.write(ctx, req)
+	return
 }
 
 func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
@@ -210,18 +207,21 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	return nil
 }
 
-func (w *streamWriter) sendRes(
+func (w *streamWriter) maybeSendRes(
 	ctx context.Context,
 	req WriterRequest,
 	end telem.TimeStamp,
-	authorized bool,
 ) error {
-	return signal.SendUnderContext(ctx, w.Out.Inlet(), WriterResponse{
-		Command:    req.Command,
-		SeqNum:     req.SeqNum,
-		End:        end,
-		Authorized: authorized,
-	})
+	res := WriterResponse{Command: req.Command, SeqNum: req.SeqNum, End: end, Authorized: true}
+	if w.accumulatedErr != nil && errors.Is(w.accumulatedErr, control.Unauthorized) {
+		w.accumulatedErr = nil
+		res.Authorized = false
+	}
+	res.Err = w.accumulatedErr
+	if res.Err == nil && req.Command == WriterWrite && !*w.Sync {
+		return nil
+	}
+	return signal.SendUnderContext(ctx, w.Out.Inlet(), res)
 }
 
 func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error) {

@@ -14,6 +14,7 @@ import (
 	"go/types"
 
 	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+	"github.com/synnaxlabs/x/errors"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
@@ -196,9 +197,8 @@ func (t frameWriterResponseTranslator) Forward(
 ) (*gapi.FrameWriterResponse, error) {
 	return &gapi.FrameWriterResponse{
 		Command: int32(msg.Command),
-		Counter: int32(msg.SeqNum),
-		NodeKey: int32(msg.NodeKey),
 		End:     int64(msg.End),
+		Error:   errors.TranslatePayloadForward(msg.Err),
 	}, nil
 }
 
@@ -208,9 +208,8 @@ func (t frameWriterResponseTranslator) Backward(
 ) (api.FrameWriterResponse, error) {
 	return api.FrameWriterResponse{
 		Command: writer.Command(msg.Command),
-		SeqNum:  int(msg.Counter),
-		NodeKey: dcore.NodeKey(msg.NodeKey),
 		End:     telem.TimeStamp(msg.End),
+		Err:     errors.TranslatePayloadBackward(msg.Error),
 	}, nil
 }
 

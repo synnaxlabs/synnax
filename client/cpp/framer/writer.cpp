@@ -129,6 +129,10 @@ Writer::exec(api::v1::FrameWriterRequest &req, const bool ack) {
     while (ack) {
         auto [res, res_err] = stream->receive();
         if (res_err) return {res, this->close()};
+        if (res.has_error()) {
+            auto err = xerrors::Error(res.error());
+            return {res, err};
+        }
         if (res.command() == req.command()) return {res, xerrors::NIL};
     }
     return {api::v1::FrameWriterResponse(), xerrors::NIL};

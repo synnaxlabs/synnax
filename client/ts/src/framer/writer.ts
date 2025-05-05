@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
+import {
+  decodeError,
+  EOF,
+  errorZ,
+  type Stream,
+  type WebSocketClient,
+} from "@synnaxlabs/freighter";
 import { control } from "@synnaxlabs/x";
 import {
   type CrudeSeries,
@@ -80,6 +86,7 @@ export interface WriteRequest extends z.infer<typeof reqZ> {}
 const resZ = z.object({
   command: z.nativeEnum(WriterCommand),
   end: TimeStamp.z,
+  err: errorZ.optional(),
 });
 
 interface Response extends z.infer<typeof resZ> {}
@@ -154,8 +161,6 @@ export class Writer {
   private static readonly ENDPOINT = "/frame/write";
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: WriteAdapter;
-  private _bytesWritten: number = 0;
-  private errAccumulated: boolean = false;
 
   private constructor(stream: Stream<typeof reqZ, typeof resZ>, adapter: WriteAdapter) {
     this.stream = new StreamProxy("Writer", stream);
@@ -285,14 +290,24 @@ export class Writer {
    * in a 'finally' block.
    */
   async close(): Promise<void> {
-    await this.stream.closeAndAck();
+    this.stream.closeSend();
+    try {
+      await this.execute();
+    } catch (err) {
+      if (EOF.matches(err)) return;
+      throw err;
+    }
   }
 
-  async execute(req: WriteRequest): Promise<Response> {
-    this.stream.send(req);
+  async execute(req: WriteRequest | null = null): Promise<Response> {
+    if (req != null) this.stream.send(req);
     while (true) {
       const res = await this.stream.receive();
-      if (res.command === req.command) return res;
+      if (req != null && res.command === req.command) return res;
+      if (res.err != null) {
+        const err = decodeError(res.err);
+        if (err != null) throw err;
+      }
       console.warn("writer received unexpected response", res);
     }
   }

@@ -1,4 +1,7 @@
 import synnax as sy
+import gc
+
+gc.disable()
 
 client = sy.Synnax()
 
