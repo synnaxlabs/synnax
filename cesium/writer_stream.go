@@ -588,23 +588,20 @@ func (w virtualWriter) write(fr Frame) (Frame, error) {
 
 func (w virtualWriter) Close() (ControlUpdate, error) {
 	c := errors.NewCatcher(errors.WithAggregation())
-	update := ControlUpdate{
-		Transfers: make([]controller.Transfer, 0, len(w.internal)),
-	}
+	update := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	for _, chW := range w.internal {
 		// We do not want to clean up the digest channel since we want to use it to
 		// send updates for closures.
-		if chW.Channel.Key == w.digestKey {
-			continue
+		if chW.Channel.Key != w.digestKey {
+			c.Exec(func() error {
+				transfer, err := chW.Close()
+				if err != nil || !transfer.Occurred() {
+					return err
+				}
+				update.Transfers = append(update.Transfers, transfer)
+				return nil
+			})
 		}
-		c.Exec(func() error {
-			transfer, err := chW.Close()
-			if err != nil || !transfer.Occurred() {
-				return err
-			}
-			update.Transfers = append(update.Transfers, transfer)
-			return nil
-		})
 	}
 	return update, c.Error()
 }

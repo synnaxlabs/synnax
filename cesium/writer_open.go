@@ -237,7 +237,6 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				return nil, err
 			}
 		} else if u.Channel().IsIndex {
-			// If the channel is rate based OR an index.
 			var unaryW *unary.Writer
 			unaryW, transfer, err = u.OpenWriter(
 				ctx,

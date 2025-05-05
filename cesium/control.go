@@ -81,7 +81,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey,
 		confluence.CloseOutputInletsOnExit(),
 		confluence.CancelOnFail(),
 		confluence.RecoverWithErrOnPanic(),
-		confluence.WithAddress("control-writer"),
+		confluence.WithAddress("control_writer"),
 	)
 	return nil
 }
