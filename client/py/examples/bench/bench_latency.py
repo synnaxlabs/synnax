@@ -1,10 +1,10 @@
+import gc
 import time
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy
-import gc
 
 gc.disable()
 

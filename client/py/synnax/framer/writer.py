@@ -10,7 +10,6 @@
 from enum import Enum
 from typing import Literal, TypeAlias, overload
 from uuid import uuid4
-from warnings import warn
 
 from freighter import (
     EOF,
@@ -29,15 +28,14 @@ from synnax.channel.payload import (
     ChannelNames,
     ChannelPayload,
 )
-from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.codec import (
     HIGH_PERF_SPECIAL_CHAR,
     LOW_PERF_SPECIAL_CHAR,
     WSFramerCodec,
 )
-from synnax.framer.frame import CrudeFrame, Frame, FramePayload
-from synnax.telem import CrudeSeries, CrudeTimeStamp, DataType, TimeSpan, TimeStamp
+from synnax.framer.frame import CrudeFrame, FramePayload
+from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
 from synnax.telem.control import Authority, CrudeAuthority, Subject
 from synnax.util.normalize import normalize
 
@@ -122,10 +120,12 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
             ...
     raise ValueError(f"invalid writer mode {mode}")
 
+
 ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
-class WriterClosed(BaseException):
-    ...
+
+class WriterClosed(BaseException): ...
+
 
 class Writer:
     """A writer is used to write telemetry to a set of channels in time order. It
@@ -203,8 +203,9 @@ class Writer:
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
         )
-        exc = self._stream.send(WriterRequest(command=WriterCommand.OPEN,
-                                              config=config))
+        exc = self._stream.send(
+            WriterRequest(command=WriterCommand.OPEN, config=config)
+        )
         if exc is not None:
             raise exc
         _, exc = self._stream.receive()
@@ -275,7 +276,7 @@ class Writer:
         try:
             self._exec(
                 WriterRequest(command=WriterCommand.WRITE, frame=frame.to_payload()),
-                timeout=0
+                timeout=0,
             )
         except TimeoutError:
             ...
@@ -363,10 +364,8 @@ class Writer:
                 self._close_exc = decode_exception(res.err)
 
     def _exec(
-        self,
-        req: WriterRequest,
-        timeout: int | None = None
-    ) -> WriterResponse |None:
+        self, req: WriterRequest, timeout: int | None = None
+    ) -> WriterResponse | None:
         exc = self._stream.send(req)
         if exc is not None:
             return self._close(exc)

@@ -1,5 +1,6 @@
-import synnax as sy
 import gc
+
+import synnax as sy
 
 gc.disable()
 

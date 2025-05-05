@@ -182,12 +182,14 @@ class TestWriter:
                 start=sy.TimeSpan.SECOND,
                 channels=[time_ch.key, data_ch.key],
                 enable_auto_commit=True,
-                strict=True
+                strict=True,
             ) as w:
-                w.write({
-                    time_ch.key: [sy.TimeStamp.now()],
-                    data_ch.key: sy.Series([1], data_type=sy.DataType.INT64)
-                })
+                w.write(
+                    {
+                        time_ch.key: [sy.TimeStamp.now()],
+                        data_ch.key: sy.Series([1], data_type=sy.DataType.INT64),
+                    }
+                )
 
     @pytest.mark.asyncio
     async def test_write_persist_only_mode(
@@ -439,9 +441,7 @@ class TestWriter:
             w2.close()
 
     def test_writer_close_idempotency(
-        self,
-        indexed_pair: list[sy.Channel],
-        client: sy.Synnax
+        self, indexed_pair: list[sy.Channel], client: sy.Synnax
     ):
         """Should allow the caller to call close() as many times as they want"""
         idx_ch, data_ch = indexed_pair
@@ -450,10 +450,12 @@ class TestWriter:
             channels=indexed_pair,
             use_experimental_codec=True,
         )
-        w.write({
-            idx_ch.key: 2 * sy.TimeSpan.SECOND,
-            data_ch.key: 123.5,
-        })
+        w.write(
+            {
+                idx_ch.key: 2 * sy.TimeSpan.SECOND,
+                data_ch.key: 123.5,
+            }
+        )
         w.commit()
         w.close()
         w.close()

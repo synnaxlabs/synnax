@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 import warnings
 
+from numpy import can_cast as np_can_cast
 from pandas import DataFrame
 
-from synnax.telem import DataType
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
@@ -19,12 +19,11 @@ from synnax.channel.payload import (
     normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
-from synnax.exceptions import ValidationError, Field
+from synnax.exceptions import Field, ValidationError
 from synnax.framer.codec import Codec
 from synnax.framer.frame import CrudeFrame, Frame
+from synnax.telem import DataType
 from synnax.telem.series import CrudeSeries, Series
-
-from numpy import can_cast as np_can_cast
 
 
 class ReadFrameAdapter:
@@ -161,8 +160,8 @@ class WriteFrameAdapter:
                     raise ValidationError(
                         Field(
                             str(col),
-                            f"Data type {ch.data_type} for channel {ch} does " + \
-                            f"not match series data type {series.data_type}.",
+                            f"Data type {ch.data_type} for channel {ch} does "
+                            + f"not match series data type {series.data_type}.",
                         )
                     )
                 elif not self._suppress_warnings and not (
