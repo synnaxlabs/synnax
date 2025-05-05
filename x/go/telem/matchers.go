@@ -69,7 +69,7 @@ func MatchWrittenSeries(expected Series, opts ...SeriesMatcherOption) types.Gome
 // MatchSeriesData returns a matcher that only compares the data contents of two Series,
 // ignoring DataType, TimeRange, and Alignment.
 func MatchSeriesData(expected Series) types.GomegaMatcher {
-	return MatchSeries(expected, ExcludeSeriesFields("DataType", "TimeRange", "Alignment"))
+	return MatchSeries(expected, ExcludeSeriesFields("TimeRange", "Alignment"))
 }
 
 func MatchSeriesDataV[T Sample](data ...T) types.GomegaMatcher {
@@ -81,27 +81,18 @@ func (m *seriesMatcher) Match(actual interface{}) (success bool, err error) {
 	if !ok {
 		return false, errors.Newf("MatchSeries matcher expects a Series but got %K", actual)
 	}
-
-	// Check data type
 	if !m.excludedFields["DataType"] && actualSeries.DataType != m.expected.DataType {
 		return false, nil
 	}
-
-	// Check time range
 	if !m.excludedFields["TimeRange"] && actualSeries.TimeRange != m.expected.TimeRange {
 		return false, nil
 	}
-
-	// Check alignment
 	if !m.excludedFields["Alignment"] && actualSeries.Alignment != m.expected.Alignment {
 		return false, nil
 	}
-
-	// Check data contents
 	if !m.excludedFields["Data"] && !bytes.Equal(actualSeries.Data, m.expected.Data) {
 		return false, nil
 	}
-
 	return true, nil
 }
 
@@ -110,25 +101,24 @@ func (m *seriesMatcher) FailureMessage(actual interface{}) string {
 	if !ok {
 		return fmt.Sprintf("Expected Series but got %K", actual)
 	}
-
-	var differences []string
-
-	if !m.excludedFields["DataType"] && actualSeries.DataType != m.expected.DataType {
+	var (
+		differences    []string
+		dataTypesEqual = actualSeries.DataType == m.expected.DataType
+	)
+	if !m.excludedFields["DataType"] && !dataTypesEqual {
 		differences = append(differences, fmt.Sprintf(
 			"DataType:\n\tExpected: %v\n\tActual: %v",
 			m.expected.DataType,
 			actualSeries.DataType,
 		))
 	}
-
 	if !m.excludedFields["TimeRange"] && actualSeries.TimeRange != m.expected.TimeRange {
 		differences = append(differences, fmt.Sprintf(
-			"TimeRange:\n\tExpected: %v\n\tActual: %v",
+			"TimeRange:\n\tExpected: %s\n\tActual: %s",
 			m.expected.TimeRange,
 			actualSeries.TimeRange,
 		))
 	}
-
 	if !m.excludedFields["Alignment"] && actualSeries.Alignment != m.expected.Alignment {
 		differences = append(differences, fmt.Sprintf(
 			"Alignment:\n\tExpected: %v\n\tActual: %v",
@@ -136,16 +126,14 @@ func (m *seriesMatcher) FailureMessage(actual interface{}) string {
 			actualSeries.Alignment,
 		))
 	}
-
-	if !m.excludedFields["Data"] && !bytes.Equal(actualSeries.Data, m.expected.Data) {
+	if dataTypesEqual && !m.excludedFields["Data"] && !bytes.Equal(actualSeries.Data, m.expected.Data) {
 		differences = append(differences, fmt.Sprintf(
 			"Data:\n\tExpected: %v\n\tActual: %v",
 			m.expected.DataString(),
 			actualSeries.DataString(),
 		))
 	}
-
-	return fmt.Sprintf("Series did not match in the following ways:\n%s",
+	return fmt.Sprintf("Series did not match:\n%s",
 		formatDifferences(differences))
 }
 
@@ -184,6 +172,9 @@ func (m *frameMatcher[K]) Match(actual interface{}) (success bool, err error) {
 	for k := range actualFrame.Keys() {
 		decodedSeries := actualFrame.Get(k)
 		originalSeries := m.expected.Get(k)
+		if len(decodedSeries.Series) != len(originalSeries.Series) {
+			return false, nil
+		}
 		for i, s := range decodedSeries.Series {
 			m := &seriesMatcher{expected: originalSeries.Series[i]}
 			return m.Match(s)

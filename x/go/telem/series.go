@@ -167,7 +167,7 @@ func (s Series) String() string {
 }
 
 // DownSample returns a copy of the Series with the data down sampled by the given
-// factor i.e., 1 out of every factor samples is kept.
+// factor, i.e., 1 out of every factor samples is kept.
 func (s Series) DownSample(factor int) Series {
 	if factor <= 1 || len(s.Data) == 0 {
 		return s
@@ -201,48 +201,57 @@ func (s Series) DownSample(factor int) Series {
 
 const maxDisplayValues = 12
 
-func truncateSlice[T any](slice []T) string {
-	return stringer.TruncateSlice(slice, maxDisplayValues)
+func truncateAndFormatSlice[T any](slice []T) string {
+	return stringer.TruncateAndFormatSlice(slice, maxDisplayValues)
 }
 
-// DataString returns a string representation of the decoded series data in its native
-// data type.
 func (s Series) DataString() string {
 	if s.Len() == 0 {
 		return "[]"
 	}
-	var contents string
 	if s.DataType.IsVariable() {
-		contents = truncateSlice(UnmarshalStrings(s.Data))
-	} else {
-		switch s.DataType {
-		case Float64T:
-			contents = truncateSlice(Unmarshal[float64](s))
-		case Float32T:
-			contents = truncateSlice(Unmarshal[float32](s))
-		case Int64T:
-			contents = truncateSlice(Unmarshal[int64](s))
-		case Int32T:
-			contents = truncateSlice(Unmarshal[int32](s))
-		case Int16T:
-			contents = truncateSlice(Unmarshal[int16](s))
-		case Int8T:
-			contents = truncateSlice(Unmarshal[int8](s))
-		case Uint64T:
-			contents = truncateSlice(Unmarshal[uint64](s))
-		case Uint32T:
-			contents = truncateSlice(Unmarshal[uint32](s))
-		case Uint16T:
-			contents = truncateSlice(Unmarshal[uint16](s))
-		case Uint8T:
-			contents = truncateSlice(Unmarshal[uint8](s))
-		case TimeStampT:
-			contents = truncateSlice(Unmarshal[TimeStamp](s))
-		default:
-			contents = fmt.Sprintf("%v", s.Data)
-		}
+		return truncateAndFormatSlice(UnmarshalStrings(s.Data))
 	}
-	return contents
+	switch s.DataType {
+	case Float64T:
+		return truncateAndFormatSlice(Unmarshal[float64](s))
+	case Float32T:
+		return truncateAndFormatSlice(Unmarshal[float32](s))
+	case Int64T:
+		return truncateAndFormatSlice(Unmarshal[int64](s))
+	case Int32T:
+		return truncateAndFormatSlice(Unmarshal[int32](s))
+	case Int16T:
+		return truncateAndFormatSlice(Unmarshal[int16](s))
+	case Int8T:
+		return truncateAndFormatSlice(Unmarshal[int8](s))
+	case Uint64T:
+		return truncateAndFormatSlice(Unmarshal[uint64](s))
+	case Uint32T:
+		return truncateAndFormatSlice(Unmarshal[uint32](s))
+	case Uint16T:
+		return truncateAndFormatSlice(Unmarshal[uint16](s))
+	case Uint8T:
+		return truncateAndFormatSlice(Unmarshal[uint8](s))
+	case TimeStampT:
+		first, last := stringer.TruncateSlice(Unmarshal[TimeStamp](s), maxDisplayValues)
+		firstDeltas := make([]string, len(first)-1)
+		for i := 1; i < len(first); i++ {
+			firstDeltas[i-1] = "+" + TimeSpan(first[i]-first[0]).String()
+		}
+		firstDeltaStr := strings.Trim(fmt.Sprintf("%v", firstDeltas), "[]")
+		if len(last) == 0 {
+			return fmt.Sprintf("[%s %v]", first[0], firstDeltaStr)
+		}
+		lastDeltas := make([]string, len(last))
+		for i := 0; i < len(last); i++ {
+			lastDeltas[i] = "+" + TimeSpan(last[i]-first[0]).String()
+		}
+		lastDeltaStr := strings.Trim(fmt.Sprintf("%v", lastDeltas), "[]")
+		return fmt.Sprintf("[%s %v ... %v]", first[0], firstDeltaStr, lastDeltaStr)
+	default:
+		return fmt.Sprintf("%v", s.Data)
+	}
 }
 
 // AlignmentBounds is a set of lower and upper bounds for the alignment of a
@@ -321,9 +330,8 @@ func (m MultiSeries) FilterLessThan(a Alignment) MultiSeries {
 	if len(m.Series) == 0 {
 		return m
 	}
-	// Hot path optimizations that do quick checks of alignments that are completely
-	// above or completely below series bounds. Both allow us to avoid allocating new
-	// slices during filters.
+	// Hot path optimization that does a quick check that the alignment of all series
+	// is above the filter threshold, so we don't need to re-allocate a new slice.
 	if m.Series[0].AlignmentBounds().Upper > a {
 		return m
 	}

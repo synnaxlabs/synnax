@@ -32,11 +32,9 @@ TEST(stateTests, testNominal) {
     auto cmd = task::Command(0, "start", {});
     hb->exec(cmd);
     x::defer stop([&hb]() { hb->stop(false); });
-    auto [streamer, strm_err] = client->telem.open_streamer(
-        synnax::StreamerConfig{
-            .channels = {ch.key},
-        }
-    );
+    auto [streamer, strm_err] = client->telem.open_streamer(synnax::StreamerConfig{
+        .channels = {ch.key},
+    });
     ASSERT_FALSE(strm_err) << strm_err.message();
     json j;
     for (int i = 0; i < 50; i++) {

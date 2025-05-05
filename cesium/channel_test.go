@@ -188,7 +188,7 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(db.WriteArray(ctx, unaryKey, 5*telem.SecondTS, series2)).To(Succeed())
 
 					By("Re-keying the channel")
-					Expect(db.RekeyChannel(unaryKey, unaryKeyNew)).To(Succeed())
+					Expect(db.RekeyChannel(ctx, unaryKey, unaryKeyNew)).To(Succeed())
 
 					By("Asserting the old channel no longer exists")
 					_, err := db.RetrieveChannel(ctx, unaryKey)
@@ -226,7 +226,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 				It("Should rekey a virtual channel into another", func() {
 					By("Re-keying the channel")
-					Expect(db.RekeyChannel(virtualKey, virtualKeyNew)).To(Succeed())
+					Expect(db.RekeyChannel(ctx, virtualKey, virtualKeyNew)).To(Succeed())
 
 					By("Asserting the old channel no longer exists")
 					_, err := db.RetrieveChannel(ctx, virtualKey)
@@ -265,7 +265,7 @@ var _ = Describe("Channel", Ordered, func() {
 					))).To(Succeed())
 
 					By("Re-keying the channel")
-					Expect(db.RekeyChannel(indexKey, indexKeyNew)).To(Succeed())
+					Expect(db.RekeyChannel(ctx, indexKey, indexKeyNew)).To(Succeed())
 
 					By("Asserting the old channel no longer exists")
 					_, err := db.RetrieveChannel(ctx, indexKey)
@@ -325,13 +325,13 @@ var _ = Describe("Channel", Ordered, func() {
 						)
 
 						By("Trying to rekey")
-						Expect(db.RekeyChannel(errorKey1, errorKey1New)).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+						Expect(db.RekeyChannel(ctx, errorKey1, errorKey1New)).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
 
 						By("Closing writer")
 						Expect(w.Close()).To(Succeed())
 
 						By("Asserting that rekey is successful now")
-						Expect(db.RekeyChannel(errorKey1, errorKey1New)).To(Succeed())
+						Expect(db.RekeyChannel(ctx, errorKey1, errorKey1New)).To(Succeed())
 
 						By("Asserting the old channel no longer exists")
 						_, err := db.RetrieveChannel(ctx, errorKey1)
@@ -369,13 +369,13 @@ var _ = Describe("Channel", Ordered, func() {
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{errorKey2}, ControlSubject: control.Subject{Key: "rekey writer"}}))
 
 						By("Trying to rekey")
-						Expect(db.RekeyChannel(errorKey2, errorKey2New)).To(MatchError(ContainSubstring("1 unclosed writers")))
+						Expect(db.RekeyChannel(ctx, errorKey2, errorKey2New)).To(MatchError(ContainSubstring("1 unclosed writers")))
 
 						By("Closing writer")
 						Expect(w.Close()).To(Succeed())
 
 						By("Asserting that rekey is successful now")
-						Expect(db.RekeyChannel(errorKey2, errorKey2New)).To(Succeed())
+						Expect(db.RekeyChannel(ctx, errorKey2, errorKey2New)).To(Succeed())
 
 						By("Asserting the old channel no longer exists")
 						_, err := db.RetrieveChannel(ctx, errorKey2)
@@ -405,7 +405,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 				It("Should do nothing for a channel that does not exist", func() {
 					By("Trying to rekey")
-					Expect(db.RekeyChannel(errorKey3, errorKey3New)).To(Succeed())
+					Expect(db.RekeyChannel(ctx, errorKey3, errorKey3New)).To(Succeed())
 				})
 			})
 

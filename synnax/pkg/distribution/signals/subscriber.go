@@ -110,7 +110,7 @@ func (s *Provider) Subscribe(
 	}
 	streamer, err := s.Framer.NewStreamer(ctx, framer.StreamerConfig{
 		Keys:        keys,
-		SendOpenAck: true,
+		SendOpenAck: config.True(),
 	})
 	if err != nil {
 		return nil, nil, err

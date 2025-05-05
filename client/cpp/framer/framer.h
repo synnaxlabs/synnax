@@ -44,6 +44,10 @@ using WriterStream = freighter::
 using WriterClient = freighter::
     StreamClient<api::v1::FrameWriterRequest, api::v1::FrameWriterResponse>;
 
+const auto FRAMER_ERROR = xerrors::Error("framer");
+const xerrors::Error FRAMER_CLOSED = FRAMER_ERROR.sub("closed");
+const xerrors::Error WRITER_CLOSED = FRAMER_CLOSED.sub("writer");
+
 /// @brief A frame is a collection of series mapped to their corresponding channel
 /// keys.
 class Frame {
@@ -520,9 +524,8 @@ public:
     [[nodiscard]] xerrors::Error close();
 
 private:
-    /// @brief if close() has been called on the writer, or an error has cause the
-    /// writer to self-close.
-    bool closed = false;
+    [[nodiscard]] xerrors::Error close(const xerrors::Error &close_err);
+
     /// @brief the error accumulated if the writer has closed with an error.
     xerrors::Error close_err = xerrors::NIL;
 
@@ -549,7 +552,11 @@ private:
     exec(api::v1::FrameWriterRequest &req, bool ack);
 
     /// @brief opens a writer to the Synnax cluster.
-    explicit Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg);
+    explicit Writer(
+        std::unique_ptr<WriterStream> s,
+        WriterConfig cfg,
+        const Codec &codec
+    );
 
     /// @brief initializes the cached request with the frame structure
     xerrors::Error init_request(const Frame &fr);

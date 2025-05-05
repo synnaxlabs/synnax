@@ -43,7 +43,7 @@ var _ = Describe("Open", func() {
 					_, err := s.Sub("1")
 					Expect(err).ToNot(HaveOccurred())
 
-					db, err := cesium.Open("", cesium.WithFS(s), cesium.WithInstrumentation(PanicLogger()))
+					db, err := cesium.Open(ctx, "", cesium.WithFS(s), cesium.WithInstrumentation(PanicLogger()))
 					Expect(db).To(BeNil())
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("field must be set"))

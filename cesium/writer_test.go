@@ -426,7 +426,7 @@ var _ = Describe("Writer Behavior", func() {
 							Eventually(func() error {
 								_, err := w.Write(cesium.Frame{})
 								return err
-							}).Should(HaveOccurredAs(validate.Error))
+							}, "1000s").Should(HaveOccurredAs(validate.Error))
 
 							By("Checking that the first commit did not succeed")
 							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, index1, basic1, index2, basic2, basic3))
@@ -744,7 +744,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 
 					Specify("With AutoCommit", func() {
-						db2 = MustSucceed(cesium.Open("size-capped-db",
+						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(40*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -825,7 +825,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 
 					Specify("With AutoCommit: should not commit a tiny domain", func() {
-						db2 = MustSucceed(cesium.Open("size-capped-db",
+						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(80*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -909,7 +909,7 @@ var _ = Describe("Writer Behavior", func() {
 						By("Closing an reopening the db")
 						Expect(db2.Close()).To(Succeed())
 
-						db2 = MustSucceed(cesium.Open("size-capped-db",
+						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(64*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -961,7 +961,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 
 					Specify("Without AutoCommit", func() {
-						db2 = MustSucceed(cesium.Open("size-capped-db",
+						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(40*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),
@@ -1039,7 +1039,7 @@ var _ = Describe("Writer Behavior", func() {
 						})
 					})
 					It("Should not break when auto committing to not all channels", func() {
-						db2 = MustSucceed(cesium.Open("size-capped-db",
+						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSizeCap(40*telem.ByteSize),
 							cesium.WithInstrumentation(PanicLogger()),

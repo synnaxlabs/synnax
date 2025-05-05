@@ -50,7 +50,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
 				idx.mu.Unlock()
-				return span.Error(RangeWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
+				return span.Error(NewErrRangeWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
 			}
 			insertAt = i + 1
 		}
@@ -128,10 +128,10 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
 	if overlapsWithPrev {
 		idx.mu.Unlock()
-		return span.Error(RangeWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
+		return span.Error(NewErrRangeWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
 	} else if overlapsWithNext {
 		idx.mu.Unlock()
-		return span.Error(RangeWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
+		return span.Error(NewErrRangeWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
 	} else {
 		idx.mu.pointers[updateAt] = p
 	}
@@ -209,7 +209,7 @@ func (idx *index) getGE(ctx context.Context, ts telem.TimeStamp) (ptr pointer, o
 // unprotectedSearch returns the position in the index of a domain that overlaps with
 // the given time range. If there is no domain that contains tr, then the immediate
 // previous domain with a smaller start timestamp than the end is returned. False is
-// returned as the flag.
+// returned as the inUse.
 // If tr is before all domains, -1 is returned.
 // If tr is after all domains, len(idx.mu.pointers) - 1 is returned.
 func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {

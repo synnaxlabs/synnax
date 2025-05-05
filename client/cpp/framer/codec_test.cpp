@@ -317,6 +317,8 @@ TEST(CodecTests, UninitializedCodec) {
     ASSERT_THROW(codec.encode(frame, encoded), std::runtime_error);
 }
 
+/// @brief it should correctly manage the lifecycle of codecs that are temporarily
+/// out of sync by using historical states.
 TEST(CodecTests, OutOfSyncCodecs) {
     auto client = new_test_client();
     auto [idx_ch, data_ch] = create_indexed_pair(client);
@@ -357,6 +359,52 @@ TEST(CodecTests, OutOfSyncCodecs) {
     auto [decoded_frame3, err4] = decoder.decode(encoded);
     ASSERT_NIL(err4);
     assert_frames_equal(frame2, decoded_frame3);
+}
+
+/// @brief it should return a validation error when the data type of a series does not
+/// match that of the channel.
+TEST(CodecTests, EncodeMismatchedDataType) {
+    const std::vector data_types = {telem::FLOAT32_T, telem::FLOAT64_T, telem::INT32_T};
+    const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
+    synnax::Codec codec(channels, data_types);
+
+    // Create a frame with mismatched data types
+    auto frame = synnax::Frame(1);
+    // Using INT32_T instead of FLOAT32_T for channel 65537
+    auto series = telem::Series(std::vector{1, 2, 3});
+    series.time_range = {telem::TimeStamp(1000), telem::TimeStamp(2000)};
+    series.alignment = 10;
+    frame.emplace(65537, std::move(series));
+
+    std::vector<uint8_t> encoded;
+    auto err = codec.encode(frame, encoded);
+
+    ASSERT_FALSE(err.ok());
+    ASSERT_TRUE(err.matches(xerrors::VALIDATION));
+    ASSERT_TRUE(err.message().find("data type") != std::string::npos);
+}
+
+/// @brief it should return a validation erorr when the frame has a key that was not
+/// provided to the codec.
+TEST(CodecTests, EncodeFrameUnknownKey) {
+    const std::vector data_types = {telem::FLOAT32_T, telem::FLOAT64_T};
+    const std::vector<synnax::ChannelKey> channels = {65537, 65538};
+    synnax::Codec codec(channels, data_types);
+
+    // Create a frame with an unknown key
+    auto frame = synnax::Frame(1);
+    auto series = telem::Series(std::vector{7, 8, 9});
+    series.time_range = {telem::TimeStamp(1500), telem::TimeStamp(2500)};
+    series.alignment = 30;
+    // Using key 65539 which wasn't provided to the codec
+    frame.emplace(65539, std::move(series));
+
+    std::vector<uint8_t> encoded;
+    auto err = codec.encode(frame, encoded);
+
+    ASSERT_FALSE(err.ok());
+    ASSERT_TRUE(err.matches(xerrors::VALIDATION));
+    ASSERT_TRUE(err.message().find("extra key") != std::string::npos);
 }
 
 // Replace the performance test with this updated version

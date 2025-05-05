@@ -7,23 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package errors
 
-import (
-	"fmt"
-
-	"github.com/spf13/cobra"
-	"github.com/synnaxlabs/synnax/pkg/version"
-)
-
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version of Synnax",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("Synnax version %s\n", version.Get())
-	},
+func TranslatePayloadForward(tr Payload) *PBPayload {
+	return &PBPayload{Type: tr.Type, Data: tr.Data}
 }
 
-func init() {
-	rootCmd.AddCommand(versionCmd)
+func TranslatePayloadBackward(pld *PBPayload) Payload {
+	return Payload{Type: pld.Type, Data: pld.Data}
 }

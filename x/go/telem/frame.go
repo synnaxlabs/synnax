@@ -26,13 +26,14 @@ import (
 )
 
 // Frame is a performance-optimized record of numeric keys to series.
+// size = 24 + 24 + 1 + 16 + (7 buffer) = 72 bytes.
 type Frame[K types.Numeric] struct {
-	// keys are the keys of the frame record. keys is guaranteed to have the same length
-	// as series. Note that keys are not guaranteed to be unique.
+	// keys are the keys of the frame record. the keys slice is guaranteed to have the
+	// same length as the series slice. Note that keys are not guaranteed to be unique.
 	// 24 bytes
 	keys []K
-	// series is the series of the frame record. series is guaranteed to have the same length
-	// as keys.
+	// series is the series of the frame record. the series slice is guaranteed to have
+	// the same length as the keys slice.
 	series []Series
 	// 24 bytes
 	// mask is used as a high-performance filter for removing entries from the frame.
@@ -40,7 +41,9 @@ type Frame[K types.Numeric] struct {
 	// series slices. Mask can only handle frames with up to 128 entries. If enabled
 	// is true, the mask is enabled and will be used to filter the frame.
 	mask struct {
+		// 1 byte
 		enabled bool
+		// 16 bytes
 		bit.Mask128
 	}
 }

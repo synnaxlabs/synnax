@@ -60,7 +60,7 @@ func NewBuilder(cfgs ...distribution.Config) *Builder {
 }
 
 func (b *Builder) New(ctx context.Context) distribution.Distribution {
-	core := b.core.New()
+	core := b.core.New(ctx)
 	d := distribution.Distribution{Core: core}
 
 	trans := mockFramerTransport{

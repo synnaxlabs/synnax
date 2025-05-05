@@ -72,6 +72,8 @@ class Series(Payload):
         time_range: TimeRange | None = None,
         alignment: int = 0,
     ):
+        if data_type is not None:
+            data_type = DataType(data_type)
         if isinstance(data, (TimeStamp, int, float, np.number)):
             data_type = data_type or DataType(data)
             data_ = np.array([data], dtype=data_type.np).tobytes()

@@ -1,9 +1,12 @@
+import gc
 import time
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy
+
+gc.disable()
 
 client = sy.Synnax()
 
@@ -16,13 +19,19 @@ times = list()
 
 loop_start = sy.TimeStamp.now()
 
+BENCH_TIME = sy.TimeSpan.SECOND * 3
+
+cycles = 0
 with client.open_streamer(STATE_CHANNEL) as stream:
     with client.open_writer(sy.TimeStamp.now(), CMD_CHANNEL) as writer:
-        while sy.TimeStamp.since(loop_start) < sy.TimeSpan.SECOND * 1:
+        while sy.TimeStamp.since(loop_start) < BENCH_TIME:
             start = sy.TimeStamp.now()
             writer.write(CMD_CHANNEL, STATE)
             value = stream.read()
             times.append(sy.TimeStamp.since(start))
+            cycles += 1
+
+print(cycles / BENCH_TIME.seconds)
 
 # Convert times to milliseconds for better readability
 times_ms = [float(t.microseconds) / 1000 for t in times]
@@ -116,4 +125,4 @@ print(f"P99: {p99:.2f}ms")
 print(f"Peak-to-peak jitter: {peak_to_peak_jitter:.2f}ms")
 print(f"Average jitter: {average_jitter:.2f}ms")
 
-plt.savefig("bench_latency_load.png")
+plt.savefig("bench_latency_load_2.png")

@@ -42,7 +42,7 @@ type Config struct {
 func (cfg Config) distribution() framer.StreamerConfig {
 	return framer.StreamerConfig{
 		Keys:        cfg.Keys,
-		SendOpenAck: cfg.SendOpenAck,
+		SendOpenAck: &cfg.SendOpenAck,
 	}
 }
 

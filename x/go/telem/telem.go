@@ -536,6 +536,12 @@ func (a Alignment) DomainIndex() uint32 { return uint32(a >> 32) }
 // SampleIndex returns the sample index of the Alignment. See Alignment for more information.
 func (a Alignment) SampleIndex() uint32 { return uint32(a) }
 
+// String implements fmt.Stringer to return a nicely formatted string representing the
+// alignment.
+func (a Alignment) String() string {
+	return fmt.Sprintf("%v-%v", a.DomainIndex(), a.SampleIndex())
+}
+
 // UnmarshalJSON implements json.Unmarshaler.
 func (a *Alignment) UnmarshalJSON(b []byte) error {
 	n, err := binary.UnmarshalStringUint64(b)

@@ -48,7 +48,7 @@ func Open(ctx context.Context, configs ...Config) (c Core, err error) {
 
 	cfg.Storage.Instrumentation = cfg.Instrumentation.Child("storage")
 	c.Config = cfg
-	c.Storage, err = storage.Open(cfg.Storage)
+	c.Storage, err = storage.Open(ctx, cfg.Storage)
 	if err != nil {
 		return c, err
 	}

@@ -653,7 +653,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 
 			Context("Close", func() {
-				It("Should not allow FilterLessThan on a closed DB", func() {
+				It("Should not allow GC on a closed DB", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        20 * telem.ByteSize,

@@ -98,8 +98,7 @@ class TestWriter:
         """
         [idx, data_ch] = indexed_pair
         with pytest.raises(
-            sy.ValidationError,
-            match="received no data for index channel"
+            sy.ValidationError, match="received no data for index channel"
         ):
             with client.open_writer(0, [idx.key, data_ch.key]) as w:
                 data = np.random.rand(10).astype(np.float64)
@@ -140,9 +139,7 @@ class TestWriter:
         assert w1.close() is None
 
     def test_write_err_first_timestamp_before_start(
-        self,
-        client: sy.Synnax,
-        indexed_pair: list[sy.Channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         """Should raise a validation error when the first timestamp written to an index
         channel is before the start time of the writer."""
@@ -157,9 +154,7 @@ class TestWriter:
                     w.write({time_ch.key: [i], data_ch.key: [i]})
 
     def test_write_out_of_order_timestamps(
-        self,
-        client: sy.Synnax,
-        indexed_pair: list[sy.Channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         """Should raise a validation error when writing timestamps that are out of
         order"""
@@ -171,8 +166,30 @@ class TestWriter:
                 enable_auto_commit=True,
             ) as w:
                 for i in range(100):
-                    time = sy.TimeSpan.SECOND * (101-i)
+                    time = sy.TimeSpan.SECOND * (101 - i)
                     w.write({time_ch.key: time, data_ch.key: [i]})
+
+    def test_write_invalid_data_type(
+        self,
+        client: sy.Synnax,
+        indexed_pair: list[sy.Channel],
+    ):
+        """Should raise a validation error when writing a series with an invalid
+        data type"""
+        time_ch, data_ch = indexed_pair
+        with pytest.raises(sy.ValidationError, match="type"):
+            with client.open_writer(
+                start=sy.TimeSpan.SECOND,
+                channels=[time_ch.key, data_ch.key],
+                enable_auto_commit=True,
+                strict=True,
+            ) as w:
+                w.write(
+                    {
+                        time_ch.key: [sy.TimeStamp.now()],
+                        data_ch.key: sy.Series([1], data_type=sy.DataType.INT64),
+                    }
+                )
 
     @pytest.mark.asyncio
     async def test_write_persist_only_mode(
@@ -422,3 +439,30 @@ class TestWriter:
         finally:
             w1.close()
             w2.close()
+
+    def test_writer_close_idempotency(
+        self, indexed_pair: list[sy.Channel], client: sy.Synnax
+    ):
+        """Should allow the caller to call close() as many times as they want"""
+        idx_ch, data_ch = indexed_pair
+        w = client.open_writer(
+            start=1 * sy.TimeSpan.SECOND,
+            channels=indexed_pair,
+            use_experimental_codec=True,
+        )
+        w.write(
+            {
+                idx_ch.key: 2 * sy.TimeSpan.SECOND,
+                data_ch.key: 123.5,
+            }
+        )
+        w.commit()
+        w.close()
+        w.close()
+        w.close()
+
+    # def test_writer_close_error(
+    #     self,
+    #     indexed_pair: list[sy.Channel],
+    #     client: sy.Synnax
+    # ):

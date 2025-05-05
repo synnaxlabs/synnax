@@ -130,7 +130,7 @@ func (db *DB) Close() error {
 
 // RenameChannelInMeta renames the channel to the given name, and persists the change to the
 // underlying file system.
-func (db *DB) RenameChannelInMeta(newName string) error {
+func (db *DB) RenameChannelInMeta(ctx context.Context, newName string) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
@@ -138,22 +138,22 @@ func (db *DB) RenameChannelInMeta(newName string) error {
 		return nil
 	}
 	db.cfg.Channel.Name = newName
-	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
 // SetIndexKeyInMeta changes the channel's index to the channel with the given key,
 // and persists the change to the underlying file system.
-func (db *DB) SetIndexKeyInMeta(key core.ChannelKey) error {
+func (db *DB) SetIndexKeyInMeta(ctx context.Context, key core.ChannelKey) error {
 	if db.closed.Load() {
 		return db.wrapError(ErrDBClosed)
 	}
 	db.cfg.Channel.Index = key
-	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
 // SetChannelKeyInMeta changes the channel's key to the channel with the given key,
 // and persists the change to the underlying file system.
-func (db *DB) SetChannelKeyInMeta(key core.ChannelKey) error {
+func (db *DB) SetChannelKeyInMeta(ctx context.Context, key core.ChannelKey) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
@@ -161,5 +161,5 @@ func (db *DB) SetChannelKeyInMeta(key core.ChannelKey) error {
 		db.cfg.Channel.Index = key
 	}
 	db.cfg.Channel.Key = key
-	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }

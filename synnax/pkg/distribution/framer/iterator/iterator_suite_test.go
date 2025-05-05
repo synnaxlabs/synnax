@@ -51,7 +51,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 	)
 	for i := 0; i < n; i++ {
 		var (
-			c    = builder.New()
+			c    = builder.New(ctx)
 			cont serviceContainer
 		)
 		cont.channel = MustSucceed(channel.New(ctx, channel.ServiceConfig{
