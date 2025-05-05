@@ -272,6 +272,8 @@ class Codec:
 
         for key in state.keys:
             if not flags.all_channels_present:
+                if idx >= len(buffer):
+                    break
                 frame_key = struct.unpack_from("<I", buffer, idx)[0]
                 if frame_key != key:
                     continue

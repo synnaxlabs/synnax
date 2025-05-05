@@ -196,6 +196,24 @@ TEST(CodecTests, EncodeDecodeVariedFrame) {
     assert_frames_equal(original_frame, decoded_frame);
 }
 
+/// @brief it should correctly decode and encode a frame with only one channel present.
+TEST(CodecTests, OnlyOneChannelPresent) {
+    std::vector<synnax::ChannelKey> channels = {1, 2, 3, 4, 5};
+    std::vector data_types = {
+        telem::UINT8_T,
+        telem::UINT8_T,
+        telem::UINT8_T,
+        telem::UINT8_T,
+        telem::UINT8_T
+    };
+    auto frame = synnax::Frame(3, telem::Series(std::vector<uint8_t>{1, 2, 3, 4, 5}));
+    std::vector<uint8_t> encoded;
+    synnax::Codec codec(channels, data_types);
+    codec.encode(frame, encoded);
+    const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
+    assert_frames_equal(frame, decoded_frame);
+}
+
 /// @brief Test encoding and decoding of a frame with equal properties
 TEST(CodecTests, EncodeDecodeEqualPropertiesFrame) {
     const auto original_frame = create_equal_properties_frame();
