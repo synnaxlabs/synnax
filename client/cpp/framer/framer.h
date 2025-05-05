@@ -552,7 +552,9 @@ private:
     exec(api::v1::FrameWriterRequest &req, bool ack);
 
     /// @brief opens a writer to the Synnax cluster.
-    explicit Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg,
+    explicit Writer(
+        std::unique_ptr<WriterStream> s,
+        WriterConfig cfg,
         const Codec &codec
     );
 

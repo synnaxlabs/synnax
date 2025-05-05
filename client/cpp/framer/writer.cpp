@@ -24,8 +24,8 @@ enum WriterCommand : uint32_t {
 };
 
 namespace synnax {
-std::pair<Writer, xerrors::Error>
-FrameClient::open_writer(const WriterConfig &cfg) const {
+std::pair<Writer, xerrors::Error> FrameClient::open_writer(const WriterConfig &cfg
+) const {
     Codec codec;
     if (cfg.enable_experimental_codec) {
         codec = Codec(this->channel_client);

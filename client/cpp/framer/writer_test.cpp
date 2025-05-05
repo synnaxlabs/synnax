@@ -188,13 +188,13 @@ TEST(WriterTests, testCloseIdempotency) {
     }));
 
     auto frame = synnax::Frame(2);
-    frame.emplace(time.key,telem::Series(now));
+    frame.emplace(time.key, telem::Series(now));
     frame.emplace(data.key, telem::Series(std::vector<float>{2}));
 
 
     ASSERT_NIL(writer.write(frame));
     auto end = ASSERT_NIL_P(writer.commit());
-    ASSERT_EQ(end, now + 1*telem::NANOSECOND);
+    ASSERT_EQ(end, now + 1 * telem::NANOSECOND);
     ASSERT_NIL(writer.close());
     ASSERT_NIL(writer.close());
     ASSERT_NIL(writer.close());
