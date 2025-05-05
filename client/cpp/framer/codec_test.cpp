@@ -367,7 +367,7 @@ TEST(CodecTests, EncodeMismatchedDataType) {
     const std::vector data_types = {telem::FLOAT32_T, telem::FLOAT64_T, telem::INT32_T};
     const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
     synnax::Codec codec(channels, data_types);
-    
+
     // Create a frame with mismatched data types
     auto frame = synnax::Frame(1);
     // Using INT32_T instead of FLOAT32_T for channel 65537
@@ -375,10 +375,10 @@ TEST(CodecTests, EncodeMismatchedDataType) {
     series.time_range = {telem::TimeStamp(1000), telem::TimeStamp(2000)};
     series.alignment = 10;
     frame.emplace(65537, std::move(series));
-    
+
     std::vector<uint8_t> encoded;
     auto err = codec.encode(frame, encoded);
-    
+
     ASSERT_FALSE(err.ok());
     ASSERT_TRUE(err.matches(xerrors::VALIDATION));
     ASSERT_TRUE(err.message().find("data type") != std::string::npos);
@@ -390,7 +390,7 @@ TEST(CodecTests, EncodeFrameUnknownKey) {
     const std::vector data_types = {telem::FLOAT32_T, telem::FLOAT64_T};
     const std::vector<synnax::ChannelKey> channels = {65537, 65538};
     synnax::Codec codec(channels, data_types);
-    
+
     // Create a frame with an unknown key
     auto frame = synnax::Frame(1);
     auto series = telem::Series(std::vector{7, 8, 9});
@@ -398,10 +398,10 @@ TEST(CodecTests, EncodeFrameUnknownKey) {
     series.alignment = 30;
     // Using key 65539 which wasn't provided to the codec
     frame.emplace(65539, std::move(series));
-    
+
     std::vector<uint8_t> encoded;
     auto err = codec.encode(frame, encoded);
-    
+
     ASSERT_FALSE(err.ok());
     ASSERT_TRUE(err.matches(xerrors::VALIDATION));
     ASSERT_TRUE(err.message().find("extra key") != std::string::npos);
