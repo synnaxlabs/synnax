@@ -19,17 +19,17 @@ times = list()
 
 loop_start = sy.TimeStamp.now()
 
-BENCH_TIME = sy.TimeSpan.SECOND * 300
+BENCH_TIME = sy.TimeSpan.SECOND * 3
 
 cycles = 0
 with client.open_streamer(STATE_CHANNEL) as stream:
     with client.open_writer(sy.TimeStamp.now(), CMD_CHANNEL) as writer:
         while sy.TimeStamp.since(loop_start) < BENCH_TIME:
-            # start = sy.TimeStamp.now()
+            start = sy.TimeStamp.now()
             writer.write(CMD_CHANNEL, STATE)
-            # # value = stream.read()
-            # times.append(sy.TimeStamp.since(start))
-            # cycles += 1
+            value = stream.read()
+            times.append(sy.TimeStamp.since(start))
+            cycles += 1
 
 print(cycles / BENCH_TIME.seconds)
 

@@ -134,7 +134,6 @@ class Codec:
         for i, ser in enumerate(sorted_series):
             key = sorted_keys[i]
             dt = self._curr_state.data_types.get(key, None)
-            print(dt, ser.data_type)
             if dt is None:
                 raise ValidationError(
                     f"encoder was provided a key {key} that is not in the codec state."
