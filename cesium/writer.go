@@ -95,9 +95,7 @@ func (w *Writer) exec(req WriterRequest, sync bool) (res WriterResponse, err err
 	return res, w.close(nil)
 }
 
-func (w *Writer) Close() error {
-	return w.close(nil)
-}
+func (w *Writer) Close() error { return w.close(nil) }
 
 func (w *Writer) close(err error) error {
 	if w.closeErr != nil {

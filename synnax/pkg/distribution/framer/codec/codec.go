@@ -292,8 +292,8 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 		}
 		if dt != s.DataType {
 			return errors.Wrapf(
-				validate.Error, "data type for channel %s does not",
-				channel.TryToRetrieveStringer(ctx, c.channels, key),
+				validate.Error, "data type %s for channel %s does not match series data type %s",
+				dt, channel.TryToRetrieveStringer(ctx, c.channels, key), s.DataType,
 			)
 		}
 		sLen := int(s.Len())

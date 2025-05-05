@@ -8,10 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import {
+  BaseTypedError,
   decodeError,
   EOF,
+  errorMatcher,
   errorZ,
   type Stream,
+  type TypedError,
   type WebSocketClient,
 } from "@synnaxlabs/freighter";
 import { control } from "@synnaxlabs/x";
@@ -28,7 +31,6 @@ import { channel } from "@/channel";
 import { WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
 import { type Crude, frameZ } from "@/framer/frame";
-import { StreamProxy } from "@/framer/streamProxy";
 
 export enum WriterCommand {
   Open = 0,
@@ -60,6 +62,16 @@ const constructWriterMode = (mode: CrudeWriterMode): WriterMode => {
 };
 
 export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
+
+export class WriterClosedError extends BaseTypedError implements TypedError {
+  static readonly TYPE = `writer_closed`;
+  type = WriterClosedError.TYPE;
+  static readonly matches = errorMatcher(WriterClosedError.TYPE);
+
+  constructor() {
+    super("WriterClosed");
+  }
+}
 
 const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
@@ -159,11 +171,12 @@ export interface WriterConfig {
  */
 export class Writer {
   private static readonly ENDPOINT = "/frame/write";
-  private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
+  private readonly stream: Stream<typeof reqZ, typeof resZ>;
   private readonly adapter: WriteAdapter;
+  private closeErr: Error | null = null;
 
   private constructor(stream: Stream<typeof reqZ, typeof resZ>, adapter: WriteAdapter) {
-    this.stream = new StreamProxy("Writer", stream);
+    this.stream = stream;
     this.adapter = adapter;
   }
 
@@ -229,6 +242,7 @@ export class Writer {
     channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {
+    if (this.closeErr != null) throw this.closeErr;
     if (this.stream.received()) return await this.close();
     const frame = await this.adapter.adapt(channelsOrData, series);
     this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
@@ -249,7 +263,7 @@ export class Writer {
     value: Record<channel.KeyOrName, control.Authority> | channel.KeyOrName | number,
     authority?: control.Authority,
   ): Promise<void> {
-    if (this.stream.received()) return await this.close();
+    if (this.closeErr != null) throw this.closeErr;
     let config: Config;
     if (typeof value === "number" && authority == null)
       config = { keys: [], authorities: [value] };
@@ -276,8 +290,9 @@ export class Writer {
    * After the caller acknowledges the error, they can attempt to commit again.
    */
   async commit(): Promise<TimeStamp> {
+    if (this.closeErr != null) throw this.closeErr;
     if (this.stream.received()) {
-      await this.close();
+      await this.closeInternal(null);
       return TimeStamp.ZERO;
     }
     const res = await this.execute({ command: WriterCommand.Commit });
@@ -290,25 +305,33 @@ export class Writer {
    * in a 'finally' block.
    */
   async close(): Promise<void> {
+    await this.closeInternal(null);
+  }
+
+  private async closeInternal(err: Error | null): Promise<null> {
+    if (this.closeErr != null) throw this.closeErr;
+    this.closeErr = err;
     this.stream.closeSend();
-    try {
-      await this.execute();
-    } catch (err) {
-      if (EOF.matches(err)) return;
-      throw err;
+    while (true) {
+      if (this.closeErr != null) {
+        if (WriterClosedError.matches(this.closeErr)) return null;
+        throw this.closeErr;
+      }
+      const [res, err] = await this.stream.receive();
+      if (err != null) this.closeErr = EOF.matches(err) ? new WriterClosedError() : err;
+      else this.closeErr = decodeError(res?.err);
     }
   }
 
-  async execute(req: WriteRequest | null = null): Promise<Response> {
-    if (req != null) this.stream.send(req);
+  private async execute(req: WriteRequest): Promise<Response> {
+    const err = this.stream.send(req);
+    if (err != null) await this.closeInternal(err);
     while (true) {
-      const res = await this.stream.receive();
-      if (req != null && res.command === req.command) return res;
-      if (res.err != null) {
-        const err = decodeError(res.err);
-        if (err != null) throw err;
-      }
-      console.warn("writer received unexpected response", res);
+      const [res, err] = await this.stream.receive();
+      if (err != null) await this.closeInternal(err);
+      const resErr = decodeError(res?.err);
+      if (resErr != null) await this.closeInternal(resErr);
+      if (res?.command == req.command) return res;
     }
   }
 }

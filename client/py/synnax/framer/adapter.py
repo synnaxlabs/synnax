@@ -6,9 +6,11 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+import warnings
 
 from pandas import DataFrame
 
+from synnax.telem import DataType
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
@@ -17,10 +19,12 @@ from synnax.channel.payload import (
     normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
-from synnax.exceptions import ValidationError
+from synnax.exceptions import ValidationError, Field
 from synnax.framer.codec import Codec
 from synnax.framer.frame import CrudeFrame, Frame
 from synnax.telem.series import CrudeSeries, Series
+
+from numpy import can_cast as np_can_cast
 
 
 class ReadFrameAdapter:
@@ -66,25 +70,36 @@ class ReadFrameAdapter:
 
 
 class WriteFrameAdapter:
-    __adapter: dict[ChannelName, ChannelKey] | None
+    _adapter: dict[ChannelName, ChannelKey] | None
+    _keys: list[ChannelKey] | None
+    _err_on_extra_chans: bool
+    _strict_data_types: bool
+    _suppress_warnings: bool
+
     retriever: ChannelRetriever
-    __keys: list[ChannelKey] | None
-    __err_on_extra_chans: bool
     codec: Codec
 
-    def __init__(self, retriever: ChannelRetriever, err_on_extra_chans: bool = True):
+    def __init__(
+        self,
+        retriever: ChannelRetriever,
+        err_on_extra_chans: bool = True,
+        strict_data_types: bool = False,
+        suppress_warnings: bool = True,
+    ):
         self.retriever = retriever
-        self.__adapter = None
-        self.__keys = None
-        self.__err_on_extra_chans = err_on_extra_chans
+        self._adapter = None
+        self._keys = None
+        self._err_on_extra_chans = err_on_extra_chans
+        self._strict_data_types = strict_data_types
+        self._suppress_warnings = suppress_warnings
         self.codec = Codec()
 
     def update(self, channels: ChannelParams):
         results = retrieve_required(self.retriever, channels)
-        self.__adapter = {ch.name: ch.key for ch in results}
-        self.__keys = [ch.key for ch in results]
+        self._adapter = {ch.name: ch.key for ch in results}
+        self._keys = [ch.key for ch in results]
         self.codec.update(
-            self.__keys,
+            self._keys,
             [ch.data_type for ch in results],
         )
 
@@ -98,7 +113,7 @@ class WriteFrameAdapter:
 
     @property
     def keys(self):
-        return self.__keys
+        return self._keys
 
     def __adapt_to_key(
         self, ch: ChannelPayload | ChannelKey | ChannelName
@@ -125,6 +140,53 @@ class WriteFrameAdapter:
             ChannelPayload | list[ChannelPayload] | ChannelParams | CrudeFrame
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
+    ):
+        frame = self._adapt(channels_or_data, series)
+        missing = set(self.keys) - set(frame.channels)
+        extra = set(frame.channels) - set(self.keys)
+        if missing and extra:
+            raise ValidationError(
+                Field(
+                    "keys",
+                    f"frame is missing keys {missing} and has extra keys {extra}",
+                )
+            )
+        elif extra:
+            raise ValidationError(Field("keys", f"frame has extra keys {extra}"))
+
+        for i, (col, series) in enumerate(frame.items()):
+            ch = self.retriever.retrieve(col)[0]  # type: ignore
+            if series.data_type != ch.data_type:
+                if self._strict_data_types:
+                    raise ValidationError(
+                        Field(
+                            str(col),
+                            f"Data type {ch.data_type} for channel {ch} does " + \
+                            f"not match series data type {series.data_type}.",
+                        )
+                    )
+                elif not self._suppress_warnings and not (
+                    ch.data_type == DataType.TIMESTAMP
+                    and series.data_type == DataType.INT64
+                ):
+                    warnings.warn(
+                        f"""Series for channel {ch.name} has type {series.data_type} but
+                        channel expects type {ch.data_type}. We can safely convert
+                        between the two, but this can cause performance degradations
+                        and is not recommended. To suppress this warning,
+                        set suppress_warnings=True when constructing the writer. To
+                        raise an error instead, set strict=True when constructing
+                        the writer."""
+                    )
+                frame.series[i] = series.astype(ch.data_type)
+        return frame
+
+    def _adapt(
+        self,
+        channels_or_data: (
+            ChannelPayload | list[ChannelPayload] | ChannelParams | CrudeFrame
+        ),
+        series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         if isinstance(channels_or_data, (ChannelName, ChannelKey, ChannelPayload)):
             if series is None:
@@ -145,7 +207,6 @@ class WriteFrameAdapter:
                     )
 
             pld = self.__adapt_ch(channels_or_data)
-            series = Series(data_type=pld.data_type, data=series)
             return Frame([pld.key], [series])
 
         if isinstance(channels_or_data, list):
@@ -165,9 +226,8 @@ class WriteFrameAdapter:
                     Received {len(channels_or_data)} channels but only {len(series)} series.
                     """
                     )
-                s = Series(data_type=pld.data_type, data=series[i])
                 channels.append(pld.key)
-                o_series.append(s)
+                o_series.append(series[i])
 
             return Frame(channels, o_series)
 
@@ -175,18 +235,18 @@ class WriteFrameAdapter:
         is_df = isinstance(channels_or_data, DataFrame)
         if is_frame or is_df:
             cols = channels_or_data.channels if is_frame else channels_or_data.columns
-            if self.__adapter is None:
+            if self._adapter is None:
                 return channels_or_data
             channels = list()
             series = list()
             for col in cols:
                 try:
                     channels.append(
-                        self.__adapter[col] if isinstance(col, ChannelName) else col
+                        self._adapter[col] if isinstance(col, ChannelName) else col
                     )
                     series.append(Series(channels_or_data[col]))
                 except KeyError as e:
-                    if self.__err_on_extra_chans:
+                    if self._err_on_extra_chans:
                         raise ValidationError(
                             f"Channel {e} was not provided in the list of "
                             f"channels when the writer was opened."
@@ -198,9 +258,8 @@ class WriteFrameAdapter:
             series = list()
             for k, v in channels_or_data.items():
                 pld = self.__adapt_ch(k)
-                s = Series(data_type=pld.data_type, data=v)
                 channels.append(pld.key)
-                series.append(s)
+                series.append(Series(v))
 
             return Frame(channels, series)
 

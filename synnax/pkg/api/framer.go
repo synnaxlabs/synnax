@@ -403,7 +403,10 @@ func (s *FrameService) openWriter(
 		return
 	}
 	// Let the client know the writer is ready to receive segments.
-	return w, srv.Send(FrameWriterResponse{Command: writer.Open})
+	return w, srv.Send(FrameWriterResponse{
+		Command: writer.Open,
+		Err:     errors.Encode(ctx, nil, false),
+	})
 }
 
 type WSFramerCodec struct {

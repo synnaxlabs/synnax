@@ -452,7 +452,7 @@ func missingChannelError(
 			validate.Error,
 			`received no data for index channel %v that must be provided when writing to related data channels %v`,
 			missing,
-			stringer.TruncateSlice(dataChannels, 8),
+			stringer.TruncateAndFormatSlice(dataChannels, 8),
 		)
 	}
 	return errors.Wrapf(
