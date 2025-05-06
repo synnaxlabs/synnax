@@ -13,4 +13,4 @@ import { Synch } from "@/synch";
 
 export const useStateSynchronizer = (
   onStateUpdate: (state: task.State) => void,
-): void => Synch.useStateChannel(task.STATE_CHANNEL_NAME, task.stateZ, onStateUpdate);
+): void => Synch.useTracker(task.STATE_CHANNEL_NAME, task.stateZ, onStateUpdate);

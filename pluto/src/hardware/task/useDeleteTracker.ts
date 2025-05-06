@@ -11,6 +11,5 @@ import { task } from "@synnaxlabs/client";
 
 import { Synch } from "@/synch";
 
-export const useCommandSynchronizer = (
-  onCommandUpdate: (command: task.Command) => void,
-): void => Synch.useTracker(task.COMMAND_CHANNEL_NAME, task.commandZ, onCommandUpdate);
+export const useDeleteTracker = (onDelete: (key: task.Key) => void): void =>
+  Synch.useTracker(task.DELETE_CHANNEL_NAME, task.keyZ, onDelete);

@@ -11,6 +11,5 @@ import { task } from "@synnaxlabs/client";
 
 import { Synch } from "@/synch";
 
-export const useCommandSynchronizer = (
-  onCommandUpdate: (command: task.Command) => void,
-): void => Synch.useTracker(task.COMMAND_CHANNEL_NAME, task.commandZ, onCommandUpdate);
+export const useSetTracker = (onSet: (task: task.Payload) => void): void =>
+  Synch.useTracker(task.SET_CHANNEL_NAME, task.taskZ, onSet);

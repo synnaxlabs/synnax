@@ -8,4 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/hardware/task/useCommandSynchronizer";
+export * from "@/hardware/task/useDeleteTracker";
+export * from "@/hardware/task/useSetTracker";
 export * from "@/hardware/task/useStateSynchronizer";
