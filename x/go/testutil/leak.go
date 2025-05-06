@@ -18,7 +18,7 @@ import (
 func ShouldNotLeakGoroutines() {
 	grs := gleak.Goroutines()
 	DeferCleanup(func() {
-		Expect(gleak.Goroutines()).ShouldNot(gleak.HaveLeaked(grs))
+		Eventually(gleak.Goroutines).ShouldNot(gleak.HaveLeaked(grs))
 	})
 }
 

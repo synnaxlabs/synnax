@@ -1446,7 +1446,7 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 
-			Describe("ErrOnUnauthorizedOpen", func() {
+			Describe("Error On Unauthorized Open", func() {
 				ShouldNotLeakRoutinesJustBeforeEach()
 				var (
 					key        cesium.ChannelKey
@@ -1587,5 +1587,6 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 		})
+
 	}
 })
