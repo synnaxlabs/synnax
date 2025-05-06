@@ -212,7 +212,7 @@ func (m *frameMatcher[K]) NegatedFailureMessage(actual interface{}) string {
 		return fmt.Sprintf("Expected Frame but got %K", actual)
 	}
 	if actualFrame.Count() != m.expected.Count() {
-		return fmt.Sprintf("Frames have different counts: expected %d, got %d",
+		return fmt.Sprintf("Frames have different number of series: expected %d, got %d",
 			m.expected.Count(), actualFrame.Count())
 	}
 	for k := range actualFrame.Keys() {

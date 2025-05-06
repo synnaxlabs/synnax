@@ -73,6 +73,14 @@ var _ = Describe("Series", func() {
 		})
 	})
 
+	Describe("MakeSeries", func() {
+		It("Should make a series with the specified length", func() {
+			s := telem.MakeSeries(telem.Int64T, 20)
+			Expect(s.Len()).To(Equal(int64(20)))
+			Expect(s.Size()).To(Equal(telem.ByteSize * 20 * 8))
+		})
+	})
+
 	Describe("At", func() {
 		Context("Fixed Density", func() {
 			It("Should return the the value at the given index", func() {
