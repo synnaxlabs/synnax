@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label } from "@synnaxlabs/client";
+import { device } from "@synnaxlabs/client";
 
 import { Synch } from "@/synch";
 
-export const useDeleteTracker = (onDelete: (key: label.Key) => void): void =>
-  Synch.useTracker(label.DELETE_CHANNEL_NAME, label.keyZ, onDelete);
+export const useSetSynchronizer = (onSet: (device: device.Device) => void): void =>
+  Synch.useParsedListener(device.SET_CHANNEL_NAME, device.deviceZ, onSet);

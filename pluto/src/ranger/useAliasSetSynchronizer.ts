@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 
 import { Synch } from "@/synch";
 
-export const useSetTracker = (onSet: (task: task.Payload) => void): void =>
-  Synch.useTracker(task.SET_CHANNEL_NAME, task.taskZ, onSet);
+export const useAliasSetSynchronizer = (onSet: (alias: ranger.Alias) => void): void =>
+  Synch.useParsedListener(ranger.SET_ALIAS_CHANNEL_NAME, ranger.aliasZ, onSet);

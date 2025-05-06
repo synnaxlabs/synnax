@@ -11,5 +11,5 @@ import { device } from "@synnaxlabs/client";
 
 import { Synch } from "@/synch";
 
-export const useSetTracker = (onSet: (device: device.Device) => void): void =>
-  Synch.useTracker(device.SET_CHANNEL_NAME, device.deviceZ, onSet);
+export const useDeleteSynchronizer = (onDelete: (key: device.Key) => void): void =>
+  Synch.useParsedListener(device.DELETE_CHANNEL_NAME, device.keyZ, onDelete);

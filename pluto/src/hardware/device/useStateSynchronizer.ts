@@ -11,6 +11,5 @@ import { device } from "@synnaxlabs/client";
 
 import { Synch } from "@/synch";
 
-export const useStateSynchronizer = (
-  onStateUpdate: (state: device.State) => void,
-): void => Synch.useTracker(device.STATE_CHANNEL_NAME, device.stateZ, onStateUpdate);
+export const useStateSynchronizer = (onUpdate: (state: device.State) => void): void =>
+  Synch.useParsedListener(device.STATE_CHANNEL_NAME, device.stateZ, onUpdate);

@@ -7,24 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type MultiSeries } from "@synnaxlabs/client";
 import { useEffect } from "react";
-import { type z } from "zod";
 
 import { useAddListener } from "@/synch/useAddListener";
 
-export const useTracker = <Z extends z.ZodTypeAny>(
+export const useListener = (
   channel: channel.Name,
-  schema: Z,
-  onUpdate: (value: z.output<Z>) => void,
+  onUpdate: (series: MultiSeries) => void,
 ): void => {
   const addListener = useAddListener();
   useEffect(
     () =>
       addListener({
         channels: channel,
-        handler: (frame) => frame.get(channel).parseJSON(schema).forEach(onUpdate),
+        handler: (frame) => onUpdate(frame.get(channel)),
       }),
-    [addListener, channel, schema, onUpdate],
+    [addListener, channel, onUpdate],
   );
 };

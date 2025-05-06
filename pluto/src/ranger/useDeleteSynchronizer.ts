@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 
 import { Synch } from "@/synch";
 
-export const useDeleteTracker = (onDelete: (key: task.Key) => void): void =>
-  Synch.useTracker(task.DELETE_CHANNEL_NAME, task.keyZ, onDelete);
+export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void =>
+  Synch.useParsedListener(ranger.DELETE_CHANNEL_NAME, ranger.keyZ, onDelete);

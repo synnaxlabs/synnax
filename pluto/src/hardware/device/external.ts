@@ -8,6 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/hardware/device/Select";
-export * from "@/hardware/device/useDeleteTracker";
-export * from "@/hardware/device/useSetTracker";
+export * from "@/hardware/device/useDeleteSynchronizer";
+export * from "@/hardware/device/useSetSynchronizer";
 export * from "@/hardware/device/useStateSynchronizer";
