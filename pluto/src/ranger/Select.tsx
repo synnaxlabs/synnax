@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { type AsyncTermSearcher, nullToArr, toArray, unique } from "@synnaxlabs/x";
+import {
+  type AsyncTermSearcher,
+  nullToArr,
+  status,
+  toArray,
+  unique,
+} from "@synnaxlabs/x";
 import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -47,7 +53,11 @@ export const SelectMultiple = ({
   const client = Synnax.use();
   const emptyContent =
     client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
+      <Status.Text.Centered
+        variant={status.ERROR_VARIANT}
+        level="h4"
+        style={{ height: 150 }}
+      >
         No client available
       </Status.Text.Centered>
     );
@@ -133,7 +143,11 @@ const useSingle = ({
   const client = Synnax.use();
   const emptyContent =
     client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
+      <Status.Text.Centered
+        variant={status.ERROR_VARIANT}
+        level="h4"
+        style={{ height: 150 }}
+      >
         No client available
       </Status.Text.Centered>
     );

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { type AsyncTermSearcher, type Key, type Keyed } from "@synnaxlabs/x";
+import { type AsyncTermSearcher, type Key, type Keyed, status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks";
@@ -41,19 +41,19 @@ const STYLE = {
 };
 
 const NoResults = (): ReactElement => (
-  <Status.Text.Centered level="h4" variant="disabled" hideIcon style={STYLE}>
+  <Status.Text.Centered level="h4" disabled hideIcon style={STYLE}>
     No Results
   </Status.Text.Centered>
 );
 
 const NoTerm = (): ReactElement => (
-  <Status.Text.Centered level="h4" variant="disabled" hideIcon style={STYLE}>
+  <Status.Text.Centered level="h4" disabled hideIcon style={STYLE}>
     Type to search
   </Status.Text.Centered>
 );
 
 const Loading = (): ReactElement => (
-  <Status.Text.Centered level="h2" variant="disabled" hideIcon style={STYLE}>
+  <Status.Text.Centered level="h2" disabled hideIcon style={STYLE}>
     <Icon.Loading />
   </Status.Text.Centered>
 );
@@ -63,7 +63,7 @@ interface ErrorEmptyContentProps {
 }
 
 const ErrorEmptyContent = ({ error }: ErrorEmptyContentProps): ReactElement => (
-  <Status.Text.Centered level="h4" variant="error" style={STYLE}>
+  <Status.Text.Centered level="h4" variant={status.ERROR_VARIANT} style={STYLE}>
     {error.message}
   </Status.Text.Centered>
 );
@@ -152,7 +152,7 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         })
         .catch((e) => {
           setEmptyContent(
-            <Status.Text.Centered level="h4" variant="error">
+            <Status.Text.Centered level="h4" variant={status.ERROR_VARIANT}>
               {e.message}
             </Status.Text.Centered>,
           );

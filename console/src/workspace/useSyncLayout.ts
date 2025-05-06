@@ -9,7 +9,7 @@
 
 import { QueryError } from "@synnaxlabs/client";
 import { Status, Synnax, useDebouncedCallback } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, status } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { useStore } from "react-redux";
@@ -46,7 +46,7 @@ export const useSyncLayout = (): void => {
     onError: (e) => {
       if (QueryError.matches(e)) {
         addStatus({
-          variant: "error",
+          variant: status.ERROR_VARIANT,
           message: "Layout not found in cluster. Clearing.",
         });
         store.dispatch(setActive(null));

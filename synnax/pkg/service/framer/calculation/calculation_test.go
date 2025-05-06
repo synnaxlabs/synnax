@@ -10,11 +10,8 @@
 package calculation_test
 
 import (
-	"time"
-
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
-
 	"encoding/json"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,8 +21,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -350,7 +349,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		Expect(json.Unmarshal(data[:len(data)-1], &state)).To(Succeed()) // -1 to remove newline
 
 		Expect(state.Key).To(Equal(calculatedCH.Key()))
-		Expect(state.Variant).To(Equal("error"))
+		Expect(state.Variant).To(Equal(status.ErrorVariant))
 		Expect(state.Message).To(ContainSubstring("cannot perform add operation between nil and nil"))
 	})
 })

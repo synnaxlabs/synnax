@@ -201,7 +201,7 @@ const SelectCellTypeField = ({
 
 const EmptyContent = () => (
   <Align.Center x size="small" style={{ width: "100%", height: "100%" }}>
-    <Status.Text variant="disabled" hideIcon>
+    <Status.Text disabled hideIcon>
       No cell selected. Select a cell to view its properties.
     </Status.Text>
   </Align.Center>

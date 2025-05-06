@@ -9,7 +9,7 @@
 
 import { ranger, schematic } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { strings, toArray } from "@synnaxlabs/x";
+import { status, strings, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -36,7 +36,7 @@ export const useRangeSnapshot = () => {
     onError: (err, _, context) => handleError(err, `Failed to snapshot ${context}`),
     onSuccess: (_, __, context) =>
       addStatus({
-        variant: "success",
+        variant: status.SUCCESS_VARIANT,
         message: `Successfully snapshotted ${context}`,
       }),
     mutationFn: async (schematics) => {
