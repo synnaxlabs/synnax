@@ -188,7 +188,7 @@ var _ = Describe("Series", func() {
 			Entry("float64", telem.NewSeriesV[float64](1.0, 2.0, 3.0), "[1 2 3]"),
 			Entry("string", telem.NewStringsV("a", "b", "c"), "[a b c]"),
 			Entry("json", telem.NewStaticJSONV(map[string]interface{}{"a": 1, "b": 2, "c": 3}), "[{\"a\":1,\"b\":2,\"c\":3}]"),
-			Entry("timestamp", telem.NewSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z 1970-01-01T00:00:02Z 1970-01-01T00:00:03Z]"),
+			Entry("timestamp", telem.NewSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z +1s +2s]"),
 		)
 
 		Context("Long Series", func() {
@@ -218,6 +218,11 @@ var _ = Describe("Series", func() {
 				s := telem.NewStringsV(values...)
 				str := s.String()
 				Expect(str).To(ContainSubstring("[a b c d e f ... i j k l m n]"))
+			})
+
+			It("Should truncate a long timestamp series", func() {
+				values := telem.NewSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)
+				Expect(values.DataString()).To(Equal("[1970-01-01T00:00:01Z +1s +2s +3s +4s +5s ... +14s +15s +16s +17s +18s +19s]"))
 			})
 		})
 

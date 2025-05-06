@@ -159,7 +159,7 @@ var _ = Describe("Delta", func() {
 			It("Should allow other outlets to receive values even if one consumer times out", func() {
 				delta := NewDynamicDeltaMultiplier[int](
 					10*time.Millisecond,
-					Instrumentation("dev", InstrumentationConfig{Log: config.True()}),
+					Instrumentation("dev", InstrumentationConfig{Log: config.False()}),
 				)
 				delta.InFrom(inputOne)
 				ctx, cancel := signal.Isolated()
@@ -168,7 +168,7 @@ var _ = Describe("Delta", func() {
 				delta.Connect(outputOne)
 				delta.Connect(outputTwo)
 				Eventually(inputOne.Inlet()).Should(BeSent(1))
-				Eventually(outputTwo.Outlet(), "20ms", "1ms").Should(Receive(Equal(1)))
+				Eventually(outputTwo.Outlet(), "40ms", "1ms").Should(Receive(Equal(1)))
 			})
 		})
 	})

@@ -175,10 +175,12 @@ describe("Writer", () => {
         for (let i = 0; i < 10; i++) {
           await new Promise((resolve) => setTimeout(resolve, 5));
           await writer.write({
-            [indexCh.key]: BigInt(i),
+            [indexCh.key]: new TimeStamp(i),
             [dataCh.key]: i,
           });
         }
+      }).rejects.toThrow(ValidationError);
+      await expect(async () => {
         await writer.close();
       }).rejects.toThrow(ValidationError);
     }, 5000000);

@@ -273,7 +273,7 @@ export class Codec {
     if (channelFlag) returnFrame.keys = [...state.keys];
     state.keys.forEach((k, i) => {
       if (!channelFlag) {
-        if (index + KEY_SIZE > view.byteLength) return;
+        if (index >= view.byteLength) return;
         const frameKey = view.getUint32(index, true);
         if (frameKey !== k) return;
         index += KEY_SIZE;

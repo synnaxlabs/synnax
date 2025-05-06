@@ -27,7 +27,7 @@ type Writer struct {
 	requests  confluence.Inlet[Request]
 	responses confluence.Outlet[Response]
 	shutdown  io.Closer
-	closed    bool
+	closeErr  error
 }
 
 // Write implements Writer.
@@ -50,29 +50,44 @@ func (w *Writer) SetAuthority(cfg Config) error {
 	return err
 }
 
-func (w *Writer) exec(req Request, sync bool) (res Response, err error) {
-	if w.closed {
-		return res, ErrClosed
+func (w *Writer) exec(req Request, sync bool) (Response, error) {
+	var res Response
+	if w.closeErr != nil {
+		return res, w.closeErr
 	}
 	select {
-	case <-w.responses.Outlet():
-		return res, w.Close()
+	case res = <-w.responses.Outlet():
+		return res, w.close(res.Err)
 	case w.requests.Inlet() <- req:
 	}
 	if !sync {
-		return
+		return res, nil
 	}
 	for res = range w.responses.Outlet() {
+		if res.Err != nil {
+			return res, w.close(res.Err)
+		}
 		if res.Command == req.Command {
 			return res, nil
 		}
 	}
-	return res, w.Close()
+	return res, w.close(nil)
 }
 
-func (w *Writer) Close() error {
-	w.closed = true
+func (w *Writer) Close() error { return w.close(nil) }
+
+func (w *Writer) close(err error) error {
+	if w.closeErr != nil {
+		return errors.Skip(w.closeErr, ErrClosed)
+	}
+	w.closeErr = err
 	w.requests.Close()
 	confluence.Drain(w.responses)
-	return w.shutdown.Close()
+	w.closeErr = errors.Combine(w.closeErr, w.shutdown.Close())
+	if w.closeErr != nil {
+		return w.closeErr
+	}
+	w.closeErr = ErrClosed
+	return nil
+
 }

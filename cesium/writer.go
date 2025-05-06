@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -24,8 +25,8 @@ type Writer struct {
 	requests  confluence.Inlet[WriterRequest]
 	responses confluence.Outlet[WriterResponse]
 	logger    *zap.Logger
-	closed    bool
 	shutdown  io.Closer
+	closeErr  error
 }
 
 const unexpectedSteamClosure = "unexpected early closure of response stream"
@@ -72,28 +73,41 @@ func (w *Writer) SetAuthority(cfg WriterConfig) error {
 }
 
 func (w *Writer) exec(req WriterRequest, sync bool) (res WriterResponse, err error) {
-	if w.closed {
-		return res, errWriterClosed
+	if w.closeErr != nil {
+		return res, w.closeErr
 	}
 	select {
-	case <-w.responses.Outlet():
-		return res, w.Close()
+	case res := <-w.responses.Outlet():
+		return res, w.close(res.Err)
 	case w.requests.Inlet() <- req:
 	}
 	if !sync {
 		return
 	}
 	for res = range w.responses.Outlet() {
+		if res.Err != nil {
+			return res, w.close(res.Err)
+		}
 		if res.Command == req.Command {
 			return res, nil
 		}
 	}
-	return res, w.Close()
+	return res, w.close(nil)
 }
 
-func (w *Writer) Close() error {
-	w.closed = true
+func (w *Writer) Close() error { return w.close(nil) }
+
+func (w *Writer) close(err error) error {
+	if w.closeErr != nil {
+		return errors.Skip(w.closeErr, errWriterClosed)
+	}
+	w.closeErr = err
 	w.requests.Close()
 	confluence.Drain(w.responses)
-	return w.shutdown.Close()
+	w.closeErr = errors.Combine(w.closeErr, w.shutdown.Close())
+	if w.closeErr != nil {
+		return w.closeErr
+	}
+	w.closeErr = errWriterClosed
+	return nil
 }

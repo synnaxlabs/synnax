@@ -7,19 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package storage_test
+package errors
 
-import (
-	"context"
-	"testing"
+func TranslatePayloadForward(tr Payload) *PBPayload {
+	return &PBPayload{Type: tr.Type, Data: tr.Data}
+}
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-var ctx = context.Background()
-
-func TestStorage(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Storage Suite")
+func TranslatePayloadBackward(pld *PBPayload) Payload {
+	return Payload{Type: pld.Type, Data: pld.Data}
 }

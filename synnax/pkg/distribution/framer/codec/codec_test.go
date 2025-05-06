@@ -187,6 +187,20 @@ var _ = Describe("Codec", func() {
 				},
 			),
 		),
+		Entry("Multiple Series for the Same Channel",
+			channel.Keys{1, 2},
+			[]telem.DataType{telem.Uint8T, telem.Float32T},
+			core.MultiFrame(
+				channel.Keys{1, 2, 2, 1, 2},
+				[]telem.Series{
+					telem.NewSeriesV[uint8](1, 2, 3),
+					telem.NewSeriesV[float32](1, 2, 3),
+					telem.NewSeriesV[float32](5, 6, 7),
+					telem.NewSeriesV[uint8](4, 5, 6),
+					telem.NewSeriesV[float32](42.1, 42.3, 69.1),
+				},
+			),
+		),
 	)
 
 	Describe("Complex Frames", func() {
@@ -211,12 +225,7 @@ var _ = Describe("Codec", func() {
 			s4.TimeRange = telem.NewSecondsRange(9999999, 999999999)
 			originalFrame := core.MultiFrame(
 				keys,
-				[]telem.Series{
-					s1,
-					s2,
-					s3,
-					s4,
-				},
+				[]telem.Series{s1, s2, s3, s4},
 			)
 
 			cdc := codec.NewStatic(keys, dataTypes)

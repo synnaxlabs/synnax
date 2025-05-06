@@ -94,17 +94,25 @@ xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
 
     if (frame.channels->size() != state.keys.size()) {
         flags.all_channels_present = false;
-        byte_array_size += frame.channels->size() * 4; // 4 bytes per channel key
+        byte_array_size += frame.channels->size() * KEY_SIZE;
     }
 
     this->sorting_indices.resize(frame.size());
     for (size_t i = 0; i < frame.channels->size(); i++) {
         auto k = frame.channels->at(i);
-        if (state.keys.find(k) == state.keys.end())
+        auto &ser = frame.series->at(i);
+        auto dt = state.key_data_types.find(k);
+        if (dt == state.key_data_types.end())
             return xerrors::Error(
                 xerrors::VALIDATION,
                 "frame contains extra key " + std::to_string(k) +
                     "not provided when opening the writer"
+            );
+        if (dt->second != ser.data_type())
+            return xerrors::Error(
+                xerrors::VALIDATION,
+                "data type " + dt->second + " for channel + " + std::to_string(k) +
+                    " does not match series data type " + ser.data_type()
             );
         this->sorting_indices[i] = {k, i};
     }

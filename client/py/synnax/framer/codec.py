@@ -132,6 +132,16 @@ class Codec:
             byte_array_size += len(sorted_keys) * KEY_SIZE
 
         for i, ser in enumerate(sorted_series):
+            key = sorted_keys[i]
+            dt = self._curr_state.data_types.get(key, None)
+            if dt is None:
+                raise ValidationError(
+                    f"encoder was provided a key {key} that is not in the codec state."
+                )
+            elif dt != ser.data_type:
+                raise ValidationError(
+                    f"data type {ser.data_type} for key {key} does not match codec state data type {dt}."
+                )
             if curr_data_size == -1:
                 curr_data_size = len(ser)
                 ref_tr = ser.time_range
@@ -262,6 +272,8 @@ class Codec:
 
         for key in state.keys:
             if not flags.all_channels_present:
+                if idx >= len(buffer):
+                    break
                 frame_key = struct.unpack_from("<I", buffer, idx)[0]
                 if frame_key != key:
                     continue

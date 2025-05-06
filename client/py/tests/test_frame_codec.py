@@ -19,6 +19,7 @@ from synnax.framer.frame import Frame
 from synnax.telem import DataType, Series, TimeRange
 
 
+@pytest.mark.framer
 @pytest.mark.frame_codec
 class TestCodec:
     class Spec:
@@ -84,6 +85,23 @@ class TestCodec:
                     series=[
                         Series(data=np.array([7, 8, 9], dtype=np.float64)),
                         Series(data=np.array([1, 2, 3], dtype=np.uint8)),
+                    ],
+                ),
+            ),
+            Spec(
+                name="Only One Channel Present",
+                channels=[1, 2, 3, 4, 5],
+                data_types=[
+                    DataType.UINT8,
+                    DataType.UINT8,
+                    DataType.UINT8,
+                    DataType.UINT8,
+                    DataType.UINT8,
+                ],
+                frame=Frame(
+                    channels=[3],
+                    series=[
+                        Series(data=np.array([1, 2, 3, 4, 5], dtype=np.uint8)),
                     ],
                 ),
             ),

@@ -717,7 +717,7 @@ var _ = Describe("Telem", func() {
 			It("Should marshal the alignment as a JSON string", func() {
 				align := telem.NewAlignment(2, 1)
 				marshalled := MustSucceed(align.MarshalJSON())
-				Expect(string(marshalled)).To(Equal(fmt.Sprintf("\"%v\"", align)))
+				Expect(string(marshalled)).To(Equal(fmt.Sprintf("\"%v\"", uint64(align))))
 			})
 		})
 

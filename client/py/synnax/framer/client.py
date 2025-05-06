@@ -80,7 +80,7 @@ class Client:
         *,
         name: str = "",
         strict: bool = False,
-        suppress_warnings: bool = False,
+        suppress_warnings: bool = True,
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = False,
@@ -117,14 +117,17 @@ class Client:
         be persisted. To persist every commit to guarantee minimal loss of data, set
         auto_index_persist_interval to AlwaysAutoIndexPersist.
         """
-        adapter = WriteFrameAdapter(self.__channels, err_on_extra_chans)
+        adapter = WriteFrameAdapter(
+            retriever=self.__channels,
+            err_on_extra_chans=err_on_extra_chans,
+            strict_data_types=strict,
+            suppress_warnings=suppress_warnings,
+        )
         adapter.update(channels)
         return Writer(
             start=start,
             adapter=adapter,
             client=self.__stream_client,
-            strict=strict,
-            suppress_warnings=suppress_warnings,
             authorities=authorities,
             name=name,
             mode=mode,

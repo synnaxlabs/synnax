@@ -178,7 +178,7 @@ func (t *tapper) tapInto(
 	if err != nil {
 		return tapController{}, err
 	}
-	requests := confluence.NewStream[Request](defaultResponseBuffer)
+	requests := confluence.NewStream[Request](1)
 	tp.InFrom(requests)
 	tp.OutTo(t.AbstractUnarySource.Out)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Instrumentation.Child(tapKey)))

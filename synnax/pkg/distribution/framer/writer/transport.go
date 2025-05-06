@@ -61,7 +61,8 @@ type Response struct {
 	End telem.TimeStamp `json:"end" msgpack:"end"`
 	// Authorized flags whether the writer or commit operation was authorized. It is only
 	// valid during calls to WriterWrite and WriterCommit.
-	Authorized bool `json:"authorized" msgpack:"authorized"`
+	Authorized bool  `json:"authorized" msgpack:"authorized"`
+	Err        error `json:"err" msgpack:"err"`
 }
 
 type (

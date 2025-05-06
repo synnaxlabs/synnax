@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/status"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -122,7 +123,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		}))
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys:        []channel.Key{calculatedCH.Key()},
-			SendOpenAck: true,
+			SendOpenAck: config.True(),
 		}))
 		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
 		streamer.Flow(sCtx)
@@ -157,7 +158,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		}))
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys:        []channel.Key{calculatedCH.Key()},
-			SendOpenAck: true,
+			SendOpenAck: config.True(),
 		}))
 		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
 		streamer.Flow(sCtx)
@@ -218,7 +219,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				ctx,
 				framer.StreamerConfig{
 					Keys:        []channel.Key{calc2CH.Key()},
-					SendOpenAck: true,
+					SendOpenAck: config.True(),
 				},
 			),
 		)
@@ -287,7 +288,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				ctx,
 				framer.StreamerConfig{
 					Keys:        []channel.Key{stateCH.Key()},
-					SendOpenAck: true,
+					SendOpenAck: config.True(),
 				},
 			),
 		)
