@@ -73,10 +73,7 @@ export class Value
     i.stopListening = this.internal.telem.onChange(() => {
       this.requestRender();
     });
-    i.fontString = theming.fontString(i.theme, {
-      level: this.state.level,
-      code: true,
-    });
+    i.fontString = theming.fontString(i.theme, { level: this.state.level, code: true });
     i.backgroundTelem = await telem.useSource(
       ctx,
       this.state.backgroundTelem,
@@ -149,12 +146,8 @@ export class Value
     this.maybeUpdateWidth(width);
     const labelOffset = { ...xy.ZERO };
     if (location.x === "left") labelOffset.x = 6 + fontHeight * 0.75;
-    if (location.x === "center") labelOffset.x = bWidth / 2 - width / 2;
+    else if (location.x === "center") labelOffset.x = bWidth / 2 - width / 2;
     if (location.y === "center") labelOffset.y = bHeight / 2 + height / 2;
-
-    // canvas.fillStyle = "red";
-    // canvas.rect(...xy.couple(box.topLeft(b)), box.width(b), box.height(b));
-    // canvas.fill();
 
     const labelPosition = xy.translate(bTopLeft, labelOffset);
 

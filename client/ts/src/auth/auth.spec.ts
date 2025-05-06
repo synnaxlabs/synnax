@@ -46,7 +46,7 @@ describe("auth", () => {
     expect(err).toBeInstanceOf(AuthError);
   });
 
-  describe.only("token retry", () => {
+  describe("token retry", () => {
     const ERROR_TYPES = [InvalidTokenError, ExpiredTokenError];
     ERROR_TYPES.forEach((ErrorType) => {
       it(`should re-authenticate and retry the request for ${ErrorType.name}`, async () => {

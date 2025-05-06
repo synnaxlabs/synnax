@@ -103,25 +103,8 @@ export class MonospacedAtlas {
     }
   }
 
-  drawEntireAtlas(ctx: OffscreenCanvasRenderingContext2D, x: number, y: number): void {
-    ctx.drawImage(
-      this.atlas,
-      0,
-      0,
-      this.atlas.width,
-      this.atlas.height,
-      x,
-      y,
-      this.atlas.width,
-      this.atlas.height,
-    );
-  }
-
   measureText(text: string): dimensions.Dimensions {
-    return {
-      width: text.length * this.charDims.width,
-      height: this.charDims.height,
-    };
+    return { width: text.length * this.charDims.width, height: this.charDims.height };
   }
 }
 

@@ -151,6 +151,8 @@ interface MosaicProps {
   mosaic: Core.Node;
 }
 
+const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
+
 export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();
   return windowKey == null || mosaic == null ? null : (
@@ -226,7 +228,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     (key, size) => {
       dispatch(Layout.resizeMosaicTab({ key, size, windowKey }));
     },
-    TimeSpan.seconds(1).milliseconds,
+    RESIZE_DEBOUNCE,
     [dispatch, windowKey],
   );
 

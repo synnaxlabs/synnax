@@ -124,7 +124,7 @@ export const Rule = ({
 
   if (propsPosition == null || pixelPosition == null) return null;
 
-  const textColor = color.pickByContrast(colorVal, "#000000", "#ffffff");
+  const textColor = color.pickByContrast(colorVal, color.BLACK, color.WHITE);
 
   const content = (
     <div

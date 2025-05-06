@@ -2758,7 +2758,7 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
   className,
   orientation = "right",
   label = "text",
-  color: colorVal = "black",
+  color: colorVal,
   level = "p",
   onLabelChange,
   ...rest

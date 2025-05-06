@@ -217,5 +217,3 @@ export const JSON_CODEC = new JSONCodec();
 export const CSV_CODEC = new CSVCodec();
 export const TEXT_CODEC = new TextCodec();
 export const MSGPACK_CODEC = new MsgPackCodec();
-
-export const ENCODERS: Codec[] = [JSON_CODEC, MSGPACK_CODEC];

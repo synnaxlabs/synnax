@@ -235,18 +235,8 @@ const validateUniquePorts: core.CheckFn<Channel[]> = ({ value: channels, issues 
 
     const code = "custom";
     const msg = `Port ${port} has already been used on another channel`;
-    issues.push({
-      code,
-      message: msg,
-      path: [index, "port"],
-      input: channels,
-    });
-    issues.push({
-      code,
-      message: msg,
-      path: [i, "port"],
-      input: channels,
-    });
+    issues.push({ code, message: msg, path: [index, "port"], input: channels });
+    issues.push({ code, message: msg, path: [i, "port"], input: channels });
   });
 };
 

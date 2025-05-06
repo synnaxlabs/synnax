@@ -55,26 +55,18 @@ export class Context {
   readonly gl: WebGL2RenderingContext;
   /** A 2D canvas that sits below the WebGL canvas. */
   lower2d: SugaredOffscreenCanvasRenderingContext2D;
-
   /** A 2D canvas that sits above the WebGL canvas. */
   upper2d: SugaredOffscreenCanvasRenderingContext2D;
-
   /** The region the canvas occupies in pixel space */
   region: box.Box;
-
   /** The device pixel ratio of the canvas */
   dpr: number;
-
   /** queue render transitions onto the stack */
   readonly loop: Loop;
-
   /** See the @link{clear.Program} for why this is necessary. */
   private readonly clearProgram?: clear.Program;
-
   private readonly os: runtime.OS;
-
   private static readonly CONTEXT_KEY = CSS.B("render-context");
-
   private readonly instrumentation: Instrumentation;
 
   static create(
