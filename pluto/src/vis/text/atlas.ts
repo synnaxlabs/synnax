@@ -108,6 +108,7 @@ export class MonospacedAtlas {
   }
 }
 
+/** A registry for caching atlases for use across multiple components. */
 export class AtlasRegistry {
   private readonly atlases: Map<string, MonospacedAtlas>;
 
@@ -115,6 +116,10 @@ export class AtlasRegistry {
     this.atlases = new Map();
   }
 
+  /**
+   * @returns at atlas from the registry compatible with the given props. If the
+   * atlas does not exist in the registry, it is created and added to the registry.
+   */
   get(props: AtlasProps): MonospacedAtlas {
     const key = `${props.font}-${color.hex(props.textColor)}-${props.dpr}-${props.characters}`;
     if (this.atlases.has(key)) return this.atlases.get(key)!;
