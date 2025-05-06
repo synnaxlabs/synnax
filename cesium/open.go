@@ -115,18 +115,18 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs xfs.FS) error {
 	// is self-indexing.
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
 		idxDB, ok := db.mu.unaryDBs[u.Channel().Index]
-		if ok {
-			u.SetIndex(idxDB.Index())
-		}
-		if err = db.openVirtualOrUnary(ctx, Channel{Key: u.Channel().Index}); err != nil {
-			return err
-		}
-		if idxDB, ok = db.mu.unaryDBs[u.Channel().Index]; !ok {
-			return validate.FieldError{
-				Field:   "index",
-				Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index),
+		if !ok {
+			if err = db.openVirtualOrUnary(ctx, Channel{Key: u.Channel().Index}); err != nil {
+				return err
+			}
+			if idxDB, ok = db.mu.unaryDBs[u.Channel().Index]; !ok {
+				return validate.FieldError{
+					Field:   "index",
+					Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index),
+				}
 			}
 		}
+		u.SetIndex(idxDB.Index())
 	}
 	db.mu.unaryDBs[ch.Key] = *u
 	return nil
