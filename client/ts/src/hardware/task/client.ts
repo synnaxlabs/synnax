@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { id } from "@synnaxlabs/x";
+import { caseconv, id } from "@synnaxlabs/x";
 import { type UnknownRecord } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
+import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
@@ -106,38 +106,25 @@ export class Task<
     return ontologyID(this.key);
   }
 
-  async executeCommand<Args>(type: string, args?: Args): Promise<string> {
-    if (this.frameClient == null) throw NOT_CREATED_ERROR;
-    const writer = await this.frameClient.openWriter(COMMAND_CHANNEL_NAME);
-    const key = id.create();
-    await writer.write(COMMAND_CHANNEL_NAME, [{ task: this.key, type, key, args }]);
-    await writer.close();
-    return key;
+  async executeCommand<Args extends {} = UnknownRecord>(
+    type: string,
+    args?: Args,
+  ): Promise<string> {
+    return await executeCommand(this.frameClient, this.key, type, args);
   }
 
-  async executeCommandSync<Details extends {} = UnknownRecord>(
-    type: string,
-    args: UnknownRecord,
-    timeout: CrudeTimeSpan,
-  ): Promise<State<Details>> {
-    if (this.frameClient == null) throw NOT_CREATED_ERROR;
-    const streamer = await this.frameClient.openStreamer(STATE_CHANNEL_NAME);
-    const cmdKey = await this.executeCommand(type, args);
-    let res: State<Details>;
-    const to = new Promise((resolve) =>
-      setTimeout(() => resolve(false), new TimeSpan(timeout).milliseconds),
+  async executeCommandSync<
+    Args extends {} = UnknownRecord,
+    Details extends {} = UnknownRecord,
+  >(type: string, timeout: CrudeTimeSpan, args?: Args): Promise<State<Details>> {
+    return await executeCommandSync(
+      this.frameClient,
+      this.key,
+      type,
+      timeout,
+      this.name,
+      args,
     );
-    while (true) {
-      const frame = (await Promise.any([streamer.read(), to])) as framer.Frame | false;
-      if (frame === false) throw new Error("Command timed out");
-      const parsed = stateZ.safeParse(frame.at(-1)[STATE_CHANNEL_NAME]);
-      if (parsed.success) {
-        res = parsed.data as State<Details>;
-        if (res.key === cmdKey) break;
-      } else throw parsed.error;
-    }
-    streamer.close();
-    return res;
   }
 
   async openStateObserver<Details extends {} = UnknownRecord>(): Promise<
@@ -411,6 +398,34 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return isSingle ? res[0] : res;
   }
 
+  async executeCommand<Args extends {} = UnknownRecord>(
+    task: Key,
+    type: string,
+    args?: Args,
+  ): Promise<string> {
+    return await executeCommand(this.frameClient, task, type, args);
+  }
+
+  async executeCommandSync<
+    Args extends {} = UnknownRecord,
+    Details extends {} = UnknownRecord,
+  >(
+    task: Key,
+    type: string,
+    timeout: CrudeTimeSpan,
+    args?: Args,
+    name?: string,
+  ): Promise<State<Details>> {
+    return await executeCommandSync(
+      this.frameClient,
+      task,
+      type,
+      timeout,
+      name ?? (await this.retrieve(task)).name,
+      args,
+    );
+  }
+
   async openTracker(): Promise<signals.Observable<string, string>> {
     return await signals.openObservable<string, string>(
       this.frameClient,
@@ -460,3 +475,73 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
 
 export const ontologyID = (key: Key): ontology.ID =>
   new ontology.ID({ type: ONTOLOGY_TYPE, key });
+
+const executeCommand = async <Args extends {} = UnknownRecord>(
+  frameClient: framer.Client | null,
+  task: Key,
+  type: string,
+  args?: Args,
+): Promise<string> => {
+  if (frameClient == null) throw NOT_CREATED_ERROR;
+  const key = id.create();
+  await frameClient.write(TimeStamp.now(), COMMAND_CHANNEL_NAME, [
+    { args, key, task, type },
+  ]);
+  return key;
+};
+
+const executeCommandSync = async <
+  Args extends {} = UnknownRecord,
+  Details extends {} = UnknownRecord,
+>(
+  frameClient: framer.Client | null,
+  task: Key,
+  type: string,
+  timeout: CrudeTimeSpan,
+  tskName: string | Promise<string>,
+  args?: Args,
+): Promise<State<Details>> => {
+  if (frameClient == null) throw NOT_CREATED_ERROR;
+  const streamer = await frameClient.openStreamer(STATE_CHANNEL_NAME);
+  const cmdKey = await executeCommand(frameClient, task, type, args);
+  const timeOut = new TimeSpan(timeout);
+
+  let timeoutID: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutID = setTimeout(() => {
+      void (async () =>
+        reject(await formatTimeoutError(type, tskName, timeOut, task)))();
+    }, timeOut.milliseconds);
+  });
+  try {
+    while (true) {
+      const frame = await Promise.race([streamer.read(), timeoutPromise]);
+      const state = stateZ.parse(frame.at(-1)[STATE_CHANNEL_NAME]);
+      if (state.key === cmdKey) return state as State<Details>;
+    }
+  } finally {
+    clearTimeout(timeoutID);
+    streamer.close();
+  }
+};
+
+const formatTimeoutError = async (
+  type: string,
+  name: string | Promise<string>,
+  timeout: TimeSpan,
+  key: Key,
+): Promise<Error> => {
+  const formattedType = caseconv.capitalize(type);
+  const formattedTimeout = timeout.toString();
+  try {
+    const name_ = typeof name === "string" ? name : await name;
+    return new Error(
+      `${formattedType} command to ${name_} timed out after ${formattedTimeout}`,
+    );
+  } catch (e) {
+    console.error("Failed to retrieve task name for timeout error:", e);
+    return new Error(
+      `${formattedType} command to task with key ${key} timed out after ${formattedTimeout}`,
+    );
+  }
+};
