@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/device/Select";
-export * from "@/hardware/device/useDeleteTracker";
-export * from "@/hardware/device/useSetTracker";
-export * from "@/hardware/device/useStateSynchronizer";
+import { device } from "@synnaxlabs/client";
+
+import { Synch } from "@/synch";
+
+export const useDeleteTracker = (onDelete: (key: device.Key) => void) =>
+  Synch.useTracker(device.DELETE_CHANNEL_NAME, device.keyZ, onDelete);
