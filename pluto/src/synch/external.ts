@@ -10,4 +10,4 @@
 export * from "@/synch/Provider";
 export * from "@/synch/types";
 export * from "@/synch/useAddListener";
-export * from "@/synch/useStateChannel";
+export * from "@/synch/useTracker";

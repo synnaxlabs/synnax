@@ -8,24 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { useEffect } from "react";
 import { type z } from "zod";
 
-import { useAsyncEffect } from "@/hooks";
 import { useAddListener } from "@/synch/useAddListener";
-import { Synnax } from "@/synnax";
 
-export const useStateChannel = <Z extends z.ZodTypeAny>(
+export const useTracker = <Z extends z.ZodTypeAny>(
   channel: channel.Name,
   schema: Z,
-  onStateUpdate: (state: z.output<Z>) => void,
+  onUpdate: (value: z.output<Z>) => void,
 ): void => {
-  const client = Synnax.use();
   const addListener = useAddListener();
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    return addListener({
-      channels: channel,
-      handler: (frame) => frame.get(channel).parseJSON(schema).forEach(onStateUpdate),
-    });
-  }, [client, addListener, channel, schema, onStateUpdate]);
+  useEffect(
+    () =>
+      addListener({
+        channels: channel,
+        handler: (frame) => frame.get(channel).parseJSON(schema).forEach(onUpdate),
+      }),
+    [addListener, channel, schema, onUpdate],
+  );
 };
