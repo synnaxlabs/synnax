@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, ranger } from "@synnaxlabs/client";
+import { type channel, type ranger } from "@synnaxlabs/client";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -18,7 +18,7 @@ import {
 
 import { type Aliases, Context } from "@/channel/AliasContext";
 import { useAsyncEffect } from "@/hooks";
-import { Synch } from "@/synch";
+import { Ranger } from "@/ranger";
 import { Synnax } from "@/synnax";
 
 const EMPTY_ALIASES: Aliases = {};
@@ -33,7 +33,6 @@ export const AliasProvider = ({
 }: AliasProviderProps): ReactElement => {
   const client = Synnax.use();
   const [aliases, setAliases] = useState<Aliases>(EMPTY_ALIASES);
-  const addListener = Synch.useAddListener();
   useAsyncEffect(async () => {
     if (client == null || activeRange == null) {
       setAliases(EMPTY_ALIASES);
@@ -42,31 +41,31 @@ export const AliasProvider = ({
     const rng = await client.ranges.retrieve(activeRange);
     const newAliases = await rng.listAliases();
     setAliases(newAliases);
-    return addListener({
-      channels: [ranger.SET_ALIAS_CHANNEL_NAME, ranger.DELETE_ALIAS_CHANNEL_NAME],
-      handler: (frame) => {
-        // TODO: some type of function that takes in a set channel name and a delete
-        // channel name, and a decoder and returns a FrameHandler
-        const createdAliases: ranger.Alias[] = frame
-          .get(ranger.SET_ALIAS_CHANNEL_NAME)
-          .parseJSON(ranger.aliasZ);
-        const deletedAliases: ranger.DecodedDeleteAliasChange[] = frame
-          .get(ranger.DELETE_ALIAS_CHANNEL_NAME)
-          .series.flatMap((s) => s.toStrings())
-          .map(ranger.decodeDeleteAliasChange);
-        setAliases((prevAliases) => {
-          const nextAliases: Aliases = { ...prevAliases };
-          deletedAliases.forEach(({ channel, range }) => {
-            if (range === activeRange) delete nextAliases[channel];
-          });
-          createdAliases.forEach(({ alias, channel, range }) => {
-            if (range === activeRange) nextAliases[channel] = alias;
-          });
-          return nextAliases;
-        });
-      },
-    });
   }, [client, activeRange]);
+
+  const handleAliasSet = useCallback(
+    ({ alias, channel, range }: ranger.Alias) =>
+      setAliases((prevAliases) => {
+        if (range !== activeRange) return prevAliases;
+        const nextAliases = { ...prevAliases };
+        nextAliases[channel] = alias;
+        return nextAliases;
+      }),
+    [activeRange],
+  );
+  Ranger.useAliasSetSynchronizer(handleAliasSet);
+
+  const handleAliasDelete = useCallback(
+    ({ channel, range }: ranger.DecodedDeleteAliasChange) =>
+      setAliases((prevAliases) => {
+        if (range !== activeRange) return prevAliases;
+        const nextAliases = { ...prevAliases };
+        delete nextAliases[channel];
+        return nextAliases;
+      }),
+    [activeRange],
+  );
+  Ranger.useAliasDeleteSynchronizer(handleAliasDelete);
 
   const setAlias = useCallback(
     async (key: channel.Key, alias: string) => {
