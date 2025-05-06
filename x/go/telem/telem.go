@@ -412,9 +412,6 @@ func (ts TimeSpan) Truncate(unit TimeSpan) TimeSpan {
 	return ts / unit * unit
 }
 
-// RawString returns the timespan in nanoseconds.
-func (ts TimeSpan) RawString() string { return strconv.Itoa(int(ts)) + "ns" }
-
 const (
 	Nanosecond    = TimeSpan(1)
 	NanosecondTS  = TimeStamp(1)
