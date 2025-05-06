@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Status, Synnax } from "@synnaxlabs/pluto";
+import { isTauri } from "@tauri-apps/api/core";
 import { type DialogFilter, save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useStore } from "react-redux";
@@ -29,13 +30,30 @@ export const use = (
     try {
       const extractorReturn = await extract(key, { store, client });
       name = extractorReturn.name;
-      const savePath = await save({
-        title: `Export ${name}`,
-        defaultPath: `${name}.json`,
-        filters: FILTERS,
-      });
-      if (savePath == null) return;
-      await writeTextFile(savePath, extractorReturn.data);
+
+      if (isTauri()) {
+        const savePath = await save({
+          title: `Export ${name}`,
+          defaultPath: `${name}.json`,
+          filters: FILTERS,
+        });
+        if (savePath == null) return;
+        await writeTextFile(savePath, extractorReturn.data);
+      } else {
+        // Download by creating + clicking a hidden download link
+        const blob = new Blob([extractorReturn.data], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${name}.json`;
+        document.body.appendChild(a);
+        a.style.display = "none";
+        a.click();
+        document.body.removeChild(a);
+
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+      }
     } catch (e) {
       handleError(e, `Failed to export ${name ?? type}`);
     }
