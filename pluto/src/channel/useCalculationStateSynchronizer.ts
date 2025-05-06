@@ -14,7 +14,7 @@ import { Synch } from "@/synch";
 export const useCalculationStateSynchronizer = (
   onStateUpdate: (state: channel.CalculationState) => void,
 ): void =>
-  Synch.useStateChannel(
+  Synch.useTracker(
     channel.CALCULATION_STATE_CHANNEL_NAME,
     channel.calculationStateZ,
     onStateUpdate,
