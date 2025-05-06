@@ -125,13 +125,15 @@ def clamp_pts(state: dict[str, float]):
 OX_MPV_LAST_OPEN = None
 FUEL_MPV_LAST_OPEN = None
 
+loop = sy.Loop(sy.Rate.HZ * 3, precise=True)
+
 with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
     with client.open_writer(
         sy.TimeStamp.now(),
         channels=[*SENSORS, *[state for state in VALVES.values()], DAQ_TIME],
         enable_auto_commit=True,
     ) as writer:
-        while True:
+        while loop.wait():
             try:
                 while True:
                     frame = streamer.read(0)

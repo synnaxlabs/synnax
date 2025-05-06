@@ -21,7 +21,7 @@ import { describe, expect, it, type Mock, vi } from "vitest";
 import { Cache } from "@/telem/client/cache/cache";
 import { Reader, type ReadRemoteFunc } from "@/telem/client/reader";
 
-class MockRetriever implements channel.Retriever {
+export class MockRetriever implements channel.Retriever {
   async search(): Promise<channel.Payload[]> {
     throw new Error("Method not implemented.");
   }
