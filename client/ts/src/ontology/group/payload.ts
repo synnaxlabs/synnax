@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-export const keyZ = z.string().uuid();
+export const keyZ = uuid.uuidZ;
 export type Key = z.infer<typeof keyZ>;
 export const nameZ = z.string();
 export type Name = z.infer<typeof nameZ>;

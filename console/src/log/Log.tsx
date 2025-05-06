@@ -12,9 +12,8 @@ import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
-import { deep, primitiveIsZero, TimeSpan } from "@synnaxlabs/x";
+import { deep, primitiveIsZero, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
-import { v4 as uuid } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
@@ -142,7 +141,7 @@ export const create =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Log", location = "mosaic", window, tab, ...rest } = initial;
-    const key = log.keyZ.safeParse(initial.key).data ?? uuid();
+    const key = log.keyZ.safeParse(initial.key).data ?? uuid.create();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,

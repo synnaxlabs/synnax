@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type MatchableErrorType } from "@synnaxlabs/freighter/src/errors";
-import { id } from "@synnaxlabs/x";
-import { v4 as uuid } from "uuid";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -60,7 +59,7 @@ test("client", async () => {
     expect(NotFoundError.matches(e)).toBe(true);
   }
   try {
-    await client.workspaces.schematic.retrieve(uuid());
+    await client.workspaces.schematic.retrieve(uuid.create());
   } catch (e) {
     expect(NotFoundError.matches(e)).toBe(true);
   }
