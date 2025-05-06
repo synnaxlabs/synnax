@@ -11,5 +11,5 @@ import { device } from "@synnaxlabs/client";
 
 import { Synch } from "@/synch";
 
-export const useDeleteTracker = (onDelete: (key: device.Key) => void) =>
+export const useDeleteTracker = (onDelete: (key: device.Key) => void): void =>
   Synch.useTracker(device.DELETE_CHANNEL_NAME, device.keyZ, onDelete);

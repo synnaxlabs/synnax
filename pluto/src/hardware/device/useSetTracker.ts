@@ -11,5 +11,5 @@ import { device } from "@synnaxlabs/client";
 
 import { Synch } from "@/synch";
 
-export const useSetTracker = (onSet: (device: device.Device) => void) =>
+export const useSetTracker = (onSet: (device: device.Device) => void): void =>
   Synch.useTracker(device.SET_CHANNEL_NAME, device.deviceZ, onSet);
