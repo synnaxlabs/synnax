@@ -1,82 +1,59 @@
-<br />
-<p align="center">
-    <a href="https://synnaxlabs.com/">
-        <img src="x/media/static/logo/icon-white-padded.png" width="20%"/>
-    </a>
-    <br />
-    <br />
-    <a href="https://docs.synnaxlabs.com">
-        <img src="https://img.shields.io/badge/_-documentation-3b84e5?style=for-the-badge&link=https://docs.synnaxlabs.com&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAQAAAC1QeVaAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QA/4ePzL8AAAAJcEhZcwAALiMAAC4jAXilP3YAAAAHdElNRQfmCg0KKDIsDui/AAAA2UlEQVQY023QLUtDARjF8ecOp4jrirCiIJgMCybLikUsBoPBaFkWBKNpyWhZMi74An4DMSkoLIgYLKKiMMbmS9rPcG+4u3rq/5zD85yITEJo6NsRoiCh6hbXZv1BYR8M7RaywqInNxruPFowgkoOfVkXNnxrKslVLnvXNilMOfWmllULE451rUiNdT0tZVluVd+RMam1rKWnnsKKC8+W0iIh1Lw6UQlh048Difx5TZ+2w7RLD+aMPjbvSifsGTozrjhJ1VbiJWaiG+34iCTHO3Eeg3DvPw2siV92RsVo+XSmkwAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyMi0xMC0xM1QxMDo0MDo1MCswMDowMIzzdxUAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjItMTAtMTNUMTA6NDA6NTArMDA6MDD9rs+pAAAAAElFTkSuQmCC" />
-    </a>
-</p>
+<a href="https://synnaxlabs.com/" style="display: flex; justify-content: center;">
+    <img src="x/media/static/logo/icon-white-padded.png" width="20%"/>
+</a>
 
 # Synnax
 
-The software infrastructure for data driven hardware teams.
+Synnax is an observability and control platform designed for high-performance hardware
+teams. Synnax aims to control the entire data lifecycle, from reading data from a sensor
+to writing bytes to a file, including a visualization engine and mechanisms for
+real-time propagation of data, allowing for the control of hardware. Synnax can be
+accessed both programatically through our client libraries and visually through our
+Console application.
 
-- [Synnax](#synnax)
-- [What is Synnax?](#what-is-synnax)
-- [Development Status](#development-status)
-- [How to Contribute](#how-to-contribute)
-- [Repository Organization](#repository-organization)
+## Documentation
 
-# What is Synnax?
+All official documentation can be found on our [website](https://docs.synnaxlabs.com).
+If you are interested in building on top of Synnax, please read our
+[Contributing Guide](docs/CONTRIBUTING.md) and our [technical documentation](docs/tech).
 
-Synnax is for real-time hardware operations teams dissatisfied with the long,
-inefficient cycles between acquiring data and using it to make actionable decisions.
-Unlike traditional systems that disregard data handling beyond writing to a file, Synnax
-considers the entire data lifecycle; its modular, open architecture delivers locality
-aware distributed data storage and transport, extensible interfaces for integrating
-analysis tools, and a performant pipeline for manual and programmatic control at any
-scale.
+## Development Status
 
-# Development Status
+Synnax is currently under active development. The APIs are stable and are unlikely to
+change significantly.
 
-Synnax is currently in beta and is under active development. The APIs are stable
-and are unlikely to change significantly.
+Releases follow [semantic versioning](https://semver.org/). Versions with the same minor
+version number (e.g. 0.40.1 and 0.40.2) are guaranteed to maintain the same API, while
+releases with different minor version numbers (e.g. 0.40.0 and 0.41.0) may change APIs.
 
-Versions prior to 1.x.x follow modified Semantic Versioning. Versions with the same
-patch (e.g. 0.0.1 and 0.0.2) are guaranteed to maintain the same API, while minor
-versions may include API changes.
+Our team is targeting a v1 release before the end of 2025, at which point all APIs will
+be considered stable and will not change until a v2 release.
 
-Our team is targeting a v1 release before the end of 2024, at which point all APIs
-will be stable and follow strict semantic versioning.
+## Repository Organization
 
-# Repository Organization
+Synnax is built as a collection of several projects, all of which are collected in this
+monorepo. The following is a summary of each:
 
-Synnax is built as a collection of several projects, all of which are collected
-in this monorepo. The following is an alphabetically sorted summary of each:
-
-- [Alamos](alamos) - Dependency injected code instrumentation that provides
+- [Alamos](alamos) - Dependency-injected code instrumentation that provides
   observability into the Synnax platform.
-- [Aspen](aspen) - A gossip based distributed key-value store used for propagating and
-  persisting metadata between nodes, such cluster topology, state, and configuration.
-- [Cesium](cesium) - An embedded time-series engine optimized for high performance reads
-  and writes of time-series sensor data.
-- [Client](client) - Client libraries for synnax available in multiple languages.
-- [Console](console) - Data visualization and cluster management user interface for Windows,
-  macOS, and Linux.
-- [Documentation Site](docs/site) - The user-facing documentation for Synnax. Contains
-  the code for the Synnax documentation website, technical RFCs, and additional media
-  such as logos.
-- [Freighter](freighter) - A protocol agnostic network transport for cross-language
-  unary and streaming communication with implementations in several languages.
-- [Pluto](pluto) - A component library for building modular user interfaces on top of
-  the Synnax telemetry engine.
-- [Synnax](synnax) - The core Synnax server, which integrates all other services to
-  provide a complete telemetry system.
-- [ X](x) - Common utilities used by other projects. The most relevant are:
-  - [Telem](x/go/telem) - Core telemetry primitives used across the Synnax stack
-    (timestamps, data types, arrays, etc.)
-  - [Confluence](x/go/confluence) -
-    Assemble and run concurrent data processing and message passing pipelines.
-  - [Gorp](x/go/gorp) - Efficient querying of go-types to and from a key-value store.
-  - [Signal](x/go/signal) - A library for controlling goroutine lifecycle.
-
-# Attributions
-
-This project includes components from other open-source projects.
-
-- [cockroachdb/pebble](github.com/cockroachdb/pebble) - A RocksDB inspired key-value store
-  in Go.
-  - License: [BSD-3-Clause](https://github.com/cockroachdb/pebble/blob/master/LICENSE)
+- [Aspen](aspen) - A gossip-based distributed key-value store used for propagating and
+  persisting metadata between nodes, such as cluster topology, state, and configuration.
+- [Cesium](cesium) - An embedded time series database engine optimized for
+  high-performance reads and writes of time series sensor data.
+- [Client](client) - Client libraries for communicating with the Synnax server in C++,
+  Python, and TypeScript.
+- [Console](console) - A data-visualization and graphical control application for macOS
+  and Windows.
+- [Documentation Site](docs/site) - The code for the Synnax documentation website.
+- [Technical Documentation](docs/tech) - Technical documentation such as RFCs and
+  contribution guides.
+- [Driver](driver) - An application that can connect to LabJack or National Instruments
+  hardware or OPC UA servers and run control sequences on real-time operating systems.
+- [Freighter](freighter) - A protocol-agnostic network transport for cross-language
+  unary and streaming communication with implementations in several languages (C++, Go,
+  Python, and TypeScript) and protocols (GRPC, HTTP, and WebSockets).
+- [Pluto](pluto) - A React component library for building modular user interfaces on top
+  of the Synnax telemetry engine.
+- [Synnax](synnax) - The core Synnax server, which integrates Aspen and Cesium to
+  provide a unified telemetry system.
+- [X](x) - Common utilities used by other projects.
