@@ -90,8 +90,14 @@ class TestCodec:
             ),
             Spec(
                 name="Only One Channel Present",
-                channels=[1,2,3,4,5],
-                data_types=[DataType.UINT8, DataType.UINT8, DataType.UINT8, DataType.UINT8, DataType.UINT8],
+                channels=[1, 2, 3, 4, 5],
+                data_types=[
+                    DataType.UINT8,
+                    DataType.UINT8,
+                    DataType.UINT8,
+                    DataType.UINT8,
+                    DataType.UINT8,
+                ],
                 frame=Frame(
                     channels=[3],
                     series=[
@@ -99,7 +105,6 @@ class TestCodec:
                     ],
                 ),
             ),
-
             Spec(
                 name="All Same Time Range",
                 channels=[1, 2],
