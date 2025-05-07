@@ -528,6 +528,7 @@ export class Root extends Composite<typeof aetherRootState> {
      * updates.
      */
     root.comms.handle((msg) => {
+      console.log(msg, root.mu.isLocked());
       void root.mu.runExclusive(async () => {
         await root.handle(msg);
       });
@@ -540,13 +541,17 @@ export class Root extends Composite<typeof aetherRootState> {
    * aether tree.
    */
   private async handle(msg: MainMessage): Promise<void> {
-    const { path, variant, type } = msg;
-    if (variant === "delete") await this._delete(path);
-    else
-      await this._updateState(path, msg.state, (parentCtxValues) => {
-        const key = path[path.length - 1];
-        return this.create({ key, type, parentCtxValues });
-      });
+    try {
+      const { path, variant, type } = msg;
+      if (variant === "delete") await this._delete(path);
+      else
+        await this._updateState(path, msg.state, (parentCtxValues) => {
+          const key = path[path.length - 1];
+          return this.create({ key, type, parentCtxValues });
+        });
+    } catch (e) {
+      console.error("failed to handle message", { error: e, msg });
+    }
   }
 
   /** Creates a new component from the registry */

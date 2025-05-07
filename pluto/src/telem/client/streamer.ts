@@ -11,7 +11,7 @@ import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type framer } from "@synnaxlabs/client";
 import {
   type AsyncDestructor,
-  breaker,
+  type breaker,
   compare,
   type CrudeTimeSpan,
   nullToArr,
@@ -35,21 +35,9 @@ interface ListenerEntry {
 interface StreamerProps {
   cache: Cache;
   instrumentation?: alamos.Instrumentation;
-  core: StreamClient;
+  openStreamer: framer.StreamOpener;
   streamUpdateDelay?: CrudeTimeSpan;
   breakerConfig?: breaker.Config;
-}
-
-export interface CoreStreamer {
-  update: (keys: channel.Keys) => Promise<void>;
-  close: () => void;
-  keys: channel.Keys;
-  next: () => Promise<IteratorResult<framer.Frame>>;
-  [Symbol.asyncIterator](): AsyncIterator<framer.Frame>;
-}
-
-export interface StreamClient {
-  openStreamer: (keys: channel.Keys) => Promise<CoreStreamer>;
 }
 
 export class Streamer {
@@ -63,7 +51,7 @@ export class Streamer {
   private readonly mu: Mutex = new Mutex();
   private readonly listeners = new Map<StreamHandler, ListenerEntry>();
   private streamerRunLoop: Promise<void> | null = null;
-  private streamer: CoreStreamer | null = null;
+  private streamer: framer.Streamer | null = null;
   private closed = false;
 
   constructor(props: StreamerProps) {
@@ -129,39 +117,41 @@ export class Streamer {
   private async updateStreamer(): Promise<void> {
     if (this.closed) return;
     const { instrumentation: ins } = this.props;
-    // Assemble the set of keys we need to stream.
-    const keys = new Set<channel.Key>();
-    this.listeners.forEach((v) => v.keys.forEach((k) => keys.add(k)));
-
-    // If we have no keys to stream, close the streamer to save network chatter.
-    if (keys.size === 0) {
-      ins.L.info("no keys to stream, closing streamer");
-      this.streamer?.close();
-      if (this.streamerRunLoop != null) await this.streamerRunLoop;
-      this.streamer = null;
-      ins.L.info("streamer closed successfully");
-      return;
-    }
-
-    const arrKeys = Array.from(keys);
-    if (compare.primitiveArrays(arrKeys, this.streamer?.keys ?? []) === compare.EQUAL) {
-      ins.L.debug("streamer keys unchanged", { keys: arrKeys });
-      return;
-    }
-
-    // Update or create the streamer.
-    if (this.streamer == null) {
-      ins.L.info("creating new streamer", { keys: arrKeys });
-      this.streamer = await this.props.core.openStreamer(arrKeys);
-      this.streamerRunLoop = this.runStreamer(this.streamer);
-    }
-
-    ins.L.debug("updating streamer", { prev: this.streamer.keys, next: arrKeys });
-
     try {
+      // Assemble the set of keys we need to stream.
+      const keys = new Set<channel.Key>();
+      this.listeners.forEach((v) => v.keys.forEach((k) => keys.add(k)));
+
+      // If we have no keys to stream, close the streamer to save network chatter.
+      if (keys.size === 0) {
+        ins.L.info("no keys to stream, closing streamer");
+        this.streamer?.close();
+        if (this.streamerRunLoop != null) await this.streamerRunLoop;
+        this.streamer = null;
+        ins.L.info("streamer closed successfully");
+        return;
+      }
+
+      const arrKeys = Array.from(keys);
+      if (
+        compare.primitiveArrays(arrKeys, this.streamer?.keys ?? []) === compare.EQUAL
+      ) {
+        ins.L.debug("streamer keys unchanged", { keys: arrKeys });
+        return;
+      }
+
+      // Update or create the streamer.
+      if (this.streamer == null) {
+        ins.L.info("creating new streamer", { keys: arrKeys });
+        this.streamer = await this.props.openStreamer(arrKeys);
+        this.streamerRunLoop = this.runStreamer(this.streamer);
+      }
+
+      ins.L.debug("updating streamer", { prev: this.streamer.keys, next: arrKeys });
+
       await this.streamer.update(arrKeys);
     } catch (e) {
-      ins.L.error("failed to update streamer", { error: e });
+      console.error("failed to update streamer", { error: e });
       throw e;
     }
   }
@@ -177,8 +167,8 @@ export class Streamer {
     });
   }
 
-  private async runStreamer(streamer: CoreStreamer): Promise<void> {
-    const { cache, instrumentation: ins } = this.props;
+  private async runStreamer(streamer: framer.Streamer): Promise<void> {
+    const { cache } = this.props;
     try {
       for await (const frame of streamer) {
         const changed: ReadResponse[] = [];
@@ -197,84 +187,12 @@ export class Streamer {
   }
 
   async close(): Promise<void> {
-    this.streamer?.close();
-    if (this.streamerRunLoop != null) await this.streamerRunLoop;
+    try {
+      this.streamer?.close();
+      if (this.streamerRunLoop != null) await this.streamerRunLoop;
+    } catch (e) {
+      console.error("failed to close streamer", { error: e });
+    }
     this.closed = true;
-  }
-}
-
-class HardenedStreamer implements CoreStreamer {
-  private wrapped_: CoreStreamer | null = null;
-  private readonly breaker: breaker.Breaker;
-  private readonly client: StreamClient;
-  keys: channel.Keys;
-
-  constructor(
-    client: StreamClient,
-    keys: channel.Keys,
-    breakerConfig?: breaker.Config,
-  ) {
-    this.client = client;
-    this.breaker = new breaker.Breaker(breakerConfig);
-    this.keys = keys;
-  }
-
-  static async open(
-    client: StreamClient,
-    keys: channel.Keys,
-    config?: breaker.Config,
-  ): Promise<HardenedStreamer> {
-    const h = new HardenedStreamer(client, keys, {
-      baseInterval: TimeSpan.seconds(1),
-      maxRetries: 1000,
-      scale: 1,
-    });
-    await h.runStreamer();
-    return h;
-  }
-
-  private async runStreamer(): Promise<void> {
-    while (true)
-      try {
-        this.wrapped_ = await this.client.openStreamer(this.keys);
-        return;
-      } catch (e) {
-        if (!(await this.breaker.wait())) throw e;
-        continue;
-      }
-  }
-
-  private get wrapped(): CoreStreamer {
-    if (this.wrapped_ == null) throw new Error("stream closed");
-    return this.wrapped_;
-  }
-
-  async update(keys: channel.Keys): Promise<void> {
-    this.keys = keys;
-    await this.runStreamer();
-    try {
-      await this.wrapped.update(keys);
-    } catch (e) {
-      if (!(await this.breaker.wait())) throw e;
-      await this.runStreamer();
-      throw e;
-    }
-  }
-
-  async next(): Promise<IteratorResult<framer.Frame>> {
-    try {
-      return await this.wrapped.next();
-    } catch (e) {
-      await this.runStreamer();
-      return await this.next();
-    }
-  }
-
-  close(): void {
-    this.wrapped.close();
-  }
-
-  [Symbol.asyncIterator](): AsyncIterator<framer.Frame> {
-    return this;
   }
 }

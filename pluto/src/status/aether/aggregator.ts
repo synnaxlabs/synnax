@@ -23,6 +23,7 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   schema = aggregatorStateZ;
 
   async afterUpdate(ctx: aether.Context): Promise<void> {
+    if (ctx.wasSetPreviously(CONTEXT_KEY)) return;
     ctx.set(CONTEXT_KEY, this);
   }
 

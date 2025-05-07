@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { type channel, QueryError, type Synnax } from "@synnaxlabs/client";
+import { type channel, framer, QueryError, type Synnax } from "@synnaxlabs/client";
 import { type AsyncDestructor, id, type TimeRange } from "@synnaxlabs/x";
 
 import { cache } from "@/telem/client/cache";
@@ -119,12 +119,13 @@ export class Core implements Client {
     });
     this.reader = new Reader({
       cache: this.cache,
-      readRemote: async (tr, keys) => await core.read(tr, keys),
+      readRemote: core.read.bind(core),
       instrumentation: this.ins.child("reader"),
     });
     this.streamer = new Streamer({
       cache: this.cache,
-      core,
+      openStreamer: async (keys) =>
+        framer.HardenedStreamer.open(core.openStreamer.bind(core), keys),
       instrumentation: this.ins.child("streamer"),
     });
   }
@@ -150,6 +151,7 @@ export class Core implements Client {
 
   /** Implements Client. */
   async close(): Promise<void> {
+    console.log("closing client");
     this.ins.L.info("closing client", { key: this.key });
     await this.streamer.close();
     this.cache.close();

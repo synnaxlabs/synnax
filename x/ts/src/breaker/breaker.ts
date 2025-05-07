@@ -13,13 +13,15 @@ import { sleep } from "@/sleep";
 import { type CrudeTimeSpan, TimeSpan } from "@/telem";
 
 export class Breaker {
-  private readonly config: Required<Config>;
+  private readonly config: Omit<Required<Config>, "baseInterval"> & {
+    baseInterval: TimeSpan;
+  };
   private retries: number;
   private interval: TimeSpan;
 
   constructor(cfg?: Config) {
     this.config = {
-      baseInterval: cfg?.baseInterval ?? TimeSpan.seconds(1),
+      baseInterval: new TimeSpan(cfg?.baseInterval ?? TimeSpan.seconds(1)),
       maxRetries: cfg?.maxRetries ?? 5,
       scale: cfg?.scale ?? 1,
       sleepFn: cfg?.sleepFn ?? sleep.sleep,
@@ -39,7 +41,7 @@ export class Breaker {
 
   reset() {
     this.retries = 0;
-    this.interval = new TimeSpan(this.config.baseInterval);
+    this.interval = this.config.baseInterval;
   }
 }
 
