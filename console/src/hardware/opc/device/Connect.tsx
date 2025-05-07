@@ -22,7 +22,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, status } from "@synnaxlabs/x";
+import { deep, status, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { v4 as uuid } from "uuid";
@@ -96,11 +96,12 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       if (scanTasks.length === 0)
         throw new UnexpectedError(`No scan task found for driver ${rack.name}`);
       const task = scanTasks[0];
-      const state = await task.executeCommandSync<TestConnectionCommandResponse>(
-        TEST_CONNECTION_COMMAND_TYPE,
-        { connection: methods.get("connection").value },
-        TimeSpan.seconds(10),
-      );
+      const state = await task.executeCommandSync<
+        UnknownRecord,
+        TestConnectionCommandResponse
+      >(TEST_CONNECTION_COMMAND_TYPE, TimeSpan.seconds(10), {
+        connection: methods.get("connection").value,
+      });
       setConnectionState(state);
     },
   });

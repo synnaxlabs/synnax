@@ -246,9 +246,11 @@ const Internal = ({ root }: InternalProps): ReactElement => {
             }
           }
           const deletes = frame.get(ontology.RESOURCE_DELETE_CHANNEL_NAME);
-          const resourceDeletes = Array.from(deletes.as("string")).map((id) => ({
+          const resourceDeletes: ontology.ResourceChange[] = Array.from(
+            deletes.as("string"),
+          ).map((id) => ({
             key: new ontology.ID(id),
-            variant: "delete" as const,
+            variant: "delete",
           }));
           await handleResourcesChange(
             [...resourceSets, ...resourceDeletes],

@@ -8,19 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type label, ranger, type Synnax } from "@synnaxlabs/client";
+import { ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Icon as PIcon,
+  Label,
   Menu as PMenu,
   Status,
-  Synnax as PSynnax,
+  Synnax,
   Text,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { errors, status, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -39,28 +39,6 @@ import { OVERVIEW_LAYOUT } from "@/range/external";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, type Range, remove, setActive, type StoreState } from "@/range/slice";
 import { type RootState } from "@/store";
-
-export const useParent = (rangeKey: string) => {
-  const client = PSynnax.use();
-  const handleError = Status.useErrorHandler();
-  const [parent, setParent] = useState<ranger.Range | null>();
-  useAsyncEffect(async () => {
-    try {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      const rng = await client.ranges.retrieve(rangeKey);
-      const childRanges = await rng.retrieveParent();
-      setParent(childRanges);
-      const tracker = await rng.openParentRangeTracker();
-      if (tracker == null) return;
-      tracker.onChange((ranges) => setParent(ranges));
-      return async () => await tracker.close();
-    } catch (e) {
-      handleError(e, "Failed to retrieve child ranges");
-      return undefined;
-    }
-  }, [rangeKey, client?.key]);
-  return parent;
-};
 
 export interface SnapshotMenuItemProps {
   range?: Range | null;
@@ -86,7 +64,7 @@ export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] 
 
 export const fetchIfNotInState = async (
   store: Store<StoreState>,
-  client: Synnax,
+  client: Client,
   key: string,
 ): Promise<Range> => {
   const existing = select(store.getState(), key);
@@ -100,7 +78,7 @@ export const fetchIfNotInState = async (
 
 export const useAddToNewPlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
   return useMutation<void, Error, string>({
@@ -117,7 +95,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
 
 const useAddToActivePlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
@@ -200,26 +178,10 @@ export const addChildRangeMenuItem = (
   </PMenu.Item>
 );
 
-export const useLabels = (key: string) => {
-  const client = PSynnax.use();
-  const [labels, setLabels] = useState<label.Label[]>([]);
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const labels = await client.labels.retrieveFor(ranger.ontologyID(key));
-    setLabels(labels ?? []);
-    const labelObs = await client.labels.trackLabelsOf(ranger.ontologyID(key));
-    labelObs?.onChange((changes) => {
-      setLabels(changes);
-    });
-    return async () => {
-      await labelObs?.close();
-    };
-  }, [key]);
-  return labels;
-};
+export const useLabels = (key: string) => Label.use(ranger.ontologyID(key));
 
 export const useViewDetails = (): ((key: string) => void) => {
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const placeLayout = Layout.usePlacer();
   return useMutation<void, Error, string>({
@@ -234,7 +196,7 @@ export const useViewDetails = (): ((key: string) => void) => {
 
 export const useDelete = (name?: string) => {
   const dispatch = useDispatch();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const remover = Layout.useRemover();
   const ranges = useSelectMultiple();
   const handleRemove = (keys: string[]): void => {
@@ -270,7 +232,7 @@ export const useDelete = (name?: string) => {
 
 export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   const dispatch = useDispatch();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const ranges = useSelectMultiple();
   const handleCreate = (key?: string): void => {
     placeLayout(createCreateLayout({ key }));

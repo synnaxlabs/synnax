@@ -7,80 +7,43 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, ontology, type rack } from "@synnaxlabs/client";
+import { type device, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Device, Rack, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Align, Device, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import {
-  createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
-  useState as reactUseState,
+  useState,
 } from "react";
 
 import { Cluster } from "@/cluster";
 import { Toolbar } from "@/components";
+import { StateContext, type States } from "@/hardware/device/StateContext";
+import { Rack } from "@/hardware/rack";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
-export interface DeviceStates extends Record<device.Key, device.State> {}
-
-const StateContext = createContext<DeviceStates>({});
-
 const StateProvider = (props: PropsWithChildren) => {
   const client = Synnax.use();
-  const [states, setStates] = reactUseState<DeviceStates>({});
+  const [states, setStates] = useState<States>({});
   useAsyncEffect(async () => {
     if (client == null) return;
     const devices = await client.hardware.devices.retrieve([], { includeState: true });
-    const initialStates: DeviceStates = Object.fromEntries(
+    const initialStates: States = Object.fromEntries(
       devices
         .filter(({ state }) => state != null)
         .map(({ key, state }) => [key, state as device.State]),
     );
     setStates(initialStates);
   }, [client]);
-
   const handleStateUpdate = useCallback((state: device.State) => {
     setStates((prevStates) => ({ ...prevStates, [state.key]: state }));
   }, []);
   Device.useStateSynchronizer(handleStateUpdate);
   return <StateContext {...props} value={states} />;
 };
-
-interface RackStates extends Record<string, rack.State> {}
-
-const RackStateContext = createContext<RackStates>({});
-
-const RackStateProvider = (props: PropsWithChildren) => {
-  const client = Synnax.use();
-  const [states, setStates] = reactUseState<RackStates>({});
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const racks = await client.hardware.racks.retrieve([], { includeState: true });
-    const initialStates: RackStates = Object.fromEntries(
-      racks
-        .filter(({ state }) => state != null)
-        .map(({ key, state }) => [key, state as rack.State]),
-    );
-    setStates(initialStates);
-  }, [client]);
-
-  const handleStateUpdate = useCallback((state: rack.State) => {
-    setStates((prevStates) => ({ ...prevStates, [state.key]: state }));
-  }, []);
-  Rack.useStateSynchronizer(handleStateUpdate);
-
-  return <RackStateContext {...props} value={states} />;
-};
-
-export const useRackState = (key: string): rack.State | undefined =>
-  use(RackStateContext)[key];
-
-export const useState = (key: device.Key): device.State | undefined =>
-  use(StateContext)[key];
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
@@ -98,14 +61,14 @@ const Content = (): ReactElement => {
   return (
     <Cluster.NoneConnectedBoundary>
       <StateProvider>
-        <RackStateProvider>
+        <Rack.StateProvider>
           <Align.Space empty style={{ height: "100%" }}>
             <Toolbar.Header>
               <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
             </Toolbar.Header>
             <Ontology.Tree root={group.data} />
           </Align.Space>
-        </RackStateProvider>
+        </Rack.StateProvider>
       </StateProvider>
     </Cluster.NoneConnectedBoundary>
   );

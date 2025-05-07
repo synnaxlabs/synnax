@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
-import { Synch, useSyncedRef } from "@synnaxlabs/pluto";
+import { type task } from "@synnaxlabs/client";
+import { Task, useSyncedRef } from "@synnaxlabs/pluto";
 import { status as xstatus } from "@synnaxlabs/x";
 import { useCallback, useState as useReactState } from "react";
 
@@ -68,19 +68,19 @@ export const useState = <D extends StateDetails>(
   initialState?: task.State<D>,
 ): UseStateReturn => {
   const [state, setState] = useReactState<State>(() => parseState(initialState));
-  const status = state.status;
+  const { status } = state;
   const keyRef = useSyncedRef(key);
   const statusRef = useSyncedRef(status);
   const handleStateUpdate = useCallback((state: task.State) => {
     if (state.task !== keyRef.current) return;
     setState(parseState(state as task.State<D>));
   }, []);
-  Synch.useStateChannel(task.STATE_CHANNEL_NAME, task.stateZ, handleStateUpdate);
+  Task.useStateSynchronizer(handleStateUpdate);
   const handleCommandUpdate = useCallback(({ task, type }: task.Command) => {
     if (task !== keyRef.current) return;
     if (shouldExecuteCommand(statusRef.current, type)) setState(LOADING_STATE);
   }, []);
-  Synch.useStateChannel(task.COMMAND_CHANNEL_NAME, task.commandZ, handleCommandUpdate);
+  Task.useCommandSynchronizer(handleCommandUpdate);
   const triggerLoading = useCallback(() => setState(LOADING_STATE), []);
   const triggerError = useCallback(
     (message: string) =>

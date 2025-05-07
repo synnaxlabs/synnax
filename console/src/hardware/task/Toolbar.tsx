@@ -16,7 +16,6 @@ import {
   Button,
   List,
   Menu as PMenu,
-  Observe,
   Status,
   Synnax,
   Task,
@@ -77,6 +76,7 @@ const sugarTask = (task: task.Task): SugaredTask => {
   }
 
   const state: SugaredState = {
+    key: "",
     variant: xstatus.SUCCESS_VARIANT,
     task: task.key,
     details: { status: Common.Task.PAUSED_STATUS },
@@ -197,42 +197,26 @@ const Content = () => {
     });
   }, []);
   Task.useStateSynchronizer(handleStateUpdate);
-  Observe.useListener({
-    key: [client?.key],
-    open: async () => client?.hardware.tasks.openTracker(),
-    onChange: (update) => {
-      if (client == null) return;
-      const removed = new Set(
-        update.filter(({ variant }) => variant === "delete").map(({ key }) => key),
-      );
-      const addedOrUpdated = update
-        .filter(({ variant }) => variant === "set")
-        .map(({ key }) => key);
+  const handleSet = useCallback(
+    (key: task.Key) => {
       handleError(async () => {
-        const changedTasks = await client.hardware.tasks.retrieve(addedOrUpdated, {
-          includeState: true,
-        });
-        const sugaredChangedTasks = changedTasks
-          .filter(({ internal, snapshot }) => !internal && !snapshot)
-          .map(sugarTask);
-        const changedTasksMap = new Map<task.Key, SugaredTask>();
-        sugaredChangedTasks.forEach((task) => {
-          changedTasksMap.set(task.key, task);
-        });
+        if (client == null) throw NULL_CLIENT_ERROR;
+        const tk = await client.hardware.tasks.retrieve(key, { includeState: true });
         setTasks((prev) => {
-          const next = prev
-            .filter(({ key }) => !removed.has(key))
-            .map((t) => changedTasksMap.get(t.key) ?? t);
-          const existingKeys = new Set(next.map(({ key }) => key));
-          return [
-            ...next,
-            ...sugaredChangedTasks.filter(({ key }) => !existingKeys.has(key)),
-          ];
+          const existing = prev.find((t) => t.key === tk.key);
+          if (existing == null) return [...prev, sugarTask(tk)];
+          return prev.map((t) => (t.key === tk.key ? sugarTask(tk) : t));
         });
-        setSelected((prev) => prev.filter((k) => !removed.has(k)));
-      }, "Failed to update task toolbar");
+      }, "Failed to update task toolbar from sy_task_set channel");
     },
-  });
+    [client?.key],
+  );
+  const handleDeletedTasks = useCallback((key: task.Key) => {
+    setTasks((prevTasks) => prevTasks.filter((t) => t.key !== key));
+    setSelected((prev) => prev.filter((k) => k !== key));
+  }, []);
+  Task.useSetSynchronizer(handleSet);
+  Task.useDeleteSynchronizer(handleDeletedTasks);
   const handleCommandUpdate = useCallback(
     ({ task, type }: task.Command) => {
       const status = tasks.find(({ key }) => key === task)?.state.details.status;
@@ -292,8 +276,9 @@ const Content = () => {
       );
       const tasksToExecute = tasks.filter(({ key }) => filteredKeys.has(key));
       tasksToExecute.forEach((t) => {
-        t.executeCommandSync(command, {}, TimeSpan.fromSeconds(10)).catch((e) => {
+        t.executeCommandSync(command, TimeSpan.fromSeconds(10)).catch((e) => {
           const status: task.State = {
+            key: "",
             variant: xstatus.ERROR_VARIANT,
             task: t.key,
             details: { message: e.message },

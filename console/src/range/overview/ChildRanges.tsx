@@ -7,22 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
+import { type ontology, ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   componentRenderProp,
   List,
+  Ontology,
   Ranger,
-  Status,
-  Synnax,
   Text,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { type FC, useState } from "react";
+import { type FC, useMemo } from "react";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
@@ -60,32 +57,20 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
 
 const childRangeListItem = componentRenderProp(ChildRangeListItem);
 
+const filterChild = ({ id: { type } }: ontology.Resource): boolean =>
+  type === ranger.ONTOLOGY_TYPE;
+
 export interface ChildRangesProps {
   rangeKey: string;
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const client = Synnax.use();
+  const children = Ontology.useChildren(ranger.ontologyID(rangeKey), filterChild);
+  const childRanges = useMemo(
+    () => children.map(ranger.Range.convertOntologyResourceToPayload),
+    [children],
+  );
   const placeLayout = Layout.usePlacer();
-  const [childRanges, setChildRanges] = useState<ranger.Range[]>([]);
-  const handleError = Status.useErrorHandler();
-
-  useAsyncEffect(async () => {
-    try {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      const rng = await client.ranges.retrieve(rangeKey);
-      const childRanges = await rng.retrieveChildren();
-      childRanges.sort(ranger.Range.sort);
-      setChildRanges(childRanges);
-      const tracker = await rng.openChildRangeTracker();
-      tracker.onChange((ranges) => setChildRanges(ranges));
-      return async () => await tracker.close();
-    } catch (e) {
-      handleError(e, `Failed to retrieve child ranges`);
-      return undefined;
-    }
-  }, [rangeKey, client?.key]);
-
   return (
     <Align.Space y>
       <Text.Text level="h4" shade={11} weight={450}>

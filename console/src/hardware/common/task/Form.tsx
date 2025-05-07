@@ -194,7 +194,7 @@ export const useForm = <
         ...initialTask,
         key: task_.key,
       });
-      await sugaredTask?.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
+      await sugaredTask?.executeCommandSync(command, TimeSpan.fromSeconds(10));
     },
     onError: handleError,
   });

@@ -31,9 +31,7 @@ export const useListenForChanges = () => {
   Device.useSetSynchronizer(handleSet);
 };
 
-const PREFIX_LENGTH = PREFIX.length;
-
 export const getKeyFromStatus = ({
   key,
 }: Status.NotificationSpec): device.Key | null =>
-  key.startsWith(PREFIX) ? key.slice(PREFIX_LENGTH) : null;
+  key.startsWith(PREFIX) ? key.slice(PREFIX.length) : null;

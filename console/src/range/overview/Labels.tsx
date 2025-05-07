@@ -14,11 +14,9 @@ import { z } from "zod";
 
 import { Label } from "@/label";
 
-const labelFormSchema = z.object({
-  labels: z.array(z.string()),
-});
+const labelFormSchema = z.object({ labels: z.array(z.string()) });
 
-interface LabelsProps {
+export interface LabelsProps {
   rangeKey: string;
 }
 

@@ -24,7 +24,7 @@ import {
   hasIdentifier,
   makeZ,
 } from "@/hardware/device/make";
-import { useState } from "@/hardware/device/Toolbar";
+import { useState } from "@/hardware/device/StateContext";
 import { useRename } from "@/modals/Rename";
 import { Ontology } from "@/ontology";
 
