@@ -11,7 +11,7 @@ import synnax as sy
 import sys
 
 if len(sys.argv) < 2:
-    print("Usage: python listen_to_channel.py <channel_name> [<channel_name> ...]")
+    print("Usage: python listen_to_channels.py <channel_name> [<channel_name> ...]")
     sys.exit(1)
 
 names = sys.argv[1:]
