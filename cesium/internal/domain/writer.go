@@ -29,20 +29,22 @@ type WriterConfig struct {
 	// overlap with any existing domains within the DB.
 	// [REQUIRED]
 	Start telem.TimeStamp
-	// End is an optional parameter that marks the ending bound of the domain. Defining this
-	// parameter will allow the writer to write data to the domain without needing to
-	// validate each call to Commit. If this parameter is not defined, Commit must
-	// be called with a strictly increasing timestamp.
+	// End is an optional parameter that marks the ending bound of the domain. Defining
+	// this parameter will allow the writer to write data to the domain without needing
+	// to validate each call to Commit. If this parameter is not defined, Commit must be
+	// called with a strictly increasing timestamp.
 	// [OPTIONAL]
 	End telem.TimeStamp
-	// EnableAutoCommit determines whether the writer will automatically commit after each write.
-	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
+	// EnableAutoCommit determines whether the writer will automatically commit after
+	// each write. If EnableAutoCommit is true, then the writer will commit after each
+	// write, and will flush that commit to index on FS after the specified
+	// AutoIndexPersistInterval.
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit *bool
-	// AutoIndexPersistInterval is the frequency at which the changes to index are persisted to the
-	// disk. If AutoIndexPersistInterval <=0, then the writer persists changes to disk after every commit.
-	// Setting an AutoIndexPersistInterval is invalid if EnableAutoCommit is off.
+	// AutoIndexPersistInterval is the frequency at which the changes to index are
+	// persisted to the disk. If AutoIndexPersistInterval <=0, then the writer persists
+	// changes to disk after every commit. Setting an AutoIndexPersistInterval is
+	// invalid if EnableAutoCommit is off.
 	// [OPTIONAL] Defaults to 1s
 	AutoIndexPersistInterval telem.TimeSpan
 }
@@ -54,8 +56,9 @@ var (
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
-// Domain returns the Domain occupied by the theoretical domain formed by the configuration.
-// If End is not set, assumes the Domain has a zero span starting at Start.
+// Domain returns the Domain occupied by the theoretical domain formed by the
+// configuration. If End is not set, assumes the Domain has a zero span starting at
+// Start.
 func (w WriterConfig) Domain() telem.TimeRange {
 	if w.End.IsZero() {
 		return w.Start.SpanRange(0)
@@ -94,18 +97,18 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) (err er
 	return w.Commit(ctx, tr.End)
 }
 
-// Writer is used to write a telemetry domain to the DB. A Writer is opened using DB.OpenWriter
-// and a provided WriterConfig, which defines the starting bound of the domain. If no
-// other domain overlaps with the starting bound, the caller can write telemetry data the
-// Writer using an io.TypedWriter interface.
+// Writer is used to write a telemetry domain to the DB. A Writer is opened using
+// DB.OpenWriter and a provided WriterConfig, which defines the starting bound of the
+// domain. If no other domain overlaps with the starting bound, the caller can write
+// telemetry data the Writer using an io.TypedWriter interface.
 //
 // Once the caller is done writing telemetry data, they must call Commit and provide the
 // ending bound of the domain. If the ending bound of the domain overlaps with any other
-// domains within the DB, Commit will return an error, and the domain will not be committed.
-// If the caller explicitly knows the ending bound of the domain, they can set the WriterConfig.End
-// parameter to pre-validate the ending bound of the domain. If the WriterConfig.End parameter
-// is set, Commit will ignore the provided timestamp and use the WriterConfig.End parameter
-// instead.
+// domains within the DB, Commit will return an error, and the domain will not be
+// committed. If the caller explicitly knows the ending bound of the domain, they can
+// set the WriterConfig.End parameter to pre-validate the ending bound of the domain. If
+// the WriterConfig.End parameter is set, Commit will ignore the provided timestamp and
+// use the WriterConfig.End parameter instead.
 //
 // A Writer is not safe for concurrent use, but it is safe to have multiple writer and
 // iterators open concurrently over the same DB.

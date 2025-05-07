@@ -102,7 +102,8 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	defer span.End()
 
 	if len(idx.mu.pointers) == 0 {
-		// This should be inconceivable since update would not be called with no pointers.
+		// This should be inconceivable since update would not be called with no
+		// pointers.
 		idx.L.DPanic("cannot update a database with no domains")
 		idx.mu.Unlock()
 		return span.Error(NewErrRangeNotFound(p.TimeRange))
