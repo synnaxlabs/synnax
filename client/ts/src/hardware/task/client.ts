@@ -46,9 +46,9 @@ export const DELETE_CHANNEL_NAME = "sy_task_delete";
 const NOT_CREATED_ERROR = new Error("Task not created");
 
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
-  const task = await ontologyClient.retrieveParents(taskKey);
-  if (task.length === 0) return null;
-  return task[0];
+  const parents = await ontologyClient.retrieveParents(taskKey);
+  if (parents.length === 0) return null;
+  return parents[0];
 };
 
 export class Task<

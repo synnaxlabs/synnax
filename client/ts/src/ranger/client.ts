@@ -187,6 +187,15 @@ export class Range {
     return wrapper;
   }
 
+  static readonly convertOntologyResourceToPayload = (
+    resource: ontology.Resource,
+  ): Payload => ({
+    key: resource.id.key,
+    name: resource.data?.name as string,
+    timeRange: new TimeRange(resource.data?.timeRange as CrudeTimeRange),
+    color: resource.data?.color as string,
+  });
+
   static readonly sort = (a: Range, b: Range): number =>
     TimeRange.sort(a.timeRange, b.timeRange);
 }
