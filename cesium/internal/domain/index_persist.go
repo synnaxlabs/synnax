@@ -110,7 +110,7 @@ func (f *pointerCodec) decode(b []byte) []pointer {
 	}
 
 	pointers := make([]pointer, len(b)/pointerByteSize)
-	for i := 0; i < len(b)/pointerByteSize; i++ {
+	for i := range len(b) / pointerByteSize {
 		base := i * pointerByteSize
 		pointers[i] = pointer{
 			TimeRange: telem.TimeRange{
