@@ -19,9 +19,21 @@ import { deep } from "@synnaxlabs/x/deep";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
-import { type MainMessage, type WorkerMessage } from "@/aether/message";
+import {
+  type ErrorObject,
+  type MainMessage,
+  type WorkerMessage,
+} from "@/aether/message";
 import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
+
+const newTreeError = (e: unknown, message?: string): Error => {
+  if (e instanceof Error) {
+    e.message = `[${message}] - ${e.message}`;
+    return e;
+  }
+  return new Error(message ?? "unknown error", { cause: e });
+};
 
 /**
  * A selected subset of the Map interface used for efficiently propagating context
@@ -215,7 +227,7 @@ export abstract class Leaf<
     const nextState: z.input<StateSchema> = state.executeSetter(next, this._state);
     this._prevState = shallowCopy(this._state);
     this._state = prettyParse(this._schema, nextState, `${this.type}:${this.key}`);
-    this.sender.send({ key: this.key, state: nextState });
+    this.sender.send({ variant: "update", key: this.key, state: nextState });
   }
 
   /** @returns the current state of the component. */
@@ -263,29 +275,37 @@ export abstract class Leaf<
     _: CreateComponent,
   ): Promise<void> {
     if (this.deleted) return;
-    const endSpan = this.instrumentation.T.debug(
-      `${this.type}:${this.key}:updateState`,
-    );
-    this.validatePath(path);
-    const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
-    if (this._state != null)
-      this.instrumentation.L.debug("updating state", () => ({
-        diff: deep.difference(this.state as UnknownRecord, state_ as UnknownRecord),
-      }));
-    else this.instrumentation.L.debug("setting initial state", { state });
-    this._prevState = this._state ?? state_;
-    this._state = state_;
-    await this.afterUpdate(this.ctx);
-    endSpan();
+    try {
+      const endSpan = this.instrumentation.T.debug(
+        `${this.type}:${this.key}:updateState`,
+      );
+      this.validatePath(path);
+      const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
+      if (this._state != null)
+        this.instrumentation.L.debug("updating state", () => ({
+          diff: deep.difference(this.state as UnknownRecord, state_ as UnknownRecord),
+        }));
+      else this.instrumentation.L.debug("setting initial state", { state });
+      this._prevState = this._state ?? state_;
+      this._state = state_;
+      await this.afterUpdate(this.ctx);
+      endSpan();
+    } catch (e) {
+      throw newTreeError(e, `${this.type}.${this.key}.updateState`);
+    }
   }
 
   async _updateContext(values: ContextMap): Promise<void> {
-    const endSpan = this.instrumentation.T.debug(
-      `${this.type}:${this.key}:updateContext`,
-    );
-    values.forEach((value, key) => this.parentCtxValues.set(key, value));
-    await this.afterUpdate(this.ctx);
-    endSpan();
+    try {
+      const endSpan = this.instrumentation.T.debug(
+        `${this.type}:${this.key}:updateContext`,
+      );
+      values.forEach((value, key) => this.parentCtxValues.set(key, value));
+      await this.afterUpdate(this.ctx);
+      endSpan();
+    } catch (e) {
+      throw newTreeError(e, `${this.type}.${this.key}.updateContext`);
+    }
   }
 
   /**
@@ -293,11 +313,15 @@ export abstract class Leaf<
    * AetherComposite.
    */
   async _delete(path: string[]): Promise<void> {
-    const endSpan = this.instrumentation.T.debug(`${this.type}:${this.key}:delete`);
-    this.validatePath(path);
-    this._deleted = true;
-    await this.afterDelete(this.ctx);
-    endSpan();
+    try {
+      const endSpan = this.instrumentation.T.debug(`${this.type}:${this.key}:delete`);
+      this.validatePath(path);
+      this._deleted = true;
+      await this.afterDelete(this.ctx);
+      endSpan();
+    } catch (e) {
+      throw newTreeError(e, `[${this.type}:${this.key}:delete]`);
+    }
   }
 
   /**
@@ -398,7 +422,7 @@ export abstract class Composite<
 
     const childKey = subPath[0];
     const child = this.getChild(childKey);
-    if (child != null) return child._updateState(subPath, state, create);
+    if (child != null) return await child._updateState(subPath, state, create);
     if (subPath.length > 1)
       throw new UnexpectedError(
         `[Composite.update] - ${this.type}:${this.key} received a subPath ${subPath.join(
@@ -530,7 +554,21 @@ export class Root extends Composite<typeof aetherRootState> {
     root.comms.handle((msg) => {
       console.log(msg, root.mu.isLocked());
       void root.mu.runExclusive(async () => {
-        await root.handle(msg);
+        try {
+          await root.handle(msg);
+        } catch (e) {
+          const errorObj: ErrorObject = {
+            name: "unknown",
+            message: JSON.stringify(e),
+            stack: "unknown",
+          };
+          if (e instanceof Error) {
+            errorObj.name = e.name;
+            errorObj.message = e.message;
+            errorObj.stack = e.stack;
+          }
+          root.comms.send({ variant: "error", error: errorObj });
+        }
       });
     });
     return root;

@@ -93,8 +93,22 @@ export const Provider = ({
     [worker, registry],
   );
 
+  const [error, setError] = useState<Error | null>(null);
+  if (error != null) throw error;
+
   useEffect(() => {
     worker?.handle((msg) => {
+      const { variant } = msg;
+      if (variant == "error") {
+        const {
+          error: { message, stack, name },
+        } = msg;
+        const err = new Error(message);
+        err.stack = stack;
+        err.name = name;
+        setError(err);
+        return;
+      }
       const { key, state } = msg;
       const component = registry.current.get(key);
       if (component == null)

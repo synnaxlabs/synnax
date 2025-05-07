@@ -7,17 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  BaseTypedError,
-  decodeError,
-  EOF,
-  errorMatcher,
-  errorZ,
-  type Stream,
-  type TypedError,
-  type WebSocketClient,
-} from "@synnaxlabs/freighter";
-import { control } from "@synnaxlabs/x";
+import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
+import { control, errors } from "@synnaxlabs/x";
 import {
   type CrudeSeries,
   type CrudeTimeStamp,
@@ -28,6 +19,7 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { SynnaxError } from "@/errors";
 import { WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
 import { type Crude, frameZ } from "@/framer/frame";
@@ -63,11 +55,7 @@ const constructWriterMode = (mode: CrudeWriterMode): WriterMode => {
 
 export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
 
-export class WriterClosedError extends BaseTypedError implements TypedError {
-  static readonly TYPE = `writer_closed`;
-  type = WriterClosedError.TYPE;
-  static readonly matches = errorMatcher(WriterClosedError.TYPE);
-
+export class WriterClosedError extends SynnaxError.sub("writer_closed") {
   constructor() {
     super("WriterClosed");
   }
@@ -98,7 +86,7 @@ export interface WriteRequest extends z.infer<typeof reqZ> {}
 const resZ = z.object({
   command: z.nativeEnum(WriterCommand),
   end: TimeStamp.z,
-  err: errorZ.optional(),
+  err: errors.payloadZ.optional(),
 });
 
 interface Response extends z.infer<typeof resZ> {}
@@ -319,7 +307,7 @@ export class Writer {
       }
       const [res, err] = await this.stream.receive();
       if (err != null) this.closeErr = EOF.matches(err) ? new WriterClosedError() : err;
-      else this.closeErr = decodeError(res?.err);
+      else this.closeErr = errors.decode(res?.err);
     }
   }
 
@@ -329,7 +317,7 @@ export class Writer {
     while (true) {
       const [res, err] = await this.stream.receive();
       if (err != null) await this.closeInternal(err);
-      const resErr = decodeError(res?.err);
+      const resErr = errors.decode(res?.err);
       if (resErr != null) await this.closeInternal(resErr);
       if (res?.command == req.command) return res;
     }

@@ -29,10 +29,10 @@ import {
 } from "react-error-boundary";
 import { useDispatch } from "react-redux";
 
-import { getCurrentWindow } from "@/tauriShim";
 import { CSS } from "@/css";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
+import { getCurrentWindow } from "@/tauriShim";
 
 export interface OverlayProps extends PropsWithChildren {}
 
@@ -90,7 +90,13 @@ const FallBackRenderContent = ({
   }, []);
   return (
     <Align.Space y className={CSS.B("error-overlay")}>
-      <Nav.Bar location="top" size="6.5rem" className="console-main-nav-top" bordered>
+      <Nav.Bar
+        location="top"
+        size="6.5rem"
+        className="console-main-nav-top"
+        bordered
+        data-tauri-drag-region
+      >
         <Nav.Bar.Start className="console-main-nav-top__start">
           <OS.Controls
             className="console-controls--macos"
@@ -135,7 +141,7 @@ const FallBackRenderContent = ({
           <Align.Space y align="start" className={CSS.B("details")}>
             <Text.Text level="h1">Something went wrong</Text.Text>
             <Status.Text variant="error" hideIcon level="h3">
-              {messageTranslation[error.message] ?? error.message}
+              {error.name} - {messageTranslation[error.message] ?? error.message}
             </Status.Text>
             <Text.Text className={CSS.B("stack")} level="p">
               {error.stack}
