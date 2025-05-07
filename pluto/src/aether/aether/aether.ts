@@ -552,7 +552,6 @@ export class Root extends Composite<typeof aetherRootState> {
      * updates.
      */
     root.comms.handle((msg) => {
-      console.log(msg, root.mu.isLocked());
       void root.mu.runExclusive(async () => {
         try {
           await root.handle(msg);
