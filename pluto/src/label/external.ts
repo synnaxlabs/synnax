@@ -9,5 +9,6 @@
 
 export * from "@/label/Select";
 export * from "@/label/types";
+export * from "@/label/use";
 export * from "@/label/useDeleteSynchronizer";
 export * from "@/label/useSetSynchronizer";

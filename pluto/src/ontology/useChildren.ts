@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 
-import { Synch } from "@/synch";
+import { useDependentTracker } from "@/ontology/useDependentTracker";
 
-export const useSetSynchronizer = (onSet: (key: task.Key) => void): void =>
-  Synch.useParsedListener(task.SET_CHANNEL_NAME, task.keyZ, onSet);
+export const useChildren = (
+  id: ontology.CrudeID,
+  filter?: (child: ontology.Resource) => boolean,
+): ontology.Resource[] =>
+  useDependentTracker(id, ontology.TO_RELATIONSHIP_DIRECTION, filter);

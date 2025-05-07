@@ -12,3 +12,4 @@ export * from "@/synch/types";
 export * from "@/synch/useAddListener";
 export * from "@/synch/useListener";
 export * from "@/synch/useParsedListener";
+export * from "@/synch/useStringListener";

@@ -7,21 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type MultiSeries, ranger } from "@synnaxlabs/client";
-import { useCallback } from "react";
+import { ranger } from "@synnaxlabs/client";
 
 import { Synch } from "@/synch";
 
 export const useAliasDeleteSynchronizer = (
   onDelete: (alias: ranger.DecodedDeleteAliasChange) => void,
-): void => {
-  const handleUpdate = useCallback(
-    ({ series }: MultiSeries) =>
-      series
-        .flatMap((s) => s.toStrings())
-        .map(ranger.decodeDeleteAliasChange)
-        .forEach(onDelete),
-    [onDelete],
+): void =>
+  Synch.useStringListener(
+    ranger.DELETE_ALIAS_CHANNEL_NAME,
+    ranger.decodeDeleteAliasChange,
+    onDelete,
   );
-  Synch.useListener(ranger.DELETE_ALIAS_CHANNEL_NAME, handleUpdate);
-};
