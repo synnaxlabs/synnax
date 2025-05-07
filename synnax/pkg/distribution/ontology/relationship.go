@@ -10,11 +10,12 @@
 package ontology
 
 import (
+	"strings"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
-	"strings"
 )
 
 // RelationshipType is a string that uniquely identifies the type of a relationship

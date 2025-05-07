@@ -12,8 +12,6 @@ package fs // import "github.com/cockroachdb/memfs"
 import (
 	"errors"
 	"fmt"
-	"github.com/cockroachdb/errors/oserror"
-	"github.com/synnaxlabs/x/io/fs/internal/invariants"
 	"io"
 	"os"
 	"sort"
@@ -21,6 +19,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/cockroachdb/errors/oserror"
+	"github.com/synnaxlabs/x/io/fs/internal/invariants"
 )
 
 const sep = "/"

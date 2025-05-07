@@ -12,6 +12,7 @@ package freighter
 import (
 	"context"
 	"crypto/tls"
+
 	"github.com/synnaxlabs/x/address"
 )
 
