@@ -12,6 +12,7 @@ export * from "@/breaker";
 export * from "@/caseconv";
 export * from "@/change";
 export * from "@/clamp/clamp";
+export * from "@/color";
 export * from "@/compare";
 export * from "@/control";
 export * from "@/debounce/debounce";

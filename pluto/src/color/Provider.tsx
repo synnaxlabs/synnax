@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { color as core, TimeStamp } from "@synnaxlabs/x";
 import React, {
   createContext,
   type PropsWithChildren,
@@ -18,7 +18,6 @@ import React, {
 } from "react";
 import { z } from "zod";
 
-import { color } from "@/color/core";
 import { useSyncedRef } from "@/hooks";
 import { type state } from "@/state";
 
@@ -33,14 +32,14 @@ export const frequentZ = z.record(z.string(), relevancyZ);
 export interface Frequent extends z.infer<typeof frequentZ> {}
 
 export const contextStateZ = z.object({
-  palettes: z.record(color.paletteZ),
+  palettes: z.record(core.paletteZ),
   frequent: z.record(relevancyZ),
 });
 
 export interface ContextState extends z.infer<typeof contextStateZ> {}
 
 export interface ContextValue extends ContextState {
-  updateFrequent: (color: color.Color) => void;
+  updateFrequent: (color: core.Color) => void;
 }
 
 export const ZERO_CONTEXT_STATE: ContextState = {
@@ -96,9 +95,9 @@ export const Provider = ({
   const valueRef = useSyncedRef(value);
 
   const updateFrequent = useCallback(
-    (color: color.Color) => {
+    (color: core.Color) => {
       const prev = valueRef.current;
-      const hex = color.hex;
+      const hex = core.hex(color);
       const count = prev.frequent[hex]?.count ?? 0;
       const next: Frequent = {
         ...prev.frequent,
@@ -121,23 +120,23 @@ export const Provider = ({
   return <Context value={memoValue}>{children}</Context>;
 };
 
-export const useFrequent = (): color.Color[] => {
+export const useFrequent = (): core.Color[] => {
   const { frequent } = useContext();
-  return Object.keys(frequent).map((hex) => new color.Color(hex));
+  return Object.keys(frequent).map((hex) => core.construct(hex));
 };
 
-export const usePalette = (key: string): color.Palette | null => {
+export const usePalette = (key: string): core.Palette | null => {
   const { palettes } = useContext();
   return palettes[key];
 };
 
-export const useRequiredPalette = (key: string): color.Palette => {
+export const useRequiredPalette = (key: string): core.Palette => {
   const palette = usePalette(key);
   if (palette == null) throw new Error(`Palette "${key}" not found`);
   return palette;
 };
 
-export const useFrequentUpdater = (): ((color: color.Color) => void) => {
+export const useFrequentUpdater = (): ((color: core.Color) => void) => {
   const { updateFrequent } = useContext();
   return updateFrequent;
 };

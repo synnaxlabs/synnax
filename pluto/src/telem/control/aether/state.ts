@@ -14,12 +14,11 @@ import {
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { type Destructor, observe, unique } from "@synnaxlabs/x";
+import { color, type Destructor, observe, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { color } from "@/color/core";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
 
@@ -39,7 +38,7 @@ const CONTEXT_KEY = "control-state-provider";
  * color to each control subject for user identification.
  */
 export const sugaredStateZ = control.stateZ.extend({
-  subjectColor: color.Color.z,
+  subjectColor: color.colorZ,
 });
 
 /**

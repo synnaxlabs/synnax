@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, DataType, Rate, Series, TimeRange, typedArrayZ } from "@synnaxlabs/x";
+import {
+  bounds,
+  color,
+  DataType,
+  Rate,
+  Series,
+  TimeRange,
+  typedArrayZ,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { color } from "@/color/core";
 import { type Factory } from "@/telem/aether/factory";
 import {
   AbstractSource,
@@ -186,7 +193,7 @@ export class FixedColorSource
   schema = fixedColorSourcePropsZ;
 
   async value(): Promise<color.Color> {
-    return new color.Color(this.props);
+    return color.construct(this.props);
   }
 }
 

@@ -7,15 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Color,
-  type Control,
-  control,
-  Diagram,
-  Schematic,
-  Viewport,
-} from "@synnaxlabs/pluto";
-import { type migrate, xy } from "@synnaxlabs/x";
+import { type Control, control, Diagram, Schematic, Viewport } from "@synnaxlabs/pluto";
+import { color, type migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
@@ -23,14 +16,14 @@ export type Version = typeof VERSION;
 
 export type NodeProps = object & {
   key: Schematic.Variant;
-  color?: Color.Crude;
+  color?: color.Crude;
   label?: { label?: string };
 };
 
 export const nodePropsZ = z
   .object({})
   .and(
-    z.object({ key: Schematic.variantZ, color: Color.crudeZ.optional() }).passthrough(),
+    z.object({ key: Schematic.variantZ, color: color.crudeZ.optional() }).passthrough(),
   );
 
 export const stateZ = z.object({

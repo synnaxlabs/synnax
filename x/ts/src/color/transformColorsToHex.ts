@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Color } from "@/color/core/color";
+import { type Color, colorZ, hex } from "@/color/color";
 
 export type ReplaceColorWithHex<T> = T extends Color
   ? string
@@ -18,8 +18,9 @@ export type ReplaceColorWithHex<T> = T extends Color
       : T;
 
 export const transformColorsToHex = <T>(obj: T): ReplaceColorWithHex<T> => {
-  if (obj instanceof Color) return obj.hex as ReplaceColorWithHex<T>;
-  if (typeof obj === "object" && obj !== null) {
+  const parsed = colorZ.safeParse(obj);
+  if (parsed.success) return hex(parsed.data) as ReplaceColorWithHex<T>;
+  if (typeof obj === "object" && obj != null) {
     const newObj: any = Array.isArray(obj) ? [] : {};
     for (const key of Object.keys(obj))
       newObj[key] = transformColorsToHex((obj as any)[key]);

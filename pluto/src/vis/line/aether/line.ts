@@ -13,6 +13,7 @@ import {
   bounds,
   type box,
   clamp,
+  color,
   DataType,
   type Destructor,
   type direction,
@@ -26,7 +27,6 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { color } from "@/color/core";
 import { telem } from "@/telem/aether";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
@@ -37,7 +37,7 @@ export const stateZ = z.object({
   x: telem.seriesSourceSpecZ,
   y: telem.seriesSourceSpecZ,
   label: z.string().optional(),
-  color: color.Color.z,
+  color: color.colorZ,
   strokeWidth: z.number().default(1),
   downsample: z.number().min(1).max(50).optional().default(1),
   visible: z.boolean().optional().default(true),

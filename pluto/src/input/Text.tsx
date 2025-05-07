@@ -9,10 +9,10 @@
 
 import "@/input/Input.css";
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
 
 import { Align } from "@/align";
-import { color as Color } from "@/color/core";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { type BaseProps } from "@/input/types";
@@ -24,8 +24,8 @@ export interface TextExtraProps {
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
   status?: Status.Variant;
-  outlineColor?: Color.Crude;
-  color?: Color.Crude;
+  outlineColor?: color.Crude;
+  color?: color.Crude;
 }
 
 export interface TextProps extends Omit<BaseProps<string>, "color">, TextExtraProps {}
@@ -67,7 +67,7 @@ export const Text = ({
   weight,
   style,
   outlineColor,
-  color,
+  color: pColor,
   onlyChangeOnBlur = false,
   endContent,
   borderWidth,
@@ -116,12 +116,15 @@ export const Text = ({
 
   const combinedRef = useCombinedRefs(ref, internalRef);
 
-  const parsedOutlineColor = Color.Color.z.safeParse(outlineColor);
+  const parsedOutlineColor = color.colorZ.safeParse(outlineColor);
   const hasCustomColor = parsedOutlineColor.success && variant == "outlined";
 
   if (variant === "preview") disabled = true;
   if (hasCustomColor)
-    style = { ...style, [CSS.var("input-color")]: parsedOutlineColor.data.rgbString };
+    style = {
+      ...style,
+      [CSS.var("input-color")]: color.rgbString(parsedOutlineColor.data),
+    };
 
   const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
 
@@ -184,7 +187,7 @@ export const Text = ({
           onBlur={handleBlur}
           disabled={disabled}
           placeholder={typeof placeholder === "string" ? placeholder : undefined}
-          style={{ fontWeight: weight, color: Color.cssString(color) }}
+          style={{ fontWeight: weight, color: color.cssString(pColor) }}
           {...rest}
         />
         {endContent != null && (

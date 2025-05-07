@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Color, Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
+import { color, location } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
@@ -141,7 +141,7 @@ export interface State<A = unknown> {
 
 const themeZ = Theming.themeZ.transform(
   // Need to remove the Color classes from the theme so that we can store it in Redux properly
-  Color.transformColorsToHex,
+  color.transformColorsToHex,
 );
 
 const mosaicStateZ = z.object({
