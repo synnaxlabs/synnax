@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos";
 import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
@@ -65,5 +66,11 @@ export const render = (): void => {
     ...performance.REGISTRY,
   };
 
-  void aether.render({ comms: w.route("vis"), registry: REGISTRY });
+  void aether.render({
+    comms: w.route("vis"),
+    registry: REGISTRY,
+    instrumentation: new Instrumentation({
+      logger: new Logger({ filters: [logThresholdFilter("info")] }),
+    }),
+  });
 };

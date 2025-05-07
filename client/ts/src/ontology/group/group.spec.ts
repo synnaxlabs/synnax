@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { QueryError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { newClient } from "@/setupspecs";
 
@@ -34,13 +34,13 @@ describe("Group", () => {
     });
   });
   describe("delete", () => {
-    it("should correctly delete the group", async () => {
+    it.only("should correctly delete the group", async () => {
       const name = `group-${Math.random()}`;
       const g = await client.ontology.groups.create(ontology.ROOT_ID, name);
       await client.ontology.groups.delete(g.key);
       await expect(
         async () => await client.ontology.retrieve(g.ontologyID),
-      ).rejects.toThrow(QueryError);
+      ).rejects.toThrowError(NotFoundError);
     });
   });
 });

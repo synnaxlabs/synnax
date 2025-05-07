@@ -21,7 +21,6 @@
     "@synnaxlabs/alamos": "workspace:*",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
-    "@synnaxlabs/x": "workspace:*",
     "@tanstack/react-virtual": "^3.13.6",
     "@xyflow/react": "^12.5.5",
     "async-mutex": "^0.5.0",
@@ -34,7 +33,8 @@
     "proxy-memoize": "2.0.3",
     "react": "^19.1.0",
     "react-color": "^2.19.3",
-    "zod": "^4.0.0-beta"
+    "zod": "^4.0.0-beta",
+    "@synnaxlabs/x": "workspace:*"
   },
   "devDependencies": {
     "@juggle/resize-observer": "^3.4.0",

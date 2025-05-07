@@ -37,5 +37,9 @@ export class Meta {
     return this._noop;
   }
 
+  copy(): Meta {
+    return new Meta(this.key, this.path, this.serviceName, this.noop);
+  }
+
   static readonly NOOP = new Meta("", "", "");
 }
