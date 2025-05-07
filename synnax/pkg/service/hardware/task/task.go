@@ -72,7 +72,7 @@ var _ gorp.Entry[Key] = Task{}
 
 func (t Task) GorpKey() Key { return t.Key }
 
-func (t Task) SetOptions() []interface{} { return []interface{}{t.Key.Rack().Node()} }
+func (t Task) SetOptions() []any { return []any{t.Key.Rack().Node()} }
 
 func (t Task) Rack() rack.Key { return t.Key.Rack() }
 
@@ -88,8 +88,6 @@ type State struct {
 	// Key is used to uniquely identify the state update, and is usually used to tie
 	// back a command with its corresponding state value.
 	Key string `json:"key" msgpack:"key"`
-	// Internal is true if the state update is for an internal task.
-	Internal bool `json:"internal" msgpack:"internal"`
 	// Task is the key of the task that the state update is for.
 	Task Key `json:"task" msgpack:"task"`
 	// Variant is the status of the task.
@@ -105,7 +103,7 @@ var _ gorp.Entry[Key] = State{}
 func (s State) GorpKey() Key { return s.Task }
 
 // SetOptions implements the gorp.Entry interface.
-func (s State) SetOptions() []interface{} { return []interface{}{s.Task.Rack().Node()} }
+func (s State) SetOptions() []any { return []any{s.Task.Rack().Node()} }
 
 // CustomTypeName implements types.CustomTypeName to ensure that State struct does
 // not conflict with any other types in gorp.

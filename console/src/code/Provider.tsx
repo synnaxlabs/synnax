@@ -13,8 +13,8 @@ import type * as monacoT from "monaco-editor";
 import {
   createContext,
   type PropsWithChildren,
+  use,
   useCallback,
-  useContext,
   useMemo,
   useRef,
 } from "react";
@@ -53,11 +53,11 @@ export const Provider = ({
       .catch(console.error);
   }, []);
   const value = useMemo(() => ({ monaco, requestInit }), [monaco, requestInit]);
-  return <Context.Provider value={value}>{children}</Context.Provider>;
+  return <Context value={value}>{children}</Context>;
 };
 
 export const useMonaco = () => {
-  const { monaco, requestInit } = useContext(Context);
+  const { monaco, requestInit } = use(Context);
   requestInit();
   return monaco;
 };

@@ -35,7 +35,6 @@ import {
   deleteMenuItem,
   useDelete,
   useLabels,
-  useParent,
   useViewDetails,
   viewDetailsMenuItem,
 } from "@/range/ContextMenu";
@@ -43,6 +42,7 @@ import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelectKeys } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
 import { useRename } from "@/range/Toolbar";
+import { useParent } from "@/range/useParent";
 
 export const EXPLORER_LAYOUT_TYPE = "explorer";
 
@@ -190,7 +190,7 @@ const ChangeLoader = () => {
   const { setSourceData } = List.useDataUtils<string>();
   const client = Synnax.use();
   useAsyncEffect(async () => {
-    const obs = await client?.ranges.openTracker();
+    const obs = await client?.ranges.openTracker(); //todo
     obs?.onChange((changes) => {
       setSourceData((prev) => {
         const deletes = new Set(

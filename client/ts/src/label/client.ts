@@ -18,8 +18,8 @@ import { type New, type SetOptions, Writer } from "@/label/writer";
 import { ontology } from "@/ontology";
 import { signals } from "@/signals";
 
-const SET_CHANNEL_NAME = "sy_label_set";
-const DELETE_CHANNEL_NAME = "sy_label_delete";
+export const SET_CHANNEL_NAME = "sy_label_set";
+export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
 export class Client implements AsyncTermSearcher<string, Key, Label> {
   readonly type: string = "label";

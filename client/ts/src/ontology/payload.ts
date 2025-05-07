@@ -106,8 +106,8 @@ export class ID {
     return this.key === "";
   }
 
-  matchesType(type: ResourceType): boolean {
-    return this.type === type && this.isType();
+  equals(other: CrudeID): boolean {
+    return this.toString() === new ID(other).toString();
   }
 
   get payload(): IDPayload {
@@ -146,6 +146,13 @@ export const FROM_RELATIONSHIP_DIRECTION = "from";
 export type RelationshipDirection =
   | typeof TO_RELATIONSHIP_DIRECTION
   | typeof FROM_RELATIONSHIP_DIRECTION;
+
+export const getOppositeRelationshipDirection = (
+  direction: RelationshipDirection,
+): RelationshipDirection =>
+  direction === TO_RELATIONSHIP_DIRECTION
+    ? FROM_RELATIONSHIP_DIRECTION
+    : TO_RELATIONSHIP_DIRECTION;
 
 export const relationshipSchemaZ = z.object({ from: ID.z, type: z.string(), to: ID.z });
 export interface Relationship extends z.infer<typeof relationshipSchemaZ> {}

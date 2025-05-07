@@ -70,6 +70,14 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     return this.adapter.adapt(new Frame((await this.stream.receive()).frame));
   }
 
+  updateKeys(keys: channel.Key | channel.Keys): void {
+    this.adapter.updateKeys(keys);
+    this.stream.send({
+      keys: this.adapter.keys,
+      downsampleFactor: this.downsampleFactor,
+    });
+  }
+
   async update(channels: channel.Params): Promise<void> {
     await this.adapter.update(channels);
     this.stream.send({

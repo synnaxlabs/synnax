@@ -10,7 +10,7 @@
 import { id, status } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type task } from "@/hardware/task";
+import { task } from "@/hardware/task";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -89,7 +89,7 @@ describe("Task", async () => {
           config: { a: "dog" },
           type: "ni",
         });
-        const w = await client.openWriter(["sy_task_state"]);
+        const w = await client.openWriter([task.STATE_CHANNEL_NAME]);
         interface StateDetails {
           dog: string;
         }
@@ -98,7 +98,7 @@ describe("Task", async () => {
           task: t.key,
           variant: status.SUCCESS_VARIANT,
         };
-        expect(await w.write("sy_task_state", [state])).toBeTruthy();
+        expect(await w.write(task.STATE_CHANNEL_NAME, [state])).toBeTruthy();
         await w.close();
         await expect
           .poll(async () => {

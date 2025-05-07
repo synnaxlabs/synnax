@@ -34,7 +34,7 @@ const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_ENDPOINT = "/hardware/rack/create";
 const DELETE_ENDPOINT = "/hardware/rack/delete";
 
-const STATE_CHANNEL_NAME = "sy_rack_state";
+export const STATE_CHANNEL_NAME = "sy_rack_state";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),

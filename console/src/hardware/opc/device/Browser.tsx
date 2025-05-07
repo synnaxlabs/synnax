@@ -21,7 +21,7 @@ import {
   TimeSpan,
   Tree,
 } from "@synnaxlabs/pluto";
-import { type Optional, status } from "@synnaxlabs/x";
+import { type Optional, status, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
@@ -75,11 +75,10 @@ export const Browser = ({ device }: BrowserProps) => {
       const nodeID = isRoot ? "" : parseNodeID(clicked);
       const { connection } = device.properties;
       setLoading(clicked);
-      const { details } = await scanTask.executeCommandSync<ScanStateDetails>(
-        SCAN_COMMAND_TYPE,
-        { connection, node_id: nodeID },
-        TimeSpan.seconds(10),
-      );
+      const { details } = await scanTask.executeCommandSync<
+        UnknownRecord,
+        ScanStateDetails
+      >(SCAN_COMMAND_TYPE, TimeSpan.seconds(10), { connection, node_id: nodeID });
       if (details == null) return;
       if (!("channels" in details)) return;
       const { channels } = details;

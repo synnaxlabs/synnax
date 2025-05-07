@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { type CrudeTimeRange, observe, sortTimeRange, TimeRange } from "@synnaxlabs/x";
+import { type CrudeTimeRange, observe, TimeRange } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type Series } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
@@ -38,6 +38,9 @@ import {
 import { type CreateOptions, type Writer } from "@/ranger/writer";
 import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
+
+export const SET_CHANNEL_NAME = "sy_range_set";
+export const DELETE_CHANNEL_NAME = "sy_range_delete";
 
 export class Range {
   key: string;
@@ -183,10 +186,19 @@ export class Range {
     wrapper.setCloser(async () => await base.close());
     return wrapper;
   }
-}
 
-export const sort = (a: Range, b: Range): -1 | 0 | 1 =>
-  sortTimeRange(a.timeRange, b.timeRange);
+  static readonly convertOntologyResourceToPayload = (
+    resource: ontology.Resource,
+  ): Payload => ({
+    key: resource.id.key,
+    name: resource.data?.name as string,
+    timeRange: new TimeRange(resource.data?.timeRange as CrudeTimeRange),
+    color: resource.data?.color as string,
+  });
+
+  static readonly sort = (a: Range, b: Range): number =>
+    TimeRange.sort(a.timeRange, b.timeRange);
+}
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -318,8 +330,8 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   async openTracker(): Promise<signals.Observable<string, Range>> {
     return await signals.openObservable<string, Range>(
       this.frameClient,
-      "sy_range_set",
-      "sy_range_delete",
+      SET_CHANNEL_NAME,
+      DELETE_CHANNEL_NAME,
       (variant, data) => {
         if (variant === "delete")
           return data.toUUIDs().map((k) => ({ variant, key: k, value: undefined }));
