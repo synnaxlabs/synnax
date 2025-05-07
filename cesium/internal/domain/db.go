@@ -27,7 +27,8 @@ import (
 )
 
 var (
-	// ErrWriteConflict is returned when a domain overlaps with an existing domain in the DB.
+	// ErrWriteConflict is returned when a domain overlaps with an existing domain in
+	// the DB.
 	ErrWriteConflict = errors.Wrap(validate.Error, "write overlaps with existing data in database")
 	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
 	ErrRangeNotFound = errors.Wrap(query.NotFound, "time range not found")
@@ -67,29 +68,29 @@ func NewErrPointWriteConflict(ts telem.TimeStamp, existingTr telem.TimeRange) er
 	)
 }
 
-// NewErrRangeNotFound is returned when a resource for a specified time range is not o
+// NewErrRangeNotFound is returned when a resource for a specified time range is not
 // found in the DB.
 func NewErrRangeNotFound(tr telem.TimeRange) error {
 	return errors.Wrapf(ErrRangeNotFound, "time range %s cannot be found", tr)
 }
 
-// DB provides a persistent, concurrent store for reading and writing domains of telemetry
-// to and from an underlying file system.
+// DB provides a persistent, concurrent store for reading and writing domains of
+// telemetry to and from an underlying file system.
 //
 // A DB provides two types for accessing data:
 //
 //   - Writer allows the caller to write a blob of telemetry occupying a particular time
 //     domain.
 //
-//   - Iterator allows the caller ot iterate over the telemetry domains in a DB in time order,
+//   - Iterator allows the caller to iterate over the telemetry domains in a DB in time order,
 //     and provides an io.Reader like interface for accessing the data.
 //
 // A DB is safe for concurrent use, and multiple writers and iterators can access the DB
 // at once.
 //
-// It's important to note that a DB is heavily optimized for large (several megabytes
-// to gigabytes), append only writes. While small, out of order writes are valid, the
-// user will see a heavy performance hit.
+// It's important to note that a DB is heavily optimized for large (several megabytes to
+// gigabytes), append only writes. While small, out of order writes are valid, the user
+// will see a heavy performance hit.
 //
 // A DB must be closed after use to avoid leaking any underlying resources/locks.
 type DB struct {
@@ -109,9 +110,9 @@ type Config struct {
 	// [REQUIRED]
 	FS xfs.FS
 	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
-	// Note while that a file's size may still exceed this value, it is not likely
-	// to exceed by much with frequent commits.
-	// [OPTIONAL] Default: 1GB
+	// Note while that a file's size may still exceed this value, it is not likely to
+	// exceed by much with frequent commits.
+	// [OPTIONAL] Default: 800 MB
 	FileSize telem.Size
 	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
 	// Must be in (0, 1].
@@ -121,7 +122,8 @@ type Config struct {
 	GCThreshold float32
 	// MaxDescriptors is the maximum number of file descriptors that the DB will use. A
 	// higher value will allow more concurrent reads and writes. It's important to note
-	// that the exact performance impact of changing this value is still relatively unknown.
+	// that the exact performance impact of changing this value is still relatively
+	// unknown.
 	// [OPTIONAL] Default: 100
 	MaxDescriptors int
 }
@@ -199,7 +201,8 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 	return &Reader{ptr: ptr, ReaderAtCloser: reader}, nil
 }
 
-// HasDataFor returns whether any time stamp in the time range tr exists in the database.
+// HasDataFor returns whether any time stamp in the time range tr exists in the
+// database.
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
 	if db.closed.Load() {
 		return false, ErrDBClosed
@@ -211,10 +214,10 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	return i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr), i.Close()
 }
 
-// Close closes the DB. Close should not be called concurrently with any other DB methods.
-// If close fails for a reason other than unclosed writers/readers, the database will
-// still be marked closed and no read/write operations are allowed on it to protect
-// data integrity.
+// Close closes the DB. Close should not be called concurrently with any other DB
+// methods. If close fails for a reason other than unclosed writers/readers, the
+// database will still be marked closed and no read/write operations are allowed on it
+// to protect data integrity.
 func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
