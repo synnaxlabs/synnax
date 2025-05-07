@@ -77,7 +77,7 @@ const useHandleChangeIdentifier = () => {
           properties: { ...device.properties, identifier: newIdentifier },
         });
       } catch (e) {
-        if (e instanceof Error && errors.CANCELED.matches(e)) return;
+        if (e instanceof Error && errors.Canceled.matches(e)) return;
         throw e;
       }
     }, "Failed to change identifier");
@@ -89,7 +89,7 @@ const useDelete = () => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
-      if (!(await confirm(resources))) throw errors.CANCELED;
+      if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
@@ -101,7 +101,7 @@ const useDelete = () => {
     mutationFn: async ({ selection, client }) =>
       await client.hardware.devices.delete(selection.resources.map((r) => r.id.key)),
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       handleError(e, `Failed to delete devices`);
     },

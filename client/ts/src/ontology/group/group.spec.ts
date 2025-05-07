@@ -34,7 +34,7 @@ describe("Group", () => {
     });
   });
   describe("delete", () => {
-    it.only("should correctly delete the group", async () => {
+    it("should correctly delete the group", async () => {
       const name = `group-${Math.random()}`;
       const g = await client.ontology.groups.create(ontology.ROOT_ID, name);
       await client.ontology.groups.delete(g.key);

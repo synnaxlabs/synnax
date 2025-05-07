@@ -49,7 +49,7 @@ export class Tracer {
 
   child(meta: Meta): Tracer {
     const t = new Tracer(this.otelTracer, this.filter);
-    t.meta = meta.copy();
+    t.meta = meta;
     return t;
   }
 

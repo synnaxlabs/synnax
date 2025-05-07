@@ -27,7 +27,7 @@ import {
 import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
 
-const transformError = (e: unknown, message?: string): Error => {
+const newTreeError = (e: unknown, message?: string): Error => {
   if (e instanceof Error) {
     e.message = `[${message}] - ${e.message}`;
     return e;
@@ -291,7 +291,7 @@ export abstract class Leaf<
       await this.afterUpdate(this.ctx);
       endSpan();
     } catch (e) {
-      throw transformError(e, `${this.type}.${this.key}.updateState`);
+      throw newTreeError(e, `${this.type}.${this.key}.updateState`);
     }
   }
 
@@ -304,7 +304,7 @@ export abstract class Leaf<
       await this.afterUpdate(this.ctx);
       endSpan();
     } catch (e) {
-      throw transformError(e, `${this.type}.${this.key}.updateContext`);
+      throw newTreeError(e, `${this.type}.${this.key}.updateContext`);
     }
   }
 
@@ -320,7 +320,7 @@ export abstract class Leaf<
       await this.afterDelete(this.ctx);
       endSpan();
     } catch (e) {
-      throw transformError(e, `[${this.type}:${this.key}:delete]`);
+      throw newTreeError(e, `[${this.type}:${this.key}:delete]`);
     }
   }
 
