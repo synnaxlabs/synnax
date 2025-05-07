@@ -90,25 +90,25 @@ var _ = Describe("Search Indexing", func() {
 				ID:     ID{Type: testType, Key: "1"},
 				Name:   "cat",
 				Schema: schema_,
-				Data:   map[string]interface{}{},
+				Data:   map[string]any{},
 			},
 			{
 				ID:     ID{Type: testType, Key: "2"},
 				Name:   "Test Resource Two",
 				Schema: schema_,
-				Data:   map[string]interface{}{},
+				Data:   map[string]any{},
 			},
 			{
 				ID:     ID{Type: testType, Key: "3"},
 				Name:   "Special_Resource_Three",
 				Schema: schema_,
-				Data:   map[string]interface{}{},
+				Data:   map[string]any{},
 			},
 			{
 				ID:     ID{Type: testType, Key: "4"},
 				Name:   "UPPERCASE RESOURCE",
 				Schema: schema_,
-				Data:   map[string]interface{}{},
+				Data:   map[string]any{},
 			},
 		}
 

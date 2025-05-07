@@ -426,7 +426,7 @@ var _ xbinary.Codec = (*WSFramerCodec)(nil)
 func (c *WSFramerCodec) Decode(
 	ctx context.Context,
 	data []byte,
-	value interface{},
+	value any,
 ) error {
 	r := bytes.NewReader(data)
 	return c.DecodeStream(ctx, r, value)
@@ -440,7 +440,7 @@ var (
 func (c *WSFramerCodec) DecodeStream(
 	ctx context.Context,
 	r io.Reader,
-	value interface{},
+	value any,
 ) error {
 	switch v := value.(type) {
 	case *fhttp.WSMessage[FrameWriterRequest]:
@@ -456,13 +456,13 @@ func (c *WSFramerCodec) DecodeStream(
 	}
 }
 
-func (c *WSFramerCodec) Encode(ctx context.Context, value interface{}) ([]byte, error) {
+func (c *WSFramerCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	wr := &bytes.Buffer{}
 	err := c.EncodeStream(ctx, wr, value)
 	return wr.Bytes(), err
 }
 
-func (c *WSFramerCodec) EncodeStream(ctx context.Context, w io.Writer, value interface{}) error {
+func (c *WSFramerCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	switch v := value.(type) {
 	case fhttp.WSMessage[FrameWriterRequest]:
 		return c.encodeWriteRequest(ctx, w, v)
@@ -477,7 +477,7 @@ func (c *WSFramerCodec) EncodeStream(ctx context.Context, w io.Writer, value int
 	}
 }
 
-func (c *WSFramerCodec) lowPerfEncode(ctx context.Context, w io.Writer, value interface{}) error {
+func (c *WSFramerCodec) lowPerfEncode(ctx context.Context, w io.Writer, value any) error {
 	if _, err := w.Write([]byte{lowPerfSpecialChar}); err != nil {
 		return err
 	}
@@ -489,7 +489,7 @@ func (c *WSFramerCodec) lowPerfEncode(ctx context.Context, w io.Writer, value in
 	return err
 }
 
-func (c *WSFramerCodec) lowPerfDecode(ctx context.Context, r io.Reader, value interface{}) error {
+func (c *WSFramerCodec) lowPerfDecode(ctx context.Context, r io.Reader, value any) error {
 	return c.LowerPerfCodec.DecodeStream(ctx, r, value)
 }
 

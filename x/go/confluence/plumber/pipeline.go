@@ -171,7 +171,7 @@ func notFound(addr address.Address) error {
 	)
 }
 
-func wrongType[I, O cfs.Value](addr address.Address, actual interface{}) error {
+func wrongType[I, O cfs.Value](addr address.Address, actual any) error {
 	return errors.Newf(
 		`[plumber] - Expected entity (segment, source, sink)  at address %s to have
 				inlet type %T and outlet type %T, but got entity of type %T`,

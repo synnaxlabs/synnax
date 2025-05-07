@@ -62,8 +62,8 @@ var _ = Describe("Series", func() {
 
 		Describe("StaticJSONV", func() {
 			It("Should correctly marshal a static JSON data structure", func() {
-				data := map[string]interface{}{
-					"cat": map[string]interface{}{
+				data := map[string]any{
+					"cat": map[string]any{
 						"one": "two",
 					},
 				}
@@ -195,7 +195,7 @@ var _ = Describe("Series", func() {
 			Entry("float32", telem.NewSeriesV[float32](1.0, 2.0, 3.0), "[1 2 3]"),
 			Entry("float64", telem.NewSeriesV[float64](1.0, 2.0, 3.0), "[1 2 3]"),
 			Entry("string", telem.NewStringsV("a", "b", "c"), "[a b c]"),
-			Entry("json", telem.NewStaticJSONV(map[string]interface{}{"a": 1, "b": 2, "c": 3}), "[{\"a\":1,\"b\":2,\"c\":3}]"),
+			Entry("json", telem.NewStaticJSONV(map[string]any{"a": 1, "b": 2, "c": 3}), "[{\"a\":1,\"b\":2,\"c\":3}]"),
 			Entry("timestamp", telem.NewSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z +1s +2s]"),
 		)
 
@@ -305,7 +305,7 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should correctly down sample a JSON series", func() {
-				data := []map[string]interface{}{
+				data := []map[string]any{
 					{"id": 1},
 					{"id": 2},
 					{"id": 3},

@@ -39,7 +39,7 @@ var _ gorp.Entry[uuid.UUID] = Policy{}
 func (p Policy) GorpKey() uuid.UUID { return p.Key }
 
 // SetOptions implements the gorp.Entry interface.
-func (p Policy) SetOptions() []interface{} { return nil }
+func (p Policy) SetOptions() []any { return nil }
 
 // allowRequest returns true if the policies allow the given access.Request.
 //

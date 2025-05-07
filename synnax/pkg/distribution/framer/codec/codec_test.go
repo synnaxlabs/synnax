@@ -181,8 +181,8 @@ var _ = Describe("Codec", func() {
 					telem.NewSeriesV[uint8](1, 2, 3),
 					telem.NewStringsV("cat", "dog"),
 					telem.NewStaticJSONV(
-						map[string]interface{}{"key": "value"},
-						map[string]interface{}{"key": "value2"},
+						map[string]any{"key": "value"},
+						map[string]any{"key": "value2"},
 					),
 				},
 			),

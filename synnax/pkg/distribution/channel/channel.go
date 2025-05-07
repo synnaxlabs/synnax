@@ -275,11 +275,11 @@ func (c Channel) GorpKey() Key { return c.Key() }
 // SetOptions implements the gorp.Entry interface. Returns a set of options that
 // tell an aspen.DB to properly lease the Channel to the node it will be recording data
 // from.
-func (c Channel) SetOptions() []interface{} {
+func (c Channel) SetOptions() []any {
 	if c.Free() {
-		return []interface{}{core.Bootstrapper}
+		return []any{core.Bootstrapper}
 	}
-	return []interface{}{c.Lease()}
+	return []any{c.Lease()}
 }
 
 // Lease implements the proxy.UnaryServer interface.

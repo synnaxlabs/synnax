@@ -28,7 +28,7 @@ type entry struct {
 
 func (m entry) GorpKey() int { return m.ID }
 
-func (m entry) SetOptions() []interface{} { return nil }
+func (m entry) SetOptions() []any { return nil }
 
 type prefixEntry struct {
 	ID   int
@@ -37,7 +37,7 @@ type prefixEntry struct {
 
 func (m prefixEntry) GorpKey() []byte { return []byte("prefix-" + strconv.Itoa(m.ID)) }
 
-func (m prefixEntry) SetOptions() []interface{} { return nil }
+func (m prefixEntry) SetOptions() []any { return nil }
 
 type entryTwo struct {
 	ID   int
@@ -46,7 +46,7 @@ type entryTwo struct {
 
 func (m entryTwo) GorpKey() int { return m.ID }
 
-func (m entryTwo) SetOptions() []interface{} { return nil }
+func (m entryTwo) SetOptions() []any { return nil }
 
 var _ = Describe("Create", Ordered, func() {
 	var (

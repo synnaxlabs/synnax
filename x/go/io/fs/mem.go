@@ -311,7 +311,7 @@ func (f *memNode) Size() int64 {
 	return int64(len(f.mu.data))
 }
 
-func (f *memNode) Sys() interface{} {
+func (f *memNode) Sys() any {
 	return nil
 }
 

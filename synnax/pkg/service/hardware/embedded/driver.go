@@ -42,9 +42,9 @@ type Config struct {
 	Debug          *bool           `json:"debug"`
 }
 
-func (c Config) format() map[string]interface{} {
-	return map[string]interface{}{
-		"connection": map[string]interface{}{
+func (c Config) format() map[string]any {
+	return map[string]any{
+		"connection": map[string]any{
 			"host":             c.Address.HostString(),
 			"port":             c.Address.Port(),
 			"username":         c.Username,
@@ -53,12 +53,12 @@ func (c Config) format() map[string]interface{} {
 			"client_cert_file": c.ClientCertFile,
 			"client_key_file":  c.ClientKeyFile,
 		},
-		"retry": map[string]interface{}{
+		"retry": map[string]any{
 			"base_interval": 1,
 			"max_retries":   40,
 			"scale":         1.1,
 		},
-		"remote_info": map[string]interface{}{
+		"remote_info": map[string]any{
 			"rack_key":    c.RackKey,
 			"cluster_key": c.ClusterKey.String(),
 		},

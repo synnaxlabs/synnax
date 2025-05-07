@@ -427,7 +427,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Key:     dev.Key,
 				Rack:    rck.Key,
 				Variant: status.WarningVariant,
-				Details: xjson.NewStaticString(ctx, map[string]interface{}{
+				Details: xjson.NewStaticString(ctx, map[string]any{
 					"message":     "Device is warming up",
 					"temperature": 45.5,
 				}),

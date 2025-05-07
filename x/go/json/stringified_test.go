@@ -70,7 +70,7 @@ var _ = Describe("Stringified", func() {
 
 	Describe("NewStaticString", func() {
 		It("Should create a new string from static data", func() {
-			data := map[string]interface{}{
+			data := map[string]any{
 				"key": "value",
 			}
 			s := json.NewStaticString(context.Background(), data)
