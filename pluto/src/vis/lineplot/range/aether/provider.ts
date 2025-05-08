@@ -59,18 +59,18 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   schema = providerStateZ;
   fetchedInitial: TimeRange = TimeRange.ZERO;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
-    const addStatus = status.useAsyncErrorHandler(ctx);
+    const addStatus = status.useErrorHandler(ctx);
     i.ranges ??= new Map();
     const client = synnax.use(ctx);
     if (client == null) return;
     i.client = client;
 
     if (i.tracker != null) return;
-    await addStatus(async () => {
+    addStatus(async () => {
       i.tracker = await client.ranges.openTracker();
       i.tracker.onChange((c) => {
         c.forEach((r) => {
@@ -99,9 +99,9 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     this.setState((s) => ({ ...s, count: i.ranges.size }));
   }
 
-  async render(props: AnnotationProps): Promise<void> {
+  render(props: AnnotationProps): void {
     const { dataToDecimalScale, region, viewport, timeRange } = props;
-    await this.fetchInitial(timeRange);
+    void this.fetchInitial(timeRange);
     const { draw, ranges } = this.internal;
     const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     const cursor = this.state.cursor == null ? null : this.state.cursor.x;

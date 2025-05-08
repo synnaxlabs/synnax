@@ -44,14 +44,14 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
   schema = ruleStateZ;
   lastUpdateRef: number | null = null;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     this.internal.renderCtx = render.Context.use(ctx);
     const theme = theming.use(ctx);
     this.internal.draw = new Draw2D(this.internal.renderCtx.upper2d, theme);
     render.Controller.requestRender(ctx, render.REASON_TOOL);
   }
 
-  async afterDelete(ctx: aether.Context): Promise<void> {
+  afterDelete(ctx: aether.Context): void {
     render.Controller.requestRender(ctx, render.REASON_TOOL);
   }
 
@@ -88,7 +88,7 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
     return pixelPos;
   }
 
-  async render(props: RuleProps): Promise<void> {
+  render(props: RuleProps): void {
     if (this.deleted) return;
     const { renderCtx } = this.internal;
     const { location: l, plot: plottingRegion } = props;

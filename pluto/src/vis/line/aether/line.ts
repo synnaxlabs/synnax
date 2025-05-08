@@ -270,11 +270,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   static readonly TYPE = "line";
   schema: typeof stateZ = stateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     if (this.deleted) return;
     const { internal: i } = this;
-    i.xTelem = await telem.useSource(ctx, this.state.x, i.xTelem);
-    i.yTelem = await telem.useSource(ctx, this.state.y, i.yTelem);
+    i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem);
+    i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem);
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.ctx = Context.use(ctx);
     i.requestRender = render.Controller.useRequest(ctx);
@@ -289,24 +289,24 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender(render.REASON_LAYOUT);
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     const { internal: i } = this;
-    await i.xTelem.cleanup?.();
-    await i.yTelem.cleanup?.();
+    i.xTelem.cleanup?.();
+    i.yTelem.cleanup?.();
     i.requestRender(render.REASON_LAYOUT);
   }
 
-  async xBounds(): Promise<bounds.Bounds> {
-    return (await this.internal.xTelem.value())[0];
+  xBounds(): bounds.Bounds {
+    return this.internal.xTelem.value()[0];
   }
 
-  async yBounds(): Promise<bounds.Bounds> {
-    return (await this.internal.yTelem.value())[0];
+  yBounds(): bounds.Bounds {
+    return this.internal.yTelem.value()[0];
   }
 
-  async findByXValue(props: LineProps, target: number): Promise<FindResult> {
+  findByXValue(props: LineProps, target: number): FindResult {
     const { xTelem, yTelem } = this.internal;
-    const [, xData] = await xTelem.value();
+    const [, xData] = xTelem.value();
     let [index, series] = [-1, -1];
     xData.find((x, i) => {
       const v = x.binarySearch(target);
@@ -332,7 +332,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
     const xSeries = xData[series];
     result.value.x = safelyGetDataValue(series, index, xData);
-    const [, yData] = await yTelem.value();
+    const [, yData] = yTelem.value();
     const ySeries = yData.find((ys) =>
       bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
     );
@@ -350,13 +350,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     return result;
   }
 
-  async render(props: LineProps): Promise<void> {
+  render(props: LineProps): void {
     if (this.deleted || !this.state.visible) return;
     const { downsample } = this.state;
     const { xTelem, yTelem, ctx } = this.internal;
 
     const { dataToDecimalScale, exposure } = props;
-    const [[, xData], [, yData]] = await Promise.all([xTelem.value(), yTelem.value()]);
+    const [[, xData], [, yData]] = [xTelem.value(), yTelem.value()];
     xData.forEach((x) => x.updateGLBuffer(ctx.gl));
     yData.forEach((y) => y.updateGLBuffer(ctx.gl));
     if (xData.length === 0 || yData.length === 0) return;

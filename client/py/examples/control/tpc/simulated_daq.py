@@ -125,7 +125,7 @@ def clamp_pts(state: dict[str, float]):
 OX_MPV_LAST_OPEN = None
 FUEL_MPV_LAST_OPEN = None
 
-loop = sy.Loop(sy.Rate.HZ * 3, precise=True)
+loop = sy.Loop(sy.Rate.HZ * 1000, precise=True)
 
 with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
     with client.open_writer(

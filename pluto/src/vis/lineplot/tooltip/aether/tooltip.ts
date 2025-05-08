@@ -48,7 +48,7 @@ interface InternalState {
 }
 
 export interface TooltipProps {
-  findByXDecimal: (position: number) => Promise<FindResult[]>;
+  findByXDecimal: (position: number) => FindResult[];
   region: box.Box;
 }
 
@@ -56,7 +56,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
   static readonly TYPE = "tooltip";
   schema = tooltipStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const theme = theming.use(ctx);
     if (color.isZero(this.state.textColor)) this.state.textColor = theme.colors.text;
     if (color.isZero(this.state.backgroundColor))
@@ -72,18 +72,16 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     render.Controller.requestRender(ctx, render.REASON_TOOL);
   }
 
-  async afterDelete(ctx: aether.Context): Promise<void> {
+  afterDelete(ctx: aether.Context): void {
     render.Controller.requestRender(ctx, render.REASON_TOOL);
   }
 
-  async render(props: TooltipProps): Promise<void> {
+  render(props: TooltipProps): void {
     if (this.deleted || this.state.position == null) return;
     const { region } = props;
     const scale_ = scale.XY.scale(box.DECIMAL).scale(region);
     const reverseScale = scale.XY.scale(region).scale(box.DECIMAL);
-    const values = await props.findByXDecimal(
-      reverseScale.x.pos(this.state.position.x),
-    );
+    const values = props.findByXDecimal(reverseScale.x.pos(this.state.position.x));
     const validValues = values.filter((c) => xy.isFinite(c.value));
     const { draw } = this.internal;
 

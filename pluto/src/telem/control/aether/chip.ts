@@ -33,37 +33,29 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
 
   schema = chipStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const { sink: sinkProps, source: sourceProps } = this.state;
-    this.internal.source = await telem.useSource(
-      ctx,
-      sourceProps,
-      this.internal.source,
-    );
-    this.internal.sink = await telem.useSink(ctx, sinkProps, this.internal.sink);
-
+    this.internal.source = telem.useSource(ctx, sourceProps, this.internal.source);
+    this.internal.sink = telem.useSink(ctx, sinkProps, this.internal.sink);
     if (this.state.triggered && !this.prevState.triggered)
-      await this.internal.sink.set(
-        this.state.status.data?.authority !== Authority.ABSOLUTE,
-      );
-
-    await this.updateEnabledState();
+      this.internal.sink.set(this.state.status.data?.authority !== Authority.ABSOLUTE);
+    this.updateEnabledState();
     this.internal.stopListening?.();
-    this.internal.stopListening = this.internal.source.onChange(() => {
-      void this.updateEnabledState();
-    });
+    this.internal.stopListening = this.internal.source.onChange(() =>
+      this.updateEnabledState(),
+    );
   }
 
-  private async updateEnabledState(): Promise<void> {
-    const nextStatus = await this.internal.source.value();
+  private updateEnabledState(): void {
+    const nextStatus = this.internal.source.value();
     if (!deep.equal(nextStatus, this.state.status))
       this.setState((p) => ({ ...p, status: nextStatus, triggered: false }));
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     this.internal.stopListening();
-    await this.internal.source.cleanup?.();
-    await this.internal.sink.cleanup?.();
+    this.internal.source.cleanup?.();
+    this.internal.sink.cleanup?.();
   }
 
   render(): void {}

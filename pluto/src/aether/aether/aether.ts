@@ -16,7 +16,6 @@ import {
   type UnknownRecord,
 } from "@synnaxlabs/x";
 import { deep } from "@synnaxlabs/x/deep";
-import { Mutex } from "async-mutex";
 import { z } from "zod";
 
 import {
@@ -71,15 +70,11 @@ export interface Component {
    * @param create - A function that creates a new component of the appropriate type if
    * it doesn't exist in the tree.
    */
-  _updateState: (
-    path: string[],
-    state: UnknownRecord,
-    create: CreateComponent,
-  ) => Promise<void>;
+  _updateState: (path: string[], state: UnknownRecord, create: CreateComponent) => void;
   /**
    * Propagates a context update to the children and all of its descendants.
    */
-  _updateContext: (values: ContextMap) => Promise<void>;
+  _updateContext: (values: ContextMap) => void;
   /**
    * Propagates a delete to the internal tree of the component, calling the handleDelete
    * component on the component itself and any children as necessary. It is up to
@@ -87,7 +82,7 @@ export interface Component {
    *
    * @param path - The path of the component to delete.
    */
-  _delete: (path: string[]) => Promise<void>;
+  _delete: (path: string[]) => void;
 }
 
 /** Constructor props that all aether components must accept. */
@@ -269,11 +264,7 @@ export abstract class Leaf<
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
    */
-  async _updateState(
-    path: string[],
-    state: UnknownRecord,
-    _: CreateComponent,
-  ): Promise<void> {
+  _updateState(path: string[], state: UnknownRecord, _: CreateComponent): void {
     if (this.deleted) return;
     try {
       const endSpan = this.instrumentation.T.debug(
@@ -288,20 +279,20 @@ export abstract class Leaf<
       else this.instrumentation.L.debug("setting initial state", { state });
       this._prevState = this._state ?? state_;
       this._state = state_;
-      await this.afterUpdate(this.ctx);
+      this.afterUpdate(this.ctx);
       endSpan();
     } catch (e) {
       throw newTreeError(e, `${this.type}.${this.key}.updateState`);
     }
   }
 
-  async _updateContext(values: ContextMap): Promise<void> {
+  _updateContext(values: ContextMap): void {
     try {
       const endSpan = this.instrumentation.T.debug(
         `${this.type}:${this.key}:updateContext`,
       );
       values.forEach((value, key) => this.parentCtxValues.set(key, value));
-      await this.afterUpdate(this.ctx);
+      this.afterUpdate(this.ctx);
       endSpan();
     } catch (e) {
       throw newTreeError(e, `${this.type}.${this.key}.updateContext`);
@@ -312,12 +303,12 @@ export abstract class Leaf<
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
    */
-  async _delete(path: string[]): Promise<void> {
+  _delete(path: string[]): void {
     try {
       const endSpan = this.instrumentation.T.debug(`${this.type}:${this.key}:delete`);
       this.validatePath(path);
       this._deleted = true;
-      await this.afterDelete(this.ctx);
+      this.afterDelete(this.ctx);
       endSpan();
     } catch (e) {
       throw newTreeError(e, `[${this.type}:${this.key}:delete]`);
@@ -330,7 +321,7 @@ export abstract class Leaf<
    * state, previous state, derived state, and current context are all available to
    * the component.
    */
-  async afterUpdate(_: Context): Promise<void> {}
+  afterUpdate(_: Context): void {}
 
   /**
    * Runs after the component has been spliced out of the tree. This is useful for
@@ -338,7 +329,7 @@ export abstract class Leaf<
    * the current state, previous state, derived state, and current context are all
    * available to the component, and this.deleted is true.
    */
-  async afterDelete(_: Context): Promise<void> {}
+  afterDelete(_: Context): void {}
 
   private validatePath(path: string[]): void {
     if (path.length === 0)
@@ -403,26 +394,22 @@ export abstract class Composite<
     ) as unknown as readonly T[];
   }
 
-  async _updateState(
-    path: string[],
-    state: UnknownRecord,
-    create: CreateComponent,
-  ): Promise<void> {
+  _updateState(path: string[], state: UnknownRecord, create: CreateComponent): void {
     if (this.deleted) return;
     const subPath = this.parsePath(path);
 
     const isSelfUpdate = subPath.length === 0;
     if (isSelfUpdate) {
       this.childCtxChangedKeys.clear();
-      await super._updateState(path, state, create);
+      super._updateState(path, state, create);
       if (this.childCtxChangedKeys.size == 0) return;
-      await this.updateChildContexts();
+      this.updateChildContexts();
       return;
     }
 
     const childKey = subPath[0];
     const child = this.getChild(childKey);
-    if (child != null) return await child._updateState(subPath, state, create);
+    if (child != null) return child._updateState(subPath, state, create);
     if (subPath.length > 1)
       throw new UnexpectedError(
         `[Composite.update] - ${this.type}:${this.key} received a subPath ${subPath.join(
@@ -430,13 +417,13 @@ export abstract class Composite<
         )} but found now child with key ${childKey}`,
       );
     const newChild = create(this.childCtx());
-    await newChild._updateState(subPath, state, create);
+    newChild._updateState(subPath, state, create);
     this._children.set(childKey, newChild as ChildComponents);
   }
 
-  async _updateContext(values: ContextMap): Promise<void> {
-    await super._updateContext(values);
-    await this.updateChildContexts();
+  _updateContext(values: ContextMap): void {
+    super._updateContext(values);
+    this.updateChildContexts();
   }
 
   private childCtx(): ContextMap {
@@ -454,22 +441,22 @@ export abstract class Composite<
     };
   }
 
-  private async updateChildContexts(): Promise<void> {
-    for (const c of this.children) await c._updateContext(this.childCtx());
+  private updateChildContexts(): void {
+    for (const c of this.children) c._updateContext(this.childCtx());
   }
 
-  async _delete(path: string[]): Promise<void> {
+  _delete(path: string[]): void {
     const subPath = this.parsePath(path);
     if (subPath.length === 0) {
-      for (const c of this.children) await c._delete([c.key]);
+      for (const c of this.children) c._delete([c.key]);
       this._children.clear();
-      await super._delete([this.key]);
+      super._delete([this.key]);
     }
     const child = this.getChild(subPath[0]);
     if (child == null) return;
-    if (subPath.length > 1) return await child._delete(subPath);
+    if (subPath.length > 1) return child._delete(subPath);
     this._children.delete(child.key);
-    await child._delete(subPath);
+    child._delete(subPath);
   }
 
   private parsePath(path: string[], type?: string): string[] {
@@ -518,8 +505,6 @@ export class Root extends Composite<typeof aetherRootState> {
   private readonly comms: SenderHandler<WorkerMessage, MainMessage>;
   /** A registry used for creating new components in the tree. */
   private readonly registry: ComponentRegistry;
-  /** Mutex used for serializing state updates to the tree. */
-  private readonly mu = new Mutex();
 
   schema = aetherRootState;
 
@@ -543,32 +528,30 @@ export class Root extends Composite<typeof aetherRootState> {
    * Creates a new aether tree with the provided props, and starts listing for state
    * updates on the provided comms.
    */
-  static async render(props: RootProps): Promise<Root> {
+  static render(props: RootProps): Root {
     const root = new Root(props);
-    await root._updateState([Root.KEY], {}, shouldNotCallCreate);
+    root._updateState([Root.KEY], {}, shouldNotCallCreate);
     /**
      * Unfortunately we get a bunch of nasty race conditions whenever component updates
      * are not serialized, so we need to lock the entire component tree when making
      * updates.
      */
     root.comms.handle((msg) => {
-      void root.mu.runExclusive(async () => {
-        try {
-          await root.handle(msg);
-        } catch (e) {
-          const errorObj: ErrorObject = {
-            name: "unknown",
-            message: JSON.stringify(e),
-            stack: "unknown",
-          };
-          if (e instanceof Error) {
-            errorObj.name = e.name;
-            errorObj.message = e.message;
-            errorObj.stack = e.stack;
-          }
-          root.comms.send({ variant: "error", error: errorObj });
+      try {
+        root.handle(msg);
+      } catch (e) {
+        const errorObj: ErrorObject = {
+          name: "unknown",
+          message: JSON.stringify(e),
+          stack: "unknown",
+        };
+        if (e instanceof Error) {
+          errorObj.name = e.name;
+          errorObj.message = e.message;
+          errorObj.stack = e.stack;
         }
-      });
+        root.comms.send({ variant: "error", error: errorObj });
+      }
     });
     return root;
   }
@@ -577,12 +560,12 @@ export class Root extends Composite<typeof aetherRootState> {
    * Handles messages from the worker thread and applies them as updates in the
    * aether tree.
    */
-  private async handle(msg: MainMessage): Promise<void> {
+  private handle(msg: MainMessage): void {
     try {
       const { path, variant, type } = msg;
-      if (variant === "delete") await this._delete(path);
+      if (variant === "delete") this._delete(path);
       else
-        await this._updateState(path, msg.state, (parentCtxValues) => {
+        this._updateState(path, msg.state, (parentCtxValues) => {
           const key = path[path.length - 1];
           return this.create({ key, type, parentCtxValues });
         });

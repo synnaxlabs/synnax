@@ -1689,9 +1689,9 @@ export const convertDataType = (
 };
 
 export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
+  if (b == 0) return a;
+  if (a == 0) return b;
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
   if (typeof a === "number" && typeof b === "number") return a + b;
-  if (b === 0) return a;
-  if (a === 0) return b;
   return Number(a) + Number(b);
 };

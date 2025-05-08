@@ -75,7 +75,7 @@ export class Controller
   private readonly registry = new Map<AetherControllerTelem, null>();
   private writer?: framer.Writer;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.instrumentation = alamos.useInstrumentation(ctx);
     if (
@@ -85,22 +85,27 @@ export class Controller
       i.prevTrigger = this.state.acquireTrigger;
     const nextClient = synnax.use(ctx);
     const nextStateProv = StateProvider.use(ctx);
+    const runAsync = status.useErrorHandler(ctx);
+    runAsync(async () => {
+      i.client = nextClient;
+      if (i.client == null) await this.release();
+      i.stateProv = nextStateProv;
 
-    i.client = nextClient;
-    if (i.client == null) await this.release();
-    i.stateProv = nextStateProv;
+      i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
 
-    i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
+      i.addStatus = status.useAdder(ctx);
 
-    i.addStatus = status.useAdder(ctx);
-
-    // Acquire or release control if necessary.
-    if (this.state.acquireTrigger > i.prevTrigger) await this.acquire();
-    else if (this.state.acquireTrigger < i.prevTrigger) await this.release();
+      // Acquire or release control if necessary.
+      if (this.state.acquireTrigger > i.prevTrigger) await this.acquire();
+      else if (this.state.acquireTrigger < i.prevTrigger) await this.release();
+    });
   }
 
-  async afterDelete(): Promise<void> {
-    await this.release();
+  afterDelete(ctx: aether.Context): void {
+    const runAsync = status.useErrorHandler(ctx);
+    runAsync(async () => {
+      await this.release();
+    });
   }
 
   private async updateNeedsControlOf(): Promise<void> {
@@ -257,7 +262,7 @@ export class SetChannelValue
 
   invalidate(): void {}
 
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     this.controller.deleteTelem(this);
   }
 
@@ -269,16 +274,18 @@ export class SetChannelValue
     return keys;
   }
 
-  async set(value: number): Promise<void> {
-    const { client } = this.controller.internal;
-    if (client == null) return;
-    const ch = await client.channels.retrieve(this.props.channel);
-    const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: value };
-    if (ch.index !== 0) {
-      const index = await client.channels.retrieve(ch.index);
-      fr[index.key] = TimeStamp.now();
-    }
-    await this.controller.set(fr);
+  set(value: number): void {
+    void (async () => {
+      const { client } = this.controller.internal;
+      if (client == null) return;
+      const ch = await client.channels.retrieve(this.props.channel);
+      const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: value };
+      if (ch.index !== 0) {
+        const index = await client.channels.retrieve(ch.index);
+        fr[index.key] = TimeStamp.now();
+      }
+      await this.controller.set(fr);
+    })();
   }
 }
 
@@ -309,7 +316,7 @@ export class AcquireChannelControl
     this.controller = controller;
   }
 
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     this.controller.deleteTelem(this);
   }
 
@@ -320,15 +327,17 @@ export class AcquireChannelControl
     return keys;
   }
 
-  async set(acquire: boolean): Promise<void> {
-    const { controller } = this;
-    const { client } = controller.internal;
-    if (client == null) return;
-    const ch = await client.channels.retrieve(this.props.channel);
-    const keys = [ch.key];
-    if (ch.index !== 0) keys.push(ch.index);
-    if (!acquire) await this.controller.releaseAuthority(keys);
-    else await this.controller.setAuthority(keys, this.props.authority);
+  set(acquire: boolean): void {
+    void (async () => {
+      const { controller } = this;
+      const { client } = controller.internal;
+      if (client == null) return;
+      const ch = await client.channels.retrieve(this.props.channel);
+      const keys = [ch.key];
+      if (ch.index !== 0) keys.push(ch.index);
+      if (!acquire) await this.controller.releaseAuthority(keys);
+      else await this.controller.setAuthority(keys, this.props.authority);
+    })();
   }
 }
 
@@ -380,7 +389,7 @@ export class AuthoritySource
     this.valid = true;
   }
 
-  async value(): Promise<status.Spec> {
+  value(): status.Spec {
     this.maybeRevalidate();
 
     const time = TimeStamp.now();
@@ -413,7 +422,7 @@ export class AuthoritySource
     };
   }
 
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     this.controller.deleteTelem(this);
     this.stopListening?.();
   }

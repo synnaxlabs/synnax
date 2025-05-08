@@ -110,7 +110,7 @@ describe("remote", () => {
       };
       const scv = new StreamChannelValue(c, props);
       await scv.value();
-      await scv.cleanup();
+      scv.cleanup();
       expect(c.streamDestructorF).toHaveBeenCalled();
     });
     it("should set the leading buffer when onChange is called", async () => {
@@ -512,7 +512,7 @@ describe("remote", () => {
       };
       const cd = new StreamChannelData(c, props);
       await cd.value();
-      await cd.cleanup();
+      cd.cleanup();
       expect(c.streamDestructorF).toHaveBeenCalled();
     });
 
@@ -536,7 +536,7 @@ describe("remote", () => {
       const cd = new StreamChannelData(c, props);
       await cd.value();
       expect(series.refCount).toBe(1);
-      await cd.cleanup();
+      cd.cleanup();
       expect(series.refCount).toBe(0);
     });
 

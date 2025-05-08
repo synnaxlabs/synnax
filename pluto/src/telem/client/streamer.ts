@@ -10,10 +10,10 @@
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type framer } from "@synnaxlabs/client";
 import {
-  type AsyncDestructor,
   type breaker,
   compare,
   type CrudeTimeSpan,
+  type Destructor,
   nullToArr,
   type Optional,
   type Required,
@@ -29,7 +29,7 @@ export type StreamHandler = (data: Record<channel.Key, ReadResponse>) => void;
 
 interface ListenerEntry {
   valid: boolean;
-  keys: channel.Keys;
+  keys: Set<channel.Key>;
 }
 
 interface StreamerProps {
@@ -63,7 +63,7 @@ export class Streamer {
   }
 
   /** Implements StreamClient. */
-  async stream(handler: StreamHandler, keys: channel.Keys): Promise<AsyncDestructor> {
+  async stream(handler: StreamHandler, keys: channel.Keys): Promise<Destructor> {
     const { cache, instrumentation: ins } = this.props;
 
     // Make sure that the cache has entries for all relevant channels. This will also
@@ -74,7 +74,7 @@ export class Streamer {
       ins.L.debug("adding stream handler", { keys });
 
       // Bind a new listener.
-      this.listeners.set(handler, { valid: true, keys });
+      this.listeners.set(handler, { valid: true, keys: new Set(keys) });
 
       // Pull any existing dynamic buffers from the cache so that the caller has
       // access to them as they get filled.
@@ -92,15 +92,15 @@ export class Streamer {
       // Update the remote streamer to start streaming the new channels.
       await this.updateStreamer();
 
-      return async () => await this.removeStreamHandler(handler);
+      return () => this.removeStreamHandler(handler);
     });
   }
 
-  private async removeStreamHandler(handler: StreamHandler): Promise<void> {
+  private removeStreamHandler(handler: StreamHandler): void {
     const {
       instrumentation: { L },
     } = this.props;
-    await this.mu.runExclusive(() => {
+    void this.mu.runExclusive(() => {
       const entry = this.listeners.get(handler);
       if (entry == null) return;
       entry.valid = false;
@@ -158,12 +158,18 @@ export class Streamer {
 
   private notifyListeners(changed: ReadResponse[]): void {
     if (changed.length === 0) return;
+    const out = Object.fromEntries(changed.map((r) => [r.channel.key, r]));
     this.listeners.forEach((entry, handler) => {
       if (!entry.valid) return;
-      const notify = changed.filter((r) => entry.keys.includes(r.channel.key));
-      if (notify.length === 0) return;
-      const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
-      handler(d);
+      handler(out);
+      // const out: Record<channel.Key, ReadResponse> = {};
+      // let hasChanged = false;
+      // for (const r of changed) {
+      //   if (!entry.keys.has(r.channel.key)) continue;
+      //   out[r.channel.key] = r;
+      //   hasChanged = true;
+      // }
+      // if (hasChanged) handler(out);
     });
   }
 

@@ -120,7 +120,7 @@ export class IterativeSeries
     );
   }
 
-  async value(): Promise<[bounds.Bounds, Series[]]> {
+  value(): [bounds.Bounds, Series[]] {
     const d = this.data.map((x) => x.slice(0, this.position));
     if (this.props.scrollBounds) {
       const lower =
@@ -146,7 +146,7 @@ export class IterativeSeries
     }, rate.period.milliseconds) as unknown as number;
   }
 
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     clearInterval(this.interval);
     this.interval = undefined;
   }
@@ -163,7 +163,7 @@ export class FixedNumber
   static readonly TYPE = "static-numeric";
   schema = fixedNumberPropsZ;
 
-  async value(): Promise<number> {
+  value(): number {
     return this.props;
   }
 }
@@ -176,7 +176,7 @@ export class FixedString extends AbstractSource<typeof fixedStringPropsZ> {
   static readonly TYPE = "static-string";
   schema = fixedStringPropsZ;
 
-  async value(): Promise<string> {
+  value(): string {
     return this.props;
   }
 }
@@ -192,7 +192,7 @@ export class FixedColorSource
   static readonly TYPE = "static-color";
   schema = fixedColorSourcePropsZ;
 
-  async value(): Promise<color.Color> {
+  value(): color.Color {
     return color.construct(this.props);
   }
 }

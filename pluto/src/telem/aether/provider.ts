@@ -35,7 +35,7 @@ export class BaseProvider extends aether.Composite<
   prevCore: Synnax | null = null;
   client: client.Client | null = null;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const core = synnax.use(ctx);
     const I = alamos.useInstrumentation(ctx, "telem");
     this.internal.instrumentation = I.child("provider");
@@ -43,7 +43,7 @@ export class BaseProvider extends aether.Composite<
     console.log("shouldSwap", shouldSwap);
     if (!shouldSwap) return;
     this.prevCore = core;
-    if (this.client != null) await this.client.close();
+    if (this.client != null) void this.client.close();
 
     this.client =
       core == null

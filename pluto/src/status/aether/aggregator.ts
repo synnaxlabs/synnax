@@ -22,7 +22,7 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   static readonly TYPE: string = "status.Aggregator";
   schema = aggregatorStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     if (ctx.wasSetPreviously(CONTEXT_KEY)) return;
     ctx.set(CONTEXT_KEY, this);
   }

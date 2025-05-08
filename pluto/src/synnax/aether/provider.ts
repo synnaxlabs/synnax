@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection, Synnax, synnaxPropsZ } from "@synnaxlabs/client";
+import { Synnax, synnaxPropsZ } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -19,13 +19,11 @@ const stateZ = z.object({
 });
 
 export interface ContextValue {
-  synnax: Synnax | null;
-  state: connection.State;
+  client: Synnax | null;
 }
 
 export const ZERO_CONTEXT_VALUE: ContextValue = {
-  synnax: null,
-  state: Synnax.connectivity.DEFAULT,
+  client: null,
 };
 
 export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
@@ -33,13 +31,12 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
   static readonly stateZ = stateZ;
   schema = Provider.stateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     if (!ctx.wasSetPreviously(CONTEXT_KEY)) set(ctx, ZERO_CONTEXT_VALUE);
     if (this.state.props == null) {
-      if (this.internal.synnax != null) {
-        this.setState((p) => ({ ...p, state: Synnax.connectivity.DEFAULT }));
-        this.internal.synnax?.close();
-        this.internal.synnax = null;
+      if (this.internal.client != null) {
+        this.internal.client?.close();
+        this.internal.client = null;
       }
       set(ctx, this.internal);
       return;
@@ -48,14 +45,11 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
     if (
       this.prevState.props != null &&
       deep.equal(this.state.props, this.prevState.props) &&
-      this.internal.synnax != null
+      this.internal.client != null
     )
       return;
 
-    this.internal.synnax = new Synnax(this.state.props);
-    this.internal.synnax.connectivity.onChange((state) =>
-      this.setState((p) => ({ ...p, state })),
-    );
+    this.internal.client = new Synnax(this.state.props);
     set(ctx, this.internal);
   }
 }
@@ -66,7 +60,7 @@ const set = (ctx: aether.Context, value: ContextValue): void =>
   ctx.set(CONTEXT_KEY, value);
 
 export const use = (ctx: aether.Context): Synnax | null =>
-  ctx.get<ContextValue>(CONTEXT_KEY).synnax;
+  ctx.get<ContextValue>(CONTEXT_KEY).client;
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Provider.TYPE]: Provider,

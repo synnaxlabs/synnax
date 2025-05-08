@@ -11,7 +11,6 @@ import { type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import { type diagram } from "@/vis/diagram/aether";
 
@@ -28,7 +27,6 @@ export type SetpointState = z.input<typeof setpointStateZ>;
 interface InternalState {
   source: telem.NumberSource;
   sink: telem.NumberSink;
-  handleError: status.AsyncErrorHandler;
   stopListening: Destructor;
   prevTrigger: number;
 }
@@ -44,47 +42,37 @@ export class Setpoint
 
   schema = setpointStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
-    this.internal.handleError = status.useAsyncErrorHandler(ctx);
+  afterUpdate(ctx: aether.Context): void {
     const { sink: sinkProps, source: sourceProps, trigger, command } = this.state;
     const { internal: i } = this;
     i.prevTrigger ??= trigger;
-    await i.handleError(async () => {
-      this.internal.source = await telem.useSource(
-        ctx,
-        sourceProps,
-        this.internal.source,
-      );
-      i.sink = await telem.useSink(ctx, sinkProps, i.sink);
+    void (async () => {
+      this.internal.source = telem.useSource(ctx, sourceProps, this.internal.source);
+      i.sink = telem.useSink(ctx, sinkProps, i.sink);
 
       const prevTrigger = i.prevTrigger;
       i.prevTrigger = trigger;
 
-      if (trigger > prevTrigger && command != null)
-        await this.internal.sink.set(command);
+      if (trigger > prevTrigger && command != null) this.internal.sink.set(command);
 
-      await this.updateValue();
+      this.updateValue();
       i.stopListening?.();
-      i.stopListening = i.source.onChange(
-        () => void i.handleError(async () => await this.updateValue()),
-      );
-    }, "Failed to update Setpoint");
+      i.stopListening = i.source.onChange(() => this.updateValue());
+    })();
   }
 
-  private async updateValue(): Promise<void> {
-    const nextValue = await this.internal.source.value();
+  private updateValue(): void {
+    const nextValue = this.internal.source.value();
     if (nextValue === this.state.value) return;
     this.setState((p) => ({ ...p, value: nextValue, triggered: false }));
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     const { internal: i } = this;
     i.stopListening();
-    await i.source.cleanup?.();
-    await i.sink.cleanup?.();
+    i.source.cleanup?.();
+    i.sink.cleanup?.();
   }
-
-  async render(): Promise<void> {}
 }
 
 export const REGISTRY: aether.ComponentRegistry = { [Setpoint.TYPE]: Setpoint };

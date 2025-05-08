@@ -63,15 +63,15 @@ export interface ValueProps {
 }
 
 export interface Telem {
-  cleanup?: () => Promise<void>;
+  cleanup?: () => void;
 }
 
 export interface Source<V> extends Telem, observe.Observable<void> {
-  value: (props?: ValueProps) => Promise<V>;
+  value: (props?: ValueProps) => V;
 }
 
 export interface Sink<V> extends Telem {
-  set: (value: V) => Promise<void>;
+  set: (value: V) => void;
 }
 
 export interface SourceTransformer<I, O> extends Telem, Source<O> {
@@ -162,7 +162,7 @@ export class Base<P extends z.ZodTypeAny> extends observe.BaseObserver<void> {
     return this.schema;
   }
 
-  async cleanup(): Promise<void> {}
+  cleanup(): void {}
 }
 
 export class AbstractSource<P extends z.ZodTypeAny> extends Base<P> {}
@@ -173,34 +173,28 @@ export class UnarySourceTransformer<I, O, P extends z.ZodTypeAny>
   extends AbstractSource<P>
   implements SourceTransformer<I, O>
 {
-  sources: Record<string, Source<I>> = {};
+  source_: Source<I> | undefined = undefined;
 
   private get source(): Source<I> {
-    const [source] = Object.values(this.sources);
-    if (source == null)
+    if (this.source_ == null)
       throw new ValidationError(
         `[UnarySourceTransformer] - expected source to exist, but none was found.`,
       );
-    return source;
+    return this.source_;
   }
 
-  async value(): Promise<O> {
-    return this.transform(await this.source.value());
+  value(): O {
+    return this.transform(this.source.value());
   }
 
   onChange(handler: () => void): Destructor {
     return this.source.onChange(() => {
-      this.source
-        .value()
-        .then((value) => {
-          if (this.shouldNotify(value)) handler();
-        })
-        .catch(console.error);
+      if (this.shouldNotify(this.source.value())) handler();
     });
   }
 
   setSources(sources: Record<string, Source<I>>): void {
-    this.sources = sources;
+    this.source_ = Object.values(sources)[0];
   }
 
   protected shouldNotify(_: I): boolean {
@@ -221,14 +215,9 @@ export class MultiSourceTransformer<I, O, P extends z.ZodTypeAny>
 {
   sources: Record<string, Source<I>> = {};
 
-  async value(): Promise<O> {
+  value(): O {
     const values = Object.fromEntries(
-      await Promise.all(
-        Object.entries(this.sources).map(async ([id, source]) => [
-          id,
-          await source.value(),
-        ]),
-      ),
+      Object.entries(this.sources).map(([id, source]) => [id, source.value()]),
     ) as Record<string, I>;
     return this.transform(values);
   }
@@ -260,8 +249,8 @@ export class UnarySinkTransformer<I, O, P extends z.ZodTypeAny>
     return sink;
   }
 
-  async set(value: I): Promise<void> {
-    return await this.sink.set(this.transform(value));
+  set(value: I): void {
+    return this.sink.set(this.transform(value));
   }
 
   setSinks(sinks: Record<string, Sink<O>>): void {
