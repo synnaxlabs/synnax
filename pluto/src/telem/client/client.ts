@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { alamos } from "@synnaxlabs/alamos";
+import { type alamos } from "@synnaxlabs/alamos";
 import { type channel, framer, QueryError, type Synnax } from "@synnaxlabs/client";
 import {
   type AsyncDestructor,
@@ -66,7 +66,6 @@ export interface StreamClient {
  * client to make it easy to stub out for testing.
  */
 export interface Client extends ChannelClient, ReadClient, StreamClient {
-  key: string;
   /** Close closes the client, releasing all resources from the cache. */
   close: () => Promise<void>;
 }
@@ -107,16 +106,14 @@ interface CoreProps {
  * adding a transparent caching layer.
  */
 export class Core implements Client {
-  readonly key: string = id.create();
   private readonly ins: alamos.Instrumentation;
-
   private readonly cache: cache.Cache;
   private readonly reader: Reader;
   private readonly streamer: Streamer;
   private readonly channelRetriever: channel.Retriever;
 
   constructor({ instrumentation, core }: CoreProps) {
-    this.ins = instrumentation ?? alamos.NOOP;
+    this.ins = instrumentation;
     this.channelRetriever = core.channels.createDebouncedBatchRetriever(10);
     this.cache = new cache.Cache({
       channelRetriever: this.channelRetriever,
@@ -156,9 +153,9 @@ export class Core implements Client {
 
   /** Implements Client. */
   async close(): Promise<void> {
-    console.log("closing client");
-    this.ins.L.info("closing client", { key: this.key });
+    this.ins.L.info("closing client");
     await this.streamer.close();
+    await this.reader.close();
     this.cache.close();
   }
 }

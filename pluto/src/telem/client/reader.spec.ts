@@ -69,7 +69,7 @@ const newCache = (): Cache =>
     instrumentation: alamos.NOOP,
   });
 
-describe("channelRetriever", () => {
+describe("read", () => {
   it("should correctly execute a simple read", async () => {
     const cache = newCache();
     const remoteReadF = vi.fn();
@@ -90,6 +90,7 @@ describe("channelRetriever", () => {
     expect(() => cache.get(1)).not.toThrow();
     expect(() => cache.get(2)).not.toThrow();
   });
+
   it("should skip a read if the value is in the cache", async () => {
     const cache = newCache();
     const remoteReadF = vi.fn();
@@ -114,6 +115,7 @@ describe("channelRetriever", () => {
     expect(res2[1].data[0].at(0)).toBe(1);
     expect(res2[2].data[0].at(0)).toBe(1);
   });
+
   it("should correctly batch multiple read requests with exactly the same time range", async () => {
     const cache = newCache();
     const remoteReadF = vi.fn();
@@ -137,7 +139,8 @@ describe("channelRetriever", () => {
     expect(res2[1][4].data).toHaveLength(1);
     expect(res2[1][5].data).toHaveLength(1);
   });
-  it("should correclty batch multiple read requests with different time ranges", async () => {
+
+  it("should correctly batch multiple read requests with different time ranges", async () => {
     const cache = newCache();
     const remoteReadF = vi.fn();
     const reader = new Reader({
@@ -163,6 +166,7 @@ describe("channelRetriever", () => {
     expect(res2[1][4].data).toHaveLength(1);
     expect(res2[1][5].data).toHaveLength(1);
   });
+
   it("should correctly batch multiple read requests with time ranges within 5 milliseconds of each other", async () => {
     const manager = newCache();
     const remoteReadF = vi.fn();
@@ -170,21 +174,33 @@ describe("channelRetriever", () => {
       cache: manager,
       readRemote: basicRemoteReadFunc(remoteReadF),
     });
-    const tr1 = new TimeRange(TimeSpan.milliseconds(999), TimeSpan.seconds(1));
+    const tr1 = new TimeRange(TimeSpan.milliseconds(999), TimeSpan.milliseconds(1001));
     const tr2 = new TimeRange(TimeSpan.milliseconds(998), TimeSpan.seconds(1));
     const res2 = await Promise.all([
       reader.read(tr1, [1, 2]),
       reader.read(tr2, [3, 4, 5]),
     ]);
+    // We expected the read time range to have the maximum breadth possible of the two
+    // time ranges.
+    const expectedReadTr = new TimeRange(
+      TimeSpan.milliseconds(998),
+      TimeSpan.milliseconds(1001),
+    );
     expect(remoteReadF).toHaveBeenCalledTimes(1);
-    expect(remoteReadF).toHaveBeenCalledWith(tr1, [1, 2, 3, 4, 5]);
+    expect(remoteReadF).toHaveBeenCalledWith(expectedReadTr, [1, 2, 3, 4, 5]);
     expect(res2).toHaveLength(2);
     expect(Object.keys(res2[0])).toHaveLength(2);
     expect(Object.keys(res2[1])).toHaveLength(3);
     expect(res2[0][1].data).toHaveLength(1);
+    expect(res2[0][1].timeRange.equals(expectedReadTr)).toBe(true);
     expect(res2[0][2].data).toHaveLength(1);
+    expect(res2[0][2].timeRange.equals(expectedReadTr)).toBe(true);
+
     expect(res2[1][3].data).toHaveLength(1);
+    expect(res2[1][3].timeRange.equals(expectedReadTr)).toBe(true);
     expect(res2[1][4].data).toHaveLength(1);
+    expect(res2[1][4].timeRange.equals(expectedReadTr)).toBe(true);
     expect(res2[1][5].data).toHaveLength(1);
+    expect(res2[1][5].timeRange.equals(expectedReadTr)).toBe(true);
   });
 });

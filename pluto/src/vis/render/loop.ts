@@ -134,7 +134,7 @@ export class Loop {
     endRender();
     endCycle();
     this.requests.clear();
-    // this.afterRender?.();
+    this.afterRender?.();
   }
 
   private runCleanupsSync(): void {

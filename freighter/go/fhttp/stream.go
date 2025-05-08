@@ -205,10 +205,10 @@ func (s *serverStream[RQ, RS]) Send(res RS) error {
 }
 
 func (s *serverStream[RQ, RS]) close(err error) error {
-	closeCode := contextCancelledCloseCode
 	if err == nil {
 		err = freighter.EOF
 	}
+	closeCode := contextCancelledCloseCode
 	if !errors.Is(err, context.Canceled) {
 		closeCode = normalCloseCode
 		if err := s.send(WSMessage[RS]{

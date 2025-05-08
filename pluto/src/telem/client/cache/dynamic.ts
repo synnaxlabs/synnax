@@ -39,7 +39,7 @@ export interface DynamicProps {
   /**
    * Function that the cache will use to pull the current time.
    */
-  testingNow?: () => TimeStamp;
+  now?: () => TimeStamp;
 }
 
 // These are the smallest and largest sizes for a dynamically calculated buffer size.
@@ -79,7 +79,7 @@ export class Dynamic {
   constructor(props: DynamicProps) {
     this.props = props;
     this.curr = null;
-    if (props.testingNow != null) this.now = props.testingNow;
+    if (props.now != null) this.now = props.now;
     this.timeOfLastWrite = this.now();
   }
 

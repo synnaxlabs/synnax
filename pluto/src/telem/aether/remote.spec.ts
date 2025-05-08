@@ -26,7 +26,16 @@ import {
   StreamChannelValue,
   type StreamChannelValueProps,
 } from "@/telem/aether/remote";
+import { type Source } from "@/telem/aether/telem";
 import { client } from "@/telem/client";
+
+const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
+  source.value();
+  const handleChange = vi.fn();
+  source.onChange(handleChange);
+  await expect.poll(() => handleChange.mock.calls.length > 0).toBeTruthy();
+  return source.value();
+};
 
 describe("remote", () => {
   describe("StreamChannelValue", () => {
@@ -79,47 +88,53 @@ describe("remote", () => {
         channel: 0,
       };
       const scv = new StreamChannelValue(client, props);
-      expect(await scv.value()).toBe(0);
+      expect(scv.value()).toBe(0);
       expect(scv.testingOnlyValid).toBe(false);
     });
+
     it("should return a zero value when no leading buffer has been set", async () => {
       const client = new MockClient();
       const props: StreamChannelValueProps = {
         channel: 0,
       };
       const scv = new StreamChannelValue(client, props);
-      expect(await scv.value()).toBe(0);
-      expect(scv.testingOnlyValid).toBe(false);
+      expect(scv.value()).toBe(0);
       expect(scv.testingOnlyLeadingBuffer).toBeNull();
     });
+
     it("should open the stream handler when the channel is not zero", async () => {
       const c = new MockClient();
       const props: StreamChannelValueProps = {
         channel: c.channel.key,
       };
       const scv = new StreamChannelValue(c, props);
-      await scv.value();
+      await waitForResolve(scv);
       expect(c.streamHandler).not.toBeNull();
       expect(c.streamF).toHaveBeenCalled();
       expect(c.streamF).toHaveBeenCalledWith(c.streamHandler, [c.channel.key]);
     });
+
     it("should destroy the stream handler when cleanup is called", async () => {
       const c = new MockClient();
       const props: StreamChannelValueProps = {
         channel: c.channel.key,
       };
       const scv = new StreamChannelValue(c, props);
-      await scv.value();
+      await waitForResolve(scv);
       scv.cleanup();
       expect(c.streamDestructorF).toHaveBeenCalled();
     });
+
     it("should set the leading buffer when onChange is called", async () => {
       const c = new MockClient();
       const props: StreamChannelValueProps = {
         channel: c.channel.key,
       };
       const scv = new StreamChannelValue(c, props);
-      expect(await scv.value()).toBe(0);
+      const handleChange = vi.fn();
+      scv.onChange(handleChange);
+      scv.value();
+      await expect.poll(() => handleChange.mock.calls.length === 1).toBeTruthy();
       const series = new Series({
         data: new Float32Array([1, 2, 3]),
       });
@@ -127,35 +142,48 @@ describe("remote", () => {
       c.streamHandler?.({
         [c.channel.key]: new client.ReadResponse(c.channel, [series]),
       });
+      await expect.poll(() => handleChange.mock.calls.length === 2).toBeTruthy();
       expect(scv.testingOnlyLeadingBuffer).toBe(series);
-      expect(await scv.value()).toBe(3);
+      expect(scv.value()).toBe(3);
     });
+
     it("should return the correct value when the leading buffer is appended to", async () => {
       const c = new MockClient();
       const props: StreamChannelValueProps = {
         channel: c.channel.key,
       };
       const scv = new StreamChannelValue(c, props);
-      expect(await scv.value()).toBe(0);
-      const series = Series.alloc({
-        dataType: DataType.FLOAT32,
-        capacity: 3,
-      });
+      const handleChange = vi.fn();
+      scv.onChange(handleChange);
+      expect(scv.value()).toBe(0);
+      await expect.poll(() => handleChange.mock.calls.length === 1).toBeTruthy();
+      const series = Series.alloc({ dataType: DataType.FLOAT32, capacity: 3 });
+
       // Call onChange to set the leading buffer
       c.streamHandler?.({
         [c.channel.key]: new client.ReadResponse(c.channel, [series]),
       });
+      await expect.poll(() => handleChange.mock.calls.length === 2).toBeTruthy();
       // Append to the leading buffer
       series.write(new Series({ data: new Float32Array([1, 2, 5]) }));
-      expect(await scv.value()).toBe(5);
+      c.streamHandler?.({
+        [c.channel.key]: new client.ReadResponse(c.channel, []),
+      });
+      await expect.poll(() => handleChange.mock.calls.length === 3).toBeTruthy();
+      const v = scv.value();
+      expect(v).toBe(5);
     });
+
     it("should replace the leading buffer when a new one is passed through the streamer", async () => {
       const c = new MockClient();
       const props: StreamChannelValueProps = {
         channel: c.channel.key,
       };
       const scv = new StreamChannelValue(c, props);
-      expect(await scv.value()).toBe(0);
+      const handleChange = vi.fn();
+      scv.onChange(handleChange);
+      scv.value();
+      await expect.poll(() => handleChange.mock.calls.length === 1).toBeTruthy();
       const newSeriesOne = new Series({
         data: new Float32Array([1, 2, 3]),
       });
@@ -166,17 +194,20 @@ describe("remote", () => {
       c.streamHandler?.({
         [c.channel.key]: new client.ReadResponse(c.channel, [newSeriesOne]),
       });
+      await expect.poll(() => handleChange.mock.calls.length === 2).toBeTruthy();
       // It should increment the reference count of the buffer
       expect(newSeriesOne.refCount).toBe(1);
-      expect(await scv.value()).toBe(3);
+      expect(scv.value()).toBe(3);
       c.streamHandler?.({
         [c.channel.key]: new client.ReadResponse(c.channel, [newSeriesTwo]),
       });
       expect(newSeriesOne.refCount).toBe(0);
-      expect(await scv.value()).toBe(6);
+      await expect.poll(() => handleChange.mock.calls.length === 3).toBeTruthy();
+      expect(scv.value()).toBe(6);
       expect(newSeriesTwo.refCount).toBe(1);
     });
   });
+
   describe("ChannelData", () => {
     class MockClient implements client.ReadClient, client.ChannelClient {
       key: string = id.create();
@@ -230,7 +261,10 @@ describe("remote", () => {
         channel: 0,
       };
       const cd = new ChannelData(client, props);
-      const [b, data] = await cd.value();
+      const handleChange = vi.fn();
+      cd.onChange(handleChange);
+      const [b, data] = cd.value();
+      expect(handleChange.mock.calls.length).toBe(0);
       expect(b).toStrictEqual(bounds.ZERO);
       expect(data).toHaveLength(0);
       expect(client.readMock).not.toHaveBeenCalled();
@@ -244,7 +278,9 @@ describe("remote", () => {
         channel: client.channel.key,
       };
       const cd = new ChannelData(client, props);
-      const [b, data] = await cd.value();
+      const handleChange = vi.fn();
+      const [b, data] = cd.value();
+      expect(handleChange.mock.calls.length).toBe(0);
       expect(b).toStrictEqual(bounds.ZERO);
       expect(data).toHaveLength(0);
       expect(client.readMock).not.toHaveBeenCalled();
@@ -264,7 +300,7 @@ describe("remote", () => {
         channel: c.channel.key,
       };
       const cd = new ChannelData(c, props);
-      const [b, data] = await cd.value();
+      const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 1, upper: 3 });
       expect(data).toHaveLength(1);
       expect(data[0]).toBe(series);
@@ -284,7 +320,7 @@ describe("remote", () => {
         useIndexOfChannel: true,
       };
       const cd = new ChannelData(c, props);
-      const [b, data] = await cd.value();
+      const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 0, upper: 4 });
       expect(data).toHaveLength(1);
       expect(data[0]).toBe(series);
@@ -304,12 +340,13 @@ describe("remote", () => {
         useIndexOfChannel: true,
       };
       const cd = new ChannelData(c, props);
-      const [b, data] = await cd.value();
+      const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 0, upper: 4 });
       expect(data).toHaveLength(1);
       expect(data[0]).toBe(series);
     });
   });
+
   describe("StreamChannelData", () => {
     class MockClient implements client.Client {
       key: string = id.create();
@@ -377,17 +414,18 @@ describe("remote", () => {
         channel: 0,
       };
       const cd = new StreamChannelData(c, props);
-      const [b, data] = await cd.value();
+      const [b, data] = cd.value();
       expect(b).toStrictEqual(bounds.ZERO);
       expect(data).toHaveLength(0);
     });
 
     it("should return data when the channel is specified", async () => {
+      const now = TimeStamp.now();
       const series = new Series({
         data: new Float32Array([1, 2, 3]),
         timeRange: new TimeRange(
-          TimeStamp.now().sub(TimeSpan.seconds(3)),
-          TimeStamp.now().add(TimeSpan.seconds(1)),
+          now.sub(TimeSpan.milliseconds(3)),
+          now.add(TimeSpan.milliseconds(1)),
         ),
       });
       c.response = {
@@ -398,7 +436,7 @@ describe("remote", () => {
         channel: c.channel.key,
       };
       const cd = new StreamChannelData(c, props);
-      const [b, data] = await cd.value();
+      const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 1, upper: 3 });
       expect(data).toHaveLength(1);
       expect(data[0]).toBe(series);
@@ -410,14 +448,14 @@ describe("remote", () => {
         channel: c.channel.key,
       };
       const cd = new StreamChannelData(c, props);
-      await cd.value();
+      await waitForResolve(cd);
       expect(c.streamHandler).not.toBeNull();
       expect(c.streamF).toHaveBeenCalled();
       expect(c.streamF).toHaveBeenCalledWith(c.streamHandler, [c.channel.key]);
     });
 
     it("should garbage collect data that goes out of range", async () => {
-      const now = TimeStamp.now();
+      let now = TimeStamp.milliseconds(10);
       const tr = new TimeRange(
         now.sub(TimeSpan.milliseconds(3)),
         now.add(TimeSpan.milliseconds(1)),
@@ -433,8 +471,8 @@ describe("remote", () => {
         timeSpan: TimeSpan.milliseconds(2),
         channel: c.channel.key,
       };
-      const cd = new StreamChannelData(c, props);
-      const [b, data] = await cd.value();
+      const cd = new StreamChannelData(c, props, () => now);
+      const [b, data] = await waitForResolve(cd);
       expect(b).toEqual({ lower: 1, upper: 3 });
       expect(data).toHaveLength(1);
       const tr2 = new TimeRange(
@@ -446,21 +484,20 @@ describe("remote", () => {
         data: new Float32Array([4, 5, 6]),
         timeRange: tr2,
       });
-      // wait for 10 milliseconds
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      now = TimeStamp.milliseconds(30);
       c.streamHandler?.({
         [c.channel.key]: new client.ReadResponse(c.channel, [series2]),
       });
       expect(series.refCount).toBe(0);
       expect(series2.refCount).toBe(1);
-      const [b2, data2] = await cd.value();
+      const [b2, data2] = cd.value();
       expect(b2).toEqual({ lower: 4, upper: 6 });
       expect(data2).toHaveLength(1);
       expect(data2[0]).toBe(series2);
     });
 
     it("should adjust the bounds of the data even if it was not garbage collected", async () => {
-      const now = TimeStamp.now();
+      let now = TimeStamp.milliseconds(10);
       const tr = new TimeRange(
         now.sub(TimeSpan.milliseconds(3)),
         now.add(TimeSpan.milliseconds(1)),
@@ -476,13 +513,13 @@ describe("remote", () => {
         timeSpan: TimeSpan.milliseconds(2),
         channel: c.channel.key,
       };
-      const cd = new StreamChannelData(c, props);
-      const [b, data] = await cd.value();
+      const cd = new StreamChannelData(c, props, () => now);
+      const [b, data] = await waitForResolve(cd);
       expect(b).toEqual({ lower: 1, upper: 3 });
       expect(data).toHaveLength(1);
       const tr2 = new TimeRange(
         now.add(TimeSpan.milliseconds(1)),
-        now.add(TimeSpan.milliseconds(40)),
+        now.add(TimeSpan.milliseconds(20)),
       );
       expect(series.refCount).toBe(1);
       // write the new series
@@ -490,13 +527,12 @@ describe("remote", () => {
         data: new Float32Array([4, 5, 6]),
         timeRange: tr2,
       });
-      // Notice how in this case we call the stream handler before we wait, this means
-      // that the old buffer will not be garbage collected
+      // The old buffer won't be garbage collected yet
       c.streamHandler?.({
         [c.channel.key]: new client.ReadResponse(c.channel, [series2]),
       });
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      const [b2, data2] = await cd.value();
+      now = TimeStamp.milliseconds(20);
+      const [b2, data2] = cd.value();
       expect(series2.refCount).toBe(1);
       expect(series.refCount).toBe(1);
       expect(b2).toEqual({ lower: 4, upper: 6 });
@@ -506,18 +542,19 @@ describe("remote", () => {
     });
 
     it("should destroy the stream handler when cleanup is called", async () => {
+      const now = TimeStamp.milliseconds(10);
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.MAX,
         channel: c.channel.key,
       };
-      const cd = new StreamChannelData(c, props);
-      await cd.value();
+      const cd = new StreamChannelData(c, props, () => now);
+      await waitForResolve(cd);
       cd.cleanup();
       expect(c.streamDestructorF).toHaveBeenCalled();
     });
 
     it("should drop the series refcounts to 0 when cleanup is called", async () => {
-      const now = TimeStamp.now();
+      const now = TimeStamp.milliseconds(10);
       const tr = new TimeRange(
         now.sub(TimeSpan.milliseconds(3)),
         now.add(TimeSpan.milliseconds(1)),
@@ -533,15 +570,15 @@ describe("remote", () => {
         timeSpan: TimeSpan.milliseconds(2),
         channel: c.channel.key,
       };
-      const cd = new StreamChannelData(c, props);
-      await cd.value();
+      const cd = new StreamChannelData(c, props, () => now);
+      await waitForResolve(cd);
       expect(series.refCount).toBe(1);
       cd.cleanup();
       expect(series.refCount).toBe(0);
     });
 
     it("should return the index channel data when the channel is not an index and fetchIndex is true", async () => {
-      const now = TimeStamp.now();
+      const now = TimeStamp.milliseconds(10);
       const tr = new TimeRange(
         now.sub(TimeSpan.milliseconds(3)),
         now.add(TimeSpan.milliseconds(1)),
@@ -558,15 +595,15 @@ describe("remote", () => {
         channel: c.channel.key,
         useIndexOfChannel: true,
       };
-      const cd = new StreamChannelData(c, props);
-      const [b, data] = await cd.value();
+      const cd = new StreamChannelData(c, props, () => now);
+      const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 1, upper: 3 });
       expect(data).toHaveLength(1);
       expect(data[0]).toBe(series);
     });
 
     it("should return the index channel data when the channel is an index and fetchIndex is true", async () => {
-      const now = TimeStamp.now();
+      const now = TimeStamp.milliseconds(10);
       const tr = new TimeRange(
         now.sub(TimeSpan.milliseconds(3)),
         now.add(TimeSpan.milliseconds(1)),
@@ -583,8 +620,8 @@ describe("remote", () => {
         channel: c.channel.index,
         useIndexOfChannel: true,
       };
-      const cd = new StreamChannelData(c, props);
-      const [b, data] = await cd.value();
+      const cd = new StreamChannelData(c, props, () => now);
+      const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 1, upper: 3 });
       expect(data).toHaveLength(1);
       expect(data[0]).toBe(series);

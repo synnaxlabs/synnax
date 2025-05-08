@@ -40,7 +40,6 @@ export class BaseProvider extends aether.Composite<
     const I = alamos.useInstrumentation(ctx, "telem");
     this.internal.instrumentation = I.child("provider");
     const shouldSwap = core !== this.prevCore;
-    console.log("shouldSwap", shouldSwap);
     if (!shouldSwap) return;
     this.prevCore = core;
     if (this.client != null) void this.client.close();

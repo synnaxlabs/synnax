@@ -92,14 +92,19 @@ export class StreamChannelValue
   }
 
   async read(): Promise<void> {
-    this.valid = true;
-    if (this.channelKey === 0) {
-      const c = await fetchChannelProperties(this.client, this.props.channel, false);
-      if (c == null) return;
-      this.channelKey = c.key;
+    try {
+      this.valid = true;
+      if (this.channelKey === 0) {
+        const c = await fetchChannelProperties(this.client, this.props.channel, false);
+        if (c == null) return;
+        this.channelKey = c.key;
+      }
+      await this.updateStreamHandler();
+      this.notify();
+    } catch (e) {
+      this.valid = false;
+      console.error(e);
     }
-    await this.updateStreamHandler();
-    this.notify();
   }
 
   private async updateStreamHandler(): Promise<void> {
@@ -207,8 +212,10 @@ export class ChannelData
       if (this.channel == null) return;
       const res = await this.client.read(timeRange, [this.channel.key]);
       const newData = res[this.channel.key].data;
+      if (newData == null) return;
       newData.forEach((d) => d.acquire());
       this.data = newData;
+      this.notify();
     } catch (e) {
       this.valid = false;
       console.error(e);
@@ -231,28 +238,34 @@ export class StreamChannelData
 {
   static readonly TYPE = "dynamic-series-source";
   private readonly client: client.Client;
-  private channel: SelectedChannelProperties | null = null;
   private readonly data: Series[] = [];
+  private readonly now: () => TimeStamp;
+
+  private channel: SelectedChannelProperties | null = null;
   private stopStreaming?: Destructor;
   private valid: boolean = false;
   schema = streamChannelDataPropsZ;
 
-  constructor(client: client.Client, props: unknown) {
+  constructor(
+    client: client.Client,
+    props: unknown,
+    now: () => TimeStamp = () => TimeStamp.now(),
+  ) {
     super(props);
     this.client = client;
+    this.now = now;
   }
 
   value(): [bounds.Bounds, Series[]] {
     const { channel, timeSpan } = this.props;
     if (channel === 0) return [bounds.ZERO, []];
-    const now = TimeStamp.now();
+    const now = this.now();
     if (!this.valid) void this.read();
     if (this.channel == null) return [bounds.ZERO, []];
-    let b = bounds.max(
-      this.data
-        .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
-        .map((d) => d.bounds),
-    );
+    const filtered = this.data
+      .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
+      .map((d) => d.bounds);
+    let b = bounds.max(filtered);
     if (this.channel.dataType.equals(DataType.TIMESTAMP))
       b = {
         upper: b.upper,
@@ -271,13 +284,15 @@ export class StreamChannelData
         useIndexOfChannel,
       );
       if (this.channel == null) return;
-      const tr = TimeStamp.now().spanRange(-this.props.timeSpan);
+      const tr = this.now().spanRange(-this.props.timeSpan);
       if (!this.channel.virtual && !this.channel.isCalculated) {
         const res = await this.client.read(tr, [this.channel.key]);
-        const newData = res[this.channel.key].data;
+        const newData = res[this.channel.key]?.data;
+        if (newData == null) return;
         newData.forEach((d) => d.acquire());
         this.data.push(...newData);
       }
+      this.notify();
       await this.updateStreamHandler(this.channel.key);
     } catch (e) {
       this.valid = false;
@@ -292,14 +307,14 @@ export class StreamChannelData
       if (newData == null) return;
       newData.forEach((d) => d.acquire());
       this.data.push(...newData);
-      this.gcOutOfRangeData();
       this.notify();
+      this.gcOutOfRangeData();
     };
     this.stopStreaming = await this.client.stream(handler, [key]);
   }
 
   private gcOutOfRangeData(): void {
-    const threshold = TimeStamp.now().sub(this.props.keepFor ?? this.props.timeSpan);
+    const threshold = this.now().sub(this.props.keepFor ?? this.props.timeSpan);
     const toGC = this.data.findIndex((d) => d.timeRange.end.before(threshold));
     if (toGC === -1) return;
     this.data.splice(toGC, 1).forEach((d) => d.release());

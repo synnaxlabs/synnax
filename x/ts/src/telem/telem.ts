@@ -1154,6 +1154,13 @@ export class TimeRange implements Stringer {
     return next;
   }
 
+  static max(...others: TimeRange[]): TimeRange {
+    return new TimeRange(
+      TimeStamp.min(...others.map((o) => o.start)),
+      TimeStamp.max(...others.map((o) => o.end)),
+    );
+  }
+
   /** The maximum possible time range. */
   static readonly MAX = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
 

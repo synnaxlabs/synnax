@@ -36,7 +36,6 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
       props.viewport,
     );
     this.renderAxis(props, dataToDecimal.reverse());
-
     this.renderYAxes(props, dataToDecimal);
     this.renderRangeAnnotations(props, dataToDecimal);
     // Throw the error here to that the user still has a visible axis.

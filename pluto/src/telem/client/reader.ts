@@ -10,7 +10,7 @@
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type framer } from "@synnaxlabs/client";
 import { debounce } from "@synnaxlabs/x/debounce";
-import { type TimeRange, TimeSpan } from "@synnaxlabs/x/telem";
+import { TimeRange, TimeSpan } from "@synnaxlabs/x/telem";
 import { Mutex } from "async-mutex";
 
 import { type Cache } from "@/telem/client/cache/cache";
@@ -60,6 +60,7 @@ export class Reader {
   private readonly props: Required<ReaderProps>;
 
   private readonly debouncedRead: () => void;
+  closed: boolean = false;
 
   // Guards concurrency between the batchRead function and the read function.
   private readonly guarded: ReaderMu = {
@@ -83,11 +84,8 @@ export class Reader {
     tr: TimeRange,
     channels: channel.Keys,
   ): Promise<Record<channel.Key, ReadResponse>> {
-    const {
-      instrumentation: { L },
-      cache,
-    } = this.props;
-    L.debug("starting read", { tr: tr.toPrettyString(), channels });
+    const { instrumentation: ins, cache } = this.props;
+    ins.L.debug("starting read", { tr: tr.toPrettyString(), channels });
     const start = performance.now();
     // Instead of executing a fetch for each channel, we'll batch related time ranges
     // together to get the most out of each fetch.
@@ -116,7 +114,7 @@ export class Reader {
       }
 
       if (toFetch.size === 0) {
-        L.debug("read satisfied by cache", () => ({
+        ins.L.debug("read satisfied by cache", () => ({
           tr: tr.toPrettyString(),
           channels,
           responses: responseDigests(Object.values(responses)),
@@ -125,7 +123,7 @@ export class Reader {
         return responses;
       }
 
-      L.debug("read cache miss", () => ({
+      ins.L.debug("read cache miss", () => ({
         tr: tr.toPrettyString(),
         channels,
         toFetch: Array.from(toFetch.values()).map(([r, k]) => ({
@@ -145,20 +143,20 @@ export class Reader {
             this.debouncedRead();
           });
         });
+
+      // The cache has fetched all the data we need, so we just re-execute a cache read
+      // to get the new data.
+      for (const key of channels) {
+        if (this.closed) return responses;
+        const unary = cache.get(key);
+        const { series } = unary.read(tr);
+        responses[key] = new ReadResponse(unary.channel, series);
+      }
     } catch (e) {
-      L.error("read failed", { tr: tr.toPrettyString(), channels, error: e });
-      throw e;
+      ins.L.error("read failed", { tr: tr.toPrettyString(), channels, error: e });
     }
 
-    // The cache has fetched all the data we need, so we just re-execute a cache read
-    // to get the new data.
-    for (const key of channels) {
-      const unary = cache.get(key);
-      const { series } = unary.read(tr);
-      responses[key] = new ReadResponse(unary.channel, series);
-    }
-
-    L.debug("read satisfied by fetch", () => ({
+    ins.L.debug("read satisfied by fetch", () => ({
       tr: tr.toPrettyString(),
       channels,
       responses: responseDigests(Object.values(responses)),
@@ -169,35 +167,35 @@ export class Reader {
   }
 
   private async batchRead(): Promise<void> {
-    const {
-      instrumentation: { L },
-      readRemote,
-      cache,
-    } = this.props;
+    const { instrumentation: ins, readRemote, cache } = this.props;
     const { mu, requests } = this.guarded;
     await mu.runExclusive(async () => {
       const compressedToFetch: ToFetch[] = [];
       try {
         requests.forEach((_, k) => {
           const [tr, keys] = k;
-          const groupWith = compressedToFetch.find(
-            ([r]) =>
-              r.start.span(tr.start).lessThan(TimeSpan.milliseconds(5)) &&
-              r.end.span(tr.end).lessThan(TimeSpan.milliseconds(5)),
+          const groupWith = compressedToFetch.find(([r]) =>
+            r.roughlyEquals(tr, TimeSpan.milliseconds(5)),
           );
           if (groupWith == null) compressedToFetch.push([tr, keys]);
-          else groupWith[1] = new Set([...groupWith[1], ...keys]);
+          else {
+            const [prevTr, prevKeys] = groupWith;
+            groupWith[0] = TimeRange.max(prevTr, tr);
+            groupWith[1] = new Set([...prevKeys, ...keys]);
+          }
         });
-        L.debug("batch read", {
+        ins.L.debug("batch read", {
           toFetch: compressedToFetch.map(([r, k]) => ({
             timeRange: r.toPrettyString(),
             channels: k,
           })),
         });
         for (const [range, keys] of compressedToFetch) {
+          if (this.closed) break;
           const keysArray = Array.from(keys);
           const frame = await readRemote(range, keysArray);
           keysArray.forEach((key) => {
+            if (this.closed) return;
             const unary = cache.get(key);
             const data = frame.get(key);
             unary.writeStatic(data.series);
@@ -205,11 +203,16 @@ export class Reader {
         }
         requests.forEach((toFetch) => toFetch.resolve());
       } catch (e) {
-        L.error("batch read failed", { error: e }, true);
-        requests.forEach((toFetch) => toFetch.reject(e));
+        ins.L.error("batch read failed", { error: e }, true);
+        requests.forEach((toFetch) => toFetch.resolve());
       } finally {
         requests.clear();
       }
     });
+  }
+
+  async close(): Promise<void> {
+    this.closed = true;
+    await this.guarded.mu.waitForUnlock();
   }
 }

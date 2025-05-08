@@ -154,7 +154,7 @@ describe("DynamicCache", () => {
         const cache = new Dynamic({
           dynamicBufferSize: TimeSpan.minutes(5),
           dataType: DataType.FLOAT32,
-          testingNow: now,
+          now: now,
         });
         const arr = new Series({
           data: new Float32Array([1, 2, 3]),

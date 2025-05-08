@@ -34,8 +34,8 @@ interface ListenerEntry {
 
 interface StreamerProps {
   cache: Cache;
-  instrumentation?: alamos.Instrumentation;
   openStreamer: framer.StreamOpener;
+  instrumentation?: alamos.Instrumentation;
   streamUpdateDelay?: CrudeTimeSpan;
   breakerConfig?: breaker.Config;
 }
@@ -97,9 +97,7 @@ export class Streamer {
   }
 
   private removeStreamHandler(handler: StreamHandler): void {
-    const {
-      instrumentation: { L },
-    } = this.props;
+    const { instrumentation: ins } = this.props;
     void this.mu.runExclusive(() => {
       const entry = this.listeners.get(handler);
       if (entry == null) return;
@@ -107,9 +105,9 @@ export class Streamer {
     });
     setTimeout(() => {
       void this.mu.runExclusive(async () => {
-        L.debug("removing stream handler");
+        ins.L.debug("removing stream handler");
         if (this.listeners.delete(handler)) return await this.updateStreamer();
-        L.warn("attempted to remove non-existent stream handler");
+        ins.L.warn("attempted to remove non-existent stream handler");
       });
     }, this.props.streamUpdateDelay.milliseconds);
   }
@@ -133,9 +131,9 @@ export class Streamer {
       }
 
       const arrKeys = Array.from(keys);
-      if (
-        compare.primitiveArrays(arrKeys, this.streamer?.keys ?? []) === compare.EQUAL
-      ) {
+      const valuesEqual =
+        compare.primitiveArrays(arrKeys, this.streamer?.keys ?? []) === compare.EQUAL;
+      if (valuesEqual) {
         ins.L.debug("streamer keys unchanged", { keys: arrKeys });
         return;
       }
@@ -156,35 +154,21 @@ export class Streamer {
     }
   }
 
-  private notifyListeners(changed: ReadResponse[]): void {
-    if (changed.length === 0) return;
-    const out = Object.fromEntries(changed.map((r) => [r.channel.key, r]));
-    this.listeners.forEach((entry, handler) => {
-      if (!entry.valid) return;
-      handler(out);
-      // const out: Record<channel.Key, ReadResponse> = {};
-      // let hasChanged = false;
-      // for (const r of changed) {
-      //   if (!entry.keys.has(r.channel.key)) continue;
-      //   out[r.channel.key] = r;
-      //   hasChanged = true;
-      // }
-      // if (hasChanged) handler(out);
-    });
-  }
-
   private async runStreamer(streamer: framer.Streamer): Promise<void> {
     const { cache } = this.props;
     try {
+      const changed: ReadResponse[] = [];
       for await (const frame of streamer) {
-        const changed: ReadResponse[] = [];
+        changed.length = 0;
         for (const k of frame.keys) {
           const series = frame.get(k);
           const unary = cache.get(k);
           const out = unary.writeDynamic(series.series);
           changed.push(new ReadResponse(unary.channel, out));
         }
-        this.notifyListeners(changed);
+        if (changed.length === 0) return;
+        const out = Object.fromEntries(changed.map((r) => [r.channel.key, r]));
+        this.listeners.forEach(({ valid }, handler) => valid && handler(out));
       }
     } catch (e) {
       console.error("streamer run loop failed", { error: e }, true);
