@@ -50,14 +50,19 @@ const Properties = () => (
 );
 
 const convertHaulItemToChannel = ({ data }: Haul.Item): WriteChannel => {
-  const nodeId = data?.nodeId as string;
+  if (typeof data?.name !== "string") throw new Error("Invalid name");
+  const nodeName = data?.name;
+  if (typeof data?.nodeId !== "string")
+    throw new Error(`Invalid nodeId for ${nodeName}`);
+  const nodeId = data?.nodeId;
+  const dataType = typeof data?.dataType === "string" ? data.dataType : "float32";
   return {
     key: nodeId,
-    nodeName: data?.name as string,
+    nodeName,
     nodeId,
     cmdChannel: 0,
     enabled: true,
-    dataType: (data?.dataType as string) ?? "float32",
+    dataType,
   };
 };
 
