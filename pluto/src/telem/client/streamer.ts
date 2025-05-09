@@ -68,7 +68,7 @@ export class Streamer {
 
     // Make sure that the cache has entries for all relevant channels. This will also
     // do a check to make sure that the channels actually exist.
-    await cache.populateMissing(keys);
+    if (!(await cache.populateMissing(keys)) || this.closed) return () => {};
 
     return await this.mu.runExclusive(async () => {
       ins.L.debug("adding stream handler", { keys });

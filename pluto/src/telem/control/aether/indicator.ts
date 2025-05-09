@@ -37,11 +37,12 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
     const { statusSource, colorSource } = this.state;
     i.statusSource = telem.useSource(ctx, statusSource, i.statusSource);
     i.colorSource = telem.useSource(ctx, colorSource, i.colorSource);
+    this.updateState();
     this.stopListeningStatus?.();
+    this.stopListeningColor?.();
     this.stopListeningStatus = i.statusSource.onChange(() => {
       this.updateState();
     });
-    this.stopListeningColor?.();
     this.stopListeningColor = i.colorSource.onChange(() => {
       this.updateState();
     });

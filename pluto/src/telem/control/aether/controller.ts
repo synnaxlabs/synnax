@@ -90,9 +90,7 @@ export class Controller
       i.client = nextClient;
       if (i.client == null) await this.release();
       i.stateProv = nextStateProv;
-
       i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
-
       i.addStatus = status.useAdder(ctx);
 
       // Acquire or release control if necessary.
@@ -297,7 +295,7 @@ export const setChannelValue = (props: SetChannelValueProps): telem.NumberSinkSp
 });
 
 export const acquireChannelControlPropsZ = z.object({
-  authority: z.number().default(control.Authority.ABSOLUTE),
+  authority: z.number().default(control.ABSOLUTE_AUTHORITY),
   channel: z.number(),
 });
 

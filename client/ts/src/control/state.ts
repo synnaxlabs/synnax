@@ -15,8 +15,9 @@ import { z } from "zod";
 import { type channel } from "@/channel";
 import { framer } from "@/framer";
 
-export interface Authority extends control.Authority {}
-export const Authority = control.Authority;
+export type Authority = control.Authority;
+export const ABSOLUTE_AUTHORITY = control.ABSOLUTE_AUTHORITY;
+export const ZERO_AUTHORITY = control.ZERO_AUTHORITY;
 export type Transfer = control.Transfer<channel.Key>;
 export interface State extends control.State<channel.Key> {}
 export interface Subject extends control.Subject {}
