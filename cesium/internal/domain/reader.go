@@ -9,9 +9,7 @@
 
 package domain
 
-import (
-	xio "github.com/synnaxlabs/x/io"
-)
+import xio "github.com/synnaxlabs/x/io"
 
 // Reader is a readable domain of telemetry within the DB implementing the io.ReaderAt
 // and io.Closer interfaces.
