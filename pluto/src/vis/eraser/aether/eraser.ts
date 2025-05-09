@@ -11,6 +11,7 @@ import { box, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { status } from "@/status/aether";
 import { render } from "@/vis/render";
 
 export const eraserStateZ = z.object({
@@ -28,18 +29,18 @@ export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
   static readonly TYPE = "eraser";
   schema = eraserStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     if (this.deleted) return;
     this.internal.renderCtx = render.Context.use(ctx);
-    await this.renderOnLifecycleChange();
+    this.renderOnLifecycleChange();
   }
 
-  async afterDelete(): Promise<void> {
-    await this.renderOnLifecycleChange();
+  afterDelete(): void {
+    this.renderOnLifecycleChange();
   }
 
-  async renderOnLifecycleChange(): Promise<void> {
-    await this.internal.renderCtx.loop.set({
+  renderOnLifecycleChange(): void {
+    this.internal.renderCtx.loop.set({
       key: `${this.type}-${this.key}`,
       render: this.render.bind(this),
       priority: "high",
@@ -47,7 +48,7 @@ export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
     });
   }
 
-  async render(): Promise<void> {
+  render(): void {
     if (this.deleted || !this.state.enabled) return;
     this.internal.renderCtx.erase(this.state.region, xy.construct(0), ...CANVASES);
   }

@@ -88,12 +88,12 @@ class Memoized<V> {
 }
 
 class MemoizedSource<V> extends Memoized<Source<V>> {
-  async value(): Promise<V> {
-    return await this.wrapped.value();
+  value(): V {
+    return this.wrapped.value();
   }
 
-  async cleanup(): Promise<void> {
-    await this.wrapped.cleanup?.();
+  cleanup(): void {
+    this.wrapped.cleanup?.();
   }
 
   onChange(handler: observe.Handler<void>): Destructor {
@@ -102,37 +102,37 @@ class MemoizedSource<V> extends Memoized<Source<V>> {
 }
 
 class MemoizedSink<V> extends Memoized<Sink<V>> {
-  async set(value: V): Promise<void> {
-    return await this.wrapped.set(value);
+  set(value: V): void {
+    this.wrapped.set(value);
   }
 
-  async cleanup(): Promise<void> {
-    await this.wrapped.cleanup?.();
+  cleanup(): void {
+    this.wrapped.cleanup?.();
   }
 }
 
-export const useSource = async <V>(
+export const useSource = <V>(
   ctx: aether.Context,
   spec: Spec,
   prev: Source<V>,
-): Promise<MemoizedSource<V>> => {
+): MemoizedSource<V> => {
   const prov = useContext(ctx);
   if (prev instanceof MemoizedSource) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
-    await prev.cleanup?.();
+    prev.cleanup?.();
   }
   return new MemoizedSource<V>(prov.create(spec), prov, spec);
 };
 
-export const useSink = async <V>(
+export const useSink = <V>(
   ctx: aether.Context,
   spec: Spec,
   prev: Sink<V>,
-): Promise<MemoizedSink<V>> => {
+): MemoizedSink<V> => {
   const prov = useContext(ctx);
   if (prev instanceof MemoizedSink) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
-    await prev.cleanup?.();
+    prev.cleanup?.();
   }
   return new MemoizedSink<V>(prov.create(spec), prov, spec);
 };

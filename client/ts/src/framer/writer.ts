@@ -65,8 +65,8 @@ const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
   controlSubject: control.subjectZ.optional(),
   keys: channel.keyZ.array().optional(),
-  authorities: control.Authority.z.array().optional(),
-  mode: z.nativeEnum(WriterMode).optional(),
+  authorities: control.authorityZ.array().optional(),
+  mode: z.enum(WriterMode).optional(),
   errOnUnauthorized: z.boolean().optional(),
   enableAutoCommit: z.boolean().optional(),
   autoIndexPersistInterval: TimeSpan.z.optional(),
@@ -75,7 +75,7 @@ const netConfigZ = z.object({
 interface Config extends z.infer<typeof netConfigZ> {}
 
 const reqZ = z.object({
-  command: z.nativeEnum(WriterCommand),
+  command: z.enum(WriterCommand),
   config: netConfigZ.optional(),
   frame: frameZ.optional(),
   buffer: z.instanceof(Uint8Array).optional(),
@@ -84,7 +84,7 @@ const reqZ = z.object({
 export interface WriteRequest extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({
-  command: z.nativeEnum(WriterCommand),
+  command: z.enum(WriterCommand),
   end: TimeStamp.z,
   err: errors.payloadZ.optional(),
 });
@@ -174,7 +174,7 @@ export class Writer {
     {
       channels,
       start = TimeStamp.now(),
-      authorities = control.Authority.ABSOLUTE,
+      authorities = control.ABSOLUTE_AUTHORITY,
       controlSubject: subject,
       mode = WriterMode.PersistStream,
       errOnUnauthorized = false,

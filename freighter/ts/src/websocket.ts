@@ -139,7 +139,10 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   private onClose(ev: CloseEvent): void {
     this.addMessage({
       type: "close",
-      error: { type: isNormalClosure(ev) ? EOF.TYPE : StreamClosed.TYPE, data: "" },
+      error: {
+        type: ev.code === CLOSE_NORMAL ? EOF.TYPE : StreamClosed.TYPE,
+        data: "",
+      },
     });
   }
 }
@@ -147,10 +150,6 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
 export const FREIGHTER_METADATA_PREFIX = "freighterctx";
 
 const CLOSE_NORMAL = 1000;
-const CLOSE_GOING_AWAY = 1001;
-const NORMAL_CLOSURES = [CLOSE_NORMAL, CLOSE_GOING_AWAY];
-
-const isNormalClosure = (ev: CloseEvent): boolean => NORMAL_CLOSURES.includes(ev.code);
 
 /**
  * WebSocketClient is an implementation of StreamClient that is backed by

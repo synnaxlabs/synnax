@@ -61,20 +61,20 @@ export class Value
   static readonly z = valueState;
   schema = Value.z;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
     if (color.isZero(this.state.color))
       this.internal.textColor = i.theme.colors.gray.l10;
     else i.textColor = this.state.color;
-    i.telem = await telem.useSource(ctx, this.state.telem, i.telem);
+    i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
     i.stopListening = this.internal.telem.onChange(() => {
       this.requestRender();
     });
     i.fontString = theming.fontString(i.theme, { level: this.state.level, code: true });
-    i.backgroundTelem = await telem.useSource(
+    i.backgroundTelem = telem.useSource(
       ctx,
       this.state.backgroundTelem,
       i.backgroundTelem,
@@ -87,12 +87,12 @@ export class Value
     this.requestRender();
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.stopListeningBackground?.();
-    await i.telem.cleanup?.();
-    await i.backgroundTelem.cleanup?.();
+    i.telem.cleanup?.();
+    i.backgroundTelem.cleanup?.();
     if (i.requestRender == null)
       i.renderCtx.erase(box.construct(this.state.box), xy.ZERO, ...CANVAS_VARIANTS);
     else i.requestRender(render.REASON_LAYOUT);
@@ -122,7 +122,7 @@ export class Value
       this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
   }
 
-  async render({ viewportScale = scale.XY.IDENTITY }): Promise<void> {
+  render({ viewportScale = scale.XY.IDENTITY }): void {
     const { renderCtx, telem, backgroundTelem, fontString, requestRender } =
       this.internal;
     const { location, box: b } = this.state;
@@ -131,7 +131,7 @@ export class Value
     const bWidth = box.width(b);
     const bHeight = box.height(b);
     const canvas = renderCtx.lower2d.applyScale(viewportScale);
-    let value = await telem.value();
+    let value = telem.value();
     canvas.font = fontString;
     const fontHeight = this.fontHeight;
     const isNegative = value[0] == "-";
@@ -153,7 +153,7 @@ export class Value
 
     let setDefaultFillStyle = true;
     if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
-      const colorValue = await backgroundTelem.value();
+      const colorValue = backgroundTelem.value();
       const isZero = color.isZero(colorValue);
       setDefaultFillStyle = isZero;
       if (!isZero) {

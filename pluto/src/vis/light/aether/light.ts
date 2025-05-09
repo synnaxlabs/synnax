@@ -37,20 +37,18 @@ export class Light
 
   schema = lightStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     this.internal.addStatus = status.useOptionalAdder(ctx);
     const { source: sourceProps } = this.state;
     const { internal: i } = this;
-    this.internal.source = await telem.useSource(
-      ctx,
-      sourceProps,
-      this.internal.source,
-    );
-
-    await this.updateEnabledState();
-    i.stopListening?.();
-    i.stopListening = i.source.onChange(() => {
-      this.updateEnabledState().catch(this.reportError.bind(this));
+    this.internal.source = telem.useSource(ctx, sourceProps, this.internal.source);
+    const runAsync = status.useErrorHandler(ctx);
+    runAsync(async () => {
+      await this.updateEnabledState();
+      i.stopListening?.();
+      i.stopListening = i.source.onChange(() => {
+        this.updateEnabledState().catch(this.reportError.bind(this));
+      });
     });
   }
 
@@ -63,21 +61,15 @@ export class Light
   }
 
   private async updateEnabledState(): Promise<void> {
-    const nextEnabled = await this.internal.source.value();
+    const nextEnabled = this.internal.source.value();
     if (nextEnabled !== this.state.enabled)
       this.setState((p) => ({ ...p, enabled: nextEnabled }));
   }
 
-  async afterDelete(): Promise<void> {
-    await this.internalAfterDelete();
-  }
-
-  private async internalAfterDelete(): Promise<void> {
+  afterDelete(): void {
     this.internal.stopListening();
-    await this.internal.source.cleanup?.();
+    this.internal.source.cleanup?.();
   }
-
-  async render(): Promise<void> {}
 }
 
 export const REGISTRY: aether.ComponentRegistry = { [Light.TYPE]: Light };

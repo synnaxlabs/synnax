@@ -41,7 +41,6 @@ export class MonospacedAtlas {
     this.charDims = dimensionsFromMetrics(metrics);
     this.charDims.width += PADDING;
     this.charDims.height += PADDING;
-    console.log(metrics, this.charDims);
 
     const totalChars = uniqueChars.length;
     const atlasCharWidth = this.charDims.width;

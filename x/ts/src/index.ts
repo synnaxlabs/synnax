@@ -37,6 +37,7 @@ export * from "@/runtime";
 export * from "@/runtime";
 export * from "@/search";
 export * from "@/shallowCopy";
+export * from "@/sleep";
 export * from "@/spatial";
 export * from "@/strings";
 export * from "@/telem";

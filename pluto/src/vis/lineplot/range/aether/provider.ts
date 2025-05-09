@@ -59,18 +59,18 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   schema = providerStateZ;
   fetchedInitial: TimeRange = TimeRange.ZERO;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
-    const addStatus = status.useAsyncErrorHandler(ctx);
+    const addStatus = status.useErrorHandler(ctx);
     i.ranges ??= new Map();
     const client = synnax.use(ctx);
     if (client == null) return;
     i.client = client;
 
     if (i.tracker != null) return;
-    await addStatus(async () => {
+    addStatus(async () => {
       i.tracker = await client.ranges.openTracker();
       i.tracker.onChange((c) => {
         c.forEach((r) => {
@@ -86,10 +86,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
   private async fetchInitial(timeRange: TimeRange): Promise<void> {
     const { internal: i } = this;
-    if (
-      i.client == null ||
-      this.fetchedInitial.roughlyEquals(timeRange, TimeSpan.minutes(1))
-    )
+    if (i.client == null || this.fetchedInitial.equals(timeRange, TimeSpan.minutes(1)))
       return;
     this.fetchedInitial = timeRange;
     const ranges = await i.client.ranges.retrieve(timeRange);
@@ -99,9 +96,9 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     this.setState((s) => ({ ...s, count: i.ranges.size }));
   }
 
-  async render(props: AnnotationProps): Promise<void> {
+  render(props: AnnotationProps): void {
     const { dataToDecimalScale, region, viewport, timeRange } = props;
-    await this.fetchInitial(timeRange);
+    void this.fetchInitial(timeRange);
     const { draw, ranges } = this.internal;
     const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     const cursor = this.state.cursor == null ? null : this.state.cursor.x;

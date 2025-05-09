@@ -106,7 +106,7 @@ export class CoreAxis<
   S extends typeof coreAxisStateZ,
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     this.internal.render = render.Context.use(ctx);
     const theme = theming.use(ctx);
     this.state.autoBoundPadding ??=
@@ -126,7 +126,7 @@ export class CoreAxis<
     );
   }
 
-  async afterDelete(ctx: aether.Context): Promise<void> {
+  afterDelete(ctx: aether.Context): void {
     render.Controller.requestRender(ctx, render.REASON_LAYOUT);
   }
 
@@ -146,10 +146,10 @@ export class CoreAxis<
       this.setState((p) => ({ ...p, size }));
   }
 
-  async bounds(
+  bounds(
     hold: boolean,
-    fetchDataBounds: () => Promise<bounds.Bounds[]>,
-  ): Promise<[bounds.Bounds, Error | null]> {
+    fetchDataBounds: () => bounds.Bounds[],
+  ): [bounds.Bounds, Error | null] {
     if (hold && this.internal.boundSnapshot != null)
       return [this.internal.boundSnapshot, null];
     const { lower, upper } = parseAutoBounds(this.state.autoBounds);
@@ -164,7 +164,7 @@ export class CoreAxis<
     let ab: bounds.Bounds;
     let err: Error | null = null;
     try {
-      const dataBounds = await fetchDataBounds();
+      const dataBounds = fetchDataBounds();
       ab = autoBounds(dataBounds, this.state.autoBoundPadding, this.state.type);
     } catch (err_) {
       ab = emptyBounds(this.state.type);
@@ -181,12 +181,12 @@ export class CoreAxis<
     return [bounds, err];
   }
 
-  async dataToDecimalScale(
+  dataToDecimalScale(
     hold: boolean,
-    fetchDataBounds: () => Promise<bounds.Bounds[]>,
+    fetchDataBounds: () => bounds.Bounds[],
     viewport: box.Box,
-  ): Promise<[scale.Scale, Error | null]> {
-    const [bounds, err] = await this.bounds(hold, fetchDataBounds);
+  ): [scale.Scale, Error | null] {
+    const [bounds, err] = this.bounds(hold, fetchDataBounds);
     const dir = direction.swap(direction.construct(this.state.location));
     return [
       scale.Scale.scale<number>(bounds)

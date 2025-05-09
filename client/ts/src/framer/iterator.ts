@@ -45,7 +45,7 @@ enum ResponseVariant {
 }
 
 const reqZ = z.object({
-  command: z.nativeEnum(Command),
+  command: z.enum(Command),
   span: TimeSpan.z.optional(),
   bounds: TimeRange.z.optional(),
   stamp: TimeStamp.z.optional(),
@@ -55,9 +55,9 @@ const reqZ = z.object({
 interface Request extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({
-  variant: z.nativeEnum(ResponseVariant),
+  variant: z.enum(ResponseVariant),
   ack: z.boolean(),
-  command: z.nativeEnum(Command),
+  command: z.enum(Command),
   error: errors.payloadZ.optional().nullable(),
   frame: frameZ.optional(),
 });

@@ -27,7 +27,7 @@ interface ElementProps {
 }
 
 export interface Element extends aether.Component {
-  render: (props: ElementProps) => Promise<void>;
+  render?: (props: ElementProps) => void;
 }
 
 interface InternalState {
@@ -47,7 +47,7 @@ export class Diagram extends aether.Composite<
   static readonly stateZ = diagramStateZ;
   schema = Diagram.stateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     this.internal.renderCtx = render.Context.use(ctx);
     this.internal.addStatus = status.useAdder(ctx);
     render.Controller.control(ctx, () => {
@@ -61,21 +61,19 @@ export class Diagram extends aether.Composite<
     this.requestRender("high");
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     this.requestRender("high");
   }
 
-  async render(): Promise<render.Cleanup | undefined> {
+  render(): render.Cleanup | undefined {
     if (this.deleted) return undefined;
     const { renderCtx, addStatus, viewportScale } = this.internal;
     const region = box.construct(this.state.region);
     if (!this.state.visible)
-      return async () => renderCtx.erase(region, this.state.clearOverScan, ...CANVASES);
+      return () => renderCtx.erase(region, this.state.clearOverScan, ...CANVASES);
     const clearScissor = renderCtx.scissor(region, xy.ZERO, CANVASES);
     try {
-      await Promise.all(
-        this.children.map(async (child) => await child.render({ viewportScale })),
-      );
+      this.children.forEach((child) => child.render?.({ viewportScale }));
     } catch (e) {
       if (!(e instanceof Error)) throw e;
       addStatus({
@@ -86,16 +84,13 @@ export class Diagram extends aether.Composite<
     } finally {
       clearScissor();
     }
-
     const eraseRegion = box.copy(this.state.region);
-    return async () => {
-      this.internal.renderCtx.erase(eraseRegion, this.state.clearOverScan, ...CANVASES);
-    };
+    return () => renderCtx.erase(eraseRegion, this.state.clearOverScan, ...CANVASES);
   }
 
   private requestRender(priority: render.Priority): void {
     const { renderCtx } = this.internal;
-    void renderCtx.loop.set({
+    renderCtx.loop.set({
       key: `${Diagram.TYPE}-${this.key}`,
       render: this.render.bind(this),
       priority,

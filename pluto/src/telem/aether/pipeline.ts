@@ -98,18 +98,16 @@ export class SourcePipeline<V>
     });
   }
 
-  async value(): Promise<V> {
-    return await this.outlet.value();
+  value(): V {
+    return this.outlet.value();
   }
 
   onChange(handler: () => void): Destructor {
     return this.outlet.onChange(handler);
   }
 
-  async cleanup(): Promise<void> {
-    await Promise.all(
-      Object.values(this.sources).map(async (source) => await source.cleanup?.()),
-    );
+  cleanup(): void {
+    Object.values(this.sources).forEach((source) => source.cleanup?.());
   }
 }
 
@@ -167,14 +165,12 @@ export class SinkPipeline<V>
     });
   }
 
-  async set(value: V): Promise<void> {
-    return await this.inlet.set(value);
+  set(value: V): void {
+    return this.inlet.set(value);
   }
 
-  async cleanup(): Promise<void> {
-    await Promise.all(
-      Object.values(this.sinks).map(async (sink) => await sink.cleanup?.()),
-    );
+  cleanup(): void {
+    Object.values(this.sinks).forEach((sink) => sink.cleanup?.());
   }
 }
 
