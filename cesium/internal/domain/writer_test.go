@@ -13,14 +13,12 @@ import (
 	"encoding/binary"
 	"os"
 	"sync"
-
-	"github.com/synnaxlabs/cesium/internal/core"
-
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -487,6 +485,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					By("Writing some data and committing it with auto persist right after")
 					_, err = w.Write([]byte{6, 7, 8, 9, 10})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commit has been persisted")
@@ -498,6 +497,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					By("Writing some data and committing it with auto persist right after")
 					_, err = w.Write([]byte{11, 12, 13, 14, 15})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commits have not been persisted")

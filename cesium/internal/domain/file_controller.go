@@ -85,11 +85,10 @@ func openFileController(cfg Config) (*fileController, error) {
 	return fc, err
 }
 
-// realFileSizeCap returns the maximum allowed size of a file – though it may be exceeded
-// if commits are sparse.
-// fc.Config.Filesize is the nominal file size to not exceed, in reality, this value
-// is set to 0.8 * the actual file size cap, therefore the real value is 1.25 * the nominal
-// value.
+// realFileSizeCap returns the maximum allowed size of a file — though it may be
+// exceeded if commits are sparse. fc.Config.Filesize is the nominal file size to not
+// exceed, in reality, this value is set to 0.8 * the actual file size cap, therefore
+// the real value is 1.25 * the nominal value.
 func (fc *fileController) realFileSizeCap() telem.Size {
 	return telem.Size(math.Round(1.25 * float64(fc.FileSize)))
 }
@@ -177,7 +176,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 // attempts to create a file handle for files from the directory that are not at
 // capacity. If there is none, it creates a new file and increments the counter.
 func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int64, error) {
-	ctx, span := fc.T.Bench(ctx, "newWriter")
+	_, span := fc.T.Bench(ctx, "newWriter")
 	fc.writers.Lock()
 
 	defer func() {
@@ -305,7 +304,7 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (*contr
 }
 
 func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlledReader, error) {
-	ctx, span := fc.T.Bench(ctx, "newReader")
+	_, span := fc.T.Bench(ctx, "newReader")
 	defer span.End()
 	file, err := fc.FS.Open(
 		fileKeyToName(key),
@@ -392,8 +391,7 @@ func (fc *fileController) hasWriter(fileKey uint16) bool {
 }
 
 // rejuvenate adds a file key to the unopened writers set. If there is an open writer
-// for it, it is removed.
-// rejuvenate is called after a file is garbage collected.
+// for it, it is removed. rejuvenate is called after a file is garbage collected.
 func (fc *fileController) rejuvenate(fileKey uint16) error {
 	fc.writers.Lock()
 	defer fc.writers.Unlock()

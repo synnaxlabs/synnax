@@ -144,8 +144,8 @@ type Writer struct {
 	onClose func()
 }
 
-// OpenWriter opens a new Writer using the given configuration.
-// If err is nil, then the writer must be closed.
+// OpenWriter opens a new Writer using the given configuration. If err is nil, then the
+// writer must be closed.
 func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	if db.closed.Load() {
 		return nil, ErrDBClosed
