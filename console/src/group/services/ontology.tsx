@@ -157,7 +157,7 @@ const useCreateEmpty = (): ((
     mutationFn: async ({ client, selection: { resources }, newID }) => {
       const resource = resources[resources.length - 1];
       const [name, renamed] = await Tree.asyncRename(newID.toString());
-      if (!renamed) throw errors.CANCELED;
+      if (!renamed) throw new errors.Canceled();
       await client.ontology.groups.create(resource.id, name, newID.key);
     },
     onError: async (
@@ -165,7 +165,7 @@ const useCreateEmpty = (): ((
       { state: { nodes, setNodes }, handleError, selection, newID },
     ) => {
       if (selection.resources.length === 0) return;
-      if (!errors.CANCELED.matches(e)) handleError(e, "Failed to create group");
+      if (!errors.Canceled.matches(e)) handleError(e, "Failed to create group");
       setNodes([...Tree.removeNode({ tree: nodes, keys: newID.toString() })]);
     },
   });

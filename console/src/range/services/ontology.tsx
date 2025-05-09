@@ -167,7 +167,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       store,
       removeLayout,
     }) => {
-      if (!(await confirm(resources))) throw errors.CANCELED;
+      if (!(await confirm(resources))) throw new errors.Canceled();
       const prevNodes = Tree.deepCopy(nodes);
       const minDepth = Math.min(...selectedNodes.map((n) => n.depth));
       const nodesOfMinDepth = selectedNodes.filter((n) => n.depth === minDepth);
@@ -194,7 +194,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       { handleError, selection: { resources }, state: { setNodes }, store },
       prevNodes,
     ) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) {
         setNodes(prevNodes);
         const ranges = fromClientRange(

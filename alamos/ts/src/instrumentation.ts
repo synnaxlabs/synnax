@@ -40,7 +40,6 @@ export class Instrumentation {
   }
 
   child(key: string): Instrumentation {
-
     const __meta = this.meta.child(key);
     return new Instrumentation({ __meta, tracer: this.T, logger: this.L });
   }

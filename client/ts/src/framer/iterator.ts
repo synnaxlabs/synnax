@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
+import { type Stream, type StreamClient } from "@synnaxlabs/freighter";
+import { errors } from "@synnaxlabs/x";
 import {
   type CrudeTimeRange,
   type CrudeTimeSpan,
@@ -57,7 +58,7 @@ const resZ = z.object({
   variant: z.nativeEnum(ResponseVariant),
   ack: z.boolean(),
   command: z.nativeEnum(Command),
-  error: errorZ.optional().nullable(),
+  error: errors.payloadZ.optional().nullable(),
   frame: frameZ.optional(),
 });
 
