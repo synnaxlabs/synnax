@@ -15,7 +15,6 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/address"

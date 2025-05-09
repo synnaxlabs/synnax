@@ -12,19 +12,18 @@ package tracker_test
 import (
 	"time"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	xjson "github.com/synnaxlabs/x/json"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/tracker"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"

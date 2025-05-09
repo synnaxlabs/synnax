@@ -9,12 +9,10 @@
 
 package control
 
-import (
-	"fmt"
-)
+import "fmt"
 
-// Subject is digest-style information about a subject that is attempting to control
-// a particular resource.
+// Subject is digest-style information about a subject that is attempting to control a
+// particular resource.
 type Subject struct {
 	// Key is the key of the subject. This should be unique when compared to all other
 	// subjects attempting to control the same resource.
@@ -23,8 +21,7 @@ type Subject struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// String implements fmt.Stringer to nicely print out information about the
-// subject.
+// String implements fmt.Stringer to nicely print out information about the subject.
 func (s Subject) String() string {
 	if s.Name != "" {
 		return fmt.Sprintf("[%s]<%s>", s.Name, s.Key)
@@ -41,8 +38,7 @@ type State[R comparable] struct {
 	// Resource is the resource under control.
 	Resource R `json:"resource" msgpack:"resource"`
 	// Authority is the authority that the subject has over the resource. A higher
-	// authority generally means a higher precedence over a subject with a lower
-	// Authority.
+	// authority means a higher precedence over a subject with a lower Authority.
 	Authority Authority `json:"authority" msgpack:"authority"`
 }
 
@@ -63,11 +59,11 @@ func (s State[R]) String() string {
 // If both From and To are nil, no transfer occurred. If both From and To are not nil,
 // and From.Subject != To.Subject, a transfer occurred.
 type Transfer[R comparable] struct {
-	// From state represents the control state before the transfer. If From is nil,
-	// the entity was uncontrolled before the transfer.
+	// From represents the control state before the transfer. If From is nil, the entity
+	// was uncontrolled before the transfer.
 	From *State[R]
-	// To state represents the control state after the transfer. If To is nil, the
-	// entity is uncontrolled after the transfer.
+	// To represents the control state after the transfer. If To is nil, the entity is
+	// uncontrolled after the transfer.
 	To *State[R]
 }
 
@@ -80,23 +76,20 @@ func (t Transfer[R]) Occurred() bool {
 	return t.From != nil || t.To != nil
 }
 
-// IsTransfer returns true if the control is a transfer between two controlled states,
-// i.e., both From and To are not nil.
+// IsTransfer returns true if the control is a transfer between two controlled states.
 func (t Transfer[R]) IsTransfer() bool { return t.Occurred() && t.To != nil && t.From != nil }
 
-// IsRelease returns true if the transfer is a release to an uncontrolled state, i.e.,
-// From is not nil, and To is nil.
+// IsRelease returns true if the transfer is a release to an uncontrolled state.
 func (t Transfer[R]) IsRelease() bool { return t.Occurred() && t.To == nil }
 
-// IsAcquire returns true if the transfer is acquisition from an uncontrolled state,
-// i.e., From is nil and To is not nil.
+// IsAcquire returns true if the transfer is an acquisition from an uncontrolled state.
 func (t Transfer[R]) IsAcquire() bool { return t.Occurred() && t.From == nil }
 
-// String implements fmt.Stringer to return a nicely formatted string representation
-// of the control transfer.
+// String implements fmt.Stringer to return a nicely formatted string representation of
+// the control transfer.
 func (t Transfer[R]) String() string {
 	if !t.Occurred() {
-		return fmt.Sprintf("no transfer occurred")
+		return "no transfer occurred"
 	}
 	if t.IsAcquire() {
 		return fmt.Sprintf("%s(%v) acquired %v", t.To.Subject, t.To.Authority, t.To.Resource)
