@@ -19,9 +19,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/alamos"
-
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
