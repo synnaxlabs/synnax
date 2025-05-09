@@ -10,13 +10,14 @@
 package testutil
 
 import (
+	"os"
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/x/testutil"
-	"os"
-	"sync"
 )
 
 var _ = Describe("Test Util Test", func() {
