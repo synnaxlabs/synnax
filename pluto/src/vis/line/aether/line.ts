@@ -17,6 +17,7 @@ import {
   DataType,
   type Destructor,
   type direction,
+  type MultiSeries,
   type scale,
   type Series,
   type SeriesDigest,
@@ -43,9 +44,13 @@ export const stateZ = z.object({
   visible: z.boolean().optional().default(true),
 });
 
-const safelyGetDataValue = (series: number, index: number, data: Series[]): number => {
-  if (series === -1 || index === -1 || series >= data.length) return NaN;
-  return Number(data[series].at(index));
+const safelyGetDataValue = (
+  series: number,
+  index: number,
+  data: MultiSeries,
+): number => {
+  if (series === -1 || index === -1 || series >= data.series.length) return NaN;
+  return Number(data.series[series].at(index));
 };
 
 export type State = z.input<typeof stateZ>;
@@ -308,7 +313,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { xTelem, yTelem } = this.internal;
     const [, xData] = xTelem.value();
     let [index, series] = [-1, -1];
-    xData.find((x, i) => {
+    xData.series.find((x, i) => {
       const v = x.binarySearch(target);
       // The returned value gives us the insert position, so anything that is not
       // a valid index is not a valid value.
@@ -330,10 +335,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
     if (index === -1 || series === -1 || !this.state.visible) return result;
 
-    const xSeries = xData[series];
+    const xSeries = xData.series[series];
     result.value.x = safelyGetDataValue(series, index, xData);
     const [, yData] = yTelem.value();
-    const ySeries = yData.find((ys) =>
+    const ySeries = yData.series.find((ys) =>
       bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
     );
     if (ySeries == null) return result;
@@ -357,10 +362,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
     const { dataToDecimalScale, exposure } = props;
     const [[, xData], [, yData]] = [xTelem.value(), yTelem.value()];
-    xData.forEach((x) => x.updateGLBuffer(ctx.gl));
-    yData.forEach((y) => y.updateGLBuffer(ctx.gl));
+    xData.updateGLBuffer(ctx.gl);
+    yData.updateGLBuffer(ctx.gl);
     if (xData.length === 0 || yData.length === 0) return;
-    const prog = ctx.getProgram(yData[0].dataType);
+    const prog = ctx.getProgram(yData.dataType);
     const ops = buildDrawOperations(
       xData,
       yData,
@@ -381,7 +386,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     ops.forEach((op) => {
       const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
       prog.bindScale(scaleTransform, regionTransform);
-      prog.draw(op, instances, xData[0].dataType, yData[0].dataType);
+      prog.draw(op, instances, xData.dataType, yData.dataType);
     });
     clearProg();
   }
@@ -436,16 +441,16 @@ interface DrawOperationDigest extends Omit<DrawOperation, "x" | "y"> {
 }
 
 export const buildDrawOperations = (
-  xSeries: Series[],
-  ySeries: Series[],
+  xSeries: MultiSeries,
+  ySeries: MultiSeries,
   exposure: number,
   userSpecifiedDownSampling: number,
   overlapThreshold: TimeSpan,
 ): DrawOperation[] => {
-  if (xSeries.length === 0 || ySeries.length === 0) return [];
+  if (xSeries.series.length === 0 || ySeries.series.length === 0) return [];
   const ops: DrawOperation[] = [];
-  xSeries.forEach((x) =>
-    ySeries.forEach((y) => {
+  xSeries.series.forEach((x) =>
+    ySeries.series.forEach((y) => {
       if (!seriesOverlap(x, y, overlapThreshold)) return;
       let xOffset = 0;
       let yOffset = 0;

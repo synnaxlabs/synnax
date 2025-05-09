@@ -110,13 +110,13 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     }
 
     const [_, series] = this.internal.telem.value();
-    this.values = new MultiSeries(series);
+    this.values = series;
     this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
       const [_, series] = this.internal.telem.value();
       this.checkEmpty();
-      this.values = new MultiSeries(series);
+      this.values = series;
       void this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;

@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, math, Series, type TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  DataType,
+  math,
+  MultiSeries,
+  Series,
+  type TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 
 import {
   convertSeriesToSupportedGL,
@@ -19,9 +26,9 @@ export interface DynamicWriteResponse {
   /** A list of series that were flushed from the cache during the write i.e. the new
    * writes were not able to fit in the current buffer, so a new one was allocated
    * and the old one(s) were flushed. */
-  flushed: Series[];
+  flushed: MultiSeries;
   /** A list of series that were allocated during the write. */
-  allocated: Series[];
+  allocated: MultiSeries;
 }
 
 /** Props for the @link Dynamic cache. */
@@ -102,11 +109,11 @@ export class Dynamic {
    * @returns a list of buffers that were filled by the cache during the write. If
    * the current buffer is able to fit all writes, no buffers will be returned.
    */
-  write(series: Series[]): DynamicWriteResponse {
-    const responses = series.flatMap((arr) => this._write(arr));
+  write(series: MultiSeries): DynamicWriteResponse {
+    const responses = series.series.flatMap((s) => this._write(s));
     return {
-      flushed: responses.flatMap((res) => res.flushed),
-      allocated: responses.flatMap((res) => res.allocated),
+      flushed: new MultiSeries(responses.flatMap((res) => res.flushed.series)),
+      allocated: new MultiSeries(responses.flatMap((res) => res.allocated.series)),
     };
   }
 
@@ -127,7 +134,10 @@ export class Dynamic {
 
   private _write(series: Series): DynamicWriteResponse {
     const cap = this.nextBufferSize();
-    const res: DynamicWriteResponse = { flushed: [], allocated: [] };
+    const res: DynamicWriteResponse = {
+      flushed: new MultiSeries([]),
+      allocated: new MultiSeries([]),
+    };
     // This only happens on the first write to the cache
     if (this.curr == null) {
       this.curr = this.allocate(cap, series.alignment, this.now());
@@ -161,8 +171,8 @@ export class Dynamic {
     this.curr = this.allocate(cap, series.alignment + BigInt(amountWritten), now);
     res.allocated.push(this.curr);
     const nextRes = this._write(series.slice(amountWritten));
-    res.flushed.push(...nextRes.flushed);
-    res.allocated.push(...nextRes.allocated);
+    res.flushed.push(nextRes.flushed);
+    res.allocated.push(nextRes.allocated);
     return res;
   }
 

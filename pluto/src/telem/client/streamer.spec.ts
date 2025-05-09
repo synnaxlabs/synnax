@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, Frame, type framer } from "@synnaxlabs/client";
-import { Series, sleep, TimeSpan } from "@synnaxlabs/x";
+import { type MultiSeries, Series, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { Cache } from "@/telem/client/cache/cache";
 import { MockRetriever } from "@/telem/client/reader.spec";
 import { Streamer } from "@/telem/client/streamer";
-import { type ReadResponse } from "@/telem/client/types";
 
 class MockStreamer implements framer.Streamer {
   private keysI: channel.Params[];
@@ -113,20 +112,23 @@ describe("Streamer", () => {
         ]),
       });
 
-      const responses: Record<channel.Key, ReadResponse>[] = [];
+      const responses: Map<channel.Key, MultiSeries>[] = [];
       const disconnect = await streamer.stream((d) => responses.push(d), [1]);
       await expect.poll(() => responses.length > 5).toBeTruthy();
       disconnect();
 
       // We should only ever get data for that particular channel.
-      expect(responses.every((r) => Object.keys(r).length === 1)).toBeTruthy();
+      expect(responses.filter((r) => r.get(1)?.series.length === 0)).toHaveLength(
+        responses.length - 1,
+      );
       // The first response should have no data, as it's just pulling initial relevant
       // values from the cache.
-      expect(responses[0][1].data.length).toEqual(0);
+      expect(responses[0].get(1)?.series.length).toEqual(0);
       // We should only every has a single response that has data, as its the only
       // buffer we're allocating and subsequent calls just tell the handler to re-read
       // the buffer.
-      expect(responses.filter((r) => r[1].data.length === 1)).toHaveLength(1);
+      console.log(responses);
+      expect(responses.filter((r) => r.get(1)?.series.length === 1)).toHaveLength(1);
     });
   });
 });

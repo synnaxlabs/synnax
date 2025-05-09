@@ -12,6 +12,7 @@ import {
   bounds,
   DataType,
   type Destructor,
+  MultiSeries,
   primitiveIsZero,
   type Series,
   TimeRange,
@@ -110,10 +111,10 @@ export class StreamChannelValue
   private async updateStreamHandler(): Promise<void> {
     this.removeStreamHandler?.();
     const handler: client.StreamHandler = (data) => {
-      const newData = data[this.channelKey]?.data;
+      const newData = data.get(this.channelKey);
       if (newData == null) return;
-      if (newData.length !== 0) {
-        const first = newData[newData.length - 1];
+      const first = newData.series.at(-1);
+      if (first != null) {
         first.acquire();
         this.leadingBuffer?.release();
         this.leadingBuffer = first;
@@ -170,7 +171,7 @@ export class ChannelData
 {
   static readonly TYPE = "series-source";
   private readonly client: client.ReadClient & client.ChannelClient;
-  private data: Series[] = [];
+  private data: MultiSeries = new MultiSeries([]);
   private valid: boolean = false;
   schema = channelDataSourcePropsZ;
   private channel: SelectedChannelProperties | null = null;
@@ -180,18 +181,18 @@ export class ChannelData
   }
 
   cleanup(): void {
-    this.data.forEach((d) => d.release());
+    this.data.release();
     this.valid = false;
   }
 
-  value(): [bounds.Bounds, Series[]] {
+  value(): [bounds.Bounds, MultiSeries] {
     const { channel, timeRange } = this.props;
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
-    if (timeRange.isZero || channel === 0) return [bounds.ZERO, []];
+    if (timeRange.isZero || channel === 0) return [bounds.ZERO, this.data];
     if (!this.valid) void this.readFixed();
-    if (this.channel == null) return [bounds.ZERO, []];
-    let b = bounds.max(this.data.map((d) => d.bounds));
+    if (this.channel == null) return [bounds.ZERO, this.data];
+    let b = bounds.max(this.data.series.map((d) => d.bounds));
     if (this.channel.dataType.equals(DataType.TIMESTAMP))
       b = {
         upper: Math.min(b.upper, Number(this.props.timeRange.end.valueOf())),
@@ -210,11 +211,9 @@ export class ChannelData
         useIndexOfChannel,
       );
       if (this.channel == null) return;
-      const res = await this.client.read(timeRange, [this.channel.key]);
-      const newData = res[this.channel.key].data;
-      if (newData == null) return;
-      newData.forEach((d) => d.acquire());
-      this.data = newData;
+      const series = await this.client.read(timeRange, this.channel.key);
+      series.acquire();
+      this.data = series;
       this.notify();
     } catch (e) {
       this.valid = false;
@@ -238,7 +237,7 @@ export class StreamChannelData
 {
   static readonly TYPE = "dynamic-series-source";
   private readonly client: client.Client;
-  private readonly data: Series[] = [];
+  private readonly data: MultiSeries = new MultiSeries([]);
   private readonly now: () => TimeStamp;
 
   private channel: SelectedChannelProperties | null = null;
@@ -256,13 +255,13 @@ export class StreamChannelData
     this.now = now;
   }
 
-  value(): [bounds.Bounds, Series[]] {
+  value(): [bounds.Bounds, MultiSeries] {
     const { channel, timeSpan } = this.props;
-    if (channel === 0) return [bounds.ZERO, []];
+    if (channel === 0) return [bounds.ZERO, this.data];
     const now = this.now();
     if (!this.valid) void this.read();
-    if (this.channel == null) return [bounds.ZERO, []];
-    const filtered = this.data
+    if (this.channel == null) return [bounds.ZERO, new MultiSeries([])];
+    const filtered = this.data.series
       .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
       .map((d) => d.bounds);
     let b = bounds.max(filtered);
@@ -286,11 +285,9 @@ export class StreamChannelData
       if (this.channel == null) return;
       const tr = this.now().spanRange(-this.props.timeSpan);
       if (!this.channel.virtual && !this.channel.isCalculated) {
-        const res = await this.client.read(tr, [this.channel.key]);
-        const newData = res[this.channel.key]?.data;
-        if (newData == null) return;
-        newData.forEach((d) => d.acquire());
-        this.data.push(...newData);
+        const res = await this.client.read(tr, this.channel.key);
+        res.acquire();
+        this.data.push(res);
       }
       this.notify();
       await this.updateStreamHandler(this.channel.key);
@@ -303,10 +300,10 @@ export class StreamChannelData
   private async updateStreamHandler(key: channel.Key): Promise<void> {
     if (this.stopStreaming != null) this.stopStreaming();
     const handler: client.StreamHandler = (res) => {
-      const newData = res[key]?.data;
-      if (newData == null) return;
-      newData.forEach((d) => d.acquire());
-      this.data.push(...newData);
+      const series = res.get(key);
+      if (series == null) return;
+      series.acquire();
+      this.data.push(series);
       this.notify();
       this.gcOutOfRangeData();
     };
@@ -315,16 +312,16 @@ export class StreamChannelData
 
   private gcOutOfRangeData(): void {
     const threshold = this.now().sub(this.props.keepFor ?? this.props.timeSpan);
-    const toGC = this.data.findIndex((d) => d.timeRange.end.before(threshold));
+    const toGC = this.data.series.findIndex((d) => d.timeRange.end.before(threshold));
     if (toGC === -1) return;
-    this.data.splice(toGC, 1).forEach((d) => d.release());
+    this.data.series.splice(toGC, 1).forEach((d) => d.release());
     this.gcOutOfRangeData();
   }
 
   cleanup(): void {
     this.stopStreaming?.();
     this.stopStreaming = undefined;
-    this.data.forEach((d) => d.release());
+    this.data.release();
   }
 }
 

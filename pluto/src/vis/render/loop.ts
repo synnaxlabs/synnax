@@ -139,20 +139,20 @@ export class Loop {
 
   private runCleanupsSync(): void {
     const { cleanup, requests } = this;
-    for (const [k, f] of cleanup.entries()) {
+    cleanup.forEach((f, k) => {
       /** Execute all of our cleanup functions BEFORE we re-render. */
       const req = requests.get(k);
       if (req != null) {
         f(req);
         cleanup.delete(k);
       }
-    }
+    });
   }
 
   private renderSync() {
     /** Render components. */
     const { requests } = this;
-    for (const req of requests.values())
+    requests.forEach((req) => {
       try {
         const cleanup = req.render();
         // We're safe to set the cleanup function here because we know that req.key
@@ -161,6 +161,7 @@ export class Loop {
       } catch (e) {
         console.error(e);
       }
+    });
   }
 
   /** Starts the rendering loop. */

@@ -15,10 +15,10 @@ import { telem } from "@/telem/aether";
 export interface ProviderProps extends PropsWithChildren<any> {}
 
 export const Provider = ({ children }: ProviderProps): ReactElement => {
-  const [{ path }] = Aether.use({
+  const { path } = Aether.useUnidirectional({
     type: telem.BaseProvider.TYPE,
     schema: telem.providerStateZ,
-    initialState: {},
+    state: {},
   });
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };

@@ -12,6 +12,7 @@ import {
   type AsyncDestructor,
   bounds,
   id,
+  MultiSeries,
   Series,
   TimeSpan,
   TimeStamp,
@@ -27,7 +28,7 @@ import {
   type StreamChannelValueProps,
 } from "@/telem/aether/remote";
 import { type Source } from "@/telem/aether/telem";
-import { client } from "@/telem/client";
+import { type client } from "@/telem/client";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   source.value();
@@ -57,15 +58,13 @@ describe("remote", () => {
       });
 
       // Data
-      response: Record<channel.Key, client.ReadResponse> = {
-        [this.channel.key]: new client.ReadResponse(this.channel, []),
-      };
+      response: MultiSeries = new MultiSeries([]);
 
       async retrieveChannel(): Promise<channel.Channel> {
         return this.channel;
       }
 
-      async read(): Promise<Record<channel.Key, client.ReadResponse>> {
+      async read(): Promise<MultiSeries> {
         return this.response;
       }
 
@@ -139,9 +138,7 @@ describe("remote", () => {
         data: new Float32Array([1, 2, 3]),
       });
       expect(scv.testingOnlyLeadingBuffer).toBeNull();
-      c.streamHandler?.({
-        [c.channel.key]: new client.ReadResponse(c.channel, [series]),
-      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
       await expect.poll(() => handleChange.mock.calls.length === 2).toBeTruthy();
       expect(scv.testingOnlyLeadingBuffer).toBe(series);
       expect(scv.value()).toBe(3);
@@ -160,15 +157,11 @@ describe("remote", () => {
       const series = Series.alloc({ dataType: DataType.FLOAT32, capacity: 3 });
 
       // Call onChange to set the leading buffer
-      c.streamHandler?.({
-        [c.channel.key]: new client.ReadResponse(c.channel, [series]),
-      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
       await expect.poll(() => handleChange.mock.calls.length === 2).toBeTruthy();
       // Append to the leading buffer
       series.write(new Series({ data: new Float32Array([1, 2, 5]) }));
-      c.streamHandler?.({
-        [c.channel.key]: new client.ReadResponse(c.channel, []),
-      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([])]]));
       await expect.poll(() => handleChange.mock.calls.length === 3).toBeTruthy();
       const v = scv.value();
       expect(v).toBe(5);
@@ -191,16 +184,12 @@ describe("remote", () => {
         data: new Float32Array([4, 5, 6]),
       });
       // Call onChange to set the leading buffer
-      c.streamHandler?.({
-        [c.channel.key]: new client.ReadResponse(c.channel, [newSeriesOne]),
-      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([newSeriesOne])]]));
       await expect.poll(() => handleChange.mock.calls.length === 2).toBeTruthy();
       // It should increment the reference count of the buffer
       expect(newSeriesOne.refCount).toBe(1);
       expect(scv.value()).toBe(3);
-      c.streamHandler?.({
-        [c.channel.key]: new client.ReadResponse(c.channel, [newSeriesTwo]),
-      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([newSeriesTwo])]]));
       expect(newSeriesOne.refCount).toBe(0);
       await expect.poll(() => handleChange.mock.calls.length === 3).toBeTruthy();
       expect(scv.value()).toBe(6);
@@ -231,9 +220,9 @@ describe("remote", () => {
       });
 
       // Data
-      response: Record<channel.Key, client.ReadResponse> = {
-        [this.channel.key]: new client.ReadResponse(this.channel, []),
-        [this.channel.index]: new client.ReadResponse(this.indexChannel, []),
+      response: Record<channel.Key, MultiSeries> = {
+        [this.channel.key]: new MultiSeries([]),
+        [this.channel.index]: new MultiSeries([]),
       };
 
       async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
@@ -243,12 +232,9 @@ describe("remote", () => {
         throw new Error(`Channel with key ${key} not found`);
       }
 
-      async read(
-        tr: TimeRange,
-        key: channel.Keys,
-      ): Promise<Record<channel.Key, client.ReadResponse>> {
+      async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
         this.readMock(tr, key);
-        return this.response;
+        return this.response[key];
       }
 
       close(): void {}
@@ -293,7 +279,7 @@ describe("remote", () => {
         data: new Float32Array([1, 2, 3]),
       });
       c.response = {
-        [c.channel.key]: new client.ReadResponse(c.channel, [series]),
+        [c.channel.key]: new MultiSeries([series]),
       };
       const props = {
         timeRange: TimeRange.MAX,
@@ -302,8 +288,8 @@ describe("remote", () => {
       const cd = new ChannelData(c, props);
       const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 1, upper: 3 });
-      expect(data).toHaveLength(1);
-      expect(data[0]).toBe(series);
+      expect(data.series).toHaveLength(1);
+      expect(data.series[0]).toBe(series);
     });
 
     it("should fetch data from the index channel when the channel is not an index and fetchIndex is true", async () => {
@@ -312,7 +298,7 @@ describe("remote", () => {
         data: new Float32Array([0, 2, 4]),
       });
       c.response = {
-        [c.channel.index]: new client.ReadResponse(c.indexChannel, [series]),
+        [c.channel.index]: new MultiSeries([series]),
       };
       const props: ChannelDataProps = {
         timeRange: TimeRange.MAX,
@@ -322,8 +308,8 @@ describe("remote", () => {
       const cd = new ChannelData(c, props);
       const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 0, upper: 4 });
-      expect(data).toHaveLength(1);
-      expect(data[0]).toBe(series);
+      expect(data.series).toHaveLength(1);
+      expect(data.series[0]).toBe(series);
     });
 
     it("should fetch data from the same channel when the channel is an index and fetchIndex is true", async () => {
@@ -332,7 +318,7 @@ describe("remote", () => {
         data: new Float32Array([0, 2, 4]),
       });
       c.response = {
-        [c.channel.index]: new client.ReadResponse(c.indexChannel, [series]),
+        [c.channel.index]: new MultiSeries([series]),
       };
       const props: ChannelDataProps = {
         timeRange: TimeRange.MAX,
@@ -342,8 +328,8 @@ describe("remote", () => {
       const cd = new ChannelData(c, props);
       const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 0, upper: 4 });
-      expect(data).toHaveLength(1);
-      expect(data[0]).toBe(series);
+      expect(data.series).toHaveLength(1);
+      expect(data.series[0]).toBe(series);
     });
   });
 
@@ -374,9 +360,7 @@ describe("remote", () => {
       });
 
       // Data
-      response: Record<channel.Key, client.ReadResponse> = {
-        [this.channel.key]: new client.ReadResponse(this.channel, []),
-      };
+      response: MultiSeries = new MultiSeries([]);
 
       async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
         if (key === this.channel.key) return this.channel;
@@ -384,7 +368,7 @@ describe("remote", () => {
         throw new Error(`Channel with key ${key} not found`);
       }
 
-      async read(): Promise<Record<channel.Key, client.ReadResponse>> {
+      async read(): Promise<MultiSeries> {
         return this.response;
       }
 
@@ -428,9 +412,7 @@ describe("remote", () => {
           now.add(TimeSpan.milliseconds(1)),
         ),
       });
-      c.response = {
-        [c.channel.key]: new client.ReadResponse(c.channel, [series]),
-      };
+      c.response = new MultiSeries([series]);
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.MAX,
         channel: c.channel.key,
@@ -438,8 +420,8 @@ describe("remote", () => {
       const cd = new StreamChannelData(c, props);
       const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 1, upper: 3 });
-      expect(data).toHaveLength(1);
-      expect(data[0]).toBe(series);
+      expect(data.series).toHaveLength(1);
+      expect(data.series[0]).toBe(series);
     });
 
     it("should bind a stream handler", async () => {
@@ -464,9 +446,7 @@ describe("remote", () => {
         data: new Float32Array([1, 2, 3]),
         timeRange: tr,
       });
-      c.response = {
-        [c.channel.key]: new client.ReadResponse(c.channel, [series]),
-      };
+      c.response = new MultiSeries([series]);
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.milliseconds(2),
         channel: c.channel.key,
@@ -474,7 +454,8 @@ describe("remote", () => {
       const cd = new StreamChannelData(c, props, () => now);
       const [b, data] = await waitForResolve(cd);
       expect(b).toEqual({ lower: 1, upper: 3 });
-      expect(data).toHaveLength(1);
+      expect(data.series).toHaveLength(1);
+      expect(data.series[0]).toBe(series);
       const tr2 = new TimeRange(
         now.add(TimeSpan.milliseconds(1)),
         now.add(TimeSpan.milliseconds(20)),
@@ -485,15 +466,13 @@ describe("remote", () => {
         timeRange: tr2,
       });
       now = TimeStamp.milliseconds(30);
-      c.streamHandler?.({
-        [c.channel.key]: new client.ReadResponse(c.channel, [series2]),
-      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series2])]]));
       expect(series.refCount).toBe(0);
       expect(series2.refCount).toBe(1);
       const [b2, data2] = cd.value();
       expect(b2).toEqual({ lower: 4, upper: 6 });
-      expect(data2).toHaveLength(1);
-      expect(data2[0]).toBe(series2);
+      expect(data2.series).toHaveLength(1);
+      expect(data2.series[0]).toBe(series2);
     });
 
     it("should adjust the bounds of the data even if it was not garbage collected", async () => {
@@ -506,9 +485,7 @@ describe("remote", () => {
         data: new Float32Array([1, 2, 3]),
         timeRange: tr,
       });
-      c.response = {
-        [c.channel.key]: new client.ReadResponse(c.channel, [series]),
-      };
+      c.response = new MultiSeries([series]);
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.milliseconds(2),
         channel: c.channel.key,
@@ -516,7 +493,8 @@ describe("remote", () => {
       const cd = new StreamChannelData(c, props, () => now);
       const [b, data] = await waitForResolve(cd);
       expect(b).toEqual({ lower: 1, upper: 3 });
-      expect(data).toHaveLength(1);
+      expect(data.series).toHaveLength(1);
+      expect(data.series[0]).toBe(series);
       const tr2 = new TimeRange(
         now.add(TimeSpan.milliseconds(1)),
         now.add(TimeSpan.milliseconds(20)),
@@ -528,17 +506,15 @@ describe("remote", () => {
         timeRange: tr2,
       });
       // The old buffer won't be garbage collected yet
-      c.streamHandler?.({
-        [c.channel.key]: new client.ReadResponse(c.channel, [series2]),
-      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series2])]]));
       now = TimeStamp.milliseconds(20);
       const [b2, data2] = cd.value();
       expect(series2.refCount).toBe(1);
       expect(series.refCount).toBe(1);
       expect(b2).toEqual({ lower: 4, upper: 6 });
-      expect(data2).toHaveLength(2);
-      expect(data2[0]).toBe(series);
-      expect(data2[1]).toBe(series2);
+      expect(data2.series).toHaveLength(2);
+      expect(data2.series[0]).toBe(series);
+      expect(data2.series[1]).toBe(series2);
     });
 
     it("should destroy the stream handler when cleanup is called", async () => {
@@ -563,9 +539,7 @@ describe("remote", () => {
         data: new Float32Array([1, 2, 3]),
         timeRange: tr,
       });
-      c.response = {
-        [c.channel.key]: new client.ReadResponse(c.channel, [series]),
-      };
+      c.response = new MultiSeries([series]);
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.milliseconds(2),
         channel: c.channel.key,
@@ -587,9 +561,7 @@ describe("remote", () => {
         data: new Float32Array([1, 2, 3]),
         timeRange: tr,
       });
-      c.response = {
-        [c.channel.index]: new client.ReadResponse(c.indexChannel, [series]),
-      };
+      c.response = new MultiSeries([series]);
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.MAX,
         channel: c.channel.key,
@@ -598,8 +570,8 @@ describe("remote", () => {
       const cd = new StreamChannelData(c, props, () => now);
       const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 1, upper: 3 });
-      expect(data).toHaveLength(1);
-      expect(data[0]).toBe(series);
+      expect(data.series).toHaveLength(1);
+      expect(data.series[0]).toBe(series);
     });
 
     it("should return the index channel data when the channel is an index and fetchIndex is true", async () => {
@@ -612,9 +584,7 @@ describe("remote", () => {
         data: new Float32Array([1, 2, 3]),
         timeRange: tr,
       });
-      c.response = {
-        [c.channel.index]: new client.ReadResponse(c.indexChannel, [series]),
-      };
+      c.response = new MultiSeries([series]);
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.MAX,
         channel: c.channel.index,
@@ -623,8 +593,8 @@ describe("remote", () => {
       const cd = new StreamChannelData(c, props, () => now);
       const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 1, upper: 3 });
-      expect(data).toHaveLength(1);
-      expect(data[0]).toBe(series);
+      expect(data.series).toHaveLength(1);
+      expect(data.series[0]).toBe(series);
     });
   });
 });

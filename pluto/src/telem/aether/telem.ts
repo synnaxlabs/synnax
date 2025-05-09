@@ -12,8 +12,8 @@ import {
   type bounds,
   type color,
   type Destructor,
+  type MultiSeries,
   observe,
-  type Series,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -82,7 +82,7 @@ export interface SinkTransformer<I, O> extends Telem, Sink<I> {
   setSinks: (sinks: Record<string, Sink<O>>) => void;
 }
 
-export type SeriesSource = Source<[bounds.Bounds, Series[]]>;
+export type SeriesSource = Source<[bounds.Bounds, MultiSeries]>;
 export const seriesSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("series") });
 export type SeriesSourceSpec = z.infer<typeof seriesSourceSpecZ>;
 

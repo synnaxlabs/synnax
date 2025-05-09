@@ -13,13 +13,13 @@ import {
   type AsyncDestructor,
   type Destructor,
   id,
+  MultiSeries,
   type TimeRange,
 } from "@synnaxlabs/x";
 
 import { cache } from "@/telem/client/cache";
-import { Reader } from "@/telem/client/reader";
+import { Reader, type ReaderProps } from "@/telem/client/reader";
 import { Streamer, type StreamHandler } from "@/telem/client/streamer";
-import { type ReadResponse } from "@/telem/client/types";
 
 /**
  * A client that can be used to retrieve a channel from the Synnax cluster
@@ -49,10 +49,7 @@ export interface ReadClient {
    * number of Series with different lengths. It's up to the caller to use the
    * 'alignment' field of the Series to normalize the data shape if necessary.
    */
-  read: (
-    tr: TimeRange,
-    keys: channel.Keys,
-  ) => Promise<Record<channel.Key, ReadResponse>>;
+  read: (tr: TimeRange, keys: channel.Key) => Promise<MultiSeries>;
 }
 
 /** A client that can be used to stream telemetry from the Synnax cluster. */
@@ -83,8 +80,8 @@ export class NoopClient implements Client {
   }
 
   /** Implements ReadClient. */
-  async read(): Promise<Record<channel.Key, ReadResponse>> {
-    return {};
+  async read(): Promise<MultiSeries> {
+    return new MultiSeries([]);
   }
 
   /** Stream implements StreamClient. */
@@ -140,11 +137,8 @@ export class Core implements Client {
   }
 
   /** Implements ChannelClient */
-  async read(
-    tr: TimeRange,
-    keys: channel.Keys,
-  ): Promise<Record<channel.Key, ReadResponse>> {
-    return await this.reader.read(tr, keys);
+  async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
+    return await this.reader.read(tr, key);
   }
 
   async stream(handler: StreamHandler, keys: channel.Keys): Promise<Destructor> {

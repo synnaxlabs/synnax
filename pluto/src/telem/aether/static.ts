@@ -11,6 +11,7 @@ import {
   bounds,
   color,
   DataType,
+  MultiSeries,
   Rate,
   Series,
   TimeRange,
@@ -120,7 +121,7 @@ export class IterativeSeries
     );
   }
 
-  value(): [bounds.Bounds, Series[]] {
+  value(): [bounds.Bounds, MultiSeries] {
     const d = this.data.map((x) => x.slice(0, this.position));
     if (this.props.scrollBounds) {
       const lower =
@@ -132,10 +133,10 @@ export class IterativeSeries
         lower: Number(lower),
         upper: Number(upper),
       };
-      return [b, d];
+      return [b, new MultiSeries(d)];
     }
     const b = bounds.max(d.map((x) => x.bounds));
-    return [b, d];
+    return [b, new MultiSeries(d)];
   }
 
   start(rate: Rate): void {

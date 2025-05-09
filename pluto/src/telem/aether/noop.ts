@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, observe, type Series, TimeStamp } from "@synnaxlabs/x";
+import { bounds, color, MultiSeries, observe, TimeStamp } from "@synnaxlabs/x";
 
 import { type status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
@@ -143,8 +143,8 @@ export const noopColorSourceSpec: ColorSourceSpec = {
 class NoopSeries extends Noop implements SeriesSource {
   static readonly TYPE = "noop-series";
 
-  value(): [bounds.Bounds, Series[]] {
-    return [bounds.ZERO, []];
+  value(): [bounds.Bounds, MultiSeries] {
+    return [bounds.ZERO, new MultiSeries([])];
   }
 }
 

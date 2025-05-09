@@ -14,6 +14,7 @@ import {
   compare,
   type CrudeTimeSpan,
   type Destructor,
+  MultiSeries,
   nullToArr,
   type Optional,
   type Required,
@@ -23,9 +24,8 @@ import {
 import { Mutex } from "async-mutex";
 
 import { type Cache } from "@/telem/client/cache/cache";
-import { ReadResponse } from "@/telem/client/types";
 
-export type StreamHandler = (data: Record<channel.Key, ReadResponse>) => void;
+export type StreamHandler = (data: Map<channel.Key, MultiSeries>) => void;
 
 interface ListenerEntry {
   valid: boolean;
@@ -78,13 +78,10 @@ export class Streamer {
 
       // Pull any existing dynamic buffers from the cache so that the caller has
       // access to them as they get filled.
-      const dynamicBuffers: Record<channel.Key, ReadResponse> = Object.fromEntries(
+      const dynamicBuffers: Map<channel.Key, MultiSeries> = new Map(
         keys.map((key) => {
           const unary = cache.get(key);
-          return [
-            key,
-            new ReadResponse(unary.channel, nullToArr<Series>(unary.leadingBuffer)),
-          ];
+          return [key, new MultiSeries(nullToArr<Series>(unary.leadingBuffer))];
         }),
       );
       handler(dynamicBuffers);
@@ -157,18 +154,16 @@ export class Streamer {
   private async runStreamer(streamer: framer.Streamer): Promise<void> {
     const { cache } = this.props;
     try {
-      const changed: ReadResponse[] = [];
       for await (const frame of streamer) {
-        changed.length = 0;
+        const changed: Map<channel.Key, MultiSeries> = new Map();
         for (const k of frame.keys) {
           const series = frame.get(k);
           const unary = cache.get(k);
-          const out = unary.writeDynamic(series.series);
-          changed.push(new ReadResponse(unary.channel, out));
+          const out = unary.writeDynamic(series);
+          changed.set(k, out);
         }
-        if (changed.length === 0) return;
-        const out = Object.fromEntries(changed.map((r) => [r.channel.key, r]));
-        this.listeners.forEach(({ valid }, handler) => valid && handler(out));
+        if (changed.size !== 0)
+          this.listeners.forEach(({ valid }, handler) => valid && handler(changed));
       }
     } catch (e) {
       console.error("streamer run loop failed", { error: e }, true);

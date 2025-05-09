@@ -86,10 +86,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
   private async fetchInitial(timeRange: TimeRange): Promise<void> {
     const { internal: i } = this;
-    if (
-      i.client == null ||
-      this.fetchedInitial.roughlyEquals(timeRange, TimeSpan.minutes(1))
-    )
+    if (i.client == null || this.fetchedInitial.equals(timeRange, TimeSpan.minutes(1)))
       return;
     this.fetchedInitial = timeRange;
     const ranges = await i.client.ranges.retrieve(timeRange);

@@ -47,7 +47,10 @@ export class BaseProvider extends aether.Composite<
     this.client =
       core == null
         ? new client.NoopClient()
-        : new client.Core({ core, instrumentation: I });
+        : new client.Core({
+            core,
+            instrumentation: I,
+          });
     const f = createFactory(this.client);
     const value = new Context(f);
     setContext(ctx, value);

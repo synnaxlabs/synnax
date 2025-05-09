@@ -19,6 +19,7 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  type TimeStampStringFormat,
 } from "@/telem";
 
 describe("TimeStamp", () => {
@@ -177,19 +178,159 @@ describe("TimeStamp", () => {
     expect(ts.sub(TimeSpan.microseconds()).equals(new TimeStamp(0))).toBeTruthy();
   });
 
-  test("stringification", () => {
+  describe("fString", () => {
     const ts = new TimeStamp([2022, 12, 15], "UTC")
       .add(TimeSpan.hours(12))
       .add(TimeSpan.minutes(20))
       .add(TimeSpan.milliseconds(12));
-    expect(ts.fString("ISO", "UTC")).toEqual("2022-12-15T12:20:00.012Z");
-    expect(ts.fString("time", "UTC")).toEqual("12:20:00");
-    expect(ts.fString("date", "UTC")).toEqual("Dec 15");
-    if (!TimeStamp.utcOffset.equals(0)) {
-      expect(ts.fString("ISO", "local")).not.toEqual("2022-12-15T12:20:00.012Z");
-      expect(ts.fString("time", "local")).not.toEqual("12:20:00");
-    }
+
+    const FORMAT_TESTS: [TimeStampStringFormat, string][] = [
+      ["ISO", "2022-12-15T12:20:00.012Z"],
+      ["ISODate", "2022-12-15"],
+      ["ISOTime", "12:20:00.012"],
+      ["time", "12:20:00"],
+      ["preciseTime", "12:20:00.012"],
+      ["date", "Dec 15"],
+      ["preciseDate", "Dec 15 12:20:00.012"],
+      ["dateTime", "Dec 15 12:20:00"],
+    ];
+
+    FORMAT_TESTS.forEach(([format, expected]) => {
+      test(`should format timestamp as ${format}`, () => {
+        expect(ts.fString(format, "UTC")).toEqual(expected);
+      });
+    });
   });
+
+  describe("unit getters", () => {
+    test("hour", () => {
+      expect(TimeStamp.hours(1).add(TimeSpan.minutes(30)).hour).toEqual(1);
+    });
+    test("hours", () => {
+      expect(TimeStamp.hours(1).add(TimeSpan.minutes(30)).hours).toEqual(1.5);
+    });
+    test("minute", () => {
+      expect(TimeStamp.minutes(1).add(TimeStamp.seconds(20)).minute).toEqual(1);
+    });
+    test("minutes", () => {
+      expect(TimeStamp.minutes(1).add(TimeStamp.seconds(30)).minutes).toEqual(1.5);
+    });
+    test("second", () => {
+      expect(TimeStamp.seconds(1).add(TimeStamp.milliseconds(20)).second).toEqual(1);
+    });
+    test("seconds", () => {
+      expect(TimeStamp.seconds(1).add(TimeStamp.milliseconds(500)).seconds).toEqual(
+        1.5,
+      );
+    });
+    test("millisecond", () => {
+      expect(
+        TimeStamp.milliseconds(1).add(TimeStamp.microseconds(20)).millisecond,
+      ).toEqual(1);
+    });
+    test("milliseconds", () => {
+      expect(
+        TimeStamp.milliseconds(1).add(TimeStamp.microseconds(500)).milliseconds,
+      ).toEqual(1.5);
+    });
+    test("microseconds", () => {
+      expect(
+        TimeStamp.microseconds(500).add(TimeSpan.nanoseconds(20)).microseconds,
+      ).toEqual(500.02);
+    });
+    describe("nanoseconds", () => {
+      expect(
+        TimeStamp.microseconds(1).add(TimeSpan.nanoseconds(30)).nanoseconds,
+      ).toEqual(1030);
+    });
+    test("year", () => {
+      expect(new TimeStamp([2022, 12, 15]).year).toEqual(2022);
+    });
+    test("month", () => {
+      expect(new TimeStamp([2022, 12, 15]).month).toEqual(11);
+    });
+    test("day", () => {
+      expect(new TimeStamp([2022, 12, 15]).day).toEqual(14);
+    });
+  });
+
+  describe("unit setters", () => {
+    test("setYear", () => {
+      const ts = new TimeStamp([2022, 12, 15]);
+      const updated = ts.setYear(2023);
+      expect(updated.year).toEqual(2023);
+      expect(updated.month).toEqual(ts.month); // Other components should remain unchanged
+      expect(updated.day).toEqual(ts.day);
+    });
+
+    test("setMonth", () => {
+      const ts = new TimeStamp([2022, 12, 15]);
+      const updated = ts.setMonth(5); // June (0-indexed)
+      expect(updated.month).toEqual(5);
+      expect(updated.year).toEqual(ts.year); // Other components should remain unchanged
+      expect(updated.day).toEqual(ts.day);
+    });
+
+    test("setDay", () => {
+      const ts = new TimeStamp([2022, 12, 15]);
+      const updated = ts.setDay(20);
+      expect(updated.day).toEqual(20);
+      expect(updated.year).toEqual(ts.year);
+      expect(updated.month).toEqual(ts.month);
+    });
+
+    test("setHour", () => {
+      const ts = new TimeStamp([2022, 12, 15]).add(TimeSpan.hours(10));
+      const updated = ts.setHour(15);
+      expect(updated.hour).toEqual(15);
+      expect(updated.year).toEqual(ts.year);
+      expect(updated.month).toEqual(ts.month);
+      expect(updated.day).toEqual(ts.day);
+    });
+
+    test("setMinute", () => {
+      const ts = new TimeStamp([2022, 12, 15])
+        .add(TimeSpan.hours(10))
+        .add(TimeSpan.minutes(30));
+      const updated = ts.setMinute(45);
+      expect(updated.minute).toEqual(45);
+      expect(updated.hour).toEqual(ts.hour);
+      expect(updated.year).toEqual(ts.year);
+      expect(updated.month).toEqual(ts.month);
+      expect(updated.day).toEqual(ts.day);
+    });
+
+    test("setSecond", () => {
+      const ts = new TimeStamp([2022, 12, 15])
+        .add(TimeSpan.hours(10))
+        .add(TimeSpan.minutes(30))
+        .add(TimeSpan.seconds(20));
+      const updated = ts.setSecond(45);
+      expect(updated.second).toEqual(45);
+      expect(updated.minute).toEqual(ts.minute); // Other components should remain unchanged
+      expect(updated.hour).toEqual(ts.hour);
+      expect(updated.year).toEqual(ts.year);
+      expect(updated.month).toEqual(ts.month);
+      expect(updated.day).toEqual(ts.day);
+    });
+
+    test("setMillisecond", () => {
+      const ts = new TimeStamp([2022, 12, 15])
+        .add(TimeSpan.hours(10))
+        .add(TimeSpan.minutes(30))
+        .add(TimeSpan.seconds(20))
+        .add(TimeSpan.milliseconds(100));
+      const updated = ts.setMillisecond(500);
+      expect(updated.millisecond).toEqual(500);
+      expect(updated.second).toEqual(ts.second); // Other components should remain unchanged
+      expect(updated.minute).toEqual(ts.minute);
+      expect(updated.hour).toEqual(ts.hour);
+      expect(updated.year).toEqual(ts.year);
+      expect(updated.month).toEqual(ts.month);
+      expect(updated.day).toEqual(ts.day);
+    });
+  });
+
   describe("remainder", () => {
     test("day", () => {
       const expectedRemainder = TimeStamp.hours(12)
@@ -463,8 +604,8 @@ describe("TimeRange", () => {
         TimeSpan.seconds(1),
         TimeSpan.seconds(4).add(TimeSpan.milliseconds(500)),
       );
-      expect(tr.roughlyEquals(one, TimeSpan.seconds(1))).toBeTruthy();
-      expect(tr.roughlyEquals(one, TimeSpan.seconds(0))).toBeFalsy();
+      expect(tr.equals(one, TimeSpan.seconds(1))).toBeTruthy();
+      expect(tr.equals(one, TimeSpan.seconds(0))).toBeFalsy();
     });
   });
 
