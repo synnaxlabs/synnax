@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, ValidationError } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import {
   bounds,
   DataType,
@@ -21,6 +21,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { status } from "@/status/aether";
+import { type CreateOptions } from "@/telem/aether/factory";
 import {
   AbstractSource,
   type NumberSource,
@@ -38,27 +40,34 @@ export const streamChannelValuePropsZ = z.object({
 
 export type StreamChannelValueProps = z.infer<typeof streamChannelValuePropsZ>;
 
+const LOADING_STATUS: status.CrudeSpec = {
+  variant: "loading",
+  message: "loading data",
+};
+const SUCCESS_STATUS: status.CrudeSpec = {
+  variant: "success",
+  message: "data loaded",
+};
+
 // StreamChannelValue is an implementation of NumberSource that reads and returns the
 // most recent value of a channel in real-time.
 export class StreamChannelValue
   extends AbstractSource<typeof streamChannelValuePropsZ>
   implements NumberSource
 {
-  private readonly client: client.Client;
-  // Disconnects the current streaming handler.
-  private removeStreamHandler: Destructor | null = null;
-  private channelKey: channel.Key = 0;
-
   static readonly TYPE = "stream-channel-value";
-
   schema = streamChannelValuePropsZ;
 
+  private readonly client: client.Client;
+  private removeStreamHandler: Destructor | null = null;
+  private channelKey: channel.Key = 0;
   private leadingBuffer: Series | null = null;
   private valid = false;
-
-  constructor(client: client.Client, props: unknown) {
+  private readonly onStatusChange?: status.Adder;
+  constructor(client: client.Client, props: unknown, options?: CreateOptions) {
     super(props);
     this.client = client;
+    this.onStatusChange = options?.onStatusChange;
   }
 
   /** @returns the leading series buffer for testing purposes. */
@@ -92,37 +101,30 @@ export class StreamChannelValue
     return this.leadingBuffer.at(-1, true) as number;
   }
 
-  async read(): Promise<void> {
+  private async read(): Promise<void> {
     try {
       this.valid = true;
-      if (this.channelKey === 0) {
-        const c = await fetchChannelProperties(this.client, this.props.channel, false);
-        if (c == null) return;
-        this.channelKey = c.key;
-      }
-      await this.updateStreamHandler();
+      this.onStatusChange?.(LOADING_STATUS);
+      this.removeStreamHandler?.();
+      const handler: client.StreamHandler = (res) => {
+        const data = res.get(this.channelKey);
+        if (data == null) return;
+        const first = data.series.at(-1);
+        if (first != null) {
+          first.acquire();
+          this.leadingBuffer?.release();
+          this.leadingBuffer = first;
+        }
+        // Just because we didn't get a new buffer doesn't mean one wasn't allocated.
+        this.notify();
+      };
+      this.removeStreamHandler = await this.client.stream(handler, [this.channelKey]);
       this.notify();
+      this.onStatusChange?.(SUCCESS_STATUS);
     } catch (e) {
       this.valid = false;
-      console.error(e);
+      this.onStatusChange?.(status.fromException(e));
     }
-  }
-
-  private async updateStreamHandler(): Promise<void> {
-    this.removeStreamHandler?.();
-    const handler: client.StreamHandler = (data) => {
-      const newData = data.get(this.channelKey);
-      if (newData == null) return;
-      const first = newData.series.at(-1);
-      if (first != null) {
-        first.acquire();
-        this.leadingBuffer?.release();
-        this.leadingBuffer = first;
-      }
-      // Just because we didn't get a new buffer doesn't mean one wasn't allocated.
-      this.notify();
-    };
-    this.removeStreamHandler = await this.client.stream(handler, [this.channelKey]);
   }
 }
 
@@ -135,24 +137,27 @@ const fetchChannelProperties = async (
   client: client.ChannelClient,
   ch: channel.KeyOrName,
   fetchIndex: boolean,
-): Promise<SelectedChannelProperties | null> => {
-  let c = await client.retrieveChannel(ch);
-  if (c == null) return null;
+): Promise<SelectedChannelProperties> => {
+  const c = await client.retrieveChannel(ch);
   const isCalculated = channel.isCalculated(c);
   if (!fetchIndex || c.isIndex)
     return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
-
   if (isCalculated) {
     const indexKey = await channel.resolveCalculatedIndex(
       client.retrieveChannel.bind(client),
       c,
     );
-    if (indexKey == null) throw new ValidationError("Cannot resolve calculated index");
-    c = await client.retrieveChannel(indexKey);
-    if (c == null) return null;
-    return { key: c.key, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
+    if (indexKey == null) throw new NotFoundError("Failed to resolve calculated index");
+    const indexCH = await client.retrieveChannel(indexKey);
+    return {
+      key: indexCH.key,
+      dataType: DataType.TIMESTAMP,
+      virtual: false,
+      isCalculated,
+    };
   }
-  if (c.virtual) throw new ValidationError("Cannot plot data from virtual channels");
+  if (c.virtual)
+    throw new NotFoundError("cannot use virtual channels as a data source");
   return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
 };
 
@@ -171,18 +176,27 @@ export class ChannelData
 {
   static readonly TYPE = "series-source";
   private readonly client: client.ReadClient & client.ChannelClient;
-  private data: MultiSeries = new MultiSeries([]);
-  private valid: boolean = false;
   schema = channelDataSourcePropsZ;
+
+  private data: MultiSeries = new MultiSeries();
+  private valid: boolean = false;
   private channel: SelectedChannelProperties | null = null;
-  constructor(client: client.ReadClient & client.ChannelClient, props: unknown) {
+  private readonly onStatusChange?: status.Adder;
+
+  constructor(
+    client: client.ReadClient & client.ChannelClient,
+    props: unknown,
+    options?: CreateOptions,
+  ) {
     super(props);
     this.client = client;
+    this.onStatusChange = options?.onStatusChange;
   }
 
   cleanup(): void {
     this.data.release();
     this.valid = false;
+    this.channel = null;
   }
 
   value(): [bounds.Bounds, MultiSeries] {
@@ -190,34 +204,34 @@ export class ChannelData
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
     if (timeRange.isZero || channel === 0) return [bounds.ZERO, this.data];
-    if (!this.valid) void this.readFixed();
-    if (this.channel == null) return [bounds.ZERO, this.data];
-    let b = bounds.max(this.data.series.map((d) => d.bounds));
-    if (this.channel.dataType.equals(DataType.TIMESTAMP))
-      b = {
-        upper: Math.min(b.upper, Number(this.props.timeRange.end.valueOf())),
-        lower: Math.max(b.lower, Number(this.props.timeRange.start.valueOf())),
-      };
-    return [b, this.data];
+    if (!this.valid) void this.read();
+    const { channel: ch, data } = this;
+    if (ch == null) return [bounds.ZERO, this.data];
+    let b = bounds.max(data.series.map((d) => d.bounds));
+    if (ch.dataType.equals(DataType.TIMESTAMP))
+      b = bounds.min([b, timeRange.numericBounds]);
+    return [b, data];
   }
 
-  private async readFixed(): Promise<void> {
+  private async read(): Promise<void> {
     try {
       this.valid = true;
+      this.onStatusChange?.(LOADING_STATUS);
       const { timeRange, channel, useIndexOfChannel } = this.props;
       this.channel = await fetchChannelProperties(
         this.client,
         channel,
         useIndexOfChannel,
       );
-      if (this.channel == null) return;
       const series = await this.client.read(timeRange, this.channel.key);
+      if (series == null) return;
       series.acquire();
       this.data = series;
       this.notify();
+      this.onStatusChange?.(SUCCESS_STATUS);
     } catch (e) {
       this.valid = false;
-      console.error(e);
+      this.onStatusChange?.(status.fromException(e));
     }
   }
 }
@@ -239,6 +253,7 @@ export class StreamChannelData
   private readonly client: client.Client;
   private readonly data: MultiSeries = new MultiSeries([]);
   private readonly now: () => TimeStamp;
+  private readonly onStatusChange?: status.Adder;
 
   private channel: SelectedChannelProperties | null = null;
   private stopStreaming?: Destructor;
@@ -248,66 +263,63 @@ export class StreamChannelData
   constructor(
     client: client.Client,
     props: unknown,
+    options?: CreateOptions,
     now: () => TimeStamp = () => TimeStamp.now(),
   ) {
     super(props);
     this.client = client;
     this.now = now;
+    this.onStatusChange = options?.onStatusChange;
   }
 
   value(): [bounds.Bounds, MultiSeries] {
     const { channel, timeSpan } = this.props;
     if (channel === 0) return [bounds.ZERO, this.data];
-    const now = this.now();
     if (!this.valid) void this.read();
-    if (this.channel == null) return [bounds.ZERO, new MultiSeries([])];
-    const filtered = this.data.series
+    const { data, channel: ch } = this;
+    const now = this.now();
+    const filtered = data.series
       .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
       .map((d) => d.bounds);
-    let b = bounds.max(filtered);
-    if (this.channel.dataType.equals(DataType.TIMESTAMP))
-      b = {
-        upper: b.upper,
-        lower: Math.max(b.lower, b.upper - Number(timeSpan.valueOf())),
-      };
+    const b = bounds.max(filtered);
+    if (ch != null && ch.dataType.equals(DataType.TIMESTAMP))
+      b.lower = Math.max(b.lower, b.upper - Number(timeSpan.valueOf()));
     return [b, this.data];
   }
 
   private async read(): Promise<void> {
-    this.valid = true;
     try {
+      this.valid = true;
+      this.onStatusChange?.(LOADING_STATUS);
       const { channel, useIndexOfChannel } = this.props;
       this.channel = await fetchChannelProperties(
         this.client,
         channel,
         useIndexOfChannel,
       );
-      if (this.channel == null) return;
       const tr = this.now().spanRange(-this.props.timeSpan);
       if (!this.channel.virtual && !this.channel.isCalculated) {
         const res = await this.client.read(tr, this.channel.key);
         res.acquire();
         this.data.push(res);
       }
+      this.stopStreaming?.();
+      const handler: client.StreamHandler = (res) => {
+        if (this.channel == null) return;
+        const series = res.get(this.channel.key);
+        if (series == null) return;
+        series.acquire();
+        this.data.push(series);
+        this.notify();
+        this.gcOutOfRangeData();
+      };
+      this.stopStreaming = await this.client.stream(handler, [this.channel.key]);
       this.notify();
-      await this.updateStreamHandler(this.channel.key);
+      this.onStatusChange?.(SUCCESS_STATUS);
     } catch (e) {
       this.valid = false;
-      console.error(e);
+      this.onStatusChange?.(status.fromException(e));
     }
-  }
-
-  private async updateStreamHandler(key: channel.Key): Promise<void> {
-    if (this.stopStreaming != null) this.stopStreaming();
-    const handler: client.StreamHandler = (res) => {
-      const series = res.get(key);
-      if (series == null) return;
-      series.acquire();
-      this.data.push(series);
-      this.notify();
-      this.gcOutOfRangeData();
-    };
-    this.stopStreaming = await this.client.stream(handler, [key]);
   }
 
   private gcOutOfRangeData(): void {
@@ -322,10 +334,15 @@ export class StreamChannelData
     this.stopStreaming?.();
     this.stopStreaming = undefined;
     this.data.release();
+    this.valid = false;
   }
 }
 
-type Constructor = new (client: client.Client, props: unknown) => Telem;
+type Constructor = new (
+  client: client.Client,
+  props: unknown,
+  options?: CreateOptions,
+) => Telem;
 
 const REGISTRY: Record<string, Constructor> = {
   [ChannelData.TYPE]: ChannelData,
@@ -340,10 +357,10 @@ export class RemoteFactory implements RemoteFactory {
     this.client = client;
   }
 
-  create(spec: Spec): Telem | null {
+  create(spec: Spec, options?: CreateOptions): Telem | null {
     const V = REGISTRY[spec.type];
     if (V == null) return null;
-    return new V(this.client, spec.props);
+    return new V(this.client, spec.props, options);
   }
 }
 

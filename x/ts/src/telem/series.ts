@@ -938,7 +938,7 @@ class FixedSeriesIterator implements Iterator<math.Numeric> {
 export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<T> {
   readonly series: Array<Series<T>>;
 
-  constructor(series: Array<Series<T>>) {
+  constructor(series: Array<Series<T>> = []) {
     if (series.length !== 0) {
       const type = series[0].dataType;
       for (let i = 1; i < series.length; i++)

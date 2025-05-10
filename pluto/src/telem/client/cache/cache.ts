@@ -58,24 +58,26 @@ export class Cache {
    * @param keys - The keys to populate the cache with.
    */
   async populateMissing(keys: channel.Keys): Promise<boolean> {
+    const { instrumentation: ins, channelRetriever, dynamicBufferSize } = this.props;
+    const toFetch: channel.Keys = [];
+    for (const key of keys) if (!this.cache.has(key)) toFetch.push(key);
+    if (toFetch.length === 0) return true;
+    let channels: channel.Payload[] = [];
     try {
-      const { instrumentation: ins, channelRetriever, dynamicBufferSize } = this.props;
-      const toFetch: channel.Keys = [];
-      for (const key of keys) if (!this.cache.has(key)) toFetch.push(key);
-      if (toFetch.length === 0) return true;
-      const channels = await channelRetriever.retrieve(toFetch);
-      for (const channel of channels) {
-        const unary = new Unary({
-          channel,
-          dynamicBufferSize,
-          instrumentation: ins.child(`cache-${channel.name}-${channel.key}`),
-        });
-        if (!this.cache.has(channel.key)) this.cache.set(channel.key, unary);
-      }
-      return true;
+      channels = await channelRetriever.retrieve(toFetch);
     } catch {
       return false;
     }
+    channels.forEach((channel) => {
+      if (this.cache.has(channel.key)) return;
+      const unary = new Unary({
+        channel,
+        dynamicBufferSize,
+        instrumentation: ins.child(`cache-${channel.name}-${channel.key}`),
+      });
+      this.cache.set(channel.key, unary);
+    });
+    return true;
   }
 
   /**

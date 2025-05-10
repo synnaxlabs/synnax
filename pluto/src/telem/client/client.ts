@@ -8,17 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { type alamos } from "@synnaxlabs/alamos";
-import { type channel, framer, QueryError, type Synnax } from "@synnaxlabs/client";
+import {
+  type channel,
+  framer,
+  NotFoundError,
+  QueryError,
+  type Synnax,
+} from "@synnaxlabs/client";
 import {
   type AsyncDestructor,
   type Destructor,
-  id,
   MultiSeries,
   type TimeRange,
 } from "@synnaxlabs/x";
 
 import { cache } from "@/telem/client/cache";
-import { Reader, type ReaderProps } from "@/telem/client/reader";
+import { Reader } from "@/telem/client/reader";
 import { Streamer, type StreamHandler } from "@/telem/client/streamer";
 
 /**
@@ -33,7 +38,7 @@ export interface ChannelClient {
    * @returns the channel with the given key.
    * @throws QueryError if the channel does not exist.
    */
-  retrieveChannel: (key: channel.KeyOrName) => Promise<channel.Payload | null>;
+  retrieveChannel: (key: channel.KeyOrName) => Promise<channel.Payload>;
 }
 
 /** A client that can be used to read telemetry from the Synnax cluster. */
@@ -72,11 +77,9 @@ export interface Client extends ChannelClient, ReadClient, StreamClient {
  * in when disconnected from the Synnax cluster.
  */
 export class NoopClient implements Client {
-  readonly key: string = id.create();
-
   /** Implements ChannelClient. */
-  async retrieveChannel(): Promise<channel.Payload | null> {
-    return null;
+  async retrieveChannel(): Promise<channel.Payload> {
+    throw new NotFoundError("NoopClient does not support retrieving channels");
   }
 
   /** Implements ReadClient. */

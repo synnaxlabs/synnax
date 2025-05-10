@@ -48,7 +48,7 @@ interface InternalState {
   stopListening?: () => void;
   backgroundTelem: telem.ColorSource;
   stopListeningBackground?: () => void;
-  requestRender: render.RequestF | null;
+  requestRender: render.Requestor | null;
   textColor: color.Color;
   fontString: string;
 }
@@ -65,14 +65,11 @@ export class Value
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (color.isZero(this.state.color))
-      this.internal.textColor = i.theme.colors.gray.l10;
+    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l10;
     else i.textColor = this.state.color;
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();
-    i.stopListening = this.internal.telem.onChange(() => {
-      this.requestRender();
-    });
+    i.stopListening = i.telem.onChange(() => this.requestRender());
     i.fontString = theming.fontString(i.theme, { level: this.state.level, code: true });
     i.backgroundTelem = telem.useSource(
       ctx,
@@ -80,10 +77,8 @@ export class Value
       i.backgroundTelem,
     );
     i.stopListeningBackground?.();
-    i.stopListeningBackground = this.internal.backgroundTelem.onChange(() =>
-      this.requestRender(),
-    );
-    this.internal.requestRender = render.Controller.useOptionalRequest(ctx);
+    i.stopListeningBackground = i.backgroundTelem.onChange(() => this.requestRender());
+    i.requestRender = render.useOptionalRequestor(ctx);
     this.requestRender();
   }
 
@@ -95,12 +90,12 @@ export class Value
     i.backgroundTelem.cleanup?.();
     if (i.requestRender == null)
       i.renderCtx.erase(box.construct(this.state.box), xy.ZERO, ...CANVAS_VARIANTS);
-    else i.requestRender(render.REASON_LAYOUT);
+    else i.requestRender("layout");
   }
 
   private requestRender(): void {
     const { requestRender } = this.internal;
-    if (requestRender != null) requestRender(render.REASON_LAYOUT);
+    if (requestRender != null) requestRender("layout");
     else void this.render({});
   }
 

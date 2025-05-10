@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { math } from "@/math";
 import { type Stringer } from "@/primitive";
+import { type bounds } from "@/spatial";
 
 export type TZInfo = "UTC" | "local";
 
@@ -1114,6 +1115,13 @@ export class TimeRange implements Stringer {
    */
   swap(): TimeRange {
     return new TimeRange(this.end, this.start);
+  }
+
+  get numericBounds(): bounds.Bounds<number> {
+    return {
+      lower: Number(this.start.valueOf()),
+      upper: Number(this.end.valueOf()),
+    };
   }
 
   /**

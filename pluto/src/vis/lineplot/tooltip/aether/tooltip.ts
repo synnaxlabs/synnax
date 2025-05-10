@@ -69,11 +69,11 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
     this.internal.render = render.Context.use(ctx);
     this.internal.draw = new Draw2D(this.internal.render.upper2d, theme);
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+    render.request(ctx, "tool");
   }
 
   afterDelete(ctx: aether.Context): void {
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+    render.request(ctx, "tool");
   }
 
   render(props: TooltipProps): void {

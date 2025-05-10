@@ -28,6 +28,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
+import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
@@ -263,12 +264,12 @@ export class Context {
 
 interface InternalState {
   instrumentation: Instrumentation;
-  ctx: Context;
+  lineCtx: Context;
   xTelem: telem.SeriesSource;
   stopListeningXTelem?: Destructor;
   yTelem: telem.SeriesSource;
   stopListeningYTelem?: Destructor;
-  requestRender: render.RequestF;
+  requestRender: render.Requestor;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -276,29 +277,27 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   schema: typeof stateZ = stateZ;
 
   afterUpdate(ctx: aether.Context): void {
-    if (this.deleted) return;
     const { internal: i } = this;
-    i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem);
-    i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem);
+    const createOptions: telem.CreateOptions = {
+      onStatusChange: status.useAdder(ctx),
+    };
+    i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem, createOptions);
+    i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem, createOptions);
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
-    i.ctx = Context.use(ctx);
-    i.requestRender = render.Controller.useRequest(ctx);
+    i.lineCtx = Context.use(ctx);
+    i.requestRender = render.useRequestor(ctx);
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
-    i.stopListeningXTelem = i.xTelem.onChange(() =>
-      i.requestRender(render.REASON_DATA),
-    );
-    i.stopListeningYTelem = i.yTelem.onChange(() =>
-      i.requestRender(render.REASON_DATA),
-    );
-    i.requestRender(render.REASON_LAYOUT);
+    i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
+    i.stopListeningYTelem = i.yTelem.onChange(() => i.requestRender("data"));
+    i.requestRender("layout");
   }
 
   afterDelete(): void {
     const { internal: i } = this;
     i.xTelem.cleanup?.();
     i.yTelem.cleanup?.();
-    i.requestRender(render.REASON_LAYOUT);
+    i.requestRender("layout");
   }
 
   xBounds(): bounds.Bounds {
@@ -358,7 +357,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   render(props: LineProps): void {
     if (this.deleted || !this.state.visible) return;
     const { downsample } = this.state;
-    const { xTelem, yTelem, ctx } = this.internal;
+    const { xTelem, yTelem, lineCtx: ctx } = this.internal;
 
     const { dataToDecimalScale, exposure } = props;
     const [[, xData], [, yData]] = [xTelem.value(), yTelem.value()];

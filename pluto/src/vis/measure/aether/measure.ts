@@ -59,11 +59,11 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     this.internal.theme = theming.use(ctx);
     this.internal.renderCtx = renderCtx;
     this.internal.draw = new Draw2D(renderCtx.upper2d, this.internal.theme);
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+    render.request(ctx, "tool");
   }
 
   afterDelete(ctx: aether.Context): void {
-    render.Controller.requestRender(ctx, render.REASON_LAYOUT);
+    render.request(ctx, "layout");
   }
 
   private get verticalLineColor(): color.Color {

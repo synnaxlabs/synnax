@@ -10,13 +10,12 @@
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type framer } from "@synnaxlabs/client";
 import {
-  type breaker,
   compare,
   type CrudeTimeSpan,
   type Destructor,
   MultiSeries,
   nullToArr,
-  type Optional,
+  type Replace,
   type Required,
   type Series,
   TimeSpan,
@@ -37,16 +36,15 @@ interface StreamerProps {
   openStreamer: framer.StreamOpener;
   instrumentation?: alamos.Instrumentation;
   streamUpdateDelay?: CrudeTimeSpan;
-  breakerConfig?: breaker.Config;
 }
 
 export class Streamer {
-  private readonly props: Omit<
-    Optional<Required<StreamerProps>, "breakerConfig">,
-    "streamUpdateDelay"
-  > & {
-    streamUpdateDelay: TimeSpan;
-  };
+  private readonly props: Replace<
+    Required<StreamerProps>,
+    {
+      streamUpdateDelay: TimeSpan;
+    }
+  >;
 
   private readonly mu: Mutex = new Mutex();
   private readonly listeners = new Map<StreamHandler, ListenerEntry>();

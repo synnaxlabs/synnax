@@ -237,3 +237,5 @@ export type Payload = z.infer<typeof payloadZ>;
 
 /** @description Error for representing the cancellation of an operation */
 export class Canceled extends createTyped("canceled") {}
+
+export type Return<T> = [T, null] | [null, Error];

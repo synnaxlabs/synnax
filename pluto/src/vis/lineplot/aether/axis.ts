@@ -119,7 +119,7 @@ export class CoreAxis<
       gridColor: theme.colors.gray.l1,
       ...this.state,
     });
-    render.Controller.requestRender(ctx, render.REASON_LAYOUT);
+    render.request(ctx, "layout");
     this.internal.updateBounds ??= throttle(
       (b) => this.setState((p) => ({ ...p, bounds: b })),
       this.state.autoBoundUpdateInterval.milliseconds,
@@ -127,7 +127,7 @@ export class CoreAxis<
   }
 
   afterDelete(ctx: aether.Context): void {
-    render.Controller.requestRender(ctx, render.REASON_LAYOUT);
+    render.request(ctx, "layout");
   }
 
   renderAxis(props: AxisRenderProps, decimalToDataScale: scale.Scale): void {

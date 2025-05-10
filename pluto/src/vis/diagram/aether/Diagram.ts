@@ -50,7 +50,7 @@ export class Diagram extends aether.Composite<
   afterUpdate(ctx: aether.Context): void {
     this.internal.renderCtx = render.Context.use(ctx);
     this.internal.addStatus = status.useAdder(ctx);
-    render.Controller.control(ctx, () => {
+    render.control(ctx, () => {
       if (!this.state.visible) return;
       this.requestRender("low");
     });

@@ -61,17 +61,17 @@ export class LinePlot extends aether.Composite<
     this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
     this.internal.aggregate = status.useAdder(ctx);
     this.internal.renderCtx = render.Context.use(ctx);
-    render.Controller.control(ctx, (r) => {
+    render.control(ctx, (r) => {
       if (!this.state.visible) return;
       this.requestRender("low", r);
     });
     if (!this.state.visible && !this.prevState.visible) return;
-    this.requestRender("high", render.REASON_LAYOUT);
+    this.requestRender("high", "layout");
   }
 
   afterDelete(ctx: aether.Context): void {
     this.internal.renderCtx = render.Context.use(ctx);
-    this.requestRender("high", render.REASON_LAYOUT);
+    this.requestRender("high", "layout");
   }
 
   findByXDecimal(x: number): FindResult[] {
@@ -197,7 +197,7 @@ export class LinePlot extends aether.Composite<
     let canvases = RENDER_CANVASES;
     // Optimization for tooltips, measures and other utilities. In this case, we only
     // need to render the upper2d canvas.
-    if (reason === render.REASON_TOOL) canvases = TOOL_RENDER_CANVASES;
+    if (reason === "tool") canvases = TOOL_RENDER_CANVASES;
     ctx.loop.set({
       key: `${this.type}-${this.key}`,
       render: () => this.render(canvases),

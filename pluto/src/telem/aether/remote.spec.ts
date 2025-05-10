@@ -451,7 +451,7 @@ describe("remote", () => {
         timeSpan: TimeSpan.milliseconds(2),
         channel: c.channel.key,
       };
-      const cd = new StreamChannelData(c, props, () => now);
+      const cd = new StreamChannelData(c, props, {}, () => now);
       const [b, data] = await waitForResolve(cd);
       expect(b).toEqual({ lower: 1, upper: 3 });
       expect(data.series).toHaveLength(1);
@@ -490,7 +490,7 @@ describe("remote", () => {
         timeSpan: TimeSpan.milliseconds(2),
         channel: c.channel.key,
       };
-      const cd = new StreamChannelData(c, props, () => now);
+      const cd = new StreamChannelData(c, props, {}, () => now);
       const [b, data] = await waitForResolve(cd);
       expect(b).toEqual({ lower: 1, upper: 3 });
       expect(data.series).toHaveLength(1);
@@ -523,7 +523,7 @@ describe("remote", () => {
         timeSpan: TimeSpan.MAX,
         channel: c.channel.key,
       };
-      const cd = new StreamChannelData(c, props, () => now);
+      const cd = new StreamChannelData(c, props, {}, () => now);
       await waitForResolve(cd);
       cd.cleanup();
       expect(c.streamDestructorF).toHaveBeenCalled();
@@ -544,7 +544,7 @@ describe("remote", () => {
         timeSpan: TimeSpan.milliseconds(2),
         channel: c.channel.key,
       };
-      const cd = new StreamChannelData(c, props, () => now);
+      const cd = new StreamChannelData(c, props, {}, () => now);
       await waitForResolve(cd);
       expect(series.refCount).toBe(1);
       cd.cleanup();
@@ -567,7 +567,7 @@ describe("remote", () => {
         channel: c.channel.key,
         useIndexOfChannel: true,
       };
-      const cd = new StreamChannelData(c, props, () => now);
+      const cd = new StreamChannelData(c, props, {}, () => now);
       const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 1, upper: 3 });
       expect(data.series).toHaveLength(1);
@@ -590,7 +590,7 @@ describe("remote", () => {
         channel: c.channel.index,
         useIndexOfChannel: true,
       };
-      const cd = new StreamChannelData(c, props, () => now);
+      const cd = new StreamChannelData(c, props, {}, () => now);
       const [b, data] = await waitForResolve(cd);
       expect(b).toStrictEqual({ lower: 1, upper: 3 });
       expect(data.series).toHaveLength(1);

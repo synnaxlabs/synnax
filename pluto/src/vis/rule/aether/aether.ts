@@ -48,11 +48,11 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
     this.internal.renderCtx = render.Context.use(ctx);
     const theme = theming.use(ctx);
     this.internal.draw = new Draw2D(this.internal.renderCtx.upper2d, theme);
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+    render.request(ctx, "tool");
   }
 
   afterDelete(ctx: aether.Context): void {
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+    render.request(ctx, "tool");
   }
 
   updatePositions({ decimalToDataScale: scale, plot }: RuleProps): number {

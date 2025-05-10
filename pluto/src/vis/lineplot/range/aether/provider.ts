@@ -77,10 +77,10 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
           if (r.variant === "delete") i.ranges.delete(r.key);
           else if (color.isColor(r.value.color)) i.ranges.set(r.key, r.value);
         });
-        render.Controller.requestRender(ctx, render.REASON_TOOL);
+        render.request(ctx, "tool");
         this.setState((s) => ({ ...s, count: i.ranges.size }));
       });
-      render.Controller.requestRender(ctx, render.REASON_TOOL);
+      render.request(ctx, "tool");
     });
   }
 

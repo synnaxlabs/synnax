@@ -14,7 +14,11 @@ import { type Destructor } from "@synnaxlabs/x/destructor";
 import { type observe } from "@synnaxlabs/x/observe";
 
 import { type aether } from "@/aether/aether";
-import { CompoundTelemFactory, type Factory } from "@/telem/aether/factory";
+import {
+  CompoundTelemFactory,
+  type CreateOptions,
+  type Factory,
+} from "@/telem/aether/factory";
 import { PipelineFactory } from "@/telem/aether/pipeline";
 import { type Sink, type Source, type Spec } from "@/telem/aether/telem";
 
@@ -41,8 +45,8 @@ export class Context {
     return new Context(next, parent);
   }
 
-  create<T>(spec: Spec): T {
-    const telem = this.factory.create(spec);
+  create<T>(spec: Spec, options?: CreateOptions): T {
+    const telem = this.factory.create(spec, options);
     if (telem == null)
       throw new UnexpectedError(
         `Telemetry service could not find a source for type ${spec.type}`,
@@ -115,24 +119,26 @@ export const useSource = <V>(
   ctx: aether.Context,
   spec: Spec,
   prev: Source<V>,
+  options?: CreateOptions,
 ): MemoizedSource<V> => {
   const prov = useContext(ctx);
   if (prev instanceof MemoizedSource) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
     prev.cleanup?.();
   }
-  return new MemoizedSource<V>(prov.create(spec), prov, spec);
+  return new MemoizedSource<V>(prov.create(spec, options), prov, spec);
 };
 
 export const useSink = <V>(
   ctx: aether.Context,
   spec: Spec,
   prev: Sink<V>,
+  options?: CreateOptions,
 ): MemoizedSink<V> => {
   const prov = useContext(ctx);
   if (prev instanceof MemoizedSink) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
     prev.cleanup?.();
   }
-  return new MemoizedSink<V>(prov.create(spec), prov, spec);
+  return new MemoizedSink<V>(prov.create(spec, options), prov, spec);
 };
