@@ -108,7 +108,7 @@ func BenchmarkCesium(b *testing.B) {
 }
 
 func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		b.StopTimer()
 		var (
 			wg                        = sync.WaitGroup{}
