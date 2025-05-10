@@ -106,8 +106,9 @@ export class StreamChannelValue
       this.valid = true;
       this.onStatusChange?.(LOADING_STATUS);
       this.removeStreamHandler?.();
+      const ch = await this.client.retrieveChannel(this.props.channel);
       const handler: client.StreamHandler = (res) => {
-        const data = res.get(this.channelKey);
+        const data = res.get(ch.key);
         if (data == null) return;
         const first = data.series.at(-1);
         if (first != null) {
@@ -118,7 +119,7 @@ export class StreamChannelValue
         // Just because we didn't get a new buffer doesn't mean one wasn't allocated.
         this.notify();
       };
-      this.removeStreamHandler = await this.client.stream(handler, [this.channelKey]);
+      this.removeStreamHandler = await this.client.stream(handler, [ch.key]);
       this.notify();
       this.onStatusChange?.(SUCCESS_STATUS);
     } catch (e) {

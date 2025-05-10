@@ -437,11 +437,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         menu={() => <ContextMenuContent layoutKey={layoutKey} />}
       >
         <Channel.LinePlot
-          onStatusChange={({ variant }) => {
-            if (variant === "loading")
-              syncDispatch(Layout.setLoading({ key: layoutKey, loading: true }));
-            else syncDispatch(Layout.setLoading({ key: layoutKey, loading: false }));
-          }}
           aetherKey={layoutKey}
           hold={hold}
           onContextMenu={props.open}

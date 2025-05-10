@@ -176,7 +176,7 @@ describe("remote", () => {
       const handleChange = vi.fn();
       scv.onChange(handleChange);
       scv.value();
-      await expect.poll(() => handleChange.mock.calls.length === 1).toBeTruthy();
+      await expect.poll(() => handleChange).toHaveBeenCalledTimes(1);
       const newSeriesOne = new Series({
         data: new Float32Array([1, 2, 3]),
       });
@@ -185,7 +185,7 @@ describe("remote", () => {
       });
       // Call onChange to set the leading buffer
       c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([newSeriesOne])]]));
-      await expect.poll(() => handleChange.mock.calls.length === 2).toBeTruthy();
+      await expect.poll(() => handleChange).toHaveBeenCalledTimes(2);
       // It should increment the reference count of the buffer
       expect(newSeriesOne.refCount).toBe(1);
       expect(scv.value()).toBe(3);

@@ -172,8 +172,10 @@ export const LinePlot = ({
   // the container is guaranteed to only resize if the plotting region does. This allows
   // us to save a window observer.
   const handleResize = useCallback(
-    (container: box.Box) => setState((prev) => ({ ...prev, container })),
-    [setState],
+    (container: box.Box) => {
+      if (visible) setState((prev) => ({ ...prev, container }));
+    },
+    [setState, visible],
   );
 
   const ref = Canvas.useRegion(handleResize, { debounce });
