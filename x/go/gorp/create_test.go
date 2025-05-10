@@ -77,7 +77,7 @@ var _ = Describe("Create", Ordered, func() {
 	Context("Multiple entries", func() {
 		It("Should create the entries in the db", func() {
 			var e []entry
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				e = append(e, entry{ID: i, Data: "data"})
 			}
 			Expect(gorp.NewCreate[int, entry]().Entries(&e).Exec(ctx, tx)).To(Succeed())
@@ -138,7 +138,7 @@ var _ = Describe("Create", Ordered, func() {
 				entries []entry
 				keys    []int
 			)
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				entries = append(entries, entry{ID: i, Data: "data"})
 				keys = append(keys, i)
 			}

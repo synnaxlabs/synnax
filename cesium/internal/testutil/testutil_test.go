@@ -28,7 +28,7 @@ var _ = Describe("Test Util Test", func() {
 				wg   = sync.WaitGroup{}
 			)
 			wg.Add(1000)
-			for i := 0; i < 1000; i++ {
+			for i := range 1000 {
 				i := i
 				go func() {
 					defer wg.Done()

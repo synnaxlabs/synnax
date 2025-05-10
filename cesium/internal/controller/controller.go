@@ -466,7 +466,7 @@ func (c *Controller[R]) remove(r *region[R]) {
 	defer c.mu.Unlock()
 	for i, reg := range c.regions {
 		if reg == r {
-			c.regions = append(c.regions[:i], c.regions[i+1:]...)
+			c.regions = slices.Delete(c.regions, i, i+1)
 			break
 		}
 	}

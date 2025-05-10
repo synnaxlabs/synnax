@@ -57,7 +57,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 		writerNet  = tmock.NewWriterNetwork()
 		relayNet   = tmock.NewRelayNetwork()
 	)
-	for i := 0; i < n; i++ {
+	for range n {
 		var (
 			c         = builder.New(ctx)
 			container serviceContainer

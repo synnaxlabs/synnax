@@ -139,12 +139,7 @@ func (k Keys) Strings() []string {
 
 // Contains returns true if the slice contains the given key, false otherwise.
 func (k Keys) Contains(key Key) bool {
-	for _, ko := range k {
-		if ko == key {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(k, key)
 }
 
 // Unique removes duplicate keys from the slice and returns the result.

@@ -356,7 +356,7 @@ func BenchmarkEncode(b *testing.B) {
 	if err := cd.EncodeStream(nil, w, fr); err != nil {
 		b.Fatalf("failed to encode stream: %v", err)
 	}
-	for range b.N {
+	for b.Loop() {
 		if err := cd.EncodeStream(nil, w, fr); err != nil {
 			b.Fatalf("failed to encode stream: %v", err)
 		}
@@ -370,7 +370,7 @@ func BenchmarkJSONEncode(b *testing.B) {
 		keys,
 		[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 	)
-	for range b.N {
+	for b.Loop() {
 		if _, err := json.Marshal(fr); err != nil {
 			b.Fatalf("failed to encode stream: %v", err)
 		}
@@ -389,7 +389,7 @@ func BenchmarkDecode(b *testing.B) {
 		encoded, _ = cd.Encode(nil, fr)
 		r          = bytes.NewReader(encoded)
 	)
-	for range b.N {
+	for b.Loop() {
 		if _, err := r.Seek(0, 0); err != nil {
 			b.Fatalf("failed to seek: %v", err)
 		}
@@ -409,7 +409,7 @@ func BenchmarkJSONDecode(b *testing.B) {
 		b.Fatalf("failed to encode stream: %v", err)
 	}
 	var v framer.Frame
-	for range b.N {
+	for b.Loop() {
 		if err := json.Unmarshal(encoded, &v); err != nil {
 			b.Fatalf("failed to decode stream: %v", err)
 		}

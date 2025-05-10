@@ -10,14 +10,16 @@
 package fs_test
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
-	"os"
 )
 
-// Most of the functionalities of a File are well-tested in the tests for a file system in fs_test.go.
+// Most of the functionalities of a File are well-tested in the tests for a file system
+// in fs_test.go.
 var _ = Describe("File", func() {
 	fileSystems := map[string]func() xfs.FS{
 		"memFS": func() xfs.FS {

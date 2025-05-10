@@ -446,7 +446,7 @@ var _ = Describe("Writer Behavior", func() {
 						It("Should work with the write method", func() {
 							start := 10 * telem.SecondTS
 
-							for i := 0; i < 100; i++ {
+							for range 100 {
 								stamps := make([]telem.TimeStamp, 100)
 								data := make([]int64, 100)
 								for j := telem.TimeStamp(0); j < 100; j++ {

@@ -401,7 +401,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						writers := make([]*domain.Writer, writerCount)
 						var wg sync.WaitGroup
 						wg.Add(writerCount)
-						for i := 0; i < writerCount; i++ {
+						for i := range writerCount {
 							writers[i] = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
 								Start: 10 * telem.SecondTS,
 							}))

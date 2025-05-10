@@ -77,7 +77,7 @@ var _ = Describe("Address", func() {
 
 		It("Should generate unique addresses", func() {
 			seen := make(map[string]bool)
-			for i := 0; i < 1000; i++ {
+			for range 1000 {
 				addr := address.Rand()
 				Expect(seen[addr.String()]).To(BeFalse(), "Generated duplicate address")
 				seen[addr.String()] = true

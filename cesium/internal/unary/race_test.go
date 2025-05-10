@@ -76,7 +76,7 @@ var _ = Describe("Unary racing", func() {
 					var wg sync.WaitGroup
 					wg.Add(4)
 
-					for i := 0; i < 4; i++ {
+					for i := range 4 {
 						i := i
 						go func() {
 							defer GinkgoRecover()
