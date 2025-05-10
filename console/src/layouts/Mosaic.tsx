@@ -30,7 +30,7 @@ import {
   Triggers,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { type location } from "@synnaxlabs/x";
+import { type location, TimeSpan } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -151,6 +151,8 @@ interface MosaicProps {
   mosaic: Core.Node;
 }
 
+const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
+
 export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();
   return windowKey == null || mosaic == null ? null : (
@@ -226,9 +228,10 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     (key, size) => {
       dispatch(Layout.resizeMosaicTab({ key, size, windowKey }));
     },
-    100,
+    RESIZE_DEBOUNCE,
     [dispatch, windowKey],
   );
+
   const handleFileDrop = useCallback(
     (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
       const items = Array.from(event.dataTransfer.items);

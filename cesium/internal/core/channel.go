@@ -23,7 +23,7 @@ type ChannelKey = uint32
 
 // Channel is a logical collection of telemetry samples across a time-range. The data
 // within a channel typically arrives from a single source. This can be a physical sensor,
-// metric, event, or other entity that emits regular, consistent, and time-order values.
+// metric, event, or entity that emits regular, consistent, and time-order values.
 // A channel can also be used for storing derived data, such as a moving average or signal
 // processing result.
 type Channel struct {

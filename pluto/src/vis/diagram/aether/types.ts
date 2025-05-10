@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { xy } from "@synnaxlabs/x";
+import { color, unknownRecordZ, xy } from "@synnaxlabs/x";
 import type * as rf from "@xyflow/react";
 import { z } from "zod";
 
-import { color } from "@/color/core";
 import { connector } from "@/vis/diagram/edge/connector";
 
 /**
@@ -142,7 +141,7 @@ export const nodeZ = z.object({
   zIndex: z.number().optional(),
 
   type: z.string().optional(),
-  data: z.record(z.unknown()).optional(),
+  data: unknownRecordZ.optional(),
   measured: z
     .object({ width: z.number().optional(), height: z.number().optional() })
     .optional(),

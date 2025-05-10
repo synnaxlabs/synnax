@@ -12,6 +12,7 @@ import "@/select/Multiple.css";
 import { Icon } from "@synnaxlabs/media";
 import {
   type AsyncTermSearcher,
+  type color,
   compare,
   convertRenderV,
   type Key,
@@ -32,7 +33,6 @@ import {
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { Caret } from "@/caret";
-import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
@@ -73,7 +73,7 @@ export interface MultipleTagProps<K extends Key, E extends Keyed<K>>
   entryKey: K;
   entryRenderKey: keyof E | ((e: E) => string | number);
   entry?: E;
-  color?: Color.Crude;
+  color?: color.Crude;
   loading: boolean;
   onClose?: () => void;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;

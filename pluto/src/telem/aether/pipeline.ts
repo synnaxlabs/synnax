@@ -37,7 +37,7 @@ export type Connection = z.infer<typeof connectionZ>;
 export const sourcePipelinePropsZ = z.object({
   connections: z.array(connectionZ),
   outlet: z.string(),
-  segments: z.record(sourceSpecZ),
+  segments: z.record(z.string(), sourceSpecZ),
 });
 
 export type SourcePipelineProps = z.infer<typeof sourcePipelinePropsZ>;
@@ -126,7 +126,7 @@ export const sourcePipeline = <V extends string>(
 export const sinkPipelinePropsZ = z.object({
   connections: z.array(connectionZ),
   inlet: z.string(),
-  segments: z.record(sinkSpecZ),
+  segments: z.record(z.string(), sinkSpecZ),
 });
 
 export type SinkPipelineProps = z.infer<typeof sinkPipelinePropsZ>;

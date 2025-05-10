@@ -26,7 +26,9 @@ const sourceTypeGetter = (obj: unknown, key: string): z.ZodAny | null => {
   if (obj == null) return null;
   const v = (obj as Record<string, z.ZodAny>)[key];
   if (v == null && typeof obj === "object" && "sourceType" in obj) {
-    const sourceType = (obj as z.ZodEffects<z.ZodTypeAny>).sourceType();
+    const sourceType = (
+      obj as { sourceType: () => z.ZodObject<z.ZodRawShape> }
+    ).sourceType();
     return (sourceType as unknown as UnknownRecord)[key] as z.ZodAny | null;
   }
   return v;
@@ -38,7 +40,7 @@ export const getFieldSchema: deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny> = ((
   options?: Omit<deep.GetOptions, "getter">,
 ): z.ZodTypeAny | null =>
   deep.get<z.ZodTypeAny, z.ZodTypeAny>(
-    sourceTypeGetter(schema, "shape") as unknown as z.AnyZodObject,
+    sourceTypeGetter(schema, "shape") as unknown as z.ZodObject<z.ZodRawShape>,
     getFieldSchemaPath(path),
     { ...options, getter: sourceTypeGetter } as deep.GetOptions<boolean | undefined>,
   )) as deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny>;

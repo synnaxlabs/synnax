@@ -203,7 +203,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
       <Text.Text level="h4" shade={11} weight={450}>
         Metadata
       </Text.Text>
-      <Form.Form {...formCtx}>
+      <Form.Form<typeof metaDataFormSchema> {...formCtx}>
         <List.List<string, kv.Pair> data={sorted}>
           <List.Core>{metaDataItem}</List.Core>
         </List.List>

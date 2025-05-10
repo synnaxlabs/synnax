@@ -41,7 +41,7 @@ export type Range = z.infer<typeof rangeZ>;
 export const sliceStateZ = z.object({
   version: z.literal("0.0.0"),
   activeRange: z.string().nullable(),
-  ranges: z.record(rangeZ),
+  ranges: z.record(z.string(), rangeZ),
 });
 
 export type SliceState = z.infer<typeof sliceStateZ>;

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Rate, TimeSpan } from "@synnaxlabs/x";
+import { alamos } from "@synnaxlabs/alamos";
 import { Mutex } from "async-mutex";
 
 import { type CanvasVariant } from "@/vis/render/context";
@@ -61,7 +61,10 @@ export type Priority = "high" | "low";
 
 const PRIORITY_ORDER: Record<Priority, number> = { high: 1, low: 0 };
 
-const TARGET_LOOP_RATE = Rate.hz(45);
+interface LoopArgs {
+  afterRender?: () => void;
+  instrumentation?: alamos.Instrumentation;
+}
 
 /**
  * Implements the core rendering loop for Synnax's aether components, accepting requests
@@ -81,11 +84,20 @@ export class Loop {
   private readonly requests = new Map<string, Request>();
   /** Stores render cleanup functions for clearing canvases and other resources. */
   private readonly cleanup = new Map<string, Cleanup>();
+  /** A callback to run after each render call. */
   private readonly afterRender?: () => void;
+  /** Instrumentation for logging, tracing, metrics, etc. */
+  private readonly instrumentation: alamos.Instrumentation;
+  /** The total number of renders */
+  private count = 0;
 
-  constructor(afterRender?: () => void) {
-    void this.start();
+  constructor({
+    afterRender,
+    instrumentation = alamos.Instrumentation.NOOP,
+  }: LoopArgs) {
     this.afterRender = afterRender;
+    this.instrumentation = instrumentation;
+    void this.start();
   }
 
   /**
@@ -115,18 +127,17 @@ export class Loop {
   /** Execute the render. */
   private async render(): Promise<void> {
     await this.mutex.runExclusive(async () => {
-      const start = performance.now();
       const { requests } = this;
       if (requests.size === 0) return;
-      await this.runCleanupsSync();
-      await this.renderSync();
 
-      const end = performance.now();
-      const span = TimeSpan.milliseconds(end - start);
-      if (span.greaterThan(TARGET_LOOP_RATE.period))
-        console.warn(
-          `Render loop for ${this.requests.size} took longer than ${TARGET_LOOP_RATE.period.toString()} to execute: ${span.milliseconds}`,
-        );
+      const endCycle = this.instrumentation.T.bench("render-cycle");
+      const endCleanup = this.instrumentation.T.bench("render-cycle-cleanup");
+      await this.runCleanupsSync();
+      endCleanup();
+      const endRender = this.instrumentation.T.bench("render-cycle-render");
+      await this.renderSync();
+      endRender();
+      endCycle();
       this.requests.clear();
       this.afterRender?.();
     });

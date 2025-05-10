@@ -60,7 +60,9 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
     const decimalToDataScale = dataToDecimalScale.invert().reverse();
     this.renderAxis(props, decimalToDataScale);
     await this.renderLines(props, dataToDecimalScale);
+
     await this.renderRules(props, decimalToDataScale);
+
     // Throw the error we encounter here so that the user still has a visible axis.
     if (error != null) throw error;
   }

@@ -9,7 +9,12 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { type Sender, type SenderHandler, type UnknownRecord } from "@synnaxlabs/x";
+import {
+  type Sender,
+  type SenderHandler,
+  shallowCopy,
+  type UnknownRecord,
+} from "@synnaxlabs/x";
 import { deep } from "@synnaxlabs/x/deep";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
@@ -83,7 +88,8 @@ interface ComponentConstructorProps {
   sender: Sender<WorkerMessage>;
   /** Instrumentation used for logging and tracing. */
   instrumentation: alamos.Instrumentation;
-  /** Initial parent context values for the component. These should be intentionally
+  /**
+   * Initial parent context values for the component. These should be intentionally
    * set to null if no values exists.
    */
   parentCtxValues: ContextMap | null;
@@ -137,7 +143,7 @@ export interface Context {
    * itself, as opposed to whether it has been set by a parent.
    * @returns true if the component has set the value itself, false otherwise.
    */
-  setPreviously(key: string): boolean;
+  wasSetPreviously(key: string): boolean;
 }
 
 /**
@@ -207,7 +213,7 @@ export abstract class Leaf<
     >,
   ): void {
     const nextState: z.input<StateSchema> = state.executeSetter(next, this._state);
-    this._prevState = { ...this._state };
+    this._prevState = shallowCopy(this._state);
     this._state = prettyParse(this._schema, nextState, `${this.type}:${this.key}`);
     this.sender.send({ key: this.key, state: nextState });
   }
@@ -239,7 +245,7 @@ export abstract class Leaf<
       get: (key: string) => this.parentCtxValues.get(key),
       getOptional: (key: string) => this.parentCtxValues.get(key),
       has: (key: string) => this.parentCtxValues.has(key),
-      setPreviously: (key: string) => this.childCtxValues.has(key),
+      wasSetPreviously: (key: string) => this.childCtxValues.has(key),
       set: (key: string, value: any, trigger: boolean = true) => {
         this.childCtxValues.set(key, value);
         if (trigger) this.childCtxChangedKeys.add(key);
@@ -257,21 +263,29 @@ export abstract class Leaf<
     _: CreateComponent,
   ): Promise<void> {
     if (this.deleted) return;
+    const endSpan = this.instrumentation.T.debug(
+      `${this.type}:${this.key}:updateState`,
+    );
     this.validatePath(path);
     const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
     if (this._state != null)
       this.instrumentation.L.debug("updating state", () => ({
-        diff: deep.difference(this.state, state_),
+        diff: deep.difference(this.state as UnknownRecord, state_ as UnknownRecord),
       }));
     else this.instrumentation.L.debug("setting initial state", { state });
     this._prevState = this._state ?? state_;
     this._state = state_;
     await this.afterUpdate(this.ctx);
+    endSpan();
   }
 
   async _updateContext(values: ContextMap): Promise<void> {
+    const endSpan = this.instrumentation.T.debug(
+      `${this.type}:${this.key}:updateContext`,
+    );
     values.forEach((value, key) => this.parentCtxValues.set(key, value));
     await this.afterUpdate(this.ctx);
+    endSpan();
   }
 
   /**
@@ -279,9 +293,11 @@ export abstract class Leaf<
    * AetherComposite.
    */
   async _delete(path: string[]): Promise<void> {
+    const endSpan = this.instrumentation.T.debug(`${this.type}:${this.key}:delete`);
     this.validatePath(path);
     this._deleted = true;
     await this.afterDelete(this.ctx);
+    endSpan();
   }
 
   /**

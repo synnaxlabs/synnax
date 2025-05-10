@@ -71,10 +71,20 @@ interface Release<R> {
   to?: null;
 }
 
+export const releaseZ = z.object({
+  from: stateZ(z.any()),
+  to: z.null(),
+});
+
 interface Acquire<R> {
   from?: null;
   to: State<R>;
 }
+
+export const acquireZ = z.object({
+  from: z.null(),
+  to: stateZ(z.any()),
+});
 
 export type Transfer<R> =
   | {
@@ -83,3 +93,12 @@ export type Transfer<R> =
     }
   | Release<R>
   | Acquire<R>;
+
+export const transferZ = z.union([
+  releaseZ,
+  acquireZ,
+  z.object({
+    from: stateZ(z.any()),
+    to: stateZ(z.any()),
+  }),
+]);

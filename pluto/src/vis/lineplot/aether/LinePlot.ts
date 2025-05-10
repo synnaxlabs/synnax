@@ -26,7 +26,7 @@ export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().optional().default(false),
-  grid: z.record(grid.regionZ),
+  grid: z.record(z.string(), grid.regionZ),
   visible: z.boolean().optional().default(true),
   clearOverScan: xy.crudeZ.optional().default(xy.ZERO),
 });
@@ -45,6 +45,9 @@ const calculateExposure = (viewport: box.Box, region: box.Box): number => {
   return vpArea / regArea;
 };
 
+const RENDER_CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"] as const;
+const TOOL_RENDER_CANVASES: render.CanvasVariant[] = ["upper2d"];
+
 export class LinePlot extends aether.Composite<
   typeof linePlotStateZ,
   InternalState,
@@ -58,7 +61,11 @@ export class LinePlot extends aether.Composite<
     this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
     this.internal.aggregate = status.useAdder(ctx);
     this.internal.renderCtx = render.Context.use(ctx);
-    render.Controller.control(ctx, (r) => this.requestRender("low", r));
+    render.Controller.control(ctx, (r) => {
+      if (!this.state.visible) return;
+      this.requestRender("low", r);
+    });
+    if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender("high", render.REASON_LAYOUT);
   }
 
@@ -159,6 +166,7 @@ export class LinePlot extends aether.Composite<
     });
 
     const os = xy.construct(this.state.clearOverScan);
+
     const removeCanvasScissor = renderCtx.scissor(
       this.state.container,
       os,
@@ -192,16 +200,17 @@ export class LinePlot extends aether.Composite<
     }
     instrumentation.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
+
     return async ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.clearOverScan, ...canvases);
   }
 
   requestRender(priority: render.Priority, reason: string): void {
     const { renderCtx: ctx } = this.internal;
-    let canvases: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"];
+    let canvases = RENDER_CANVASES;
     // Optimization for tooltips, measures and other utilities. In this case, we only
     // need to render the upper2d canvas.
-    if (reason === render.REASON_TOOL) canvases = ["upper2d"];
+    if (reason === render.REASON_TOOL) canvases = TOOL_RENDER_CANVASES;
     void ctx.loop.set({
       key: `${this.type}-${this.key}`,
       render: async () => await this.render(canvases),

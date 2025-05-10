@@ -44,7 +44,11 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.handleError = status.useErrorHandler(ctx);
-    render.Controller.control(ctx, () => this.requestRender("low"));
+    render.Controller.control(ctx, () => {
+      if (!this.state.visible) return;
+      this.requestRender("low");
+    });
+    if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender("high");
   }
 

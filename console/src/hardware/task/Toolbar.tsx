@@ -143,7 +143,6 @@ const Content = () => {
           cancel: { label: "Cancel" },
           confirm: { label: "Rename", variant: "error" },
         });
-        console.log(confirmed);
         if (!confirmed) return;
       }
       dispatch(Layout.rename({ key, name }));
