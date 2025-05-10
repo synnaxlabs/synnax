@@ -31,8 +31,11 @@ func (a Address) PortString() string {
 }
 
 func (a Address) Port() int {
-	str := strings.Split(string(a), ":")
-	p, err := strconv.Atoi(str[1])
+	split := strings.Split(string(a), ":")
+	if len(split) != 2 {
+		return 0
+	}
+	p, err := strconv.Atoi(split[1])
 	if err != nil {
 		return 0
 	}
@@ -40,12 +43,11 @@ func (a Address) Port() int {
 }
 
 func (a Address) HostString() string {
-	str := strings.Split(string(a), ":")
-	return str[0]
-}
-
-type Addressable interface {
-	Address() Address
+	split := strings.Split(string(a), ":")
+	if len(split) == 0 {
+		return ""
+	}
+	return split[0]
 }
 
 func Rand() Address {

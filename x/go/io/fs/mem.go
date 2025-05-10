@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package fs // import "github.com/cockroachdb/memfs"
+package fs
 
 import (
 	"errors"
 	"fmt"
-	"github.com/cockroachdb/errors/oserror"
-	"github.com/synnaxlabs/x/io/fs/internal/invariants"
 	"io"
 	"os"
 	"sort"
@@ -21,6 +19,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/cockroachdb/errors/oserror"
+	"github.com/synnaxlabs/x/io/fs/internal/invariants"
 )
 
 const sep = "/"
@@ -311,7 +312,7 @@ func (f *memNode) Size() int64 {
 	return int64(len(f.mu.data))
 }
 
-func (f *memNode) Sys() interface{} {
+func (f *memNode) Sys() any {
 	return nil
 }
 

@@ -12,6 +12,7 @@ package ontology
 import (
 	"context"
 	"fmt"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"

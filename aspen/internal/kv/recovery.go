@@ -100,14 +100,14 @@ func runRecovery(ctx context.Context, cfg Config) error {
 	cfg.Instrumentation = cfg.Instrumentation.Child("recovery")
 	nodes := cfg.Cluster.Nodes()
 	sCtx := signal.Wrap(ctx, signal.WithInstrumentation(cfg.Instrumentation))
-	cfg.L.Info("recovering lost key-value operations", zap.Int("peerNodeCount", len(nodes)-1))
+	cfg.L.Info("recovering lost key-value operations", zap.Int("peer_node_count", len(nodes)-1))
 	for _, n := range nodes {
 		if n.Key == cfg.Cluster.HostKey() {
 			continue
 		}
 		sCtx.Go(func(ctx context.Context) error {
 			return runSingleNodeRecovery(ctx, cfg, n)
-		}, signal.WithKeyf("node-%v", n.Key))
+		}, signal.WithKeyf("node_%v", n.Key))
 	}
 	err := sCtx.Wait()
 	if err != nil {

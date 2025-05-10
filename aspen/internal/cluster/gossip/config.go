@@ -50,7 +50,7 @@ func (cfg Config) Validate() error {
 	validate.NotNil(v, "TransportClient", cfg.TransportClient)
 	validate.NotNil(v, "TransportServer", cfg.TransportServer)
 	validate.NotNil(v, "Store", cfg.Store)
-	validate.Positive(v, "Interval", cfg.Interval)
+	validate.NonNegative(v, "Interval", cfg.Interval)
 	return v.Error()
 }
 

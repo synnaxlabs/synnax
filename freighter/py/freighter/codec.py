@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 from typing import Protocol
 
 import msgpack
@@ -66,7 +67,7 @@ class JSONCodec(Codec):
         return payload.model_dump_json().encode()
 
     def decode(self, data: bytes, pld_t: type[P]) -> P:
-        return pld_t.model_validate_json(data.decode(JSONCodec.STRING_ENCODING))
+        return pld_t.model_validate(json.loads(data.decode(JSONCodec.STRING_ENCODING)))
 
 
 CODECS: list[Codec] = [

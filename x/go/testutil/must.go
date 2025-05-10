@@ -9,26 +9,24 @@
 
 package testutil
 
-import (
-	. "github.com/onsi/gomega"
-)
+import . "github.com/onsi/gomega"
 
 func MustSucceed[T any](value T, err error) T {
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return value
 }
 
 func MustSucceed2[A, B any](a A, b B, err error) (A, B) {
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return a, b
 }
 
 func MustSucceed3[A, B, C any](a A, b B, c C, err error) (A, B, C) {
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return a, b, c
 }
 
 func MustSucceed4[A, B, C, D any](a A, b B, c C, d D, err error) (A, B, C, D) {
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return a, b, c, d
 }

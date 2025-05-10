@@ -470,12 +470,6 @@ const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
   ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));
 
 const seriesOverlap = (x: Series, ys: Series, overlapThreshold: TimeSpan): boolean => {
-  // This is just a runtime check that both series' have time ranges defined.
-  const haveTimeRanges = x._timeRange != null && ys._timeRange != null;
-  if (!haveTimeRanges)
-    throw new UnexpectedError(
-      `Encountered series without time range in buildDrawOperations. X series present: ${x._timeRange != null}, Y series present: ${ys._timeRange != null}`,
-    );
   // If the time ranges of the x and y series overlap, we meet the first condition
   // for drawing them together. Dynamic buffering can sometimes lead to very slight,
   // unintended overlaps, so we only consider them overlapping if they overlap by a

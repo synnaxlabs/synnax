@@ -89,7 +89,7 @@ func (cfg Config) Validate() error {
 	v := validate.New("pledge")
 	validate.NotNil(v, "TransportClient", cfg.TransportClient)
 	validate.NotNil(v, "TransportServer", cfg.TransportServer)
-	validate.Positive(v, "RequestTimeout", cfg.RequestTimeout)
+	validate.NonNegative(v, "RequestTimeout", cfg.RequestTimeout)
 	validate.GreaterThanEq(v, "RetryScale", cfg.RetryScale, 1)
 	validate.NonZero(v, "MaxProposals", cfg.MaxProposals)
 	validate.NotNil(v, "Candidates", cfg.Candidates)

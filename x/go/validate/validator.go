@@ -123,7 +123,7 @@ func NotNil(v *Validator, field string, value any) bool {
 	return v.Ternary(field, isNil, "must be non-nil")
 }
 
-func Positive[T types.Numeric](v *Validator, field string, value T) bool {
+func NonNegative[T types.Numeric](v *Validator, field string, value T) bool {
 	return v.Ternaryf(field, value <= 0, "must be positive")
 }
 
@@ -160,10 +160,6 @@ func NonZero[T types.Numeric](v *Validator, field string, value T) bool {
 
 func NonZeroable(v *Validator, field string, value override.Zeroable) bool {
 	return v.Ternary(field, value.IsZero(), "must be non-zero")
-}
-
-func NonNegative[T types.Numeric](v *Validator, field string, value T) bool {
-	return v.Ternary(field, value < 0, "field must be non-negative")
 }
 
 func NotEmptySlice[T any](v *Validator, field string, value []T) bool {

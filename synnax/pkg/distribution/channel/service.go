@@ -151,3 +151,14 @@ func (s *service) validateChannels(ctx context.Context, channels []Channel) (res
 	}
 	return
 }
+
+func TryToRetrieveStringer(ctx context.Context, readable Readable, key Key) string {
+	var ch Channel
+	if readable == nil {
+		return key.String()
+	}
+	if err := readable.NewRetrieve().WhereKeys(key).Exec(ctx, nil); err != nil {
+		return key.String()
+	}
+	return ch.String()
+}

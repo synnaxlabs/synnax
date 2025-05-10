@@ -12,10 +12,11 @@ package kv
 import (
 	"bytes"
 	"encoding/binary"
+
 	"github.com/synnaxlabs/x/errors"
 )
 
-func CompositeKey(elems ...interface{}) ([]byte, error) {
+func CompositeKey(elems ...any) ([]byte, error) {
 	b := new(bytes.Buffer)
 	c := errors.NewCatcher()
 	for _, e := range elems {

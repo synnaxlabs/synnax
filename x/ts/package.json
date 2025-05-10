@@ -20,6 +20,7 @@
     "madge": "madge --circular src"
   },
   "dependencies": {
+    "@msgpack/msgpack": "^3.1.1",
     "nanoid": "^5.1.5",
     "zod": "^3.24.2"
   },

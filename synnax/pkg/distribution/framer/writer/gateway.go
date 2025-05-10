@@ -14,8 +14,15 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+)
+
+var (
+	gatewayRequestsAddr  address.Address = "requests"
+	gatewayResponsesAddr address.Address = "responses"
+	gatewayTSWriterAddr  address.Address = "ts_writer"
 )
 
 // newGateway opens a new StreamWriter that writes to the store on the gateway node.
@@ -25,17 +32,17 @@ func (s *Service) newGateway(ctx context.Context, cfg Config) (StreamWriter, err
 		return nil, err
 	}
 	pipe := plumber.New()
-	plumber.SetSegment[ts.WriterRequest, ts.WriterResponse](pipe, "ts-writer", w)
+	plumber.SetSegment[ts.WriterRequest, ts.WriterResponse](pipe, gatewayTSWriterAddr, w)
 	reqT := &confluence.LinearTransform[Request, ts.WriterRequest]{}
 	reqT.Transform = newRequestTranslator()
 	resT := &confluence.LinearTransform[ts.WriterResponse, Response]{}
 	resT.Transform = newResponseTranslator(s.HostResolver.HostKey())
-	plumber.SetSegment[Request, ts.WriterRequest](pipe, "requests", reqT)
-	plumber.SetSegment[ts.WriterResponse, Response](pipe, "responses", resT)
-	plumber.MustConnect[ts.WriterRequest](pipe, "requests", "ts-writer", 1)
-	plumber.MustConnect[ts.WriterResponse](pipe, "ts-writer", "responses", 1)
+	plumber.SetSegment[Request, ts.WriterRequest](pipe, gatewayRequestsAddr, reqT)
+	plumber.SetSegment[ts.WriterResponse, Response](pipe, gatewayResponsesAddr, resT)
+	plumber.MustConnect[ts.WriterRequest](pipe, gatewayRequestsAddr, gatewayTSWriterAddr, 1)
+	plumber.MustConnect[ts.WriterResponse](pipe, gatewayTSWriterAddr, gatewayResponsesAddr, 1)
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteInletTo("requests"))
-	lo.Must0(seg.RouteOutletFrom("responses"))
+	lo.Must0(seg.RouteInletTo(gatewayRequestsAddr))
+	lo.Must0(seg.RouteOutletFrom(gatewayResponsesAddr))
 	return seg, nil
 }

@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -28,7 +29,7 @@ type ControlUpdate struct {
 
 // ConfigureControlUpdateChannel configures a channel to be the update channel for the
 // database. If the channel is not found, it is created.
-func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey) error {
+func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey, name string) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
@@ -43,7 +44,8 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 		ch.Key = key
 		ch.DataType = telem.StringT
 		ch.Virtual = true
-		if err = db.createChannel(ch); err != nil {
+		ch.Name = name
+		if err = db.createChannel(ctx, ch); err != nil {
 			return err
 		}
 	} else if err != nil {
@@ -79,6 +81,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 		confluence.CloseOutputInletsOnExit(),
 		confluence.CancelOnFail(),
 		confluence.RecoverWithErrOnPanic(),
+		confluence.WithAddress("control_writer"),
 	)
 	return nil
 }
@@ -116,7 +119,7 @@ func (db *DB) closeControlDigests() error {
 
 func (db *DB) digestsConfigured() bool { return db.mu.digests.key != 0 }
 
-// ControlStates returns the leading control entity in each unary and virtual channel
+// ControlStates returns the leading control resource in each unary and virtual channel
 // in the Cesium database at the snapshot at which ControlStates is called: the
 // controlState may change during the call.
 func (db *DB) ControlStates() (u ControlUpdate) {
@@ -144,10 +147,7 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 	if err != nil {
 		panic(err)
 	}
-	return Frame{
-		Keys:   []ChannelKey{db.mu.digests.key},
-		Series: []telem.Series{d},
-	}
+	return telem.UnaryFrame[ChannelKey](db.mu.digests.key, d)
 }
 
 func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {

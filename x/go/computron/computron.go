@@ -26,30 +26,59 @@ type Calculator struct {
 }
 
 // LValueFromSeries converts a numeric series value at an index to a lua value.
-func LValueFromSeries(series telem.Series, index int64) lua.LValue {
-	switch series.DataType {
+func LValueFromSeries(s telem.Series, i int) lua.LValue {
+	switch s.DataType {
 	case telem.Int8T:
-		return lua.LNumber(telem.ValueAt[int8](series, index))
+		return lua.LNumber(telem.ValueAt[int8](s, i))
 	case telem.Int16T:
-		return lua.LNumber(telem.ValueAt[int16](series, index))
+		return lua.LNumber(telem.ValueAt[int16](s, i))
 	case telem.Int32T:
-		return lua.LNumber(telem.ValueAt[int32](series, index))
+		return lua.LNumber(telem.ValueAt[int32](s, i))
 	case telem.Int64T:
-		return lua.LNumber(telem.ValueAt[int64](series, index))
+		return lua.LNumber(telem.ValueAt[int64](s, i))
 	case telem.Uint8T:
-		return lua.LNumber(telem.ValueAt[uint8](series, index))
+		return lua.LNumber(telem.ValueAt[uint8](s, i))
 	case telem.Uint16T:
-		return lua.LNumber(telem.ValueAt[uint16](series, index))
+		return lua.LNumber(telem.ValueAt[uint16](s, i))
 	case telem.Uint32T:
-		return lua.LNumber(telem.ValueAt[uint32](series, index))
+		return lua.LNumber(telem.ValueAt[uint32](s, i))
 	case telem.Uint64T:
-		return lua.LNumber(telem.ValueAt[uint64](series, index))
+		return lua.LNumber(telem.ValueAt[uint64](s, i))
 	case telem.Float32T:
-		return lua.LNumber(telem.ValueAt[float32](series, index))
+		return lua.LNumber(telem.ValueAt[float32](s, i))
 	case telem.Float64T:
-		return lua.LNumber(telem.ValueAt[float64](series, index))
+		return lua.LNumber(telem.ValueAt[float64](s, i))
 	case telem.StringT:
-		return lua.LString(series.Split()[index])
+		return lua.LString(s.At(i))
+	default:
+		return lua.LNil
+	}
+}
+
+func LValueFromMultiSeriesAlignment(series telem.MultiSeries, a telem.Alignment) lua.LValue {
+	switch series.DataType() {
+	case telem.Int8T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[int8](series, a))
+	case telem.Int16T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[int16](series, a))
+	case telem.Int32T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[int32](series, a))
+	case telem.Int64T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[int64](series, a))
+	case telem.Uint8T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[uint8](series, a))
+	case telem.Uint16T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[uint16](series, a))
+	case telem.Uint32T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[uint32](series, a))
+	case telem.Uint64T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[uint64](series, a))
+	case telem.Float32T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[float32](series, a))
+	case telem.Float64T:
+		return lua.LNumber(telem.MultiSeriesAtAlignment[float64](series, a))
+	case telem.StringT:
+		panic("not implemented")
 	default:
 		return lua.LNil
 	}

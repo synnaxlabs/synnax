@@ -11,6 +11,7 @@ package core
 
 import (
 	"fmt"
+
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -19,15 +20,6 @@ import (
 )
 
 type ChannelKey = uint32
-
-type ChannelVariant uint8
-
-const (
-	Index ChannelVariant = iota + 1
-	Indexed
-	Fixed
-	Event
-)
 
 // Channel is a logical collection of telemetry samples across a time-range. The data
 // within a channel typically arrives from a single source. This can be a physical sensor,
@@ -48,12 +40,6 @@ type Channel struct {
 	// DataType is the type of data stored in the channel.
 	// [REQUIRED]
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// Rate sets the rate at which the channels values are written. This is used to
-	// determine the timestamp of each sample. Rate based channels are far more efficient
-	// than index based channels, and should be used whenever channel's values are
-	// regularly spaced. One of Index or Rate must be non-zero.
-	// [OPTIONAL]
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// Index is the key of the channel used to index the channel's values. The Index is
 	// used to associate a value with a timestamp. If zero, the channel's data will be
 	// indexed using its rate. One of Index or Rate must be non-zero.
@@ -77,18 +63,19 @@ func (c Channel) String() string {
 	return fmt.Sprintf("<%d>", c.Key)
 }
 
-func (c Channel) ValidateSeries(series telem.Series) error {
-	if (series.DataType == telem.Int64T || series.DataType == telem.TimeStampT) && (c.DataType == telem.Int64T || c.DataType == telem.TimeStampT) {
-		return nil
-	}
-	if series.DataType != c.DataType {
-		return errors.Wrapf(
+func (c Channel) ValidateSeries(series telem.Series) (err error) {
+	sDt := series.DataType
+	cDt := c.DataType
+	isEquivalent := (sDt == telem.Int64T || sDt == telem.TimeStampT) && (cDt == telem.Int64T || cDt == telem.TimeStampT)
+	if cDt != sDt && !isEquivalent {
+		err = errors.Wrapf(
 			validate.Error,
 			"invalid data type for channel %v, expected %s, got %s",
 			c,
 			c.DataType,
 			series.DataType,
 		)
+
 	}
-	return nil
+	return
 }

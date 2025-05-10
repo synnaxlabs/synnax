@@ -11,47 +11,49 @@ package domain
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // IteratorConfig is the configuration for opening a new iterator.
 type IteratorConfig struct {
 	// Bounds represent the interval of time that the iterator will be able to access.
-	// Any domains whose Bounds overlap with the iterator's Bounds will be accessible.
-	// A zero span domain is valid, but is relatively useless.
+	// Any domains whose Bounds overlap with the iterator's Bounds will be accessible. A
+	// zero span domain is valid, but is relatively useless.
 	// [REQUIRED]
 	Bounds telem.TimeRange
 }
 
-var errIteratorClosed = core.EntityClosed("domain.iterator")
+var errIteratorClosed = core.NewErrResourceClosed("domain.iterator")
 
 // IterRange generates an IteratorConfig that iterates over the provided time domain.
 func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }
 
-// Iterator iterates over the telemetry domains of a DB in time order. Iterator does
-// not read any of the underlying data of a domain, but instead provides a means to access
+// Iterator iterates over the telemetry domains of a DB in time order. Iterator does not
+// read any of the underlying data of a domain, but instead provides a means to access
 // it via calls to Iterator.OpenReader.
 //
-// Iterator is not safe for concurrent use, but it is safe to have multiple iterators over
-// the same DB.
+// Iterator is not safe for concurrent use, but it is safe to have multiple iterators
+// over the same DB.
 //
 // It's important to note that an Iterator does NOT iterate over a snapshot of the DB,
-// and is not isolated from any writes that may be committed during the iterators lifetime.
-// This means that the position of an iterator may shift unexpectedly. There are plans
-// to implement MVCC in the future, but until then you have been warned.
+// and is not isolated from any writes that may be committed during the iterators
+// lifetime. This means that the position of an iterator may shift unexpectedly. There
+// are plans to implement MVCC in the future, but until then you have been warned.
 type Iterator struct {
 	IteratorConfig
 	alamos.Instrumentation
 	// position stores the current position of the iterator in the idx. NOTE: At the
-	// moment, this position may not hold a consistent reference to the same value
-	// if the idx is modified during iteration.
+	// moment, this position may not hold a consistent reference to the same value if
+	// the idx is modified during iteration.
 	position int
 	// idx is the index that the iterator is iterating over.
 	idx *index
-	// value stores the current value of the iterator. This value is only valid if
-	// the iterator is valid.
+	// value stores the current value of the iterator. This value is only valid if the
+	// iterator is valid.
 	value pointer
 	// valid stores whether the iterator is currently valid.
 	valid bool
@@ -63,18 +65,43 @@ type Iterator struct {
 	onClose func()
 }
 
-// OpenIterator opens a new invalidated Iterator using the given configuration.
-// A seeking call is required before it can be used.
+// OpenIterator opens a new invalidated Iterator using the given configuration. A
+// seeking call is required before it can be used.
 func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
-	db.entityCount.Add(1)
+	db.resourceCount.Add(1)
 	i := &Iterator{
 		Instrumentation: db.cfg.Instrumentation.Child("iterator"),
 		idx:             db.idx,
 		readerFactory:   db.newReader,
-		onClose:         func() { db.entityCount.Add(-1) },
+		onClose:         func() { db.resourceCount.Add(-1) },
 	}
 	i.SetBounds(cfg.Bounds)
 	return i
+}
+
+// Read reads data for all domains that overlap with the two time ranges and accumulates
+// it into a single buffer.
+func Read(ctx context.Context, db *DB, tr telem.TimeRange) (b []byte, err error) {
+	i := db.OpenIterator(IterRange(tr))
+	defer func() {
+		err = errors.Combine(err, i.Close())
+	}()
+	var data []byte
+	for i.SeekFirst(ctx); i.Valid(); i.Next() {
+		r, err := i.OpenReader(ctx)
+		if err != nil {
+			return nil, err
+		}
+		chunk := make([]byte, r.Len())
+		if _, err = r.ReadAt(chunk, 0); err != nil {
+			return nil, errors.Combine(err, r.Close())
+		}
+		data = append(data, chunk...)
+		if err := r.Close(); err != nil {
+			return nil, err
+		}
+	}
+	return data, nil
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
@@ -84,8 +111,8 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) {
 	i.valid = false
 }
 
-// SeekFirst seeks to the first domain in the iterator's bounds. If no such domain exists,
-// SeekFirst returns false.
+// SeekFirst seeks to the first domain in the iterator's bounds. If no such domain
+// exists, SeekFirst returns false.
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	if i.closed {
 		return false
@@ -168,8 +195,8 @@ func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 
 // OpenReader returns a new Reader that can be used to read telemetry from the current
 // domain. The returned Reader is not safe for concurrent use, but it is safe to have
-// multiple Readers open over the same domain.
-// Note that the caller is responsible for closing the reader.
+// multiple Readers open over the same domain. Note that the caller is responsible for
+// closing the reader.
 func (i *Iterator) OpenReader(ctx context.Context) (*Reader, error) {
 	if i.closed {
 		return nil, errIteratorClosed
@@ -196,8 +223,8 @@ func (i *Iterator) reload() bool {
 	ptr, ok := i.idx.get(i.position)
 	if !ok || !ptr.OverlapsWith(i.Bounds) {
 		i.valid = false
-		// it's important that we return here, so we don't clear the current value
-		// of the iterator.
+		// it's important that we return here, so we don't clear the current value of
+		// the iterator.
 		return i.valid
 	}
 	i.value = ptr

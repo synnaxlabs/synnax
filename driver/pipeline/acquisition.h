@@ -54,7 +54,7 @@ public:
     /// or the writer accumulates an error, the writer should return false. When
     /// false is returned, the acquisition pipeline will close the writer and
     /// conditionally trigger a retry (see the close method).
-    virtual bool write(const synnax::Frame &fr) = 0;
+    virtual xerrors::Error write(const synnax::Frame &fr) = 0;
 
     /// @brief closes the writer, returning any error that occurred during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
@@ -92,7 +92,7 @@ public:
     explicit SynnaxWriter(synnax::Writer internal);
 
     /// @brief implements pipeline::Writer to write the frame to Synnax.
-    bool write(const synnax::Frame &fr) override;
+    xerrors::Error write(const synnax::Frame &fr) override;
 
     /// @brief implements pipeline::Writer to close the writer.
     xerrors::Error close() override;

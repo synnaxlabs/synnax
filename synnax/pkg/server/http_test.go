@@ -11,21 +11,22 @@ package server_test
 
 import (
 	"context"
+	"net/http"
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
-	"net/http"
-	"sync"
 )
 
 type integerServer struct {
 }
 
 func (b integerServer) BindTo(router *fhttp.Router) {
-	g := fhttp.UnaryServer[int, int](router, false, "/basic")
+	g := fhttp.UnaryServer[int, int](router, "/basic")
 	g.BindHandler(func(ctx context.Context, req int) (int, error) {
 		req++
 		return req, nil

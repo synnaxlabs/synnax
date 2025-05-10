@@ -11,22 +11,24 @@ package atomic_test
 
 import (
 	"sync"
+	"sync/atomic"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/atomic"
+	xatomic "github.com/synnaxlabs/x/atomic"
 )
 
-var _ = Describe("SeqNum", func() {
+var _ = Describe("Counter", func() {
 	Describe("Int32Counter", func() {
 		It("Should increment the counter atomically", func() {
 			wg := sync.WaitGroup{}
-			c := atomic.Int32Counter{}
+			c := xatomic.Int32Counter{}
 			wg.Add(10)
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				go func() {
 					defer wg.Done()
-					for i := 0; i < 1000; i++ {
+					for i := range 1000 {
 						if i == 0 {
 							c.Add(1)
 						} else if i == 1 {
@@ -44,12 +46,12 @@ var _ = Describe("SeqNum", func() {
 	Describe("Int64Counter", func() {
 		It("Should increment the counter atomically", func() {
 			wg := sync.WaitGroup{}
-			c := atomic.Int64Counter{}
+			c := xatomic.Int64Counter{}
 			wg.Add(10)
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				go func() {
 					defer wg.Done()
-					for i := 0; i < 1000; i++ {
+					for range 1000 {
 						c.Add(1)
 					}
 				}()
@@ -57,5 +59,32 @@ var _ = Describe("SeqNum", func() {
 			wg.Wait()
 			Expect(c.Value()).To(Equal(int64(10000)))
 		})
+
+		Describe("Set", func() {
+			It("Should set the counter value", func() {
+				c := xatomic.Int64Counter{}
+				c.Set(42)
+				Expect(c.Value()).To(Equal(int64(42)))
+			})
+		})
 	})
+
 })
+
+func BenchmarkABC(b *testing.B) {
+	ch := make(chan struct{})
+	for b.Loop() {
+		select {
+		case <-ch:
+		default:
+		}
+	}
+}
+
+func BenchmarkBCD(b *testing.B) {
+	v := &atomic.Bool{}
+	v.Store(true)
+	for b.Loop() {
+		v.Load()
+	}
+}

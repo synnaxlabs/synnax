@@ -32,7 +32,7 @@ var _ = Describe("Rename", Ordered, func() {
 		var ch channel.Channel
 		JustBeforeEach(func() {
 			var err error
-			ch.Rate = 5 * telem.Hz
+			ch.Virtual = true
 			ch.Name = "SG01"
 			ch.DataType = telem.Float64T
 			err = services[1].Create(ctx, &ch)
@@ -71,12 +71,12 @@ var _ = Describe("Rename", Ordered, func() {
 		It("Should rename the channels without error", func() {
 			ch1 := channel.Channel{
 				Name:     "fermat",
-				Rate:     2 * telem.Hz,
+				Virtual:  true,
 				DataType: telem.Int64T,
 			}
 			ch2 := channel.Channel{
 				Name:     "laplace",
-				Rate:     2 * telem.Hz,
+				Virtual:  true,
 				DataType: telem.Float32T,
 			}
 			ch3 := channel.Channel{

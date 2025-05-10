@@ -60,7 +60,7 @@ func (f FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 // Validate implements [config.Config].
 func (f FactoryConfig) Validate() error {
 	v := validate.New("cert.Factory")
-	validate.Positive(v, "KeySize", f.KeySize)
+	validate.NonNegative(v, "KeySize", f.KeySize)
 	validate.NotNil(v, "AllowKeyReuse", f.AllowKeyReuse)
 	v.Exec(f.LoaderConfig.Validate)
 	return v.Error()

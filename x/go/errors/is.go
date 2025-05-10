@@ -45,7 +45,7 @@ func Wrap(err error, msg string) error { return errors.Wrap(err, msg) }
 // Wrapf wraps an error with a formatted message prefix. A stack trace is also retained.
 // If the format is empty, no prefix is added, but the extra arguments are still
 // processed for reportable strings
-func Wrapf(err error, format string, args ...interface{}) error {
+func Wrapf(err error, format string, args ...any) error {
 	return errors.Wrapf(err, format, args...)
 }
 
@@ -72,17 +72,17 @@ func Combine(err error, otherErr error) error {
 func New(msg string) error { return errors.New(msg) }
 
 // Newf creates an error with a formatted error message. A stack trace is retained.
-func Newf(format string, args ...interface{}) error { return errors.Newf(format, args...) }
+func Newf(format string, args ...any) error { return errors.Newf(format, args...) }
 
 // As finds the first error in err's chain that matches the type to which target points,
 // and if so, sets the target to its value and returns true. An error matches a type if it
-// is assignable to the target type, or if it has a method As(interface{}) bool such that
+// is assignable to the target type, or if it has a method As(any) bool such that
 // As(target) returns true. As will panic if target is not a non-nil pointer to a type
 // which implements error or is of interface type.
 //
 // The As method should set the target to its value and return true if err matches the
 // type to which target points.
-func As(err error, target interface{}) bool { return errors.As(err, target) }
+func As(err error, target any) bool { return errors.As(err, target) }
 
 // Skip returns nil if the error satisfied errors.Is for any of the reference errors.
 // Otherwise, it returns the error itself.

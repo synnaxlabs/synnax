@@ -28,7 +28,7 @@ var _ gorp.Entry[uuid.UUID] = Workspace{}
 func (w Workspace) GorpKey() uuid.UUID { return w.Key }
 
 // SetOptions implements gorp.Entry.
-func (w Workspace) SetOptions() []interface{} { return nil }
+func (w Workspace) SetOptions() []any { return nil }
 
 // OntologyID returns the ontology.ID of the resource.
 func (w Workspace) OntologyID() ontology.ID { return OntologyID(w.Key) }

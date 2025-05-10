@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z, type ZodSchema } from "zod";
+import { decode, encode, ExtensionCodec } from "@msgpack/msgpack";
+import { type z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import { isObject } from "@/identity";
@@ -26,7 +27,7 @@ export interface Codec {
    * @param payload - The payload to encode.
    * @returns An ArrayBuffer containing the encoded payload.
    */
-  encode: (payload: unknown) => ArrayBuffer;
+  encode: (payload: unknown) => Uint8Array;
 
   /**
    * Decodes the given binary representation into a type checked payload.
@@ -34,7 +35,7 @@ export interface Codec {
    * @param data - The data to decode.
    * @param schema - The schema to decode the data with.
    */
-  decode: <P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>) => P;
+  decode: <P>(data: Uint8Array | ArrayBuffer, schema?: z.ZodSchema<P>) => P;
 }
 
 /** JSONCodec is a JSON implementation of Codec. */
@@ -48,8 +49,8 @@ export class JSONCodec implements Codec {
     this.encoder = new TextEncoder();
   }
 
-  encode(payload: unknown): ArrayBuffer {
-    return this.encoder.encode(this.encodeString(payload)).buffer as ArrayBuffer;
+  encode(payload: unknown): Uint8Array {
+    return this.encoder.encode(this.encodeString(payload));
   }
 
   decode<P extends z.ZodTypeAny>(
@@ -87,9 +88,9 @@ export class JSONCodec implements Codec {
 export class CSVCodec implements Codec {
   contentType = "text/csv";
 
-  encode(payload: unknown): ArrayBuffer {
+  encode(payload: unknown): Uint8Array {
     const csvString = this.encodeString(payload);
-    return new TextEncoder().encode(csvString).buffer as ArrayBuffer;
+    return new TextEncoder().encode(csvString);
   }
 
   decode<P extends z.ZodTypeAny>(
@@ -155,8 +156,8 @@ export class CSVCodec implements Codec {
 export class TextCodec implements Codec {
   contentType = "text/plain";
 
-  encode(payload: unknown): ArrayBuffer {
-    return new TextEncoder().encode(payload as string).buffer as ArrayBuffer;
+  encode(payload: unknown): Uint8Array {
+    return new TextEncoder().encode(payload as string);
   }
 
   decode<P extends z.ZodTypeAny>(
@@ -168,8 +169,50 @@ export class TextCodec implements Codec {
   }
 }
 
+const extensionCodec = new ExtensionCodec();
+
+extensionCodec.register({
+  type: 0,
+  encode: (value: unknown): Uint8Array | null => {
+    if (ArrayBuffer.isView(value)) {
+      const array = Array.from(value as Uint8Array);
+      return encode(array, { extensionCodec });
+    }
+    if (isObject(value) && "encode_value" in value) {
+      if (typeof value.value === "bigint")
+        return encode(value.value.toString(), { extensionCodec });
+      return encode(value.value, { extensionCodec });
+    }
+    if (typeof value === "bigint") return encode(value.toString(), { extensionCodec });
+    return null;
+  },
+  decode: (data: Uint8Array) => decode(data, { extensionCodec }),
+});
+
+export class MsgPackCodec implements Codec {
+  contentType = "application/msgpack";
+
+  encode(payload: unknown): Uint8Array {
+    const caseConverted = caseconv.camelToSnake(payload);
+    const d = encode(caseConverted, { extensionCodec });
+    return d.slice();
+  }
+
+  decode<P extends z.ZodTypeAny>(
+    data: Uint8Array | ArrayBuffer,
+    schema?: P,
+  ): z.output<P> {
+    const decoded = decode(data, { extensionCodec });
+    const unpacked = caseconv.snakeToCamel(decoded);
+    return schema != null ? schema.parse(unpacked) : (unpacked as z.output<P>);
+  }
+
+  static registerCustomType(): void {}
+}
+
 export const JSON_CODEC = new JSONCodec();
 export const CSV_CODEC = new CSVCodec();
 export const TEXT_CODEC = new TextCodec();
+export const MSGPACK_CODEC = new MsgPackCodec();
 
-export const ENCODERS: Codec[] = [JSON_CODEC];
+export const ENCODERS: Codec[] = [JSON_CODEC, MSGPACK_CODEC];

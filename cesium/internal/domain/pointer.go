@@ -15,11 +15,11 @@ const pointerByteSize = 26
 
 // pointer is a reference to a telemetry blob occupying a particular time domain.
 type pointer struct {
-	// Bounds is the time interval occupied by the domain. This interval is
-	// guaranteed to be unique i.e.it won't overlap with any other domain within the DB.
-	// bounds follows the behavior of telem.TimeRange in that the starting point is inclusive,
-	// while the ending point is exclusive. If two domains share a common start and end point,
-	// they are considered continuous.
+	// Bounds is the time interval occupied by the domain. This interval is guaranteed
+	// to be unique i.e.it won't overlap with any other domain within the DB. bounds
+	// follows the behavior of telem.TimeRange in that the starting point is inclusive,
+	// while the ending point is exclusive. If two domains share a common start and end
+	// point, they are considered continuous.
 	telem.TimeRange
 	// fileKey
 	fileKey uint16
