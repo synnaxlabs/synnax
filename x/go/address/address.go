@@ -43,11 +43,11 @@ func (a Address) Port() int {
 }
 
 func (a Address) Host() string {
-	split := strings.Split(string(a), ":")
-	if len(split) == 0 {
+	parts := strings.Split(string(a), ":")
+	if len(parts) == 0 {
 		return ""
 	}
-	return split[0]
+	return parts[0]
 }
 
 func Rand() Address {
