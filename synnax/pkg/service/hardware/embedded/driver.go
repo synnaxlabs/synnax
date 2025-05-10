@@ -44,7 +44,7 @@ type Config struct {
 func (c Config) format() map[string]any {
 	return map[string]any{
 		"connection": map[string]any{
-			"host":             c.Address.HostString(),
+			"host":             c.Address.Host(),
 			"port":             c.Address.Port(),
 			"username":         c.Username,
 			"password":         c.Password,

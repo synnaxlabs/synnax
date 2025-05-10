@@ -214,7 +214,7 @@ func (s *Server) baseBranchContext() BranchContext {
 	return BranchContext{
 		Debug:      *s.Debug,
 		Security:   s.Security,
-		ServerName: s.ListenAddress.HostString(),
+		ServerName: s.ListenAddress.Host(),
 	}
 }
 
