@@ -12,6 +12,7 @@ package cmd
 import (
 	"context"
 	"log"
+	"os"
 	"time"
 
 	"github.com/spf13/viper"
@@ -20,6 +21,7 @@ import (
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 func configureInstrumentation(version string) (alamos.Instrumentation, *zap.Logger) {
@@ -48,8 +50,13 @@ func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
 }
 
 func configureLogger() (logger *alamos.Logger, err error) {
-	verbose := viper.GetBool(verboseFlag)
-	debug := viper.GetBool(debugFlag)
+	var (
+		verbose        = viper.GetBool(verboseFlag)
+		debug          = viper.GetBool(debugFlag)
+		consoleEncoder zapcore.Encoder
+		opts           []zap.Option
+	)
+
 	var cfg zap.Config
 	if debug {
 		cfg = zap.NewDevelopmentConfig()
@@ -63,17 +70,34 @@ func configureLogger() (logger *alamos.Logger, err error) {
 		cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
 		cfg.Encoding = "console"
 		cfg.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+		consoleEncoder = zapcore.NewConsoleEncoder(cfg.EncoderConfig)
+		opts = append(opts, zap.AddStacktrace(zapcore.ErrorLevel), zap.AddCaller())
 	}
 	if !debug {
 		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-		cfg.DisableStacktrace = true
-		cfg.DisableCaller = true
-	}
-	logger, err = alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg})
-	if err != nil {
-		return
+		consoleEncoder = zapcore.NewJSONEncoder(cfg.EncoderConfig)
 	}
 
+	fileEncoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
+	consoleWS := zapcore.Lock(os.Stdout)
+	fileWS := zapcore.AddSync(&lumberjack.Logger{
+		Filename:   viper.GetString(logFilePathFlag),
+		MaxSize:    viper.GetInt(logFileMaxSizeFlag),
+		MaxBackups: viper.GetInt(logFileMaxBackupsFlag),
+		MaxAge:     viper.GetInt(logFileMaxAgeFlag),
+		Compress:   viper.GetBool(logFileCompressFlag),
+	})
+
+	core := zapcore.NewTee(
+		zapcore.NewCore(consoleEncoder, consoleWS, cfg.Level),
+		zapcore.NewCore(fileEncoder, fileWS, cfg.Level),
+	)
+
+	if logger, err = alamos.NewLogger(alamos.LoggerConfig{
+		ZapLogger: zap.New(core, opts...),
+	}); err != nil {
+		return
+	}
 	zap.ReplaceGlobals(logger.Zap())
 	return
 }
