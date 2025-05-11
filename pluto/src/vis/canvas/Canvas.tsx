@@ -14,6 +14,7 @@ import {
   type CanvasHTMLAttributes,
   type DetailedHTMLProps,
   type ReactElement,
+  type RefCallback,
   useCallback,
   useEffect,
   useRef,
@@ -193,7 +194,7 @@ export const Canvas = ({
 export const useRegion = (
   handler: UseResizeHandler,
   opts?: UseResizeOpts,
-): React.RefCallback<HTMLElement> =>
+): RefCallback<HTMLDivElement> =>
   useResize(
     useCallback(
       (b, el) => {

@@ -27,6 +27,13 @@ from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClien
 from freighter.transport import RQ, RS, AsyncMiddlewareCollector, MiddlewareCollector, P
 from freighter.url import URL
 
+CONTEXT_CANCELLED_CLOSE_CODE = 1001
+
+
+def handle_context_cancelled(e: ConnectionClosedOK):
+    if e.rcvd.code == CONTEXT_CANCELLED_CLOSE_CODE and e.sent.code == CONTEXT_CANCELLED_CLOSE_CODE:
+        raise StreamClosed
+
 
 class Message(BaseModel, Generic[P]):
     type: Literal["data", "close", "open"]
@@ -148,7 +155,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
             await self.__internal.close()
 
 
-DEFAULT_MAX_SIZE = 2**20
+DEFAULT_MAX_SIZE = 2 ** 20
 
 
 class SyncWebsocketStream(Stream[RQ, RS]):
@@ -177,7 +184,12 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         if server_closed is not None:
             return None, server_closed
 
-        data = self.__internal.recv(timeout)
+        try:
+            data = self.__internal.recv(timeout)
+        except ConnectionClosedOK as e:
+            if handle_context_cancelled(e):
+                return None, StreamClosed()
+            return None, EOF()
         assert isinstance(data, bytes)
         msg = self.__encoder.decode(data, self.__res_msg_t)
 
@@ -212,7 +224,8 @@ class SyncWebsocketStream(Stream[RQ, RS]):
 
         try:
             self.__internal.send(encoded)
-        except ConnectionClosedOK:
+        except ConnectionClosedOK as e:
+            handle_context_cancelled(e)
             return EOF()
         return None
 
@@ -223,6 +236,9 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         msg = Message[RQ](type="close", payload=None, error=None)
         try:
             self.__internal.send(self.__encoder.encode(msg))
+        except ConnectionClosedOK as e:
+            handle_context_cancelled(e)
+            return EOF()
         finally:
             self.__send_closed = True
         return None

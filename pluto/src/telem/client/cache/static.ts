@@ -10,6 +10,7 @@
 import { alamos } from "@synnaxlabs/alamos";
 import {
   bounds,
+  MultiSeries,
   type Required,
   type Series,
   Size,
@@ -21,7 +22,7 @@ import {
 import { convertSeriesToSupportedGL } from "@/telem/aether/convertSeries";
 
 export interface DirtyReadResult {
-  series: Series[];
+  series: MultiSeries;
   gaps: TimeRange[];
 }
 
@@ -71,9 +72,9 @@ export class Static {
    * Writes the given series to the cache, merging written series with any
    * existing series in the cache.
    */
-  write(series: Series[]): void {
+  write(series: MultiSeries): void {
     if (series.length === 0) return;
-    series.forEach((s) => this.writeOne(convertSeriesToSupportedGL(s)));
+    series.series.forEach((s) => this.writeOne(convertSeriesToSupportedGL(s)));
     this.checkIntegrity(series);
   }
 
@@ -91,7 +92,7 @@ export class Static {
     const series = this.data
       .filter(({ data }) => data.timeRange.overlapsWith(tr))
       .map(({ data }) => data);
-    if (series.length === 0) return { series: [], gaps: [tr] };
+    if (series.length === 0) return { series: new MultiSeries([]), gaps: [tr] };
     const gaps = series
       .map((s, i) => {
         if (i === 0) return TimeRange.ZERO;
@@ -102,7 +103,7 @@ export class Static {
     const trailingGap = new TimeRange(series[series.length - 1].timeRange.end, tr.end);
     if (leadingGap.isValid && !leadingGap.isZero) gaps.unshift(leadingGap);
     if (trailingGap.isValid && !trailingGap.isZero) gaps.push(trailingGap);
-    return { series, gaps };
+    return { series: new MultiSeries(series), gaps };
   }
 
   /**
@@ -156,7 +157,7 @@ export class Static {
     });
   }
 
-  private checkIntegrity(write: Series[]): void {
+  private checkIntegrity(write: MultiSeries): void {
     const {
       instrumentation: { L },
     } = this.props;
@@ -170,7 +171,7 @@ export class Static {
     );
     if (invalid) {
       L.debug("Cache is in an invalid state - bounds overlap!", () => ({
-        write: write.map((s) => s.digest),
+        write: write.series.map((s) => s.digest),
         cacheContents: this.data.map((s) => s.data.digest),
       }));
       throw new Error("Invalid state");

@@ -254,14 +254,14 @@ export const useDelete = (name?: string) => {
           confirm: { label: "Delete", variant: "error" },
         }))
       )
-        throw errors.CANCELED;
+        throw new errors.Canceled();
       handleRemove([key]);
       remover(key);
       return rng;
     },
     mutationFn: async (key: string) => await client?.ranges.delete(key),
     onError: (e, _, range) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       handleError(e, "Failed to delete range");
       dispatch(add({ ranges: [range as Range] }));
     },

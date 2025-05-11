@@ -265,7 +265,7 @@ const Content = () => {
       setTasks((prev) => prev.filter(({ key }) => !keys.includes(key)));
     },
     onError: (e) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       handleError(e, "Failed to delete tasks");
     },
   }).mutate;

@@ -36,19 +36,19 @@ export type SpanF = (span: Span) => unknown;
  */
 export class Tracer {
   private meta: Meta = Meta.NOOP;
-  private readonly tracer: OtelTracer;
+  private readonly otelTracer?: OtelTracer;
   private readonly filter: EnvironmentFilter;
 
   constructor(
     tracer?: OtelTracer,
     filter: EnvironmentFilter = envThresholdFilter("debug"),
   ) {
-    this.tracer = tracer as OtelTracer;
+    this.otelTracer = tracer;
     this.filter = filter;
   }
 
   child(meta: Meta): Tracer {
-    const t = new Tracer(this.tracer, this.filter);
+    const t = new Tracer(this.otelTracer, this.filter);
     t.meta = meta;
     return t;
   }
@@ -128,15 +128,16 @@ export class Tracer {
     f?: F,
   ): ReturnType<F> | Destructor {
     if (f == null) {
-      if (this.meta.noop || !this.filter(env)) return () => {};
-      const span = new _Span(key, this.tracer.startSpan(key));
+      if (this.meta.noop || !this.filter(env) || this.otelTracer == null)
+        return () => {};
+      const span = new _Span(key, this.otelTracer.startSpan(key));
       span.start();
       return () => span.end();
     }
 
-    if (this.meta.noop || !this.filter(env))
+    if (this.meta.noop || !this.filter(env) || this.otelTracer == null)
       return f(new NoopSpan(key)) as ReturnType<F>;
-    return this.tracer.startActiveSpan(key, (otelSpan) => {
+    return this.otelTracer.startActiveSpan(key, (otelSpan) => {
       const span = new _Span(key, otelSpan);
       const result = f(span);
       return result as ReturnType<F>;

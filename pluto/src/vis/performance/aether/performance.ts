@@ -20,7 +20,7 @@ export class Performance extends aether.Leaf<typeof performanceStateZ> {
   schema = performanceStateZ;
   interval: ReturnType<typeof setInterval> | null = null;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(): void {
     // Convert duration to FPS (1000ms / avgDuration)
     if (this.interval != null) clearInterval(this.interval);
     this.interval = setInterval(() => {

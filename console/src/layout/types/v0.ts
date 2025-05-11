@@ -76,6 +76,7 @@ export const stateZ = z.object({
   args: z.unknown().optional(),
   excludeFromWorkspace: z.boolean().optional(),
   beta: z.boolean().default(false).optional(),
+  loading: z.boolean().default(false).optional(),
   unsavedChanges: z.boolean().default(false).optional(),
 });
 
@@ -137,6 +138,10 @@ export interface State<A = unknown> {
    * unsavedChanges is a flag that indicates whether the layout has unsaved changes.
    */
   unsavedChanges?: boolean;
+  /**
+   * loading is a flag that indicates whether the layout is loading.
+   */
+  loading?: boolean;
 }
 
 const themeZ = Theming.themeZ.transform(

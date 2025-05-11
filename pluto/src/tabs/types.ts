@@ -21,6 +21,7 @@ export const specZ = z.object({
   editable: z.boolean().optional(),
   visible: z.boolean().optional(),
   unsavedChanges: z.boolean().optional(),
+  loading: z.boolean().optional(),
 });
 
 export interface Spec extends Omit<z.infer<typeof specZ>, "icon"> {
