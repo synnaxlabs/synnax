@@ -39,7 +39,7 @@ type LocalKey types.Uint20
 
 // NewKey generates a new Key from the provided components.
 func NewKey(nodeKey core.NodeKey, localKey LocalKey) (key Key) {
-	// Node key is first 12 bits,
+	// Node key is the first 12 bits,
 	k1 := uint32(nodeKey) << 20
 	// Local key is the last 20 bits
 	k2 := uint32(localKey)
