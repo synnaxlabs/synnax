@@ -107,22 +107,23 @@ export class CoreAxis<
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
   afterUpdate(ctx: aether.Context): void {
-    this.internal.render = render.Context.use(ctx);
+    const { internal: i } = this;
+    const { location, autoBoundUpdateInterval } = this.state;
+    i.render = render.Context.use(ctx);
     const theme = theming.use(ctx);
+    const dir = direction.construct(location);
     this.state.autoBoundPadding ??=
-      direction.construct(this.state.location) === "x"
-        ? DEFAULT_Y_BOUND_PADDING
-        : DEFAULT_X_BOUND_PADDING;
-    this.internal.core = axis.newCanvas(this.state.location, this.internal.render, {
+      dir === "x" ? DEFAULT_Y_BOUND_PADDING : DEFAULT_X_BOUND_PADDING;
+    i.core = axis.newCanvas(location, i.render, {
       color: theme.colors.gray.l10,
       font: fontString(theme, { level: "small", code: true }),
       gridColor: theme.colors.gray.l1,
       ...this.state,
     });
     render.request(ctx, "layout");
-    this.internal.updateBounds ??= throttle(
+    i.updateBounds ??= throttle(
       (b) => this.setState((p) => ({ ...p, bounds: b })),
-      this.state.autoBoundUpdateInterval.milliseconds,
+      autoBoundUpdateInterval.milliseconds,
     );
   }
 

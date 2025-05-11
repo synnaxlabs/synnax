@@ -26,7 +26,6 @@ import {
 import { type z } from "zod";
 
 import { type MainMessage, type WorkerMessage } from "@/aether/message";
-import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoCompare } from "@/memo";
 import { state } from "@/state";
@@ -330,7 +329,6 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
     prettyParse(schema, initialState),
   );
   const onAetherChangeRef = useRef(onAetherChange);
-  const internalStateRef = useSyncedRef<z.output<S>>(internalState);
 
   // Update the internal component state when we receive communications from the
   // aether.
@@ -353,9 +351,16 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
       next: state.SetArg<z.input<S> | z.output<S>>,
       transfer: Transferable[] = [],
     ): void => {
-      const nextS = state.executeSetter(next, internalStateRef.current);
-      setInternalState(nextS);
-      setAetherState(nextS, transfer);
+      if (state.isSetter(next))
+        setInternalState((prev) => {
+          const nextS = next(prev);
+          setAetherState(nextS, transfer);
+          return nextS;
+        });
+      else {
+        setInternalState(next);
+        setAetherState(next, transfer);
+      }
     },
     [path, type],
   );

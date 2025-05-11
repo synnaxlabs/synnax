@@ -11,7 +11,6 @@ import { box, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { status } from "@/status/aether";
 import { render } from "@/vis/render";
 
 export const eraserStateZ = z.object({

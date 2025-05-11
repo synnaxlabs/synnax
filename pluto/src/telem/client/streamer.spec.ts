@@ -127,7 +127,6 @@ describe("Streamer", () => {
       // We should only every has a single response that has data, as its the only
       // buffer we're allocating and subsequent calls just tell the handler to re-read
       // the buffer.
-      console.log(responses);
       expect(responses.filter((r) => r.get(1)?.series.length === 1)).toHaveLength(1);
     });
   });
