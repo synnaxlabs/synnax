@@ -1,10 +1,11 @@
-// Package migrate provides utilities for handling data migrations between different versions
-// of a schema or data structure.
+// Package migrate provides utilities for handling data migrations between different
+// versions of a schema or data structure.
 package migrate
 
 import (
 	"context"
 	"fmt"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/version"

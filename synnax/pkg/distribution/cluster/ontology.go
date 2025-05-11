@@ -184,7 +184,7 @@ func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (on
 // OpenNexter implements ontology.Service.Relationship
 func (s *OntologyService) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
 	return iter.NexterNopCloser(
-		iter.All[schema.Resource]([]schema.Resource{
+		iter.All([]schema.Resource{
 			//newClusterResource(s.Cluster.Key()),
 		}),
 	), nil
