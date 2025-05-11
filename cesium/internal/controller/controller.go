@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -83,7 +84,7 @@ func (g *Gate[R]) Authorized() (e R, ok bool) {
 }
 
 // Authorize authorizes the gate's access to the resource. If another gate has precedence,
-// Authorize will return a control.Unauthorized error, and the zero value for the resource.
+// Authorize will return a control.ErrUnauthorized error, and the zero value for the resource.
 // If the gate has control over the resource, returns the resource and a nil error.
 func (g *Gate[R]) Authorize() (r R, err error) {
 	g.region.RLock()
@@ -101,13 +102,13 @@ func (g *Gate[R]) Authorize() (r R, err error) {
 	if !ok {
 		if g.region == nil || g.region.curr == nil {
 			return r, errors.Wrapf(
-				control.Unauthorized,
+				control.ErrUnauthorized,
 				"%s has no control authority - gate was already released",
 				g.Subject(),
 			)
 		}
 		return r, errors.Wrapf(
-			control.Unauthorized,
+			control.ErrUnauthorized,
 			"%s has no control authority - it is currently held by %s",
 			g.Subject(),
 			g.region.curr.Subject(),
@@ -149,7 +150,7 @@ type region[R Resource] struct {
 	// gates are the gates vying for control of the region. curr is one of the gates
 	// in this map.
 	// [not safe for unprotected concurrent access]
-	gates map[*Gate[R]]struct{}
+	gates set.Set[*Gate[R]]
 	// controller is the parent controller.
 	// [not safe for unprotected concurrent access]
 	controller *Controller[R]
@@ -161,7 +162,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	defer r.Unlock()
 	if *cfg.ErrIfControlled && r.curr != nil {
 		err = errors.Wrapf(
-			control.Unauthorized,
+			control.ErrUnauthorized,
 			"time range %v overlaps with a controlled region with bounds %v controlled by %v",
 			cfg.TimeRange,
 			r.timeRange,
@@ -202,7 +203,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 		t.To = g.state()
 	} else if *cfg.ErrOnUnauthorizedOpen && !(r.controller.Concurrency == control.Shared && g.authority == r.curr.authority) {
 		err = errors.Wrapf(
-			control.Unauthorized,
+			control.ErrUnauthorized,
 			"%s has no control authority - it is currently held by %s",
 			g.Subject(),
 			r.curr.Subject(),
@@ -210,7 +211,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 		g = nil
 		return
 	}
-	r.gates[g] = struct{}{}
+	r.gates.Add(g)
 	r.counter++
 	return
 }
@@ -219,7 +220,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 	r.Lock()
 	defer r.Unlock()
-	delete(r.gates, g)
+	r.gates.Remove(g)
 	if wasInControl := r.curr == g; !wasInControl {
 		return
 	}
@@ -450,7 +451,7 @@ func (c *Controller[R]) unsafeInsertNewRegion(
 ) *region[R] {
 	r := &region[R]{
 		resource:   resource,
-		gates:      make(map[*Gate[R]]struct{}),
+		gates:      make(set.Set[*Gate[R]]),
 		timeRange:  t,
 		controller: c,
 	}

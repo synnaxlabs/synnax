@@ -198,8 +198,8 @@ func (r *txReader) Next(_ context.Context) (kv.Change, bool) {
 }
 
 func translateError(err error) error {
-	if err == nil || !errors.Is(err, pebble.ErrNotFound) {
-		return err
+	if errors.Is(err, pebble.ErrNotFound) {
+		return kv.NotFound
 	}
-	return kv.NotFound
+	return err
 }

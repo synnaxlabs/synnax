@@ -100,7 +100,7 @@ func Create(ctx context.Context, fs xfs.FS, codec binary.Codec, ch core.Channel)
 // is well-defined.
 func Validate(ch core.Channel) error {
 	v := validate.New("meta")
-	validate.NonNegative(v, "key", ch.Key)
+	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data_type", ch.DataType)
 	if ch.Virtual {
 		v.Ternaryf("index", ch.Index != 0, "virtual channel cannot be indexed")

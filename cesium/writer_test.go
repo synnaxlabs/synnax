@@ -1446,7 +1446,7 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 
-			Describe("Error On Unauthorized Open", func() {
+			Describe("Error On ErrUnauthorized Open", func() {
 				ShouldNotLeakRoutinesJustBeforeEach()
 				var (
 					key        cesium.ChannelKey
@@ -1478,7 +1478,7 @@ var _ = Describe("Writer Behavior", func() {
 				Context("True", func() {
 					It("Should return an error if writer is not authorized to write", func() {
 						w2, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS, ErrOnUnauthorized: config.True()})
-						Expect(err).To(HaveOccurredAs(control.Unauthorized))
+						Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
 						Expect(w2).To(BeNil())
 					})
 				})

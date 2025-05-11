@@ -40,7 +40,7 @@ const (
 	WriterSetAuthority
 )
 
-var validateWriterCommand = validate.NewEnumBoundsChecker(WriterWrite, WriterSetAuthority)
+var validateWriterCommand = validate.NewInclusiveBoundsChecker(WriterWrite, WriterSetAuthority)
 
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
@@ -213,7 +213,7 @@ func (w *streamWriter) maybeSendRes(
 	end telem.TimeStamp,
 ) error {
 	res := WriterResponse{Command: req.Command, SeqNum: req.SeqNum, End: end, Authorized: true}
-	if w.accumulatedErr != nil && errors.Is(w.accumulatedErr, control.Unauthorized) {
+	if w.accumulatedErr != nil && errors.Is(w.accumulatedErr, control.ErrUnauthorized) {
 		w.accumulatedErr = nil
 		res.Authorized = false
 	}

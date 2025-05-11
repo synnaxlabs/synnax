@@ -77,7 +77,7 @@ const (
 	IterSetBounds
 )
 
-var validateIteratorCommand = validate.NewEnumBoundsChecker(IterNext, IterSetBounds)
+var validateIteratorCommand = validate.NewInclusiveBoundsChecker(IterNext, IterSetBounds)
 
 // HasOps returns true if the IteratorCommand has any associated on disk operations.
 func (i IteratorCommand) HasOps() bool { return i <= IterPrev }

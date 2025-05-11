@@ -18,61 +18,11 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
-
-var (
-	// ErrWriteConflict is returned when a domain overlaps with an existing domain in
-	// the DB.
-	ErrWriteConflict = errors.Wrap(validate.Error, "write overlaps with existing data in database")
-	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
-	ErrRangeNotFound = errors.Wrap(query.NotFound, "time range not found")
-	// ErrDBClosed is returned when an operation is attempted on a closed DB.
-	ErrDBClosed = core.NewErrResourceClosed("domain.db")
-)
-
-// NewErrRangeWriteConflict creates a new error returned when existing data in the
-// database overlaps with a callers attempt to write new data.
-func NewErrRangeWriteConflict(newTR, existingTR telem.TimeRange) error {
-	if newTR.Span().IsZero() {
-		return NewErrPointWriteConflict(newTR.Start, existingTR)
-	}
-	intersection := newTR.Intersection(existingTR)
-	return errors.Wrapf(
-		ErrWriteConflict,
-		"write for range %s overlaps with existing data occupying time range "+
-			"%s for a time span of %s",
-		newTR,
-		existingTR,
-		intersection.Span(),
-	)
-}
-
-// NewErrPointWriteConflict creates a new error that details a callers attempt to
-// open a new writer on a region that already has existing data.
-func NewErrPointWriteConflict(ts telem.TimeStamp, existingTr telem.TimeRange) error {
-	before, after := existingTr.PointIntersection(ts)
-	return errors.Wrapf(
-		ErrWriteConflict,
-		"%s overlaps with existing data occupying time range %s. Timestamp occurs "+
-			"%s after the start and %s before the end of the range",
-		ts,
-		existingTr,
-		before,
-		after,
-	)
-}
-
-// NewErrRangeNotFound is returned when a resource for a specified time range is not
-// found in the DB.
-func NewErrRangeNotFound(tr telem.TimeRange) error {
-	return errors.Wrapf(ErrRangeNotFound, "time range %s cannot be found", tr)
-}
 
 // DB provides a persistent, concurrent store for reading and writing domains of
 // telemetry to and from an underlying file system.
@@ -138,18 +88,18 @@ var (
 	}
 )
 
-// Validate implements config.GateConfig.
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("domain")
-	validate.NonNegative(v, "fileSize", c.FileSize)
-	validate.NonNegative(v, "maxDescriptors", c.MaxDescriptors)
+	validate.Positive(v, "fileSize", c.FileSize)
+	validate.Positive(v, "maxDescriptors", c.MaxDescriptors)
 	validate.NotNil(v, "fs", c.FS)
 	validate.GreaterThanEq(v, "gcThreshold", c.GCThreshold, 0)
 	validate.LessThanEq(v, "gcThreshold", c.GCThreshold, 1)
 	return v.Error()
 }
 
-// Override implements config.GateConfig.
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.MaxDescriptors = override.Numeric(c.MaxDescriptors, other.MaxDescriptors)
 	c.FileSize = override.Numeric(c.FileSize, other.FileSize)
@@ -190,15 +140,6 @@ func Open(configs ...Config) (*DB, error) {
 		closed:        &atomic.Bool{},
 		resourceCount: &atomic.Int64{},
 	}, nil
-}
-
-func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
-	internal, err := db.fc.acquireReader(ctx, ptr.fileKey)
-	if err != nil {
-		return nil, err
-	}
-	reader := xio.NewSectionReaderAtCloser(internal, int64(ptr.offset), int64(ptr.length))
-	return &Reader{ptr: ptr, ReaderAtCloser: reader}, nil
 }
 
 // HasDataFor returns whether any time stamp in the time range tr exists in the

@@ -14,8 +14,9 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-// NewEnumBoundsChecker returns a function
-func NewEnumBoundsChecker[T types.Numeric](min T, max T) func(v T) error {
+// NewInclusiveBoundsChecker returns a function that returns an error if a value
+// is not within a set of inclusive, numeric bounds.
+func NewInclusiveBoundsChecker[T types.Numeric](min T, max T) func(v T) error {
 	name := types.Name[T]()
 	return func(v T) error {
 		if v >= min && v <= max {

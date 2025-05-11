@@ -115,9 +115,9 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "FreeWrites", c.FreeWrites)
 	validate.NotNil(v, "ChannelReader", c.ChannelReader)
-	validate.NonNegative(v, "SlowConsumerTimeout", c.SlowConsumerTimeout)
-	validate.NonNegative(v, "ResponseBufferSize", c.ResponseBufferSize)
-	validate.NonNegative(v, "DemandBufferSize", c.DemandBufferSize)
+	validate.Positive(v, "SlowConsumerTimeout", c.SlowConsumerTimeout)
+	validate.Positive(v, "ResponseBufferSize", c.ResponseBufferSize)
+	validate.Positive(v, "DemandBufferSize", c.DemandBufferSize)
 	return v.Error()
 }
 

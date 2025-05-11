@@ -89,7 +89,7 @@ func (db *DB) Delete(
 		db.idx.mu.RUnlock()
 		startOffset, tr.Start, err = calculateStartOffset(ctx, start.Start, tr.Start)
 		if err != nil {
-			return
+			return err
 		}
 	} else {
 		// Non-exact: tr.Start is not contained within any domain.
@@ -99,7 +99,7 @@ func (db *DB) Delete(
 		if startDomain == len(db.idx.mu.pointers) {
 			// delete nothing
 			db.idx.mu.RUnlock()
-			return
+			return err
 		}
 
 		start = db.idx.mu.pointers[startDomain]
@@ -115,7 +115,7 @@ func (db *DB) Delete(
 		end = db.idx.mu.pointers[endDomain]
 		db.idx.mu.RUnlock()
 		if endOffset, tr.End, err = calculateEndOffset(ctx, end.Start, tr.End); err != nil {
-			return
+			return err
 		}
 		endOffset = telem.Size(end.length) - endOffset
 	} else {
@@ -123,7 +123,7 @@ func (db *DB) Delete(
 		if endDomain == -1 {
 			// delete nothing
 			db.idx.mu.RUnlock()
-			return
+			return err
 		}
 
 		end = db.idx.mu.pointers[endDomain]
@@ -149,7 +149,7 @@ func (db *DB) Delete(
 		endDomain, _ = db.idx.unprotectedSearch(end.TimeRange)
 	}
 
-	err, ok := validateDelete(startDomain, endDomain, &startOffset, &endOffset, db.idx)
+	ok, err := validateDelete(startDomain, endDomain, &startOffset, &endOffset, db.idx)
 	if err != nil || !ok {
 		return span.Error(err)
 	}
@@ -399,13 +399,13 @@ func validateDelete(
 	startOffset *telem.Size,
 	endOffset *telem.Size,
 	idx *index,
-) (error, bool) {
+) (bool, error) {
 	if startPosition == len(idx.mu.pointers) {
-		return nil, false
+		return false, nil
 	}
 
 	if endPosition == -1 {
-		return nil, false
+		return false, nil
 	}
 
 	if *startOffset < 0 {
@@ -429,26 +429,26 @@ func validateDelete(
 	if startPosition > endPosition && !(startPosition == endPosition+1 &&
 		*startOffset == 0 &&
 		*endOffset == 0) {
-		return errors.Newf(
+		return false, errors.Newf(
 			"deletion start domain %d is greater than deletion end domain %d",
 			startPosition,
 			endPosition,
-		), false
+		)
 	}
 
 	if startPosition == endPosition && *startOffset+*endOffset > startPtrLen {
-		return errors.Newf(
+		return false, errors.Newf(
 			"deletion start offset %d is after end offset %d for length %d",
 			*startOffset,
 			*endOffset,
 			idx.mu.pointers[startPosition].length,
-		), false
+		)
 	}
 
 	if (startPosition == endPosition-1 && *startOffset == endPtrLen && *endOffset == endPtrLen) ||
 		startPosition == endPosition && *startOffset+*endOffset == startPtrLen {
-		return nil, false
+		return false, nil
 	}
 
-	return nil, true
+	return true, nil
 }

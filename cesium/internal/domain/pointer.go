@@ -20,11 +20,15 @@ type pointer struct {
 	// follows the behavior of telem.TimeRange in that the starting point is inclusive,
 	// while the ending point is exclusive. If two domains share a common start and end
 	// point, they are considered continuous.
+	// 16 bytes
 	telem.TimeRange
-	// fileKey
+	// fileKey is the numeric key of the file where the data is stored.
+	// 2 bytes
 	fileKey uint16
 	// offset is the offset of the domain within the file.
+	// 4 bytes
 	offset uint32
 	// length is the length of the domain within the file.
+	// 4 bytes
 	length uint32
 }

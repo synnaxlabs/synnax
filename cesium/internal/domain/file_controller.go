@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -50,7 +51,7 @@ type fileController struct {
 		open map[uint16]controlledWriter
 		// unopened is a set of file keys to files that are not oversize and do not have
 		// any file handles for them in open.
-		unopened map[uint16]struct{}
+		unopened set.Set[uint16]
 	}
 	readers struct {
 		sync.RWMutex
@@ -80,9 +81,10 @@ func openFileController(cfg Config) (*fileController, error) {
 	fc.writers.open = make(map[uint16]controlledWriter, cfg.MaxDescriptors)
 	fc.readers.files = make(map[uint16]*fileReaders)
 	fc.release = make(chan struct{}, cfg.MaxDescriptors)
-
-	fc.writers.unopened, err = fc.scanUnopenedFiles()
-	return fc, err
+	if fc.writers.unopened, err = fc.scanUnopenedFiles(); err != nil {
+		return nil, err
+	}
+	return fc, nil
 }
 
 // realFileSizeCap returns the maximum allowed size of a file — though it may be
@@ -93,8 +95,8 @@ func (fc *fileController) realFileSizeCap() telem.Size {
 	return telem.Size(math.Round(1.25 * float64(fc.FileSize)))
 }
 
-func (fc *fileController) scanUnopenedFiles() (map[uint16]struct{}, error) {
-	unopened := make(map[uint16]struct{})
+func (fc *fileController) scanUnopenedFiles() (set.Set[uint16], error) {
+	unopened := make(set.Set[uint16])
 	for i := 1; i <= int(fc.counter.Value()); i++ {
 		e, err := fc.Config.FS.Exists(fileKeyToName(uint16(i)))
 		if err != nil {
@@ -109,7 +111,7 @@ func (fc *fileController) scanUnopenedFiles() (map[uint16]struct{}, error) {
 			return unopened, err
 		}
 		if s.Size() < int64(fc.FileSize) {
-			unopened[uint16(i)] = struct{}{}
+			unopened.Add(uint16(i))
 		}
 	}
 

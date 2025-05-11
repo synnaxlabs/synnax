@@ -11,8 +11,6 @@ package atomic_test
 
 import (
 	"sync"
-	"sync/atomic"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -70,21 +68,3 @@ var _ = Describe("Counter", func() {
 	})
 
 })
-
-func BenchmarkABC(b *testing.B) {
-	ch := make(chan struct{})
-	for b.Loop() {
-		select {
-		case <-ch:
-		default:
-		}
-	}
-}
-
-func BenchmarkBCD(b *testing.B) {
-	v := &atomic.Bool{}
-	v.Store(true)
-	for b.Loop() {
-		v.Load()
-	}
-}

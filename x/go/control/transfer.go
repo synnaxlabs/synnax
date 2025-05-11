@@ -59,10 +59,10 @@ func (s State[R]) String() string {
 // If both From and To are nil, no transfer occurred. If both From and To are not nil,
 // and From.Subject != To.Subject, a transfer occurred.
 type Transfer[R comparable] struct {
-	// From represents the control state before the transfer. If From is nil, the entity
+	// From is the control state before the transfer. If From is nil, the entity
 	// was uncontrolled before the transfer.
 	From *State[R]
-	// To represents the control state after the transfer. If To is nil, the entity is
+	// To is the control state after the transfer. If To is nil, the entity is
 	// uncontrolled after the transfer.
 	To *State[R]
 }

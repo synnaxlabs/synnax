@@ -223,19 +223,19 @@ func (w *Writer) Write(p []byte) (int, error) {
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	var (
 		now = telem.Now()
-		// the only time we do not persist is when EnableAutoCommit and the interval is
+		// the only time we do not shouldPersist is when EnableAutoCommit and the interval is
 		// not met yet.
-		persist = !(*w.EnableAutoCommit && w.lastIndexPersist.Span(now) < w.AutoIndexPersistInterval)
+		shouldPersist = !(*w.EnableAutoCommit && w.lastIndexPersist.Span(now) < w.AutoIndexPersistInterval)
 	)
 
-	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 && persist {
+	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 && shouldPersist {
 		w.lastIndexPersist = now
 	}
 
-	return w.commit(ctx, end, persist)
+	return w.commit(ctx, end, shouldPersist)
 }
 
-func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) error {
+func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, shouldPersist bool) error {
 	ctx, span := w.T.Prod(ctx, "commit")
 	defer span.End()
 
@@ -269,7 +269,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
 
-	err := span.Error(f(ctx, ptr, persist))
+	err := span.Error(f(ctx, ptr, shouldPersist))
 	if err != nil {
 		return span.Error(err)
 	}
@@ -312,7 +312,7 @@ func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (telem.TimeStamp, bool) {
 
 // Close closes the writer, releasing any resources it may have been holding. Any
 // uncommitted data will be discarded. Any committed, but unpersisted data will be
-// persisted. Close is idempotent, and is also not safe to call concurrently with any
+// persisted. Close is idempotent and is also not safe to call concurrently with any
 // other writer methods.
 func (w *Writer) Close() error {
 	if w.closed {

@@ -54,7 +54,7 @@ var _ = Describe("Write", func() {
 					Subject:               control.Subject{Key: "bar"},
 					ErrOnUnauthorizedOpen: config.True(),
 				})
-				Expect(err).To(HaveOccurredAs(control.Unauthorized))
+				Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(w2).To(BeNil())
 				t = MustSucceed(w1.Close())
@@ -79,7 +79,7 @@ var _ = Describe("Write", func() {
 				}))
 				Expect(t.Occurred()).To(BeFalse())
 				_, err := w2.Write(telem.NewSecondsTSV(10, 11, 12))
-				Expect(err).To(HaveOccurredAs(control.Unauthorized))
+				Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
 				MustSucceed(w1.Write(telem.NewSecondsTSV(10, 11, 12)))
 				t = MustSucceed(w1.Close())
 				Expect(t.Occurred()).To(BeTrue())
@@ -150,7 +150,7 @@ var _ = Describe("Write", func() {
 				Expect(t.Occurred()).To(BeFalse())
 
 				_, err := w2.Write(telem.NewSecondsTSV(10, 11, 12))
-				Expect(err).To(HaveOccurredAs(control.Unauthorized))
+				Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
 				t = w2.SetAuthority(control.Absolute - 1)
 				Expect(t.Occurred()).To(BeTrue())
 

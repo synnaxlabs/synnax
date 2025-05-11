@@ -160,7 +160,7 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 
 func (db *DB) validateNewChannel(ch Channel) error {
 	v := validate.New("cesium")
-	validate.NonNegative(v, "key", ch.Key)
+	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data_type", ch.DataType)
 	validate.NotEmptyString(v, "name", ch.Name)
 	v.Exec(func() error {

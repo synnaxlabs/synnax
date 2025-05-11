@@ -10,11 +10,12 @@
 package gossip
 
 import (
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"time"
 )
 
 // Config sets specific parameters for the gossip service. See DefaultConfig
@@ -50,7 +51,7 @@ func (cfg Config) Validate() error {
 	validate.NotNil(v, "TransportClient", cfg.TransportClient)
 	validate.NotNil(v, "TransportServer", cfg.TransportServer)
 	validate.NotNil(v, "Store", cfg.Store)
-	validate.NonNegative(v, "Interval", cfg.Interval)
+	validate.Positive(v, "Interval", cfg.Interval)
 	return v.Error()
 }
 

@@ -91,8 +91,8 @@ func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
 func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
 	var (
 		channels   []channel.Channel
-		calculated = make(set.Set[channel.Key, channel.Channel], len(channels))
-		required   = make(set.Set[channel.Key, channel.Channel], len(channels))
+		calculated = make(set.Mapped[channel.Key, channel.Channel], len(channels))
+		required   = make(set.Mapped[channel.Key, channel.Channel], len(channels))
 	)
 	if err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(cfg.Keys...).
