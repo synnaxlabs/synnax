@@ -182,8 +182,8 @@ public:
             }
             writer = std::make_unique<synnax::Writer>(std::move(su));
         }
-        auto (!writer->write(synnax::Frame(chan.key, telem::Series(state.to_json()))));
-            return;
+        auto(!writer->write(synnax::Frame(chan.key, telem::Series(state.to_json()))));
+        return;
         auto err = writer->close();
         LOG(ERROR) << "[task.context] failed to write task state update" << err;
         writer = nullptr;
