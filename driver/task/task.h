@@ -175,14 +175,13 @@ public:
                 synnax::WriterConfig{.channels = {ch.key}}
             );
             if (err) {
-                LOG(ERROR
-                ) << "[task.context] failed to open writer to update task state"
+                LOG(ERROR) << "[task.context] failed to open writer to update task state"
                   << su_err.message();
                 return;
             }
             writer = std::make_unique<synnax::Writer>(std::move(su));
         }
-        auto (!writer->write(synnax::Frame(chan.key, telem::Series(state.to_json()))));
+        if (!writer->write(synnax::Frame(chan.key, telem::Series(state.to_json()))))
             return;
         auto err = writer->close();
         LOG(ERROR) << "[task.context] failed to write task state update" << err;
