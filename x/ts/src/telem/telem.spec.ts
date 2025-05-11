@@ -238,7 +238,7 @@ describe("TimeStamp", () => {
         TimeStamp.microseconds(500).add(TimeSpan.nanoseconds(20)).microseconds,
       ).toEqual(500.02);
     });
-    describe("nanoseconds", () => {
+    test("nanoseconds", () => {
       expect(
         TimeStamp.microseconds(1).add(TimeSpan.nanoseconds(30)).nanoseconds,
       ).toEqual(1030);
@@ -250,7 +250,7 @@ describe("TimeStamp", () => {
       expect(new TimeStamp([2022, 12, 15]).month).toEqual(11);
     });
     test("day", () => {
-      expect(new TimeStamp([2022, 12, 15]).day).toEqual(14);
+      expect(new TimeStamp([2022, 12, 15]).day).toEqual(15);
     });
   });
 

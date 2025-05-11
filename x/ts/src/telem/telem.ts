@@ -383,7 +383,7 @@ export class TimeStamp implements Stringer {
 
   /** @returns the integer month that the timestamp corresponds to with its year. */
   get month(): number {
-    return this.date().getMonth();
+    return this.date().getUTCMonth();
   }
 
   /**
@@ -392,13 +392,13 @@ export class TimeStamp implements Stringer {
    */
   setMonth(month: number): TimeStamp {
     const d = this.date();
-    d.setMonth(month);
+    d.setUTCMonth(month);
     return new TimeStamp(d);
   }
 
   /** @returns the integer day that the timestamp corresponds to within its month. */
   get day(): number {
-    return this.date().getDate();
+    return this.date().getUTCDate();
   }
 
   /**
@@ -407,7 +407,7 @@ export class TimeStamp implements Stringer {
    */
   setDay(day: number): TimeStamp {
     const d = this.date();
-    d.setDate(day);
+    d.setUTCDate(day);
     return new TimeStamp(d);
   }
 

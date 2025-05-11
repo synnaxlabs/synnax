@@ -142,9 +142,9 @@ func (c *streamCore[I, O]) Receive() (pld I, err error) {
 		if ws.IsCloseError(err, normalCloseCode) {
 			c.peerCloseErr = freighter.EOF
 		} else if ws.IsCloseError(err, contextCancelledCloseCode) {
-			c.peerCloseErr = freighter.StreamClosed
+			c.peerCloseErr = context.Canceled
 		} else {
-			c.peerCloseErr = freighter.EOF
+			c.peerCloseErr = freighter.StreamClosed
 		}
 		return pld, c.peerCloseErr
 	}
