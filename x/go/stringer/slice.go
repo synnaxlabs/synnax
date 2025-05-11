@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-func TruncateSlice[T any](slice []T, maxDisplayValues int) (first []T, last []T) {
+func TruncateSlice[T any](slice []T, maxDisplayValues int) (first, last []T) {
 	if len(slice) <= maxDisplayValues || maxDisplayValues <= 0 {
 		first = slice
 		return
@@ -26,8 +26,9 @@ func TruncateSlice[T any](slice []T, maxDisplayValues int) (first []T, last []T)
 	return
 }
 
-// TruncateAndFormatSlice returns a string representation of a slice, showing only the first and last few elements
-// if the slice is longer than maxDisplayValues. The displayed elements are split evenly between the start and end.
+// TruncateAndFormatSlice returns a string representation of a slice, showing only the
+// first and last few elements if the slice is longer than maxDisplayValues. The
+// displayed elements are split evenly between the start and end.
 func TruncateAndFormatSlice[T any](
 	slice []T,
 	maxDisplayValues int,

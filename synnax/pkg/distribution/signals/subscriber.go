@@ -128,8 +128,8 @@ func (s *Provider) Subscribe(
 		return changes, len(changes) > 0, nil
 	})
 	p := plumber.New()
-	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](p, "streamer", streamer)
-	plumber.SetSink[framer.StreamerResponse](p, "observable", obs)
+	plumber.SetSegment(p, "streamer", streamer)
+	plumber.SetSink(p, "observable", obs)
 	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "observable", 10)
 	inlet := confluence.NewStream[framer.StreamerRequest]()
 	streamer.InFrom(inlet)

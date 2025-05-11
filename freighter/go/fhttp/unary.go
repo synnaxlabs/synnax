@@ -16,14 +16,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/synnaxlabs/x/errors"
-
 	"github.com/gofiber/fiber/v2"
-	"github.com/samber/lo"
-
 	"github.com/gofiber/fiber/v2/utils"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/httputil"
 )
 

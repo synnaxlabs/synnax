@@ -190,10 +190,10 @@ func (c *Factory) CreateNodePair() error {
 	base.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
 
 	for _, h := range c.Hosts {
-		if ip := net.ParseIP(h.HostString()); ip != nil {
+		if ip := net.ParseIP(h.Host()); ip != nil {
 			base.IPAddresses = append(base.IPAddresses, ip)
 		} else {
-			base.DNSNames = append(base.DNSNames, h.HostString())
+			base.DNSNames = append(base.DNSNames, h.Host())
 		}
 	}
 
