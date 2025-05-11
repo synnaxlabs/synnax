@@ -288,7 +288,7 @@ var _ = Describe("Codec", func() {
 			Expect(builder.Close()).To(Succeed())
 			Expect(builder.Cleanup()).To(Succeed())
 		})
-		ShouldNotLeakGoroutinesDuringEach()
+		ShouldNotLeakGoroutinesBeforeEach()
 
 		It("Should allow the caller to update the list of channels", func() {
 			codec := codec.NewDynamic(channelSvc)

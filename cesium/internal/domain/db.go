@@ -39,7 +39,7 @@ import (
 // at once.
 //
 // It's important to note that a DB is heavily optimized for large (several megabytes to
-// gigabytes), append only writes. While small, out of order writes are valid, the user
+// gigabytes), append only writes. While small, out-of-order writes are valid, the user
 // will see a heavy performance hit.
 //
 // A DB must be closed after use to avoid leaking any underlying resources/locks.

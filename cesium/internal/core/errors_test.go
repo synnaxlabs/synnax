@@ -23,7 +23,7 @@ var _ = Describe("Errors", func() {
 		It("Should return an error with the correct message", func() {
 			err := core.NewErrChannelNotFound(1)
 			Expect(err).To(HaveOccurredAs(core.ErrChannelNotFound))
-			Expect(err).To(MatchError(ContainSubstring("channel 1 not found")))
+			Expect(err).To(MatchError(ContainSubstring("channel with key 1 not found")))
 		})
 	})
 
