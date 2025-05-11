@@ -165,7 +165,7 @@ func (s *Server) serveSecure(sCtx signal.Context, lis net.Listener) error {
 
 	sCtx.Go(func(ctx context.Context) error {
 		return filterCloserError(root.Serve())
-	}, signal.WithKey("rootMux"), signal.RecoverWithErrOnPanic())
+	}, signal.WithKey("root_mux"), signal.RecoverWithErrOnPanic())
 
 	close(s.started)
 	return sCtx.Wait()
@@ -214,7 +214,7 @@ func (s *Server) baseBranchContext() BranchContext {
 	return BranchContext{
 		Debug:      *s.Debug,
 		Security:   s.Security,
-		ServerName: s.ListenAddress.HostString(),
+		ServerName: s.ListenAddress.Host(),
 	}
 }
 

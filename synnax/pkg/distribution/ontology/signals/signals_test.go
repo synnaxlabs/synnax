@@ -11,6 +11,8 @@ package signals_test
 
 import (
 	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -27,7 +29,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"time"
 )
 
 type changeService struct {
@@ -52,7 +53,7 @@ func (s *changeService) Schema() *ontology.Schema {
 }
 
 func (s *changeService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	return iter.NexterNopCloser[ontology.Resource](iter.All[ontology.Resource](nil)), nil
+	return iter.NexterNopCloser(iter.All[ontology.Resource](nil)), nil
 }
 
 func (s *changeService) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
@@ -99,7 +100,7 @@ var _ = Describe("Signals", Ordered, func() {
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
 			svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
-				return iter.All[schema.Change]([]schema.Change{
+				return iter.All([]schema.Change{
 					{
 						Variant: change.Set,
 						Key:     newChangeID(key),
@@ -132,7 +133,7 @@ var _ = Describe("Signals", Ordered, func() {
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
 			svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
-				return iter.All[schema.Change]([]schema.Change{
+				return iter.All([]schema.Change{
 					{
 						Variant: change.Delete,
 						Key:     newChangeID(key),

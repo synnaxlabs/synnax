@@ -14,11 +14,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/gorp"
@@ -185,7 +184,7 @@ func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (on
 // OpenNexter implements ontology.Service.Relationship
 func (s *OntologyService) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
 	return iter.NexterNopCloser(
-		iter.All[schema.Resource]([]schema.Resource{
+		iter.All([]schema.Resource{
 			//newClusterResource(s.Cluster.Key()),
 		}),
 	), nil

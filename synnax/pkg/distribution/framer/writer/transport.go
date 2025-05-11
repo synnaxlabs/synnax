@@ -30,7 +30,7 @@ const (
 	SetAuthority
 )
 
-var validateCommand = validate.NewEnumBoundsChecker(Open, SetAuthority)
+var validateCommand = validate.NewInclusiveBoundsChecker(Open, SetAuthority)
 
 type Mode = ts.WriterMode
 

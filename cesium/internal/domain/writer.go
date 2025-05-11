@@ -29,20 +29,22 @@ type WriterConfig struct {
 	// overlap with any existing domains within the DB.
 	// [REQUIRED]
 	Start telem.TimeStamp
-	// End is an optional parameter that marks the ending bound of the domain. Defining this
-	// parameter will allow the writer to write data to the domain without needing to
-	// validate each call to Commit. If this parameter is not defined, Commit must
-	// be called with a strictly increasing timestamp.
+	// End is an optional parameter that marks the ending bound of the domain. Defining
+	// this parameter will allow the writer to write data to the domain without needing
+	// to validate each call to Commit. If this parameter is not defined, Commit must be
+	// called with a strictly increasing timestamp.
 	// [OPTIONAL]
 	End telem.TimeStamp
-	// EnableAutoCommit determines whether the writer will automatically commit after each write.
-	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
+	// EnableAutoCommit determines whether the writer will automatically commit after
+	// each write. If EnableAutoCommit is true, then the writer will commit after each
+	// write, and will flush that commit to index on FS after the specified
+	// AutoIndexPersistInterval.
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit *bool
-	// AutoIndexPersistInterval is the frequency at which the changes to index are persisted to the
-	// disk. If AutoIndexPersistInterval <=0, then the writer persists changes to disk after every commit.
-	// Setting an AutoIndexPersistInterval is invalid if EnableAutoCommit is off.
+	// AutoIndexPersistInterval is the frequency at which the changes to index are
+	// persisted to the disk. If AutoIndexPersistInterval <=0, then the writer persists
+	// changes to disk after every commit. Setting an AutoIndexPersistInterval is
+	// invalid if EnableAutoCommit is off.
 	// [OPTIONAL] Defaults to 1s
 	AutoIndexPersistInterval telem.TimeSpan
 }
@@ -54,8 +56,9 @@ var (
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
-// Domain returns the Domain occupied by the theoretical domain formed by the configuration.
-// If End is not set, assumes the Domain has a zero span starting at Start.
+// Domain returns the Domain occupied by the theoretical domain formed by the
+// configuration. If End is not set, assumes the Domain has a zero span starting at
+// Start.
 func (w WriterConfig) Domain() telem.TimeRange {
 	if w.End.IsZero() {
 		return w.Start.SpanRange(0)
@@ -94,18 +97,18 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) (err er
 	return w.Commit(ctx, tr.End)
 }
 
-// Writer is used to write a telemetry domain to the DB. A Writer is opened using DB.OpenWriter
-// and a provided WriterConfig, which defines the starting bound of the domain. If no
-// other domain overlaps with the starting bound, the caller can write telemetry data the
-// Writer using an io.TypedWriter interface.
+// Writer is used to write a telemetry domain to the DB. A Writer is opened using
+// DB.OpenWriter and a provided WriterConfig, which defines the starting bound of the
+// domain. If no other domain overlaps with the starting bound, the caller can write
+// telemetry data the Writer using an io.TypedWriter interface.
 //
 // Once the caller is done writing telemetry data, they must call Commit and provide the
 // ending bound of the domain. If the ending bound of the domain overlaps with any other
-// domains within the DB, Commit will return an error, and the domain will not be committed.
-// If the caller explicitly knows the ending bound of the domain, they can set the WriterConfig.End
-// parameter to pre-validate the ending bound of the domain. If the WriterConfig.End parameter
-// is set, Commit will ignore the provided timestamp and use the WriterConfig.End parameter
-// instead.
+// domains within the DB, Commit will return an error, and the domain will not be
+// committed. If the caller explicitly knows the ending bound of the domain, they can
+// set the WriterConfig.End parameter to pre-validate the ending bound of the domain. If
+// the WriterConfig.End parameter is set, Commit will ignore the provided timestamp and
+// use the WriterConfig.End parameter instead.
 //
 // A Writer is not safe for concurrent use, but it is safe to have multiple writer and
 // iterators open concurrently over the same DB.
@@ -116,8 +119,8 @@ type Writer struct {
 	prevCommit telem.TimeStamp
 	// idx is the underlying index for the database that stores locations of domains in FS.
 	idx *index
-	// fileKey represents the key of the file written to by the writer. One can convert it
-	// to a filename via the fileKeyToName function.
+	// fileKey represents the key of the file written to by the writer. One can convert
+	// it to a filename via the fileKeyToName function.
 	fileKey uint16
 	// fc is the file controller for the writer's FS.
 	fc *fileController
@@ -127,21 +130,22 @@ type Writer struct {
 	len int64
 	// internal is a TrackedWriteCloser used to write telemetry to FS.
 	internal xio.TrackedWriteCloser
-	// presetEnd denotes whether the writer has a preset end as part of its WriterConfig.
-	// If it does, then commits to the writer will use that end as the end of the domain.
+	// presetEnd denotes whether the writer has a preset end as part of its
+	// WriterConfig. If it does, then commits to the writer will use that end as the end
+	// of the domain.
 	presetEnd bool
-	// lastIndexPersist stores the timestamp of the last time changes to index were flushed
-	// to disk.
+	// lastIndexPersist stores the timestamp of the last time changes to index were
+	// flushed to disk.
 	lastIndexPersist telem.TimeStamp
-	// closed denotes whether the writer is closed. A closed writer returns an error when
-	// attempts to Write or Commit with it are made.
+	// closed denotes whether the writer is closed. A closed writer returns an error
+	// when attempts to Write or Commit with it are made.
 	closed bool
 	// onClose is called when the writer is closed.
 	onClose func()
 }
 
-// OpenWriter opens a new Writer using the given configuration.
-// If err is nil, then the writer must be closed.
+// OpenWriter opens a new Writer using the given configuration. If err is nil, then the
+// writer must be closed.
 func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	if db.closed.Load() {
 		return nil, ErrDBClosed
@@ -177,8 +181,8 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		},
 	}
 
-	// If we don't have a preset end, we defer to using the start of the next domain
-	// as the end of the new domain.
+	// If we don't have a preset end, we defer to using the start of the next domain as
+	// the end of the new domain.
 	if !w.presetEnd {
 		ptr, ok := w.idx.getGE(ctx, cfg.Start)
 		if !ok {
@@ -206,31 +210,32 @@ func (w *Writer) Write(p []byte) (int, error) {
 	return n, err
 }
 
-// Commit commits the domain to the DB, making it available for reading by other processes.
-// If the WriterConfig.End parameter was set, Commit will ignore the provided timestamp
-// and use the WriterConfig.End parameter instead. If the WriterConfig.End parameter was
-// not set, Commit will validate that the provided timestamp is strictly greater than the
-// previous commit. If the provided timestamp is not strictly greater than the previous
-// commit, Commit will return an error. If the domain formed by the WriterConfig.Start
-// and the provided timestamp overlaps with any other domains within the DB, Commit will
-// return an ErrWriteConflict.
-// If WriterCommit.AutoIndexPersistInterval is greater than 0, then the changes committed would only
-// be persisted to disk after the set interval.
+// Commit commits the domain to the DB, making it available for reading by other
+// processes. If the WriterConfig.End parameter was set, Commit will ignore the provided
+// timestamp and use the WriterConfig.End parameter instead. If the WriterConfig.End
+// parameter was not set, Commit will validate that the provided timestamp is strictly
+// greater than the previous commit. If the provided timestamp is not strictly greater
+// than the previous commit, Commit will return an error. If the domain formed by the
+// WriterConfig.Start and the provided timestamp overlaps with any other domains within
+// the DB, Commit will return an ErrWriteConflict. If
+// WriterCommit.AutoIndexPersistInterval is greater than 0, then the changes committed
+// would only be persisted to disk after the set interval.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	var (
 		now = telem.Now()
-		// the only time we do not persist is when EnableAutoCommit and the interval is not met yet.
-		persist = !(*w.EnableAutoCommit && w.lastIndexPersist.Span(now) < w.AutoIndexPersistInterval)
+		// the only time we do not shouldPersist is when EnableAutoCommit and the interval is
+		// not met yet.
+		shouldPersist = !(*w.EnableAutoCommit && w.lastIndexPersist.Span(now) < w.AutoIndexPersistInterval)
 	)
 
-	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 && persist {
+	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 && shouldPersist {
 		w.lastIndexPersist = now
 	}
 
-	return w.commit(ctx, end, persist)
+	return w.commit(ctx, end, shouldPersist)
 }
 
-func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) error {
+func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, shouldPersist bool) error {
 	ctx, span := w.T.Prod(ctx, "commit")
 	defer span.End()
 
@@ -264,7 +269,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
 
-	err := span.Error(f(ctx, ptr, persist))
+	err := span.Error(f(ctx, ptr, shouldPersist))
 	if err != nil {
 		return span.Error(err)
 	}
@@ -292,7 +297,8 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 	return nil
 }
 
-// resolveCommitEnd returns whether a file change is needed, the resolved commit end, and any errors.
+// resolveCommitEnd returns whether a file change is needed, the resolved commit end,
+// and any errors.
 func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (telem.TimeStamp, bool) {
 	// fc.Config.Filesize is the nominal file size to not exceed, in reality, this value
 	// is set to 0.8 * the actual file size cap. Therefore, we only need to switch files
@@ -305,8 +311,9 @@ func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (telem.TimeStamp, bool) {
 }
 
 // Close closes the writer, releasing any resources it may have been holding. Any
-// uncommitted data will be discarded. Any committed, but unpersisted data will be persisted.
-// Close is idempotent, and is also not safe to call concurrently with any other writer methods.
+// uncommitted data will be discarded. Any committed, but unpersisted data will be
+// persisted. Close is idempotent and is also not safe to call concurrently with any
+// other writer methods.
 func (w *Writer) Close() error {
 	if w.closed {
 		return nil

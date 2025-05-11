@@ -103,14 +103,14 @@ var _ = Describe("Validate", func() {
 		})
 
 		Describe("Numeric Validations", func() {
-			Describe("NonNegative", func() {
+			Describe("Positive", func() {
 				It("Should validate positive numbers", func() {
-					Expect(validate.NonNegative(v, "field", 42)).To(BeFalse())
+					Expect(validate.Positive(v, "field", 42)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())
 				})
 
 				It("Should catch non-positive numbers", func() {
-					Expect(validate.NonNegative(v, "field", 0)).To(BeTrue())
+					Expect(validate.Positive(v, "field", 0)).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 			})

@@ -194,8 +194,7 @@ func BenchmarkCalculator(b *testing.B) {
 	data1 := telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 	data2 := telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = calc.Next(core.MultiFrame(
 			[]channel.Key{inCh1.Key(), inCh2.Key()},
 			[]telem.Series{data1, data2},

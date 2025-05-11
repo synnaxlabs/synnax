@@ -109,7 +109,7 @@ var _ = Describe("Frame", func() {
 		It("Should correctly filter keys for a frame with more than 128 entries", func() {
 			keys := make([]int, 256)
 			series := make([]telem.Series, 256)
-			for i := 0; i < 256; i++ {
+			for i := range 256 {
 				keys[i] = i
 				series[i] = telem.NewSeriesV[int32](int32(i), int32(i+1), int32(i+2))
 			}
@@ -572,7 +572,7 @@ var _ = Describe("Frame", func() {
 		It("Should correctly handle a filtered frame with more than 128 entries", func() {
 			keys := make([]int, 200)
 			series := make([]telem.Series, 200)
-			for i := 0; i < 200; i++ {
+			for i := range 200 {
 				keys[i] = 199 - i
 				series[i] = telem.NewSeriesV[int32](int32(i), int32(i+1))
 			}

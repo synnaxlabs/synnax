@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	registry.RegisterTokenizer(separatorTokenizer, func(config map[string]interface{}, cache *registry.Cache) (analysis.Tokenizer, error) {
+	registry.RegisterTokenizer(separatorTokenizer, func(config map[string]any, cache *registry.Cache) (analysis.Tokenizer, error) {
 		return &SepTokenizer{}, nil
 	})
 }

@@ -89,7 +89,7 @@ var _ = Describe("Rand", func() {
 		})
 		It("Should not introduce any duplicate indexes", func() {
 			slc := make([]int, 1000)
-			for i := 0; i < 1000; i++ {
+			for i := range 1000 {
 				slc[i] = i
 			}
 			sub := rand.SubSlice(slc, 800)

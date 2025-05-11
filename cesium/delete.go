@@ -61,9 +61,9 @@ func (g GCConfig) Override(other GCConfig) GCConfig {
 // Validate implements config.Config.
 func (g GCConfig) Validate() error {
 	v := validate.New("cesium.GCConfig")
-	validate.NonNegative(v, "gc_try_interval", g.GCTryInterval)
-	validate.NonNegative(v, "gc_threshold", g.GCThreshold)
-	validate.NonNegative(v, "max_goroutine", g.MaxGoroutine)
+	validate.Positive(v, "gc_try_interval", g.GCTryInterval)
+	validate.Positive(v, "gc_threshold", g.GCThreshold)
+	validate.Positive(v, "max_goroutine", g.MaxGoroutine)
 	return v.Error()
 }
 

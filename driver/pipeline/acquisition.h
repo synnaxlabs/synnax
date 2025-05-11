@@ -30,7 +30,8 @@ public:
     /// pipeline will exit. It's recommended that the caller return a sub-error of
     /// driver::CRITICAL_HARDWARE_ERROR for any error that is not recoverable, as
     /// this improved traceability.
-    virtual xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &data) = 0;
+    [[nodiscard]] virtual xerrors::Error
+    read(breaker::Breaker &breaker, synnax::Frame &data) = 0;
 
     /// @brief communicates an error encountered by the acquisition pipeline that
     /// caused it to shut down or occurred during commanded shutdown. Note that this
@@ -50,18 +51,17 @@ public:
 /// production, and to mock objects during testing).
 class Writer {
 public:
-    /// @brief writes the given frame of telemetry to the writer. If the write fails
-    /// or the writer accumulates an error, the writer should return false. When
-    /// false is returned, the acquisition pipeline will close the writer and
-    /// conditionally trigger a retry (see the close method).
-    virtual xerrors::Error write(const synnax::Frame &fr) = 0;
+    /// @brief writes the given frame of telemetry to the writer. Returns a non-nil
+    /// error if the write fails, at which point the acquisition pipeline will
+    /// close the writer and conditionally trigger a retry (see the close method).
+    [[nodiscard]] virtual xerrors::Error write(const synnax::Frame &fr) = 0;
 
     /// @brief closes the writer, returning any error that occurred during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
     /// acquisition pipeline will trigger a breaker (temporary backoff), and then
     /// retry until the configured number of maximum retries is exceeded. Any other
     /// error will be considered permanent and the pipeline will exit.
-    virtual xerrors::Error close() = 0;
+    [[nodiscard]] virtual xerrors::Error close() = 0;
 
     virtual ~Writer() = default;
 };
@@ -92,10 +92,10 @@ public:
     explicit SynnaxWriter(synnax::Writer internal);
 
     /// @brief implements pipeline::Writer to write the frame to Synnax.
-    xerrors::Error write(const synnax::Frame &fr) override;
+    [[nodiscard]] xerrors::Error write(const synnax::Frame &fr) override;
 
     /// @brief implements pipeline::Writer to close the writer.
-    xerrors::Error close() override;
+    [[nodiscard]] xerrors::Error close() override;
 };
 
 /// @brief an implementation of the pipeline::WriterFactory interface that is
@@ -108,7 +108,7 @@ public:
     explicit SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client);
 
     /// @brief implements pipeline::WriterFactory to open a Synnax writer.
-    std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error>
+    [[nodiscard]] std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error>
     open_writer(const synnax::WriterConfig &config) override;
 };
 

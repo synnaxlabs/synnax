@@ -30,4 +30,4 @@ var _ gorp.Entry[uuid.UUID] = LinePlot{}
 func (p LinePlot) GorpKey() uuid.UUID { return p.Key }
 
 // SetOptions implements gorp.Entry.
-func (p LinePlot) SetOptions() []interface{} { return nil }
+func (p LinePlot) SetOptions() []any { return nil }

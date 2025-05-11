@@ -81,7 +81,7 @@ var _ = Describe("Streamer Behavior", func() {
 				})
 			})
 
-			Describe("Writer is in WriterPersistOnly mode", func() {
+			Describe("Writer is in PersistOnly mode", func() {
 				It("Should not receive any frames", func() {
 					var basic2 cesium.ChannelKey = 3
 					By("Creating a channel")

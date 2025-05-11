@@ -67,7 +67,7 @@ func (s Series) Samples() iter.Seq[[]byte] {
 				buf    []byte
 				offset int
 			)
-			for i := 0; i < len(s.Data); i++ {
+			for i := range s.Data {
 				if s.Data[i] == newLineChar {
 					buf = s.Data[offset:i]
 					offset = i + 1
@@ -94,7 +94,7 @@ func (s Series) At(i int) []byte {
 	}
 	if s.DataType.IsVariable() {
 		var offset int
-		for j := 0; j < len(s.Data); j++ {
+		for j := range s.Data {
 			if s.Data[j] == newLineChar {
 				if i == 0 {
 					return s.Data[offset:j]
@@ -244,7 +244,7 @@ func (s Series) DataString() string {
 			return fmt.Sprintf("[%s %v]", first[0], firstDeltaStr)
 		}
 		lastDeltas := make([]string, len(last))
-		for i := 0; i < len(last); i++ {
+		for i := range last {
 			lastDeltas[i] = "+" + TimeSpan(last[i]-first[0]).String()
 		}
 		lastDeltaStr := strings.Trim(fmt.Sprintf("%v", lastDeltas), "[]")

@@ -31,4 +31,4 @@ var _ gorp.Entry[uuid.UUID] = Log{}
 func (l Log) GorpKey() uuid.UUID { return l.Key }
 
 // SetOptions implements gorp.Entry.
-func (l Log) SetOptions() []interface{} { return nil }
+func (l Log) SetOptions() []any { return nil }

@@ -80,7 +80,7 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	}
 	release, err := db.lockControllerForNonWriteOp(tr, "has_data_for")
 	if err != nil {
-		return true, errors.Skip(err, control.Unauthorized)
+		return true, errors.Skip(err, control.ErrUnauthorized)
 	}
 	defer release()
 	hasData, err := db.domain.HasDataFor(ctx, tr)

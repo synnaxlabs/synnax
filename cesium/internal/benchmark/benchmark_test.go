@@ -108,7 +108,7 @@ func BenchmarkCesium(b *testing.B) {
 }
 
 func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		b.StopTimer()
 		var (
 			wg                        = sync.WaitGroup{}
@@ -128,7 +128,7 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 
 		b.StartTimer()
 
-		for j := 0; j < cfg.numWriters; j++ {
+		for j := range cfg.numWriters {
 			var writerChannels []cesium.ChannelKey
 
 			// Filter out the index channels we are writing to
@@ -192,9 +192,9 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 					}
 				}
 
-				for k := 0; k < cfg.domainsPerChannel; k++ {
+				for k := range cfg.domainsPerChannel {
 					// Generate the index data for this frame.
-					for l := 0; l < cfg.samplesPerDomain; l++ {
+					for l := range cfg.samplesPerDomain {
 						if l == 0 && k == 0 {
 							indexData[l] = 0
 							continue
@@ -310,9 +310,9 @@ func BenchRead(
 		}
 	}
 
-	for k := 0; k < cfg.domainsPerChannel; k++ {
+	for k := range cfg.domainsPerChannel {
 		// Generate the index data for this frame.
-		for l := 0; l < cfg.samplesPerDomain; l++ {
+		for l := range cfg.samplesPerDomain {
 			if l == 0 && k == 0 {
 				indexData[l] = 0
 				continue
@@ -354,8 +354,7 @@ func BenchRead(
 		b.Error(err)
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err = db.Read(ctx, telem.TimeRangeMax, keys...)
 
 		if err != nil {
@@ -383,7 +382,7 @@ func BenchStream(
 	keys []cesium.ChannelKey,
 	fs xfs.FS,
 ) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		b.StopTimer()
 		var (
 			wg                        = sync.WaitGroup{}
@@ -403,7 +402,7 @@ func BenchStream(
 
 		b.StartTimer()
 
-		for j := 0; j < cfg.numWriters; j++ {
+		for j := range cfg.numWriters {
 			var writerChannels []cesium.ChannelKey
 
 			// Filter out the index channels we are writing to
@@ -478,9 +477,9 @@ func BenchStream(
 					}
 				}
 
-				for k := 0; k < cfg.domainsPerChannel; k++ {
+				for k := range cfg.domainsPerChannel {
 					// Generate the index data for this frame.
-					for l := 0; l < cfg.samplesPerDomain; l++ {
+					for l := range cfg.samplesPerDomain {
 						if l == 0 && k == 0 {
 							indexData[l] = 0
 							continue

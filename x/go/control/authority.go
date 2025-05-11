@@ -17,10 +17,10 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Authority is an 8-bit unsigned integer that represents the authority that a particular
-// controlling subject has over a resource. A higher authority means higher precedence
-// over the resource. Absolute authority (255) maintains exclusive control over the
-// resource.
+// Authority is an 8-bit unsigned integer that represents the authority that a
+// particular controlling subject has over a resource. A higher authority means higher
+// precedence over the resource. Absolute authority (255) maintains exclusive control
+// over the resource.
 type Authority uint8
 
 const (
@@ -33,9 +33,9 @@ const (
 var (
 	// Error is a general classification of control error.
 	Error = errors.New("control")
-	// Unauthorized is returned when a subject does not have authority to perform
+	// ErrUnauthorized is returned when a subject does not have authority to perform
 	// actions on a resource.
-	Unauthorized = errors.Wrap(Error, "unauthorized")
+	ErrUnauthorized = errors.Wrap(Error, "unauthorized")
 )
 
 // Concurrency defines whether a resource can have multiple subjects acting on it at once.
@@ -49,18 +49,18 @@ const (
 )
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
-	if errors.Is(err, Unauthorized) {
+	if errors.Is(err, ErrUnauthorized) {
 		return errors.Payload{Type: unauthorized, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false
 }
 
 func decode(_ context.Context, p errors.Payload) (error, bool) {
-	if !strings.HasPrefix(p.Type, "sy.control") {
+	if !strings.HasPrefix(p.Type, errorPrefix) {
 		return nil, false
 	}
 	if p.Type == unauthorized {
-		return errors.Wrap(Unauthorized, p.Data), true
+		return errors.Wrap(ErrUnauthorized, p.Data), true
 	}
 	return errors.Wrap(Error, p.Data), true
 }

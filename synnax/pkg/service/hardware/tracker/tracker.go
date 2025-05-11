@@ -421,7 +421,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 				state := task.State{
 					Task:    c.Key,
 					Variant: status.WarningVariant,
-					Details: xjson.NewStaticString(ctx, map[string]interface{}{
+					Details: xjson.NewStaticString(ctx, map[string]any{
 						"message": "rack is not alive",
 						"running": false,
 					}),
@@ -434,7 +434,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 						Exec(ctx, t.cfg.DB); err != nil {
 						t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
 					}
-					state.Details = xjson.NewStaticString(ctx, map[string]interface{}{
+					state.Details = xjson.NewStaticString(ctx, map[string]any{
 						"running": "false",
 						"message": fmt.Sprintf("Synnax Driver on %s is not running, so the task may fail to configure. Driver was last alive %s ago.", rck.Name, telem.Since(rackState.LastReceived).Truncate(telem.Second)),
 					})
@@ -494,7 +494,7 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 		msg := fmt.Sprintf("Synnax Driver on %s is not running. Driver was last alive %s ago.", rck.Name, telem.Since(r.LastReceived).Truncate(telem.Second))
 		for _, taskState := range r.Tasks {
 			taskState.Variant = status.WarningVariant
-			taskState.Details = xjson.NewStaticString(ctx, map[string]interface{}{
+			taskState.Details = xjson.NewStaticString(ctx, map[string]any{
 				"message": msg,
 				"running": false,
 			})
@@ -504,7 +504,7 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 		for _, dev := range t.mu.Devices {
 			if dev.Rack == r.Key {
 				dev.Variant = status.WarningVariant
-				dev.Details = xjson.NewStaticString(ctx, map[string]interface{}{
+				dev.Details = xjson.NewStaticString(ctx, map[string]any{
 					"message": msg,
 				})
 				deviceStates = append(deviceStates, dev)

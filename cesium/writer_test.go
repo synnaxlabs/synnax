@@ -446,7 +446,7 @@ var _ = Describe("Writer Behavior", func() {
 						It("Should work with the write method", func() {
 							start := 10 * telem.SecondTS
 
-							for i := 0; i < 100; i++ {
+							for range 100 {
 								stamps := make([]telem.TimeStamp, 100)
 								data := make([]int64, 100)
 								for j := telem.TimeStamp(0); j < 100; j++ {
@@ -1446,7 +1446,7 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 
-			Describe("ErrOnUnauthorizedOpen", func() {
+			Describe("Error On ErrUnauthorized Open", func() {
 				ShouldNotLeakRoutinesJustBeforeEach()
 				var (
 					key        cesium.ChannelKey
@@ -1478,7 +1478,7 @@ var _ = Describe("Writer Behavior", func() {
 				Context("True", func() {
 					It("Should return an error if writer is not authorized to write", func() {
 						w2, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS, ErrOnUnauthorized: config.True()})
-						Expect(err).To(HaveOccurredAs(control.Unauthorized))
+						Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
 						Expect(w2).To(BeNil())
 					})
 				})
@@ -1504,6 +1504,55 @@ var _ = Describe("Writer Behavior", func() {
 					)))
 
 					Expect(w.Close()).To(Succeed())
+				})
+			})
+
+			Describe("Regressions", func() {
+				Specify("High Throughput, Single-Sample Writes, Auto-Commit Enabled", func() {
+					var (
+						index1 = GenerateChannelKey()
+						data1  = GenerateChannelKey()
+						data2  = GenerateChannelKey()
+						data3  = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Name: "Index 1", Key: index1, DataType: telem.TimeStampT, IsIndex: true},
+						cesium.Channel{Name: "Data 1", Key: data1, DataType: telem.Int64T, Index: index1},
+						cesium.Channel{Name: "Data 2", Key: data2, DataType: telem.Uint8T, Index: index1},
+						cesium.Channel{Name: "Data 3", Key: data3, DataType: telem.Float32T, Index: index1},
+					)).To(Succeed())
+
+					now := telem.Now()
+					start := now
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:         []cesium.ChannelKey{index1, data1, data2, data3},
+						Start:            now,
+						EnableAutoCommit: config.True(),
+					}))
+
+					var sampleCount int64 = 1e4
+					for i := range sampleCount {
+						now = telem.Now()
+						authorized := MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
+							[]cesium.ChannelKey{index1, data1, data2, data3},
+							[]telem.Series{
+								telem.NewSeriesV[telem.TimeStamp](now),
+								telem.NewSeriesV[int64](i),
+								telem.NewSeriesV[uint8](uint8(i)),
+								telem.NewSeriesV[float32](float32(i)),
+							},
+						)))
+						Expect(authorized).To(BeTrue())
+					}
+					Expect(w.Close()).To(Succeed())
+
+					data := MustSucceed(db.Read(
+						ctx,
+						telem.TimeRange{Start: start, End: now.Add(1 * telem.Second)},
+						index1, data1, data2, data3,
+					))
+					Expect(data.Len()).To(Equal(sampleCount))
 				})
 			})
 
@@ -1587,5 +1636,6 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 		})
+
 	}
 })

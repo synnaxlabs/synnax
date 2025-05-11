@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package address_test
 
 import (
@@ -12,7 +21,7 @@ var _ = Describe("Factory", func() {
 		It("Should create a factory with localhost and specified port", func() {
 			f := address.NewLocalFactory(8080)
 			addr := f.Next()
-			Expect(addr.HostString()).To(Equal("localhost"))
+			Expect(addr.Host()).To(Equal("localhost"))
 			Expect(addr.Port()).To(Equal(8080))
 		})
 	})
@@ -34,8 +43,8 @@ var _ = Describe("Factory", func() {
 			addr1 := f.Next()
 			addr2 := f.Next()
 
-			Expect(addr1.HostString()).To(Equal("localhost"))
-			Expect(addr2.HostString()).To(Equal("localhost"))
+			Expect(addr1.Host()).To(Equal("localhost"))
+			Expect(addr2.Host()).To(Equal("localhost"))
 		})
 	})
 

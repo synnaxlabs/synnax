@@ -76,7 +76,7 @@ func MatchSeriesDataV[T Sample](data ...T) types.GomegaMatcher {
 	return MatchSeriesData(NewSeriesV[T](data...))
 }
 
-func (m *seriesMatcher) Match(actual interface{}) (success bool, err error) {
+func (m *seriesMatcher) Match(actual any) (success bool, err error) {
 	actualSeries, ok := actual.(Series)
 	if !ok {
 		return false, errors.Newf("MatchSeries matcher expects a Series but got %K", actual)
@@ -96,7 +96,7 @@ func (m *seriesMatcher) Match(actual interface{}) (success bool, err error) {
 	return true, nil
 }
 
-func (m *seriesMatcher) FailureMessage(actual interface{}) string {
+func (m *seriesMatcher) FailureMessage(actual any) string {
 	actualSeries, ok := actual.(Series)
 	if !ok {
 		return fmt.Sprintf("Expected Series but got %K", actual)
@@ -137,7 +137,7 @@ func (m *seriesMatcher) FailureMessage(actual interface{}) string {
 		formatDifferences(differences))
 }
 
-func (m *seriesMatcher) NegatedFailureMessage(actual interface{}) string {
+func (m *seriesMatcher) NegatedFailureMessage(actual any) string {
 	return fmt.Sprintf("Expected series not to match:\n\tActual: %v\n\tExpected: %v",
 		actual, m.expected)
 }
@@ -161,7 +161,7 @@ func MatchFrame[K xtypes.Numeric](expected Frame[K]) types.GomegaMatcher {
 	return &frameMatcher[K]{expected: expected}
 }
 
-func (m *frameMatcher[K]) Match(actual interface{}) (success bool, err error) {
+func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
 	actualFrame, ok := actual.(Frame[K])
 	if !ok {
 		return false, errors.Newf("MatchFrame matcher expects a Frame but got %K", actual)
@@ -183,7 +183,7 @@ func (m *frameMatcher[K]) Match(actual interface{}) (success bool, err error) {
 	return true, nil
 }
 
-func (m *frameMatcher[K]) FailureMessage(actual interface{}) string {
+func (m *frameMatcher[K]) FailureMessage(actual any) string {
 	actualFrame, ok := actual.(Frame[K])
 	if !ok {
 		return fmt.Sprintf("Expected Frame but got %K", actual)
@@ -206,13 +206,13 @@ func (m *frameMatcher[K]) FailureMessage(actual interface{}) string {
 	return "Frames match"
 }
 
-func (m *frameMatcher[K]) NegatedFailureMessage(actual interface{}) string {
+func (m *frameMatcher[K]) NegatedFailureMessage(actual any) string {
 	actualFrame, ok := actual.(Frame[K])
 	if !ok {
 		return fmt.Sprintf("Expected Frame but got %K", actual)
 	}
 	if actualFrame.Count() != m.expected.Count() {
-		return fmt.Sprintf("Frames have different counts: expected %d, got %d",
+		return fmt.Sprintf("Frames have different number of series: expected %d, got %d",
 			m.expected.Count(), actualFrame.Count())
 	}
 	for k := range actualFrame.Keys() {

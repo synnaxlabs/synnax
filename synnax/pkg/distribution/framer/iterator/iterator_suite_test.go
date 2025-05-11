@@ -13,14 +13,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
@@ -49,7 +48,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 		iterNet    = tmock.NewIteratorNetwork()
 		writerNet  = tmock.NewWriterNetwork()
 	)
-	for i := 0; i < n; i++ {
+	for range n {
 		var (
 			c    = builder.New(ctx)
 			cont serviceContainer

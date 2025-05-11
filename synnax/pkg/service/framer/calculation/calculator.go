@@ -103,7 +103,7 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		startAlign = c.hwm.alignment
 		startTS    = c.hwm.timestamp
 		endAlign   = minAlignment
-		os         = telem.AllocSeries(c.ch.DataType, int64(endAlign-startAlign))
+		os         = telem.MakeSeries(c.ch.DataType, int64(endAlign-startAlign))
 	)
 	c.hwm.alignment = minAlignment
 	c.hwm.timestamp = minTimeStamp

@@ -60,7 +60,7 @@ func (f FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 // Validate implements [config.Config].
 func (f FactoryConfig) Validate() error {
 	v := validate.New("cert.Factory")
-	validate.NonNegative(v, "KeySize", f.KeySize)
+	validate.Positive(v, "KeySize", f.KeySize)
 	validate.NotNil(v, "AllowKeyReuse", f.AllowKeyReuse)
 	v.Exec(f.LoaderConfig.Validate)
 	return v.Error()
@@ -190,10 +190,10 @@ func (c *Factory) CreateNodePair() error {
 	base.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
 
 	for _, h := range c.Hosts {
-		if ip := net.ParseIP(h.HostString()); ip != nil {
+		if ip := net.ParseIP(h.Host()); ip != nil {
 			base.IPAddresses = append(base.IPAddresses, ip)
 		} else {
-			base.DNSNames = append(base.DNSNames, h.HostString())
+			base.DNSNames = append(base.DNSNames, h.Host())
 		}
 	}
 

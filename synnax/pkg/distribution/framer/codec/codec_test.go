@@ -181,8 +181,8 @@ var _ = Describe("Codec", func() {
 					telem.NewSeriesV[uint8](1, 2, 3),
 					telem.NewStringsV("cat", "dog"),
 					telem.NewStaticJSONV(
-						map[string]interface{}{"key": "value"},
-						map[string]interface{}{"key": "value2"},
+						map[string]any{"key": "value"},
+						map[string]any{"key": "value2"},
 					),
 				},
 			),
@@ -220,7 +220,7 @@ var _ = Describe("Codec", func() {
 			s3 := telem.NewStringsV("cat", "dog", "rabbit", "frog")
 			s3.TimeRange = telem.NewSecondsRange(1, 5)
 			s3.Alignment = 5
-			s4 := telem.AllocSeries(telem.Uint8T, 5000)
+			s4 := telem.MakeSeries(telem.Uint8T, 5000)
 			s4.Alignment = telem.LeadingAlignment(5000, 5)
 			s4.TimeRange = telem.NewSecondsRange(9999999, 999999999)
 			originalFrame := core.MultiFrame(
@@ -288,7 +288,7 @@ var _ = Describe("Codec", func() {
 			Expect(builder.Close()).To(Succeed())
 			Expect(builder.Cleanup()).To(Succeed())
 		})
-		ShouldNotLeakGoroutinesDuringEach()
+		ShouldNotLeakGoroutinesBeforeEach()
 
 		It("Should allow the caller to update the list of channels", func() {
 			codec := codec.NewDynamic(channelSvc)
@@ -356,7 +356,7 @@ func BenchmarkEncode(b *testing.B) {
 	if err := cd.EncodeStream(nil, w, fr); err != nil {
 		b.Fatalf("failed to encode stream: %v", err)
 	}
-	for range b.N {
+	for b.Loop() {
 		if err := cd.EncodeStream(nil, w, fr); err != nil {
 			b.Fatalf("failed to encode stream: %v", err)
 		}
@@ -370,7 +370,7 @@ func BenchmarkJSONEncode(b *testing.B) {
 		keys,
 		[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 	)
-	for range b.N {
+	for b.Loop() {
 		if _, err := json.Marshal(fr); err != nil {
 			b.Fatalf("failed to encode stream: %v", err)
 		}
@@ -389,7 +389,7 @@ func BenchmarkDecode(b *testing.B) {
 		encoded, _ = cd.Encode(nil, fr)
 		r          = bytes.NewReader(encoded)
 	)
-	for range b.N {
+	for b.Loop() {
 		if _, err := r.Seek(0, 0); err != nil {
 			b.Fatalf("failed to seek: %v", err)
 		}
@@ -409,7 +409,7 @@ func BenchmarkJSONDecode(b *testing.B) {
 		b.Fatalf("failed to encode stream: %v", err)
 	}
 	var v framer.Frame
-	for range b.N {
+	for b.Loop() {
 		if err := json.Unmarshal(encoded, &v); err != nil {
 			b.Fatalf("failed to decode stream: %v", err)
 		}

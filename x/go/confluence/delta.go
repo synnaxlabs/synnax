@@ -12,6 +12,7 @@ package confluence
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/samber/lo"
@@ -161,7 +162,7 @@ func (d *DynamicDeltaMultiplier[V]) disconnect(inlets []Inlet[V]) {
 			))
 			return
 		}
-		d.Source.Out = append(d.Source.Out[:i], d.Source.Out[i+1:]...)
+		d.Source.Out = slices.Delete(d.Source.Out, i, i+1)
 		inlet.Close()
 	}
 }

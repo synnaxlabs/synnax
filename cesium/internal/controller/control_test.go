@@ -255,7 +255,7 @@ var _ = Describe("Control", func() {
 					g2, t, err := c.OpenGate(cfg2)
 					Expect(t.Occurred()).To(BeFalse())
 					Expect(g2).To(BeNil())
-					Expect(err).To(HaveOccurredAs(control.Unauthorized))
+					Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
 				})
 			})
 		})
@@ -295,7 +295,7 @@ var _ = Describe("Control", func() {
 					Expect(e.value).To(Equal(1))
 					Expect(t.Occurred()).To(BeTrue())
 					v, err := g.Authorize()
-					Expect(err).To(HaveOccurredAs(control.Unauthorized))
+					Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
 					Expect(v.value).To(Equal(0))
 				})
 

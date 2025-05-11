@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package core_test
 
 import (
@@ -14,7 +23,7 @@ var _ = Describe("Errors", func() {
 		It("Should return an error with the correct message", func() {
 			err := core.NewErrChannelNotFound(1)
 			Expect(err).To(HaveOccurredAs(core.ErrChannelNotFound))
-			Expect(err).To(MatchError(ContainSubstring("channel 1 not found")))
+			Expect(err).To(MatchError(ContainSubstring("channel with key 1 not found")))
 		})
 	})
 
