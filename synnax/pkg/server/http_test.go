@@ -12,7 +12,6 @@ package server_test
 import (
 	"context"
 	"net/http"
-	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,16 +48,8 @@ var _ = Describe("HTTP", func() {
 				},
 			},
 		}))
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer GinkgoRecover()
-			Expect(b.Serve()).To(Succeed())
-			wg.Done()
-		}()
 		_, err := http.Get("http://localhost:26260/basic")
 		Expect(err).To(Succeed())
-		b.Close()
-		wg.Wait()
+		Expect(b.Close()).To(Succeed())
 	})
 })

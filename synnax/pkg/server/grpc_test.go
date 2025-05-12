@@ -10,13 +10,13 @@
 package server_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
-	"sync"
-	"time"
 )
 
 var _ = Describe("Grpc", func() {
@@ -31,15 +31,7 @@ var _ = Describe("Grpc", func() {
 				&server.GRPCBranch{},
 			},
 		}))
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer GinkgoRecover()
-			Expect(b.Serve()).To(Succeed())
-			wg.Done()
-		}()
 		time.Sleep(10 * time.Millisecond)
-		b.Close()
-		wg.Wait()
+		Expect(b.Close()).To(Succeed())
 	})
 })
