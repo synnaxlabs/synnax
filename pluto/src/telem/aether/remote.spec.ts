@@ -343,6 +343,10 @@ describe("remote", () => {
       streamF = vi.fn();
       streamDestructorF = vi.fn();
 
+      // Read
+      response: MultiSeries = new MultiSeries([]);
+      readMock = vi.fn();
+
       // Channel
       channel: channel.Channel = new channel.Channel({
         key: 65537,
@@ -359,16 +363,14 @@ describe("remote", () => {
         isIndex: true,
       });
 
-      // Data
-      response: MultiSeries = new MultiSeries([]);
-
       async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
         if (key === this.channel.key) return this.channel;
         if (key === this.channel.index) return this.indexChannel;
         throw new Error(`Channel with key ${key} not found`);
       }
 
-      async read(): Promise<MultiSeries> {
+      async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
+        this.readMock(tr, key);
         return this.response;
       }
 
@@ -595,6 +597,61 @@ describe("remote", () => {
       expect(b).toStrictEqual({ lower: 1, upper: 3 });
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(series);
+    });
+
+    it("should read data when the channel is not virtual", async () => {
+      const client = new MockClient();
+      const props: StreamChannelDataProps = {
+        timeSpan: TimeSpan.seconds(20),
+        channel: client.channel.key,
+      };
+      const now = TimeStamp.milliseconds(10);
+      const cd = new StreamChannelData(client, props, undefined, () => now);
+      await waitForResolve(cd);
+      expect(client.readMock).toHaveBeenCalled();
+      const args = client.readMock.mock.calls[0];
+      expect(args).toHaveLength(2);
+      const expectedTr = new TimeRange(now.spanRange(-TimeSpan.seconds(20)));
+      expect(args[0].equals(expectedTr)).toBeTruthy();
+      expect(args[1]).toBe(client.channel.key);
+    });
+
+    it("should not read data when the channel is virtual", async () => {
+      const client = new MockClient();
+      client.channel = new channel.Channel({
+        ...client.channel,
+        virtual: true,
+      });
+      const props: StreamChannelDataProps = {
+        timeSpan: TimeSpan.seconds(20),
+        channel: client.channel.key,
+      };
+      const now = TimeStamp.milliseconds(10);
+      const cd = new StreamChannelData(client, props, undefined, () => now);
+      await waitForResolve(cd);
+      expect(client.readMock).not.toHaveBeenCalled();
+    });
+
+    it("should read data when the channel is calculated", async () => {
+      const client = new MockClient();
+      client.channel = new channel.Channel({
+        ...client.channel,
+        expression: "1 + 2",
+        requires: [1, 2],
+      });
+      const props: StreamChannelDataProps = {
+        timeSpan: TimeSpan.seconds(1),
+        channel: client.channel.key,
+      };
+      const now = TimeStamp.milliseconds(10);
+      const cd = new StreamChannelData(client, props, undefined, () => now);
+      await waitForResolve(cd);
+      expect(client.readMock).toHaveBeenCalled();
+      const args = client.readMock.mock.calls[0];
+      expect(args).toHaveLength(2);
+      const expectedTr = new TimeRange(now.spanRange(-TimeSpan.seconds(1)));
+      expect(args[0].equals(expectedTr)).toBeTruthy();
+      expect(args[1]).toBe(client.channel.key);
     });
   });
 });
