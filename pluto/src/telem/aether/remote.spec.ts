@@ -81,28 +81,32 @@ describe("remote", () => {
       async close(): Promise<void> {}
     }
 
+    let c: MockClient;
+
+    beforeEach(() => {
+      c = new MockClient();
+      vi.resetAllMocks();
+    });
+
     it("should return a zero value when no channel has been set", async () => {
-      const client = new MockClient();
       const props: StreamChannelValueProps = {
         channel: 0,
       };
-      const scv = new StreamChannelValue(client, props);
+      const scv = new StreamChannelValue(c, props);
       expect(scv.value()).toBe(0);
       expect(scv.testingOnlyValid).toBe(false);
     });
 
     it("should return a zero value when no leading buffer has been set", async () => {
-      const client = new MockClient();
       const props: StreamChannelValueProps = {
         channel: 0,
       };
-      const scv = new StreamChannelValue(client, props);
+      const scv = new StreamChannelValue(c, props);
       expect(scv.value()).toBe(0);
       expect(scv.testingOnlyLeadingBuffer).toBeNull();
     });
 
     it("should open the stream handler when the channel is not zero", async () => {
-      const c = new MockClient();
       const props: StreamChannelValueProps = {
         channel: c.channel.key,
       };
@@ -114,7 +118,6 @@ describe("remote", () => {
     });
 
     it("should destroy the stream handler when cleanup is called", async () => {
-      const c = new MockClient();
       const props: StreamChannelValueProps = {
         channel: c.channel.key,
       };
@@ -125,7 +128,6 @@ describe("remote", () => {
     });
 
     it("should set the leading buffer when onChange is called", async () => {
-      const c = new MockClient();
       const props: StreamChannelValueProps = {
         channel: c.channel.key,
       };
@@ -145,7 +147,6 @@ describe("remote", () => {
     });
 
     it("should return the correct value when the leading buffer is appended to", async () => {
-      const c = new MockClient();
       const props: StreamChannelValueProps = {
         channel: c.channel.key,
       };
@@ -168,7 +169,6 @@ describe("remote", () => {
     });
 
     it("should replace the leading buffer when a new one is passed through the streamer", async () => {
-      const c = new MockClient();
       const props: StreamChannelValueProps = {
         channel: c.channel.key,
       };
@@ -240,41 +240,43 @@ describe("remote", () => {
       close(): void {}
     }
 
+    let c: MockClient;
+    beforeEach(() => {
+      c = new MockClient();
+    });
+
     it("should return a zero value when no channel has been set", async () => {
-      const client = new MockClient();
       const props = {
         timeRange: TimeRange.MAX,
         channel: 0,
       };
-      const cd = new ChannelData(client, props);
+      const cd = new ChannelData(c, props);
       const handleChange = vi.fn();
       cd.onChange(handleChange);
       const [b, data] = cd.value();
       expect(handleChange.mock.calls.length).toBe(0);
       expect(b).toStrictEqual(bounds.ZERO);
       expect(data).toHaveLength(0);
-      expect(client.readMock).not.toHaveBeenCalled();
-      expect(client.retrieveChannelMock).not.toHaveBeenCalled();
+      expect(c.readMock).not.toHaveBeenCalled();
+      expect(c.retrieveChannelMock).not.toHaveBeenCalled();
     });
 
     it("should return a zero value when the time range is empty", async () => {
-      const client = new MockClient();
       const props = {
         timeRange: TimeRange.ZERO,
-        channel: client.channel.key,
+        channel: c.channel.key,
       };
-      const cd = new ChannelData(client, props);
+      const cd = new ChannelData(c, props);
       const handleChange = vi.fn();
       const [b, data] = cd.value();
       expect(handleChange.mock.calls.length).toBe(0);
       expect(b).toStrictEqual(bounds.ZERO);
       expect(data).toHaveLength(0);
-      expect(client.readMock).not.toHaveBeenCalled();
-      expect(client.retrieveChannelMock).not.toHaveBeenCalled();
+      expect(c.readMock).not.toHaveBeenCalled();
+      expect(c.retrieveChannelMock).not.toHaveBeenCalled();
     });
 
     it("should return data when both the channel and time range are set", async () => {
-      const c = new MockClient();
       const series = new Series({
         data: new Float32Array([1, 2, 3]),
       });
@@ -293,7 +295,6 @@ describe("remote", () => {
     });
 
     it("should fetch data from the index channel when the channel is not an index and fetchIndex is true", async () => {
-      const c = new MockClient();
       const series = new Series({
         data: new Float32Array([0, 2, 4]),
       });
@@ -313,7 +314,6 @@ describe("remote", () => {
     });
 
     it("should fetch data from the same channel when the channel is an index and fetchIndex is true", async () => {
-      const c = new MockClient();
       const series = new Series({
         data: new Float32Array([0, 2, 4]),
       });
@@ -343,6 +343,10 @@ describe("remote", () => {
       streamF = vi.fn();
       streamDestructorF = vi.fn();
 
+      // Read
+      response: MultiSeries = new MultiSeries([]);
+      readMock = vi.fn();
+
       // Channel
       channel: channel.Channel = new channel.Channel({
         key: 65537,
@@ -359,16 +363,14 @@ describe("remote", () => {
         isIndex: true,
       });
 
-      // Data
-      response: MultiSeries = new MultiSeries([]);
-
       async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
         if (key === this.channel.key) return this.channel;
         if (key === this.channel.index) return this.indexChannel;
         throw new Error(`Channel with key ${key} not found`);
       }
 
-      async read(): Promise<MultiSeries> {
+      async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
+        this.readMock(tr, key);
         return this.response;
       }
 
@@ -595,6 +597,58 @@ describe("remote", () => {
       expect(b).toStrictEqual({ lower: 1, upper: 3 });
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(series);
+    });
+
+    it("should read data when the channel is not virtual", async () => {
+      const props: StreamChannelDataProps = {
+        timeSpan: TimeSpan.seconds(20),
+        channel: c.channel.key,
+      };
+      const now = TimeStamp.milliseconds(10);
+      const cd = new StreamChannelData(c, props, undefined, () => now);
+      await waitForResolve(cd);
+      expect(c.readMock).toHaveBeenCalled();
+      const args = c.readMock.mock.calls[0];
+      expect(args).toHaveLength(2);
+      const expectedTr = new TimeRange(now.spanRange(-TimeSpan.seconds(20)));
+      expect(args[0].equals(expectedTr)).toBeTruthy();
+      expect(args[1]).toBe(c.channel.key);
+    });
+
+    it("should not read data when the channel is virtual", async () => {
+      c.channel = new channel.Channel({
+        ...c.channel,
+        virtual: true,
+      });
+      const props: StreamChannelDataProps = {
+        timeSpan: TimeSpan.seconds(20),
+        channel: c.channel.key,
+      };
+      const now = TimeStamp.milliseconds(10);
+      const cd = new StreamChannelData(c, props, undefined, () => now);
+      await waitForResolve(cd);
+      expect(c.readMock).not.toHaveBeenCalled();
+    });
+
+    it("should read data when the channel is calculated", async () => {
+      c.channel = new channel.Channel({
+        ...c.channel,
+        expression: "1 + 2",
+        requires: [1, 2],
+      });
+      const props: StreamChannelDataProps = {
+        timeSpan: TimeSpan.seconds(1),
+        channel: c.channel.key,
+      };
+      const now = TimeStamp.milliseconds(10);
+      const cd = new StreamChannelData(c, props, undefined, () => now);
+      await waitForResolve(cd);
+      expect(c.readMock).toHaveBeenCalled();
+      const args = c.readMock.mock.calls[0];
+      expect(args).toHaveLength(2);
+      const expectedTr = new TimeRange(now.spanRange(-TimeSpan.seconds(1)));
+      expect(args[0].equals(expectedTr)).toBeTruthy();
+      expect(args[1]).toBe(c.channel.key);
     });
 
     it("should return zero bounds for a channel with a variable length data type", async () => {
