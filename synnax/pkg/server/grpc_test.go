@@ -21,7 +21,7 @@ import (
 
 var _ = Describe("Grpc", func() {
 	It("Should start a grpc server", func() {
-		b := MustSucceed(server.New(server.Config{
+		b := MustSucceed(server.Open(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
 				Insecure: config.Bool(true),
@@ -39,7 +39,7 @@ var _ = Describe("Grpc", func() {
 			wg.Done()
 		}()
 		time.Sleep(10 * time.Millisecond)
-		b.Stop()
+		b.Close()
 		wg.Wait()
 	})
 })

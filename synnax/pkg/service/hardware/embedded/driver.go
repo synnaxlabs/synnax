@@ -13,6 +13,7 @@ import (
 	"io"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -40,6 +41,7 @@ type Config struct {
 	Username       string          `json:"username"`
 	Password       string          `json:"password"`
 	Debug          *bool           `json:"debug"`
+	StartTimeout   time.Duration   `json:"start_timeout"`
 }
 
 func (c Config) format() map[string]interface{} {
@@ -74,6 +76,7 @@ var (
 		Integrations: []string{},
 		Enabled:      config.Bool(true),
 		Debug:        config.False(),
+		StartTimeout: time.Second * 10,
 	}
 )
 
@@ -91,6 +94,7 @@ func (c Config) Override(other Config) Config {
 	c.Username = override.String(c.Username, other.Username)
 	c.Password = override.String(c.Password, other.Password)
 	c.Debug = override.Nil(c.Debug, other.Debug)
+	c.StartTimeout = override.Numeric(c.StartTimeout, other.StartTimeout)
 	return c
 }
 
@@ -115,4 +119,5 @@ type Driver struct {
 	cmd       *exec.Cmd
 	shutdown  io.Closer
 	stdInPipe io.WriteCloser
+	started   chan struct{}
 }
