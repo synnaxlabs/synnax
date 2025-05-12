@@ -198,6 +198,7 @@ export const DefaultItem = memo(
     children: childrenProp,
     index,
     sourceIndex,
+    className,
     hovered,
     ...rest
   }: ItemProps): ReactElement => {
@@ -319,7 +320,12 @@ export const DefaultItem = memo(
     const Base = href != null ? Button.Link : Button.Button;
 
     return (
-      <Base className={CSS.BE("list", "item")} {...baseProps} align="center" {...rest}>
+      <Base
+        className={CSS(CSS.BE("list", "item"), className)}
+        {...baseProps}
+        align="center"
+        {...rest}
+      >
         {childrenProp != null ? (
           childrenProp({
             key,
