@@ -68,7 +68,7 @@ func configureLogger() (logger *alamos.Logger, err error) {
 	}
 
 	consoleEncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	consoleEncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("01-02 15:04:05")
+	consoleEncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("01-02 15:04:05.000")
 	consoleEncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
 
 	fileEncoder := zapcore.NewJSONEncoder(fileEncoderConfig)

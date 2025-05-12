@@ -379,7 +379,7 @@ func start(cmd *cobra.Command) {
 
 	select {
 	case <-interruptC:
-		ins.L.Info("\033[33mSynnax is shutting down\033[0m")
+		ins.L.Info("\033[33mSynnax is shutting down. This can take up to 5 seconds. Please be patient\033[0m")
 		cancel()
 	case <-sCtx.Stopped():
 	}
