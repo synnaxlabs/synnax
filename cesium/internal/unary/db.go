@@ -71,9 +71,9 @@ func (db *DB) LeadingControlState() *controller.State {
 	return db.controller.LeadingState()
 }
 
-// HasDataFor check whether there is a time range in the unary DB's underlying domain that
-// overlaps with the given time range. Note that this function will return false if there
-// is an open writer that could write into the requested time range
+// HasDataFor check whether there is a time range in the unary DB's underlying domain
+// that overlaps with the given time range. Note that this function will return false if
+// there is an open writer that could write into the requested time range
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
 	if db.closed.Load() {
 		return false, ErrDBClosed
@@ -108,9 +108,10 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 // will return an error if there are any unclosed writers, iterators, or delete
 // operations being executed on the database. Close is idempotent, and will return nil
 // if the database is already closed.
+//
 // If close fails for a reason other than unclosed writers/readers, the database will
-// still be marked closed and no read/write operations are allowed on it to protect
-// data integrity.
+// still be marked closed and no read/write operations are allowed on it to protect data
+// integrity.
 func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
@@ -118,8 +119,8 @@ func (db *DB) Close() error {
 	err := db.domain.Close()
 	if err != nil {
 		if errors.Is(err, core.ErrOpenResource) {
-			// If the close failed because of an open entity, the database should not
-			// be marked as closed and can still serve reads/writes.
+			// If the close failed because of an open entity, the database should not be
+			// marked as closed and can still serve reads/writes.
 			db.closed.Store(false)
 		}
 		return db.wrapError(err)
@@ -128,8 +129,8 @@ func (db *DB) Close() error {
 	return nil
 }
 
-// RenameChannelInMeta renames the channel to the given name, and persists the change to the
-// underlying file system.
+// RenameChannelInMeta renames the channel to the given name, and persists the change to
+// the underlying file system.
 func (db *DB) RenameChannelInMeta(ctx context.Context, newName string) error {
 	if db.closed.Load() {
 		return ErrDBClosed
@@ -141,8 +142,8 @@ func (db *DB) RenameChannelInMeta(ctx context.Context, newName string) error {
 	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
-// SetIndexKeyInMeta changes the channel's index to the channel with the given key,
-// and persists the change to the underlying file system.
+// SetIndexKeyInMeta changes the channel's index to the channel with the given key, and
+// persists the change to the underlying file system.
 func (db *DB) SetIndexKeyInMeta(ctx context.Context, key core.ChannelKey) error {
 	if db.closed.Load() {
 		return db.wrapError(ErrDBClosed)
@@ -151,8 +152,8 @@ func (db *DB) SetIndexKeyInMeta(ctx context.Context, key core.ChannelKey) error 
 	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
-// SetChannelKeyInMeta changes the channel's key to the channel with the given key,
-// and persists the change to the underlying file system.
+// SetChannelKeyInMeta changes the channel's key to the channel with the given key, and
+// persists the change to the underlying file system.
 func (db *DB) SetChannelKeyInMeta(ctx context.Context, key core.ChannelKey) error {
 	if db.closed.Load() {
 		return ErrDBClosed

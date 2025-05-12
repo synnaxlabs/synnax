@@ -30,38 +30,38 @@ type WriterConfig struct {
 	// Start marks the starting bound of the writer.
 	// [REQUIRED]
 	Start telem.TimeStamp
-	// End is an optional parameter that marks the ending bound of the domain. Defining this
-	// parameter will allow the writer to write data to the domain without needing to
-	// validate each call to Commit. If this parameter is not defined, Commit must
-	// be called with a strictly increasing timestamp.
+	// End is an optional parameter that marks the ending bound of the domain. Defining
+	// this parameter will allow the writer to write data to the domain without needing
+	// to validate each call to Commit. If this parameter is not defined, Commit must be
+	// called with a strictly increasing timestamp.
 	// [OPTIONAL]
 	End telem.TimeStamp
 	// Subject is the control subject held by the writer.
 	// [REQUIRED]
 	Subject control.Subject
-	// Authority is the control authority held by the writer: higher authority entities have
-	// priority access to the region.
+	// Authority is the control authority held by the writer: higher authority entities
+	// have priority access to the region.
 	// [OPTIONAL]
 	Authority control.Authority
-	// Persist denotes whether the writer writes its data to FS. If Persist is off, no data
-	// is written.
+	// Persist denotes whether the writer writes its data to FS. If Persist is off, no
+	// data is written.
 	// [OPTIONAL] - Defaults to true
 	Persist *bool
 	// EnableAutoCommit denotes whether each write is committed.
 	// [OPTIONAL] - Defaults to False
 	EnableAutoCommit *bool
-	// AutoIndexPersistInterval is the frequency at which the changes to index are persisted to the
-	// disk.
+	// AutoIndexPersistInterval is the frequency at which the changes to index are
+	// persisted to the disk.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// ErrOnUnauthorizedOpen controls whether the writer will return an error on open when
-	// attempting to write to a channel that is does not have authority over.
+	// ErrOnUnauthorizedOpen controls whether the writer will return an error on open
+	// when attempting to write to a channel that is does not have authority over.
 	// [OPTIONAL] - Defaults to false
 	ErrOnUnauthorizedOpen *bool
 	// AlignmentDomainIndex is the index of the domain that this writer is aligned to.
 	// This value is almost always set to the index of the domain within the 'Index'
-	// channel that is being written to at the same time as this writer. This value
-	// is used to guarantee alignment between samples written to index and data channels.
+	// channel that is being written to at the same time as this writer. This value is
+	// used to guarantee alignment between samples written to index and data channels.
 	AlignmentDomainIndex uint32
 }
 
@@ -120,8 +120,8 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 
 // controlledWriter is used for exchanging control between multiple unary writers. When
 // control is transferred, ownership of the domain writer is moved to the new unary
-// writer. Additional state is included to ensure that write positions and channel. information
-// are consistent.
+// writer. Additional state is included to ensure that write positions and channel.
+// information are consistent.
 type controlledWriter struct {
 	*domain.Writer
 	channelKey core.ChannelKey
@@ -143,17 +143,17 @@ type Writer struct {
 	// idx stores the index of the unaryDB (rate or domain).
 	idx index.Index
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
-	// unnecessary index lookups by keeping track of the highest timestamp written.
-	// Only valid when Channel.IsIndex is true.
+	// unnecessary index lookups by keeping track of the highest timestamp written. Only
+	// valid when Channel.IsIndex is true.
 	hwm telem.TimeStamp
-	// lastCommitFileSwitch describes whether the last commit involved a file switch.
-	// If it did, then it is necessary to resolve the timestamp for that commit this time.
+	// lastCommitFileSwitch describes whether the last commit involved a file switch. If
+	// it did, then it is necessary to resolve the timestamp for that commit this time.
 	lastCommitFileSwitch bool
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
-	// closed stores whether the writer is closed. Operations like Write and Commit do not
-	// succeed on closed writers.
+	// closed stores whether the writer is closed. Operations like Write and Commit do
+	// not succeed on closed writers.
 	closed bool
 }
 
@@ -297,8 +297,8 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	}
 
 	if end.IsZero() {
-		// We're using w.len - 1 here because we want the timestamp of the last
-		// written frame.
+		// We're using w.len - 1 here because we want the timestamp of the last written
+		// frame.
 		approx, err := w.idx.Stamp(
 			ctx,
 			w.cfg.Start,

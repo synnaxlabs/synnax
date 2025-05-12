@@ -39,7 +39,8 @@ type Config struct {
 	// creating a new database. If the database already exists, the Channel information
 	// will be read from the DB's meta file.
 	Channel core.Channel
-	// MetaCodec is used to encode and decode metadata about the channel. [REQUIRED]
+	// MetaCodec is used to encode and decode metadata about the channel.
+	// [REQUIRED]
 	MetaCodec binary.Codec
 	// FS is the filesystem that the DB will use to store its data. DB will write to the
 	// root of the filesystem, so this should probably be a subdirectory. DB should have
@@ -47,8 +48,8 @@ type Config struct {
 	// [REQUIRED]
 	FS xfs.FS
 	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
-	// Note while that a file's size may still exceed this value, it is not likely
-	// to exceed by much with frequent commits.
+	// Note while that a file's size may still exceed this value, it is not likely to
+	// exceed by much with frequent commits.
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
 	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
