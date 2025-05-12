@@ -43,6 +43,7 @@ interface InternalState {
   ranges: Map<string, ranger.Range>;
   client: Synnax | null;
   render: render.Context;
+  requestRender: render.Requestor;
   draw: Draw2D;
   tracker: signals.Observable<string, ranger.Range>;
 }
@@ -63,24 +64,25 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
-    const addStatus = status.useErrorHandler(ctx);
+    const handleError = status.useErrorHandler(ctx);
+    i.requestRender = render.useRequestor(ctx);
     i.ranges ??= new Map();
     const client = synnax.use(ctx);
     if (client == null) return;
     i.client = client;
 
     if (i.tracker != null) return;
-    addStatus(async () => {
+    handleError(async () => {
       i.tracker = await client.ranges.openTracker();
       i.tracker.onChange((c) => {
         c.forEach((r) => {
           if (r.variant === "delete") i.ranges.delete(r.key);
-          else if (color.isColor(r.value.color)) i.ranges.set(r.key, r.value);
+          else if (color.isCrude(r.value.color)) i.ranges.set(r.key, r.value);
         });
-        render.request(ctx, "tool");
+        i.requestRender("tool");
         this.setState((s) => ({ ...s, count: i.ranges.size }));
       });
-      render.request(ctx, "tool");
+      i.requestRender("tool");
     });
   }
 
