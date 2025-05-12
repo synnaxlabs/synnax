@@ -47,6 +47,12 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
     );
   }
 
+  bounds(hold: boolean): bounds.Bounds {
+    const [bound, err] = this.iBounds(hold, this.dataBounds.bind(this));
+    if (err != null) throw err;
+    return bound;
+  }
+
   render(props: YAxisProps): void {
     if (this.deleted) return;
     const [dataToDecimalScale, error] = this.dataToDecimalScale(
