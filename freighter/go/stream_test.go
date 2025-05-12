@@ -38,6 +38,8 @@ type streamImplementation interface {
 	stop() error
 }
 
+const writeDeadline = 20 * time.Millisecond
+
 var streamImplementations = []streamImplementation{
 	&httpStreamImplementation{},
 	&mockStreamImplementation{},
@@ -115,8 +117,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						Expect(server.Send(response{ID: 1, Message: "Hello"})).To(Succeed())
 						return nil
 					})
-					client, err := client.Stream(context.TODO(), addr)
-					Expect(err).ToNot(HaveOccurred())
+					client := MustSucceed(client.Stream(context.TODO(), addr))
 					Expect(client.CloseSend()).To(Succeed())
 					msg, err := client.Receive()
 					Expect(err).ToNot(HaveOccurred())
@@ -124,6 +125,39 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					Expect(msg.Message).To(Equal("Hello"))
 					_, err = client.Receive()
 					Expect(err).To(HaveOccurredAs(freighter.EOF))
+					Eventually(serverClosed).Should(BeClosed())
+				})
+
+				It("Should exchange messages in excess of the write deadline", func() {
+					serverClosed := make(chan struct{})
+					server.BindHandler(func(ctx context.Context, server serverStream) error {
+						defer GinkgoRecover()
+						defer close(serverClosed)
+						for {
+							req, err := server.Receive()
+							if err != nil {
+								return err
+							}
+							time.Sleep(writeDeadline * 5)
+							if err := server.Send(response{ID: req.ID + 1, Message: req.Message}); err != nil {
+								return err
+							}
+						}
+					})
+
+					client := MustSucceed(client.Stream(context.TODO(), addr))
+					Expect(client.Send(request{ID: 1, Message: "Hello"})).To(Succeed())
+					msg, err := client.Receive()
+					Expect(err).ToNot(HaveOccurred())
+					Expect(msg.ID).To(Equal(2))
+					Expect(msg.Message).To(Equal("Hello"))
+					time.Sleep(writeDeadline * 2)
+					Expect(client.Send(request{ID: 1, Message: "Hello"})).To(Succeed())
+					msg, err = client.Receive()
+					Expect(err).ToNot(HaveOccurred())
+					Expect(msg.ID).To(Equal(2))
+					Expect(msg.Message).To(Equal("Hello"))
+					Expect(client.CloseSend()).To(Succeed())
 					Eventually(serverClosed).Should(BeClosed())
 				})
 
@@ -315,7 +349,10 @@ func (impl *httpStreamImplementation) start(
 	ins alamos.Instrumentation,
 ) (streamServer, streamClient) {
 	impl.app = fiber.New(fiber.Config{DisableStartupMessage: true})
-	router := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: ins})
+	router := fhttp.NewRouter(fhttp.RouterConfig{
+		Instrumentation:     ins,
+		StreamWriteDeadline: writeDeadline,
+	})
 	client := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{Codec: httputil.JSONCodec})
 	impl.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
