@@ -596,5 +596,28 @@ describe("remote", () => {
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(series);
     });
+
+    it("should return zero bounds for a channel with a variable length data type", async () => {
+      c.channel = new channel.Channel({
+        ...c.channel,
+        virtual: true,
+        dataType: DataType.STRING,
+      });
+      const props: StreamChannelDataProps = {
+        timeSpan: TimeSpan.MAX,
+        channel: c.channel.key,
+      };
+      const cd = new StreamChannelData(c, props);
+      await waitForResolve(cd);
+      const d = new Series({
+        data: ["cat", "in", "the", "hat"],
+        timeRange: TimeRange.MAX,
+      });
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([d])]]));
+      const [b, data] = cd.value();
+      expect(b).toStrictEqual(bounds.ZERO);
+      expect(data.series).toHaveLength(1);
+      expect(data.series[0]).toBe(d);
+    });
   });
 });

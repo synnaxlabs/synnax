@@ -279,6 +279,7 @@ export class StreamChannelData
     if (!this.valid) void this.read();
     const { data, channel: ch } = this;
     const now = this.now();
+    if (ch != null && ch.dataType.isVariable) return [bounds.ZERO, this.data];
     const filtered = data.series
       .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
       .map((d) => d.bounds);
