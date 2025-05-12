@@ -128,3 +128,13 @@ func SendUnderContext[V any](ctx context.Context, ch chan<- V, v V) error {
 		return nil
 	}
 }
+
+func RecvUnderContext[V any](ctx context.Context, ch <-chan V) (V, error) {
+	select {
+	case <-ctx.Done():
+		var o V
+		return o, ctx.Err()
+	case v := <-ch:
+		return v, nil
+	}
+}

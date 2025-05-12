@@ -15,16 +15,16 @@ import (
 	"os"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/cmd/internal/invariants"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-func configureInstrumentation(version string) (alamos.Instrumentation, *zap.Logger) {
+func configureInstrumentation(version string) alamos.Instrumentation {
 	logger, err := configureLogger()
 	if err != nil {
 		log.Fatal(err)
@@ -33,11 +33,7 @@ func configureInstrumentation(version string) (alamos.Instrumentation, *zap.Logg
 	if err != nil {
 		log.Fatal(err)
 	}
-	return alamos.New(
-		"sy",
-		alamos.WithLogger(logger),
-		alamos.WithTracer(tracer),
-	), newPrettyLogger()
+	return alamos.New("sy", alamos.WithLogger(logger), alamos.WithTracer(tracer))
 }
 
 func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
@@ -51,48 +47,37 @@ func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
 
 func configureLogger() (logger *alamos.Logger, err error) {
 	var (
-		verbose        = viper.GetBool(verboseFlag)
-		debug          = viper.GetBool(debugFlag)
-		consoleEncoder zapcore.Encoder
-		opts           []zap.Option
+		verbose              = viper.GetBool(verboseFlag)
+		debug                = viper.GetBool(debugFlag)
+		opts                 = []zap.Option{zap.AddStacktrace(zap.ErrorLevel), zap.AddCaller()}
+		consoleEncoderConfig = zap.NewProductionEncoderConfig()
+		fileEncoderConfig    = zap.NewProductionEncoderConfig()
+		consoleOutput        = zapcore.Lock(os.Stdout)
+		fileOutput           = zapcore.AddSync(&lumberjack.Logger{
+			Filename:   viper.GetString(logFilePathFlag),
+			MaxSize:    viper.GetInt(logFileMaxSizeFlag),
+			MaxBackups: viper.GetInt(logFileMaxBackupsFlag),
+			MaxAge:     viper.GetInt(logFileMaxAgeFlag),
+			Compress:   viper.GetBool(logFileCompressFlag),
+		})
+		level = lo.Ternary(verbose, zap.DebugLevel, zap.InfoLevel)
 	)
 
-	var cfg zap.Config
 	if debug {
-		cfg = zap.NewDevelopmentConfig()
-	} else {
-		cfg = zap.NewProductionConfig()
-	}
-	cfg.Development = invariants.IsDevelopment
-
-	if verbose || debug {
-		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-		cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
-		cfg.Encoding = "console"
-		cfg.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
-		consoleEncoder = zapcore.NewConsoleEncoder(cfg.EncoderConfig)
-		opts = append(opts, zap.AddStacktrace(zapcore.ErrorLevel), zap.AddCaller())
-	}
-	if !debug {
-		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-		consoleEncoder = zapcore.NewJSONEncoder(cfg.EncoderConfig)
+		opts = append(opts, zap.Development())
 	}
 
-	fileEncoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
-	consoleWS := zapcore.Lock(os.Stdout)
-	fileWS := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   viper.GetString(logFilePathFlag),
-		MaxSize:    viper.GetInt(logFileMaxSizeFlag),
-		MaxBackups: viper.GetInt(logFileMaxBackupsFlag),
-		MaxAge:     viper.GetInt(logFileMaxAgeFlag),
-		Compress:   viper.GetBool(logFileCompressFlag),
-	})
+	consoleEncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	consoleEncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("01-02 15:04:05")
+	consoleEncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+
+	fileEncoder := zapcore.NewJSONEncoder(fileEncoderConfig)
+	consoleEncoder := zapcore.NewConsoleEncoder(consoleEncoderConfig)
 
 	core := zapcore.NewTee(
-		zapcore.NewCore(consoleEncoder, consoleWS, cfg.Level),
-		zapcore.NewCore(fileEncoder, fileWS, cfg.Level),
+		alamos.CustomZapCore(zapcore.NewCore(consoleEncoder, consoleOutput, level)),
+		alamos.CustomZapCore(zapcore.NewCore(fileEncoder, fileOutput, level)),
 	)
-
 	if logger, err = alamos.NewLogger(alamos.LoggerConfig{
 		ZapLogger: zap.New(core, opts...),
 	}); err != nil {
@@ -102,29 +87,6 @@ func configureLogger() (logger *alamos.Logger, err error) {
 	return
 }
 
-func newPrettyLogger() *zap.Logger {
-	cfg := zap.NewDevelopmentConfig()
-	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
-	cfg.Encoding = "console"
-	cfg.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
-	cfg.DisableStacktrace = true
-	logger, _ := cfg.Build()
-	return logger
-}
-
 func configureTracer(version string, logger *alamos.Logger) (*alamos.Tracer, error) {
 	return nil, nil
-	//uptrace.ConfigureOpentelemetry(
-	//	uptrace.WithDSN("http://synnax_dev@localhost:14317/2"),
-	//	uptrace.WithServiceName("synnax"),
-	//	uptrace.WithServiceVersion(version),
-	//)
-	//otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
-	//	logger.Info("opentelemetry", alamos.DebugError(err))
-	//}))
-	//return alamos.NewTracer(alamos.TracingConfig{
-	//	OtelProvider:   otel.GetTracerProvider(),
-	//	OtelPropagator: otel.GetTextMapPropagator(),
-	//})
 }
