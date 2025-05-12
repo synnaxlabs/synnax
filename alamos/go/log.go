@@ -11,8 +11,11 @@ package alamos
 
 import (
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/slices"
 )
 
 // LoggerConfig is the config for a Logger.
@@ -163,4 +166,48 @@ func DebugError(err error) zap.Field {
 		return zap.Skip()
 	}
 	return zap.String("error", err.Error())
+}
+
+func CustomZapCore(core zapcore.Core) zapcore.Core {
+	return customCore{c: core}
+}
+
+type customCore struct{ c zapcore.Core }
+
+var _ zapcore.Core = (*customCore)(nil)
+
+// Enabled implements zapcore.Core.
+func (c customCore) Enabled(level zapcore.Level) bool { return c.c.Enabled(level) }
+
+// With implements zapcore.Core.
+func (c customCore) With(fields []zapcore.Field) zapcore.Core { return &customCore{c.c.With(fields)} }
+
+// Check implements zapcore.Core.
+func (c customCore) Check(entry zapcore.Entry, entry2 *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	// Make sure that zap uses our custom core.
+	if c.Enabled(entry.Level) {
+		return entry2.AddCore(entry, c)
+	}
+	return c.c.Check(entry, entry2)
+}
+
+// Sync implements zapcore.Core.
+func (c customCore) Sync() error { return c.c.Sync() }
+
+func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
+	for i, field := range fields {
+		// If there is an error in the log and we can get its stack trace, use that
+		// instead of the built-in stack trace.
+		if field.Type == zapcore.ErrorType {
+			if err, ok := field.Interface.(error); ok {
+				stack := errors.GetStackTrace(err)
+				entry.Stack = stack.String()
+			}
+		} else if field.Key == "caller" && field.Type == zapcore.StringType && len(field.String) > 0 {
+			// This means that we should specify a custom caller.
+			entry.Caller = zapcore.EntryCaller{Defined: true, File: field.String}
+			fields = slices.Delete(fields, i, 1)
+		}
+	}
+	return c.c.Write(entry, fields)
 }

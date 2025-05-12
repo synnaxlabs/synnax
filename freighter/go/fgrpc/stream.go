@@ -230,5 +230,5 @@ func translateGRPCError(err error) error {
 	if errors.Is(err, io.EOF) {
 		return freighter.EOF
 	}
-	return err
+	return errors.WithStackDepth(err, 1)
 }
