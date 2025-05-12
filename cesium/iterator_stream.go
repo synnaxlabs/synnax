@@ -12,41 +12,40 @@ package cesium
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/validate"
-
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// StreamIterator provides a streaming interface for iterating over a DB's segments
-// in time order. StreamIterator provides the underlying functionality for Iterator,
-// and has almost exactly the same semantics. The streaming interface is exposed
-// as a confluence segment that can accept one input stream and one output stream.
+// StreamIterator provides a streaming interface for iterating over a DB's segments in
+// time order. StreamIterator provides the underlying functionality for Iterator, and
+// has almost exactly the same semantics. The streaming interface is exposed as a
+// confluence segment that can accept one input stream and one output stream.
 //
 // To read frames, issue an IteratorRequest to the StreamIterator's inlet. The
-// StreamIterator will respond by sending one or more IteratorResponse messages to
-// the outlet. All responses containing frame data will have a type of
-// IteratorDataResponse and will contain one or more frames. The last response
-// for any request will have a type of IteratorAckResponse and will contain
-// the name of the command that was acknowledged, an incremented sequence number,
-// and ack boolean indicating whether the command was successfully processed.
+// StreamIterator will respond by sending one or more IteratorResponse messages to the
+// outlet. All responses containing frame data will have a type of IteratorDataResponse
+// and will contain one or more frames. The last response for any request will have a
+// type of IteratorAckResponse and will contain the name of the command that was
+// acknowledged, an incremented sequence number, and ack boolean indicating whether the
+// command was successfully processed.
 //
 // To close the StreamIterator, simply close the inlet. The StreamIterator will ensure
 // that all in-progress requests have been served before closing the outlet. The
-// StreamIterator will return any accumulated err through the signal context
-// provided to Flow.
+// StreamIterator will return any accumulated err through the signal context provided to
+// Flow.
 type StreamIterator = confluence.Segment[IteratorRequest, IteratorResponse]
 
 // IteratorResponseVariant is the type of the response an Iterator will return.
 type IteratorResponseVariant uint8
 
 const (
-	// IteratorAckResponse is a response that indicates that an iteration request
-	// has completed successfully.
+	// IteratorAckResponse is a response that indicates that an iteration request has
+	// completed successfully.
 	IteratorAckResponse IteratorResponseVariant = iota + 1
 	// IteratorDataResponse is a response that indicates that an iteration request
 	// returned data.
@@ -104,19 +103,19 @@ type IteratorRequest struct {
 type IteratorResponse struct {
 	// Variant is the type of response being issued.
 	Variant IteratorResponseVariant
-	// SeqNum is the corresponding sequence number of the request. This is used to
-	// match the request with the response. Each request should increment the sequence
-	// number by 1.
+	// SeqNum is the corresponding sequence number of the request. This is used to match
+	// the request with the response. Each request should increment the sequence number
+	// by 1.
 	SeqNum int
 	// Command defines the command that the response relates to.
 	Command IteratorCommand
-	// Ack is only valid when the response type is IteratorAckResponse. It
-	// indicates whether the command was successfully processed.
+	// Ack is only valid when the response type is IteratorAckResponse. It indicates
+	// whether the command was successfully processed.
 	Ack bool
 	// Err is only set an IterError command is being responded to.
 	Err error
-	// Frame is the telemetry frame that was read from the DB. It is only set
-	// when the response type is IteratorDataResponse.
+	// Frame is the telemetry frame that was read from the DB. It is only set when the
+	// response type is IteratorDataResponse.
 	Frame Frame
 }
 

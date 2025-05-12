@@ -48,7 +48,8 @@ type WriterRequest struct {
 	Command WriterCommand
 	// Frame is the arrow record to write to the DB.
 	Frame Frame
-	// Config is used for updating the parameters in WriterSetAuthority and WriterSetMode.
+	// Config is used for updating the parameters in WriterSetAuthority and
+	// WriterSetMode.
 	Config WriterConfig
 	// SeqNum is used to match the request with the response. The sequence number should
 	// be incremented with each request.
@@ -90,10 +91,10 @@ type WriterResponse struct {
 // until the error is resolved. To resolve the error, see the above paragraph.
 //
 // To close the StreamWriter, simply close the inlet. The StreamWriter will ensure that
-// all in-progress requests have been served before closing the outlet. Closing the Writer
-// will NOT commit any pending writes. Once the StreamWriter has released all resources,
-// the output stream will be closed and the StreamWriter will return any accumulated error
-// through the signal context provided to Flow.
+// all in-progress requests have been served before closing the outlet. Closing the
+// Writer will NOT commit any pending writes. Once the StreamWriter has released all
+// resources, the output stream will be closed and the StreamWriter will return any
+// accumulated error through the signal context provided to Flow.
 type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 
 type streamWriter struct {
@@ -115,8 +116,8 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	sCtx.Go(func(ctx context.Context) (err error) {
 		defer func() {
 			// Call close in a deferral to make sure writer resources get released even
-			// if the context is canceled or the function panics. We need to pass in
-			// a new context here because the original context may have been canceled.
+			// if the context is canceled or the function panics. We need to pass in a
+			// new context here because the original context may have been canceled.
 			// Using context.TODO() is not ideal, but it is the best we can do here.
 			err = errors.Combine(err, w.close(context.TODO()))
 		}()
@@ -311,9 +312,8 @@ type idxWriter struct {
 	start           telem.TimeStamp
 	// internal contains writers for each channel
 	internal map[ChannelKey]*unaryWriterState
-	// writingToIdx is true when the Write is writing to the index
-	// channel. This is typically true, which allows us to avoid
-	// unnecessary lookups.
+	// writingToIdx is true when the Write is writing to the index channel. This is
+	// typically true, which allows us to avoid unnecessary lookups.
 	writingToIdx bool
 	// numWriteCalls tracks the number of write calls made to the idxWriter.
 	numWriteCalls int
@@ -326,8 +326,8 @@ type idxWriter struct {
 		// is only relevant when writingToIdx is true.
 		highWaterMark telem.TimeStamp
 	}
-	// sampleCount is the total number of samples written to the index as if it were
-	// a single logical channel. i.e. N channels with M samples will result in a sample
+	// sampleCount is the total number of samples written to the index as if it were a
+	// single logical channel. i.e. N channels with M samples will result in a sample
 	// count of M.
 	sampleCount int64
 }
@@ -551,9 +551,9 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 	return nil
 }
 
-// resolveCommitEnd returns the end timestamp for a commit.
-// For an index channel, this returns the high watermark.
-// For a non-index channel, this returns a stamp to the approximation of the end
+// resolveCommitEnd returns the end timestamp for a commit. For an index channel, this
+// returns the high watermark. For a non-index channel, this returns a stamp to the
+// approximation of the end
 func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApproximation, error) {
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil
@@ -590,8 +590,8 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 	c := errors.NewCatcher(errors.WithAggregation())
 	update := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	for _, chW := range w.internal {
-		// We do not want to clean up the digest channel since we want to use it to
-		// send updates for closures.
+		// We do not want to clean up the digest channel since we want to use it to send
+		// updates for closures.
 		if chW.Channel.Key != w.digestKey {
 			c.Exec(func() error {
 				transfer, err := chW.Close()

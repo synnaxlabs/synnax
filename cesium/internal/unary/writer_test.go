@@ -157,7 +157,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					_, err := w.Close()
 					Expect(err).ToNot(HaveOccurred())
 
-					w, _, err = dataDB.OpenWriter(ctx, unary.WriterConfig{
+					_, _, err = dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:   12 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
 					})

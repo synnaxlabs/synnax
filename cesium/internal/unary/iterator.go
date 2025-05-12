@@ -163,9 +163,9 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 }
 
 // Next moves the iterator forward by span. More specifically, if the current view is
-// [start, end), after Next(span) is called, the view becomes [end, end + span).
-// After the view changes, the internal iterator moves forward and accumulates data until
-// the entire view is contained in the iterator's frame.
+// [start, end), after Next(span) is called, the view becomes [end, end + span). After
+// the view changes, the internal iterator moves forward and accumulates data until the
+// entire view is contained in the iterator's frame.
 func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
 		i.err = errIteratorClosed
@@ -256,8 +256,8 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 
 // Prev moves the iterator backward by span. More specifically, if the current view is
 // [start, end), after Next(span) is called, the view becomes [start - span, start).
-// After the view changes, the internal iterator moves backward and accumulates data until
-// the entire view is contained in the iterator's frame.
+// After the view changes, the internal iterator moves backward and accumulates data
+// until the entire view is contained in the iterator's frame.
 func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
 		i.err = errIteratorClosed
@@ -302,8 +302,8 @@ func (i *Iterator) Error() error {
 	return wrap(i.err)
 }
 
-// Valid checks if an iterator has accumulated no errors and has at least one series
-// in its current frame.
+// Valid checks if an iterator has accumulated no errors and has at least one series in
+// its current frame.
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
 // Close closes the iterator and releases any resources it holds. As with all other
@@ -320,8 +320,8 @@ func (i *Iterator) Close() (err error) {
 	return wrap(i.internal.Close())
 }
 
-// accumulate reads the underlying data contained in the view from OS and
-// appends them to the frame. accumulate returns false if iterator must stop moving.
+// accumulate reads the underlying data contained in the view from OS and appends them
+// to the frame. accumulate returns false if iterator must stop moving.
 func (i *Iterator) accumulate(ctx context.Context) bool {
 	if !i.internal.TimeRange().OverlapsWith(i.view) {
 		return false
@@ -425,8 +425,8 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 }
 
 // approximateStart approximates the number of samples between the start of the current
-// domain and the start of the current iterator view. If the start of the current view is
-// before the start of the range, the returned value will be zero.
+// domain and the start of the current iterator view. If the start of the current view
+// is before the start of the range, the returned value will be zero.
 func (i *Iterator) approximateStart(ctx context.Context) (
 	index.DistanceApproximation,
 	telem.Alignment,
@@ -453,8 +453,8 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 	return
 }
 
-// satisfied returns whether an iterator collected all telemetry in its view.
-// An iterator is said to be satisfied when its frame's start and end time range is
+// satisfied returns whether an iterator collected all telemetry in its view. An
+// iterator is said to be satisfied when its frame's start and end time range is
 // congruent to its view.
 func (i *Iterator) satisfied() bool {
 	if !i.partiallySatisfied() {

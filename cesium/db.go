@@ -77,7 +77,7 @@ func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.T
 	if db.closed.Load() {
 		return errDBClosed
 	}
-	return db.Write(ctx, start, telem.UnaryFrame[core.ChannelKey](key, series))
+	return db.Write(ctx, start, telem.UnaryFrame(key, series))
 }
 
 // Read reads from the database at the specified time range and outputs a frame.
@@ -102,10 +102,13 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 }
 
 // Close closes the database.
+//
 // Close is not safe to call with any other DB methods concurrently.
+//
 // Note that if this method is called while writers are still open on channels in the
 // database, a deadlock is caused since the signal context is closed while the writers
 // attempt to send to relay.
+//
 // If there is an error in closing the cesium database, the database will be marked as
 // closed regardless of whether an error occurred.
 func (db *DB) Close() error {
@@ -114,11 +117,11 @@ func (db *DB) Close() error {
 	}
 
 	c := errors.NewCatcher(errors.WithAggregation())
-	// Crucial to close control digests here before closing the signal context so
-	// writes can still use the signal context to send frames to relay.
+	// Crucial to close control digests here before closing the signal context so writes
+	// can still use the signal context to send frames to relay.
 	//
-	// This function acquires the mutex lock internally, so there's no need to lock
-	// it here.
+	// This function acquires the mutex lock internally, so there's no need to lock it
+	// here.
 	c.Exec(db.closeControlDigests)
 	// Shut down without locking mutex to allow existing goroutines (e.g. GC) that
 	// require a mutex lock to exit.

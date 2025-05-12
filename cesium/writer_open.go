@@ -51,39 +51,46 @@ type WriterConfig struct {
 	// writer. If a sample exists for any channel at this timestamp, the writer will
 	// fail to open.
 	Start telem.TimeStamp
-	// Channels sets the channels that the writer will write to. If a channel does
-	// not exist, the writer fill fail to open.
+	// Channels sets the channels that the writer will write to. If a channel does not
+	// exist, the writer fill fail to open.
 	Channels []core.ChannelKey
-	// Authorities marks the starting control authorities of the writer. This value
-	// must be empty (so the default is applied), have a length of 1 (apply the same
+	// Authorities marks the starting control authorities of the writer. This value must
+	// be empty (so the default is applied), have a length of 1 (apply the same
 	// authority to all channels), or have a length equal to the number of channels
 	// (apply granular authorities to each channel).
+	//
 	// [OPTIONAL] - Defaults to control.Absolute on all channels.
 	Authorities []control.Authority
-	// ErrOnUnauthorized controls whether the writer will return an error when attempting
-	// to open a writer on a channel that it does not have authority over. This value
-	// should be set to false for control related scenarios.
+	// ErrOnUnauthorized controls whether the writer will return an error when
+	// attempting to open a writer on a channel that it does not have authority over.
+	// This value should be set to false for control related scenarios.
+	//
 	// [OPTIONAL] - Defaults to false.
 	ErrOnUnauthorized *bool
-	// Mode sets the persistence and streaming mode of the writer. The default
-	// mode is WriterModePersistStream. See the WriterMode documentation for more.
+	// Mode sets the persistence and streaming mode of the writer. The default mode is
+	// WriterModePersistStream. See the WriterMode documentation for more.
+	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode WriterMode
-	// EnableAutoCommit determines whether the writer will automatically commit after each write.
-	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
+	// EnableAutoCommit determines whether the writer will automatically commit after
+	// each write. If EnableAutoCommit is true, then the writer will commit after each
+	// write, and will flush that commit to index on FS after the specified
+	// AutoIndexPersistInterval.
+	//
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit *bool
-	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
-	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
-	// to AlwaysIndexPersistOnAutoCommit.
+	// AutoIndexPersistInterval is the interval at which commits to the index will be
+	// persisted. To persist every commit to guarantee minimal loss of data, set
+	// AutoIndexPersistInterval to AlwaysIndexPersistOnAutoCommit.
+	//
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// Sync sets whether the writer should acknowledge all write requests with a corresponding
-	// writer respond. Defaults to false, in which the writer will acknowledge Commit()
-	// and SetAuthority() commands, but not Write commands. Using sync mode is
-	// useful for acknowledging writes, but can clobber performance as the next write
-	// cannot be started before the previous write is completed.
+	// Sync sets whether the writer should acknowledge all write requests with a
+	// corresponding writer response. Defaults to false, in which the writer will
+	// acknowledge Commit() and SetAuthority() commands, but not Write commands. Using
+	// sync mode is useful for acknowledging writes, but can clobber performance as the
+	// next write cannot be started before the previous write is completed.
+	//
 	// [OPTIONAL] - Defaults to false.
 	Sync *bool
 }
@@ -207,7 +214,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	// 1. Opens all virtual writers.
 	// 2. Opens all write based writers.
 	// 3. Opens the indexes of all domain indexed writers (if the indexes are in the
-	// 	list of channels).
+	//    list of channels).
 	//
 	// For the second pass, we open all indexed writers for particular indexes. This
 	// ensures that we provide a valid domain alignment to all unary writers for a
@@ -248,8 +255,8 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				return nil, err
 			}
 			// Hot path optimization: in the common case we only write to a rate based
-			// index or a domain-indexed channel, not both. In either case we can avoid a
-			// map allocation.
+			// index or a domain-indexed channel, not both. In either case we can avoid
+			// a map allocation.
 			if domainWriters == nil {
 				domainWriters = make(map[ChannelKey]*idxWriter)
 			}

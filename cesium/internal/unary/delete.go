@@ -64,9 +64,10 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 	return db.domain.Delete(ctx, tr, db.calculateStartOffset, db.calculateEndOffset)
 }
 
-// calculateStartOffset calculates the distance from a domain's start to the given time stamp.
-// Additionally, it "snaps" the time stamp to the nearest previous sample + 1.
-// calculateOffset returns the calculated offset, the "snapped" time stamp, and any errors.
+// calculateStartOffset calculates the distance from a domain's start to the given time
+// stamp. Additionally, it "snaps" the time stamp to the nearest previous sample + 1.
+// calculateOffset returns the calculated offset, the "snapped" time stamp, and any
+// errors.
 //
 // **THIS METHOD SHOULD NOT BE CALLED BY UNARY!** It should only be passed as a closure
 // to domain.Delete.
@@ -129,11 +130,11 @@ func (db *DB) calculateStartOffset(
 	sampleOffset = approxDist.Upper
 	if !approxDist.Exact() {
 		if !approxDist.StartExact && !approxDist.EndExact {
-			// If both start and end are inexact, sampleOffset is in between the two. (Note
-			// that the start is only inexact because of domain cutoff).
+			// If both start and end are inexact, sampleOffset is in between the two.
+			// (Note that the start is only inexact because of domain cutoff).
 			sampleOffset = (approxDist.Lower + approxDist.Upper) / 2
-			// We stamp to sampleOffset - 1 here since if we are approximating the start sampleOffset,
-			// we want to stamp the last written sample.
+			// We stamp to sampleOffset - 1 here since if we are approximating the start
+			// sampleOffset, we want to stamp the last written sample.
 			if sampleOffset == 0 {
 				return density.Size(sampleOffset), ts, nil
 			}
@@ -177,9 +178,10 @@ func (db *DB) calculateStartOffset(
 	return density.Size(sampleOffset), ts, nil
 }
 
-// calculateEndOffset calculates the distance from a domain's start to the given time stamp.
-// Additionally, it "snaps" the time stamp to the nearest next sample.
-// calculateOffset returns the calculated offset, the "snapped" time stamp, and any errors.
+// calculateEndOffset calculates the distance from a domain's start to the given time
+// stamp. Additionally, it "snaps" the time stamp to the nearest next sample.
+// calculateOffset returns the calculated offset, the "snapped" time stamp, and any
+// errors.
 //
 // **THIS METHOD SHOULD NOT BE CALLED BY UNARY!** It should only be passed as a closure
 // to domain.Delete.

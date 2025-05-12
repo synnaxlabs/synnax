@@ -71,7 +71,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey,
 	if err != nil {
 		return err
 	}
-	db.mu.digests.inlet, db.mu.digests.outlet = confluence.Attach[WriterRequest, WriterResponse](w, 100)
+	db.mu.digests.inlet, db.mu.digests.outlet = confluence.Attach(w, 100)
 	// We use a channel based mechanism to shut down this writer, so we create an
 	// isolated context here.
 	sCtx, cancel := signal.Isolated()
@@ -147,7 +147,7 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 	if err != nil {
 		panic(err)
 	}
-	return telem.UnaryFrame[ChannelKey](db.mu.digests.key, d)
+	return telem.UnaryFrame(db.mu.digests.key, d)
 }
 
 func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {

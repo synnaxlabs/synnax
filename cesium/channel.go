@@ -67,8 +67,8 @@ func (db *DB) RetrieveChannel(ctx context.Context, key ChannelKey) (Channel, err
 	return db.retrieveChannel(ctx, key)
 }
 
-// retrieveChannel retrieves a channel from the database. This method is not safe
-// for concurrent use, and the db must be locked before calling.
+// retrieveChannel retrieves a channel from the database. This method is not safe for
+// concurrent use, and the db must be locked before calling.
 func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
 	uCh, uOk := db.mu.unaryDBs[key]
 	if uOk {
@@ -114,9 +114,9 @@ func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string)
 	udb, uok := db.mu.unaryDBs[key]
 	if uok {
 		// There is a race condition here: one could rename a channel while it is being
-		// read or streamed from or written to. We choose to not address this since
-		// the name is purely decorative in Cesium and not used to identify channels
-		// whereas the key is the unique identifier. The same goes for the virtual database.
+		// read or streamed from or written to. We choose to not address this since the
+		// name is purely decorative in Cesium and not used to identify channels whereas
+		// the key is the unique identifier. The same goes for the virtual database.
 		if err := udb.RenameChannelInMeta(ctx, newName); err != nil {
 			return err
 		}
@@ -192,8 +192,8 @@ func (db *DB) validateNewChannel(ch Channel) error {
 }
 
 // RekeyChannel changes the key of channel oldKey into newKey. This operation is
-// idempotent and does not return an error if the channel does not exist.
-// RekeyChannel returns an error if there are open iterators/writers on the given channel.
+// idempotent and does not return an error if the channel does not exist. RekeyChannel
+// returns an error if there are open iterators/writers on the given channel.
 func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey core.ChannelKey) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -241,8 +241,8 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey core.C
 		delete(db.mu.unaryDBs, oldKey)
 		db.mu.unaryDBs[newKey] = *newDB
 
-		// If the DB is an index channel, we need to update the databases that depend
-		// on this channel.
+		// If the DB is an index channel, we need to update the databases that depend on
+		// this channel.
 		if uDB.Channel().IsIndex {
 			for otherDBKey := range db.mu.unaryDBs {
 				otherDB := db.mu.unaryDBs[otherDBKey]

@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
@@ -21,8 +22,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-
-	"github.com/synnaxlabs/cesium"
 )
 
 var _ = Describe("Streamer Behavior", func() {
@@ -66,7 +65,7 @@ var _ = Describe("Streamer Behavior", func() {
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					d := telem.NewSecondsTSV(10, 11, 12)
-					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
+					MustSucceed(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{basic1},
 						[]telem.Series{d},
 					)))
@@ -103,7 +102,7 @@ var _ = Describe("Streamer Behavior", func() {
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					d := telem.NewSecondsTSV(10, 11, 12)
-					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
+					MustSucceed(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{d},
 					)))
@@ -136,7 +135,7 @@ var _ = Describe("Streamer Behavior", func() {
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					written := telem.NewSeriesV[int64](1, 2, 3)
-					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
+					MustSucceed(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{written},
 					)))
@@ -175,9 +174,9 @@ var _ = Describe("Streamer Behavior", func() {
 						Start:          10 * telem.SecondTS,
 					}))
 					var r cesium.StreamerResponse
-					// Move this into an eventual closure, as we may be getting
-					// latent control updates from other tests, so we just assert on
-					// updates until we get one that matches.
+					// Move this into an eventual closure, as we may be getting latent
+					// control updates from other tests, so we just assert on updates
+					// until we get one that matches.
 					Eventually(func(g Gomega) {
 						g.Eventually(o.Outlet()).Should(Receive(&r))
 						g.Expect(r.Frame.Count()).To(Equal(1))

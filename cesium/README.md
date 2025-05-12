@@ -25,9 +25,10 @@ package irrelevant
 
 import (
 	"context"
+  "log"
+
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/telem"
-	"log"
 )
 
 func main() {
@@ -53,8 +54,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// The first sample timestamp allows us to align the writes for our time data and
-	// our sensor data.
+	// The first sample timestamp allows us to align the writes for our time data and our
+	// sensor data.
 	firstSampleTimeStamp := telem.Now()
 
 	// Define our data. Notice how the first value in the timestamp array is the

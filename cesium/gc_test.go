@@ -69,10 +69,10 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							timestamps = append(timestamps, telem.TimeStamp(i*10+j))
 						}
 
-						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
-								telem.NewSeriesV[int64](data...),
+								telem.NewSeriesV(data...),
 								telem.NewSecondsTSV(timestamps...),
 							},
 						))).To(Succeed())
@@ -137,10 +137,10 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							timestamps = append(timestamps, telem.TimeStamp(i*10+j))
 						}
 
-						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
-								telem.NewSeriesV[int64](data...),
+								telem.NewSeriesV(data...),
 								telem.NewSecondsTSV(timestamps...),
 							},
 						))).To(Succeed())
@@ -214,10 +214,10 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							timestamps = append(timestamps, telem.TimeStamp(i*10+j))
 						}
 
-						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
-								telem.NewSeriesV[int64](data...),
+								telem.NewSeriesV(data...),
 								telem.NewSecondsTSV(timestamps...),
 							},
 						))).To(Succeed())
@@ -243,14 +243,14 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 					By("Writing more data – they should go to the newly freed files, i.e. file 3 or file 4")
 					// This should go to file 10.
-					Expect(db.Write(ctx, 200*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 200*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{basic, index},
 						[]telem.Series{
 							telem.NewSeriesV[int64](2000, 2010, 2020, 2030, 2040),
 							telem.NewSecondsTSV(200, 201, 202, 203, 204),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 300*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 300*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{basic, index},
 						[]telem.Series{
 							telem.NewSeriesV[int64](3000, 3010, 3020),
