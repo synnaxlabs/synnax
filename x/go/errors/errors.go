@@ -15,13 +15,13 @@ const (
 	// TypeEmpty represents an error that hasn't been properly parsed or detected.
 	// TypeEmpty errors typically represent a programming error.
 	TypeEmpty = ""
-	// TypeNil represents a nil error i.e. one that has not occurred.
+	// TypeNil represents a nil error i.e., one that has not occurred.
 	TypeNil = "nil"
-	// TypeUnknown represents an error that was not registered with the ferrors package.
+	// TypeUnknown represents an error not registered with the errors package.
 	TypeUnknown = "unknown"
-	// TypeRoach represents an error type that was encoded using cockroachdb's errors package.
-	// This is the default error type for errors that are not registered with the ferrors package,
-	// and is used mostly for go-to-go communication.
+	// TypeRoach represents an error type encoded using cockroachdb's errors package.
+	// This is the default error type for errors that are not registered with the errors
+	// package, and is used mostly for go-to-go communication.
 	TypeRoach = "roach"
 )
 
@@ -57,17 +57,8 @@ func Wrap(err error, msg string) error { return errors.Wrap(err, msg) }
 // Wrapf wraps an error with a formatted message prefix. A stack trace is also retained.
 // If the format is empty, no prefix is added, but the extra arguments are still
 // processed for reportable strings
-func Wrapf(err error, format string, args ...interface{}) error {
+func Wrapf(err error, format string, args ...any) error {
 	return errors.Wrapf(err, format, args...)
-}
-
-// WithSecondaryError enhances the error given as first argument with an annotation that
-// carries the error given as second argument. The second error does not participate in cause
-// analysis (Is, etc) and is only revealed when printing out the error.
-//
-// Tip: consider using CombineErrors() below in the general case.
-func WithSecondaryError(err error, secondary error) error {
-	return errors.WithSecondaryError(err, secondary)
 }
 
 // Combine returns:
@@ -84,7 +75,7 @@ func Combine(err error, otherErr error) error {
 func New(msg string) error { return errors.New(msg) }
 
 // Newf creates an error with a formatted error message. A stack trace is retained.
-func Newf(format string, args ...interface{}) error { return errors.Newf(format, args...) }
+func Newf(format string, args ...any) error { return errors.Newf(format, args...) }
 
 // As finds the first error in the chain that matches the type to which target points,
 // and if so, sets the target to its value and returns true. An error matches a type if it
@@ -94,7 +85,7 @@ func Newf(format string, args ...interface{}) error { return errors.Newf(format,
 //
 // The As method should set the target to its value and return true if err matches the
 // type to which target points.
-func As(err error, target interface{}) bool { return errors.As(err, target) }
+func As(err error, target any) bool { return errors.As(err, target) }
 
 // Skip returns nil if the error satisfied errors.Is for any of the reference errors.
 // Otherwise, it returns the error itself.
