@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/drift",
-  "version": "0.42.1",
+  "version": "0.43.0",
   "description": "State synchronization and Redux state synchronization for Tauri Apps",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/drift",
   "type": "module",
@@ -29,7 +29,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-redux": "^9.2.0",
-    "zod": "^4.0.0-beta"
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
@@ -72,11 +72,6 @@
       "types": "./dist/src/electron/index.d.ts",
       "import": "./dist/electron.js",
       "require": "./dist/electron.cjs"
-    },
-    "./noop": {
-      "types": "./dist/src/noop/index.d.ts",
-      "import": "./dist/noop.js",
-      "require": "./dist/noop.cjs"
     }
   }
 }

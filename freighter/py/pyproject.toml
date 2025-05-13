@@ -1,6 +1,6 @@
 [project]
 name = "synnax-freighter"
-version = "0.42.0"
+version = "0.43.0"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
 requires-python = ">=3.11,<4.0"
 dynamic = ["dependencies"]
@@ -15,7 +15,7 @@ alamos = { path = "../../alamos/py", develop = true }
 msgpack = "^1.1.0"
 pydantic = "^2.10.6"
 urllib3 = "^2.3.0"
-websockets = "^15.0.1"
+websockets = "^13.1"
 
 
 [tool.poetry.group.dev.dependencies]
