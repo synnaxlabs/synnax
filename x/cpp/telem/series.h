@@ -347,8 +347,9 @@ public:
         size_(0) {
         if (!this->data_type().is_variable())
             this->size_ = s.data().size() / this->data_type().density();
-        else for (const char &v: s.data())
-            if (v == NEWLINE_CHAR) ++this->size_;
+        else
+            for (const char &v: s.data())
+                if (v == NEWLINE_CHAR) ++this->size_;
         this->data_ = std::make_unique<std::byte[]>(byte_size());
         memcpy(this->data_.get(), s.data().data(), byte_size());
     }
