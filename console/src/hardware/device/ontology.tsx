@@ -184,7 +184,7 @@ const Item: Tree.Item = ({ entry, className, ...rest }: Tree.ItemProps) => {
     >
       {({ entry, onRename, key }) => (
         <>
-          <Align.Space x grow align="center">
+          <Align.Space x grow align="center" className={CSS.B("name-location")}>
             <Text.MaybeEditable
               id={`text-${key}`}
               level="p"
