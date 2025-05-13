@@ -33,7 +33,7 @@ var _ gorp.Entry[uuid.UUID] = Label{}
 func (l Label) GorpKey() uuid.UUID { return l.Key }
 
 // SetOptions implements gorp.Entry.
-func (l Label) SetOptions() []interface{} { return nil }
+func (l Label) SetOptions() []any { return nil }
 
 // OntologyID returns the unique ontology identifier for the label.
 func (l Label) OntologyID() ontology.ID { return OntologyID(l.Key) }

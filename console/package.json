@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.41.3",
+  "version": "0.42.0",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -57,7 +57,7 @@
     "vscode-jsonrpc": "^8.2.1",
     "vscode-languageclient": "^9.0.1",
     "vscode-ws-jsonrpc": "^3.4.0",
-    "zod": "^3.24.2"
+    "zod": "^4.0.0-beta"
   },
   "devDependencies": {
     "@codingame/esbuild-import-meta-url-plugin": "^1.0.3",

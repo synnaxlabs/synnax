@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@/color/core";
+import { color as core } from "@synnaxlabs/x";
 
 /**
  * Creates a set of CSS variables representing different opacities of a given color.
@@ -18,9 +18,12 @@ import { color } from "@/color/core";
  */
 export const createHexOpacityVariants = (
   prefix: string,
-  hex: color.Crude,
+  hex: core.Crude,
   opacities: readonly number[],
 ): Record<string, string> =>
   Object.fromEntries(
-    opacities.map((o) => [`${prefix}-${o}`, new color.Color(hex).setAlpha(o).hex]),
+    opacities.map((o) => [
+      `${prefix}-${o}`,
+      core.hex(core.setAlpha(core.construct(hex), o)),
+    ]),
   );

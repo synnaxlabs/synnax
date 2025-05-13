@@ -18,7 +18,7 @@ import {
   Synnax as PSynnax,
 } from "@synnaxlabs/pluto";
 import { TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
@@ -45,7 +45,7 @@ import {
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
 
-export type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
+export type FormSchema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
   name: z.ZodString;
   config: ConfigSchema<Config>;
 }>;
@@ -54,7 +54,7 @@ export type FormProps<
   Config extends UnknownRecord = UnknownRecord,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
-> = { methods: PForm.ContextValue<Schema<Config>> } & (
+> = { methods: PForm.ContextValue<FormSchema<Config>> } & (
   | {
       configured: false;
       task: task.Payload<Config, Details, Type>;
@@ -98,8 +98,8 @@ export interface UseFormReturn<
   Type extends string = string,
 > {
   formProps: FormProps<Config, Details, Type>;
-  handleConfigure: (config: Config, name: string) => Promise<void>;
-  handleStartOrStop: (command: StartOrStopCommand) => Promise<void>;
+  handleConfigure: UseMutateFunction<void, Error, void, unknown>;
+  handleStartOrStop: UseMutateFunction<void, Error, StartOrStopCommand, unknown>;
   state: State;
   isConfiguring: boolean;
 }
@@ -116,7 +116,7 @@ export const useForm = <
   configSchema,
   onConfigure,
   type,
-}: UseFormArgs<Config, Details, Type>) => {
+}: UseFormArgs<Config, Details, Type>): UseFormReturn<Config, Details, Type> => {
   const schema = z.object({ name: nameZ, config: configSchema });
   const client = PSynnax.use();
   const handleError_ = Status.useErrorHandler();
@@ -130,7 +130,7 @@ export const useForm = <
     },
     [dispatch, layoutKey],
   );
-  const methods = PForm.use<Schema<Config>>({
+  const methods = PForm.use<FormSchema<Config>>({
     schema,
     values,
     onHasTouched: handleUnsavedChanges,
@@ -240,7 +240,10 @@ export const wrapForm = <
         empty
       >
         <Align.Space grow>
-          <PForm.Form {...methods} mode={isSnapshot ? "preview" : "normal"}>
+          <PForm.Form<FormSchema<Config>>
+            {...methods}
+            mode={isSnapshot ? "preview" : "normal"}
+          >
             <Align.Space x justify="spaceBetween">
               <PForm.Field<string> path="name">
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}

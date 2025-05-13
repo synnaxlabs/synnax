@@ -11,13 +11,18 @@ package alamos
 
 import (
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/slices"
 )
 
 // LoggerConfig is the config for a Logger.
 type LoggerConfig struct {
 	// ZapConfig sets the underlying zap.Logger. If nil, a no-op logger is used.
 	ZapConfig zap.Config
+	ZapLogger *zap.Logger
 }
 
 var (
@@ -32,6 +37,7 @@ func (c LoggerConfig) Validate() error { return nil }
 // Override implements config.Config.
 func (c LoggerConfig) Override(other LoggerConfig) LoggerConfig {
 	c.ZapConfig = other.ZapConfig
+	c.ZapLogger = override.Nil(c.ZapLogger, other.ZapLogger)
 	return c
 }
 
@@ -48,11 +54,18 @@ func NewLogger(configs ...LoggerConfig) (*Logger, error) {
 	if err != nil {
 		return nil, err
 	}
-	z, err := cfg.ZapConfig.Build()
-	if err != nil {
-		return nil, err
+	l := &Logger{Config: cfg}
+	if cfg.ZapLogger != nil {
+		l.zap = cfg.ZapLogger
+	} else {
+		z, err := cfg.ZapConfig.Build()
+		if err != nil {
+			return nil, err
+		}
+		l.zap = z
 	}
-	return &Logger{Config: cfg, zap: z.WithOptions(zap.AddCallerSkip(1))}, nil
+	l.zap = l.zap.WithOptions(zap.AddCallerSkip(1))
+	return l, nil
 }
 
 // Zap returns the underlying zap Logger
@@ -83,7 +96,7 @@ func (l *Logger) Named(name string) *Logger {
 
 // Debugf logs a message at the Debug level using the given format. This is a slower
 // method that should not be used in hot paths.
-func (l *Logger) Debugf(format string, args ...interface{}) {
+func (l *Logger) Debugf(format string, args ...any) {
 	if l != nil {
 		l.zap.Sugar().Debugf(format, args...)
 	}
@@ -153,4 +166,52 @@ func DebugError(err error) zap.Field {
 		return zap.Skip()
 	}
 	return zap.String("error", err.Error())
+}
+
+func CustomZapCore(core zapcore.Core) zapcore.Core {
+	return customCore{c: core}
+}
+
+type customCore struct{ c zapcore.Core }
+
+var _ zapcore.Core = (*customCore)(nil)
+
+// Enabled implements zapcore.Core.
+func (c customCore) Enabled(level zapcore.Level) bool { return c.c.Enabled(level) }
+
+// With implements zapcore.Core.
+func (c customCore) With(fields []zapcore.Field) zapcore.Core { return &customCore{c.c.With(fields)} }
+
+// Check implements zapcore.Core.
+func (c customCore) Check(entry zapcore.Entry, entry2 *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	// Make sure that zap uses our custom core.
+	if c.Enabled(entry.Level) {
+		return entry2.AddCore(entry, c)
+	}
+	return c.c.Check(entry, entry2)
+}
+
+// Sync implements zapcore.Core.
+func (c customCore) Sync() error { return c.c.Sync() }
+
+func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
+	toRemove := -1
+	for i, field := range fields {
+		// If there is an error in the log and we can get its stack trace, use that
+		// instead of the built-in stack trace.
+		if field.Type == zapcore.ErrorType {
+			if err, ok := field.Interface.(error); ok {
+				stack := errors.GetStackTrace(err)
+				entry.Stack = stack.String()
+			}
+		} else if field.Key == "caller" && field.Type == zapcore.StringType && len(field.String) > 0 {
+			// This means that we should specify a custom caller.
+			entry.Caller = zapcore.EntryCaller{Defined: true, File: field.String}
+			toRemove = i
+		}
+	}
+	if toRemove >= 0 {
+		fields = slices.Delete(slices.Clone(fields), toRemove, toRemove+1)
+	}
+	return c.c.Write(entry, fields)
 }

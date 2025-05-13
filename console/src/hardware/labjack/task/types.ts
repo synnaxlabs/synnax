@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
-import { z } from "zod";
+import { type core, z } from "zod";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
@@ -43,7 +43,7 @@ const NO_SCALE: NoScale = { type: NO_SCALE_TYPE };
 const scaleZ = z.union([noScaleZ, linearScaleZ]);
 export type Scale = z.infer<typeof scaleZ>;
 export type ScaleType = Scale["type"];
-export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {
+export const SCALE_SCHEMAS: Record<ScaleType, z.ZodObjectLike<Scale>> = {
   [NO_SCALE_TYPE]: noScaleZ,
   [LINEAR_SCALE_TYPE]: linearScaleZ,
 };
@@ -224,7 +224,7 @@ export const ZERO_OUTPUT_CHANNEL: OutputChannel = ZERO_OUTPUT_CHANNELS[DO_CHANNE
 export type Channel = InputChannel | OutputChannel;
 export type ChannelType = Channel["type"];
 
-const validateUniquePorts = (channels: Channel[], { addIssue }: z.RefinementCtx) => {
+const validateUniquePorts: core.CheckFn<Channel[]> = ({ value: channels, issues }) => {
   const portToIndexMap = new Map<string, number>();
   channels.forEach(({ port }, i) => {
     if (!portToIndexMap.has(port)) {
@@ -232,12 +232,11 @@ const validateUniquePorts = (channels: Channel[], { addIssue }: z.RefinementCtx)
       return;
     }
     const index = portToIndexMap.get(port) as number;
-    const baseIssue = {
-      code: z.ZodIssueCode.custom,
-      message: `Port ${port} has already been used on another channel`,
-    };
-    addIssue({ ...baseIssue, path: [index, "port"] });
-    addIssue({ ...baseIssue, path: [i, "port"] });
+
+    const code = "custom";
+    const msg = `Port ${port} has already been used on another channel`;
+    issues.push({ code, message: msg, path: [index, "port"], input: channels });
+    issues.push({ code, message: msg, path: [i, "port"], input: channels });
   });
 };
 
@@ -249,12 +248,12 @@ export const readConfigZ = Common.Task.baseConfigZ
   .extend({
     channels: z
       .array(inputChannelZ)
-      .superRefine(Common.Task.validateReadChannels)
-      .superRefine(validateUniquePorts),
+      .check(Common.Task.validateReadChannels)
+      .check(validateUniquePorts),
     sampleRate: z.number().positive().max(50000),
     streamRate: z.number().positive().max(50000),
   })
-  .superRefine(Common.Task.validateStreamRate);
+  .check(Common.Task.validateStreamRate);
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 const ZERO_READ_CONFIG: ReadConfig = {
   ...Common.Task.ZERO_BASE_CONFIG,
@@ -295,8 +294,8 @@ export const writeConfigZ = Common.Task.baseConfigZ.extend({
       })),
     )
     .or(z.array(outputChannelZ))
-    .superRefine(Common.Task.validateWriteChannels)
-    .superRefine(validateUniquePorts),
+    .check(Common.Task.validateWriteChannels)
+    .check(validateUniquePorts),
   stateRate: z.number().positive().max(50000),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

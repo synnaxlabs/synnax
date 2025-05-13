@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, type observe, type UnknownRecord } from "@synnaxlabs/x";
+import {
+  binary,
+  type observe,
+  type UnknownRecord,
+  unknownRecordZ,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key as RackKey } from "@/hardware/rack/payload";
@@ -28,8 +33,7 @@ export const stateZ = z.object({
   task: keyZ,
   variant: statusZ,
   key: z.string().optional(),
-  details: z
-    .record(z.unknown())
+  details: unknownRecordZ
     .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))
     .or(z.null()) as z.ZodType<UnknownRecord | undefined>,
@@ -44,7 +48,7 @@ export const taskZ = z.object({
   name: z.string(),
   type: z.string(),
   internal: z.boolean().optional(),
-  config: z.record(z.unknown()).or(z.string().transform(decodeJSONString)),
+  config: unknownRecordZ.or(z.string().transform(decodeJSONString)),
   state: stateZ.optional().nullable(),
   snapshot: z.boolean().optional(),
 });
@@ -74,8 +78,7 @@ export const commandZ = z.object({
   task: keyZ,
   type: z.string(),
   key: z.string(),
-  args: z
-    .record(z.unknown())
+  args: unknownRecordZ
     .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))
     .or(z.null())

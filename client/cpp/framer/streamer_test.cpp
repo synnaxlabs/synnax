@@ -7,12 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <include/gtest/gtest.h>
+/// std
 #include <thread>
 
+/// external
+#include "gtest/gtest.h"
+
+/// module
+#include "x/cpp/xtest/xtest.h"
+
+/// internal
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
 
 void test_downsample(
     const std::vector<int> &raw_data,
@@ -23,9 +29,7 @@ void test_downsample(
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
 TEST(StreamerTests, testStreamBasic) {
     auto client = new_test_client();
-    auto data = ASSERT_NIL_P(
-        client.channels.create("data", telem::INT32_T, 1 * telem::HZ)
-    );
+    auto data = create_virtual_channel(client);
     auto now = telem::TimeStamp::now();
 
     std::vector channels = {data.key};
@@ -40,13 +44,13 @@ TEST(StreamerTests, testStreamBasic) {
     }));
 
     auto frame = synnax::Frame(1);
-    frame.emplace(data.key, telem::Series(1));
-    ASSERT_TRUE(writer.write(frame));
-    auto [res_frame, recErr] = streamer.read();
-    ASSERT_FALSE(recErr) << recErr.message();
-
+    float v = 1.0;
+    frame.emplace(data.key, telem::Series(v));
+    ASSERT_NIL(writer.write(frame));
+    ASSERT_NIL_P(writer.commit());
+    auto res_frame = ASSERT_NIL_P(streamer.read());
     ASSERT_EQ(res_frame.size(), 1);
-    ASSERT_EQ(res_frame.series->at(0).values<int>()[0], 1);
+    ASSERT_EQ(res_frame.series->at(0).at<float>(0), v);
 
     ASSERT_NIL(writer.close());
     ASSERT_NIL(streamer.close());
@@ -55,17 +59,14 @@ TEST(StreamerTests, testStreamBasic) {
 ///@brief test streamer set channels after construction.
 TEST(StreamerTests, testStreamSetChannels) {
     auto client = new_test_client();
-    auto data = ASSERT_NIL_P(
-        client.channels.create("data", telem::FLOAT32_T, 1 * telem::HZ)
-    );
+    auto data = create_virtual_channel(client);
     auto now = telem::TimeStamp::now();
-
 
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(synnax::StreamerConfig{
         {},
     }));
 
-    auto setErr = streamer.set_channels({data.key});
+    auto set_err = streamer.set_channels({data.key});
 
     auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
         {data.key},
@@ -75,7 +76,7 @@ TEST(StreamerTests, testStreamSetChannels) {
     }));
     // Sleep for 5 milliseconds to allow for the streamer to process the updated keys.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    ASSERT_FALSE(setErr) << setErr.message();
+    ASSERT_NIL(set_err);
 
     auto frame = synnax::Frame(1);
     frame.emplace(
@@ -84,7 +85,7 @@ TEST(StreamerTests, testStreamSetChannels) {
             std::vector<float>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}
         )
     );
-    ASSERT_TRUE(writer.write(frame));
+    ASSERT_NIL(writer.write(frame));
     auto res_frame = ASSERT_NIL_P(streamer.read());
 
     ASSERT_EQ(res_frame.size(), 1);
@@ -132,15 +133,41 @@ TEST(StreamerTests, TestStreamDownsample) {
     test_downsample(data, data, 0);
 }
 
+/// @brief it should correctly stream data from a variable density channel.
+TEST(StreamerTests, TestStreamVariableChannel) {
+    auto client = new_test_client();
+    auto data = ASSERT_NIL_P(client.channels.create("data", telem::STRING_T, true));
+    auto now = telem::TimeStamp::now();
+    std::vector channels = {data.key};
+    auto streamer = ASSERT_NIL_P(client.telem.open_streamer(synnax::StreamerConfig{
+        .channels = {data.key},
+    }));
+
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
+        channels,
+        now,
+        std::vector{telem::AUTH_ABSOLUTE},
+        telem::ControlSubject{"test_writer"}
+    }));
+
+    const std::string value = "cat";
+    auto frame = synnax::Frame(data.key, telem::Series(value));
+    ASSERT_NIL(writer.write(frame));
+
+    auto res_frame = ASSERT_NIL_P(streamer.read());
+    ASSERT_EQ(res_frame.size(), 1);
+    ASSERT_EQ(res_frame.series->at(0).at<std::string>(0), "cat");
+    ASSERT_NIL(writer.close());
+    ASSERT_NIL(streamer.close());
+}
+
 void test_downsample(
     const std::vector<int> &raw_data,
     std::vector<int> expected,
     int32_t downsample_factor
 ) {
     auto client = new_test_client();
-    auto data = ASSERT_NIL_P(
-        client.channels.create("data", telem::INT32_T, 1 * telem::HZ)
-    );
+    auto data = create_virtual_channel(client, telem::INT32_T);
     auto now = telem::TimeStamp::now();
     std::vector channels = {data.key};
     auto writer = ASSERT_NIL_P(client.telem.open_writer(synnax::WriterConfig{
@@ -159,9 +186,8 @@ void test_downsample(
 
     auto frame = synnax::Frame(1);
     frame.emplace(data.key, telem::Series(raw_data));
-    ASSERT_TRUE(writer.write(frame));
-    auto [res_frame, recErr] = streamer.read();
-    ASSERT_FALSE(recErr) << recErr.message();
+    ASSERT_NIL(writer.write(frame));
+    auto res_frame = ASSERT_NIL_P(streamer.read());
 
     for (int i = 0; i < expected.size(); i++)
         ASSERT_EQ(res_frame.series->at(0).values<int>()[i], expected[i]);
@@ -177,7 +203,6 @@ void test_downsample_string(
 ) {
     auto client = new_test_client();
 
-    // Create a virtual channel
     synnax::Channel virtual_channel("virtual_string_channel", telem::STRING_T, true);
     ASSERT_NIL(client.channels.create(virtual_channel));
 
@@ -194,17 +219,15 @@ void test_downsample_string(
         client.telem.open_streamer(synnax::StreamerConfig{channels, downsample_factor})
     );
 
-    // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = synnax::Frame(
         virtual_channel.key,
         telem::Series(raw_data, telem::STRING_T)
     );
-    ASSERT_TRUE(writer.write(frame));
+    ASSERT_NIL(writer.write(frame));
     auto res_frame = ASSERT_NIL_P(streamer.read());
 
-    // Get the downsampled strings
     std::vector<std::string> received_strings = res_frame.series->at(0).strings();
 
     ASSERT_EQ(received_strings.size(), expected.size());

@@ -28,6 +28,7 @@ import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
+import { Debug } from "@/debug";
 import { Docs } from "@/docs";
 import { Error } from "@/error";
 import { Hardware } from "@/hardware";
@@ -68,6 +69,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Version.LAYOUTS,
   ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
+  ...Debug.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
@@ -140,7 +142,7 @@ const MainUnderContext = (): ReactElement => {
         triggers={TRIGGERS_PROVIDER_PROPS}
         haul={{ useState: useHaulState }}
         color={{ useState: useColorContextState }}
-        alamos={{ level: "debug", include: [] }}
+        alamos={{ level: "info" }}
       >
         <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
           <Vis.Canvas>

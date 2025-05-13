@@ -78,7 +78,6 @@ export const createBase = <R, A extends BaseArgs<R>>(
     const args = useSelectArgs<A>(layoutKey);
     const dispatch = useDispatch();
     const handleResult = (value: R | null) => {
-      console.log(value);
       if (value == null) return onClose();
       dispatch(
         setArgs<BaseArgs<R>>({

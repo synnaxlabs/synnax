@@ -14,7 +14,11 @@ import { type Destructor } from "@synnaxlabs/x/destructor";
 import { type observe } from "@synnaxlabs/x/observe";
 
 import { type aether } from "@/aether/aether";
-import { CompoundTelemFactory, type Factory } from "@/telem/aether/factory";
+import {
+  CompoundTelemFactory,
+  type CreateOptions,
+  type Factory,
+} from "@/telem/aether/factory";
 import { PipelineFactory } from "@/telem/aether/pipeline";
 import { type Sink, type Source, type Spec } from "@/telem/aether/telem";
 
@@ -41,8 +45,8 @@ export class Context {
     return new Context(next, parent);
   }
 
-  create<T>(spec: Spec): T {
-    const telem = this.factory.create(spec);
+  create<T>(spec: Spec, options?: CreateOptions): T {
+    const telem = this.factory.create(spec, options);
     if (telem == null)
       throw new UnexpectedError(
         `Telemetry service could not find a source for type ${spec.type}`,
@@ -88,12 +92,12 @@ class Memoized<V> {
 }
 
 class MemoizedSource<V> extends Memoized<Source<V>> {
-  async value(): Promise<V> {
-    return await this.wrapped.value();
+  value(): V {
+    return this.wrapped.value();
   }
 
-  async cleanup(): Promise<void> {
-    await this.wrapped.cleanup?.();
+  cleanup(): void {
+    this.wrapped.cleanup?.();
   }
 
   onChange(handler: observe.Handler<void>): Destructor {
@@ -102,37 +106,39 @@ class MemoizedSource<V> extends Memoized<Source<V>> {
 }
 
 class MemoizedSink<V> extends Memoized<Sink<V>> {
-  async set(value: V): Promise<void> {
-    return await this.wrapped.set(value);
+  set(value: V): void {
+    this.wrapped.set(value);
   }
 
-  async cleanup(): Promise<void> {
-    await this.wrapped.cleanup?.();
+  cleanup(): void {
+    this.wrapped.cleanup?.();
   }
 }
 
-export const useSource = async <V>(
+export const useSource = <V>(
   ctx: aether.Context,
   spec: Spec,
   prev: Source<V>,
-): Promise<MemoizedSource<V>> => {
+  options?: CreateOptions,
+): MemoizedSource<V> => {
   const prov = useContext(ctx);
   if (prev instanceof MemoizedSource) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
-    await prev.cleanup?.();
+    prev.cleanup?.();
   }
-  return new MemoizedSource<V>(prov.create(spec), prov, spec);
+  return new MemoizedSource<V>(prov.create(spec, options), prov, spec);
 };
 
-export const useSink = async <V>(
+export const useSink = <V>(
   ctx: aether.Context,
   spec: Spec,
   prev: Sink<V>,
-): Promise<MemoizedSink<V>> => {
+  options?: CreateOptions,
+): MemoizedSink<V> => {
   const prov = useContext(ctx);
   if (prev instanceof MemoizedSink) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
-    await prev.cleanup?.();
+    prev.cleanup?.();
   }
-  return new MemoizedSink<V>(prov.create(spec), prov, spec);
+  return new MemoizedSink<V>(prov.create(spec, options), prov, spec);
 };

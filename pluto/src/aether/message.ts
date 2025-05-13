@@ -21,9 +21,21 @@ export interface MainDelete {
 }
 
 export interface WorkerUpdate {
+  variant: "update";
   key: string;
   state: any;
 }
 
-export type WorkerMessage = WorkerUpdate;
+export interface ErrorObject {
+  name: string;
+  message: string;
+  stack?: string;
+}
+
+export interface WorkerError {
+  variant: "error";
+  error: ErrorObject;
+}
+
+export type WorkerMessage = WorkerUpdate | WorkerError;
 export type MainMessage = MainUpdate | MainDelete;

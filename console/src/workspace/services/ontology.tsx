@@ -48,7 +48,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "Workspace" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
-      if (!(await confirm(resources))) throw errors.CANCELED;
+      if (!(await confirm(resources))) throw new errors.Canceled();
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
         ...Tree.removeNode({
@@ -70,7 +70,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     },
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       handleError(e, "Failed to delete workspace");
     },
   }).mutate;
@@ -254,6 +254,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const importSchematic = SchematicServices.useImport(selection.resources[0].id.key);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport(EXTRACTORS);
+  const importLog = LogServices.useImport(selection.resources[0].id.key);
+  const importTable = TableServices.useImport(selection.resources[0].id.key);
   const handleSelect = {
     delete: () => handleDelete(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),
@@ -262,6 +264,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     createPlot: () => createPlot(props),
     createTable: () => createTable(props),
     importPlot: () => importPlot(),
+    importLog: () => importLog(),
+    importTable: () => importTable(),
     createSchematic: () => createSchematic(props),
     importSchematic: () => importSchematic(),
     export: () => handleExport(resources[0].id.key),

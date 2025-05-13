@@ -18,17 +18,20 @@ import {
   Schematic,
   Status,
 } from "@synnaxlabs/pluto";
-import { box, deep, location, xy } from "@synnaxlabs/x";
+import { box, color, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import {
   type ElementInfo,
-  type NodeElementInfo,
+  selectViewport,
+  useSelectRequiredEdge,
+  useSelectRequiredNodeProps,
+  useSelectSelectedElementDigests,
   useSelectSelectedElementsProps,
-  useSelectViewport,
 } from "@/schematic/selectors";
 import { setElementProps, setNodePositions } from "@/schematic/slice";
+import { type RootState } from "@/store";
 
 export interface PropertiesProps {
   layoutKey: string;
@@ -36,130 +39,25 @@ export interface PropertiesProps {
 
 export const PropertiesControls = memo(
   ({ layoutKey }: PropertiesProps): ReactElement => {
-    const elements = useSelectSelectedElementsProps(layoutKey);
-    const viewport = useSelectViewport(layoutKey);
-
-    const dispatch = useDispatch();
-
-    const handleChange = (key: string, props: any): void => {
-      dispatch(setElementProps({ layoutKey, key, props }));
-    };
-
-    if (elements.length === 0)
+    const digests = useSelectSelectedElementDigests(layoutKey);
+    if (digests.length === 0)
       return (
         <Status.Text.Centered variant="disabled" hideIcon>
           Select a Schematic element to configure its properties.
         </Status.Text.Centered>
       );
 
-    if (elements.length > 1) {
-      const groups: Record<string, ElementInfo[]> = {};
-      elements.forEach((e) => {
-        let color: Color.Color | null = null;
-        if (e.type === "edge") color = new Color.Color(e.edge.color);
-        else if (e.props.color != null) color = new Color.Color(e.props.color);
-        if (color === null) return;
-        const hex = color.hex;
-        if (!(hex in groups)) groups[hex] = [];
-        groups[hex].push(e);
-      });
+    if (digests.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;
 
-      const layouts = elements
-        .map((el) => {
-          if (el.type !== "node") return null;
-          // grab all child elements with the class 'react-flow__handle'
-          try {
-            const nodeEl = Diagram.selectNode(el.key);
-            const nodeBox = box.construct(
-              el.node.position,
-              box.dims(box.construct(nodeEl)),
-            );
-            const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
-            const nodeElBox = box.construct(nodeEl);
-            const handles = Array.from(handleEls).map((el) => {
-              const pos = box.center(box.construct(el));
-              const dist = xy.scale(
-                xy.translation(box.topLeft(nodeElBox), pos),
-                1 / viewport.zoom,
-              );
-              const match = el.className.match(/react-flow__handle-(\w+)/);
-              if (match == null)
-                throw new Error(`[schematic] - cannot find handle orientation`);
-              const orientation = location.construct(match[1]) as location.Outer;
-              return new Diagram.HandleLayout(dist, orientation);
-            });
-            return new Diagram.NodeLayout(el.key, nodeBox, handles);
-          } catch (e) {
-            console.error(e);
-          }
-          return null;
-        })
-        .filter((el) => el !== null);
-
-      return (
-        <Align.Space align="start" x style={{ padding: "2rem" }}>
-          <Input.Item label="Selection Colors" align="start">
-            <Align.Space y>
-              {Object.entries(groups).map(([hex, elements]) => (
-                <Color.Swatch
-                  key={elements[0].key}
-                  value={hex}
-                  onChange={(color: Color.Color) => {
-                    elements.forEach((e) => handleChange(e.key, { color: color.hex }));
-                  }}
-                />
-              ))}
-            </Align.Space>
-          </Input.Item>
-          <Input.Item label="Align">
-            <Align.Space x>
-              <Button.Icon
-                tooltip="Align nodes vertically"
-                onClick={() => {
-                  const newPositions = Diagram.alignNodes(layouts, "x");
-                  dispatch(
-                    setNodePositions({
-                      key: layoutKey,
-                      positions: Object.fromEntries(
-                        newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                      ),
-                    }),
-                  );
-                }}
-              >
-                <Icon.Align.YCenter />
-              </Button.Icon>
-              <Button.Icon
-                tooltip="Align nodes horizontally"
-                onClick={() => {
-                  const newPositions = Diagram.alignNodes(layouts, "y");
-                  dispatch(
-                    setNodePositions({
-                      key: layoutKey,
-                      positions: Object.fromEntries(
-                        newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                      ),
-                    }),
-                  );
-                }}
-              >
-                <Icon.Align.XCenter />
-              </Button.Icon>
-            </Align.Space>
-          </Input.Item>
-        </Align.Space>
-      );
-    }
-
-    const selected = elements[0];
+    const selected = digests[0];
 
     if (selected.type === "edge")
-      return <EdgeProperties edge={selected} onChange={handleChange} />;
+      return <EdgeProperties layoutKey={layoutKey} edgeKey={selected.key} />;
     return (
       <IndividualProperties
         key={selected.key}
-        element={selected}
-        onChange={handleChange}
+        layoutKey={layoutKey}
+        nodeKey={selected.key}
       />
     );
   },
@@ -167,56 +65,182 @@ export const PropertiesControls = memo(
 PropertiesControls.displayName = "PropertiesControls";
 
 interface IndividualPropertiesProps {
-  element: NodeElementInfo;
-  onChange: (key: string, props: any) => void;
+  layoutKey: string;
+  nodeKey: string;
 }
 
 const IndividualProperties = ({
-  element: selected,
-  onChange,
-}: IndividualPropertiesProps): ReactElement => {
-  const C = Schematic.SYMBOLS[selected.props.key];
+  layoutKey,
+  nodeKey,
+}: IndividualPropertiesProps): ReactElement | null => {
+  const props = useSelectRequiredNodeProps(layoutKey, nodeKey);
+  const C = Schematic.SYMBOLS[props.key];
+  const dispatch = useDispatch();
+
+  const onChange = (key: string, props: any): void => {
+    dispatch(setElementProps({ layoutKey, key, props }));
+  };
 
   const formMethods = Form.use({
-    values: deep.copy(selected.props),
+    values: structuredClone(props),
     sync: true,
-    onChange: ({ values }) => onChange(selected.key, values),
+    onChange: ({ values }) => onChange(nodeKey, values),
   });
 
   return (
     <Align.Space style={{ height: "100%" }} y>
       <Form.Form {...formMethods}>
-        <C.Form {...formMethods} key={selected.key} />
+        <C.Form {...formMethods} key={nodeKey} />
       </Form.Form>
     </Align.Space>
   );
 };
 
 interface EdgePropertiesProps {
-  edge: ElementInfo;
-  onChange: (key: string, props: any) => void;
+  layoutKey: string;
+  edgeKey: string;
 }
 
 const EdgeProperties = ({
-  edge,
-  onChange,
+  layoutKey,
+  edgeKey,
 }: EdgePropertiesProps): ReactElement | null => {
-  if (edge.type !== "edge") return null;
+  const edge = useSelectRequiredEdge(layoutKey, edgeKey);
+  const dispatch = useDispatch();
+  const onChange = (key: string, props: any): void => {
+    dispatch(setElementProps({ layoutKey, key, props }));
+  };
   return (
     <Align.Space style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
-          value={edge.edge.color ?? Color.ZERO}
-          onChange={(color: Color.Color) => {
-            onChange(edge.key, { color: color.hex });
+          value={edge.color ?? color.ZERO}
+          onChange={(v: color.Color) => {
+            onChange(edge.key, { color: color.hex(v) });
           }}
         />
       </Input.Item>
       <Input.Item label="Type" align="start">
         <Diagram.SelectPathType
-          value={edge.edge.variant as Diagram.PathType}
+          value={edge.variant as Diagram.PathType}
           onChange={(variant: Diagram.PathType) => onChange(edge.key, { variant })}
         />
+      </Input.Item>
+    </Align.Space>
+  );
+};
+
+interface MultiElementPropertiesProps {
+  layoutKey: string;
+}
+
+const MultiElementProperties = ({
+  layoutKey,
+}: MultiElementPropertiesProps): ReactElement => {
+  const elements = useSelectSelectedElementsProps(layoutKey);
+  const dispatch = useDispatch();
+  const onChange = (key: string, props: any): void => {
+    dispatch(setElementProps({ layoutKey, key, props }));
+  };
+
+  const groups: Record<string, ElementInfo[]> = {};
+  elements.forEach((e) => {
+    let colorVal: color.Color | null = null;
+    if (e.type === "edge") colorVal = color.construct(e.edge.color);
+    else if (e.props.color != null) colorVal = color.construct(e.props.color);
+    if (colorVal === null) return;
+    const hex = color.hex(colorVal);
+    if (!(hex in groups)) groups[hex] = [];
+    groups[hex].push(e);
+  });
+
+  const store = useStore<RootState>();
+
+  const getLayouts = () => {
+    const viewport = selectViewport(store.getState(), layoutKey);
+    return elements
+      .map((el) => {
+        if (el.type !== "node") return null;
+        // grab all child elements with the class 'react-flow__handle'
+        try {
+          const nodeEl = Diagram.selectNode(el.key);
+          const nodeBox = box.construct(
+            el.node.position,
+            box.dims(box.construct(nodeEl)),
+          );
+          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
+          const nodeElBox = box.construct(nodeEl);
+          const handles = Array.from(handleEls).map((el) => {
+            const pos = box.center(box.construct(el));
+            const dist = xy.scale(
+              xy.translation(box.topLeft(nodeElBox), pos),
+              1 / viewport.zoom,
+            );
+            const match = el.className.match(/react-flow__handle-(\w+)/);
+            if (match == null)
+              throw new Error(`[schematic] - cannot find handle orientation`);
+            const orientation = location.construct(match[1]) as location.Outer;
+            return new Diagram.HandleLayout(dist, orientation);
+          });
+          return new Diagram.NodeLayout(el.key, nodeBox, handles);
+        } catch (e) {
+          console.error(e);
+        }
+        return null;
+      })
+      .filter((el) => el !== null);
+  };
+
+  return (
+    <Align.Space align="start" x style={{ padding: "2rem" }}>
+      <Input.Item label="Selection Colors" align="start">
+        <Align.Space y>
+          {Object.entries(groups).map(([hex, elements]) => (
+            <Color.Swatch
+              key={elements[0].key}
+              value={hex}
+              onChange={(v: color.Color) => {
+                elements.forEach((e) => onChange(e.key, { color: color.hex(v) }));
+              }}
+            />
+          ))}
+        </Align.Space>
+      </Input.Item>
+      <Input.Item label="Align">
+        <Align.Space x>
+          <Button.Icon
+            tooltip="Align nodes vertically"
+            onClick={() => {
+              const newPositions = Diagram.alignNodes(getLayouts(), "x");
+              dispatch(
+                setNodePositions({
+                  key: layoutKey,
+                  positions: Object.fromEntries(
+                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                  ),
+                }),
+              );
+            }}
+          >
+            <Icon.Align.YCenter />
+          </Button.Icon>
+          <Button.Icon
+            tooltip="Align nodes horizontally"
+            onClick={() => {
+              const newPositions = Diagram.alignNodes(getLayouts(), "y");
+              dispatch(
+                setNodePositions({
+                  key: layoutKey,
+                  positions: Object.fromEntries(
+                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                  ),
+                }),
+              );
+            }}
+          >
+            <Icon.Align.XCenter />
+          </Button.Icon>
+        </Align.Space>
       </Input.Item>
     </Align.Space>
   );

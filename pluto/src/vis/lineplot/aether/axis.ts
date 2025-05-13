@@ -28,6 +28,7 @@ import { render } from "@/vis/render";
 
 export const coreAxisStateZ = axis.axisStateZ
   .extend({
+    axisKey: z.string().optional(),
     bounds: bounds.bounds.optional(),
     autoBounds: z
       .object({
@@ -106,28 +107,29 @@ export class CoreAxis<
   S extends typeof coreAxisStateZ,
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
-  async afterUpdate(ctx: aether.Context): Promise<void> {
-    this.internal.render = render.Context.use(ctx);
+  afterUpdate(ctx: aether.Context): void {
+    const { internal: i } = this;
+    const { location, autoBoundUpdateInterval } = this.state;
+    i.render = render.Context.use(ctx);
     const theme = theming.use(ctx);
+    const dir = direction.construct(location);
     this.state.autoBoundPadding ??=
-      direction.construct(this.state.location) === "x"
-        ? DEFAULT_Y_BOUND_PADDING
-        : DEFAULT_X_BOUND_PADDING;
-    this.internal.core = new axis.Canvas(this.internal.render, {
+      dir === "x" ? DEFAULT_Y_BOUND_PADDING : DEFAULT_X_BOUND_PADDING;
+    i.core = axis.newCanvas(location, i.render, {
       color: theme.colors.gray.l10,
       font: fontString(theme, { level: "small", code: true }),
       gridColor: theme.colors.gray.l1,
       ...this.state,
     });
-    render.Controller.requestRender(ctx, render.REASON_LAYOUT);
-    this.internal.updateBounds ??= throttle(
+    render.request(ctx, "layout");
+    i.updateBounds ??= throttle(
       (b) => this.setState((p) => ({ ...p, bounds: b })),
-      this.state.autoBoundUpdateInterval.milliseconds,
+      autoBoundUpdateInterval.milliseconds,
     );
   }
 
-  async afterDelete(ctx: aether.Context): Promise<void> {
-    render.Controller.requestRender(ctx, render.REASON_LAYOUT);
+  afterDelete(ctx: aether.Context): void {
+    render.request(ctx, "layout");
   }
 
   renderAxis(props: AxisRenderProps, decimalToDataScale: scale.Scale): void {
@@ -146,10 +148,10 @@ export class CoreAxis<
       this.setState((p) => ({ ...p, size }));
   }
 
-  async bounds(
+  iBounds(
     hold: boolean,
-    fetchDataBounds: () => Promise<bounds.Bounds[]>,
-  ): Promise<[bounds.Bounds, Error | null]> {
+    fetchDataBounds: () => bounds.Bounds[],
+  ): [bounds.Bounds, Error | null] {
     if (hold && this.internal.boundSnapshot != null)
       return [this.internal.boundSnapshot, null];
     const { lower, upper } = parseAutoBounds(this.state.autoBounds);
@@ -164,7 +166,7 @@ export class CoreAxis<
     let ab: bounds.Bounds;
     let err: Error | null = null;
     try {
-      const dataBounds = await fetchDataBounds();
+      const dataBounds = fetchDataBounds();
       ab = autoBounds(dataBounds, this.state.autoBoundPadding, this.state.type);
     } catch (err_) {
       ab = emptyBounds(this.state.type);
@@ -181,12 +183,12 @@ export class CoreAxis<
     return [bounds, err];
   }
 
-  async dataToDecimalScale(
+  dataToDecimalScale(
     hold: boolean,
-    fetchDataBounds: () => Promise<bounds.Bounds[]>,
+    fetchDataBounds: () => bounds.Bounds[],
     viewport: box.Box,
-  ): Promise<[scale.Scale, Error | null]> {
-    const [bounds, err] = await this.bounds(hold, fetchDataBounds);
+  ): [scale.Scale, Error | null] {
+    const [bounds, err] = this.iBounds(hold, fetchDataBounds);
     const dir = direction.swap(direction.construct(this.state.location));
     return [
       scale.Scale.scale<number>(bounds)

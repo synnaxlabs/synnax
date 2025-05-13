@@ -30,7 +30,7 @@ export const ZERO_STATE: State = {
 
 export const sliceStateZ = z.object({
   version: z.literal(VERSION),
-  logs: z.record(stateZ),
+  logs: z.record(z.string(), stateZ),
 });
 
 export type SliceState = z.infer<typeof sliceStateZ>;

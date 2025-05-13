@@ -33,7 +33,7 @@ import {
 } from "@/lineplot/layout";
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
-import { Modals } from "@/modals";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/external";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
@@ -232,7 +232,7 @@ export const useViewDetails = (): ((key: string) => void) => {
   }).mutate;
 };
 
-export const useDelete = (name?: string) => {
+export const useDelete = () => {
   const dispatch = useDispatch();
   const client = PSynnax.use();
   const remover = Layout.useRemover();
@@ -241,27 +241,22 @@ export const useDelete = (name?: string) => {
     dispatch(remove({ keys }));
   };
   const handleError = Status.useErrorHandler();
-  const confirm = Modals.useConfirm();
+  const confirm = useConfirmDelete({
+    type: "Range",
+    description: "Deleting this range will also delete all child ranges.",
+  });
 
   return useMutation<void, Error, string, Range | undefined>({
     onMutate: async (key: string) => {
       const rng = ranges.find((r) => r.key === key);
-      if (
-        !(await confirm({
-          message: `Are you sure you want to delete ${name ?? rng?.name}?`,
-          description: "This action cannot be undone.",
-          cancel: { label: "Cancel" },
-          confirm: { label: "Delete", variant: "error" },
-        }))
-      )
-        throw errors.CANCELED;
+      if (rng == null || !(await confirm(rng))) throw new errors.Canceled();
       handleRemove([key]);
       remover(key);
       return rng;
     },
     mutationFn: async (key: string) => await client?.ranges.delete(key),
     onError: (e, _, range) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       handleError(e, "Failed to delete range");
       dispatch(add({ ranges: [range as Range] }));
     },

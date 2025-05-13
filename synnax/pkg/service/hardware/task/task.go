@@ -10,18 +10,18 @@
 package task
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/types"
 )
 
-type Key types.StringParseableUint64
+type Key uint64
 
 func NewKey(rack rack.Key, localKey uint32) Key {
 	return Key(uint64(rack)<<32 | uint64(localKey))
@@ -36,26 +36,9 @@ func (k Key) String() string { return strconv.Itoa(int(k)) }
 func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }
 
 func (k *Key) UnmarshalJSON(b []byte) error {
-	// Try to unmarshal as a number first.
-	var n uint64
-	if err := json.Unmarshal(b, &n); err == nil {
-		*k = Key(n)
-		return nil
-	}
-
-	// Unmarshal as a string.
-	var str string
-	if err := json.Unmarshal(b, &str); err != nil {
-		return err
-	}
-
-	// Parse the string.
-	n, err := strconv.ParseUint(str, 10, 64)
-	if err != nil {
-		return err
-	}
+	n, err := binary.UnmarshalStringInt64(b)
 	*k = Key(n)
-	return nil
+	return err
 }
 
 type Task struct {
@@ -72,7 +55,7 @@ var _ gorp.Entry[Key] = Task{}
 
 func (t Task) GorpKey() Key { return t.Key }
 
-func (t Task) SetOptions() []interface{} { return []interface{}{t.Key.Rack().Node()} }
+func (t Task) SetOptions() []any { return []any{t.Key.Rack().Node()} }
 
 func (t Task) Rack() rack.Key { return t.Key.Rack() }
 
@@ -99,13 +82,16 @@ type State struct {
 	Details xjson.String `json:"details" msgpack:"details"`
 }
 
-var _ gorp.Entry[Key] = State{}
+var (
+	_ gorp.Entry[Key]      = State{}
+	_ types.CustomTypeName = (*State)(nil)
+)
 
 // GorpKey implements the gorp.Entry interface.
 func (s State) GorpKey() Key { return s.Task }
 
 // SetOptions implements the gorp.Entry interface.
-func (s State) SetOptions() []interface{} { return []interface{}{s.Task.Rack().Node()} }
+func (s State) SetOptions() []any { return []any{s.Task.Rack().Node()} }
 
 // CustomTypeName implements types.CustomTypeName to ensure that State struct does
 // not conflict with any other types in gorp.

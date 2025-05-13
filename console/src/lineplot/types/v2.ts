@@ -84,7 +84,7 @@ export const sliceStateZ = v1.sliceStateZ
   })
   .extend({
     version: z.literal("2.0.0"),
-    plots: z.record(stateZ),
+    plots: z.record(z.string(), stateZ),
   });
 
 export type SliceState = z.infer<typeof sliceStateZ>;

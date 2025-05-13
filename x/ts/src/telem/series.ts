@@ -158,7 +158,7 @@ export class Series<T extends TelemValue = TelemValue> {
   private readonly gl: GL;
   /** The underlying data. */
   private readonly _data: ArrayBuffer;
-  readonly _timeRange?: TimeRange;
+  readonly timeRange: TimeRange = TimeRange.ZERO;
   readonly alignment: bigint = 0n;
   /** A cached minimum value. */
   private _cachedMin?: math.Numeric;
@@ -211,7 +211,7 @@ export class Series<T extends TelemValue = TelemValue> {
       this.sampleOffset = data_.sampleOffset;
       this.gl = data_.gl;
       this._data = data_._data;
-      this._timeRange = data_._timeRange;
+      this.timeRange = data_.timeRange;
       this.alignment = data_.alignment;
       this._cachedMin = data_._cachedMin;
       this._cachedMax = data_._cachedMax;
@@ -287,7 +287,7 @@ export class Series<T extends TelemValue = TelemValue> {
     this.key = key;
     this.alignment = alignment;
     this.sampleOffset = sampleOffset ?? 0;
-    this._timeRange = timeRange;
+    this.timeRange = timeRange ?? TimeRange.ZERO;
     this.gl = {
       control: null,
       buffer: null,
@@ -341,11 +341,13 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   release(): void {
+    if (this._refCount <= 0) {
+      console.warn("attempted to release a series with a negative reference count");
+      return;
+    }
     this._refCount--;
     if (this._refCount === 0 && this.gl.control != null)
       this.maybeGarbageCollectGLBuffer(this.gl.control);
-    else if (this._refCount < 0)
-      throw new Error("cannot release an array with a negative reference count");
   }
 
   /**
@@ -445,12 +447,6 @@ export class Series<T extends TelemValue = TelemValue> {
       .map((s) => schema.parse(binary.JSON_CODEC.decodeString(s)));
   }
 
-  /** @returns the time range of this array. */
-  get timeRange(): TimeRange {
-    if (this._timeRange == null) throw new Error("time range not set on series");
-    return this._timeRange;
-  }
-
   /** @returns the capacity of the series in bytes. */
   get byteCapacity(): Size {
     return new Size(this.underlyingData.byteLength);
@@ -509,7 +505,7 @@ export class Series<T extends TelemValue = TelemValue> {
     return new Series({
       data: data.buffer,
       dataType: target,
-      timeRange: this._timeRange,
+      timeRange: this.timeRange,
       sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment,
@@ -720,7 +716,7 @@ export class Series<T extends TelemValue = TelemValue> {
         lower: alignmentDigest(this.alignmentBounds.lower),
         upper: alignmentDigest(this.alignmentBounds.upper),
       },
-      timeRange: this._timeRange?.toString(),
+      timeRange: this.timeRange?.toString(),
       length: this.length,
       capacity: this.capacity,
     };
@@ -789,7 +785,7 @@ export class Series<T extends TelemValue = TelemValue> {
     return new Series({
       data,
       dataType: this.dataType,
-      timeRange: this._timeRange,
+      timeRange: this.timeRange,
       sampleOffset: this.sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment + BigInt(start),
@@ -804,7 +800,7 @@ export class Series<T extends TelemValue = TelemValue> {
     return new Series({
       data,
       dataType: this.dataType,
-      timeRange: this._timeRange,
+      timeRange: this.timeRange,
       sampleOffset: this.sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment + BigInt(start),
@@ -820,6 +816,24 @@ export class Series<T extends TelemValue = TelemValue> {
       glBufferUsage: "static",
       alignment,
     });
+  }
+
+  toString(): string {
+    let data = `${this.dataType.toString()} ${this.length} [`;
+    if (this.length <= 10) data += Array.from(this).map((v) => v.toString());
+    else {
+      for (let i = 0; i < 5; i++) {
+        data += `${this.at(i)?.toString()}`;
+        if (i < 4) data += ",";
+      }
+      data += "...";
+      for (let i = -5; i < 0; i++) {
+        data += this.at(i)?.toString();
+        if (i < -1) data += ",";
+      }
+    }
+    data += "]";
+    return data;
   }
 }
 
@@ -878,6 +892,7 @@ class StringSeriesIterator implements Iterator<string> {
 
 class JSONSeriesIterator implements Iterator<unknown> {
   private readonly wrapped: Iterator<string>;
+  private static SCHEMA = z.record(z.string(), z.unknown());
 
   constructor(wrapped: Iterator<string>) {
     this.wrapped = wrapped;
@@ -888,7 +903,7 @@ class JSONSeriesIterator implements Iterator<unknown> {
     if (next.done === true) return { done: true, value: undefined };
     return {
       done: false,
-      value: binary.JSON_CODEC.decodeString(next.value),
+      value: binary.JSON_CODEC.decodeString(next.value, JSONSeriesIterator.SCHEMA),
     };
   }
 
@@ -925,7 +940,7 @@ class FixedSeriesIterator implements Iterator<math.Numeric> {
 export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<T> {
   readonly series: Array<Series<T>>;
 
-  constructor(series: Array<Series<T>>) {
+  constructor(series: Array<Series<T>> = []) {
     if (series.length !== 0) {
       const type = series[0].dataType;
       for (let i = 1; i < series.length; i++)
@@ -972,8 +987,12 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     );
   }
 
-  push(series: Series<T>): void {
-    this.series.push(series);
+  push(series: Series<T>): void;
+  push(series: MultiSeries<T>): void;
+
+  push(series: Series<T> | MultiSeries<T>): void {
+    if ("isSynnaxSeries" in series && series.isSynnaxSeries) this.series.push(series);
+    else this.series.push(...(series as MultiSeries<T>).series);
   }
 
   get length(): number {
@@ -1055,6 +1074,14 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     return new MultiSubIterator(this, startIdx, startIdx + span);
   }
 
+  updateGLBuffer(gl: GLBufferController): void {
+    this.series.forEach((s) => s.updateGLBuffer(gl));
+  }
+
+  get bounds(): bounds.Bounds {
+    return bounds.max(this.series.map((s) => s.bounds));
+  }
+
   get byteLength(): Size {
     return new Size(this.series.reduce((a, b) => a + b.byteLength.valueOf(), 0));
   }
@@ -1072,6 +1099,14 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   traverseAlignment(start: bigint, dist: bigint): bigint {
     const b = this.series.map((s) => s.alignmentBounds);
     return bounds.traverse(b, start, dist);
+  }
+
+  acquire(): void {
+    this.series.forEach((s) => s.acquire());
+  }
+
+  release(): void {
+    this.series.forEach((s) => s.release());
   }
 
   distance(start: bigint, end: bigint): bigint {

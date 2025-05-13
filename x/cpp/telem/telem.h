@@ -418,6 +418,10 @@ public:
     bool operator==(const TimeRange &other) const {
         return start == other.start && end == other.end;
     }
+
+    bool operator!=(const TimeRange &other) const {
+        return start != other.start || end != other.end;
+    }
 };
 
 class Rate {

@@ -18,7 +18,7 @@ export const prettyParse = <Z extends z.ZodTypeAny>(
     return schema.parse(value);
   } catch (e) {
     if (e instanceof z.ZodError) {
-      const errors = e.errors.map((err) => {
+      const errors = e.issues.map((err) => {
         if (err.path.length === 0) return err.message;
         return `${err.path.join(".")}: ${err.message}`;
       });

@@ -31,4 +31,4 @@ var _ gorp.Entry[uuid.UUID] = Table{}
 func (t Table) GorpKey() uuid.UUID { return t.Key }
 
 // SetOptions implements gorp.Entry.
-func (t Table) SetOptions() []interface{} { return nil }
+func (t Table) SetOptions() []any { return nil }

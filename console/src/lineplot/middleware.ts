@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
+
 import { Layout } from "@/layout";
 import { select, selectSliceState } from "@/lineplot/selectors";
 import {
@@ -43,7 +45,7 @@ export const assignColorsEffect: MiddlewareEffect<
           key: p.key,
           line: {
             key: l.key,
-            color: colors[p.lines.indexOf(l) % colors.length].hex,
+            color: color.hex(colors[p.lines.indexOf(l) % colors.length]),
           },
         }),
       );

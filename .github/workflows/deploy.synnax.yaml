@@ -88,7 +88,7 @@ jobs:
       fail-fast: false
       matrix:
         # macOS, Ubuntu for NI Linux RT, Ubuntu Latest, and Windows Latest
-        os: [macos-15, ubuntu-20.04, ubuntu-latest, windows-latest]
+        os: [macos-15, ubuntu-22.04, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -118,7 +118,7 @@ jobs:
       - name: Build Driver
         if: matrix.os != 'windows-latest'
         run: |
-          if [ "${{ matrix.os }}" = "ubuntu-20.04" ]; then
+          if [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
             bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc //driver
           else
             bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
@@ -136,7 +136,7 @@ jobs:
             echo "OS=macos" >> $GITHUB_OUTPUT
           elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             echo "OS=linux" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.os }}" = "ubuntu-20.04" ]; then
+          elif [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
             echo "OS=nilinuxrt" >> $GITHUB_OUTPUT
           elif [ "${{ matrix.os }}" = "windows-latest" ]; then
             echo "OS=windows" >> $GITHUB_OUTPUT
@@ -171,7 +171,7 @@ jobs:
           fi
 
       - name: Create Driver Install Script
-        if: matrix.os == 'ubuntu-20.04' && github.event_name == 'push'
+        if: matrix.os == 'ubuntu-22.04' && github.event_name == 'push'
         shell: bash
         run: |
           cat > install-driver-nilinuxrt.sh << 'EOF'

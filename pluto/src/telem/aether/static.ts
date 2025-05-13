@@ -7,10 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, DataType, Rate, Series, TimeRange, typedArrayZ } from "@synnaxlabs/x";
+import {
+  bounds,
+  color,
+  DataType,
+  MultiSeries,
+  Rate,
+  Series,
+  TimeRange,
+  typedArrayZ,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { color } from "@/color/core";
 import { type Factory } from "@/telem/aether/factory";
 import {
   AbstractSource,
@@ -113,7 +121,7 @@ export class IterativeSeries
     );
   }
 
-  async value(): Promise<[bounds.Bounds, Series[]]> {
+  value(): [bounds.Bounds, MultiSeries] {
     const d = this.data.map((x) => x.slice(0, this.position));
     if (this.props.scrollBounds) {
       const lower =
@@ -125,10 +133,10 @@ export class IterativeSeries
         lower: Number(lower),
         upper: Number(upper),
       };
-      return [b, d];
+      return [b, new MultiSeries(d)];
     }
     const b = bounds.max(d.map((x) => x.bounds));
-    return [b, d];
+    return [b, new MultiSeries(d)];
   }
 
   start(rate: Rate): void {
@@ -139,7 +147,7 @@ export class IterativeSeries
     }, rate.period.milliseconds) as unknown as number;
   }
 
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     clearInterval(this.interval);
     this.interval = undefined;
   }
@@ -156,7 +164,7 @@ export class FixedNumber
   static readonly TYPE = "static-numeric";
   schema = fixedNumberPropsZ;
 
-  async value(): Promise<number> {
+  value(): number {
     return this.props;
   }
 }
@@ -169,7 +177,7 @@ export class FixedString extends AbstractSource<typeof fixedStringPropsZ> {
   static readonly TYPE = "static-string";
   schema = fixedStringPropsZ;
 
-  async value(): Promise<string> {
+  value(): string {
     return this.props;
   }
 }
@@ -185,8 +193,8 @@ export class FixedColorSource
   static readonly TYPE = "static-color";
   schema = fixedColorSourcePropsZ;
 
-  async value(): Promise<color.Color> {
-    return new color.Color(this.props);
+  value(): color.Color {
+    return color.construct(this.props);
   }
 }
 

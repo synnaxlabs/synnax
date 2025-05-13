@@ -11,6 +11,7 @@ package index
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -26,6 +27,21 @@ func NewErrDiscontinuousTR(tr telem.TimeRange) error {
 func NewErrDiscontinuousStamp(offset int64, domainLen int64) error {
 	return errors.Wrapf(ErrDiscontinuous, "failed to resolve position %d in continuous index of length %d", offset, domainLen)
 }
+
+// ContinuousPolicy is a type alias for a boolean that indicates whether a domain
+// Distance or Stamp lookup must require a continuous set of samples. Used to improve
+// readability.
+type ContinuousPolicy = bool
+
+const (
+	// AllowDiscontinuous allows a lookup to span across multiple domains that
+	// do not contain continuous samples i.e. at some point in the future a caller
+	// can insert samples between the two domains without needing to delete first.
+	AllowDiscontinuous ContinuousPolicy = false
+	// MustBeContinuous requires that a lookup span only continuous domains i.e. there
+	// is a guarantee that new samples cannot be inserted between the domains.
+	MustBeContinuous ContinuousPolicy = true
+)
 
 // Index implements an index over a time series.
 type Index interface {
@@ -49,13 +65,22 @@ type Index interface {
 	// alignment of the lower and upper bounds. The alignment pair is a 64-bit integer
 	// where the lower 32 bits represent the domain and the upper 32 bits represent the
 	// sample index within the domain.
-	Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (DistanceApproximation, telem.AlignmentPair, error)
+	Distance(
+		ctx context.Context,
+		tr telem.TimeRange,
+		continuous ContinuousPolicy,
+	) (DistanceApproximation, telem.Alignment, error)
 	// Stamp calculates an approximate ending timestamp for a range given a known distance
 	// in the number of samples. This operation may be understood as the
 	// opposite of Distance.
 	// Stamp assumes the caller is aware of discontinuities in the underlying time
 	// series, and will calculate the ending timestamp even across discontinuous ranges.
-	Stamp(ctx context.Context, ref telem.TimeStamp, distance int64, continuous bool) (TimeStampApproximation, error)
+	Stamp(
+		ctx context.Context,
+		ref telem.TimeStamp,
+		distance int64,
+		continuous ContinuousPolicy,
+	) (TimeStampApproximation, error)
 	// Info returns the key and name of the channel of the index. If the database is
 	// domain-indexed, the information of the domain channel is returned. If the database
 	// is rate-based (i.e. self-indexing), the channel itself is returned.

@@ -10,5 +10,5 @@
 export const toArray = <T>(value: T | T[]): T[] =>
   Array.isArray(value) ? value : [value];
 
-export const nullToArr = <T>(value: T | T[] | null): T[] =>
-  Array.isArray(value) ? value : value === null ? [] : [value];
+export const nullToArr = <T>(value: T | T[] | null | undefined): T[] =>
+  Array.isArray(value) ? value : value == null ? [] : [value];

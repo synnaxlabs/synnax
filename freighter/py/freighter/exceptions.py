@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Callable
 
@@ -24,6 +26,33 @@ class ExceptionPayload(Payload):
 
     type: str | None
     data: str | None
+
+    @staticmethod
+    def parse(
+        pld_or_type: ExceptionPayload | Exception | str,
+        data: str | None = None,
+    ) -> ExceptionPayload | Exception:
+        """Parses the exception payload from one of the three representations:
+
+        1. An ExceptionPayload instance. In this case, a copy of the payload is
+        returned.
+        2. A string encoded ExceptionPayload seperated by a '---' separator.
+        3. A payload type and corresponding data.
+
+        :returns: the parsed exception payload. If the payload cannot be parsed,
+        returns a payload of type unknown with as much relevant error info as possible.
+        """
+        if isinstance(pld_or_type, Exception):
+            return pld_or_type
+        elif isinstance(pld_or_type, ExceptionPayload):
+            return ExceptionPayload(type=pld_or_type.type, data=pld_or_type.data)
+        elif data is not None:
+            return ExceptionPayload(type=pld_or_type, data=data)
+        try:
+            type_, data = pld_or_type.split("---", 1)
+        except ValueError:
+            type_, data = "unknown", pld_or_type
+        return ExceptionPayload(type=type_, data=data)
 
 
 EncoderFunc = Callable[[Exception], ExceptionPayload | None]
@@ -49,15 +78,17 @@ class _Registry:
     def encode(error: Exception | None) -> ExceptionPayload:
         raise NotImplementedError
 
-    def decode(self, encoded: ExceptionPayload) -> Exception | None:
-        assert isinstance(encoded, ExceptionPayload)
-        if encoded.type == _TYPE_NONE:
+    def decode(self, encoded: ExceptionPayload | Exception | str) -> Exception | None:
+        pld = ExceptionPayload.parse(encoded)
+        if isinstance(pld, Exception):
+            return pld
+        if pld.type == _TYPE_NONE:
             return None
         for provider in self.providers:
-            decoded = provider.decode(encoded)
+            decoded = provider.decode(pld)
             if decoded is not None:
                 return decoded
-        return Exception(encoded.data)
+        return Exception(pld.data)
 
 
 REGISTRY = _Registry()
