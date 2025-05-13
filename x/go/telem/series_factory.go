@@ -33,7 +33,7 @@ func NewSeries[T Sample](data []T) Series {
 
 // NewSeriesV is a variadic version of NewSeries that creates a new Series from
 // individual numeric values.
-func NewSeriesV[T Sample](data ...T) (series Series) { return NewSeries[T](data) }
+func NewSeriesV[T Sample](data ...T) (series Series) { return NewSeries(data) }
 
 // MakeSeries allocates a new Series with the specified DataType and length. Note that
 // this function allocates a length and not a capacity.

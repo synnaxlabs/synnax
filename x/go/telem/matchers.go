@@ -73,7 +73,7 @@ func MatchSeriesData(expected Series) types.GomegaMatcher {
 }
 
 func MatchSeriesDataV[T Sample](data ...T) types.GomegaMatcher {
-	return MatchSeriesData(NewSeriesV[T](data...))
+	return MatchSeriesData(NewSeriesV(data...))
 }
 
 func (m *seriesMatcher) Match(actual any) (success bool, err error) {

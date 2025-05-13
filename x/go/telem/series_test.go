@@ -19,7 +19,7 @@ import (
 
 func MarshalTest[T telem.Sample](data []T, dt telem.DataType) func() {
 	return func() {
-		s := telem.NewSeries[T](data)
+		s := telem.NewSeries(data)
 		ExpectWithOffset(1, s.DataType).To(Equal(dt))
 		ExpectWithOffset(1, s.Len()).To(Equal(int64(len(data))))
 		ExpectWithOffset(1, telem.Unmarshal[T](s)).To(Equal(data))
@@ -28,7 +28,7 @@ func MarshalTest[T telem.Sample](data []T, dt telem.DataType) func() {
 
 func ValueAtTest[T telem.Sample](value T, dt telem.DataType) func() {
 	return func() {
-		s := telem.NewSeriesV[T](value)
+		s := telem.NewSeriesV(value)
 		ExpectWithOffset(1, s.DataType).To(Equal(dt))
 		ExpectWithOffset(1, telem.ValueAt[T](s, 0)).To(Equal(value))
 	}
@@ -167,7 +167,7 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should properly format float values", func() {
-				s := telem.NewSeriesV[float64](1.1, 2.2, 3.3)
+				s := telem.NewSeriesV(1.1, 2.2, 3.3)
 				str := s.String()
 				Expect(str).To(ContainSubstring("DataType: float64"))
 				Expect(str).To(ContainSubstring("[1.1 2.2 3.3]"))
@@ -193,7 +193,7 @@ var _ = Describe("Series", func() {
 			Entry("int32", telem.NewSeriesV[int32](1, 2, 3), "[1 2 3]"),
 			Entry("int64", telem.NewSeriesV[int64](1, 2, 3), "[1 2 3]"),
 			Entry("float32", telem.NewSeriesV[float32](1.0, 2.0, 3.0), "[1 2 3]"),
-			Entry("float64", telem.NewSeriesV[float64](1.0, 2.0, 3.0), "[1 2 3]"),
+			Entry("float64", telem.NewSeriesV(1.0, 2.0, 3.0), "[1 2 3]"),
 			Entry("string", telem.NewStringsV("a", "b", "c"), "[a b c]"),
 			Entry("json", telem.NewStaticJSONV(map[string]any{"a": 1, "b": 2, "c": 3}), "[{\"a\":1,\"b\":2,\"c\":3}]"),
 			Entry("timestamp", telem.NewSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z +1s +2s]"),
@@ -271,7 +271,7 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should work with different numeric types", func() {
-				original := telem.NewSeriesV[float64](1.1, 2.2, 3.3, 4.4, 5.5, 6.6)
+				original := telem.NewSeriesV(1.1, 2.2, 3.3, 4.4, 5.5, 6.6)
 				downsampled := original.DownSample(2)
 
 				Expect(downsampled.Len()).To(Equal(int64(3)))

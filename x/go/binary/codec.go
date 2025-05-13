@@ -51,11 +51,11 @@ type Codec interface {
 
 // Encoder encodes values into binary.
 type Encoder interface {
-	// Encode encodes the value into binary. It returns the encoded value along
-	// with any errors encountered.
+	// Encode encodes the value into binary. It returns the encoded value along with any
+	// errors encountered.
 	Encode(ctx context.Context, value any) ([]byte, error)
-	// EncodeStream encodes the value into binary and writes it to the given
-	// writer. It returns any errors encountered.
+	// EncodeStream encodes the value into binary and writes it to the given writer. It
+	// returns any errors encountered.
 	EncodeStream(ctx context.Context, w io.Writer, value any) error
 }
 
@@ -63,7 +63,7 @@ type Encoder interface {
 type Decoder interface {
 	// Decode decodes data into a pointer value.
 	Decode(ctx context.Context, data []byte, value any) error
-	// DecodeStream decodes data from the given reader into a pointer value.;
+	// DecodeStream decodes data from the given reader into a pointer value.
 	DecodeStream(ctx context.Context, r io.Reader, value any) error
 }
 
@@ -215,8 +215,8 @@ func (m *MsgPackCodec) EncodeStream(ctx context.Context, w io.Writer, value any)
 	return nil
 }
 
-// PassThroughCodec wraps a Codec and checks for values
-// that are already encoded ([]byte) and returns them as is.
+// PassThroughCodec wraps a Codec and checks for values that are already encoded
+// ([]byte) and returns them as is.
 type PassThroughCodec struct{ Codec }
 
 // Encode implements the Encoder interface.
@@ -246,8 +246,7 @@ func (enc *PassThroughCodec) EncodeStream(ctx context.Context, w io.Writer, valu
 	return enc.EncodeStream(ctx, w, value)
 }
 
-// TracingCodec wraps a Codec and traces the encoding and decoding
-// operations.
+// TracingCodec wraps a Codec and traces the encoding and decoding operations.
 type TracingCodec struct {
 	alamos.Instrumentation
 	Level alamos.Environment
@@ -368,8 +367,8 @@ func (f *decodeFallbackCodec) DecodeStream(
 	if len(f.Codecs) == 0 {
 		panic("[binary] - no codecs provided to decodeFallbackCodec")
 	}
-	// We need to read out all the data here, otherwise an initial codec that fails
-	// will leave the reader in a bad state. It's not ideal, but we need to do it.
+	// We need to read out all the data here, otherwise an initial codec that fails will
+	// leave the reader in a bad state. It's not ideal, but we need to do it.
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return err

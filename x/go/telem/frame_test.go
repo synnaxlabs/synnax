@@ -13,7 +13,7 @@ type AltKey int32
 var _ = Describe("Frame", func() {
 	Describe("UnaryFrame", func() {
 		It("Should construct a frame from a single key and series", func() {
-			fr := telem.UnaryFrame[int](1, telem.NewSeriesV[int32](1, 2, 3))
+			fr := telem.UnaryFrame(1, telem.NewSeriesV[int32](1, 2, 3))
 			Expect(fr.KeysSlice()).To(Equal([]int{1}))
 			Expect(fr.SeriesSlice()).To(Equal([]telem.Series{telem.NewSeriesV[int32](1, 2, 3)}))
 		})
@@ -39,7 +39,7 @@ var _ = Describe("Frame", func() {
 
 	Describe("Append", func() {
 		It("Should append a key and series to the frame", func() {
-			fr := telem.UnaryFrame[int](1, telem.NewSeriesV[int32](1, 2, 3))
+			fr := telem.UnaryFrame(1, telem.NewSeriesV[int32](1, 2, 3))
 			fr = fr.Append(2, telem.NewSeriesV[int32](4, 5, 6))
 			Expect(fr.KeysSlice()).To(Equal([]int{1, 2}))
 			Expect(fr.SeriesSlice()).To(Equal([]telem.Series{
@@ -62,7 +62,7 @@ var _ = Describe("Frame", func() {
 
 	Describe("Prepend", func() {
 		It("Should correctly prepend a key and a series to the frame", func() {
-			fr := telem.UnaryFrame[int](1, telem.NewSeriesV[int32](1, 2, 3))
+			fr := telem.UnaryFrame(1, telem.NewSeriesV[int32](1, 2, 3))
 			fr = fr.Prepend(2, telem.NewSeriesV[int32](4, 5, 6))
 			Expect(fr.KeysSlice()).To(Equal([]int{2, 1}))
 			Expect(fr.SeriesSlice()).To(Equal([]telem.Series{
@@ -111,7 +111,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 256)
 			for i := range 256 {
 				keys[i] = i
-				series[i] = telem.NewSeriesV[int32](int32(i), int32(i+1), int32(i+2))
+				series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
 			}
 			fr := telem.MultiFrame(keys, series)
 			filtered := fr.FilterKeys([]int{1, 3, 5, 7, 9})
@@ -414,7 +414,7 @@ var _ = Describe("Frame", func() {
 
 	Describe("String", func() {
 		It("Should return formatted string representation", func() {
-			f := telem.MultiFrame[int](
+			f := telem.MultiFrame(
 				[]int{1, 2},
 				[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](3, 4)},
 			)
@@ -426,7 +426,7 @@ var _ = Describe("Frame", func() {
 		})
 
 		It("Should handle empty frame", func() {
-			f := telem.MultiFrame[int]([]int{}, []telem.Series{})
+			f := telem.MultiFrame([]int{}, []telem.Series{})
 			Expect(f.String()).To(Equal("Frame{}"))
 		})
 	})
@@ -438,7 +438,7 @@ var _ = Describe("Frame", func() {
 		}
 		for _, codec := range codecs {
 			It("Should encode and decode a frame", func() {
-				original := telem.MultiFrame[int](
+				original := telem.MultiFrame(
 					[]int{1, 2},
 					[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](3, 4)},
 				)
@@ -448,14 +448,14 @@ var _ = Describe("Frame", func() {
 				Expect(decoded).To(Equal(original))
 			})
 			It("Should respect masking", func() {
-				original := telem.MultiFrame[int](
+				original := telem.MultiFrame(
 					[]int{1, 2},
 					[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](3, 4)},
 				).FilterKeys([]int{1})
 				buf := MustSucceed(codec.Encode(ctx, original))
 				var decoded telem.Frame[int]
 				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
-				Expect(decoded).To(Equal(telem.UnaryFrame[int](
+				Expect(decoded).To(Equal(telem.UnaryFrame(
 					1,
 					telem.NewSeriesV[int64](1, 2),
 				)))
@@ -574,7 +574,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 200)
 			for i := range 200 {
 				keys[i] = 199 - i
-				series[i] = telem.NewSeriesV[int32](int32(i), int32(i+1))
+				series[i] = telem.NewSeriesV(int32(i), int32(i+1))
 			}
 			fr := telem.MultiFrame(keys, series)
 			filteredKeys := []int{10, 50, 100, 150, 190}
@@ -1037,11 +1037,11 @@ var _ = Describe("Frame", func() {
 
 	Describe("HasData", func() {
 		It("Should return true when the frame contains at least one sample", func() {
-			Expect(telem.UnaryFrame[int](1, telem.NewSecondsTSV(1, 2, 3)).HasData()).To(BeTrue())
+			Expect(telem.UnaryFrame(1, telem.NewSecondsTSV(1, 2, 3)).HasData()).To(BeTrue())
 		})
 
 		It("Should return false when the series in the frame is empty", func() {
-			Expect(telem.UnaryFrame[int](1, telem.NewSecondsTSV()).HasData()).To(BeFalse())
+			Expect(telem.UnaryFrame(1, telem.NewSecondsTSV()).HasData()).To(BeFalse())
 		})
 
 		It("Should return false when the frame has no series", func() {

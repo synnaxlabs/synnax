@@ -97,25 +97,25 @@ func SetLValueOnSeries(
 		num := float64(v.(lua.LNumber))
 		switch series.DataType {
 		case telem.Int8T:
-			telem.SetValueAt[int8](series, index, int8(num))
+			telem.SetValueAt(series, index, int8(num))
 		case telem.Int16T:
-			telem.SetValueAt[int16](series, index, int16(num))
+			telem.SetValueAt(series, index, int16(num))
 		case telem.Int32T:
-			telem.SetValueAt[int32](series, index, int32(num))
+			telem.SetValueAt(series, index, int32(num))
 		case telem.Int64T:
-			telem.SetValueAt[int64](series, index, int64(num))
+			telem.SetValueAt(series, index, int64(num))
 		case telem.Uint8T:
-			telem.SetValueAt[uint8](series, index, uint8(num))
+			telem.SetValueAt(series, index, uint8(num))
 		case telem.Uint16T:
-			telem.SetValueAt[uint16](series, index, uint16(num))
+			telem.SetValueAt(series, index, uint16(num))
 		case telem.Uint32T:
-			telem.SetValueAt[uint32](series, index, uint32(num))
+			telem.SetValueAt(series, index, uint32(num))
 		case telem.Uint64T:
-			telem.SetValueAt[uint64](series, index, uint64(num))
+			telem.SetValueAt(series, index, uint64(num))
 		case telem.Float32T:
-			telem.SetValueAt[float32](series, index, float32(num))
+			telem.SetValueAt(series, index, float32(num))
 		case telem.Float64T:
-			telem.SetValueAt[float64](series, index, float64(num))
+			telem.SetValueAt(series, index, float64(num))
 		}
 	default:
 		return series
