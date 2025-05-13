@@ -93,7 +93,7 @@ const Internal = <
   });
   return (
     <Align.Space align="stretch" className={CSS.B("configure")} empty>
-      <Form.Form {...methods}>
+      <Form.Form<typeof configurablePropertiesZ> {...methods}>
         <Align.Space
           align="stretch"
           justify="center"

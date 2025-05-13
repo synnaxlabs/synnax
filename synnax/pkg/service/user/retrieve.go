@@ -11,6 +11,7 @@ package user
 
 import (
 	"context"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
@@ -47,12 +48,7 @@ func (r Retrieve) Entries(users *[]User) Retrieve {
 // WhereUsernames filters the query to only include users with the given usernames.
 func (r Retrieve) WhereUsernames(usernames ...string) Retrieve {
 	r.gorp = r.gorp.Where(func(u *User) bool {
-		for _, username := range usernames {
-			if u.Username == username {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(usernames, u.Username)
 	})
 	return r
 }

@@ -30,7 +30,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 	BeforeAll(func() {
 		kv = memkv.New()
 		db = gorp.Wrap(kv)
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			entries = append(entries, entry{ID: i, Data: "data"})
 		}
 
@@ -220,7 +220,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			It("Should limit the number of entries returned", func() {
 				toCreate := 100
 				var entries []entry
-				for i := 0; i < toCreate; i++ {
+				for i := range toCreate {
 					entries = append(entries, entry{ID: i, Data: "data"})
 				}
 				Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
@@ -237,7 +237,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			It("Should offset the entries returned", func() {
 				toCreate := 100
 				var entries []entry
-				for i := 0; i < toCreate; i++ {
+				for i := range toCreate {
 					entries = append(entries, entry{ID: i, Data: "data"})
 				}
 				Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
@@ -254,7 +254,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			It("Should limit and offset the entries returned", func() {
 				toCreate := 100
 				var entries []entry
-				for i := 0; i < toCreate; i++ {
+				for i := range toCreate {
 					entries = append(entries, entry{ID: i, Data: "data"})
 				}
 				Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
@@ -279,7 +279,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(res).To(Equal(entries))
 		})
 	})
-	Describe("Count", func() {
+	Describe("TrueCount", func() {
 		Context("WhereKeys", func() {
 			It("Should return the count of existing keys", func() {
 				count, err := gorp.NewRetrieve[int, entry]().

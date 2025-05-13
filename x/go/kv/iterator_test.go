@@ -47,7 +47,7 @@ var _ = Describe("Iterator", func() {
 	})
 	Describe("Bounds Iterate", func() {
 		It("Should iterate over keys in a given range", func() {
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				b := make([]byte, 4)
 				binary.LittleEndian.PutUint32(b, uint32(i))
 				Expect(kv.Set(ctx, b, []byte{1, 2})).To(Succeed())

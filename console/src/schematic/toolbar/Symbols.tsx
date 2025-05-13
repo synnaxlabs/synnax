@@ -20,12 +20,7 @@ import {
   Theming,
 } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import {
-  type ComponentPropsWithoutRef,
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -62,6 +57,18 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
     [dispatch, layoutKey, theme],
   );
 
+  const { startDrag, onDragEnd } = Haul.useDrag({
+    type: "Diagram-Elements",
+    key: "symbols",
+  });
+
+  const handleDragStart = useCallback(
+    (key: string) => {
+      startDrag([{ type: "schematic-element", key }]);
+    },
+    [startDrag],
+  );
+
   return (
     <List.List data={LIST_DATA}>
       <Align.Space style={{ padding: "1rem", borderBottom: "var(--pluto-border)" }}>
@@ -81,9 +88,11 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
         {(p) => (
           <SymbolsButton
             key={p.key}
-            el={p.entry}
+            symbolSpec={p.entry}
             onClick={() => handleAddElement(p.entry.key)}
             theme={theme}
+            startDrag={handleDragStart}
+            onDragEnd={onDragEnd}
           />
         )}
       </List.Core>
@@ -91,30 +100,23 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
   );
 };
 
-interface SymbolsButtonProps
-  extends PropsWithChildren,
-    ComponentPropsWithoutRef<"button"> {
-  el: Schematic.Spec<any>;
+interface SymbolsButtonProps extends PropsWithChildren, Align.SpaceProps {
+  symbolSpec: Schematic.Spec<any>;
   theme: Theming.Theme;
+  startDrag: (key: string) => void;
 }
 
 const SymbolsButton = ({
   children,
-  el: { name, key, Preview, defaultProps },
+  symbolSpec: { name, key, Preview, defaultProps },
   theme,
+  startDrag,
+  onDragEnd,
   ...rest
 }: SymbolsButtonProps): ReactElement => {
-  const { startDrag, ...dragProps } = Haul.useDrag({
-    type: "Diagram-Elements",
-    key: name,
-  });
-
-  const handleDragStart = useCallback(() => {
-    startDrag([{ type: "schematic-element", key }]);
-  }, [key]);
+  const defaultProps_ = useMemo(() => defaultProps(theme), [defaultProps, theme]);
 
   return (
-    // @ts-expect-error - generic elements
     <Align.Space
       className={CSS(CSS.BE("schematic-symbols", "button"))}
       justify="spaceBetween"
@@ -122,12 +124,12 @@ const SymbolsButton = ({
       size="tiny"
       draggable
       {...rest}
-      {...dragProps}
-      onDragStart={handleDragStart}
+      onDragStart={() => startDrag(key)}
+      onDragEnd={onDragEnd}
     >
       <Text.Text level="small">{name}</Text.Text>
       <Align.Space className="preview-wrapper" align="center" justify="center">
-        <Preview {...defaultProps(theme)} scale={0.75} />
+        <Preview {...defaultProps_} scale={0.75} />
       </Align.Space>
     </Align.Space>
   );

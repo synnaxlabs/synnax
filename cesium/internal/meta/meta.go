@@ -10,9 +10,11 @@
 package meta
 
 import (
+	"context"
 	"os"
 
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/migrate"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -22,29 +24,41 @@ import (
 
 const metaFile = "meta.json"
 
-// ReadOrCreate reads the metadata file for a database whose data is kept in fs and is
+// ErrIgnoreChannel lets callers know that this channel is no longer valid and should
+// be ignored when opening a DB.
+var ErrIgnoreChannel = errors.New("channel should be ignored")
+
+// Open reads the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. If the file does not exist, it will be created. If
 // the file does exist, it will be read and returned. The provided channel should have
 // all fields required by the DB correctly set.
-func ReadOrCreate(fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel, error) {
+func Open(ctx context.Context, fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel, error) {
 	exists, err := fs.Exists(metaFile)
 	if err != nil {
 		return ch, err
 	}
 	if exists {
-		ch, err = Read(fs, codec)
+		ch, err = Read(ctx, fs, codec)
 		if err != nil {
 			return ch, err
 		}
-		return ch, validateMeta(ch)
+		state := migrate.Migrate(migrate.DBState{Channel: ch, FS: fs})
+		if state.ShouldIgnoreChannel {
+			return ch, ErrIgnoreChannel
+		}
+		if state.Channel.Version != ch.Version {
+			if err := Create(ctx, fs, codec, state.Channel); err != nil {
+				return ch, err
+			}
+		}
+		return state.Channel, Validate(state.Channel)
 	}
-
-	return ch, Create(fs, codec, ch)
+	return ch, Create(ctx, fs, codec, ch)
 }
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
-func Read(fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
+func Read(ctx context.Context, fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
 	s, err := fs.Stat("")
 	if err != nil {
 		return
@@ -55,28 +69,24 @@ func Read(fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
 	}
 	defer func() { err = errors.Combine(err, metaF.Close()) }()
 
-	err = codec.DecodeStream(nil, metaF, &ch)
-	if err != nil {
+	if err = codec.DecodeStream(ctx, metaF, &ch); err != nil {
 		err = errors.Wrapf(err, "error decoding meta in folder for channel %s", s.Name())
 	}
-
 	return
 }
 
 // Create creates the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. The provided channel should have all fields
 // required by the DB correctly set.
-func Create(fs xfs.FS, codec binary.Codec, ch core.Channel) error {
-	err := validateMeta(ch)
-	if err != nil {
+func Create(ctx context.Context, fs xfs.FS, codec binary.Codec, ch core.Channel) error {
+	if err := Validate(ch); err != nil {
 		return err
 	}
-
 	metaF, err := fs.Open(metaFile, os.O_CREATE|os.O_WRONLY)
 	if err != nil {
 		return err
 	}
-	b, err := codec.Encode(nil, ch)
+	b, err := codec.Encode(ctx, ch)
 	if err != nil {
 		return err
 	}
@@ -86,22 +96,21 @@ func Create(fs xfs.FS, codec binary.Codec, ch core.Channel) error {
 	return metaF.Close()
 }
 
-// validateMeta checks that the meta file read from or about to be written to a meta file
+// Validate checks that the meta file read from or about to be written to a meta file
 // is well-defined.
-func validateMeta(ch core.Channel) error {
+func Validate(ch core.Channel) error {
 	v := validate.New("meta")
 	validate.Positive(v, "key", ch.Key)
-	validate.NotEmptyString(v, "dataType", ch.DataType)
+	validate.NotEmptyString(v, "data_type", ch.DataType)
 	if ch.Virtual {
 		v.Ternaryf("index", ch.Index != 0, "virtual channel cannot be indexed")
-		v.Ternaryf("rate", ch.Rate != 0, "virtual channel cannot have a rate")
 	} else {
 		v.Ternary("data_type", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
 		if ch.IsIndex {
 			v.Ternary("data_type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
-		} else if ch.Index == 0 {
-			validate.Positive(v, "rate", ch.Rate)
+		} else {
+			v.Ternaryf("index", ch.Index == 0, "non-indexed channel must have an index")
 		}
 	}
 	return v.Error()

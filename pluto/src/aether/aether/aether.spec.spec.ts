@@ -75,12 +75,12 @@ class ExampleLeaf extends aether.Leaf<typeof exampleProps, InternalState> {
   deletef = vi.fn();
   schema = exampleProps;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     this.internal.contextValue = ctx.getOptional("key") ?? 0;
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     this.deletef();
   }
 
@@ -103,11 +103,11 @@ class ExampleComposite extends aether.Composite<
 
   schema = exampleProps;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     this.deletef();
   }
 
@@ -130,12 +130,12 @@ class ContextSetterComposite extends aether.Composite<
 
   schema = exampleProps;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     ctx.set("key", this.state.x);
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     this.deletef();
   }
 
@@ -157,7 +157,7 @@ class SecondaryContextSetter extends aether.Composite<
 
   schema = exampleProps;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     const v = ctx.getOptional<number>("key");
     if (v != null) ctx.set("key2", v + 1);
@@ -185,41 +185,41 @@ describe("Aether Worker", () => {
 
     describe("internalUpdate", () => {
       it("should throw an error if the path is empty", async () => {
-        await expect(
+        expect(() => {
           leaf._updateState([], {}, (parentCtxValues) =>
             createLeaf("test", parentCtxValues),
-          ),
-        ).rejects.toThrowError(/empty path/);
+          );
+        }).toThrowError(/empty path/);
         expect(leaf.updatef).toHaveBeenCalledTimes(0);
       });
 
       it("should throw an error if the path has a subpath", async () => {
-        await expect(
+        expect(() => {
           leaf._updateState(["test", "dog"], {}, (parentCtxValues) =>
             createLeaf("dog", parentCtxValues),
-          ),
-        ).rejects.toThrowError(/subPath/);
+          );
+        }).toThrowError(/subPath/);
         expect(leaf.updatef).toHaveBeenCalledTimes(0);
       });
 
       it("should throw an error if the path does not have the correct key", async () => {
-        await expect(
+        expect(() => {
           leaf._updateState(["dog"], {}, (parentCtxValues) =>
             createLeaf("dog", parentCtxValues),
-          ),
-        ).rejects.toThrowError(/key/);
+          );
+        }).toThrowError(/key/);
         expect(leaf.updatef).toHaveBeenCalledTimes(0);
       });
 
       it("should correctly internalUpdate the state", async () => {
-        await leaf._updateState(["test"], { x: 2 }, (parentCtxValues) =>
+        leaf._updateState(["test"], { x: 2 }, (parentCtxValues) =>
           createLeaf("test", parentCtxValues),
         );
         expect(leaf.state).toEqual({ x: 2 });
       });
 
       it("should call the handleUpdate", async () => {
-        await leaf._updateState(["test"], { x: 2 }, (parentCtxValues) =>
+        leaf._updateState(["test"], { x: 2 }, (parentCtxValues) =>
           createLeaf("test", parentCtxValues),
         );
         expect(leaf.updatef).toHaveBeenCalledTimes(1);
@@ -228,19 +228,20 @@ describe("Aether Worker", () => {
 
     describe("internalDelete", () => {
       it("should call the bound onDelete handler", async () => {
-        await leaf._delete(["test"]);
+        leaf._delete(["test"]);
         expect(leaf.deletef).toHaveBeenCalledTimes(1);
       });
     });
 
     describe("setState", () => {
       it("should communicate the state call to the main thread Sender", async () => {
-        await leaf._updateState(["test"], { x: 2 }, (parentCtxValues) =>
+        leaf._updateState(["test"], { x: 2 }, (parentCtxValues) =>
           createLeaf("test", parentCtxValues),
         );
         leaf.setState((p) => ({ ...p }));
         expect(MockSender.send).toHaveBeenCalledTimes(1);
         expect(MockSender.send).toHaveBeenCalledWith({
+          variant: "update",
           key: "test",
           state: { x: 2 },
         });
@@ -256,15 +257,13 @@ describe("Aether Worker", () => {
 
     describe("setState", () => {
       it("should set the state of the composite itself if the path has one element", async () => {
-        await composite._updateState(["test"], { x: 2 }, shouldNotCallCreate);
+        composite._updateState(["test"], { x: 2 }, shouldNotCallCreate);
         expect(composite.state).toEqual({ x: 2 });
         expect(composite.updatef).toHaveBeenCalledTimes(1);
       });
 
       it("should create a new leaf if the path has more than one element and the leaf does not exist", async () => {
-        await composite._updateState(["test", "dog"], { x: 2 }, () =>
-          createLeaf("dog"),
-        );
+        composite._updateState(["test", "dog"], { x: 2 }, () => createLeaf("dog"));
         expect(composite.children).toHaveLength(1);
         const c = composite.children[0];
         expect(c.key).toEqual("dog");
@@ -273,37 +272,31 @@ describe("Aether Worker", () => {
       });
 
       it("should set the state of the composite's leaf if the path has more than one element and the leaf exists", async () => {
-        await composite._updateState(["test", "dog"], { x: 2 }, () =>
-          createLeaf("dog"),
-        );
-        await composite._updateState(["test", "dog"], { x: 3 }, shouldNotCallCreate);
+        composite._updateState(["test", "dog"], { x: 2 }, () => createLeaf("dog"));
+        composite._updateState(["test", "dog"], { x: 3 }, shouldNotCallCreate);
         expect(composite.children).toHaveLength(1);
         expect(composite.children[0].state).toEqual({ x: 3 });
       });
 
       it("should throw an error if the path is too deep and the child does not exist", async () => {
-        await expect(
-          composite._updateState(["test", "dog", "cat"], { x: 2 }, shouldNotCallCreate),
-        ).rejects.toThrowError();
+        expect(() => {
+          composite._updateState(["test", "dog", "cat"], { x: 2 }, shouldNotCallCreate);
+        }).toThrowError(/subPath/);
       });
     });
 
     describe("internalDelete", () => {
       it("should remove a child from the list of children", async () => {
-        await composite._updateState(["test", "dog"], { x: 2 }, () =>
-          createLeaf("dog"),
-        );
+        composite._updateState(["test", "dog"], { x: 2 }, () => createLeaf("dog"));
         expect(composite.children).toHaveLength(1);
-        await composite._delete(["test", "dog"]);
+        composite._delete(["test", "dog"]);
         expect(composite.children).toHaveLength(0);
       });
 
       it("should call the deletion hook on the child of a composite", async () => {
-        await composite._updateState(["test", "dog"], { x: 2 }, () =>
-          createLeaf("dog"),
-        );
+        composite._updateState(["test", "dog"], { x: 2 }, () => createLeaf("dog"));
         const c = composite.children[0];
-        await composite._delete(["test", "dog"]);
+        composite._delete(["test", "dog"]);
         expect(c.deletef).toHaveBeenCalled();
       });
     });
@@ -312,15 +305,15 @@ describe("Aether Worker", () => {
   describe("context propagation", () => {
     it("should correctly set a context value", async () => {
       const v = createContextSetter("test");
-      await v._updateState(["test"], { x: 2 }, shouldNotCallCreate);
+      v._updateState(["test"], { x: 2 }, shouldNotCallCreate);
       expect(v.testingChildCtxValues.get("key")).toEqual(2);
       expect(v.testingParentCtxValues.size).toEqual(0);
     });
 
     it("should correctly pass an initial context value to a leaf child", async () => {
       const v = createContextSetter("test");
-      await v._updateState(["test"], { x: 2 }, shouldNotCallCreate);
-      await v._updateState(["test", "dog"], { x: 3 }, (c) => createLeaf("dog", c));
+      v._updateState(["test"], { x: 2 }, shouldNotCallCreate);
+      v._updateState(["test", "dog"], { x: 3 }, (c) => createLeaf("dog", c));
       const c = v.children[0];
       expect(c.testingParentCtxValues.get("key")).toEqual(2);
       expect(c.testingChildCtxValues.size).toEqual(0);
@@ -328,10 +321,10 @@ describe("Aether Worker", () => {
 
     it("should correctly update the context value in a child leaf", async () => {
       const v = createContextSetter("test");
-      await v._updateState(["test"], { x: 2 }, shouldNotCallCreate);
-      await v._updateState(["test", "dog"], { x: 3 }, (c) => createLeaf("dog", c));
+      v._updateState(["test"], { x: 2 }, shouldNotCallCreate);
+      v._updateState(["test", "dog"], { x: 3 }, (c) => createLeaf("dog", c));
       const c = v.children[0];
-      await v._updateState(["test"], { x: 4 }, shouldNotCallCreate);
+      v._updateState(["test"], { x: 4 }, shouldNotCallCreate);
       expect(v.testingChildCtxValues.get("key")).toEqual(4);
       expect(v.testingParentCtxValues.size).toEqual(0);
       expect(c.testingParentCtxValues.get("key")).toEqual(4);
@@ -340,13 +333,9 @@ describe("Aether Worker", () => {
 
     it("should correctly separate individual contexts", async () => {
       const v = createComposite("test");
-      await v._updateState(["test"], { x: 2 }, shouldNotCallCreate);
-      await v._updateState(["test", "dog"], { x: 3 }, (c) =>
-        createContextSetter("dog", c),
-      );
-      await v._updateState(["test", "cat"], { x: 4 }, (c) =>
-        createContextSetter("cat", c),
-      );
+      v._updateState(["test"], { x: 2 }, shouldNotCallCreate);
+      v._updateState(["test", "dog"], { x: 3 }, (c) => createContextSetter("dog", c));
+      v._updateState(["test", "cat"], { x: 4 }, (c) => createContextSetter("cat", c));
       const c1 = v.children[0];
       const c2 = v.children[1];
       expect(c1.testingChildCtxValues.size).toEqual(1);
@@ -357,15 +346,15 @@ describe("Aether Worker", () => {
 
     it("should correctly initialize contexts with a nested leaf", async () => {
       const v = createContextSetter("first");
-      await v._updateState(["first"], { x: 2 }, shouldNotCallCreate);
+      v._updateState(["first"], { x: 2 }, shouldNotCallCreate);
       expect(v.testingChildCtxValues.size).toEqual(1);
-      await v._updateState(["first", "second"], { x: 3 }, (c) =>
+      v._updateState(["first", "second"], { x: 3 }, (c) =>
         createSecondaryContextSetter("second", c),
       );
       const c1 = v.children[0];
       expect(c1.testingParentCtxValues.size).toEqual(1);
       expect(c1.testingChildCtxValues.size).toEqual(1);
-      await v._updateState(["first", "second", "third"], { x: 4 }, (c) =>
+      v._updateState(["first", "second", "third"], { x: 4 }, (c) =>
         createLeaf("third", c),
       );
       const c2 = (v.children[0] as SecondaryContextSetter).children[0];
@@ -377,16 +366,14 @@ describe("Aether Worker", () => {
 
     it("should correctly update contexts with a nested leaf", async () => {
       const v = createContextSetter("first");
-      await v._updateState(["first"], { x: 2 }, shouldNotCallCreate);
-      await v._updateState(["first", "second"], { x: 3 }, () =>
+      v._updateState(["first"], { x: 2 }, shouldNotCallCreate);
+      v._updateState(["first", "second"], { x: 3 }, () =>
         createSecondaryContextSetter("second"),
       );
       const c1 = v.children[0];
-      await v._updateState(["first", "second", "third"], { x: 4 }, () =>
-        createLeaf("third"),
-      );
+      v._updateState(["first", "second", "third"], { x: 4 }, () => createLeaf("third"));
       const c2 = (v.children[0] as SecondaryContextSetter).children[0];
-      await v._updateState(["first"], { x: 5 }, shouldNotCallCreate);
+      v._updateState(["first"], { x: 5 }, shouldNotCallCreate);
       expect(c1.testingParentCtxValues.size).toEqual(1);
       expect(c1.testingChildCtxValues.size).toEqual(1);
       expect(c2.testingParentCtxValues.size).toEqual(2);

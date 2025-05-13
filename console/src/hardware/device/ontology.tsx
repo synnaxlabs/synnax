@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/device/ontology.css";
+
 import { device, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Menu as PMenu, Status, Text, Tree } from "@synnaxlabs/pluto";
+import { Align, Menu as PMenu, Status, Text, Tooltip, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components";
+import { CSS } from "@/css";
 import { Group } from "@/group";
 import {
   CONFIGURE_LAYOUTS,
@@ -77,7 +80,7 @@ const useHandleChangeIdentifier = () => {
           properties: { ...device.properties, identifier: newIdentifier },
         });
       } catch (e) {
-        if (e instanceof Error && errors.CANCELED.matches(e)) return;
+        if (e instanceof Error && errors.Canceled.matches(e)) return;
         throw e;
       }
     }, "Failed to change identifier");
@@ -89,7 +92,7 @@ const useDelete = () => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
-      if (!(await confirm(resources))) throw errors.CANCELED;
+      if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
@@ -101,7 +104,7 @@ const useDelete = () => {
     mutationFn: async ({ selection, client }) =>
       await client.hardware.devices.delete(selection.resources.map((r) => r.id.key)),
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       handleError(e, `Failed to delete devices`);
     },
@@ -170,33 +173,44 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
-const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
+const Item: Tree.Item = ({ entry, className, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
   const devState = useState(id.key);
   return (
-    <Tree.DefaultItem {...rest} entry={entry}>
+    <Tree.DefaultItem
+      className={CSS(className, CSS.B("device-ontology-item"))}
+      entry={entry}
+      {...rest}
+    >
       {({ entry, onRename, key }) => (
         <>
-          <Align.Space x grow align="center">
+          <Align.Space x grow align="center" className={CSS.B("name-location")}>
             <Text.MaybeEditable
               id={`text-${key}`}
               level="p"
+              className={CSS.B("name")}
               allowDoubleClick={false}
               value={entry.name}
               disabled={!entry.allowRename}
               onChange={(name) => onRename?.(entry.key, name)}
             />
-            <Text.Text
-              level="small"
-              shade={9}
-              style={{ lineHeight: "100%", marginTop: "0.25rem" }}
-            >
+            <Text.Text level="small" shade={9} className={CSS.B("location")}>
               {entry.extraData?.location as string}
             </Text.Text>
           </Align.Space>
-          <Status.Circle
-            variant={(devState?.variant ?? "disabled") as Status.Variant}
-          />
+          <Tooltip.Dialog location="right">
+            <Status.Text
+              variant={(devState?.variant ?? "error") as Status.Variant}
+              hideIcon
+              level="small"
+              weight={450}
+            >
+              {(devState?.details?.message ?? "Device State Unknown") as string}
+            </Status.Text>
+            <Status.Circle
+              variant={(devState?.variant ?? "disabled") as Status.Variant}
+            />
+          </Tooltip.Dialog>
         </>
       )}
     </Tree.DefaultItem>

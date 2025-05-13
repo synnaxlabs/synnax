@@ -228,12 +228,11 @@ type Channel struct {
 	Leaseholder   int32                  `protobuf:"varint,2,opt,name=leaseholder,proto3" json:"leaseholder,omitempty"`
 	DataType      string                 `protobuf:"bytes,3,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
 	IsIndex       bool                   `protobuf:"varint,4,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
-	Rate          float64                `protobuf:"fixed64,5,opt,name=rate,proto3" json:"rate,omitempty"`
-	LocalKey      uint32                 `protobuf:"varint,6,opt,name=local_key,json=localKey,proto3" json:"local_key,omitempty"`
-	LocalIndex    int32                  `protobuf:"varint,7,opt,name=local_index,json=localIndex,proto3" json:"local_index,omitempty"`
-	Virtual       bool                   `protobuf:"varint,8,opt,name=virtual,proto3" json:"virtual,omitempty"`
-	Concurrency   uint32                 `protobuf:"varint,9,opt,name=concurrency,proto3" json:"concurrency,omitempty"`
-	Internal      bool                   `protobuf:"varint,10,opt,name=internal,proto3" json:"internal,omitempty"`
+	LocalKey      uint32                 `protobuf:"varint,5,opt,name=local_key,json=localKey,proto3" json:"local_key,omitempty"`
+	LocalIndex    int32                  `protobuf:"varint,6,opt,name=local_index,json=localIndex,proto3" json:"local_index,omitempty"`
+	Virtual       bool                   `protobuf:"varint,7,opt,name=virtual,proto3" json:"virtual,omitempty"`
+	Concurrency   uint32                 `protobuf:"varint,8,opt,name=concurrency,proto3" json:"concurrency,omitempty"`
+	Internal      bool                   `protobuf:"varint,9,opt,name=internal,proto3" json:"internal,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -296,13 +295,6 @@ func (x *Channel) GetIsIndex() bool {
 	return false
 }
 
-func (x *Channel) GetRate() float64 {
-	if x != nil {
-		return x.Rate
-	}
-	return 0
-}
-
 func (x *Channel) GetLocalKey() uint32 {
 	if x != nil {
 		return x.LocalKey
@@ -354,20 +346,18 @@ const file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDe
 	"\x04keys\x18\x03 \x03(\rR\x04keys\"9\n" +
 	"\rRenameRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names\"\xa1\x02\n" +
+	"\x05names\x18\x02 \x03(\tR\x05names\"\x8d\x02\n" +
 	"\aChannel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vleaseholder\x18\x02 \x01(\x05R\vleaseholder\x12\x1b\n" +
 	"\tdata_type\x18\x03 \x01(\tR\bdataType\x12\x19\n" +
-	"\bis_index\x18\x04 \x01(\bR\aisIndex\x12\x12\n" +
-	"\x04rate\x18\x05 \x01(\x01R\x04rate\x12\x1b\n" +
-	"\tlocal_key\x18\x06 \x01(\rR\blocalKey\x12\x1f\n" +
-	"\vlocal_index\x18\a \x01(\x05R\n" +
+	"\bis_index\x18\x04 \x01(\bR\aisIndex\x12\x1b\n" +
+	"\tlocal_key\x18\x05 \x01(\rR\blocalKey\x12\x1f\n" +
+	"\vlocal_index\x18\x06 \x01(\x05R\n" +
 	"localIndex\x12\x18\n" +
-	"\avirtual\x18\b \x01(\bR\avirtual\x12 \n" +
-	"\vconcurrency\x18\t \x01(\rR\vconcurrency\x12\x1a\n" +
-	"\binternal\x18\n" +
-	" \x01(\bR\binternal2V\n" +
+	"\avirtual\x18\a \x01(\bR\avirtual\x12 \n" +
+	"\vconcurrency\x18\b \x01(\rR\vconcurrency\x12\x1a\n" +
+	"\binternal\x18\t \x01(\bR\binternal2V\n" +
 	"\x14ChannelCreateService\x12>\n" +
 	"\x04Exec\x12\x19.channel.v1.CreateMessage\x1a\x19.channel.v1.CreateMessage\"\x002S\n" +
 	"\x14ChannelDeleteService\x12;\n" +

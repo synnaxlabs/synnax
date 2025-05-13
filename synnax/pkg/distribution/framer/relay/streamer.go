@@ -16,8 +16,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Streamer = confluence.Segment[Request, Response]
@@ -31,12 +34,40 @@ type streamer struct {
 }
 
 type StreamerConfig struct {
-	Keys        channel.Keys
-	SendOpenAck bool
+	Keys               channel.Keys `json:"keys" msgpack:"keys"`
+	SendOpenAck        *bool        `json:"send_open_ack" msgpack:"send_open_ack"`
+	ResponseBufferSize int          `json:"response_buffer_size" msgpack:"response_buffer_size"`
 }
 
-func (r *Relay) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
-	err := r.cfg.ChannelReader.NewRetrieve().WhereKeys(cfg.Keys...).Exec(ctx, nil)
+var (
+	_                     config.Config[StreamerConfig] = StreamerConfig{}
+	DefaultStreamerConfig                               = StreamerConfig{
+		ResponseBufferSize: 100, // 72 bytes * 100 = 7.2kb
+		SendOpenAck:        config.False(),
+	}
+)
+
+// Override implements config.Config.
+func (c StreamerConfig) Override(other StreamerConfig) StreamerConfig {
+	c.Keys = override.Slice(c.Keys, other.Keys)
+	c.SendOpenAck = override.Nil(c.SendOpenAck, other.SendOpenAck)
+	c.ResponseBufferSize = override.Numeric(c.ResponseBufferSize, other.ResponseBufferSize)
+	return c
+}
+
+// Validate implements config.Config.
+func (c StreamerConfig) Validate() error {
+	v := validate.New("streamer_config")
+	validate.NotNil(v, "send_open_ack", c.SendOpenAck)
+	return v.Error()
+}
+
+func (r *Relay) NewStreamer(ctx context.Context, cfgs ...StreamerConfig) (Streamer, error) {
+	cfg, err := config.New(DefaultStreamerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	err = r.cfg.ChannelReader.NewRetrieve().WhereKeys(cfg.Keys...).Exec(ctx, nil)
 	return &streamer{
 		cfg:     cfg,
 		addr:    address.Rand(),
@@ -62,7 +93,7 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
-		responses, disconnect := r.relay.connectToDelta(defaultBuffer)
+		responses, disconnect := r.relay.connectToDelta(1)
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
 			// we do this before updating our demands, otherwise we may deadlock.
@@ -74,7 +105,7 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			// we explicitly close it here.
 			r.demands.Close()
 		}()
-		if r.cfg.SendOpenAck {
+		if *r.cfg.SendOpenAck {
 			if err := signal.SendUnderContext(ctx, r.Out.Inlet(), Response{}); err != nil {
 				return err
 			}
@@ -94,14 +125,11 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					return err
 				}
 			case f := <-responses.Outlet():
-				filtered := f.Frame.FilterKeys(r.cfg.Keys)
-				// Don't send if the frame is empty.
-				if len(filtered.Keys) == 0 {
-					continue
-				}
-				res := Response{Error: f.Error, Frame: f.Frame.FilterKeys(r.cfg.Keys)}
-				if err := signal.SendUnderContext(ctx, r.Out.Inlet(), res); err != nil {
-					return err
+				if filtered := f.Frame.FilterKeys(r.cfg.Keys); !filtered.Empty() {
+					res := Response{Frame: f.Frame.FilterKeys(r.cfg.Keys)}
+					if err := signal.SendUnderContext(ctx, r.Out.Inlet(), res); err != nil {
+						return err
+					}
 				}
 			}
 		}

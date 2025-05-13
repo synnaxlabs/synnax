@@ -39,7 +39,7 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	}
 
 	receiver := &freightfluence.TransformReceiver[ts.IteratorRequest, Request]{Receiver: server}
-	receiver.Transform = newStorageRequestTranslator()
+	receiver.Transform = newStorageRequestTranslator(false)
 	sender := &freightfluence.TransformSender[ts.IteratorResponse, Response]{
 		Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 	}

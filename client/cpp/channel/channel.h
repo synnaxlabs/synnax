@@ -45,16 +45,10 @@ struct Channel {
     /// @brief the key of the channel. This is auto-assigned by the cluster on calls
     /// to create and retrieve.
     ChannelKey key = 0;
-    /// @brief The key of the channel that indexes this channel. If this field is
-    /// zero, the channel must have a non-zero rate, and is considered rate based.
-    /// This this field is non-zero, the channel is considered index based, and the
-    /// rate field must be zero.
+    /// @brief The key of the channel that indexes this channel. This field must be
+    /// set if the channel is not an index channel.
     ChannelKey index = 0;
-    /// @brief The sampling rate of the channel. If this parameter is non-zero,
-    /// is_index must be false and index must be zero.
-    telem::Rate rate = telem::Rate(0);
-    /// @brief Sets whether the channel itself is an index channel. Index channels
-    /// must cannot have a rate, and must have a data type of TIMESTAMP.
+    /// @brief Sets whether the channel itself is an index channel.
     bool is_index = false;
     /// @brief The leaseholder of the channel.
     std::uint32_t leaseholder = 0;
@@ -81,12 +75,6 @@ struct Channel {
         ChannelKey index,
         bool is_index = false
     );
-
-    /// @brief constructs a new rate based channel.
-    /// @param name a human-readable name for the channel.
-    /// @param data_type the data type of the channel.
-    /// @param rate the rate of the channel.
-    Channel(std::string name, telem::DataType data_type, telem::Rate rate);
 
     /// @brief constructs a new virtual channel.
     /// @param name a human-readable name for the channel.
@@ -135,9 +123,11 @@ map_channel_Keys(const std::vector<Channel> &channels) {
 /// @brief ChannelClient for creating and retrieving channels from a Synnax cluster.
 class ChannelClient {
 public:
+    ChannelClient() = default;
+
     ChannelClient(
-        std::unique_ptr<ChannelRetrieveClient> retrieve_client,
-        std::unique_ptr<ChannelCreateClient> create_client
+        std::shared_ptr<ChannelRetrieveClient> retrieve_client,
+        std::shared_ptr<ChannelCreateClient> create_client
     ):
         retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)) {}
@@ -174,19 +164,6 @@ public:
         ChannelKey index,
         bool is_index = false
     ) const;
-
-    /// @brief creates a new rate based channel.
-    /// @param name a human-readable name for the channel.
-    /// @param data_type the data type of the channel.
-    /// @param rate the rate of the channel.
-    /// @returns the created channel with a unique key assigned.
-    /// @returns a pair containing the created channel and an error where ok() is
-    /// false if the channel could not be created. In the case of an error, the
-    /// returned channel will be invalid. Use err.message() to get the error message
-    /// or err.type to get the error type.
-    [[nodiscard]] std::pair<Channel, xerrors::Error>
-    create(const std::string &name, const telem::DataType &data_type, telem::Rate rate)
-        const;
 
     [[nodiscard]] std::pair<Channel, xerrors::Error> create(
         const std::string &name,
@@ -240,8 +217,8 @@ public:
 
 private:
     /// @brief transport for retrieving channels.
-    std::unique_ptr<ChannelRetrieveClient> retrieve_client;
+    std::shared_ptr<ChannelRetrieveClient> retrieve_client;
     /// @brief transport for creating channels.
-    std::unique_ptr<ChannelCreateClient> create_client;
+    std::shared_ptr<ChannelCreateClient> create_client;
 };
 }

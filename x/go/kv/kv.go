@@ -35,7 +35,7 @@ type Reader interface {
 	Get(
 		ctx context.Context,
 		key []byte,
-		opts ...interface{},
+		opts ...any,
 	) ([]byte, io.Closer, error)
 	// OpenIterator returns an Iterator using the given IteratorOptions.
 	OpenIterator(opts IteratorOptions) (Iterator, error)
@@ -45,10 +45,10 @@ type Reader interface {
 type Writer interface {
 	// Set sets the value for the given key. It is safe to modify the contents of key
 	// and value after Set returns.
-	Set(ctx context.Context, key, value []byte, opts ...interface{}) error
+	Set(ctx context.Context, key, value []byte, opts ...any) error
 	// Delete removes the value for the given key. It is safe to modify the contents
 	// of key after Delete returns.
-	Delete(ctx context.Context, key []byte, opts ...interface{}) error
+	Delete(ctx context.Context, key []byte, opts ...any) error
 }
 
 // ReadWriter is a read-writeable key-value store.
@@ -75,7 +75,7 @@ type Tx interface {
 	NewReader() TxReader
 	// Commit persists the batch to the underlying DB. Commit will panic if called
 	// more than once.
-	Commit(ctx context.Context, opts ...interface{}) error
+	Commit(ctx context.Context, opts ...any) error
 	// Close closes the transaction. It is necessary to Close the transaction after use,
 	// even if Commit has been called. Failure to do so may result in resource leaks.
 	// If the transaction has not been committed, all changes will be discarded. After

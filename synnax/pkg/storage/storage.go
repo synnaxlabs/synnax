@@ -24,6 +24,7 @@
 package storage
 
 import (
+	"context"
 	"io"
 	"io/fs"
 	"os"
@@ -176,7 +177,7 @@ func (cfg Config) Report() alamos.Report {
 // specified in the Config. If the lock cannot be acquired, Open returns an error.
 // The lock is released when the Storage is/closed. Storage MUST be closed when it is no
 // longer in use.
-func Open(cfg Config) (s *Storage, err error) {
+func Open(ctx context.Context, cfg Config) (s *Storage, err error) {
 	cfg, err = config.New(DefaultConfig, cfg)
 	if err != nil {
 		return nil, err
@@ -216,7 +217,7 @@ func Open(cfg Config) (s *Storage, err error) {
 	}
 
 	// Open the time-series engine.
-	if s.TS, err = openTS(cfg, baseXFS); err != nil {
+	if s.TS, err = openTS(ctx, cfg, baseXFS); err != nil {
 		err = errors.Combine(err, s.KV.Close())
 		return s, errors.Combine(err, s.lock.Close())
 	}
@@ -329,11 +330,11 @@ func openKV(cfg Config, fs vfs.FS) (kv.DB, error) {
 	return pebblekv.Wrap(db), err
 }
 
-func openTS(cfg Config, fs xfs.FS) (*ts.DB, error) {
+func openTS(ctx context.Context, cfg Config, fs xfs.FS) (*ts.DB, error) {
 	if cfg.TSEngine != CesiumTS {
 		return nil, errors.Newf("[storage] - unsupported time-series engine: %s", cfg.TSEngine)
 	}
-	return ts.Open(ts.Config{
+	return ts.Open(ctx, ts.Config{
 		Instrumentation: cfg.Instrumentation.Child("ts"),
 		Dirname:         filepath.Join(cfg.Dirname, cesiumDirname),
 		FS:              fs,

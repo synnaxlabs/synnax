@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, Rate } from "@synnaxlabs/client";
+import { channel, DataType } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -44,27 +44,28 @@ export const CREATE_LAYOUT: Layout.BaseState = {
   },
 };
 
-export const createFormValidator = (v: z.ZodSchema) =>
-  v
-    .refine((v) => !v.isIndex || new DataType(v.dataType).equals(DataType.TIMESTAMP), {
+export const baseFormSchema = channel.newZ
+  .extend({
+    name: z.string().min(1, "Name must not be empty"),
+    dataType: DataType.z.transform((v) => v.toString()),
+  })
+  .refine(
+    (v) => !v.isIndex || DataType.z.parse(v.dataType).equals(DataType.TIMESTAMP),
+    {
       message: "Index channel must have data type TIMESTAMP",
       path: ["dataType"],
-    })
-    .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
-      message: "Data channel must have an index",
-      path: ["index"],
-    })
-    .refine((v) => v.virtual || !new DataType(v.dataType).isVariable, {
-      message: "Persisted channels must have a fixed-size data type",
-      path: ["dataType"],
-    });
+    },
+  )
+  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
+    message: "Data channel must have an index",
+    path: ["index"],
+  })
+  .refine((v) => v.virtual || !DataType.z.parse(v.dataType).isVariable, {
+    message: "Persisted channels must have a fixed-size data type",
+    path: ["dataType"],
+  });
 
-export const baseFormSchema = channel.newZ.extend({
-  name: z.string().min(1, "Name must not be empty"),
-  dataType: DataType.z.transform((v) => v.toString()),
-});
-
-const createFormSchema = createFormValidator(baseFormSchema);
+const createFormSchema = baseFormSchema;
 
 type Schema = typeof createFormSchema;
 
@@ -76,7 +77,6 @@ export const ZERO_CHANNEL: z.infer<Schema> = {
   internal: false,
   isIndex: false,
   leaseholder: 0,
-  rate: Rate.hz(0),
   virtual: false,
   expression: "",
   requires: [],
@@ -115,7 +115,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
       <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
-        <Form.Form {...methods}>
+        <Form.Form<typeof createFormSchema> {...methods}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
               <Input.Text

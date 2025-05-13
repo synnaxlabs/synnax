@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-option go_package = "github.com/synnaxlabs/aspen/transport/grpc/v1";
-
 package aspen.v1;
 
 import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/aspen/transport/grpc/v1";
 
 service FeedbackService {
   rpc Exec(FeedbackMessage) returns (google.protobuf.Empty);
@@ -21,13 +21,12 @@ message OperationDigest {
   bytes key = 3;
 }
 
-
 service TxService {
   rpc Exec(TxRequest) returns (TxRequest);
 }
 
 service LeaseService {
-    rpc Exec(TxRequest) returns (google.protobuf.Empty);
+  rpc Exec(TxRequest) returns (google.protobuf.Empty);
 }
 
 message TxRequest {
@@ -44,15 +43,14 @@ message Operation {
   bytes value = 5;
 }
 
-
 service RecoveryService {
-    rpc Exec(stream RecoveryRequest) returns (stream RecoveryResponse);
+  rpc Exec(stream RecoveryRequest) returns (stream RecoveryResponse);
 }
 
 message RecoveryRequest {
-    int64 high_water = 1;
+  int64 high_water = 1;
 }
 
 message RecoveryResponse {
-    repeated Operation operations = 1;
+  repeated Operation operations = 1;
 }

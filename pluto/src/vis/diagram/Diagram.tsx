@@ -11,7 +11,7 @@ import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { box, location, xy } from "@synnaxlabs/x";
+import { box, color, location, xy } from "@synnaxlabs/x";
 import {
   addEdge as rfAddEdge,
   applyEdgeChanges as rfApplyEdgeChanges,
@@ -243,20 +243,11 @@ const Core = ({
       ...memoProps,
     },
   });
-  useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
-
-  const defaultEdgeColor = Theming.use().colors.gray.l11.hex;
-
-  const triggers = useMemoCompare(
-    () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
-    Triggers.compareModeConfigs,
-    [pTriggers],
-  );
-
   const { fitView } = useReactFlow();
   const debouncedFitView = useDebouncedCallback((args) => void fitView(args), 50, [
     fitView,
   ]);
+
   const resizeRef = Canvas.useRegion(
     useCallback(
       (b) => {
@@ -265,6 +256,15 @@ const Core = ({
       },
       [setState, debouncedFitView, fitViewOnResize],
     ),
+  );
+  useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
+
+  const defaultEdgeColor = color.hex(Theming.use().colors.gray.l11);
+
+  const triggers = useMemoCompare(
+    () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
+    Triggers.compareModeConfigs,
+    [pTriggers],
   );
 
   // For some reason, react flow repeatedly calls onViewportChange with the same
