@@ -243,7 +243,7 @@ func (enc *PassThroughCodec) DecodeStream(ctx context.Context, r io.Reader, valu
 
 // EncodeStream implements the Encoder interface.
 func (enc *PassThroughCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	return enc.EncodeStream(ctx, w, value)
+	return enc.Codec.EncodeStream(ctx, w, value)
 }
 
 // TracingCodec wraps a Codec and traces the encoding and decoding
