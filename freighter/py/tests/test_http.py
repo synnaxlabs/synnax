@@ -26,14 +26,15 @@ def client(endpoint: URL) -> HTTPClient:
 
 @pytest.mark.http
 class TestClient:
-    def test_echo(self, client: HTTPClient):
+    def test_echo(self, client: HTTPClient) -> None:
         """Should echo an incremented ID back to the caller."""
         res, err = client.send("/echo", Message(id=1, message="hello"), Message)
         assert err is None
+        assert res is not None
         assert res.id == 2
         assert res.message == "hello"
 
-    def test_middleware(self, client):
+    def test_middleware(self, client: HTTPClient) -> None:
         dct = {"called": False}
 
         def mw(md: Context, next: Next) -> tuple[Context, Exception | None]:
@@ -46,6 +47,7 @@ class TestClient:
             "/middlewareCheck", Message(id=1, message="hello"), Message
         )
         assert err is None
+        assert res is not None
         assert res.id == 2
         assert res.message == "hello"
         assert dct["called"]

@@ -79,7 +79,7 @@ class TestWriteFrameAdapter:
         ch = client.channels.create(
             name=f"test-{random.randint(0, 100000)}",
             leaseholder=1,
-            rate=25 * sy.Rate.HZ,
+            virtual=True,
             data_type=sy.DataType.FLOAT64,
         )
         adapter = WriteFrameAdapter(client.channels._retriever)
@@ -176,7 +176,7 @@ class TestWriteFrameAdapter:
         ch = client.channels.create(
             sy.Channel(
                 name=f"test-{random.randint(0, 100000)}",
-                rate=25 * sy.Rate.HZ,
+                virtual=True,
                 data_type=sy.DataType.TIMESTAMP,
             )
         )

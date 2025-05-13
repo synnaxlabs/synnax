@@ -1,10 +1,6 @@
-import multiprocessing
-import random
-import time
 import sys
-from typing import NamedTuple, List
+from typing import NamedTuple
 
-import numpy as np
 import synnax as sy
 
 

@@ -33,15 +33,15 @@ const ListItem = <C extends DigitalChannel>({
   <List.ItemFrame
     {...rest}
     align="center"
-    direction="x"
+    x
     justify="spaceBetween"
     style={{ width: "100%" }}
   >
-    <Align.Space align="center" direction="x" justify="spaceEvenly">
+    <Align.Space align="center" x justify="spaceEvenly">
       <Align.Pack
         align="center"
         className="port-line-input"
-        direction="x"
+        x
         style={{ maxWidth: "50rem" }}
       >
         <Form.NumericField
@@ -51,7 +51,9 @@ const ListItem = <C extends DigitalChannel>({
           showHelpText={false}
           path={`${path}.port`}
         />
-        <Text.Text level="p">/</Text.Text>
+        <Text.Text level="p" shade={9} weight={550}>
+          /
+        </Text.Text>
         <Form.NumericField
           inputProps={{ showDragHandle: false }}
           hideIfNull
@@ -63,13 +65,13 @@ const ListItem = <C extends DigitalChannel>({
       <Text.Text
         level="small"
         className={CSS.BE("port-line-input", "label")}
-        shade={7}
+        shade={11}
         weight={450}
       >
         Port/Line
       </Text.Text>
     </Align.Space>
-    <Align.Space direction="x" align="center" justify="spaceEvenly">
+    <Align.Space x align="center" justify="spaceEvenly">
       {name({ path, isSnapshot, ...rest })}
       <Common.Task.EnableDisableButton
         path={`${path}.enabled`}

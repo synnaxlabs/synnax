@@ -30,4 +30,4 @@ var _ gorp.Entry[string] = KVPair{}
 func (k KVPair) GorpKey() string { return k.Range.String() + "<--->" + k.Key }
 
 // SetOptions implements gorp.Entry.
-func (k KVPair) SetOptions() []interface{} { return nil }
+func (k KVPair) SetOptions() []any { return nil }

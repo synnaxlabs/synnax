@@ -9,19 +9,15 @@
 
 from __future__ import annotations
 
-from typing import Type
-
-from pydantic import BaseModel
-
-from freighter import ExceptionPayload, register_exception
+from freighter import ExceptionPayload, Payload, register_exception
 
 
-class Message(BaseModel):
+class Message(Payload):
     id: int | None
     message: str | None
 
     @classmethod
-    def new(cls: Type[Message]) -> Message:
+    def new(cls: type[Message]) -> Message:
         return Message(id=None, message=None)
 
 
@@ -35,17 +31,19 @@ class Error(Exception):
         super().__init__(message)
 
 
-def encode_test_error(exc: Exception) -> str:
+def encode_test_error(exc: Exception) -> ExceptionPayload:
     if not isinstance(exc, Error):
         raise TypeError
     assert isinstance(exc, Error)
-    return f"{exc.code},{exc.message}"
+    return ExceptionPayload(type="integration.error", data=f"{exc.code},{exc.message}")
 
 
 def decode_test_error(encoded: ExceptionPayload) -> Exception | None:
     if encoded.type != "integration.error":
         return None
-    code, message = encoded.data.split(",")
+    data = encoded.data
+    assert data is not None
+    code, message = data.split(",")
     return Error(int(code), message)
 
 

@@ -24,6 +24,7 @@ export const BottomNavBar = ({
     location="bottom"
     size="8rem"
     className={CSS(CSS.B("bottom-nav-bar"), className)}
+    bordered
     {...rest}
   />
 );

@@ -124,6 +124,9 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
+      - name: Check Formatting
+        run: bash scripts/check-clang-format.sh client/cpp
+
       - name: Test
         run: bazel test --test_output=all //client/cpp/... --nocache_test_results
 
@@ -161,6 +164,10 @@ jobs:
 
       - name: Install Dependencies
         run: poetry install
+        working-directory: client/py
+
+      - name: isort
+        run: poetry run isort -c .
         working-directory: client/py
 
       - name: Format

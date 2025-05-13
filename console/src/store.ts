@@ -18,11 +18,9 @@ import {
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { type deep, type UnknownRecord } from "@synnaxlabs/x";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import { isDev } from "@/isDev";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -31,6 +29,7 @@ import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
+import { getCurrentWindow } from "@/tauriShim";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -99,9 +98,8 @@ export type RootAction =
 
 export type RootStore = Store<RootState, RootAction>;
 
-const DEFAULT_WINDOW_VISIBLE = isDev();
 const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
-  visible: DEFAULT_WINDOW_VISIBLE,
+  visible: IS_DEV,
   minSize: { width: 625, height: 375 },
 };
 
@@ -167,12 +165,11 @@ const createStore = async (): Promise<RootStore> => {
   return await Drift.configureStore<RootState, RootAction>({
     runtime: new TauriRuntime(),
     preloadedState: initialState,
-    middleware: (def) => new Tuple(...def(), ...BASE_MIDDLEWARE, persistMiddleware),
+    middleware: (def) => new Tuple(...def(), persistMiddleware, ...BASE_MIDDLEWARE),
     reducer,
-    enablePrerender: false,
+    enablePrerender: true,
     debug: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
 };
-
 export const store = createStore();

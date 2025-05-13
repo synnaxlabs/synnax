@@ -72,7 +72,7 @@ jobs:
 
       - name: Format
         if: matrix.format
-        run: bash scripts/gofmt-check.sh alamos/go
+        run: bash scripts/check-gofmt.sh alamos/go
 
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo
@@ -113,9 +113,17 @@ jobs:
         run: poetry install
         working-directory: alamos/py
 
+      - name: isort
+        run: poetry run isort -c .
+        working-directory: alamos/py
+
       - name: Format
         if: matrix.format
         run: poetry run black --check --diff --color .
+        working-directory: alamos/py
+
+      - name: Mypy
+        run: poetry run mypy .
         working-directory: alamos/py
 
       - name: Test

@@ -93,8 +93,18 @@ func validateInput(input string) error {
 	return inputCheckFunc(input)
 }
 
-func whenStale(input string) time.Time {
+func errFormat(input string) error {
+	return errors.New(input + decode("ICBpcyBhbiBpbnZhbGlkIGxpY2Vuc2Uga2V5LCBwcm9wZXIgZm9ybWF0IGlzICMjIyMjIy0jIyMjIyMjIy0jIyMjIyMjIyMj"))
+}
+
+func whenStale(input string) (time.Time, error) {
 	parts := strings.Split(input, "-")
+	if len(parts) != 3 {
+		return time.Time{}, errFormat(input)
+	}
+	if len(parts[0]) != 6 {
+		return time.Time{}, errFormat(input)
+	}
 	year, _ := strconv.Atoi(parts[0][0:2])
 	month, _ := strconv.Atoi(parts[0][2:4])
 	day, _ := strconv.Atoi(parts[0][4:6])
@@ -102,7 +112,7 @@ func whenStale(input string) time.Time {
 	year += 2000
 	month, _ = crypto.Cipher(month, monthCipher, 2)
 	day, _ = crypto.Cipher(day, dayCipher, 2)
-	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
+	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local), nil
 }
 
 func getNumChan(input string) types.Uint20 {
@@ -116,7 +126,7 @@ func getNumChan(input string) types.Uint20 {
 func inputCheckFunc(input string) error {
 	code := strings.Split(input, "-")[2]
 	var digits [10]int
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		digits[i], _ = strconv.Atoi(string(code[i]))
 	}
 	firstFive, _ := strconv.Atoi(code[0:5])

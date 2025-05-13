@@ -24,7 +24,7 @@
             .pluto-table__resizer {
                 background: var(--pluto-primary-z-30);
                 .pluto-text {
-                    color: var(--pluto-gray-l9) !important;
+                    color: var(--pluto-gray-l11) !important;
                 }
             }
         }
@@ -36,13 +36,13 @@
         &.pluto--selected {
             background: var(--pluto-primary-z-30);
             .pluto-text {
-                color: var(--pluto-gray-l9) !important;
+                color: var(--pluto-gray-l11) !important;
             }
         }
 
         &.pluto--y {
-            border-right: var(--pluto-border-l4);
-            border-bottom: var(--pluto-border-l4);
+            border-right: var(--pluto-border-l5);
+            border-bottom: var(--pluto-border-l5);
 
             & button {
                 transform: translateY(-3px);
@@ -66,8 +66,8 @@
 
         &.pluto--x {
             height: 3.5rem;
-            border-bottom: var(--pluto-border-l4);
-            border-right: var(--pluto-border-l4);
+            border-bottom: var(--pluto-border-l5);
+            border-right: var(--pluto-border-l5);
 
             & button {
                 top: 0;
@@ -144,8 +144,8 @@
             max-width: 3.5rem;
             min-width: 3.5rem;
             margin: 0;
-            border-right: var(--pluto-border-l4);
-            border-bottom: var(--pluto-border-l4);
+            border-right: var(--pluto-border-l5);
+            border-bottom: var(--pluto-border-l5);
             background: var(--pluto-gray-l2);
         }
     }

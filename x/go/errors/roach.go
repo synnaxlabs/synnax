@@ -12,13 +12,14 @@ package errors
 import (
 	"context"
 	"encoding/hex"
+
 	"github.com/cockroachdb/errors"
 )
 
 func roachEncode(ctx context.Context, err error) Payload {
-	// Case where error is of type roach or not typed.
+	// Case where the error is of type roach or not typed.
 	// If the type isn't registered, attempt to encode the error using
-	// cockroachdb's error package. This used for go-to-go transport.
+	// cockroachdb's error package. This is used for go-to-go transport.
 	encoded := errors.EncodeError(ctx, err)
 	b, err := encoded.Marshal()
 	// If we couldn't encode the error, return a standardized unknown

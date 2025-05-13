@@ -27,7 +27,7 @@ import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom"
 import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { Common } from "@/hardware/common";
 import { Controls } from "@/hardware/common/task/Controls";
-import { useForm } from "@/hardware/common/task/Form";
+import { type FormSchema, useForm } from "@/hardware/common/task/Form";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
   type Config,
@@ -139,12 +139,8 @@ const Internal = ({
   });
 
   return (
-    <Align.Space
-      style={{ padding: 0, height: "100%", minHeight: 0 }}
-      direction="y"
-      empty
-    >
-      <Form.Form {...methods}>
+    <Align.Space style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
+      <Form.Form<FormSchema<Config>> {...methods}>
         <Form.Field<string>
           path="config.script"
           showLabel={false}
@@ -155,22 +151,22 @@ const Internal = ({
           {(p) => <Editor {...p} globals={globals} />}
         </Form.Field>
         <Align.Pack
-          direction="y"
+          y
           bordered={false}
           style={{
             width: "100%",
             background: "var(--pluto-gray-l0)",
-            boxShadow: "var(--pluto-shadow-menu)",
+            boxShadow: "var(--pluto-shadow-v1)",
             borderTop: "var(--pluto-border)",
             flexShrink: 0, // Prevent the bottom section from shrinking
           }}
         >
           <Align.Space
-            direction="y"
+            y
             style={{ padding: "2rem", paddingBottom: "3rem" }}
             size="medium"
           >
-            <Align.Space direction="x">
+            <Align.Space x>
               <Form.Field<rack.Key>
                 path="config.rack"
                 label="Location"

@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Color, Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
+import { color, location } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
@@ -76,6 +76,7 @@ export const stateZ = z.object({
   args: z.unknown().optional(),
   excludeFromWorkspace: z.boolean().optional(),
   beta: z.boolean().default(false).optional(),
+  loading: z.boolean().default(false).optional(),
   unsavedChanges: z.boolean().default(false).optional(),
 });
 
@@ -137,11 +138,15 @@ export interface State<A = unknown> {
    * unsavedChanges is a flag that indicates whether the layout has unsaved changes.
    */
   unsavedChanges?: boolean;
+  /**
+   * loading is a flag that indicates whether the layout is loading.
+   */
+  loading?: boolean;
 }
 
 const themeZ = Theming.themeZ.transform(
   // Need to remove the Color classes from the theme so that we can store it in Redux properly
-  Color.transformColorsToHex,
+  color.transformColorsToHex,
 );
 
 const mosaicStateZ = z.object({
@@ -162,6 +167,7 @@ const navDrawerEntryStateZ = z.object({
   activeItem: z.string().nullable(),
   menuItems: z.string().array(),
   size: z.number().optional(),
+  hover: z.boolean().optional(),
 });
 
 export type NavDrawerEntryState = z.infer<typeof navDrawerEntryStateZ>;
@@ -183,6 +189,8 @@ const partialNavStateZ = z.object({ drawers: navDrawerStateZ.partial() });
 const navStateZ = z
   .record(z.string(), partialNavStateZ)
   .and(z.object({ [MAIN_LAYOUT_KEY]: mainNavStateZ }));
+
+export type NavState = z.infer<typeof navStateZ>;
 
 export const MAIN_LAYOUT: State = {
   name: "Main",
@@ -220,8 +228,19 @@ export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
   nav: {
     main: {
       drawers: {
-        left: { activeItem: null, menuItems: ["resources"] },
-        right: { activeItem: null, menuItems: ["range", "task"] },
+        left: {
+          activeItem: null,
+          menuItems: [
+            "ontology",
+            "channel",
+            "range",
+            "workspace",
+            "device",
+            "task",
+            "user",
+          ],
+        },
+        right: { activeItem: null, menuItems: [] },
         bottom: { activeItem: null, menuItems: ["visualization"] },
       },
     },

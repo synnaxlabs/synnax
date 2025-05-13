@@ -11,3 +11,5 @@
 from alamos.instrumentation import NOOP, Instrumentation, trace
 from alamos.log import Logger
 from alamos.trace import Tracer
+
+__all__ = ["NOOP", "Instrumentation", "trace", "Logger", "Tracer"]

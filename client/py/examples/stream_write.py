@@ -48,9 +48,9 @@ data_channel_2 = client.channels.create(
 # just before the first timestamp we write.
 start = sy.TimeStamp.now()
 
-# Set a data rate of 20 Hz. This won't be an exact loop and could drift over long
-# periods of time, but it works well for a demonstration.
-loop = sy.Loop(sy.Rate.HZ * 20)
+# The rate at which we'll send samples to the cluster. sy.Loop  is a utility to help
+# regulate the timing.
+loop = sy.Loop(sy.Rate.HZ * 25)
 
 # Open the writer as a context manager. Using a context manager is recommended as the
 # context manager will automatically close the writer when we are done writing. We will
@@ -64,12 +64,11 @@ with client.open_writer(
     i = 0
     while loop.wait():
         # Write the data to the Synnax cluster using the writer.
-        if not writer.write(
+        writer.write(
             {
                 time_channel.key: sy.TimeStamp.now(),
                 data_channel_1.key: np.sin(i / 10) * 25 + 12.5,
                 data_channel_2.key: i % 2,
             }
-        ):
-            break
+        )
         i += 1

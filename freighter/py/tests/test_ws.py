@@ -47,14 +47,15 @@ def unary_client(endpoint: URL) -> HTTPClient:
 
 @pytest.mark.ws
 @pytest.mark.asyncio
-class TestWS:
-    async def test_basic_exchange(self, async_client: AsyncWebsocketClient):
+class TestAsyncWebsocket:
+    async def test_basic_exchange(self, async_client: AsyncWebsocketClient) -> None:
         """Should exchange ten echo messages that increment the ID."""
         stream = await async_client.stream("/echo", Message, Message)
         for i in range(10):
             await stream.send(Message(id=i, message="hello"))
             msg, err = await stream.receive()
             assert err is None
+            assert msg is not None
             assert msg.id == i + 1
             assert msg.message == "hello"
         await stream.close_send()
@@ -63,7 +64,7 @@ class TestWS:
 
     async def test_receive_message_after_close(
         self, async_client: AsyncWebsocketClient
-    ):
+    ) -> None:
         """Should receive a message and EOF error after the server closes the
         connection."""
         stream = await async_client.stream(
@@ -74,12 +75,13 @@ class TestWS:
         await stream.close_send()
         msg, err = await stream.receive()
         assert err is None
+        assert msg is not None
         assert msg.id == 0
         assert msg.message == "Close Acknowledged"
         msg, err = await stream.receive()
         assert isinstance(err, freighter.EOF)
 
-    async def test_receive_error(self, async_client):
+    async def test_receive_error(self, async_client: AsyncWebsocketClient) -> None:
         """Should correctly decode a custom error from the server."""
         stream = await async_client.stream("/receiveAndExitWithErr", Message, Message)
         await stream.send(Message(id=1, message="hello"))
@@ -89,10 +91,10 @@ class TestWS:
         assert err.message == "unexpected error"
         await stream.close_send()
 
-    async def test_middleware(self, async_client):
+    async def test_middleware(self, async_client: AsyncWebsocketClient) -> None:
         dct = {"called": False}
 
-        async def mw(md: Context, next: AsyncNext) -> Exception | None:
+        async def mw(md: Context, next: AsyncNext) -> tuple[Context, Exception | None]:
             md.params["Test"] = "test"
             dct["called"] = True
             return await next(md)
@@ -104,7 +106,9 @@ class TestWS:
         assert isinstance(err, freighter.EOF)
         assert dct["called"]
 
-    async def test_server_timeout(self, async_client, unary_client):
+    async def test_server_timeout(
+        self, async_client: AsyncWebsocketClient, unary_client: HTTPClient
+    ) -> None:
         """Should correctly timeout if the server exceeds a write deadline"""
         stream = await async_client.stream("/slamMessages", Message, Message)
         msg_str = str(uuid4())
@@ -114,6 +118,7 @@ class TestWS:
             "/slamMessagesTimeoutCheck", Message(id=1, message=msg_str), Message
         )
         assert err is None
+        assert res is not None
         assert res.message == "timeout"
         with pytest.raises(ConnectionClosedError):
             while True:
@@ -123,13 +128,14 @@ class TestWS:
 
 
 class TestSyncWebsocket:
-    def test_basic_exchange(self, sync_client: WebsocketClient):
+    def test_basic_exchange(self, sync_client: WebsocketClient) -> None:
         stream = sync_client.stream("/echo", Message, Message)
         for i in range(10):
             err = stream.send(Message(id=i, message="hello"))
             assert err is None
             msg, err = stream.receive()
             assert err is None
+            assert msg is not None
             assert msg.id == i + 1
             assert msg.message == "hello"
         stream.close_send()
@@ -137,7 +143,7 @@ class TestSyncWebsocket:
         assert msg is None
         assert err is not None
 
-    def test_repeated_receive(self, sync_client: WebsocketClient):
+    def test_repeated_receive(self, sync_client: WebsocketClient) -> None:
         """Should receive ten messages from the server."""
         stream = sync_client.stream("/respondWithTenMessages", Message, Message)
         c = 0
@@ -147,16 +153,17 @@ class TestSyncWebsocket:
                 break
             c += 1
             assert err is None
+            assert msg is not None
             assert msg.message == "hello"
         stream.close_send()
         assert c == 10
         _, err = stream.receive()
 
-    def test_middleware(self, sync_client: WebsocketClient):
+    def test_middleware(self, sync_client: WebsocketClient) -> None:
         """Should receive ten messages from the server."""
         dct = {"called": False}
 
-        def mw(md: Context, next: Next) -> Exception | None:
+        def mw(md: Context, next: Next) -> tuple[Context, Exception | None]:
             md.params["Test"] = "test"
             dct["called"] = True
             return next(md)
@@ -168,13 +175,13 @@ class TestSyncWebsocket:
         assert isinstance(err, freighter.EOF)
         assert dct["called"]
 
-    def test_middleware_error_on_server(self, sync_client: WebsocketClient):
+    def test_middleware_error_on_server(self, sync_client: WebsocketClient) -> None:
         """Should correctly decode and throw an error when the server middleware chain
         fails"""
         with pytest.raises(Error):
             sync_client.stream("/middlewareCheck", Message, Message)
 
-    def test_client_timeout(self, sync_client: WebsocketClient):
+    def test_client_timeout(self, sync_client: WebsocketClient) -> None:
         """Should correctly timeout if the server exceeds a write deadline"""
         stream = sync_client.stream("/echo", Message, Message)
         with pytest.raises(TimeoutError):
@@ -185,7 +192,7 @@ class TestSyncWebsocket:
             if isinstance(err, freighter.EOF):
                 break
 
-    def test_timeout_0(self, sync_client: WebsocketClient):
+    def test_timeout_0(self, sync_client: WebsocketClient) -> None:
         """Should correctly return a frame if and when available"""
         stream = sync_client.stream("/eventuallyResponseWithMessage", Message, Message)
         stream.send(Message(id=1, message="hello"))
@@ -200,9 +207,31 @@ class TestSyncWebsocket:
                 time.sleep(sleep)
                 msg, err = stream.receive(timeout=0)
                 assert err is None
+                assert msg is not None
                 assert msg.id == 1
                 break
             except TimeoutError:
                 cycle_count += 1
                 pass
         assert cycle_count < max_cycles, "test timed out"
+
+    def test_receive_error(self, sync_client: WebsocketClient) -> None:
+        """Should correctly decode a custom error from the server."""
+        stream = sync_client.stream("/receiveAndExitWithErr", Message, Message)
+        err = stream.send(Message(id=1, message="hello"))
+        assert err is None
+        msg, err = stream.receive()
+        assert isinstance(err, Error)
+        assert err.code == 1
+        assert err.message == "unexpected error"
+        stream.close_send()
+
+    def test_exit_immediately_with_err(self, sync_client: WebsocketClient) -> None:
+        stream = sync_client.stream("/immediatelyExitWithErr", Message, Message)
+        for i in range(100):
+            stream.send(Message(id=1, message="hello"))
+        msg, err = stream.receive()
+        assert isinstance(err, Error)
+        assert err.code == 1
+        assert err.message == "unexpected error"
+        stream.close_send()

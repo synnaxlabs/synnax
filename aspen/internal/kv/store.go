@@ -11,6 +11,8 @@ package kv
 
 import (
 	"context"
+	"maps"
+
 	"github.com/synnaxlabs/x/confluence"
 	xstore "github.com/synnaxlabs/x/store"
 )
@@ -19,9 +21,7 @@ type storeState map[string]Operation
 
 func (s storeState) Copy() storeState {
 	mCopy := make(storeState, len(s))
-	for k, v := range s {
-		mCopy[k] = v
-	}
+	maps.Copy(mCopy, s)
 	return mCopy
 }
 

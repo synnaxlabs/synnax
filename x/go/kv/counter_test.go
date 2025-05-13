@@ -41,6 +41,10 @@ var _ = Describe("Counter", Ordered, func() {
 			It("Should increment the number by a set value", func() {
 				Expect(c.Add(10)).To(Equal(int64(11)))
 			})
+			It("Should set the counter value directly", func() {
+				Expect(c.Set(421)).To(Succeed())
+				Expect(c.Value()).To(Equal(int64(421)))
+			})
 		})
 		Context("Existing Counter", func() {
 			It("Should load the value of the existing counter", func() {

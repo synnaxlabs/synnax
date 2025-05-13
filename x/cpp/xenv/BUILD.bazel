@@ -1,0 +1,22 @@
+cc_library(
+    name = "xenv",
+    hdrs = [
+        "xenv.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/caseconv",
+        "@glog//:glog",
+    ],
+)
+
+cc_test(
+    name = "xenv_test",
+    srcs = [
+        "xenv_test.cpp",
+    ],
+    deps = [
+        "//x/cpp/xenv",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -1,5 +1,5 @@
 import sys
-from typing import NamedTuple, List
+from typing import NamedTuple
 import numpy as np
 
 import synnax as sy
@@ -14,7 +14,7 @@ class TestConfig(NamedTuple):
     bounds: sy.TimeRange
     samples_expected: int
     expected_error: str
-    channels: List[List[str]]
+    channels: list[list[str]]
 
     def num_channels(self):
         return sum([len(ch) for ch in self.channels])
@@ -32,7 +32,7 @@ client = sy.Synnax(
 class Read_Test:
     _tc: TestConfig
 
-    def __init__(self, argv: List[str]):
+    def __init__(self, argv: list[str]):
         argv_counter = 1
         identifier = argv[argv_counter]
         argv_counter += 1
@@ -131,7 +131,7 @@ Configuration:
         return s
 
     def test(self) -> int:
-        iterators: List[sy.Iterator] = []
+        iterators: list[sy.Iterator] = []
         samples_read = 0
 
         for i in range(self._tc.num_iterators):

@@ -10,11 +10,12 @@
 package embedded
 
 import (
-	"github.com/google/uuid"
 	"io"
 	"os/exec"
 	"sync"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/address"
@@ -39,12 +40,13 @@ type Config struct {
 	Username       string          `json:"username"`
 	Password       string          `json:"password"`
 	Debug          *bool           `json:"debug"`
+	StartTimeout   time.Duration   `json:"start_timeout"`
 }
 
-func (c Config) format() map[string]interface{} {
-	return map[string]interface{}{
-		"connection": map[string]interface{}{
-			"host":             c.Address.HostString(),
+func (c Config) format() map[string]any {
+	return map[string]any{
+		"connection": map[string]any{
+			"host":             c.Address.Host(),
 			"port":             c.Address.Port(),
 			"username":         c.Username,
 			"password":         c.Password,
@@ -52,12 +54,12 @@ func (c Config) format() map[string]interface{} {
 			"client_cert_file": c.ClientCertFile,
 			"client_key_file":  c.ClientKeyFile,
 		},
-		"retry": map[string]interface{}{
+		"retry": map[string]any{
 			"base_interval": 1,
 			"max_retries":   40,
 			"scale":         1.1,
 		},
-		"remote_info": map[string]interface{}{
+		"remote_info": map[string]any{
 			"rack_key":    c.RackKey,
 			"cluster_key": c.ClusterKey.String(),
 		},
@@ -68,11 +70,12 @@ func (c Config) format() map[string]interface{} {
 
 var (
 	_               config.Config[Config] = Config{}
-	AllIntegrations                       = []string{"opc", "ni", "labjack", "sequence", "heartbeat"}
+	AllIntegrations                       = []string{"opc", "ni", "labjack", "sequence"}
 	DefaultConfig                         = Config{
 		Integrations: []string{},
 		Enabled:      config.Bool(true),
 		Debug:        config.False(),
+		StartTimeout: time.Second * 10,
 	}
 )
 
@@ -90,6 +93,7 @@ func (c Config) Override(other Config) Config {
 	c.Username = override.String(c.Username, other.Username)
 	c.Password = override.String(c.Password, other.Password)
 	c.Debug = override.Nil(c.Debug, other.Debug)
+	c.StartTimeout = override.Numeric(c.StartTimeout, other.StartTimeout)
 	return c
 }
 
@@ -114,4 +118,5 @@ type Driver struct {
 	cmd       *exec.Cmd
 	shutdown  io.Closer
 	stdInPipe io.WriteCloser
+	started   chan struct{}
 }

@@ -9,11 +9,10 @@
 
 import "@/color/Swatch.css";
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
-import { color } from "@/color/core";
-import { type Color, type Crude } from "@/color/core/color";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { Theming } from "@/theming";
@@ -22,8 +21,8 @@ const HAUL_TYPE = "color";
 
 export interface BaseSwatchProps
   extends Omit<Button.ButtonProps, "onChange" | "value" | "size"> {
-  value: Crude;
-  onChange?: (c: Color) => void;
+  value: color.Crude;
+  onChange?: (c: color.Color) => void;
   size?: Button.ButtonProps["size"] | "tiny";
 }
 
@@ -37,19 +36,19 @@ export const BaseSwatch = ({
   ...rest
 }: BaseSwatchProps): ReactElement => {
   const background = Theming.use().colors.gray.l0;
-  const clr = new color.Color(value);
+  const clr = color.construct(value);
   const dragging = Haul.useDraggingState();
   const canDrop: Haul.CanDrop = useCallback(
     ({ items }) => {
       const [k] = Haul.filterByType(HAUL_TYPE, items);
-      return k != null && k.key !== clr.hex;
+      return k != null && k.key !== color.hex(clr);
     },
-    [clr.hex],
+    [clr],
   );
   const handleDrop: Haul.OnDrop = useCallback(
     ({ items }) => {
       const [k] = Haul.filterByType(HAUL_TYPE, items);
-      if (k != null) onChange?.(new color.Color(k.key as string));
+      if (k != null) onChange?.(color.construct(k.key as string));
       return items;
     },
     [onChange],
@@ -60,14 +59,16 @@ export const BaseSwatch = ({
     canDrop,
   });
   const handleDragStart = useCallback(() => {
-    startDrag([{ type: HAUL_TYPE, key: clr.hex }]);
-  }, [startDrag, clr.hex]);
+    startDrag([{ type: HAUL_TYPE, key: color.hex(clr) }]);
+  }, [startDrag, clr]);
   return (
     <Button.Button
       className={CSS(
         CSS.B("color-swatch"),
         CSS.M(size),
-        clr.contrast(background) > 1.5 && clr.a > 0.5 && CSS.M("no-border"),
+        color.contrast(background, clr) > 1.5 &&
+          color.aValue(clr) > 0.5 &&
+          CSS.M("no-border"),
         CSS.dropRegion(canDrop(dragging)),
         className,
       )}
@@ -75,7 +76,7 @@ export const BaseSwatch = ({
       draggable={draggable}
       onDragStart={handleDragStart}
       style={{ ...style, backgroundColor: color.cssString(value) }}
-      variant="text"
+      variant="outlined"
       {...haulProps}
       {...rest}
     />

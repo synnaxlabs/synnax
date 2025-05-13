@@ -32,18 +32,31 @@ var (
 	_ fgrpc.Translator[channel.RenameRequest, *channelv1.RenameRequest] = (*renameMessageTranslator)(nil)
 )
 
+func translateOptionsForward(opts channel.CreateOptions) *channelv1.CreateOptions {
+	return &channelv1.CreateOptions{
+		RetrieveIfNameExists:  opts.RetrieveIfNameExists,
+		OverwriteIfNameExists: opts.OverwriteIfNameExistsAndDifferentProperties,
+	}
+}
+
+func translateOptionsBackward(opts *channelv1.CreateOptions) channel.CreateOptions {
+	return channel.CreateOptions{
+		RetrieveIfNameExists:                        opts.RetrieveIfNameExists,
+		OverwriteIfNameExistsAndDifferentProperties: opts.OverwriteIfNameExists,
+	}
+}
+
 func (c createMessageTranslator) Forward(
 	_ context.Context,
 	msg channel.CreateMessage,
 ) (*channelv1.CreateMessage, error) {
-	tr := &channelv1.CreateMessage{RetrieveIfNameExists: msg.RetrieveIfNameExists}
+	tr := &channelv1.CreateMessage{Opts: translateOptionsForward(msg.Opts)}
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, &channelv1.Channel{
 			Name:        ch.Name,
 			Leaseholder: int32(ch.Leaseholder),
 			DataType:    string(ch.DataType),
 			IsIndex:     ch.IsIndex,
-			Rate:        float64(ch.Rate),
 			LocalKey:    uint32(ch.LocalKey),
 			LocalIndex:  int32(ch.LocalIndex),
 			Concurrency: uint32(ch.Concurrency),
@@ -58,14 +71,13 @@ func (c createMessageTranslator) Backward(
 	_ context.Context,
 	msg *channelv1.CreateMessage,
 ) (channel.CreateMessage, error) {
-	tr := channel.CreateMessage{RetrieveIfNameExists: msg.RetrieveIfNameExists}
+	tr := channel.CreateMessage{Opts: translateOptionsBackward(msg.Opts)}
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, channel.Channel{
 			Name:        ch.Name,
 			Leaseholder: dcore.NodeKey(ch.Leaseholder),
 			DataType:    telem.DataType(ch.DataType),
 			IsIndex:     ch.IsIndex,
-			Rate:        telem.Rate(ch.Rate),
 			LocalKey:    channel.LocalKey(ch.LocalKey),
 			LocalIndex:  channel.LocalKey(ch.LocalIndex),
 			Virtual:     ch.Virtual,

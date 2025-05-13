@@ -26,26 +26,28 @@ func Newf(format string, args ...any) Address {
 func (a Address) String() string { return string(a) }
 
 func (a Address) PortString() string {
-	str := strings.Split(string(a), ":")
-	return ":" + str[1]
+	parts := strings.Split(string(a), ":")
+	return ":" + parts[1]
 }
 
 func (a Address) Port() int {
-	str := strings.Split(string(a), ":")
-	p, err := strconv.Atoi(str[1])
+	parts := strings.Split(string(a), ":")
+	if len(parts) != 2 {
+		return 0
+	}
+	port, err := strconv.Atoi(parts[1])
 	if err != nil {
 		return 0
 	}
-	return p
+	return port
 }
 
-func (a Address) HostString() string {
-	str := strings.Split(string(a), ":")
-	return str[0]
-}
-
-type Addressable interface {
-	Address() Address
+func (a Address) Host() string {
+	parts := strings.Split(string(a), ":")
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[0]
 }
 
 func Rand() Address {

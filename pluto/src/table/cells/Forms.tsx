@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, deep, type KeyedNamed, scale } from "@synnaxlabs/x";
+import { type bounds, color, deep, type KeyedNamed, scale } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Align } from "@/align";
@@ -30,24 +30,24 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
     switch (tabKey) {
       case "telem":
         return (
-          <Align.Space direction="y" style={{ padding: "2rem" }}>
+          <Align.Space y style={{ padding: "2rem" }}>
             <Value.TelemForm path="" />
           </Align.Space>
         );
       case "redline":
         return (
-          <Align.Space direction="y" style={{ padding: "2rem" }}>
+          <Align.Space y style={{ padding: "2rem" }}>
             <RedlineForm />
           </Align.Space>
         );
       default:
         return (
-          <Align.Space direction="y" grow empty style={{ padding: "2rem" }}>
-            <Align.Space direction="x">
+          <Align.Space y grow empty style={{ padding: "2rem" }}>
+            <Align.Space x>
               <Input.Item label="Variant" padHelpText={false}>
                 <SelectVariant onChange={onVariantChange} value="value" />
               </Input.Item>
-              <Form.Field<Color.Crude>
+              <Form.Field<color.Crude>
                 hideIfNull
                 label="Color"
                 align="start"
@@ -56,8 +56,8 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
               >
                 {({ value, onChange, variant: _, ...rest }) => (
                   <Color.Swatch
-                    value={value ?? Color.ZERO.setAlpha(1).rgba255}
-                    onChange={(v) => onChange(v.rgba255)}
+                    value={value ?? color.setAlpha(color.ZERO, 1)}
+                    onChange={onChange}
                     {...rest}
                     bordered
                   />
@@ -92,14 +92,14 @@ const RedlineForm = (): ReactElement => {
   const b = Form.useFieldValue<bounds.Bounds>("redline.bounds");
   const s = scale.Scale.scale<number>(0, 1).scale(b);
   return (
-    <Align.Space direction="x" grow>
+    <Align.Space x grow>
       <Form.NumericField
         inputProps={{ size: "small", showDragHandle: false }}
         style={{ width: 60 }}
         label="Lower"
         path="redline.bounds.lower"
       />
-      <Form.Field<Color.Gradient>
+      <Form.Field<color.Gradient>
         path="redline.gradient"
         label="Gradient"
         align="start"
@@ -127,15 +127,14 @@ const RedlineForm = (): ReactElement => {
               }
               const grad = v.map((c) => ({
                 ...c,
-                color: new Color.Color(c.color).hex,
+                color: color.hex(c.color),
               }));
               if (highestGreater || lowestLower)
                 set("redline", {
                   bounds: nextBounds,
                   gradient: grad,
                 });
-              else
-                onChange(v.map((c) => ({ ...c, color: new Color.Color(c.color).hex })));
+              else onChange(v.map((c) => ({ ...c, color: color.hex(c.color) })));
             }}
           />
         )}
@@ -151,7 +150,7 @@ const RedlineForm = (): ReactElement => {
 };
 
 export const TextForm = ({ onVariantChange }: FormProps) => (
-  <Align.Space direction="x" grow style={{ padding: "2rem" }}>
+  <Align.Space x grow style={{ padding: "2rem" }}>
     <Input.Item label="Variant" padHelpText={false}>
       <SelectVariant onChange={onVariantChange} value="text" />
     </Input.Item>
@@ -165,7 +164,7 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
     <Form.Field<Align.Alignment> path="align" label="Alignment" hideIfNull>
       {(p) => <Select.TextAlignment {...p} />}
     </Form.Field>
-    <Form.Field<Color.Crude>
+    <Form.Field<color.Crude>
       path="backgroundColor"
       label="Background"
       align="start"

@@ -281,7 +281,7 @@ export const sliceStateZ = z.object({
   mode: Viewport.modeZ,
   control: controlStateZ,
   toolbar: toolbarStateZ,
-  plots: z.record(stateZ),
+  plots: z.record(z.string(), stateZ),
 });
 
 export type SliceState = z.infer<typeof sliceStateZ>;

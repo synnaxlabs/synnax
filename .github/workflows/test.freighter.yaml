@@ -71,6 +71,9 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
         exclude:
           - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
           - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
@@ -85,6 +88,10 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
+
+      - name: Check Formatting
+        if: matrix.format
+        run: bash scripts/check-clang-format.sh freighter/cpp
 
       - name: Test
         run: bazel test --test_output=all //freighter/cpp/... --nocache_test_results
@@ -114,7 +121,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: bash scripts/gofmt-check.sh freighter/go
+        run: bash scripts/check-gofmt.sh freighter/go
 
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo
@@ -152,7 +159,7 @@ jobs:
           cache-dependency-path: go.work.sum
 
       - name: Check Formatting
-        run: bash scripts/gofmt-check.sh freighter/integration
+        run: bash scripts/check-gofmt.sh freighter/integration
 
   py:
     name: Python
@@ -184,8 +191,16 @@ jobs:
         run: poetry install
         working-directory: freighter/py
 
+      - name: isort
+        run: poetry run isort -c .
+        working-directory: freighter/py
+
       - name: Format
         run: poetry run black --check --diff --color .
+        working-directory: freighter/py
+
+      - name: Mypy
+        run: poetry run mypy .
         working-directory: freighter/py
 
       - name: Test

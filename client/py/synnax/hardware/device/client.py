@@ -34,6 +34,7 @@ class _RetrieveRequest(Payload):
     makes: list[str] | None = None
     models: list[str] | None = None
     locations: list[str] | None = None
+    ignore_not_found: bool = False
 
 
 class _RetrieveResponse(Payload):
@@ -134,6 +135,7 @@ class Client:
         models: list[str] | None = None,
         names: list[str] | None = None,
         locations: list[str] | None = None,
+        ignore_not_found: bool = False,
     ) -> list[Device]: ...
 
     @trace("debug")
@@ -150,6 +152,7 @@ class Client:
         models: list[str] | None = None,
         names: list[str] | None = None,
         locations: list[str] | None = None,
+        ignore_not_found: bool = False,
     ) -> list[Device] | Device:
         is_single = check_for_none(keys, makes, models, locations, names)
         res = send_required(
@@ -161,11 +164,14 @@ class Client:
                 models=override(model, models),
                 locations=override(location, locations),
                 names=override(name, names),
+                ignore_not_found=ignore_not_found,
             ),
             _RetrieveResponse,
         )
         if is_single:
             if len(res.devices) > 0:
                 return res.devices[0]
+            if ignore_not_found:
+                return None
             raise NotFoundError("Device not found")
         return res.devices

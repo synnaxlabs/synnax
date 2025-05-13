@@ -9,12 +9,10 @@
 
 import "@/color/GradientPicker.css";
 
-import { box, clamp, id, scale } from "@synnaxlabs/x";
+import { box, clamp, color, id, scale } from "@synnaxlabs/x";
 import { type ReactElement, useRef } from "react";
 
 import { Align } from "@/align";
-import { type color } from "@/color/core";
-import { cssString } from "@/color/core/color";
 import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
@@ -105,11 +103,11 @@ export const GradientPicker = ({
 const buildGradient = (stops: color.Stop[]): string => {
   if (stops.length === 0) return "";
   return stops
-    .map(({ color, position }, i) => {
+    .map(({ color: c, position }, i) => {
       if (i === 0)
-        return `#00000000 ${position * 100}%, ${cssString(color)} ${position * 100}%`;
+        return `#00000000 ${position * 100}%, ${color.cssString(c)} ${position * 100}%`;
       const prevColor = stops[i - 1].color;
-      return `${cssString(prevColor)} ${position * 100}%, ${cssString(color)} ${
+      return `${color.cssString(prevColor)} ${position * 100}%, ${color.cssString(c)} ${
         position * 100
       }%`;
     })
@@ -160,7 +158,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
     <Align.Space
       ref={stopElRef}
       className={CSS(CSS.BE("gradient-picker", "stop"), switched && CSS.M("switched"))}
-      direction="y"
+      y
       style={{
         left: `${stop.position * 100}%`,
         width: `${(nextStop?.position ?? 1) * 100 - stop.position * 100}%`,
@@ -169,7 +167,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
       onClick={(e) => e.stopPropagation()}
     >
       <Align.Space
-        direction="y"
+        y
         className={CSS.BE("gradient-picker", "drag-region")}
         draggable
         onDragStart={onDragStart}
@@ -192,9 +190,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
         onVisibleChange={(v) => {
           visibleRef.current = v;
         }}
-        onChange={(v: color.Color) => {
-          onChange({ ...stop, color: v });
-        }}
+        onChange={(v: color.Color) => onChange({ ...stop, color: v })}
       />
     </Align.Space>
   );

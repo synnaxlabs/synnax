@@ -123,10 +123,10 @@ export const Browser = ({ device }: BrowserProps) => {
   useEffect(refresh, [refresh]);
   const content = initialLoading ? (
     <Align.Center>
-      <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l5)" />
+      <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l7)" />
     </Align.Center>
   ) : expand.isError ? (
-    <Status.Text.Centered level="p" shade={6} variant="error">
+    <Status.Text.Centered level="p" shade={10} variant="error">
       Error loading nodes. {expand.error.message}
     </Status.Text.Centered>
   ) : (
@@ -135,12 +135,17 @@ export const Browser = ({ device }: BrowserProps) => {
   return (
     <Align.Space empty className={CSS.B("opc-browser")}>
       <Header.Header level="p">
-        <Header.Title weight={500} shade={8}>
+        <Header.Title weight={500} shade={10}>
           Browser
         </Header.Title>
         <Header.Actions>
-          <Button.Icon onClick={refresh} disabled={scanTask == null || initialLoading}>
-            <Icon.Refresh style={{ color: "var(--pluto-gray-l9)" }} />
+          <Button.Icon
+            onClick={refresh}
+            disabled={scanTask == null || initialLoading}
+            sharp
+            shade={2}
+          >
+            <Icon.Refresh />
           </Button.Icon>
         </Header.Actions>
       </Header.Header>

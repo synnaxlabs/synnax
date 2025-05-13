@@ -18,13 +18,13 @@ extern "C" {
 sequence::Sequence::Sequence(
     const std::shared_ptr<plugins::Plugin> &plugins,
     std::string script
-) : plugins(plugins), L(luaL_newstate()), script(std::move(script)) {
+):
+    plugins(plugins), L(luaL_newstate()), script(std::move(script)) {
     luaL_openlibs(L.get());
 }
 
 sequence::Sequence::~Sequence() {
-    if (script_ref != LUA_NOREF)
-        luaL_unref(L.get(), LUA_REGISTRYINDEX, script_ref);
+    if (script_ref != LUA_NOREF) luaL_unref(L.get(), LUA_REGISTRYINDEX, script_ref);
 }
 
 [[nodiscard]] xerrors::Error sequence::Sequence::begin() {

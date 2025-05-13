@@ -59,7 +59,7 @@ class Series(Payload):
     __len_cache: int | None = PrivateAttr(None)
 
     def __len__(self) -> int:
-        if self.data_type.has_fixed_density:
+        if not self.data_type.is_variable:
             return self.data_type.density.sample_count(len(self.data))
         if self.__len_cache is None:
             self.__len_cache = self.data.count(b"\n")
@@ -72,6 +72,8 @@ class Series(Payload):
         time_range: TimeRange | None = None,
         alignment: int = 0,
     ):
+        if data_type is not None:
+            data_type = DataType(data_type)
         if isinstance(data, (TimeStamp, int, float, np.number)):
             data_type = data_type or DataType(data)
             data_ = np.array([data], dtype=data_type.np).tobytes()
@@ -126,9 +128,6 @@ class Series(Payload):
             data_type=data_type, data=data_, time_range=time_range, alignment=alignment
         )
         self.__len_cache = None
-
-    class Config:
-        arbitrary_types_allowed = True
 
     def __array__(self, *args, **kwargs) -> np.ndarray:
         """Implemented to that the Series can be passed around as a numpy array. See
@@ -318,6 +317,9 @@ class MultiSeries:
     def __iter__(self):
         for s in self.series:
             yield from s
+
+    def __str__(self):
+        return str(list(self))
 
     @property
     def size(self) -> Size:

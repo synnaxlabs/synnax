@@ -1,7 +1,9 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Embedded Sequence Reference"
-description: "A reference for the keywords and functions available in Synnax's embedded sequence editor."
+description:
+  "A reference for the keywords and functions available in Synnax's embedded sequence
+  editor."
 prevURL: "/reference/control/embedded/recipes"
 prev: "Recipes"
 ---
@@ -24,13 +26,13 @@ end
 During each sequence step, the value of `my_channel` will be updated with the latest
 value from the channel.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Writing Channel Values
 
-Writing to a channel can be done by calling the `set` function with the channel name
-and value. For example, if we have a channel called `my_channel`, we can write to it
-as follows:
+Writing to a channel can be done by calling the `set` function with the channel name and
+value. For example, if we have a channel called `my_channel`, we can write to it as
+follows:
 
 ```lua
 set("my_channel", 100)
@@ -40,14 +42,14 @@ The sequence editor's auto-complete will make sure to add the channel to the "Wr
 list of channels for the sequence. Make sure every channel you'd like to write to is in
 the list by checking the dialog at the bottom of the editor.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Control Authority
 
 The embedded sequence editor allows you to set the control authority of a channel at
-arbitrary points in the sequence. This is particularly useful for [abort
-sequences](/reference/control/embedded/recipes#abort-sequence) where you'll need to
-seize control of a set of channels from one or more separate sequences.
+arbitrary points in the sequence. This is particularly useful for
+[abort sequences](/reference/control/embedded/recipes#abort-sequence) where you'll need
+to seize control of a set of channels from one or more separate sequences.
 
 To set the control authority of a channel, use the `set_authority` function with the
 channel name and the desired authority. For example, if we have a channel called
@@ -68,7 +70,7 @@ if pressure > 100 then
 end
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Timing Utilities
 
@@ -83,9 +85,9 @@ sequence, or to define control logic that executes for a specific number of iter
 ### Elapsed Time
 
 The global `elapsed_time` variable is the number of seconds that have elapsed since the
-sequence started. Keep in mind that this value does not strictly follow the `increment *
-rate` rate. So `elapsed_time` for a sequence that runs at 1 Hz and is at iteration 10
-will be very close to, but not exactly 10 seconds.
+sequence started. Keep in mind that this value does not strictly follow the
+`increment * rate` rate. So `elapsed_time` for a sequence that runs at 1 Hz and is at
+iteration 10 will be very close to, but not exactly 10 seconds.
 
 ### Elapsed Time Within
 

@@ -65,6 +65,7 @@ func (c Config) Override(other Config) Config {
 type Service struct {
 	Config
 	shutdown io.Closer
+	key      string
 }
 
 func OpenService(ctx context.Context, toOpen string, cfgs ...Config) (*Service, error) {
@@ -75,31 +76,33 @@ func OpenService(ctx context.Context, toOpen string, cfgs ...Config) (*Service, 
 	service := &Service{Config: cfg}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(service.Ins))
 	service.shutdown = signal.NewHardShutdown(sCtx, cancel)
-	if toOpen == "" {
-		_, err := service.retrieve(ctx)
-		if err != nil {
-			service.Ins.L.Info(useFree)
-			return service, nil
-		}
-		service.Ins.L.Info(decode("dXNpbmcgdGhlIGxhc3QgbGljZW5zZSBrZXkgc3RvcmVkIGluIHRoZSBkYXRhYmFzZQ=="))
+
+	startLogMonitor := func() {
 		sCtx.Go(
 			service.logTheDog,
 			signal.WithRetryOnPanic(),
 			signal.WithBaseRetryInterval(2*time.Second),
 			signal.WithRetryScale(1.1),
+			signal.WithKey("verification"),
 		)
+	}
+
+	if toOpen == "" {
+		if err := service.loadCache(ctx); err != nil {
+			service.Ins.L.Info(useFree)
+			return service, nil
+		}
+		service.Ins.L.Info(decode("dXNpbmcgdGhlIGxhc3QgbGljZW5zZSBrZXkgc3RvcmVkIGluIHRoZSBkYXRhYmFzZQ=="))
+		startLogMonitor()
 		return service, nil
 	}
+
 	err = service.create(ctx, toOpen)
 	if err != nil {
 		return service, err
 	}
-	sCtx.Go(
-		service.logTheDog,
-		signal.WithRetryOnPanic(),
-		signal.WithBaseRetryInterval(2*time.Second),
-		signal.WithRetryScale(1.1),
-	)
+
+	startLogMonitor()
 	service.Ins.L.Info(decode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA==") +
 		strconv.Itoa(int(getNumChan(toOpen))) + decode("IGNoYW5uZWxz"))
 	return service, err
@@ -110,14 +113,18 @@ func (s *Service) Close() error {
 }
 
 func (s *Service) IsOverflowed(ctx context.Context, inUse types.Uint20) error {
-	key, err := s.retrieve(ctx)
-	if err != nil {
+	key := s.key
+	if key == "" {
 		if inUse > freeCount {
 			return errFree
 		}
 		return nil
 	}
-	if whenStale(key).Before(time.Now()) {
+	staleTime, err := whenStale(key)
+	if err != nil {
+		return err
+	}
+	if staleTime.Before(time.Now()) {
 		if inUse > freeCount {
 			return errStale
 		}
@@ -129,28 +136,37 @@ func (s *Service) IsOverflowed(ctx context.Context, inUse types.Uint20) error {
 	return nil
 }
 
+const retrieveKey = "bGljZW5zZUtleQ=="
+
+func (s *Service) loadCache(ctx context.Context) error {
+	key, closer, err := s.DB.Get(ctx, []byte(retrieveKey))
+	if err != nil {
+		return err
+	}
+	s.key = string(key)
+	return closer.Close()
+}
+
 func (s *Service) create(ctx context.Context, toCreate string) error {
 	err := validateInput(toCreate)
 	if err != nil {
 		return err
 	}
-	return s.DB.Set(ctx, []byte("bGljZW5zZUtleQ=="), []byte(toCreate))
-}
-
-func (s *Service) retrieve(ctx context.Context) (string, error) {
-	key, closer, err := s.DB.Get(ctx, []byte("bGljZW5zZUtleQ=="))
-	if err != nil {
-		return "", err
+	if err := s.DB.Set(ctx, []byte(retrieveKey), []byte(toCreate)); err != nil {
+		return err
 	}
-	return string(key), closer.Close()
+	s.key = toCreate
+	return nil
 }
 
 func (s *Service) logTheDog(ctx context.Context) error {
-	key, err := s.retrieve(ctx)
+	if s.key == "" {
+		return nil
+	}
+	staleTime, err := whenStale(s.key)
 	if err != nil {
 		return err
 	}
-	staleTime := whenStale(key)
 	ticker := time.NewTicker(s.CheckInterval)
 	defer ticker.Stop()
 	for {

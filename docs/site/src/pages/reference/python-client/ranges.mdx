@@ -15,7 +15,7 @@ export const components = mdxOverrides;
 Ranges identify specific periods of time with a name. We can use the Python client to
 read from, write to, and attach metadata to these ranges.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Creating Ranges
 
@@ -59,7 +59,7 @@ my_range = client.ranges.create(
 In the event the range already exists, Synnax will return the existing range instead of
 creating a new one.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Retrieving Ranges
 
@@ -106,7 +106,7 @@ my_ranges = client.ranges.retrieve(names=["My Range", my_other_range.key])
 In these examples, Synnax will not raise an error if a range cannot be found. Instead,
 the missing range will be omitted from the returned list.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Working with Channels
 
@@ -183,7 +183,7 @@ Subsequent calls to `set_alias` will overwrite the previous alias.
   an aliased channel outside of the range, Synnax will not be able to find it.
 </Note.Note>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Attaching Metadata
 
@@ -246,7 +246,7 @@ del burst_test.meta_data["part_number"]
 burst_test.meta_data.delete(["part_number", "test_configuration"])
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Deleting Ranges
 

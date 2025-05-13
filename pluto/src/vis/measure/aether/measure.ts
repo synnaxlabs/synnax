@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, scale, TimeSpan, xy } from "@synnaxlabs/x";
+import { box, color, scale, TimeSpan, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { color } from "@/color/core";
 import { theming } from "@/theming/aether";
 import { type Theme } from "@/theming/core/theme";
 import { Draw2D } from "@/vis/draw2d";
@@ -24,11 +23,11 @@ export const measureStateZ = z.object({
   hover: xy.xy.nullable(),
   color: z
     .union([
-      color.Color.z,
+      color.colorZ,
       z.object({
-        verticalLine: color.Color.z.optional().default(color.ZERO),
-        horizontalLine: color.Color.z.optional().default(color.ZERO),
-        obliqueLine: color.Color.z.optional().default(color.ZERO),
+        verticalLine: color.colorZ.optional().default(color.ZERO),
+        horizontalLine: color.colorZ.optional().default(color.ZERO),
+        obliqueLine: color.colorZ.optional().default(color.ZERO),
       }),
     ])
     .optional()
@@ -46,8 +45,8 @@ interface InternalState {
 }
 
 export interface MeasureProps {
-  findByXDecimal: (target: number) => Promise<FindResult[]>;
-  findByXValue: (target: number) => Promise<FindResult[]>;
+  findByXDecimal: (target: number) => FindResult[];
+  findByXValue: (target: number) => FindResult[];
   region: box.Box;
 }
 
@@ -55,47 +54,50 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   static readonly TYPE = "measure";
   schema = measureStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const renderCtx = render.Context.use(ctx);
     this.internal.theme = theming.use(ctx);
     this.internal.renderCtx = renderCtx;
     this.internal.draw = new Draw2D(renderCtx.upper2d, this.internal.theme);
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+    render.request(ctx, "tool");
   }
 
-  async afterDelete(ctx: aether.Context): Promise<void> {
-    render.Controller.requestRender(ctx, render.REASON_LAYOUT);
+  afterDelete(ctx: aether.Context): void {
+    render.request(ctx, "layout");
   }
 
   private get verticalLineColor(): color.Color {
-    if (this.state.color instanceof color.Color) {
-      if (!this.state.color.isZero) return this.state.color;
-      return this.internal.theme.colors.gray.l6;
+    if (color.isColor(this.state.color)) {
+      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l8;
+      return this.state.color;
     }
 
-    if (!this.state.color.verticalLine.isZero) return this.state.color.verticalLine;
-    return this.internal.theme.colors.gray.l6;
+    if (color.isZero(this.state.color.verticalLine))
+      return this.internal.theme.colors.gray.l8;
+    return this.state.color.verticalLine;
   }
 
   private get horizontalLineColor(): color.Color {
-    if (this.state.color instanceof color.Color) {
-      if (!this.state.color.isZero) return this.state.color;
-      return this.internal.theme.colors.gray.l6;
+    if (color.isColor(this.state.color)) {
+      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l8;
+      return this.state.color;
     }
-    if (!this.state.color.horizontalLine.isZero) return this.state.color.horizontalLine;
-    return this.internal.theme.colors.gray.l6;
+    if (color.isZero(this.state.color.horizontalLine))
+      return this.internal.theme.colors.gray.l8;
+    return this.state.color.horizontalLine;
   }
 
   private get obliqueLineColor(): color.Color {
-    if (this.state.color instanceof color.Color) {
-      if (!this.state.color.isZero) return this.state.color;
-      return this.internal.theme.colors.gray.l6;
+    if (color.isColor(this.state.color)) {
+      if (color.isZero(this.state.color)) return this.internal.theme.colors.gray.l8;
+      return this.state.color;
     }
-    if (!this.state.color.obliqueLine.isZero) return this.state.color.obliqueLine;
-    return this.internal.theme.colors.gray.l6;
+    if (color.isZero(this.state.color.obliqueLine))
+      return this.internal.theme.colors.gray.l8;
+    return this.state.color.obliqueLine;
   }
 
-  private async find(props: MeasureProps): Promise<[FindResult, FindResult] | null> {
+  private find(props: MeasureProps): [FindResult, FindResult] | null {
     const { one, two } = this.state;
     if (one == null || two == null) return null;
     const { one: prevOne, two: prevTwo } = this.prevState;
@@ -108,10 +110,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       dataOne != null &&
       dataTwo != null
     ) {
-      const [one, two] = [
-        await props.findByXValue(dataOne.x),
-        await props.findByXValue(dataTwo.x),
-      ];
+      const [one, two] = [props.findByXValue(dataOne.x), props.findByXValue(dataTwo.x)];
       if (one.length === 0 || two.length === 0) return null;
       return [
         one.sort(
@@ -125,8 +124,8 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const s = scale.XY.scale(props.region).scale(box.DECIMAL);
     const [scaledOne, scaledTwo] = [s.pos(one), s.pos(two)];
     const [oneValues, twoValues] = [
-      await props.findByXDecimal(scaledOne.x),
-      await props.findByXDecimal(scaledTwo.x),
+      props.findByXDecimal(scaledOne.x),
+      props.findByXDecimal(scaledTwo.x),
     ];
     if (oneValues.length === 0 || twoValues.length === 0) return null;
     const [oneValue, twoValue] = [
@@ -144,13 +143,13 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     return [oneValue, twoValue];
   }
 
-  private async renderHover(props: MeasureProps): Promise<void> {
+  private renderHover(props: MeasureProps): void {
     if (this.state.hover == null) return;
     const hover: xy.XY = this.state.hover;
 
     const s = scale.XY.scale(props.region).scale(box.DECIMAL);
     const scaledPos = s.pos(hover);
-    const res = await props.findByXDecimal(s.pos(hover).x);
+    const res = props.findByXDecimal(s.pos(hover).x);
     if (res.length === 0) return;
     const v = res.sort(
       (a, b) => xy.distance(scaledPos, a.position) - xy.distance(scaledPos, b.position),
@@ -158,16 +157,16 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const { draw } = this.internal;
 
     draw.circle({
-      fill: v.color.setAlpha(0.5),
+      fill: color.setAlpha(v.color, 0.5),
       radius: 9,
       position: s.reverse().pos(v.position),
     });
   }
 
-  async render(props: MeasureProps): Promise<void> {
+  render(props: MeasureProps): void {
     if (this.deleted) return;
-    await this.renderHover(props);
-    const res = await this.find(props);
+    this.renderHover(props);
+    const res = this.find(props);
     if (res == null) return;
     const [oneValue, twoValue] = res;
     const { draw } = this.internal;
@@ -217,13 +216,29 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       position: xy.construct((onePos.x + twoPos.x) / 2, (onePos.y + twoPos.y) / 2),
       level: "small",
     });
-    draw.circle({ fill: oneValue.color.setAlpha(0.5), radius: 8, position: onePos });
-    draw.circle({ fill: oneValue.color.setAlpha(0.8), radius: 5, position: onePos });
-    draw.circle({ fill: new color.Color("#ffffff"), radius: 2, position: onePos });
+    draw.circle({
+      fill: color.setAlpha(oneValue.color, 0.5),
+      radius: 8,
+      position: onePos,
+    });
+    draw.circle({
+      fill: color.setAlpha(oneValue.color, 0.8),
+      radius: 5,
+      position: onePos,
+    });
+    draw.circle({ fill: color.construct("#ffffff"), radius: 2, position: onePos });
 
-    draw.circle({ fill: twoValue.color.setAlpha(0.5), radius: 8, position: twoPos });
-    draw.circle({ fill: twoValue.color.setAlpha(0.8), radius: 5, position: twoPos });
-    draw.circle({ fill: new color.Color("#ffffff"), radius: 2, position: twoPos });
+    draw.circle({
+      fill: color.setAlpha(twoValue.color, 0.5),
+      radius: 8,
+      position: twoPos,
+    });
+    draw.circle({
+      fill: color.setAlpha(twoValue.color, 0.8),
+      radius: 5,
+      position: twoPos,
+    });
+    draw.circle({ fill: color.construct("#ffffff"), radius: 2, position: twoPos });
   }
 }
 

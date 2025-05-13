@@ -24,17 +24,15 @@ class Empty(Payload):
     pass
 
 
-RS = TypeVar("RS", bound=Payload, contravariant=True)
-"""Represents a general response payload.
-"""
-
 RQ = TypeVar("RQ", bound=Payload, contravariant=True)
-"""Represents a general request payload.
-"""
+"""Represents a general request payload."""
+
+RS = TypeVar("RS", bound=Payload, covariant=True)
+"""Represents a general response payload."""
+
 
 P = TypeVar("P", bound=Payload)
-"""Represents a general payload.
-"""
+"""Represents a general payload."""
 
 
 class Transport(Protocol):
@@ -49,7 +47,7 @@ class Transport(Protocol):
 
 
 class AsyncTransport(Protocol):
-    """Base class for all asyncio.py transport protocols."""
+    """Base class for all asyncio-based transport protocols."""
 
     def use(self, *middleware: AsyncMiddleware) -> None:
         """
@@ -66,22 +64,30 @@ AsyncNext = Callable[[Context], Awaitable[tuple[Context, Exception | None]]]
 """Executes the next middleware in the chain"""
 
 Middleware = Callable[[Context, Next], tuple[Context, Exception | None]]
-""""Middleware is a general middleware function that can be used to parse/attach
-metadata to a request or alter its behvaior."""
+"""
+Middleware is a general middleware function that can be used to parse or attach metadata
+to a request or alter its behavior.
+"""
 
 AsyncMiddleware = Callable[
     [Context, AsyncNext], Awaitable[tuple[Context, Exception | None]]
 ]
-"""Middleware is a general middleware function that can be used to parse/attach
-metadata to a request or alter its behvaior."""
+"""
+AsyncMiddleware is a general middleware function that can be used to parse or attach
+metadata to a request or alter its behavior.
+"""
 
 Finalizer = Callable[[Context], tuple[Context, Exception | None]]
-"""Finalizer is a middleware that is executed as the last step in a chain.
-It is used to finalize the request and return the response."""
+"""
+Finalizer is a middleware that is executed as the last step in a chain. It is used to
+finalize the request and return the response.
+"""
 
 AsyncFinalizer = Callable[[Context], Awaitable[tuple[Context, Exception | None]]]
-"""Finalizer is a middleware that is executed as the last step in a chain.
-It is used to finalize the request and return the response."""
+"""
+AsyncFinalizer is a middleware that is executed as the last step in a chain. It is used
+to finalize the request and return the response.
+"""
 
 
 class MiddlewareCollector:
@@ -89,7 +95,7 @@ class MiddlewareCollector:
 
     _middleware: list[Middleware]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._middleware = []
 
     def use(self, *args: Middleware) -> None:
@@ -100,10 +106,10 @@ class MiddlewareCollector:
         self,
         ctx: Context,
         finalizer: Finalizer,
-    ):
-        """Executes the middleware in order, passing metadata to each
-        middleware until the end of the chain is reached. It then calls
-        the finalizer with the metadata.
+    ) -> tuple[Context, Exception | None]:
+        """
+        Executes the middleware in order, passing metadata to each middleware until the
+        end of the chain is reached. It then calls the finalizer with the metadata.
 
         :param ctx: the context to pass to the middleware.
         :param finalizer: the finalizer to call at the end of the chain.
@@ -123,7 +129,7 @@ class AsyncMiddlewareCollector:
 
     _middleware: list[AsyncMiddleware]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._middleware = []
 
     def use(self, *args: AsyncMiddleware) -> None:
@@ -134,10 +140,10 @@ class AsyncMiddlewareCollector:
         self,
         md: Context,
         finalizer: AsyncFinalizer,
-    ):
-        """Executes the middleware in order, passing metadata to each
-        middleware until the end of the chain is reached. It then calls
-        the finalizer with the metadata.
+    ) -> tuple[Context, Exception | None]:
+        """
+        Executes the middleware in order, passing metadata to each middleware until the
+        end of the chain is reached. It then calls the finalizer with the metadata.
 
         :param md: the metadata to pass to the middleware
         :param finalizer: the finalizer to call at the end of the chain

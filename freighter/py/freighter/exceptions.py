@@ -7,22 +7,52 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Callable
 
 from freighter.transport import Payload
 
-_TYPE_UNKNOWN = "unknown"
 _TYPE_NONE = "nil"
 
 
 class ExceptionPayload(Payload):
-    """Error payload is a payload that can be sent between a freighter client and server,
-    so that it can be decoded into a proper exception by the implementing language.
+    """
+    ExceptionPayload is a payload that can be sent between a Freighter client and
+    server, so that it can be decoded into a proper exception by the implementing
+    language.
     """
 
     type: str | None
     data: str | None
+
+    @staticmethod
+    def parse(
+        pld_or_type: ExceptionPayload | Exception | str,
+        data: str | None = None,
+    ) -> ExceptionPayload | Exception:
+        """Parses the exception payload from one of the three representations:
+
+        1. An ExceptionPayload instance. In this case, a copy of the payload is
+        returned.
+        2. A string encoded ExceptionPayload seperated by a '---' separator.
+        3. A payload type and corresponding data.
+
+        :returns: the parsed exception payload. If the payload cannot be parsed,
+        returns a payload of type unknown with as much relevant error info as possible.
+        """
+        if isinstance(pld_or_type, Exception):
+            return pld_or_type
+        elif isinstance(pld_or_type, ExceptionPayload):
+            return ExceptionPayload(type=pld_or_type.type, data=pld_or_type.data)
+        elif data is not None:
+            return ExceptionPayload(type=pld_or_type, data=data)
+        try:
+            type_, data = pld_or_type.split("---", 1)
+        except ValueError:
+            type_, data = "unknown", pld_or_type
+        return ExceptionPayload(type=type_, data=data)
 
 
 EncoderFunc = Callable[[Exception], ExceptionPayload | None]
@@ -38,7 +68,7 @@ class _ExceptionProvider:
 class _Registry:
     providers: list[_ExceptionProvider]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.providers = list()
 
     def register(self, provider: _ExceptionProvider) -> None:
@@ -46,26 +76,28 @@ class _Registry:
 
     @staticmethod
     def encode(error: Exception | None) -> ExceptionPayload:
-        raise NotImplemented
+        raise NotImplementedError
 
-    def decode(self, encoded: ExceptionPayload) -> Exception | None:
-        assert isinstance(encoded, ExceptionPayload)
-        if encoded.type == _TYPE_NONE:
+    def decode(self, encoded: ExceptionPayload | Exception | str) -> Exception | None:
+        pld = ExceptionPayload.parse(encoded)
+        if isinstance(pld, Exception):
+            return pld
+        if pld.type == _TYPE_NONE:
             return None
         for provider in self.providers:
-            decoded = provider.decode(encoded)
+            decoded = provider.decode(pld)
             if decoded is not None:
                 return decoded
-        return Exception(encoded.data)
+        return Exception(pld.data)
 
 
 REGISTRY = _Registry()
 
 
 def register_exception(_encode: EncoderFunc, _decode: DecoderFunc) -> None:
-    """Registers a custom error encoder and decoder with the freighter error registry,
-    which allows
-    it to be sent over the network.
+    """
+    Registers a custom error encoder and decoder with the Freighter error registry,
+    which allows it to be sent over the network.
 
     :param _encode: A function that takes an exception and returns a string.
     :param _decode: A function that takes a string and returns an exception.
@@ -75,8 +107,9 @@ def register_exception(_encode: EncoderFunc, _decode: DecoderFunc) -> None:
 
 
 def encode_exception(exc: Exception) -> ExceptionPayload:
-    """Encodes an exception into a payload that can be sent between a freighter server
-    and client.
+    """
+    Encodes an exception into a payload that can be sent between a Freighter server and
+    client.
 
     :param exc: The exception to encode.
     :return: The encoded error payload.
@@ -85,7 +118,8 @@ def encode_exception(exc: Exception) -> ExceptionPayload:
 
 
 def decode_exception(encoded: ExceptionPayload | None) -> Exception | None:
-    """Decode decodes an error payload into an exception. If a custom decoder can be found
+    """
+    Decode decodes an error payload into an exception. If a custom decoder can be found
     for the error type, it will be used. Otherwise, a generic Exception containing the
     error data is returned.
 
@@ -100,7 +134,7 @@ _FREIGHTER_EXCEPTION_TYPE = "freighter."
 
 class Unreachable(Exception):
     """
-    Raise when a target is unreachable.
+    Raised when a target is unreachable.
     """
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "unreachable"
@@ -108,12 +142,12 @@ class Unreachable(Exception):
     target: str
     message: str
 
-    def __init__(self, target: str = "", message="Unreachable"):
+    def __init__(self, target: str = "", message: str = "Unreachable"):
         self.target = target
         self.message = message
         super().__init__(message)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.message
 
 
@@ -124,7 +158,7 @@ class StreamClosed(Exception):
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "stream_closed"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "StreamClosed"
 
 
@@ -135,15 +169,8 @@ class EOF(Exception):
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "eof"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "EOF"
-
-
-_EXCEPTIONS = [
-    Unreachable,
-    StreamClosed,
-    EOF,
-]
 
 
 def _freighter_encode(exc: Exception) -> ExceptionPayload | None:
@@ -154,18 +181,16 @@ def _freighter_encode(exc: Exception) -> ExceptionPayload | None:
         )
     if isinstance(exc, StreamClosed):
         return ExceptionPayload(type=StreamClosed.TYPE, data=str(exc))
-
     if isinstance(exc, EOF):
         return ExceptionPayload(type=EOF.TYPE, data=str(exc))
-
     return None
 
 
 def _freighter_decode(exc: ExceptionPayload) -> Exception | None:
-    if not exc.type.startswith(_FREIGHTER_EXCEPTION_TYPE):
+    if exc.type is None or not exc.type.startswith(_FREIGHTER_EXCEPTION_TYPE):
         return None
     if exc.type == Unreachable.TYPE:
-        return Unreachable(message=exc.data)
+        return Unreachable(message=exc.data) if exc.data is not None else Unreachable()
     if exc.type == StreamClosed.TYPE:
         return StreamClosed()
     if exc.type == EOF.TYPE:

@@ -16,6 +16,10 @@
     contain: layout size style;
     background: var(--pluto-gray-l0);
 
+    .console-rack-name {
+        max-width: 200px;
+    }
+
     > div {
         padding: 5rem;
         max-width: 1000px;
@@ -25,10 +29,10 @@
         .console-task-channel-form-container {
             border-radius: 1rem;
             overflow: hidden;
-            background: var(--pluto-gray-l1-75);
-            border-color: var(--pluto-gray-l4);
+            background: var(--pluto-gray-l1);
+            border-color: var(--pluto-gray-l5);
             .pluto-header {
-                background: var(--pluto-gray-l2-50);
+                background: var(--pluto-gray-l2);
             }
         }
 
@@ -58,8 +62,8 @@
 
     .console-task-controls {
         border-radius: 1rem;
-        border-color: var(--pluto-gray-l4);
-        background-color: var(--pluto-gray-l1-75);
+        border-color: var(--pluto-gray-l6);
+        background-color: var(--pluto-gray-l1);
         .console-task-state {
             flex-grow: 1;
             border-right: var(--pluto-border);
@@ -75,7 +79,7 @@
         overflow: hidden;
         white-space: nowrap;
         font-weight: 500;
-        color: var(--pluto-gray-l7);
+        color: var(--pluto-gray-l10);
         flex-shrink: 1;
     }
 }
@@ -89,7 +93,11 @@
             }
         }
 
-        .console-task__channel-name:last-of-type {
+        .console-rack-name {
+            max-width: 120px;
+        }
+
+        .console-state-channel {
             display: none;
         }
     }

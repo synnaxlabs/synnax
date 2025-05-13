@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { z } from "zod";
+import { type core, z } from "zod";
 
 import { Device } from "@/hardware/common/device";
 
@@ -30,10 +30,10 @@ export const channelZ = z.object({ enabled: z.boolean(), key: z.string() });
 export interface Channel extends z.infer<typeof channelZ> {}
 export const ZERO_CHANNEL: Channel = { enabled: true, key: "" };
 
-export const validateChannels = (
-  channels: Channel[],
-  { addIssue }: z.RefinementCtx,
-) => {
+export const validateChannels = ({
+  value: channels,
+  issues,
+}: core.ParsePayload<Channel[]>) => {
   const keyToIndexMap = new Map<string, number>();
   channels.forEach(({ key }, i) => {
     if (!keyToIndexMap.has(key)) {
@@ -41,23 +41,27 @@ export const validateChannels = (
       return;
     }
     const index = keyToIndexMap.get(key) as number;
-    const issueBasics = {
-      code: z.ZodIssueCode.custom,
-      message: `Key ${key} is used for multiple channels`,
-    };
-    addIssue({ ...issueBasics, path: [index, "key"] });
-    addIssue({ ...issueBasics, path: [i, "key"] });
+    const code = "custom";
+    const msg = `Key ${key} is used for multiple channels`;
+    issues.push({ code, message: msg, path: [index, "key"], input: channels });
+    issues.push({ code, message: msg, path: [i, "key"], input: channels });
   });
 };
 
 export const readChannelZ = channelZ.extend({ channel: channel.keyZ });
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
-export const ZERO_READ_CHANNEL: ReadChannel = { ...ZERO_CHANNEL, channel: 0 };
 
-export const validateReadChannels = (channels: ReadChannel[], ctx: z.RefinementCtx) => {
-  validateChannels(channels, ctx);
+export const READ_CHANNEL_OVERRIDE: Pick<ReadChannel, "channel"> = { channel: 0 };
+
+export const ZERO_READ_CHANNEL: ReadChannel = {
+  ...ZERO_CHANNEL,
+  ...READ_CHANNEL_OVERRIDE,
+};
+
+export const validateReadChannels = (ctx: core.ParsePayload<ReadChannel[]>) => {
+  validateChannels(ctx);
+  const { value: channels, issues } = ctx;
   const channelToIndexMap = new Map<channel.Key, number>();
-  const { addIssue } = ctx;
   channels.forEach(({ channel }, i) => {
     if (channel === 0) return;
     if (!channelToIndexMap.has(channel)) {
@@ -65,12 +69,10 @@ export const validateReadChannels = (channels: ReadChannel[], ctx: z.RefinementC
       return;
     }
     const index = channelToIndexMap.get(channel) as number;
-    const baseIssue = {
-      code: z.ZodIssueCode.custom,
-      message: `Synnax channel with key ${channel} is used for multiple channels`,
-    };
-    addIssue({ ...baseIssue, path: [index, "channel"] });
-    addIssue({ ...baseIssue, path: [i, "channel"] });
+    const code = "custom";
+    const msg = `Synnax channel with key ${channel} is used for multiple channels`;
+    issues.push({ code, message: msg, path: [index, "channel"], input: channels });
+    issues.push({ code, message: msg, path: [i, "channel"], input: channels });
   });
 };
 
@@ -79,64 +81,82 @@ export const writeChannelZ = channelZ.extend({
   stateChannel: channel.keyZ,
 });
 export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
+export const WRITE_CHANNEL_OVERRIDE: Pick<WriteChannel, "cmdChannel" | "stateChannel"> =
+  { cmdChannel: 0, stateChannel: 0 };
 export const ZERO_WRITE_CHANNEL: WriteChannel = {
   ...ZERO_CHANNEL,
-  cmdChannel: 0,
-  stateChannel: 0,
+  ...WRITE_CHANNEL_OVERRIDE,
 };
+
+export type WriteChannelType = "cmd" | "state";
 
 interface IndexAndType {
   index: number;
-  type: "cmd" | "state";
+  type: WriteChannelType;
 }
 
-export const validateWriteChannels = (
-  channels: WriteChannel[],
-  ctx: z.RefinementCtx,
-) => {
-  validateChannels(channels, ctx);
+export const validateWriteChannels = (ctx: core.ParsePayload<WriteChannel[]>) => {
+  validateChannels(ctx);
+  const { value: channels, issues } = ctx;
   const channelsToIndexMap = new Map<channel.Key, IndexAndType>();
-  const { addIssue } = ctx;
   channels.forEach(({ cmdChannel, stateChannel }, i) => {
     if (cmdChannel !== 0)
       if (channelsToIndexMap.has(cmdChannel)) {
         const { index, type } = channelsToIndexMap.get(cmdChannel) as IndexAndType;
-        const baseIssue = {
-          code: z.ZodIssueCode.custom,
-          message: `Synnax channel with key ${cmdChannel} is used on multiple channels`,
-        };
-        addIssue({ ...baseIssue, path: [index, `${type}Channel`] });
-        addIssue({ ...baseIssue, path: [i, "cmdChannel"] });
+        const code = "custom";
+        const msg = `Synnax channel with key ${cmdChannel} is used on multiple channels`;
+        issues.push({
+          code,
+          message: msg,
+          path: [index, `${type}Channel`],
+          input: channels,
+        });
+        issues.push({ code, message: msg, path: [i, "cmdChannel"], input: channels });
       } else channelsToIndexMap.set(cmdChannel, { index: i, type: "cmd" });
     if (stateChannel === 0) return;
     if (channelsToIndexMap.has(stateChannel)) {
       const { index, type } = channelsToIndexMap.get(stateChannel) as IndexAndType;
-      const baseIssue = {
-        code: z.ZodIssueCode.custom,
-        message: `Synnax channel with key ${stateChannel} is used for multiple channels`,
-      };
-      addIssue({ ...baseIssue, path: [index, `${type}Channel`] });
-      addIssue({ ...baseIssue, path: [i, "stateChannel"] });
+      const code = "custom";
+      const msg = `Synnax channel with key ${stateChannel} is used for multiple channels`;
+      issues.push({
+        code,
+        message: msg,
+        path: [index, `${type}Channel`],
+        input: channels,
+      });
+      issues.push({ code, message: msg, path: [i, "stateChannel"], input: channels });
     } else channelsToIndexMap.set(stateChannel, { index: i, type: "state" });
   });
 };
 
-export const baseConfigZ = z.object({ dataSaving: z.boolean(), device: Device.keyZ });
+export const baseConfigZ = z.object({
+  autoStart: z.boolean().default(false),
+  dataSaving: z.boolean(),
+  device: Device.keyZ,
+});
 export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
-export const ZERO_BASE_CONFIG: BaseConfig = { dataSaving: true, device: "" };
+export const ZERO_BASE_CONFIG: BaseConfig = {
+  autoStart: false,
+  dataSaving: true,
+  device: "",
+};
 
 interface ConfigWithSampleRateAndStreamRate {
   sampleRate: number;
   streamRate: number;
 }
 export const validateStreamRate = (
-  { sampleRate, streamRate }: ConfigWithSampleRateAndStreamRate,
-  { addIssue }: z.RefinementCtx,
+  ctx: core.ParsePayload<ConfigWithSampleRateAndStreamRate>,
 ) => {
+  const {
+    value: { sampleRate, streamRate },
+    issues,
+  } = ctx;
   if (sampleRate < streamRate)
-    addIssue({
-      code: z.ZodIssueCode.custom,
+    issues.push({
+      code: "custom",
       message: "Stream rate must be less than or equal to the sample rate",
       path: ["streamRate"],
+      input: { sampleRate, streamRate },
     });
 };

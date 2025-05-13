@@ -104,51 +104,46 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
       onClose();
     }
   }, [rootUser, onClose, addStatus]);
-  if (rootUser) return <></>;
+  if (rootUser) return null;
 
   return (
-    <Align.Space direction="y" grow>
-      <Align.Space direction="y" grow style={{ padding: "5rem" }}>
-        <Form.Form {...methods}>
-          <Align.Space direction="y" size="large">
-            <Align.Space direction="x" align="center" size={8}>
-              <Align.Space direction="y">
+    <Align.Space y grow>
+      <Align.Space y grow style={{ padding: "5rem" }}>
+        <Form.Form<typeof formSchema> {...methods}>
+          <Align.Space y size="large">
+            <Align.Space x align="center" size={8}>
+              <Align.Space y>
                 <Text.WithIcon
                   startIcon={<Icon.Access />}
                   level="h4"
-                  shade={8}
+                  shade={10}
                   weight={450}
                 >
                   Admin
                 </Text.WithIcon>
-                <Text.Text level="p" shade={7}>
+                <Text.Text level="p" shade={11}>
                   Allows the user to manage other users, including registering users and
                   setting permissions for those users.
                 </Text.Text>
               </Align.Space>
               <Form.SwitchField path="admin" showLabel={false} padHelpText={false} />
             </Align.Space>
-            <Divider.Divider direction="x" />
-            <Align.Space direction="y">
+            <Divider.Divider x />
+            <Align.Space y>
               <Text.WithIcon
                 startIcon={<Icon.Schematic />}
                 level="h4"
-                shade={8}
+                shade={10}
                 weight={450}
               >
                 Schematics
               </Text.WithIcon>
-              <Align.Space
-                direction="x"
-                size={8}
-                align="center"
-                style={{ marginLeft: "2rem" }}
-              >
-                <Align.Space direction="y">
-                  <Text.Text level="h5" shade={8}>
+              <Align.Space x size={8} align="center" style={{ marginLeft: "2rem" }}>
+                <Align.Space y>
+                  <Text.Text level="h5" shade={10}>
                     Edit
                   </Text.Text>
-                  <Text.Text level="p" shade={7}>
+                  <Text.Text level="p" shade={11}>
                     Allow the user to create and edit schematics. If the user does not
                     have this permission, they will still be able to control symbols on
                     the schematic.

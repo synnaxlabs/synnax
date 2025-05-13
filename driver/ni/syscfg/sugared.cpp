@@ -3,13 +3,13 @@
 namespace syscfg {
 xerrors::Error SugaredAPI::process_error(NISysCfgStatus status) const {
     wchar_t *error_buf = nullptr;
-    if (status == NISysCfg_OK) return xerrors::Error();
-    const auto desc_status = this->syscfg->GetStatusDescriptionW(
-        nullptr, status, &error_buf);
+    if (status == NISysCfg_OK) return xerrors::NIL;
+    const auto desc_status = this->syscfg
+                                 ->GetStatusDescriptionW(nullptr, status, &error_buf);
     if (desc_status != NISysCfg_OK || error_buf == nullptr)
         return xerrors::Error(
-            "failed to retrieve error message for status code " +
-            std::to_string(status));
+            "failed to retrieve error message for status code " + std::to_string(status)
+        );
     const auto str = std::wstring(error_buf);
     this->syscfg->FreeDetailedStringW(error_buf);
     return xerrors::Error(std::string(str.begin(), str.end()));
@@ -26,9 +26,14 @@ xerrors::Error SugaredAPI::InitializeSession(
     NISysCfgSessionHandle *sessionHandle
 ) {
     auto status = syscfg->InitializeSession(
-        targetName, username, password, language,
-        forcePropertyRefresh, connectTimeoutMsec,
-        expertEnumHandle, sessionHandle
+        targetName,
+        username,
+        password,
+        language,
+        forcePropertyRefresh,
+        connectTimeoutMsec,
+        expertEnumHandle,
+        sessionHandle
     );
     return process_error(status);
 }
@@ -66,8 +71,11 @@ xerrors::Error SugaredAPI::FindHardware(
     NISysCfgEnumResourceHandle *resourceEnumHandle
 ) {
     auto status = syscfg->FindHardware(
-        sessionHandle, filterMode, filterHandle,
-        expertNames, resourceEnumHandle
+        sessionHandle,
+        filterMode,
+        filterHandle,
+        expertNames,
+        resourceEnumHandle
     );
     return process_error(status);
 }
@@ -77,9 +85,8 @@ xerrors::Error SugaredAPI::NextResource(
     NISysCfgEnumResourceHandle resourceEnumHandle,
     NISysCfgResourceHandle *resourceHandle
 ) {
-    auto status = syscfg->NextResource(
-        sessionHandle, resourceEnumHandle, resourceHandle
-    );
+    auto status = syscfg
+                      ->NextResource(sessionHandle, resourceEnumHandle, resourceHandle);
     return process_error(status);
 }
 
@@ -88,9 +95,7 @@ xerrors::Error SugaredAPI::GetResourceProperty(
     NISysCfgResourceProperty propertyID,
     void *value
 ) {
-    auto status = syscfg->GetResourceProperty(
-        resourceHandle, propertyID, value
-    );
+    auto status = syscfg->GetResourceProperty(resourceHandle, propertyID, value);
     return process_error(status);
 }
 
@@ -101,7 +106,10 @@ xerrors::Error SugaredAPI::GetResourceIndexedProperty(
     void *value
 ) {
     auto status = syscfg->GetResourceIndexedProperty(
-        resourceHandle, propertyID, index, value
+        resourceHandle,
+        propertyID,
+        index,
+        value
     );
     return process_error(status);
 }

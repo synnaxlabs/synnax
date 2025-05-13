@@ -9,7 +9,7 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type rack, type Synnax, type task, UnexpectedError } from "@synnaxlabs/client";
+import { type rack, type Synnax, task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Form as PForm,
@@ -18,7 +18,7 @@ import {
   Synnax as PSynnax,
 } from "@synnaxlabs/pluto";
 import { TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
@@ -43,8 +43,9 @@ import {
   useState,
 } from "@/hardware/common/task/useState";
 import { Layout } from "@/layout";
+import { useConfirm } from "@/modals/Confirm";
 
-export type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
+export type FormSchema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
   name: z.ZodString;
   config: ConfigSchema<Config>;
 }>;
@@ -53,7 +54,7 @@ export type FormProps<
   Config extends UnknownRecord = UnknownRecord,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
-> = { methods: PForm.ContextValue<Schema<Config>> } & (
+> = { methods: PForm.ContextValue<FormSchema<Config>> } & (
   | {
       configured: false;
       task: task.Payload<Config, Details, Type>;
@@ -97,8 +98,8 @@ export interface UseFormReturn<
   Type extends string = string,
 > {
   formProps: FormProps<Config, Details, Type>;
-  handleConfigure: (config: Config, name: string) => Promise<void>;
-  handleStartOrStop: (command: StartOrStopCommand) => Promise<void>;
+  handleConfigure: UseMutateFunction<void, Error, void, unknown>;
+  handleStartOrStop: UseMutateFunction<void, Error, StartOrStopCommand, unknown>;
   state: State;
   isConfiguring: boolean;
 }
@@ -115,7 +116,7 @@ export const useForm = <
   configSchema,
   onConfigure,
   type,
-}: UseFormArgs<Config, Details, Type>) => {
+}: UseFormArgs<Config, Details, Type>): UseFormReturn<Config, Details, Type> => {
   const schema = z.object({ name: nameZ, config: configSchema });
   const client = PSynnax.use();
   const handleError_ = Status.useErrorHandler();
@@ -129,7 +130,7 @@ export const useForm = <
     },
     [dispatch, layoutKey],
   );
-  const methods = PForm.use<Schema<Config>>({
+  const methods = PForm.use<FormSchema<Config>>({
     schema,
     values,
     onHasTouched: handleUnsavedChanges,
@@ -139,16 +140,18 @@ export const useForm = <
   useEffect(() => {
     if (name != null) methods.set("name", name);
   }, [name]);
-  const [taskKey, setTaskKey] = useReactState<task.Key>(initialTask.key);
-  const configured = taskKey.length > 0;
+  const [task_, setTask_] = useReactState(initialTask);
+  const configured = task_.key.length > 0;
   const { state, triggerError, triggerLoading } = useState(
-    taskKey,
+    task_.key,
     initialTask.state ?? undefined,
   );
   const handleError = (e: Error, action: string) => {
     triggerError(e.message);
     handleError_(e, `Failed to ${action} ${values.name}`);
   };
+
+  const confirm = useConfirm();
 
   const { mutate: handleConfigure, isPending: isConfiguring } = useMutation({
     mutationFn: async () => {
@@ -158,13 +161,28 @@ export const useForm = <
       const { config, name } = methods.value();
       if (config == null) throw new Error("Config is required");
       const [newConfig, rackKey] = await onConfigure(client, config, name);
+      if (task_.key != "" && rackKey != task.getRackKey(task_.key)) {
+        const confirmed = await confirm({
+          message: "Device has been moved to different driver.",
+          description:
+            "This means that the task will need to be deleted and recreated on the new driver. Do you want to continue?",
+          confirm: { label: "Confirm", variant: "error" },
+          cancel: { label: "Cancel" },
+        });
+        if (!confirmed) return;
+        await client.hardware.tasks.delete(BigInt(task_.key));
+      }
+
       methods.setCurrentStateAsInitialValues();
       methods.set("config", newConfig);
       // current work around for Pluto form issues (Issue: SY-1465)
       if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
       dispatch(Layout.rename({ key: layoutKey, name }));
-      const t = await create({ key: taskKey, name, type, config: newConfig }, rackKey);
-      setTaskKey(t.key);
+      const t = await create(
+        { key: task_.key, name, type, config: newConfig },
+        rackKey,
+      );
+      setTask_(t);
     },
     onError: (e: Error) => handleError(e, "configure"),
   });
@@ -174,7 +192,7 @@ export const useForm = <
       triggerLoading();
       const sugaredTask = client?.hardware.tasks.sugar({
         ...initialTask,
-        key: taskKey,
+        key: task_.key,
       });
       await sugaredTask?.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
     },
@@ -185,7 +203,7 @@ export const useForm = <
   const formProps = {
     methods,
     configured,
-    task: initialTask,
+    task: task_,
     isSnapshot,
     isRunning,
   } as FormProps<Config, Details, Type>;
@@ -216,14 +234,17 @@ export const wrapForm = <
     const { isSnapshot, methods, configured, task } = formProps;
     return (
       <Align.Space
-        direction="y"
+        y
         className={CSS(CSS.B("task-configure"), CSS.BM("task-configure", type))}
         grow
         empty
       >
         <Align.Space grow>
-          <PForm.Form {...methods} mode={isSnapshot ? "preview" : "normal"}>
-            <Align.Space direction="x" justify="spaceBetween">
+          <PForm.Form<FormSchema<Config>>
+            {...methods}
+            mode={isSnapshot ? "preview" : "normal"}
+          >
+            <Align.Space x justify="spaceBetween">
               <PForm.Field<string> path="name">
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}
               </PForm.Field>
@@ -237,11 +258,11 @@ export const wrapForm = <
               </Align.Space>
             </Align.Space>
             {configured && isSnapshot && <ParentRangeButton taskKey={task.key} />}
-            <Align.Space className={CSS.B("task-properties")} direction="x" wrap>
+            <Align.Space className={CSS.B("task-properties")} x wrap>
               <Properties />
             </Align.Space>
             <Align.Space
-              direction="x"
+              x
               className={CSS.B("task-channel-form-container")}
               bordered
               rounded

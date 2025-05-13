@@ -15,50 +15,64 @@
 
 const std::string STREAM_ENDPOINT = "/frame/stream";
 
-using namespace synnax;
-
+namespace synnax {
 void StreamerConfig::to_proto(api::v1::FrameStreamerRequest &f) const {
     f.mutable_keys()->Add(channels.begin(), channels.end());
     f.set_downsample_factor(downsample_factor);
+    f.set_enable_experimental_codec(enable_experimental_codec);
 }
 
 std::pair<Streamer, xerrors::Error>
 FrameClient::open_streamer(const StreamerConfig &config) const {
-    auto [s, err] = streamer_client->stream(STREAM_ENDPOINT);
+    auto [net_stream, err] = streamer_client->stream(STREAM_ENDPOINT);
     if (err) return {Streamer(), err};
     api::v1::FrameStreamerRequest req;
     config.to_proto(req);
-    if (!s->send(req).ok()) s->close_send();
-    auto [_, res_err] = s->receive();
-    return {Streamer(std::move(s)), res_err};
+    if (!net_stream->send(req).ok()) net_stream->close_send();
+    auto [_, res_err] = net_stream->receive();
+    auto streamer = Streamer(std::move(net_stream), config);
+    if (config.enable_experimental_codec) {
+        streamer.codec = Codec(this->channel_client);
+        if (const auto codec_err = streamer.codec.update(config.channels))
+            return {Streamer(), codec_err};
+    }
+    return {std::move(streamer), res_err};
 }
 
-Streamer::Streamer(std::unique_ptr<StreamerStream> stream) :
-    stream(std::move(stream)) {
-}
+Streamer::Streamer(std::unique_ptr<StreamerStream> stream, StreamerConfig config):
+    cfg(std::move(config)), stream(std::move(stream)) {}
 
-std::pair<Frame, xerrors::Error> Streamer::read() const {
+std::pair<synnax::Frame, xerrors::Error> Streamer::read() const {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
-    auto api_frame = fr.frame();
-    return {std::move(Frame(fr.frame())), exc};
+    if (!fr.buffer().empty())
+        return this->codec.decode(
+            reinterpret_cast<const std::uint8_t *>(fr.buffer().data()),
+            fr.buffer().size()
+        );
+    return {synnax::Frame(fr.frame()), exc};
 }
 
-void Streamer::close_send() const { this->stream->close_send(); }
+void Streamer::close_send() const {
+    this->stream->close_send();
+}
 
 xerrors::Error Streamer::close() const {
     this->close_send();
     auto [_, err] = this->stream->receive();
-    return err.skip(freighter::EOF_);
+    return err.skip(freighter::EOF_ERR);
 }
 
-xerrors::Error Streamer::set_channels(std::vector<ChannelKey> channels) const {
+xerrors::Error Streamer::set_channels(const std::vector<ChannelKey> &channels) {
     this->assert_open();
+    if (const auto err = this->codec.update(channels)) return err;
+    this->cfg.channels = channels;
     api::v1::FrameStreamerRequest req;
-    req.mutable_keys()->Add(channels.begin(), channels.end());
+    this->cfg.to_proto(req);
     return this->stream->send(req);
 }
 
 void Streamer::assert_open() const {
     if (closed) throw std::runtime_error("streamer is closed");
+}
 }

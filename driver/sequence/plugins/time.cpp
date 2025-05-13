@@ -11,16 +11,22 @@
 
 xerrors::Error plugins::Time::before_all(lua_State *L) {
     this->start_time = telem::TimeStamp(this->now());
-    this->elapsed = telem::TimeSpan(0);
+    this->elapsed = telem::TimeSpan::ZERO();
     this->iteration = 0;
     lua_pushlightuserdata(L, this);
-    lua_pushcclosure(L, [](lua_State *cL) -> int {
-        const auto *plug = static_cast<Time *>(lua_touserdata(cL, lua_upvalueindex(1)));
-        const auto start = telem::SECOND * luaL_checknumber(cL, 1);
-        const auto end = telem::SECOND * luaL_checknumber(cL, 2);
-        lua_pushboolean(cL, plug->elapsed >= start && plug->elapsed <= end);
-        return 1;
-    }, 1);
+    lua_pushcclosure(
+        L,
+        [](lua_State *cL) -> int {
+            const auto *plug = static_cast<Time *>(
+                lua_touserdata(cL, lua_upvalueindex(1))
+            );
+            const auto start = telem::SECOND * luaL_checknumber(cL, 1);
+            const auto end = telem::SECOND * luaL_checknumber(cL, 2);
+            lua_pushboolean(cL, plug->elapsed >= start && plug->elapsed <= end);
+            return 1;
+        },
+        1
+    );
     lua_setglobal(L, "elapsed_time_within");
     return xerrors::NIL;
 }

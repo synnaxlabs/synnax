@@ -11,7 +11,7 @@ from typing import overload
 
 import pandas as pd
 from alamos import NOOP, Instrumentation
-from freighter import AsyncStreamClient, StreamClient, UnaryClient
+from freighter import AsyncStreamClient, StreamClient, UnaryClient, WebsocketClient
 
 from synnax.channel.payload import (
     ChannelKey,
@@ -49,7 +49,7 @@ class Client:
     directly, but rather used through the synnax.Synnax class.
     """
 
-    __stream_client: StreamClient
+    __stream_client: WebsocketClient
     __async_client: AsyncStreamClient
     __unary_client: UnaryClient
     __channels: ChannelRetriever
@@ -58,7 +58,7 @@ class Client:
 
     def __init__(
         self,
-        stream_client: StreamClient,
+        stream_client: WebsocketClient,
         async_client: AsyncStreamClient,
         unary_client: UnaryClient,
         retriever: ChannelRetriever,
@@ -80,12 +80,13 @@ class Client:
         *,
         name: str = "",
         strict: bool = False,
-        suppress_warnings: bool = False,
+        suppress_warnings: bool = True,
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = False,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
         err_on_extra_chans: bool = True,
+        use_experimental_codec: bool = True,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
@@ -116,20 +117,24 @@ class Client:
         be persisted. To persist every commit to guarantee minimal loss of data, set
         auto_index_persist_interval to AlwaysAutoIndexPersist.
         """
-        adapter = WriteFrameAdapter(self.__channels, err_on_extra_chans)
+        adapter = WriteFrameAdapter(
+            retriever=self.__channels,
+            err_on_extra_chans=err_on_extra_chans,
+            strict_data_types=strict,
+            suppress_warnings=suppress_warnings,
+        )
         adapter.update(channels)
         return Writer(
             start=start,
             adapter=adapter,
             client=self.__stream_client,
-            strict=strict,
-            suppress_warnings=suppress_warnings,
             authorities=authorities,
             name=name,
             mode=mode,
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
+            use_experimental_codec=use_experimental_codec,
         )
 
     def open_iterator(
@@ -257,7 +262,10 @@ class Client:
         return series
 
     def open_streamer(
-        self, channels: ChannelParams, downsample_factor: int = 1
+        self,
+        channels: ChannelParams,
+        down_sample_factor: int = 1,
+        use_experimental_codec: bool = True,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
         being receiving frames of data from the given channels.
@@ -265,25 +273,26 @@ class Client:
         :param channels: The channels to stream from. This can be a single channel name,
         a list of channel names, a single channel key, or a list of channel keys.
 
-        :param downsample_factor: The downsample factor to use for the streamer.
+        :param down_sample_factor: The downsample factor to use for the streamer.
         """
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
         return Streamer(
             adapter=adapter,
             client=self.__stream_client,
-            downsample_factor=downsample_factor,
+            down_sample_factor=down_sample_factor,
+            use_experimental_codec=use_experimental_codec,
         )
 
     async def open_async_streamer(
-        self, channels: ChannelParams, downsample_factor: int = 1
+        self, channels: ChannelParams, down_sample_factor: int = 1
     ) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
         s = AsyncStreamer(
             adapter=adapter,
             client=self.__async_client,
-            downsample_factor=downsample_factor,
+            down_sample_factor=down_sample_factor,
         )
         await s._open()
         return s

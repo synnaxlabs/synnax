@@ -16,6 +16,7 @@ import { type Palette } from "@/palette";
 
 export * from "@/hardware/device/notifications";
 export * from "@/hardware/device/ontology";
+export * from "@/hardware/device/Toolbar";
 export * from "@/hardware/device/useListenForChanges";
 
 export const COMMANDS: Palette.Command[] = [

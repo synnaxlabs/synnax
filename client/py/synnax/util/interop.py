@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Any
 
-# We dynamically define all of these operators to allow for interoperability with
-# numpy arrays.
+# We dynamically define all of these operators to allow for interoperability with numpy
+# arrays.
 _NP_COMPARISON_OPERATORS = [
     "__eq__",
     "__ne__",
@@ -73,11 +74,11 @@ _NP_COMPARISON_OPERATORS = [
 ]
 
 
-def overload_comparison_operators(cls, method: str):
+def overload_comparison_operators(cls: type[Any], method: str) -> type[Any]:
     return forward_methods(cls, method, _NP_COMPARISON_OPERATORS)
 
 
-def forward_methods(cls, to: str, methods: list[str]):
+def forward_methods(cls: type[Any], to: str, methods: list[str]) -> type[Any]:
     for method in methods:
         setattr(
             cls,

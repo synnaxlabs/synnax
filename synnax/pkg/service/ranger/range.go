@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -28,8 +29,9 @@ import (
 // Synnax cluster. They act as a method for labeling and categorizing data.
 type Range struct {
 	// tx is the transaction used to execute KV operations specific to this range
-	tx  gorp.Tx
-	otg *ontology.Ontology
+	tx    gorp.Tx
+	otg   *ontology.Ontology
+	label *label.Service
 	// Key is a unique identifier for the Range. If not provided on creation, a new one
 	// will be generated.
 	Key uuid.UUID `json:"key" msgpack:"key"`
@@ -47,7 +49,7 @@ var _ gorp.Entry[uuid.UUID] = Range{}
 func (r Range) GorpKey() uuid.UUID { return r.Key }
 
 // SetOptions implements gorp.Entry.
-func (r Range) SetOptions() []interface{} { return nil }
+func (r Range) SetOptions() []any { return nil }
 
 // UseTx binds a transaction to use for all query operations on the Range.
 func (r Range) UseTx(tx gorp.Tx) Range { r.tx = tx; return r }
@@ -251,6 +253,10 @@ func (r Range) listAliases(
 		return nil
 	}
 	return p.listAliases(ctx, accumulated)
+}
+
+func (r Range) ListLabels(ctx context.Context) ([]label.Label, error) {
+	return r.label.RetrieveFor(ctx, OntologyID(r.Key), r.tx)
 }
 
 // OntologyID returns the semantic ID for this range in order to look it up from within

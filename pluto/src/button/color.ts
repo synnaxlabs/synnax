@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color as core } from "@synnaxlabs/x";
+
 import { type Variant } from "@/button/Button";
-import { color as Color } from "@/color/core";
 import { type Text } from "@/text";
 
 export const color = (
   variant: Variant,
   disabled?: boolean,
-  color?: Color.Crude,
+  color?: core.Crude,
   shade?: Text.Shade,
 ): string | undefined => {
-  if (disabled === true) return "var(--pluto-gray-l5)";
-  if (color != null) return Color.cssString(color);
+  if (disabled === true) return "var(--pluto-gray-l7)";
+  if (color != null) return core.cssString(color);
   if (variant === "filled") return "var(--pluto-text-on-primary)";
   if (shade != null) return undefined;
   return "var(--pluto-text-color)";

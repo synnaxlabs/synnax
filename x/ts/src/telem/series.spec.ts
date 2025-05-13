@@ -107,6 +107,13 @@ describe("Series", () => {
       expect(s.length).toEqual(3);
     });
 
+    it("should construct a series from an int32 array", () => {
+      const s = new Series(new Int32Array([1, 2, 3]));
+      expect(s.dataType.equals(DataType.INT32)).toBeTruthy();
+      expect(s.length).toEqual(3);
+      expect(Array.from(s)).toEqual([1, 2, 3]);
+    });
+
     it("should assume string when a single string is passed as data", () => {
       const s = new Series("abc");
       expect(s.dataType.equals(DataType.STRING)).toBeTruthy();
@@ -762,6 +769,31 @@ describe("Series", () => {
     });
   });
 
+  describe("toString", () => {
+    interface Spec {
+      series: Series;
+      expected: string;
+    }
+    const SPECS: Spec[] = [
+      {
+        series: new Series({ data: [1, 2, 3, 4], dataType: "float64" }),
+        expected: "float64 4 [1,2,3,4]",
+      },
+      {
+        series: new Series({
+          data: Array.from({ length: 100 }, (_, i) => i),
+          dataType: "float32",
+        }),
+        expected: "float32 100 [0,1,2,3,4...95,96,97,98,99]",
+      },
+    ];
+    SPECS.forEach(({ series, expected }) => {
+      it(`should convert ${series.toString()} to a string`, () => {
+        expect(series.toString()).toEqual(expected);
+      });
+    });
+  });
+
   describe("sub", () => {
     it("should return a sub-series backed by the same buffer", () => {
       const arr = new Float32Array([1, 2, 3, 4, 5]);
@@ -1062,6 +1094,45 @@ describe("MultiSeries", () => {
       });
       const multi = new MultiSeries([a, b]);
       expect(multi.timeRange).toEqual(new TimeRange(1, 4));
+    });
+  });
+
+  describe("as", () => {
+    it("should correctly cast a numeric series to number type", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
+      const b = new Series(new Float32Array([4, 5, 6]));
+      const multi = new MultiSeries([a, b]);
+      const asNum = multi.as("number");
+      expect(asNum.at(0)).toEqual(1);
+      expect(asNum.at(5)).toEqual(6);
+      expect(Array.from(asNum)).toEqual([1, 2, 3, 4, 5, 6]);
+    });
+
+    it("should correctly cast a string series to string type", () => {
+      const a = new Series(["apple", "banana"]);
+      const b = new Series(["carrot", "date"]);
+      const multi = new MultiSeries([a, b]);
+      const asStr = multi.as("string");
+      expect(asStr.at(0)).toEqual("apple");
+      expect(asStr.at(3)).toEqual("date");
+      expect(Array.from(asStr)).toEqual(["apple", "banana", "carrot", "date"]);
+    });
+
+    it("should correctly cast a bigint series to bigint type", () => {
+      const a = new Series([1n, 2n]);
+      const b = new Series([3n, 4n]);
+      const multi = new MultiSeries([a, b]);
+      const asBigInt = multi.as("bigint");
+      expect(asBigInt.at(0)).toEqual(1n);
+      expect(asBigInt.at(3)).toEqual(4n);
+      expect(Array.from(asBigInt)).toEqual([1n, 2n, 3n, 4n]);
+    });
+
+    it("should throw an error when trying to cast to an incompatible type", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
+      const b = new Series(new Float32Array([4, 5, 6]));
+      const multi = new MultiSeries([a, b]);
+      expect(() => multi.as("string")).toThrow();
     });
   });
 });

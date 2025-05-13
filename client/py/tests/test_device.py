@@ -84,3 +84,24 @@ class TestDevice:
         assert device.key == d1.key
         assert device.name.startswith("My Device 1")
         assert device.model == d1.model
+
+    def test_delete(self, client: sy.Synnax, new_devices: BasicDevices):
+        d1, _ = new_devices
+        client.hardware.devices.create(d1)
+        client.hardware.devices.delete(keys=[d1.key])
+        with pytest.raises(sy.NotFoundError):
+            client.hardware.devices.retrieve(key=d1.key)
+
+    def test_retrieve_ignore_not_found(self, client: sy.Synnax):
+        # Test multiple device retrieval
+        devices = client.hardware.devices.retrieve(
+            keys=["nonexistent_key1", "nonexistent_key2"], ignore_not_found=True
+        )
+        assert len(devices) == 0
+
+    def test_retrieve_not_found_error(self, client: sy.Synnax):
+        # Test multiple device retrieval
+        with pytest.raises(sy.NotFoundError):
+            client.hardware.devices.retrieve(
+                keys=["nonexistent_key1", "nonexistent_key2"], ignore_not_found=False
+            )

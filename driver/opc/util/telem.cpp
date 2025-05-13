@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 /// external
-#include "open62541/types.h"
 #include "glog/logging.h"
+#include "open62541/types.h"
 
 /// module
 #include "x/cpp/telem/series.h"
@@ -59,50 +59,50 @@ static constexpr int64_t UNIX_EPOCH_START_1601 = 11644473600LL;
 // Seconds from 1601 to 1970
 static constexpr int64_t HUNDRED_NANOSECOND_INTERVALS_PER_SECOND = 10000000LL;
 // 100-nanosecond intervals per second
-constexpr int64_t UNIX_EPOCH_START_IN_100_NANO_INTERVALS =
-        UNIX_EPOCH_START_1601 * HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
+constexpr int64_t
+    UNIX_EPOCH_START_IN_100_NANO_INTERVALS = UNIX_EPOCH_START_1601 *
+                                             HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
 
 inline int64_t ua_datetime_to_unix_nano(const UA_DateTime dateTime) {
     return (dateTime - UNIX_EPOCH_START_IN_100_NANO_INTERVALS) * 100;
 }
 
-std::pair<telem::Series, xerrors::Error> ua_array_to_series(
-    const telem::DataType &target_type,
+std::pair<size_t, xerrors::Error> ua_array_write_to_series(
+    telem::Series &series,
     const UA_Variant *val,
     const size_t target_size,
     const std::string &name
 ) {
     const size_t size = val->arrayLength;
     if (size != target_size) {
-        std::string verb = size < target_size ? "" : "large";
+        const std::string verb = size < target_size ? "small" : "large";
         return {
-            telem::Series(0),
-            xerrors::Error(xerrors::VALIDATION,
-                           "OPC UA array for " + name + " is too " + verb + " (size: " + std::to_string(size) + ") for configured array size of " +
-                           std::to_string(target_size))
+            0,
+            xerrors::Error(
+                xerrors::VALIDATION,
+                "OPC UA array for " + name + " is too " + verb +
+                    " (size: " + std::to_string(size) +
+                    ") for configured array size of " + std::to_string(target_size)
+            )
         };
     }
 
     if (UA_Variant_isScalar(val))
         return {
-            telem::Series(0),
+            0,
             xerrors::Error(xerrors::VALIDATION, "cannot not convert scalar to series")
         };
+
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DATETIME])) {
         const UA_DateTime *data = static_cast<UA_DateTime *>(val->data);
-        auto s = telem::Series(target_type, size);
-        size_t acc = 0;
+        size_t written = 0;
         for (size_t j = 0; j < size; ++j)
-            acc += s.write(ua_datetime_to_unix_nano(data[j]));
-        return {std::move(s), xerrors::NIL};
+            written += series.write(ua_datetime_to_unix_nano(data[j]));
+        return {written, xerrors::NIL};
     }
+
     return {
-        telem::Series::cast(
-            target_type,
-            val->data,
-            size,
-            ua_to_data_type(val->type)
-        ),
+        series.write_casted(val->data, size, ua_to_data_type(val->type)),
         xerrors::NIL
     };
 }
@@ -111,17 +111,14 @@ std::pair<UA_Variant, xerrors::Error> series_to_variant(const telem::Series &s) 
     UA_Variant v;
     UA_Variant_init(&v);
     const auto dt = data_type_to_ua(s.data_type());
-    const auto status = UA_Variant_setScalarCopy(
-        &v,
-        telem::cast_to_void_ptr(s.at(-1)),
-        dt
-    );
+    const auto status = UA_Variant_setScalarCopy(&v, cast_to_void_ptr(s.at(-1)), dt);
     return {v, parse_error(status)};
 }
 
 size_t write_to_series(telem::Series &s, const UA_Variant &v) {
-    if (s.data_type() == telem::TIMESTAMP_T && UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_DATETIME])) {
-        const UA_DateTime* dt = (const UA_DateTime*)v.data;
+    if (s.data_type() == telem::TIMESTAMP_T &&
+        UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_DATETIME])) {
+        const auto dt = static_cast<const UA_DateTime *>(v.data);
         return s.write(s.data_type().cast(ua_datetime_to_unix_nano(*dt)));
     }
     return s.write(s.data_type().cast(v.data, ua_to_data_type(v.type)));

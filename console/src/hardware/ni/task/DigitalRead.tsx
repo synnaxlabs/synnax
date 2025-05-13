@@ -49,16 +49,17 @@ export const DIGITAL_READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Device.Select />
-    <Align.Space direction="x" grow>
+    <Align.Space x>
       <Common.Task.Fields.SampleRate />
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
+      <Common.Task.Fields.AutoStart />
     </Align.Space>
   </>
 );
 
-const NameComponent = ({ entry: { channel } }: NameProps<DIChannel>) => (
-  <Common.Task.ChannelName channel={channel} />
+const NameComponent = ({ entry: { channel, key } }: NameProps<DIChannel>) => (
+  <Common.Task.ChannelName channel={channel} id={Common.Task.getChannelNameID(key)} />
 );
 
 const name = componentRenderProp(NameComponent);
@@ -70,6 +71,7 @@ const Form: FC<
     {...props}
     createChannel={createDIChannel}
     name={name}
+    contextMenuItems={Common.Task.readChannelContextMenuItem}
   />
 );
 
@@ -90,6 +92,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
   config,
 ) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
+  Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateIndex = primitiveIsZero(dev.properties.digitalInput.index);

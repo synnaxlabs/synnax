@@ -28,11 +28,11 @@ class ExampleLeaf extends aether.Leaf<typeof exampleProps> {
 
   schema = exampleProps;
 
-  async afterUpdate(): Promise<void> {
+  afterUpdate(): void {
     this.updatef();
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     this.deletef();
   }
 }
@@ -45,11 +45,11 @@ class ExampleComposite extends aether.Composite<typeof exampleProps, ExampleLeaf
 
   schema = exampleProps;
 
-  async afterUpdate(): Promise<void> {
+  afterUpdate(): void {
     this.updatef();
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     this.deletef();
   }
 }
@@ -61,7 +61,7 @@ const REGISTRY: aether.ComponentRegistry = {
 
 const newProvider = async (): Promise<[FC<PropsWithChildren>, aether.Root]> => {
   const [a, b] = createMockWorkers();
-  const root = await aether.render({ comms: a.route("vis"), registry: REGISTRY });
+  const root = aether.render({ comms: a.route("vis"), registry: REGISTRY });
   const worker = b.route<MainMessage, WorkerMessage>("vis");
   return [
     (props: PropsWithChildren) => (
@@ -88,8 +88,7 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      expect(root.children).toHaveLength(1);
+      await expect.poll(async () => root.children.length === 1).toBeTruthy();
       const first = root.children[0] as ExampleLeaf;
       expect(first.type).toBe(ExampleLeaf.TYPE);
       expect(first.state).toEqual({ x: 0 });
@@ -114,8 +113,7 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      expect(root.children).toHaveLength(1);
+      await expect.poll(async () => root.children.length === 1).toBeTruthy();
       const first = root.children[0] as ExampleLeaf;
       expect(first.type).toBe(ExampleLeaf.TYPE);
       expect(first.state).toEqual({ x: 1 });

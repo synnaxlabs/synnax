@@ -18,16 +18,15 @@ of data.
 
 Writes in Synnax are more complicated than reads, and, as such, we recommend checking
 out our [concepts](/reference/concepts/writes) page to learn more about the best
-practices for writing data to Synnax. The [rules of
-writes](/reference/concepts/writes#rules-of-writes) are especially important.
+practices for writing data to Synnax. The
+[rules of writes](/reference/concepts/writes#rules-of-writes) are especially important.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Writing to a Channel
 
-Writing to a channel requires us to write timestamps to its index channel
-before we write the data. We'll create the following channels to use as
-examples:
+Writing to a channel requires us to write timestamps to its index channel before we
+write the data. We'll create the following channels to use as examples:
 
 ```python
 import synnax as sy
@@ -54,8 +53,7 @@ my_precise_tc = client.channels.create(
 )
 ```
 
-We'll make sure to write timestamps to the index before we write to the data
-channel:
+We'll make sure to write timestamps to the index before we write to the data channel:
 
 ```python
 from datetime import datetime
@@ -78,21 +76,20 @@ timestamps.write(start, times)
 my_precise_tc.write(start, temperatures)
 ```
 
-Notice how we align the two arrays using the common `start` timestamp. This
-tells Synnax that the first sample in the `temperatures` array is associated
-with the first timestamp in the `timestamps` array.
+Notice how we align the two arrays using the common `start` timestamp. This tells Synnax
+that the first sample in the `temperatures` array is associated with the first timestamp
+in the `timestamps` array.
 
 Synnax will raise a `ValidationError` if the index channel does not contain a
-corresponding timestamp for every sample in the data channel. After all, it
-wouldn't make sense to have a temperature reading without an associated
-timestamp.
+corresponding timestamp for every sample in the data channel. After all, it wouldn't
+make sense to have a temperature reading without an associated timestamp.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Writing to a Range
 
-Writing to a range takes away the burden of needing to correctly align the data
-from different channels.
+Writing to a range takes away the burden of needing to correctly align the data from
+different channels.
 
 We'll create the following range as an example:
 
@@ -123,19 +120,19 @@ burst_test.write({
 })
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Using a Writer
 
-While the above methods are great for writing static, existing data, it's common
-to write data in a streaming fashion as it's acquired. This is especially useful
-for use in control sequences and live data processing. The `Writer` class is designed
-for this use case (and is actually used under the hood by the other methods).
+While the above methods are great for writing static, existing data, it's common to
+write data in a streaming fashion as it's acquired. This is especially useful for use in
+control sequences and live data processing. The `Writer` class is designed for this use
+case (and is actually used under the hood by the other methods).
 
-To keep things intuitive, the writer maintains a file-like interface that is similar
-to Python's built-in file objects. There are a few key differences, the most
-important being that writers are governed by a transaction. If you'd like to
-learn more about transactions and how writes work in Synnax, check out the
+To keep things intuitive, the writer maintains a file-like interface that is similar to
+Python's built-in file objects. There are a few key differences, the most important
+being that writers are governed by a transaction. If you'd like to learn more about
+transactions and how writes work in Synnax, check out the
 [concepts](/reference/concepts/writes) page.
 
 We'll create the following channels to use as examples:
@@ -158,9 +155,8 @@ my_precise_tc = client.channels.create(
 )
 ```
 
-To open the writer, we use the `open_writer` method on the client and provide a
-starting timestamp for the first sample and a list of channels we'd like to
-write to:
+To open the writer, we use the `open_writer` method on the client and provide a starting
+timestamp for the first sample and a list of channels we'd like to write to:
 
 ```python
 import time
@@ -170,34 +166,31 @@ with client.open_writer(
     channels=["timestamps", "my_precise_tc"],
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
         time.sleep(0.1)
     writer.commit()
 ```
 
-This example will write 100 samples to the `my_precise_tc` channel, each spaced
-roughly 0.1 seconds apart, and will commit all writes when finished.
+This example will write 100 samples to the `my_precise_tc` channel, each spaced roughly
+0.1 seconds apart, and will commit all writes when finished.
 
-It's typical to write and commit millions of samples over the course of hours or
-days, intermittently calling commit to ensure that the data is persisted to the
-cluster.
+It's typical to write and commit millions of samples over the course of hours or days,
+intermittently calling commit to ensure that the data is persisted to the cluster.
 
-We recommend using writers within a context manager. This ensures that a writer
-is properly closed after use, ensuring that resources have been freed and
-sockets are closed.
+We recommend using writers within a context manager. This ensures that a writer is
+properly closed after use, ensuring that resources have been freed and sockets are
+closed.
 
-If you can't use a context manager, make sure you call `writer.close()` when
-you're done using it.
+If you can't use a context manager, make sure you call `writer.close()` when you're done
+using it.
 
 ### Auto-Commit
 
-You can also configure a writer to automatically commit written data after each
-write, making it immediately available for read access. To do this, set the
+You can also configure a writer to automatically commit written data after each write,
+making it immediately available for read access. To do this, set the
 `enable_auto_commit` argument to `True` when opening the writer:
 
 ```python
@@ -209,64 +202,12 @@ with client.open_writer(
     enable_auto_commit=True,
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
         time.sleep(0.1)
 ```
-
-### Error Handling
-
-The Synnax writer is tuned for performance, and as such, does not synchronously check
-for errors on every single call to write. Instead, calls to `write` will return a
-boolean indicating whether the writer has accumulated any errors on the call to write
-or on any previous calls to write.
-
-Once a writer has accumulated an error, all future calls to `write` will fail until the
-writer is closed and a new writer is opened. After calls to `write` return `False`, you
-can check for the accumulated error by calling `writer.error()` or simply close the
-writer through `writer.close()`, at which point the error will be raised.
-
-#### Error Handling Example - Out of Order Timestamps
-
-Let's say we're writing a time series to a channel, but we accidentally write the timestamps
-out of order. This is a common mistake, and can be hard to debug. Here's how we can use
-the writer to handle this:
-
-```python
-import synnax as sy
-
-time_ch = client.channels.create(
-    name="time",
-    data_type=sy.DataType.TIMESTAMP,
-    is_index=True,
-)
-
-data_ch = client.channels.create(
-    name="data",
-    data_type=sy.DataType.FLOAT32,
-    index=time_ch.key,
-)
-
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=[time_ch.key, data_ch.key],
-    enable_auto_commit=True,
-) as writer:
-    for i in range(100):
-        if not writer.write({
-            time_ch.key: sy.TimeStamp.now() - i * sy.TimeSpan.SECOND,
-            data_ch.key: [i],
-        }):
-            break
-```
-
-This will break out of the loop as soon as the writer encounters an out of order
-timestamp, causing the context manager to complete, the writer to be closed, and
-a `ValidationError` to be raised.
 
 ### Write Authorities
 
@@ -294,20 +235,18 @@ with client.open_writer(
     authority=100,
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
         time.sleep(0.1)
 ```
 
 #### Opening a writer with different authorities on each channel
 
-To open a writer with different authorities on each channel, you can pass the `authority`
-argument with a list of integers. This list must be the same length as the number of channels
-in the writer.
+To open a writer with different authorities on each channel, you can pass the
+`authority` argument with a list of integers. This list must be the same length as the
+number of channels in the writer.
 
 ```python
 with client.open_writer(
@@ -316,19 +255,18 @@ with client.open_writer(
     authority=[100, 200],
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
         time.sleep(0.1)
 ```
 
 #### Adjusting write authorities after open
 
-To change the authority of a writer during operation, just call `set_authority`. This method
-accepts a dictionary with the channel name as the key and the new authority as the value.
+To change the authority of a writer during operation, just call `set_authority`. This
+method accepts a dictionary with the channel name as the key and the new authority as
+the value.
 
 ```python
 # Set the authority on all channels
@@ -342,9 +280,10 @@ writer.set_authority({
 
 ### Persistence/Streaming Mode
 
-By default, writers are opened in stream + persist [mode](/reference/concepts/writes#persistencestreaming-modes).
-To change the mode of a writer, specify the enum value of the `mode` argument when
-opening the writer. This can be `persist`, `stream`, or `persist_stream`.
+By default, writers are opened in stream + persist
+[mode](/reference/concepts/writes#persistencestreaming-modes). To change the mode of a
+writer, specify the enum value of the `mode` argument when opening the writer. This can
+be `persist`, `stream`, or `persist_stream`.
 
 For example, to open a writer that only persists data:
 
@@ -357,28 +296,28 @@ with client.open_writer(
     mode="persist"
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
         time.sleep(0.1)
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Common Pitfalls
 
 There are several common pitfalls to avoid when writing data to a Synnax cluster. These
-are important to avoid as they can lead to performance degradation and/or control issues.
+are important to avoid as they can lead to performance degradation and/or control
+issues.
 
 ### Using Many Individual Write Calls Instead of a Writer
 
-When writing large volumes of data in a streaming fashion (or in batches), it's important
-to use a writer instead of making individual write calls to a channel. Calls to `write`
-on a channel use an entirely new transaction for each call - constantly creating, committing,
-and closing transactions has a dramatic impact on performance. So, don't do this:
+When writing large volumes of data in a streaming fashion (or in batches), it's
+important to use a writer instead of making individual write calls to a channel. Calls
+to `write` on a channel use an entirely new transaction for each call - constantly
+creating, committing, and closing transactions has a dramatic impact on performance. So,
+don't do this:
 
 ```python
 time = client.channels.retrieve("timestamps")
@@ -400,12 +339,10 @@ for i in range(100):
         channels=["timestamps", "my_precise_tc"],
         enable_auto_commit=True,
     ) as writer:
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
 ```
 
 Instead, repeatedly call `write` on a single writer:
@@ -418,22 +355,20 @@ with client.open_writer(
     enable_auto_commit=True,
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
 ```
 
 ### Calling Commit on Every Write
 
 If you're not using auto-commit, it's important to call `commit` on the writer
 periodically to ensure that the data is persisted to the cluster. However, calling
-`commit` on every write is a bad idea. This is because `commit` requires a round-trip
-to the cluster to ensure that the data is persisted. This can be very slow if you're
-writing a lot of data. If you're writing a lot of data, commit every few seconds or
-turn on auto-commit.
+`commit` on every write is a bad idea. This is because `commit` requires a round-trip to
+the cluster to ensure that the data is persisted. This can be very slow if you're
+writing a lot of data. If you're writing a lot of data, commit every few seconds or turn
+on auto-commit.
 
 This is a bad idea:
 
@@ -443,12 +378,10 @@ with client.open_writer(
     channels=["timestamps", "my_precise_tc"],
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
         writer.commit()
 ```
 
@@ -461,48 +394,8 @@ with client.open_writer(
     enable_auto_commit=True,
 ) as writer:
     for i in range(100):
-        if not writer.write({
-            "timestamps": sy.TimeStamp.now(),
-            "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
-```
-
-### Not Handling Errors by Checking the Return Value of `write`
-
-It's important to check the return value of `write` to ensure that the write was
-successful. Failing to check this return value can result in the writer silently
-failing to write data, causing hard to debug issues.
-
-This is a bad idea:
-
-```python
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["timestamps", "my_precise_tc"],
-    enable_auto_commit=True,
-) as writer:
-    for i in range(100):
         writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
         })
-```
-
-Instead, check the return value of `write`:
-
-```python
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["timestamps", "my_precise_tc"],
-    enable_auto_commit=True,
-) as writer:
-    for i in range(100):
-        if not writer.write({
-            "timestamps": sy.TimeStamp.now(),
-            "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
 ```

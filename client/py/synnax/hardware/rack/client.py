@@ -31,8 +31,11 @@ class _DeleteRequest(Payload):
 class _RetrieveRequest(Payload):
     keys: list[int] | None = None
     names: list[str] | None = None
-    embedded: bool = False
-    host_is_node: bool = False
+    search: str | None = None
+    embedded: bool | None = None
+    host_is_node: bool | None = None
+    offset: int | None = None
+    limit: int | None = None
 
 
 class _RetrieveResponse(Payload):
@@ -47,7 +50,7 @@ _RETRIEVE_ENDPOINT = "/hardware/rack/retrieve"
 class Client:
     _client: UnaryClient
     _embedded_rack: Rack | None = None
-    instrumentation: Instrumentation = NOOP
+    instrumentation: Instrumentation
 
     def __init__(
         self,
@@ -72,7 +75,7 @@ class Client:
         *,
         key: int = 0,
         name: str = "",
-    ) -> list[Rack]:
+    ) -> Rack | list[Rack]:
         is_single = True
         if racks is None:
             racks = [Rack(key=key, name=name)]

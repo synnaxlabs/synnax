@@ -11,20 +11,20 @@ package domain_test
 
 import (
 	"encoding/binary"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"os"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
-	"time"
 )
 
 func extractPointer(f xfs.File) (p struct {
@@ -68,10 +68,13 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should work with a preset end", func() {
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
 					Expect(w.Write([]byte{10, 11, 12, 13, 14})).To(Equal(5))
+					Expect(w.Len()).To(Equal(int64(5)))
 					Expect(w.Commit(ctx, 14*telem.SecondTS+1)).To(Succeed())
 					Expect(w.Write([]byte{15, 16, 17, 18, 19})).To(Equal(5))
+					Expect(w.Len()).To(Equal(int64(10)))
 					Expect(w.Commit(ctx, 19*telem.SecondTS+1)).To(Succeed())
 					Expect(w.Write([]byte{100, 101, 102, 103, 104})).To(Equal(5))
+					Expect(w.Len()).To(Equal(int64(15)))
 					Expect(w.Commit(ctx, 104*telem.SecondTS+1)).To(MatchError(ContainSubstring("cannot be greater than preset end timestamp")))
 					Expect(w.Close()).To(Succeed())
 				})
@@ -80,7 +83,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not allow opening a writer on a closed database", func() {
 					Expect(db.Close()).To(Succeed())
 					_, err := db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
-					Expect(err).To(HaveOccurredAs(core.EntityClosed("domain.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("domain.db")))
 				})
 			})
 			Describe("Start Validation", func() {
@@ -398,7 +401,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						writers := make([]*domain.Writer, writerCount)
 						var wg sync.WaitGroup
 						wg.Add(writerCount)
-						for i := 0; i < writerCount; i++ {
+						for i := range writerCount {
 							writers[i] = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
 								Start: 10 * telem.SecondTS,
 							}))
@@ -482,6 +485,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					By("Writing some data and committing it with auto persist right after")
 					_, err = w.Write([]byte{6, 7, 8, 9, 10})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commit has been persisted")
@@ -493,6 +497,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					By("Writing some data and committing it with auto persist right after")
 					_, err = w.Write([]byte{11, 12, 13, 14, 15})
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commits have not been persisted")
@@ -561,7 +566,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not allow operations on a closed writer", func() {
 					var (
 						w = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
-						e = core.EntityClosed("domain.writer")
+						e = core.NewErrResourceClosed("domain.writer")
 					)
 					Expect(w.Close()).To(Succeed())
 					err := w.Commit(ctx, telem.TimeStampMax)
@@ -574,12 +579,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not open a writer on a closed database", func() {
 					Expect(db.Close()).To(Succeed())
 					_, err := db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
-					Expect(err).To(HaveOccurredAs(core.EntityClosed("domain.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("domain.db")))
 				})
 
 				It("Should not write on a closed database", func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(HaveOccurredAs(core.EntityClosed("domain.db")))
+					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(HaveOccurredAs(core.NewErrResourceClosed("domain.db")))
 				})
 			})
 		})

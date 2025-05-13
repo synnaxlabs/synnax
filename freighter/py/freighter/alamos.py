@@ -9,18 +9,19 @@
 
 from alamos import Instrumentation
 
-from freighter.context import Context, Role
+from freighter.context import Context
 from freighter.transport import AsyncMiddleware, AsyncNext, Middleware, Next
 
 
 def instrumentation_middleware(instrumentation: Instrumentation) -> Middleware:
-    """Adds logs and traces to requests made by the client, and ensures that they are
+    """
+    Adds logs and traces to requests made by the client, and ensures that they are
     propagated to the server.
 
     :param instrumentation: the instrumentation to use for logging and tracing.
     """
 
-    def _middleware(ctx: Context, next_: Next):
+    def _middleware(ctx: Context, next_: Next) -> tuple[Context, Exception | None]:
         with instrumentation.T.debug(ctx.target) as span:
             if ctx.role == "client":
                 instrumentation.T.propagate(ctx)
@@ -35,13 +36,16 @@ def instrumentation_middleware(instrumentation: Instrumentation) -> Middleware:
 def async_instrumentation_middleware(
     instrumentation: Instrumentation,
 ) -> AsyncMiddleware:
-    """Adds logs and traces to requests made by the client, and ensures that they are
+    """
+    Adds logs and traces to requests made by the client, and ensures that they are
     propagated to the server.
 
     :param instrumentation: the instrumentation to use for logging and tracing.
     """
 
-    async def _middleware(context: Context, next_: AsyncNext):
+    async def _middleware(
+        context: Context, next_: AsyncNext
+    ) -> tuple[Context, Exception | None]:
         if context.role == "client":
             instrumentation.T.propagate(context)
         with instrumentation.T.trace(context.target, "debug") as span:
@@ -56,8 +60,8 @@ def async_instrumentation_middleware(
 def _log(
     context: Context,
     instrumentation: Instrumentation,
-    exc: Exception = None,
-):
+    exc: Exception | None = None,
+) -> None:
     if exc:
         instrumentation.L.error(f"{context.target} {exc}")
     else:

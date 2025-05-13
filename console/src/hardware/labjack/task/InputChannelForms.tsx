@@ -78,12 +78,12 @@ const SelectScaleTypeField = PForm.buildDropdownButtonSelectField<
 
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   [LINEAR_SCALE_TYPE]: ({ prefix }) => (
-    <Align.Space direction="x">
+    <Align.Space x>
       <PForm.NumericField path={`${prefix}.slope`} label="Slope" grow />
       <PForm.NumericField path={`${prefix}.offset`} label="Offset" grow />
     </Align.Space>
   ),
-  [NO_SCALE_TYPE]: () => <></>,
+  [NO_SCALE_TYPE]: () => null,
 };
 
 interface CustomScaleFormProps {
@@ -177,20 +177,20 @@ interface FormProps {
 export const FORMS: Record<InputChannelType, FC<FormProps>> = {
   [AI_CHANNEL_TYPE]: ({ path }) => (
     <>
-      <Divider.Divider direction="x" padded="bottom" />
+      <Divider.Divider x padded="bottom" />
       <MaxVoltageField path={path} />
       <CustomScaleForm prefix={path} />
     </>
   ),
-  [DI_CHANNEL_TYPE]: () => <></>,
+  [DI_CHANNEL_TYPE]: () => null,
   [TC_CHANNEL_TYPE]: ({ path, deviceModel }) => (
     <>
-      <Divider.Divider direction="x" padded="bottom" />
-      <Align.Space direction="x">
+      <Divider.Divider x padded="bottom" />
+      <Align.Space x>
         <ThermocoupleTypeField path={path} grow />
         <TemperatureUnitsField path={path} grow />
       </Align.Space>
-      <Align.Space direction="x">
+      <Align.Space x>
         <PForm.NumericField
           fieldKey="posChan"
           path={path}
@@ -204,7 +204,7 @@ export const FORMS: Record<InputChannelType, FC<FormProps>> = {
           grow
         />
       </Align.Space>
-      <Align.Space direction="x">
+      <Align.Space x>
         <PForm.Field<string>
           path={`${path}.cjcSource`}
           grow
@@ -216,7 +216,7 @@ export const FORMS: Record<InputChannelType, FC<FormProps>> = {
         <PForm.NumericField fieldKey="cjcSlope" path={path} label="CJC Slope" grow />
         <PForm.NumericField fieldKey="cjcOffset" path={path} label="CJC Offset" grow />
       </Align.Space>
-      <Divider.Divider direction="x" padded="bottom" />
+      <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={path} />
     </>
   ),

@@ -9,6 +9,7 @@
 
 import {
   box,
+  color,
   type Destructor,
   type dimensions,
   direction,
@@ -17,7 +18,6 @@ import {
   xy,
 } from "@synnaxlabs/x";
 
-import { color } from "@/color/core";
 import { type text } from "@/text/core";
 import { dimensions as textDimensions } from "@/text/dimensions";
 import { type theming } from "@/theming/aether";
@@ -58,10 +58,13 @@ export interface DrawTextProps {
   text: string;
   position: xy.XY;
   level: text.Level;
+  justify?: CanvasTextAlign;
+  align?: CanvasTextBaseline;
   weight?: text.Weight;
   shade?: text.Shade;
   maxWidth?: number;
   code?: boolean;
+  color?: ColorSpec;
 }
 
 export interface DrawTextInCenterProps
@@ -92,6 +95,18 @@ export interface Draw2DTextContainerProps
   root?: location.CornerXY;
 }
 
+export interface DrawList {
+  length: number;
+  position: xy.XY;
+  itemHeight: number;
+  spacing?: number;
+  width: number;
+  draw: (index: number, box: box.Box) => void;
+  root?: location.CornerXY;
+  offset?: xy.XY;
+  padding?: xy.XY;
+}
+
 type ColorSpec = color.Crude | ((t: theming.Theme) => color.Color);
 
 export class Draw2D {
@@ -119,7 +134,7 @@ export class Draw2D {
 
   line({ stroke, lineWidth, lineDash, start, end }: Draw2DLineProps): void {
     const ctx = this.canvas;
-    ctx.strokeStyle = stroke.hex;
+    ctx.strokeStyle = color.hex(stroke);
     ctx.lineWidth = lineWidth;
     ctx.setLineDash([lineDash]);
     ctx.beginPath();
@@ -130,7 +145,7 @@ export class Draw2D {
 
   circle({ fill, radius, position }: Draw2DCircleProps): void {
     const ctx = this.canvas;
-    ctx.fillStyle = fill.hex;
+    ctx.fillStyle = color.hex(fill);
     ctx.beginPath();
     ctx.arc(...xy.couple(position), radius, 0, 2 * Math.PI);
     ctx.fill();
@@ -141,14 +156,23 @@ export class Draw2D {
   resolveColor(c: ColorSpec): color.Color;
 
   resolveColor(c: ColorSpec | undefined, fallback?: ColorSpec): color.Color {
-    if (c == null) return this.resolveColor(fallback as ColorSpec);
+    if (c == null) {
+      if (fallback == null) return this.theme.colors.text;
+      return this.resolveColor(fallback);
+    }
     if (typeof c === "function") return c(this.theme);
-    return new color.Color(c);
+    return color.construct(c);
   }
 
-  border({ region, color, width, radius, location }: Draw2DBorderProps): void {
+  border({
+    region,
+    color: colorVal,
+    width,
+    radius,
+    location,
+  }: Draw2DBorderProps): void {
     const ctx = this.canvas;
-    ctx.strokeStyle = this.resolveColor(color, this.theme.colors.border).hex;
+    ctx.strokeStyle = color.hex(this.resolveColor(colorVal, this.theme.colors.border));
     ctx.lineWidth = width ?? this.theme.sizes.border.width;
     radius ??= this.theme.sizes.border.radius;
     if (location == null || location === true)
@@ -186,8 +210,12 @@ export class Draw2D {
     borderRadius ??= this.theme.sizes.border.radius;
     borderWidth ??= 1;
     const ctx = this.canvas;
-    ctx.fillStyle = this.resolveColor(backgroundColor, this.theme.colors.gray.l1).hex;
-    ctx.strokeStyle = this.resolveColor(borderColor, this.theme.colors.border).hex;
+    ctx.fillStyle = color.hex(
+      this.resolveColor(backgroundColor, this.theme.colors.gray.l1),
+    );
+    ctx.strokeStyle = color.hex(
+      this.resolveColor(borderColor, this.theme.colors.border),
+    );
     ctx.setLineDash([]);
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -249,13 +277,48 @@ export class Draw2D {
       (position: xy.XY) => {
         const font = fontString(this.theme, { level });
         this.canvas.font = font;
-        this.canvas.fillStyle = this.theme.colors.text.hex;
+        this.canvas.fillStyle = color.hex(this.theme.colors.text);
         this.canvas.textBaseline = "top";
         text.forEach((v, i) => {
           this.canvas.fillText(v, position.x, position.y + offset * i);
         });
       },
     ];
+  }
+
+  list({
+    length,
+    itemHeight,
+    width,
+    spacing = 0,
+    position,
+    draw,
+    root = location.TOP_LEFT,
+    offset = xy.ZERO,
+    padding = xy.ZERO,
+  }: DrawList): void {
+    const height = length * itemHeight + padding.y * 2 + spacing * (length - 1);
+    const wid = width + padding.x * 2;
+    const pos = { ...position };
+    if (root.x === "right") pos.x -= width + offset.x * 2;
+    else pos.x += offset.x;
+    if (root.y === "top") pos.y -= height + offset.y * 2;
+    else pos.y += offset.y;
+    this.container({
+      region: box.construct(pos, { width: wid, height }),
+      backgroundColor: (t) => t.colors.gray.l1,
+    });
+    for (let i = 0; i < length; i++) {
+      const itemBox = box.construct(
+        xy.construct(
+          pos.x + padding.x,
+          pos.y + i * itemHeight + padding.y + spacing * i,
+        ),
+        width,
+        itemHeight,
+      );
+      draw(i, itemBox);
+    }
   }
 
   drawTextInCenter({ box: b, text, level }: DrawTextInCenterProps): void {
@@ -272,11 +335,17 @@ export class Draw2D {
     shade,
     maxWidth,
     code,
+    justify = "left",
+    align = "top",
+    color: colorVal,
   }: DrawTextProps): void {
     this.canvas.font = fontString(this.theme, { level, weight, code });
-    if (shade == null) this.canvas.fillStyle = this.theme.colors.text.hex;
-    else this.canvas.fillStyle = this.theme.colors.gray[`l${shade}`].hex;
-    this.canvas.textBaseline = "top";
+    if (colorVal != null)
+      this.canvas.fillStyle = color.hex(this.resolveColor(colorVal));
+    else if (shade == null) this.canvas.fillStyle = color.hex(this.theme.colors.text);
+    else this.canvas.fillStyle = color.hex(this.theme.colors.gray[`l${shade}`]);
+    this.canvas.textAlign = justify;
+    this.canvas.textBaseline = align;
     let removeScissor: Destructor | undefined;
     if (maxWidth != null)
       removeScissor = this.canvas.scissor(box.construct(position, maxWidth, 1000));

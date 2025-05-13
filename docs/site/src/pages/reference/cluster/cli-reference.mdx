@@ -15,7 +15,7 @@ import { Tabs } from "@/components/Tabs";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Start
 
@@ -36,8 +36,8 @@ synnax start -l localhost:9090 -im
 #### Joining a node to an existing cluster
 
 We can use the `p` flag to join a node to an existing cluster. If the node has no
-existing cluster data, it will attempt to join the cluster by repeatedly contacting
-each peer in the list until successful:
+existing cluster data, it will attempt to join the cluster by repeatedly contacting each
+peer in the list until successful:
 
 ```cmd
 synnax start -l localhost:9090 -p localhost:9091,localhost:9092
@@ -72,9 +72,8 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
     },
     {
       option: "--data/-d",
-      default: "/usr/local/synnax/data",
-      description:
-        "The file path to the storage device where Synnax will keep its data.",
+      default: "synnax-data",
+      description: "The file path to the folder where Synnax will keep its data.",
     },
     {
       option: "--verbose/-v",
@@ -96,11 +95,21 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
                 for production use.`,
     },
     {
+      option: "--help/-h",
+      default: "false",
+      description: "Prints the help message for the start command.",
+    },
+    {
       option: "--config/c",
       default: "~/.synnax.yaml",
       description: `Path to a JSON, YAML, or TOML configuration file that can
                 be used to set the node's configuration instead of using flags or environment variables.
                 See <a href="#configuration-files">Configuration Files</a> for more information.`,
+    },
+    {
+      option: "--auto-cert",
+      default: "false",
+      description: "Automatically generate self-signed certificates for the node.",
     },
     {
       option: "--certs-dir",
@@ -154,19 +163,47 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
       option: "--no-driver",
       default: "false",
       description:
-        "Disables the driver for the Synnax database. This is useful when you want to run Synnax as a standalone server without any device integration.",
+        "Disables the embedded device driver for the Synnax database. This is useful when you want to run Synnax as a standalone server without any device integration.",
     },
     {
       option: "--disable-integrations",
-      default: '""',
+      default: "[]",
       description:
-        "Comma separated list of device integrations to disable. This is useful when you don't want particular integrations.",
+        "List of device integrations to disable. This is useful when you don't want particular integrations. All integrations are enabled by default.",
     },
     {
       option: "--enable-integrations",
-      default: "ni,opc",
+      default: "[]",
       description:
-        "Comma separated list of device integrations to enable. This is useful when you only want particular integrations. All integrations are enabled by default.",
+        "List of device integrations to enable. This is useful when you only want particular integrations. All integrations are enabled by default.",
+    },
+    {
+      option: "--log-file-path",
+      default: "./synnax-logs/synnax.log",
+      description:
+        "The path to the file in which the Synnax core should store its logs",
+    },
+    {
+      option: "--log-file-max-size",
+      default: "50",
+      description: "The maximum size (in MB) before a log file gets rotated.",
+    },
+    {
+      option: "--log-file-max-backups",
+      default: "5",
+      description:
+        "The maximum number of log files of size --log-file-max-size that should be kept before they are deleted",
+    },
+    {
+      option: "--log-file-max-age",
+      default: "30",
+      description:
+        "The maximum age (in days) that log files should be kept before they are removed",
+    },
+    {
+      option: "--log-file-compress",
+      default: "true",
+      description: "Whether to compress log files on disk.",
     },
   ]}
 />
@@ -198,18 +235,26 @@ Command line flags will take precedence over environment variables.
     { option: "--license-key", env: "SYNNAX_LICENSE_KEY" },
     { option: "--debug", env: "SYNNAX_DEBUG" },
     { option: "--slow-consumer-timeout", env: "SYNNAX_SLOW_CONSUMER_TIMEOUT" },
+    { option: "--no-driver", env: "SYNNAX_NO_DRIVER" },
+    { option: "--disable-integrations", env: "SYNNAX_DISABLE_INTEGRATIONS" },
+    { option: "--enable-integrations", env: "SYNNAX_ENABLE_INTEGRATIONS" },
+    { option: "--log-file-path", env: "SYNNAX_LOG_FILE_PATH" },
+    { option: "--log-file-max-size", env: "SYNNAX_LOG_FILE_MAX_SIZE" },
+    { option: "--log-file-max-backups", env: "SYNNAX_LOG_FILE_MAX_BACKUPS" },
+    { option: "--log-file-max-age", env: "SYNNAX_LOG_FILE_MAX_AGE" },
+    { option: "--log-file-compress", env: "SYNNAX_LOG_FILE_COMPRESS" },
   ]}
 />
 
 ### Configuration Files
 
-Synnax will also read configuration files in JSON, TOML and YAML formats. The
-values set in these configuration files take the lowest precedence and will be
-overridden by any environment variables or command line flags.
+Synnax will also read configuration files in JSON, TOML and YAML formats. The values set
+in these configuration files take the lowest precedence and will be overridden by any
+environment variables or command line flags.
 
-By default, Synnax will look for a configuration file at `~/.synnax.yaml`. You
-can specify a different configuration file using the `--config` flag or the
-`SYNNAX_CONFIG` environment variable.
+By default, Synnax will look for a configuration file at `~/.synnax.yaml`. You can
+specify a different configuration file using the `--config` flag or the `SYNNAX_CONFIG`
+environment variable.
 
 Here are example configuration files in various formats:
 
@@ -239,7 +284,15 @@ Here are example configuration files in various formats:
     "password": "seldon",
     "license-key": "000000-00000000-0000000000",
     "debug": false,
-    "slow-consumer-timeout": "2.5s"
+    "slow-consumer-timeout": "2.5s",
+    "no-driver": false,
+    "disable-integrations": [],
+    "enable-integrations": [],
+    "log-file-path": "./synnax-logs/synnax.log",
+    "log-file-max-size": 50,
+    "log-file-max-backups": 5,
+    "log-file-max-age": 30,
+    "log-file-compress": true
 }
 ```
 </slot>
@@ -261,6 +314,14 @@ node-key: node.key
 username: synnax
 password: seldon
 license-key: 000000-00000000-0000000000
+no-driver: false
+disable-integrations: []
+enable-integrations: []
+log-file-path: ./synnax-logs/synnax.log
+log-file-max-size: 50
+log-file-max-backups: 5
+log-file-max-age: 30
+log-file-compress: true
 ```
 </slot>
 <slot slot="toml">
@@ -279,11 +340,19 @@ node-key = "node.key"
 username = "synnax"
 password = "seldon"
 license-key = "000000-00000000-0000000000"
+no-driver = false
+disable-integrations = []
+enable-integrations = []
+log-file-path = "./synnax-logs/synnax.log"
+log-file-max-size = 50
+log-file-max-backups = 5
+log-file-max-age = 30
+log-file-compress = true
 ```
 </slot>
 </Tabs>
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Version
 

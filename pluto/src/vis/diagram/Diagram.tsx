@@ -11,7 +11,7 @@ import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { box, location, xy } from "@synnaxlabs/x";
+import { box, color, location, xy } from "@synnaxlabs/x";
 import {
   addEdge as rfAddEdge,
   applyEdgeChanges as rfApplyEdgeChanges,
@@ -165,6 +165,7 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
 const FIT_VIEW_OPTIONS: FitViewOptions = {
   maxZoom: 1,
   minZoom: 0.5,
+  padding: 0.05,
 };
 
 const PRO_OPTIONS: ProOptions = {
@@ -242,28 +243,28 @@ const Core = ({
       ...memoProps,
     },
   });
+  const { fitView } = useReactFlow();
+  const debouncedFitView = useDebouncedCallback((args) => void fitView(args), 50, [
+    fitView,
+  ]);
+
+  const resizeRef = Canvas.useRegion(
+    useCallback(
+      (b) => {
+        if (fitViewOnResize) debouncedFitView(FIT_VIEW_OPTIONS);
+        setState((prev) => ({ ...prev, region: b }));
+      },
+      [setState, debouncedFitView, fitViewOnResize],
+    ),
+  );
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
-  const defaultEdgeColor = Theming.use().colors.gray.l9.hex;
+  const defaultEdgeColor = color.hex(Theming.use().colors.gray.l11);
 
   const triggers = useMemoCompare(
     () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
     Triggers.compareModeConfigs,
     [pTriggers],
-  );
-
-  const { fitView } = useReactFlow();
-  const debouncedFitView = useDebouncedCallback((args) => void fitView(args), 50, [
-    fitView,
-  ]);
-  const resizeRef = Canvas.useRegion(
-    useCallback(
-      (b) => {
-        if (fitViewOnResize) debouncedFitView({ maxZoom: 1 });
-        setState((prev) => ({ ...prev, region: b }));
-      },
-      [setState, debouncedFitView, fitViewOnResize],
-    ),
   );
 
   // For some reason, react flow repeatedly calls onViewportChange with the same
@@ -488,12 +489,7 @@ export const Background = (): ReactElement | null => {
 export interface ControlsProps extends Align.PackProps {}
 
 export const Controls = (props: ControlsProps): ReactElement => (
-  <Align.Pack
-    direction="y"
-    borderShade={4}
-    className={CSS.BE("diagram", "controls")}
-    {...props}
-  />
+  <Align.Pack borderShade={5} className={CSS.BE("diagram", "controls")} {...props} />
 );
 
 export interface ToggleEditControlProps
@@ -510,14 +506,9 @@ export const ToggleEditControl = ({
       value={editable}
       uncheckedVariant="outlined"
       checkedVariant="filled"
-      tooltipLocation={location.RIGHT_CENTER}
-      tooltip={
-        editable ? (
-          <Text.Text level="small">Disable edit mode</Text.Text>
-        ) : (
-          <Text.Text level="small">Enable edit mode</Text.Text>
-        )
-      }
+      tooltipLocation={location.BOTTOM_LEFT}
+      size="small"
+      tooltip={`${editable ? "Disable" : "Enable"} editing`}
       {...rest}
     >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}
@@ -545,8 +536,9 @@ export const FitViewControl = ({
       onChange={(v: boolean) => setFitViewOnResize(v)}
       rightClickToggle
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
-      tooltipLocation={location.RIGHT_CENTER}
+      tooltipLocation={location.BOTTOM_LEFT}
       variant="outlined"
+      size="small"
       {...rest}
     >
       <Icon.Expand />

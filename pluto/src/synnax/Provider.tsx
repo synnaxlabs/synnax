@@ -27,11 +27,20 @@ import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
 import { Status } from "@/status";
 import { synnax } from "@/synnax/aether";
 
-const Context = createContext<synnax.ContextValue>(synnax.ZERO_CONTEXT_VALUE);
+export interface ContextValue extends synnax.ContextValue {
+  state: connection.State;
+}
+
+const ZERO_CONTEXT_VALUE: ContextValue = {
+  ...synnax.ZERO_CONTEXT_VALUE,
+  state: Synnax.connectivity.DEFAULT,
+};
+
+const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
 
 const useContext = () => reactUse(Context);
 
-export const use = () => useContext().synnax;
+export const use = () => useContext().client;
 
 export const useConnectionState = () => useContext().state;
 
@@ -56,14 +65,13 @@ const createErrorDescription = (
   `Cluster version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
 
 export const Provider = ({ children, connParams }: ProviderProps): ReactElement => {
-  const [state, setState, ref] = useCombinedStateAndRef<synnax.ContextValue>(
-    synnax.ZERO_CONTEXT_VALUE,
-  );
+  const [state, setState, ref] =
+    useCombinedStateAndRef<ContextValue>(ZERO_CONTEXT_VALUE);
 
-  const [{ path }, , setAetherState] = Aether.use({
+  const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
     schema: synnax.Provider.stateZ,
-    initialState: { props: connParams ?? null, state: null },
+    state: { props: connParams ?? null, state: null },
   });
 
   const addStatus = Status.useAdder();
@@ -81,16 +89,16 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
   );
 
   useAsyncEffect(async () => {
-    if (state.synnax != null) state.synnax.close();
-    if (connParams == null) return setState(synnax.ZERO_CONTEXT_VALUE);
+    if (state.client != null) state.client.close();
+    if (connParams == null) return setState(ZERO_CONTEXT_VALUE);
 
     const c = new Synnax({
       ...connParams,
-      connectivityPollFrequency: TimeSpan.seconds(5),
+      connectivityPollFrequency: TimeSpan.seconds(2),
     });
 
     setState({
-      synnax: c,
+      client: c,
       state: {
         clusterKey: "",
         status: "connecting",
@@ -102,7 +110,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
 
     const connectivity = await c.connectivity.check();
 
-    setState({ synnax: c, state: connectivity });
+    setState({ client: c, state: connectivity });
     addStatus({
       variant: CONNECTION_STATE_VARIANT[connectivity.status],
       message: connectivity.message ?? connectivity.status.toUpperCase(),
@@ -134,12 +142,9 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
 
     c.connectivity.onChange(handleChange);
 
-    setAetherState({ props: connParams, state: connectivity });
-
     return () => {
       c.close();
-      setState(synnax.ZERO_CONTEXT_VALUE);
-      setAetherState({ props: null, state: null });
+      setState(ZERO_CONTEXT_VALUE);
     };
   }, [connParams, handleChange]);
 

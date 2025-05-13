@@ -18,10 +18,7 @@ client = sy.Synnax(
 )
 
 
-with client.open_streamer(["sy_task_set", "sy_task_state"]) as s:
-    print("STREAMING")
+with client.open_streamer(["sy_device_state"]) as s:
     for frame in s:
-        if "sy_task_set" in frame:
-            print(client.hardware.tasks.retrieve(frame["sy_task_set"][0]).to_payload())
-        elif "sy_task_state" in frame:
-            print(frame["sy_task_state"][0])
+        for v in frame["sy_device_state"]:
+            print(v)

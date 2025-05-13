@@ -14,15 +14,14 @@ import {
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { type Destructor, observe, unique } from "@synnaxlabs/x";
+import { color, type Destructor, observe, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { color } from "@/color/core";
+import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
-
 export const stateProviderStateZ = z.object({});
 
 interface InternalState {
@@ -39,7 +38,7 @@ const CONTEXT_KEY = "control-state-provider";
  * color to each control subject for user identification.
  */
 export const sugaredStateZ = control.stateZ.extend({
-  subjectColor: color.Color.z,
+  subjectColor: color.colorZ,
 });
 
 /**
@@ -82,20 +81,23 @@ export class StateProvider extends aether.Composite<
     return ctx.get(CONTEXT_KEY);
   }
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.instrumentation = alamos.useInstrumentation(ctx, "control-state");
     const theme = theming.use(ctx);
     i.palette = theme.colors.visualization.palettes.default;
-    i.defaultColor = theme.colors.gray.l6;
+    i.defaultColor = theme.colors.gray.l8;
     const nextClient = synnax.use(ctx);
     if (i.client != null && nextClient === i.client) return;
     i.client = nextClient;
     ctx.set(CONTEXT_KEY, this);
-    await this.maybeCloseTracker();
-    if (i.client == null) return;
-    this.internal.instrumentation.L.debug("starting state tracker");
-    await this.openTracker(i.client);
+    const runAsync = status.useErrorHandler(ctx);
+    runAsync(async () => {
+      await this.maybeCloseTracker();
+      if (i.client == null) return;
+      this.internal.instrumentation.L.debug("starting state tracker");
+      await this.openTracker(i.client);
+    });
   }
 
   private async maybeCloseTracker(): Promise<void> {
@@ -106,8 +108,11 @@ export class StateProvider extends aether.Composite<
     this.tracker = undefined;
   }
 
-  async afterDelete(): Promise<void> {
-    await this.maybeCloseTracker();
+  afterDelete(ctx: aether.Context): void {
+    const runAsync = status.useErrorHandler(ctx);
+    runAsync(async () => {
+      await this.maybeCloseTracker();
+    });
   }
 
   onChange(cb: (transfers: control.Transfer[]) => void): Destructor {

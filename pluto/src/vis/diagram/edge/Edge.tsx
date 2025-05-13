@@ -9,7 +9,7 @@
 
 import "@/vis/diagram/edge/Edge.css";
 
-import { box, direction, location, xy } from "@synnaxlabs/x";
+import { box, color, direction, location, xy } from "@synnaxlabs/x";
 import {
   type ConnectionLineComponentProps,
   type EdgeProps as RFEdgeProps,
@@ -24,7 +24,6 @@ import {
   useRef,
 } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useCombinedStateAndRef, useDebouncedCallback } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
@@ -42,7 +41,7 @@ export interface EdgeProps extends RFEdgeProps {
   segments: connector.Segment[];
   onSegmentsChange: (segments: connector.Segment[]) => void;
   variant?: PathType;
-  color?: Color.Crude;
+  color?: color.Crude;
 }
 
 export const CustomConnectionLine = ({
@@ -84,10 +83,10 @@ export const CustomConnectionLine = ({
       points={points}
       style={{
         ...connectionLineStyle,
-        stroke: Color.cssString(
+        stroke: color.cssString(
           connectionStatus === "invalid"
             ? "var(--pluto-error-z)"
-            : "var(--pluto-gray-l9)",
+            : "var(--pluto-gray-l11)",
         ),
         strokeWidth: 2,
         fill: "none",
@@ -106,7 +105,7 @@ export const Edge = ({
   style,
   segments: propsSegments = [],
   onSegmentsChange,
-  color = "var(--pluto-gray-l9)",
+  color = "var(--pluto-gray-l11)",
   selected = false,
   variant = "pipe",
   ...rest

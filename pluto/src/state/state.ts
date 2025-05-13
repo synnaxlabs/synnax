@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Primitive, type UnknownRecord } from "@synnaxlabs/x";
 import { useState } from "react";
 
-export type State = Primitive | UnknownRecord;
+export type State = unknown;
 export type SetFunc<S, PS = S> = (prev: PS) => S;
 
 export const isSetter = <S extends State>(arg: SetArg<S>): arg is SetFunc<S> =>

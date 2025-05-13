@@ -65,7 +65,7 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
 };
 
 export const createCreateLayout = (
-  initial: CreateLayoutArgs,
+  initial: CreateLayoutArgs = {},
 ): Layout.BaseState<CreateLayoutArgs> => ({
   ...CREATE_LAYOUT,
   args: initial,
@@ -149,7 +149,7 @@ const CreateLayoutForm = ({
         style={{ padding: "1rem 3rem" }}
         grow
       >
-        <Form.Form {...methods}>
+        <Form.Form<typeof formSchema> {...methods}>
           <Form.Field<string> path="name">
             {(p) => (
               <Input.Text
@@ -161,7 +161,7 @@ const CreateLayoutForm = ({
               />
             )}
           </Form.Field>
-          <Align.Space direction="x" size="large">
+          <Align.Space x size="large">
             <Form.Field<number> path="timeRange.start" label="From">
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
@@ -170,7 +170,7 @@ const CreateLayoutForm = ({
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
           </Align.Space>
-          <Align.Space direction="x">
+          <Align.Space x>
             <Form.Field<string> path="parent" visible padHelpText={false}>
               {({ onChange, ...p }) => (
                 <Ranger.SelectSingle
@@ -181,7 +181,7 @@ const CreateLayoutForm = ({
                   entryRenderKey={(e) => (
                     <Text.WithIcon
                       level="p"
-                      shade={9}
+                      shade={11}
                       startIcon={parentRangeIcon}
                       size="small"
                     >
@@ -193,7 +193,7 @@ const CreateLayoutForm = ({
                   placeholder={
                     <Text.WithIcon
                       level="p"
-                      shade={7}
+                      shade={11}
                       startIcon={parentRangeIcon}
                       size="small"
                     >

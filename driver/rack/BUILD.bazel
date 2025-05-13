@@ -1,26 +1,38 @@
+config_setting(
+    name = "nilinuxrt",
+    values = {
+        "define": "platform=nilinuxrt",
+    },
+)
+
 cc_library(
     name = "rack",
+    hdrs = ["rack.h"],
     srcs = [
-        "factories.cpp",
+        "args.cpp",
+        "env.cpp",
         "file.cpp",
         "persist.cpp",
         "rack.cpp",
         "remote.cpp",
+        "factories.cpp",
     ],
-    hdrs = ["rack.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/heartbeat",
         "//driver/labjack",
         "//driver/modbus",
         "//driver/ni",
         "//driver/opc",
+        "//driver/rack/state",
         "//driver/sequence",
         "//driver/task",
+        "//driver/task/common",
         "//x/cpp/kv",
         "//x/cpp/xargs",
+        "//x/cpp/xenv",
         "//x/cpp/xlog",
         "//x/cpp/xos",
+        "//x/cpp/xpath",
     ],
 )
 
@@ -32,6 +44,6 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/rack",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

@@ -15,17 +15,17 @@ export const components = mdxOverrides;
 The Python client provides interfaces for creating, retrieving, and deleting channels.
 We'll cover the details of each of these operations in this guide.
 
-If you're unfamiliar with what channels are and how they work, check out the [channels
-concepts guide](/reference/concepts/channels).
+If you're unfamiliar with what channels are and how they work, check out the
+[channels concepts guide](/reference/concepts/channels).
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Creating Channels
 
 We can create channels using the `channels.create` method on the client. The method can
 be called in three different ways: a set of arguments for creating a channel, a single
-channel that has already been created locally, or a list of channels that have already been
-created locally.
+channel that has already been created locally, or a list of channels that have already
+been created locally.
 
 ### Creating a Data Channel and its Index
 
@@ -101,9 +101,9 @@ data_channels = client.channels.create([
 
 ### Only Create a Channel if it Doesn't Exist
 
-There are situations where we want to ensure that a channel with a particular
-name exists, but don't want it duplicated if it has already been created. To
-accomplish this, we can use the `retrieve_if_name_exists` flag:
+There are situations where we want to ensure that a channel with a particular name
+exists, but don't want it duplicated if it has already been created. To accomplish this,
+we can use the `retrieve_if_name_exists` flag:
 
 ```python
 # Create a channel if it doesn't exist
@@ -125,7 +125,7 @@ data_channels = client.channels.create(
 )
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Retrieving Channels
 
@@ -155,8 +155,8 @@ section.
 
 ### Retrieving Multiple Channels
 
-To retrieve multiple channels, pass a list of names or a list of keys to the
-`retrieve` method:
+To retrieve multiple channels, pass a list of names or a list of keys to the `retrieve`
+method:
 
 ```python
 # By name
@@ -209,7 +209,7 @@ It's important to note that if we're expecting multiple channels to match our pa
 we need to pass in a list to the `retrieve` method, otherwise the client will raise a
 `MultipleFoundError`.
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Renaming Channels
 
@@ -228,7 +228,7 @@ client.channels.rename(data_channel.key, "new_name")
 client.channels.rename([channel_one.key, channel_two.key], ["name_one", "name_two"])
 ```
 
-<Divider.Divider direction="x" />
+<Divider.Divider x />
 
 ## Deleting Channels
 

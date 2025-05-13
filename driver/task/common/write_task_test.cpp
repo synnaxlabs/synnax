@@ -36,8 +36,8 @@ public:
             state_channels,
             cmd_channels,
             data_saving
-        ), pipeline::mock::Sink(writes, errors) {
-    }
+        ),
+        pipeline::mock::Sink(writes, errors) {}
 
     xerrors::Error write(const synnax::Frame &frame) override {
         auto err = pipeline::mock::Sink::write(frame);
@@ -105,7 +105,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.key, cmd_key);
     EXPECT_EQ(start_state.task, task.key);
-    EXPECT_EQ(start_state.variant, "success");
+    EXPECT_EQ(start_state.variant, status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.details["message"], "Task started successfully");
 
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
@@ -115,7 +115,8 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_EVENTUALLY_EQ(writes->size(), 1);
     auto check_state_writes = [&] -> uint8_t {
         const auto fr = std::move(
-            mock_writer_factory->writes->at(mock_writer_factory->writes->size() - 1));
+            mock_writer_factory->writes->at(mock_writer_factory->writes->size() - 1)
+        );
         if (fr.size() < 2) return 0;
         if (fr.length() < 1) return 0;
         if (!fr.contains(3)) return 0;
@@ -129,7 +130,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, stop_cmd_key);
     EXPECT_EQ(stop_state.task, task.key);
-    EXPECT_EQ(stop_state.variant, "success");
+    EXPECT_EQ(stop_state.variant, status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.details["message"], "Task stopped successfully");
 
     auto write_fr = std::move(writes->at(0));
@@ -140,7 +141,9 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_EQ(write_fr.contains(3), false);
     ASSERT_GE(write_fr.at<uint8_t>(1, 0), 1);
 
-    auto state_fr = std::move(mock_writer_factory->writes->at(mock_writer_factory->writes->size() - 1));
+    auto state_fr = std::move(
+        mock_writer_factory->writes->at(mock_writer_factory->writes->size() - 1)
+    );
     ASSERT_EQ(state_fr.size(), 2);
     ASSERT_EQ(state_fr.length(), 1);
     ASSERT_EQ(state_fr.contains(1), false);

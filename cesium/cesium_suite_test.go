@@ -11,14 +11,16 @@ package cesium_test
 
 import (
 	"context"
+	"runtime"
+	"strconv"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
-	"strconv"
-	"testing"
 )
 
 var (
@@ -27,7 +29,7 @@ var (
 )
 
 func openDBOnFS(fs xfs.FS) *cesium.DB {
-	return MustSucceed(cesium.Open(
+	return MustSucceed(cesium.Open(ctx,
 		"",
 		cesium.WithFS(fs),
 		cesium.WithInstrumentation(PanicLogger()),
@@ -39,6 +41,7 @@ func channelKeyToPath(key cesium.ChannelKey) string {
 }
 
 func TestCesium(t *testing.T) {
+	runtime.GOMAXPROCS(4)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")
 }

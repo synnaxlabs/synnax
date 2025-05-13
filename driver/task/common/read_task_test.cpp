@@ -18,28 +18,27 @@
 
 #include "x/cpp/xtest/xtest.h"
 
-class MockSource final : public pipeline::mock::Source, public common::Source {
+class MockSource final : public common::Source {
     size_t start_count = 0;
     const std::vector<xerrors::Error> start_errs;
     size_t stop_count = 0;
     const std::vector<xerrors::Error> stop_errs;
+    pipeline::mock::Source wrapped;
 
     synnax::WriterConfig writer_config() const override {
         return synnax::WriterConfig();
     }
 
-    std::vector<synnax::Channel> channels() const override {
-        return {};
-    }
+    std::vector<synnax::Channel> channels() const override { return {}; }
+
 public:
     explicit MockSource(
         const std::shared_ptr<std::vector<synnax::Frame>> &reads,
         const std::shared_ptr<std::vector<xerrors::Error>> &read_errors = nullptr,
         const std::vector<xerrors::Error> &start_err = {},
         const std::vector<xerrors::Error> &stop_err = {}
-    ): pipeline::mock::Source(reads, read_errors), start_errs(start_err),
-       stop_errs(stop_err) {
-    }
+    ):
+        start_errs(start_err), stop_errs(stop_err), wrapped(reads, read_errors) {}
 
     xerrors::Error start() override {
         if (start_count >= start_errs.size()) return xerrors::NIL;
@@ -51,8 +50,10 @@ public:
         return stop_errs[stop_count++];
     }
 
-    std::pair<Frame, xerrors::Error> read(breaker::Breaker &breaker) override {
-        return pipeline::mock::Source::read(breaker);
+    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &data) override {
+        common::ReadResult res;
+        res.error = this->wrapped.read(breaker, data);
+        return res;
     }
 };
 
@@ -78,7 +79,7 @@ TEST(TestCommonReadTask, testBasicOperation) {
     auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.key, start_cmd_key);
     EXPECT_EQ(start_state.task, t.key);
-    EXPECT_EQ(start_state.variant, "success");
+    EXPECT_EQ(start_state.variant, status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.details["message"], "Task started successfully");
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
     read_task.stop("stop_cmd", true);
@@ -86,7 +87,7 @@ TEST(TestCommonReadTask, testBasicOperation) {
     auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, "stop_cmd");
     EXPECT_EQ(stop_state.task, t.key);
-    EXPECT_EQ(stop_state.variant, "success");
+    EXPECT_EQ(stop_state.variant, status::VARIANT_SUCCESS);
 }
 
 TEST(TestCommonReadTask, testErrorOnStart) {
@@ -115,7 +116,7 @@ TEST(TestCommonReadTask, testErrorOnStart) {
     auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.key, start_cmd_key);
     EXPECT_EQ(start_state.task, t.key);
-    EXPECT_EQ(start_state.variant, "error");
+    EXPECT_EQ(start_state.variant, status::VARIANT_ERROR);
     EXPECT_EQ(start_state.details["message"], "start error");
 }
 
@@ -146,7 +147,7 @@ TEST(TestCommonReadTask, testErrorOnStop) {
     auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.key, start_cmd_key);
     EXPECT_EQ(start_state.task, t.key);
-    EXPECT_EQ(start_state.variant, "success");
+    EXPECT_EQ(start_state.variant, status::VARIANT_SUCCESS);
 
     const std::string stop_cmd_key = "stop_cmd";
     ASSERT_TRUE(read_task.stop(stop_cmd_key, true));
@@ -154,7 +155,7 @@ TEST(TestCommonReadTask, testErrorOnStop) {
     auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, stop_cmd_key);
     EXPECT_EQ(stop_state.task, t.key);
-    EXPECT_EQ(stop_state.variant, "error");
+    EXPECT_EQ(stop_state.variant, status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.details["message"], "stop error");
 }
 
@@ -185,7 +186,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     auto start_state1 = ctx->states[0];
     EXPECT_EQ(start_state1.key, start_cmd_key1);
     EXPECT_EQ(start_state1.task, t.key);
-    EXPECT_EQ(start_state1.variant, "success");
+    EXPECT_EQ(start_state1.variant, status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
 
@@ -195,7 +196,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     auto stop_state1 = ctx->states[1];
     EXPECT_EQ(stop_state1.key, stop_cmd_key1);
     EXPECT_EQ(stop_state1.task, t.key);
-    EXPECT_EQ(stop_state1.variant, "success");
+    EXPECT_EQ(stop_state1.variant, status::VARIANT_SUCCESS);
 
     // Second start-stop cycle
     const std::string start_cmd_key2 = "start_cmd2";
@@ -204,7 +205,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     auto start_state2 = ctx->states[2];
     EXPECT_EQ(start_state2.key, start_cmd_key2);
     EXPECT_EQ(start_state2.task, t.key);
-    EXPECT_EQ(start_state2.variant, "success");
+    EXPECT_EQ(start_state2.variant, status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 2);
 
@@ -214,7 +215,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     auto stop_state2 = ctx->states[3];
     EXPECT_EQ(stop_state2.key, stop_cmd_key2);
     EXPECT_EQ(stop_state2.task, t.key);
-    EXPECT_EQ(stop_state2.variant, "success");
+    EXPECT_EQ(stop_state2.variant, status::VARIANT_SUCCESS);
 }
 
 TEST(TestCommonReadTask, testReadError) {
@@ -229,10 +230,7 @@ TEST(TestCommonReadTask, testReadError) {
     auto mock_source = std::make_unique<MockSource>(
         reads,
         std::make_shared<std::vector<xerrors::Error>>(
-            std::vector{
-                xerrors::NIL,
-                xerrors::Error("base", "read error")
-            }
+            std::vector{xerrors::NIL, xerrors::Error("base", "read error")}
         )
     );
 
@@ -250,7 +248,7 @@ TEST(TestCommonReadTask, testReadError) {
     auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.key, start_cmd_key);
     EXPECT_EQ(start_state.task, t.key);
-    EXPECT_EQ(start_state.variant, "success");
+    EXPECT_EQ(start_state.variant, status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.details["message"], "Task started successfully");
 
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
@@ -258,7 +256,7 @@ TEST(TestCommonReadTask, testReadError) {
     auto run_err = ctx->states[1];
     ASSERT_EQ(run_err.key, "");
     ASSERT_EQ(run_err.task, t.key);
-    ASSERT_EQ(run_err.variant, "error");
+    ASSERT_EQ(run_err.variant, status::VARIANT_ERROR);
     ASSERT_EQ(run_err.details["message"], "read error");
 
     ASSERT_FALSE(read_task.stop("stop_cmd", true));
@@ -266,7 +264,7 @@ TEST(TestCommonReadTask, testReadError) {
     auto stop_state = ctx->states[2];
     EXPECT_EQ(stop_state.key, "stop_cmd");
     EXPECT_EQ(stop_state.task, t.key);
-    EXPECT_EQ(stop_state.variant, "error");
+    EXPECT_EQ(stop_state.variant, status::VARIANT_ERROR);
     EXPECT_EQ(stop_state.details["message"], "read error");
 }
 
@@ -301,7 +299,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     auto start_state1 = ctx->states[0];
     EXPECT_EQ(start_state1.key, start_cmd_key1);
     EXPECT_EQ(start_state1.task, t.key);
-    EXPECT_EQ(start_state1.variant, "error");
+    EXPECT_EQ(start_state1.variant, status::VARIANT_ERROR);
     EXPECT_EQ(start_state1.details["message"], "first start error");
 
     // Second start attempt - should succeed
@@ -311,7 +309,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     auto start_state2 = ctx->states[1];
     EXPECT_EQ(start_state2.key, start_cmd_key2);
     EXPECT_EQ(start_state2.task, t.key);
-    EXPECT_EQ(start_state2.variant, "success");
+    EXPECT_EQ(start_state2.variant, status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state2.details["message"], "Task started successfully");
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
@@ -323,7 +321,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     auto stop_state = ctx->states[2];
     EXPECT_EQ(stop_state.key, stop_cmd_key);
     EXPECT_EQ(stop_state.task, t.key);
-    EXPECT_EQ(stop_state.variant, "success");
+    EXPECT_EQ(stop_state.variant, status::VARIANT_SUCCESS);
 }
 
 TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
@@ -361,7 +359,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.key, start_cmd_key);
     EXPECT_EQ(start_state.task, t.key);
-    EXPECT_EQ(start_state.variant, "success");
+    EXPECT_EQ(start_state.variant, status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.details["message"], "Task started successfully");
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 1);
@@ -373,7 +371,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     auto stop_state1 = ctx->states[1];
     EXPECT_EQ(stop_state1.key, stop_cmd_key1);
     EXPECT_EQ(stop_state1.task, t.key);
-    EXPECT_EQ(stop_state1.variant, "error");
+    EXPECT_EQ(stop_state1.variant, status::VARIANT_ERROR);
     EXPECT_EQ(stop_state1.details["message"], "first stop error");
 
     // Start the task again
@@ -383,7 +381,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     auto start_state2 = ctx->states[2];
     EXPECT_EQ(start_state2.key, start_cmd_key2);
     EXPECT_EQ(start_state2.task, t.key);
-    EXPECT_EQ(start_state2.variant, "success");
+    EXPECT_EQ(start_state2.variant, status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_EQ(mock_writer_factory->writer_opens, 2);
 
@@ -394,7 +392,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     auto stop_state2 = ctx->states[3];
     EXPECT_EQ(stop_state2.key, stop_cmd_key2);
     EXPECT_EQ(stop_state2.task, t.key);
-    EXPECT_EQ(stop_state2.variant, "success");
+    EXPECT_EQ(stop_state2.variant, status::VARIANT_SUCCESS);
 }
 
 TEST(TestCommonReadTask, testTemporaryErrorWarning) {
@@ -408,38 +406,34 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
         reads->emplace_back(synnax::Frame(i, s.deep_copy()));
     auto mock_source = std::make_unique<MockSource>(
         reads,
-        std::make_shared<std::vector<xerrors::Error>>(std::vector{
-            xerrors::NIL,
-            driver::TEMPORARY_HARDWARE_ERROR,
-            xerrors::NIL
-        }),
+        std::make_shared<std::vector<xerrors::Error>>(
+            std::vector{xerrors::NIL, driver::TEMPORARY_HARDWARE_ERROR, xerrors::NIL}
+        ),
         std::vector{xerrors::NIL}
     );
     auto breaker_config = breaker::default_config("cat");
     breaker_config.base_interval = 10 * telem::MILLISECOND;
-    common::ReadTask read_task(
-        t,
-        ctx,
-        breaker_config,
-        std::move(mock_source),
-        mock_writer_factory
-    );
+    common::ReadTask
+        read_task(t, ctx, breaker_config, std::move(mock_source), mock_writer_factory);
     read_task.start("start_cmd");
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 1);
     auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.key, "start_cmd");
-    EXPECT_EQ(start_state.variant, "success");
+    EXPECT_EQ(start_state.variant, status::VARIANT_SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     auto warning_state = ctx->states[1];
     EXPECT_EQ(warning_state.key, "");
-    EXPECT_EQ(warning_state.variant, "warning");
-    EXPECT_EQ(warning_state.details["message"], driver::TEMPORARY_HARDWARE_ERROR.message());
+    EXPECT_EQ(warning_state.variant, status::VARIANT_WARNING);
+    EXPECT_EQ(
+        warning_state.details["message"],
+        driver::TEMPORARY_HARDWARE_ERROR.message()
+    );
 
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 3);
     auto recovered_state = ctx->states[2];
     EXPECT_EQ(recovered_state.key, "");
-    EXPECT_EQ(recovered_state.variant, "success");
+    EXPECT_EQ(recovered_state.variant, status::VARIANT_SUCCESS);
     EXPECT_EQ(recovered_state.details["message"], "Task started successfully");
 
     read_task.stop("stop_cmd", true);
@@ -447,20 +441,16 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 4);
     auto stop_state = ctx->states[3];
     EXPECT_EQ(stop_state.key, "stop_cmd");
-    EXPECT_EQ(stop_state.variant, "success");
+    EXPECT_EQ(stop_state.variant, status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.details["message"], "Task stopped successfully");
 }
 
 /// @brief Tests for BaseReadTaskConfig parsing
 TEST(BaseReadTaskConfigTest, testValidConfig) {
-    json j{
-        {"data_saving", true},
-        {"sample_rate", 100.0},
-        {"stream_rate", 50.0}
-    };
+    const json j{{"data_saving", true}, {"sample_rate", 100.0}, {"stream_rate", 50.0}};
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    const auto cfg = common::BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
     EXPECT_TRUE(cfg.data_saving);
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
@@ -468,100 +458,136 @@ TEST(BaseReadTaskConfigTest, testValidConfig) {
 }
 
 TEST(BaseReadTaskConfigTest, testDefaultDataSaving) {
-    json j{
-        {"sample_rate", 100.0},
-        {"stream_rate", 50.0}
-    };
+    const json j{{"sample_rate", 100.0}, {"stream_rate", 50.0}};
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    const auto cfg = common::BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
-    EXPECT_FALSE(cfg.data_saving); // Default should be false
+    EXPECT_FALSE(cfg.data_saving);
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
     EXPECT_EQ(cfg.stream_rate, telem::Rate(50.0));
 }
 
 TEST(BaseReadTaskConfigTest, testEqualRates) {
-    json j{
-        {"sample_rate", 100.0},
-        {"stream_rate", 100.0}
-    };
+    const json j{{"sample_rate", 100.0}, {"stream_rate", 100.0}};
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    const auto cfg = common::BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
     EXPECT_EQ(cfg.stream_rate, telem::Rate(100.0));
 }
 
 TEST(BaseReadTaskConfigTest, testMissingSampleRate) {
-    json j{
-        {"stream_rate", 50.0}
-    };
+    const json j{{"stream_rate", 50.0}};
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
 
 TEST(BaseReadTaskConfigTest, testMissingStreamRate) {
-    json j{
-        {"sample_rate", 100.0}
-    };
+    const json j{{"sample_rate", 100.0}};
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
 
 TEST(BaseReadTaskConfigTest, testNegativeSampleRate) {
-    json j{
-        {"sample_rate", -100.0},
-        {"stream_rate", 50.0}
-    };
+    const json j{{"sample_rate", -100.0}, {"stream_rate", 50.0}};
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
 
 TEST(BaseReadTaskConfigTest, testNegativeStreamRate) {
-    json j{
-        {"sample_rate", 100.0},
-        {"stream_rate", -50.0}
-    };
+    const json j{{"sample_rate", 100.0}, {"stream_rate", -50.0}};
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
 
 TEST(BaseReadTaskConfigTest, testSampleRateLessThanStreamRate) {
-    json j{
-        {"sample_rate", 25.0},
-        {"stream_rate", 50.0}
-    };
+    const json j{{"sample_rate", 25.0}, {"stream_rate", 50.0}};
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p);
+    auto _ = common::BaseReadTaskConfig(p);
     ASSERT_TRUE(p.error());
     EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
 }
 
 TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
-    json j{
+    const json j{
         {"sample_rate", 100.0},
         {"data_saving", true}
         // No stream_rate provided
     };
 
     auto p = xjson::Parser(j);
-    auto cfg = common::BaseReadTaskConfig(p, false);
+    const auto cfg = common::BaseReadTaskConfig(p, common::TimingConfig(), false);
     ASSERT_FALSE(p.error()) << p.error();
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
     EXPECT_TRUE(cfg.data_saving);
+}
+
+TEST(TestCommonReadTask, testTransferBufSingleChannel) {
+    const std::vector buf = {1.0, 2.0, 3.0};
+    synnax::Frame fr;
+    fr.reserve(1);
+    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
+
+    common::transfer_buf(buf, fr, 1, 3);
+
+    EXPECT_EQ(fr.series->at(0).size(), 3);
+    EXPECT_EQ(fr.series->at(0).at<double>(0), 1.0);
+    EXPECT_EQ(fr.series->at(0).at<double>(1), 2.0);
+    EXPECT_EQ(fr.series->at(0).at<double>(2), 3.0);
+}
+
+TEST(TestCommonReadTask, testTransferBufMultipleChannels) {
+    const std::vector buf =
+        {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}; // 2 channels, 3 samples each
+    synnax::Frame fr;
+    fr.reserve(2);
+    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
+    fr.emplace(2, telem::Series(telem::FLOAT64_T, 3));
+
+    common::transfer_buf(buf, fr, 2, 3);
+
+    EXPECT_EQ(fr.series->at(0).size(), 3);
+    EXPECT_EQ(fr.series->at(0).at<double>(0), 1.0);
+    EXPECT_EQ(fr.series->at(0).at<double>(1), 2.0);
+    EXPECT_EQ(fr.series->at(0).at<double>(2), 3.0);
+
+    EXPECT_EQ(fr.series->at(1).size(), 3);
+    EXPECT_EQ(fr.series->at(1).at<double>(0), 4.0);
+    EXPECT_EQ(fr.series->at(1).at<double>(1), 5.0);
+    EXPECT_EQ(fr.series->at(1).at<double>(2), 6.0);
+}
+
+TEST(TestCommonReadTask, testTransferBufIntegerType) {
+    const std::vector buf = {1, 2, 3, 4}; // 2 channels, 2 samples each
+    synnax::Frame fr;
+    fr.reserve(2);
+    fr.emplace(1, telem::Series(telem::INT32_T, 2));
+    fr.emplace(2, telem::Series(telem::INT32_T, 2));
+
+    common::transfer_buf(buf, fr, 2, 2);
+
+    // Check first channel
+    EXPECT_EQ(fr.series->at(0).size(), 2);
+    EXPECT_EQ(fr.series->at(0).at<int32_t>(0), 1);
+    EXPECT_EQ(fr.series->at(0).at<int32_t>(1), 2);
+
+    // Check second channel
+    EXPECT_EQ(fr.series->at(1).size(), 2);
+    EXPECT_EQ(fr.series->at(1).at<int32_t>(0), 3);
+    EXPECT_EQ(fr.series->at(1).at<int32_t>(1), 4);
 }

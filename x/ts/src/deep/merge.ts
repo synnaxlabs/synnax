@@ -40,17 +40,28 @@ export const override = <T>(base: T, ...overrides: Array<Partial<T>>): T => {
 export const overrideValidItems = <A, B>(
   base: A,
   override: B,
-  schema: z.ZodType<A, any, any>,
+  schema: z.ZodType<A>,
 ): A => {
   const mergeValidFields = (
     baseObj: any,
     overrideObj: any,
     currentSchema: any,
   ): any => {
+    if (currentSchema.def?.type === "union")
+      return currentSchema.def.options.reduce(
+        (acc: any, option: any) => mergeValidFields(acc, overrideObj, option),
+        baseObj,
+      );
+    if (currentSchema.def?.type === "intersection") {
+      const out = mergeValidFields(baseObj, overrideObj, currentSchema.def.left);
+      const right = mergeValidFields(out, overrideObj, currentSchema.def.right);
+      return right;
+    }
+
     // Iterate over each property in the override object
     for (const key in overrideObj) {
       const overrideValue = overrideObj[key];
-      const shape = getSchemaShape(currentSchema);
+      const shape = currentSchema?.shape;
       if (shape?.[key]) {
         const result = shape[key].safeParse(overrideValue);
         // Check if parsing succeeded
@@ -70,10 +81,4 @@ export const overrideValidItems = <A, B>(
   };
 
   return mergeValidFields({ ...base }, override, schema);
-};
-
-const getSchemaShape = (schema: z.ZodType<any, any, any>) => {
-  if (schema._def?.typeName === "ZodEffects") return getSchemaShape(schema._def.schema);
-  /// @ts-expect-error - shape is not defined on zod effects
-  return schema?.shape;
 };

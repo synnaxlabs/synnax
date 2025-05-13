@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 from dataclasses import dataclass
-from enum import Enum
+from typing import Any
 
 import freighter
 
@@ -117,12 +116,16 @@ class RouteError(Exception):
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "route"
     path: str
 
-    def __init__(self, path: str, *args):
+    def __init__(self, path: str, *args: Any) -> None:
         super().__init__(*args)
         self.path = path
 
 
 def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
+
+    if encoded.type is None:
+        return None if encoded.data is None else UnexpectedError(encoded.data)
+
     if not encoded.type.startswith(_FREIGHTER_EXCEPTION_PREFIX):
         return None
 
@@ -136,6 +139,8 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
 
     if encoded.type.startswith(ValidationError.TYPE):
         if encoded.type.startswith(FieldError.TYPE):
+            if encoded.data is None:
+                return UnexpectedError(encoded.data)
             values = encoded.data.split(":")
             if len(values) != 2:
                 return UnexpectedError(encoded.data)
@@ -150,6 +155,8 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
         return QueryError(encoded.data)
 
     if encoded.type.startswith(RouteError.TYPE):
+        if encoded.data is None:
+            return UnexpectedError(encoded.data)
         return RouteError(encoded.data)
 
     if encoded.type.startswith(ControlError.TYPE):
@@ -161,7 +168,7 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
 
 
 def _encode(err: Exception) -> freighter.ExceptionPayload | None:
-    raise NotImplemented
+    raise NotImplementedError
 
 
 freighter.register_exception(_encode, _decode)

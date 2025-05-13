@@ -7,11 +7,13 @@ build:
     - "pluto/examples/node_modules"
     - "console/node_modules"
     - "node_modules"
+    - "external"
     - "bazel-bin"
     - "bazel-out"
     - "bazel-testlogs"
     - "bazel-synnax"
     - "freighter/cpp"
+    - "vendor"
 breaking:
   use:
     - FILE

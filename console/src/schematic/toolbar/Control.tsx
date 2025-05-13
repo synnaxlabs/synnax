@@ -10,12 +10,12 @@ export const Control = ({ layoutKey }: { layoutKey: string }) => {
   const authority = useSelectAuthority(layoutKey);
 
   return (
-    <Align.Space direction="x" size="small" style={{ padding: "1.5rem 2rem" }}>
+    <Align.Space x size="small" style={{ padding: "1.5rem 2rem" }}>
       <Input.Item label="Control Authority">
         <Input.Numeric
           value={authority}
           onChange={(v) => dispatch(setAuthority({ key: layoutKey, authority: v }))}
-          bounds={control.Authority.BOUNDS}
+          bounds={control.AUTHORITY_BOUNDS}
         />
       </Input.Item>
     </Align.Space>

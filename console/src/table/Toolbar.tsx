@@ -80,7 +80,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   return (
     <Align.Space empty style={{ width: "100%", height: "100%" }}>
       <Core.Header>
-        <Align.Space direction="x" align="center">
+        <Align.Space x align="center">
           <Breadcrumb.Breadcrumb level="p">{breadCrumbs}</Breadcrumb.Breadcrumb>
           {isSingleCellSelected && (
             <SelectCellTypeField
@@ -90,7 +90,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
             />
           )}
         </Align.Space>
-        <Align.Space direction="x" style={{ width: 66 }} empty>
+        <Align.Space x style={{ width: 66 }} empty>
           <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
@@ -105,6 +105,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           <CellForm
             tableKey={layoutKey}
             cell={firstCell}
+            // trigger re-render if you select a different cell
+            key={firstCell.key}
             onVariantChange={(variant) => handleVariantChange(variant, firstCell.key)}
           />
         )}
@@ -198,7 +200,7 @@ const SelectCellTypeField = ({
 };
 
 const EmptyContent = () => (
-  <Align.Center direction="x" size="small" style={{ width: "100%", height: "100%" }}>
+  <Align.Center x size="small" style={{ width: "100%", height: "100%" }}>
     <Status.Text variant="disabled" hideIcon>
       No cell selected. Select a cell to view its properties.
     </Status.Text>

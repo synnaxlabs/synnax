@@ -30,8 +30,8 @@
 }
 
 .pluto-input__drag-btn > svg > * {
-    fill: var(--pluto-gray-l7);
-    stroke: var(--pluto-gray-l7);
+    fill: var(--pluto-gray-l9);
+    stroke: var(--pluto-gray-l9);
 }
 
 .pluto-input__drag-tn.pluto--x > svg {

@@ -79,9 +79,6 @@ class _InternalScopedChannel(ChannelPayload):
         cls = overload_comparison_operators(cls, "__array__")
         return super().__new__(cls)
 
-    class Config:
-        arbitrary_types_allowed = True
-
     def __init__(
         self,
         rng: Range,
@@ -91,7 +88,7 @@ class _InternalScopedChannel(ChannelPayload):
         payload: ChannelPayload,
         aliaser: Aliaser | None = None,
     ):
-        super().__init__(**payload.dict())
+        super().__init__(**payload.model_dump())
         self.__range = rng
         self.__frame_client = frame_client
         self.__aliaser = aliaser
@@ -271,9 +268,6 @@ class Range(RangePayload):
     _tasks: TaskClient | None = PrivateAttr(None)
     _ontology: OntologyClient | None = PrivateAttr(None)
 
-    class Config:
-        arbitrary_types_allowed = True
-
     def __init__(
         self,
         name: str,
@@ -317,16 +311,27 @@ class Range(RangePayload):
         self._tasks = _tasks
         self._ontology = _ontology
 
+    def _get_scoped_channel(
+        self, channels: list[ChannelPayload], query: str
+    ) -> ScopedChannel:
+        if len(channels) == 0:
+            raise QueryError(f"Channel matching {query} not found")
+        return ScopedChannel(query, self.__splice_cached(channels))
+
     def __getattr__(self, query: str) -> ScopedChannel:
+        try:
+            return super().__getattr__(query)
+        except AttributeError:
+            pass
         channels = self._channel_retriever.retrieve(query)
         aliases = self._aliaser.resolve([query])
         channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
-        if len(channels) == 0:
-            raise QueryError(f"Channel matching {query} not found")
-
-        return ScopedChannel(query, self.__splice_cached(channels))
+        return self._get_scoped_channel(channels, query)
 
     def __getitem__(self, name: str | ChannelKey) -> ScopedChannel:
+        if isinstance(name, ChannelKey):
+            channels = self._channel_retriever.retrieve(name)
+            return self._get_scoped_channel(channels, name.__str__())
         return self.__getattr__(name)
 
     def __splice_cached(
@@ -423,8 +428,9 @@ class Range(RangePayload):
         self,
         to: ChannelParams | ChannelPayload | list[ChannelPayload] | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
-    ):
-        self.__frame_client.write(self.time_range.start, to, series)
+    ) -> None:
+        start = self.time_range.start
+        self.__frame_client.write(start, to, series)
 
     def create_sub_range(
         self,
@@ -542,7 +548,7 @@ class RangeClient:
 
     def create(
         self,
-        ranges: Range | list[Range] = None,
+        ranges: Range | list[Range] | None = None,
         *,
         key: RangeKey = UUID(int=0),
         name: str = "",
@@ -626,7 +632,7 @@ class RangeClient:
     def __sugar(self, ranges: list[RangePayload]):
         return [
             Range(
-                **r.dict(),
+                **r.model_dump(),
                 _frame_client=self._frame_client,
                 _channel_retriever=self._channels,
                 _kv=KV(r.key, self._unary_client),

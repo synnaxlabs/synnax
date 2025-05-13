@@ -14,8 +14,8 @@ import {
   type UnknownAction,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
-import { type deep, type direction, id, type location } from "@synnaxlabs/x";
+import { type Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
+import { color, type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
 import * as latest from "@/layout/types";
@@ -68,6 +68,7 @@ export interface MoveMosaicTabPayload {
   windowKey?: string;
   key?: number;
   loc: location.Location;
+  index?: number;
 }
 
 interface ResizeMosaicTabPayload {
@@ -112,6 +113,11 @@ interface SetUnsavedChangesPayload {
   unsavedChanges: boolean;
 }
 
+interface SetLoadingPayload {
+  key: string;
+  loading: boolean;
+}
+
 interface SetHaulingPayload extends Haul.DraggingState {}
 
 export interface SetNavDrawerPayload extends NavDrawerEntryState {
@@ -129,6 +135,22 @@ interface SetNavDrawerVisiblePayload {
   key?: string;
   location?: NavDrawerLocation;
   value?: boolean;
+}
+
+interface StartNavHoverPayload {
+  windowKey: string;
+  location: NavDrawerLocation;
+  key: string;
+}
+
+interface ToggleNavHoverPayload {
+  windowKey: string;
+  key: string;
+}
+
+interface StopNavHoverPayload {
+  windowKey: string;
+  location: NavDrawerLocation;
 }
 
 interface SetArgsPayload<T = unknown> {
@@ -253,7 +275,9 @@ export const { actions, reducer } = createSlice({
     },
     moveMosaicTab: (
       state,
-      { payload: { tabKey, windowKey, key, loc } }: PayloadAction<MoveMosaicTabPayload>,
+      {
+        payload: { tabKey, windowKey, key, loc, index },
+      }: PayloadAction<MoveMosaicTabPayload>,
     ) => {
       const layout = select(state, tabKey);
       if (layout == null) return;
@@ -262,7 +286,7 @@ export const { actions, reducer } = createSlice({
         // This is a redundant operation, so we leave everything as is.
         if (key == null) return;
         const mosaic = state.mosaics[prevWindowKey];
-        [mosaic.root] = Mosaic.moveTab(mosaic.root, layout.key, loc, key);
+        [mosaic.root] = Mosaic.moveTab(mosaic.root, layout.key, loc, key, index);
         state.mosaics[prevWindowKey] = mosaic;
         return;
       }
@@ -373,11 +397,15 @@ export const { actions, reducer } = createSlice({
         navState = { drawers: {} };
         state.nav[windowKey] = navState;
       }
-
       if (key != null)
         Object.values(navState.drawers).forEach((drawer) => {
-          if (drawer.menuItems.includes(key))
-            drawer.activeItem = (value ?? drawer.activeItem !== key) ? key : null;
+          if (drawer.menuItems.includes(key)) {
+            const activeItem = (value ?? drawer.activeItem !== key) ? key : null;
+            if (drawer.hover) {
+              drawer.activeItem = key;
+              drawer.hover = false;
+            } else drawer.activeItem = activeItem;
+          }
         });
       else if (location != null) {
         let drawer = navState.drawers[location];
@@ -391,6 +419,58 @@ export const { actions, reducer } = createSlice({
         else if (drawer.activeItem == null) drawer.activeItem = drawer.menuItems[0];
         else drawer.activeItem = null;
       } else throw new Error("setNavDrawerVisible requires either a key or location");
+    },
+    startNavHover: (
+      state,
+      { payload: { windowKey, location, key } }: PayloadAction<StartNavHoverPayload>,
+    ) => {
+      const navState = state.nav[windowKey];
+      if (navState == null) return;
+      const drawerState = navState.drawers[location];
+      if (
+        drawerState == null ||
+        (drawerState.activeItem != null && drawerState.hover !== true)
+      )
+        return;
+      drawerState.hover = true;
+      drawerState.activeItem = key;
+    },
+    toggleNavHover: (
+      state,
+      { payload: { windowKey, key } }: PayloadAction<ToggleNavHoverPayload>,
+    ) => {
+      const navState = state.nav[windowKey];
+      if (navState == null) return;
+      const drawer = Object.values(navState.drawers).find((drawer) =>
+        drawer.menuItems.includes(key),
+      );
+      if (drawer == null) return;
+
+      if (drawer.activeItem != null && drawer.hover === false) {
+        if (key === drawer.activeItem) drawer.activeItem = null;
+        else drawer.activeItem = key;
+        return;
+      }
+
+      if (drawer.hover === true && key !== drawer.activeItem) {
+        drawer.activeItem = key;
+        return;
+      }
+
+      drawer.hover = !(drawer.hover ?? false);
+      if (!drawer.hover && key == drawer.activeItem) drawer.activeItem = null;
+      else drawer.activeItem = key;
+    },
+    stopNavHover: (
+      state,
+      { payload: { windowKey, location } }: PayloadAction<StopNavHoverPayload>,
+    ) => {
+      const navState = state.nav[windowKey];
+      if (navState == null) return;
+      const drawerState = navState.drawers[location];
+      if (drawerState == null || !drawerState.hover) return;
+      drawerState.hover = false;
+      drawerState.activeItem = null;
     },
     maybeCreateGetStartedTab: (state) => {
       const checkedGetStarted = state.alreadyCheckedGetStarted;
@@ -466,7 +546,7 @@ export const { actions, reducer } = createSlice({
       mosaic.focused = key;
     },
     setColorContext: (state, { payload }: PayloadAction<SetColorContextPayload>) => {
-      state.colorContext = Color.transformColorsToHex(payload.state);
+      state.colorContext = color.transformColorsToHex(payload.state);
     },
     setUnsavedChanges: (
       state,
@@ -479,6 +559,17 @@ export const { actions, reducer } = createSlice({
       mosaic.root = Mosaic.updateTab(mosaic.root, layout.key, () => ({
         ...tabFromLayout(layout),
         unsavedChanges: payload.unsavedChanges,
+      }));
+      state.mosaics[layout.windowKey] = mosaic;
+    },
+    setLoading: (state, { payload }: PayloadAction<SetLoadingPayload>) => {
+      const layout = select(state, payload.key);
+      if (layout == null) return;
+      layout.loading = payload.loading;
+      const mosaic = state.mosaics[layout.windowKey];
+      mosaic.root = Mosaic.updateTab(mosaic.root, layout.key, () => ({
+        ...tabFromLayout(layout),
+        loading: payload.loading,
       }));
       state.mosaics[layout.windowKey] = mosaic;
     },
@@ -498,6 +589,7 @@ export const {
   splitMosaicNode,
   rename,
   setNavDrawer,
+  setLoading,
   resizeNavDrawer,
   setNavDrawerVisible,
   maybeCreateGetStartedTab,
@@ -505,6 +597,9 @@ export const {
   setWorkspace,
   setColorContext,
   clearWorkspace,
+  startNavHover,
+  toggleNavHover,
+  stopNavHover,
   setUnsavedChanges,
 } = actions;
 
@@ -524,7 +619,7 @@ export const createMosaicWindow = (window?: WindowProps): BaseState => ({
   window: {
     ...window,
     size: { width: 800, height: 600 },
-    navTop: true,
+    navTop: false,
     visible: true,
     showTitle: false,
   },

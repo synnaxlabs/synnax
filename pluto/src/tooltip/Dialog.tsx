@@ -289,8 +289,14 @@ export const Dialog = ({
         )}
       {cloneElement(children_, {
         id,
-        onMouseEnter: handleMouseEnter,
-        onMouseLeave: handleMouseLeave,
+        onMouseEnter: (e) => {
+          handleMouseEnter(e);
+          children_.props.onMouseEnter?.(e);
+        },
+        onMouseLeave: (e) => {
+          handleMouseLeave(e);
+          children_.props.onMouseLeave?.(e);
+        },
         onMouseDown: useCallback(
           (e: React.MouseEvent) => {
             handleMouseLeave(e);

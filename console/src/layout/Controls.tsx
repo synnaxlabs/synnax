@@ -26,10 +26,9 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
   const window = useSelectWindow();
   const dispatch = useDispatch();
   const remove = useRemover(window?.key ?? "");
-  if (window == null) return null;
-  const maximizedDisabled = window.resizable === false;
+  const maximizedDisabled = window?.resizable === false;
   const disabled: OS.ControlsAction[] = [];
-  if (window.focus === false && os === "macOS")
+  if (window?.focus === false && os === "macOS")
     disabled.push("close", "minimize", "maximize");
   else if (maximizedDisabled) disabled.push("maximize");
   const handleClose = useCallback(() => {
@@ -44,10 +43,10 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
   const handleMinimize = useCallback(() => {
     dispatch(setWindowMinimized({ value: true }));
   }, [dispatch]);
-  return window.fullscreen === true ? null : (
+  return window?.fullscreen === true ? null : (
     <OS.Controls
       disabled={disabled}
-      focused={window.focus}
+      focused={window?.focus}
       onClose={handleClose}
       onFullscreen={handleFullscreen}
       onMaximize={handleMaximize}

@@ -10,7 +10,7 @@
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
-import { id, primitiveIsZero, unique } from "@synnaxlabs/x";
+import { id, primitiveIsZero, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -19,6 +19,7 @@ import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
 import { createAIChannel } from "@/hardware/ni/task/createChannel";
 import { SelectAIChannelTypeField } from "@/hardware/ni/task/SelectAIChannelTypeField";
 import {
+  AI_CHANNEL_TYPE_ICONS,
   AI_CHANNEL_TYPE_NAMES,
   type AIChannel,
   type AIChannelType,
@@ -49,9 +50,10 @@ export const ANALOG_READ_SELECTABLE: Selector.Selectable = {
 const Properties = () => (
   <>
     <Common.Task.Fields.SampleRate />
-    <Align.Space direction="x" grow>
+    <Align.Space x grow>
       <Common.Task.Fields.StreamRate />
       <Common.Task.Fields.DataSaving />
+      <Common.Task.Fields.AutoStart />
     </Align.Space>
   </>
 );
@@ -69,10 +71,11 @@ const ChannelListItem = ({
   ...rest
 }: ChannelListItemProps) => {
   const {
-    entry: { channel, enabled, type, port },
+    entry: { channel, enabled, port, type },
   } = rest;
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
+  const Icon = AI_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
@@ -83,7 +86,10 @@ const ChannelListItem = ({
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
-      name={AI_CHANNEL_TYPE_NAMES[type]}
+      icon={{
+        name: AI_CHANNEL_TYPE_NAMES[type],
+        icon: <Icon style={{ color: "var(--pluto-gray-l9)" }} />,
+      }}
       portMaxChars={2}
     />
   );
@@ -124,6 +130,7 @@ const Form: FC<
       initialChannels={task.config.channels}
       onTare={handleTare}
       allowTare={allowTare}
+      contextMenuItems={Common.Task.readChannelContextMenuItem}
     />
   );
 };
@@ -148,13 +155,19 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
-  // TODO: check that multiple devices are not being configured at once.
   let rackKey: rack.Key | undefined;
-  for (const devKey of devices) {
-    const dev = await client.hardware.devices.retrieve<Device.Properties>(devKey);
+  const allDevices = await client.hardware.devices.retrieve<Device.Properties>(devices);
+  const racks = new Set(allDevices.map((d) => d.rack));
+  if (racks.size > 1) {
+    const first = allDevices[0];
+    const mismatched = allDevices.filter((d) => d.rack !== first.rack);
+    throw new Error(
+      `All devices must be on the same driver: ${first.name} and ${strings.naturalLanguageJoin(mismatched.map((d) => d.name))} are on different racks`,
+    );
+  }
+  for (const dev of allDevices) {
+    Common.Device.checkConfigured(dev);
     dev.properties = Device.enrich(dev.model, dev.properties);
-    if (rackKey != null && dev.rack !== rackKey)
-      throw new Error("All devices must be on the same rack");
     rackKey = dev.rack;
     let modified = false;
     let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);

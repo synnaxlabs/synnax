@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
@@ -64,6 +65,41 @@ describe("Rack", () => {
       await expect(
         async () => await r.retrieveTaskByName("nonexistent"),
       ).rejects.toThrow(NotFoundError);
+    });
+  });
+  describe("state", () => {
+    it("should include state when includeState is true", async () => {
+      const r = await client.hardware.racks.create({ name: "test" });
+      await expect
+        .poll(async () => {
+          const retrieved = await client.hardware.racks.retrieve(r.key, {
+            includeState: true,
+          });
+          return (
+            retrieved.state !== undefined &&
+            retrieved.state.lastReceived instanceof TimeStamp &&
+            retrieved.state.key === r.key
+          );
+        })
+        .toBeTruthy();
+    });
+    it("should include state for multiple racks", async () => {
+      const r1 = await client.hardware.racks.create({ name: "test1" });
+      const r2 = await client.hardware.racks.create({ name: "test2" });
+
+      await expect
+        .poll(async () => {
+          const retrieved = await client.hardware.racks.retrieve([r1.key, r2.key], {
+            includeState: true,
+          });
+          return retrieved.every(
+            (rack) =>
+              rack.state !== undefined &&
+              rack.state.lastReceived instanceof TimeStamp &&
+              rack.state.key === rack.key,
+          );
+        })
+        .toBeTruthy();
     });
   });
 });

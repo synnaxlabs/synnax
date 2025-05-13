@@ -60,7 +60,7 @@ func provisionCandidates(
 	if nodeState == nil {
 		nodeState = func(i int) node.State { return node.StateHealthy }
 	}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		cfg, addr := baseConfigWithAddr(net, logger)
 		Expect(pledge.Arbitrate(cfg, pledge.Config{
 			Candidates: candidates(i),
@@ -94,7 +94,7 @@ var _ = Describe("PledgeServer", func() {
 						return req, errors.New("pledge failed")
 					}
 				)
-				for i := 0; i < numTransports; i++ {
+				for range numTransports {
 					t := net.UnaryServer("")
 					t.BindHandler(handler)
 					peers = append(peers, t.Address)
@@ -258,7 +258,7 @@ var _ = Describe("PledgeServer", func() {
 				defer cancel()
 				var wg sync.WaitGroup
 				ids := make([]node.Key, numPledges)
-				for i := 0; i < numPledges; i++ {
+				for i := range numPledges {
 					wg.Add(1)
 					go func(i int) {
 						defer GinkgoRecover()

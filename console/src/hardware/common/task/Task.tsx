@@ -9,7 +9,7 @@
 
 import { type device, type rack, task } from "@synnaxlabs/client";
 import { Align, Eraser, Status, Synnax, Text, useSyncedRef } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord, type UnknownStringRecord } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
 import { type FC } from "react";
 import { useStore } from "react-redux";
@@ -44,8 +44,8 @@ export type TaskProps<
   task: task.Payload<Config, Details, Type>;
 };
 
-export interface ConfigSchema<Config extends UnknownRecord = UnknownRecord>
-  extends z.ZodType<Config, z.ZodTypeDef, unknown> {}
+export interface ConfigSchema<Config extends UnknownStringRecord = UnknownStringRecord>
+  extends z.ZodType<Config> {}
 
 export interface GetInitialPayloadArgs {
   deviceKey?: device.Key;
@@ -101,7 +101,12 @@ export const wrap = <
           taskKeyRef.current,
           { includeState: true },
         );
-        tsk.config = configSchema.parse(tsk.config);
+        try {
+          tsk.config = configSchema.parse(tsk.config);
+        } catch (e) {
+          console.error(`Failed to parse config for ${tsk.name}`, tsk.config, e);
+          throw e;
+        }
         return {
           configured: true,
           task: tsk,
@@ -117,10 +122,10 @@ export const wrap = <
       </Status.Text.Centered>
     ) : isError ? (
       <Align.Space align="center" grow justify="center">
-        <Text.Text color={Status.variantColors.error} level="h2">
+        <Text.Text color={Status.VARIANT_COLORS.error} level="h2">
           Failed to load data for task with key {taskKey}
         </Text.Text>
-        <Text.Text color={Status.variantColors.error} level="p">
+        <Text.Text color={Status.VARIANT_COLORS.error} level="p">
           {error.message}
         </Text.Text>
       </Align.Space>

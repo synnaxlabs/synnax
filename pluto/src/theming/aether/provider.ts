@@ -10,6 +10,7 @@
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { status } from "@/status/aether";
 import { type Theme, themeZ } from "@/theming/core/theme";
 
 const CONTEXT_KEY = "pluto-theming-context";
@@ -29,20 +30,27 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   static readonly z = providerStateZ;
   schema = Provider.z;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const v = ctx.getOptional<Theme>(CONTEXT_KEY);
     if (v != null && this.state.theme.key === this.prevState.theme.key) return;
     ctx.set(CONTEXT_KEY, this.state.theme);
-    await this.loadFonts();
+    const runAsync = status.useErrorHandler(ctx);
+    runAsync(async () => {
+      await this.loadFonts();
+    });
   }
 
   private async loadFonts(): Promise<void> {
     await Promise.all(
       this.state.fontURLs.map(async ({ name, url }) => {
         const face = new FontFace(name, `url(${url})`);
-        await face.load();
-        // @ts-expect-error - font loading
-        self.fonts.add(face);
+        try {
+          await face.load();
+          // @ts-expect-error - font loading
+          self.fonts.add(face);
+        } catch (e) {
+          console.error(e);
+        }
       }),
     );
   }

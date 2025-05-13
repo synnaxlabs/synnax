@@ -10,13 +10,13 @@
 import "@/color/Picker.css";
 
 import { Icon } from "@synnaxlabs/media";
+import { color } from "@synnaxlabs/x";
 import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
-import { color } from "@/color/core";
 import { useFrequent, useFrequentUpdater } from "@/color/Provider";
 import { CSS } from "@/css";
 import { useDebouncedCallback } from "@/hooks";
@@ -51,7 +51,7 @@ export const Picker = ({
   const pickerHandleChange = useCallback(
     (res: ColorResult): void => {
       if (res.hex === "transparent") onChange(color.ZERO);
-      const c = new color.Color(res.hex, res.rgb.a);
+      const c = color.construct(res.hex, res.rgb.a);
       baseHandleChange(c);
     },
     [baseHandleChange, updateFreqDebounced],
@@ -59,15 +59,16 @@ export const Picker = ({
 
   return (
     <Align.Space
-      direction="y"
+      y
       align="start"
       className={CSS.B("color-picker-container")}
+      background={1}
     >
       {position != null ||
         (onDelete != null && (
-          <Align.Space direction="x" justify="spaceBetween">
+          <Align.Space x justify="spaceBetween">
             {position != null && (
-              <Text.Text level="small" shade={7}>
+              <Text.Text level="small" shade={11}>
                 {position} %
               </Text.Text>
             )}
@@ -80,7 +81,7 @@ export const Picker = ({
         ))}
       <SketchPicker
         className={CSS.B("color-picker")}
-        color={new color.Color(value).hex}
+        color={color.hex(value)}
         onChange={pickerHandleChange}
         presetColors={[]}
         {...rest}
@@ -97,7 +98,7 @@ interface FrequentProps extends Omit<ComponentPropsWithoutRef<"div">, "onChange"
 const Frequent = ({ onChange }: FrequentProps) => {
   const frequent = useFrequent();
   return (
-    <Align.Space direction="x" wrap size={0.5}>
+    <Align.Space x wrap size="tiny">
       {frequent.map((c, i) => (
         <BaseSwatch key={i} value={c} size="tiny" onClick={() => onChange?.(c)} />
       ))}

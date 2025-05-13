@@ -9,7 +9,15 @@
 
 import "@/vis/lineplot/LinePlot.css";
 
-import { box, deep, type Destructor, direction, location, xy } from "@synnaxlabs/x";
+import {
+  box,
+  type color,
+  deep,
+  type Destructor,
+  direction,
+  location,
+  xy,
+} from "@synnaxlabs/x";
 import {
   createContext,
   type CSSProperties,
@@ -27,7 +35,6 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { useEffectCompare } from "@/hooks";
 import { useMemoDeepEqualProps } from "@/memo";
@@ -87,8 +94,9 @@ export const useGridEntry = (meta: grid.Region, component: string): CSSPropertie
 
 export interface LineSpec {
   key: string;
-  color: Color.Crude;
+  color: color.Crude;
   label: string;
+  visible: boolean;
 }
 
 type LineState = LineSpec[];
@@ -134,6 +142,18 @@ export const LinePlot = ({
     },
   });
 
+  // We use a single resize handler for both the container and plotting region because
+  // the container is guaranteed to only resize if the plotting region does. This allows
+  // us to save a window observer.
+  const handleResize = useCallback(
+    (container: box.Box) => {
+      if (visible) setState((prev) => ({ ...prev, container }));
+    },
+    [setState, visible],
+  );
+
+  const ref = Canvas.useRegion(handleResize, { debounce });
+
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
   const viewportHandlers = useRef<Map<Viewport.UseHandler, null>>(new Map());
@@ -160,19 +180,13 @@ export const LinePlot = ({
     [setState],
   );
 
-  // We use a single resize handler for both the container and plotting region because
-  // the container is guaranteed to only resize if the plotting region does. This allows
-  // us to save a window observer.
-  const handleResize = useCallback(
-    (container: box.Box) => setState((prev) => ({ ...prev, container })),
-    [setState],
-  );
-
-  const ref = Canvas.useRegion(handleResize, { debounce });
-
   const setGridEntry = useCallback(
-    (meta: grid.Region) =>
-      setState((prev) => ({ ...prev, grid: { ...prev.grid, [meta.key]: meta } })),
+    (meta: grid.Region) => {
+      setState((prev) => ({
+        ...prev,
+        grid: { ...prev.grid, [meta.key]: meta },
+      }));
+    },
     [setState],
   );
 
@@ -189,7 +203,7 @@ export const LinePlot = ({
     (meta: LineSpec) => {
       setLines((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]);
     },
-    [setLines, setViewport],
+    [setLines],
   );
 
   const removeLine = useCallback(

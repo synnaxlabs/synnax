@@ -10,23 +10,27 @@
 #include "driver/cmd/cmd.h"
 
 void print_usage() {
-    std::cout << "Usage: synnax-driver <command> [options]\n"
-            << "Commands:\n"
-            << "  start                     Start the Synnax driver service\n"
-            << "    --standalone/-s         Run in standalone mode (not as a service)\n"
-            << "    --debug                 Enable debug logging\n"
-            << "    --no-color              Disable color output in logs\n"
-            << "    --disable-sig-stop      Prevent SIGINT and SIGTERM from stopping the driver\n"
-            << "    --disable-stdin-stop    Prevent typing 'STOP' into stdin from stopping the driver\n"
-            << "  status                    Display the status of the Synnax driver service\n"
-            << "  stop                      Stop the Synnax driver service\n"
-            << "  restart                   Restart the Synnax driver service\n"
-            << "  login                     Log in to Synnax\n"
-            << "  install                   Install the Synnax driver as a system service\n"
-            << "  uninstall                 Uninstall the Synnax driver service\n"
-            << "  logs                      View the driver logs\n"
-            << "  version                   Display the driver version\n"
-            << "  clear                     Clear the persisted state\n";
+    std::cout
+        << "Usage: synnax-driver <command> [options]\n"
+        << "Commands:\n"
+        << "  start                     Start the Synnax driver service\n"
+        << "    --standalone/-s         Run in standalone mode (not as a service)\n"
+        << "    --debug                 Enable debug logging\n"
+        << "    --no-color              Disable color output in logs\n"
+        << "    --disable-sig-stop      Prevent SIGINT and SIGTERM from stopping the "
+           "driver\n"
+        << "    --disable-stdin-stop    Prevent typing 'STOP' into stdin from stopping "
+           "the driver\n"
+        << "  status                    Display the status of the Synnax driver "
+           "service\n"
+        << "  stop                      Stop the Synnax driver service\n"
+        << "  restart                   Restart the Synnax driver service\n"
+        << "  login                     Log in to Synnax\n"
+        << "  install                   Install the Synnax driver as a system service\n"
+        << "  uninstall                 Uninstall the Synnax driver service\n"
+        << "  logs                      View the driver logs\n"
+        << "  version                   Display the driver version\n"
+        << "  clear                     Clear the persisted state\n";
 }
 
 int cmd::exec(const int argc, char *argv[]) {
@@ -58,5 +62,3 @@ int cmd::exec(const int argc, char *argv[]) {
     print_usage();
     return 1;
 }
-
-

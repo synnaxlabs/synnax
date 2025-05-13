@@ -14,19 +14,44 @@
 #include "driver/cmd/cmd.h"
 
 int cmd::sub::start(xargs::Parser &args) {
-    bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
-    bool sig_stop_enabled = !args.flag("--disable-sig-stop");
+    LOG(INFO) << xlog::BLUE() << "[driver] starting synnax driver " << cmd::version()
+              << xlog::RESET();
+
+    const bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
+    VLOG(1) << "[driver] stdin stop " << (stdin_stop_enabled ? "enabled" : "disabled");
+
+    const bool sig_stop_enabled = !args.flag("--disable-sig-stop");
+    VLOG(1) << "[driver] sig stop " << (sig_stop_enabled ? "enabled" : "disabled");
+
     if (args.error()) {
         LOG(ERROR) << "[driver] invalid arguments: " << args.error();
         return 1;
     }
-    LOG(INFO) << xlog::BLUE() << "[driver] starting synnax driver " << cmd::version() << xlog::RESET();
+
     rack::Rack r;
-    r.start(args);
+
+    // Register an early shutdown handler to stop the driver when the process encounters
+    // an error.
+    volatile bool early_shutdown = false;
+    const std::function on_shutdown = [&early_shutdown] {
+        xshutdown::signal_shutdown();
+        early_shutdown = true;
+    };
+
+    r.start(args, on_shutdown);
+
+    // Register a signal handler to stop the driver when the process receives a signal.
     xshutdown::listen(sig_stop_enabled, stdin_stop_enabled);
-    LOG(INFO) << xlog::BLUE() << "[driver] received shutdown signal. Gracefully stopping driver. This can take up to 5 seconds. Please be patient" << xlog::RESET();
+    if (!early_shutdown)
+        LOG(INFO) << xlog::BLUE()
+                  << "[driver] received shutdown signal. Gracefully stopping driver. "
+                     "This can take up to 5 seconds. Please be patient"
+                  << xlog::RESET();
+    else
+        LOG(WARNING) << "[driver] unexpected early shutdown";
     if (const auto err = r.stop())
         LOG(ERROR) << "[driver] stopped with error: " << err;
-    else LOG(INFO) << xlog::BLUE() << "[driver] stopped" << xlog::RESET();
+    else
+        LOG(INFO) << xlog::BLUE() << "[driver] stopped" << xlog::RESET();
     return 0;
 }

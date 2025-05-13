@@ -136,7 +136,7 @@ class Client:
         send_required(
             self._client,
             _MOVE_CHILDREN_ENDPOINT,
-            MoveChildrenReq.parse_obj(
+            MoveChildrenReq.model_validate(
                 {"from": ID(from_), "to": ID(to), "children": [ID(i) for i in children]}
             ),
             Empty,

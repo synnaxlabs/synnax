@@ -34,13 +34,11 @@ export const Select = ({
   const handleDeviceChange = useCallback(
     (key: device.Key) => {
       if (client == null) return;
-      client.hardware.devices
-        .retrieve(key)
-        .then(({ configured }) => {
-          if (configured) return;
-          placeLayout({ ...configureLayout, key });
-        })
-        .catch((e) => handleError(e, "Failed to retrieve device"));
+      handleError(async () => {
+        const { configured } = await client.hardware.devices.retrieve(key);
+        if (configured) return;
+        placeLayout({ ...configureLayout, key });
+      }, "Failed to retrieve device");
     },
     [client, placeLayout, configureLayout, handleError],
   );
@@ -60,7 +58,7 @@ export const Select = ({
           emptyContent={
             typeof emptyContent === "string" ? (
               <Align.Center>
-                <Text.Text level="p" shade={6}>
+                <Text.Text level="p" shade={10}>
                   {emptyContent}
                 </Text.Text>
               </Align.Center>

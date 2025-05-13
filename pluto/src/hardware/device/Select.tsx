@@ -7,52 +7,79 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type device, type rack } from "@synnaxlabs/client";
 import { type AsyncTermSearcher } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { Breadcrumb } from "@/breadcrumb";
+import { useAsyncEffect } from "@/hooks";
 import { type List } from "@/list";
 import { Select } from "@/select";
 import { Synnax } from "@/synnax";
 
-const deviceColumns: Array<List.ColumnSpec<device.Key, device.Device>> = [
+interface Entry extends device.Device {
+  rackName?: string;
+}
+
+const COLUMNS: Array<List.ColumnSpec<device.Key, Entry>> = [
   { key: "name", name: "Name" },
   {
     key: "location",
     name: "Location",
-    render: ({ entry }) => (
+    render: ({ entry: { location, rackName } }) => (
       <Breadcrumb.Breadcrumb
         level="small"
-        shade={7}
-        weight={500}
+        shade={9}
+        weight={450}
         style={{ marginTop: "0.25rem" }}
+        size="tiny"
       >
-        {entry.location}
+        {rackName ? `${rackName}.${location}` : location}
       </Breadcrumb.Breadcrumb>
     ),
   },
 ];
 
 export interface SelectSingleProps
-  extends Omit<Select.SingleProps<device.Key, device.Device>, "columns"> {
+  extends Omit<Select.SingleProps<device.Key, Entry>, "columns"> {
   searchOptions?: device.RetrieveOptions;
 }
 
 export const SelectSingle = ({
   searchOptions,
+  filter: originalFilter,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
-  let searcher: AsyncTermSearcher<string, device.Key, device.Device> | undefined =
+  let searcher: AsyncTermSearcher<string, device.Key, Entry> | undefined =
     client?.hardware.devices;
   if (searchOptions != null && client != null)
     searcher = client.hardware.devices.newSearcherWithOptions(searchOptions);
+  const [rackMap, setRackMap] = useState(new Map<rack.Key, string>());
+  const filter = useCallback(
+    (items: device.Device[]) => {
+      const newItems = originalFilter?.(items) ?? items;
+      return newItems.map((item) => ({
+        ...item,
+        rackName: rackMap.get(item.rack),
+      }));
+    },
+    [originalFilter, rackMap],
+  );
+  useAsyncEffect(async () => {
+    if (client == null) {
+      setRackMap(new Map());
+      return;
+    }
+    const racks = await client.hardware.racks.retrieve([]);
+    setRackMap(new Map(racks.map(({ key, name }) => [key, name])));
+  }, [client?.key]);
   return (
-    <Select.Single<device.Key, device.Device>
-      columns={deviceColumns}
+    <Select.Single<device.Key, Entry>
+      columns={COLUMNS}
       searcher={searcher}
       entryRenderKey="name"
+      filter={filter}
       {...rest}
     />
   );

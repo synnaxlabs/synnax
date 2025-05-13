@@ -1,6 +1,7 @@
 cc_library(
     name = "framer",
     srcs = [
+        "codec.cpp",
         "frame.cpp",
         "streamer.cpp",
         "writer.cpp",
@@ -8,37 +9,31 @@ cc_library(
     hdrs = [
         "framer.h",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/channel",
         "//freighter/cpp:freighter",
         "//freighter/cpp/fgrpc",
         "//synnax/pkg/api/grpc/v1:api_grpc",
+        "//x/cpp/binary",
         "//x/cpp/telem",
         "//x/go/telem:telem_grpc",
-        "@com_github_grpc_grpc//:grpc++",
+        "@grpc//:grpc++",
     ],
 )
 
 cc_test(
     name = "framer_test",
     srcs = [
+        "codec_test.cpp",
         "frame_test.cpp",
         "streamer_test.cpp",
         "writer_test.cpp",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/xtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )

@@ -12,39 +12,17 @@
 
 int cmd::sub::login(xargs::Parser &args) {
     synnax::Config config;
-    bool valid_input = false;
-
-    while (!valid_input) {
-        config.host = cli::prompt("host (default: localhost): ");
-        if (config.host.empty()) config.host = "localhost";
-        std::string port_str = cli::prompt("port (default: 9090): ");
-        if (port_str.empty()) config.port = 9090;
-        else {
-            try {
-                config.port = static_cast<uint16_t>(std::stoi(port_str));
-            } catch (const std::exception &e) {
-                LOG(WARNING) <<
-                        "Invalid port number. Please enter a valid number between 0 and 65535.";
-                continue;
-            }
-        }
-
-        config.username = cli::prompt("username: ");
-        if (config.username.empty()) {
-            LOG(WARNING) << "Username must be provided.";
-            continue;
-        }
-
-        config.password = cli::prompt("password: ", true);
-        if (config.password.empty()) {
-            LOG(WARNING) << "Password must be provided.";
-            continue;
-        }
-
-        valid_input = true;
+    config.host = cli::prompt("Host", "localhost");
+    config.port = cli::prompt<uint16_t>("Port", 9090);
+    config.username = cli::prompt("Username");
+    config.password = cli::prompt("Password", std::nullopt, true);
+    if (cli::confirm("Secure", false)) {
+        config.ca_cert_file = cli::prompt("Path to CA certificate file");
+        config.client_cert_file = cli::prompt("Path to client certificate file");
+        config.client_key_file = cli::prompt("Path to client key file");
     }
 
-    LOG(INFO) << "connecting to Synnax at " << config.host << ":" << config.port;
+    LOG(INFO) << "connecting to Synnax using the following parameters: \n" << config;
     const synnax::Synnax client(config);
     if (const auto err = client.auth->authenticate()) {
         LOG(ERROR) << xlog::RED() << "failed to authenticate: " << err << xlog::RESET();
@@ -52,8 +30,8 @@ int cmd::sub::login(xargs::Parser &args) {
     }
     LOG(INFO) << xlog::GREEN() << "successfully logged in!" << xlog::RESET();
     if (const auto err = rack::Config::save_conn_params(args, config)) {
-        LOG(ERROR) << xlog::RED() << "failed to save credentials: " << err <<
-                xlog::RESET();
+        LOG(ERROR) << xlog::RED() << "failed to save credentials: " << err
+                   << xlog::RESET();
         return 1;
     }
     LOG(INFO) << xlog::GREEN() << "credentials saved successfully!" << xlog::RESET();

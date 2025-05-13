@@ -11,25 +11,39 @@ import { id, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { type CrudeSpec, specZ } from "@/status/aether/types";
+import { type CrudeSpec, type Spec, specZ } from "@/status/aether/types";
 
 export const aggregatorStateZ = z.object({ statuses: specZ.array() });
 export interface AggregatorState extends z.infer<typeof aggregatorStateZ> {}
 
 const CONTEXT_KEY = "status.aggregator";
 
+interface ContextValue {
+  add: Adder;
+  parse: (spec: CrudeSpec) => Spec;
+}
+
 export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   static readonly TYPE: string = "status.Aggregator";
   schema = aggregatorStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
-    ctx.set(CONTEXT_KEY, this);
+  afterUpdate(ctx: aether.Context): void {
+    if (ctx.wasSetPreviously(CONTEXT_KEY)) return;
+    ctx.set(CONTEXT_KEY, { add: this.add.bind(this), parse: this.parse.bind(this) });
+  }
+
+  parse(spec: CrudeSpec): Spec {
+    return {
+      time: TimeStamp.now(),
+      ...spec,
+      key: id.create(),
+    };
   }
 
   add(spec: CrudeSpec): void {
     this.setState((p) => ({
       ...p,
-      statuses: [...p.statuses, { time: TimeStamp.now(), ...spec, key: id.create() }],
+      statuses: [...p.statuses, this.parse(spec)],
     }));
   }
 }
@@ -38,14 +52,12 @@ export interface Adder {
   (spec: CrudeSpec): void;
 }
 
-export const useAdder = (ctx: aether.Context): Adder => {
-  const agg = ctx.get<Aggregator>(CONTEXT_KEY);
-  return agg.add.bind(agg);
-};
+export const useAdder = (ctx: aether.Context): Adder =>
+  ctx.get<ContextValue>(CONTEXT_KEY).add;
 
 export const useOptionalAdder = (ctx: aether.Context): Adder => {
-  const agg = ctx.getOptional<Aggregator>(CONTEXT_KEY);
-  if (agg != null) return agg.add.bind(agg);
+  const agg = ctx.getOptional<ContextValue>(CONTEXT_KEY);
+  if (agg != null) return agg.add;
   return () => {};
 };
 
@@ -98,4 +110,18 @@ export const useAsyncErrorHandler = (ctx: aether.Context): AsyncErrorHandler =>
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Aggregator.TYPE]: Aggregator,
+};
+
+export const useInterceptor = (
+  ctx: aether.Context,
+  interceptor: (spec: CrudeSpec, parse: (spec: CrudeSpec) => Spec) => CrudeSpec | null,
+): void => {
+  if (ctx.wasSetPreviously(CONTEXT_KEY)) return;
+  const value = ctx.get<ContextValue>(CONTEXT_KEY);
+  const add = (spec: CrudeSpec) => {
+    const inter = interceptor(spec, value.parse);
+    if (inter == null) return;
+    value.add(inter);
+  };
+  ctx.set(CONTEXT_KEY, { add, parse: value.parse });
 };

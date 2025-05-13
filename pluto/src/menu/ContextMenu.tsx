@@ -10,13 +10,7 @@
 import "@/menu/ContextMenu.css";
 
 import { box, position, unique, xy } from "@synnaxlabs/x";
-import {
-  type ComponentPropsWithoutRef,
-  type ReactElement,
-  type RefCallback,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, type RefCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
@@ -50,6 +44,7 @@ export interface UseContextMenuReturn extends ContextMenuState {
   close: () => void;
   open: ContextMenuOpen;
   ref: RefCallback<HTMLDivElement>;
+  className: string;
 }
 
 const INITIAL_STATE: ContextMenuState = {
@@ -137,6 +132,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
     close: hideMenu,
     open: handleOpen,
     ref: refCallback,
+    className: CONTEXT_MENU_CONTAINER,
   };
 };
 
@@ -145,10 +141,39 @@ export interface ContextMenuMenuProps {
 }
 
 export interface ContextMenuProps
-  extends UseContextMenuReturn,
-    ComponentPropsWithoutRef<"div"> {
+  extends Omit<UseContextMenuReturn, "className">,
+    Omit<Align.SpaceProps, "ref"> {
   menu?: RenderProp<ContextMenuMenuProps>;
 }
+
+const Internal = ({
+  ref,
+  menu,
+  visible,
+  open,
+  close,
+  position,
+  keys,
+  className,
+  cursor: _,
+  style,
+  ...rest
+}: ContextMenuProps): ReactNode | null => {
+  if (!visible) return null;
+  return createPortal(
+    <Align.Space
+      className={CSS(CSS.B("menu-context"), CSS.bordered())}
+      ref={ref}
+      style={{ ...xy.css(position), ...style }}
+      onClick={close}
+      size="tiny"
+      {...rest}
+    >
+      {menu?.({ keys })}
+    </Align.Space>,
+    document.body,
+  );
+};
 
 /**
  * Menu.ContextMenu wraps a set of children with a context menu. When the user
@@ -191,39 +216,12 @@ export interface ContextMenuProps
  * @param props.menu - The menu to show when the user right clicks.
  */
 export const ContextMenu = ({
-  ref,
-  children,
   menu,
-  visible,
-  open,
-  close,
-  position: xy,
-  keys,
-  className,
-  cursor: _,
+  children,
   ...rest
-}: ContextMenuProps): ReactElement => {
-  const menuC = visible ? menu?.({ keys }) : null;
-  return (
-    <div
-      className={CSS(CONTEXT_MENU_CONTAINER, className, CSS.inheritDims())}
-      onContextMenu={open}
-      {...rest}
-    >
-      {children}
-      {menuC != null &&
-        createPortal(
-          <Align.Space
-            className={CSS(CSS.B("menu-context"), CSS.bordered())}
-            ref={ref}
-            style={{ left: xy.x, top: xy.y }}
-            onClick={close}
-            size={1 / 2}
-          >
-            {menuC}
-          </Align.Space>,
-          document.body,
-        )}
-    </div>
-  );
-};
+}: ContextMenuProps): ReactNode => (
+  <>
+    <Internal menu={menu} {...rest} />
+    {children}
+  </>
+);

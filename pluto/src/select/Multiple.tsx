@@ -12,6 +12,7 @@ import "@/select/Multiple.css";
 import { Icon } from "@synnaxlabs/media";
 import {
   type AsyncTermSearcher,
+  type color,
   compare,
   convertRenderV,
   type Key,
@@ -32,7 +33,6 @@ import {
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { Caret } from "@/caret";
-import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
@@ -73,7 +73,7 @@ export interface MultipleTagProps<K extends Key, E extends Keyed<K>>
   entryKey: K;
   entryRenderKey: keyof E | ((e: E) => string | number);
   entry?: E;
-  color?: Color.Crude;
+  color?: color.Crude;
   loading: boolean;
   onClose?: () => void;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -224,7 +224,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   else {
     const arrValue = toArray(value);
     trigger = (
-      <Align.Space direction="x" align="center" grow style={style} size="small">
+      <Align.Space x align="center" grow style={style} size="small">
         {arrValue.map((k) => {
           const e = selected.find((v) => v.key === k);
           return renderTag({
@@ -247,12 +247,13 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         })}
         {arrValue.length > 0 ? (
           <Button.Icon onClick={open}>
-            <Icon.Add style={{ color: "var(--pluto-gray-l7)" }} />
+            <Icon.Add style={{ color: "var(--pluto-gray-l9)" }} />
           </Button.Icon>
         ) : (
           <Button.Button
             onClick={open}
-            shade={7}
+            shade={0}
+            textShade={9}
             startIcon={<Icon.Add />}
             variant="text"
           >
@@ -375,7 +376,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
       {...rest}
     >
       <Align.Space
-        direction="x"
+        x
         className={CSS.BE("select-multiple", "tags")}
         align="center"
         grow

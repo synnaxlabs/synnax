@@ -20,9 +20,9 @@ import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
 import {
   useSelectControlStatus,
+  useSelectEditable,
   useSelectHasPermission,
   useSelectIsSnapshot,
-  useSelectOptional,
   useSelectSelectedElementNames,
   useSelectToolbar,
 } from "@/schematic/selectors";
@@ -47,7 +47,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
-    <Align.Center direction="x" size="small">
+    <Align.Center x size="small">
       <Status.Text variant="disabled" hideIcon>
         {name} is not editable.
         {isEditable ? " To make changes," : ""}
@@ -61,8 +61,8 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
           level="p"
         >
           {controlState === "acquired"
-            ? "release control and enable edit mode."
-            : "enable edit mode."}
+            ? "release control and enable editing."
+            : "enable editing."}
         </Text.Link>
       )}
     </Align.Center>
@@ -77,12 +77,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
-  const state = useSelectOptional(layoutKey);
+  const editable = useSelectEditable(layoutKey);
   const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
-      if (!state?.editable) return <NotEditableContent layoutKey={layoutKey} />;
+      if (!editable) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "symbols":
           return <Symbols layoutKey={layoutKey} />;
@@ -92,7 +92,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           return <PropertiesControls layoutKey={layoutKey} />;
       }
     },
-    [layoutKey, state?.editable],
+    [layoutKey, editable],
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
@@ -105,7 +105,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     {
       label: name,
       weight: 500,
-      shade: 8,
+      shade: 10,
       level: "h5",
       icon: <Icon.Schematic />,
     },
@@ -114,10 +114,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     breadCrumbSegments.push({
       label: selectedNames[0],
       weight: 400,
-      shade: 7,
+      shade: 8,
       level: "p",
     });
-  if (state == null) return null;
   return (
     <Tabs.Provider
       value={{
@@ -128,18 +127,16 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       }}
     >
       <Core.Header>
-        <Align.Space direction="x" empty>
-          <Breadcrumb.Breadcrumb level="p">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
-        </Align.Space>
-        <Align.Space direction="x" align="center" empty>
-          <Align.Space direction="x" empty style={{ height: "100%", width: 66 }}>
-            <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
+        <Breadcrumb.Breadcrumb level="h5">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
+        <Align.Space x align="center" empty>
+          <Align.Space x empty style={{ height: "100%", width: 66 }}>
+            <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
-              ontologyID={schematic.ontologyID(state.key)}
+              ontologyID={schematic.ontologyID(layoutKey)}
             />
           </Align.Space>
-          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 285 }} />}
+          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
         </Align.Space>
       </Core.Header>
       <Tabs.Content />

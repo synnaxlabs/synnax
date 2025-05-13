@@ -11,13 +11,14 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -77,6 +78,7 @@ type (
 		Names        []string        `json:"names" msgpack:"names"`
 		Term         string          `json:"term" msgpack:"term"`
 		OverlapsWith telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
+		HasLabels    []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
 		Limit        int             `json:"limit" msgpack:"limit"`
 		Offset       int             `json:"offset" msgpack:"offset"`
 	}

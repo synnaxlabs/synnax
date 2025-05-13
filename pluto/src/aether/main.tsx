@@ -93,8 +93,22 @@ export const Provider = ({
     [worker, registry],
   );
 
+  const [error, setError] = useState<Error | null>(null);
+  if (error != null) throw error;
+
   useEffect(() => {
     worker?.handle((msg) => {
+      const { variant } = msg;
+      if (variant == "error") {
+        const {
+          error: { message, stack, name },
+        } = msg;
+        const err = new Error(message);
+        err.stack = stack;
+        err.name = name;
+        setError(err);
+        return;
+      }
       const { key, state } = msg;
       const component = registry.current.get(key);
       if (component == null)
@@ -131,7 +145,54 @@ interface UseLifecycleProps<S extends z.ZodTypeAny> {
   onReceive?: StateHandler;
 }
 
-const useLifecycle = <S extends z.ZodTypeAny>({
+/**
+ * A low-level hook that manages the lifecycle of an Aether component. This hook handles
+ * component creation, state updates, and cleanup in the Aether worker architecture.
+ *
+ * @template S - A Zod schema type that defines the shape and validation of the component's state
+ *
+ * @param props - Configuration options for the lifecycle hook
+ * @param props.type - A string identifier for the component type. Must correspond to a registered
+ *                     component type in the worker thread's registry.
+ * @param props.schema - A Zod schema that defines the shape and validation of the component's state.
+ *                       Used to validate state during transfer between main and worker threads.
+ * @param props.aetherKey - Optional unique identifier for the component. If not provided,
+ *                         a unique key will be generated automatically.
+ * @param props.initialState - The initial state value that conforms to the provided schema.
+ * @param props.initialTransfer - Optional array of Transferable objects to be transferred
+ *                               along with the initial state.
+ * @param props.onReceive - Optional callback function that handles state updates received
+ *                         from the worker thread.
+ *
+ * @returns An object containing:
+ *          - path: string[] - The full path to this component in the Aether component tree
+ *          - setState: (state: z.input<S>, transfer?: Transferable[]) => void - A function
+ *            to update the component's state and optionally transfer objects to the worker
+ *
+ * @example
+ * ```typescript
+ * const MyComponent = () => {
+ *   const { path, setState } = useLifecycle({
+ *     type: "MyComponentType",
+ *     schema: z.object({ count: z.number() }),
+ *     initialState: { count: 0 },
+ *     onReceive: (state) => console.log("Received state:", state)
+ *   });
+ *
+ *   return <button onClick={() => setState({ count: count + 1 })}>Increment</button>;
+ * };
+ * ```
+ *
+ * @remarks
+ * - This hook must be used within an Aether.Provider context
+ * - The hook ensures proper cleanup on component unmount
+ * - State updates are validated against the provided schema before being sent to the worker
+ * - The hook uses synchronous initialization to ensure parent components are created
+ *   before their children
+ * - Changes to initialState after the first render will not affect the component's state.
+ *   Use setState to update the state instead.
+ */
+export const useLifecycle = <S extends z.ZodTypeAny>({
   type,
   aetherKey,
   initialState,
@@ -228,7 +289,7 @@ export const useUnidirectional = <S extends z.ZodTypeAny>({
   ...rest
 }: UseUnidirectionalProps<S>): ComponentContext => {
   const { path, setState } = useLifecycle({ ...rest, initialState: state });
-  const ref = useRef(null);
+  const ref = useRef<z.output<S> | null>(null);
   if (!deep.equal(ref.current, state)) {
     ref.current = state;
     setState(state);
@@ -267,6 +328,7 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
   const [internalState, setInternalState] = useState<z.output<S>>(() =>
     prettyParse(schema, initialState),
   );
+  const onAetherChangeRef = useRef(onAetherChange);
 
   // Update the internal component state when we receive communications from the
   // aether.
@@ -274,9 +336,9 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
     (rawState: any) => {
       const state = prettyParse(schema, rawState);
       setInternalState(state);
-      onAetherChange?.(state);
+      onAetherChangeRef.current?.(state);
     },
-    [schema],
+    [schema, setInternalState],
   );
 
   const { path, setState: setAetherState } = useLifecycle({
@@ -292,8 +354,6 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
       if (state.isSetter(next))
         setInternalState((prev) => {
           const nextS = next(prev);
-          // This makes our setter impure, so it's something we should be wary of causing
-          // unexpected behavior in the the future.
           setAetherState(nextS, transfer);
           return nextS;
         });

@@ -1,10 +1,13 @@
 cc_library(
     name = "xargs",
-    srcs = [
+    hdrs = [
         "xargs.h",
     ],
     visibility = ["//visibility:public"],
-    deps = ["//x/cpp/xerrors"],
+    deps = [
+        "//x/cpp/caseconv",
+        "//x/cpp/xerrors",
+    ],
 )
 
 cc_test(
@@ -13,7 +16,7 @@ cc_test(
         "xargs_test.cpp",
     ],
     deps = [
-        ":xargs",
-        "@com_google_googletest//:gtest_main",
+        "//x/cpp/xargs",
+        "@googletest//:gtest_main",
     ],
 )

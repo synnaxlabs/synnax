@@ -10,35 +10,53 @@
 #include "driver/modbus/modbus.h"
 #include "driver/rack/rack.h"
 
-typedef std::vector<std::unique_ptr<task::Factory> > FactoryList;
+using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
 
 bool rack::Config::integration_enabled(const std::string &i) const {
     return std::find(integrations.begin(), integrations.end(), i) != integrations.end();
 }
 
+template<typename F>
+void configure_integration(
+    const rack::Config &config,
+    FactoryList &factories,
+    const std::string &integration_name,
+    F factory_creator
+) {
+    if (!config.integration_enabled(integration_name)) {
+        VLOG(1) << "[" << integration_name << "] integration disabled";
+        return;
+    }
+    VLOG(1) << "[" << integration_name << "] integration enabled";
+    factories.push_back(factory_creator());
+}
+
 void configure_opc(const rack::Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(opc::INTEGRATION_NAME)) return;
-    factories.push_back(std::make_unique<opc::Factory>());
+    configure_integration(config, factories, opc::INTEGRATION_NAME, []() {
+        return std::make_unique<opc::Factory>();
+    });
 }
 
 void configure_ni(const rack::Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(ni::INTEGRATION_NAME)) return;
-    factories.push_back(ni::Factory::create());
+    configure_integration(config, factories, ni::INTEGRATION_NAME, [&config]() {
+        return ni::Factory::create(config.timing);
+    });
 }
 
 void configure_sequences(const rack::Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(sequence::INTEGRATION_NAME)) return;
-    factories.push_back(std::make_unique<sequence::Factory>());
-}
-
-void configure_heartbeat(const rack::Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(heartbeat::INTEGRATION_NAME)) return;
-    factories.push_back(std::make_unique<heartbeat::Factory>());
+    configure_integration(config, factories, sequence::INTEGRATION_NAME, []() {
+        return std::make_unique<sequence::Factory>();
+    });
 }
 
 void configure_labjack(const rack::Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(labjack::INTEGRATION_NAME)) return;
-    factories.push_back(labjack::Factory::create());
+    configure_integration(config, factories, labjack::INTEGRATION_NAME, [&config]() {
+        return labjack::Factory::create(config.timing);
+    });
+}
+
+void configure_state(FactoryList &factories) {
+    factories.push_back(std::make_unique<rack::state::Factory>());
 }
 
 void configure_modbus(const rack::Config &config, FactoryList &factories) {
@@ -48,7 +66,7 @@ void configure_modbus(const rack::Config &config, FactoryList &factories) {
 
 std::unique_ptr<task::Factory> rack::Config::new_factory() const {
     FactoryList factories;
-    configure_heartbeat(*this, factories);
+    configure_state(factories);
     configure_opc(*this, factories);
     configure_ni(*this, factories);
     configure_sequences(*this, factories);

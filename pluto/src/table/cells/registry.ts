@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { z } from "zod";
 
@@ -26,11 +27,11 @@ const VARIANTS = ["text", "value"] as const;
 export const variantZ = z.enum(VARIANTS);
 export type Variant = z.infer<typeof variantZ>;
 
-export interface Spec<Z extends z.ZodSchema> {
+export interface Spec<Z extends z.ZodObject> {
   key: Variant;
   name: string;
   Form: FC<FormProps>;
-  Cell: FC<CellProps<z.infer<Z>>>;
+  Cell: FC<CellProps<z.output<Z>>>;
   schema: Z;
   defaultProps: (t: Theming.Theme) => z.infer<Z>;
 }
@@ -54,7 +55,7 @@ const value: Spec<typeof valuePropsZ> = {
       outlet: "stringifier",
     }),
     redline: { bounds: { lower: 0, upper: 1 }, gradient: [] },
-    color: t.colors.gray.l8.hex,
+    color: color.hex(t.colors.gray.l10),
     level: "h5",
     units: "",
   }),

@@ -9,15 +9,16 @@
 
 #pragma once
 
+/// internal
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
 #include "client/cpp/ranger/ranger.h"
 
-class Transport {
-public:
-    Transport(
+namespace synnax {
+struct Transport {
+    static Transport configure(
         uint16_t port,
         const std::string &ip,
         const std::string &ca_cert_file,
@@ -30,8 +31,8 @@ public:
     std::unique_ptr<AuthLoginClient> auth_login;
     std::unique_ptr<StreamerClient> frame_stream;
     std::unique_ptr<WriterClient> frame_write;
-    std::unique_ptr<ChannelCreateClient> chan_create;
-    std::unique_ptr<ChannelRetrieveClient> chan_retrieve;
+    std::shared_ptr<ChannelCreateClient> chan_create;
+    std::shared_ptr<ChannelRetrieveClient> chan_retrieve;
     std::unique_ptr<RangeRetrieveClient> range_retrieve;
     std::unique_ptr<RangeCreateClient> range_create;
     std::shared_ptr<RangeKVDeleteClient> range_kv_delete;
@@ -47,3 +48,4 @@ public:
     std::unique_ptr<HardwareRetrieveDeviceClient> device_retrieve;
     std::unique_ptr<HardwareDeleteDeviceClient> device_delete;
 };
+}

@@ -9,13 +9,12 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import {
-  Color,
   type Control,
   type Diagram,
   type Theming,
   type Viewport,
 } from "@synnaxlabs/pluto";
-import { box, id, scale, xy } from "@synnaxlabs/x";
+import { box, color, id, scale, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/types";
 import { type RootState } from "@/store";
@@ -414,10 +413,10 @@ export const { actions, reducer } = createSlice({
     },
     fixThemeContrast: (state, { payload }: PayloadAction<FixThemeContrastPayload>) => {
       const { theme } = payload;
-      const bgColor = new Color.Color(theme.colors.gray.l0);
-      const shouldChange = (crude: Color.Crude): boolean => {
-        const c = new Color.Color(crude);
-        return c.grayness > 0.85 && c.contrast(bgColor) < 1.3;
+      const bgColor = color.construct(theme.colors.gray.l0);
+      const shouldChange = (crude: color.Crude): boolean => {
+        const c = color.construct(crude);
+        return color.grayness(c) > 0.85 && color.contrast(c, bgColor) < 1.3;
       };
       Object.values(state.schematics).forEach((schematic) => {
         const { nodes, edges, props } = schematic;
@@ -425,12 +424,12 @@ export const { actions, reducer } = createSlice({
           const nodeProps = props[node.key];
           if ("color" in nodeProps)
             if (shouldChange(nodeProps.color as string))
-              nodeProps.color = theme.colors.gray.l9;
+              nodeProps.color = theme.colors.gray.l11;
         });
         edges.forEach((edge) => {
           if (edge.color != null && shouldChange(edge.color as string))
-            edge.color = theme.colors.gray.l9;
-          else edge.color ??= theme.colors.gray.l9;
+            edge.color = theme.colors.gray.l11;
+          else edge.color ??= theme.colors.gray.l11;
         });
       });
     },

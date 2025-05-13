@@ -9,22 +9,30 @@
 
 import "@/caret/Animated.css";
 
-import { Icon } from "@synnaxlabs/media";
+import { Icon, type IconProps } from "@synnaxlabs/media";
 import { type location } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 
-export interface AnimatedProps {
+export interface AnimatedProps extends IconProps {
   enabledLoc: location.Location;
   disabledLoc: location.Location;
   enabled: boolean;
 }
 
-export const Animated = ({ enabledLoc, disabledLoc, enabled }: AnimatedProps) => (
+export const Animated = ({
+  className,
+  enabledLoc,
+  disabledLoc,
+  enabled,
+  ...rest
+}: AnimatedProps) => (
   <Icon.Caret.Up
     className={CSS(
       CSS.B("caret-animated"),
       CSS.loc(enabled ? enabledLoc : disabledLoc),
+      className,
     )}
+    {...rest}
   />
 );

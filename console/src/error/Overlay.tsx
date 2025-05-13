@@ -21,7 +21,6 @@ import {
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import {
   ErrorBoundary,
@@ -31,9 +30,9 @@ import {
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { Layouts } from "@/layouts";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
+import { getCurrentWindow } from "@/tauriShim";
 
 export interface OverlayProps extends PropsWithChildren {}
 
@@ -90,16 +89,19 @@ const FallBackRenderContent = ({
     void getCurrentWindow().show();
   }, []);
   return (
-    <Align.Space direction="y" className={CSS.B("error-overlay")}>
+    <Align.Space y className={CSS.B("error-overlay")}>
       <Nav.Bar
         location="top"
-        size={Layouts.Nav.SIZES.top}
+        size="6.5rem"
         className="console-main-nav-top"
+        bordered
+        data-tauri-drag-region
       >
         <Nav.Bar.Start className="console-main-nav-top__start">
           <OS.Controls
             className="console-controls--macos"
             visibleIfOS="macOS"
+            forceOS={os}
             onClose={() => {
               void getCurrentWindow().close();
             }}
@@ -118,6 +120,8 @@ const FallBackRenderContent = ({
           <OS.Controls
             className="console-controls--windows"
             visibleIfOS="Windows"
+            forceOS={os}
+            shade={0}
             onClose={() => {
               void getCurrentWindow().close();
             }}
@@ -132,17 +136,17 @@ const FallBackRenderContent = ({
       </Nav.Bar>
 
       <Align.Center role="alert">
-        <Align.Space direction="x" className={CSS.B("dialog")} size={20}>
+        <Align.Space x className={CSS.B("dialog")} size={20}>
           <Logo variant="icon" />
-          <Align.Space direction="y" align="start" className={CSS.B("details")}>
+          <Align.Space y align="start" className={CSS.B("details")}>
             <Text.Text level="h1">Something went wrong</Text.Text>
             <Status.Text variant="error" hideIcon level="h3">
-              {messageTranslation[error.message] ?? error.message}
+              {error.name} - {messageTranslation[error.message] ?? error.message}
             </Status.Text>
             <Text.Text className={CSS.B("stack")} level="p">
               {error.stack}
             </Text.Text>
-            <Align.Space direction="x">
+            <Align.Space x>
               {onTryAgain && (
                 <Button.Button onClick={onTryAgain}>Try again</Button.Button>
               )}

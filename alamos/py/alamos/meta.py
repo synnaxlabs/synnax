@@ -13,14 +13,14 @@ from pydantic import BaseModel
 
 
 class InstrumentationMeta(BaseModel):
-    """The metadata for instrumentation."""
+    """Metadata for instrumentation."""
 
     key: str
-    """The key of the instrumentation. ex. "api"""
+    """The key of the instrumentation, e.g., \"api\"."""
     path: str
-    """The path of the instrumentation. "api.v1.users"""
+    """The path of the instrumentation, e.g., \"api.v1.users\"."""
     service_name: str | None = None
-    """An optional service name eg. "synnax"""
+    """An optional service name, e.g., \"synnax\"."""
 
     def child_(self, key: str) -> InstrumentationMeta:
         return InstrumentationMeta(

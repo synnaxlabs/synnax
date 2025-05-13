@@ -35,7 +35,7 @@ export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement 
   const { level, divided } = useContext();
   return (
     <Align.Space
-      direction="x"
+      x
       size="small"
       align="center"
       className={CSS.BE("header", "actions")}

@@ -9,10 +9,10 @@
 
 import "@/input/Input.css";
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
 
 import { Align } from "@/align";
-import { color as Color } from "@/color/core";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { type BaseProps } from "@/input/types";
@@ -24,8 +24,8 @@ export interface TextExtraProps {
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
   status?: Status.Variant;
-  outlineColor?: Color.Crude;
-  color?: Color.Crude;
+  outlineColor?: color.Crude;
+  color?: color.Crude;
 }
 
 export interface TextProps extends Omit<BaseProps<string>, "color">, TextExtraProps {}
@@ -67,12 +67,11 @@ export const Text = ({
   weight,
   style,
   outlineColor,
-  color,
+  color: pColor,
   onlyChangeOnBlur = false,
   endContent,
   borderWidth,
   borderShade = 4,
-  disabledOverlay,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef("");
@@ -117,20 +116,23 @@ export const Text = ({
 
   const combinedRef = useCombinedRefs(ref, internalRef);
 
-  const parsedOutlineColor = Color.Color.z.safeParse(outlineColor);
+  const parsedOutlineColor = color.colorZ.safeParse(outlineColor);
   const hasCustomColor = parsedOutlineColor.success && variant == "outlined";
 
   if (variant === "preview") disabled = true;
   if (hasCustomColor)
-    style = { ...style, [CSS.var("input-color")]: parsedOutlineColor.data.rgbString };
+    style = {
+      ...style,
+      [CSS.var("input-color")]: color.rgbString(parsedOutlineColor.data),
+    };
 
   const showPlaceholder = (value == null || value.length === 0) && tempValue == null;
 
-  const C = variant === "natural" ? Align.Space : Align.Pack;
+  const Wrapper = variant === "natural" ? Align.Space : Align.Pack;
 
   return (
-    <C
-      direction="x"
+    <Wrapper
+      x
       empty
       style={style}
       className={CSS(
@@ -138,7 +140,7 @@ export const Text = ({
         CSS.disabled(disabled),
         level == null && CSS.size(size),
         shade != null && CSS.shade(shade),
-        CSS.BM("input", variant),
+        CSS.M(variant),
         CSS.sharp(sharp),
         hasCustomColor && CSS.BM("input", "custom-color"),
         status != null && CSS.M(status),
@@ -149,7 +151,15 @@ export const Text = ({
       align="center"
       size={size}
     >
-      <div className={CSS.BE("input", "internal")}>
+      <div
+        className={CSS(
+          CSS.BE("input", "internal"),
+          CSS.BM("text", level ?? CoreText.ComponentSizeLevels[size]),
+          CSS.M("clickable"),
+          CSS.M("outlined"),
+          CSS.shade(0),
+        )}
+      >
         {showPlaceholder && (
           <div
             className={CSS(
@@ -163,7 +173,6 @@ export const Text = ({
             )}
           </div>
         )}
-
         <input
           ref={combinedRef}
           value={tempValue ?? value}
@@ -176,10 +185,9 @@ export const Text = ({
           onKeyDown={handleKeyDown}
           onMouseUp={handleMouseUp}
           onBlur={handleBlur}
-          className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
           disabled={disabled}
           placeholder={typeof placeholder === "string" ? placeholder : undefined}
-          style={{ fontWeight: weight, color: Color.cssString(color) }}
+          style={{ fontWeight: weight, color: color.cssString(pColor) }}
           {...rest}
         />
         {endContent != null && (
@@ -192,6 +200,6 @@ export const Text = ({
         )}
       </div>
       {children}
-    </C>
+    </Wrapper>
   );
 };

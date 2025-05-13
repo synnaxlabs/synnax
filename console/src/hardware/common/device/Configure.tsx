@@ -93,7 +93,7 @@ const Internal = <
   });
   return (
     <Align.Space align="stretch" className={CSS.B("configure")} empty>
-      <Form.Form {...methods}>
+      <Form.Form<typeof configurablePropertiesZ> {...methods}>
         <Align.Space
           align="stretch"
           justify="center"
@@ -103,7 +103,7 @@ const Internal = <
         >
           {isNameStep ? (
             <>
-              <Text.Text level="p" shade={7}>
+              <Text.Text level="p" shade={11}>
                 Before you can acquire data from this device, we'll need a few details.
                 To start off, enter a name so it's easy to look up later.
               </Text.Text>
@@ -116,7 +116,7 @@ const Internal = <
             </>
           ) : (
             <>
-              <Text.Text level="p" shade={7}>
+              <Text.Text level="p" shade={11}>
                 Next, we'll need a short identifier for{" "}
                 {methods.get<string>("name").value}. We'll use this as a prefix for all
                 channels associated with this device. We've given you some suggestions
@@ -129,7 +129,7 @@ const Internal = <
                   inputProps={{ level: "h2", ref: identifierRef, variant: "natural" }}
                   path="identifier"
                 />
-                <Align.Space direction="x">
+                <Align.Space x>
                   <Button.Icon disabled size="small" variant="text">
                     <Icon.Bolt />
                   </Button.Icon>
@@ -152,7 +152,7 @@ const Internal = <
           )}
         </Align.Space>
       </Form.Form>
-      <Nav.Bar location="bottom" size={48}>
+      <Nav.Bar location="bottom" size={48} bordered>
         <Triggers.SaveHelpText action={triggerAction} />
         <Nav.Bar.End>
           <Button.Button
@@ -200,7 +200,7 @@ export const Configure = <
       </Status.Text.Centered>
     );
   if (isError) {
-    const color = Status.variantColors.error;
+    const color = Status.VARIANT_COLORS.error;
     return (
       <Align.Space align="center" grow justify="center">
         <Text.Text color={color} level="h2">

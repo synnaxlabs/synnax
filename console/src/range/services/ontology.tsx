@@ -23,10 +23,6 @@ import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { createCreateLayout } from "@/range/Create";
-import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
-import { select, useSelect } from "@/range/selectors";
-import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
 import {
   addChildRangeMenuItem,
   addToActivePlotMenuItem,
@@ -36,7 +32,11 @@ import {
   fromClientRange,
   setAsActiveMenuItem,
   viewDetailsMenuItem,
-} from "@/range/Toolbar";
+} from "@/range/ContextMenu";
+import { createCreateLayout } from "@/range/Create";
+import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
+import { select, useSelect } from "@/range/selectors";
+import { add, remove, rename, setActive, type StoreState } from "@/range/slice";
 
 const handleSelect: Ontology.HandleSelect = ({
   selection,
@@ -167,7 +167,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       store,
       removeLayout,
     }) => {
-      if (!(await confirm(resources))) throw errors.CANCELED;
+      if (!(await confirm(resources))) throw new errors.Canceled();
       const prevNodes = Tree.deepCopy(nodes);
       const minDepth = Math.min(...selectedNodes.map((n) => n.depth));
       const nodesOfMinDepth = selectedNodes.filter((n) => n.depth === minDepth);
@@ -194,7 +194,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       { handleError, selection: { resources }, state: { setNodes }, store },
       prevNodes,
     ) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) {
         setNodes(prevNodes);
         const ranges = fromClientRange(
@@ -293,8 +293,8 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
   const { entry } = props;
   return (
     <List.ItemFrame
-      direction="y"
-      size={0.5}
+      y
+      size="tiny"
       style={{ padding: "1.5rem" }}
       highlightHovered
       {...props}
@@ -303,7 +303,7 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
         startIcon={<Icon.Range />}
         level="p"
         weight={450}
-        shade={9}
+        shade={11}
         size="medium"
       >
         {entry.name}{" "}

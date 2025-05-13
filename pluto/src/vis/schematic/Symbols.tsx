@@ -9,11 +9,17 @@
 
 import "@/vis/schematic/Symbols.css";
 
-import { box, direction, location, type UnknownRecord, xy } from "@synnaxlabs/x";
+import {
+  box,
+  type color,
+  direction,
+  location,
+  type UnknownRecord,
+  xy,
+} from "@synnaxlabs/x";
 import { type CSSProperties, type FC, type ReactElement } from "react";
 
 import { Align } from "@/align";
-import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
@@ -339,6 +345,8 @@ export type CentrifugalCompressorProps =
   ToggleProps<Primitives.CentrifugalCompressorProps>;
 export const ButterflyValveOne = createToggle(Primitives.ButterflyValveOne);
 export type ButterflyValveOneProps = ToggleProps<Primitives.ButterflyValveOneProps>;
+export const ButterflyValveTwo = createToggle(Primitives.ButterflyValveTwo);
+export type ButterflyValveTwoProps = ToggleProps<Primitives.ButterflyValveTwoProps>;
 export const BallValve = createToggle(Primitives.BallValve);
 export type BallValveProps = ToggleProps<Primitives.BallValveProps>;
 export const ThreeWayBallValve = createToggle(Primitives.ThreeWayBallValve);
@@ -350,8 +358,15 @@ export type GateValveProps = ToggleProps<Primitives.GateValveProps>;
 
 export const Regulator = createLabeled(Primitives.Regulator);
 export type RegulatorProps = LabeledProps<Primitives.RegulatorProps>;
+export const RegulatorManual = createLabeled(Primitives.RegulatorManual);
+export type RegulatorManualProps = LabeledProps<Primitives.RegulatorManualProps>;
 export const ElectricRegulator = createLabeled(Primitives.ElectricRegulator);
 export type ElectricRegulatorProps = LabeledProps<Primitives.ElectricRegulatorProps>;
+export const ElectricRegulatorMotorized = createLabeled(
+  Primitives.ElectricRegulatorMotorized,
+);
+export type ElectricRegulatorMotorizedProps =
+  LabeledProps<Primitives.ElectricRegulatorMotorizedProps>;
 export const BurstDisc = createLabeled(Primitives.BurstDisc);
 export type BurstDiscProps = LabeledProps<Primitives.BurstDiscProps>;
 export const Cap = createLabeled(Primitives.Cap);
@@ -364,6 +379,9 @@ export const CheckValve = createLabeled(Primitives.CheckValve);
 export type CheckValveProps = LabeledProps<Primitives.CheckValveProps>;
 export const ISOCheckValve = createLabeled(Primitives.ISOCheckValve);
 export type ISOCheckValveProps = LabeledProps<Primitives.ISOCheckValveProps>;
+export const CheckValveWithArrow = createLabeled(Primitives.CheckValveWithArrow);
+export type CheckValveWithArrowProps =
+  LabeledProps<Primitives.CheckValveWithArrowProps>;
 export const Orifice = createLabeled(Primitives.Orifice);
 export type OrificeProps = LabeledProps<Primitives.OrificeProps>;
 export const Switch = createToggle(Primitives.Switch);
@@ -374,6 +392,10 @@ export const OrificePlate = createLabeled(Primitives.OrificePlate);
 export type OrificePlateProps = LabeledProps<Primitives.OrificePlateProps>;
 export const ISOFilter = createLabeled(Primitives.ISOFilter);
 export type ISOFilterProps = LabeledProps<Primitives.ISOFilterProps>;
+export const FlowStraightener = createLabeled(Primitives.FlowStraightener);
+export type FlowStraightenerProps = LabeledProps<Primitives.FlowStraightenerProps>;
+export const HeaterElement = createLabeled(Primitives.HeaterElement);
+export type HeaterElementProps = LabeledProps<Primitives.HeaterElementProps>;
 export const ISOBurstDisc = createLabeled(Primitives.ISOBurstDisc);
 export type ISOBurstDiscProps = LabeledProps<Primitives.ISOBurstDiscProps>;
 export const TJunction = createLabeled(Primitives.TJunction);
@@ -413,6 +435,8 @@ export type FlowmeterPulseProps = LabeledProps<Primitives.FlowmeterPulseProps>;
 export const FlowmeterFloatSensor = createLabeled(Primitives.FlowmeterFloatSensor);
 export type FlowmeterFloatSensorProps =
   LabeledProps<Primitives.FlowmeterFloatSensorProps>;
+export const FlowmeterOrifice = createLabeled(Primitives.FlowmeterOrifice);
+export type FlowmeterOrificeProps = LabeledProps<Primitives.FlowmeterOrificeProps>;
 export const HeatExchangerGeneral = createLabeled(Primitives.HeatExchangerGeneral);
 export type HeatExchangerGeneralProps =
   LabeledProps<Primitives.HeatExchangerGeneralProps>;
@@ -443,6 +467,8 @@ export type FlameArrestorFireResDetonationProps =
   LabeledProps<Primitives.FlameArrestorFireResDetonationProps>;
 export const Thruster = createLabeled(Primitives.Thruster);
 export type ThrusterProps = LabeledProps<Primitives.ThrusterProps>;
+export const Nozzle = createLabeled(Primitives.Nozzle);
+export type NozzleProps = LabeledProps<Primitives.NozzleProps>;
 export const Strainer = createLabeled(Primitives.Strainer);
 export type StrainerProps = LabeledProps<Primitives.StrainerProps>;
 export const StrainerCone = createLabeled(Primitives.StrainerCone);
@@ -468,9 +494,6 @@ export type ManualValveProps = DummyToggleProps<Primitives.ManualValveProps>;
 export const AngledReliefValve = createDummyToggle(Primitives.AngledReliefValve);
 export type AngledReliefValveProps =
   DummyToggleProps<Primitives.AngledReliefValveProps>;
-export const ButterflyValveTwo = createDummyToggle(Primitives.ButterflyValveTwo);
-export type ButterflyValveTwoProps =
-  DummyToggleProps<Primitives.ButterflyValveTwoProps>;
 export const BreatherValve = createDummyToggle(Primitives.BreatherValve);
 export type BreatherValveProps = DummyToggleProps<Primitives.BreatherValveProps>;
 
@@ -506,7 +529,72 @@ export const TankPreview = (props: TankProps): ReactElement => (
 
 export interface BoxProps extends Omit<TankProps, "borderRadius"> {
   borderRadius?: number;
+  strokeWidth?: number;
 }
+
+export const Triangle = createLabeled(
+  ({
+    sideLength,
+    rotation,
+    color,
+    backgroundColor,
+    numSides,
+    ...rest
+  }: SymbolProps<Primitives.PolygonProps>) => (
+    <Primitives.Polygon
+      numSides={3}
+      sideLength={sideLength}
+      rotation={rotation}
+      color={color}
+      backgroundColor={backgroundColor}
+      {...rest}
+    />
+  ),
+);
+export type TriangleProps = LabeledProps<Primitives.PolygonProps>;
+
+export const PolygonSymbol = createLabeled(
+  ({
+    numSides,
+    sideLength,
+    cornerRounding,
+    rotation,
+    color,
+    backgroundColor,
+    strokeWidth,
+    ...rest
+  }: SymbolProps<Primitives.PolygonProps>) => (
+    <Primitives.Polygon
+      numSides={numSides}
+      sideLength={sideLength}
+      cornerRounding={cornerRounding}
+      rotation={rotation}
+      color={color}
+      backgroundColor={backgroundColor}
+      strokeWidth={strokeWidth}
+      {...rest}
+    />
+  ),
+);
+
+export const Circle = createLabeled(
+  ({
+    radius,
+    color,
+    backgroundColor,
+    strokeWidth,
+    ...rest
+  }: SymbolProps<Primitives.CircleShapeProps>) => (
+    <Primitives.CircleShape
+      radius={radius}
+      color={color}
+      backgroundColor={backgroundColor}
+      strokeWidth={strokeWidth}
+      {...rest}
+    />
+  ),
+);
+
 export const Box = createLabeled(
   ({
     backgroundColor,
@@ -515,6 +603,7 @@ export const Box = createLabeled(
     orientation,
     color,
     dimensions,
+    strokeWidth,
   }: SymbolProps<BoxProps>): ReactElement => (
     <Primitives.Tank
       onResize={(dims) => onChange({ dimensions: dims })}
@@ -523,6 +612,7 @@ export const Box = createLabeled(
       dimensions={dimensions}
       boxBorderRadius={borderRadius}
       backgroundColor={backgroundColor}
+      strokeWidth={strokeWidth}
     />
   ),
 );
@@ -609,8 +699,8 @@ export interface ValueProps
     Primitives.ValueProps {
   position?: xy.XY;
   label?: LabelExtensionProps;
-  color?: Color.Crude;
-  textColor?: Color.Crude;
+  color?: color.Crude;
+  textColor?: color.Crude;
   tooltip?: string[];
 }
 

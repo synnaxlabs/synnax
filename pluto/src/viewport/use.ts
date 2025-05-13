@@ -54,9 +54,10 @@ export interface UseReturn {
   ref: React.RefObject<HTMLDivElement | null>;
 }
 
-// We truncate the viewport box at this precision to simplify diffing logs, reduce
+// We truncate the viewport box at tiered precisions to simplify diffing logs, reduce
 // unnecessary re-renders, and prevent floating point errors.
-const TRUNC_PRECISION = 6;
+const HIGH_TRUNC_PRECISION = 11;
+const LOW_TRUNC_PRECISION = 6;
 // The threshold for the cursor to move before we trigger a pan calculation to update
 // the viewport. This prevents unnecessary re-renders, although increasing this value
 // also decreases the smoothness of the pan.
@@ -69,7 +70,15 @@ const isClick = (b: box.Box): boolean =>
 
 type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
-const TRIGGER_MODES = ["zoom", "pan", "select", "zoomReset"] as const;
+const calculateTruncPrecision = (b: box.Box): number => {
+  const width: number = box.width(b);
+  const height: number = box.height(b);
+  const minDim: number = Math.min(width, height);
+  if (minDim < 0.001) return HIGH_TRUNC_PRECISION;
+  return LOW_TRUNC_PRECISION;
+};
+
+const TRIGGER_MODES = ["zoom", "pan", "select", "zoomReset", "cancel"] as const;
 export const MODES = [...TRIGGER_MODES, "click"] as const;
 export const modeZ = z.enum(MODES);
 export type Mode = StringLiteral<(typeof MODES)[number]>;
@@ -82,6 +91,7 @@ export const ZOOM_DEFAULT_TRIGGERS: UseTriggers = {
   zoomReset: [["MouseLeft", "Control"]],
   pan: [["MouseLeft", "Shift"]],
   select: [["MouseLeft", "Alt"]],
+  cancel: [["Escape"]],
 };
 
 export const PAN_DEFAULT_TRIGGERS: UseTriggers = {
@@ -90,6 +100,7 @@ export const PAN_DEFAULT_TRIGGERS: UseTriggers = {
   zoom: [["MouseLeft", "Shift"]],
   zoomReset: [["MouseLeft", "Control"]],
   select: [["MouseLeft", "Alt"]],
+  cancel: [["Escape"]],
 };
 
 export const SELECT_DEFAULT_TRIGGERS: UseTriggers = {
@@ -98,6 +109,7 @@ export const SELECT_DEFAULT_TRIGGERS: UseTriggers = {
   pan: [["MouseLeft", "Shift"]],
   zoom: [["MouseLeft", "Alt"]],
   zoomReset: [["MouseLeft", "Control"]],
+  cancel: [["Escape"]],
 };
 
 export const DEFAULT_TRIGGERS: Record<Mode, UseTriggers> = {
@@ -106,6 +118,7 @@ export const DEFAULT_TRIGGERS: Record<Mode, UseTriggers> = {
   select: SELECT_DEFAULT_TRIGGERS,
   zoomReset: ZOOM_DEFAULT_TRIGGERS,
   click: ZOOM_DEFAULT_TRIGGERS,
+  cancel: ZOOM_DEFAULT_TRIGGERS,
 };
 
 const purgeMouseTriggers = (triggers: UseTriggers): UseTriggers => {
@@ -150,7 +163,10 @@ export const use = ({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const threshold = dimensions.construct(threshold_);
 
-  useEffect(() => setStateRef(() => box.truncate(initial, TRUNC_PRECISION)), [initial]);
+  useEffect(
+    () => setStateRef(() => box.truncate(initial, calculateTruncPrecision(initial))),
+    [initial],
+  );
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
@@ -179,6 +195,12 @@ export const use = ({
       const mode = Triggers.determineMode<TriggerMode>(triggerConfig, triggers);
       const canvas = box.construct(canvasRef.current);
       if (mode == null) return;
+
+      if (mode === "cancel") {
+        setMaskBox(box.ZERO);
+        onChange?.({ box: stateRef.current, mode, stage, cursor });
+        return;
+      }
 
       if (mode === "zoomReset") {
         setMaskBox(box.ZERO);
@@ -210,7 +232,7 @@ export const use = ({
             setMaskBox(box.ZERO);
             return next;
           }
-          return box.truncate(prev, TRUNC_PRECISION);
+          return box.truncate(prev, calculateTruncPrecision(prev));
         });
       }
 
@@ -240,6 +262,7 @@ export const use = ({
       threshold_.width,
       setStateRef,
       canvasRef,
+      calculateTruncPrecision,
     ],
   );
 
@@ -261,11 +284,10 @@ export const use = ({
   );
 
   const handleZoomSelect = useCallback(
-    (b: box.Box, prev: box.Box, canvas: box.Box): box.Box | null =>
-      box.truncate(
-        constructScale(prev, canvas).box(fullSize(threshold, b, canvas)),
-        TRUNC_PRECISION,
-      ),
+    (b: box.Box, prev: box.Box, canvas: box.Box): box.Box | null => {
+      const next = constructScale(prev, canvas).box(fullSize(threshold, b, canvas));
+      return box.truncate(next, calculateTruncPrecision(next));
+    },
     [threshold_],
   );
 
@@ -347,10 +369,8 @@ const constructScale = (prev: box.Box, canvas: box.Box): scale.XY =>
 const handlePan = (b: box.Box, prev: box.Box, canvas: box.Box): box.Box => {
   let dims = box.signedDims(constructScale(prev, canvas).box(b));
   dims = { signedWidth: -dims.signedWidth, signedHeight: -dims.signedHeight };
-  return box.truncate(
-    scale.XY.translate(xy.construct(dims)).box(prev),
-    TRUNC_PRECISION,
-  );
+  const next = scale.XY.translate(xy.construct(dims)).box(prev);
+  return box.truncate(next, calculateTruncPrecision(next));
 };
 
 const fullSize = (

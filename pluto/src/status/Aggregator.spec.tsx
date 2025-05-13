@@ -88,10 +88,9 @@ describe("Aggregator", () => {
         });
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      });
-      expect(result.current.statuses.statuses).toHaveLength(0);
+      await expect
+        .poll(async () => result.current.statuses.statuses.length === 0)
+        .toBeTruthy();
     });
   });
 
@@ -134,6 +133,8 @@ describe("Aggregator", () => {
           message: "Test",
           description: "Test 1",
         });
+      });
+      act(() => {
         result.current.add({
           variant: "success",
           message: "Test",

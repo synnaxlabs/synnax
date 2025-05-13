@@ -10,35 +10,29 @@
 #pragma once
 
 /// std
-#include <mutex>
 #include <map>
+#include <mutex>
 
 /// external
 #include "glog/logging.h"
 
 /// internal
+#include "driver/labjack/ljm/LabJackM.h"
 #include "driver/labjack/ljm/api.h"
 #include "driver/labjack/ljm/errors.h"
-#include "driver/labjack/ljm/LabJackM.h"
 
 namespace device {
 class Device {
 public:
     virtual ~Device() = default;
 
-    virtual xerrors::Error e_stream_read(
-        double *data,
-        int *dev_scan_backlog,
-        int *ljm_scan_backlog
-    ) const = 0;
+    virtual xerrors::Error
+    e_stream_read(double *data, int *dev_scan_backlog, int *ljm_scan_backlog) const = 0;
 
     [[nodiscard]] virtual xerrors::Error e_stream_stop() const = 0;
 
-    [[nodiscard]] virtual xerrors::Error e_write_addr(
-        int addr,
-        int type,
-        double value
-    ) const = 0;
+    [[nodiscard]] virtual xerrors::Error
+    e_write_addr(int addr, int type, double value) const = 0;
 
     virtual xerrors::Error e_write_addrs(
         size_t num_frames,
@@ -48,19 +42,13 @@ public:
         int *error_addrs
     ) const = 0;
 
-    [[nodiscard]] virtual xerrors::Error start_interval(
-        int interval_handle,
-        int microseconds
-    ) const = 0;
+    [[nodiscard]] virtual xerrors::Error
+    start_interval(int interval_handle, int microseconds) const = 0;
 
-    [[nodiscard]] virtual xerrors::Error clean_interval(
-        int interval_handle
-    ) const = 0;
+    [[nodiscard]] virtual xerrors::Error clean_interval(int interval_handle) const = 0;
 
-    [[nodiscard]] virtual xerrors::Error e_write_name(
-        const char *Name,
-        double value
-    ) const = 0;
+    [[nodiscard]] virtual xerrors::Error
+    e_write_name(const char *Name, double value) const = 0;
 
     [[nodiscard]] virtual xerrors::Error e_write_names(
         size_t num_frames,
@@ -69,17 +57,12 @@ public:
         int *err_addr
     ) const = 0;
 
-    [[nodiscard]] virtual xerrors::Error names_to_addrs(
-        size_t num_frames,
-        const char **names,
-        int *addrs,
-        int *types
-    ) const = 0;
+    [[nodiscard]] virtual xerrors::Error
+    names_to_addrs(size_t num_frames, const char **names, int *addrs, int *types)
+        const = 0;
 
-    [[nodiscard]] virtual xerrors::Error wait_for_next_interval(
-        int interval_handle,
-        int *skipped_intervals
-    ) const = 0;
+    [[nodiscard]] virtual xerrors::Error
+    wait_for_next_interval(int interval_handle, int *skipped_intervals) const = 0;
 
     [[nodiscard]] virtual xerrors::Error e_read_names(
         size_t num_frames,
@@ -88,10 +71,8 @@ public:
         int *error_addr
     ) const = 0;
 
-    [[nodiscard]] virtual xerrors::Error e_read_name(
-        const char *name,
-        double *value
-    ) const = 0;
+    [[nodiscard]] virtual xerrors::Error
+    e_read_name(const char *name, double *value) const = 0;
 
     [[nodiscard]] virtual xerrors::Error e_stream_start(
         size_t scans_per_read,
@@ -109,19 +90,16 @@ class LJMDevice final : public Device {
 
 public:
     LJMDevice(const std::shared_ptr<ljm::API> &ljm, const int dev_handle):
-        ljm(ljm), dev_handle(dev_handle) {
-    }
+        ljm(ljm), dev_handle(dev_handle) {}
 
     ~LJMDevice() override {
         if (const auto err = ljm->close(dev_handle))
             LOG(WARNING) << "[labjack] failed to close device: " << err;
     }
 
-    xerrors::Error e_stream_read(
-        double *data,
-        int *dev_scan_backlog,
-        int *ljm_scan_backlog
-    ) const override {
+    xerrors::Error
+    e_stream_read(double *data, int *dev_scan_backlog, int *ljm_scan_backlog)
+        const override {
         return parse_error(
             this->ljm,
             this->ljm->e_stream_read(
@@ -134,25 +112,14 @@ public:
     }
 
     [[nodiscard]] xerrors::Error e_stream_stop() const override {
-        return parse_error(
-            ljm,
-            ljm->e_stream_stop(dev_handle)
-        );
+        return parse_error(this->ljm, this->ljm->e_stream_stop(dev_handle));
     }
 
-    [[nodiscard]] xerrors::Error e_write_addr(
-        const int addr,
-        const int type,
-        const double value
-    ) const override {
+    [[nodiscard]] xerrors::Error
+    e_write_addr(const int addr, const int type, const double value) const override {
         return parse_error(
             this->ljm,
-            this->ljm->e_write_addr(
-                this->dev_handle,
-                addr,
-                type,
-                value
-            )
+            this->ljm->e_write_addr(this->dev_handle, addr, type, value)
         );
     }
 
@@ -176,38 +143,22 @@ public:
         );
     }
 
-    [[nodiscard]] xerrors::Error start_interval(
-        const int interval_handle,
-        const int microseconds
-    ) const override {
+    [[nodiscard]] xerrors::Error
+    start_interval(const int interval_handle, const int microseconds) const override {
         return parse_error(
             this->ljm,
-            this->ljm->start_interval(
-                interval_handle,
-                microseconds
-            )
+            this->ljm->start_interval(interval_handle, microseconds)
         );
     }
 
-    [[nodiscard]] xerrors::Error clean_interval(const int interval_handle) const override {
-        return parse_error(
-            this->ljm,
-            this->ljm->clean_interval(interval_handle)
-        );
+    [[nodiscard]] xerrors::Error clean_interval(const int interval_handle
+    ) const override {
+        return parse_error(this->ljm, this->ljm->clean_interval(interval_handle));
     }
 
-    [[nodiscard]] xerrors::Error e_write_name(
-        const char *name,
-        const double vlaue
-    ) const override {
-        return parse_error(
-            ljm,
-            ljm->e_write_name(
-                dev_handle,
-                name,
-                vlaue
-            )
-        );
+    [[nodiscard]] xerrors::Error
+    e_write_name(const char *name, const double vlaue) const override {
+        return parse_error(ljm, ljm->e_write_name(dev_handle, name, vlaue));
     }
 
     [[nodiscard]] xerrors::Error e_write_names(
@@ -228,20 +179,12 @@ public:
         );
     }
 
-    [[nodiscard]] xerrors::Error names_to_addrs(
-        const size_t num_frames,
-        const char **names,
-        int *addrs,
-        int *types
-    ) const override {
+    [[nodiscard]] xerrors::Error
+    names_to_addrs(const size_t num_frames, const char **names, int *addrs, int *types)
+        const override {
         return parse_error(
             this->ljm,
-            this->ljm->names_to_addrs(
-                static_cast<int>(num_frames),
-                names,
-                addrs,
-                types
-            )
+            this->ljm->names_to_addrs(static_cast<int>(num_frames), names, addrs, types)
         );
     }
 
@@ -251,10 +194,7 @@ public:
     ) const override {
         return parse_error(
             this->ljm,
-            this->ljm->wait_for_next_interval(
-                interval_handle,
-                skipped_intervals
-            )
+            this->ljm->wait_for_next_interval(interval_handle, skipped_intervals)
         );
     }
 
@@ -276,17 +216,11 @@ public:
         );
     }
 
-    [[nodiscard]] xerrors::Error e_read_name(
-        const char *name,
-        double *value
-    ) const override {
+    [[nodiscard]] xerrors::Error
+    e_read_name(const char *name, double *value) const override {
         return parse_error(
             this->ljm,
-            this->ljm->e_read_name(
-                this->dev_handle,
-                name,
-                value
-            )
+            this->ljm->e_read_name(this->dev_handle, name, value)
         );
     }
 
@@ -309,16 +243,15 @@ public:
     }
 };
 
-/// @brief manager handles the lifecycle of labjack devices, allowing callers to acquire
-/// and release devices for use at will.
+/// @brief manager handles the lifecycle of labjack devices, allowing callers to
+/// acquire and release devices for use at will.
 class Manager {
     std::mutex mu;
     std::map<std::string, std::weak_ptr<Device>> handles;
     std::shared_ptr<ljm::API> ljm;
 
 public:
-    explicit Manager(const std::shared_ptr<ljm::API> &ljm): ljm(ljm) {
-    }
+    explicit Manager(const std::shared_ptr<ljm::API> &ljm): ljm(ljm) {}
 
     xerrors::Error list_all(
         const int dev_type,
@@ -345,26 +278,20 @@ public:
     }
 
 
-    std::pair<std::shared_ptr<Device>, xerrors::Error> acquire(
-        const std::string &serial_number
-    ) {
+    std::pair<std::shared_ptr<Device>, xerrors::Error>
+    acquire(const std::string &serial_number) {
         std::lock_guard lock(mu);
 
         const auto it = this->handles.find(serial_number);
         if (it != handles.end()) {
             const auto existing = it->second.lock();
-            if (existing != nullptr)
-                return {existing, xerrors::NIL};
+            if (existing != nullptr) return {existing, xerrors::NIL};
             this->handles.erase(it);
         }
 
         int dev_handle;
-        const int err = ljm->open(
-            LJM_dtANY,
-            LJM_ctANY,
-            serial_number.c_str(),
-            &dev_handle
-        );
+        const int
+            err = ljm->open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &dev_handle);
         if (err != 0) return {nullptr, parse_error(ljm, err)};
 
         auto dev = std::make_shared<LJMDevice>(ljm, dev_handle);
