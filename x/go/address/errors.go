@@ -11,8 +11,8 @@ package address
 
 import "github.com/synnaxlabs/x/errors"
 
-var NotFound = errors.New("[address] - not found")
+var ErrNotFound = errors.New("[address] - not found")
 
 func TargetNotFound(target Address) error {
-	return errors.Wrapf(NotFound, "[address] - target %s not found", target)
+	return errors.Wrapf(ErrNotFound, "[address] - target %s not found", target)
 }

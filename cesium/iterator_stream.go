@@ -18,33 +18,34 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// StreamIterator provides a streaming interface for iterating over a DB's segments
-// in time order. StreamIterator provides the underlying functionality for Iterator,
-// and has almost exactly the same semantics. The streaming interface is exposed
-// as a confluence segment that can accept one input stream and one output stream.
+// StreamIterator provides a streaming interface for iterating over a DB's segments in
+// time order. StreamIterator provides the underlying functionality for Iterator, and
+// has almost exactly the same semantics. The streaming interface is exposed as a
+// confluence segment that can accept one input stream and one output stream.
 //
 // To read frames, issue an IteratorRequest to the StreamIterator's inlet. The
-// StreamIterator will respond by sending one or more IteratorResponse messages to
-// the outlet. All responses containing frame data will have a type of
-// IteratorDataResponse and will contain one or more frames. The last response
-// for any request will have a type of IteratorAckResponse and will contain
-// the name of the command that was acknowledged, an incremented sequence number,
-// and ack boolean indicating whether the command was successfully processed.
+// StreamIterator will respond by sending one or more IteratorResponse messages to the
+// outlet. All responses containing frame data will have a type of IteratorDataResponse
+// and will contain one or more frames. The last response for any request will have a
+// type of IteratorAckResponse and will contain the name of the command that was
+// acknowledged, an incremented sequence number, and ack boolean indicating whether the
+// command was successfully processed.
 //
 // To close the StreamIterator, simply close the inlet. The StreamIterator will ensure
 // that all in-progress requests have been served before closing the outlet. The
-// StreamIterator will return any accumulated err through the signal context
-// provided to Flow.
+// StreamIterator will return any accumulated err through the signal context provided to
+// Flow.
 type StreamIterator = confluence.Segment[IteratorRequest, IteratorResponse]
 
 // IteratorResponseVariant is the type of the response an Iterator will return.
 type IteratorResponseVariant uint8
 
 const (
-	// IteratorAckResponse is a response that indicates that an iteration request
-	// has completed successfully.
+	// IteratorAckResponse is a response that indicates that an iteration request has
+	// completed successfully.
 	IteratorAckResponse IteratorResponseVariant = iota + 1
 	// IteratorDataResponse is a response that indicates that an iteration request
 	// returned data.
@@ -69,11 +70,13 @@ const (
 	IterSeekGE
 	// IterValid represents a call to Iterator.Valid.
 	IterValid
-	// IterError represents a call to Iterator.Close.
+	// IterError represents a call to Iterator.Error.
 	IterError
 	// IterSetBounds represents a call to Iterator.SetBounds.
 	IterSetBounds
 )
+
+var validateIteratorCommand = validate.NewInclusiveBoundsChecker(IterNext, IterSetBounds)
 
 // HasOps returns true if the IteratorCommand has any associated on disk operations.
 func (i IteratorCommand) HasOps() bool { return i <= IterPrev }
@@ -90,6 +93,9 @@ type IteratorRequest struct {
 	Span telem.TimeSpan
 	// Bounds should be set during a request to IterSetBounds.
 	Bounds telem.TimeRange
+	// SeqNum is the sequence number of the request. This is used to match the request
+	// with the response. Each request should increment the sequence number by 1.
+	SeqNum int
 }
 
 // IteratorResponse is a response containing segments satisfying a RetrieveP Params as
@@ -97,27 +103,26 @@ type IteratorRequest struct {
 type IteratorResponse struct {
 	// Variant is the type of response being issued.
 	Variant IteratorResponseVariant
-	// SeqNum is incremented for each request issued to the StreamIterator. The
-	// first request will have a sequence number of 1.
+	// SeqNum is the corresponding sequence number of the request. This is used to match
+	// the request with the response. Each request should increment the sequence number
+	// by 1.
 	SeqNum int
 	// Command defines the command that the response relates to.
 	Command IteratorCommand
-	// Ack is only valid when the response type is IteratorAckResponse. It
-	// indicates whether the command was successfully processed.
+	// Ack is only valid when the response type is IteratorAckResponse. It indicates
+	// whether the command was successfully processed.
 	Ack bool
 	// Err is only set an IterError command is being responded to.
 	Err error
-	// Frame is the telemetry frame that was read from the DB. It is only set
-	// when the response type is IteratorDataResponse.
+	// Frame is the telemetry frame that was read from the DB. It is only set when the
+	// response type is IteratorDataResponse.
 	Frame Frame
 }
 
 type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
-	internal   []*unary.Iterator
-	seqNum     int
-	openSignal chan struct{}
+	internal []*unary.Iterator
 }
 
 // IteratorConfig is the configuration for opening an iterator :). See the fields for
@@ -131,9 +136,6 @@ type IteratorConfig struct {
 	// AutoChunkSize sets the default chunk size to iterator over when sending a Next()
 	// or Prev() request it IteratorAutoSpan as the span.
 	AutoChunkSize int64
-	// OpenSignal is a channel that will be closed once the iterator is successfully
-	// opened.
-	OpenSignal chan struct{}
 }
 
 // Flow implements the confluence.Segment interface.
@@ -141,9 +143,6 @@ func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
 	sCtx.Go(func(ctx context.Context) error {
-		if s.openSignal != nil {
-			close(s.openSignal)
-		}
 		for {
 			select {
 			case <-ctx.Done():
@@ -153,11 +152,10 @@ func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					return s.close()
 				}
 				ok, err := s.exec(ctx, req)
-				s.seqNum++
 				s.Out.Inlet() <- IteratorResponse{
 					Variant: IteratorAckResponse,
 					Command: req.Command,
-					SeqNum:  s.seqNum,
+					SeqNum:  req.SeqNum,
 					Ack:     ok,
 					Err:     err,
 				}
@@ -167,11 +165,14 @@ func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 }
 
 func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) (ok bool, err error) {
+	if err := validateIteratorCommand(req.Command); err != nil {
+		return false, err
+	}
 	switch req.Command {
 	case IterNext:
-		ok = s.execWithResponse(func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) }, IterNext)
+		ok = s.execWithResponse(req.SeqNum, func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) })
 	case IterPrev:
-		ok = s.execWithResponse(func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) }, IterPrev)
+		ok = s.execWithResponse(req.SeqNum, func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) })
 	case IterSeekFirst:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekFirst(ctx) })
 	case IterSeekLast:
@@ -190,14 +191,14 @@ func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) (ok bool
 	return
 }
 
-func (s *streamIterator) execWithResponse(f func(i *unary.Iterator) bool, cmd IteratorCommand) (ok bool) {
+func (s *streamIterator) execWithResponse(seqNum int, f func(i *unary.Iterator) bool) (ok bool) {
 	for _, i := range s.internal {
 		if f(i) {
 			ok = true
 			s.Out.Inlet() <- IteratorResponse{
 				Variant: IteratorDataResponse,
 				Command: IterNext,
-				SeqNum:  s.seqNum,
+				SeqNum:  seqNum,
 				Frame:   i.Value(),
 			}
 		}

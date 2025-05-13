@@ -10,16 +10,17 @@
 package search
 
 import (
+	"slices"
+	"unicode"
+
 	"github.com/blevesearch/bleve/v2/analysis"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/custom"
 	"github.com/blevesearch/bleve/v2/mapping"
 	"github.com/blevesearch/bleve/v2/registry"
-	"slices"
-	"unicode"
 )
 
 func init() {
-	registry.RegisterTokenizer(separatorTokenizer, func(config map[string]interface{}, cache *registry.Cache) (analysis.Tokenizer, error) {
+	registry.RegisterTokenizer(separatorTokenizer, func(config map[string]any, cache *registry.Cache) (analysis.Tokenizer, error) {
 		return &SepTokenizer{}, nil
 	})
 }

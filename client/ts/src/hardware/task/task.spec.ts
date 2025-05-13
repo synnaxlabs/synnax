@@ -98,7 +98,7 @@ describe("Task", async () => {
           task: t.key,
           variant: "success",
         };
-        expect(await w.write("sy_task_state", [state])).toBeTruthy();
+        await w.write("sy_task_state", [state]);
         await w.close();
         await expect
           .poll(async () => {

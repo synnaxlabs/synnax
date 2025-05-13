@@ -9,16 +9,14 @@
 
 package fs
 
-import (
-	"os"
-)
+import "os"
 
 //goland:noinspection ALL
 const (
 	OS_NO          os.FileMode = 0
-	OS_READ        os.FileMode = 04
-	OS_WRITE       os.FileMode = 02
-	OS_EX          os.FileMode = 01
+	OS_READ        os.FileMode = 0o4
+	OS_WRITE       os.FileMode = 0o2
+	OS_EX          os.FileMode = 0o1
 	OS_USER_SHIFT  os.FileMode = 6
 	OS_GROUP_SHIFT os.FileMode = 3
 	OS_OTH_SHIFT   os.FileMode = 0
@@ -48,9 +46,9 @@ const (
 	OS_ALL_RWX = OS_ALL_RW | OS_ALL_X
 )
 
-// CheckSufficientPermissions checks if the given actual file mode grants at least
-// the permissions expected by the given threshold. If the actual file mode is
-// insufficient, false is returned. Otherwise, true is returned.
+// CheckSufficientPermissions checks if the given actual file mode grants at least the
+// permissions expected by the given threshold. If the actual file mode is insufficient,
+// false is returned. Otherwise, true is returned.
 func CheckSufficientPermissions(actual, threshold os.FileMode) bool {
 	return actual&threshold == threshold
 }

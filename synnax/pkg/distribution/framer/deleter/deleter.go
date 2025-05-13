@@ -11,6 +11,7 @@ package deleter
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/telem"
 )

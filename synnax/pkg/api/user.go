@@ -12,6 +12,8 @@ package api
 import (
 	"context"
 	"errors"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	"go/types"
 )
 
 // UserService is the core authentication service for the Synnax API.

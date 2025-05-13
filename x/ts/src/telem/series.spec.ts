@@ -107,6 +107,13 @@ describe("Series", () => {
       expect(s.length).toEqual(3);
     });
 
+    it("should construct a series from an int32 array", () => {
+      const s = new Series(new Int32Array([1, 2, 3]));
+      expect(s.dataType.equals(DataType.INT32)).toBeTruthy();
+      expect(s.length).toEqual(3);
+      expect(Array.from(s)).toEqual([1, 2, 3]);
+    });
+
     it("should assume string when a single string is passed as data", () => {
       const s = new Series("abc");
       expect(s.dataType.equals(DataType.STRING)).toBeTruthy();
@@ -759,6 +766,31 @@ describe("Series", () => {
       const s = Series.z.parse({ data: null, dataType: "string" });
       expect(s.dataType.equals(DataType.STRING)).toBeTruthy();
       expect(s.length).toEqual(0);
+    });
+  });
+
+  describe("toString", () => {
+    interface Spec {
+      series: Series;
+      expected: string;
+    }
+    const SPECS: Spec[] = [
+      {
+        series: new Series({ data: [1, 2, 3, 4], dataType: "float64" }),
+        expected: "float64 4 [1,2,3,4]",
+      },
+      {
+        series: new Series({
+          data: Array.from({ length: 100 }, (_, i) => i),
+          dataType: "float32",
+        }),
+        expected: "float32 100 [0,1,2,3,4...95,96,97,98,99]",
+      },
+    ];
+    SPECS.forEach(({ series, expected }) => {
+      it(`should convert ${series.toString()} to a string`, () => {
+        expect(series.toString()).toEqual(expected);
+      });
     });
   });
 

@@ -358,6 +358,7 @@ type FrameWriterRequest struct {
 	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
 	Config        *FrameWriterConfig     `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
 	Frame         *Frame                 `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
+	Buffer        []byte                 `protobuf:"bytes,4,opt,name=buffer,proto3" json:"buffer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -413,14 +414,20 @@ func (x *FrameWriterRequest) GetFrame() *Frame {
 	return nil
 }
 
+func (x *FrameWriterRequest) GetBuffer() []byte {
+	if x != nil {
+		return x.Buffer
+	}
+	return nil
+}
+
 type FrameWriterResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
-	Ack           bool                   `protobuf:"varint,2,opt,name=ack,proto3" json:"ack,omitempty"`
-	NodeKey       int32                  `protobuf:"varint,3,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
-	Counter       int32                  `protobuf:"varint,4,opt,name=counter,proto3" json:"counter,omitempty"`
-	Error         *errors.PBPayload      `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
-	End           int64                  `protobuf:"varint,6,opt,name=end,proto3" json:"end,omitempty"`
+	NodeKey       int32                  `protobuf:"varint,2,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
+	Counter       int32                  `protobuf:"varint,3,opt,name=counter,proto3" json:"counter,omitempty"`
+	Error         *errors.PBPayload      `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	End           int64                  `protobuf:"varint,5,opt,name=end,proto3" json:"end,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -462,13 +469,6 @@ func (x *FrameWriterResponse) GetCommand() int32 {
 	return 0
 }
 
-func (x *FrameWriterResponse) GetAck() bool {
-	if x != nil {
-		return x.Ack
-	}
-	return false
-}
-
 func (x *FrameWriterResponse) GetNodeKey() int32 {
 	if x != nil {
 		return x.NodeKey
@@ -498,11 +498,12 @@ func (x *FrameWriterResponse) GetEnd() int64 {
 }
 
 type FrameStreamerRequest struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Keys             []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
-	DownsampleFactor int32                  `protobuf:"varint,2,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	Keys                    []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	DownsampleFactor        int32                  `protobuf:"varint,2,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
+	EnableExperimentalCodec bool                   `protobuf:"varint,3,opt,name=enable_experimental_codec,json=enableExperimentalCodec,proto3" json:"enable_experimental_codec,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *FrameStreamerRequest) Reset() {
@@ -549,10 +550,17 @@ func (x *FrameStreamerRequest) GetDownsampleFactor() int32 {
 	return 0
 }
 
+func (x *FrameStreamerRequest) GetEnableExperimentalCodec() bool {
+	if x != nil {
+		return x.EnableExperimentalCodec
+	}
+	return false
+}
+
 type FrameStreamerResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Frame         *Frame                 `protobuf:"bytes,1,opt,name=frame,proto3" json:"frame,omitempty"`
-	Error         *errors.PBPayload      `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Buffer        []byte                 `protobuf:"bytes,2,opt,name=buffer,proto3" json:"buffer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -594,9 +602,9 @@ func (x *FrameStreamerResponse) GetFrame() *Frame {
 	return nil
 }
 
-func (x *FrameStreamerResponse) GetError() *errors.PBPayload {
+func (x *FrameStreamerResponse) GetBuffer() []byte {
 	if x != nil {
-		return x.Error
+		return x.Buffer
 	}
 	return nil
 }
@@ -693,24 +701,25 @@ const file_synnax_pkg_api_grpc_v1_framer_proto_rawDesc = "" +
 	"\x04mode\x18\x05 \x01(\x05R\x04mode\x12,\n" +
 	"\x12enable_auto_commit\x18\x06 \x01(\bR\x10enableAutoCommit\x12=\n" +
 	"\x1bauto_index_persist_interval\x18\a \x01(\x03R\x18autoIndexPersistInterval\x12.\n" +
-	"\x13err_on_unauthorized\x18\b \x01(\bR\x11errOnUnauthorized\"\x86\x01\n" +
+	"\x13err_on_unauthorized\x18\b \x01(\bR\x11errOnUnauthorized\"\x9e\x01\n" +
 	"\x12FrameWriterRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x121\n" +
 	"\x06config\x18\x02 \x01(\v2\x19.api.v1.FrameWriterConfigR\x06config\x12#\n" +
-	"\x05frame\x18\x03 \x01(\v2\r.api.v1.FrameR\x05frame\"\xb1\x01\n" +
+	"\x05frame\x18\x03 \x01(\v2\r.api.v1.FrameR\x05frame\x12\x16\n" +
+	"\x06buffer\x18\x04 \x01(\fR\x06buffer\"\x9f\x01\n" +
 	"\x13FrameWriterResponse\x12\x18\n" +
-	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x10\n" +
-	"\x03ack\x18\x02 \x01(\bR\x03ack\x12\x19\n" +
-	"\bnode_key\x18\x03 \x01(\x05R\anodeKey\x12\x18\n" +
-	"\acounter\x18\x04 \x01(\x05R\acounter\x12'\n" +
-	"\x05error\x18\x05 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x10\n" +
-	"\x03end\x18\x06 \x01(\x03R\x03end\"W\n" +
+	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x19\n" +
+	"\bnode_key\x18\x02 \x01(\x05R\anodeKey\x12\x18\n" +
+	"\acounter\x18\x03 \x01(\x05R\acounter\x12'\n" +
+	"\x05error\x18\x04 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x10\n" +
+	"\x03end\x18\x05 \x01(\x03R\x03end\"\x93\x01\n" +
 	"\x14FrameStreamerRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12+\n" +
-	"\x11downsample_factor\x18\x02 \x01(\x05R\x10downsampleFactor\"e\n" +
+	"\x11downsample_factor\x18\x02 \x01(\x05R\x10downsampleFactor\x12:\n" +
+	"\x19enable_experimental_codec\x18\x03 \x01(\bR\x17enableExperimentalCodec\"T\n" +
 	"\x15FrameStreamerResponse\x12#\n" +
-	"\x05frame\x18\x01 \x01(\v2\r.api.v1.FrameR\x05frame\x12'\n" +
-	"\x05error\x18\x02 \x01(\v2\x11.errors.PBPayloadR\x05error\"j\n" +
+	"\x05frame\x18\x01 \x01(\v2\r.api.v1.FrameR\x05frame\x12\x16\n" +
+	"\x06buffer\x18\x02 \x01(\fR\x06buffer\"j\n" +
 	"\x12FrameDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12*\n" +
@@ -765,21 +774,20 @@ var file_synnax_pkg_api_grpc_v1_framer_proto_depIdxs = []int32{
 	0,  // 6: api.v1.FrameWriterRequest.frame:type_name -> api.v1.Frame
 	11, // 7: api.v1.FrameWriterResponse.error:type_name -> errors.PBPayload
 	0,  // 8: api.v1.FrameStreamerResponse.frame:type_name -> api.v1.Frame
-	11, // 9: api.v1.FrameStreamerResponse.error:type_name -> errors.PBPayload
-	10, // 10: api.v1.FrameDeleteRequest.bounds:type_name -> telem.PBTimeRange
-	1,  // 11: api.v1.FrameIteratorService.Exec:input_type -> api.v1.FrameIteratorRequest
-	4,  // 12: api.v1.FrameWriterService.Exec:input_type -> api.v1.FrameWriterRequest
-	6,  // 13: api.v1.FrameStreamerService.Exec:input_type -> api.v1.FrameStreamerRequest
-	8,  // 14: api.v1.FrameDeleteService.Exec:input_type -> api.v1.FrameDeleteRequest
-	2,  // 15: api.v1.FrameIteratorService.Exec:output_type -> api.v1.FrameIteratorResponse
-	5,  // 16: api.v1.FrameWriterService.Exec:output_type -> api.v1.FrameWriterResponse
-	7,  // 17: api.v1.FrameStreamerService.Exec:output_type -> api.v1.FrameStreamerResponse
-	13, // 18: api.v1.FrameDeleteService.Exec:output_type -> google.protobuf.Empty
-	15, // [15:19] is the sub-list for method output_type
-	11, // [11:15] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	10, // 9: api.v1.FrameDeleteRequest.bounds:type_name -> telem.PBTimeRange
+	1,  // 10: api.v1.FrameIteratorService.Exec:input_type -> api.v1.FrameIteratorRequest
+	4,  // 11: api.v1.FrameWriterService.Exec:input_type -> api.v1.FrameWriterRequest
+	6,  // 12: api.v1.FrameStreamerService.Exec:input_type -> api.v1.FrameStreamerRequest
+	8,  // 13: api.v1.FrameDeleteService.Exec:input_type -> api.v1.FrameDeleteRequest
+	2,  // 14: api.v1.FrameIteratorService.Exec:output_type -> api.v1.FrameIteratorResponse
+	5,  // 15: api.v1.FrameWriterService.Exec:output_type -> api.v1.FrameWriterResponse
+	7,  // 16: api.v1.FrameStreamerService.Exec:output_type -> api.v1.FrameStreamerResponse
+	13, // 17: api.v1.FrameDeleteService.Exec:output_type -> google.protobuf.Empty
+	14, // [14:18] is the sub-list for method output_type
+	10, // [10:14] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_synnax_pkg_api_grpc_v1_framer_proto_init() }

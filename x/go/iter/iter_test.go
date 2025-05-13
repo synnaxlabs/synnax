@@ -22,8 +22,8 @@ var _ = Describe("Iter", func() {
 			n := 5
 			values := make([]int, n)
 			i := iter.Endlessly(values)
-			for j := 0; j < iterations; j++ {
-				for k := 0; k < n; k++ {
+			for range iterations {
+				for k := range n {
 					v, ok := i.Next(nil)
 					Expect(ok).To(BeTrue())
 					Expect(v).To(Equal(values[k]))
@@ -36,7 +36,7 @@ var _ = Describe("Iter", func() {
 			n := 5
 			values := make([]int, n)
 			i := iter.All(values)
-			for j := 0; j < n; j++ {
+			for j := range n {
 				v, ok := i.Next(nil)
 				Expect(ok).To(BeTrue())
 				Expect(v).To(Equal(values[j]))

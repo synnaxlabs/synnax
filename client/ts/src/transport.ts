@@ -10,7 +10,6 @@
 import {
   HTTPClient,
   type Middleware,
-  type StreamClient,
   type UnaryClient,
   unaryWithBreaker,
   WebSocketClient,
@@ -24,7 +23,7 @@ const baseAPIEndpoint = "/api/v1/";
 export class Transport {
   readonly url: URL;
   readonly unary: UnaryClient;
-  readonly stream: StreamClient;
+  readonly stream: WebSocketClient;
   readonly secure: boolean;
 
   constructor(url: URL, breakerCfg: breaker.Config = {}, secure: boolean = false) {

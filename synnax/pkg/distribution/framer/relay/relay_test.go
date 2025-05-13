@@ -12,6 +12,9 @@ package relay_test
 import (
 	"context"
 	"fmt"
+	"io"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -28,14 +31,12 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"io"
-	"time"
 )
 
 type scenario struct {
 	resCount int
 	name     string
-	keys     channel.Keys
+	channels []channel.Channel
 	relay    *relay.Relay
 	writer   *writer.Service
 	close    io.Closer
@@ -48,6 +49,7 @@ var _ = Describe("Relay", func() {
 			gatewayOnlyScenario,
 			peerOnlyScenario,
 			mixedScenario,
+			freeScenario,
 		}
 		for i, sF := range scenarios {
 			_sF := sF
@@ -55,45 +57,49 @@ var _ = Describe("Relay", func() {
 			BeforeAll(func() { s = _sF() })
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
+				keys := channel.KeysFromChannels(s.channels)
 				reader := MustSucceed(s.relay.NewStreamer(context.TODO(), relay.StreamerConfig{
-					Keys: s.keys,
+					Keys: keys,
 				}))
 				sCtx, _ := signal.Isolated()
 				streamerReq, readerRes := confluence.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				// We need to give a few milliseconds for the reader to boot up.
 				time.Sleep(10 * time.Millisecond)
-				writer := MustSucceed(s.writer.New(context.TODO(), writer.Config{
-					Keys:  s.keys,
+				w := MustSucceed(s.writer.Open(ctx, writer.Config{
+					Keys:  keys,
 					Start: 10 * telem.SecondTS,
 				}))
 				defer func() {
 					defer GinkgoRecover()
-					Expect(writer.Close()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
 				}()
-				writeF := core.Frame{
-					Keys: s.keys,
-					Series: []telem.Series{
+				writeF := core.MultiFrame(
+					keys,
+					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
 						telem.NewSeriesV[int64](3, 4, 5),
 						telem.NewSeriesV[int64](5, 6, 7),
 					},
-				}
-				Expect(writer.Write(writeF)).To(BeTrue())
+				)
+				Expect(w.Write(writeF)).To(BeTrue())
 				var f framer.Frame
-				for i := 0; i < s.resCount; i++ {
+				for range s.resCount {
 					var res relay.Response
 					Eventually(readerRes.Outlet()).Should(Receive(&res))
 					f = core.MergeFrames([]core.Frame{f, res.Frame})
 				}
-				Expect(f.Keys).To(HaveLen(3))
-				for i, k := range f.Keys {
-					wi := lo.IndexOf(s.keys, k)
-					s := f.Series[i]
-					ws := writeF.Series[wi]
+				Expect(f.Count()).To(Equal(3))
+				for i, k := range f.KeysSlice() {
+					wi := lo.IndexOf(keys, k)
+					ch := s.channels[wi]
+					s := f.SeriesAt(i)
+					ws := writeF.SeriesAt(wi)
 					Expect(s.Data).To(Equal(ws.Data))
 					Expect(s.DataType).To(Equal(ws.DataType))
-					Expect(s.Alignment).To(BeNumerically(">", telem.AlignmentPair(0)))
+					if !ch.Free() {
+						Expect(s.Alignment).To(BeNumerically(">", telem.Alignment(0)))
+					}
 				}
 				streamerReq.Close()
 				confluence.Drain(readerRes)
@@ -119,17 +125,17 @@ func newChannelSet() []channel.Channel {
 	return []channel.Channel{
 		{
 			Name:     "test1",
-			Rate:     1 * telem.Hz,
+			Virtual:  true,
 			DataType: telem.Int64T,
 		},
 		{
 			Name:     "test2",
-			Rate:     1 * telem.Hz,
+			Virtual:  true,
 			DataType: telem.Int64T,
 		},
 		{
 			Name:     "test3",
-			Rate:     1 * telem.Hz,
+			Virtual:  true,
 			DataType: telem.Int64T,
 		},
 	}
@@ -140,11 +146,10 @@ func gatewayOnlyScenario() scenario {
 	builder, services := provision(1)
 	svc := services[1]
 	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
-	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		resCount: 1,
 		name:     "gateway-only",
-		keys:     keys,
+		channels: channels,
 		relay:    svc.relay,
 		writer:   svc.writer,
 		close: xio.CloserFunc(func() error {
@@ -176,7 +181,7 @@ func peerOnlyScenario() scenario {
 	return scenario{
 		resCount: 3,
 		name:     "peer-only",
-		keys:     keys,
+		channels: channels,
 		relay:    svc.relay,
 		writer:   svc.writer,
 		close: xio.CloserFunc(func() error {
@@ -207,7 +212,40 @@ func mixedScenario() scenario {
 	return scenario{
 		resCount: 3,
 		name:     "mixed",
-		keys:     keys,
+		channels: channels,
+		relay:    svc.relay,
+		writer:   svc.writer,
+		close: xio.CloserFunc(func() error {
+			e := errors.NewCatcher(errors.WithAggregation())
+			e.Exec(builder.Close)
+			for _, svc := range services {
+				e.Exec(svc.relay.Close)
+			}
+			return e.Error()
+		}),
+	}
+}
+
+func freeScenario() scenario {
+	channels := newChannelSet()
+	builder, services := provision(1)
+	svc := services[1]
+	for i, ch := range channels {
+		ch.Leaseholder = dcore.Free
+		ch.Virtual = true
+		channels[i] = ch
+	}
+	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	keys := channel.KeysFromChannels(channels)
+	Eventually(func(g Gomega) {
+		var chs []channel.Channel
+		g.Expect(svc.channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).
+			Exec(ctx, nil)).To(Succeed())
+	})
+	return scenario{
+		resCount: 1,
+		name:     "free",
+		channels: channels,
 		relay:    svc.relay,
 		writer:   svc.writer,
 		close: xio.CloserFunc(func() error {

@@ -30,7 +30,7 @@ func (f *Factory) Next() Address {
 }
 
 func (f *Factory) NextN(n int) (addresses []Address) {
-	for i := 0; i < n; i++ {
+	for range n {
 		addresses = append(addresses, f.Next())
 	}
 	return addresses

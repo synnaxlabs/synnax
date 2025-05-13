@@ -11,9 +11,10 @@ package deleter_test
 
 import (
 	"context"
+	"testing"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -61,9 +62,9 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 		deleterNet  = tmock.NewDeleterNetwork()
 		iteratorNet = tmock.NewIteratorNetwork()
 	)
-	for i := 0; i < n; i++ {
+	for range n {
 		var (
-			c         = builder.New()
+			c         = builder.New(ctx)
 			container serviceContainer
 		)
 		container.channel = MustSucceed(channel.New(ctx, channel.ServiceConfig{

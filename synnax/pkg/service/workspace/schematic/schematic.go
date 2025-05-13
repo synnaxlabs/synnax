@@ -33,4 +33,4 @@ var _ gorp.Entry[uuid.UUID] = Schematic{}
 func (s Schematic) GorpKey() uuid.UUID { return s.Key }
 
 // SetOptions implements gorp.Entry.
-func (s Schematic) SetOptions() []interface{} { return nil }
+func (s Schematic) SetOptions() []any { return nil }

@@ -87,13 +87,12 @@ type Channel struct {
 	Key           uint32                 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Leaseholder   uint32                 `protobuf:"varint,3,opt,name=leaseholder,proto3" json:"leaseholder,omitempty"`
-	Rate          float32                `protobuf:"fixed32,4,opt,name=rate,proto3" json:"rate,omitempty"`
-	DataType      string                 `protobuf:"bytes,5,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
-	Density       int64                  `protobuf:"varint,6,opt,name=density,proto3" json:"density,omitempty"`
-	IsIndex       bool                   `protobuf:"varint,7,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
-	Index         uint32                 `protobuf:"varint,8,opt,name=index,proto3" json:"index,omitempty"`
-	IsVirtual     bool                   `protobuf:"varint,9,opt,name=is_virtual,json=isVirtual,proto3" json:"is_virtual,omitempty"`
-	Internal      bool                   `protobuf:"varint,10,opt,name=internal,proto3" json:"internal,omitempty"`
+	DataType      string                 `protobuf:"bytes,4,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
+	Density       int64                  `protobuf:"varint,5,opt,name=density,proto3" json:"density,omitempty"`
+	IsIndex       bool                   `protobuf:"varint,6,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
+	Index         uint32                 `protobuf:"varint,7,opt,name=index,proto3" json:"index,omitempty"`
+	IsVirtual     bool                   `protobuf:"varint,8,opt,name=is_virtual,json=isVirtual,proto3" json:"is_virtual,omitempty"`
+	Internal      bool                   `protobuf:"varint,9,opt,name=internal,proto3" json:"internal,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -145,13 +144,6 @@ func (x *Channel) GetName() string {
 func (x *Channel) GetLeaseholder() uint32 {
 	if x != nil {
 		return x.Leaseholder
-	}
-	return 0
-}
-
-func (x *Channel) GetRate() float32 {
-	if x != nil {
-		return x.Rate
 	}
 	return 0
 }
@@ -414,20 +406,18 @@ const file_synnax_pkg_api_grpc_v1_channel_proto_rawDesc = "" +
 	"\x14ChannelDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12%\n" +
-	"\x0eallow_internal\x18\x03 \x01(\bR\rallowInternal\"\x88\x02\n" +
+	"\x0eallow_internal\x18\x03 \x01(\bR\rallowInternal\"\xf4\x01\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
-	"\vleaseholder\x18\x03 \x01(\rR\vleaseholder\x12\x12\n" +
-	"\x04rate\x18\x04 \x01(\x02R\x04rate\x12\x1b\n" +
-	"\tdata_type\x18\x05 \x01(\tR\bdataType\x12\x18\n" +
-	"\adensity\x18\x06 \x01(\x03R\adensity\x12\x19\n" +
-	"\bis_index\x18\a \x01(\bR\aisIndex\x12\x14\n" +
-	"\x05index\x18\b \x01(\rR\x05index\x12\x1d\n" +
+	"\vleaseholder\x18\x03 \x01(\rR\vleaseholder\x12\x1b\n" +
+	"\tdata_type\x18\x04 \x01(\tR\bdataType\x12\x18\n" +
+	"\adensity\x18\x05 \x01(\x03R\adensity\x12\x19\n" +
+	"\bis_index\x18\x06 \x01(\bR\aisIndex\x12\x14\n" +
+	"\x05index\x18\a \x01(\rR\x05index\x12\x1d\n" +
 	"\n" +
-	"is_virtual\x18\t \x01(\bR\tisVirtual\x12\x1a\n" +
-	"\binternal\x18\n" +
-	" \x01(\bR\binternal\"u\n" +
+	"is_virtual\x18\b \x01(\bR\tisVirtual\x12\x1a\n" +
+	"\binternal\x18\t \x01(\bR\binternal\"u\n" +
 	"\x16ChannelRetrieveRequest\x12\x19\n" +
 	"\bnode_key\x18\x01 \x01(\rR\anodeKey\x12\x12\n" +
 	"\x04keys\x18\x02 \x03(\rR\x04keys\x12\x14\n" +

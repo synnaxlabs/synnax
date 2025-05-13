@@ -15,12 +15,13 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fnoop"
 	"github.com/synnaxlabs/synnax/pkg/api"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
-func New() (a api.Transport, transports []fgrpc.BindableTransport) {
+func New(channels channel.Readable) (a api.Transport, transports []fgrpc.BindableTransport) {
 	transports = make([]fgrpc.BindableTransport, 0, 20)
 	transports = append(transports, newChannel(&a)...)
-	transports = append(transports, newFramer(&a))
+	transports = append(transports, newFramer(&a, channels))
 	transports = append(transports, newConnectivity(&a))
 	transports = append(transports, newAuth(&a))
 	transports = append(transports, newRanger(&a))

@@ -137,7 +137,7 @@ TEST(testGRPC, testBasicStream) {
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(res.payload(), "Read request: Sending to Streaming Server");
     auto [_, err3] = streamer->receive();
-    ASSERT_TRUE(err3.type == freighter::EOF_.type) << err3.message();
+    ASSERT_TRUE(err3.type == freighter::EOF_ERR.type) << err3.message();
     stopServers();
     s.join();
 }
@@ -177,8 +177,8 @@ TEST(testGRPC, testMultipleStreamObjects) {
     );
     auto err_one3 = streamer_one->receive().second;
     auto err_two3 = streamer_two->receive().second;
-    ASSERT_TRUE(err_one3.type == freighter::EOF_.type);
-    ASSERT_TRUE(err_two3.type == freighter::EOF_.type);
+    ASSERT_TRUE(err_one3.type == freighter::EOF_ERR.type);
+    ASSERT_TRUE(err_two3.type == freighter::EOF_ERR.type);
 
     stopServers();
     s1.join();
@@ -211,7 +211,7 @@ TEST(testGRPC, testSendMultipleMessages) {
     ASSERT_EQ(res_two.payload(), "Read request: Sending New Message");
 
     auto [_, err3] = streamer->receive();
-    ASSERT_TRUE(err3.type == freighter::EOF_.type) << err3;
+    ASSERT_TRUE(err3.type == freighter::EOF_ERR.type) << err3;
 
     stopServers();
     s.join();

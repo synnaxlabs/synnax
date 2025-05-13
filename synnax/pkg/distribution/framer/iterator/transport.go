@@ -49,6 +49,10 @@ type Request struct {
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// ChunkSize should only be set when opening the Iterator.
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
+	// SeqNum is the sequence number of the request (starting at 1). This is used to
+	// match responses to requests. Each request should increment the sequence number
+	// by 1.
+	SeqNum int
 }
 
 //go:generate stringer -type=ResponseVariant

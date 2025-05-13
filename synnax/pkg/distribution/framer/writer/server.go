@@ -11,6 +11,7 @@ package writer
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -50,9 +51,9 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	}
 
 	pipe := plumber.New()
-	plumber.SetSegment[ts.WriterRequest, ts.WriterResponse](pipe, "toStorage", w)
-	plumber.SetSource[ts.WriterRequest](pipe, "receiver", receiver)
-	plumber.SetSink[ts.WriterResponse](pipe, "sender", sender)
+	plumber.SetSegment(pipe, "toStorage", w)
+	plumber.SetSource(pipe, "receiver", receiver)
+	plumber.SetSink(pipe, "sender", sender)
 	plumber.MustConnect[ts.WriterRequest](pipe, "receiver", "toStorage", 1)
 	plumber.MustConnect[ts.WriterResponse](pipe, "toStorage", "sender", 1)
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())

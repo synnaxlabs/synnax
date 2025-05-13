@@ -25,7 +25,7 @@ type Change[K, V any] struct {
 	// Key is the key of the key-value pair.
 	Key K
 	// Value is the value of the key-value pair. On a 'DeleteChannel' change, this will be the
-	// zero value of the type of the Value field.
+	// zero value of the Value field.
 	Value V
 	// Variant is the type of change.
 	Variant Variant

@@ -149,8 +149,10 @@ export const encodeError = (error: unknown): ErrorPayload => REGISTRY.encode(err
  * @param payload - The encoded error payload.
  * @returns The decoded error.
  */
-export const decodeError = (payload: ErrorPayload): Error | null =>
-  REGISTRY.decode(payload);
+export const decodeError = (payload?: ErrorPayload | null): Error | null => {
+  if (payload == null) return null;
+  return REGISTRY.decode(payload);
+};
 
 export class UnknownError extends BaseTypedError implements TypedError {
   type = "unknown";

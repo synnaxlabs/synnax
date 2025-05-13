@@ -83,7 +83,7 @@ class RowIngestionEngine:
                         progress.update(task, advance=chunk.size, tp=int(tp))
                     except StopIteration:
                         break
-            self.end, _ = self.writer.commit()
+            self.end = self.writer.commit()
         finally:
             self.reader.close()
             self.writer.close()

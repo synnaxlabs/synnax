@@ -30,34 +30,38 @@ type WriterConfig struct {
 	// Start marks the starting bound of the writer.
 	// [REQUIRED]
 	Start telem.TimeStamp
-	// End is an optional parameter that marks the ending bound of the domain. Defining this
-	// parameter will allow the writer to write data to the domain without needing to
-	// validate each call to Commit. If this parameter is not defined, Commit must
-	// be called with a strictly increasing timestamp.
+	// End is an optional parameter that marks the ending bound of the domain. Defining
+	// this parameter will allow the writer to write data to the domain without needing
+	// to validate each call to Commit. If this parameter is not defined, Commit must be
+	// called with a strictly increasing timestamp.
 	// [OPTIONAL]
 	End telem.TimeStamp
 	// Subject is the control subject held by the writer.
 	// [REQUIRED]
 	Subject control.Subject
-	// Authority is the control authority held by the writer: higher authority entities have
-	// priority access to the region.
+	// Authority is the control authority held by the writer: higher authority entities
+	// have priority access to the region.
 	// [OPTIONAL]
 	Authority control.Authority
-	// Persist denotes whether the writer writes its data to FS. If Persist is off, no data
-	// is written.
+	// Persist denotes whether the writer writes its data to FS. If Persist is off, no
+	// data is written.
 	// [OPTIONAL] - Defaults to true
 	Persist *bool
 	// EnableAutoCommit denotes whether each write is committed.
 	// [OPTIONAL] - Defaults to False
 	EnableAutoCommit *bool
-	// AutoIndexPersistInterval is the frequency at which the changes to index are persisted to the
-	// disk.
+	// AutoIndexPersistInterval is the frequency at which the changes to index are
+	// persisted to the disk.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// ErrOnUnauthorized controls whether the writer will return an error on open when
-	// attempting to write to a channel that is does not have authority over.
+	// ErrOnUnauthorizedOpen controls whether the writer will return an error on open
+	// when attempting to write to a channel that is does not have authority over.
 	// [OPTIONAL] - Defaults to false
-	ErrOnUnauthorized    *bool
+	ErrOnUnauthorizedOpen *bool
+	// AlignmentDomainIndex is the index of the domain that this writer is aligned to.
+	// This value is almost always set to the index of the domain within the 'Index'
+	// channel that is being written to at the same time as this writer. This value is
+	// used to guarantee alignment between samples written to index and data channels.
 	AlignmentDomainIndex uint32
 }
 
@@ -67,9 +71,9 @@ var (
 		Persist:                  config.True(),
 		EnableAutoCommit:         config.False(),
 		AutoIndexPersistInterval: 1 * telem.Second,
-		ErrOnUnauthorized:        config.False(),
+		ErrOnUnauthorizedOpen:    config.False(),
 	}
-	errWriterClosed = core.EntityClosed("unary.writer")
+	errWriterClosed = core.NewErrResourceClosed("unary.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -78,7 +82,9 @@ const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
-	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
+	validate.NotNil(v, "ErrOnUnauthorizedOpen", c.ErrOnUnauthorizedOpen)
+	validate.NotNil(v, "Persist", c.Persist)
+	validate.NotNil(v, "EnableAutoCommit", c.EnableAutoCommit)
 	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
 	return v.Error()
 }
@@ -92,13 +98,18 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Persist = override.Nil(c.Persist, other.Persist)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
-	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
+	c.ErrOnUnauthorizedOpen = override.Nil(c.ErrOnUnauthorizedOpen, other.ErrOnUnauthorizedOpen)
 	c.AlignmentDomainIndex = override.Numeric(c.AlignmentDomainIndex, other.AlignmentDomainIndex)
 	return c
 }
 
 func (c WriterConfig) domain() domain.WriterConfig {
-	return domain.WriterConfig{Start: c.Start, End: c.End, EnableAutoCommit: c.EnableAutoCommit, AutoIndexPersistInterval: c.AutoIndexPersistInterval}
+	return domain.WriterConfig{
+		Start:                    c.Start,
+		End:                      c.End,
+		EnableAutoCommit:         c.EnableAutoCommit,
+		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
+	}
 }
 
 func (c WriterConfig) controlTimeRange() telem.TimeRange {
@@ -109,17 +120,17 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 
 // controlledWriter is used for exchanging control between multiple unary writers. When
 // control is transferred, ownership of the domain writer is moved to the new unary
-// writer. Additional state is included to ensure that write positions and channel. information
-// are consistent.
+// writer. Additional state is included to ensure that write positions and channel.
+// information are consistent.
 type controlledWriter struct {
 	*domain.Writer
 	channelKey core.ChannelKey
-	alignment  telem.AlignmentPair
+	alignment  telem.Alignment
 }
 
-var _ controller.Entity = controlledWriter{}
+var _ controller.Resource = controlledWriter{}
 
-// ChannelKey implements controller.Entity.
+// ChannelKey implements controller.Resource.
 func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
 
 type Writer struct {
@@ -132,17 +143,17 @@ type Writer struct {
 	// idx stores the index of the unaryDB (rate or domain).
 	idx index.Index
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
-	// unnecessary index lookups by keeping track of the highest timestamp written.
-	// Only valid when Channel.IsIndex is true.
+	// unnecessary index lookups by keeping track of the highest timestamp written. Only
+	// valid when Channel.IsIndex is true.
 	hwm telem.TimeStamp
-	// lastCommitFileSwitch describes whether the last commit involved a file switch.
-	// If it did, then it is necessary to resolve the timestamp for that commit this time.
+	// lastCommitFileSwitch describes whether the last commit involved a file switch. If
+	// it did, then it is necessary to resolve the timestamp for that commit this time.
 	lastCommitFileSwitch bool
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
-	// closed stores whether the writer is closed. Operations like Write and Commit do not
-	// succeed on closed writers.
+	// closed stores whether the writer is closed. Operations like Write and Commit do
+	// not succeed on closed writers.
 	closed bool
 }
 
@@ -164,32 +175,27 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		idx:       db.index(),
 		wrapError: db.wrapError,
 	}
-	gateCfg := controller.GateConfig{
-		TimeRange: cfg.controlTimeRange(),
-		Authority: cfg.Authority,
-		Subject:   cfg.Subject,
-	}
 	var g *controller.Gate[*controlledWriter]
-	g, transfer, err = db.controller.OpenGateAndMaybeRegister(gateCfg, func() (*controlledWriter, error) {
-		dw, err := db.domain.OpenWriter(ctx, cfg.domain())
-		cw := &controlledWriter{
-			Writer:     dw,
-			channelKey: db.cfg.Channel.Key,
-			alignment:  telem.NewAlignmentPair(cfg.AlignmentDomainIndex, 0),
-		}
-		if cfg.AlignmentDomainIndex == 0 {
-			cw.alignment = telem.NewAlignmentPair(db.leadingAlignment.Add(1), 0)
-		}
-		return cw, err
-	})
-	if err != nil {
+	if g, transfer, err = db.controller.OpenGate(controller.GateConfig[*controlledWriter]{
+		ErrIfControlled:       config.False(),
+		ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
+		TimeRange:             cfg.controlTimeRange(),
+		Authority:             cfg.Authority,
+		Subject:               cfg.Subject,
+		OpenResource: func() (*controlledWriter, error) {
+			dw, err := db.domain.OpenWriter(ctx, cfg.domain())
+			cw := &controlledWriter{
+				Writer:     dw,
+				channelKey: db.cfg.Channel.Key,
+				alignment:  telem.NewAlignment(cfg.AlignmentDomainIndex, 0),
+			}
+			if cfg.AlignmentDomainIndex == 0 {
+				cw.alignment = telem.NewAlignment(db.leadingAlignment.Add(1), 0)
+			}
+			return cw, err
+		},
+	}); err != nil {
 		return nil, transfer, w.wrapError(err)
-	}
-	if *cfg.ErrOnUnauthorized {
-		if _, err = g.Authorize(); err != nil {
-			g.Release()
-			return nil, transfer, err
-		}
 	}
 	w.control = g
 	return w, transfer, w.wrapError(err)
@@ -225,7 +231,7 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 }
 
 // Write validates and writes the given array.
-func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
+func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
 		return 0, w.wrapError(errWriterClosed)
 	}
@@ -240,7 +246,7 @@ func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 		w.updateHwm(series)
 	}
 	if *w.cfg.Persist {
-		dw.alignment = telem.NewAlignmentPair(dw.alignment.DomainIndex(), uint32(w.len(dw.Writer)))
+		dw.alignment = telem.NewAlignment(dw.alignment.DomainIndex(), uint32(w.len(dw.Writer)))
 		_, err = dw.Write(series.Data)
 	} else {
 		dw.alignment = dw.alignment.AddSamples(uint32(series.Len()))
@@ -249,7 +255,7 @@ func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 }
 
 func (w *Writer) DomainIndex() uint32 {
-	return w.control.PeekEntity().alignment.DomainIndex()
+	return w.control.PeekResource().alignment.DomainIndex()
 }
 
 func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
@@ -257,10 +263,9 @@ func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 }
 
 func (w *Writer) updateHwm(series telem.Series) {
-	if series.Len() == 0 {
-		return
+	if series.Len() != 0 {
+		w.hwm = telem.ValueAt[telem.TimeStamp](series, -1)
 	}
-	w.hwm = telem.ValueAt[telem.TimeStamp](series, series.Len()-1)
 }
 
 // Commit commits the written series to the database.
@@ -292,9 +297,14 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	}
 
 	if end.IsZero() {
-		// We're using w.len - 1 here because we want the timestamp of the last
-		// written frame.
-		approx, err := w.idx.Stamp(ctx, w.cfg.Start, w.len(dw.Writer)-1, true)
+		// We're using w.len - 1 here because we want the timestamp of the last written
+		// frame.
+		approx, err := w.idx.Stamp(
+			ctx,
+			w.cfg.Start,
+			w.len(dw.Writer)-1,
+			index.MustBeContinuous,
+		)
 		if err != nil {
 			return 0, err
 		}

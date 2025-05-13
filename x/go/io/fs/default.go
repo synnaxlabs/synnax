@@ -11,7 +11,7 @@ package fs
 
 import (
 	"os"
-	goPath "path"
+	"path"
 )
 
 type defaultFS struct {
@@ -50,7 +50,7 @@ func (d *defaultFS) List(dirName string) ([]os.FileInfo, error) {
 	}
 	infos := make([]os.FileInfo, len(entries))
 	for i, e := range entries {
-		infos[i], err = os.Stat(goPath.Join(dirName, e.Name()))
+		infos[i], err = os.Stat(path.Join(dirName, e.Name()))
 		if err != nil {
 			return nil, err
 		}

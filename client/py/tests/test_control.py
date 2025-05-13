@@ -375,15 +375,15 @@ class TestController:
             write_authorities=[100],
         ) as auto:
             auto[press_en_cmd.key] = True
-            assert auto.set_authority(
+            auto.set_authority(
                 {
                     press_en_cmd.key: 50,
                     press_en.key: 50,
                 }
             )
-            assert auto.set_authority(50)
-            assert auto.set_authority(100)
-            assert auto.set_authority(press_en_cmd.key, 50)
+            auto.set_authority(50)
+            auto.set_authority(100)
+            auto.set_authority(press_en_cmd.key, 50)
 
     def test_controller_authority_transfer(self, client: sy.Synnax):
         """Test that the controller can transfer authority to another controller"""

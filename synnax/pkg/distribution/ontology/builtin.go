@@ -11,10 +11,13 @@ package ontology
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/query"
 )
 
 // BuiltIn is a resource type that is built into the ontology.
@@ -47,7 +50,7 @@ func (b *builtinService) RetrieveResource(_ context.Context, key string, _ gorp.
 	case "root":
 		return rootResource, nil
 	default:
-		panic("[ontology] - builtin entity not found")
+		return Resource{}, errors.Wrapf(query.NotFound, "builtin resource %q not found", key)
 	}
 }
 

@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -154,7 +155,7 @@ func (s *Service) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (St
 }
 
 func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
-	return s.writer.New(ctx, cfg)
+	return s.writer.Open(ctx, cfg)
 }
 
 func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
@@ -165,9 +166,9 @@ func (s *Service) NewDeleter() Deleter {
 	return s.deleter.NewDeleter()
 }
 
-func (s *Service) ConfigureControlUpdateChannel(ctx context.Context, ch channel.Key) error {
+func (s *Service) ConfigureControlUpdateChannel(ctx context.Context, ch channel.Key, name string) error {
 	s.controlStateKey = ch
-	return s.config.TS.ConfigureControlUpdateChannel(ctx, ts.ChannelKey(ch))
+	return s.config.TS.ConfigureControlUpdateChannel(ctx, ts.ChannelKey(ch), name)
 }
 
 // Close closes the Service.

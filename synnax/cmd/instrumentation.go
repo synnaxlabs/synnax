@@ -11,14 +11,15 @@ package cmd
 
 import (
 	"context"
+	"log"
+	"time"
+
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/cmd/internal/invariants"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"log"
-	"time"
 )
 
 func configureInstrumentation(version string) (alamos.Instrumentation, *zap.Logger) {
