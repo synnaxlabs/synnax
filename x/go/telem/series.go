@@ -285,15 +285,15 @@ func NewMultiSeries(series []Series) MultiSeries {
 	return MultiSeries{Series: series}
 }
 
-// NewMultiSeriesV constructs a new MultiSeries from the given set of variadic
-// Series. The series are sorted by their alignment, and the data type of the
-// series must be the same. If the data types are different, a panic will occur.
+// NewMultiSeriesV constructs a new MultiSeries from the given set of variadic Series.
+// The series are sorted by their alignment, and the data type of the series must be the
+// same. If the data types are different, a panic will occur.
 func NewMultiSeriesV(series ...Series) MultiSeries { return NewMultiSeries(series) }
 
 // AlignmentBounds returns the alignment bounds of the MultiSeries, where the lower
-// bound is the alignment of the first sample in the series, and the upper bound is
-// the alignment of the last sample in the series + 1 i.e. the lower value is inclusive
-// and the upper value is exclusive.
+// bound is the alignment of the first sample in the series, and the upper bound is the
+// alignment of the last sample in the series + 1 i.e. the lower value is inclusive and
+// the upper value is exclusive.
 func (m MultiSeries) AlignmentBounds() (ab AlignmentBounds) {
 	if len(m.Series) != 0 {
 		ab.Lower = m.Series[0].AlignmentBounds().Lower
@@ -303,8 +303,8 @@ func (m MultiSeries) AlignmentBounds() (ab AlignmentBounds) {
 }
 
 // TimeRange returns the time range of the MultiSeries, where the start time is the
-// start time of the first series, and the end time is the end time of the last
-// series. The start time is inclusive and the end time is exclusive.
+// start time of the first series, and the end time is the end time of the last series.
+// The start time is inclusive and the end time is exclusive.
 func (m MultiSeries) TimeRange() (tr TimeRange) {
 	if len(m.Series) != 0 {
 		tr.Start = m.Series[0].TimeRange.Start
@@ -323,15 +323,15 @@ func (m MultiSeries) Append(series Series) MultiSeries {
 	return m
 }
 
-// FilterLessThan returns a new MultiSeries with all series that have an upper
-// alignment bound greater than the given alignment. This is useful for filtering
-// out series that are not relevant to the given alignment.
+// FilterLessThan returns a new MultiSeries with all series that have an upper alignment
+// bound greater than the given alignment. This is useful for filtering out series that
+// are not relevant to the given alignment.
 func (m MultiSeries) FilterLessThan(a Alignment) MultiSeries {
 	if len(m.Series) == 0 {
 		return m
 	}
-	// Hot path optimization that does a quick check that the alignment of all series
-	// is above the filter threshold, so we don't need to re-allocate a new slice.
+	// Hot path optimization that does a quick check that the alignment of all series is
+	// above the filter threshold, so we don't need to re-allocate a new slice.
 	if m.Series[0].AlignmentBounds().Upper > a {
 		return m
 	}
@@ -350,8 +350,8 @@ func (m MultiSeries) Len() int64 {
 	return lo.SumBy(m.Series, func(s Series) int64 { return s.Len() })
 }
 
-// DataType returns the data type of the multi series. If the multi series is empty,
-// the data type is UnknownT.
+// DataType returns the data type of the multi series. If the multi series is empty, the
+// data type is UnknownT.
 func (m MultiSeries) DataType() (dt DataType) {
 	if len(m.Series) != 0 {
 		dt = m.Series[0].DataType

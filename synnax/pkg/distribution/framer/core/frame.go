@@ -60,7 +60,7 @@ func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame, free F
 }
 
 func (f Frame) ToStorage() (fr ts.Frame) {
-	return telem.MultiFrame[cesium.ChannelKey](channel.Keys(f.KeysSlice()).Storage(), f.SeriesSlice())
+	return telem.MultiFrame(channel.Keys(f.KeysSlice()).Storage(), f.SeriesSlice())
 }
 
 func (f Frame) FilterKeys(keys channel.Keys) Frame {

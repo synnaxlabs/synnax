@@ -79,9 +79,9 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 	}
 	controlStateSender := newControlStateSender(s.iterator.TS, s.controlStateKey, cfg.Keys)
 	p := plumber.New()
-	plumber.SetSegment[StreamerRequest, StreamerResponse](p, relayReaderAddr, rel)
-	plumber.SetSegment[StreamerRequest, StreamerResponse](p, controlStateSenderAddr, controlStateSender)
-	plumber.SetSegment[StreamerRequest, StreamerRequest](p, requestMultiplierAddr, &confluence.DeltaMultiplier[StreamerRequest]{})
+	plumber.SetSegment(p, relayReaderAddr, rel)
+	plumber.SetSegment(p, controlStateSenderAddr, controlStateSender)
+	plumber.SetSegment(p, requestMultiplierAddr, &confluence.DeltaMultiplier[StreamerRequest]{})
 	plumber.MultiRouter[StreamerRequest]{
 		Capacity:      5,
 		SourceTargets: []address.Address{requestMultiplierAddr},

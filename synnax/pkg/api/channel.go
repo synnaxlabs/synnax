@@ -348,8 +348,7 @@ func (s *ChannelService) Rename(
 	})
 }
 
-type ChannelRetrieveGroupRequest struct {
-}
+type ChannelRetrieveGroupRequest struct{}
 
 type ChannelRetrieveGroupResponse struct {
 	Group group.Group `json:"group" msgpack:"group"`

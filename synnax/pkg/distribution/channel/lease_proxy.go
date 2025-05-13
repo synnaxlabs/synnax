@@ -63,7 +63,7 @@ func newLeaseProxy(
 		return nil, err
 	}
 	externalNonVirtualKeys := KeysFromChannels(externalNonVirtualChannels)
-	externalNonVirtualSet := set.NewInteger[Key](externalNonVirtualKeys...)
+	externalNonVirtualSet := set.NewInteger(externalNonVirtualKeys...)
 
 	p := &leaseProxy{
 		ServiceConfig:         cfg,
