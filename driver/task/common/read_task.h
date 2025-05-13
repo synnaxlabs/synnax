@@ -69,9 +69,8 @@ void initialize_frame(
 ) {
     if (fr.size() == channels.size() + index_keys.size()) return;
     fr.reserve(channels.size() + index_keys.size());
-    for (const auto &ch: channels) {
+    for (const auto &ch: channels)
         fr.emplace(ch->synnax_key, telem::Series(ch->ch.data_type, samples_per_chan));
-    }
     for (const auto &idx: index_keys)
         fr.emplace(idx, telem::Series(telem::TIMESTAMP_T, samples_per_chan));
 }
@@ -150,6 +149,12 @@ class ReadTask final : public task::Task {
                 this->p.state.clear_warning();
             return this->p.tare.transform(fr);
         }
+
+        [[nodiscard]] synnax::WriterConfig writer_config() const {
+            auto cfg = this->internal->writer_config();
+            if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
+            return cfg;
+        }
     };
 
     std::shared_ptr<InternalSource> source;
@@ -173,7 +178,7 @@ public:
         source(std::make_shared<InternalSource>(*this, std::move(source))),
         pipe(
             factory,
-            this->source->internal->writer_config(),
+            this->source->writer_config(),
             this->source,
             breaker_cfg
         ) {}
