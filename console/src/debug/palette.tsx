@@ -19,4 +19,4 @@ export const OPEN_TOOLS_COMMAND: Palette.Command = {
   onSelect: ({ placeLayout }) => placeLayout(TOOLS_LAYOUT),
 };
 
-export const COMMANDS = [OPEN_TOOLS_COMMAND];
+export const COMMANDS = [];
