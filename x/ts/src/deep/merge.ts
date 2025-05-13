@@ -47,10 +47,21 @@ export const overrideValidItems = <A, B>(
     overrideObj: any,
     currentSchema: any,
   ): any => {
+    if (currentSchema.def?.type === "union")
+      return currentSchema.def.options.reduce(
+        (acc: any, option: any) => mergeValidFields(acc, overrideObj, option),
+        baseObj,
+      );
+    if (currentSchema.def?.type === "intersection") {
+      const out = mergeValidFields(baseObj, overrideObj, currentSchema.def.left);
+      const right = mergeValidFields(out, overrideObj, currentSchema.def.right);
+      return right;
+    }
+
     // Iterate over each property in the override object
     for (const key in overrideObj) {
       const overrideValue = overrideObj[key];
-      const shape = currentSchema.shape;
+      const shape = currentSchema?.shape;
       if (shape?.[key]) {
         const result = shape[key].safeParse(overrideValue);
         // Check if parsing succeeded
