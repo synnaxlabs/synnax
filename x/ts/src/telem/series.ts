@@ -341,11 +341,13 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   release(): void {
+    if (this._refCount <= 0) {
+      console.warn("attempted to release a series with a negative reference count");
+      return;
+    }
     this._refCount--;
     if (this._refCount === 0 && this.gl.control != null)
       this.maybeGarbageCollectGLBuffer(this.gl.control);
-    else if (this._refCount < 0)
-      throw new Error("cannot release an array with a negative reference count");
   }
 
   /**

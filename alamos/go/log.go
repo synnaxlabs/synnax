@@ -195,6 +195,7 @@ func (c customCore) Check(entry zapcore.Entry, entry2 *zapcore.CheckedEntry) *za
 func (c customCore) Sync() error { return c.c.Sync() }
 
 func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
+	toRemove := -1
 	for i, field := range fields {
 		// If there is an error in the log and we can get its stack trace, use that
 		// instead of the built-in stack trace.
@@ -206,8 +207,11 @@ func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 		} else if field.Key == "caller" && field.Type == zapcore.StringType && len(field.String) > 0 {
 			// This means that we should specify a custom caller.
 			entry.Caller = zapcore.EntryCaller{Defined: true, File: field.String}
-			fields = slices.Delete(fields, i, 1)
+			toRemove = i
 		}
+	}
+	if toRemove >= 0 {
+		fields = slices.Delete(slices.Clone(fields), toRemove, toRemove+1)
 	}
 	return c.c.Write(entry, fields)
 }
