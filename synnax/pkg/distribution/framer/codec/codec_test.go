@@ -305,6 +305,19 @@ var _ = Describe("Codec", func() {
 			Expect(fr.Frame).To(telem.MatchFrame[channel.Key](decoded.Frame))
 		})
 
+		Describe("Initialized", func() {
+			It("Should return false if update has not been called on the codec at least once", func() {
+				codec := codec.NewDynamic(channelSvc)
+				Expect(codec.Initialized()).To(BeFalse())
+			})
+
+			It("Should return true if update has been called on the codec at least once", func() {
+				codec := codec.NewDynamic(channelSvc)
+				Expect(codec.Update(ctx, []channel.Key{dataCh.Key(), idxCh.Key()})).To(Succeed())
+				Expect(codec.Initialized()).To(BeTrue())
+			})
+		})
+
 		It("Should panic if the codec is not initialized", func() {
 			codec := codec.NewDynamic(nil)
 			Expect(func() {

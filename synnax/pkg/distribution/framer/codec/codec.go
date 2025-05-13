@@ -139,7 +139,9 @@ func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
 
 // Initialized returns true if the codec was initialized using NewStatic or Update
 // has been called at least once when using NewDynamic.
-func (c *Codec) Initialized() bool { return c.mu.seqNum > 0 }
+func (c *Codec) Initialized() bool {
+	return c.mu.seqNum > 0 || c.mu.updateAvailable.Load()
+}
 
 func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.DataType) {
 	s := state{
