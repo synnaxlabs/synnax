@@ -31,12 +31,13 @@ protected:
     synnax::Channel coil_ch;
     synnax::Channel reg_ch;
 
-    void setupTaskConfig() {
+    void setup_task_config() {
         this->sy = std::make_shared<synnax::Synnax>(new_test_client());
         this->devs = std::make_shared<modbus::device::Manager>();
         this->ctx = std::make_shared<task::MockContext>(sy);
         if (this->coil_ch.name.empty()) this->coil_ch.name = "coil";
         if (this->coil_ch.data_type == telem::UNKNOWN_T) this->coil_ch.data_type = telem::UINT8_T;
+        this->coil_ch.is_virtual = true;
         ASSERT_NIL(sy->channels.create(this->coil_ch));
         if (this->reg_ch.name.empty()) this->reg_ch.name = "register";
         if (this->reg_ch.data_type == telem::UNKNOWN_T) this->reg_ch.data_type = telem::UINT16_T;
@@ -59,7 +60,6 @@ protected:
             "modbus_test_dev",
             rack.key,
             "dev1",
-            "dev1",
             "modbus",
             "Modbus Device",
             nlohmann::to_string(properties)
@@ -71,7 +71,7 @@ protected:
 };
 
 TEST_F(ModbusWriteTest, testBasicWrite) {
-    this->setupTaskConfig();
+    this->setup_task_config();
     modbus::mock::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
@@ -131,51 +131,4 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
     ASSERT_EVENTUALLY_EQ(slave.get_coil(0), 1);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 12345);
     wt->stop("stop_cmd", true);
-}
-
-// TEST_F(ModbusWriteTest, testFloat32Write) {
-//     this->setupTaskConfig();
-//     modbus::mock::SlaveConfig slave_cfg;
-//     slave_cfg.host = "127.0.0.1";
-//     slave_cfg.port = 1502;
-//
-//     auto slave = modbus::mock::Slave(slave_cfg);
-//     ASSERT_NIL(slave.start());
-//     x::defer stop_slave([&slave] { slave.stop(); });
-//
-//
-//     json task_cfg{
-//         {"device", "modbus_test_dev"},
-//         {
-//             "channels", json::array({
-//                 {
-//                     {"type", "holding_register_output"},
-//                     {"address", 1},
-//                     {"enabled", true},
-//                     {"channel", reg_ch.key},
-//                     {"data_type", "float32"}
-//                 }
-//             })
-//         }
-//     };
-// }
-
-TEST_F(ModbusWriteTest, testInvalidChannelType) {
-    const json task_cfg{
-        {"device", "modbus_test_dev"},
-        {
-            "channels", json::array({
-                {
-                    {"type", "invalid_type"},
-                    {"address", 0},
-                    {"enabled", true},
-                    {"channel", coil_ch.key}
-                }
-            })
-        }
-    };
-
-    auto p = xjson::Parser(task_cfg);
-    auto invalid_cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p);
-    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }

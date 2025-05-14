@@ -63,7 +63,6 @@ protected:
             "modbus_test_device",
             rack.key,
             "dev1",
-            "dev1",
             "modbus",
             "Modbus Device",
             nlohmann::to_string(properties)
@@ -215,7 +214,6 @@ TEST(ReadTask, testBasicReadTask) {
         "my_modbus_lover",
         "my_mobdus_lover",
         rack.key,
-        "dev1",
         "dev1",
         "modbus",
         "Modbus Device",
