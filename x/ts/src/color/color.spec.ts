@@ -63,14 +63,6 @@ describe("color.Color", () => {
       expect(color.gValue(c)).toEqual(44);
       expect(color.bValue(c)).toEqual(38);
     });
-
-    test("from legacy object", () => {
-      const c = color.construct({ rgba255: [122, 44, 38, 0.5] });
-      expect(color.rValue(c)).toEqual(122);
-      expect(color.gValue(c)).toEqual(44);
-      expect(color.bValue(c)).toEqual(38);
-      expect(color.aValue(c)).toEqual(0.5);
-    });
   });
 
   describe("to hex", () => {

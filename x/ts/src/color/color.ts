@@ -15,7 +15,6 @@ const rgbValueZ = z.number().min(0).max(255);
 const alphaZ = z.number().min(0).max(1);
 const rgbaZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ, alphaZ]);
 const rgbZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ]);
-const legacyObjectZ = z.object({ rgba255: rgbaZ });
 
 /** A color in RGBA format. */
 export type RGBA = [number, number, number, number];
@@ -27,8 +26,6 @@ export type RGB = [number, number, number];
 export type Hex = z.infer<typeof hexZ>;
 /** A color in RGBA format. Used as the standard representation of a color in this package. */
 export type Color = RGBA;
-/** A legacy color object. */
-type LegacyObject = z.infer<typeof legacyObjectZ>;
 
 /** @returns true if the given color can be parsed into a valid color object. */
 export const isCrude = (color: unknown): color is Crude =>
@@ -42,7 +39,7 @@ export const isColor = (color: unknown): color is Color =>
  * An unparsed representation of a color i.e. a value that can be converted into
  * a Color object.
  */
-export type Crude = Hex | RGBA | Color | string | RGB | LegacyObject;
+export type Crude = Hex | RGBA | Color | string | RGB;
 
 /**
  * Converts a crude color to its most meaningful CSS format.
@@ -81,7 +78,6 @@ export const construct = (color: Crude, alpha: number = 1): Color => {
     if (color.length === 3) return [...color, alpha] as RGBA;
     return color;
   }
-  if (typeof color === "object" && "rgba255" in color) return color.rgba255;
   throw new Error(`Invalid color: ${JSON.stringify(color)}`);
 };
 
@@ -227,9 +223,7 @@ export const isDark = (color: Crude): boolean => luminance(color) < 0.5;
 export const isLight = (color: Crude): boolean => !isDark(color);
 
 /** A zod schema to parse color values from various crude representations. */
-export const colorZ = z
-  .union([hexZ, rgbaZ, rgbZ, legacyObjectZ])
-  .transform((v) => construct(v));
+export const colorZ = z.union([hexZ, rgbaZ, rgbZ]).transform((v) => construct(v));
 
 /** @returns a color parsed from a hex string with an alpha value. */
 const fromHex = (hex_: string, alpha: number = 1): RGBA => {
@@ -315,7 +309,7 @@ const rgbaToHSLA = (rgba: RGBA): HSLA => {
 };
 
 /** A zod schema for a crude color representation. */
-export const crudeZ = z.union([hexZ, rgbaZ, z.string(), rgbZ, legacyObjectZ]);
+export const crudeZ = z.union([hexZ, rgbaZ, z.string(), rgbZ]);
 
 /** The color black. */
 export const BLACK = construct("#000000");
