@@ -147,7 +147,7 @@ export const readConfigZ = Common.Task.baseConfigZ
     sampleRate: z.number().positive().max(50000),
     streamRate: z.number().positive().max(50000),
   })
-  .superRefine(Common.Task.validateStreamRate);
+  .check(Common.Task.validateStreamRate);
 
 export type ReadConfig = z.infer<typeof readConfigZ>;
 export const ZERO_READ_CONFIG: ReadConfig = {

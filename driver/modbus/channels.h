@@ -109,4 +109,10 @@ struct OutputHoldingRegisterChannel final : Channel {
         swap_words(parser.optional<bool>("swap_words", false)) {
     }
 };
+
+template<typename Channel>
+void sort_by_address(std::vector<Channel> &channels) {
+    std::sort(channels.begin(), channels.end(),
+          [](const auto &a, const auto &b) { return a.address < b.address; });
+}
 }

@@ -7,6 +7,7 @@ import { type Selector } from "@/selector";
 export * from "@/hardware/modbus/task/palette";
 export * from "@/hardware/modbus/task/Read";
 export * from "@/hardware/modbus/task/types";
+export * from "@/hardware/modbus/task/Write";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [READ_TYPE]: Read,

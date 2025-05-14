@@ -125,15 +125,22 @@ const ChannelListItem = ({
                 value={value}
                 onChange={(v) => onChange(v)}
                 hideVariableDensity={true}
+                location="bottom"
               />
             )}
           </PForm.Field>
         )}
       </Align.Pack>
-      <Common.Task.EnableDisableButton
-        path={`${path}.enabled`}
-        isSnapshot={isSnapshot}
-      />
+      <Align.Space x align="center" grow justify="end">
+        <Common.Task.ChannelName
+          channel={entry.channel}
+          id={Common.Task.getChannelNameID(entry.key)}
+        />
+        <Common.Task.EnableDisableButton
+          path={`${path}.enabled`}
+          isSnapshot={isSnapshot}
+        />
+      </Align.Space>
     </List.ItemFrame>
   );
 };

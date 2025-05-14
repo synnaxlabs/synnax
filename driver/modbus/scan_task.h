@@ -71,7 +71,7 @@ public:
         if (cmd.type == TEST_CONNECTION_CMD_TYPE) this->test_connection(cmd);
     }
 
-    std::string name() override { return this->task.name; }
+    std::string name() const override { return this->task.name; }
 
     void stop(bool will_reconfigure) override {
     }

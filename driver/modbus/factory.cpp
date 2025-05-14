@@ -8,106 +8,89 @@
 // included in the file licenses/APL.txt.
 
 /// internal
-#include "driver/modbus/read_task.h"
-#include "driver/modbus/scan_task.h"
+#include "driver/task/common/factory.h"
+
+
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/modbus.h"
+#include "driver/modbus/read_task.h"
+#include "driver/modbus/scan_task.h"
 #include "driver/modbus/write_task.h"
-
-std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
+common::ConfigureResult configure_read(
     const std::shared_ptr<modbus::device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
+    common::ConfigureResult result;
     auto [cfg, err] = modbus::ReadTaskConfig::parse(ctx->client, task);
+    if (result.error = err; result.error) return result;
     auto [dev, d_err] = devs->acquire(cfg.conn);
-    if (d_err) return {nullptr, d_err};
-    return {
-        std::make_unique<common::ReadTask>(
-            task,
-            ctx,
-            breaker::default_config(task.name),
-            std::make_unique<modbus::ReadTaskSource>(dev, std::move(cfg))
-        ),
-        xerrors::NIL
-    };
+    if (result.error = d_err; result.error) return result;
+    result.task = std::make_unique<common::ReadTask>(
+        task,
+        ctx,
+        breaker::default_config(task.name),
+        std::make_unique<modbus::ReadTaskSource>(dev, std::move(cfg))
+    );
+    return result;
 }
 
-std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
+common::ConfigureResult configure_scan(
     const std::shared_ptr<modbus::device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    auto scan_task = std::make_unique<modbus::ScanTask>(ctx, task, devs);
-    return {std::move(scan_task), xerrors::NIL};
+    common::ConfigureResult result;
+    result.task = std::make_unique<modbus::ScanTask>(ctx, task, devs);
+    result.auto_start = true;
+    return result;
 }
 
-std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
+common::ConfigureResult configure_write(
     const std::shared_ptr<modbus::device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
+    common::ConfigureResult result;
     auto [cfg, err] = modbus::WriteTaskConfig::parse(ctx->client, task);
-    if (err) return {nullptr, err};
+    if (result.error = err; result.error) return result;
     auto [dev, d_err] = devs->acquire(cfg.conn);
-    if (d_err) return {nullptr, d_err};
-    return {
-        std::make_unique<common::WriteTask>(
-            task,
-            ctx,
-            breaker::default_config(task.name),
-            std::make_unique<modbus::WriteTaskSink>(dev, std::move(cfg))
-        ),
-        xerrors::NIL
-    };
+    if (result.error = d_err; result.error) return result;
+    result.task = std::make_unique<common::WriteTask>(
+        task,
+        ctx,
+        breaker::default_config(task.name),
+        std::make_unique<modbus::WriteTaskSink>(dev, std::move(cfg))
+    );
+    return result;
 }
 
 std::pair<std::unique_ptr<task::Task>, bool> modbus::Factory::configure_task(
-    const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
+) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
-    std::pair<std::unique_ptr<task::Task>, xerrors::Error> res;
+    common::ConfigureResult res;
     if (task.type == READ_TASK_TYPE)
         res = configure_read(this->devices, ctx, task);
     else if (task.type == WRITE_TASK_TYPE)
         res = configure_write(this->devices, ctx, task);
     else if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(this->devices, ctx, task);
-    common::handle_config_err(ctx, task, res.second);
-    return {std::move(res.first), true};
+    return common::handle_config_err(ctx, task, res);
 }
 
-std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > modbus::Factory::
-configure_initial_tasks(const std::shared_ptr<task::Context> &ctx,
-                        const synnax::Rack &rack) {
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
-
-    auto [existing, err] = rack.tasks.list();
-    if (err) {
-        LOG(ERROR) << "[modbus] failed to list existing tasks: " << err;
-        return tasks;
-    }
-
-    bool has_scanner = false;
-    for (const auto &t: existing)
-        if (t.type == SCAN_TASK_TYPE) has_scanner = true;
-    if (has_scanner) return tasks;
-
-    auto sy_task = synnax::Task(rack.key, "modbus scanner", SCAN_TASK_TYPE, "", true);
-    const auto c_err = rack.tasks.create(sy_task);
-    if (c_err) {
-        LOG(ERROR) << "[modbus] failed to create scanner task: " << c_err;
-        return tasks;
-    }
-    auto [task, ok] = configure_task(ctx, sy_task);
-    if (!ok) {
-        LOG(ERROR) << "[modbus] failed to configure scanner task: " << c_err;
-        return tasks;
-    }
-    tasks.emplace_back(
-        std::pair<synnax::Task, std::unique_ptr<task::Task> >({
-            sy_task,
-            std::move(task)
-        })
+std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
+modbus::Factory::configure_initial_tasks(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Rack &rack
+) {
+    return common::configure_initial_factory_tasks(
+        this,
+        ctx,
+        rack,
+        "ModBus Scanner",
+        SCAN_TASK_TYPE,
+        INTEGRATION_NAME
     );
-    return tasks;
 }

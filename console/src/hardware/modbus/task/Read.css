@@ -1,8 +1,12 @@
-.console-task-configure--modbus_read {
+.console-task-configure--modbus_read,
+.console-task-configure--modbus_write {
     .console-channel-item {
         & > *:first-child {
             border-top-right-radius: 0 !important;
             border-bottom-right-radius: 0 !important;
+            &:not(.pluto--visible) button {
+                border-bottom-left-radius: var(--pluto-border-radius) !important;
+            }
         }
         & > *:nth-child(2):not(:last-child) {
             width: 15rem;
@@ -13,7 +17,17 @@
         & > *:last-child {
             border-top-left-radius: 0 !important;
             border-bottom-left-radius: 0 !important;
-            width: 150px;
+            .pluto-input__internal {
+                border-top-left-radius: 0 !important;
+                border-bottom-left-radius: 0 !important;
+                width: 75px;
+            }
+            & button {
+                width: 150px;
+            }
+            &:not(.pluto--visible) button {
+                border-bottom-right-radius: var(--pluto-border-radius) !important;
+            }
         }
     }
 }

@@ -49,15 +49,12 @@ public:
         if (channels.empty()) return xerrors::NIL;
 
         const int start_addr = channels.front().address;
-        // Clear buffer before writing new values
         std::fill(buffer.begin(), buffer.end(), 0);
 
-        // Set bits for each channel present in the frame
-        for (const auto &channel: channels) {
-            if (!fr.contains(channel.channel)) continue;
-            buffer[channel.address - start_addr] =
-                    fr.at<uint8_t>(channel.channel, 0);
-        }
+        for (const auto &ch: channels)
+            if (fr.contains(ch.channel))
+                buffer[ch.address - start_addr] =
+                    fr.at<uint8_t>(ch.channel, 0);
 
         return dev->write_bits(start_addr, buffer.size(), buffer.data());
     }
@@ -65,8 +62,8 @@ public:
     std::vector<synnax::ChannelKey> cmd_keys() const override {
         std::vector<synnax::ChannelKey> keys;
         keys.reserve(channels.size());
-        for (const auto &channel: channels)
-            keys.push_back(channel.channel);
+        for (const auto &ch: channels)
+            keys.push_back(ch.channel);
         return keys;
     }
 };
@@ -134,13 +131,13 @@ struct WriteTaskConfig {
     ): dev(cfg.required<std::string>("device")) {
         auto [dev_info, dev_err] = client->hardware.retrieve_device(this->dev);
         if (dev_err) {
-            cfg.field_err("device", dev_err.message());
+            cfg.field_err("device", dev_err);
             return;
         }
         auto conn_parser = xjson::Parser(dev_info.properties);
         this->conn = device::ConnectionConfig(conn_parser.child("connection"));
         if (conn_parser.error()) {
-            cfg.field_err("device", conn_parser.error().message());
+            cfg.field_err("device", conn_parser.error());
             return;
         }
         std::vector<channel::OutputCoilChannel> coils;
@@ -191,10 +188,9 @@ public:
     }
 
     xerrors::Error write(const synnax::Frame &frame) override {
-        for (const auto &writer: config.writers) {
+        for (const auto &writer: config.writers)
             if (auto err = writer->write(dev, frame))
                 return err;
-        }
         return xerrors::NIL;
     }
 };
