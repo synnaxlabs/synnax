@@ -24,18 +24,26 @@
 namespace modbus {
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
+/// @brief arguments for scanning a modbus device on the network.
 struct ScanCommandArgs {
+    /// @brief connection parameters for the device.
     device::ConnectionConfig connection;
 
+    /// @brief parses the arguments from their JSON object representation.
     explicit ScanCommandArgs(const xjson::Parser &parser):
         connection(device::ConnectionConfig(parser.child("connection"))) {}
 };
 
+/// @brief scans for modbus devices.
 class ScanTask final : public task::Task {
+    /// @param ctx the task context used to communicate state changes back to Synnax.
     std::shared_ptr<task::Context> ctx;
+    /// @param the task representation in Synnax.
     synnax::Task task;
+    /// @brief the device manager used to acquire connections to modbus devices.
     std::shared_ptr<device::Manager> devices;
 
+    /// @brief tests the connection to a modbus device.
     void test_connection(const task::Command &cmd) const {
         xjson::Parser parser(cmd.args);
         const ScanCommandArgs args(parser);
@@ -69,7 +77,7 @@ public:
         if (cmd.type == TEST_CONNECTION_CMD_TYPE) this->test_connection(cmd);
     }
 
-    std::string name() const override { return this->task.name; }
+    [[nodiscard]] std::string name() const override { return this->task.name; }
 
     void stop(bool will_reconfigure) override {}
 };

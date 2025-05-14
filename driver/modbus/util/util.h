@@ -14,9 +14,14 @@
 #include "x/cpp/xerrors/errors.h"
 
 namespace util {
-inline std::pair<telem::SampleValue, xerrors::Error> parse_register(
+/// @brief parses data from a modbus register into a compatible telem::SampleValue.
+/// @param data buffer of register values to parse from. Must be at least as large as
+/// the density of the data type (dt.density()).
+/// @param dt the data type to parse from the buffer.
+/// @param swap_bytes whether to swap the byte order of the data.
+/// @param swap_words whether to swap the word order of the data.
+inline std::pair<telem::SampleValue, xerrors::Error> parse_register_value(
     const uint16_t *data,
-    const size_t offset,
     const telem::DataType &dt,
     const bool swap_bytes,
     const bool swap_words
@@ -28,48 +33,48 @@ inline std::pair<telem::SampleValue, xerrors::Error> parse_register(
     };
     try {
         if (dt == telem::UINT16_T)
-            return {swap_bytes_if_needed(data[offset]), xerrors::Error()};
+            return {swap_bytes_if_needed(data[0]), xerrors::NIL};
         if (dt == telem::INT16_T) {
-            const uint16_t raw = swap_bytes_if_needed(data[offset]);
-            return {static_cast<int16_t>(raw), xerrors::Error()};
+            const uint16_t raw = swap_bytes_if_needed(data[0]);
+            return {static_cast<int16_t>(raw), xerrors::NIL};
         }
         if (dt == telem::UINT32_T) {
             uint32_t result = 0;
-            const uint16_t word1 = swap_bytes_if_needed(data[offset]);
-            const uint16_t word2 = swap_bytes_if_needed(data[offset + 1]);
+            const uint16_t word1 = swap_bytes_if_needed(data[0]);
+            const uint16_t word2 = swap_bytes_if_needed(data[1]);
             if (swap_words)
                 result = static_cast<uint32_t>(word1) << 16 | word2;
             else
                 result = static_cast<uint32_t>(word2) << 16 | word1;
-            return {result, xerrors::Error()};
+            return {result, xerrors::NIL};
         }
         if (dt == telem::INT32_T) {
             uint32_t raw = 0;
-            const uint16_t word1 = swap_bytes_if_needed(data[offset]);
-            const uint16_t word2 = swap_bytes_if_needed(data[offset + 1]);
+            const uint16_t word1 = swap_bytes_if_needed(data[0]);
+            const uint16_t word2 = swap_bytes_if_needed(data[1]);
             if (swap_words)
                 raw = static_cast<uint32_t>(word1) << 16 | word2;
             else
                 raw = static_cast<uint32_t>(word2) << 16 | word1;
-            return {static_cast<int32_t>(raw), xerrors::Error()};
+            return {static_cast<int32_t>(raw), xerrors::NIL};
         }
         if (dt == telem::FLOAT32_T) {
             uint32_t raw = 0;
-            const uint16_t word1 = swap_bytes_if_needed(data[offset]);
-            const uint16_t word2 = swap_bytes_if_needed(data[offset + 1]);
+            const uint16_t word1 = swap_bytes_if_needed(data[0]);
+            const uint16_t word2 = swap_bytes_if_needed(data[1]);
             if (swap_words)
                 raw = static_cast<uint32_t>(word1) << 16 | word2;
             else
                 raw = static_cast<uint32_t>(word2) << 16 | word1;
             float result;
             std::memcpy(&result, &raw, sizeof(float));
-            return {result, xerrors::Error()};
+            return {result, xerrors::NIL};
         }
         if (dt == telem::UINT64_T) {
             uint64_t result = 0;
             uint16_t words[4];
             for (int i = 0; i < 4; i++)
-                words[i] = swap_bytes_if_needed(data[offset + i]);
+                words[i] = swap_bytes_if_needed(data[i]);
             if (swap_words)
                 result = static_cast<uint64_t>(words[0]) << 48 |
                          static_cast<uint64_t>(words[1]) << 32 |
@@ -78,13 +83,13 @@ inline std::pair<telem::SampleValue, xerrors::Error> parse_register(
                 result = static_cast<uint64_t>(words[3]) << 48 |
                          static_cast<uint64_t>(words[2]) << 32 |
                          static_cast<uint64_t>(words[1]) << 16 | words[0];
-            return {result, xerrors::Error()};
+            return {result, xerrors::NIL};
         }
         if (dt == telem::INT64_T) {
             uint64_t raw = 0;
             uint16_t words[4];
             for (int i = 0; i < 4; i++)
-                words[i] = swap_bytes_if_needed(data[offset + i]);
+                words[i] = swap_bytes_if_needed(data[i]);
             if (swap_words)
                 raw = static_cast<uint64_t>(words[0]) << 48 |
                       static_cast<uint64_t>(words[1]) << 32 |
@@ -93,13 +98,13 @@ inline std::pair<telem::SampleValue, xerrors::Error> parse_register(
                 raw = static_cast<uint64_t>(words[3]) << 48 |
                       static_cast<uint64_t>(words[2]) << 32 |
                       static_cast<uint64_t>(words[1]) << 16 | words[0];
-            return {static_cast<int64_t>(raw), xerrors::Error()};
+            return {static_cast<int64_t>(raw), xerrors::NIL};
         }
         if (dt == telem::FLOAT64_T) {
             uint64_t raw = 0;
             uint16_t words[4];
             for (int i = 0; i < 4; i++)
-                words[i] = swap_bytes_if_needed(data[offset + i]);
+                words[i] = swap_bytes_if_needed(data[i]);
             if (swap_words)
                 raw = static_cast<uint64_t>(words[0]) << 48 |
                       static_cast<uint64_t>(words[1]) << 32 |
@@ -110,15 +115,15 @@ inline std::pair<telem::SampleValue, xerrors::Error> parse_register(
                       static_cast<uint64_t>(words[1]) << 16 | words[0];
             double result;
             std::memcpy(&result, &raw, sizeof(double));
-            return {result, xerrors::Error()};
+            return {result, xerrors::NIL};
         }
         if (dt == telem::UINT8_T) {
-            const uint16_t raw = swap_bytes_if_needed(data[offset]);
-            return {static_cast<uint8_t>(raw & 0xFF), xerrors::Error()};
+            const uint16_t raw = swap_bytes_if_needed(data[0]);
+            return {static_cast<uint8_t>(raw & 0xFF), xerrors::NIL};
         }
         if (dt == telem::INT8_T) {
-            const uint16_t raw = swap_bytes_if_needed(data[offset]);
-            return {static_cast<int8_t>(raw & 0xFF), xerrors::Error()};
+            const uint16_t raw = swap_bytes_if_needed(data[0]);
+            return {static_cast<int8_t>(raw & 0xFF), xerrors::NIL};
         }
         return {
             telem::SampleValue(),
@@ -135,6 +140,12 @@ inline std::pair<telem::SampleValue, xerrors::Error> parse_register(
     }
 }
 
+/// @brief formats a telem::SampleValue into a destination buffer of uint16_t values
+/// representing modbus registers.
+/// @param dt the data type fo the sample value.
+/// @param dest the destination buffer to write to.
+/// @param swap_bytes whether to swap the byte order of the data.
+/// @param swap_words whether to swap the word order of the data.
 inline xerrors::Error format_register(
     const telem::SampleValue &value,
     uint16_t *dest,
@@ -158,7 +169,7 @@ inline xerrors::Error format_register(
             return xerrors::NIL;
         }
         if (dt == telem::UINT32_T) {
-            const uint32_t raw = telem::cast<uint32_t>(value);
+            const auto raw = telem::cast<uint32_t>(value);
             if (swap_words) {
                 dest[0] = swap_bytes_if_needed(raw >> 16);
                 dest[1] = swap_bytes_if_needed(raw & 0xFFFF);
@@ -169,7 +180,7 @@ inline xerrors::Error format_register(
             return xerrors::NIL;
         }
         if (dt == telem::INT32_T) {
-            const int32_t raw = telem::cast<int32_t>(value);
+            const auto raw = telem::cast<int32_t>(value);
             if (swap_words) {
                 dest[0] = swap_bytes_if_needed(raw >> 16);
                 dest[1] = swap_bytes_if_needed(raw & 0xFFFF);
@@ -180,7 +191,7 @@ inline xerrors::Error format_register(
             return xerrors::NIL;
         }
         if (dt == telem::FLOAT32_T) {
-            const float val = telem::cast<float>(value);
+            const auto val = telem::cast<float>(value);
             uint32_t raw;
             std::memcpy(&raw, &val, sizeof(float));
             if (swap_words) {
@@ -193,7 +204,7 @@ inline xerrors::Error format_register(
             return xerrors::NIL;
         }
         if (dt == telem::UINT64_T) {
-            const uint64_t raw = telem::cast<uint64_t>(value);
+            const auto raw = telem::cast<uint64_t>(value);
             if (swap_words) {
                 dest[0] = swap_bytes_if_needed(raw >> 48);
                 dest[1] = swap_bytes_if_needed(raw >> 32 & 0xFFFF);
@@ -223,7 +234,7 @@ inline xerrors::Error format_register(
             return xerrors::NIL;
         }
         if (dt == telem::FLOAT64_T) {
-            const double val = telem::cast<double>(value);
+            const auto val = telem::cast<double>(value);
             uint64_t raw;
             std::memcpy(&raw, &val, sizeof(double));
             if (swap_words) {

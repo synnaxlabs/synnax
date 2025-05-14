@@ -9,13 +9,17 @@
 
 /// internal
 #include "driver/task/common/factory.h"
-
-
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/modbus.h"
 #include "driver/modbus/read_task.h"
 #include "driver/modbus/scan_task.h"
 #include "driver/modbus/write_task.h"
+
+const std::string INTEGRATION_NAME = "modbus";
+const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
+const std::string SCAN_TASK_TYPE = INTEGRATION_NAME + "_scan";
+const std::string WRITE_TASK_TYPE = INTEGRATION_NAME + "_write";
+
 common::ConfigureResult configure_read(
     const std::shared_ptr<modbus::device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
@@ -89,7 +93,7 @@ modbus::Factory::configure_initial_tasks(
         this,
         ctx,
         rack,
-        "ModBus Scanner",
+        "Modbus Scanner",
         SCAN_TASK_TYPE,
         INTEGRATION_NAME
     );

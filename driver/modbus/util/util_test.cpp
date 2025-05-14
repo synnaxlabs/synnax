@@ -37,19 +37,17 @@ protected:
         uint16_t registers[4] = {0}; // Max 4 registers needed (64-bit types)
         ASSERT_NIL(util::format_register(value, registers, dt, swap_bytes, swap_words));
         const auto parsed_value = ASSERT_NIL_P(
-            util::parse_register(registers, 0, dt, swap_bytes, swap_words)
+            util::parse_register_value(registers, dt, swap_bytes, swap_words)
         );
         ASSERT_EQ(telem::cast<T>(parsed_value), value);
     }
 };
 
 TEST_F(ModbusUtilTest, test16BitTypes) {
-    // Test uint16
     expect_format_parse_eq<uint16_t>(12345, telem::UINT16_T);
     expect_format_parse_eq<uint16_t>(0xFFFF, telem::UINT16_T);
     expect_format_parse_eq<uint16_t>(0, telem::UINT16_T);
 
-    // Test int16
     expect_format_parse_eq<int16_t>(-12345, telem::INT16_T);
     expect_format_parse_eq<int16_t>(12345, telem::INT16_T);
     expect_format_parse_eq<int16_t>(0, telem::INT16_T);
@@ -91,21 +89,18 @@ TEST_F(ModbusUtilTest, test8BitTypes) {
 }
 
 TEST_F(ModbusUtilTest, testByteSwapping) {
-    // Test with byte swapping enabled
     expect_format_parse_eq<uint16_t>(0x1234, telem::UINT16_T, true);
     expect_format_parse_eq<uint32_t>(0x12345678, telem::UINT32_T, true);
     expect_format_parse_eq<float>(3.14159f, telem::FLOAT32_T, true);
 }
 
 TEST_F(ModbusUtilTest, testWordSwapping) {
-    // Test with word swapping enabled
     expect_format_parse_eq<uint32_t>(0x12345678, telem::UINT32_T, false, true);
     expect_format_parse_eq<float>(3.14159f, telem::FLOAT32_T, false, true);
     expect_format_parse_eq<double>(3.14159265359, telem::FLOAT64_T, false, true);
 }
 
 TEST_F(ModbusUtilTest, testByteAndWordSwapping) {
-    // Test with both byte and word swapping enabled
     expect_format_parse_eq<uint32_t>(0x12345678, telem::UINT32_T, true, true);
     expect_format_parse_eq<float>(3.14159f, telem::FLOAT32_T, true, true);
     expect_format_parse_eq<double>(3.14159265359, telem::FLOAT64_T, true, true);
@@ -113,24 +108,18 @@ TEST_F(ModbusUtilTest, testByteAndWordSwapping) {
 
 TEST_F(ModbusUtilTest, testInvalidDataType) {
     uint16_t registers[4] = {0};
-
-    // Test parsing with invalid data type
-    auto [_, parse_err] = util::parse_register(
+    ASSERT_OCCURRED_AS_P(util::parse_register_value(
         registers,
-        0,
         telem::UNKNOWN_T,
         false,
         false
-    );
-    ASSERT_OCCURRED_AS(parse_err, xerrors::VALIDATION);
+    ), xerrors::VALIDATION);
 
-    // Test formatting with invalid data type
-    auto format_err = util::format_register(
+    ASSERT_OCCURRED_AS_P(util::format_register(
         0,
         registers,
         telem::UNKNOWN_T,
         false,
         false
-    );
-    ASSERT_OCCURRED_AS(format_err, xerrors::VALIDATION);
+    ), xerrors::VALIDATION);
 }

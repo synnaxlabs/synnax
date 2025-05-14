@@ -10,6 +10,8 @@
 #pragma once
 
 /// external
+#include <utility>
+
 #include "glog/logging.h"
 #include "modbus/modbus.h"
 
@@ -24,6 +26,7 @@ const xerrors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("modbu
 const xerrors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("modbus");
 
 namespace modbus::device {
+/// @brief parses the xerrors compatible representation of the modbus error code.
 inline xerrors::Error parse_error(const int code) {
     if (code != -1) return xerrors::NIL;
     const auto err = modbus_strerror(errno);
@@ -50,29 +53,61 @@ struct Device {
 
     Device &operator=(const Device &) = delete;
 
-    xerrors::Error
-    read_bits(BitType t, const int addr, const size_t nb, uint8_t *dest) const {
-        if (t == Coil) return parse_error(modbus_read_bits(ctx, addr, nb, dest));
-
-        return parse_error(modbus_read_input_bits(ctx, addr, nb, dest));
+    /// @brief reads from the bit-address space of the device (coils and discrete
+    /// inputs).
+    /// @param input_type the input type to read from - either ByteType::Coil or
+    /// ByteType::DiscreteInput.
+    /// @param addr the address to start reading from.
+    /// @param nb the number of bits to read.
+    /// @param dest the destination buffer to read into.
+    xerrors::Error read_bits(
+        const BitType input_type,
+        const int addr,
+        const size_t nb,
+        uint8_t *dest
+    ) const {
+        if (input_type == Coil)
+            return parse_error(modbus_read_bits(ctx, addr, static_cast<int>(nb), dest));
+        return parse_error(modbus_read_input_bits(ctx, addr, static_cast<int>(nb), dest)
+        );
     }
 
-    xerrors::Error
-    read_registers(RegisterType t, const int addr, const size_t nb, uint16_t *dest)
-        const {
+    /// @brief reads from the register-address space of the device (holding and input
+    /// registers).
+    /// @brief input_type the input type to read from - either
+    /// RegisterType::HoldingRegister or ByteType::InputRegister.
+    xerrors::Error read_registers(
+        const RegisterType t,
+        const int addr,
+        const size_t nb,
+        uint16_t *dest
+    ) const {
         if (t == HoldingRegister)
-            return parse_error(modbus_read_registers(ctx, addr, nb, dest));
-        return parse_error(modbus_read_input_registers(ctx, addr, nb, dest));
+            return parse_error(
+                modbus_read_registers(ctx, addr, static_cast<int>(nb), dest)
+            );
+        return parse_error(
+            modbus_read_input_registers(ctx, addr, static_cast<int>(nb), dest)
+        );
     }
 
+    /// @brief writes to the coils of the device.
+    /// @param addr the address to start writing to.
+    /// @param nb the number of bits to write.
+    /// @param src the source buffer to write from.
     xerrors::Error
     write_bits(const int addr, const size_t nb, const uint8_t *src) const {
-        return parse_error(modbus_write_bits(ctx, addr, nb, src));
+        return parse_error(modbus_write_bits(ctx, addr, static_cast<int>(nb), src));
     }
 
+    /// @brief writes to the holding registers of the device.
+    /// @param addr the address to start writing to.
+    /// @param nb the number of registers to write.
+    /// @param src the source buffer to write from.
     xerrors::Error
     write_registers(const int addr, const size_t nb, const uint16_t *src) const {
-        return parse_error(modbus_write_registers(ctx, addr, nb, src));
+        return parse_error(modbus_write_registers(ctx, addr, static_cast<int>(nb), src)
+        );
     }
 };
 
@@ -81,29 +116,34 @@ struct ConnectionConfig {
     /// @brief The hostname or IP address of the Modbus server
     std::string host;
     /// @brief The TCP port of the Modbus server (default is 502)
-    uint16_t port;
+    uint16_t port = 0;
     /// @brief Whether to swap the byte order within each 16-bit word (endianness)
-    bool swap_bytes;
+    bool swap_bytes = false;
     /// @brief Whether to swap the word order for 32-bit and larger values
-    bool swap_words;
+    bool swap_words = false;
 
     ConnectionConfig() = default;
 
     ConnectionConfig(
-        const std::string &host,
+        std::string host,
         const uint16_t port,
         const bool swap_bytes = false,
         const bool swap_words = false
     ):
-        host(host), port(port), swap_bytes(swap_bytes), swap_words(swap_words) {}
+        host(std::move(host)),
+        port(port),
+        swap_bytes(swap_bytes),
+        swap_words(swap_words) {}
 
+    /// @brief constructs a ConnectionConfig from a JSON object.
     explicit ConnectionConfig(xjson::Parser parser):
         host(parser.required<std::string>("host")),
         port(parser.required<uint16_t>("port")),
         swap_bytes(parser.required<bool>("swap_bytes")),
         swap_words(parser.required<bool>("swap_words")) {}
 
-    json to_json() const {
+    /// @brief returns the JSON representation of the configuration.
+    [[nodiscard]] json to_json() const {
         return {
             {"host", host},
             {"port", port},
@@ -113,12 +153,17 @@ struct ConnectionConfig {
     }
 };
 
+/// @brief controls access and caches connections to modbus devices.
 class Manager {
+    /// @brief the current set of open modbus devices.
     std::unordered_map<std::string, std::weak_ptr<Device>> devices;
 
 public:
     Manager() = default;
 
+    /// @brief acquires a connection to a modbus device, returning an error if the
+    /// device could not be connected to.
+    /// @param config - the configuration for the connection.
     std::pair<std::shared_ptr<Device>, xerrors::Error>
     acquire(const ConnectionConfig &config) {
         const std::string id = config.host + ":" + std::to_string(config.port);
