@@ -35,10 +35,7 @@ enum RegisterType {
     HoldingRegister,
 };
 
-enum BitType {
-    Coil,
-    DiscreteInput
-};
+enum BitType { Coil, DiscreteInput };
 
 struct Device {
     modbus_t *ctx;
@@ -60,12 +57,9 @@ struct Device {
         return parse_error(modbus_read_input_bits(ctx, addr, nb, dest));
     }
 
-    xerrors::Error read_registers(
-        RegisterType t,
-        const int addr,
-        const size_t nb,
-        uint16_t *dest
-    ) const {
+    xerrors::Error
+    read_registers(RegisterType t, const int addr, const size_t nb, uint16_t *dest)
+        const {
         if (t == HoldingRegister)
             return parse_error(modbus_read_registers(ctx, addr, nb, dest));
         return parse_error(modbus_read_input_registers(ctx, addr, nb, dest));

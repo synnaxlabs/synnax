@@ -10,19 +10,19 @@
 #pragma once
 
 /// std
-#include <memory>
-#include <thread>
-#include <atomic>
-#include <mutex>
-#include <unordered_map>
-#include <sys/select.h>
-#include <unistd.h>
 #include <algorithm>
+#include <atomic>
+#include <memory>
+#include <mutex>
+#include <sys/select.h>
+#include <thread>
+#include <unistd.h>
+#include <unordered_map>
 
 /// network headers
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
 /// external
 #include "modbus/modbus.h"
@@ -31,8 +31,8 @@
 #include "driver/modbus/util/util.h"
 
 /// module
-#include "x/cpp/xerrors/errors.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/xerrors/errors.h"
 
 /// glog
 #include "glog/logging.h"
@@ -67,9 +67,7 @@ class Slave {
     int get_max_address(const std::unordered_map<int, T> &map) {
         int max_addr = -1;
         for (const auto &pair: map) {
-            if (pair.first > max_addr) {
-                max_addr = pair.first;
-            }
+            if (pair.first > max_addr) { max_addr = pair.first; }
         }
         return max_addr;
     }
@@ -81,24 +79,33 @@ class Slave {
         const int max_discrete_addr = get_max_address(config_.discrete_inputs);
         const int max_discrete = std::max(16, max_discrete_addr);
         int max_holding_register = get_max_address(config_.holding_registers);
-        if (config_.holding_registers.empty()) max_holding_register = 16;
-        else max_holding_register += telem::DataType::infer(
-                 config_.holding_registers[max_holding_register]).density() / 2;
+        if (config_.holding_registers.empty())
+            max_holding_register = 16;
+        else
+            max_holding_register += telem::DataType::infer(
+                                        config_.holding_registers[max_holding_register]
+                                    )
+                                        .density() /
+                                    2;
         int max_input_register = std::max(16, get_max_address(config_.input_registers));
-        if (config_.input_registers.empty()) max_input_register = 16;
-        else max_input_register += telem::DataType::infer(
-                 config_.input_registers[max_input_register]).density() / 2;
+        if (config_.input_registers.empty())
+            max_input_register = 16;
+        else
+            max_input_register += telem::DataType::infer(
+                                      config_.input_registers[max_input_register]
+                                  )
+                                      .density() /
+                                  2;
 
         const int nb_bits = max_coil + 1;
         const int nb_input_bits = max_discrete + 1;
         const int nb_registers = max_holding_register + 1;
         const int nb_input_registers = max_input_register + 1;
 
-        LOG(INFO) << "Creating mapping with sizes:"
-                << " coils=" << nb_bits
-                << " discrete_inputs=" << nb_input_bits
-                << " holding_registers=" << nb_registers
-                << " input_registers=" << nb_input_registers;
+        LOG(INFO) << "Creating mapping with sizes:" << " coils=" << nb_bits
+                  << " discrete_inputs=" << nb_input_bits
+                  << " holding_registers=" << nb_registers
+                  << " input_registers=" << nb_input_registers;
 
         modbus_mapping_t *mb_mapping = modbus_mapping_new(
             nb_bits,
@@ -115,27 +122,26 @@ class Slave {
         for (const auto &pair: config_.coils) {
             if (pair.first < nb_bits) {
                 mb_mapping->tab_bits[pair.first] = pair.second ? 1 : 0;
-                LOG(INFO) << "Set coil[" << pair.first << "] = " << (
-                    pair.second ? 1 : 0);
+                LOG(INFO) << "Set coil[" << pair.first
+                          << "] = " << (pair.second ? 1 : 0);
             } else
                 LOG(WARNING) << "Coil address " << pair.first << " out of range";
         }
 
         for (const auto &[addr, value]: config_.discrete_inputs)
-            if (addr < nb_input_bits)
-                mb_mapping->tab_input_bits[addr] = value ? 1 : 0;
+            if (addr < nb_input_bits) mb_mapping->tab_input_bits[addr] = value ? 1 : 0;
 
         for (const auto &[addr, value]: config_.holding_registers)
             if (addr < nb_registers) {
                 auto dt = telem::DataType::infer(value);
                 std::vector<uint16_t> dest(dt.density() / 2);
                 if (const auto err = util::format_register(
-                    value,
-                    dest.data(),
-                    dt,
-                    false,
-                    false
-                ))
+                        value,
+                        dest.data(),
+                        dt,
+                        false,
+                        false
+                    ))
                     LOG(FATAL) << err;
                 for (size_t i = 0; i < dest.size(); i++)
                     mb_mapping->tab_registers[addr + i] = dest[i];
@@ -146,11 +152,11 @@ class Slave {
                 auto dt = telem::DataType::infer(value);
                 std::vector<uint16_t> dest(dt.density() / 2);
                 if (const auto err = util::format_register(
-                    value,
-                    dest.data(),
-                    dt,
-                    false,
-                    false
+                        value,
+                        dest.data(),
+                        dt,
+                        false,
+                        false
                     ))
                     LOG(FATAL) << err;
                 for (size_t i = 0; i < dest.size(); i++)
@@ -186,9 +192,7 @@ class Slave {
             if (ready == 0) continue;
 
             for (int master_socket = 0; master_socket <= fd_max; master_socket++) {
-                if (!FD_ISSET(master_socket, &rd_set)) {
-                    continue;
-                }
+                if (!FD_ISSET(master_socket, &rd_set)) { continue; }
 
                 if (master_socket == socket_) {
                     // Handle new connection
@@ -198,18 +202,19 @@ class Slave {
                     addr_len = sizeof(client_addr);
                     memset(&client_addr, 0, sizeof(client_addr));
                     const int new_fd = accept(
-                        socket_, reinterpret_cast<struct sockaddr *>(&client_addr),
-                        &addr_len);
+                        socket_,
+                        reinterpret_cast<struct sockaddr *>(&client_addr),
+                        &addr_len
+                    );
 
                     if (new_fd == -1) {
                         LOG(ERROR) << "Accept error: " << strerror(errno);
                         continue;
                     }
 
-                    LOG(INFO) << "New connection from " << inet_ntoa(
-                                client_addr.sin_addr)
-                            << ":" << ntohs(client_addr.sin_port)
-                            << " on socket " << new_fd;
+                    LOG(INFO) << "New connection from "
+                              << inet_ntoa(client_addr.sin_addr) << ":"
+                              << ntohs(client_addr.sin_port) << " on socket " << new_fd;
 
                     FD_SET(new_fd, &ref_set);
                     if (new_fd > fd_max) fd_max = new_fd;
@@ -222,11 +227,9 @@ class Slave {
                         // Log the function code and data from the query
                         const uint8_t function_code = query[7];
                         // Function code is at offset 7 in TCP ADU
-                        VLOG(1) << "Received Modbus request on socket " <<
-                                master_socket
-                                << ", length: " << rc
-                                << ", function code: 0x" << std::hex << static_cast<int>
-                                (function_code);
+                        VLOG(1) << "Received Modbus request on socket " << master_socket
+                                << ", length: " << rc << ", function code: 0x"
+                                << std::hex << static_cast<int>(function_code);
 
                         std::lock_guard lock(mutex_);
                         modbus_reply(ctx_, query, rc, mb_mapping_);
@@ -234,8 +237,8 @@ class Slave {
 
                         VLOG(1) << "Response data:";
                         for (int i = 0; i < rc; i++) {
-                            VLOG(1) << "  byte[" << i << "] = 0x" << std::hex <<
-                                    static_cast<int>(query[i]);
+                            VLOG(1) << "  byte[" << i << "] = 0x" << std::hex
+                                    << static_cast<int>(query[i]);
                         }
                     } else if (rc == -1) {
                         LOG(INFO) << "Connection closed on socket " << master_socket;
@@ -253,12 +256,12 @@ class Slave {
 public:
     /// @brief Create a new Modbus TCP slave with the given configuration
     /// @param config The slave configuration
-    explicit Slave(const SlaveConfig &config)
-        : running_(false),
-          ip_address_(config.host),
-          port_(config.port),
-          socket_(-1),
-          config_(config) {
+    explicit Slave(const SlaveConfig &config):
+        running_(false),
+        ip_address_(config.host),
+        port_(config.port),
+        socket_(-1),
+        config_(config) {
         ctx_ = modbus_new_tcp(ip_address_.c_str(), port_);
         if (ctx_ == nullptr) {
             throw std::runtime_error("Failed to create modbus context");
@@ -274,24 +277,20 @@ public:
 
     ~Slave() {
         stop();
-        if (mb_mapping_ != nullptr) {
-            modbus_mapping_free(mb_mapping_);
-        }
-        if (ctx_ != nullptr) {
-            modbus_free(ctx_);
-        }
+        if (mb_mapping_ != nullptr) { modbus_mapping_free(mb_mapping_); }
+        if (ctx_ != nullptr) { modbus_free(ctx_); }
     }
 
     /// @brief Start the slave server in a background thread
     xerrors::Error start() {
-        if (running_) {
-            return xerrors::NIL;
-        }
+        if (running_) { return xerrors::NIL; }
 
         socket_ = modbus_tcp_listen(ctx_, 1);
         if (socket_ == -1) {
-            return xerrors::Error("Failed to listen on modbus socket: " +
-                                  std::string(modbus_strerror(errno)));
+            return xerrors::Error(
+                "Failed to listen on modbus socket: " +
+                std::string(modbus_strerror(errno))
+            );
         }
 
         modbus_set_debug(ctx_, FALSE);
@@ -306,9 +305,7 @@ public:
         if (!running_) return;
 
         running_ = false;
-        if (server_thread_.joinable()) {
-            server_thread_.join();
-        }
+        if (server_thread_.joinable()) { server_thread_.join(); }
 
         if (socket_ != -1) {
             close(socket_);

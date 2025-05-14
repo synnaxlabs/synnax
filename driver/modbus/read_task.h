@@ -233,28 +233,22 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 [i + holding_registers.size() + input_registers.size() + coils.size()];
 
         if (!holding_registers.empty())
-            ops.push_back(
-                std::make_unique<RegisterReader>(
-                    device::HoldingRegister,
-                    std::move(holding_registers)
-                )
-            );
+            ops.push_back(std::make_unique<RegisterReader>(
+                device::HoldingRegister,
+                std::move(holding_registers)
+            ));
         if (!input_registers.empty())
-            ops.push_back(
-                std::make_unique<RegisterReader>(
-                    device::InputRegister,
-                    std::move(input_registers)
-                )
-            );
+            ops.push_back(std::make_unique<RegisterReader>(
+                device::InputRegister,
+                std::move(input_registers)
+            ));
         if (!coils.empty())
             ops.push_back(std::make_unique<BitReader>(device::Coil, std::move(coils)));
         if (!discrete_inputs.empty())
-            ops.push_back(
-                std::make_unique<BitReader>(
-                    device::DiscreteInput,
-                    std::move(discrete_inputs)
-                )
-            );
+            ops.push_back(std::make_unique<BitReader>(
+                device::DiscreteInput,
+                std::move(discrete_inputs)
+            ));
         for (const auto &ch: synnax_channels)
             if (ch.index != 0) this->indexes.insert(ch.index);
     }

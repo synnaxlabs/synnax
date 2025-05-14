@@ -13,8 +13,8 @@
 #include <string>
 
 /// module
-#include "x/cpp/xjson/xjson.h"
 #include "client/cpp/synnax.h"
+#include "x/cpp/xjson/xjson.h"
 
 namespace modbus::channel {
 /// @brief Base class for all Modbus channels
@@ -24,10 +24,9 @@ struct Channel {
     /// @brief The Modbus register address
     uint16_t address;
 
-    explicit Channel(xjson::Parser &parser) :
+    explicit Channel(xjson::Parser &parser):
         enabled(parser.optional<bool>("enabled", true)),
-        address(parser.required<uint16_t>("address")) {
-    }
+        address(parser.required<uint16_t>("address")) {}
 
     /// @brief Virtual destructor
     virtual ~Channel() = default;
@@ -40,22 +39,15 @@ struct Input : virtual Channel {
     /// @brief The synnax channel object
     synnax::Channel ch;
 
-    explicit Input(xjson::Parser &parser) :
-        Channel(parser),
-        synnax_key(parser.required<synnax::ChannelKey>("channel")) {
-    }
+    explicit Input(xjson::Parser &parser):
+        Channel(parser), synnax_key(parser.required<synnax::ChannelKey>("channel")) {}
 
     /// @brief Binds remote channel information
-    void bind_remote_info(const synnax::Channel &remote_ch) {
-        this->ch = remote_ch;
-    }
+    void bind_remote_info(const synnax::Channel &remote_ch) { this->ch = remote_ch; }
 };
 
 struct InputBit final : Input {
-    explicit InputBit(xjson::Parser &parser) :
-        Channel(parser),
-        Input(parser) {
-    }
+    explicit InputBit(xjson::Parser &parser): Channel(parser), Input(parser) {}
 };
 
 /// @brief Input channel for reading holding or input registers
@@ -69,14 +61,13 @@ struct InputRegister final : Input {
     /// @brief String length for STRING data type
     int string_length;
 
-    explicit InputRegister(xjson::Parser &parser) :
+    explicit InputRegister(xjson::Parser &parser):
         Channel(parser),
         Input(parser),
         value_type(telem::DataType(parser.required<std::string>("data_type"))),
         swap_bytes(parser.optional<bool>("swap_bytes", false)),
         swap_words(parser.optional<bool>("swap_words", false)),
-        string_length(parser.optional<int>("string_length", 0)) {
-    }
+        string_length(parser.optional<int>("string_length", 0)) {}
 };
 
 /// @brief Output channel for writing to coils
@@ -84,10 +75,8 @@ struct OutputCoilChannel final : Channel {
     /// @brief The key of the channel to write to the coil
     synnax::ChannelKey channel;
 
-    explicit OutputCoilChannel(xjson::Parser &parser) :
-        Channel(parser),
-        channel(parser.required<synnax::ChannelKey>("channel")) {
-    }
+    explicit OutputCoilChannel(xjson::Parser &parser):
+        Channel(parser), channel(parser.required<synnax::ChannelKey>("channel")) {}
 };
 
 /// @brief Output channel for writing to holding registers
@@ -101,18 +90,18 @@ struct OutputHoldingRegisterChannel final : Channel {
     /// @brief The word order for multi-register values
     bool swap_words;
 
-    explicit OutputHoldingRegisterChannel(xjson::Parser &parser) :
+    explicit OutputHoldingRegisterChannel(xjson::Parser &parser):
         Channel(parser),
         channel(parser.required<synnax::ChannelKey>("channel")),
         value_type(telem::DataType(parser.required<std::string>("data_type"))),
         swap_bytes(parser.optional<bool>("swap_bytes", false)),
-        swap_words(parser.optional<bool>("swap_words", false)) {
-    }
+        swap_words(parser.optional<bool>("swap_words", false)) {}
 };
 
 template<typename Channel>
 void sort_by_address(std::vector<Channel> &channels) {
-    std::sort(channels.begin(), channels.end(),
-          [](const auto &a, const auto &b) { return a.address < b.address; });
+    std::sort(channels.begin(), channels.end(), [](const auto &a, const auto &b) {
+        return a.address < b.address;
+    });
 }
 }

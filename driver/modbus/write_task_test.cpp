@@ -11,13 +11,13 @@
 #include "gtest/gtest.h"
 
 /// module
-#include "x/cpp/xtest/xtest.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/xtest/xtest.h"
 
 /// internal
-#include "driver/modbus/write_task.h"
 #include "driver/modbus/mock/slave.h"
+#include "driver/modbus/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
 class ModbusWriteTest : public ::testing::Test {
@@ -36,22 +36,21 @@ protected:
         this->devs = std::make_shared<modbus::device::Manager>();
         this->ctx = std::make_shared<task::MockContext>(sy);
         if (this->coil_ch.name.empty()) this->coil_ch.name = "coil";
-        if (this->coil_ch.data_type == telem::UNKNOWN_T) this->coil_ch.data_type = telem::UINT8_T;
+        if (this->coil_ch.data_type == telem::UNKNOWN_T)
+            this->coil_ch.data_type = telem::UINT8_T;
         ASSERT_NIL(sy->channels.create(this->coil_ch));
         if (this->reg_ch.name.empty()) this->reg_ch.name = "register";
-        if (this->reg_ch.data_type == telem::UNKNOWN_T) this->reg_ch.data_type = telem::UINT16_T;
+        if (this->reg_ch.data_type == telem::UNKNOWN_T)
+            this->reg_ch.data_type = telem::UINT16_T;
         this->reg_ch.is_virtual = true;
         ASSERT_NIL(sy->channels.create(this->reg_ch));
         auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
         json properties{
-            {
-                "connection", {
-                    {"host", "127.0.0.1"},
-                    {"port", 1502},
-                    {"swap_bytes", false},
-                    {"swap_words", false}
-                }
-            }
+            {"connection",
+             {{"host", "127.0.0.1"},
+              {"port", 1502},
+              {"swap_bytes", false},
+              {"swap_words", false}}}
         };
 
         synnax::Device dev(
@@ -82,29 +81,24 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
 
     json task_cfg{
         {"device", "modbus_test_dev"},
-        {
-            "channels", json::array({
-                {
-                    {"type", "coil_output"},
-                    {"address", 0},
-                    {"enabled", true},
-                    {"channel", coil_ch.key}
-                },
-                {
-                    {"type", "holding_register_output"},
-                    {"address", 1},
-                    {"enabled", true},
-                    {"channel", reg_ch.key},
-                    {"data_type", "uint16"}
-                }
-            })
-        }
+        {"channels",
+         json::array(
+             {{{"type", "coil_output"},
+               {"address", 0},
+               {"enabled", true},
+               {"channel", coil_ch.key}},
+              {{"type", "holding_register_output"},
+               {"address", 1},
+               {"enabled", true},
+               {"channel", reg_ch.key},
+               {"data_type", "uint16"}}}
+         )}
     };
 
     auto p = xjson::Parser(task_cfg);
     cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p);
     ASSERT_NIL(p.error());
-    const auto reads = std::make_shared<std::vector<synnax::Frame> >();
+    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
     synnax::Frame fr(2); // Pre-allocate for 2 series (coil and register)
     fr.emplace(coil_ch.key, telem::Series(static_cast<uint8_t>(1)));
     fr.emplace(reg_ch.key, telem::Series(static_cast<uint16_t>(12345)));
@@ -163,16 +157,13 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
 TEST_F(ModbusWriteTest, testInvalidChannelType) {
     const json task_cfg{
         {"device", "modbus_test_dev"},
-        {
-            "channels", json::array({
-                {
-                    {"type", "invalid_type"},
-                    {"address", 0},
-                    {"enabled", true},
-                    {"channel", coil_ch.key}
-                }
-            })
-        }
+        {"channels",
+         json::array(
+             {{{"type", "invalid_type"},
+               {"address", 0},
+               {"enabled", true},
+               {"channel", coil_ch.key}}}
+         )}
     };
 
     auto p = xjson::Parser(task_cfg);
