@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/effect"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -67,6 +68,7 @@ type Config struct {
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
 	Cluster       dcore.Cluster
+	Effect        *effect.Service
 	Insecure      *bool
 }
 
@@ -223,6 +225,16 @@ type Transport struct {
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
+	// EFFECT
+	EffectCreate            freighter.UnaryServer[EffectCreateRequest, EffectCreateResponse]
+	EffectDelete            freighter.UnaryServer[EffectDeleteRequest, types.Nil]
+	EffectRetrieve          freighter.UnaryServer[EffectRetrieveRequest, EffectRetrieveResponse]
+	EffectActionCreate      freighter.UnaryServer[ActionCreateRequest, ActionCreateResponse]
+	EffectActionDelete      freighter.UnaryServer[ActionDeleteRequest, types.Nil]
+	EffectActionRetrieve    freighter.UnaryServer[ActionRetrieveRequest, ActionRetrieveResponse]
+	EffectConditionCreate   freighter.UnaryServer[ConditionCreateRequest, ConditionCreateResponse]
+	EffectConditionDelete   freighter.UnaryServer[ConditionDeleteRequest, types.Nil]
+	EffectConditionRetrieve freighter.UnaryServer[ConditionRetrieveRequest, ConditionRetrieveResponse]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific API
@@ -245,6 +257,7 @@ type API struct {
 	Label        *LabelService
 	Hardware     *HardwareService
 	Access       *AccessService
+	Effect       *EffectService
 }
 
 // BindTo binds the API to the provided Transport implementation.
@@ -374,6 +387,17 @@ func (a *API) BindTo(t Transport) {
 		t.AccessCreatePolicy,
 		t.AccessDeletePolicy,
 		t.AccessRetrievePolicy,
+
+		// EFFECT
+		t.EffectCreate,
+		t.EffectDelete,
+		t.EffectRetrieve,
+		t.EffectActionCreate,
+		t.EffectActionDelete,
+		t.EffectActionRetrieve,
+		t.EffectConditionCreate,
+		t.EffectConditionDelete,
+		t.EffectConditionRetrieve,
 	)
 
 	// AUTH
@@ -484,6 +508,17 @@ func (a *API) BindTo(t Transport) {
 	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
 	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
+
+	// EFFECT
+	t.EffectCreate.BindHandler(a.Effect.CreateEffect)
+	t.EffectDelete.BindHandler(a.Effect.DeleteEffect)
+	t.EffectRetrieve.BindHandler(a.Effect.RetrieveEffect)
+	t.EffectActionCreate.BindHandler(a.Effect.CreateAction)
+	t.EffectActionDelete.BindHandler(a.Effect.DeleteAction)
+	t.EffectActionRetrieve.BindHandler(a.Effect.RetrieveAction)
+	t.EffectConditionCreate.BindHandler(a.Effect.CreateCondition)
+	t.EffectConditionDelete.BindHandler(a.Effect.DeleteCondition)
+	t.EffectConditionRetrieve.BindHandler(a.Effect.RetrieveCondition)
 }
 
 // New instantiates the server API using the provided Config. This should only be called
@@ -509,5 +544,6 @@ func New(configs ...Config) (API, error) {
 	api.Hardware = NewHardwareService(api.provider)
 	api.Log = NewLogService(api.provider)
 	api.Table = NewTableService(api.provider)
+	api.Effect = NewEffectService(api.provider)
 	return api, nil
 }

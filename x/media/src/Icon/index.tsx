@@ -26,7 +26,12 @@ import {
   AiOutlineSync,
 } from "react-icons/ai";
 import { BiLinkExternal, BiMath, BiRename } from "react-icons/bi";
-import { BsFillInfoSquareFill, BsLightbulbFill, BsShiftFill } from "react-icons/bs";
+import {
+  BsFillInfoSquareFill,
+  BsLightbulbFill,
+  BsShiftFill,
+  BsStars,
+} from "react-icons/bs";
 import {
   FaAlignCenter,
   FaAlignLeft,
@@ -453,6 +458,7 @@ export interface IconType {
   StarFilled: IconFC;
   StarOutlined: IconFC;
   Heart: IconFC;
+  Effect: IconFC;
 }
 
 export const Icon: IconType = {
@@ -647,4 +653,5 @@ export const Icon: IconType = {
   StarFilled: wrapIcon(FaStar, "star-filled"),
   StarOutlined: wrapIcon(FaRegStar, "star-outlined"),
   Heart: wrapIcon(IoMdHeart, "heart"),
+  Effect: wrapIcon(BsStars, "effect"),
 };

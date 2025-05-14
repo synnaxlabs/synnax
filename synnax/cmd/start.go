@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/service/effect"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -277,6 +278,22 @@ func start(cmd *cobra.Command) {
 		if ctx.Err() != nil {
 			return nil
 		}
+		effectSvc, err := effect.OpenService(
+			ctx,
+			effect.Config{
+				DB:       gorpDB,
+				Ontology: dist.Ontology,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err = errors.Combine(err, effectSvc.Close())
+		}()
+		if ctx.Err() != nil {
+			return nil
+		}
 
 		// Provision the root user.
 		if err := maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc, rbacSvc); err != nil || ctx.Err() != nil {
@@ -312,6 +329,7 @@ func start(cmd *cobra.Command) {
 				Workspace:       workspaceSvc,
 				Label:           labelSvc,
 				Hardware:        hardwareSvc,
+				Effect:          effectSvc,
 			},
 		)
 		if err != nil || ctx.Err() != nil {

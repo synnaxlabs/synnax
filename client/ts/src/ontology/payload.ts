@@ -15,6 +15,9 @@ import {
   ONTOLOGY_TYPE as POLICY_TYPE,
 } from "@/access/policy/ontology";
 import { ONTOLOGY_TYPE as CHANNEL_TYPE } from "@/channel/payload";
+import { ONTOLOGY_TYPE as ACTION_TYPE } from "@/effect/action/payload";
+import { ONTOLOGY_TYPE as CONDITION_TYPE } from "@/effect/condition/payload";
+import { ONTOLOGY_TYPE as EFFECT_TYPE } from "@/effect/payload";
 import { ONTOLOGY_TYPE as FRAMER_TYPE } from "@/framer/frame";
 import { ONTOLOGY_TYPE as DEVICE_TYPE } from "@/hardware/device/payload";
 import { ONTOLOGY_TYPE as RACK_TYPE } from "@/hardware/rack/payload";
@@ -64,6 +67,9 @@ export const resourceTypeZ = z.enum([
   TASK_TYPE,
   POLICY_TYPE,
   TABLE_TYPE,
+  EFFECT_TYPE,
+  ACTION_TYPE,
+  CONDITION_TYPE,
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 

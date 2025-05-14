@@ -129,5 +129,16 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.AccessDeletePolicy = fhttp.UnaryServer[api.AccessDeletePolicyRequest, types.Nil](router, "/api/v1/access/policy/delete")
 	t.AccessRetrievePolicy = fhttp.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse](router, "/api/v1/access/policy/retrieve")
 
+	// EFFECT
+	t.EffectCreate = fhttp.UnaryServer[api.EffectCreateRequest, api.EffectCreateResponse](router, "/api/v1/effect/create")
+	t.EffectDelete = fhttp.UnaryServer[api.EffectDeleteRequest, types.Nil](router, "/api/v1/effect/delete")
+	t.EffectRetrieve = fhttp.UnaryServer[api.EffectRetrieveRequest, api.EffectRetrieveResponse](router, "/api/v1/effect/retrieve")
+	t.EffectConditionCreate = fhttp.UnaryServer[api.ConditionCreateRequest, api.ConditionCreateResponse](router, "/api/v1/effect/condition/create")
+	t.EffectConditionDelete = fhttp.UnaryServer[api.ConditionDeleteRequest, types.Nil](router, "/api/v1/effect/condition/delete")
+	t.EffectConditionRetrieve = fhttp.UnaryServer[api.ConditionRetrieveRequest, api.ConditionRetrieveResponse](router, "/api/v1/effect/condition/retrieve")
+	t.EffectActionCreate = fhttp.UnaryServer[api.ActionCreateRequest, api.ActionCreateResponse](router, "/api/v1/effect/action/create")
+	t.EffectActionDelete = fhttp.UnaryServer[api.ActionDeleteRequest, types.Nil](router, "/api/v1/effect/action/delete")
+	t.EffectActionRetrieve = fhttp.UnaryServer[api.ActionRetrieveRequest, api.ActionRetrieveResponse](router, "/api/v1/effect/action/retrieve")
+
 	return t
 }
