@@ -27,10 +27,8 @@ const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 struct ScanCommandArgs {
     device::ConnectionConfig connection;
 
-    explicit ScanCommandArgs(
-        const xjson::Parser &parser
-    ): connection(device::ConnectionConfig(parser.child("connection"))) {
-    }
+    explicit ScanCommandArgs(const xjson::Parser &parser):
+        connection(device::ConnectionConfig(parser.child("connection"))) {}
 };
 
 class ScanTask final : public task::Task {
@@ -64,8 +62,8 @@ public:
         const std::shared_ptr<task::Context> &context,
         synnax::Task task,
         const std::shared_ptr<device::Manager> &devices
-    ): ctx(context), task(std::move(task)), devices(devices) {
-    }
+    ):
+        ctx(context), task(std::move(task)), devices(devices) {}
 
     void exec(task::Command &cmd) override {
         if (cmd.type == TEST_CONNECTION_CMD_TYPE) this->test_connection(cmd);
@@ -73,7 +71,6 @@ public:
 
     std::string name() const override { return this->task.name; }
 
-    void stop(bool will_reconfigure) override {
-    }
+    void stop(bool will_reconfigure) override {}
 };
 }

@@ -23,8 +23,7 @@ inline std::pair<telem::SampleValue, xerrors::Error> parse_register(
 ) {
     if (data == nullptr) throw std::invalid_argument("modbus register data is null");
     auto swap_bytes_if_needed = [swap_bytes](const uint16_t value) -> uint16_t {
-        if (swap_bytes)
-            return (value & 0xFF) << 8 | (value & 0xFF00) >> 8;
+        if (swap_bytes) return (value & 0xFF) << 8 | (value & 0xFF00) >> 8;
         return value;
     };
     try {
@@ -74,13 +73,11 @@ inline std::pair<telem::SampleValue, xerrors::Error> parse_register(
             if (swap_words)
                 result = static_cast<uint64_t>(words[0]) << 48 |
                          static_cast<uint64_t>(words[1]) << 32 |
-                         static_cast<uint64_t>(words[2]) << 16 |
-                         words[3];
+                         static_cast<uint64_t>(words[2]) << 16 | words[3];
             else
                 result = static_cast<uint64_t>(words[3]) << 48 |
                          static_cast<uint64_t>(words[2]) << 32 |
-                         static_cast<uint64_t>(words[1]) << 16 |
-                         words[0];
+                         static_cast<uint64_t>(words[1]) << 16 | words[0];
             return {result, xerrors::Error()};
         }
         if (dt == telem::INT64_T) {
@@ -91,13 +88,11 @@ inline std::pair<telem::SampleValue, xerrors::Error> parse_register(
             if (swap_words)
                 raw = static_cast<uint64_t>(words[0]) << 48 |
                       static_cast<uint64_t>(words[1]) << 32 |
-                      static_cast<uint64_t>(words[2]) << 16 |
-                      words[3];
+                      static_cast<uint64_t>(words[2]) << 16 | words[3];
             else
                 raw = static_cast<uint64_t>(words[3]) << 48 |
                       static_cast<uint64_t>(words[2]) << 32 |
-                      static_cast<uint64_t>(words[1]) << 16 |
-                      words[0];
+                      static_cast<uint64_t>(words[1]) << 16 | words[0];
             return {static_cast<int64_t>(raw), xerrors::Error()};
         }
         if (dt == telem::FLOAT64_T) {
@@ -108,13 +103,11 @@ inline std::pair<telem::SampleValue, xerrors::Error> parse_register(
             if (swap_words)
                 raw = static_cast<uint64_t>(words[0]) << 48 |
                       static_cast<uint64_t>(words[1]) << 32 |
-                      static_cast<uint64_t>(words[2]) << 16 |
-                      words[3];
+                      static_cast<uint64_t>(words[2]) << 16 | words[3];
             else
                 raw = static_cast<uint64_t>(words[3]) << 48 |
                       static_cast<uint64_t>(words[2]) << 32 |
-                      static_cast<uint64_t>(words[1]) << 16 |
-                      words[0];
+                      static_cast<uint64_t>(words[1]) << 16 | words[0];
             double result;
             std::memcpy(&result, &raw, sizeof(double));
             return {result, xerrors::Error()};
@@ -134,7 +127,10 @@ inline std::pair<telem::SampleValue, xerrors::Error> parse_register(
     } catch (const std::exception &e) {
         return {
             telem::SampleValue(),
-            xerrors::Error(xerrors::VALIDATION, "failed to parse register: " + std::string(e.what()))
+            xerrors::Error(
+                xerrors::VALIDATION,
+                "failed to parse register: " + std::string(e.what())
+            )
         };
     }
 }
@@ -148,8 +144,7 @@ inline xerrors::Error format_register(
 ) {
     if (dest == nullptr) return xerrors::Error("modbus destination buffer is null");
     auto swap_bytes_if_needed = [swap_bytes](const uint16_t v) -> uint16_t {
-        if (swap_bytes)
-            return (v & 0xFF) << 8 | (v & 0xFF00) >> 8;
+        if (swap_bytes) return (v & 0xFF) << 8 | (v & 0xFF00) >> 8;
         return v;
     };
 
@@ -252,9 +247,15 @@ inline xerrors::Error format_register(
             dest[0] = swap_bytes_if_needed(telem::cast<int8_t>(value));
             return xerrors::NIL;
         }
-        return xerrors::Error(xerrors::VALIDATION, "unsupported data type: " + dt.name());
+        return xerrors::Error(
+            xerrors::VALIDATION,
+            "unsupported data type: " + dt.name()
+        );
     } catch (const std::exception &e) {
-        return xerrors::Error(xerrors::VALIDATION, "failed to format register: " + std::string(e.what()));
+        return xerrors::Error(
+            xerrors::VALIDATION,
+            "failed to format register: " + std::string(e.what())
+        );
     }
 }
 }

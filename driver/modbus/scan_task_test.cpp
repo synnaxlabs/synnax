@@ -33,25 +33,12 @@ TEST(ScanTask, testConnection) {
 
     auto dev_manager = std::make_shared<modbus::device::Manager>();
 
-    auto conn_cfg = modbus::device::ConnectionConfig{
-        "127.0.0.1",
-        1502
-    };
-    auto cmd_args = json{
-        {"connection", conn_cfg.to_json()}
-    };
-    auto cmd = task::Command(
-        t.key,
-        modbus::TEST_CONNECTION_CMD_TYPE,
-        cmd_args
-    );
+    auto conn_cfg = modbus::device::ConnectionConfig{"127.0.0.1", 1502};
+    auto cmd_args = json{{"connection", conn_cfg.to_json()}};
+    auto cmd = task::Command(t.key, modbus::TEST_CONNECTION_CMD_TYPE, cmd_args);
     cmd.key = "electric_boogaloo";
 
-    auto scan_task = modbus::ScanTask(
-        ctx,
-        t,
-        dev_manager
-    );
+    auto scan_task = modbus::ScanTask(ctx, t, dev_manager);
 
     scan_task.exec(cmd);
     ASSERT_EQ(ctx->states.size(), 1);

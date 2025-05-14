@@ -10,8 +10,8 @@
 #pragma once
 
 /// internal
-#include "driver/task/task.h"
 #include "driver/modbus/device/device.h"
+#include "driver/task/task.h"
 
 namespace modbus {
 const std::string INTEGRATION_NAME = "modbus";
@@ -23,13 +23,14 @@ class Factory final : public task::Factory {
     const std::shared_ptr<device::Manager> devices;
 
 public:
-    Factory(): devices(std::make_shared<device::Manager>()) {
-    }
+    Factory(): devices(std::make_shared<device::Manager>()) {}
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
-        const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) override;
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    ) override;
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
+    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Rack &rack
