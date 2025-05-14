@@ -14,12 +14,13 @@
 #include "driver/task/task.h"
 
 namespace modbus {
-
+/// @brief integration name for modbus.
+const std::string INTEGRATION_NAME = "modbus";
 
 /// @brief implements the task::Factory to configure and operate modbus tasks.
 class Factory final : public task::Factory {
+    /// @brief central device manager that connects and controls access to devices.
     const std::shared_ptr<device::Manager> devices;
-
 public:
     Factory(): devices(std::make_shared<device::Manager>()) {}
 

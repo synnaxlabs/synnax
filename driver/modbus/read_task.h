@@ -165,10 +165,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         BaseReadTaskConfig(std::move(other)),
         data_channel_count(other.data_channel_count),
+        device_key(std::move(other.device_key)),
         indexes(std::move(other.indexes)),
         readers(std::move(other.readers)),
         conn(std::move(other.conn)),
-        device_key(std::move(other.device_key)),
         samples_per_chan(other.samples_per_chan) {}
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;

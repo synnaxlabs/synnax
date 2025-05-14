@@ -15,18 +15,18 @@
 #include "driver/modbus/scan_task.h"
 #include "driver/modbus/write_task.h"
 
-const std::string INTEGRATION_NAME = "modbus";
+namespace modbus {
 const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
 const std::string SCAN_TASK_TYPE = INTEGRATION_NAME + "_scan";
 const std::string WRITE_TASK_TYPE = INTEGRATION_NAME + "_write";
 
 common::ConfigureResult configure_read(
-    const std::shared_ptr<modbus::device::Manager> &devs,
+    const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
     common::ConfigureResult result;
-    auto [cfg, err] = modbus::ReadTaskConfig::parse(ctx->client, task);
+    auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
     if (result.error = err; result.error) return result;
     auto [dev, d_err] = devs->acquire(cfg.conn);
     if (result.error = d_err; result.error) return result;
@@ -34,29 +34,29 @@ common::ConfigureResult configure_read(
         task,
         ctx,
         breaker::default_config(task.name),
-        std::make_unique<modbus::ReadTaskSource>(dev, std::move(cfg))
+        std::make_unique<ReadTaskSource>(dev, std::move(cfg))
     );
     return result;
 }
 
 common::ConfigureResult configure_scan(
-    const std::shared_ptr<modbus::device::Manager> &devs,
+    const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
     common::ConfigureResult result;
-    result.task = std::make_unique<modbus::ScanTask>(ctx, task, devs);
+    result.task = std::make_unique<ScanTask>(ctx, task, devs);
     result.auto_start = true;
     return result;
 }
 
 common::ConfigureResult configure_write(
-    const std::shared_ptr<modbus::device::Manager> &devs,
+    const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
     common::ConfigureResult result;
-    auto [cfg, err] = modbus::WriteTaskConfig::parse(ctx->client, task);
+    auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
     if (result.error = err; result.error) return result;
     auto [dev, d_err] = devs->acquire(cfg.conn);
     if (result.error = d_err; result.error) return result;
@@ -64,12 +64,12 @@ common::ConfigureResult configure_write(
         task,
         ctx,
         breaker::default_config(task.name),
-        std::make_unique<modbus::WriteTaskSink>(dev, std::move(cfg))
+        std::make_unique<WriteTaskSink>(dev, std::move(cfg))
     );
     return result;
 }
 
-std::pair<std::unique_ptr<task::Task>, bool> modbus::Factory::configure_task(
+std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
@@ -85,7 +85,7 @@ std::pair<std::unique_ptr<task::Task>, bool> modbus::Factory::configure_task(
 }
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
-modbus::Factory::configure_initial_tasks(
+Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
@@ -97,4 +97,5 @@ modbus::Factory::configure_initial_tasks(
         SCAN_TASK_TYPE,
         INTEGRATION_NAME
     );
+}
 }
