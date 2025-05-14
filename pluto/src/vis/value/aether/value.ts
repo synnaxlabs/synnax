@@ -150,15 +150,16 @@ export class Value
     if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
       const colorValue = backgroundTelem.value();
       const isZero = color.isZero(colorValue);
-      setDefaultFillStyle = isZero;
       if (!isZero) {
-        const lower2d = renderCtx.lower2d.applyScale(viewportScale);
-        lower2d.fillStyle = color.hex(colorValue);
-        lower2d.rect(...xy.couple(bTopLeft), bWidth, bHeight);
-        lower2d.fill();
-        canvas.fillStyle = color.hex(
-          color.pickByContrast(colorValue, theme.colors.gray.l0, theme.colors.gray.l11),
+        setDefaultFillStyle = false;
+        canvas.fillStyle = color.hex(colorValue);
+        canvas.fillRect(...xy.couple(bTopLeft), bWidth, bHeight);
+        const textColor = color.pickByContrast(
+          colorValue,
+          theme.colors.gray.l0,
+          theme.colors.gray.l11,
         );
+        canvas.fillStyle = color.hex(textColor);
       }
     }
     if (setDefaultFillStyle) canvas.fillStyle = color.hex(this.internal.textColor);
