@@ -1,0 +1,87 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { toArray } from "@synnaxlabs/x";
+import { z } from "zod";
+
+import { Client as ActionClient } from "@/effect/action/client";
+import { Client as ConditionClient } from "@/effect/condition/client";
+import {
+  type Effect,
+  effectZ,
+  type Key,
+  keyZ,
+  type New,
+  newZ,
+  type Params,
+} from "@/effect/payload";
+
+const CREATE_ENDPOINT = "/effect/create";
+const DELETE_ENDPOINT = "/effect/delete";
+const RETRIEVE_ENDPOINT = "/effect/retrieve";
+
+const createReqZ = z.object({ effects: z.array(newZ) });
+const createResZ = z.object({ effects: z.array(effectZ) });
+const deleteReqZ = z.object({ effects: z.array(effectZ) });
+const retrieveReqZ = z.object({ keys: z.array(keyZ) });
+const retrieveResZ = z.object({ effects: z.array(effectZ) });
+const emptyResZ = z.object({});
+
+export class Client {
+  readonly actions: ActionClient;
+  readonly conditions: ConditionClient;
+  private readonly client: UnaryClient;
+
+  constructor(client: UnaryClient) {
+    this.client = client;
+    this.actions = new ActionClient(client);
+    this.conditions = new ConditionClient(client);
+  }
+
+  async create(effect: New): Promise<Effect>;
+  async create(effects: New[]): Promise<Effect[]>;
+  async create(effects: New | New[]): Promise<Effect | Effect[]> {
+    const isMany = Array.isArray(effects);
+    const res = await sendRequired(
+      this.client,
+      CREATE_ENDPOINT,
+      { effects: toArray(effects) },
+      createReqZ,
+      createResZ,
+    );
+    return isMany ? res.effects : res.effects[0];
+  }
+
+  async delete(effect: Effect): Promise<void>;
+  async delete(effects: Effect[]): Promise<void>;
+  async delete(effects: Effect | Effect[]): Promise<void> {
+    await sendRequired(
+      this.client,
+      DELETE_ENDPOINT,
+      { effects: toArray(effects) },
+      deleteReqZ,
+      emptyResZ,
+    );
+  }
+
+  async retrieve(key: Key): Promise<Effect>;
+  async retrieve(keys: Key[]): Promise<Effect[]>;
+  async retrieve(keys: Params): Promise<Effect | Effect[]> {
+    const isMany = Array.isArray(keys);
+    const res = await sendRequired(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      { keys: toArray(keys) },
+      retrieveReqZ,
+      retrieveResZ,
+    );
+    return isMany ? res.effects : res.effects[0];
+  }
+}

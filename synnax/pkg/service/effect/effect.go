@@ -1,0 +1,32 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package effect
+
+import (
+	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/gorp"
+)
+
+// Effect is a definition for a condition that results in a set of effects being
+// executed.
+type Effect struct {
+	Key       uuid.UUID
+	Condition uuid.UUID   `json:"condition" msgpack:"condition"`
+	Actions   []uuid.UUID `json:"actions" msgpack:"actions"`
+	Enabled   bool        `json:"enabled" msgpack:"enabled"`
+}
+
+var _ gorp.Entry[uuid.UUID] = Effect{}
+
+// GorpKey implements gorp.Entry.
+func (e Effect) GorpKey() uuid.UUID { return e.Key }
+
+// SetOptions implements gorp.Entry.
+func (e Effect) SetOptions() []any { return nil }

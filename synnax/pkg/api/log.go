@@ -53,8 +53,9 @@ func (s *LogService) Create(ctx context.Context, req LogCreateRequest) (res LogC
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.internal.NewWriter(tx)
 		for i, log_ := range req.Logs {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &log_); err != nil {
+			if err = w.Create(ctx, req.Workspace, &log_); err != nil {
 				return err
 			}
 			req.Logs[i] = log_
