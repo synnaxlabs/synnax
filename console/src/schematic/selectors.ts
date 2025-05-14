@@ -55,10 +55,10 @@ export const selectSelectedElementDigests = (
   return [
     ...schematic.nodes
       .filter((node) => node.selected)
-      .map((node) => ({ key: node.key, type: "node" as const })),
+      .map<ElementDigest>((node) => ({ key: node.key, type: "node" })),
     ...schematic.edges
       .filter((edge) => edge.selected)
-      .map((edge) => ({ key: edge.key, type: "edge" as const })),
+      .map<ElementDigest>((edge) => ({ key: edge.key, type: "edge" })),
   ];
 };
 
