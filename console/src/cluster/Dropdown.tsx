@@ -21,7 +21,6 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import {
   type MouseEvent,
   type PropsWithChildren,
@@ -57,7 +56,7 @@ export const List = (): ReactElement => {
       const allNames = allClusters.map((c) => c.name);
       if (!allNames.includes(name)) return true;
       addStatus({
-        variant: status.ERROR_VARIANT,
+        variant: "error",
         message: `Cannot rename cluster to ${name}`,
         description: `A cluster with name "${name}" already exists.`,
       });

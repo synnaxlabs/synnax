@@ -10,7 +10,6 @@
 import { user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Divider, Form, Nav, Status, Text } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -100,7 +99,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
     if (rootUser) {
       addStatus({
         message: "Root user permissions cannot be modified",
-        variant: status.ERROR_VARIANT,
+        variant: "error",
       });
       onClose();
     }
@@ -162,7 +161,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
       </Align.Space>
       <Modals.BottomNavBar size="6rem">
         <Nav.Bar.Start align="center" size="large">
-          <Status.Text loading={isPending} variant={status.SUCCESS_VARIANT}>
+          <Status.Text loading={isPending} variant="success">
             {isPending ? "Saving" : "Saved"}
           </Status.Text>
         </Nav.Bar.Start>

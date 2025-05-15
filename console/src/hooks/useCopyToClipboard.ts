@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 export const useCopyToClipboard = (): ((text: string, name: string) => void) => {
@@ -18,10 +17,7 @@ export const useCopyToClipboard = (): ((text: string, name: string) => void) => 
     (text: string, name: string) => {
       handleError(async () => {
         await navigator.clipboard.writeText(text);
-        addStatus({
-          variant: status.SUCCESS_VARIANT,
-          message: `Copied ${name} to clipboard.`,
-        });
+        addStatus({ variant: "success", message: `Copied ${name} to clipboard.` });
       }, `Failed to copy ${name} to clipboard`);
     },
     [addStatus, handleError],

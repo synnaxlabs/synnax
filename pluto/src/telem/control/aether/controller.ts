@@ -20,7 +20,6 @@ import {
   control as xControl,
   type CrudeSeries,
   type Destructor,
-  status as xstatus,
   TimeSpan,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -128,7 +127,7 @@ export class Controller
     if (client == null)
       return addStatus({
         message: `Cannot acquire control on ${this.state.name} because no cluster has been connected.`,
-        variant: xstatus.WARNING_VARIANT,
+        variant: "warning",
       });
 
     try {
@@ -137,7 +136,7 @@ export class Controller
       if (needsControlOf.length === 0)
         return addStatus({
           message: `Cannot acquire control on ${this.state.name} because there are no channels to control.`,
-          variant: xstatus.WARNING_VARIANT,
+          variant: "warning",
         });
 
       // Subtracting 1 millisecond makes sure that we avoid accidentally
@@ -157,7 +156,7 @@ export class Controller
       this.setState((p) => ({ ...p, status: "failed" }));
       if (!(e instanceof Error)) throw e;
       addStatus({
-        variant: xstatus.ERROR_VARIANT,
+        variant: "error",
         message: `${this.state.name} failed to acquire control`,
         description: e.message,
       });
@@ -173,7 +172,7 @@ export class Controller
         message: `${this.state.name} failed to release control: ${
           (e as Error).message
         }`,
-        variant: xstatus.ERROR_VARIANT,
+        variant: "error",
       });
     } finally {
       this.setState((p) => ({ ...p, status: "released" }));
@@ -387,7 +386,7 @@ export class AuthoritySource
     if (this.props.channel === 0)
       return {
         key: this.controller.key,
-        variant: xstatus.INFO_VARIANT,
+        variant: "info",
         message: "No Channel",
         time,
         data: { valid: false, authority: 0 },
@@ -398,7 +397,7 @@ export class AuthoritySource
     if (state == null)
       return {
         key: this.controller.key,
-        variant: xstatus.INFO_VARIANT,
+        variant: "info",
         message: "Uncontrolled",
         time,
         data: { valid: true, color: undefined, authority: 0 },
@@ -406,10 +405,7 @@ export class AuthoritySource
 
     return {
       key: state.subject.key,
-      variant:
-        state.subject.key === this.controller.key
-          ? xstatus.SUCCESS_VARIANT
-          : xstatus.ERROR_VARIANT,
+      variant: state.subject.key === this.controller.key ? "success" : "error",
       message: `Controlled by ${state.subject.name}`,
       time,
       data: { valid: true, color: state.subjectColor, authority: state.authority },

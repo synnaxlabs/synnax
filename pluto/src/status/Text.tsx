@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
@@ -27,7 +27,7 @@ export interface TextProps extends Omit<BaseText.WithIconProps, "level" | "wrap"
 }
 
 const Core = ({
-  variant = status.INFO_VARIANT,
+  variant = "info",
   level = "p",
   hideIcon = false,
   loading = false,

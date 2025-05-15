@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Button, Status, useAsyncEffect } from "@synnaxlabs/pluto";
-import { id, status, TimeSpan } from "@synnaxlabs/x";
+import { id, TimeSpan } from "@synnaxlabs/x";
 import { check } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
@@ -35,7 +35,7 @@ export const useCheckForUpdates = (): boolean => {
     if (addNotification)
       addStatus({
         key: `${STATUS_KEY_PREFIX}-${id.create()}`,
-        variant: status.INFO_VARIANT,
+        variant: "info",
         message: `Update available`,
       });
   };

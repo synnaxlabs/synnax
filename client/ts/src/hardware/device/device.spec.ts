@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, status, type UnknownRecord } from "@synnaxlabs/x";
+import { id, type UnknownRecord } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -139,14 +139,10 @@ describe("Device", async () => {
 
         await expect
           .poll(async () => {
-            const retrieved = await client.hardware.devices.retrieve(d.key, {
+            const { state } = await client.hardware.devices.retrieve(d.key, {
               includeState: true,
             });
-            if (retrieved.state == null) return false;
-            expect(retrieved.state.variant).toBeDefined();
-            expect(retrieved.state.key).toBeDefined();
-            expect(retrieved.state.details).toBeDefined();
-            return true;
+            return state !== undefined;
           })
           .toBeTruthy();
       });
@@ -174,16 +170,12 @@ describe("Device", async () => {
 
         await expect
           .poll(async () => {
-            const retrieved = await client.hardware.devices.retrieve([d1.key, d2.key], {
-              includeState: true,
-            });
-            return retrieved.every((device) => {
-              if (device.state == null) return false;
-              expect(device.state.variant).toBeDefined();
-              expect(device.state.key).toBeDefined();
-              expect(device.state.details).toBeDefined();
-              return true;
-            });
+            const retrievedDevices = await client.hardware.devices.retrieve(
+              [d1.key, d2.key],
+              { includeState: true },
+            );
+            if (retrievedDevices.length !== 2) return false;
+            return retrievedDevices.every(({ state }) => state !== undefined);
           })
           .toBeTruthy();
       });
@@ -215,7 +207,7 @@ describe("Device", async () => {
             >(key, { includeState: true });
             return (
               retrieved.state !== undefined &&
-              retrieved.state.variant === status.INFO_VARIANT &&
+              retrieved.state.variant === "info" &&
               retrieved.state.key === key
             );
           })

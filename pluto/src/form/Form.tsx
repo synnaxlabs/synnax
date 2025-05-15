@@ -13,7 +13,7 @@ import {
   deep,
   type Destructor,
   shallowCopy,
-  status as xstatus,
+  type status,
   toArray,
   zod,
 } from "@synnaxlabs/x";
@@ -175,7 +175,7 @@ export const useFieldValue = (<I extends Input.Value, O extends Input.Value = I>
 }) as UseFieldValue;
 
 export const useFieldValid = (path: string): boolean =>
-  useFieldState(path, true)?.status?.variant === xstatus.SUCCESS_VARIANT;
+  useFieldState(path, true)?.status?.variant === "success";
 
 export interface UseFieldListenerProps<
   I extends Input.Value,
@@ -406,7 +406,7 @@ const Context = createContext<ContextValue>({
   remove: () => {},
   get: <V extends any = unknown>(): FieldState<V> => ({
     value: undefined as V,
-    status: { key: "", variant: xstatus.SUCCESS_VARIANT, message: "" },
+    status: { key: "", variant: "success", message: "" },
     touched: false,
     required: false,
   }),
@@ -428,7 +428,7 @@ export const useContext = <Z extends z.ZodTypeAny = z.ZodTypeAny>(
 
 const NO_ERROR_STATUS = (path: string): Status.CrudeSpec => ({
   key: path,
-  variant: xstatus.SUCCESS_VARIANT,
+  variant: "success",
   message: "",
 });
 
@@ -462,12 +462,12 @@ export interface UseProps<Z extends z.ZodTypeAny> {
 
 export interface UseReturn<Z extends z.ZodTypeAny> extends ContextValue<Z> {}
 
-const getVariant = (issue: z.ZodIssue): xstatus.Variant =>
+const getVariant = (issue: z.ZodIssue): status.Variant =>
   issue.code === z.ZodIssueCode.custom &&
   issue.params != null &&
   "variant" in issue.params
     ? issue.params.variant
-    : xstatus.ERROR_VARIANT;
+    : "error";
 
 export const use = <Z extends z.ZodTypeAny>({
   values: initialValues,
@@ -660,7 +660,7 @@ export const use = <Z extends z.ZodTypeAny>({
         if (!matcher(issuePath, validationPath)) return;
 
         const variant = getVariant(issue);
-        if (variant !== xstatus.WARNING_VARIANT) success = false;
+        if (variant !== "warning") success = false;
 
         statuses.set(issuePath, { key: issuePath, variant, message });
         addTouched(issuePath);

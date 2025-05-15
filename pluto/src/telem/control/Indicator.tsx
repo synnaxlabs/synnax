@@ -9,7 +9,7 @@
 
 import "@/telem/control/Indicator.css";
 
-import { status as xstatus, TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { type z } from "zod";
 
@@ -37,7 +37,7 @@ export const Indicator = ({
       ...memoProps,
       status: {
         key: "no_chip",
-        variant: xstatus.WARNING_VARIANT,
+        variant: "warning",
         message: "No chip connected.",
         time: TimeStamp.now(),
       },

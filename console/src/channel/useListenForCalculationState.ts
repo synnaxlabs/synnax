@@ -9,7 +9,6 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Channel, Status, Synnax } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -21,7 +20,7 @@ export const useListenForCalculationState = (): void => {
   const handleStateUpdate = useCallback(
     ({ key, message, variant }: channel.CalculationState) => {
       const baseStatus = { message, variant };
-      if (variant !== status.ERROR_VARIANT) {
+      if (variant !== "error") {
         addStatus(baseStatus);
         return;
       }

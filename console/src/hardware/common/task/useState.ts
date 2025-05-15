@@ -9,7 +9,7 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Task, useSyncedRef } from "@synnaxlabs/pluto";
-import { status as xstatus } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/x";
 import { useCallback, useState as useReactState } from "react";
 
 import { shouldExecuteCommand } from "@/hardware/common/task/shouldExecuteCommand";
@@ -28,7 +28,7 @@ export interface StateDetails {
 export interface State {
   status: Status;
   message?: string;
-  variant?: xstatus.Variant;
+  variant?: status.Variant;
 }
 
 const parseState = <D extends StateDetails>(state?: task.State<D>): State => ({
@@ -60,7 +60,7 @@ export interface UseStateReturn {
  *   - state: The current state of the task, which includes:
  *     - status: A string that can be "loading", "running", or "paused".
  *     - message: An optional message string.
- *     - variant: An optional variant of type xstatus.Variant.
+ *     - variant: An optional variant of type status.Variant.
  *   - triggerLoading: A function to set the state to "loading".
  */
 export const useState = <D extends StateDetails>(
@@ -83,14 +83,10 @@ export const useState = <D extends StateDetails>(
   Task.useCommandSynchronizer(handleCommandUpdate);
   const triggerLoading = useCallback(() => setState(LOADING_STATE), []);
   const triggerError = useCallback(
-    (message: string) =>
-      setState({ status: "paused", message, variant: xstatus.ERROR_VARIANT }),
+    (message: string) => setState({ status: "paused", message, variant: "error" }),
     [],
   );
   return { state, triggerError, triggerLoading };
 };
 
-export const LOADING_STATE: State = {
-  status: LOADING_STATUS,
-  variant: xstatus.INFO_VARIANT,
-};
+export const LOADING_STATE: State = { status: LOADING_STATUS, variant: "info" };

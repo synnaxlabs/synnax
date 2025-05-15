@@ -21,7 +21,7 @@ import {
   TimeSpan,
   Tree,
 } from "@synnaxlabs/pluto";
-import { type Optional, status, type UnknownRecord } from "@synnaxlabs/x";
+import { type Optional, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
@@ -125,7 +125,7 @@ export const Browser = ({ device }: BrowserProps) => {
       <Icon.Loading style={{ fontSize: "5rem" }} color="var(--pluto-gray-l7)" />
     </Align.Center>
   ) : expand.isError ? (
-    <Status.Text.Centered level="p" shade={10} variant={status.ERROR_VARIANT}>
+    <Status.Text.Centered level="p" shade={10} variant="error">
       Error loading nodes. {expand.error.message}
     </Status.Text.Centered>
   ) : (

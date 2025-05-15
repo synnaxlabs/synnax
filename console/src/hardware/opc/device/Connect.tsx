@@ -22,7 +22,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, status, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { v4 as uuid } from "uuid";
@@ -111,7 +111,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       if (client == null) throw NULL_CLIENT_ERROR;
       if (!methods.validate()) throw new Error("Invalid configuration");
       await testConnectionMutation.mutateAsync();
-      if (connectionState?.variant !== status.SUCCESS_VARIANT)
+      if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,

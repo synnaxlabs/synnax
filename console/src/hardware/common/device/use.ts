@@ -16,7 +16,7 @@ import {
   useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { status, type UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod";
 
@@ -88,12 +88,7 @@ export const use = <
     path: "config.device",
     onChange: useCallback(
       (fs) => {
-        if (
-          !fs.touched ||
-          fs.status.variant !== status.SUCCESS_VARIANT ||
-          client == null
-        )
-          return;
+        if (!fs.touched || fs.status.variant !== "success" || client == null) return;
         client.hardware.devices
           .retrieve<Properties, Make, Model, StateDetails>(fs.value)
           .then(setDevice)

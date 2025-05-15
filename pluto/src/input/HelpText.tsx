@@ -9,7 +9,7 @@
 
 import "@/input/HelpText.css";
 
-import { status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -29,11 +29,11 @@ export interface HelpTextProps extends Omit<Text.TextProps<"small">, "level" | "
  * underlying text element.
  * @param props.variant - The variant of the help text.
  * @see {@link status.Variant}
- * @defaultValue {@link status.ERROR_VARIANT}
+ * @defaultValue `"error"`
  */
 export const HelpText = ({
   className,
-  variant = status.ERROR_VARIANT,
+  variant = "error",
   ...rest
 }: HelpTextProps): ReactElement => (
   <Text.Text<"small">

@@ -19,7 +19,7 @@ import {
   Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors, status } from "@synnaxlabs/x";
+import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
@@ -80,7 +80,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const isDisabled = variant == null;
 
   useEffect(() => {
-    if (variant !== status.SUCCESS_VARIANT) return;
+    if (variant !== "success") return;
     const heart = heartRef.current;
     if (!heart) return;
     heart.classList.remove("synnax-rack-heartbeat--beat");
@@ -118,7 +118,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
             <Icon.Heart
               ref={heartRef}
               className="synnax-rack-heartbeat"
-              style={{ color: Status.VARIANT_COLORS[variant ?? status.INFO_VARIANT] }}
+              style={{ color: Status.VARIANT_COLORS[variant ?? "info"] }}
             />
           </Tooltip.Dialog>
         </>

@@ -9,7 +9,7 @@
 
 import { control as clientControl } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { status as xstatus, TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useCallback, useEffect } from "react";
 import { type z } from "zod";
 
@@ -34,7 +34,7 @@ interface ChipStyle {
 
 const tooltipMessage = (status: Status.Spec): ChipStyle => {
   switch (status.variant) {
-    case xstatus.INFO_VARIANT:
+    case "info":
       if (status.data?.valid === true)
         return {
           message: "Uncontrolled. Click to take control.",
@@ -46,12 +46,12 @@ const tooltipMessage = (status: Status.Spec): ChipStyle => {
         disabled: true,
       };
 
-    case xstatus.ERROR_VARIANT:
+    case "error":
       return {
         message: "Not controlled by you. Click to take absolute control.",
         chipColor: "var(--pluto-error-z)",
       };
-    case xstatus.SUCCESS_VARIANT:
+    case "success":
       if (status.data?.authority === clientControl.Authority.ABSOLUTE)
         return {
           message: "You have absolute control. Click to release.",
@@ -82,7 +82,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
       ...memoProps,
       status: {
         key: "no_chip",
-        variant: xstatus.INFO_VARIANT,
+        variant: "info",
         message: "No chip connected.",
         time: TimeStamp.now(),
       },

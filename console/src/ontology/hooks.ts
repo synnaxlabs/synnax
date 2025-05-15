@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { status } from "@synnaxlabs/x";
 
 import { Modals } from "@/modals";
 
@@ -31,7 +30,7 @@ export const useConfirmDelete = ({
         {
           message,
           description,
-          confirm: { variant: status.ERROR_VARIANT, label: "Delete" },
+          confirm: { variant: "error", label: "Delete" },
           cancel: { label: "Cancel" },
         },
         { name: `${type}.Delete`, icon: type },

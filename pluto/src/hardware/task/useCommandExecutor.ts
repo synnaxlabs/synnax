@@ -11,7 +11,6 @@ import { task } from "@synnaxlabs/client";
 import {
   caseconv,
   type CrudeTimeSpan,
-  status,
   TimeSpan,
   type UnknownRecord,
 } from "@synnaxlabs/x";
@@ -59,7 +58,7 @@ export const useCommandExecutor = (): UseCommandExecutorReturn => {
       setState({
         key: cmdKey,
         task: taskKey,
-        variant: status.ERROR_VARIANT,
+        variant: "error",
         details: {
           message: `${caseconv.capitalize(type)} command to ${
             taskName ?? `task with key ${taskKey}`

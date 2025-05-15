@@ -9,7 +9,6 @@
 
 import { type ontology } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { useSelectActiveKey } from "@/cluster/selectors";
@@ -32,7 +31,7 @@ export const useCopyLinkToClipboard = (): CopyLinkToClipboard => {
     (args) => {
       if (clusterKey == null) {
         addStatus({
-          variant: status.ERROR_VARIANT,
+          variant: "error",
           message: `Failed to copy link to ${args.name}`,
           description: "No active cluster is found",
         });
