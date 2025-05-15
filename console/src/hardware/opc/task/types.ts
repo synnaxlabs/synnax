@@ -17,21 +17,16 @@ import { type Device } from "@/hardware/opc/device";
 export const PREFIX = "opc";
 
 const baseChannelZ = Common.Task.channelZ.extend({
+  channel: channel.keyZ,
   nodeId: z.string(),
   nodeName: z.string(),
+  dataType: z.string().default("float32"),
 });
 
-const readChannelZ = baseChannelZ.extend({
-  channel: channel.keyZ,
-  dataType: z.string(),
-  useAsIndex: z.boolean(),
-});
+const readChannelZ = baseChannelZ.extend({ useAsIndex: z.boolean() });
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
 
-const v0WriteChannelZ = baseChannelZ.extend({
-  channel: channel.keyZ,
-  dataType: z.string(),
-});
+const v0WriteChannelZ = baseChannelZ;
 
 const v1WriteChannelZ = v0WriteChannelZ
   .omit({ channel: true })
