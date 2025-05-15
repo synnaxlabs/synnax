@@ -27,7 +27,6 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { type theming } from "@/ether";
-import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
@@ -387,7 +386,7 @@ export class AuthoritySource
     if (this.props.channel === 0)
       return {
         key: this.controller.key,
-        variant: "disabled",
+        variant: "info",
         message: "No Channel",
         time,
         data: { valid: false, authority: 0 },
@@ -398,7 +397,7 @@ export class AuthoritySource
     if (state == null)
       return {
         key: this.controller.key,
-        variant: "disabled",
+        variant: "info",
         message: "Uncontrolled",
         time,
         data: { valid: true, color: undefined, authority: 0 },

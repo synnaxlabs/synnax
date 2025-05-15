@@ -116,7 +116,7 @@ class StatusSource extends Noop implements StatusSource {
   async value(): Promise<status.Spec> {
     return {
       key: "noop",
-      variant: "disabled",
+      variant: "info",
       message: "unknown",
       time: TimeStamp.now(),
     };

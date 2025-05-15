@@ -39,7 +39,7 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
 
   const emptyContent = (
     <Align.Center x size="small">
-      <Status.Text variant="disabled" hideIcon>
+      <Status.Text disabled hideIcon>
         No lines plotted. Use the
       </Status.Text>
       <Text.Link
@@ -51,7 +51,7 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
       >
         data
       </Text.Link>
-      <Status.Text variant="disabled" hideIcon>
+      <Status.Text disabled hideIcon>
         tab to select channels on an axis.
       </Status.Text>
     </Align.Center>
