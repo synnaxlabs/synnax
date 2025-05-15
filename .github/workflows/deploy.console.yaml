@@ -290,15 +290,18 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
+        if: github.ref == 'refs/heads/main'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
+        if: github.ref == 'refs/heads/main'
         with:
           node-version-file: package.json
           cache: pnpm
 
       - name: Add Auto Update JSON File
         uses: actions/github-script@v7
+        if: github.ref == 'refs/heads/main'
         env:
           release_id: ${{ needs.create-release.outputs.release_id }}
         with:
