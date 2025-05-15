@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Align, Form, Input, type List, Select, state } from "@synnaxlabs/pluto";
-import { binary, deep, type KeyedNamed, status } from "@synnaxlabs/x";
+import { binary, deep, type KeyedNamed } from "@synnaxlabs/x";
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
 import { z } from "zod";
@@ -194,7 +194,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       if (hasScaled && hasPreScaled)
         if (preScaledValues.length !== scaledValues.length)
           preScaledField.setStatus({
-            variant: status.ERROR_VARIANT,
+            variant: "error",
             message: `Pre-scaled ${preScaledValues.length} values and scaled ${scaledValues.length} values must be the same length`,
           });
       if (hasPreScaled) preScaledField.onChange(preScaledValues);

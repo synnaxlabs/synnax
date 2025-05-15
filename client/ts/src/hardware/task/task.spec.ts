@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, status } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type task } from "@/hardware/task";
@@ -96,7 +96,7 @@ describe("Task", async () => {
         const state: task.State<StateDetails> = {
           key: id.create(),
           task: t.key,
-          variant: status.SUCCESS_VARIANT,
+          variant: "success",
         };
         expect(await w.write("sy_task_state", [state])).toBeTruthy();
         await w.close();

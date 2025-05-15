@@ -13,7 +13,7 @@ import {
   type SynnaxProps,
   TimeSpan,
 } from "@synnaxlabs/client";
-import { caseconv, migrate, status } from "@synnaxlabs/x";
+import { caseconv, migrate, type status } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -40,10 +40,10 @@ export interface ProviderProps extends PropsWithChildren {
 }
 
 export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
-  connected: status.SUCCESS_VARIANT,
-  connecting: status.INFO_VARIANT,
-  disconnected: status.INFO_VARIANT,
-  failed: status.ERROR_VARIANT,
+  connected: "success",
+  connecting: "info",
+  disconnected: "info",
+  failed: "error",
 };
 
 export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
@@ -120,7 +120,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
       );
 
       addStatus({
-        variant: status.WARNING_VARIANT,
+        variant: "warning",
         message: "Incompatible cluster version",
         description,
         data: {

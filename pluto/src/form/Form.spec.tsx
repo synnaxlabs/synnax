@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, status } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -29,7 +29,7 @@ const basicFormSchema = z
         code: z.ZodIssueCode.custom,
         message: "You cannot be named Billy Bob.",
         path: ["name"],
-        params: { variant: status.WARNING_VARIANT },
+        params: { variant: "warning" },
       });
   })
   .sourceType();
@@ -62,7 +62,7 @@ describe("Form", () => {
         );
         const field = result.current.get("name");
         expect(field.value).toBe("John Doe");
-        expect(field.status.variant).toEqual(status.SUCCESS_VARIANT);
+        expect(field.status.variant).toEqual("success");
       });
       it("should return the correct nested values", () => {
         const { result } = renderHook(() =>
@@ -137,7 +137,7 @@ describe("Form", () => {
           }),
         );
         expect(result.current.validate()).toBe(false);
-        expect(result.current.get("age").status.variant).toEqual(status.ERROR_VARIANT);
+        expect(result.current.get("age").status.variant).toEqual("error");
       });
       it("should call a bound listener if a validation error occurs", () => {
         const { result } = renderHook(() =>
@@ -191,7 +191,7 @@ describe("Form", () => {
         wrapper,
       });
       act(() => result.current.onChange(3));
-      expect(result.current.status.variant).toEqual(status.ERROR_VARIANT);
+      expect(result.current.status.variant).toEqual("error");
     });
     it("should return true if a field is required in the schema", () => {
       const { result } = renderHook(() => Form.useField<string>({ path: "name" }), {

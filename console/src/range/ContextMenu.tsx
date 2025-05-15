@@ -18,7 +18,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { errors, status, toArray } from "@synnaxlabs/x";
+import { errors, toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -251,7 +251,7 @@ export const useDelete = (name?: string) => {
           message: `Are you sure you want to delete ${name ?? rng?.name}?`,
           description: "This action cannot be undone.",
           cancel: { label: "Cancel" },
-          confirm: { label: "Delete", variant: status.ERROR_VARIANT },
+          confirm: { label: "Delete", variant: "error" },
         }))
       )
         throw errors.CANCELED;

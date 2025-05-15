@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Button, Nav, Text } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/x";
 
 import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
 import { ModalContentLayout } from "@/modals/layout";
@@ -29,10 +29,8 @@ export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs
   "Confirm",
   CONFIRM_LAYOUT_TYPE,
   ({ value: { message, description, confirm, cancel }, onFinish }) => {
-    const {
-      variant: confirmVariant = status.ERROR_VARIANT,
-      label: confirmLabel = "Confirm",
-    } = confirm ?? {};
+    const { variant: confirmVariant = "error", label: confirmLabel = "Confirm" } =
+      confirm ?? {};
     const { variant: cancelVariant, label: cancelLabel = "Cancel" } = cancel ?? {};
 
     const footer = (

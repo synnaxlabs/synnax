@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, status as xstatus } from "@synnaxlabs/x";
+import { type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -57,7 +57,7 @@ export class Light
   private reportError(e: Error): void {
     this.internal.addStatus({
       key: this.key,
-      variant: xstatus.ERROR_VARIANT,
+      variant: "error",
       message: `Failed to update Light: ${e.message}`,
     });
   }

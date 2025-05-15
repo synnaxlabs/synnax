@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Button, Input, Nav, type Triggers as PTrigger } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
@@ -41,7 +40,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
         <Triggers.SaveHelpText action="Save" trigger={SAVE_TRIGGER} />
         <Nav.Bar.End x align="center">
           <Button.Button
-            status={status.SUCCESS_VARIANT}
+            status="success"
             disabled={!allowEmpty && name.length === 0}
             onClick={() => {
               if (allowEmpty && name.length === 0) return onFinish(null);
@@ -63,9 +62,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
           label={label}
           required={!allowEmpty}
           helpText={error}
-          helpTextVariant={
-            error != null ? status.ERROR_VARIANT : status.SUCCESS_VARIANT
-          }
+          helpTextVariant={error != null ? "error" : "success"}
           padHelpText
         >
           <Input.Text

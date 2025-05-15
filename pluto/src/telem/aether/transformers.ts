@@ -134,7 +134,7 @@ export const mean = (props: z.input<typeof meanProps>): BooleanSourceSpec => ({
 });
 
 export const booleanStatusProps = z.object({
-  trueVariant: xstatus.variantZ.optional().default(xstatus.SUCCESS_VARIANT),
+  trueVariant: xstatus.variantZ.optional().default("success"),
 });
 
 export class BooleanStatus extends UnarySourceTransformer<

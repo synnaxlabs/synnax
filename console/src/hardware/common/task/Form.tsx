@@ -17,7 +17,7 @@ import {
   Status,
   Synnax as PSynnax,
 } from "@synnaxlabs/pluto";
-import { status, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
+import { TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
 import { useDispatch } from "react-redux";
@@ -166,7 +166,7 @@ export const useForm = <
           message: "Device has been moved to different driver.",
           description:
             "This means that the task will need to be deleted and recreated on the new driver. Do you want to continue?",
-          confirm: { label: "Confirm", variant: status.ERROR_VARIANT },
+          confirm: { label: "Confirm", variant: "error" },
           cancel: { label: "Cancel" },
         });
         if (!confirmed) return;

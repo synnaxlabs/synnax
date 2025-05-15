@@ -9,7 +9,6 @@
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { status } from "@synnaxlabs/x";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
@@ -74,7 +73,7 @@ const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
         config: { ...config, enabled: !config.enabled },
       });
       addStatus({
-        variant: status.SUCCESS_VARIANT,
+        variant: "success",
         message: `NI device scanning ${enabled ? "enabled" : "disabled"}`,
       });
     }, "Failed to toggle NI device scanner");

@@ -9,7 +9,7 @@
 
 import { channel } from "@synnaxlabs/client";
 import { Icon, type IconProps } from "@synnaxlabs/media";
-import { DataType, nullToArr, status, toArray, unique } from "@synnaxlabs/x";
+import { DataType, nullToArr, toArray, unique } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type FC,
@@ -113,11 +113,7 @@ export const SelectMultiple = ({
   );
   const emptyContent =
     client != null ? undefined : (
-      <Status.Text.Centered
-        variant={status.ERROR_VARIANT}
-        level="h4"
-        style={{ height: 150 }}
-      >
+      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
         No client available
       </Status.Text.Centered>
     );
@@ -223,11 +219,7 @@ export const SelectSingle = ({
 
   const emptyContent =
     client != null ? undefined : (
-      <Status.Text.Centered
-        variant={status.ERROR_VARIANT}
-        level="h4"
-        style={{ height: 150 }}
-      >
+      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
         No client available
       </Status.Text.Centered>
     );

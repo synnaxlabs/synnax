@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon, type IconProps } from "@synnaxlabs/media";
-import { status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { VARIANT_COLORS } from "@/status/colors";
@@ -20,7 +20,7 @@ export interface CircleProps extends IconProps {
 }
 
 export const Circle = ({
-  variant = status.INFO_VARIANT,
+  variant = "info",
   disabled = false,
   loading = false,
   ...rest

@@ -22,7 +22,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { deep, status, unique } from "@synnaxlabs/x";
+import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
@@ -114,19 +114,19 @@ export const useListenForCalculationState = (): void => {
     open: async () => {
       if (client == null) return;
       const s = await client.openStreamer({
-        channels: [channel.CALCULATION_STATE_CHANNEL],
+        channels: [channel.CALCULATION_STATE_CHANNEL_NAME],
       });
       return new framer.ObservableStreamer(s);
     },
     onChange: (frame) => {
       const state = frame
-        .get(channel.CALCULATION_STATE_CHANNEL)
+        .get(channel.CALCULATION_STATE_CHANNEL_NAME)
         .parseJSON(channel.calculationStateZ);
       state.forEach(({ key, variant, message }) => {
         client?.channels
           .retrieve(key)
           .then((ch) => {
-            if (variant !== status.ERROR_VARIANT) {
+            if (variant !== "error") {
               addStatus({ variant, message });
               return;
             }
@@ -160,9 +160,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
   if (res.isError)
     return (
       <Align.Space y grow style={{ height: "100%" }}>
-        <Status.Text.Centered variant={status.ERROR_VARIANT}>
-          {res.error.message}
-        </Status.Text.Centered>
+        <Status.Text.Centered variant="error">{res.error.message}</Status.Text.Centered>
       </Align.Space>
     );
 
@@ -196,7 +194,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     },
     onError: (error: Error) => {
       addStatus({
-        variant: status.ERROR_VARIANT,
+        variant: "error",
         message: "Error creating calculated channel: ".concat(methods.value().name),
         description: error.message,
       });

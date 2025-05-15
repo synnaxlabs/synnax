@@ -22,13 +22,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import {
-  errors,
-  status as xstatus,
-  strings,
-  TimeSpan,
-  type UnknownRecord,
-} from "@synnaxlabs/x";
+import { errors, strings, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -76,7 +70,7 @@ const sugarTask = (task: task.Task): SugaredTask => {
   }
 
   const state: SugaredState = {
-    variant: xstatus.SUCCESS_VARIANT,
+    variant: "success",
     task: task.key,
     details: { status: Common.Task.PAUSED_STATUS },
   };
@@ -147,7 +141,7 @@ const Content = () => {
           message: `Are you sure you want to rename ${tsk.name} to ${name}?`,
           description: `This will cause ${tsk.name} to stop and be reconfigured.`,
           cancel: { label: "Cancel" },
-          confirm: { label: "Rename", variant: xstatus.ERROR_VARIANT },
+          confirm: { label: "Rename", variant: "error" },
         });
         console.log(confirmed);
         if (!confirmed) return;
@@ -264,7 +258,7 @@ const Content = () => {
         message: `Are you sure you want to delete ${names}?`,
         description: "This action cannot be undone.",
         cancel: { label: "Cancel" },
-        confirm: { label: "Delete", variant: xstatus.ERROR_VARIANT },
+        confirm: { label: "Delete", variant: "error" },
       });
       if (!confirmed) return;
       await client.hardware.tasks.delete(keys.map(BigInt));
@@ -297,7 +291,7 @@ const Content = () => {
       tasksToExecute.forEach((t) => {
         t.executeCommandSync(command, {}, TimeSpan.fromSeconds(10)).catch((e) => {
           const status: task.State = {
-            variant: xstatus.ERROR_VARIANT,
+            variant: "error",
             task: t.key,
             details: { message: e.message },
           };
@@ -406,7 +400,6 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
     },
     [isRunning, onStopStart],
   );
-
   return (
     <List.ItemFrame {...rest} justify="spaceBetween" align="center">
       <Align.Space y size="small" grow className={CSS.BE("task", "metadata")}>
@@ -486,7 +479,7 @@ const ContextMenu = ({ keys, tasks, onDelete, onStart, onStop }: ContextMenuProp
       const task = tasks.find((t) => t.key === key);
       if (task == null) {
         addStatus({
-          variant: xstatus.ERROR_VARIANT,
+          variant: "error",
           message: "Failed to open task details",
           description: `Task with key ${key} not found`,
         });
@@ -502,7 +495,7 @@ const ContextMenu = ({ keys, tasks, onDelete, onStart, onStop }: ContextMenuProp
       const name = tasks.find((t) => t.key === key)?.name;
       if (name == null) {
         addStatus({
-          variant: xstatus.ERROR_VARIANT,
+          variant: "error",
           message: "Failed to copy link",
           description: `Task with key ${key} not found`,
         });

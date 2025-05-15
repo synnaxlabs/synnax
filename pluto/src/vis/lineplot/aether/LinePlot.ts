@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { box, status as xstatus, xy } from "@synnaxlabs/x";
+import { box, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -183,7 +183,7 @@ export class LinePlot extends aether.Composite<
       if (err.message.toLowerCase().includes("bigint")) return;
       this.internal.aggregate({
         key: `${this.type}-${this.key}`,
-        variant: xstatus.ERROR_VARIANT,
+        variant: "error",
         message: err.message,
       });
     } finally {

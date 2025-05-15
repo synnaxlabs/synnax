@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { type AsyncTermSearcher, type Key, type Keyed, status } from "@synnaxlabs/x";
+import { type AsyncTermSearcher, type Key, type Keyed } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks";
@@ -63,7 +63,7 @@ interface ErrorEmptyContentProps {
 }
 
 const ErrorEmptyContent = ({ error }: ErrorEmptyContentProps): ReactElement => (
-  <Status.Text.Centered level="h4" variant={status.ERROR_VARIANT} style={STYLE}>
+  <Status.Text.Centered level="h4" variant="error" style={STYLE}>
     {error.message}
   </Status.Text.Centered>
 );
@@ -152,7 +152,7 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         })
         .catch((e) => {
           setEmptyContent(
-            <Status.Text.Centered level="h4" variant={status.ERROR_VARIANT}>
+            <Status.Text.Centered level="h4" variant="error">
               {e.message}
             </Status.Text.Centered>,
           );

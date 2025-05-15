@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x";
 import { act, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
@@ -39,7 +39,7 @@ describe("Aggregator", () => {
       );
       act(() => {
         result.current.add({
-          variant: status.SUCCESS_VARIANT,
+          variant: "success",
           message: "Test",
           description: "Test",
         });
@@ -57,7 +57,7 @@ describe("Aggregator", () => {
       );
       act(() => {
         result.current.add({
-          variant: status.SUCCESS_VARIANT,
+          variant: "success",
           message: "Test",
           description: "Test",
         });
@@ -82,7 +82,7 @@ describe("Aggregator", () => {
       );
       act(() => {
         result.current.add({
-          variant: status.SUCCESS_VARIANT,
+          variant: "success",
           message: "Test",
           description: "Test",
         });
@@ -105,7 +105,7 @@ describe("Aggregator", () => {
       );
       act(() => {
         result.current.add({
-          variant: status.SUCCESS_VARIANT,
+          variant: "success",
           message: "Test",
           description: "Test",
         });
@@ -129,12 +129,12 @@ describe("Aggregator", () => {
       // Add multiple notifications with same message and variant
       act(() => {
         result.current.add({
-          variant: status.SUCCESS_VARIANT,
+          variant: "success",
           message: "Test",
           description: "Test 1",
         });
         result.current.add({
-          variant: status.SUCCESS_VARIANT,
+          variant: "success",
           message: "Test",
           description: "Test 2",
         });

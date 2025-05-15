@@ -9,7 +9,7 @@
 
 import { Logo } from "@synnaxlabs/media";
 import { Align, Button, Progress, Status, Text } from "@synnaxlabs/pluto";
-import { Size, status } from "@synnaxlabs/x";
+import { Size } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type DownloadEvent } from "@tauri-apps/plugin-updater";
@@ -96,7 +96,7 @@ export const Info: Layout.Renderer = () => {
       const version = updateQuery.data.version;
       updateContent = (
         <>
-          <Status.Text level="h4" variant={status.SUCCESS_VARIANT}>
+          <Status.Text level="h4" variant="success">
             Version {version} available
           </Status.Text>
           <Button.Button
@@ -110,19 +110,19 @@ export const Info: Layout.Renderer = () => {
       );
     } else
       updateContent = (
-        <Status.Text level="h4" variant={status.SUCCESS_VARIANT}>
+        <Status.Text level="h4" variant="success">
           Up to date
         </Status.Text>
       );
   else if (updateQuery.isError)
     updateContent = (
-      <Status.Text level="h4" variant={status.ERROR_VARIANT}>
+      <Status.Text level="h4" variant="error">
         Error checking for update: {updateQuery.error.message}
       </Status.Text>
     );
   else if (updateMutation.isError)
     updateContent = (
-      <Status.Text level="h4" variant={status.ERROR_VARIANT}>
+      <Status.Text level="h4" variant="error">
         Error updating: {updateMutation.error.message}
       </Status.Text>
     );

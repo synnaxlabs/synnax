@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { status, type UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x";
 
 const PREFIX = "new-device-";
 
@@ -26,7 +26,7 @@ export const useListenForChanges = () => {
         .forEach(({ value: device }) => {
           if (device.configured) return;
           addStatus({
-            variant: status.INFO_VARIANT,
+            variant: "info",
             key: `${PREFIX}${device.key}`,
             message: `New ${device.model} connected`,
             data: device as unknown as UnknownRecord,
