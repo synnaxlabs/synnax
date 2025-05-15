@@ -156,7 +156,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         text: r.name,
         position: { x: startPos + 8, y: box.top(region) - 30 },
         level: "small",
-        shade: 8,
+        shade: 10,
         weight: 500,
         maxWidth: endPos - startPos - 16,
       });
