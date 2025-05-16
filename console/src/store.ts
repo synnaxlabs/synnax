@@ -30,6 +30,7 @@ import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { RUNTIME } from "@/runtime";
 import { Schematic } from "@/schematic";
+import { Stage } from "@/stage";
 import { Table } from "@/table";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
@@ -52,6 +53,7 @@ const ZERO_STATE: RootState = {
   [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
+  [Stage.SLICE_NAME]: Stage.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
@@ -67,6 +69,7 @@ const reducer = combineReducers({
   [Permissions.SLICE_NAME]: Permissions.reducer,
   [Log.SLICE_NAME]: Log.reducer,
   [Table.SLICE_NAME]: Table.reducer,
+  [Stage.SLICE_NAME]: Stage.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -82,6 +85,7 @@ export interface RootState {
   [Permissions.SLICE_NAME]: Permissions.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
+  [Stage.SLICE_NAME]: Stage.SliceState;
 }
 
 export type RootAction =
@@ -95,7 +99,8 @@ export type RootAction =
   | Permissions.Action
   | Version.Action
   | Workspace.Action
-  | Log.Action;
+  | Log.Action
+  | Stage.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
@@ -116,6 +121,7 @@ export const migrateState = (prev: RootState): RootState => {
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
+  const stage = Stage.migrateSlice(prev.stage);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -129,6 +135,7 @@ export const migrateState = (prev: RootState): RootState => {
     docs,
     cluster,
     permissions,
+    stage,
   };
 };
 

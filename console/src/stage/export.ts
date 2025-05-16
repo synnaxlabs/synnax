@@ -1,0 +1,33 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { NULL_CLIENT_ERROR } from "@/errors";
+import { Export } from "@/export";
+import { Layout } from "@/layout";
+import { select } from "@/stage/selectors";
+import { type State } from "@/stage/slice";
+
+export const extract: Export.Extractor = async (key, { store, client }) => {
+  const storeState = store.getState();
+  let state = select(storeState, key);
+  let name = Layout.select(storeState, key)?.name;
+  if (state == null || name == null) {
+    if (client == null) throw NULL_CLIENT_ERROR;
+    const stage = await client.workspaces.stage.retrieve(key);
+    state ??= {
+      ...(stage.data as unknown as State),
+      snapshot: stage.snapshot,
+      key: stage.key,
+    };
+    name ??= stage.name;
+  }
+  return { data: JSON.stringify(state), name };
+};
+
+export const useExport = () => Export.use(extract, "stage");
