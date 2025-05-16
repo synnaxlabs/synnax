@@ -7,15 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type LinePlot } from "@/lineplot";
-import { type Log } from "@/log";
-import { type Schematic } from "@/schematic";
-import { type Stage } from "@/stage";
-import { type Table } from "@/table";
+import { type Link } from "@/link";
+import { Stage } from "@/stage";
 
-export type LayoutType =
-  | LinePlot.LayoutType
-  | Log.LayoutType
-  | Schematic.LayoutType
-  | Table.LayoutType
-  | Stage.LayoutType;
+export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
+  const stage = await client.workspaces.stage.retrieve(key);
+  placeLayout(Stage.create({ ...stage.data, ...stage, editable: false }));
+};

@@ -33,8 +33,8 @@ import { ONTOLOGY_TYPE as LINE_PLOT_TYPE } from "@/workspace/lineplot/payload";
 import { ONTOLOGY_TYPE as LOG_TYPE } from "@/workspace/log/payload";
 import { ONTOLOGY_TYPE as WORKSPACE_TYPE } from "@/workspace/payload";
 import { ONTOLOGY_TYPE as SCHEMATIC_TYPE } from "@/workspace/schematic/payload";
+import { ONTOLOGY_TYPE as STAGE_TYPE } from "@/workspace/stage/payload";
 import { ONTOLOGY_TYPE as TABLE_TYPE } from "@/workspace/table/payload";
-
 export type ResourceChange = change.Change<ID, Resource>;
 export interface ResourceSet extends change.Set<ID, Resource> {}
 export interface ResourceDelete extends change.Delete<ID, Resource> {}
@@ -70,6 +70,7 @@ export const resourceTypeZ = z.enum([
   EFFECT_TYPE,
   ACTION_TYPE,
   CONDITION_TYPE,
+  STAGE_TYPE,
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 

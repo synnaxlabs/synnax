@@ -80,6 +80,7 @@ export { Measure } from "@/vis/measure";
 export { Performance } from "@/vis/performance";
 export { Rule } from "@/vis/rule";
 export { Schematic } from "@/vis/schematic";
+export { Stage } from "@/vis/stage";
 export { Value } from "@/vis/value";
 export { Worker } from "@/worker";
 export {

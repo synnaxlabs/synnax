@@ -286,6 +286,9 @@ importers:
       react-error-boundary:
         specifier: ^5.0.0
         version: 5.0.0(react@19.1.0)
+      react-flow:
+        specifier: ^1.0.3
+        version: 1.0.3
       react-icons:
         specifier: ^5.5.0
         version: 5.5.0(react@19.1.0)
@@ -5675,6 +5678,9 @@ packages:
     resolution: {integrity: sha512-tnjAxG+IkpLephNcePNA7v6F/QpWLH8He65+DmedchDwg162JZqx4NmbXj0mlAYVVEd81OW7aFhmbsScYfiAFQ==}
     peerDependencies:
       react: ^19.1.0
+
+  react-flow@1.0.3:
+    resolution: {integrity: sha512-Rx4Oqqbe9y7NyrUGzCrmtNvuGuMJBVjfIeMFuwbtbMc9f22sUSmxMjIA0c8r6Z7iMtB1zOWoGkTgfpmmpH9ReQ==}
 
   react-icons@5.5.0:
     resolution: {integrity: sha512-MEFcXdkP3dLo8uumGI5xN3lDFNsRtrjbOEKDLD7yv76v4wpnEq2Lt2qeHaQOr34I/wPN3s3+N08WkQ+CW37Xiw==}
@@ -13418,6 +13424,8 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.27.0
       react: 19.1.0
+
+  react-flow@1.0.3: {}
 
   react-icons@5.5.0(react@19.1.0):
     dependencies:

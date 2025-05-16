@@ -136,6 +136,7 @@ import {
   PiCaretRight,
   PiCaretUpBold,
   PiDownloadSimple,
+  PiFlowArrowBold,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
   PiThermometerSimpleFill,
@@ -654,4 +655,5 @@ export const Icon: IconType = {
   StarOutlined: wrapIcon(FaRegStar, "star-outlined"),
   Heart: wrapIcon(IoMdHeart, "heart"),
   Effect: wrapIcon(BsStars, "effect"),
+  Stage: wrapIcon(PiFlowArrowBold, "stage"),
 };

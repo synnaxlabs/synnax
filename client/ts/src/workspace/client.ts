@@ -29,6 +29,7 @@ import {
   workspaceZ,
 } from "@/workspace/payload";
 import { schematic } from "@/workspace/schematic";
+import { stage } from "@/workspace/stage";
 import { table } from "@/workspace/table";
 
 const RETRIEVE_ENDPOINT = "/workspace/retrieve";
@@ -59,6 +60,7 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   readonly linePlot: linePlot.Client;
   readonly log: log.Client;
   readonly table: table.Client;
+  readonly stage: stage.Client;
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
@@ -67,6 +69,7 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
     this.linePlot = new linePlot.Client(client);
     this.log = new log.Client(client);
     this.table = new table.Client(client);
+    this.stage = new stage.Client(client);
   }
 
   async create(workspace: New): Promise<Workspace>;
