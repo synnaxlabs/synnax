@@ -86,12 +86,12 @@ var _ = Describe("DB Metadata Operations", func() {
 				It("Should return the leading control state when there are writers open on the DB", func() {
 					w, transfer := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 						Start:     10 * telem.SecondTS,
-						Authority: control.Absolute,
+						Authority: control.AuthorityAbsolute,
 						Subject:   control.Subject{Key: "foo"},
 					}))
 					Expect(transfer.Occurred()).To(BeTrue())
 					Expect(db.LeadingControlState()).ToNot(BeNil())
-					Expect(db.LeadingControlState().Authority).To(Equal(control.Absolute))
+					Expect(db.LeadingControlState().Authority).To(Equal(control.AuthorityAbsolute))
 					Expect(db.LeadingControlState().Subject.Key).To(Equal("foo"))
 					t, err := w.Close()
 					Expect(t.Occurred()).To(BeTrue())

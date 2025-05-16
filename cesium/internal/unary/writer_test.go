@@ -437,14 +437,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Specify("Control Handoff", func() {
 						w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 							Start:     10 * telem.SecondTS,
-							Authority: control.Absolute - 1,
+							Authority: control.AuthorityAbsolute - 1,
 							Subject:   control.Subject{Key: "foo"},
 						}))
 						Expect(t.Occurred()).To(BeTrue())
 						Expect(MustSucceed(w1.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(telem.LeadingAlignment(1, 0)))
 						w2, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 							Start:     10 * telem.SecondTS,
-							Authority: control.Absolute,
+							Authority: control.AuthorityAbsolute,
 							Subject:   control.Subject{Key: "bar"},
 						}))
 						Expect(t.Occurred()).To(BeTrue())
@@ -466,14 +466,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					It("Should return an error if the write does not acquire control", func() {
 						w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 							Start:                 10 * telem.SecondTS,
-							Authority:             control.Absolute,
+							Authority:             control.AuthorityAbsolute,
 							Subject:               control.Subject{Key: "foo"},
 							ErrOnUnauthorizedOpen: config.True(),
 						}))
 						Expect(t.Occurred()).To(BeTrue())
 						w2, t, err := db.OpenWriter(ctx, unary.WriterConfig{
 							Start:                 10 * telem.SecondTS,
-							Authority:             control.Absolute - 1,
+							Authority:             control.AuthorityAbsolute - 1,
 							Subject:               control.Subject{Key: "bar"},
 							ErrOnUnauthorizedOpen: config.True(),
 						})

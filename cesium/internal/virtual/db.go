@@ -14,12 +14,12 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/control"
+	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
@@ -36,7 +36,7 @@ func (e *controlResource) ChannelKey() core.ChannelKey { return e.ck }
 
 type DB struct {
 	cfg              Config
-	controller       *controller.Controller[*controlResource]
+	controller       *control.Controller[*controlResource]
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
@@ -102,8 +102,8 @@ func Open(ctx context.Context, configs ...Config) (db *DB, err error) {
 	if !cfg.Channel.Virtual {
 		return nil, wrapError(ErrNotVirtual)
 	}
-	c, err := controller.New[*controlResource](controller.Config{
-		Concurrency:     control.Shared,
+	c, err := control.New[*controlResource](control.Config{
+		Concurrency:     xcontrol.Shared,
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
@@ -125,7 +125,7 @@ func (db *DB) Channel() core.Channel {
 	return db.cfg.Channel
 }
 
-func (db *DB) LeadingControlState() *controller.State {
+func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
 

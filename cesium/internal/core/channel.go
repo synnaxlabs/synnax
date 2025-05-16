@@ -27,11 +27,11 @@ type ChannelKey = uint32
 // A channel can also be used for storing derived data, such as a moving average or signal
 // processing result.
 type Channel struct {
-	// Key is a unique identifier to the channel within the cesium.
+	// Key is a unique identifier to the channel within cesium.
 	// [REQUIRED]
 	Key ChannelKey `json:"key" msgpack:"key"`
-	// Name is a non-unique, human-readable identifier to the channel within the data
-	// engine. Note that it is never used to index or retrieve a channel.
+	// Name is a non-unique, human-readable identifier to the channel within cesium.
+	// Note that it is never used to index or retrieve a channel.
 	// [REQUIRED]
 	Name string `json:"name" msgpack:"name"`
 	// IsIndex determines whether the channel acts as an index channel. If false, then
@@ -44,7 +44,7 @@ type Channel struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// Index is the key of the channel used to index the channel's values. The Index is
 	// used to associate a value in a data channel with a corresponding timestamp.
-	// [OPTIONAL if IsIndex is true and REQUIRED if IsIndex is false]
+	// [OPTIONAL if IsIndex is true and REQUIRED if IsIndex is false or Virtual is true]
 	Index ChannelKey `json:"index" msgpack:"index"`
 	// Virtual specifies whether the channel is virtual. Virtual channels do not store
 	// any data and do not require an index.

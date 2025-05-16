@@ -75,7 +75,7 @@ var _ = Describe("Control", func() {
 							ControlSubject:    control.Subject{Name: "Writer One"},
 							Start:             start,
 							Channels:          []cesium.ChannelKey{indexCHKey, dataChKey},
-							Authorities:       []control.Authority{control.Absolute - 2},
+							Authorities:       []control.Authority{control.AuthorityAbsolute - 2},
 							ErrOnUnauthorized: config.False(),
 							Sync:              config.True(),
 						}))
@@ -84,7 +84,7 @@ var _ = Describe("Control", func() {
 							Start:             start,
 							ControlSubject:    control.Subject{Name: "Writer Two"},
 							Channels:          []cesium.ChannelKey{indexCHKey, dataChKey},
-							Authorities:       []control.Authority{control.Absolute - 2},
+							Authorities:       []control.Authority{control.AuthorityAbsolute - 2},
 							ErrOnUnauthorized: config.False(),
 							Sync:              config.True(),
 						}))
@@ -120,7 +120,7 @@ var _ = Describe("Control", func() {
 						Expect(authorized).To(BeFalse())
 
 						Expect(w2.SetAuthority(cesium.WriterConfig{
-							Authorities: []control.Authority{control.Absolute - 1},
+							Authorities: []control.Authority{control.AuthorityAbsolute - 1},
 						})).To(Succeed())
 
 						By("Propagating the control transfer")
@@ -177,7 +177,7 @@ var _ = Describe("Control", func() {
 							ControlSubject:    control.Subject{Name: "Writer One"},
 							Start:             start,
 							Channels:          []cesium.ChannelKey{indexCHKey, dataChKey},
-							Authorities:       []control.Authority{control.Absolute - 2},
+							Authorities:       []control.Authority{control.AuthorityAbsolute - 2},
 							ErrOnUnauthorized: config.False(),
 							Sync:              config.True(),
 						}))
@@ -187,7 +187,7 @@ var _ = Describe("Control", func() {
 							Start:             start,
 							ControlSubject:    control.Subject{Name: "Writer Two"},
 							Channels:          []cesium.ChannelKey{indexCHKey, dataChKey},
-							Authorities:       []control.Authority{control.Absolute - 3},
+							Authorities:       []control.Authority{control.AuthorityAbsolute - 3},
 							ErrOnUnauthorized: config.False(),
 							Sync:              config.True(),
 						}))
@@ -282,18 +282,18 @@ var _ = Describe("Control", func() {
 							Start:          0,
 							Channels:       []core.ChannelKey{k1, k2},
 							ControlSubject: control.Subject{Key: "1111", Name: "writer1"},
-							Authorities:    []control.Authority{control.Absolute - 1},
+							Authorities:    []control.Authority{control.AuthorityAbsolute - 1},
 						}))
 						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Start:          2,
 							Channels:       []core.ChannelKey{k2, k3},
 							ControlSubject: control.Subject{Key: "2222", Name: "writer2"},
-							Authorities:    []control.Authority{control.Absolute},
+							Authorities:    []control.Authority{control.AuthorityAbsolute},
 						}))
 
 						t := db.ControlStates().Transfers
 						Expect(t).To(HaveLen(4))
-						names := lo.Map(t, func(t controller.Transfer, _ int) string {
+						names := lo.Map(t, func(t control.Transfer, _ int) string {
 							return t.To.Subject.Name
 						})
 						Expect(names).To(ConsistOf("writer1", "writer2", "writer2", "cesium_internal_control_digest"))

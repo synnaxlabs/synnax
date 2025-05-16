@@ -128,7 +128,7 @@ func (fc *fileController) scanUnopenedFiles() (set.Set[uint16], error) {
 // 3. If no unopened files are available, then the file controller creates a new file
 // handle to a new file, as governed by counter.
 func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio.TrackedWriteCloser, error) {
-	ctx, span := fc.T.Bench(ctx, "acquireWriter")
+	ctx, span := fc.T.Bench(ctx, "acquire_writer")
 	defer span.End()
 
 	fc.writers.RLock()
@@ -178,7 +178,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 // attempts to create a file handle for files from the directory that are not at
 // capacity. If there is none, it creates a new file and increments the counter.
 func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int64, error) {
-	_, span := fc.T.Bench(ctx, "newWriter")
+	_, span := fc.T.Bench(ctx, "new_writer")
 	fc.writers.Lock()
 
 	defer func() {
@@ -265,7 +265,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 }
 
 func (fc *fileController) acquireReader(ctx context.Context, key uint16) (*controlledReader, error) {
-	ctx, span := fc.T.Bench(ctx, "acquireReader")
+	ctx, span := fc.T.Bench(ctx, "acquire_reader")
 	defer span.End()
 
 	fc.readers.RLock()
@@ -306,7 +306,7 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (*contr
 }
 
 func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlledReader, error) {
-	_, span := fc.T.Bench(ctx, "newReader")
+	_, span := fc.T.Bench(ctx, "new_reader")
 	defer span.End()
 	file, err := fc.FS.Open(
 		fileKeyToName(key),

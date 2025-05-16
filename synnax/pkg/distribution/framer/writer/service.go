@@ -127,7 +127,7 @@ func DefaultConfig() Config {
 		ControlSubject: control.Subject{
 			Key: uuid.New().String(),
 		},
-		Authorities:              []control.Authority{control.Absolute},
+		Authorities:              []control.Authority{control.AuthorityAbsolute},
 		ErrOnUnauthorized:        config.False(),
 		Mode:                     ts.WriterPersistStream,
 		EnableAutoCommit:         config.False(),

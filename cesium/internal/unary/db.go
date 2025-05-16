@@ -14,12 +14,12 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/meta"
-	"github.com/synnaxlabs/x/control"
+	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -32,7 +32,7 @@ type DB struct {
 	cfg Config
 	// domain is the underlying domain database on which writes will be executed.
 	domain     *domain.DB
-	controller *controller.Controller[*controlledWriter]
+	controller *control.Controller[*controlledWriter]
 	// _idx is the index used for resolving timestamp positions on this channel.
 	_idx             index.Index
 	wrapError        func(error) error
@@ -67,7 +67,7 @@ func (db *DB) index() index.Index {
 func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
 
 // LeadingControlState returns the first chronological gate in this unary database.
-func (db *DB) LeadingControlState() *controller.State {
+func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
 
@@ -80,7 +80,7 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	}
 	release, err := db.lockControllerForNonWriteOp(tr, "has_data_for")
 	if err != nil {
-		return true, errors.Skip(err, control.ErrUnauthorized)
+		return true, errors.Skip(err, xcontrol.ErrUnauthorized)
 	}
 	defer release()
 	hasData, err := db.domain.HasDataFor(ctx, tr)

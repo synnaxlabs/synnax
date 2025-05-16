@@ -12,13 +12,13 @@ package cesium
 import (
 	"context"
 
-	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/control"
+	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
@@ -167,18 +167,18 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 		return nil
 	}
 	var (
-		u       = ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
-		getAuth = func(ch ChannelKey) (control.Authority, bool) {
+		u       = ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
+		getAuth = func(ch ChannelKey) (xcontrol.Authority, bool) {
 			return cfg.Authorities[0], true
 		}
 	)
 
 	if len(cfg.Channels) > 0 {
-		values := make(map[ChannelKey]control.Authority, len(cfg.Channels))
+		values := make(map[ChannelKey]xcontrol.Authority, len(cfg.Channels))
 		for i, ch := range cfg.Channels {
 			values[ch] = cfg.authority(i)
 		}
-		getAuth = func(ch ChannelKey) (control.Authority, bool) {
+		getAuth = func(ch ChannelKey) (xcontrol.Authority, bool) {
 			v, ok := values[ch]
 			return v, ok
 		}
@@ -214,7 +214,7 @@ func (w *streamWriter) maybeSendRes(
 	end telem.TimeStamp,
 ) error {
 	res := WriterResponse{Command: req.Command, SeqNum: req.SeqNum, End: end, Authorized: true}
-	if w.accumulatedErr != nil && errors.Is(w.accumulatedErr, control.ErrUnauthorized) {
+	if w.accumulatedErr != nil && errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
 		w.accumulatedErr = nil
 		res.Authorized = false
 	}
@@ -265,7 +265,7 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 
 func (w *streamWriter) close(ctx context.Context) error {
 	c := errors.NewCatcher(errors.WithAggregation())
-	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
+	u := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
 			u_, err := idx.Close()
@@ -392,7 +392,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 func (w *idxWriter) Close() (ControlUpdate, error) {
 	c := errors.NewCatcher(errors.WithAggregation())
 	update := ControlUpdate{
-		Transfers: make([]controller.Transfer, 0, len(w.internal)),
+		Transfers: make([]control.Transfer, 0, len(w.internal)),
 	}
 	for _, unaryWriter := range w.internal {
 		c.Exec(func() error {
@@ -588,7 +588,7 @@ func (w virtualWriter) write(fr Frame) (Frame, error) {
 
 func (w virtualWriter) Close() (ControlUpdate, error) {
 	c := errors.NewCatcher(errors.WithAggregation())
-	update := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
+	update := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, chW := range w.internal {
 		// We do not want to clean up the digest channel since we want to use it to send
 		// updates for closures.

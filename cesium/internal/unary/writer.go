@@ -14,12 +14,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/control"
+	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -38,11 +38,11 @@ type WriterConfig struct {
 	End telem.TimeStamp
 	// Subject is the control subject held by the writer.
 	// [REQUIRED]
-	Subject control.Subject
+	Subject xcontrol.Subject
 	// Authority is the control authority held by the writer: higher authority entities
 	// have priority access to the region.
 	// [OPTIONAL]
-	Authority control.Authority
+	Authority xcontrol.Authority
 	// Persist denotes whether the writer writes its data to FS. If Persist is off, no
 	// data is written.
 	// [OPTIONAL] - Defaults to true
@@ -128,7 +128,7 @@ type controlledWriter struct {
 	alignment  telem.Alignment
 }
 
-var _ controller.Resource = controlledWriter{}
+var _ control.Resource = controlledWriter{}
 
 // ChannelKey implements controller.Resource.
 func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
@@ -139,7 +139,7 @@ type Writer struct {
 	// but not limited to density and index.
 	Channel core.Channel
 	// control stores the gate held by the writer in the controller of the unaryDB.
-	control *controller.Gate[*controlledWriter]
+	control *control.Gate[*controlledWriter]
 	// idx stores the index of the unaryDB (rate or domain).
 	idx index.Index
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
@@ -159,7 +159,7 @@ type Writer struct {
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	w *Writer,
-	transfer controller.Transfer,
+	transfer control.Transfer,
 	err error,
 ) {
 	if db.closed.Load() {
@@ -175,8 +175,8 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		idx:       db.index(),
 		wrapError: db.wrapError,
 	}
-	var g *controller.Gate[*controlledWriter]
-	if g, transfer, err = db.controller.OpenGate(controller.GateConfig[*controlledWriter]{
+	var g *control.Gate[*controlledWriter]
+	if g, transfer, err = db.controller.OpenGate(control.GateConfig[*controlledWriter]{
 		ErrIfControlled:       config.False(),
 		ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
 		TimeRange:             cfg.controlTimeRange(),
@@ -209,8 +209,8 @@ func Write(
 ) (err error) {
 	w, _, err := db.OpenWriter(ctx, WriterConfig{
 		Start:     start,
-		Authority: control.Absolute,
-		Subject:   control.Subject{Key: uuid.New().String()},
+		Authority: xcontrol.AuthorityAbsolute,
+		Subject:   xcontrol.Subject{Key: uuid.New().String()},
 	})
 	if err != nil {
 		return db.wrapError(err)
@@ -258,7 +258,7 @@ func (w *Writer) DomainIndex() uint32 {
 	return w.control.PeekResource().alignment.DomainIndex()
 }
 
-func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
+func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 	return w.control.SetAuthority(a)
 }
 
@@ -323,9 +323,9 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	return end, dw.Commit(ctx, end)
 }
 
-func (w *Writer) Close() (controller.Transfer, error) {
+func (w *Writer) Close() (control.Transfer, error) {
 	if w.closed {
-		return controller.Transfer{}, nil
+		return control.Transfer{}, nil
 	}
 	w.closed = true
 	dw, t := w.control.Release()

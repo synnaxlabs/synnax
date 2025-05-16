@@ -13,18 +13,18 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/control"
+	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type ControlUpdate struct {
-	Transfers []controller.Transfer `json:"transfers"`
+	Transfers []control.Transfer `json:"transfers"`
 }
 
 // ConfigureControlUpdateChannel configures a channel to be the update channel for the
@@ -57,7 +57,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey,
 	}
 
 	w, err := db.newStreamWriter(ctx, WriterConfig{
-		ControlSubject: control.Subject{
+		ControlSubject: xcontrol.Subject{
 			Name: "cesium_internal_control_digest",
 			Key:  uuid.New().String(),
 		},
@@ -128,15 +128,15 @@ func (db *DB) ControlStates() (u ControlUpdate) {
 	if !db.digestsConfigured() {
 		return
 	}
-	u.Transfers = make([]controller.Transfer, 0, len(db.mu.unaryDBs)+len(db.mu.virtualDBs))
+	u.Transfers = make([]control.Transfer, 0, len(db.mu.unaryDBs)+len(db.mu.virtualDBs))
 	for _, d := range db.mu.unaryDBs {
 		if s := d.LeadingControlState(); s != nil {
-			u.Transfers = append(u.Transfers, controller.Transfer{To: s})
+			u.Transfers = append(u.Transfers, control.Transfer{To: s})
 		}
 	}
 	for _, d := range db.mu.virtualDBs {
 		if s := d.LeadingControlState(); s != nil {
-			u.Transfers = append(u.Transfers, controller.Transfer{To: s})
+			u.Transfers = append(u.Transfers, control.Transfer{To: s})
 		}
 	}
 	return u

@@ -97,7 +97,7 @@ func (u *UnaryClient[RQ, RS]) Send(
 			} else if u.Network != nil {
 				route, ok := u.Network.resolveUnaryTarget(target)
 				if !ok || route.Handler == nil {
-					return oMD, address.TargetNotFound(target)
+					return oMD, address.ErrTargetNotFound(target)
 				}
 				handler = route.exec
 			}

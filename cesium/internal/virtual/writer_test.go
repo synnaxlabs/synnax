@@ -43,14 +43,14 @@ var _ = Describe("Write", func() {
 			It("Should return an error if the writer does not acquire control", func() {
 				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:                 10 * telem.SecondTS,
-					Authority:             control.Absolute,
+					Authority:             control.AuthorityAbsolute,
 					Subject:               control.Subject{Key: "foo"},
 					ErrOnUnauthorizedOpen: config.True(),
 				}))
 				Expect(t.Occurred()).To(BeTrue())
 				w2, t, err := db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:                 10 * telem.SecondTS,
-					Authority:             control.Absolute - 1,
+					Authority:             control.AuthorityAbsolute - 1,
 					Subject:               control.Subject{Key: "bar"},
 					ErrOnUnauthorizedOpen: config.True(),
 				})
@@ -67,14 +67,14 @@ var _ = Describe("Write", func() {
 			It("Should return an unauthorized error when the write is not authorized", func() {
 				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:                 10 * telem.SecondTS,
-					Authority:             control.Absolute,
+					Authority:             control.AuthorityAbsolute,
 					Subject:               control.Subject{Key: "foo"},
 					ErrOnUnauthorizedOpen: config.True(),
 				}))
 				Expect(t.Occurred()).To(BeTrue())
 				w2, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
-					Authority: control.Absolute - 1,
+					Authority: control.AuthorityAbsolute - 1,
 					Subject:   control.Subject{Key: "bar"},
 				}))
 				Expect(t.Occurred()).To(BeFalse())
@@ -90,7 +90,7 @@ var _ = Describe("Write", func() {
 			It("Should return an error when writing a series with the wrong data type", func() {
 				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
-					Authority: control.Absolute,
+					Authority: control.AuthorityAbsolute,
 					Subject:   control.Subject{Key: "foo"},
 				}))
 				Expect(t.Occurred()).To(BeTrue())
@@ -106,7 +106,7 @@ var _ = Describe("Write", func() {
 			It("Should not return an error when the same writer is closed multiple times", func() {
 				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
-					Authority: control.Absolute,
+					Authority: control.AuthorityAbsolute,
 					Subject:   control.Subject{Key: "foo"},
 				}))
 				Expect(t.Occurred()).To(BeTrue())
@@ -119,7 +119,7 @@ var _ = Describe("Write", func() {
 			It("Should return an error on Write when the DB is closed", func() {
 				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
-					Authority: control.Absolute,
+					Authority: control.AuthorityAbsolute,
 					Subject:   control.Subject{Key: "foo"},
 				}))
 				Expect(t.Occurred()).To(BeTrue())
@@ -135,7 +135,7 @@ var _ = Describe("Write", func() {
 			It("Should correctly set the authority of the writer", func() {
 				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:                 10 * telem.SecondTS,
-					Authority:             control.Absolute - 2,
+					Authority:             control.AuthorityAbsolute - 2,
 					Subject:               control.Subject{Key: "foo"},
 					ErrOnUnauthorizedOpen: config.True(),
 				}))
@@ -143,7 +143,7 @@ var _ = Describe("Write", func() {
 
 				w2, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
-					Authority: control.Absolute - 3,
+					Authority: control.AuthorityAbsolute - 3,
 					Subject:   control.Subject{Key: "bar"},
 				}))
 
@@ -151,7 +151,7 @@ var _ = Describe("Write", func() {
 
 				_, err := w2.Write(telem.NewSecondsTSV(10, 11, 12))
 				Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
-				t = w2.SetAuthority(control.Absolute - 1)
+				t = w2.SetAuthority(control.AuthorityAbsolute - 1)
 				Expect(t.Occurred()).To(BeTrue())
 
 				MustSucceed(w2.Write(telem.NewSecondsTSV(10, 11, 12)))

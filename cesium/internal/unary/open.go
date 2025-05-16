@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -106,7 +106,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		FileSize:        cfg.FileSize,
 		GCThreshold:     cfg.GCThreshold,
 	})
-	c, err := controller.New[*controlledWriter](controller.Config{
+	c, err := control.New[*controlledWriter](control.Config{
 		Concurrency:     cfg.Channel.Concurrency,
 		Instrumentation: cfg.Instrumentation,
 	})

@@ -14,10 +14,10 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/control"
+	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -40,11 +40,11 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 }
 
 func (db *DB) lockControllerForNonWriteOp(tr telem.TimeRange, opName string) (release func(), err error) {
-	g, _, err := db.controller.OpenGate(controller.GateConfig[*controlledWriter]{
+	g, _, err := db.controller.OpenGate(control.GateConfig[*controlledWriter]{
 		ErrIfControlled: config.True(),
 		TimeRange:       tr,
-		Authority:       control.Absolute,
-		Subject:         control.Subject{Key: uuid.NewString(), Name: opName},
+		Authority:       xcontrol.AuthorityAbsolute,
+		Subject:         xcontrol.Subject{Key: uuid.NewString(), Name: opName},
 		OpenResource: func() (*controlledWriter, error) {
 			return &controlledWriter{Writer: nil, channelKey: db.cfg.Channel.Key}, nil
 		},

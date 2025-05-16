@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
+	xvalidate "github.com/synnaxlabs/x/validate"
 )
 
 const metaFile = "meta.json"
@@ -51,57 +51,61 @@ func Open(ctx context.Context, fs xfs.FS, ch core.Channel, codec binary.Codec) (
 				return ch, err
 			}
 		}
-		return state.Channel, Validate(state.Channel)
+		return state.Channel, validate(state.Channel)
 	}
-	return ch, Create(ctx, fs, codec, ch)
+	if err := Create(ctx, fs, codec, ch); err != nil {
+		return core.Channel{}, err
+	}
+	return ch, nil
 }
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
-func Read(ctx context.Context, fs xfs.FS, codec binary.Codec) (ch core.Channel, err error) {
+func Read(ctx context.Context, fs xfs.FS, codec binary.Codec) (core.Channel, error) {
+	var ch core.Channel
 	s, err := fs.Stat("")
 	if err != nil {
-		return
+		return ch, err
 	}
 	metaF, err := fs.Open(metaFile, os.O_RDONLY)
 	if err != nil {
-		return
+		return ch, err
 	}
 	defer func() { err = errors.Combine(err, metaF.Close()) }()
 
 	if err = codec.DecodeStream(ctx, metaF, &ch); err != nil {
 		err = errors.Wrapf(err, "error decoding meta in folder for channel %s", s.Name())
+		return ch, err
 	}
-	return
+	return ch, err
 }
 
 // Create creates the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. The provided channel should have all fields
 // required by the DB correctly set.
 func Create(ctx context.Context, fs xfs.FS, codec binary.Codec, ch core.Channel) error {
-	if err := Validate(ch); err != nil {
+	if err := validate(ch); err != nil {
 		return err
 	}
 	metaF, err := fs.Open(metaFile, os.O_CREATE|os.O_WRONLY)
 	if err != nil {
 		return err
 	}
+	defer func() { err = errors.Combine(err, metaF.Close()) }()
 	b, err := codec.Encode(ctx, ch)
 	if err != nil {
 		return err
 	}
-	if _, err = metaF.Write(b); err != nil {
-		return err
-	}
-	return metaF.Close()
+	_, err = metaF.Write(b)
+	return err
 }
 
-// Validate checks that the meta file read from or about to be written to a meta file
+// validate checks that the meta file read from or about to be written to a meta file
 // is well-defined.
-func Validate(ch core.Channel) error {
-	v := validate.New("meta")
-	validate.Positive(v, "key", ch.Key)
-	validate.NotEmptyString(v, "data_type", ch.DataType)
+func validate(ch core.Channel) error {
+	v := xvalidate.New("meta")
+	xvalidate.Positive(v, "key", ch.Key)
+	xvalidate.NotEmptyString(v, "data_type", ch.DataType)
 	if ch.Virtual {
 		v.Ternaryf("index", ch.Index != 0, "virtual channel cannot be indexed")
 	} else {

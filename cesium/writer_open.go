@@ -13,12 +13,12 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/control"
+	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -46,7 +46,7 @@ type WriterConfig struct {
 	// Name sets the human-readable name for the writer, which is useful for identifying
 	// it in control transfer scenarios.
 	// [OPTIONAL] - Defaults to an empty string.
-	ControlSubject control.Subject
+	ControlSubject xcontrol.Subject
 	// Start marks the starting timestamp of the first sample to be written by the
 	// writer. If a sample exists for any channel at this timestamp, the writer will
 	// fail to open.
@@ -59,8 +59,8 @@ type WriterConfig struct {
 	// authority to all channels), or have a length equal to the number of channels
 	// (apply granular authorities to each channel).
 	//
-	// [OPTIONAL] - Defaults to control.Absolute on all channels.
-	Authorities []control.Authority
+	// [OPTIONAL] - Defaults to control.AuthorityAbsolute on all channels.
+	Authorities []xcontrol.Authority
 	// ErrOnUnauthorized controls whether the writer will return an error when
 	// attempting to open a writer on a channel that it does not have authority over.
 	// This value should be set to false for control related scenarios.
@@ -103,8 +103,8 @@ var (
 
 func DefaultWriterConfig() WriterConfig {
 	return WriterConfig{
-		ControlSubject:           control.Subject{Key: uuid.New().String()},
-		Authorities:              []control.Authority{control.Absolute},
+		ControlSubject:           xcontrol.Subject{Key: uuid.New().String()},
+		Authorities:              []xcontrol.Authority{xcontrol.AuthorityAbsolute},
 		ErrOnUnauthorized:        config.False(),
 		Mode:                     WriterPersistStream,
 		EnableAutoCommit:         config.Bool(false),
@@ -143,7 +143,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	return c
 }
 
-func (c WriterConfig) authority(i int) control.Authority {
+func (c WriterConfig) authority(i int) xcontrol.Authority {
 	if len(c.Authorities) == 1 {
 		return c.Authorities[0]
 	}
@@ -227,7 +227,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		}
 		var (
 			auth     = cfg.authority(i)
-			transfer controller.Transfer
+			transfer control.Transfer
 		)
 		if vOk {
 			// If the channel is virtual.

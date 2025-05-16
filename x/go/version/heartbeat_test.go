@@ -47,6 +47,12 @@ var _ = Describe("Heartbeat", func() {
 			h2 := version.Heartbeat{Generation: 1, Version: 3}
 			Expect(h1.OlderThan(h2)).To(BeTrue())
 		})
+
+		It("Should return false for completely equal values", func() {
+			h1 := version.Heartbeat{Generation: 1, Version: 5}
+			h2 := version.Heartbeat{Generation: 1, Version: 5}
+			Expect(h1.OlderThan(h2)).To(BeFalse())
+		})
 	})
 
 	Describe("YoungerThan", func() {
@@ -60,6 +66,12 @@ var _ = Describe("Heartbeat", func() {
 			h1 := version.Heartbeat{Generation: 1, Version: 3}
 			h2 := version.Heartbeat{Generation: 1, Version: 5}
 			Expect(h1.YoungerThan(h2)).To(BeTrue())
+		})
+
+		It("Should return false for completely equal values", func() {
+			h1 := version.Heartbeat{Generation: 1, Version: 5}
+			h2 := version.Heartbeat{Generation: 1, Version: 5}
+			Expect(h1.YoungerThan(h2)).To(BeFalse())
 		})
 	})
 })

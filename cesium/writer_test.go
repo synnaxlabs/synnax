@@ -1135,7 +1135,7 @@ var _ = Describe("Writer Behavior", func() {
 
 						Expect(w1.SetAuthority(cesium.WriterConfig{
 							Channels:    []cesium.ChannelKey{key, key2},
-							Authorities: []control.Authority{control.Absolute, control.Authority(0)},
+							Authorities: []control.Authority{control.AuthorityAbsolute, control.Authority(0)},
 						})).To(Succeed())
 
 						authorized = MustSucceed(w2.Write(telem.MultiFrame(
