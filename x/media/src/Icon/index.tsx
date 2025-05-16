@@ -139,7 +139,11 @@ import {
   PiWaveSquareBold,
   PiWaveTriangleBold,
 } from "react-icons/pi";
-import { RiSettings3Fill as RiSettingsFill, RiWeightFill } from "react-icons/ri";
+import {
+  RiAlarmWarningFill,
+  RiSettings3Fill as RiSettingsFill,
+  RiWeightFill,
+} from "react-icons/ri";
 import {
   SiGooglenearby,
   SiNpm,
@@ -478,6 +482,7 @@ export interface IconType {
   StarFilled: IconFC;
   StarOutlined: IconFC;
   Heart: IconFC;
+  Alarm: IconFC;
 }
 
 export const Icon: IconType = {
@@ -673,4 +678,5 @@ export const Icon: IconType = {
   StarFilled: wrapIcon(FaStar, "star-filled"),
   StarOutlined: wrapIcon(FaRegStar, "star-outlined"),
   Heart: wrapIcon(IoMdHeart, "heart"),
+  Alarm: wrapIcon(RiAlarmWarningFill, "alarm"),
 };

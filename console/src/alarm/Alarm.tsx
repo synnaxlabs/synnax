@@ -1,0 +1,344 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { channel, framer } from "@synnaxlabs/client";
+import {
+  Align,
+  Button,
+  Channel,
+  Form,
+  Input,
+  Nav,
+  Observe,
+  Status,
+  Synnax,
+  Text,
+  useAsyncEffect,
+} from "@synnaxlabs/pluto";
+import { deep, unique } from "@synnaxlabs/x";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { type ReactElement, useCallback, useState } from "react";
+import { z } from "zod";
+
+import { Code } from "@/code";
+import { Lua } from "@/code/lua";
+import {
+  usePhantomGlobals,
+  type UsePhantomGlobalsReturn,
+  type Variable,
+} from "@/code/phantom";
+import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
+import { CSS } from "@/css";
+import { Layout } from "@/layout";
+import { Modals } from "@/modals";
+import { Triggers } from "@/triggers";
+
+const FAILED_TO_UPDATE_AUTOCOMPLETE =
+  "Failed to update calculated channel auto-complete";
+
+export interface AlarmLayoutArgs {
+  alarmKey?: string;
+}
+
+const DEFAULT_ARGS: AlarmLayoutArgs = { alarmKey: undefined };
+
+const schema = z.object({
+  key: z.string().optional(),
+  name: z.string().min(1, "Name must not be empty"),
+  requires: channel.keyZ.array(),
+  condition: z
+    .string()
+    .min(1, "Expression must not be empty")
+    .refine((v) => v.includes("return"), {
+      message: "Expression must contain a return statement",
+    }),
+  activationDelay: z.number().min(0, "Activation delay must be greater than 0"),
+  deactivationDelay: z.number().min(0, "Deactivation delay must be greater than 0"),
+});
+
+type FormValues = z.output<typeof schema>;
+
+export const ALARM_LAYOUT_TYPE = "createAlarm";
+
+export interface AlarmLayout extends Layout.BaseState<AlarmLayoutArgs> {}
+
+export const ALARM_LAYOUT: AlarmLayout = {
+  beta: true,
+  name: "Alarm.Create",
+  icon: "Alarm",
+  location: "modal",
+  tab: { closable: true, editable: false },
+  window: {
+    resizable: false,
+    size: { height: 600, width: 1000 },
+    navTop: true,
+    showTitle: true,
+  },
+  type: ALARM_LAYOUT_TYPE,
+  key: ALARM_LAYOUT_TYPE,
+};
+
+export interface CreateAlarmLayoutArgs {
+  key: string;
+  name: string;
+}
+
+export const createAlarmLayout = ({
+  key,
+  name,
+}: CreateAlarmLayoutArgs): AlarmLayout => ({
+  ...ALARM_LAYOUT,
+  args: { alarmKey: key },
+  name: `${name}.Edit`,
+});
+
+const ZERO_FORM_VALUES: FormValues = {
+  name: "",
+  requires: [],
+  condition: "",
+  activationDelay: 0,
+  deactivationDelay: 0,
+};
+
+const calculationStateZ = z.object({
+  key: channel.keyZ,
+  variant: z.enum(["error", "success", "info"]),
+  message: z.string(),
+});
+
+const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
+
+export const useListenForCalculationState = (): void => {
+  const client = Synnax.use();
+  const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
+  Observe.useListener({
+    key: [client?.key, addStatus, handleError],
+    open: async () => {
+      if (client == null) return;
+      const s = await client.openStreamer({ channels: [CALCULATION_STATE_CHANNEL] });
+      return new framer.ObservableStreamer(s);
+    },
+    onChange: (frame) => {
+      const state = frame.get(CALCULATION_STATE_CHANNEL).parseJSON(calculationStateZ);
+      state.forEach(({ key, variant, message }) => {
+        client?.channels
+          .retrieve(key)
+          .then((ch) => {
+            if (variant !== "error") {
+              addStatus({ variant, message });
+              return;
+            }
+            addStatus({
+              variant,
+              message: `Calculation for ${ch.name} failed`,
+              description: message,
+            });
+          })
+          .catch((e) => handleError(e, "Calculated channel failed"));
+      });
+    },
+  });
+};
+
+export const Alarm: Layout.Renderer = ({ layoutKey, onClose }) => {
+  const client = Synnax.use();
+  const args = Layout.useSelectArgs<AlarmLayoutArgs>(layoutKey) ?? DEFAULT_ARGS;
+  const res = useQuery<FormValues>({
+    queryKey: [args.alarmKey, client?.key],
+    staleTime: 0,
+    queryFn: async () => deep.copy(ZERO_FORM_VALUES),
+    // if (client == null) throw NULL_CLIENT_ERROR;
+    // const ch = await client.channels.retrieve(args.channelKey);
+    // return { ...ch.payload, dataType: ch.dataType.toString() };
+  });
+
+  if (res.isLoading) return <Text.Text level="p">Loading...</Text.Text>;
+  if (res.isError)
+    return (
+      <Align.Space y grow style={{ height: "100%" }}>
+        <Status.Text.Centered variant="error">{res.error.message}</Status.Text.Centered>
+      </Align.Space>
+    );
+
+  return <Internal onClose={onClose} initialValues={res.data} />;
+};
+
+interface InternalProps extends Pick<Layout.RendererProps, "onClose"> {
+  initialValues: FormValues;
+}
+
+const GLOBALS: Variable[] = [
+  {
+    key: "get",
+    name: "get",
+    value: `
+    -- Get a channel's value by its name. This function should be used when
+    -- the channel name cannot be used directly as a variable. For example,
+    -- hyphenated names such as 'my-channel' should be accessed with get("my-channel")
+    -- instead of just my-channel.
+    function get(name)
+    end
+    `,
+  },
+];
+
+const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
+  const client = Synnax.use();
+
+  const methods = Form.use<typeof schema>({
+    schema,
+    values: initialValues,
+    sync: true,
+  });
+
+  const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
+  const [createMore, setCreateMore] = useState(false);
+  const { mutate, isPending } = useMutation({
+    mutationFn: async (createMore: boolean) => {
+      // if (client == null) throw NULL_CLIENT_ERROR;
+      // if (!methods.validate()) return;
+      // const d = methods.value();
+      // await client.channels.create(d);
+      // if (!createMore) onClose();
+      // else methods.reset(deep.copy(ZERO_FORM_VALUES));
+    },
+    onError: (error: Error) => {
+      addStatus({
+        variant: "error",
+        message: "Error creating calculated channel: ".concat(methods.value().name),
+        description: error.message,
+      });
+    },
+  });
+
+  const globals = usePhantomGlobals({
+    language: Lua.LANGUAGE,
+    stringifyVar: Lua.stringifyVar,
+    initialVars: GLOBALS,
+  });
+  useAsyncEffect(async () => {
+    if (client == null) return;
+    const channels = methods.get<channel.Key[]>("requires").value;
+    try {
+      const chs = await client.channels.retrieve(channels);
+      chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
+    } catch (e) {
+      handleError(e, FAILED_TO_UPDATE_AUTOCOMPLETE);
+    }
+  }, [methods, globals, client]);
+
+  return (
+    <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
+      <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
+        <Form.Form<typeof schema> {...methods}>
+          <Form.Field<string> path="name" label="Name">
+            {(p) => (
+              <Input.Text
+                autoFocus
+                level="h2"
+                variant="natural"
+                placeholder="Name"
+                {...p}
+              />
+            )}
+          </Form.Field>
+
+          <Form.Field<string> path="condition" grow>
+            {({ value, onChange }) => (
+              <Editor
+                value={value}
+                language={Lua.LANGUAGE}
+                onChange={onChange}
+                bordered
+                rounded
+                style={{ height: 150 }}
+                globals={globals}
+              />
+            )}
+          </Form.Field>
+          <Align.Space x>
+            <Form.Field<channel.Key[]>
+              path="requires"
+              required
+              label="Required Channels"
+              grow
+              onChange={(v, extra) => {
+                if (client == null) return;
+                handleError(
+                  async () =>
+                    await bindChannelsAsGlobals(
+                      client,
+                      extra.get<channel.Key[]>("requires").value,
+                      v,
+                      globals,
+                    ),
+                  FAILED_TO_UPDATE_AUTOCOMPLETE,
+                );
+              }}
+            >
+              {({ variant: _, ...p }) => <Channel.SelectMultiple zIndex={100} {...p} />}
+            </Form.Field>
+          </Align.Space>
+          <Align.Space x>
+            <Form.NumericField path="activationDelay" label="Activation Delay" />
+            <Form.NumericField path="deactivationDelay" label="Deactivation Delay" />
+          </Align.Space>
+        </Form.Form>
+      </Align.Space>
+      <Modals.BottomNavBar>
+        <Triggers.SaveHelpText action={initialValues.key != null ? "Save" : "Create"} />
+        <Nav.Bar.End align="center" size="large">
+          {initialValues.key != null && (
+            <Align.Space x align="center" size="small">
+              <Input.Switch value={createMore} onChange={setCreateMore} />
+              <Text.Text level="p" shade={11}>
+                Create More
+              </Text.Text>
+            </Align.Space>
+          )}
+          <Align.Space x align="center">
+            <Button.Button
+              disabled={isPending}
+              loading={isPending}
+              onClick={() => mutate(createMore)}
+              triggers={Triggers.SAVE}
+            >
+              {initialValues.key != null ? "Save" : "Create"}
+            </Button.Button>
+          </Align.Space>
+        </Nav.Bar.End>
+      </Modals.BottomNavBar>
+    </Align.Space>
+  );
+};
+
+export interface EditorProps extends Code.EditorProps {
+  globals?: UsePhantomGlobalsReturn;
+}
+
+const Editor = ({ globals, ...props }: EditorProps): ReactElement => {
+  const methods = Form.useContext();
+  const onAccept = useCallback(
+    (channel: channel.Payload) => {
+      if (globals == null) return;
+      globals.set(channel.key.toString(), channel.name, channel.key.toString());
+      methods.set(
+        "requires",
+        unique.unique([...methods.get<channel.Key[]>("requires").value, channel.key]),
+      );
+    },
+    [methods, globals],
+  );
+
+  useSuggestChannels(onAccept);
+
+  return <Code.Editor {...props} />;
+};

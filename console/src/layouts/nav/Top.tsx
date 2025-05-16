@@ -13,6 +13,7 @@ import { Logo } from "@synnaxlabs/media";
 import { Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Alarm } from "@/alarm";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
@@ -56,6 +57,7 @@ const COMMANDS: Palette.Command[] = [
   ...UserServices.COMMANDS,
   ...WorkspaceServices.COMMANDS,
   ...Debug.COMMANDS,
+  ...Alarm.COMMANDS,
 ];
 
 const TopPalette = (): ReactElement => (
