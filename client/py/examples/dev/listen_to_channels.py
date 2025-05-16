@@ -14,17 +14,19 @@ if len(sys.argv) < 2:
     print("Usage: python listen_to_channels.py <channel_name> [<channel_name> ...]")
     sys.exit(1)
 
-names = sys.argv[1:]
-multiple_channels = len(names) > 1
+channel_names = sys.argv[1:]
+names_set = set(channel_names)
+multiple_channels = len(channel_names) > 1
 
 client = sy.Synnax()
 
-with client.open_streamer(names) as s:
-    for frame in s:
-        for channel_name in names:
-            if channel_name in frame:
-                for v in frame[channel_name]:
-                    if multiple_channels:
-                        print(f"{channel_name}: {v}")
-                    else:
-                        print(v)
+with client.open_streamer(channel_names) as streamer:
+    for frame in streamer:
+        for channel in frame.channels:
+            if channel not in names_set:
+                continue
+            for value in frame[channel]:
+                if multiple_channels:
+                    print(f"{channel}: {value}")
+                else:
+                    print(value)
