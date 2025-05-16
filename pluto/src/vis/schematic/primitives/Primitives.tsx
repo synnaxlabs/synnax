@@ -9,7 +9,7 @@
 
 import "@/vis/schematic/primitives/Primitives.css";
 
-import { dimensions, direction, type location, xy } from "@synnaxlabs/x";
+import { color, dimensions, direction, type location, xy } from "@synnaxlabs/x";
 import {
   Handle as RFHandle,
   type HandleProps as RFHandleProps,
@@ -30,7 +30,6 @@ import {
 
 import { type Align } from "@/align";
 import { Button as CoreButton } from "@/button";
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Text } from "@/text";
@@ -207,7 +206,7 @@ interface ToggleProps
   extends Omit<ComponentPropsWithoutRef<"button">, "color" | "value"> {
   triggered?: boolean;
   enabled?: boolean;
-  color?: Color.Crude;
+  color?: color.Crude;
 }
 
 interface ToggleValveButtonProps extends ToggleProps, OrientableProps {}
@@ -217,7 +216,7 @@ const Toggle = ({
   enabled = false,
   triggered = false,
   orientation = "left",
-  color,
+  color: colorVal,
   ...rest
 }: ToggleValveButtonProps): ReactElement => (
   <button
@@ -229,7 +228,7 @@ const Toggle = ({
       triggered && CSS.M("triggered"),
       className,
     )}
-    color={Color.cssString(color)}
+    color={color.cssString(colorVal)}
     {...rest}
   />
 );
@@ -243,7 +242,7 @@ const Div = ({ className, ...rest }: DivProps): ReactElement => (
 );
 
 interface SVGBasedPrimitiveProps extends OrientableProps {
-  color?: Color.Crude;
+  color?: color.Crude;
   scale?: number;
 }
 
@@ -263,23 +262,22 @@ const InternalSVG = ({
   orientation = "left",
   children,
   className,
-  color,
+  color: colorVal,
   style = {},
   scale = 1,
   ...rest
 }: InternalSVGProps): ReactElement => {
   const dir = direction.construct(orientation);
   dims = dir === "y" ? dimensions.swap(dims) : dims;
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   const theme = Theming.use();
-  if (color != null) {
+  if (colorVal != null) {
     // @ts-expect-error - css variables
-    style[CSS.var("symbol-color")] = new Color.Color(color).rgbString;
+    style[CSS.var("symbol-color")] = color.rgbString(colorVal);
     // @ts-expect-error - css variables
-    style[CSS.var("symbol-color-contrast")] = new Color.Color(color).pickByContrast(
-      theme.colors.gray.l0,
-      theme.colors.gray.l11,
-    ).rgbString;
+    style[CSS.var("symbol-color-contrast")] = color.rgbString(
+      color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
+    );
   }
   return (
     <svg
@@ -306,10 +304,10 @@ export const FourWayValve = ({
   className,
   orientation = "left",
   scale,
-  color,
+  color: colorVal,
   ...rest
 }: FourWayValveProps): ReactElement => {
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   return (
     <Toggle
       {...rest}
@@ -322,7 +320,11 @@ export const FourWayValve = ({
         <Handle location="top" orientation="left" left={50} top={7.2916} id="3" />
         <Handle location="bottom" orientation="left" left={50} top={92.6084} id="4" />
       </HandleBoundary>
-      <InternalSVG dimensions={{ width: 108, height: 96 }} color={color} scale={scale}>
+      <InternalSVG
+        dimensions={{ width: 108, height: 96 }}
+        color={colorVal}
+        scale={scale}
+      >
         <Path
           d="M3.02937 72.7038C2.50936 73.1041 2.50936 73.8883 3.02937 74.2886L7.14001 77.453C7.79757 77.9592 8.75 77.4904 8.75 76.6606V70.3318C8.75 69.502 7.79757 69.0332 7.14001 69.5394L3.02937 72.7038Z"
           fill={colorStr}
@@ -573,11 +575,11 @@ export interface ISOCheckValveProps extends DivProps, SVGBasedPrimitiveProps {}
 export const ISOCheckValve = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   ...rest
 }: ISOCheckValveProps): ReactElement => {
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   return (
     <Div {...rest} orientation={orientation}>
       <HandleBoundary orientation={orientation}>
@@ -598,7 +600,7 @@ export const ISOCheckValve = ({
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 84, height: 42 }}
-        color={color}
+        color={colorVal}
         orientation={orientation}
         scale={scale}
       >
@@ -617,11 +619,11 @@ export interface CheckValveWithArrowProps extends DivProps, SVGBasedPrimitivePro
 export const CheckValveWithArrow = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   ...rest
 }: CheckValveWithArrowProps): ReactElement => {
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   return (
     <Div
       orientation={orientation}
@@ -646,7 +648,7 @@ export const CheckValveWithArrow = ({
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 93, height: 57 }}
-        color={color}
+        color={colorVal}
         orientation={orientation}
         scale={scale}
       >
@@ -831,7 +833,7 @@ export const GateValve = ({
 export interface ButterflyValveOneProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const ButterflyValveOne = ({
-  color,
+  color: colorVal,
   className,
   orientation = "left",
   scale,
@@ -856,13 +858,13 @@ export const ButterflyValveOne = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 87, height: 42 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
       <Path d="M43.5 21L6.35453 2.20349C4.35901 1.19372 2 2.64384 2 4.88029V37.1197C2 39.3562 4.35901 40.8063 6.35453 39.7965L43.5 21ZM43.5 21L80.6455 2.20349C82.641 1.19372 85 2.64384 85 4.8803V37.1197C85 39.3562 82.641 40.8063 80.6455 39.7965L43.5 21Z" />
       <Path d="M43.5 2V40" />
-      <Circle cx="43.5" cy="21" r="10" fill={Color.cssString(color)} />
+      <Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
     </InternalSVG>
   </Toggle>
 );
@@ -870,7 +872,7 @@ export const ButterflyValveOne = ({
 export interface ButterflyValveTwoProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const ButterflyValveTwo = ({
-  color,
+  color: colorVal,
   className,
   orientation = "left",
   scale,
@@ -895,11 +897,11 @@ export const ButterflyValveTwo = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 87, height: 42 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="43.5" cy="21" r="10" fill={Color.cssString(color)} />
+      <Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
       <Rect x="2" y="2" width="83" height="38" rx="1" />
       <Path d="M2.29001 2.29004L84.7069 39.676" />
     </InternalSVG>
@@ -909,7 +911,7 @@ export const ButterflyValveTwo = ({
 export interface BreatherValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const BreatherValve = ({
-  color,
+  color: colorVal,
   className,
   orientation = "left",
   scale,
@@ -934,12 +936,12 @@ export const BreatherValve = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 99, height: 57 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="91" cy="49.5" r="6" fill={Color.cssString(color)} />
-      <Circle cx="8" cy="7.5" r="6" fill={Color.cssString(color)} />
+      <Circle cx="91" cy="49.5" r="6" fill={color.cssString(colorVal)} />
+      <Circle cx="8" cy="7.5" r="6" fill={color.cssString(colorVal)} />
       <Path d="M49.5 28.5L12.3545 9.70349C10.359 8.69372 8 10.1438 8 12.3803V44.6197C8 46.8562 10.359 48.3063 12.3545 47.2965L49.5 28.5ZM49.5 28.5L86.6455 9.70349C88.641 8.69372 91 10.1438 91 12.3803V44.6197C91 46.8562 88.641 48.3063 86.6455 47.2965L49.5 28.5Z" />
     </InternalSVG>
   </Toggle>
@@ -1002,12 +1004,12 @@ export interface BurstDiscProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const BurstDisc = ({
   className,
-  color,
+  color: colorVal,
   orientation = "left",
   scale,
   ...rest
 }: BurstDiscProps): ReactElement => {
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   return (
     <Div {...rest} className={CSS(CSS.B("symbol"), className)}>
       <HandleBoundary orientation={orientation}>
@@ -1015,7 +1017,7 @@ export const BurstDisc = ({
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 40, height: 48 }}
-        color={color}
+        color={colorVal}
         orientation={orientation}
         scale={scale}
       >
@@ -1278,10 +1280,10 @@ export const DEFAULT_BORDER_RADIUS = { x: 50, y: 10 };
 export interface TankProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   borderRadius?: BorderRadius;
-  color?: Color.Crude;
+  color?: color.Crude;
   onResize?: (dimensions: dimensions.Dimensions) => void;
   boxBorderRadius?: number;
-  backgroundColor?: Color.Crude;
+  backgroundColor?: color.Crude;
   strokeWidth?: number;
 }
 
@@ -1290,7 +1292,7 @@ export const Tank = ({
   dimensions = DEFAULT_DIMENSIONS,
   borderRadius = DEFAULT_BORDER_RADIUS,
   boxBorderRadius,
-  color,
+  color: colorVal,
   backgroundColor,
   strokeWidth = 2,
   ...rest
@@ -1320,8 +1322,8 @@ export const Tank = ({
       style={{
         ...dimensions,
         borderRadius: boxBorderRadius ?? cssBorderRadius(detailedRadius),
-        borderColor: Color.cssString(color ?? t.colors.gray.l11),
-        backgroundColor: Color.cssString(backgroundColor),
+        borderColor: color.cssString(colorVal ?? t.colors.gray.l11),
+        backgroundColor: color.cssString(backgroundColor),
         borderWidth: strokeWidth,
       }}
       {...rest}
@@ -1390,8 +1392,8 @@ export interface PolygonProps extends DivProps {
   sideLength: number;
   rotation?: number;
   cornerRounding?: number;
-  color?: Color.Crude;
-  backgroundColor?: Color.Crude;
+  color?: color.Crude;
+  backgroundColor?: color.Crude;
   strokeWidth?: number;
 }
 
@@ -1463,7 +1465,7 @@ export const Polygon = ({
   numSides,
   sideLength,
   rotation = 0,
-  color,
+  color: colorVal,
   backgroundColor,
   className,
   cornerRounding,
@@ -1489,8 +1491,8 @@ export const Polygon = ({
       <InternalSVG dimensions={{ width: size, height: size }}>
         <Path
           d={path}
-          fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
-          stroke={Color.cssString(color ?? theme.colors.gray.l9)}
+          fill={color.cssString(backgroundColor ?? theme.colors.gray.l1)}
+          stroke={color.cssString(colorVal ?? theme.colors.gray.l9)}
           strokeWidth={strokeWidth ?? 2}
         />
       </InternalSVG>
@@ -1500,27 +1502,26 @@ export const Polygon = ({
 
 export interface CircleShapeProps extends DivProps {
   radius: number;
-  color?: Color.Crude;
-  backgroundColor?: Color.Crude;
+  color?: color.Crude;
+  backgroundColor?: color.Crude;
   strokeWidth?: number;
 }
 
 export const CircleShape = ({
   radius,
-  color,
+  color: colorVal,
   backgroundColor,
   className,
   strokeWidth,
   ...rest
 }: CircleShapeProps): ReactElement => {
-  const theme = Theming.use();
   const padding = (strokeWidth ?? 2) + 1;
   const diameter = radius * 2;
   const width = diameter + 2 * padding;
   const height = diameter + 2 * padding;
   return (
     <Div className={CSS(className, CSS.B("circle-shape"))} {...rest}>
-      <HandleBoundary orientation="left" refreshDeps={[radius]}>
+      <HandleBoundary orientation="left" refreshDeps={radius}>
         <Handle
           location="top"
           orientation="left"
@@ -1555,9 +1556,9 @@ export const CircleShape = ({
           cx={width / 2}
           cy={height / 2}
           r={radius}
-          stroke={Color.cssString(color ?? theme.colors.gray.l9)}
+          stroke={color.cssString(colorVal ?? "var(--pluto-gray-l9)")}
           strokeWidth={strokeWidth ?? 2}
-          fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
+          fill={color.cssString(backgroundColor ?? "var(--pluto-gray-l1)")}
         />
       </InternalSVG>
     </Div>
@@ -1686,7 +1687,7 @@ export interface NeedleValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 export const NeedleValve = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   enabled = false,
   ...rest
@@ -1716,12 +1717,12 @@ export const NeedleValve = ({
     <InternalSVG
       dimensions={{ width: 87, height: 42 }}
       orientation={orientation}
-      color={color}
+      color={colorVal}
       scale={scale}
     >
       <Path
         d="M43.0152 21.5391L38.237 2.62245C38.1573 2.30658 38.396 2 38.7218 2L48.2782 2C48.604 2 48.8427 2.30658 48.763 2.62245L43.9848 21.5391C43.8576 22.0425 43.1424 22.0425 43.0152 21.5391Z"
-        fill={Color.cssString(color)}
+        fill={color.cssString(colorVal)}
       />
       <Path d="M43.5 21.5L6.35453 2.70349C4.35901 1.69372 2 3.14384 2 5.38029V37.6197C2 39.8562 4.35901 41.3063 6.35453 40.2965L43.5 21.5ZM43.5 21.5L80.6455 2.70349C82.641 1.69372 85 3.14384 85 5.3803V37.6197C85 39.8562 82.641 41.3063 80.6455 40.2965L43.5 21.5Z" />
     </InternalSVG>
@@ -1778,7 +1779,7 @@ export const AngledReliefValve = ({
 
 export interface ValueProps extends DivProps {
   dimensions?: dimensions.Dimensions;
-  color?: Color.Crude;
+  color?: color.Crude;
   units?: string;
   unitsLevel?: Text.Level;
   inlineSize?: number;
@@ -1786,7 +1787,7 @@ export interface ValueProps extends DivProps {
 
 export const Value = ({
   className,
-  color,
+  color: colorVal,
   dimensions,
   orientation = "left",
   units = "psi",
@@ -1795,16 +1796,13 @@ export const Value = ({
   inlineSize = 80,
   ...rest
 }: ValueProps): ReactElement => {
-  const borderColor = Color.cssString(color);
+  const borderColor = color.cssString(colorVal);
   const theme = Theming.use();
   const textColor: string | undefined =
-    color == null
+    colorVal == null
       ? "var(--pluto-gray-l0)"
-      : Color.cssString(
-          new Color.Color(color).pickByContrast(
-            theme.colors.gray.l0,
-            theme.colors.gray.l11,
-          ),
+      : color.cssString(
+          color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
         );
   return (
     <Div
@@ -1863,7 +1861,7 @@ export interface ButtonProps
     Pick<CoreButton.ButtonProps, "color" | "size" | "level" | "onClickDelay"> {
   label?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
-  color?: Color.Crude;
+  color?: color.Crude;
 }
 
 export const Button = ({
@@ -1896,7 +1894,7 @@ export const Button = ({
 
 export interface TextBoxProps extends DivProps, Pick<Text.TextProps, "level"> {
   text?: string;
-  color?: Color.Crude;
+  color?: color.Crude;
   width?: number;
   align?: Align.Alignment;
   autoFit?: boolean;
@@ -1907,7 +1905,7 @@ export const TextBox = ({
   orientation = "left",
   text = "",
   width,
-  color = "var(--pluto-gray-l11)",
+  color: colorVal = "var(--pluto-gray-l11)",
   level,
   autoFit,
   align = "center",
@@ -1925,7 +1923,7 @@ export const TextBox = ({
       orientation={orientation}
       className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
     >
-      <Text.Text color={Color.cssString(color)} level={level}>
+      <Text.Text color={color.cssString(colorVal)} level={level}>
         {text}
       </Text.Text>
     </Div>
@@ -1937,7 +1935,7 @@ export interface SetpointProps
     Input.Control<number>,
     Pick<Input.NumericProps, "size"> {
   dimensions?: dimensions.Dimensions;
-  color?: Color.Crude;
+  color?: color.Crude;
   units?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   disabled?: boolean;
@@ -2751,7 +2749,7 @@ export const HelicalAgitator = ({
 export interface OffPageReferenceProps extends DivProps {
   label?: string;
   level?: Text.TextProps["level"];
-  color?: Color.Crude;
+  color?: color.Crude;
   onLabelChange?: (label: string) => void;
 }
 
@@ -2760,7 +2758,7 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
   className,
   orientation = "right",
   label = "text",
-  color = "black",
+  color: colorVal,
   level = "p",
   onLabelChange,
   ...rest
@@ -2778,7 +2776,7 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
       {...rest}
     >
       <div className="wrapper">
-        <div className="outline" style={{ backgroundColor: Color.cssString(color) }}>
+        <div className="outline" style={{ backgroundColor: color.cssString(colorVal) }}>
           <div className="bg">
             <Text.MaybeEditable
               value={label}
@@ -2981,10 +2979,10 @@ export const HeaterElement = ({
 export interface CylinderProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   borderRadius?: BorderRadius;
-  color?: Color.Crude;
+  color?: color.Crude;
   onResize?: (dimensions: dimensions.Dimensions) => void;
   boxBorderRadius?: number;
-  backgroundColor?: Color.Crude;
+  backgroundColor?: color.Crude;
 }
 
 export const Cylinder = ({
@@ -2992,7 +2990,7 @@ export const Cylinder = ({
   dimensions = DEFAULT_DIMENSIONS,
   borderRadius = DEFAULT_BORDER_RADIUS,
   boxBorderRadius,
-  color,
+  color: colorVal,
   backgroundColor,
   ...rest
 }: CylinderProps): ReactElement => {
@@ -3009,9 +3007,9 @@ export const Cylinder = ({
       dimensions.width,
     ],
   );
-  const boardColor = Color.cssString(color ?? t.colors.gray.l11);
+  const boardColor = color.cssString(colorVal ?? t.colors.gray.l11);
   const bgColor =
-    backgroundColor == null ? undefined : Color.cssString(backgroundColor);
+    backgroundColor == null ? undefined : color.cssString(backgroundColor);
   const widthScale = dimensions.width / 66;
   const heightScale = dimensions.height / 180;
   const transform = `scale(${widthScale},${heightScale})`;
@@ -3067,12 +3065,12 @@ export interface SpringLoadedReliefValveProps
 export const SpringLoadedReliefValve = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   enabled = false,
   ...rest
 }: SpringLoadedReliefValveProps): ReactElement => {
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   return (
     <Toggle
       {...rest}
@@ -3098,7 +3096,7 @@ export const SpringLoadedReliefValve = ({
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 89, height: 76 }}
-        color={color}
+        color={colorVal}
         orientation={orientation}
         scale={scale}
       >
@@ -3134,12 +3132,12 @@ export interface AngledSpringLoadedReliefValveProps
 export const AngledSpringLoadedReliefValve = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   enabled = false,
   ...rest
 }: AngledSpringLoadedReliefValveProps): ReactElement => {
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   return (
     <Toggle
       {...rest}
@@ -3165,7 +3163,7 @@ export const AngledSpringLoadedReliefValve = ({
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 66, height: 101 }}
-        color={color}
+        color={colorVal}
         orientation={orientation}
         scale={scale}
       >
@@ -3188,7 +3186,7 @@ export interface TJunctionProps extends DivProps, SVGBasedPrimitiveProps {}
 export const TJunction = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   ...rest
 }: TJunctionProps): ReactElement => (
@@ -3218,13 +3216,13 @@ export const TJunction = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 39, height: 21 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
       <Path
         d="M1.5 5.5V3.5C1.5 2.39543 2.39543 1.5 3.5 1.5H35.5C36.6046 1.5 37.5 2.39543 37.5 3.5V5.5C37.5 6.60457 36.6046 7.5 35.5 7.5H24.5C23.3954 7.5 22.5 8.39543 22.5 9.5V17.5C22.5 18.6046 21.6046 19.5 20.5 19.5H18.5C17.3954 19.5 16.5 18.6046 16.5 17.5V9.5C16.5 8.39543 15.6046 7.5 14.5 7.5H3.5C2.39543 7.5 1.5 6.60457 1.5 5.5Z"
-        fill={Color.cssString(color)}
+        fill={color.cssString(colorVal)}
         stroke="none"
       />
     </InternalSVG>
@@ -3236,7 +3234,7 @@ export interface CrossJunctionProps extends DivProps, SVGBasedPrimitiveProps {}
 export const CrossJunction = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   ...rest
 }: CrossJunctionProps): ReactElement => (
@@ -3267,13 +3265,13 @@ export const CrossJunction = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 39, height: 39 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
       <Path
         d="M22.5 35.5C22.5 36.6046 21.6046 37.5 20.5 37.5H18.5C17.3954 37.5 16.5 36.6046 16.5 35.5V24.5C16.5 23.3954 15.6046 22.5 14.5 22.5H3.5C2.39543 22.5 1.5 21.6046 1.5 20.5V18.5C1.5 17.3954 2.39543 16.5 3.5 16.5H14.5C15.6046 16.5 16.5 15.6046 16.5 14.5V3.5C16.5 2.39543 17.3954 1.5 18.5 1.5H20.5C21.6046 1.5 22.5 2.39543 22.5 3.5V14.5C22.5 15.6046 23.3954 16.5 24.5 16.5H35.5C36.6046 16.5 37.5 17.3954 37.5 18.5V20.5C37.5 21.6046 36.6046 22.5 35.5 22.5H24.5C23.3954 22.5 22.5 23.3954 22.5 24.5V35.5Z"
-        fill={Color.cssString(color)}
+        fill={color.cssString(colorVal)}
         stroke="none"
       />
     </InternalSVG>
@@ -3284,14 +3282,14 @@ export interface FlowmeterGeneralProps extends DivProps, SVGBasedPrimitiveProps 
 
 interface FlowLabelProps {
   position?: xy.XY;
-  color: Color.Crude;
+  color: color.Crude;
 }
 
-const FlowmeterLabel = ({ position, color }: FlowLabelProps) => (
+const FlowmeterLabel = ({ position, color: colorVal }: FlowLabelProps) => (
   <text
     x={position?.x ?? 57}
     y={position?.y ?? 27}
-    style={{ fill: Color.cssString(color), fontWeight: 450 }}
+    style={{ fill: color.cssString(colorVal), fontWeight: 450 }}
     stroke="none"
   >
     F

@@ -10,11 +10,8 @@
 import { Icon } from "@synnaxlabs/media";
 import { type Icon as PIcon } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
-import { z } from "zod";
 
-export const platformZ = runtime.osZ.or(z.enum(["Docker"]));
-
-export type Platform = z.infer<typeof platformZ>;
+export type Platform = runtime.OS | "Docker";
 
 export interface Info {
   key: Platform;
@@ -33,8 +30,7 @@ export const getFromURL = (detect: boolean): Platform | null => {
   const url = new URL(window.location.href);
   const platform = url.searchParams.get("platform");
   return (
-    platformZ.safeParse(platform).data ??
-    (detect ? (platformZ.safeParse(runtime.getOS()).data ?? null) : null)
+    PLATFORMS.find((p) => p.key === platform)?.key ?? (detect ? runtime.getOS() : null)
   );
 };
 

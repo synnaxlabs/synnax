@@ -9,13 +9,18 @@
 
 import "@/table/cells/Cells.css";
 
-import { bounds, type box, location, scale, type UnknownRecord } from "@synnaxlabs/x";
+import {
+  bounds,
+  type box,
+  color,
+  location,
+  scale,
+  type UnknownRecord,
+} from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
-import { color } from "@/ether";
 import { Menu } from "@/menu";
 import { Cell as Core } from "@/table/Table";
 import { telem } from "@/telem/aether";
@@ -66,7 +71,7 @@ export const Text = ({
       selected={selected}
       onClick={handleSelect}
       onContextMenu={handleSelect}
-      style={{ backgroundColor: Color.cssString(backgroundColor) }}
+      style={{ backgroundColor: color.cssString(backgroundColor) }}
     >
       <CoreText.Editable
         level={level}
@@ -87,7 +92,7 @@ export const valuePropsZ = z.object({
   telem: telem.stringSourceSpecZ,
   redline: z.object({
     bounds: bounds.bounds,
-    gradient: Color.gradientZ,
+    gradient: color.gradientZ,
   }),
   level: CoreText.levelZ,
   color: z.string(),

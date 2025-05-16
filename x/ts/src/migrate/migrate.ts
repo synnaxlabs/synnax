@@ -189,8 +189,8 @@ export const migrator = <
         return def;
       }
       try {
-        if (targetSchema != null) return targetSchema.parse(v);
-        return v;
+        if (targetSchema != null) return targetSchema.parse(v) as O;
+        return v as unknown as O;
       } catch (e) {
         console.log(`${name} failed to parse default. Exiting with default`);
         console.error(e);

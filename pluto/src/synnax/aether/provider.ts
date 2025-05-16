@@ -34,7 +34,7 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
   schema = Provider.stateZ;
 
   async afterUpdate(ctx: aether.Context): Promise<void> {
-    if (!ctx.setPreviously(CONTEXT_KEY)) set(ctx, ZERO_CONTEXT_VALUE);
+    if (!ctx.wasSetPreviously(CONTEXT_KEY)) set(ctx, ZERO_CONTEXT_VALUE);
     if (this.state.props == null) {
       if (this.internal.synnax != null) {
         this.setState((p) => ({ ...p, state: Synnax.connectivity.DEFAULT }));

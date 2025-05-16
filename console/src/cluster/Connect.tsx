@@ -54,10 +54,9 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
   const names = useSelectAllNames();
-  const formSchema = clusterZ.refine(
-    ({ name }) => !names.includes(name),
-    ({ name }) => ({ message: `${name} is already in use.`, path: ["name"] }),
-  );
+  const formSchema = clusterZ.refine(({ name }) => !names.includes(name), {
+    error: ({ name }) => ({ message: `${name} is already in use.`, path: ["name"] }),
+  });
   const handleError = Status.useErrorHandler();
   const methods = Form.use<typeof formSchema>({
     schema: formSchema,
@@ -83,7 +82,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
 
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
-      <Form.Form {...methods}>
+      <Form.Form<typeof formSchema> {...methods}>
         <Align.Space className="console-form" grow size="tiny" justify="center">
           <Form.TextField
             path="name"

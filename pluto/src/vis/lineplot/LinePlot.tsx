@@ -9,7 +9,15 @@
 
 import "@/vis/lineplot/LinePlot.css";
 
-import { box, deep, type Destructor, direction, location, xy } from "@synnaxlabs/x";
+import {
+  box,
+  type color,
+  deep,
+  type Destructor,
+  direction,
+  location,
+  xy,
+} from "@synnaxlabs/x";
 import {
   createContext,
   type CSSProperties,
@@ -27,7 +35,6 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { useEffectCompare } from "@/hooks";
 import { useMemoDeepEqualProps } from "@/memo";
@@ -87,7 +94,7 @@ export const useGridEntry = (meta: grid.Region, component: string): CSSPropertie
 
 export interface LineSpec {
   key: string;
-  color: Color.Crude;
+  color: color.Crude;
   label: string;
   visible: boolean;
 }
