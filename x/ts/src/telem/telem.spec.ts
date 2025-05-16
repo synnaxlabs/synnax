@@ -217,6 +217,32 @@ describe("TimeStamp", () => {
       expect(remainder.equals(expectedRemainder)).toBeTruthy();
     });
   });
+
+  describe("sort", () => {
+    interface Spec {
+      a: TimeStamp;
+      b: TimeStamp;
+      expected: number;
+    }
+    const TESTS: Spec[] = [
+      {
+        a: TimeStamp.seconds(3),
+        b: TimeStamp.seconds(2),
+        expected: TimeSpan.seconds(1).nanoseconds,
+      },
+      {
+        a: TimeStamp.seconds(2),
+        b: TimeStamp.seconds(3),
+        expected: TimeSpan.seconds(-1).nanoseconds,
+      },
+      { a: TimeStamp.seconds(2), b: TimeStamp.seconds(2), expected: 0 },
+    ];
+    TESTS.forEach(({ a, b, expected }) => {
+      test(`TimeStamp.sort(${a.toString()}, ${b.toString()}) = ${expected}`, () => {
+        expect(TimeStamp.sort(a, b)).toEqual(expected);
+      });
+    });
+  });
 });
 
 describe("TimeSpan", () => {
