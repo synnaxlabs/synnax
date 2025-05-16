@@ -10,10 +10,11 @@
 package confluence
 
 import (
+	"sync"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/address"
 	atomicx "github.com/synnaxlabs/x/atomic"
-	"sync"
 )
 
 // NewStream opens a new Stream with the given buffer capacity.
