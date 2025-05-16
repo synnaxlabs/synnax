@@ -844,9 +844,6 @@ export class TimeSpan implements Stringer {
     z.number().transform((n) => new TimeSpan(n)),
     z.instanceof(TimeSpan),
   ]);
-
-  static readonly sort = (a: TimeSpan, b: TimeSpan): number =>
-    Number(a.valueOf() - b.valueOf());
 }
 
 /** Rate represents a data rate in Hz. */
