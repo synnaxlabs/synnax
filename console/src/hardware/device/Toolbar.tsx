@@ -7,92 +7,43 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, ontology, type rack } from "@synnaxlabs/client";
+import { type device, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Align, Device, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import {
-  createContext,
+  type PropsWithChildren,
   type ReactElement,
-  useContext,
-  useState as reactUseState,
+  useCallback,
+  useState,
 } from "react";
 
 import { Cluster } from "@/cluster";
 import { Toolbar } from "@/components";
+import { StateContext, type States } from "@/hardware/device/StateContext";
+import { Rack } from "@/hardware/rack";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
-export interface StateContextValue extends Record<string, device.State> {}
-
-const StateContext = createContext<StateContextValue>({});
-
-const StateProvider = ({ children }: { children: ReactElement }) => {
+const StateProvider = (props: PropsWithChildren) => {
   const client = Synnax.use();
-  const [states, setStates] = reactUseState<StateContextValue>({});
-
+  const [states, setStates] = useState<States>({});
   useAsyncEffect(async () => {
     if (client == null) return;
-    const devs = await client.hardware.devices.retrieve([], { includeState: true });
-    const initialStates: StateContextValue = Object.fromEntries(
-      devs.filter((d) => d.state != null).map((d) => [d.key, d.state as device.State]),
+    const devices = await client.hardware.devices.retrieve([], { includeState: true });
+    const initialStates: States = Object.fromEntries(
+      devices
+        .filter(({ state }) => state != null)
+        .map(({ key, state }) => [key, state as device.State]),
     );
     setStates(initialStates);
-    const observer = await client.hardware.devices.openStateObserver();
-    const disconnect = observer.onChange((states) => {
-      console.log("states", states);
-      setStates((prevStates) => {
-        const nextStates = Object.fromEntries(states.map((s) => [s.key, s]));
-        return { ...prevStates, ...nextStates };
-      });
-    });
-    return async () => {
-      disconnect();
-      await observer.close();
-    };
+  }, [client]);
+  const handleStateUpdate = useCallback((state: device.State) => {
+    setStates((prevStates) => ({ ...prevStates, [state.key]: state }));
   }, []);
-
-  return <StateContext.Provider value={states}>{children}</StateContext.Provider>;
+  Device.useStateSynchronizer(handleStateUpdate);
+  return <StateContext {...props} value={states} />;
 };
-
-interface RackStateContextValue extends Record<string, rack.State> {}
-
-const RackStateContext = createContext<RackStateContextValue>({});
-
-const RackStateProvider = ({ children }: { children: ReactElement }) => {
-  const client = Synnax.use();
-  const [states, setStates] = reactUseState<RackStateContextValue>({});
-
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const racks = await client.hardware.racks.retrieve([], { includeState: true });
-    const initialStates: RackStateContextValue = Object.fromEntries(
-      racks.filter((r) => r.state != null).map((r) => [r.key, r.state as rack.State]),
-    );
-    setStates(initialStates);
-    const observer = await client.hardware.racks.openStateObserver();
-    const disconnect = observer.onChange((states) => {
-      setStates((prevStates) => {
-        const nextStates = Object.fromEntries(states.map((s) => [s.key, s]));
-        return { ...prevStates, ...nextStates };
-      });
-    });
-    return async () => {
-      disconnect();
-      await observer.close();
-    };
-  }, []);
-
-  return (
-    <RackStateContext.Provider value={states}>{children}</RackStateContext.Provider>
-  );
-};
-
-export const useRackState = (key: string): rack.State | undefined =>
-  useContext(RackStateContext)[key];
-
-export const useState = (key: string): device.State | undefined =>
-  useContext(StateContext)[key];
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
@@ -103,21 +54,21 @@ const Content = (): ReactElement => {
       const res = await client?.ontology.retrieveChildren(ontology.ROOT_ID, {
         includeSchema: false,
       });
-      return res?.filter((r) => r.name === "Devices")[0].id;
+      return res?.find(({ name }) => name === "Devices")?.id;
     },
   });
 
   return (
     <Cluster.NoneConnectedBoundary>
       <StateProvider>
-        <RackStateProvider>
+        <Rack.StateProvider>
           <Align.Space empty style={{ height: "100%" }}>
             <Toolbar.Header>
               <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
             </Toolbar.Header>
             <Ontology.Tree root={group.data} />
           </Align.Space>
-        </RackStateProvider>
+        </Rack.StateProvider>
       </StateProvider>
     </Cluster.NoneConnectedBoundary>
   );

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type CrudeSeries, Series } from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
 
 import { channel } from "@/channel";
 import { ValidationError } from "@/errors";
@@ -33,11 +34,15 @@ export class ReadAdapter {
     return adapter;
   }
 
+  updateKeys(keys: channel.Key | channel.Keys): void {
+    this.adapter = null;
+    this.keys = toArray(keys);
+  }
+
   async update(channels: channel.Params): Promise<void> {
     const { variant, normalized } = channel.analyzeParams(channels);
     if (variant === "keys") {
-      this.adapter = null;
-      this.keys = normalized as channel.Key[];
+      this.updateKeys(normalized as channel.Key[]);
       return;
     }
     const fetched = await this.retriever.retrieve(normalized);

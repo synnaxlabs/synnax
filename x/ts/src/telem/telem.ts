@@ -571,6 +571,9 @@ export class TimeStamp implements Stringer {
     z.number().transform((n) => new TimeStamp(n)),
     z.instanceof(TimeStamp),
   ]);
+
+  static readonly sort = (a: TimeStamp, b: TimeStamp): number =>
+    Number(a.valueOf() - b.valueOf());
 }
 
 /** TimeSpan represents a nanosecond precision duration. */
@@ -1170,15 +1173,10 @@ export class TimeRange implements Stringer {
       .transform((v) => new TimeRange(v.start, v.end)),
     z.instanceof(TimeRange),
   ]);
-}
 
-export const sortTimeRange = (a: TimeRange, b: TimeRange): -1 | 0 | 1 => {
-  if (a.start.before(b.start)) return -1;
-  if (a.start.after(b.start)) return 1;
-  if (a.end.before(b.end)) return -1;
-  if (a.end.after(b.end)) return 1;
-  return 0;
-};
+  static readonly sort = (a: TimeRange, b: TimeRange): number =>
+    TimeStamp.sort(a.start, b.start) || TimeStamp.sort(a.end, b.end);
+}
 
 /** DataType is a string that represents a data type. */
 export class DataType extends String implements Stringer {
@@ -1431,7 +1429,7 @@ export class DataType extends String implements Stringer {
 }
 
 /**
- * The Size of an elementy in bytes.
+ * The Size of an element in bytes.
  */
 export class Size extends Number implements Stringer {
   constructor(value: CrudeSize) {
@@ -1684,7 +1682,7 @@ export const convertDataType = (
 export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
   if (typeof a === "number" && typeof b === "number") return a + b;
-  if (b === 0) return a;
-  if (a === 0) return b;
+  if (b === 0 || b === 0n) return a;
+  if (a === 0 || a === 0n) return b;
   return Number(a) + Number(b);
 };

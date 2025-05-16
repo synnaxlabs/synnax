@@ -623,7 +623,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({ ...value, source: t });
   };
 
-  const c = Channel.useName(source.channel as number);
+  const [c] = Channel.useName(source.channel as number);
 
   useEffect(() => onChange({ ...value }), [c]);
 
