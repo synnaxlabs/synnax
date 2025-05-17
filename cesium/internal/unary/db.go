@@ -92,16 +92,16 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 	defer func() { err = db.wrapError(err) }()
 	var iter *Iterator
 	if iter, err = db.OpenIterator(IterRange(tr)); err != nil {
-		return
+		return frame, err
 	}
-	defer func() { err = iter.Close() }()
+	defer func() { err = db.wrapError(iter.Close()) }()
 	if !iter.SeekFirst(ctx) {
-		return
+		return frame, err
 	}
 	for iter.Next(ctx, telem.TimeSpanMax) {
 		frame = frame.Extend(iter.Value())
 	}
-	return
+	return frame, err
 }
 
 // Close closes the unary database, releasing all resources associated with it. Close
@@ -116,8 +116,7 @@ func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-	err := db.domain.Close()
-	if err != nil {
+	if err := db.domain.Close(); err != nil {
 		if errors.Is(err, core.ErrOpenResource) {
 			// If the close failed because of an open entity, the database should not be
 			// marked as closed and can still serve reads/writes.

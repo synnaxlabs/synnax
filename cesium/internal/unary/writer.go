@@ -146,9 +146,6 @@ type Writer struct {
 	// unnecessary index lookups by keeping track of the highest timestamp written. Only
 	// valid when Channel.IsIndex is true.
 	hwm telem.TimeStamp
-	// lastCommitFileSwitch describes whether the last commit involved a file switch. If
-	// it did, then it is necessary to resolve the timestamp for that commit this time.
-	lastCommitFileSwitch bool
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
@@ -175,8 +172,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		idx:       db.index(),
 		wrapError: db.wrapError,
 	}
-	var g *control.Gate[*controlledWriter]
-	if g, transfer, err = db.controller.OpenGate(control.GateConfig[*controlledWriter]{
+	if w.control, transfer, err = db.controller.OpenGate(control.GateConfig[*controlledWriter]{
 		ErrIfControlled:       config.False(),
 		ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
 		TimeRange:             cfg.controlTimeRange(),
@@ -197,7 +193,6 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	}); err != nil {
 		return nil, transfer, w.wrapError(err)
 	}
-	w.control = g
 	return w, transfer, w.wrapError(err)
 }
 

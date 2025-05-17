@@ -105,7 +105,7 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs xfs.FS) error {
 		Channel:         ch,
 		Instrumentation: db.options.Instrumentation,
 		FileSize:        db.options.fileSize,
-		GCThreshold:     db.options.gcCfg.GCThreshold,
+		GCThreshold:     db.options.gcCfg.Threshold,
 	})
 	if err != nil {
 		return err

@@ -12,19 +12,9 @@ package stringer
 import (
 	"fmt"
 	"strings"
-)
 
-func TruncateSlice[T any](slice []T, maxDisplayValues int) (first, last []T) {
-	if len(slice) <= maxDisplayValues || maxDisplayValues <= 0 {
-		first = slice
-		return
-	}
-	startCount := maxDisplayValues / 2
-	endCount := maxDisplayValues - startCount
-	first = slice[:startCount]
-	last = slice[len(slice)-endCount:]
-	return
-}
+	"github.com/synnaxlabs/x/slices"
+)
 
 // TruncateAndFormatSlice returns a string representation of a slice, showing only the
 // first and last few elements if the slice is longer than maxDisplayValues. The
@@ -33,7 +23,7 @@ func TruncateAndFormatSlice[T any](
 	slice []T,
 	maxDisplayValues int,
 ) string {
-	first, last := TruncateSlice(slice, maxDisplayValues)
+	first, last := slices.Truncate(slice, maxDisplayValues)
 	if len(last) == 0 {
 		return fmt.Sprintf("%v", first)
 	}

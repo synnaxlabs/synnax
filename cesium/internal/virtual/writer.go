@@ -91,8 +91,7 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		Channel:      db.cfg.Channel,
 		wrapError:    db.wrapError,
 	}
-	var g *control.Gate[*controlResource]
-	if g, transfer, err = db.controller.OpenGate(control.GateConfig[*controlResource]{
+	if w.control, transfer, err = db.controller.OpenGate(control.GateConfig[*controlResource]{
 		TimeRange:             cfg.domain(),
 		ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
 		Authority:             cfg.Authority,
@@ -106,7 +105,6 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 	}); err != nil {
 		return nil, transfer, db.wrapError(err)
 	}
-	w.control = g
 	db.openWriters.Add(1)
 	w.onClose = func() {
 		db.openWriters.Add(-1)

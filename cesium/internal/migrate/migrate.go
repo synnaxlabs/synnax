@@ -64,7 +64,7 @@ var (
 		"0.0.0": migrateV0toV1,
 		"1.0.0": migrateV1toV2,
 	}
-	Migrate = migrate.Migrator(migrate.MigratorConfig[DBState, DBState]{
+	Migrate = migrate.NewMigrator(migrate.MigratorConfig[DBState, DBState]{
 		Migrations: migrations,
 	})
 )

@@ -102,7 +102,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	}
 	r.gates.Add(g)
 	r.counter++
-	return
+	return g, t, nil
 }
 
 // release a gate from the region.
@@ -110,8 +110,8 @@ func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 	r.Lock()
 	defer r.Unlock()
 	r.gates.Remove(g)
-	if wasInControl := r.curr == g; !wasInControl {
-		return
+	if r.curr != g {
+		return res, transfer
 	}
 	r.curr = nil
 	transfer.From = g.state()
@@ -173,5 +173,5 @@ func (r *region[R]) update(g *Gate[R], auth control.Authority) (t Transfer) {
 		r.curr = g
 		t.To = g.state()
 	}
-	return
+	return t
 }

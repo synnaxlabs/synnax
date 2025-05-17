@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // Package migrate provides utilities for handling data migrations between different
 // versions of a schema or data structure.
 package migrate
@@ -14,7 +23,7 @@ import (
 
 // Migratable represents a type that can be migrated between versions
 type Migratable interface {
-	GetVersion() version.Semantic
+	GetVersion() version.Counter
 }
 
 type Context struct {
@@ -39,36 +48,35 @@ func CreateMigration[I, O Migratable](cfg MigrationConfig[I, O]) Migration[Migra
 		if err != nil {
 			ctx.L.Error("migration failed",
 				zap.String("module", cfg.Name),
-				zap.String("input_version", string(input.GetVersion())),
-				zap.String("output_version", string(out.GetVersion())), zap.Error(err))
+				zap.Int("input_version", int(input.GetVersion())),
+				zap.Int("output_version", int(out.GetVersion())), zap.Error(err))
 			return zero, errors.Wrapf(err, "migration %s failed for version %s to %s", cfg.Name, input.GetVersion(), out.GetVersion())
 		}
 		ctx.L.Info("migration completed",
 			zap.String("module", cfg.Name),
-			zap.String("input_version", string(input.GetVersion())),
-			zap.String("output_version", string(out.GetVersion())),
+			zap.Int("input_version", int(input.GetVersion())),
+			zap.Int("output_version", int(out.GetVersion())),
 		)
 		return out, nil
 	}
 }
 
 // Migrations is a map of version strings to migration functions
-type Migrations map[version.Semantic]Migration[Migratable, Migratable]
+type Migrations map[version.Counter]Migration[Migratable, Migratable]
 
 // MigratorConfig holds the configuration for creating a migrator
 type MigratorConfig[I, O Migratable] struct {
 	alamos.Instrumentation
-	Name           string
-	Migrations     Migrations
-	Default        O
-	DefaultVersion version.Semantic
+	Name       string
+	Migrations Migrations
+	Default    O
 }
 
-// Migrator creates a function that can migrate data from one version to another
-func Migrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
-	var latestV version.Semantic = "0.0.0"
+// NewMigrator creates a function that can migrate data from one version to another
+func NewMigrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
+	var latestV version.Counter = 0
 	for v := range cfg.Migrations {
-		if comp, err := version.CompareSemantic(v, latestV); err == nil && comp > 0 {
+		if v.NewerThan(latestV) {
 			latestV = v
 		}
 	}
@@ -76,10 +84,10 @@ func Migrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
 	if len(cfg.Migrations) == 0 {
 		return func(v I) O {
 			if v.GetVersion() != cfg.Default.GetVersion() {
-				cfg.L.Info("no migrations available, using default",
+				cfg.L.Warn("no migrations available, using default",
 					zap.String("module", cfg.Name),
-					zap.String("v", string(v.GetVersion())),
-					zap.String("default_version", string(cfg.Default.GetVersion())),
+					zap.Int("version", int(v.GetVersion())),
+					zap.Int("default_version", int(cfg.Default.GetVersion())),
 				)
 			}
 			return cfg.Default
@@ -91,26 +99,21 @@ func Migrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
 	var migrate func(Migratable) (O, error)
 	migrate = func(old Migratable) (O, error) {
 		v := old.GetVersion()
-		if v == "" {
-			v = cfg.DefaultVersion
+		if v == 0 {
+			v = cfg.Default.GetVersion()
 		}
 
-		comp, err := version.CompareSemantic(v, latestV)
-		if err != nil {
-			return cfg.Default, fmt.Errorf("comparing versions: %w", err)
-		}
-
-		if comp > 0 {
+		if old.GetVersion().NewerThan(latestV) {
 			if applied {
 				cfg.L.Info("migration complete",
 					zap.String("module", cfg.Name),
-					zap.String("v", string(v)),
+					zap.Int("version", int(v)),
 				)
 			} else {
-				cfg.L.Info("v up to date",
+				cfg.L.Info("version up to date",
 					zap.String("module", cfg.Name),
-					zap.String("v", string(v)),
-					zap.String("target_version", string(cfg.Default.GetVersion())),
+					zap.Int("version", int(v)),
+					zap.Int("target_version", int(cfg.Default.GetVersion())),
 				)
 			}
 			return old.(O), nil
@@ -118,7 +121,7 @@ func Migrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
 
 		migration, ok := cfg.Migrations[v]
 		if !ok {
-			return cfg.Default, fmt.Errorf("no migration found for v %s", v)
+			return cfg.Default, fmt.Errorf("no migration found for v %v", int(v))
 		}
 
 		new_, err := migration(Context{Context: context.Background(), Instrumentation: cfg.Instrumentation}, old)

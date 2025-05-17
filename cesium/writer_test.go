@@ -1635,7 +1635,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(subDB.Close()).To(Succeed())
 					err := subDB.Write(ctx, 0, telem.MultiFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](1, 2, 3)}))
 					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
-					err = subDB.WriteArray(ctx, key, 0, telem.NewSeriesV[int64](1, 2, 3))
+					err = subDB.WriteSeries(ctx, key, 0, telem.NewSeriesV[int64](1, 2, 3))
 					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})

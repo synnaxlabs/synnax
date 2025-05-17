@@ -18,6 +18,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bounds"
+	xslices "github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/stringer"
 	"github.com/synnaxlabs/x/types"
 )
@@ -234,7 +235,7 @@ func (s Series) DataString() string {
 	case Uint8T:
 		return truncateAndFormatSlice(Unmarshal[uint8](s))
 	case TimeStampT:
-		first, last := stringer.TruncateSlice(Unmarshal[TimeStamp](s), maxDisplayValues)
+		first, last := xslices.Truncate(Unmarshal[TimeStamp](s), maxDisplayValues)
 		firstDeltas := make([]string, len(first)-1)
 		for i := 1; i < len(first); i++ {
 			firstDeltas[i-1] = "+" + TimeSpan(first[i]-first[0]).String()
@@ -270,7 +271,7 @@ func sortSeriesByAlignment(s1, s2 Series) int {
 
 // NewMultiSeries constructs a new MultiSeries from the given set of Series.
 // The series are sorted by their alignment, and the data type of the series must
-// be the same. If the data types are different, a panic will occur. The series
+// be the same. If the data types are different, a panic will occur.
 func NewMultiSeries(series []Series) MultiSeries {
 	if len(series) == 0 {
 		return MultiSeries{}

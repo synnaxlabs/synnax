@@ -106,6 +106,9 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		FileSize:        cfg.FileSize,
 		GCThreshold:     cfg.GCThreshold,
 	})
+	if err != nil {
+		return nil, err
+	}
 	c, err := control.New[*controlledWriter](control.Config{
 		Concurrency:     cfg.Channel.Concurrency,
 		Instrumentation: cfg.Instrumentation,

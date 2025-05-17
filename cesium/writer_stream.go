@@ -69,7 +69,9 @@ type WriterResponse struct {
 	// Authorized flags whether the write or commit operation was authorized. It is only
 	// valid during calls to WriterWrite and WriterCommit.
 	Authorized bool
-	Err        error
+	// Err contains an error that occurred when attempting to execute a request on the
+	// writer.
+	Err error
 }
 
 // StreamWriter provides a streaming interface for writing telemetry to the DB.
@@ -104,7 +106,6 @@ type streamWriter struct {
 	relay           confluence.Inlet[Frame]
 	internal        []*idxWriter
 	virtual         *virtualWriter
-	seqNum          int
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 	accumulatedErr  error
 }
@@ -234,19 +235,19 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 
 		if *w.EnableAutoCommit {
 			if _, err = idx.Commit(ctx); err != nil {
-				return
+				return err
 			}
 		}
 	}
 	if w.virtual.internal != nil {
 		if req.Frame, err = w.virtual.write(req.Frame); err != nil {
-			return
+			return err
 		}
 	}
 	if w.Mode.Stream() {
 		w.relay.Inlet() <- req.Frame
 	}
-	return
+	return err
 }
 
 func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
@@ -273,7 +274,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 				return err
 			}
 			u.Transfers = append(u.Transfers, u_.Transfers...)
-			return nil
+			return l
 		})
 	}
 	if w.virtual.internal != nil {

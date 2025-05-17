@@ -113,7 +113,7 @@ func DefaultWriterConfig() WriterConfig {
 	}
 }
 
-// Validate implements cfg.GateConfig.
+// Validate implements config.Config.
 func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.WriterConfig")
 	validate.NotEmptySlice(v, "Channels", c.Channels)
@@ -128,7 +128,7 @@ func (c WriterConfig) Validate() error {
 	return v.Error()
 }
 
-// Override implements cfg.GateConfig.
+// Override implements config.Config.
 func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Channels = override.Slice(c.Channels, other.Channels)
@@ -220,16 +220,16 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	// ensures that we provide a valid domain alignment to all unary writers for a
 	// particular index group.
 	for i, key := range cfg.Channels {
-		u, uOk := db.mu.unaryDBs[key]
-		v, vOk := db.mu.virtualDBs[key]
-		if !vOk && !uOk {
+		u, isUnary := db.mu.unaryDBs[key]
+		v, isVirtual := db.mu.virtualDBs[key]
+		if !isVirtual && !isUnary {
 			return nil, core.NewErrChannelNotFound(key)
 		}
 		var (
 			auth     = cfg.authority(i)
 			transfer control.Transfer
 		)
-		if vOk {
+		if isVirtual {
 			// If the channel is virtual.
 			if virtualWriters == nil {
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
@@ -254,9 +254,8 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			if err != nil {
 				return nil, err
 			}
-			// Hot path optimization: in the common case we only write to a rate based
-			// index or a domain-indexed channel, not both. In either case we can avoid
-			// a map allocation.
+			// Hot path optimization: in the common case we only write to virtual channels
+			// XOR indexed channels. In either case we can avoid a map allocation.
 			if domainWriters == nil {
 				domainWriters = make(map[ChannelKey]*idxWriter)
 			}

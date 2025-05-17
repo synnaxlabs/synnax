@@ -114,7 +114,7 @@ func NewDynamic(channels channel.Readable) *Codec {
 }
 
 func newCodec() *Codec {
-	c := &Codec{buf: xbinary.NewWriter(0, 0, byteOrder)}
+	c := &Codec{buf: xbinary.NewWriter(0, byteOrder)}
 	c.mu.updates = make(chan state, 50)
 	c.mu.updateAvailable.Store(false)
 	c.mu.states = make(map[uint32]state)

@@ -72,8 +72,8 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	return span.Error(w.Close())
 }
 
-// WriteArray writes a series into the specified channel at the specified start time.
-func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, series telem.Series) error {
+// WriteSeries writes a series into the specified channel at the specified start time.
+func (db *DB) WriteSeries(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, series telem.Series) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
@@ -89,16 +89,16 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 	defer func() { err = span.EndWith(err) }()
 	iter, err := db.OpenIterator(IteratorConfig{Channels: keys, Bounds: tr})
 	if err != nil {
-		return
+		return frame, err
 	}
 	defer func() { err = iter.Close() }()
 	if !iter.SeekFirst() {
-		return
+		return frame, err
 	}
 	for iter.Next(telem.TimeSpanMax) {
 		frame = frame.Extend(iter.Value())
 	}
-	return
+	return frame, err
 }
 
 // Close closes the database.

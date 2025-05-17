@@ -53,9 +53,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
-var (
-	errIteratorClosed = core.NewErrResourceClosed("unary.iterator")
-)
+var errIteratorClosed = core.NewErrResourceClosed("unary.iterator")
 
 type Iterator struct {
 	alamos.Instrumentation
@@ -75,7 +73,10 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 		return nil, db.wrapError(ErrDBClosed)
 	}
 	// Safe to ignore error here as Validate will always return nil
-	cfg, _ := config.New(DefaultIteratorConfig, cfgs...)
+	cfg, err := config.New(DefaultIteratorConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	iter := db.domain.OpenIterator(cfg.domainIteratorConfig())
 	i := &Iterator{
 		idx:            db.index(),
@@ -364,19 +365,19 @@ func (i *Iterator) read(
 	series.Alignment = alignment
 	r, err := i.internal.OpenReader(ctx)
 	if err != nil {
-		return
+		return series, err
 	}
 	n, err := r.ReadAt(series.Data, int64(offset))
 	if err != nil && !errors.Is(err, io.EOF) {
-		return
+		return series, err
 	}
 	if err = r.Close(); err != nil {
-		return
+		return series, err
 	}
 	if n < len(series.Data) {
 		series.Data = series.Data[:n]
 	}
-	return
+	return series, err
 }
 
 func (i *Iterator) sliceDomain(ctx context.Context) (

@@ -184,8 +184,8 @@ var _ = Describe("Channel", Ordered, func() {
 					By("Writing some data into the channel")
 					series1 := telem.NewSecondsTSV(0, 1, 2, 3, 4)
 					series2 := telem.NewSecondsTSV(5, 6, 7, 8, 9)
-					Expect(db.WriteArray(ctx, unaryKey, 0, series1)).To(Succeed())
-					Expect(db.WriteArray(ctx, unaryKey, 5*telem.SecondTS, series2)).To(Succeed())
+					Expect(db.WriteSeries(ctx, unaryKey, 0, series1)).To(Succeed())
+					Expect(db.WriteSeries(ctx, unaryKey, 5*telem.SecondTS, series2)).To(Succeed())
 
 					By("Re-keying the channel")
 					Expect(db.RekeyChannel(ctx, unaryKey, unaryKeyNew)).To(Succeed())
@@ -201,7 +201,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 					By("Asserting that reads and writes on the channel still work")
 					series3 := telem.NewSecondsTSV(10, 11, 12, 13, 14)
-					Expect(db.WriteArray(ctx, unaryKeyNew, 10*telem.SecondTS, series3)).To(Succeed())
+					Expect(db.WriteSeries(ctx, unaryKeyNew, 10*telem.SecondTS, series3)).To(Succeed())
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, unaryKeyNew))
 					Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(series1))
 					Expect(f.SeriesAt(1)).To(telem.MatchWrittenSeries(series2))
@@ -344,7 +344,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 						By("Asserting that reads and writes on the channel still work")
 						series1 := telem.NewSecondsTSV(10, 11, 12, 13, 14)
-						Expect(db.WriteArray(ctx, errorKey1New, 10*telem.SecondTS, series1)).To(Succeed())
+						Expect(db.WriteSeries(ctx, errorKey1New, 10*telem.SecondTS, series1)).To(Succeed())
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, errorKey1New))
 						Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(series1))
 

@@ -38,7 +38,7 @@ var (
 )
 
 func (ts *TimeStamp) UnmarshalJSON(b []byte) error {
-	n, err := binary.UnmarshalStringInt64(b)
+	n, err := binary.UnmarshalJSONStringInt64(b)
 	*ts = TimeStamp(n)
 	return err
 }
@@ -325,7 +325,7 @@ const (
 )
 
 func (ts *TimeSpan) UnmarshalJSON(b []byte) error {
-	n, err := binary.UnmarshalStringInt64(b)
+	n, err := binary.UnmarshalJSONStringInt64(b)
 	*ts = TimeSpan(n)
 	return err
 }
@@ -547,7 +547,7 @@ func (a Alignment) String() string {
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (a *Alignment) UnmarshalJSON(b []byte) error {
-	n, err := binary.UnmarshalStringUint64(b)
+	n, err := binary.UnmarshalJSONStringUint64(b)
 	*a = Alignment(n)
 	return err
 }

@@ -71,7 +71,7 @@ func NewStaticJSONV[T any](data ...T) (series Series) {
 	series.DataType = JSONT
 	strings := make([]string, len(data))
 	for i, v := range data {
-		strings[i] = xbinary.MustEncodeJSONtoString(v)
+		strings[i] = xbinary.MustEncodeJSONToString(v)
 	}
 	series.Data = MarshalStrings(strings, series.DataType)
 	return series

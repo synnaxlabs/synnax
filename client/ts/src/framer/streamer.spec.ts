@@ -11,7 +11,7 @@ import { DataType, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it, test } from "vitest";
 
 import { newClient } from "@/setupspecs";
-import { newVirtualChannel } from "@/testutil/indexedPair";
+import { newVirtualChannel } from "@/testutil/channels";
 
 const client = newClient();
 

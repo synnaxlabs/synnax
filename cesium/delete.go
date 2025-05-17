@@ -30,39 +30,39 @@ type GCConfig struct {
 	// MaxGoroutine is the maximum number of Goroutines that can be launched for each
 	// try of garbage collection.
 	MaxGoroutine uint
-	// GCTryInterval is the interval of time between two tries of garbage collection are
+	// TryInterval is the interval of time between two tries of garbage collection are
 	// started.
-	GCTryInterval time.Duration
-	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	TryInterval time.Duration
+	// Threshold is the minimum tombstone proportion of the Filesize to trigger a GC.
 	// Must be in (0, 1]. Note: Setting this value to 0 will have NO EFFECT as it is the
 	// default value. instead, set it to a very small number greater than 0.
 	// [OPTIONAL] Default: 0.2
-	GCThreshold float32
+	Threshold float32
 }
 
 var (
 	_               config.Config[GCConfig] = GCConfig{}
 	DefaultGCConfig                         = GCConfig{
-		MaxGoroutine:  10,
-		GCTryInterval: 30 * time.Second,
-		GCThreshold:   0.2,
+		MaxGoroutine: 10,
+		TryInterval:  30 * time.Second,
+		Threshold:    0.2,
 	}
 )
 
 // Override implements config.Config.
-func (g GCConfig) Override(other GCConfig) GCConfig {
-	g.GCTryInterval = override.Numeric(g.GCTryInterval, other.GCTryInterval)
-	g.GCThreshold = override.Numeric(g.GCThreshold, other.GCThreshold)
-	g.MaxGoroutine = override.Numeric(g.MaxGoroutine, other.MaxGoroutine)
-	return g
+func (cfg GCConfig) Override(other GCConfig) GCConfig {
+	cfg.TryInterval = override.Numeric(cfg.TryInterval, other.TryInterval)
+	cfg.Threshold = override.Numeric(cfg.Threshold, other.Threshold)
+	cfg.MaxGoroutine = override.Numeric(cfg.MaxGoroutine, other.MaxGoroutine)
+	return cfg
 }
 
 // Validate implements config.Config.
-func (g GCConfig) Validate() error {
+func (cfg GCConfig) Validate() error {
 	v := validate.New("cesium.GCConfig")
-	validate.Positive(v, "gc_try_interval", g.GCTryInterval)
-	validate.Positive(v, "gc_threshold", g.GCThreshold)
-	validate.Positive(v, "max_goroutine", g.MaxGoroutine)
+	validate.Positive(v, "gc_try_interval", cfg.TryInterval)
+	validate.Positive(v, "gc_threshold", cfg.Threshold)
+	validate.Positive(v, "max_goroutine", cfg.MaxGoroutine)
 	return v.Error()
 }
 
@@ -304,7 +304,7 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 }
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {
-	signal.GoTick(sCtx, opts.gcCfg.GCTryInterval, func(ctx context.Context, time time.Time) error {
+	signal.GoTick(sCtx, opts.gcCfg.TryInterval, func(ctx context.Context, time time.Time) error {
 		err := db.garbageCollect(ctx, opts.gcCfg.MaxGoroutine)
 		if err != nil {
 			db.L.Error("garbage collection error", zap.Error(err))

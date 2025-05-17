@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package telem_test
 
 import (
@@ -1109,6 +1118,61 @@ var _ = Describe("Frame", func() {
 				},
 			)
 			Expect(func() { _ = fr.RawKeyAt(2) }).To(Panic())
+		})
+	})
+
+	Describe("ShouldExcludeRaw", func() {
+		It("Should return false when mask is not enabled", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+
+			Expect(fr.ShouldExcludeRaw(0)).To(BeFalse())
+			Expect(fr.ShouldExcludeRaw(1)).To(BeFalse())
+			Expect(fr.ShouldExcludeRaw(2)).To(BeFalse())
+		})
+
+		It("Should return true for masked indices when mask is enabled", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+
+			filtered := fr.FilterKeys([]int{1, 3})
+
+			Expect(filtered.ShouldExcludeRaw(0)).To(BeFalse()) // Index 0 (key 1) is included
+			Expect(filtered.ShouldExcludeRaw(1)).To(BeTrue())  // Index 1 (key 2) is excluded
+			Expect(filtered.ShouldExcludeRaw(2)).To(BeFalse()) // Index 2 (key 3) is included
+		})
+
+		It("Should work correctly with sparse filtering", func() {
+			keys := make([]int, 10)
+			series := make([]telem.Series, 10)
+			for i := range 10 {
+				keys[i] = i + 1
+				series[i] = telem.NewSeriesV[int32](int32(i + 1))
+			}
+
+			fr := telem.MultiFrame(keys, series)
+			filtered := fr.FilterKeys([]int{1, 5, 10})
+
+			Expect(filtered.ShouldExcludeRaw(0)).To(BeFalse())
+			Expect(filtered.ShouldExcludeRaw(1)).To(BeTrue())
+			Expect(filtered.ShouldExcludeRaw(2)).To(BeTrue())
+			Expect(filtered.ShouldExcludeRaw(3)).To(BeTrue())
+			Expect(filtered.ShouldExcludeRaw(4)).To(BeFalse())
+			Expect(filtered.ShouldExcludeRaw(5)).To(BeTrue())
+			Expect(filtered.ShouldExcludeRaw(6)).To(BeTrue())
+			Expect(filtered.ShouldExcludeRaw(7)).To(BeTrue())
+			Expect(filtered.ShouldExcludeRaw(8)).To(BeTrue())
+			Expect(filtered.ShouldExcludeRaw(9)).To(BeFalse())
 		})
 	})
 })

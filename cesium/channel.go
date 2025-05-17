@@ -148,14 +148,14 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 	}()
 
 	if err = db.validateNewChannel(ch); err != nil {
-		return
+		return err
 	}
 	if ch.IsIndex {
 		ch.Index = ch.Key
 	}
 	ch.Version = version.Current
 	err = db.openVirtualOrUnary(ctx, ch)
-	return
+	return err
 }
 
 func (db *DB) validateNewChannel(ch Channel) error {

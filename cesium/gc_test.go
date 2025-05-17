@@ -34,14 +34,14 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				cleanUp func() error
 			)
 
-			Context("GCThreshold = 0", Ordered, func() {
+			Context("Threshold = 0", Ordered, func() {
 				BeforeAll(func() {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
-							MaxGoroutine:  10,
-							GCTryInterval: 10 * telem.Millisecond.Duration(),
-							GCThreshold:   math.SmallestNonzeroFloat32,
+							MaxGoroutine: 10,
+							TryInterval:  10 * telem.Millisecond.Duration(),
+							Threshold:    math.SmallestNonzeroFloat32,
 						}),
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(899*telem.ByteSize),
@@ -103,14 +103,14 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				})
 			})
 
-			Context("GCThreshold != 0", Ordered, func() {
+			Context("Threshold != 0", Ordered, func() {
 				BeforeAll(func() {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
-							MaxGoroutine:  10,
-							GCTryInterval: 10 * telem.Millisecond.Duration(),
-							GCThreshold:   float32(250) / 719,
+							MaxGoroutine: 10,
+							TryInterval:  10 * telem.Millisecond.Duration(),
+							Threshold:    float32(250) / 719,
 						}),
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(899*telem.ByteSize),
@@ -184,9 +184,9 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
-							MaxGoroutine:  10,
-							GCTryInterval: 10 * telem.Millisecond.Duration(),
-							GCThreshold:   1,
+							MaxGoroutine: 10,
+							TryInterval:  10 * telem.Millisecond.Duration(),
+							Threshold:    1,
 						}),
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(49*telem.ByteSize),

@@ -32,7 +32,7 @@ type controlResource struct {
 	alignment telem.Alignment
 }
 
-func (e *controlResource) ChannelKey() core.ChannelKey { return e.ck }
+func (r *controlResource) ChannelKey() core.ChannelKey { return r.ck }
 
 type DB struct {
 	cfg              Config

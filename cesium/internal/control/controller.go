@@ -78,7 +78,10 @@ type Controller[R Resource] struct {
 // New creates a new Controller that controls access to the specified resource type.
 func New[R Resource](cfg Config) (*Controller[R], error) {
 	cfg, err := config.New(DefaultConfig, cfg)
-	return &Controller[R]{Config: cfg, regions: []*region[R]{}}, err
+	if err != nil {
+		return nil, err
+	}
+	return &Controller[R]{Config: cfg, regions: []*region[R]{}}, nil
 }
 
 // GateConfig is the configuration for opening a gate.
@@ -164,7 +167,7 @@ func (c *Controller[R]) OpenGate(cfg GateConfig[R]) (g *Gate[R], t Transfer, err
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if cfg, err = config.New(DefaultGateConfig[R](), cfg); err != nil {
-		return
+		return g, t, err
 	}
 
 	var exists bool
@@ -185,15 +188,14 @@ func (c *Controller[R]) OpenGate(cfg GateConfig[R]) (g *Gate[R], t Transfer, err
 		}
 	}
 	if exists {
-		return
+		return g, t, r
 	}
 	var res R
 	if res, err = cfg.OpenResource(); err != nil {
 		return
 	}
 	reg := c.unsafeInsertNewRegion(cfg.TimeRange, res)
-	g, t, err = reg.open(cfg)
-	return
+	return reg.open(cfg)
 }
 
 func (c *Controller[R]) unsafeInsertNewRegion(
