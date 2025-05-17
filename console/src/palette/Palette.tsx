@@ -69,8 +69,8 @@ export const Palette = ({
   );
 
   const handleTrigger = useCallback(
-    ({ triggers, stage }: Triggers.UseEvent) => {
-      if (stage !== "start" || visible) return;
+    ({ triggers, slate }: Triggers.UseEvent) => {
+      if (slate !== "start" || visible) return;
       const mode = Triggers.determineMode(triggerConfig, triggers);
       setValue(mode === "command" ? commandSymbol : "");
       open();

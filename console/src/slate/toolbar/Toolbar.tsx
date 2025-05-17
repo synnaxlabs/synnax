@@ -1,0 +1,145 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { slate } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
+import { Align, Breadcrumb, Status, Tabs, Text } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback } from "react";
+import { useDispatch } from "react-redux";
+
+import { Cluster } from "@/cluster";
+import { Toolbar as Core } from "@/components";
+import { Export } from "@/export";
+import { Layout } from "@/layout";
+import { useExport } from "@/slate/export";
+import {
+  useSelectControlStatus,
+  useSelectEditable,
+  useSelectHasPermission,
+  useSelectIsSnapshot,
+  useSelectSelectedElementNames,
+  useSelectToolbar,
+} from "@/slate/selectors";
+import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/slate/slice";
+import { Control } from "@/slate/toolbar/Control";
+import { PropertiesControls } from "@/slate/toolbar/Properties";
+import { Symbols } from "@/slate/toolbar/Symbols";
+
+const TABS = [
+  { tabKey: "symbols", name: "Symbols" },
+  { tabKey: "properties", name: "Properties" },
+  { tabKey: "control", name: "Control" },
+];
+
+interface NotEditableContentProps extends ToolbarProps {}
+
+const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
+  const dispatch = useDispatch();
+  const controlState = useSelectControlStatus(layoutKey);
+  const hasEditingPermissions = useSelectHasPermission();
+  const isSnapshot = useSelectIsSnapshot(layoutKey);
+  const isEditable = hasEditingPermissions && !isSnapshot;
+  const name = Layout.useSelectRequired(layoutKey).name;
+  return (
+    <Align.Center x size="small">
+      <Status.Text variant="disabled" hideIcon>
+        {name} is not editable.
+        {isEditable ? " To make changes," : ""}
+      </Status.Text>
+      {isEditable && (
+        <Text.Link
+          onClick={(e) => {
+            e.stopPropagation();
+            dispatch(setEditable({ key: layoutKey, editable: true }));
+          }}
+          level="p"
+        >
+          {controlState === "acquired"
+            ? "release control and enable editing."
+            : "enable editing."}
+        </Text.Link>
+      )}
+    </Align.Center>
+  );
+};
+
+export interface ToolbarProps {
+  layoutKey: string;
+}
+
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+  const { name } = Layout.useSelectRequired(layoutKey);
+  const dispatch = useDispatch();
+  const toolbar = useSelectToolbar();
+  const editable = useSelectEditable(layoutKey);
+  const handleExport = useExport();
+  const selectedNames = useSelectSelectedElementNames(layoutKey);
+  const content = useCallback(
+    ({ tabKey }: Tabs.Tab) => {
+      if (!editable) return <NotEditableContent layoutKey={layoutKey} />;
+      switch (tabKey) {
+        case "symbols":
+          return <Symbols layoutKey={layoutKey} />;
+        case "control":
+          return <Control layoutKey={layoutKey} />;
+        default:
+          return <PropertiesControls layoutKey={layoutKey} />;
+      }
+    },
+    [layoutKey, editable],
+  );
+  const handleTabSelect = useCallback(
+    (tabKey: string): void => {
+      dispatch(setActiveToolbarTab({ tab: tabKey as ToolbarTab }));
+    },
+    [dispatch],
+  );
+  const canEdit = useSelectHasPermission();
+  const breadCrumbSegments: Breadcrumb.Segments = [
+    {
+      label: name,
+      weight: 500,
+      shade: 10,
+      level: "h5",
+      icon: <Icon.Slate />,
+    },
+  ];
+  if (selectedNames.length === 1 && selectedNames[0] !== null)
+    breadCrumbSegments.push({
+      label: selectedNames[0],
+      weight: 400,
+      shade: 8,
+      level: "p",
+    });
+  return (
+    <Tabs.Provider
+      value={{
+        tabs: TABS,
+        selected: toolbar.activeTab,
+        onSelect: handleTabSelect,
+        content,
+      }}
+    >
+      <Core.Header>
+        <Breadcrumb.Breadcrumb level="h5">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
+        <Align.Space x align="center" empty>
+          <Align.Space x empty style={{ height: "100%", width: 66 }}>
+            <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
+            <Cluster.CopyLinkToolbarButton
+              name={name}
+              ontologyID={slate.ontologyID(layoutKey)}
+            />
+          </Align.Space>
+          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
+        </Align.Space>
+      </Core.Header>
+      <Tabs.Content />
+    </Tabs.Provider>
+  );
+};

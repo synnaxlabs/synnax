@@ -60,6 +60,7 @@ import { IoMdHeart, IoMdRefresh } from "react-icons/io";
 import {
   IoBookSharp,
   IoCopy,
+  IoNotifications,
   IoNotificationsOff,
   IoShapes,
   IoTime,
@@ -160,6 +161,7 @@ import {
   TbArrowDown,
   TbArrowLeft,
   TbArrowRight,
+  TbArrowsSplit,
   TbArrowUp,
   TbCircleLetterAFilled,
   TbCircleLetterVFilled,
@@ -460,6 +462,9 @@ export interface IconType {
   StarOutlined: IconFC;
   Heart: IconFC;
   Effect: IconFC;
+  Slate: IconFC;
+  Select: IconFC;
+  Notification: IconFC;
 }
 
 export const Icon: IconType = {
@@ -615,6 +620,7 @@ export const Icon: IconType = {
   AutoFitWidth: wrapIcon(TbArrowAutofitWidth, "auto-fit-width"),
   Commit: wrapIcon(MdCommit, "commit"),
   Snooze: wrapIcon(IoNotificationsOff, "snooze"),
+  Notification: wrapIcon(IoNotifications, "notification"),
   Log: wrapIcon(FaStream, "log"),
   Tare: wrapIcon(FaCreativeCommonsZero, "tare"),
   Rotate: wrapIcon(GrRotateRight, "rotate"),
@@ -655,5 +661,6 @@ export const Icon: IconType = {
   StarOutlined: wrapIcon(FaRegStar, "star-outlined"),
   Heart: wrapIcon(IoMdHeart, "heart"),
   Effect: wrapIcon(BsStars, "effect"),
-  Stage: wrapIcon(PiFlowArrowBold, "stage"),
+  Slate: wrapIcon(PiFlowArrowBold, "slate"),
+  Select: wrapIcon(TbArrowsSplit, "select"),
 };

@@ -66,10 +66,10 @@ var _schema = &ontology.Schema{
 
 func newResource(c Effect) schema.Resource {
 	// Using Type as the display name since effects don't have a name field
-	e := schema.NewResource(_schema, OntologyID(c.Key), c.Type)
-	schema.Set(e, "key", c.Key.String())
-	schema.Set(e, "type", c.Type)
-	schema.Set(e, "config", string(c.Config))
+	e := schema.NewResource(_schema, OntologyID(c.Key), "")
+	//schema.Set(e, "key", c.Key.String())
+	//schema.Set(e, "type", c)
+	//schema.Set(e, "config", string(c.Config))
 	return e
 }
 

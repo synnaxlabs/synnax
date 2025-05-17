@@ -196,21 +196,55 @@ func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 	panic("unsupported data type")
 }
 
-func UnmarshalInt8[T types.Numeric](b []byte) (res T)   { return T(b[0]) }
-func UnmarshalInt16[T types.Numeric](b []byte) (res T)  { return T(ByteOrder.Uint16(b)) }
-func UnmarshalInt32[T types.Numeric](b []byte) (res T)  { return T(ByteOrder.Uint32(b)) }
-func UnmarshalInt64[T types.Numeric](b []byte) (res T)  { return T(ByteOrder.Uint64(b)) }
-func UnmarshalUint8[T types.Numeric](b []byte) (res T)  { return T(b[0]) }
-func UnmarshalUint16[T types.Numeric](b []byte) (res T) { return T(ByteOrder.Uint16(b)) }
-func UnmarshalUint32[T types.Numeric](b []byte) (res T) { return T(ByteOrder.Uint32(b)) }
-func UnmarshalUint64[T types.Numeric](b []byte) (res T) { return T(ByteOrder.Uint64(b)) }
-func UnmarshalFloat32[T types.Numeric](b []byte) (res T) {
+func marshalAny[T types.Numeric](f func(b []byte, v T)) func(b []byte, v any) {
+	return func(b []byte, v any) { f(b, v.(T)) }
+}
+
+func MarshalAnyF(dt DataType) func(b []byte, v any) {
+	switch dt {
+	case Float64T:
+		return marshalAny[float64](MarshalFloat64)
+	case Float32T:
+		return marshalAny[float32](MarshalFloat64)
+	case Int64T:
+		return marshalAny[int64](MarshalInt64)
+	case Int32T:
+		return marshalAny[int32](MarshalInt32)
+	case Int16T:
+		return marshalAny[int16](MarshalInt16)
+	case Int8T:
+		return marshalAny[int8](MarshalInt8)
+	case Uint64T:
+		return marshalAny[uint64](MarshalUint64)
+	case Uint32T:
+		return marshalAny[uint32](MarshalUint32)
+	case Uint16T:
+		return marshalAny[uint16](MarshalUint16)
+	case Uint8T:
+		return marshalAny[uint8](MarshalUint8)
+	case TimeStampT:
+		return marshalAny[TimeStamp](MarshalTimeStamp)
+	}
+	panic("unsupported data type")
+}
+
+func UnmarshalInt8[T types.Numeric](b []byte) T   { return T(b[0]) }
+func UnmarshalInt16[T types.Numeric](b []byte) T  { return T(ByteOrder.Uint16(b)) }
+func UnmarshalInt32[T types.Numeric](b []byte) T  { return T(ByteOrder.Uint32(b)) }
+func UnmarshalInt64[T types.Numeric](b []byte) T  { return T(ByteOrder.Uint64(b)) }
+func UnmarshalUint8[T types.Numeric](b []byte) T  { return T(b[0]) }
+func UnmarshalUint16[T types.Numeric](b []byte) T { return T(ByteOrder.Uint16(b)) }
+func UnmarshalUint32[T types.Numeric](b []byte) T { return T(ByteOrder.Uint32(b)) }
+func UnmarshalUint64[T types.Numeric](b []byte) T { return T(ByteOrder.Uint64(b)) }
+func UnmarshalFloat32[T types.Numeric](b []byte) T {
 	return T(math.Float32frombits(ByteOrder.Uint32(b)))
 }
-func UnmarshalFloat64[T types.Numeric](b []byte) (res T) {
+func UnmarshalFloat64[T types.Numeric](b []byte) T {
 	return T(math.Float64frombits(ByteOrder.Uint64(b)))
 }
-func UnmarshalTimeStamp[T types.Numeric](b []byte) (res T) { return T(TimeStamp(ByteOrder.Uint64(b))) }
+func UnmarshalTimeStamp[T types.Numeric](b []byte) T {
+	return T(TimeStamp(ByteOrder.Uint64(b)))
+}
 
 // UnmarshalF returns a function that can unmarshal a byte slice into
 // a single value of type K according to the specified DataType.
@@ -239,6 +273,38 @@ func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) (res T) {
 		return UnmarshalUint8[T]
 	case TimeStampT:
 		return UnmarshalTimeStamp[T]
+	}
+	panic("unsupported data type")
+}
+
+func unmarshalAny[T types.Numeric](f func(b []byte) (res T)) func(b []byte) any {
+	return func(b []byte) any { return any(f(b)) }
+}
+
+func UnmarshalAnyF(dt DataType) func(b []byte) (res any) {
+	switch dt {
+	case Float64T:
+		return unmarshalAny[float64](UnmarshalFloat64)
+	case Float32T:
+		return unmarshalAny[float32](UnmarshalFloat64)
+	case Int64T:
+		return unmarshalAny[int64](UnmarshalInt64)
+	case Int32T:
+		return unmarshalAny[int32](UnmarshalInt32)
+	case Int16T:
+		return unmarshalAny[int16](UnmarshalInt16)
+	case Int8T:
+		return unmarshalAny[int8](UnmarshalInt8)
+	case Uint64T:
+		return unmarshalAny[uint64](UnmarshalUint64)
+	case Uint32T:
+		return unmarshalAny[uint32](UnmarshalUint32)
+	case Uint16T:
+		return unmarshalAny[uint16](UnmarshalUint16)
+	case Uint8T:
+		return unmarshalAny[uint8](UnmarshalUint8)
+	case TimeStampT:
+		return unmarshalAny[TimeStamp](UnmarshalTimeStamp)
 	}
 	panic("unsupported data type")
 }

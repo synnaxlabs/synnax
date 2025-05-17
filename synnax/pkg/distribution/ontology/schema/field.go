@@ -19,7 +19,7 @@ type Field struct {
 }
 
 // FieldType represents the type of Field in a Schema.
-type FieldType uint8
+type FieldType string
 
 // AssertValue asserts that the provided value is of the specified type.
 func (f Field) AssertValue(v any) bool {
@@ -69,21 +69,21 @@ func (f Field) AssertValue(v any) bool {
 }
 
 const (
-	String FieldType = iota + 1
-	Int
-	Int8
-	Int16
-	Int32
-	Int64
-	Uint8
-	Uint16
-	Uint32
-	Uint64
-	Float32
-	Float64
-	Bool
-	UUID
-	Nested
+	String  FieldType = "string"
+	Int               = "int"
+	Int8              = "int8"
+	Int16             = "int16"
+	Int32             = "int32"
+	Int64             = "int64"
+	Uint8             = "uint8"
+	Uint16            = "uint16"
+	Uint32            = "uint32"
+	Uint64            = "uint64"
+	Float32           = "float32"
+	Float64           = "float64"
+	Bool              = "bool"
+	UUID              = "uuid"
+	Nested            = "nested"
 )
 
 type Value interface {

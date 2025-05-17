@@ -15,7 +15,7 @@ import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
 import { Selector as CoreSelector } from "@/selector";
-import { Stage } from "@/stage";
+import { Slate } from "@/slate";
 import { type RootState } from "@/store";
 import { Table } from "@/table";
 
@@ -24,7 +24,7 @@ const SELECTABLES: CoreSelector.Selectable[] = [
   ...Schematic.SELECTABLES,
   ...Log.SELECTABLES,
   ...Table.SELECTABLES,
-  ...Stage.SELECTABLES,
+  ...Slate.SELECTABLES,
 ];
 
 export const SELECTOR_LAYOUT_TYPE = "visualizationSelector";

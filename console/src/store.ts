@@ -28,7 +28,7 @@ import { Permissions } from "@/permissions";
 import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-import { Stage } from "@/stage";
+import { Slate } from "@/slate";
 import { Table } from "@/table";
 import { getCurrentWindow } from "@/tauriShim";
 import { Version } from "@/version";
@@ -52,7 +52,7 @@ const ZERO_STATE: RootState = {
   [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
-  [Stage.SLICE_NAME]: Stage.ZERO_SLICE_STATE,
+  [Slate.SLICE_NAME]: Slate.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
@@ -68,7 +68,7 @@ const reducer = combineReducers({
   [Permissions.SLICE_NAME]: Permissions.reducer,
   [Log.SLICE_NAME]: Log.reducer,
   [Table.SLICE_NAME]: Table.reducer,
-  [Stage.SLICE_NAME]: Stage.reducer,
+  [Slate.SLICE_NAME]: Slate.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -84,7 +84,7 @@ export interface RootState {
   [Permissions.SLICE_NAME]: Permissions.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
-  [Stage.SLICE_NAME]: Stage.SliceState;
+  [Slate.SLICE_NAME]: Slate.SliceState;
 }
 
 export type RootAction =
@@ -99,7 +99,7 @@ export type RootAction =
   | Version.Action
   | Workspace.Action
   | Log.Action
-  | Stage.Action;
+  | Slate.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
@@ -120,7 +120,7 @@ export const migrateState = (prev: RootState): RootState => {
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
-  const stage = Stage.migrateSlice(prev.stage);
+  const slate = Slate.migrateSlice(prev.slate);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -134,7 +134,7 @@ export const migrateState = (prev: RootState): RootState => {
     docs,
     cluster,
     permissions,
-    stage,
+    slate,
   };
 };
 
