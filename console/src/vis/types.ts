@@ -10,7 +10,7 @@
 import { type LinePlot } from "@/lineplot";
 import { type Log } from "@/log";
 import { type Schematic } from "@/schematic";
-import { type Stage } from "@/stage";
+import { type slate } from "@/slate";
 import { type Table } from "@/table";
 
 export type LayoutType =
@@ -18,4 +18,4 @@ export type LayoutType =
   | Log.LayoutType
   | Schematic.LayoutType
   | Table.LayoutType
-  | Stage.LayoutType;
+  | slate.LayoutType;

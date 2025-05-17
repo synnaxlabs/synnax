@@ -302,8 +302,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     loose: true,
     region: ref,
     callback: useCallback(
-      ({ triggers, cursor, stage }: Triggers.UseEvent) => {
-        if (ref.current == null || stage !== "start") return;
+      ({ triggers, cursor, slate }: Triggers.UseEvent) => {
+        if (ref.current == null || slate !== "start") return;
         const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
         const isClear = triggers.some((t) => t.includes("Escape"));

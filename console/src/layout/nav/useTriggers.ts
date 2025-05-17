@@ -38,7 +38,7 @@ export const useTriggers = ({ items }: UseTriggersProps) => {
     loose: false,
     callback: (e) => {
       if (
-        e.stage !== "start" ||
+        e.slate !== "start" ||
         windowKey == null ||
         (e.prevTriggers.length > 0 && e.prevTriggers[0].length > 1)
       )

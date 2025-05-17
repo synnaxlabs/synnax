@@ -11,8 +11,9 @@ package confluence
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/signal"
 	"time"
+
+	"github.com/synnaxlabs/x/signal"
 )
 
 // Emitter is a Source that emits values to an Inlet at a regular interval.

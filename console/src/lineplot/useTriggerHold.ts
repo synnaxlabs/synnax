@@ -26,7 +26,7 @@ export const useTriggerHold = (triggers: Config): void => {
     loose: true,
     callback: useCallback(
       (e: Triggers.UseEvent) => {
-        if (e.stage !== "start") return;
+        if (e.slate !== "start") return;
         dispatch(setControlState({ state: { hold: !ref.current } }));
       },
       [dispatch],

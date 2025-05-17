@@ -309,8 +309,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
-    ({ box: b, stage, mode }) => {
-      if (stage !== "end") return;
+    ({ box: b, slate, mode }) => {
+      if (slate !== "end") return;
       if (mode === "select") syncDispatch(setSelection({ key: layoutKey, box: b }));
       else
         syncDispatch(

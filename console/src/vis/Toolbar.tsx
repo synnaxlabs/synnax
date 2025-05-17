@@ -15,7 +15,7 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
-import { Stage } from "@/stage";
+import { Slate } from "@/slate";
 import { Table } from "@/table";
 import { createSelectorLayout } from "@/vis/Selector";
 import { type LayoutType } from "@/vis/types";
@@ -29,7 +29,7 @@ const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
   [Log.LAYOUT_TYPE]: Log.Toolbar,
   [Schematic.LAYOUT_TYPE]: Schematic.Toolbar,
   [Table.LAYOUT_TYPE]: Table.Toolbar,
-  [Stage.LAYOUT_TYPE]: Stage.Toolbar,
+  [Slate.LAYOUT_TYPE]: Slate.Toolbar,
 };
 
 const NoVis = (): ReactElement => {
