@@ -150,18 +150,27 @@ export class Client {
     data?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {
     if (data == null) {
-      data = channels as Record<channel.KeyOrName, CrudeSeries>;
-      channels = Object.keys(data);
+      const data_ = channels as Record<channel.KeyOrName, CrudeSeries>;
+      const w = await this.openWriter({
+        start,
+        channels: Object.keys(data_),
+        mode: WriterMode.Persist,
+        errOnUnauthorized: true,
+        enableAutoCommit: true,
+        autoIndexPersistInterval: TimeSpan.MAX,
+      });
+      await w.write(data_);
+      return await w.close();
     }
     const w = await this.openWriter({
       start,
-      channels,
+      channels: channels as channel.Params,
       mode: WriterMode.Persist,
       errOnUnauthorized: true,
       enableAutoCommit: true,
       autoIndexPersistInterval: TimeSpan.MAX,
     });
-    await w.write(data);
+    await w.write(channels as channel.Params, data);
     await w.close();
   }
 

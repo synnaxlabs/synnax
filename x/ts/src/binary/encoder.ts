@@ -70,11 +70,8 @@ export class JSONCodec implements Codec {
     const caseConverted = caseconv.camelToSnake(payload);
     return JSON.stringify(caseConverted, (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
-      if (isObject(v) && "encode_value" in v) {
-        const vv = v.valueOf();
-        if (typeof vv === "bigint") return vv.toString();
-        return vv;
-      }
+      if (isObject(v) && "encode_value" in v)
+        return typeof v.value === "bigint" ? v.value.toString() : v.value;
       if (typeof v === "bigint") return v.toString();
       return v;
     });

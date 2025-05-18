@@ -55,7 +55,7 @@ const validateMatchedColsAndSeries = (
   );
 };
 
-export type Crude =
+export type CrudeFrame =
   | Frame
   | CrudePayload
   | Map<channel.KeyOrName, Series[] | Series>
@@ -101,7 +101,7 @@ export class Frame {
   readonly series: Series[] = [];
 
   constructor(
-    columnsOrData: channel.PrimitiveParams | Crude = [],
+    columnsOrData: channel.PrimitiveParams | CrudeFrame = [],
     series: Series | Series[] = [],
   ) {
     if (columnsOrData instanceof Frame) {
