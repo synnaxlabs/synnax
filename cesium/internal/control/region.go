@@ -105,6 +105,17 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	return g, t, nil
 }
 
+func (r *region[R]) shouldBeInControl(candidate *Gate[R]) bool {
+	if r.curr == nil {
+		return true
+	}
+	// Three cases here: no one is in control, provided-gate has higher authority,
+	// a provided gate has equal authority and a higher position.
+	higherAuth := candidate.authority > r.curr.authority
+	betterPos := candidate.authority == r.curr.authority && candidate.position < r.curr.position
+	return higherAuth || betterPos
+}
+
 // release a gate from the region.
 func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 	r.Lock()
@@ -115,19 +126,10 @@ func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 	}
 	r.curr = nil
 	transfer.From = g.state()
-	for existingG := range r.gates {
-		if r.curr == nil {
-			r.curr = existingG
-			transfer.To = existingG.state()
-		} else {
-			// Three cases here: no one is in control, provided-gate has higher authority,
-			// a provided gate has equal authority and a higher position.
-			higherAuth := existingG.authority > r.curr.authority
-			betterPos := existingG.authority == r.curr.authority && existingG.position < r.curr.position
-			if higherAuth || betterPos {
-				r.curr = existingG
-				transfer.To = existingG.state()
-			}
+	for candidate := range r.gates {
+		if r.shouldBeInControl(candidate) {
+			r.curr = candidate
+			transfer.To = candidate.state()
 		}
 	}
 	if transfer.IsRelease() {
@@ -148,12 +150,7 @@ func (r *region[R]) update(g *Gate[R], auth control.Authority) (t Transfer) {
 		t.From = g.state()
 		t.From.Authority = prevAuth
 		for existingGate := range r.gates {
-			var (
-				isGate     = existingGate == g
-				higherAuth = existingGate.authority > g.authority
-				betterPos  = existingGate.authority == g.authority && existingGate.position < g.position
-			)
-			if !isGate && (higherAuth || betterPos) {
+			if r.shouldBeInControl(existingGate) {
 				r.curr = existingGate
 				t.From = g.state()
 				t.To = existingGate.state()
@@ -165,10 +162,7 @@ func (r *region[R]) update(g *Gate[R], auth control.Authority) (t Transfer) {
 		return t
 	}
 
-	// Gate is not in control, should it be?
-	higherAuth := g.authority > r.curr.authority
-	betterPos := g.authority == r.curr.authority && g.position < r.curr.position
-	if higherAuth || betterPos {
+	if r.shouldBeInControl(g) {
 		t.From = r.curr.state()
 		r.curr = g
 		t.To = g.state()

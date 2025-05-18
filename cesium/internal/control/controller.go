@@ -161,8 +161,7 @@ func (c *Controller[R]) LeadingState() (state *State) {
 // OpenGate opens a new gate for the region occupying the specified time range. If the
 // region does not exist, it will be created and cfg.OpenResource will be called.
 // If the region does exist, the new gate will be added to the authority chain for the
-// existing region. If requiresUncontrolled is true, the region must not be controlled by
-// another gate. If it is, an error will be returned.
+// existing region.
 func (c *Controller[R]) OpenGate(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

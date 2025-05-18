@@ -34,7 +34,7 @@ type Series struct {
 	DataType DataType `json:"data_type" msgpack:"data_type"`
 	// Data is the underlying binary buffer.
 	Data []byte `json:"data" msgpack:"data"`
-	// Alignment can be used to define the alignment of the series relative to other
+	// Alignment defines the location of the series relative to other
 	// series in a logical group. This is typically used for defining the position of
 	// the series within a channel's data, but can be used for arbitrary purposes.
 	Alignment Alignment `json:"alignment" msgpack:"alignment"`
@@ -156,9 +156,9 @@ func (s Series) String() string {
 	return b.String()
 }
 
-// DownSample returns a copy of the Series with the data down sampled by the given
+// Downsample returns a copy of the Series with the data down sampled by the given
 // factor, i.e., 1 out of every factor samples is kept.
-func (s Series) DownSample(factor int) Series {
+func (s Series) Downsample(factor int) Series {
 	if factor <= 1 || len(s.Data) == 0 {
 		return s
 	}

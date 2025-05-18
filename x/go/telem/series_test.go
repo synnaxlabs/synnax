@@ -270,11 +270,11 @@ var _ = Describe("Series", func() {
 		})
 	})
 
-	Describe("DownSample", func() {
+	Describe("Downsample", func() {
 		Context("Fixed Length Data Types", func() {
 			It("Should correctly downsample a series with a factor of 2", func() {
 				original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8)
-				downsampled := original.DownSample(2)
+				downsampled := original.Downsample(2)
 
 				Expect(downsampled.Len()).To(Equal(int64(4)))
 				Expect(telem.Unmarshal[int64](downsampled)).To(Equal([]int64{1, 3, 5, 7}))
@@ -285,7 +285,7 @@ var _ = Describe("Series", func() {
 
 			It("Should correctly downsample a series with a factor of 3", func() {
 				original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8, 9)
-				downsampled := original.DownSample(3)
+				downsampled := original.Downsample(3)
 
 				Expect(downsampled.Len()).To(Equal(int64(3)))
 				Expect(telem.Unmarshal[int64](downsampled)).To(Equal([]int64{1, 4, 7}))
@@ -293,7 +293,7 @@ var _ = Describe("Series", func() {
 
 			It("Should work when the factor is not an even multiple of the length", func() {
 				original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-				downsampled := original.DownSample(3)
+				downsampled := original.Downsample(3)
 
 				Expect(downsampled.Len()).To(Equal(int64(4)))
 				Expect(telem.Unmarshal[int64](downsampled)).To(Equal([]int64{1, 4, 7, 10}))
@@ -301,7 +301,7 @@ var _ = Describe("Series", func() {
 
 			It("Should work with different numeric types", func() {
 				original := telem.NewSeriesV(1.1, 2.2, 3.3, 4.4, 5.5, 6.6)
-				downsampled := original.DownSample(2)
+				downsampled := original.Downsample(2)
 
 				Expect(downsampled.Len()).To(Equal(int64(3)))
 				Expect(telem.Unmarshal[float64](downsampled)).To(Equal([]float64{1.1, 3.3, 5.5}))
@@ -310,7 +310,7 @@ var _ = Describe("Series", func() {
 			It("Should preserve alignment information", func() {
 				original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6)
 				original.Alignment = telem.NewAlignment(1, 5)
-				downsampled := original.DownSample(2)
+				downsampled := original.Downsample(2)
 
 				Expect(downsampled.Alignment).To(Equal(original.Alignment))
 			})
@@ -318,7 +318,7 @@ var _ = Describe("Series", func() {
 			It("Should preserve time range information", func() {
 				original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6)
 				original.TimeRange = telem.TimeRange{Start: 100, End: 600}
-				downsampled := original.DownSample(2)
+				downsampled := original.Downsample(2)
 
 				Expect(downsampled.TimeRange).To(Equal(original.TimeRange))
 			})
@@ -327,10 +327,10 @@ var _ = Describe("Series", func() {
 		Context("Variable Length Data Types", func() {
 			It("Should correctly down sample a string series", func() {
 				original := telem.NewStringsV("a", "b", "c", "d", "e", "f")
-				downSampled := original.DownSample(2)
+				downsampled := original.Downsample(2)
 
-				Expect(downSampled.Len()).To(Equal(int64(3)))
-				Expect(telem.UnmarshalStrings(downSampled.Data)).To(Equal([]string{"a", "c", "e"}))
+				Expect(downsampled.Len()).To(Equal(int64(3)))
+				Expect(telem.UnmarshalStrings(downsampled.Data)).To(Equal([]string{"a", "c", "e"}))
 			})
 
 			It("Should correctly down sample a JSON series", func() {
@@ -342,9 +342,9 @@ var _ = Describe("Series", func() {
 				}
 
 				s := telem.NewStaticJSONV(data...)
-				downSampled := s.DownSample(2)
-				Expect(downSampled.Len()).To(Equal(int64(2)))
-				split := bytes.Split(downSampled.Data, []byte("\n"))
+				downsampled := s.Downsample(2)
+				Expect(downsampled.Len()).To(Equal(int64(2)))
+				split := bytes.Split(downsampled.Data, []byte("\n"))
 				Expect(len(split)).To(Equal(3)) // 2 items + empty string after last newline
 			})
 		})
@@ -352,29 +352,29 @@ var _ = Describe("Series", func() {
 		Context("Edge Cases", func() {
 			It("Should return the original series if factor is <= 1", func() {
 				original := telem.NewSeriesV[int64](1, 2, 3)
-				downSampled := original.DownSample(0)
-				Expect(downSampled).To(Equal(original))
-				downSampled = original.DownSample(1)
-				Expect(downSampled).To(Equal(original))
-				downSampled = original.DownSample(-1)
-				Expect(downSampled).To(Equal(original))
+				downsampled := original.Downsample(0)
+				Expect(downsampled).To(Equal(original))
+				downsampled = original.Downsample(1)
+				Expect(downsampled).To(Equal(original))
+				downsampled = original.Downsample(-1)
+				Expect(downsampled).To(Equal(original))
 			})
 
 			It("Should return the maximum possible downSampling if series length is <= factor", func() {
 				original := telem.NewSeriesV[int64](1, 2, 3)
-				downSampled := original.DownSample(3)
-				Expect(downSampled.Len()).To(Equal(int64(1)))
-				Expect(telem.Unmarshal[int64](downSampled)).To(Equal([]int64{1}))
-				downSampled = original.DownSample(10)
-				Expect(downSampled.Len()).To(Equal(int64(1)))
-				Expect(telem.Unmarshal[int64](downSampled)).To(Equal([]int64{1}))
+				downsampled := original.Downsample(3)
+				Expect(downsampled.Len()).To(Equal(int64(1)))
+				Expect(telem.Unmarshal[int64](downsampled)).To(Equal([]int64{1}))
+				downsampled = original.Downsample(10)
+				Expect(downsampled.Len()).To(Equal(int64(1)))
+				Expect(telem.Unmarshal[int64](downsampled)).To(Equal([]int64{1}))
 			})
 
 			It("Should handle empty series correctly", func() {
 				original := telem.Series{DataType: telem.Int64T}
-				downSampled := original.DownSample(2)
-				Expect(downSampled).To(Equal(original))
-				Expect(downSampled.Len()).To(Equal(int64(0)))
+				downsampled := original.Downsample(2)
+				Expect(downsampled).To(Equal(original))
+				Expect(downsampled.Len()).To(Equal(int64(0)))
 			})
 		})
 	})

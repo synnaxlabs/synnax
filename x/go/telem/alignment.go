@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 )
 
-// Alignment is essentially two array index values that can be used to represent
+// Alignment is two array index values that can be used to represent
 // the location of a sample within an array of arrays. For example, if you have two arrays
 // that have 50 elements each, and you want the 15th element of the second array, you would
 // use NewAlignment(1, 15). The first index is called the 'domain index' and the second
@@ -47,10 +47,12 @@ func NewAlignment(domainIdx, sampleIdx uint32) Alignment {
 // MaxAlignment is the maximum possible value for an alignment.
 const MaxAlignment = Alignment(math.MaxUint64)
 
-// DomainIndex returns the domain index of the Alignment.
+// DomainIndex returns the domain index of the Alignment. This is the index
+// in the array of arrays.
 func (a Alignment) DomainIndex() uint32 { return uint32(a >> 32) }
 
-// SampleIndex returns the sample index of the Alignment.
+// SampleIndex returns the sample index of the Alignment. This is the index within
+// a particular array.
 func (a Alignment) SampleIndex() uint32 { return uint32(a) }
 
 // String implements fmt.Stringer to return a nicely formatted string representing the

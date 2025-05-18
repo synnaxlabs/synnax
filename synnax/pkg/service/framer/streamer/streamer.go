@@ -35,7 +35,7 @@ type (
 type Config struct {
 	Keys             channel.Keys `json:"keys" msgpack:"keys"`
 	SendOpenAck      bool         `json:"send_open_ack" msgpack:"send_open_ack"`
-	DownSampleFactor int          `json:"down_sample_factor" msgpack:"down_sample_factor"`
+	DownsampleFactor int          `json:"downsample_factor" msgpack:"downsample_factor"`
 	ThrottleRate     telem.Rate   `json:"throttle_rate" msgpack:"throttle_rate"`
 }
 
@@ -87,7 +87,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 var (
 	distAddr       address.Address = "distribution"
 	utAddr         address.Address = "updater_transform"
-	downSampleAddr address.Address = "down_sample"
+	downsampleAddr address.Address = "downsample"
 	throttleAddr   address.Address = "throttle"
 )
 
@@ -115,10 +115,10 @@ func (s *Service) New(ctx context.Context, cfg Config) (Streamer, error) {
 		plumber.MustConnect[Response](p, routeOutletFrom, throttleAddr, responseBufferSize)
 		routeOutletFrom = throttleAddr
 	}
-	if cfg.DownSampleFactor > 1 {
-		plumber.SetSegment(p, downSampleAddr, newDownSampler(cfg))
-		plumber.MustConnect[Response](p, routeOutletFrom, downSampleAddr, responseBufferSize)
-		routeOutletFrom = downSampleAddr
+	if cfg.DownsampleFactor > 1 {
+		plumber.SetSegment(p, downsampleAddr, newDownsampler(cfg))
+		plumber.MustConnect[Response](p, routeOutletFrom, downsampleAddr, responseBufferSize)
+		routeOutletFrom = downsampleAddr
 	}
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,

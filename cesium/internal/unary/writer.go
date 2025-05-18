@@ -142,10 +142,10 @@ type Writer struct {
 	control *control.Gate[*controlledWriter]
 	// idx stores the index of the unaryDB (rate or domain).
 	idx index.Index
-	// hwm is a hot-path optimization when writing to an index channel. We can avoid
+	// highWaterMark is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written. Only
 	// valid when Channel.IsIndex is true.
-	hwm telem.TimeStamp
+	highWaterMark telem.TimeStamp
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
@@ -259,7 +259,7 @@ func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 
 func (w *Writer) updateHwm(series telem.Series) {
 	if series.Len() != 0 {
-		w.hwm = telem.ValueAt[telem.TimeStamp](series, -1)
+		w.highWaterMark = telem.ValueAt[telem.TimeStamp](series, -1)
 	}
 }
 
@@ -270,7 +270,7 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 
 	if w.Channel.IsIndex {
-		ts, err := w.commitWithEnd(ctx, w.hwm+1)
+		ts, err := w.commitWithEnd(ctx, w.highWaterMark+1)
 		return ts, w.wrapError(err)
 	}
 	ts, err := w.commitWithEnd(ctx, telem.TimeStamp(0))

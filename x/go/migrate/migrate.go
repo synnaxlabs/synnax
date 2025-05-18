@@ -26,8 +26,11 @@ type Migratable interface {
 	GetVersion() version.Counter
 }
 
+// Context is provided for use by each migration.
 type Context struct {
+	// Context is the underlying std. context.
 	context.Context
+	// Instrumentation can be used for logging, tracing, etc.
 	alamos.Instrumentation
 }
 
@@ -36,7 +39,9 @@ type Migration[I, O Migratable] func(Context, I) (O, error)
 
 // MigrationConfig holds the configuration for creating a migration
 type MigrationConfig[I, O Migratable] struct {
-	Name    string
+	// Name is the name of the migration
+	Name string
+	// Migrate is the migration function.
 	Migrate Migration[I, O]
 }
 

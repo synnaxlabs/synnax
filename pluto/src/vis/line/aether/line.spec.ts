@@ -222,11 +222,11 @@ describe("line", () => {
       it(`spec ${name}`, () => {
         const xSeries = buildSeriesFromEntries(x);
         const ySeries = buildSeriesFromEntries(y);
-        const downSample = 1;
+        const downsample = 1;
         const drawOperations = buildDrawOperations(
           xSeries,
           ySeries,
-          downSample,
+          downsample,
           0,
           TimeSpan.ZERO,
         );

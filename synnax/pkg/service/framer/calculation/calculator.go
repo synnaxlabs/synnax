@@ -28,8 +28,8 @@ type Calculator struct {
 	base *computron.Calculator
 	// ch is the calculated channel we're operating on.
 	ch channel.Channel
-	// hwm is the high-water mark of the sample that we've run the calculation on.
-	hwm struct {
+	// highWaterMark is the high-water mark of the sample that we've run the calculation on.
+	highWaterMark struct {
 		alignment telem.Alignment
 		timestamp telem.TimeStamp
 	}
@@ -80,11 +80,11 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		}
 		k := fr.RawKeyAt(rawI)
 		if v, ok := c.required[k]; ok {
-			v.data = v.data.Append(s).FilterGreaterThanOrEqualTo(c.hwm.alignment)
+			v.data = v.data.Append(s).FilterGreaterThanOrEqualTo(c.highWaterMark.alignment)
 			c.required[k] = v
-			if c.hwm.alignment == 0 {
-				c.hwm.alignment = v.data.AlignmentBounds().Lower
-				c.hwm.timestamp = v.data.TimeRange().Start
+			if c.highWaterMark.alignment == 0 {
+				c.highWaterMark.alignment = v.data.AlignmentBounds().Lower
+				c.highWaterMark.timestamp = v.data.TimeRange().Start
 			}
 		}
 	}
@@ -96,17 +96,17 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 			minTimeStamp = v.data.TimeRange().End
 		}
 	}
-	if minAlignment <= c.hwm.alignment {
+	if minAlignment <= c.highWaterMark.alignment {
 		return telem.Series{DataType: c.ch.DataType}, nil
 	}
 	var (
-		startAlign = c.hwm.alignment
-		startTS    = c.hwm.timestamp
+		startAlign = c.highWaterMark.alignment
+		startTS    = c.highWaterMark.timestamp
 		endAlign   = minAlignment
 		os         = telem.MakeSeries(c.ch.DataType, int64(endAlign-startAlign))
 	)
-	c.hwm.alignment = minAlignment
-	c.hwm.timestamp = minTimeStamp
+	c.highWaterMark.alignment = minAlignment
+	c.highWaterMark.timestamp = minTimeStamp
 	os.Alignment = startAlign
 	os.TimeRange = telem.TimeRange{Start: startTS, End: minTimeStamp}
 	for a := startAlign; a < endAlign; a++ {
