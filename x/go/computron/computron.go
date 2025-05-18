@@ -55,6 +55,8 @@ func LValueFromSeries(s telem.Series, i int) lua.LValue {
 	}
 }
 
+// LValueFromMultiSeriesAlignment gets the value in the multi-series at the given
+// alignment and converts it into an LValue with the correct data type.
 func LValueFromMultiSeriesAlignment(series telem.MultiSeries, a telem.Alignment) lua.LValue {
 	switch series.DataType() {
 	case telem.Int8T:

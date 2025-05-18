@@ -429,7 +429,7 @@ export class Frame {
     let str = `Frame{\n`;
     this.uniqueColumns.forEach((c) => {
       str += `  ${c}: ${this.get(c)
-        .series.map((c) => c.toString())
+        .series.map((s) => s.toString())
         .join(",")}\n`;
     });
     str += "}";

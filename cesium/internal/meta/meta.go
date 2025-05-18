@@ -18,8 +18,6 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/telem"
-	xvalidate "github.com/synnaxlabs/x/validate"
 )
 
 const metaFile = "meta.json"
@@ -51,7 +49,7 @@ func Open(ctx context.Context, fs xfs.FS, ch core.Channel, codec binary.Codec) (
 				return ch, err
 			}
 		}
-		return state.Channel, validate(state.Channel)
+		return state.Channel, state.Channel.Validate()
 	}
 	if err := Create(ctx, fs, codec, ch); err != nil {
 		return core.Channel{}, err
@@ -84,7 +82,7 @@ func Read(ctx context.Context, fs xfs.FS, codec binary.Codec) (core.Channel, err
 // encoded by the provided encoder. The provided channel should have all fields
 // required by the DB correctly set.
 func Create(ctx context.Context, fs xfs.FS, codec binary.Codec, ch core.Channel) error {
-	if err := validate(ch); err != nil {
+	if err := ch.Validate(); err != nil {
 		return err
 	}
 	metaF, err := fs.Open(metaFile, os.O_CREATE|os.O_WRONLY)
@@ -98,24 +96,4 @@ func Create(ctx context.Context, fs xfs.FS, codec binary.Codec, ch core.Channel)
 	}
 	_, err = metaF.Write(b)
 	return err
-}
-
-// validate checks that the meta file read from or about to be written to a meta file
-// is well-defined.
-func validate(ch core.Channel) error {
-	v := xvalidate.New("meta")
-	xvalidate.Positive(v, "key", ch.Key)
-	xvalidate.NotEmptyString(v, "data_type", ch.DataType)
-	if ch.Virtual {
-		v.Ternaryf("index", ch.Index != 0, "virtual channel cannot be indexed")
-	} else {
-		v.Ternary("data_type", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
-		if ch.IsIndex {
-			v.Ternary("data_type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
-			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
-		} else {
-			v.Ternaryf("index", ch.Index == 0, "non-indexed channel must have an index")
-		}
-	}
-	return v.Error()
 }

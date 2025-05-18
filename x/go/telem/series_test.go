@@ -90,6 +90,16 @@ var _ = Describe("Series", func() {
 				Expect(s.At(1)).To(Equal([]byte{2}))
 				Expect(s.At(2)).To(Equal([]byte{3}))
 			})
+
+			It("Should panic when the index is out of bounds", func() {
+				s := telem.NewSeriesV[uint8](1, 2, 3)
+				Expect(func() {
+					s.At(5)
+				}).To(Panic())
+				Expect(func() {
+					s.At(-10)
+				}).To(Panic())
+			})
 		})
 
 		Context("Variable Density", func() {
@@ -98,6 +108,16 @@ var _ = Describe("Series", func() {
 				Expect(s.At(0)).To(Equal([]byte("a")))
 				Expect(s.At(1)).To(Equal([]byte("b")))
 				Expect(s.At(2)).To(Equal([]byte("c")))
+			})
+
+			It("Should panic when the index is out of bounds", func() {
+				s := telem.NewStringsV("a", "b", "c")
+				Expect(func() {
+					s.At(5)
+				}).To(Panic())
+				Expect(func() {
+					s.At(-10)
+				}).To(Panic())
 			})
 		})
 	})
@@ -269,6 +289,14 @@ var _ = Describe("Series", func() {
 
 				Expect(downsampled.Len()).To(Equal(int64(3)))
 				Expect(telem.Unmarshal[int64](downsampled)).To(Equal([]int64{1, 4, 7}))
+			})
+
+			It("Should work when the factor is not an even multiple of the length", func() {
+				original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+				downsampled := original.DownSample(3)
+
+				Expect(downsampled.Len()).To(Equal(int64(4)))
+				Expect(telem.Unmarshal[int64](downsampled)).To(Equal([]int64{1, 4, 7, 10}))
 			})
 
 			It("Should work with different numeric types", func() {

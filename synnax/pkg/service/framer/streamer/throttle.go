@@ -25,7 +25,9 @@ type throttle struct {
 }
 
 func newThrottle(cfg Config) responseSegment {
-	return &throttle{cfg: cfg}
+	t := &throttle{cfg: cfg}
+	t.Transform = t.transform
+	return t
 }
 
 func (t *throttle) transform(

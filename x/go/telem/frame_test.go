@@ -466,6 +466,28 @@ var _ = Describe("Frame", func() {
 			f := telem.MultiFrame([]int{}, []telem.Series{})
 			Expect(f.String()).To(Equal("Frame{}"))
 		})
+
+		It("Should handle masked frames", func() {
+			f := telem.MultiFrame(
+				[]int{1, 2, 3, 4},
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2),
+					telem.NewSeriesV[int64](3, 4),
+					telem.NewSeriesV[int64](5, 6),
+					telem.NewSeriesV[int64](7, 8),
+				},
+			)
+
+			filtered := f.FilterKeys([]int{1, 3})
+			str := filtered.String()
+
+			Expect(str).To(ContainSubstring("Frame{"))
+			Expect(str).To(ContainSubstring("1:"))
+			Expect(str).To(ContainSubstring("3:"))
+			Expect(str).NotTo(ContainSubstring("2:"))
+			Expect(str).NotTo(ContainSubstring("4:"))
+			Expect(str).To(ContainSubstring("}"))
+		})
 	})
 
 	Describe("Encode + Decode", func() {

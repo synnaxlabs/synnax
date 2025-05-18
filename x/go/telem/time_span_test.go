@@ -145,7 +145,7 @@ var _ = Describe("TimeSpan", func() {
 	Describe("MarshalJSON", func() {
 		It("Should marshal the time span into a string", func() {
 			b := MustSucceed(json.Marshal(telem.Second))
-			Expect(string(b)).To(Equal("\"1000000000\""))
+			Expect(string(b)).To(Equal(`"1000000000"`))
 		})
 	})
 

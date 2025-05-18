@@ -177,17 +177,14 @@ func (t frameWriterRequestTranslator) Backward(
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		}
 		if err = t.codec.Update(ctx, keys); err != nil {
-			return
+			return r, err
 		}
 	}
 	r.Frame = translateFrameBackward(msg.Frame)
 	if t.codec != nil && len(msg.Buffer) > 0 {
 		r.Frame, err = t.codec.Decode(msg.Buffer)
-		if err != nil {
-			return
-		}
 	}
-	return
+	return r, err
 }
 
 func (t frameWriterResponseTranslator) Forward(

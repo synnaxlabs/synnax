@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -18,7 +19,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -159,36 +159,33 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 }
 
 func (db *DB) validateNewChannel(ch Channel) error {
-	v := validate.New("cesium")
-	validate.Positive(v, "key", ch.Key)
-	validate.NotEmptyString(v, "data_type", ch.DataType)
-	validate.NotEmptyString(v, "name", ch.Name)
-	v.Exec(func() error {
-		_, uOk := db.mu.unaryDBs[ch.Key]
-		_, vOk := db.mu.virtualDBs[ch.Key]
-		if uOk || vOk {
-			return errors.Wrapf(validate.Error, "cannot create channel %v because it already exists", ch)
-		}
-		return nil
-	})
+	if err := ch.Validate(); err != nil {
+		return err
+	}
+	_, unaryExists := db.mu.unaryDBs[ch.Key]
+	_, virtualExists := db.mu.virtualDBs[ch.Key]
+	if unaryExists || virtualExists {
+		return errors.Wrapf(validate.Error, "cannot create channel %v because it already exists", ch)
+	}
 	if ch.Virtual {
-		v.Ternaryf("index", ch.Index != 0, "virtual channel cannot be indexed")
-	} else {
-		v.Ternary("index", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
-		if ch.IsIndex {
-			v.Ternary("data_type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
-			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
-		} else if ch.Index != 0 {
-			validate.MapContainsf(v, ch.Index, db.mu.unaryDBs, "index channel <%d> does not exist", ch.Index)
-			indexDB, ok := db.mu.unaryDBs[ch.Index]
-			if ok {
-				v.Ternaryf("index", !indexDB.Channel().IsIndex, "channel %v is not an index", indexDB.Channel())
+		return nil
+	}
+	if ch.Index != 0 {
+		indexDB, ok := db.mu.unaryDBs[ch.Index]
+		if !ok {
+			return validate.FieldError{
+				Field:   "index",
+				Message: fmt.Sprintf("index channel <%d> does not exist", ch.Index),
 			}
-		} else {
-			v.Ternaryf("index", ch.Index != 0, "non-indexed channel must have an index")
+		}
+		if !indexDB.Channel().IsIndex {
+			return validate.FieldError{
+				Field:   "index",
+				Message: fmt.Sprintf("requested channel <%d> is not an index", ch.Index),
+			}
 		}
 	}
-	return v.Error()
+	return nil
 }
 
 // RekeyChannel changes the key of channel oldKey into newKey. This operation is

@@ -59,6 +59,7 @@ type Channel struct {
 	Version version.Version `json:"version" msgpack:"version"`
 }
 
+// String implements fmt.Stringer to return nicely formatted channel info.
 func (c Channel) String() string {
 	if c.Name != "" {
 		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key)
@@ -66,6 +67,8 @@ func (c Channel) String() string {
 	return fmt.Sprintf("<%d>", c.Key)
 }
 
+// ValidateSeries ensures that a given series is compatible with the channel, and
+// returns an error if it is not.
 func (c Channel) ValidateSeries(series telem.Series) error {
 	sDt := series.DataType
 	cDt := c.DataType
@@ -80,4 +83,23 @@ func (c Channel) ValidateSeries(series telem.Series) error {
 		)
 	}
 	return nil
+}
+
+func (c Channel) Validate() error {
+	v := validate.New("meta")
+	validate.Positive(v, "key", c.Key)
+	validate.NotEmptyString(v, "data_type", c.DataType)
+	validate.NotEmptyString(v, "name", c.Name)
+	if c.Virtual {
+		v.Ternaryf("index", c.Index != 0, "virtual channel cannot be indexed")
+	} else {
+		v.Ternary("data_type", c.DataType.IsVariable(), "persisted channels cannot have variable density data types")
+		if c.IsIndex {
+			v.Ternary("data_type", c.DataType != telem.TimeStampT, "index channel must be of type timestamp")
+			v.Ternaryf("index", c.Index != 0 && c.Index != c.Key, "index channel cannot be indexed by another channel")
+		} else {
+			v.Ternaryf("index", c.Index == 0, "non-indexed channel must have an index")
+		}
+	}
+	return v.Error()
 }

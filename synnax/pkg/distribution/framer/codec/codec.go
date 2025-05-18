@@ -86,7 +86,7 @@ type Codec struct {
 	channels channel.Readable
 }
 
-var byteOrder = binary.LittleEndian
+var byteOrder = telem.ByteOrder
 
 // NewStatic creates a new codec that uses the given channel keys and data types as
 // its encoding state. It is not safe to call Update on a codec instantiated using

@@ -79,8 +79,9 @@ func (s Series) Samples() iter.Seq[[]byte] {
 			}
 			return
 		}
+		den := int64(s.DataType.Density())
 		for i := int64(0); i < s.Len(); i++ {
-			b := s.Data[i*int64(s.DataType.Density()) : (i+1)*int64(s.DataType.Density())]
+			b := s.Data[i*den : (i+1)*den]
 			if !yield(b) {
 				return
 			}
@@ -104,9 +105,10 @@ func (s Series) At(i int) []byte {
 				offset = j + 1
 			}
 		}
-		return nil
+		panic(fmt.Sprintf("index %v out of bounds for series with length %v", i, s.Len()))
 	}
-	return s.Data[i*int(s.DataType.Density()) : (i+1)*int(s.DataType.Density())]
+	den := int(s.DataType.Density())
+	return s.Data[i*den : (i+1)*den]
 }
 
 // ValueAt returns the numeric value at the given index in the series. ValueAt supports

@@ -71,8 +71,9 @@ export class JSONCodec implements Codec {
     return JSON.stringify(caseConverted, (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
       if (isObject(v) && "encode_value" in v) {
-        if (typeof v.value === "bigint") return v.value.toString();
-        return v.value;
+        const vv = v.valueOf();
+        if (typeof vv === "bigint") return vv.toString();
+        return vv;
       }
       if (typeof v === "bigint") return v.toString();
       return v;
