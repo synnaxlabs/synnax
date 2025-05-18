@@ -22,15 +22,6 @@ import (
 // TimeSpan represents a duration of time in nanoseconds.
 type TimeSpan int64
 
-var (
-	_ json.Unmarshaler = (*TimeSpan)(nil)
-	_ json.Marshaler   = TimeSpan(0)
-)
-
-func (ts TimeSpan) MarshalJSON() ([]byte, error) {
-	return binary.MarshalStringInt64(int64(ts))
-}
-
 const (
 	// TimeSpanZero represents the zero value for a TimeSpan.
 	TimeSpanZero = TimeSpan(0)
@@ -38,13 +29,24 @@ const (
 	TimeSpanMax = TimeSpan(^uint64(0) >> 1)
 )
 
+var (
+	_ json.Unmarshaler = (*TimeSpan)(nil)
+	_ json.Marshaler   = TimeSpan(0)
+)
+
+// MarshalJSON implements json.Marshaler.
+func (ts TimeSpan) MarshalJSON() ([]byte, error) {
+	return binary.MarshalStringInt64(int64(ts))
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
 func (ts *TimeSpan) UnmarshalJSON(b []byte) error {
 	n, err := binary.UnmarshalJSONStringInt64(b)
 	*ts = TimeSpan(n)
 	return err
 }
 
-// Duration converts TimeSpan to a values.Duration.
+// Duration converts TimeSpan to a time.Duration.
 func (ts TimeSpan) Duration() time.Duration { return time.Duration(ts) }
 
 // Seconds returns a float64 value representing the number of seconds in the TimeSpan.
@@ -130,18 +132,18 @@ func (ts TimeSpan) Truncate(unit TimeSpan) TimeSpan {
 func (ts TimeSpan) RawString() string { return strconv.Itoa(int(ts)) + "ns" }
 
 const (
-	Nanosecond    = TimeSpan(1)
-	NanosecondTS  = TimeStamp(1)
-	Microsecond   = 1000 * Nanosecond
-	MicrosecondTS = 1000 * NanosecondTS
-	Millisecond   = 1000 * Microsecond
-	MillisecondTS = 1000 * MicrosecondTS
-	Second        = 1000 * Millisecond
-	SecondTS      = 1000 * MillisecondTS
-	Minute        = 60 * Second
-	MinuteTS      = 60 * SecondTS
-	Hour          = 60 * Minute
-	HourTS        = 60 * MinuteTS
-	Day           = 24 * Hour
-	DayTS         = 24 * HourTS
+	// Nanosecond is a 1 nanosecond TimeSpan.
+	Nanosecond = TimeSpan(1)
+	// Microsecond is a single microsecond TimeSpan.
+	Microsecond = 1000 * Nanosecond
+	// Millisecond is a 1-millisecond TimeSpan.
+	Millisecond = 1000 * Microsecond
+	// Second is a 1-second TimeSpan.
+	Second = 1000 * Millisecond
+	// Minute is a 1-minute TimeSpan.
+	Minute = 60 * Second
+	// Hour is a 1-hour TimeSpan.
+	Hour = 60 * Minute
+	// Day is a 1-day long TimeSpan.
+	Day = 24 * Hour
 )

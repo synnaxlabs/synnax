@@ -48,6 +48,8 @@ func (ts TimeStamp) MarshalJSON() ([]byte, error) {
 // Now returns the current time as a TimeStamp.
 func Now() TimeStamp { return NewTimeStamp(time.Now()) }
 
+// Since returns a TimeSpan representing the amount of time between the given
+// timestamp and the current time.
 func Since(ts TimeStamp) TimeSpan { return ts.Span(Now()) }
 
 // NewTimeStamp creates a new TimeStamp from a time.Time.
@@ -94,14 +96,30 @@ func (ts TimeStamp) Sub(tspan TimeSpan) TimeStamp { return ts.Add(-tspan) }
 
 // SpanRange constructs a new TimeRange with the TimeStamp and provided TimeSpan.
 func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
-	rng := ts.Range(ts.Add(span))
-	if !rng.Valid() {
-		rng = rng.Swap()
-	}
-	return rng
+	return ts.Range(ts.Add(span)).MakeValid()
 }
 
 // Range constructs a new TimeRange with the TimeStamp and provided TimeStamp.
 func (ts TimeStamp) Range(ts2 TimeStamp) TimeRange { return TimeRange{ts, ts2} }
 
+// Span returns a TimeSpan representing the amount of time between ts and the
+// given time span. The returned span is positive if t is after ts, and negative
+// if t is before is ts.
 func (ts TimeStamp) Span(t TimeStamp) TimeSpan { return TimeSpan(t - ts) }
+
+const (
+	// NanosecondTS is a TimeStamp 1 nanosecond after the unix epoch.
+	NanosecondTS = TimeStamp(1)
+	// MicrosecondTS is a TimeStamp 1 microsecond after the unix epoch.
+	MicrosecondTS = 1000 * NanosecondTS
+	// MillisecondTS is a TimeStamp 1 millisecond after the unix epoch.
+	MillisecondTS = 1000 * MicrosecondTS
+	// SecondTS is a TimeStamp 1 second after the unix epoch.
+	SecondTS = 1000 * MillisecondTS
+	// MinuteTS is a TimeStamp 1 minute after the unix epoch.
+	MinuteTS = 60 * SecondTS
+	// HourTS is a TimeStamp 1 hour after the unix epoch.
+	HourTS = 60 * MinuteTS
+	// DayTS is a TimeStamp 1 day after the unix epoch.
+	DayTS = 24 * HourTS
+)
