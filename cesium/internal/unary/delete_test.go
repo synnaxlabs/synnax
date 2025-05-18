@@ -506,7 +506,7 @@ var _ = Describe("Delete", func() {
 				})
 
 				It("Should delete even when the start timestamp is not in bounds of a domain", func() {
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(18, 32))).To(Succeed())
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(18, 32))).To(Succeed())
 
 					frame, err := indexDB.Read(ctx, telem.TimeRangeMax)
 					Expect(err).ToNot(HaveOccurred())
@@ -524,7 +524,7 @@ var _ = Describe("Delete", func() {
 				})
 
 				It("Should delete even when the start timestamp is not in bounds of the dataDB", func() {
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(8, 32))).To(Succeed())
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(8, 32))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
 					Expect(frame.Count()).To(Equal(1))
@@ -537,9 +537,9 @@ var _ = Describe("Delete", func() {
 
 				It("Should delete even when the end timestamp is not in bounds of a pointer", func() {
 					By("Deleting channel data")
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(23, 26)))
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(23, 26)))
 
-					frame := MustSucceed(indexDB.Read(ctx, telem.NewSecondsRange(20, 100)))
+					frame := MustSucceed(indexDB.Read(ctx, telem.NewRangeSeconds(20, 100)))
 					Expect(frame.Count()).To(Equal(2))
 
 					series0 := frame.SeriesAt(0)
@@ -554,7 +554,7 @@ var _ = Describe("Delete", func() {
 				})
 
 				It("Should delete even when the end timestamp is not in the bounds of the DB", func() {
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(12, 10123))).To(Succeed())
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(12, 10123))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
 					Expect(frame.Count()).To(Equal(1))
@@ -567,7 +567,7 @@ var _ = Describe("Delete", func() {
 
 				It("Should delete even when both timestamps are not in bounds of a pointer", func() {
 					By("Deleting channel data")
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(16, 29))).To(Succeed())
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(16, 29))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
 					Expect(frame.Count()).To(Equal(2))
@@ -593,8 +593,8 @@ var _ = Describe("Delete", func() {
 				})
 
 				It("Should only delete one sample when Start = End - 1", func() {
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(20, 21))).To(Succeed())
-					frame := MustSucceed(indexDB.Read(ctx, telem.NewSecondsRange(20, 100)))
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(20, 21))).To(Succeed())
+					frame := MustSucceed(indexDB.Read(ctx, telem.NewRangeSeconds(20, 100)))
 					Expect(frame.Count()).To(Equal(2))
 
 					series0 := frame.SeriesAt(0)
@@ -604,7 +604,7 @@ var _ = Describe("Delete", func() {
 				})
 
 				It("Should delete nothing when there is no data before end", func() {
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(0, 5))).To(Succeed())
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(0, 5))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
 					Expect(frame.Count()).To(Equal(3))
@@ -616,7 +616,7 @@ var _ = Describe("Delete", func() {
 				})
 
 				It("Should delete nothing when there is no data after start", func() {
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(41, 45))).To(Succeed())
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(41, 45))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
 					Expect(frame.Count()).To(Equal(3))
@@ -628,28 +628,28 @@ var _ = Describe("Delete", func() {
 				})
 
 				It("Should delete no element when Start = End", func() {
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(20, 20))).To(Succeed())
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(20, 20))).To(Succeed())
 
-					frame := MustSucceed(indexDB.Read(ctx, telem.NewSecondsRange(20, 100)))
+					frame := MustSucceed(indexDB.Read(ctx, telem.NewRangeSeconds(20, 100)))
 					Expect(frame.Count()).To(Equal(2))
 					Expect(frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSecondsTSV(20, 21, 22, 23, 24)))
 				})
 
 				It("Should delete no sample when the range is in-between pointers", func() {
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(14, 20))).To(Succeed())
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(14, 20))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
 					Expect(frame.Count()).To(Equal(3))
 					Expect(frame.Len()).To(Equal(int64(17)))
 
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(14, 19))).To(Succeed())
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(14, 19))).To(Succeed())
 					frame = MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
 					Expect(frame.Count()).To(Equal(3))
 					Expect(frame.Len()).To(Equal(int64(17)))
 				})
 
 				It("Should delete no element when given a range that contains no samples", func() {
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(10, 20))).To(Succeed())
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(10, 20))).To(Succeed())
 
 					w, _ := MustSucceed2(indexDB.OpenWriter(
 						ctx,
@@ -663,7 +663,7 @@ var _ = Describe("Delete", func() {
 					MustSucceed(w.Commit(ctx))
 					MustSucceed(w.Close())
 
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(14, 20))).To(Succeed())
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(14, 20))).To(Succeed())
 
 					frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
 					Expect(err).ToNot(HaveOccurred())
@@ -677,7 +677,7 @@ var _ = Describe("Delete", func() {
 
 			Context("Error paths", func() {
 				It("Should error when the end timestamp is earlier than start timestamp", func() {
-					Expect(indexDB.Delete(ctx, telem.NewSecondsRange(30, 20))).To(MatchError(ContainSubstring("after delete end")))
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(30, 20))).To(MatchError(ContainSubstring("after delete end")))
 				})
 			})
 

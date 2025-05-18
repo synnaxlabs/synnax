@@ -55,6 +55,10 @@ func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatch
 	return m
 }
 
+// MatchWrittenSeries returns a Gomega matcher that compares two Series for equality,
+// but excludes TimeRange and Alignment fields by default. This is useful when comparing
+// Series that have been written to and read from storage, where these fields might differ
+// but the actual data remains the same.
 func MatchWrittenSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatcher {
 	m := &seriesMatcher{
 		expected:       expected,
@@ -72,6 +76,9 @@ func MatchSeriesData(expected Series) types.GomegaMatcher {
 	return MatchSeries(expected, ExcludeSeriesFields("TimeRange", "Alignment"))
 }
 
+// MatchSeriesDataV is a generic variant of MatchSeriesData that creates a Series from the
+// provided sample data and returns a matcher. This is a convenience function for testing
+// when you want to directly provide data values instead of constructing a Series first.
 func MatchSeriesDataV[T Sample](data ...T) types.GomegaMatcher {
 	return MatchSeriesData(NewSeriesV(data...))
 }
@@ -157,6 +164,9 @@ type frameMatcher[K xtypes.Numeric] struct {
 	expected Frame[K]
 }
 
+// MatchFrame returns a Gomega matcher that compares two Frame objects for equality.
+// The matcher verifies that both frames have the same number of series and that each
+// series matches its corresponding one in the expected frame. K must be a numeric type.
 func MatchFrame[K xtypes.Numeric](expected Frame[K]) types.GomegaMatcher {
 	return &frameMatcher[K]{expected: expected}
 }

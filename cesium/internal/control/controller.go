@@ -188,7 +188,7 @@ func (c *Controller[R]) OpenGate(cfg GateConfig[R]) (g *Gate[R], t Transfer, err
 		}
 	}
 	if exists {
-		return g, t, r
+		return g, t, err
 	}
 	var res R
 	if res, err = cfg.OpenResource(); err != nil {

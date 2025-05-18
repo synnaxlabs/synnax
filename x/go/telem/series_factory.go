@@ -11,6 +11,7 @@ package telem
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 
 	"github.com/samber/lo"
@@ -37,35 +38,29 @@ func NewSeriesV[T Sample](data ...T) (series Series) { return NewSeries(data) }
 
 // MakeSeries allocates a new Series with the specified DataType and length. Note that
 // this function allocates a length and not a capacity.
-func MakeSeries(dt DataType, len int64) (series Series) {
-	series.DataType = dt
-	series.Data = make([]byte, len*int64(dt.Density()))
-	return series
+func MakeSeries(dt DataType, len int64) Series {
+	return Series{DataType: dt, Data: make([]byte, len*int64(dt.Density()))}
 }
 
 // NewSecondsTSV creates a new Series containing TimeStamp values. All input timestamps
 // are multiplied by SecondTS to convert them to the standard time unit used in the
 // system.
-func NewSecondsTSV(data ...TimeStamp) (series Series) {
+func NewSecondsTSV(data ...TimeStamp) Series {
 	for i := range data {
 		data[i] *= SecondTS
 	}
-	series.DataType = TimeStampT
-	series.Data = MarshalSlice(data)
-	return series
+	return Series{DataType: TimeStampT, Data: MarshalSlice(data)}
 }
 
 // NewStrings creates a new Series from a slice of strings. The strings are stored with
 // newline characters as delimiters.
-func NewStrings(data []string) (series Series) {
-	series.DataType = StringT
-	series.Data = MarshalStrings(data, series.DataType)
-	return series
+func NewStrings(data []string) Series {
+	return Series{DataType: StringT, Data: MarshalStrings(data, StringT)}
 }
 
 // NewStringsV is a variadic version of NewStrings that creates a new Series from
 // individual string values.
-func NewStringsV(data ...string) (series Series) { return NewStrings(data) }
+func NewStringsV(data ...string) Series { return NewStrings(data) }
 
 func NewStaticJSONV[T any](data ...T) (series Series) {
 	series.DataType = JSONT
@@ -190,24 +185,24 @@ func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 	case TimeStampT:
 		return MarshalTimeStamp[T]
 	}
-	panic("unsupported data type")
+	panic(fmt.Sprintf("unsupported data type %s", dt))
 }
 
-func UnmarshalInt8[T types.Numeric](b []byte) (res T)   { return T(b[0]) }
-func UnmarshalInt16[T types.Numeric](b []byte) (res T)  { return T(ByteOrder.Uint16(b)) }
-func UnmarshalInt32[T types.Numeric](b []byte) (res T)  { return T(ByteOrder.Uint32(b)) }
-func UnmarshalInt64[T types.Numeric](b []byte) (res T)  { return T(ByteOrder.Uint64(b)) }
-func UnmarshalUint8[T types.Numeric](b []byte) (res T)  { return T(b[0]) }
-func UnmarshalUint16[T types.Numeric](b []byte) (res T) { return T(ByteOrder.Uint16(b)) }
-func UnmarshalUint32[T types.Numeric](b []byte) (res T) { return T(ByteOrder.Uint32(b)) }
-func UnmarshalUint64[T types.Numeric](b []byte) (res T) { return T(ByteOrder.Uint64(b)) }
-func UnmarshalFloat32[T types.Numeric](b []byte) (res T) {
+func UnmarshalInt8[T types.Numeric](b []byte) T   { return T(b[0]) }
+func UnmarshalInt16[T types.Numeric](b []byte) T  { return T(ByteOrder.Uint16(b)) }
+func UnmarshalInt32[T types.Numeric](b []byte) T  { return T(ByteOrder.Uint32(b)) }
+func UnmarshalInt64[T types.Numeric](b []byte) T  { return T(ByteOrder.Uint64(b)) }
+func UnmarshalUint8[T types.Numeric](b []byte) T  { return T(b[0]) }
+func UnmarshalUint16[T types.Numeric](b []byte) T { return T(ByteOrder.Uint16(b)) }
+func UnmarshalUint32[T types.Numeric](b []byte) T { return T(ByteOrder.Uint32(b)) }
+func UnmarshalUint64[T types.Numeric](b []byte) T { return T(ByteOrder.Uint64(b)) }
+func UnmarshalFloat32[T types.Numeric](b []byte) T {
 	return T(math.Float32frombits(ByteOrder.Uint32(b)))
 }
-func UnmarshalFloat64[T types.Numeric](b []byte) (res T) {
+func UnmarshalFloat64[T types.Numeric](b []byte) T {
 	return T(math.Float64frombits(ByteOrder.Uint64(b)))
 }
-func UnmarshalTimeStamp[T types.Numeric](b []byte) (res T) { return T(TimeStamp(ByteOrder.Uint64(b))) }
+func UnmarshalTimeStamp[T types.Numeric](b []byte) T { return T(TimeStamp(ByteOrder.Uint64(b))) }
 
 // UnmarshalF returns a function that can unmarshal a byte slice into a single value of
 // type K according to the specified DataType. Panics if the DataType is not supported.
@@ -236,5 +231,5 @@ func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) (res T) {
 	case TimeStampT:
 		return UnmarshalTimeStamp[T]
 	}
-	panic("unsupported data type")
+	panic(fmt.Sprintf("unsupported data type %s", dt))
 }

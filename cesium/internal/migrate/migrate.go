@@ -10,8 +10,6 @@
 package migrate
 
 import (
-	"fmt"
-
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/version"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -33,8 +31,8 @@ type DBState struct {
 }
 
 // GetVersion implements migrate.Migratable.
-func (d DBState) GetVersion() xversion.Semantic {
-	return xversion.Semantic(fmt.Sprintf("%d.%d.%d", d.Channel.Version, 0, 0))
+func (d DBState) GetVersion() xversion.Counter {
+	return xversion.Counter(d.Channel.Version)
 }
 
 var _ migrate.Migratable = DBState{}
@@ -61,8 +59,8 @@ var (
 		},
 	})
 	migrations = migrate.Migrations{
-		"0.0.0": migrateV0toV1,
-		"1.0.0": migrateV1toV2,
+		0: migrateV0toV1,
+		1: migrateV1toV2,
 	}
 	Migrate = migrate.NewMigrator(migrate.MigratorConfig[DBState, DBState]{
 		Migrations: migrations,

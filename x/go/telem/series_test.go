@@ -58,6 +58,7 @@ var _ = Describe("Series", func() {
 			Specify("uint32", MarshalTest([]uint32{1, 2, 3}, telem.Uint32T))
 			Specify("uint16", MarshalTest([]uint16{1, 2, 3}, telem.Uint16T))
 			Specify("uint8", MarshalTest([]uint8{1, 2, 3}, telem.Uint8T))
+			Specify("timestamp", MarshalTest([]telem.TimeStamp{1, 2, 3}, telem.TimeStampT))
 		})
 
 		Describe("StaticJSONV", func() {
@@ -195,7 +196,7 @@ var _ = Describe("Series", func() {
 			Entry("float32", telem.NewSeriesV[float32](1.0, 2.0, 3.0), "[1 2 3]"),
 			Entry("float64", telem.NewSeriesV(1.0, 2.0, 3.0), "[1 2 3]"),
 			Entry("string", telem.NewStringsV("a", "b", "c"), "[a b c]"),
-			Entry("json", telem.NewStaticJSONV(map[string]any{"a": 1, "b": 2, "c": 3}), "[{\"a\":1,\"b\":2,\"c\":3}]"),
+			Entry("json", telem.NewStaticJSONV(map[string]any{"a": 1, "b": 2, "c": 3}), `[{"a":1,"b":2,"c":3}]`),
 			Entry("timestamp", telem.NewSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z +1s +2s]"),
 		)
 
@@ -408,6 +409,11 @@ var _ = Describe("Series", func() {
 					End:   s2.TimeRange.End,
 				}))
 			})
+
+			It("Should return a zero time range when the multi-series is empty", func() {
+				ms := telem.MultiSeries{}
+				Expect(ms.TimeRange()).To(Equal(telem.TimeRangeZero))
+			})
 		})
 
 		Describe("Append", func() {
@@ -439,21 +445,21 @@ var _ = Describe("Series", func() {
 			})
 		})
 
-		Describe("FilterLessThan", func() {
+		Describe("FilterGreaterThanOrEqualTo", func() {
 			It("Should remove series with alignment bounds that are less than the target threshold", func() {
 				s1 := telem.NewSecondsTSV(1, 2, 3)
 				s1.Alignment = telem.NewAlignment(0, 0)
 				s2 := telem.NewSecondsTSV(4, 5, 6)
 				s2.Alignment = telem.NewAlignment(0, 3)
 				ms := telem.NewMultiSeriesV(s1, s2)
-				ms = ms.FilterLessThan(telem.NewAlignment(0, 3))
+				ms = ms.FilterGreaterThanOrEqualTo(telem.NewAlignment(0, 3))
 				Expect(ms.Len()).To(Equal(int64(3)))
 				Expect(ms.Series[0].Alignment).To(Equal(s2.Alignment))
 			})
 
 			It("Should correctly handle an empty multi-series", func() {
 				var ms telem.MultiSeries
-				Expect(ms.FilterLessThan(0).Len()).To(Equal(int64(0)))
+				Expect(ms.FilterGreaterThanOrEqualTo(0).Len()).To(Equal(int64(0)))
 			})
 
 			It("Should keep all series when alignment bounds is very low", func() {
@@ -462,7 +468,7 @@ var _ = Describe("Series", func() {
 				s2 := telem.NewSecondsTSV(4, 5, 6)
 				s2.Alignment = 5000
 				ms := telem.NewMultiSeriesV(s1, s2)
-				ms = ms.FilterLessThan(5)
+				ms = ms.FilterGreaterThanOrEqualTo(5)
 				Expect(ms.Len()).To(Equal(int64(6)))
 			})
 
@@ -472,8 +478,8 @@ var _ = Describe("Series", func() {
 				s2 := telem.NewSecondsTSV(4, 5, 6)
 				s2.Alignment = 3
 				ms := telem.NewMultiSeriesV(s1, s2)
-				ms = ms.FilterLessThan(5000)
-				Expect(ms.Len()).To(Equal(int64(0)))
+				ms = ms.FilterGreaterThanOrEqualTo(5000)
+				Expect(ms).To(Equal(telem.MultiSeries{}))
 			})
 		})
 

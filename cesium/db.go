@@ -34,6 +34,12 @@ var (
 	ErrChannelNotFound = core.ErrChannelNotFound
 )
 
+// LeadingAlignment returns an Alignment whose array index is the maximum possible value
+// and whose sample index is the provided value.
+func LeadingAlignment(domainIdx, sampleIdx uint32) telem.Alignment {
+	return core.LeadingAlignment(domainIdx, sampleIdx)
+}
+
 type DB struct {
 	*options
 	relay *relay

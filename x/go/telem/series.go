@@ -49,7 +49,7 @@ func (s Series) Len() int64 {
 	}
 	if s.DataType.IsVariable() {
 		if s.cachedLength == nil {
-			cl := int64(bytes.Count(s.Data, []byte("\n")))
+			cl := int64(bytes.Count(s.Data, []byte{newLineChar}))
 			s.cachedLength = &cl
 		}
 		return *s.cachedLength
@@ -112,21 +112,8 @@ func (s Series) At(i int) []byte {
 // ValueAt returns the numeric value at the given index in the series. ValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
-func ValueAt[T Sample](s Series, i int) (o T) {
+func ValueAt[T Sample](s Series, i int) T {
 	return UnmarshalF[T](s.DataType)(s.At(i))
-}
-
-// MultiSeriesAtAlignment returns the value at the given alignment in the MultiSeries.
-func MultiSeriesAtAlignment[T types.Numeric](
-	ms MultiSeries,
-	alignment Alignment,
-) (o T) {
-	for _, s := range ms.Series {
-		if s.AlignmentBounds().Contains(alignment) {
-			return ValueAt[T](s, int(alignment-s.Alignment))
-		}
-	}
-	panic(fmt.Sprintf("alignment %v out of bounds for multi series with alignment bounds %v", alignment, ms.AlignmentBounds()))
 }
 
 // SetValueAt sets the value at the given index in the series. SetValueAt supports
@@ -206,6 +193,7 @@ func truncateAndFormatSlice[T any](slice []T) string {
 	return stringer.TruncateAndFormatSlice(slice, maxDisplayValues)
 }
 
+// DataString returns a string representation of the data in a seris.
 func (s Series) DataString() string {
 	if s.Len() == 0 {
 		return "[]"
@@ -276,14 +264,27 @@ func NewMultiSeries(series []Series) MultiSeries {
 	if len(series) == 0 {
 		return MultiSeries{}
 	}
-	first := series[0]
+	dt := series[0].DataType
 	for _, s := range series {
-		if s.DataType != first.DataType {
-			panic(fmt.Sprintf("cannot create MultiSeries with different data types: %v != %v", first.DataType, s.DataType))
+		if s.DataType != dt {
+			panic(fmt.Sprintf("cannot create MultiSeries with different data types: %v != %v", dt, s.DataType))
 		}
 	}
 	slices.SortFunc(series, sortSeriesByAlignment)
 	return MultiSeries{Series: series}
+}
+
+// MultiSeriesAtAlignment returns the value at the given alignment in the MultiSeries.
+func MultiSeriesAtAlignment[T types.Numeric](
+	ms MultiSeries,
+	alignment Alignment,
+) T {
+	for _, s := range ms.Series {
+		if s.AlignmentBounds().Contains(alignment) {
+			return ValueAt[T](s, int(alignment-s.Alignment))
+		}
+	}
+	panic(fmt.Sprintf("alignment %v out of bounds for multi series with alignment bounds %v", alignment, ms.AlignmentBounds()))
 }
 
 // NewMultiSeriesV constructs a new MultiSeries from the given set of variadic Series.
@@ -291,16 +292,16 @@ func NewMultiSeries(series []Series) MultiSeries {
 // same. If the data types are different, a panic will occur.
 func NewMultiSeriesV(series ...Series) MultiSeries { return NewMultiSeries(series) }
 
-// AlignmentBounds returns the alignment bounds of the MultiSeries, where the lower
+// AlignmentBounds returns the alignment bounds of the MultiSeries. The lower
 // bound is the alignment of the first sample in the series, and the upper bound is the
-// alignment of the last sample in the series + 1 i.e. the lower value is inclusive and
+// alignment of the last sample in the series + 1, i.e., the lower value is inclusive, and
 // the upper value is exclusive.
 func (m MultiSeries) AlignmentBounds() (ab AlignmentBounds) {
 	if len(m.Series) != 0 {
 		ab.Lower = m.Series[0].AlignmentBounds().Lower
 		ab.Upper = m.Series[len(m.Series)-1].AlignmentBounds().Upper
 	}
-	return
+	return ab
 }
 
 // TimeRange returns the time range of the MultiSeries, where the start time is the
@@ -311,7 +312,7 @@ func (m MultiSeries) TimeRange() (tr TimeRange) {
 		tr.Start = m.Series[0].TimeRange.Start
 		tr.End = m.Series[len(m.Series)-1].TimeRange.End
 	}
-	return
+	return tr
 }
 
 // Append appends a series to the MultiSeries. The series must have the same data type
@@ -324,10 +325,10 @@ func (m MultiSeries) Append(series Series) MultiSeries {
 	return m
 }
 
-// FilterLessThan returns a new MultiSeries with all series that have an upper alignment
+// FilterGreaterThanOrEqualTo returns a new MultiSeries with all series that have an upper alignment
 // bound greater than the given alignment. This is useful for filtering out series that
 // are not relevant to the given alignment.
-func (m MultiSeries) FilterLessThan(a Alignment) MultiSeries {
+func (m MultiSeries) FilterGreaterThanOrEqualTo(a Alignment) MultiSeries {
 	if len(m.Series) == 0 {
 		return m
 	}
@@ -357,7 +358,7 @@ func (m MultiSeries) DataType() (dt DataType) {
 	if len(m.Series) != 0 {
 		dt = m.Series[0].DataType
 	}
-	return
+	return dt
 }
 
 // Data returns a byte slice containing the aggregated data of all series in the

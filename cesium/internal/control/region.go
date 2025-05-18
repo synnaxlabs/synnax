@@ -67,7 +67,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 		if existingG.subject.Key == cfg.Subject.Key {
 			return g, t, errors.Wrapf(
 				validate.Error,
-				"control subject %s is already registered in the region?",
+				"control subject %s is already registered in the region",
 				cfg.Subject,
 			)
 		}
@@ -81,7 +81,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	}
 
 	// Expand the time range to include the new gate's time range.
-	r.timeRange = r.timeRange.MaxUnion(cfg.TimeRange)
+	r.timeRange = r.timeRange.Union(cfg.TimeRange)
 
 	// If no one is in control or this gate has a higher authority, take control.
 	if r.curr == nil || g.authority > r.curr.authority {

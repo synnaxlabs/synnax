@@ -124,7 +124,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		closed:           &atomic.Bool{},
 		leadingAlignment: &atomic.Uint32{},
 	}
-	db.leadingAlignment.Store(telem.ZeroLeadingAlignment)
+	db.leadingAlignment.Store(core.ZeroLeadingAlignment)
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation, Channel: cfg.Channel}
 	}

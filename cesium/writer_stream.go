@@ -274,7 +274,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 				return err
 			}
 			u.Transfers = append(u.Transfers, u_.Transfers...)
-			return l
+			return nil
 		})
 	}
 	if w.virtual.internal != nil {
@@ -498,7 +498,7 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		if lengthOfFrame == -1 {
 			// Data type of first series must be known since we use it to calculate the
 			// length of series in the frame
-			if s.DataType.Density() == telem.DensityUnknown {
+			if s.DataType.Density() == telem.UnknownDensity {
 				return invalidDataTypeError(uWriter.Channel, s.DataType)
 			}
 			lengthOfFrame = s.Len()

@@ -47,15 +47,15 @@ func NewErrRangeWriteConflict(newTR, existingTR telem.TimeRange) error {
 // NewErrPointWriteConflict creates a new error that details a callers attempt to
 // open a new writer on a region that already has existing data.
 func NewErrPointWriteConflict(ts telem.TimeStamp, existingTr telem.TimeRange) error {
-	before, after := existingTr.PointIntersection(ts)
+	before, after := existingTr.Split(ts)
 	return errors.Wrapf(
 		ErrWriteConflict,
 		"%s overlaps with existing data occupying time range %s. Timestamp occurs "+
 			"%s after the start and %s before the end of the range",
 		ts,
 		existingTr,
-		before,
-		after,
+		before.Span(),
+		after.Span(),
 	)
 }
 

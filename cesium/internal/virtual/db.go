@@ -117,7 +117,7 @@ func Open(ctx context.Context, configs ...Config) (db *DB, err error) {
 		leadingAlignment: &atomic.Uint32{},
 		openWriters:      &atomic.Int32{},
 	}
-	db.leadingAlignment.Store(telem.ZeroLeadingAlignment)
+	db.leadingAlignment.Store(core.ZeroLeadingAlignment)
 	return db, nil
 }
 

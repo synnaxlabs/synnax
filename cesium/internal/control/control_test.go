@@ -80,7 +80,7 @@ var _ = Describe("Control", func() {
 
 			It("Should not create a new region if the time range is already in the controller", func() {
 				cfg1, createCount1 := baseConfig(1)
-				cfg1.TimeRange = telem.NewSecondsRange(1, 5)
+				cfg1.TimeRange = telem.NewRangeSeconds(1, 5)
 				cfg1.Subject.Key = "test1"
 				g1, t1 := MustSucceed2(c.OpenGate(cfg1))
 				Expect(g1).ToNot(BeNil())
@@ -89,7 +89,7 @@ var _ = Describe("Control", func() {
 
 				By("Not creating a new region when the time range is identical")
 				cfg2, createCount2 := baseConfig(1)
-				cfg2.TimeRange = telem.NewSecondsRange(1, 5)
+				cfg2.TimeRange = telem.NewRangeSeconds(1, 5)
 				cfg2.Subject.Key = "test2"
 				g2, t2 := MustSucceed2(c.OpenGate(cfg2))
 				Expect(g2).ToNot(BeNil())
@@ -98,7 +98,7 @@ var _ = Describe("Control", func() {
 
 				By("Not creating a new region when the time ranges overlap")
 				cfg3, createCount3 := baseConfig(1)
-				cfg3.TimeRange = telem.NewSecondsRange(1, 10)
+				cfg3.TimeRange = telem.NewRangeSeconds(1, 10)
 				cfg3.Subject.Key = "test3"
 				g3, t3 := MustSucceed2(c.OpenGate(cfg3))
 				Expect(g3).ToNot(BeNil())
@@ -108,7 +108,7 @@ var _ = Describe("Control", func() {
 
 			It("Should return an error if the gate overlaps with multiple regions", func() {
 				cfg1, count1 := baseConfig(1)
-				cfg1.TimeRange = telem.NewSecondsRange(1, 5)
+				cfg1.TimeRange = telem.NewRangeSeconds(1, 5)
 				cfg1.Subject.Key = "test1"
 				g1, t1 := MustSucceed2(c.OpenGate(cfg1))
 				Expect(g1).ToNot(BeNil())
@@ -116,7 +116,7 @@ var _ = Describe("Control", func() {
 				Expect(count1()).To(Equal(1))
 
 				cfg2, count2 := baseConfig(1)
-				cfg2.TimeRange = telem.NewSecondsRange(5, 10)
+				cfg2.TimeRange = telem.NewRangeSeconds(5, 10)
 				cfg2.Subject.Key = "test2"
 				g2, t2 := MustSucceed2(c.OpenGate(cfg2))
 				Expect(g2).ToNot(BeNil())
@@ -124,7 +124,7 @@ var _ = Describe("Control", func() {
 				Expect(count2()).To(Equal(1))
 
 				cfg3, count3 := baseConfig(1)
-				cfg3.TimeRange = telem.NewSecondsRange(0, 20)
+				cfg3.TimeRange = telem.NewRangeSeconds(0, 20)
 				cfg3.Subject.Key = "test3"
 				g3, t3, err := c.OpenGate(cfg3)
 				Expect(g3).To(BeNil())
@@ -154,7 +154,7 @@ var _ = Describe("Control", func() {
 				Expect(g).ToNot(BeNil())
 				g, t, err := c.OpenGate(cfg)
 				Expect(err).To(HaveOccurredAs(validate.Error))
-				Expect(err).To(MatchError(ContainSubstring("control subject [test]<test> is already registered in the region.")))
+				Expect(err).To(MatchError(ContainSubstring("control subject [test]<test> is already registered in the region")))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(g).To(BeNil())
 			})

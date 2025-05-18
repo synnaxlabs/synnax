@@ -68,13 +68,13 @@ Alignment:
 					DataType:  telem.Float64T,
 					Data:      telem.MarshalSlice[float64]([]float64{1, 2, 3}),
 					Alignment: telem.NewAlignment(1, 2),
-					TimeRange: telem.NewSecondsRange(1, 2),
+					TimeRange: telem.NewRangeSeconds(1, 2),
 				},
 				telem.Series{
 					DataType:  telem.Float64T,
 					Data:      telem.MarshalSlice[float64]([]float64{1, 2, 3}),
 					Alignment: telem.NewAlignment(1, 2),
-					TimeRange: telem.NewSecondsRange(1, 3),
+					TimeRange: telem.NewRangeSeconds(1, 3),
 				},
 				`Series did not match:
 TimeRange:
@@ -169,6 +169,60 @@ TimeRange:
 			matcher := telem.MatchFrame(f1)
 			msg := matcher.NegatedFailureMessage(f2)
 			Expect(msg).To(ContainSubstring("Frame"))
+		})
+	})
+
+	Describe("MatchWrittenSeries", func() {
+		It("Should ignore TimeRange and Alignment by default", func() {
+			s1 := telem.NewSeriesV[int64](1, 2, 3)
+			s2 := telem.NewSeriesV[int64](1, 2, 3)
+			s1.TimeRange = telem.NewRangeSeconds(1, 3)
+			s2.TimeRange = telem.NewRangeSeconds(5, 8)
+			s1.Alignment = telem.NewAlignment(10, 2)
+			s2.Alignment = telem.NewAlignment(20, 5)
+
+			Expect(s2).To(telem.MatchWrittenSeries(s1))
+		})
+
+		It("Should still check DataType and Data", func() {
+			s1 := telem.NewSeriesV[int64](1, 2, 3)
+			s2 := telem.NewSeriesV[uint64](1, 2, 3)
+			s3 := telem.NewSeriesV[int64](1, 2, 4)
+
+			Expect(s2).NotTo(telem.MatchWrittenSeries(s1))
+			Expect(s3).NotTo(telem.MatchWrittenSeries(s1))
+		})
+
+		It("Should respect additional options", func() {
+			s1 := telem.NewSeriesV[int64](1, 2, 3)
+			s2 := telem.NewSeriesV[uint64](1, 2, 3)
+
+			// Also exclude DataType from comparison
+			Expect(s2).To(telem.MatchWrittenSeries(s1, telem.ExcludeSeriesFields("DataType")))
+		})
+	})
+
+	Describe("MatchSeriesDataV", func() {
+		It("Should create matcher from sample values", func() {
+			s := telem.NewSeriesV[int64](1, 2, 3)
+			Expect(s).To(telem.MatchSeriesDataV[int64](1, 2, 3))
+			Expect(s).NotTo(telem.MatchSeriesDataV[int64](1, 2, 4))
+		})
+
+		It("Should ignore TimeRange and Alignment", func() {
+			s := telem.NewSeriesV[int64](1, 2, 3)
+			s.TimeRange = telem.NewRangeSeconds(1, 10)
+			s.Alignment = telem.NewAlignment(5, 2)
+
+			Expect(s).To(telem.MatchSeriesDataV[int64](1, 2, 3))
+		})
+
+		It("Should still check DataType", func() {
+			s1 := telem.NewSeriesV[int64](1, 2, 3)
+			s2 := telem.NewSeriesV[uint64](1, 2, 3)
+
+			Expect(s1).NotTo(telem.MatchSeriesDataV[uint64](1, 2, 3))
+			Expect(s2).NotTo(telem.MatchSeriesDataV[int64](1, 2, 3))
 		})
 	})
 })

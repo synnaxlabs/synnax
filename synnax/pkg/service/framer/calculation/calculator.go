@@ -80,7 +80,7 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		}
 		k := fr.RawKeyAt(rawI)
 		if v, ok := c.required[k]; ok {
-			v.data = v.data.Append(s).FilterLessThan(c.hwm.alignment)
+			v.data = v.data.Append(s).FilterGreaterThanOrEqualTo(c.hwm.alignment)
 			c.required[k] = v
 			if c.hwm.alignment == 0 {
 				c.hwm.alignment = v.data.AlignmentBounds().Lower
@@ -88,7 +88,7 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 			}
 		}
 	}
-	minAlignment := telem.MaxAlignmentPair
+	minAlignment := telem.MaxAlignment
 	minTimeStamp := telem.TimeStamp(0)
 	for _, v := range c.required {
 		if v.data.AlignmentBounds().Upper < minAlignment {

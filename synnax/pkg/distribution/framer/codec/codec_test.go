@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
@@ -208,21 +209,21 @@ var _ = Describe("Codec", func() {
 			keys := channel.Keys{1, 2, 3, 4}
 			dataTypes := []telem.DataType{"int32", "float32", "string", "uint8"}
 			s1 := telem.NewSeriesV[int32](1, 2, 3)
-			s1.TimeRange = telem.NewSecondsRange(1, 12)
+			s1.TimeRange = telem.NewRangeSeconds(1, 12)
 			s1.Alignment = 7
 			float32Data := make([]float32, 5000)
 			for i := range float32Data {
 				float32Data[i] = 1.234 + float32(i)*rand.Float32()
 			}
 			s2 := telem.NewSeries[float32](float32Data)
-			s2.TimeRange = telem.NewSecondsRange(3, 5)
+			s2.TimeRange = telem.NewRangeSeconds(3, 5)
 			s2.Alignment = 10
 			s3 := telem.NewStringsV("cat", "dog", "rabbit", "frog")
-			s3.TimeRange = telem.NewSecondsRange(1, 5)
+			s3.TimeRange = telem.NewRangeSeconds(1, 5)
 			s3.Alignment = 5
 			s4 := telem.MakeSeries(telem.Uint8T, 5000)
-			s4.Alignment = telem.LeadingAlignment(5000, 5)
-			s4.TimeRange = telem.NewSecondsRange(9999999, 999999999)
+			s4.Alignment = cesium.LeadingAlignment(5000, 5)
+			s4.TimeRange = telem.NewRangeSeconds(9999999, 999999999)
 			originalFrame := core.MultiFrame(
 				keys,
 				[]telem.Series{s1, s2, s3, s4},

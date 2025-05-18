@@ -303,12 +303,12 @@ func UnmarshalJSONStringUint64(b []byte) (n uint64, err error) {
 
 // MarshalStringInt64 marshals the int64 value to a UTF-8 string.
 func MarshalStringInt64(n int64) ([]byte, error) {
-	return []byte("\"" + strconv.Itoa(int(n)) + "\""), nil
+	return []byte(`"` + strconv.Itoa(int(n)) + `"`), nil
 }
 
 // MarshalStringUint64 marshals the uint64 value to a UTF-8 string.
 func MarshalStringUint64(n uint64) ([]byte, error) {
-	return []byte("\"" + strconv.FormatUint(n, 10) + "\""), nil
+	return []byte(`"` + strconv.FormatUint(n, 10) + `"`), nil
 }
 
 // decodeFallbackCodec wraps a set of Codecs. When the first Codec in the chain fails to

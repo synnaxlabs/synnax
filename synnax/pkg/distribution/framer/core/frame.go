@@ -91,5 +91,5 @@ func MergeFrames(frames []Frame) (f Frame) {
 }
 
 func NewFrameFromStorage(frame ts.Frame) Frame {
-	return Frame{telem.UnsafeReinterpretKeysAs[cesium.ChannelKey, channel.Key](frame)}
+	return Frame{telem.UnsafeReinterpretFrameKeysAs[cesium.ChannelKey, channel.Key](frame)}
 }

@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/controller"
+	xcontrol "github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/core"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/config"
@@ -293,7 +293,7 @@ var _ = Describe("Control", func() {
 
 						t := db.ControlStates().Transfers
 						Expect(t).To(HaveLen(4))
-						names := lo.Map(t, func(t control.Transfer, _ int) string {
+						names := lo.Map(t, func(t xcontrol.Transfer, _ int) string {
 							return t.To.Subject.Name
 						})
 						Expect(names).To(ConsistOf("writer1", "writer2", "writer2", "cesium_internal_control_digest"))

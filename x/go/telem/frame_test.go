@@ -81,13 +81,6 @@ var _ = Describe("Frame", func() {
 		})
 	})
 
-	Describe("Empty", func() {
-		It("Should return true if the frame is empty", func() {
-			fr := telem.Frame[int]{}
-			Expect(fr.Empty()).To(BeTrue())
-		})
-	})
-
 	Describe("FilterKeys", func() {
 		It("Should correctly filter keys for a frame with less than 128 entries", func() {
 			fr := telem.MultiFrame(
@@ -131,6 +124,31 @@ var _ = Describe("Frame", func() {
 				telem.NewSeriesV[int32](5, 6, 7),
 				telem.NewSeriesV[int32](7, 8, 9),
 				telem.NewSeriesV[int32](9, 10, 11),
+			}))
+		})
+
+		It("Should correctly filter a frame multiple times", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+			filtered := fr.FilterKeys([]int{1, 3}).FilterKeys([]int{1})
+
+			By("Filtering out the new frame")
+			Expect(filtered.KeysSlice()).To(Equal([]int{1}))
+			Expect(filtered.SeriesSlice()).To(Equal([]telem.Series{
+				telem.NewSeriesV[int32](1, 2, 3),
+			}))
+
+			By("Keeping the original frame")
+			Expect(fr.KeysSlice()).To(Equal([]int{1, 2, 3}))
+			Expect(fr.SeriesSlice()).To(Equal([]telem.Series{
+				telem.NewSeriesV[int32](1, 2, 3),
+				telem.NewSeriesV[int32](4, 5, 6),
+				telem.NewSeriesV[int32](7, 8, 9),
 			}))
 		})
 	})
@@ -314,6 +332,16 @@ var _ = Describe("Frame", func() {
 	})
 
 	Describe("Empty", func() {
+		It("Should return true if the frame is empty", func() {
+			fr := telem.Frame[int]{}
+			Expect(fr.Empty()).To(BeTrue())
+		})
+
+		It("Should return false if the frame is not empty", func() {
+			tr := telem.UnaryFrame(12, telem.NewSecondsTSV(1, 2, 3))
+			Expect(tr.Empty()).To(BeFalse())
+		})
+
 		It("Should return true for a filtered frame with no matching keys", func() {
 			fr := telem.MultiFrame(
 				[]int{1, 2, 3},
@@ -456,6 +484,7 @@ var _ = Describe("Frame", func() {
 				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			})
+
 			It("Should respect masking", func() {
 				original := telem.MultiFrame(
 					[]int{1, 2},
@@ -468,6 +497,14 @@ var _ = Describe("Frame", func() {
 					1,
 					telem.NewSeriesV[int64](1, 2),
 				)))
+			})
+
+			It("Should encode and decode an empty frame", func() {
+				original := telem.Frame[int]{}
+				buf := MustSucceed(codec.Encode(ctx, original))
+				var decoded telem.Frame[int]
+				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
+				Expect(decoded).To(Equal(original))
 			})
 		}
 
@@ -669,6 +706,22 @@ var _ = Describe("Frame", func() {
 			fr.SetRawSeriesAt(0, rawSeries)
 			Expect(fr.RawSeriesAt(0)).To(Equal(rawSeries))
 		})
+
+		It("Should panic when accessing a negative index", func() {
+			fr := telem.Frame[int]{}
+			Expect(func() { fr.SetSeriesAt(-1, telem.Series{}) }).To(Panic())
+		})
+
+		It("Should panic when accessing an index greater than available series", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+			Expect(func() { fr.SeriesAt(4) }).To(Panic())
+		})
 	})
 
 	Describe("RawSeries and RawKeys", func() {
@@ -699,7 +752,7 @@ var _ = Describe("Frame", func() {
 		})
 	})
 
-	Describe("UnsafeReinterpretKeysAs", func() {
+	Describe("UnsafeReinterpretFrameKeysAs", func() {
 		It("Should reinterpret key type correctly", func() {
 			fr := telem.MultiFrame(
 				[]int32{1, 2, 3},
@@ -708,7 +761,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 				})
-			reinterpreted := telem.UnsafeReinterpretKeysAs[int32, AltKey](fr)
+			reinterpreted := telem.UnsafeReinterpretFrameKeysAs[int32, AltKey](fr)
 			keys := reinterpreted.KeysSlice()
 			Expect(keys).To(HaveLen(3))
 			Expect(keys[0]).To(Equal(AltKey(1)))
@@ -1056,6 +1109,30 @@ var _ = Describe("Frame", func() {
 		It("Should return false when the frame has no series", func() {
 			Expect(telem.Frame[int]{}.HasData()).To(BeFalse())
 		})
+
+		It("Should return false when all keys in the series have been filtered out", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+			filtered := fr.FilterKeys([]int{22})
+			Expect(filtered.HasData()).To(BeFalse())
+		})
+
+		It("Should return true when the filter still has keys", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+			filtered := fr.FilterKeys([]int{2})
+			Expect(filtered.HasData()).To(BeTrue())
+		})
 	})
 
 	Describe("At", func() {
@@ -1093,6 +1170,20 @@ var _ = Describe("Frame", func() {
 			Expect(func() { fr.At(2) }).To(Panic())
 			Expect(func() { fr.At(-3) }).To(Panic())
 		})
+
+		It("Should return the correct values for a filtered series", func() {
+			fr := telem.MultiFrame(
+				[]int{10, 20},
+				[]telem.Series{
+					telem.NewSeriesV[int32](100),
+					telem.NewSeriesV[int32](200),
+				},
+			)
+			filtered := fr.FilterKeys([]int{20})
+			k, s := filtered.At(0)
+			Expect(k).To(Equal(20))
+			Expect(s).To(Equal(telem.NewSeriesV[int32](200)))
+		})
 	})
 
 	Describe("RawKeyAt", func() {
@@ -1117,7 +1208,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](200),
 				},
 			)
-			Expect(func() { _ = fr.RawKeyAt(2) }).To(Panic())
+			Expect(func() { fr.RawKeyAt(2) }).To(Panic())
 		})
 	})
 
