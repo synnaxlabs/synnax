@@ -24,11 +24,11 @@ import (
 type Sample interface{ types.Numeric }
 
 // NewSeries creates a new Series from a slice of numeric values. It automatically
-// determines the data type from the first element. Panics if the input slice is empty.
+// determines the data type from the first element.
 func NewSeries[T Sample](data []T) Series {
 	return Series{
 		DataType: InferDataType[T](),
-		Data:     MarshalSlice(data),
+		Data:     MarshalSlice[T](data),
 	}
 }
 
@@ -188,20 +188,41 @@ func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 	panic(fmt.Sprintf("unsupported data type %s", dt))
 }
 
-func UnmarshalInt8[T types.Numeric](b []byte) T   { return T(b[0]) }
-func UnmarshalInt16[T types.Numeric](b []byte) T  { return T(ByteOrder.Uint16(b)) }
-func UnmarshalInt32[T types.Numeric](b []byte) T  { return T(ByteOrder.Uint32(b)) }
-func UnmarshalInt64[T types.Numeric](b []byte) T  { return T(ByteOrder.Uint64(b)) }
-func UnmarshalUint8[T types.Numeric](b []byte) T  { return T(b[0]) }
+// UnmarshalInt8 unmarshals an 8-bit signed integer from a byte slice.
+func UnmarshalInt8[T types.Numeric](b []byte) T { return T(b[0]) }
+
+// UnmarshalInt16 unmarshals a 16-bit signed integer from a byte slice.
+func UnmarshalInt16[T types.Numeric](b []byte) T { return T(ByteOrder.Uint16(b)) }
+
+// UnmarshalInt32 unmarshals a 32-bit signed integer from a byte slice.
+func UnmarshalInt32[T types.Numeric](b []byte) T { return T(ByteOrder.Uint32(b)) }
+
+// UnmarshalInt64 unmarshals a 64-bit signed integer from a byte slice.
+func UnmarshalInt64[T types.Numeric](b []byte) T { return T(ByteOrder.Uint64(b)) }
+
+// UnmarshalUint8 unmarshals an 8-bit unsigned integer from a byte slice.
+func UnmarshalUint8[T types.Numeric](b []byte) T { return T(b[0]) }
+
+// UnmarshalUint16 unmarshals a 16-bit unsigned integer from a byte slice.
 func UnmarshalUint16[T types.Numeric](b []byte) T { return T(ByteOrder.Uint16(b)) }
+
+// UnmarshalUint32 unmarshals a 32-bit unsigned integer from a byte slice.
 func UnmarshalUint32[T types.Numeric](b []byte) T { return T(ByteOrder.Uint32(b)) }
+
+// UnmarshalUint64 unmarshals a 64-bit unsigned integer from a byte slice.
 func UnmarshalUint64[T types.Numeric](b []byte) T { return T(ByteOrder.Uint64(b)) }
+
+// UnmarshalFloat32 unmarshals a 32-bit floating point number from a byte slice.
 func UnmarshalFloat32[T types.Numeric](b []byte) T {
 	return T(math.Float32frombits(ByteOrder.Uint32(b)))
 }
+
+// UnmarshalFloat64 unmarshals a 64-bit floating point number from a byte slice.
 func UnmarshalFloat64[T types.Numeric](b []byte) T {
 	return T(math.Float64frombits(ByteOrder.Uint64(b)))
 }
+
+// UnmarshalTimeStamp unmarshals a TimeStamp from a byte slice.
 func UnmarshalTimeStamp[T types.Numeric](b []byte) T { return T(TimeStamp(ByteOrder.Uint64(b))) }
 
 // UnmarshalF returns a function that can unmarshal a byte slice into a single value of

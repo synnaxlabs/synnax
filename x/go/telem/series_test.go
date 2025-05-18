@@ -518,6 +518,11 @@ var _ = Describe("Series", func() {
 				ms := telem.NewMultiSeriesV(s1, s2)
 				Expect(ms.Len()).To(Equal(int64(6)))
 			})
+
+			It("Should return 0 if there are no series", func() {
+				ms := telem.MultiSeries{}
+				Expect(ms.Len()).To(Equal(int64(0)))
+			})
 		})
 
 		Describe("DataType", func() {

@@ -58,32 +58,28 @@ func (g *Gate[R]) PeekResource() R {
 func (g *Gate[R]) Authorize() (r R, err error) {
 	g.region.RLock()
 	defer g.region.RUnlock()
-	// In the case of exclusive concurrency, we only need to check if the gate is the
-	// current gate.
-	var ok bool
-	if g.region.controller.Concurrency == control.Exclusive {
-		ok = g.region.curr == g
-	} else {
-		// In the case of shared concurrency, we need to check if the gate has equal to
-		// or higher authority than the current gate.
-		ok = g.authority >= g.region.curr.authority
-	}
-	if !ok {
-		if g.region == nil || g.region.curr == nil {
-			return r, errors.Wrapf(
-				control.ErrUnauthorized,
-				"%s has no control authority - gate was already released",
-				g.Subject(),
-			)
-		}
+	if g.region == nil || g.region.curr == nil {
 		return r, errors.Wrapf(
 			control.ErrUnauthorized,
-			"%s has no control authority - it is currently held by %s",
+			"%s has no control authority - gate was already released",
 			g.Subject(),
-			g.region.curr.Subject(),
 		)
 	}
-	return g.region.resource, nil
+	// In the case of exclusive concurrency, we only need to check if the gate is the
+	// current gate.
+	if g.region.controller.Concurrency == control.Exclusive {
+		if g.region.curr == g {
+			return g.region.resource, nil
+		}
+	} else if g.authority >= g.region.curr.authority {
+		return g.region.resource, nil
+	}
+	return r, errors.Wrapf(
+		control.ErrUnauthorized,
+		"%s has no control authority - it is currently held by %s",
+		g.Subject(),
+		g.region.curr.Subject(),
+	)
 }
 
 // Release releases the gate's access to the resource. If the gate is the last gate in

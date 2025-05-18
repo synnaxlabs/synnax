@@ -342,10 +342,28 @@ TEST(TimeRangeTests, testContainsRange) {
     ASSERT_TRUE(tr.contains(tr2));
 }
 
-TEST(TimeRangeTests, testEquality) {
+TEST(TimeRangeTests, testEqualOperatorEqual) {
     const auto tr = TimeRange(5, 10);
     const auto tr2 = TimeRange(5, 10);
     ASSERT_TRUE(tr == tr2);
+}
+
+TEST(TimeRangeTests, testEqualOperatorNotEqual) {
+    const auto tr = TimeRange(5, 10);
+    const auto tr2 = TimeRange(5, 11);
+    ASSERT_FALSE(tr == tr2);
+}
+
+TEST(TimeRangetests, testNotEqualOperatorEqual) {
+    const auto tr = TimeRange(5, 10);
+    const auto tr2 = TimeRange(5, 10);
+    ASSERT_FALSE(tr != tr2);
+}
+
+TEST(TimeRangeTests, testNotEqualOperatorNotEqual) {
+    const auto tr = TimeRange(5, 10);
+    const auto tr2 = TimeRange(5, 11);
+    ASSERT_TRUE(tr != tr2);
 }
 
 ////////////////////////////////////////////////////////////
@@ -577,5 +595,23 @@ TEST(DataTypeTests, testStreamOperator) {
     std::stringstream ss;
     ss << dt;
     ASSERT_EQ(ss.str(), "float32");
+}
+
+
+
+TEST(AlignmentTests, testDomainIndex) {
+    telem::Alignment a(1, 0);
+    ASSERT_EQ(a.domain_index(), 1);
+}
+
+TEST(AlignmentTests, testSampleIndex) {
+    telem::Alignment a(0, 1);
+    ASSERT_EQ(a.sample_index(), 1);
+}
+
+TEST(AlignmentTests, testConstructionFromUint64) {
+    telem::Alignment a(20);
+    ASSERT_EQ(a.domain_index(), 0);
+    ASSERT_EQ(a.sample_index(), 20);
 }
 }

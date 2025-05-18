@@ -104,9 +104,6 @@ func NewMigrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
 	var migrate func(Migratable) (O, error)
 	migrate = func(old Migratable) (O, error) {
 		v := old.GetVersion()
-		if v == 0 {
-			v = cfg.Default.GetVersion()
-		}
 
 		if old.GetVersion().NewerThan(latestV) {
 			if applied {

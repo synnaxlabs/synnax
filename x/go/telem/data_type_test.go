@@ -51,5 +51,6 @@ var _ = Describe("DataType", func() {
 		Entry("string", telem.StringT, telem.UnknownDensity),
 		Entry("timestamp", telem.TimeStampT, telem.Bit64),
 		Entry("uuid", telem.UUIDT, telem.Bit128),
+		Entry("random", telem.DataType("random"), telem.UnknownDensity),
 	)
 })

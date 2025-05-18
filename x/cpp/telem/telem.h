@@ -297,10 +297,12 @@ public:
         // note that on some machines, hig-res clock refs system_clock and on others
         // it references steady_clock. This could create a problem so we should
         // probably use system_clock.
-        return TimeStamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                             std::chrono::system_clock::now().time_since_epoch()
-        )
-                             .count());
+        return TimeStamp(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::system_clock::now().time_since_epoch()
+            )
+                .count()
+        );
     }
 
     TimeStamp static midpoint(const TimeStamp &start, const TimeStamp &end) {
@@ -577,7 +579,8 @@ template<typename T>
                     try {
                         return TimeStamp(std::stoll(arg));
                     } catch (...) {
-                        throw std::runtime_error("failed to convert string to TimeStamp"
+                        throw std::runtime_error(
+                            "failed to convert string to TimeStamp"
                         );
                     }
                 }
@@ -898,23 +901,29 @@ private:
 };
 
 // Alignment is two array index values that can be used to represent
-// the location of a sample within an array of arrays. For example, if you have two arrays
-// that have 50 elements each, and you want the 15th element of the second array, you would
-// use NewAlignment(1, 15). The first index is called the 'domain index' and the second
-// index is called the 'sample index'. The domain index is the index of the array, and the
-// sample index is the index of the sample within that array.
+// the location of a sample within an array of arrays. For example, if you have two
+// arrays that have 50 elements each, and you want the 15th element of the second array,
+// you would use NewAlignment(1, 15). The first index is called the 'domain index' and
+// the second index is called the 'sample index'. The domain index is the index of the
+// array, and the sample index is the index of the sample within that array.
 //
-// You may think a better design is to just use a single number that overflows the arrays
-// before it, i.e., the value of our previous example would be 50 + 14 = 64. However, this
-// requires us to know the size of all arrays, which is not always possible.
+// You may think a better design is to just use a single number that overflows the
+// arrays before it, i.e., the value of our previous example would be 50 + 14 = 64.
+// However, this requires us to know the size of all arrays, which is not always
+// possible.
 //
 // While not as meaningful as a single number, Alignment is a uint64 that guarantees
 // that a larger value is, in fact, 'positionally' after a smaller value. This is useful
 // for ordering samples correctly.
 class Alignment {
     std::uint64_t value;
+
 public:
-    explicit Alignment(const std::uint64_t value = 0) : value(value) {}
+    explicit Alignment(const std::uint64_t value = 0): value(value) {}
+
+    Alignment(const std::uint32_t domain_index, const std::uint32_t sample_index) {
+        this->value = static_cast<std::uint64_t>(domain_index) << 32 | sample_index;
+    }
 
     /// @brief returns the domain index of the Alignment. This is the index in
     /// the array of arrays.

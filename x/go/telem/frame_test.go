@@ -69,6 +69,30 @@ var _ = Describe("Frame", func() {
 		})
 	})
 
+	Describe("Count", func() {
+		It("Should return the number of channels in the frame", func() {
+			fr := telem.UnaryFrame(1, telem.NewSeriesV[int32](1, 2, 3))
+			Expect(fr.Count()).To(Equal(1))
+		})
+
+		It("Should work with filtered frames", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+			filtered := fr.FilterKeys([]int{1, 3})
+			Expect(filtered.Count()).To(Equal(2))
+		})
+
+		It("Should work with empty frames", func() {
+			fr := telem.Frame[int]{}
+			Expect(fr.Count()).To(Equal(0))
+		})
+	})
+
 	Describe("Prepend", func() {
 		It("Should correctly prepend a key and a series to the frame", func() {
 			fr := telem.UnaryFrame(1, telem.NewSeriesV[int32](1, 2, 3))

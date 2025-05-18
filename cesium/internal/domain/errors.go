@@ -64,3 +64,7 @@ func NewErrPointWriteConflict(ts telem.TimeStamp, existingTr telem.TimeRange) er
 func NewErrRangeNotFound(tr telem.TimeRange) error {
 	return errors.Wrapf(ErrRangeNotFound, "time range %s cannot be found", tr)
 }
+
+func newErrResourceInUse(resource string, fileKey uint16) error {
+	return errors.Newf("%s for file %d is in use and cannot be closed", resource, fileKey)
+}

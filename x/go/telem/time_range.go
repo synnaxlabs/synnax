@@ -162,13 +162,13 @@ func formatNanos(nanos int) string {
 }
 
 func formatSubsecond(nanos int) string {
-	if nanos < 1000 {
+	if nanos < 1_000 {
 		return fmt.Sprintf("%09d", nanos)
-	} else if nanos < 1000000 {
-		microseconds := nanos / 1000
+	} else if nanos < 1_000_000 {
+		microseconds := nanos / 1_000
 		return fmt.Sprintf("%06d", microseconds)
 	}
-	milliseconds := nanos / 1000000
+	milliseconds := nanos / 1_000_000
 	return fmt.Sprintf("%03d", milliseconds)
 }
 

@@ -33,10 +33,6 @@ func fileKeyToName(key uint16) string {
 	return strconv.Itoa(int(key)) + extension
 }
 
-func newErrResourceInUse(resource string, fileKey uint16) error {
-	return errors.Newf("%s for file %d is in use and cannot be closed", resource, fileKey)
-}
-
 // fileReaders represents readers on a file. It provides a mutex lock to prevent any
 // modifications to the list of readers.
 type fileReaders struct {

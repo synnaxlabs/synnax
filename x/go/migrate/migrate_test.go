@@ -20,26 +20,23 @@ import (
 
 // Test types to simulate migrations
 type ResourceV0 struct {
-	Version version.Counter
-	Name    string
+	Name string
 }
 
-func (e ResourceV0) GetVersion() version.Counter { return e.Version }
+func (e ResourceV0) GetVersion() version.Counter { return 0 }
 
 type ResourceV1 struct {
-	Version version.Counter
-	Title   string
+	Title string
 }
 
-func (e ResourceV1) GetVersion() version.Counter { return e.Version }
+func (e ResourceV1) GetVersion() version.Counter { return 1 }
 
 type ResourceV2 struct {
-	Version     version.Counter
 	Title       string
 	Description string
 }
 
-func (e ResourceV2) GetVersion() version.Counter { return e.Version }
+func (e ResourceV2) GetVersion() version.Counter { return 2 }
 
 var _ = Describe("Migrate", func() {
 	Describe("NewMigrator", func() {
@@ -54,8 +51,7 @@ var _ = Describe("Migrate", func() {
 				Name: "resource",
 				Migrate: func(ctx migrate.Context, v0 ResourceV0) (ResourceV1, error) {
 					return ResourceV1{
-						Version: 1,
-						Title:   v0.Name,
+						Title: v0.Name,
 					}, nil
 				},
 			})
@@ -65,7 +61,6 @@ var _ = Describe("Migrate", func() {
 				Name: "resource",
 				Migrate: func(ctx migrate.Context, v1 ResourceV1) (ResourceV2, error) {
 					return ResourceV2{
-						Version:     2,
 						Title:       v1.Title,
 						Description: "",
 					}, nil
@@ -78,14 +73,13 @@ var _ = Describe("Migrate", func() {
 			}
 
 			defaultV2 = ResourceV2{
-				Version:     2,
 				Title:       "",
 				Description: "",
 			}
 		})
 
 		It("should migrate an resource from v0 to v2", func() {
-			resource := ResourceV0{Version: 0, Name: "foo"}
+			resource := ResourceV0{Name: "foo"}
 			migrator := migrate.NewMigrator(migrate.MigratorConfig[ResourceV0, ResourceV2]{
 				Name:       "resource",
 				Migrations: migrations,
@@ -94,14 +88,13 @@ var _ = Describe("Migrate", func() {
 
 			result := migrator(resource)
 			Expect(result).To(Equal(ResourceV2{
-				Version:     2,
 				Title:       "foo",
 				Description: "",
 			}))
 		})
 
 		It("should migrate an resource from v1 to v2", func() {
-			resource := ResourceV1{Version: 1, Title: "foo"}
+			resource := ResourceV1{Title: "foo"}
 			migrator := migrate.NewMigrator(migrate.MigratorConfig[ResourceV1, ResourceV2]{
 				Name:       "resource",
 				Migrations: migrations,
@@ -110,7 +103,6 @@ var _ = Describe("Migrate", func() {
 
 			result := migrator(resource)
 			Expect(result).To(Equal(ResourceV2{
-				Version:     2,
 				Title:       "foo",
 				Description: "",
 			}))
@@ -118,7 +110,6 @@ var _ = Describe("Migrate", func() {
 
 		It("should not migrate an resource that is already at v2", func() {
 			resource := ResourceV2{
-				Version:     2,
 				Title:       "foo",
 				Description: "bar",
 			}
@@ -139,7 +130,7 @@ var _ = Describe("Migrate", func() {
 				Default:    defaultV2,
 			})
 
-			resource := ResourceV0{Version: 0, Name: "foo"}
+			resource := ResourceV0{Name: "foo"}
 			result := migrator(resource)
 			Expect(result).To(Equal(defaultV2))
 		})
@@ -163,7 +154,7 @@ var _ = Describe("Migrate", func() {
 				Default:    defaultV2,
 			})
 
-			resource := ResourceV0{Version: 0, Name: "foo"}
+			resource := ResourceV0{Name: "foo"}
 			result := migrator(resource)
 			// Should return default when migration fails
 			Expect(result).To(Equal(defaultV2))
@@ -181,7 +172,7 @@ var _ = Describe("Migrate", func() {
 				Default:    defaultV2,
 			})
 
-			resource := ResourceV0{Version: 0, Name: "foo"}
+			resource := ResourceV0{Name: "foo"}
 			result := migrator(resource)
 			// Should return default when no migration path exists
 			Expect(result).To(Equal(defaultV2))
