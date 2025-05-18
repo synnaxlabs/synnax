@@ -28,6 +28,7 @@ var _ = Describe("Write", func() {
 		db = MustSucceed(virtual.Open(ctx, virtual.Config{
 			MetaCodec: codec,
 			Channel: core.Channel{
+				Name:     "Ray",
 				Key:      2,
 				DataType: telem.TimeStampT,
 				Virtual:  true,

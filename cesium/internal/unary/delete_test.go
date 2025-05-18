@@ -39,6 +39,7 @@ var _ = Describe("Delete", func() {
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "John",
 						Key:      index,
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
@@ -50,6 +51,7 @@ var _ = Describe("Delete", func() {
 					FS:        MustSucceed(fs.Sub("data")),
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "Wilkes",
 						Key:      data,
 						DataType: telem.Int64T,
 						Index:    index,

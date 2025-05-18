@@ -41,6 +41,7 @@ var _ = Describe("Unary racing", func() {
 					FS:        indexFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "Anker",
 						Key:      indexKey,
 						IsIndex:  true,
 						DataType: telem.TimeStampT,
@@ -52,6 +53,7 @@ var _ = Describe("Unary racing", func() {
 					FS:        dataFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "Jimmy",
 						Key:      dataKey,
 						DataType: telem.Int64T,
 						Index:    indexKey,

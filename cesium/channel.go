@@ -170,7 +170,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	if ch.Virtual {
 		return nil
 	}
-	if ch.Index != 0 {
+	if ch.Index != 0 && !ch.IsIndex {
 		indexDB, ok := db.mu.unaryDBs[ch.Index]
 		if !ok {
 			return validate.FieldError{
@@ -181,7 +181,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		if !indexDB.Channel().IsIndex {
 			return validate.FieldError{
 				Field:   "index",
-				Message: fmt.Sprintf("requested channel <%d> is not an index", ch.Index),
+				Message: fmt.Sprintf("channel %v is not an index", indexDB.Channel()),
 			}
 		}
 	}

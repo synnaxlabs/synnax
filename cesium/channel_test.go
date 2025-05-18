@@ -71,7 +71,7 @@ var _ = Describe("Channel", Ordered, func() {
 						cesium.Channel{Name: "Cavendish", Key: 9996, IsIndex: true, Index: 9995, DataType: telem.TimeStampT},
 					),
 					Entry("ChannelKey has index - LocalIndex does not exist",
-						errors.Wrapf(validate.Error, "[cesium] - index channel <%s> does not exist", "9994"),
+						validate.FieldError{Field: "index", Message: "index channel <9994> does not exist"},
 						cesium.Channel{Name: "Laplatz", Key: 9997, Index: 9994, DataType: telem.Float64T},
 					),
 					Entry("ChannelKey has no index",

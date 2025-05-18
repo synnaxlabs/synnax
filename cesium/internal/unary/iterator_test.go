@@ -40,6 +40,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						FS:        MustSucceed(fs.Sub("index")),
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Alex",
 							Key:      index,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
@@ -51,6 +52,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						FS:        MustSucceed(fs.Sub("data")),
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Megos",
 							Key:      data,
 							DataType: telem.Int64T,
 							Index:    index,
@@ -779,6 +781,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								FS:        MustSucceed(fs.Sub("index3")),
 								MetaCodec: codec,
 								Channel: core.Channel{
+									Name:     "Ozturk",
 									Key:      iKey,
 									DataType: telem.TimeStampT,
 									IsIndex:  true,
@@ -930,6 +933,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					FS:        indexFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "Fred",
 						Key:      indexKey,
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
@@ -942,6 +946,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					FS:        unaryFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "Armisen",
 						Key:      dataKey,
 						DataType: telem.Float32T,
 						Index:    indexKey,
@@ -1017,6 +1022,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					FS:        indexFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "GI",
 						Key:      indexKey,
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
@@ -1027,6 +1033,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					FS:        uFS1,
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "Joe",
 						Key:      data1Key,
 						DataType: telem.Float32T,
 						Index:    indexKey,
@@ -1038,6 +1045,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					FS:        uFS2,
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "Jon",
 						Key:      data2Key,
 						DataType: telem.Uint8T,
 						Index:    indexKey,

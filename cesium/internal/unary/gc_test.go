@@ -42,6 +42,7 @@ var _ = Describe("Garbage Collection", func() {
 						FS:        indexFS,
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Chin",
 							Key:      indexKey,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
@@ -56,6 +57,7 @@ var _ = Describe("Garbage Collection", func() {
 						FS:        dataFS,
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Renan",
 							Key:      dataKey,
 							DataType: telem.Int64T,
 							Index:    indexKey,
@@ -119,6 +121,7 @@ var _ = Describe("Garbage Collection", func() {
 						FS:        indexFS,
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Wilkes",
 							Key:      indexKey,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
@@ -132,6 +135,7 @@ var _ = Describe("Garbage Collection", func() {
 						FS:        dataFS,
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Lincoln",
 							Key:      dataKey,
 							DataType: telem.Int64T,
 							Index:    indexKey,

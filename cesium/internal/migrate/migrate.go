@@ -10,6 +10,8 @@
 package migrate
 
 import (
+	"fmt"
+
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/version"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -42,6 +44,9 @@ var (
 		Name: "cesium.migrate",
 		Migrate: func(context migrate.Context, state DBState) (DBState, error) {
 			state.Channel.Version = version.V1
+			if state.Channel.Name == "" {
+				state.Channel.Name = fmt.Sprintf("Unknown %v", state.Channel.Key)
+			}
 			return state, nil
 		},
 	})

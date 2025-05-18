@@ -46,6 +46,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						FS:        fs,
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Conrad",
 							Key:      2,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
@@ -422,6 +423,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						FS:        fs,
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Frederick",
 							Key:      2,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
