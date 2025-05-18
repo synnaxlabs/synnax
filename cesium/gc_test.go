@@ -73,7 +73,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
 								telem.NewSeriesV(data...),
-								telem.NewSecondsTSV(timestamps...),
+								telem.NewSeriesSecondsTSV(timestamps...),
 							},
 						))).To(Succeed())
 					}
@@ -141,7 +141,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
 								telem.NewSeriesV(data...),
-								telem.NewSecondsTSV(timestamps...),
+								telem.NewSeriesSecondsTSV(timestamps...),
 							},
 						))).To(Succeed())
 					}
@@ -218,7 +218,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
 								telem.NewSeriesV(data...),
-								telem.NewSecondsTSV(timestamps...),
+								telem.NewSeriesSecondsTSV(timestamps...),
 							},
 						))).To(Succeed())
 					}
@@ -247,14 +247,14 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						[]cesium.ChannelKey{basic, index},
 						[]telem.Series{
 							telem.NewSeriesV[int64](2000, 2010, 2020, 2030, 2040),
-							telem.NewSecondsTSV(200, 201, 202, 203, 204),
+							telem.NewSeriesSecondsTSV(200, 201, 202, 203, 204),
 						},
 					))).To(Succeed())
 					Expect(db.Write(ctx, 300*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{basic, index},
 						[]telem.Series{
 							telem.NewSeriesV[int64](3000, 3010, 3020),
-							telem.NewSecondsTSV(300, 301, 302),
+							telem.NewSeriesSecondsTSV(300, 301, 302),
 						},
 					))).To(Succeed())
 					Expect([]int64{MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/3.domain"))).Size(),

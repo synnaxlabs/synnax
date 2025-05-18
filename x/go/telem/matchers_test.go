@@ -86,16 +86,16 @@ TimeRange:
 
 	Describe("MatchSeriesData", func() {
 		It("Should only match against the series data", func() {
-			s1 := telem.NewSecondsTSV(1, 2, 3)
-			s2 := telem.NewSecondsTSV(1, 2, 3)
+			s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
+			s2 := telem.NewSeriesSecondsTSV(1, 2, 3)
 			s1.Alignment = 55
 			s2.Alignment = 56
 			Expect(s1).To(telem.MatchSeriesData(s2))
 		})
 
 		It("Should return false when the series data does not match", func() {
-			s1 := telem.NewSecondsTSV(1, 2, 3)
-			s2 := telem.NewSecondsTSV(1, 2, 4)
+			s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
+			s2 := telem.NewSeriesSecondsTSV(1, 2, 4)
 			matcher := telem.MatchSeriesData(s1)
 			matched := MustSucceed(matcher.Match(s2))
 			Expect(matched).To(BeFalse())
@@ -104,7 +104,7 @@ TimeRange:
 		})
 
 		It("Should return false when the data types do not match", func() {
-			s1 := telem.NewSecondsTSV(1, 2, 3)
+			s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
 			s2 := telem.NewSeriesV[uint8](1, 2, 4)
 			matcher := telem.MatchSeriesData(s1)
 			matched := MustSucceed(matcher.Match(s2))

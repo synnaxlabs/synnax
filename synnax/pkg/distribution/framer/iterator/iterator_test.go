@@ -45,19 +45,19 @@ var _ = Describe("Iterator", func() {
 				MustSucceed(writer.Write(core.MultiFrame(
 					s.keys,
 					[]telem.Series{
-						telem.NewSecondsTSV(10, 11, 12),
+						telem.NewSeriesSecondsTSV(10, 11, 12),
 					},
 				)))
 				MustSucceed(writer.Write(core.MultiFrame(
 					s.keys,
 					[]telem.Series{
-						telem.NewSecondsTSV(13, 14, 15, 16, 17),
+						telem.NewSeriesSecondsTSV(13, 14, 15, 16, 17),
 					},
 				)))
 				MustSucceed(writer.Write(core.MultiFrame(
 					s.keys,
 					[]telem.Series{
-						telem.NewSecondsTSV(18, 19, 20, 21, 22),
+						telem.NewSeriesSecondsTSV(18, 19, 20, 21, 22),
 					},
 				)))
 				MustSucceed(writer.Commit())
@@ -71,22 +71,22 @@ var _ = Describe("Iterator", func() {
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(4 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(10, 11, 12, 13)))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
 				Expect(iter.SeekLast()).To(BeTrue())
 				Expect(iter.Prev(6 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(17, 18, 19, 20, 21, 22)))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(17, 18, 19, 20, 21, 22)))
 
 				Expect(iter.SeekGE(100 * telem.SecondTS)).To(BeFalse())
 				Expect(iter.Valid()).To(BeFalse())
 				Expect(iter.SeekLE(22*telem.SecondTS + 1)).To(BeTrue())
 				Expect(iter.Prev(2 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(21, 22)))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(21, 22)))
 
 				Expect(iter.SeekLE(0 * telem.SecondTS)).To(BeFalse())
 				Expect(iter.Valid()).To(BeFalse())
 				Expect(iter.SeekGE(13 * telem.SecondTS)).To(BeTrue())
 				Expect(iter.Next(20 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(13, 14, 15, 16, 17, 18, 19, 20, 21, 22)))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(13, 14, 15, 16, 17, 18, 19, 20, 21, 22)))
 
 				Expect(iter.Close()).To(Succeed())
 			})
@@ -99,11 +99,11 @@ var _ = Describe("Iterator", func() {
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(10, 11, 12)))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(10, 11, 12)))
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(13, 14, 15)))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(13, 14, 15)))
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(16, 17, 18)))
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(16, 17, 18)))
 
 				Expect(iter.Close()).To(Succeed())
 			})

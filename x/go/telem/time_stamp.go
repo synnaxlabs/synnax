@@ -11,7 +11,6 @@ package telem
 
 import (
 	"encoding/json"
-	"strconv"
 	"time"
 
 	"github.com/synnaxlabs/x/binary"
@@ -64,9 +63,6 @@ func (ts TimeStamp) String() string {
 	}
 	return ts.Time().UTC().Format("2006-01-02T15:04:05.999Z")
 }
-
-// RawString returns the timestamp in nanoseconds.
-func (ts TimeStamp) RawString() string { return strconv.Itoa(int(ts)) + "ns" }
 
 // Time returns the time.Time representation of the TimeStamp.
 func (ts TimeStamp) Time() time.Time { return time.Unix(0, int64(ts)) }

@@ -443,7 +443,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 					Command: writer.Write,
 					Frame: core.UnaryFrame(
 						t.taskStateChannelKey,
-						telem.NewStaticJSONV(state),
+						telem.NewSeriesStaticJSONV(state),
 					),
 				}
 			}
@@ -515,13 +515,13 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 
 	fr := core.Frame{}
 	if len(rackStates) > 0 {
-		fr = fr.Append(t.rackStateChannelKey, telem.NewStaticJSONV(rackStates...))
+		fr = fr.Append(t.rackStateChannelKey, telem.NewSeriesStaticJSONV(rackStates...))
 	}
 	if len(taskStates) > 0 {
-		fr = fr.Append(t.taskStateChannelKey, telem.NewStaticJSONV(taskStates...))
+		fr = fr.Append(t.taskStateChannelKey, telem.NewSeriesStaticJSONV(taskStates...))
 	}
 	if len(deviceStates) > 0 {
-		fr = fr.Append(t.deviceStateChannelKey, telem.NewStaticJSONV(deviceStates...))
+		fr = fr.Append(t.deviceStateChannelKey, telem.NewSeriesStaticJSONV(deviceStates...))
 	}
 	if fr.Empty() {
 		return

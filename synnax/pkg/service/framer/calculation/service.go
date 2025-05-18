@@ -163,7 +163,7 @@ func (s *Service) setState(
 ) {
 	if _, err := s.w.Write(core.UnaryFrame(
 		s.stateKey,
-		telem.NewStaticJSONV(State{
+		telem.NewSeriesStaticJSONV(State{
 			Key:     ch.Key(),
 			Variant: variant,
 			Message: message,

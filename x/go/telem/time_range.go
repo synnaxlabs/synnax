@@ -110,11 +110,6 @@ func (tr TimeRange) Valid() bool { return tr.Span() >= 0 }
 // Midpoint returns the TimeStamp half-way in between TimeRange.Start and TimeRange.End.
 func (tr TimeRange) Midpoint() TimeStamp { return tr.Start.Add(tr.Span() / 2) }
 
-// RawString displays the time range with both timestamps in raw string format.
-func (tr TimeRange) RawString() string {
-	return tr.Start.RawString() + " - " + tr.End.RawString()
-}
-
 // String displays the time range with both timestamps in a human-readable format,
 // omitting redundant time components between start and end times.
 func (tr TimeRange) String() string {

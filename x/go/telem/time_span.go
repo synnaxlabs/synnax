@@ -12,7 +12,6 @@ package telem
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -113,10 +112,6 @@ func (ts TimeSpan) String() string {
 		parts = append(parts, fmt.Sprintf("%dns", nanoseconds))
 	}
 
-	if len(parts) == 0 {
-		return "0ns"
-	}
-
 	return strings.Join(parts, " ")
 }
 
@@ -127,9 +122,6 @@ func (ts TimeSpan) Truncate(unit TimeSpan) TimeSpan {
 	}
 	return ts / unit * unit
 }
-
-// RawString returns the timespan in nanoseconds.
-func (ts TimeSpan) RawString() string { return strconv.Itoa(int(ts)) + "ns" }
 
 const (
 	// Nanosecond is a 1 nanosecond TimeSpan.

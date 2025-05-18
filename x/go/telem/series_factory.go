@@ -42,29 +42,29 @@ func MakeSeries(dt DataType, len int64) Series {
 	return Series{DataType: dt, Data: make([]byte, len*int64(dt.Density()))}
 }
 
-// NewSecondsTSV creates a new Series containing TimeStamp values. All input timestamps
+// NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input timestamps
 // are multiplied by SecondTS to convert them to the standard time unit used in the
 // system.
-func NewSecondsTSV(data ...TimeStamp) Series {
+func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 	for i := range data {
 		data[i] *= SecondTS
 	}
 	return Series{DataType: TimeStampT, Data: MarshalSlice(data)}
 }
 
-// NewStrings creates a new Series from a slice of strings. The strings are stored with
+// NewSeriesStrings creates a new Series from a slice of strings. The strings are stored with
 // newline characters as delimiters.
-func NewStrings(data []string) Series {
+func NewSeriesStrings(data []string) Series {
 	return Series{DataType: StringT, Data: MarshalStrings(data, StringT)}
 }
 
-// NewStringsV is a variadic version of NewStrings that creates a new Series from
+// NewSeriesStringsV is a variadic version of NewSeriesStrings that creates a new Series from
 // individual string values.
-func NewStringsV(data ...string) Series { return NewStrings(data) }
+func NewSeriesStringsV(data ...string) Series { return NewSeriesStrings(data) }
 
-// NewStaticJSONV constructs a new series from an arbitrary set of JSON values,
+// NewSeriesStaticJSONV constructs a new series from an arbitrary set of JSON values,
 // marshaling each one in the process.
-func NewStaticJSONV[T any](data ...T) (series Series) {
+func NewSeriesStaticJSONV[T any](data ...T) (series Series) {
 	series.DataType = JSONT
 	strings := make([]string, len(data))
 	for i, v := range data {

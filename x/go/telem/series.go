@@ -146,7 +146,7 @@ func (s Series) AlignmentBounds() AlignmentBounds {
 func (s Series) String() string {
 	var b strings.Builder
 	_, _ = fmt.Fprintf(&b, "Series{TimeRange: %v, DataType: %v, Len: %d, Size: %d bytes, Contents: ",
-		s.TimeRange.RawString(),
+		s.TimeRange.String(),
 		s.DataType,
 		s.Len(),
 		s.Size(),

@@ -180,8 +180,8 @@ var _ = Describe("Codec", func() {
 				channel.Keys{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1, 2, 3),
-					telem.NewStringsV("cat", "dog"),
-					telem.NewStaticJSONV(
+					telem.NewSeriesStringsV("cat", "dog"),
+					telem.NewSeriesStaticJSONV(
 						map[string]any{"key": "value"},
 						map[string]any{"key": "value2"},
 					),
@@ -218,7 +218,7 @@ var _ = Describe("Codec", func() {
 			s2 := telem.NewSeries[float32](float32Data)
 			s2.TimeRange = telem.NewRangeSeconds(3, 5)
 			s2.Alignment = 10
-			s3 := telem.NewStringsV("cat", "dog", "rabbit", "frog")
+			s3 := telem.NewSeriesStringsV("cat", "dog", "rabbit", "frog")
 			s3.TimeRange = telem.NewRangeSeconds(1, 5)
 			s3.Alignment = 5
 			s4 := telem.MakeSeries(telem.Uint8T, 5000)
@@ -242,7 +242,7 @@ var _ = Describe("Codec", func() {
 				[]channel.Key{1, 2, 3},
 				[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
 			)
-			fr := core.UnaryFrame(4, telem.NewSecondsTSV(1, 2, 3))
+			fr := core.UnaryFrame(4, telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded, err := c.Encode(ctx, fr)
 			Expect(encoded).To(HaveLen(0))
 			Expect(err).To(HaveOccurredAs(validate.Error))
@@ -253,7 +253,7 @@ var _ = Describe("Codec", func() {
 				[]channel.Key{1},
 				[]telem.DataType{telem.Uint8T},
 			)
-			fr := core.UnaryFrame(1, telem.NewSecondsTSV(1, 2, 3))
+			fr := core.UnaryFrame(1, telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded, err := c.Encode(ctx, fr)
 			Expect(encoded).To(HaveLen(0))
 			Expect(err).To(HaveOccurredAs(validate.Error))
@@ -298,7 +298,7 @@ var _ = Describe("Codec", func() {
 				channel.Keys{dataCh.Key(), idxCh.Key()},
 				[]telem.Series{
 					telem.NewSeriesV[float32](1, 2, 3, 4),
-					telem.NewSecondsTSV(1, 2, 3, 4),
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
 				},
 			)
 			encoded := MustSucceed(codec.Encode(ctx, fr))
@@ -321,7 +321,7 @@ var _ = Describe("Codec", func() {
 			Expect(decoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
 			Expect(encoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
 
-			frame1 := core.UnaryFrame(idxCh.Key(), telem.NewSecondsTSV(1, 2, 3))
+			frame1 := core.UnaryFrame(idxCh.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded := MustSucceed(encoder.Encode(ctx, frame1))
 			decoded := MustSucceed(decoder.Decode(encoded))
 			Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame1.Frame))

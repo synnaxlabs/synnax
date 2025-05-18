@@ -64,7 +64,7 @@ var _ = Describe("Streamer Behavior", func() {
 					defer cancel()
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
-					d := telem.NewSecondsTSV(10, 11, 12)
+					d := telem.NewSeriesSecondsTSV(10, 11, 12)
 					MustSucceed(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{basic1},
 						[]telem.Series{d},
@@ -101,7 +101,7 @@ var _ = Describe("Streamer Behavior", func() {
 					defer cancel()
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
-					d := telem.NewSecondsTSV(10, 11, 12)
+					d := telem.NewSeriesSecondsTSV(10, 11, 12)
 					MustSucceed(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{d},

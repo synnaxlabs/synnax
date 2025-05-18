@@ -182,8 +182,8 @@ var _ = Describe("Channel", Ordered, func() {
 				})
 				It("Should rekey a unary channel into another", func() {
 					By("Writing some data into the channel")
-					series1 := telem.NewSecondsTSV(0, 1, 2, 3, 4)
-					series2 := telem.NewSecondsTSV(5, 6, 7, 8, 9)
+					series1 := telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4)
+					series2 := telem.NewSeriesSecondsTSV(5, 6, 7, 8, 9)
 					Expect(db.WriteSeries(ctx, unaryKey, 0, series1)).To(Succeed())
 					Expect(db.WriteSeries(ctx, unaryKey, 5*telem.SecondTS, series2)).To(Succeed())
 
@@ -200,7 +200,7 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(ch.Key).To(Equal(unaryKeyNew))
 
 					By("Asserting that reads and writes on the channel still work")
-					series3 := telem.NewSecondsTSV(10, 11, 12, 13, 14)
+					series3 := telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)
 					Expect(db.WriteSeries(ctx, unaryKeyNew, 10*telem.SecondTS, series3)).To(Succeed())
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, unaryKeyNew))
 					Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(series1))
@@ -255,7 +255,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 				It("Should rekey an index channel", func() {
 					By("Writing some data into the channel")
-					indexSeries1 := telem.NewSecondsTSV(2, 3, 5, 7, 11)
+					indexSeries1 := telem.NewSeriesSecondsTSV(2, 3, 5, 7, 11)
 					dataSeries1 := telem.NewSeriesV[int64](2, 3, 5, 7, 11)
 					data2Series1 := telem.NewSeriesV[int64](20, 30, 50, 70, 110)
 
@@ -277,7 +277,7 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(ch.Key).To(Equal(indexKeyNew))
 
 					By("Asserting that reads and writes on the channel still work")
-					indexSeries2 := telem.NewSecondsTSV(13, 17, 19, 23, 29)
+					indexSeries2 := telem.NewSeriesSecondsTSV(13, 17, 19, 23, 29)
 					dataSeries2 := telem.NewSeriesV[int64](13, 17, 19, 23, 29)
 					data2Series2 := telem.NewSeriesV[int64](130, 170, 190, 230, 290)
 
@@ -343,7 +343,7 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(ch.Key).To(Equal(errorKey1New))
 
 						By("Asserting that reads and writes on the channel still work")
-						series1 := telem.NewSecondsTSV(10, 11, 12, 13, 14)
+						series1 := telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)
 						Expect(db.WriteSeries(ctx, errorKey1New, 10*telem.SecondTS, series1)).To(Succeed())
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, errorKey1New))
 						Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(series1))
@@ -414,11 +414,11 @@ var _ = Describe("Channel", Ordered, func() {
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "fermat", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}, EnableAutoCommit: config.True()}))
-					series1 := telem.NewSecondsTSV(10, 11, 12, 13, 14)
+					series1 := telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)
 					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{key}, []telem.Series{series1})))
 
 					Expect(db.RenameChannel(ctx, key, "laplace")).To(Succeed())
-					series2 := telem.NewSecondsTSV(20, 21, 22)
+					series2 := telem.NewSeriesSecondsTSV(20, 21, 22)
 					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{key}, []telem.Series{series2})))
 					Expect(w.Close()).To(Succeed())
 
@@ -426,7 +426,7 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(ch.Name).To(Equal("laplace"))
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
 					Expect(f.Count()).To(Equal(1))
-					Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSecondsTSV(10, 11, 12, 13, 14, 20, 21, 22)))
+					Expect(f.SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 20, 21, 22)))
 
 					var (
 						subFS = MustSucceed(fs.Sub(strconv.Itoa(int(key))))

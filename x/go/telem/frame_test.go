@@ -362,7 +362,7 @@ var _ = Describe("Frame", func() {
 		})
 
 		It("Should return false if the frame is not empty", func() {
-			tr := telem.UnaryFrame(12, telem.NewSecondsTSV(1, 2, 3))
+			tr := telem.UnaryFrame(12, telem.NewSeriesSecondsTSV(1, 2, 3))
 			Expect(tr.Empty()).To(BeFalse())
 		})
 
@@ -1145,11 +1145,11 @@ var _ = Describe("Frame", func() {
 
 	Describe("HasData", func() {
 		It("Should return true when the frame contains at least one sample", func() {
-			Expect(telem.UnaryFrame(1, telem.NewSecondsTSV(1, 2, 3)).HasData()).To(BeTrue())
+			Expect(telem.UnaryFrame(1, telem.NewSeriesSecondsTSV(1, 2, 3)).HasData()).To(BeTrue())
 		})
 
 		It("Should return false when the series in the frame is empty", func() {
-			Expect(telem.UnaryFrame(1, telem.NewSecondsTSV()).HasData()).To(BeFalse())
+			Expect(telem.UnaryFrame(1, telem.NewSeriesSecondsTSV()).HasData()).To(BeFalse())
 		})
 
 		It("Should return false when the frame has no series", func() {

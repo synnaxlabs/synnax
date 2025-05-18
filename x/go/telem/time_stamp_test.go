@@ -107,6 +107,18 @@ var _ = Describe("TimeStamp", func() {
 		})
 	})
 
+	Describe("Span", func() {
+		It("Should return the time span between two timestamps", func() {
+			span := (telem.SecondTS * 5).Span(telem.SecondTS * 20)
+			Expect(span).To(Equal(telem.Second * 15))
+		})
+
+		It("Should work correctly when the arg timestamp is before the original timestamp", func() {
+			span := (telem.SecondTS * 20).Span(telem.SecondTS * 5)
+			Expect(span).To(Equal(-telem.Second * 15))
+		})
+	})
+
 	Describe("MarshalJSON", func() {
 		It("Should marshal the time stamp into a string", func() {
 			b := MustSucceed(json.Marshal(telem.TimeStamp(telem.Second)))
@@ -114,7 +126,7 @@ var _ = Describe("TimeStamp", func() {
 		})
 	})
 
-	Describe("Marshal + Unmarshal JSON", func() {
+	Describe("UnmarshalJSON", func() {
 		It("Should unmarshal a time stamp from a number", func() {
 			var ts telem.TimeStamp
 			err := json.Unmarshal([]byte("1000000000"), &ts)

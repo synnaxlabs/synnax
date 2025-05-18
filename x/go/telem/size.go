@@ -14,14 +14,19 @@ import "strconv"
 // Size represents the size of an element in bytes.
 type Size int64
 
+// String implements fmt.Stringer.
+func (s Size) String() string { return strconv.Itoa(int(s)) + "B" }
+
 const (
+	// ByteSize is a single byte.
 	ByteSize = Size(1)
+	// Kilobyte is 1024 bytes.
 	Kilobyte = 1024 * ByteSize
+	// Megabyte is 1024 kilobytes.
 	Megabyte = 1024 * Kilobyte
+	// Gigabyte is 1024 megabytes.
 	Gigabyte = 1024 * Megabyte
 )
 
+// Offset is a number of bytes to offset.
 type Offset = Size
-
-// String implements fmt.Stringer.
-func (s Size) String() string { return strconv.Itoa(int(s)) + "B" }

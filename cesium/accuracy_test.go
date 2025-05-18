@@ -50,8 +50,8 @@ var _ = Describe("Accuracy", func() {
 						cesium.Channel{Name: "Rufus", Key: idxKey, IsIndex: true, DataType: telem.TimeStampT},
 						cesium.Channel{Name: "Du", Key: key, Index: idxKey, DataType: telem.Int64T},
 					)).To(Succeed())
-					Expect(db.WriteSeries(ctx, idxKey, 2*telem.SecondTS, telem.NewSecondsTSV(firstTS...))).To(Succeed())
-					Expect(db.WriteSeries(ctx, idxKey, 22*telem.SecondTS, telem.NewSecondsTSV(secondTS...))).To(Succeed())
+					Expect(db.WriteSeries(ctx, idxKey, 2*telem.SecondTS, telem.NewSeriesSecondsTSV(firstTS...))).To(Succeed())
+					Expect(db.WriteSeries(ctx, idxKey, 22*telem.SecondTS, telem.NewSeriesSecondsTSV(secondTS...))).To(Succeed())
 					Expect(db.WriteSeries(ctx, key, 2*telem.SecondTS, telem.NewSeries(first))).To(Succeed())
 					Expect(db.WriteSeries(ctx, key, 22*telem.SecondTS, telem.NewSeries(second))).To(Succeed())
 				})
@@ -133,8 +133,8 @@ var _ = Describe("Accuracy", func() {
 							cesium.Channel{Name: "Sheffield", Key: key1, Index: idxKey1, DataType: telem.Int64T},
 							cesium.Channel{Name: "London", Key: key2, Index: idxKey2, DataType: telem.Int64T},
 						)).To(Succeed())
-						Expect(db.WriteSeries(ctx, idxKey1, 1*telem.SecondTS, telem.NewSecondsTSV(idxData1...))).To(Succeed())
-						Expect(db.WriteSeries(ctx, idxKey2, 1*telem.SecondTS, telem.NewSecondsTSV(idxData2...))).To(Succeed())
+						Expect(db.WriteSeries(ctx, idxKey1, 1*telem.SecondTS, telem.NewSeriesSecondsTSV(idxData1...))).To(Succeed())
+						Expect(db.WriteSeries(ctx, idxKey2, 1*telem.SecondTS, telem.NewSeriesSecondsTSV(idxData2...))).To(Succeed())
 						Expect(db.WriteSeries(ctx, key1, 1*telem.SecondTS, telem.NewSeries(data1))).To(Succeed())
 						Expect(db.WriteSeries(ctx, key2, 1*telem.SecondTS, telem.NewSeries(data2))).To(Succeed())
 					})

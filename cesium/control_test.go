@@ -102,7 +102,7 @@ var _ = Describe("Control", func() {
 						Expect(MustSucceed(w1.Write(telem.MultiFrame[cesium.ChannelKey](
 							[]cesium.ChannelKey{indexCHKey, dataChKey},
 							[]telem.Series{
-								telem.NewSecondsTSV(10, 11, 12),
+								telem.NewSeriesSecondsTSV(10, 11, 12),
 								telem.NewSeriesV[int16](1, 2, 3),
 							},
 						)))).To(BeTrue())
@@ -111,7 +111,7 @@ var _ = Describe("Control", func() {
 						w2Frame := telem.MultiFrame[cesium.ChannelKey](
 							[]cesium.ChannelKey{indexCHKey, dataChKey},
 							[]telem.Series{
-								telem.NewSecondsTSV(12, 13, 14),
+								telem.NewSeriesSecondsTSV(12, 13, 14),
 								telem.NewSeriesV[int16](4, 5, 6),
 							},
 						)
@@ -209,7 +209,7 @@ var _ = Describe("Control", func() {
 							Frame: telem.MultiFrame[cesium.ChannelKey](
 								[]cesium.ChannelKey{indexCHKey, dataChKey},
 								[]telem.Series{
-									telem.NewSecondsTSV(10, 11, 12),
+									telem.NewSeriesSecondsTSV(10, 11, 12),
 									telem.NewSeriesV[int16](1, 2, 3),
 								}),
 						}
@@ -239,7 +239,7 @@ var _ = Describe("Control", func() {
 							Frame: telem.MultiFrame[cesium.ChannelKey](
 								[]cesium.ChannelKey{indexCHKey, dataChKey},
 								[]telem.Series{
-									telem.NewSecondsTSV(13, 14, 15),
+									telem.NewSeriesSecondsTSV(13, 14, 15),
 									telem.NewSeriesV[int16](4, 5, 6),
 								},
 							),

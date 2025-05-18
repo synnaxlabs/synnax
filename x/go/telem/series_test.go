@@ -41,7 +41,7 @@ var _ = Describe("Series", func() {
 			Expect(s.Len()).To(Equal(int64(3)))
 		})
 		It("Should correctly return the number of samples in a series with a variable length data type", func() {
-			s := telem.NewStringsV("bob", "alice", "charlie")
+			s := telem.NewSeriesStringsV("bob", "alice", "charlie")
 			Expect(s.Len()).To(Equal(int64(3)))
 		})
 	})
@@ -59,6 +59,12 @@ var _ = Describe("Series", func() {
 			Specify("uint16", MarshalTest([]uint16{1, 2, 3}, telem.Uint16T))
 			Specify("uint8", MarshalTest([]uint8{1, 2, 3}, telem.Uint8T))
 			Specify("timestamp", MarshalTest([]telem.TimeStamp{1, 2, 3}, telem.TimeStampT))
+			Specify("bad data type", func() {
+				type BadType uint32
+				Expect(func() {
+					telem.NewSeriesV[BadType](1, 2, 3)
+				}).To(Panic())
+			})
 		})
 
 		Describe("StaticJSONV", func() {
@@ -68,7 +74,7 @@ var _ = Describe("Series", func() {
 						"one": "two",
 					},
 				}
-				s := telem.NewStaticJSONV(data)
+				s := telem.NewSeriesStaticJSONV(data)
 				Expect(s.Len()).To(Equal(int64(1)))
 			})
 		})
@@ -104,14 +110,14 @@ var _ = Describe("Series", func() {
 
 		Context("Variable Density", func() {
 			It("Should return the value at the given index", func() {
-				s := telem.NewStringsV("a", "b", "c")
+				s := telem.NewSeriesStringsV("a", "b", "c")
 				Expect(s.At(0)).To(Equal([]byte("a")))
 				Expect(s.At(1)).To(Equal([]byte("b")))
 				Expect(s.At(2)).To(Equal([]byte("c")))
 			})
 
 			It("Should panic when the index is out of bounds", func() {
-				s := telem.NewStringsV("a", "b", "c")
+				s := telem.NewSeriesStringsV("a", "b", "c")
 				Expect(func() {
 					s.At(5)
 				}).To(Panic())
@@ -184,7 +190,7 @@ var _ = Describe("Series", func() {
 		Context("Short Series", func() {
 			It("Should show all values for series with <= 12 elements", func() {
 				s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
-				Expect(s.String()).To(Equal("Series{TimeRange: 0ns - 0ns, DataType: int64, Len: 5, Size: 40 bytes, Contents: [1 2 3 4 5]}"))
+				Expect(s.String()).To(Equal("Series{TimeRange: 1970-01-01T00:00:00Z - 00:00:00 (0s), DataType: int64, Len: 5, Size: 40 bytes, Contents: [1 2 3 4 5]}"))
 			})
 
 			It("Should properly format float values", func() {
@@ -195,7 +201,7 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should properly format string values", func() {
-				s := telem.NewStringsV("a", "b", "c")
+				s := telem.NewSeriesStringsV("a", "b", "c")
 				str := s.String()
 				Expect(str).To(ContainSubstring("DataType: string"))
 				Expect(str).To(ContainSubstring("[a b c]"))
@@ -215,9 +221,9 @@ var _ = Describe("Series", func() {
 			Entry("int64", telem.NewSeriesV[int64](1, 2, 3), "[1 2 3]"),
 			Entry("float32", telem.NewSeriesV[float32](1.0, 2.0, 3.0), "[1 2 3]"),
 			Entry("float64", telem.NewSeriesV(1.0, 2.0, 3.0), "[1 2 3]"),
-			Entry("string", telem.NewStringsV("a", "b", "c"), "[a b c]"),
-			Entry("json", telem.NewStaticJSONV(map[string]any{"a": 1, "b": 2, "c": 3}), `[{"a":1,"b":2,"c":3}]`),
-			Entry("timestamp", telem.NewSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z +1s +2s]"),
+			Entry("string", telem.NewSeriesStringsV("a", "b", "c"), "[a b c]"),
+			Entry("json", telem.NewSeriesStaticJSONV(map[string]any{"a": 1, "b": 2, "c": 3}), `[{"a":1,"b":2,"c":3}]`),
+			Entry("timestamp", telem.NewSeriesSecondsTSV(1, 2, 3), "[1970-01-01T00:00:01Z +1s +2s]"),
 		)
 
 		Context("Long Series", func() {
@@ -244,13 +250,13 @@ var _ = Describe("Series", func() {
 
 			It("Should truncate long string series", func() {
 				values := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"}
-				s := telem.NewStringsV(values...)
+				s := telem.NewSeriesStringsV(values...)
 				str := s.String()
 				Expect(str).To(ContainSubstring("[a b c d e f ... i j k l m n]"))
 			})
 
 			It("Should truncate a long timestamp series", func() {
-				values := telem.NewSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)
+				values := telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)
 				Expect(values.DataString()).To(Equal("[1970-01-01T00:00:01Z +1s +2s +3s +4s +5s ... +14s +15s +16s +17s +18s +19s]"))
 			})
 		})
@@ -326,7 +332,7 @@ var _ = Describe("Series", func() {
 
 		Context("Variable Length Data Types", func() {
 			It("Should correctly down sample a string series", func() {
-				original := telem.NewStringsV("a", "b", "c", "d", "e", "f")
+				original := telem.NewSeriesStringsV("a", "b", "c", "d", "e", "f")
 				downsampled := original.Downsample(2)
 
 				Expect(downsampled.Len()).To(Equal(int64(3)))
@@ -341,7 +347,7 @@ var _ = Describe("Series", func() {
 					{"id": 4},
 				}
 
-				s := telem.NewStaticJSONV(data...)
+				s := telem.NewSeriesStaticJSONV(data...)
 				downsampled := s.Downsample(2)
 				Expect(downsampled.Len()).To(Equal(int64(2)))
 				split := bytes.Split(downsampled.Data, []byte("\n"))
@@ -382,32 +388,32 @@ var _ = Describe("Series", func() {
 	Describe("MultiSeries", func() {
 		Describe("NewMultiSeries", func() {
 			It("Should construct a multi-series from a slice of series", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
-				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
+				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
 				ms := telem.NewMultiSeriesV(s1, s2)
 				Expect(ms.Len()).To(Equal(int64(6)))
 			})
 			It("Should sort the series by alignment on construction", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
 				s1.Alignment = telem.NewAlignment(0, 0)
-				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
 				s2.Alignment = telem.NewAlignment(0, 3)
 				ms := telem.NewMultiSeriesV(s2, s1)
 				Expect(ms.Series[0].Alignment).To(Equal(s1.Alignment))
 				Expect(ms.Series[1].Alignment).To(Equal(s2.Alignment))
 			})
 			It("Should panic when trying to construct the series out of different data types", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
-				s2 := telem.NewStringsV("a", "b", "c")
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
+				s2 := telem.NewSeriesStringsV("a", "b", "c")
 				Expect(func() { telem.NewMultiSeriesV(s1, s2) }).To(Panic())
 			})
 		})
 
 		Describe("AlignmentBounds", func() {
 			It("Should return the alignment bounds of the multi-series", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
 				s1.Alignment = telem.NewAlignment(0, 0)
-				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
 				s2.Alignment = telem.NewAlignment(0, 3)
 				ms := telem.NewMultiSeriesV(s1, s2)
 				Expect(ms.AlignmentBounds()).To(Equal(telem.AlignmentBounds{
@@ -427,9 +433,9 @@ var _ = Describe("Series", func() {
 
 		Describe("TimeRange", func() {
 			It("Should return the time range of the multi-series", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
 				s1.TimeRange = telem.TimeRange{Start: 0, End: 3}
-				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
 				s2.TimeRange = telem.TimeRange{Start: 3, End: 6}
 				ms := telem.NewMultiSeriesV(s1, s2)
 				Expect(ms.TimeRange()).To(Equal(telem.TimeRange{
@@ -446,8 +452,8 @@ var _ = Describe("Series", func() {
 
 		Describe("Append", func() {
 			It("Should append a series to the multi-series", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
-				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
+				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
 				ms := telem.NewMultiSeriesV(s1)
 				ms = ms.Append(s2)
 				Expect(ms.Len()).To(Equal(int64(6)))
@@ -456,7 +462,7 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should panic if the series data types do not match", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
 				s2 := telem.NewSeriesV[int32](1, 2, 3)
 				ms := telem.NewMultiSeriesV(s1)
 				Expect(func() {
@@ -465,7 +471,7 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should not panic when appending to an empty series", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
 				ms := telem.MultiSeries{}
 				Expect(func() {
 					ms.Append(s1)
@@ -475,9 +481,9 @@ var _ = Describe("Series", func() {
 
 		Describe("FilterGreaterThanOrEqualTo", func() {
 			It("Should remove series with alignment bounds that are less than the target threshold", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
 				s1.Alignment = telem.NewAlignment(0, 0)
-				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
 				s2.Alignment = telem.NewAlignment(0, 3)
 				ms := telem.NewMultiSeriesV(s1, s2)
 				ms = ms.FilterGreaterThanOrEqualTo(telem.NewAlignment(0, 3))
@@ -491,9 +497,9 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should keep all series when alignment bounds is very low", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
 				s1.Alignment = 500
-				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
 				s2.Alignment = 5000
 				ms := telem.NewMultiSeriesV(s1, s2)
 				ms = ms.FilterGreaterThanOrEqualTo(5)
@@ -501,9 +507,9 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should filter all series when alignment bounds is very high", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
 				s1.Alignment = 0
-				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
 				s2.Alignment = 3
 				ms := telem.NewMultiSeriesV(s1, s2)
 				ms = ms.FilterGreaterThanOrEqualTo(5000)
@@ -513,8 +519,8 @@ var _ = Describe("Series", func() {
 
 		Describe("Len", func() {
 			It("Should return the accumulated length of all series", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
-				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
+				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
 				ms := telem.NewMultiSeriesV(s1, s2)
 				Expect(ms.Len()).To(Equal(int64(6)))
 			})
@@ -527,8 +533,8 @@ var _ = Describe("Series", func() {
 
 		Describe("DataType", func() {
 			It("Should return the data type of the multi-series", func() {
-				s1 := telem.NewSecondsTSV(1, 2, 3)
-				s2 := telem.NewSecondsTSV(4, 5, 6)
+				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
+				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
 				ms := telem.NewMultiSeriesV(s1, s2)
 				Expect(ms.DataType()).To(Equal(telem.TimeStampT))
 			})
@@ -580,7 +586,7 @@ var _ = Describe("Series", func() {
 		})
 
 		It("iterates variable length correctly", func() {
-			s := telem.NewStringsV("foo", "bar", "baz")
+			s := telem.NewSeriesStringsV("foo", "bar", "baz")
 			values := make([]string, 0, 3)
 			for sample := range s.Samples() {
 				values = append(values, string(sample))
@@ -603,7 +609,7 @@ var _ = Describe("Series", func() {
 		})
 
 		It("Should allow for early termination in variable length series", func() {
-			s := telem.NewStringsV("foo", "bar", "baz")
+			s := telem.NewSeriesStringsV("foo", "bar", "baz")
 			values := make([]string, 0, 3)
 			count := 0
 			for sample := range s.Samples() {

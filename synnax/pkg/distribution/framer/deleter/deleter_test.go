@@ -56,9 +56,9 @@ var _ = Describe("Deleter", Ordered, func() {
 					Expect(writer.Write(core.MultiFrame(
 						s.keys,
 						[]telem.Series{
-							telem.NewSecondsTSV(10, 11, 12),
-							telem.NewSecondsTSV(10, 11, 12),
-							telem.NewSecondsTSV(10, 11, 12),
+							telem.NewSeriesSecondsTSV(10, 11, 12),
+							telem.NewSeriesSecondsTSV(10, 11, 12),
+							telem.NewSeriesSecondsTSV(10, 11, 12),
 						},
 					))).To(BeTrue())
 					Expect(MustSucceed(writer.Commit())).To(Equal(telem.SecondTS*12 + 1))
