@@ -82,18 +82,19 @@ func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
 	})
 }
 
+func translateNodeChange(ch core.NodeChange, _ int) schema.Change {
+	return schema.Change{
+		Variant: ch.Variant,
+		Key:     NodeOntologyID(ch.Key),
+		Value:   newNodeResource(ch.Value),
+	}
+}
+
 // OnChange implements ontology.Service.
 func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schema.Change])) observe.Disconnect {
 	var (
-		translate = func(ch core.NodeChange, _ int) schema.Change {
-			return schema.Change{
-				Variant: ch.Variant,
-				Key:     NodeOntologyID(ch.Key),
-				Value:   newNodeResource(ch.Value),
-			}
-		}
 		onChange = func(ctx context.Context, ch core.ClusterChange) {
-			f(ctx, iter.All(lo.Map(ch.Changes, translate)))
+			f(ctx, iter.All(lo.Map(ch.Changes, translateNodeChange)))
 		}
 	)
 	return s.Cluster.OnChange(onChange)
@@ -183,11 +184,7 @@ func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (on
 
 // OpenNexter implements ontology.Service.Relationship
 func (s *OntologyService) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
-	return iter.NexterNopCloser(
-		iter.All([]schema.Resource{
-			//newClusterResource(s.Cluster.Key()),
-		}),
-	), nil
+	return iter.NexterNopCloser(iter.All([]schema.Resource{})), nil
 }
 
 func newClusterResource(key uuid.UUID) ontology.Resource {
