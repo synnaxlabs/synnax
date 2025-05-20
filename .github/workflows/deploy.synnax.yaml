@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-2497-fix-docker-container-builds-with-embedded-driver
   pull_request:
     branches:
       - main
