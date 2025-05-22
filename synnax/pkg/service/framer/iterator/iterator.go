@@ -13,8 +13,11 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -22,10 +25,13 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type ServiceConfig struct {
+	alamos.Instrumentation
 	Framer  *framer.Service
 	Channel channel.Readable
 }
@@ -36,6 +42,7 @@ var (
 )
 
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.Framer = override.Nil(cfg.Framer, other.Framer)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
 	return cfg
@@ -56,15 +63,29 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 type Service struct{ cfg ServiceConfig }
 
 type (
-	Config   = framer.IteratorConfig
-	Iterator = framer.StreamIterator
-	Request  = framer.IteratorRequest
-	Response = framer.IteratorResponse
+	Config         = framer.IteratorConfig
+	StreamIterator = framer.StreamIterator
+	Request        = framer.IteratorRequest
+	Response       = framer.IteratorResponse
+)
+
+const (
+	AutoSpan    = iterator.AutoSpan
+	SeekFirst   = iterator.SeekFirst
+	SeekLast    = iterator.SeekLast
+	SeekLE      = iterator.SeekLE
+	SeekGE      = iterator.SeekGE
+	Next        = iterator.Next
+	Prev        = iterator.Prev
+	SetBounds   = iterator.SetBounds
+	AckResponse = iterator.AckResponse
+	Error       = iterator.Error
+	Valid       = iterator.Valid
 )
 
 type ResponseSegment = confluence.Segment[Response, Response]
 
-func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
+func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
 	p := plumber.New()
 	t, err := s.newCalculationTransform(ctx, &cfg)
 	if err != nil {
@@ -86,6 +107,24 @@ func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
 		RouteInletsTo:    []address.Address{"distribution"},
 		RouteOutletsFrom: []address.Address{routeOutletFrom},
 	}, nil
+}
+
+func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
+	stream, err := s.NewStream(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
+	req := confluence.NewStream[Request]()
+	res := confluence.NewStream[Response]()
+	stream.InFrom(req)
+	stream.OutTo(res)
+	stream.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.CancelOnFail(),
+	)
+	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
 func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
@@ -125,6 +164,110 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 	calculators := make([]*calculation.Calculator, len(calculated))
 	for i, v := range calculated.Values() {
 		calculators[i], err = calculation.OpenCalculator(v, requiredCh)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return newCalculationTransform(calculators), nil
+}
+
+type Iterator struct {
+	requests  confluence.Inlet[Request]
+	responses confluence.Outlet[Response]
+	shutdown  context.CancelFunc
+	wg        signal.WaitGroup
+	value     []Response
+}
+
+// Next reads all channel data occupying the next span of time. Returns true
+// if the current IteratorServer.View is pointing to any valid segments.
+func (i *Iterator) Next(span telem.TimeSpan) bool {
+	i.value = nil
+	return i.exec(Request{Command: Next, Span: span})
+}
+
+// Prev reads all channel data occupying the previous span of time. Returns true
+// if the current IteratorServer.View is pointing to any valid segments.
+func (i *Iterator) Prev(span telem.TimeSpan) bool {
+	i.value = nil
+	return i.exec(Request{Command: Prev, Span: span})
+}
+
+// SeekFirst seeks the Iterator the start of the Iterator range.
+// Returns true if the current IteratorServer.View is pointing to any valid segments.
+func (i *Iterator) SeekFirst() bool {
+	i.value = nil
+	return i.exec(Request{Command: SeekFirst})
+}
+
+// SeekLast seeks the Iterator the end of the Iterator range.
+// Returns true if the current IteratorServer.View is pointing to any valid segments.
+func (i *Iterator) SeekLast() bool {
+	i.value = nil
+	return i.exec(Request{Command: SeekLast})
+}
+
+// SeekLE seeks the Iterator to the first whose timestamp is less than or equal
+// to the given timestamp. Returns true if the current IteratorServer.View is pointing
+// to any valid segments.
+func (i *Iterator) SeekLE(stamp telem.TimeStamp) bool {
+	i.value = nil
+	return i.exec(Request{Command: SeekLE, Stamp: stamp})
+}
+
+// SeekGE seeks the Iterator to the first whose timestamp is greater than the
+// given timestamp. Returns true if the current IteratorServer.View is pointing to
+// any valid segments.
+func (i *Iterator) SeekGE(stamp telem.TimeStamp) bool {
+	i.value = nil
+	return i.exec(Request{Command: SeekGE, Stamp: stamp})
+}
+
+// Valid returns true if the Iterator is pointing at valid data and is error free.
+func (i *Iterator) Valid() bool {
+	return i.exec(Request{Command: Valid})
+}
+
+// Error returns any errors accumulated during the iterators lifetime.
+func (i *Iterator) Error() error {
+	_, err := i.execErr(Request{Command: Error})
+	return err
+}
+
+// Close closes the Iterator, ensuring that all in-progress reads complete
+// before closing the Source outlet. All iterators must be Closed, or the
+// distribution layer will panic.
+func (i *Iterator) Close() error {
+	defer i.shutdown()
+	i.requests.Close()
+	return i.wg.Wait()
+}
+
+// SetBounds sets the lower and upper bounds of the Iterator.
+func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
+	return i.exec(Request{Command: SetBounds, Bounds: bounds})
+}
+
+func (i *Iterator) Value() core.Frame {
+	frames := make([]core.Frame, len(i.value))
+	for i, v := range i.value {
+		frames[i] = v.Frame
+	}
+	return core.MergeFrames(frames)
+}
+
+func (i *Iterator) exec(req Request) bool {
+	ok, _ := i.execErr(req)
+	return ok
+}
+
+func (i *Iterator) execErr(req Request) (bool, error) {
+	i.requests.Inlet() <- req
+	for res := range i.responses.Outlet() {
+		if res.Variant == AckResponse {
+			return res.Ack, res.Error
+		}
+		i.value = append(i.value, res)
+	}
+	return false, nil
 }

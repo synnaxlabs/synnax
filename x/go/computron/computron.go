@@ -132,8 +132,6 @@ var luaOptions = lua.Options{
 	MinimizeStackMemory: false,
 }
 
-var _ error = &lua.ApiError{}
-
 func parseSyntaxError(err error) error {
 	if err == nil {
 		return nil
@@ -155,6 +153,8 @@ func parseSyntaxError(err error) error {
 		pErr.Message,
 	)
 }
+
+var RuntimeError = errors.Newf("runtime error")
 
 // Open creates a new calculator with the given expression as the calculation.
 func Open(expr string) (calc *Calculator, err error) {
@@ -181,7 +181,7 @@ func (c *Calculator) Set(name string, value lua.LValue) { c.luaState.SetGlobal(n
 // during evaluation, the error is returned.
 func (c *Calculator) Run() (result lua.LValue, err error) {
 	if err = c.luaState.CallByParam(lua.P{Fn: c.compiledExpr, NRet: 1, Protect: true}); err != nil {
-		return
+		return result, errors.Join(RuntimeError, err)
 	}
 	result = c.luaState.Get(-1)
 	c.luaState.Pop(1)

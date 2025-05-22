@@ -49,9 +49,17 @@ func Wrapf(err error, format string, args ...any) error {
 	return errors.Wrapf(err, format, args...)
 }
 
-// WithSecondaryError enhances the error given as first argument with an annotation that
-// carries the error given as second argument. The second error does not participate in cause
-// analysis (Is, etc) and is only revealed when printing out the error.
+// Join returns an error that wraps the given errors. Any nil error values are discarded.
+// Join returns nil if errs contains no non-nil values. The error formats as the
+// concatenation of the strings obtained by calling the Error method of each element of
+// errs, with a newline between each string. A stack trace is also retained.
+func Join(errs ...error) error {
+	return errors.Join(errs...)
+}
+
+// WithSecondaryError enhances the error given as the first argument with an annotation that
+// carries the error given as the second argument. The second error does not participate in cause
+// analysis (Is, etc.) and is only revealed when printing out the error.
 //
 // Tip: consider using CombineErrors() below in the general case.
 func WithSecondaryError(err error, secondary error) error {

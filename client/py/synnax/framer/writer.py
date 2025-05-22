@@ -84,7 +84,6 @@ class WriterResponse(Payload):
     end: TimeStamp | None
     err: ExceptionPayload
 
-
 class WSWriterCodec(WSFramerCodec):
     def encode(self, pld: Message[WriterRequest]) -> bytes:
         if pld.type == "close" or pld.payload.command != WriterCommand.WRITE:

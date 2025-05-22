@@ -30,10 +30,10 @@ import (
 
 type (
 	Frame            = core.Frame
-	Iterator         = iterator.Iterator
+	Iterator         = iterator.StreamIterator
 	IteratorRequest  = iterator.Request
 	IteratorResponse = iterator.Response
-	StreamIterator   = iterator.Iterator
+	StreamIterator   = iterator.StreamIterator
 	Writer           = writer.Writer
 	WriterRequest    = writer.Request
 	WriterResponse   = writer.Response
@@ -87,7 +87,7 @@ func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (
 }
 
 func (s *Service) NewStreamIterator(ctx context.Context, cfg framer.IteratorConfig) (framer.StreamIterator, error) {
-	return s.Iterator.New(ctx, cfg)
+	return s.Iterator.Open(ctx, cfg)
 }
 
 func (s *Service) NewStreamWriter(ctx context.Context, cfg framer.WriterConfig) (framer.StreamWriter, error) {
