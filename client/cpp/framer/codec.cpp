@@ -121,7 +121,7 @@ xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
     flags.equal_lens = !state.has_variable_data_types;
     size_t cur_data_size = -1;
     telem::TimeRange ref_tr = {};
-    uint64_t ref_alignment = 0;
+    telem::Alignment ref_alignment;
 
     for (const auto &[key, idx]: sorting_indices) {
         const telem::Series &series = frame.series->at(idx);
@@ -173,7 +173,7 @@ xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
         buf.int64(ref_tr.end.nanoseconds());
     }
 
-    if (flags.equal_alignments && !flags.zero_alignments) buf.uint64(ref_alignment);
+    if (flags.equal_alignments && !flags.zero_alignments) buf.uint64(ref_alignment.uint64());
 
     for (const auto &[key, idx]: sorting_indices) {
         const telem::Series &ser = frame.series->at(idx);
@@ -188,7 +188,7 @@ xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
             buf.int64(ser.time_range.start.nanoseconds());
             buf.int64(ser.time_range.end.nanoseconds());
         }
-        if (!flags.equal_alignments) buf.uint64(ser.alignment);
+        if (!flags.equal_alignments) buf.uint64(ser.alignment.uint64());
     }
 
     return xerrors::NIL;
@@ -206,7 +206,7 @@ Codec::decode(const uint8_t *data, const size_t size) const {
     Frame frame;
     uint32_t data_len = 0;
     telem::TimeRange ref_tr = {};
-    uint64_t ref_alignment = 0;
+    telem::Alignment ref_alignment;
     auto flags = CodecFlags::decode(reader.uint8());
 
     auto seq_num = reader.uint32();
@@ -221,7 +221,7 @@ Codec::decode(const uint8_t *data, const size_t size) const {
         ref_tr = telem::TimeRange{telem::TimeStamp(0), telem::TimeStamp(0)};
 
     if (flags.equal_alignments && !flags.zero_alignments)
-        ref_alignment = reader.uint64();
+        ref_alignment = telem::Alignment(reader.uint64());
 
     auto decode_series = [&](const ChannelKey key) {
         // when the series is a variable data type, we use its byte capacity instead
@@ -244,7 +244,7 @@ Codec::decode(const uint8_t *data, const size_t size) const {
             s.time_range.end = telem::TimeStamp(reader.int64());
         }
 
-        if (!flags.equal_alignments) s.alignment = reader.uint64();
+        if (!flags.equal_alignments) s.alignment = telem::Alignment(reader.uint64());
 
         if (frame.channels == nullptr) {
             frame.channels = std::make_unique<std::vector<ChannelKey>>();

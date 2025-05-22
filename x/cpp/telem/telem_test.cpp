@@ -597,8 +597,6 @@ TEST(DataTypeTests, testStreamOperator) {
     ASSERT_EQ(ss.str(), "float32");
 }
 
-
-
 TEST(AlignmentTests, testDomainIndex) {
     telem::Alignment a(1, 0);
     ASSERT_EQ(a.domain_index(), 1);
@@ -613,5 +611,23 @@ TEST(AlignmentTests, testConstructionFromUint64) {
     telem::Alignment a(20);
     ASSERT_EQ(a.domain_index(), 0);
     ASSERT_EQ(a.sample_index(), 20);
+}
+
+TEST(AlignmentTests, testEquality) {
+    auto a = telem::Alignment(1, 2);
+    auto b = telem::Alignment(1, 2);
+    auto c = telem::Alignment(2, 1);
+    ASSERT_TRUE(a == b);
+    ASSERT_FALSE(a != b);
+    ASSERT_FALSE(a == c);
+    ASSERT_TRUE(a != c);
+}
+
+TEST(AlignmentTests, testUint64Equality) {
+    auto a = telem::Alignment(1, 2);
+    ASSERT_TRUE(a == 4294967298);
+    ASSERT_FALSE(a != 4294967298);
+    ASSERT_FALSE(a == 4294967292);
+    ASSERT_TRUE(a != 4294967294);
 }
 }

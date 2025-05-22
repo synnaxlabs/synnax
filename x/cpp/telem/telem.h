@@ -917,25 +917,35 @@ private:
 // for ordering samples correctly.
 class Alignment {
     std::uint64_t value;
-
 public:
     explicit Alignment(const std::uint64_t value = 0): value(value) {}
 
-    Alignment(const std::uint32_t domain_index, const std::uint32_t sample_index) {
-        this->value = static_cast<std::uint64_t>(domain_index) << 32 | sample_index;
+    Alignment(const std::uint32_t domain_index, const std::uint32_t sample_index):
+        value(static_cast<std::uint64_t>(domain_index) << 32 | sample_index) {
     }
 
-    /// @brief returns the domain index of the Alignment. This is the index in
+    /// @returns the value of the Alignment as a uint64_t.
+    [[nodiscard]] std::uint64_t uint64() const { return this->value; }
+
+    /// @returns the domain index of the Alignment. This is the index in
     /// the array of arrays.
     [[nodiscard]] std::uint32_t domain_index() const {
         return static_cast<uint32_t>(this->value >> 32);
     }
 
-    /// @brief returns the sample index of the Alignment. This is the index
+    /// @returns the sample index of the Alignment. This is the index
     /// inside a particular array.
     [[nodiscard]] std::uint32_t sample_index() const {
         return static_cast<uint32_t>(this->value);
     }
+
+    bool operator==(const Alignment &other) const { return value == other.value; }
+
+    bool operator!=(const Alignment &other) const { return value != other.value; }
+
+    bool operator==(const std::uint64_t &other) const { return value == other; }
+
+    bool operator!=(const std::uint64_t &other) const { return value != other; }
 };
 
 /// Note for future editors of these types, using `inline const` is dangerous as it
