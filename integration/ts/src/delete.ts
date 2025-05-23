@@ -74,7 +74,7 @@ class DeleteTest {
     const time: TimeSpan = start.span(end);
     const s = `
 -- TypeScript Delete (${this.tc.identifier}) --
-Time taken: ${time.isZero ? 0 : time}
+Time taken: ${time.isZero ? 0 : time.toString()}
 Configuration:
 \tNumber of channels: ${this.tc.channels.length}
 
@@ -85,7 +85,7 @@ Expected error: ${this.tc.expectedError}; Actual error: ${actualError}: ${errorA
   }
 
   async test(): Promise<void> {
-    client.delete(this.tc.channels, this.tc.timeRange);
+    await client.delete(this.tc.channels, this.tc.timeRange);
   }
 }
 
