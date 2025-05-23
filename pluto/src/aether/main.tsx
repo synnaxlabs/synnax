@@ -25,7 +25,7 @@ import {
 } from "react";
 import { type z } from "zod";
 
-import { type MainMessage, type WorkerMessage } from "@/aether/message";
+import { type AetherMessage, type MainMessage } from "@/aether/message";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoCompare } from "@/memo";
 import { state } from "@/state";
@@ -51,7 +51,7 @@ const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
 
 export interface ProviderProps extends PropsWithChildren {
   workerKey: string;
-  worker?: SenderHandler<MainMessage, WorkerMessage>;
+  worker?: SenderHandler<MainMessage, AetherMessage>;
 }
 
 export const Provider = ({
@@ -59,7 +59,7 @@ export const Provider = ({
   worker: propsWorker,
   children,
 }: ProviderProps): ReactElement => {
-  const contextWorker = Worker.use<MainMessage, WorkerMessage>(workerKey);
+  const contextWorker = Worker.use<MainMessage, AetherMessage>(workerKey);
   const registry = useRef<Map<string, RegisteredComponent>>(new Map());
   const [ready, setReady] = useState(false);
   const worker = useMemo(
@@ -354,6 +354,8 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
       if (state.isSetter(next))
         setInternalState((prev) => {
           const nextS = next(prev);
+          // This makes our setter impure, so it's something we should be wary of causing
+          // unexpected behavior in the the future.
           setAetherState(nextS, transfer);
           return nextS;
         });

@@ -196,8 +196,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         try:
             data = self.__internal.recv(timeout)
         except ConnectionClosedOK as e:
-            if handle_context_cancelled(e):
-                return None, StreamClosed()
+            handle_context_cancelled(e)
             return None, EOF()
         assert isinstance(data, bytes)
         msg = self.__encoder.decode(data, self.__res_msg_t)

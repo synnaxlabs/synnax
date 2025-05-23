@@ -51,7 +51,7 @@ const (
 	// WSMessageTypeOpen is used to acknowledge the successful opening of the stream.
 	// We need to do this to correctly handle the case where middleware
 	// returns an error early. We can't just use the regular HTTP request/response
-	// cycle because JavaScript implementations of the WebSocket don't allow for
+	// cycle because JavaScript implementations of WebSocket don't allow for
 	// accessing the response body.
 	WSMessageTypeOpen WSMessageType = "open"
 )
