@@ -141,16 +141,8 @@ class WriteFrameAdapter:
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ):
         frame = self._adapt(channels_or_data, series)
-        missing = set(self.keys) - set(frame.channels)
         extra = set(frame.channels) - set(self.keys)
-        if missing and extra:
-            raise ValidationError(
-                Field(
-                    "keys",
-                    f"frame is missing keys {missing} and has extra keys {extra}",
-                )
-            )
-        elif extra:
+        if extra:
             raise ValidationError(Field("keys", f"frame has extra keys {extra}"))
 
         for i, (col, series) in enumerate(frame.items()):

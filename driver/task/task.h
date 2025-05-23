@@ -182,6 +182,8 @@ public:
             }
             writer = std::make_unique<synnax::Writer>(std::move(su));
         }
+        // We're safe to ignore the error return value here and just check for a nil
+        // error, as close() is guaranteed to return the same error as write.
         if (!writer->write(synnax::Frame(chan.key, telem::Series(state.to_json()))))
             return;
         auto err = writer->close();

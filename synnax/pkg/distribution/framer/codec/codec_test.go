@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
@@ -179,10 +180,10 @@ var _ = Describe("Codec", func() {
 				channel.Keys{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1, 2, 3),
-					telem.NewStringsV("cat", "dog"),
-					telem.NewStaticJSONV(
-						map[string]interface{}{"key": "value"},
-						map[string]interface{}{"key": "value2"},
+					telem.NewSeriesStringsV("cat", "dog"),
+					telem.NewSeriesStaticJSONV(
+						map[string]any{"key": "value"},
+						map[string]any{"key": "value2"},
 					),
 				},
 			),
@@ -208,21 +209,21 @@ var _ = Describe("Codec", func() {
 			keys := channel.Keys{1, 2, 3, 4}
 			dataTypes := []telem.DataType{"int32", "float32", "string", "uint8"}
 			s1 := telem.NewSeriesV[int32](1, 2, 3)
-			s1.TimeRange = telem.NewSecondsRange(1, 12)
+			s1.TimeRange = telem.NewRangeSeconds(1, 12)
 			s1.Alignment = 7
 			float32Data := make([]float32, 5000)
 			for i := range float32Data {
 				float32Data[i] = 1.234 + float32(i)*rand.Float32()
 			}
 			s2 := telem.NewSeries[float32](float32Data)
-			s2.TimeRange = telem.NewSecondsRange(3, 5)
+			s2.TimeRange = telem.NewRangeSeconds(3, 5)
 			s2.Alignment = 10
-			s3 := telem.NewStringsV("cat", "dog", "rabbit", "frog")
-			s3.TimeRange = telem.NewSecondsRange(1, 5)
+			s3 := telem.NewSeriesStringsV("cat", "dog", "rabbit", "frog")
+			s3.TimeRange = telem.NewRangeSeconds(1, 5)
 			s3.Alignment = 5
-			s4 := telem.AllocSeriesWithLen(telem.Uint8T, 5000)
-			s4.Alignment = telem.LeadingAlignment(5000, 5)
-			s4.TimeRange = telem.NewSecondsRange(9999999, 999999999)
+			s4 := telem.MakeSeries(telem.Uint8T, 5000)
+			s4.Alignment = cesium.LeadingAlignment(5000, 5)
+			s4.TimeRange = telem.NewRangeSeconds(9999999, 999999999)
 			originalFrame := core.MultiFrame(
 				keys,
 				[]telem.Series{s1, s2, s3, s4},
@@ -241,7 +242,7 @@ var _ = Describe("Codec", func() {
 				[]channel.Key{1, 2, 3},
 				[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
 			)
-			fr := core.UnaryFrame(4, telem.NewSecondsTSV(1, 2, 3))
+			fr := core.UnaryFrame(4, telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded, err := c.Encode(ctx, fr)
 			Expect(encoded).To(HaveLen(0))
 			Expect(err).To(HaveOccurredAs(validate.Error))
@@ -252,7 +253,7 @@ var _ = Describe("Codec", func() {
 				[]channel.Key{1},
 				[]telem.DataType{telem.Uint8T},
 			)
-			fr := core.UnaryFrame(1, telem.NewSecondsTSV(1, 2, 3))
+			fr := core.UnaryFrame(1, telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded, err := c.Encode(ctx, fr)
 			Expect(encoded).To(HaveLen(0))
 			Expect(err).To(HaveOccurredAs(validate.Error))
@@ -288,7 +289,7 @@ var _ = Describe("Codec", func() {
 			Expect(builder.Close()).To(Succeed())
 			Expect(builder.Cleanup()).To(Succeed())
 		})
-		ShouldNotLeakGoroutinesDuringEach()
+		ShouldNotLeakGoroutinesBeforeEach()
 
 		It("Should allow the caller to update the list of channels", func() {
 			codec := codec.NewDynamic(channelSvc)
@@ -297,7 +298,7 @@ var _ = Describe("Codec", func() {
 				channel.Keys{dataCh.Key(), idxCh.Key()},
 				[]telem.Series{
 					telem.NewSeriesV[float32](1, 2, 3, 4),
-					telem.NewSecondsTSV(1, 2, 3, 4),
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
 				},
 			)
 			encoded := MustSucceed(codec.Encode(ctx, fr))
@@ -320,7 +321,7 @@ var _ = Describe("Codec", func() {
 			Expect(decoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
 			Expect(encoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
 
-			frame1 := core.UnaryFrame(idxCh.Key(), telem.NewSecondsTSV(1, 2, 3))
+			frame1 := core.UnaryFrame(idxCh.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded := MustSucceed(encoder.Encode(ctx, frame1))
 			decoded := MustSucceed(decoder.Decode(encoded))
 			Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame1.Frame))
@@ -356,7 +357,7 @@ func BenchmarkEncode(b *testing.B) {
 	if err := cd.EncodeStream(nil, w, fr); err != nil {
 		b.Fatalf("failed to encode stream: %v", err)
 	}
-	for range b.N {
+	for b.Loop() {
 		if err := cd.EncodeStream(nil, w, fr); err != nil {
 			b.Fatalf("failed to encode stream: %v", err)
 		}
@@ -370,7 +371,7 @@ func BenchmarkJSONEncode(b *testing.B) {
 		keys,
 		[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 	)
-	for range b.N {
+	for b.Loop() {
 		if _, err := json.Marshal(fr); err != nil {
 			b.Fatalf("failed to encode stream: %v", err)
 		}
@@ -389,7 +390,7 @@ func BenchmarkDecode(b *testing.B) {
 		encoded, _ = cd.Encode(nil, fr)
 		r          = bytes.NewReader(encoded)
 	)
-	for range b.N {
+	for b.Loop() {
 		if _, err := r.Seek(0, 0); err != nil {
 			b.Fatalf("failed to seek: %v", err)
 		}
@@ -409,7 +410,7 @@ func BenchmarkJSONDecode(b *testing.B) {
 		b.Fatalf("failed to encode stream: %v", err)
 	}
 	var v framer.Frame
-	for range b.N {
+	for b.Loop() {
 		if err := json.Unmarshal(encoded, &v); err != nil {
 			b.Fatalf("failed to decode stream: %v", err)
 		}

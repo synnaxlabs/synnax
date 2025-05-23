@@ -487,7 +487,7 @@ describe("DataType", () => {
   test("json serialization", () => {
     const dt = DataType.INT32;
     const v = JSON.parse(JSON.stringify({ dt }));
-    expect(v.dt === "int32").toBeTruthy();
+    expect(v.dt).toEqual("int32");
   });
 
   describe("isVariable", () => {

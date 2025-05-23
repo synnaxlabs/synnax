@@ -18,6 +18,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bounds"
+	xslices "github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/stringer"
 	"github.com/synnaxlabs/x/types"
 )
@@ -33,7 +34,7 @@ type Series struct {
 	DataType DataType `json:"data_type" msgpack:"data_type"`
 	// Data is the underlying binary buffer.
 	Data []byte `json:"data" msgpack:"data"`
-	// Alignment can be used to define the alignment of the series relative to other
+	// Alignment defines the location of the series relative to other
 	// series in a logical group. This is typically used for defining the position of
 	// the series within a channel's data, but can be used for arbitrary purposes.
 	Alignment Alignment `json:"alignment" msgpack:"alignment"`
@@ -48,7 +49,7 @@ func (s Series) Len() int64 {
 	}
 	if s.DataType.IsVariable() {
 		if s.cachedLength == nil {
-			cl := int64(bytes.Count(s.Data, []byte("\n")))
+			cl := int64(bytes.Count(s.Data, []byte{newLineChar}))
 			s.cachedLength = &cl
 		}
 		return *s.cachedLength
@@ -67,7 +68,7 @@ func (s Series) Samples() iter.Seq[[]byte] {
 				buf    []byte
 				offset int
 			)
-			for i := 0; i < len(s.Data); i++ {
+			for i := range s.Data {
 				if s.Data[i] == newLineChar {
 					buf = s.Data[offset:i]
 					offset = i + 1
@@ -78,8 +79,9 @@ func (s Series) Samples() iter.Seq[[]byte] {
 			}
 			return
 		}
+		den := int64(s.DataType.Density())
 		for i := int64(0); i < s.Len(); i++ {
-			b := s.Data[i*int64(s.DataType.Density()) : (i+1)*int64(s.DataType.Density())]
+			b := s.Data[i*den : (i+1)*den]
 			if !yield(b) {
 				return
 			}
@@ -94,7 +96,7 @@ func (s Series) At(i int) []byte {
 	}
 	if s.DataType.IsVariable() {
 		var offset int
-		for j := 0; j < len(s.Data); j++ {
+		for j := range s.Data {
 			if s.Data[j] == newLineChar {
 				if i == 0 {
 					return s.Data[offset:j]
@@ -103,29 +105,17 @@ func (s Series) At(i int) []byte {
 				offset = j + 1
 			}
 		}
-		return nil
+		panic(fmt.Sprintf("index %v out of bounds for series with length %v", i, s.Len()))
 	}
-	return s.Data[i*int(s.DataType.Density()) : (i+1)*int(s.DataType.Density())]
+	den := int(s.DataType.Density())
+	return s.Data[i*den : (i+1)*den]
 }
 
 // ValueAt returns the numeric value at the given index in the series. ValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
-func ValueAt[T Sample](s Series, i int) (o T) {
+func ValueAt[T Sample](s Series, i int) T {
 	return UnmarshalF[T](s.DataType)(s.At(i))
-}
-
-// MultiSeriesAtAlignment returns the value at the given alignment in the MultiSeries.
-func MultiSeriesAtAlignment[T types.Numeric](
-	ms MultiSeries,
-	alignment Alignment,
-) (o T) {
-	for _, s := range ms.Series {
-		if s.AlignmentBounds().Contains(alignment) {
-			return ValueAt[T](s, int(alignment-s.Alignment))
-		}
-	}
-	panic(fmt.Sprintf("alignment %v out of bounds for multi series with alignment bounds %v", alignment, ms.AlignmentBounds()))
 }
 
 // SetValueAt sets the value at the given index in the series. SetValueAt supports
@@ -156,7 +146,7 @@ func (s Series) AlignmentBounds() AlignmentBounds {
 func (s Series) String() string {
 	var b strings.Builder
 	_, _ = fmt.Fprintf(&b, "Series{TimeRange: %v, DataType: %v, Len: %d, Size: %d bytes, Contents: ",
-		s.TimeRange.RawString(),
+		s.TimeRange.String(),
 		s.DataType,
 		s.Len(),
 		s.Size(),
@@ -166,9 +156,9 @@ func (s Series) String() string {
 	return b.String()
 }
 
-// DownSample returns a copy of the Series with the data down sampled by the given
+// Downsample returns a copy of the Series with the data down sampled by the given
 // factor, i.e., 1 out of every factor samples is kept.
-func (s Series) DownSample(factor int) Series {
+func (s Series) Downsample(factor int) Series {
 	if factor <= 1 || len(s.Data) == 0 {
 		return s
 	}
@@ -205,6 +195,7 @@ func truncateAndFormatSlice[T any](slice []T) string {
 	return stringer.TruncateAndFormatSlice(slice, maxDisplayValues)
 }
 
+// DataString returns a string representation of the data in a seris.
 func (s Series) DataString() string {
 	if s.Len() == 0 {
 		return "[]"
@@ -214,27 +205,27 @@ func (s Series) DataString() string {
 	}
 	switch s.DataType {
 	case Float64T:
-		return truncateAndFormatSlice(Unmarshal[float64](s))
+		return truncateAndFormatSlice(UnmarshalSeries[float64](s))
 	case Float32T:
-		return truncateAndFormatSlice(Unmarshal[float32](s))
+		return truncateAndFormatSlice(UnmarshalSeries[float32](s))
 	case Int64T:
-		return truncateAndFormatSlice(Unmarshal[int64](s))
+		return truncateAndFormatSlice(UnmarshalSeries[int64](s))
 	case Int32T:
-		return truncateAndFormatSlice(Unmarshal[int32](s))
+		return truncateAndFormatSlice(UnmarshalSeries[int32](s))
 	case Int16T:
-		return truncateAndFormatSlice(Unmarshal[int16](s))
+		return truncateAndFormatSlice(UnmarshalSeries[int16](s))
 	case Int8T:
-		return truncateAndFormatSlice(Unmarshal[int8](s))
+		return truncateAndFormatSlice(UnmarshalSeries[int8](s))
 	case Uint64T:
-		return truncateAndFormatSlice(Unmarshal[uint64](s))
+		return truncateAndFormatSlice(UnmarshalSeries[uint64](s))
 	case Uint32T:
-		return truncateAndFormatSlice(Unmarshal[uint32](s))
+		return truncateAndFormatSlice(UnmarshalSeries[uint32](s))
 	case Uint16T:
-		return truncateAndFormatSlice(Unmarshal[uint16](s))
+		return truncateAndFormatSlice(UnmarshalSeries[uint16](s))
 	case Uint8T:
-		return truncateAndFormatSlice(Unmarshal[uint8](s))
+		return truncateAndFormatSlice(UnmarshalSeries[uint8](s))
 	case TimeStampT:
-		first, last := stringer.TruncateSlice(Unmarshal[TimeStamp](s), maxDisplayValues)
+		first, last := xslices.Truncate(UnmarshalSeries[TimeStamp](s), maxDisplayValues)
 		firstDeltas := make([]string, len(first)-1)
 		for i := 1; i < len(first); i++ {
 			firstDeltas[i-1] = "+" + TimeSpan(first[i]-first[0]).String()
@@ -244,7 +235,7 @@ func (s Series) DataString() string {
 			return fmt.Sprintf("[%s %v]", first[0], firstDeltaStr)
 		}
 		lastDeltas := make([]string, len(last))
-		for i := 0; i < len(last); i++ {
+		for i := range last {
 			lastDeltas[i] = "+" + TimeSpan(last[i]-first[0]).String()
 		}
 		lastDeltaStr := strings.Trim(fmt.Sprintf("%v", lastDeltas), "[]")
@@ -270,47 +261,60 @@ func sortSeriesByAlignment(s1, s2 Series) int {
 
 // NewMultiSeries constructs a new MultiSeries from the given set of Series.
 // The series are sorted by their alignment, and the data type of the series must
-// be the same. If the data types are different, a panic will occur. The series
+// be the same. If the data types are different, a panic will occur.
 func NewMultiSeries(series []Series) MultiSeries {
 	if len(series) == 0 {
 		return MultiSeries{}
 	}
-	first := series[0]
+	dt := series[0].DataType
 	for _, s := range series {
-		if s.DataType != first.DataType {
-			panic(fmt.Sprintf("cannot create MultiSeries with different data types: %v != %v", first.DataType, s.DataType))
+		if s.DataType != dt {
+			panic(fmt.Sprintf("cannot create MultiSeries with different data types: %v != %v", dt, s.DataType))
 		}
 	}
 	slices.SortFunc(series, sortSeriesByAlignment)
 	return MultiSeries{Series: series}
 }
 
-// NewMultiSeriesV constructs a new MultiSeries from the given set of variadic
-// Series. The series are sorted by their alignment, and the data type of the
-// series must be the same. If the data types are different, a panic will occur.
+// MultiSeriesAtAlignment returns the value at the given alignment in the MultiSeries.
+func MultiSeriesAtAlignment[T types.Numeric](
+	ms MultiSeries,
+	alignment Alignment,
+) T {
+	for _, s := range ms.Series {
+		if s.AlignmentBounds().Contains(alignment) {
+			return ValueAt[T](s, int(alignment-s.Alignment))
+		}
+	}
+	panic(fmt.Sprintf("alignment %v out of bounds for multi series with alignment bounds %v", alignment, ms.AlignmentBounds()))
+}
+
+// NewMultiSeriesV constructs a new MultiSeries from the given set of variadic Series.
+// The series are sorted by their alignment, and the data type of the series must be the
+// same. If the data types are different, a panic will occur.
 func NewMultiSeriesV(series ...Series) MultiSeries { return NewMultiSeries(series) }
 
-// AlignmentBounds returns the alignment bounds of the MultiSeries, where the lower
-// bound is the alignment of the first sample in the series, and the upper bound is
-// the alignment of the last sample in the series + 1 i.e. the lower value is inclusive
-// and the upper value is exclusive.
+// AlignmentBounds returns the alignment bounds of the MultiSeries. The lower
+// bound is the alignment of the first sample in the series, and the upper bound is the
+// alignment of the last sample in the series + 1, i.e., the lower value is inclusive, and
+// the upper value is exclusive.
 func (m MultiSeries) AlignmentBounds() (ab AlignmentBounds) {
 	if len(m.Series) != 0 {
 		ab.Lower = m.Series[0].AlignmentBounds().Lower
 		ab.Upper = m.Series[len(m.Series)-1].AlignmentBounds().Upper
 	}
-	return
+	return ab
 }
 
 // TimeRange returns the time range of the MultiSeries, where the start time is the
-// start time of the first series, and the end time is the end time of the last
-// series. The start time is inclusive and the end time is exclusive.
+// start time of the first series, and the end time is the end time of the last series.
+// The start time is inclusive and the end time is exclusive.
 func (m MultiSeries) TimeRange() (tr TimeRange) {
 	if len(m.Series) != 0 {
 		tr.Start = m.Series[0].TimeRange.Start
 		tr.End = m.Series[len(m.Series)-1].TimeRange.End
 	}
-	return
+	return tr
 }
 
 // Append appends a series to the MultiSeries. The series must have the same data type
@@ -323,15 +327,15 @@ func (m MultiSeries) Append(series Series) MultiSeries {
 	return m
 }
 
-// FilterLessThan returns a new MultiSeries with all series that have an upper
-// alignment bound greater than the given alignment. This is useful for filtering
-// out series that are not relevant to the given alignment.
-func (m MultiSeries) FilterLessThan(a Alignment) MultiSeries {
+// FilterGreaterThanOrEqualTo returns a new MultiSeries with all series that have an upper alignment
+// bound greater than the given alignment. This is useful for filtering out series that
+// are not relevant to the given alignment.
+func (m MultiSeries) FilterGreaterThanOrEqualTo(a Alignment) MultiSeries {
 	if len(m.Series) == 0 {
 		return m
 	}
-	// Hot path optimization that does a quick check that the alignment of all series
-	// is above the filter threshold, so we don't need to re-allocate a new slice.
+	// Hot path optimization that does a quick check that the alignment of all series is
+	// above the filter threshold, so we don't need to re-allocate a new slice.
 	if m.Series[0].AlignmentBounds().Upper > a {
 		return m
 	}
@@ -350,13 +354,13 @@ func (m MultiSeries) Len() int64 {
 	return lo.SumBy(m.Series, func(s Series) int64 { return s.Len() })
 }
 
-// DataType returns the data type of the multi series. If the multi series is empty,
-// the data type is UnknownT.
+// DataType returns the data type of the multi series. If the multi series is empty, the
+// data type is UnknownT.
 func (m MultiSeries) DataType() (dt DataType) {
 	if len(m.Series) != 0 {
 		dt = m.Series[0].DataType
 	}
-	return
+	return dt
 }
 
 // Data returns a byte slice containing the aggregated data of all series in the

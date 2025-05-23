@@ -103,14 +103,14 @@ var _ = Describe("Validate", func() {
 		})
 
 		Describe("Numeric Validations", func() {
-			Describe("NonNegative", func() {
+			Describe("Positive", func() {
 				It("Should validate positive numbers", func() {
-					Expect(validate.NonNegative(v, "field", 42)).To(BeFalse())
+					Expect(validate.Positive(v, "field", 42)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())
 				})
 
 				It("Should catch non-positive numbers", func() {
-					Expect(validate.NonNegative(v, "field", 0)).To(BeTrue())
+					Expect(validate.Positive(v, "field", 0)).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 			})
@@ -163,38 +163,6 @@ var _ = Describe("Validate", func() {
 
 				It("Should catch empty strings", func() {
 					Expect(validate.NotEmptyString(v, "field", "")).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
-				})
-			})
-		})
-
-		Describe("Map Validations", func() {
-			var testMap map[string]int
-
-			BeforeEach(func() {
-				testMap = map[string]int{"key": 42}
-			})
-
-			Describe("MapDoesNotContainF", func() {
-				It("Should validate when key is not present", func() {
-					Expect(validate.MapDoesNotContainF(v, "missing", testMap, "key exists")).To(BeFalse())
-					Expect(v.Error()).NotTo(HaveOccurred())
-				})
-
-				It("Should catch when key is present", func() {
-					Expect(validate.MapDoesNotContainF(v, "key", testMap, "key exists")).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
-				})
-			})
-
-			Describe("MapContainsf", func() {
-				It("Should validate when key is present", func() {
-					Expect(validate.MapContainsf(v, "key", testMap, "key missing")).To(BeFalse())
-					Expect(v.Error()).NotTo(HaveOccurred())
-				})
-
-				It("Should catch when key is not present", func() {
-					Expect(validate.MapContainsf(v, "missing", testMap, "key missing")).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 			})

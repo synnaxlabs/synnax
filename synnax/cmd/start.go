@@ -96,7 +96,7 @@ func start(cmd *cobra.Command) {
 	v := version.Get()
 	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")
 	var (
-		ins      = configureInstrumentation(v)
+		ins      = configureInstrumentation()
 		insecure = viper.GetBool(insecureFlag)
 		debug    = viper.GetBool(debugFlag)
 		autoCert = viper.GetBool(autoCertFlag)

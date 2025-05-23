@@ -120,10 +120,15 @@ type Source[I Value] interface {
 }
 
 // TransformFunc is a function that transforms a value from one type to
-// another. A TransformFunc can perform IO, Network InfectedBatch, Aggregations, or any other
-// type of operation.
+// another. It takes in the input value i and converts it to an output value O. If
+// the returned error is not nil, the transform goroutine will exit with the error. If ok
+// is false, the output value will not be sent, and the transform will move on to
+// processing the next value.
 type TransformFunc[I, O Value] func(ctx context.Context, i I) (o O, ok bool, err error)
 
+// GeneratorFunc returns a function that generates a new value. If ok is false, the
+// returned function will not be used and the generator will proceed to the next cycle.
+// If the returned error is not nil, the generator goroutine will exit with the error.
 type GeneratorFunc[I, O Value] func(ctx context.Context, i I) (gen func() O, ok bool, err error)
 
 // Inlet is the end of a Stream that accepts values and can be addressed.

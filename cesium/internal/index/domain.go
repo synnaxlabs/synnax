@@ -21,9 +21,13 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// Domain is an implementation of Index backed by a domain-based database that stores
+// the underlying timestamp values.
 type Domain struct {
 	alamos.Instrumentation
-	DB      *domain.DB
+	// DB is the database to query for timestamp values.
+	DB *domain.DB
+	// Channel is the channel definition for the index.
 	Channel core.Channel
 }
 

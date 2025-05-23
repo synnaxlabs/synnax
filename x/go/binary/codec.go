@@ -19,29 +19,24 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 // sugarEncodingErr adds additional context to encoding errors.
-func sugarEncodingErr(value interface{}, err error) error {
-	if err != nil {
-		val := reflect.ValueOf(value)
-		err = errors.Wrapf(err, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
+func sugarEncodingErr(value any, err error) error {
+	if err == nil {
+		return err
 	}
-	return err
+	val := reflect.ValueOf(value)
+	return errors.Wrapf(err, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
 }
 
 // sugarDecodingErr adds additional context to decoding errors.
-func sugarDecodingErr(data []byte, value interface{}, err error) error {
-	if err != nil {
-		val := reflect.ValueOf(value)
-		err = errors.Wrapf(err, "failed to decode into value: kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
-	}
-	return err
-
+func sugarDecodingErr(data []byte, value any, err error) error {
+	val := reflect.ValueOf(value)
+	return errors.Wrapf(err, "failed to decode into value: kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
 }
 
 // Codec is an interface that encodes and decodes values.
@@ -52,20 +47,20 @@ type Codec interface {
 
 // Encoder encodes values into binary.
 type Encoder interface {
-	// Encode encodes the value into binary. It returns the encoded value along
-	// with any errors encountered.
-	Encode(ctx context.Context, value interface{}) ([]byte, error)
-	// EncodeStream encodes the value into binary and writes it to the given
-	// writer. It returns any errors encountered.
-	EncodeStream(ctx context.Context, w io.Writer, value interface{}) error
+	// Encode encodes the value into binary. It returns the encoded value along with any
+	// errors encountered.
+	Encode(ctx context.Context, value any) ([]byte, error)
+	// EncodeStream encodes the value into binary and writes it to the given writer. It
+	// returns any errors encountered.
+	EncodeStream(ctx context.Context, w io.Writer, value any) error
 }
 
 // Decoder decodes values from binary.
 type Decoder interface {
 	// Decode decodes data into a pointer value.
-	Decode(ctx context.Context, data []byte, value interface{}) error
-	// DecodeStream decodes data from the given reader into a pointer value.;
-	DecodeStream(ctx context.Context, r io.Reader, value interface{}) error
+	Decode(ctx context.Context, data []byte, value any) error
+	// DecodeStream decodes data from the given reader into a pointer value.
+	DecodeStream(ctx context.Context, r io.Reader, value any) error
 }
 
 var (
@@ -78,7 +73,7 @@ var (
 type GobCodec struct{}
 
 // Encode implements the Encoder interface.
-func (e *GobCodec) Encode(_ context.Context, value interface{}) ([]byte, error) {
+func (e *GobCodec) Encode(_ context.Context, value any) ([]byte, error) {
 	var (
 		buff bytes.Buffer
 		err  = gob.NewEncoder(&buff).Encode(value)
@@ -91,7 +86,7 @@ func (e *GobCodec) Encode(_ context.Context, value interface{}) ([]byte, error) 
 }
 
 // EncodeStream implements the Encoder interface.
-func (e *GobCodec) EncodeStream(_ context.Context, w io.Writer, value interface{}) error {
+func (e *GobCodec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	err := gob.NewEncoder(w).Encode(value)
 	if err != nil {
 		return sugarEncodingErr(value, err)
@@ -100,7 +95,7 @@ func (e *GobCodec) EncodeStream(_ context.Context, w io.Writer, value interface{
 }
 
 // Decode implements the Decoder interface.
-func (e *GobCodec) Decode(ctx context.Context, data []byte, value interface{}) error {
+func (e *GobCodec) Decode(ctx context.Context, data []byte, value any) error {
 	err := e.DecodeStream(ctx, bytes.NewReader(data), value)
 	if err != nil {
 		return sugarDecodingErr(data, value, err)
@@ -109,9 +104,8 @@ func (e *GobCodec) Decode(ctx context.Context, data []byte, value interface{}) e
 }
 
 // DecodeStream implements the Decoder interface.
-func (e *GobCodec) DecodeStream(_ context.Context, r io.Reader, value interface{}) error {
-	err := gob.NewDecoder(r).Decode(value)
-	if err != nil {
+func (e *GobCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+	if err := gob.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return sugarDecodingErr(data, value, err)
 	}
@@ -125,33 +119,26 @@ type JSONCodec struct {
 }
 
 // Encode implements the Encoder interface.
-func (j *JSONCodec) Encode(_ context.Context, value interface{}) ([]byte, error) {
-	var b []byte
-	var err error
+func (j *JSONCodec) Encode(_ context.Context, value any) (b []byte, err error) {
 	if j.Pretty {
 		b, err = json.MarshalIndent(value, "", "  ")
 	} else {
 		b, err = json.Marshal(value)
 	}
-	if err != nil {
-		return nil, sugarEncodingErr(value, err)
-	}
-	return b, nil
+	return b, sugarEncodingErr(value, err)
 }
 
 // Decode implements the Decoder interface.
-func (j *JSONCodec) Decode(_ context.Context, data []byte, value interface{}) error {
-	err := json.Unmarshal(data, value)
-	if err != nil {
+func (j *JSONCodec) Decode(_ context.Context, data []byte, value any) error {
+	if err := json.Unmarshal(data, value); err != nil {
 		return sugarDecodingErr(data, value, err)
 	}
 	return nil
 }
 
 // DecodeStream implements the Decoder interface.
-func (j *JSONCodec) DecodeStream(_ context.Context, r io.Reader, value interface{}) error {
-	err := json.NewDecoder(r).Decode(value)
-	if err != nil {
+func (j *JSONCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+	if err := json.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return sugarDecodingErr(data, value, err)
 	}
@@ -159,7 +146,7 @@ func (j *JSONCodec) DecodeStream(_ context.Context, r io.Reader, value interface
 }
 
 // EncodeStream implements the Encoder interface.
-func (j *JSONCodec) EncodeStream(ctx context.Context, w io.Writer, value interface{}) error {
+func (j *JSONCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	var err error
 	if j.Pretty {
 		err = json.NewEncoder(w).Encode(value)
@@ -170,58 +157,49 @@ func (j *JSONCodec) EncodeStream(ctx context.Context, w io.Writer, value interfa
 		}
 		_, err = w.Write(b)
 	}
-	if err != nil {
-		return sugarEncodingErr(value, err)
-	}
-	return nil
+	return sugarEncodingErr(value, err)
 }
 
 // MsgPackCodec is a msgpack implementation of Codec.
 type MsgPackCodec struct{}
 
 // Encode implements the Encoder interface.
-func (m *MsgPackCodec) Encode(_ context.Context, value interface{}) ([]byte, error) {
+func (m *MsgPackCodec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := msgpack.Marshal(value)
-	if err != nil {
-		return nil, sugarEncodingErr(value, err)
-	}
-	return b, nil
+	return b, sugarEncodingErr(value, err)
 }
 
 // Decode implements the Decoder interface.
-func (m *MsgPackCodec) Decode(ctx context.Context, data []byte, value interface{}) error {
+func (m *MsgPackCodec) Decode(ctx context.Context, data []byte, value any) error {
 	err := m.DecodeStream(ctx, bytes.NewReader(data), value)
 	return sugarDecodingErr(data, value, err)
 }
 
 // DecodeStream implements the Decoder interface.
-func (m *MsgPackCodec) DecodeStream(_ context.Context, r io.Reader, value interface{}) error {
-	err := msgpack.NewDecoder(r).Decode(value)
-	if err != nil {
+func (m *MsgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+	if err := msgpack.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return sugarDecodingErr(data, value, err)
 	}
 	return nil
 }
 
-func (m *MsgPackCodec) EncodeStream(ctx context.Context, w io.Writer, value interface{}) error {
+// EncodeStream implements the Encoder interface.
+func (m *MsgPackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	b, err := m.Encode(ctx, value)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(b)
 	if err != nil {
 		return sugarEncodingErr(value, err)
 	}
-	return nil
+	_, err = w.Write(b)
+	return sugarEncodingErr(value, err)
 }
 
-// PassThroughCodec wraps a Codec and checks for values
-// that are already encoded ([]byte) and returns them as is.
+// PassThroughCodec wraps a Codec and checks for values that are already encoded
+// ([]byte) and returns them as is.
 type PassThroughCodec struct{ Codec }
 
 // Encode implements the Encoder interface.
-func (enc *PassThroughCodec) Encode(ctx context.Context, value interface{}) ([]byte, error) {
+func (enc *PassThroughCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	if bv, ok := value.([]byte); ok {
 		return bv, nil
 	}
@@ -229,12 +207,12 @@ func (enc *PassThroughCodec) Encode(ctx context.Context, value interface{}) ([]b
 }
 
 // Decode implements the Decoder interface.
-func (enc *PassThroughCodec) Decode(ctx context.Context, data []byte, value interface{}) error {
+func (enc *PassThroughCodec) Decode(ctx context.Context, data []byte, value any) error {
 	return enc.DecodeStream(ctx, bytes.NewReader(data), value)
 }
 
 // DecodeStream implements the Decoder interface.
-func (enc *PassThroughCodec) DecodeStream(ctx context.Context, r io.Reader, value interface{}) error {
+func (enc *PassThroughCodec) DecodeStream(ctx context.Context, r io.Reader, value any) error {
 	if bv, ok := value.(*[]byte); ok {
 		*bv, _ = io.ReadAll(r)
 		return nil
@@ -243,12 +221,11 @@ func (enc *PassThroughCodec) DecodeStream(ctx context.Context, r io.Reader, valu
 }
 
 // EncodeStream implements the Encoder interface.
-func (enc *PassThroughCodec) EncodeStream(ctx context.Context, w io.Writer, value interface{}) error {
-	return enc.EncodeStream(ctx, w, value)
+func (enc *PassThroughCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	return enc.Codec.EncodeStream(ctx, w, value)
 }
 
-// TracingCodec wraps a Codec and traces the encoding and decoding
-// operations.
+// TracingCodec wraps a Codec and traces the encoding and decoding operations.
 type TracingCodec struct {
 	alamos.Instrumentation
 	Level alamos.Environment
@@ -256,7 +233,7 @@ type TracingCodec struct {
 }
 
 // Encode implements the Encoder interface.
-func (enc *TracingCodec) Encode(ctx context.Context, value interface{}) ([]byte, error) {
+func (enc *TracingCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	ctx, span := enc.T.Trace(ctx, "encode", enc.Level)
 	b, err := enc.Codec.Encode(ctx, value)
 	if err != nil {
@@ -266,7 +243,7 @@ func (enc *TracingCodec) Encode(ctx context.Context, value interface{}) ([]byte,
 }
 
 // Decode implements the Decoder interface.
-func (enc *TracingCodec) Decode(ctx context.Context, data []byte, value interface{}) error {
+func (enc *TracingCodec) Decode(ctx context.Context, data []byte, value any) error {
 	ctx, span := enc.T.Trace(ctx, "decode", enc.Level)
 	err := enc.Codec.Decode(ctx, data, value)
 	if err != nil {
@@ -276,7 +253,7 @@ func (enc *TracingCodec) Decode(ctx context.Context, data []byte, value interfac
 }
 
 // DecodeStream implements the Decoder interface.
-func (enc *TracingCodec) DecodeStream(ctx context.Context, r io.Reader, value interface{}) error {
+func (enc *TracingCodec) DecodeStream(ctx context.Context, r io.Reader, value any) error {
 	ctx, span := enc.T.Trace(ctx, "decode_stream", enc.Level)
 	err := enc.Codec.DecodeStream(ctx, r, value)
 	if err != nil {
@@ -287,7 +264,7 @@ func (enc *TracingCodec) DecodeStream(ctx context.Context, r io.Reader, value in
 }
 
 // EncodeStream implements the Encoder interface.
-func (enc *TracingCodec) EncodeStream(ctx context.Context, w io.Writer, value interface{}) error {
+func (enc *TracingCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	ctx, span := enc.T.Trace(ctx, "encode_stream", enc.Level)
 	err := enc.Codec.EncodeStream(ctx, w, value)
 	if err != nil {
@@ -296,7 +273,9 @@ func (enc *TracingCodec) EncodeStream(ctx context.Context, w io.Writer, value in
 	return span.EndWith(err)
 }
 
-func UnmarshalStringInt64(b []byte) (n int64, err error) {
+// UnmarshalJSONStringInt64 attempts to unmarshal an int64 directly. If that fails,
+// it attempts to convert a string to an int64.
+func UnmarshalJSONStringInt64(b []byte) (n int64, err error) {
 	if err = json.Unmarshal(b, &n); err == nil {
 		return n, nil
 	}
@@ -308,7 +287,9 @@ func UnmarshalStringInt64(b []byte) (n int64, err error) {
 	return n, err
 }
 
-func UnmarshalStringUint64(b []byte) (n uint64, err error) {
+// UnmarshalJSONStringUint64 attempts to unmarshal the uint64 directly. If that fails,
+// it attempts to convert a string to a uint64.
+func UnmarshalJSONStringUint64(b []byte) (n uint64, err error) {
 	if err = json.Unmarshal(b, &n); err == nil {
 		return n, nil
 	}
@@ -320,12 +301,14 @@ func UnmarshalStringUint64(b []byte) (n uint64, err error) {
 	return n, err
 }
 
+// MarshalStringInt64 marshals the int64 value to a UTF-8 string.
 func MarshalStringInt64(n int64) ([]byte, error) {
-	return []byte("\"" + strconv.Itoa(int(n)) + "\""), nil
+	return []byte(`"` + strconv.Itoa(int(n)) + `"`), nil
 }
 
+// MarshalStringUint64 marshals the uint64 value to a UTF-8 string.
 func MarshalStringUint64(n uint64) ([]byte, error) {
-	return []byte("\"" + strconv.FormatUint(n, 10) + "\""), nil
+	return []byte(`"` + strconv.FormatUint(n, 10) + `"`), nil
 }
 
 // decodeFallbackCodec wraps a set of Codecs. When the first Codec in the chain fails to
@@ -342,16 +325,16 @@ func NewDecodeFallbackCodec(base Codec, codecs ...Codec) Codec {
 var _ Codec = (*decodeFallbackCodec)(nil)
 
 // Encode implements the Encoder interface.
-func (f *decodeFallbackCodec) Encode(ctx context.Context, value interface{}) (b []byte, err error) {
+func (f *decodeFallbackCodec) Encode(ctx context.Context, value any) (b []byte, err error) {
 	return f.Codecs[0].Encode(ctx, value)
 }
 
-func (f *decodeFallbackCodec) EncodeStream(ctx context.Context, w io.Writer, value interface{}) error {
+func (f *decodeFallbackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	return f.Codecs[0].EncodeStream(ctx, w, value)
 }
 
 // Decode implements the Decoder interface.
-func (f *decodeFallbackCodec) Decode(ctx context.Context, data []byte, value interface{}) (err error) {
+func (f *decodeFallbackCodec) Decode(ctx context.Context, data []byte, value any) (err error) {
 	for _, c := range f.Codecs {
 		if err = c.Decode(ctx, data, value); err == nil {
 			return
@@ -364,25 +347,27 @@ func (f *decodeFallbackCodec) Decode(ctx context.Context, data []byte, value int
 func (f *decodeFallbackCodec) DecodeStream(
 	ctx context.Context,
 	r io.Reader,
-	value interface{},
+	value any,
 ) (err error) {
 	if len(f.Codecs) == 0 {
 		panic("[binary] - no codecs provided to decodeFallbackCodec")
 	}
-	// We need to read out all the data here, otherwise an initial codec that fails
-	// will leave the reader in a bad state. It's not ideal, but we need to do it.
+	// We need to read out all the data here, otherwise an initial codec that fails will
+	// leave the reader in a bad state. It's not ideal, but we need to do it.
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
 	for _, c := range f.Codecs {
 		if err = c.DecodeStream(ctx, bytes.NewReader(data), value); err == nil {
-			return
+			return err
 		}
 	}
 	return
 }
 
-func MustEncodeJSONtoString(v interface{}) string {
+// MustEncodeJSONToString encodes the value to a JSON string, and panics if an error
+// occurs.
+func MustEncodeJSONToString(v any) string {
 	return string(lo.Must((&JSONCodec{}).Encode(context.Background(), v)))
 }

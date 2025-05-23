@@ -55,7 +55,7 @@ var _ gorp.Entry[Key] = Task{}
 
 func (t Task) GorpKey() Key { return t.Key }
 
-func (t Task) SetOptions() []interface{} { return []interface{}{t.Key.Rack().Node()} }
+func (t Task) SetOptions() []any { return []any{t.Key.Rack().Node()} }
 
 func (t Task) Rack() rack.Key { return t.Key.Rack() }
 
@@ -91,7 +91,7 @@ var (
 func (s State) GorpKey() Key { return s.Task }
 
 // SetOptions implements the gorp.Entry interface.
-func (s State) SetOptions() []interface{} { return []interface{}{s.Task.Rack().Node()} }
+func (s State) SetOptions() []any { return []any{s.Task.Rack().Node()} }
 
 // CustomTypeName implements types.CustomTypeName to ensure that State struct does
 // not conflict with any other types in gorp.

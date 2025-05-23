@@ -10,6 +10,8 @@
 package domain
 
 import (
+	"context"
+
 	xio "github.com/synnaxlabs/x/io"
 )
 
@@ -18,6 +20,15 @@ import (
 type Reader struct {
 	ptr pointer
 	xio.ReaderAtCloser
+}
+
+func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
+	internal, err := db.fc.acquireReader(ctx, ptr.fileKey)
+	if err != nil {
+		return nil, err
+	}
+	reader := xio.NewSectionReaderAtCloser(internal, int64(ptr.offset), int64(ptr.length))
+	return &Reader{ptr: ptr, ReaderAtCloser: reader}, nil
 }
 
 // Len returns the number of bytes in the entire domain.

@@ -13,10 +13,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/synnaxlabs/cesium/internal/testutil"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 )
 
 var (

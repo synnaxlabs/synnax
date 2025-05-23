@@ -12,11 +12,10 @@ package grpc
 import (
 	"go/types"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fnoop"
 	"github.com/synnaxlabs/synnax/pkg/api"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
 func New(channels channel.Readable) (a api.Transport, transports []fgrpc.BindableTransport) {

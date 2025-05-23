@@ -56,16 +56,16 @@ var _ = Describe("Deleter", Ordered, func() {
 					Expect(writer.Write(core.MultiFrame(
 						s.keys,
 						[]telem.Series{
-							telem.NewSecondsTSV(10, 11, 12),
-							telem.NewSecondsTSV(10, 11, 12),
-							telem.NewSecondsTSV(10, 11, 12),
+							telem.NewSeriesSecondsTSV(10, 11, 12),
+							telem.NewSeriesSecondsTSV(10, 11, 12),
+							telem.NewSeriesSecondsTSV(10, 11, 12),
 						},
 					))).To(BeTrue())
 					Expect(MustSucceed(writer.Commit())).To(Equal(telem.SecondTS*12 + 1))
 					Expect(writer.Close()).To(Succeed())
 
 					d = s.deleter.NewDeleter()
-					i = MustSucceed(s.iterator.New(ctx, iterator.Config{
+					i = MustSucceed(s.iterator.Open(ctx, iterator.Config{
 						Keys:   s.keys,
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -124,7 +124,7 @@ type scenario struct {
 	names    []string
 	writer   *writer.Service
 	iterator *iterator.Service
-	deleter  deleter.Service
+	deleter  *deleter.Service
 	channel  channel.Service
 	close    io.Closer
 }

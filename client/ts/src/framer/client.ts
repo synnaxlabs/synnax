@@ -160,9 +160,7 @@ export class Client {
         autoIndexPersistInterval: TimeSpan.MAX,
       });
       await w.write(data_);
-      await w.commit();
-      await w.close();
-      return;
+      return await w.close();
     }
     const w = await this.openWriter({
       start,

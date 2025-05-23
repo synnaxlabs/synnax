@@ -21,7 +21,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 		nums [100]int
 	)
 	BeforeAll(func() {
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			nums[i] = i
 		}
 	})

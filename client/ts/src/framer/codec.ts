@@ -23,10 +23,6 @@ import { type Frame, type Payload } from "@/framer/frame";
 import { type StreamerResponse } from "@/framer/streamer";
 import { WriterCommand, type WriteRequest } from "@/framer/writer";
 
-// For detailed information about the specifications,
-// please refer to the official RFC 0016 document.
-// Document here: docs/tech/rfc/0016-231001-frame-flight-protocol.md
-
 const seriesPldLength = (series: SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();
 
@@ -273,7 +269,7 @@ export class Codec {
     if (channelFlag) returnFrame.keys = [...state.keys];
     state.keys.forEach((k, i) => {
       if (!channelFlag) {
-        if (index + KEY_SIZE > view.byteLength) return;
+        if (index >= view.byteLength) return;
         const frameKey = view.getUint32(index, true);
         if (frameKey !== k) return;
         index += KEY_SIZE;

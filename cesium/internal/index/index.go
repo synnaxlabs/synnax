@@ -7,6 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package index provides functionality for efficient queries of time series on top of
+// a data source.
+//
+// The Index interface provides utilities for finding the number of samples between two
+// timestamps, and for finding the timestamp between a starting timestamp and a number of
+// samples.
+//
+// The Domain index is an implementation designed for lookups on domain databases.
 package index
 
 import (

@@ -15,5 +15,5 @@ package invariants
 // SetFinalizer is a wrapper around runtime.SetFinalizer that is a no-op under
 // race builds or if neither the invariants or tracing build tags are
 // specified.
-func SetFinalizer(obj, finalizer interface{}) {
+func SetFinalizer(obj, finalizer any) {
 }

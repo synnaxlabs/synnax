@@ -105,7 +105,7 @@ func (r *Reporter) Attach(key string, report ReportProvider, env Environment) {
 // Report is key-value Metadata that can be attached to an Instrumentation. All values
 // stores in a report must be JSON-serializable. Otherwise, it's up to the user to
 // decide what to do store. We recommend using snake_case for keys.
-type Report map[string]interface{}
+type Report map[string]any
 
 // ZapFields generates a set of zap.Fields that can be used to log the report.
 func (r Report) ZapFields() []zap.Field { return r.zapFields("") }

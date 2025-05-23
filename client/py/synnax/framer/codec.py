@@ -7,10 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# For detailed information about the specifications,
-# please refer to the official RFC 0016 document.
-# Document here: docs/tech/rfc/0016-231001-frame-flight-protocol.md
-
 from __future__ import annotations
 
 import struct
@@ -194,7 +190,7 @@ class Codec:
                 )
             elif dt != ser.data_type:
                 raise ValidationError(
-                    f"Codec state does not contain data type for key {k}."
+                    f"Series data type {ser.data_type} for key {k} does not match codec state data type {dt}."
                 )
 
             if not flg.all_channels_present:
@@ -272,6 +268,8 @@ class Codec:
 
         for key in state.keys:
             if not flags.all_channels_present:
+                if idx >= len(buffer):
+                    break
                 frame_key = struct.unpack_from("<I", buffer, idx)[0]
                 if frame_key != key:
                     continue

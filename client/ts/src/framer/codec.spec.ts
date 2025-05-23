@@ -75,6 +75,18 @@ describe("encoder", () => {
         ),
       },
       {
+        name: "Only One Channel Present",
+        channels: [1, 2, 3, 4, 5],
+        dataTypes: [
+          DataType.UINT8,
+          DataType.UINT8,
+          DataType.UINT8,
+          DataType.UINT8,
+          DataType.UINT8,
+        ],
+        frame: new framer.Frame([3], [new Series(new Uint8Array([1, 2, 3, 4, 5]))]),
+      },
+      {
         name: "All Same Time Range",
         channels: [1, 2],
         dataTypes: [DataType.UINT8, DataType.FLOAT32],

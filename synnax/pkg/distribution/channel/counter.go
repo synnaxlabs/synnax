@@ -12,10 +12,9 @@ package channel
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/math"
-
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/math"
 )
 
 type counter struct {

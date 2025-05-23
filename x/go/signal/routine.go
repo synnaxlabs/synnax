@@ -100,7 +100,7 @@ func DeferErr(f func() error, opts ...RoutineOption) RoutineOption {
 func WithKey(key string) RoutineOption { return func(r *routineOptions) { r.key = key } }
 
 // WithKeyf attaches a formatted string to identify the routine.
-func WithKeyf(format string, args ...interface{}) RoutineOption {
+func WithKeyf(format string, args ...any) RoutineOption {
 	return func(r *routineOptions) {
 		r.key = fmt.Sprintf(format, args...)
 	}

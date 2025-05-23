@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package pebblekv_test
 
 import (
@@ -8,6 +17,7 @@ import (
 	"github.com/cockroachdb/pebble/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
@@ -75,6 +85,17 @@ var _ = Describe("Pebblekv", Ordered, func() {
 
 		_, closer, err = db.Get(ctx, rollbackKey)
 		Expect(err).To(Equal(kv.NotFound))
+		Expect(closer).To(BeNil())
+	})
+
+	It("Should not return a value if a transaction hasn't been committed", func() {
+		tx := db.OpenTx()
+		key := []byte("abc-tx-key")
+		value := []byte("abc-tx-value")
+		Expect(tx.Set(ctx, key, value)).To(Succeed())
+		v, closer, err := db.Get(ctx, key)
+		Expect(err).To(HaveOccurredAs(kv.NotFound))
+		Expect(v).To(BeNil())
 		Expect(closer).To(BeNil())
 	})
 

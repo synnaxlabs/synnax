@@ -88,7 +88,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Exchanging ten echo messages")
-					for i := 0; i < 10; i++ {
+					for i := range 10 {
 						Expect(client.Send(request{ID: i, Message: "Hello"})).To(Succeed())
 						msg, err := client.Receive()
 						Expect(err).ToNot(HaveOccurred())
@@ -223,7 +223,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						serverClosed := make(chan struct{})
 						server.BindHandler(func(ctx context.Context, server serverStream) error {
 							defer close(serverClosed)
-							for i := 0; i < 10; i++ {
+							for i := range 10 {
 								req, err := server.Receive()
 								Expect(err).ToNot(HaveOccurred())
 								Expect(server.Send(response{

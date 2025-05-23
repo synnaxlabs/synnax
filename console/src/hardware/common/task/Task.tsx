@@ -101,7 +101,12 @@ export const wrap = <
           taskKeyRef.current,
           { includeState: true },
         );
-        tsk.config = configSchema.parse(tsk.config);
+        try {
+          tsk.config = configSchema.parse(tsk.config);
+        } catch (e) {
+          console.error(`Failed to parse config for ${tsk.name}`, tsk.config, e);
+          throw e;
+        }
         return {
           configured: true,
           task: tsk,

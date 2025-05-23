@@ -30,7 +30,7 @@ var (
 // NewErrChannelNotFound returns a wrapper around ErrChannelNotFound that includes the
 // key of the missing channel.
 func NewErrChannelNotFound(ch ChannelKey) error {
-	return errors.Wrapf(ErrChannelNotFound, "channel %d not found", ch)
+	return errors.Wrapf(ErrChannelNotFound, "channel with key %d not found", ch)
 }
 
 // NewErrResourceClosed returns a new error that wraps ErrClosedResource and includes the

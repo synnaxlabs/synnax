@@ -144,15 +144,15 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 		},
 	}
 	p := plumber.New()
-	plumber.SetSource[framer.WriterRequest](p, "source", t)
-	plumber.SetSegment[framer.WriterRequest, framer.WriterResponse](p, "writer", w)
+	plumber.SetSource(p, "source", t)
+	plumber.SetSegment(p, "writer", w)
 	responses := &confluence.UnarySink[framer.WriterResponse]{
 		Sink: func(ctx context.Context, value framer.WriterResponse) error {
 			s.Instrumentation.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
 			return nil
 		},
 	}
-	plumber.SetSink[framer.WriterResponse](p, "responses", responses)
+	plumber.SetSink(p, "responses", responses)
 	plumber.MustConnect[framer.WriterRequest](p, "source", "writer", 10)
 	plumber.MustConnect[framer.WriterResponse](p, "writer", "responses", 10)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation.Child(lo.Ternary(cfg.Name != "", cfg.Name, cfg.SetChannel.Name))))

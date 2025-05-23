@@ -84,7 +84,7 @@ var _ = Describe("Relay", func() {
 				)
 				Expect(w.Write(writeF)).To(BeTrue())
 				var f framer.Frame
-				for i := 0; i < s.resCount; i++ {
+				for range s.resCount {
 					var res relay.Response
 					Eventually(readerRes.Outlet()).Should(Receive(&res))
 					f = core.MergeFrames([]core.Frame{f, res.Frame})

@@ -11,8 +11,11 @@ package address
 
 import "github.com/synnaxlabs/x/errors"
 
-var NotFound = errors.New("[address] - not found")
+// ErrNotFound is a general error used when an address is not found.
+var ErrNotFound = errors.New("[address] - not found")
 
-func TargetNotFound(target Address) error {
-	return errors.Wrapf(NotFound, "[address] - target %s not found", target)
+// ErrTargetNotFound returns an error indicating that the target at address %s could
+// not be located.
+func ErrTargetNotFound(target Address) error {
+	return errors.Wrapf(ErrNotFound, "target %s not found", target)
 }

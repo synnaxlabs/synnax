@@ -777,14 +777,14 @@ describe("Series", () => {
     const SPECS: Spec[] = [
       {
         series: new Series({ data: [1, 2, 3, 4], dataType: "float64" }),
-        expected: "float64 4 [1,2,3,4]",
+        expected: "Series(float64 4 [1,2,3,4])",
       },
       {
         series: new Series({
           data: Array.from({ length: 100 }, (_, i) => i),
           dataType: "float32",
         }),
-        expected: "float32 100 [0,1,2,3,4...95,96,97,98,99]",
+        expected: "Series(float32 100 [0,1,2,3,4,...,95,96,97,98,99])",
       },
     ];
     SPECS.forEach(({ series, expected }) => {

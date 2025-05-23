@@ -129,7 +129,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				ids       = make([]aspen.NodeKey, numNodes)
 				dbs       = make([]*aspen.DB, numNodes)
 			)
-			for i := 0; i < numNodes; i++ {
+			for i := range numNodes {
 				go func(i int) {
 					defer GinkgoRecover()
 					defer wg.Done()
@@ -184,7 +184,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					}()
 
 					By("Forking the databases")
-					for i := 0; i < 3; i++ {
+					for range 3 {
 						_, err := builder.New()
 						Expect(err).ToNot(HaveOccurred())
 					}

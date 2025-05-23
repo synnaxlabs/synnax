@@ -17,10 +17,10 @@ package pebblekv
 
 import (
 	"context"
-	"github.com/cockroachdb/pebble/v2/batchrepr"
 	"io"
 
 	"github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2/batchrepr"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
@@ -37,7 +37,7 @@ var _ kv.DB = (*db)(nil)
 
 var defaultWriteOpts = pebble.Sync
 
-func parseOpts(opts []interface{}) *pebble.WriteOptions {
+func parseOpts(opts []any) *pebble.WriteOptions {
 	if len(opts) > 0 {
 		for _, o := range opts {
 			if o, ok := o.(*pebble.WriteOptions); ok {
@@ -57,24 +57,24 @@ func Wrap(db_ *pebble.DB) kv.DB {
 func (d db) OpenTx() kv.Tx { return &tx{Batch: d.DB.NewIndexedBatch(), db: d} }
 
 // Commit implements kv.DB.
-func (d db) Commit(ctx context.Context, opts ...interface{}) error { return nil }
+func (d db) Commit(ctx context.Context, opts ...any) error { return nil }
 
 // NewReader implement kv.DB.
 func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
 
 // Set implement kv.DB.
-func (d db) Set(_ context.Context, key, value []byte, opts ...interface{}) error {
+func (d db) Set(_ context.Context, key, value []byte, opts ...any) error {
 	return translateError(d.DB.Set(key, value, parseOpts(opts)))
 }
 
 // Get implement kv.DB.
-func (d db) Get(_ context.Context, key []byte, _ ...interface{}) ([]byte, io.Closer, error) {
+func (d db) Get(_ context.Context, key []byte, _ ...any) ([]byte, io.Closer, error) {
 	b, c, err := d.DB.Get(key)
 	return b, c, translateError(err)
 }
 
 // Delete implement kv.DB.
-func (d db) Delete(ctx context.Context, key []byte, opts ...interface{}) error {
+func (d db) Delete(ctx context.Context, key []byte, opts ...any) error {
 	return translateError(d.DB.Delete(key, parseOpts(opts)))
 }
 
@@ -110,7 +110,7 @@ type tx struct {
 var _ kv.Tx = (*tx)(nil)
 
 // Set implements kv.Writer.
-func (txn *tx) Set(_ context.Context, key, value []byte, opts ...interface{}) error {
+func (txn *tx) Set(_ context.Context, key, value []byte, opts ...any) error {
 	return translateError(txn.Batch.Set(key, value, parseOpts(opts)))
 }
 
@@ -118,7 +118,7 @@ func (txn *tx) Set(_ context.Context, key, value []byte, opts ...interface{}) er
 func (txn *tx) Get(
 	_ context.Context,
 	key []byte,
-	_ ...interface{},
+	_ ...any,
 ) ([]byte, io.Closer, error) {
 	b, closer, err := txn.Batch.Get(key)
 	return b, closer, translateError(err)
@@ -128,7 +128,7 @@ func (txn *tx) Get(
 func (txn *tx) Delete(
 	_ context.Context,
 	key []byte,
-	opts ...interface{},
+	opts ...any,
 ) error {
 	return translateError(txn.Batch.Delete(key, parseOpts(opts)))
 }
@@ -139,7 +139,7 @@ func (txn *tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 }
 
 // Commit implements kv.Writer.
-func (txn *tx) Commit(ctx context.Context, opts ...interface{}) error {
+func (txn *tx) Commit(ctx context.Context, opts ...any) error {
 	txn.committed = true
 	return txn.db.apply(ctx, txn)
 }
@@ -198,8 +198,8 @@ func (r *txReader) Next(_ context.Context) (kv.Change, bool) {
 }
 
 func translateError(err error) error {
-	if err == nil || !errors.Is(err, pebble.ErrNotFound) {
-		return err
+	if errors.Is(err, pebble.ErrNotFound) {
+		return kv.NotFound
 	}
-	return kv.NotFound
+	return err
 }
