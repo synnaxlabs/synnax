@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Rate, TimeSpan } from "@synnaxlabs/x";
+import { alamos } from "@synnaxlabs/alamos";
 import { Mutex } from "async-mutex";
 
 import { type CanvasVariant } from "@/vis/render/context";
@@ -17,7 +17,7 @@ import { type CanvasVariant } from "@/vis/render/context";
  * optional cleanup that is executed before the next render. This cleanup function will
  * be passed the signature of the previous render request.
  */
-export type Func = () => Promise<Cleanup | void>;
+export type Func = () => Cleanup | void;
 
 /**
  * A request to render a component in the aether visualization tree. Submit a complete
@@ -55,13 +55,16 @@ export interface Request {
  * functions should clear canvases and other resources that need to be freed from
  * the previous render.
  */
-export type Cleanup = (req: Request) => Promise<void>;
+export type Cleanup = (req: Request) => void;
 
 export type Priority = "high" | "low";
 
 const PRIORITY_ORDER: Record<Priority, number> = { high: 1, low: 0 };
 
-const TARGET_LOOP_RATE = Rate.hz(45);
+interface LoopArgs {
+  afterRender?: () => void;
+  instrumentation?: alamos.Instrumentation;
+}
 
 /**
  * Implements the core rendering loop for Synnax's aether components, accepting requests
@@ -81,11 +84,20 @@ export class Loop {
   private readonly requests = new Map<string, Request>();
   /** Stores render cleanup functions for clearing canvases and other resources. */
   private readonly cleanup = new Map<string, Cleanup>();
+  /** A callback to run after each render call. */
   private readonly afterRender?: () => void;
+  /** Instrumentation for logging, tracing, metrics, etc. */
+  private readonly instrumentation: alamos.Instrumentation;
+  /** The total number of renders */
+  private count = 0;
 
-  constructor(afterRender?: () => void) {
-    void this.start();
+  constructor({
+    afterRender,
+    instrumentation = alamos.Instrumentation.NOOP,
+  }: LoopArgs) {
     this.afterRender = afterRender;
+    this.instrumentation = instrumentation;
+    void this.start();
   }
 
   /**
@@ -98,9 +110,7 @@ export class Loop {
    *
    * @param req - The request to set.
    */
-  async set(req: Request): Promise<void> {
-    let releaser: (() => void) | undefined;
-    if (req.priority === "high") releaser = await this.mutex.acquire();
+  set(req: Request): void {
     const existing = this.requests.get(req.key);
     if (existing == null) this.requests.set(req.key, req);
     else {
@@ -109,68 +119,61 @@ export class Loop {
       const canvasesOK = req.canvases.length >= existing.canvases.length;
       if (priorityOK && canvasesOK) this.requests.set(req.key, req);
     }
-    releaser?.();
   }
 
   /** Execute the render. */
-  private async render(): Promise<void> {
-    await this.mutex.runExclusive(async () => {
-      const start = performance.now();
-      const { requests } = this;
-      if (requests.size === 0) return;
-      await this.runCleanupsSync();
-      await this.renderSync();
-
-      const end = performance.now();
-      const span = TimeSpan.milliseconds(end - start);
-      if (span.greaterThan(TARGET_LOOP_RATE.period))
-        console.warn(
-          `Render loop for ${this.requests.size} took longer than ${TARGET_LOOP_RATE.period.toString()} to execute: ${span.milliseconds}`,
-        );
-      this.requests.clear();
-      this.afterRender?.();
-    });
+  private render(): void {
+    const { requests } = this;
+    if (requests.size === 0) return;
+    const endCycle = this.instrumentation.T.bench("render-cycle");
+    const endCleanup = this.instrumentation.T.bench("render-cycle-cleanup");
+    this.runCleanupsSync();
+    endCleanup();
+    const endRender = this.instrumentation.T.bench("render-cycle-render");
+    this.renderSync();
+    endRender();
+    endCycle();
+    this.requests.clear();
+    this.afterRender?.();
   }
 
-  private async runCleanupsSync(): Promise<void> {
+  private runCleanupsSync(): void {
     const { cleanup, requests } = this;
-    for (const [k, f] of cleanup.entries()) {
+    cleanup.forEach((f, k) => {
       /** Execute all of our cleanup functions BEFORE we re-render. */
       const req = requests.get(k);
       if (req != null) {
-        await f(req);
+        f(req);
         cleanup.delete(k);
       }
-    }
+    });
   }
 
-  private async renderSync() {
+  private renderSync() {
     /** Render components. */
     const { requests } = this;
-    for (const req of requests.values())
+    requests.forEach((req) => {
       try {
-        const cleanup = await req.render();
+        const cleanup = req.render();
         // We're safe to set the cleanup function here because we know that req.key
         // is unique in the queue.
         if (cleanup != null) this.cleanup.set(req.key, cleanup);
       } catch (e) {
         console.error(e);
       }
+    });
   }
 
   /** Starts the rendering loop. */
   private async start(): Promise<void> {
-    do {
+    const render = () => {
       try {
-        await this.render();
+        this.render();
       } catch (e) {
         console.error(e);
       }
-      await this.sleep();
-    } while (true);
-  }
-
-  private async sleep(): Promise<number> {
-    return await new Promise(requestAnimationFrame);
+      requestAnimationFrame(render);
+    };
+    requestAnimationFrame(render);
   }
 }

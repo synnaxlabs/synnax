@@ -173,7 +173,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   };
 
   return (
-    <Form.Form {...formCtx}>
+    <Form.Form<typeof formSchema> {...formCtx}>
       <Align.Space y size="large">
         <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
           <Align.Space y grow>

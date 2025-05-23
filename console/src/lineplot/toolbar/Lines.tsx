@@ -17,6 +17,7 @@ import {
   Tabs,
   Text,
 } from "@synnaxlabs/pluto";
+import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
@@ -93,10 +94,10 @@ const Line = ({ entry, onChange }: LinePlotLineControlsProps): ReactElement => {
     onChange({ ...entry, downsample: value });
   };
 
-  const handleColorChange: Input.Control<Color.Color>["onChange"] = (
-    value: Color.Color,
+  const handleColorChange: Input.Control<color.Color>["onChange"] = (
+    value: color.Color,
   ) => {
-    onChange({ ...entry, color: value.hex });
+    onChange({ ...entry, color: color.hex(value) });
   };
 
   const {
@@ -134,11 +135,7 @@ const Line = ({ entry, onChange }: LinePlotLineControlsProps): ReactElement => {
           upper: 51,
         }}
       />
-      <Color.Swatch
-        value={new Color.Color(entry.color)}
-        onChange={handleColorChange}
-        size="small"
-      />
+      <Color.Swatch value={entry.color} onChange={handleColorChange} size="small" />
     </Align.Space>
   );
 };

@@ -21,7 +21,7 @@ import { channel } from "@/channel";
 import { Deleter } from "@/framer/deleter";
 import { Frame, ONTOLOGY_TYPE } from "@/framer/frame";
 import { Iterator, type IteratorConfig } from "@/framer/iterator";
-import { Streamer, type StreamerConfig } from "@/framer/streamer";
+import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { ontology } from "@/ontology";
 
@@ -108,10 +108,13 @@ export class Client {
    * and then will start reading new values.
    *
    */
+  async openStreamer(config: StreamerConfig): Promise<Streamer>;
+
+  /** Overload to provide interface compatibility with @see StreamOpener */
   async openStreamer(config: StreamerConfig | channel.Params): Promise<Streamer>;
 
   async openStreamer(config: StreamerConfig | channel.Params): Promise<Streamer> {
-    return await Streamer._open(
+    return await openStreamer(
       this.retriever,
       this.streamClient,
       normalizeConfig<StreamerConfig>(config),

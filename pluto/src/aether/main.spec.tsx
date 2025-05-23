@@ -15,7 +15,7 @@ import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
-import { type MainMessage, type WorkerMessage } from "@/aether/message";
+import { type AetherMessage, type MainMessage } from "@/aether/message";
 
 export const exampleProps = z.object({
   x: z.number(),
@@ -28,11 +28,11 @@ class ExampleLeaf extends aether.Leaf<typeof exampleProps> {
 
   schema = exampleProps;
 
-  async afterUpdate(): Promise<void> {
+  afterUpdate(): void {
     this.updatef();
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     this.deletef();
   }
 }
@@ -45,11 +45,11 @@ class ExampleComposite extends aether.Composite<typeof exampleProps, ExampleLeaf
 
   schema = exampleProps;
 
-  async afterUpdate(): Promise<void> {
+  afterUpdate(): void {
     this.updatef();
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     this.deletef();
   }
 }
@@ -61,8 +61,8 @@ const REGISTRY: aether.ComponentRegistry = {
 
 const newProvider = async (): Promise<[FC<PropsWithChildren>, aether.Root]> => {
   const [a, b] = createMockWorkers();
-  const root = await aether.render({ comms: a.route("vis"), registry: REGISTRY });
-  const worker = b.route<MainMessage, WorkerMessage>("vis");
+  const root = aether.render({ comms: a.route("vis"), registry: REGISTRY });
+  const worker = b.route<MainMessage, AetherMessage>("vis");
   return [
     (props: PropsWithChildren) => (
       <Aether.Provider worker={worker} workerKey="vis" {...props} />

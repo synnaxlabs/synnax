@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, ValidationError } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import {
-  type AsyncDestructor,
   bounds,
   DataType,
+  type Destructor,
+  MultiSeries,
   primitiveIsZero,
   type Series,
   TimeRange,
@@ -20,6 +21,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { status } from "@/status/aether";
+import { type CreateOptions } from "@/telem/aether/factory";
 import {
   AbstractSource,
   type NumberSource,
@@ -37,27 +40,34 @@ export const streamChannelValuePropsZ = z.object({
 
 export type StreamChannelValueProps = z.infer<typeof streamChannelValuePropsZ>;
 
+const LOADING_STATUS: status.CrudeSpec = {
+  variant: "loading",
+  message: "loading data",
+};
+const SUCCESS_STATUS: status.CrudeSpec = {
+  variant: "success",
+  message: "data loaded",
+};
+
 // StreamChannelValue is an implementation of NumberSource that reads and returns the
 // most recent value of a channel in real-time.
 export class StreamChannelValue
   extends AbstractSource<typeof streamChannelValuePropsZ>
   implements NumberSource
 {
-  private readonly client: client.Client;
-  // Disconnects the current streaming handler.
-  private removeStreamHandler: AsyncDestructor | null = null;
-  private channelKey: channel.Key = 0;
-
   static readonly TYPE = "stream-channel-value";
-
   schema = streamChannelValuePropsZ;
 
+  private readonly client: client.Client;
+  private removeStreamHandler: Destructor | null = null;
+  private channelKey: channel.Key = 0;
   private leadingBuffer: Series | null = null;
   private valid = false;
-
-  constructor(client: client.Client, props: unknown) {
+  private readonly onStatusChange?: status.Adder;
+  constructor(client: client.Client, props: unknown, options?: CreateOptions) {
     super(props);
     this.client = client;
+    this.onStatusChange = options?.onStatusChange;
   }
 
   /** @returns the leading series buffer for testing purposes. */
@@ -70,9 +80,9 @@ export class StreamChannelValue
     return this.valid;
   }
 
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     // Start off by stopping telemetry streaming.
-    await this.removeStreamHandler?.();
+    this.removeStreamHandler?.();
     // Set valid to false so if we read again, we know to update the buffer.
     this.valid = false;
     // Release the leading buffer.
@@ -82,40 +92,40 @@ export class StreamChannelValue
     this.removeStreamHandler = null;
   }
 
-  async value(): Promise<number> {
+  value(): number {
     // No valid channel has been set.
     if (primitiveIsZero(this.props.channel)) return 0;
-    if (this.channelKey === 0) {
-      const c = await fetchChannelProperties(this.client, this.props.channel, false);
-      if (c == null) return 0;
-      this.channelKey = c.key;
-    }
-    if (!this.valid) await this.read();
+    if (!this.valid) void this.read();
     // No data has been received and no recent samples were fetched on initialization.
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return 0;
     return this.leadingBuffer.at(-1, true) as number;
   }
 
-  async read(): Promise<void> {
-    this.valid = true;
-    await this.updateStreamHandler();
-  }
-
-  private async updateStreamHandler(): Promise<void> {
-    await this.removeStreamHandler?.();
-    const handler: client.StreamHandler = (data) => {
-      const res = data[this.channelKey];
-      const newData = res.data;
-      if (newData.length !== 0) {
-        const first = newData[newData.length - 1];
-        first.acquire();
-        this.leadingBuffer?.release();
-        this.leadingBuffer = first;
-      }
-      // Just because we didn't get a new buffer doesn't mean one wasn't allocated.
+  private async read(): Promise<void> {
+    try {
+      this.valid = true;
+      this.onStatusChange?.(LOADING_STATUS);
+      this.removeStreamHandler?.();
+      const ch = await this.client.retrieveChannel(this.props.channel);
+      const handler: client.StreamHandler = (res) => {
+        const data = res.get(ch.key);
+        if (data == null) return;
+        const first = data.series.at(-1);
+        if (first != null) {
+          first.acquire();
+          this.leadingBuffer?.release();
+          this.leadingBuffer = first;
+        }
+        // Just because we didn't get a new buffer doesn't mean one wasn't allocated.
+        this.notify();
+      };
+      this.removeStreamHandler = await this.client.stream(handler, [ch.key]);
       this.notify();
-    };
-    this.removeStreamHandler = await this.client.stream(handler, [this.channelKey]);
+      this.onStatusChange?.(SUCCESS_STATUS);
+    } catch (e) {
+      this.valid = false;
+      this.onStatusChange?.(status.fromException(e));
+    }
   }
 }
 
@@ -128,24 +138,27 @@ const fetchChannelProperties = async (
   client: client.ChannelClient,
   ch: channel.KeyOrName,
   fetchIndex: boolean,
-): Promise<SelectedChannelProperties | null> => {
-  let c = await client.retrieveChannel(ch);
-  if (c == null) return null;
+): Promise<SelectedChannelProperties> => {
+  const c = await client.retrieveChannel(ch);
   const isCalculated = channel.isCalculated(c);
   if (!fetchIndex || c.isIndex)
     return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
-
   if (isCalculated) {
     const indexKey = await channel.resolveCalculatedIndex(
       client.retrieveChannel.bind(client),
       c,
     );
-    if (indexKey == null) throw new ValidationError("Cannot resolve calculated index");
-    c = await client.retrieveChannel(indexKey);
-    if (c == null) return null;
-    return { key: c.key, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
+    if (indexKey == null) throw new NotFoundError("Failed to resolve calculated index");
+    const indexCH = await client.retrieveChannel(indexKey);
+    return {
+      key: indexCH.key,
+      dataType: DataType.TIMESTAMP,
+      virtual: false,
+      isCalculated,
+    };
   }
-  if (c.virtual) throw new ValidationError("Cannot plot data from virtual channels");
+  if (c.virtual)
+    throw new NotFoundError("cannot use virtual channels as a data source");
   return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
 };
 
@@ -160,47 +173,67 @@ export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
 // ChannelData reads a fixed time range of data from a particular channel or its index.
 export class ChannelData
   extends AbstractSource<typeof channelDataSourcePropsZ>
-  implements ChannelData
+  implements SeriesSource
 {
   static readonly TYPE = "series-source";
   private readonly client: client.ReadClient & client.ChannelClient;
-  private data: Series[] = [];
-  private valid: boolean = false;
   schema = channelDataSourcePropsZ;
 
-  constructor(client: client.ReadClient & client.ChannelClient, props: unknown) {
+  private data: MultiSeries = new MultiSeries();
+  private valid: boolean = false;
+  private channel: SelectedChannelProperties | null = null;
+  private readonly onStatusChange?: status.Adder;
+
+  constructor(
+    client: client.ReadClient & client.ChannelClient,
+    props: unknown,
+    options?: CreateOptions,
+  ) {
     super(props);
     this.client = client;
+    this.onStatusChange = options?.onStatusChange;
   }
 
-  async cleanup(): Promise<void> {
-    this.data.forEach((d) => d.release());
+  cleanup(): void {
+    this.data.release();
     this.valid = false;
+    this.channel = null;
   }
 
-  async value(): Promise<[bounds.Bounds, Series[]]> {
-    const { timeRange, channel, useIndexOfChannel } = this.props;
+  value(): [bounds.Bounds, MultiSeries] {
+    const { channel, timeRange } = this.props;
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
-    if (timeRange.isZero || channel === 0) return [bounds.ZERO, []];
-    const chan = await fetchChannelProperties(this.client, channel, useIndexOfChannel);
-    if (chan == null) return [bounds.ZERO, []];
-    if (!this.valid) await this.readFixed(chan.key);
-    let b = bounds.max(this.data.map((d) => d.bounds));
-    if (chan.dataType.equals(DataType.TIMESTAMP))
-      b = {
-        upper: Math.min(b.upper, Number(this.props.timeRange.end.valueOf())),
-        lower: Math.max(b.lower, Number(this.props.timeRange.start.valueOf())),
-      };
-    return [b, this.data];
+    if (timeRange.isZero || channel === 0) return [bounds.ZERO, this.data];
+    if (!this.valid) void this.read();
+    const { channel: ch, data } = this;
+    if (ch == null) return [bounds.ZERO, this.data];
+    let b = bounds.max(data.series.map((d) => d.bounds));
+    if (ch.dataType.equals(DataType.TIMESTAMP))
+      b = bounds.min([b, timeRange.numericBounds]);
+    return [b, data];
   }
 
-  private async readFixed(key: channel.Key): Promise<void> {
-    const res = await this.client.read(this.props.timeRange, [key]);
-    const newData = res[key].data;
-    newData.forEach((d) => d.acquire());
-    this.data = newData;
-    this.valid = true;
+  private async read(): Promise<void> {
+    try {
+      this.valid = true;
+      this.onStatusChange?.(LOADING_STATUS);
+      const { timeRange, channel, useIndexOfChannel } = this.props;
+      this.channel = await fetchChannelProperties(
+        this.client,
+        channel,
+        useIndexOfChannel,
+      );
+      const series = await this.client.read(timeRange, this.channel.key);
+      if (series == null) return;
+      series.acquire();
+      this.data = series;
+      this.notify();
+      this.onStatusChange?.(SUCCESS_STATUS);
+    } catch (e) {
+      this.valid = false;
+      this.onStatusChange?.(status.fromException(e));
+    }
   }
 }
 
@@ -219,81 +252,98 @@ export class StreamChannelData
 {
   static readonly TYPE = "dynamic-series-source";
   private readonly client: client.Client;
-  private readonly data: Series[] = [];
-  private stopStreaming?: AsyncDestructor;
+  private readonly data: MultiSeries = new MultiSeries([]);
+  private readonly now: () => TimeStamp;
+  private readonly onStatusChange?: status.Adder;
+
+  private channel: SelectedChannelProperties | null = null;
+  private stopStreaming?: Destructor;
   private valid: boolean = false;
   schema = streamChannelDataPropsZ;
 
-  constructor(client: client.Client, props: unknown) {
+  constructor(
+    client: client.Client,
+    props: unknown,
+    options?: CreateOptions,
+    now: () => TimeStamp = () => TimeStamp.now(),
+  ) {
     super(props);
     this.client = client;
+    this.now = now;
+    this.onStatusChange = options?.onStatusChange;
   }
 
-  async value(): Promise<[bounds.Bounds, Series[]]> {
-    const { channel, useIndexOfChannel, timeSpan } = this.props;
-    if (channel === 0) return [bounds.ZERO, []];
-    const now = TimeStamp.now();
-    const ch = await fetchChannelProperties(this.client, channel, useIndexOfChannel);
-    if (ch == null) return [bounds.ZERO, []];
-    if (!this.valid) await this.read(ch);
-    if (ch.dataType.isVariable) return [bounds.ZERO, this.data];
-    let b = bounds.max(
-      this.data
-        .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
-        .map((d) => d.bounds),
-    );
-    if (ch.dataType.equals(DataType.TIMESTAMP))
-      b = {
-        upper: b.upper,
-        lower: Math.max(b.lower, b.upper - Number(timeSpan.valueOf())),
-      };
+  value(): [bounds.Bounds, MultiSeries] {
+    const { channel, timeSpan } = this.props;
+    if (channel === 0) return [bounds.ZERO, this.data];
+    if (!this.valid) void this.read();
+    const { data, channel: ch } = this;
+    const now = this.now();
+    const filtered = data.series
+      .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
+      .map((d) => d.bounds);
+    const b = bounds.max(filtered);
+    if (ch != null && ch.dataType.equals(DataType.TIMESTAMP))
+      b.lower = Math.max(b.lower, b.upper - Number(timeSpan.valueOf()));
     return [b, this.data];
   }
 
-  private async read({
-    key,
-    virtual,
-    isCalculated,
-  }: SelectedChannelProperties): Promise<void> {
-    const tr = TimeStamp.now().spanRange(-this.props.timeSpan);
-    if (!virtual || isCalculated) {
-      const res = await this.client.read(tr, [key]);
-      const newData = res[key].data;
-      newData.forEach((d) => d.acquire());
-      this.data.push(...newData);
-    }
-    await this.updateStreamHandler(key);
-    this.valid = true;
-  }
-
-  private async updateStreamHandler(key: channel.Key): Promise<void> {
-    if (this.stopStreaming != null) await this.stopStreaming();
-    const handler: client.StreamHandler = (res) => {
-      const newData = res[key].data;
-      newData.forEach((d) => d.acquire());
-      this.data.push(...newData);
-      this.gcOutOfRangeData();
+  private async read(): Promise<void> {
+    try {
+      this.valid = true;
+      this.onStatusChange?.(LOADING_STATUS);
+      const { channel, useIndexOfChannel } = this.props;
+      this.channel = await fetchChannelProperties(
+        this.client,
+        channel,
+        useIndexOfChannel,
+      );
+      const tr = this.now().spanRange(-this.props.timeSpan);
+      if (!this.channel.virtual && !this.channel.isCalculated) {
+        const res = await this.client.read(tr, this.channel.key);
+        res.acquire();
+        this.data.push(res);
+      }
+      this.stopStreaming?.();
+      const handler: client.StreamHandler = (res) => {
+        if (this.channel == null) return;
+        const series = res.get(this.channel.key);
+        if (series == null) return;
+        series.acquire();
+        this.data.push(series);
+        this.notify();
+        this.gcOutOfRangeData();
+      };
+      this.stopStreaming = await this.client.stream(handler, [this.channel.key]);
       this.notify();
-    };
-    this.stopStreaming = await this.client.stream(handler, [key]);
+      this.onStatusChange?.(SUCCESS_STATUS);
+    } catch (e) {
+      this.valid = false;
+      this.onStatusChange?.(status.fromException(e));
+    }
   }
 
   private gcOutOfRangeData(): void {
-    const threshold = TimeStamp.now().sub(this.props.keepFor ?? this.props.timeSpan);
-    const toGC = this.data.findIndex((d) => d.timeRange.end.before(threshold));
+    const threshold = this.now().sub(this.props.keepFor ?? this.props.timeSpan);
+    const toGC = this.data.series.findIndex((d) => d.timeRange.end.before(threshold));
     if (toGC === -1) return;
-    this.data.splice(toGC, 1).forEach((d) => d.release());
+    this.data.series.splice(toGC, 1).forEach((d) => d.release());
     this.gcOutOfRangeData();
   }
 
-  async cleanup(): Promise<void> {
-    await this.stopStreaming?.();
+  cleanup(): void {
+    this.stopStreaming?.();
     this.stopStreaming = undefined;
-    this.data.forEach((d) => d.release());
+    this.data.release();
+    this.valid = false;
   }
 }
 
-type Constructor = new (client: client.Client, props: unknown) => Telem;
+type Constructor = new (
+  client: client.Client,
+  props: unknown,
+  options?: CreateOptions,
+) => Telem;
 
 const REGISTRY: Record<string, Constructor> = {
   [ChannelData.TYPE]: ChannelData,
@@ -308,10 +358,10 @@ export class RemoteFactory implements RemoteFactory {
     this.client = client;
   }
 
-  create(spec: Spec): Telem | null {
+  create(spec: Spec, options?: CreateOptions): Telem | null {
     const V = REGISTRY[spec.type];
     if (V == null) return null;
-    return new V(this.client, spec.props);
+    return new V(this.client, spec.props, options);
   }
 }
 

@@ -629,7 +629,7 @@ export const use = <Z extends z.ZodTypeAny>({
 
   const processValidationResult = useCallback(
     (
-      result: z.SafeParseReturnType<z.input<Z>, z.output<Z>>,
+      result: z.ZodSafeParseResult<z.output<Z>>,
       validationPath: string = "",
       validateChildren: boolean = true,
     ): boolean => {
@@ -794,9 +794,9 @@ export const use = <Z extends z.ZodTypeAny>({
   );
 };
 
-export const Form = ({
+export const Form = <Z extends z.ZodTypeAny>({
   children,
   ...rest
-}: PropsWithChildren<ContextValue>): ReactElement => (
+}: PropsWithChildren<ContextValue<Z>>): ReactElement => (
   <Context value={rest}>{children}</Context>
 );

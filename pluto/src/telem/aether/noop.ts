@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, observe, type Series, TimeStamp } from "@synnaxlabs/x";
+import { bounds, color, MultiSeries, observe, TimeStamp } from "@synnaxlabs/x";
 
-import { color } from "@/color/core";
 import { type status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
 import {
@@ -32,15 +31,13 @@ import {
 } from "@/telem/aether/telem";
 
 class Noop extends observe.Observer<void> implements Telem {
-  async cleanup(): Promise<void> {}
+  cleanup(): void {}
 }
 
 class NoopBooleanSink extends Noop implements BooleanSink {
   static readonly TYPE = "noop-boolean-sink";
 
-  async set(): Promise<void> {
-    return await Promise.resolve();
-  }
+  set(): void {}
 }
 
 export const noopBooleanSinkSpec: BooleanSinkSpec = {
@@ -53,9 +50,7 @@ export const noopBooleanSinkSpec: BooleanSinkSpec = {
 class NumericSink extends Noop implements NumberSink {
   static readonly TYPE = "noop-numeric-sink";
 
-  async set(): Promise<void> {
-    return await Promise.resolve();
-  }
+  set(): void {}
 }
 
 export const noopNumericSinkSpec: NumberSinkSpec = {
@@ -68,8 +63,8 @@ export const noopNumericSinkSpec: NumberSinkSpec = {
 class NoopBooleanSource extends Noop implements BooleanSource {
   static readonly TYPE = "noop-boolean-source";
 
-  async value(): Promise<boolean> {
-    return await Promise.resolve(false);
+  value(): boolean {
+    return false;
   }
 }
 
@@ -83,7 +78,7 @@ export const noopBooleanSourceSpec: BooleanSourceSpec = {
 class NumericSource extends Noop implements NumberSource {
   static readonly TYPE = "noop-numeric-source";
 
-  async value(): Promise<number> {
+  value(): number {
     return 0;
   }
 }
@@ -98,7 +93,7 @@ export const noopNumericSourceSpec: NumberSourceSpec = {
 class StringSource extends Noop implements StringSource {
   static readonly TYPE = "noop-string-source";
 
-  async value(): Promise<string> {
+  value(): string {
     return "";
   }
 }
@@ -113,7 +108,7 @@ export const noopStringSourceSpec: StringSourceSpec = {
 class StatusSource extends Noop implements StatusSource {
   static readonly TYPE = "noop-status-source";
 
-  async value(): Promise<status.Spec> {
+  value(): status.Spec {
     return {
       key: "noop",
       variant: "disabled",
@@ -133,7 +128,7 @@ export const noopStatusSourceSpec: StatusSourceSpec = {
 class NoopColorSource extends Noop implements ColorSource {
   static readonly TYPE = "noop-color-source";
 
-  async value(): Promise<color.Color> {
+  value(): color.Color {
     return color.ZERO;
   }
 }
@@ -148,8 +143,8 @@ export const noopColorSourceSpec: ColorSourceSpec = {
 class NoopSeries extends Noop implements SeriesSource {
   static readonly TYPE = "noop-series";
 
-  async value(): Promise<[bounds.Bounds, Series[]]> {
-    return [bounds.ZERO, []];
+  value(): [bounds.Bounds, MultiSeries] {
+    return [bounds.ZERO, new MultiSeries([])];
   }
 }
 

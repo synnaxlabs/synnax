@@ -9,26 +9,31 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type framer } from "@synnaxlabs/client";
+import { sync } from "@synnaxlabs/x";
 import { debounce } from "@synnaxlabs/x/debounce";
-import { type TimeRange, TimeSpan } from "@synnaxlabs/x/telem";
-import { Mutex } from "async-mutex";
+import { type MultiSeries, TimeRange, TimeSpan } from "@synnaxlabs/x/telem";
 
 import { type Cache } from "@/telem/client/cache/cache";
-import { ReadResponse, responseDigests } from "@/telem/client/types";
+import { type ReadClient } from "@/telem/client/client";
 
-interface PromiseFns<T> {
-  resolve: (value: T | PromiseLike<T>) => void;
-  reject: (reason?: any) => void;
+/** A function that reads a telemetry frame from the Synnax cluster. */
+export interface ReadRemoteFunc {
+  (tr: TimeRange, keys: channel.Keys): Promise<framer.Frame>;
 }
 
-type ToFetch = [TimeRange, Set<channel.Key>];
+interface ReadRequest {
+  channel: channel.Key;
+  gaps: TimeRange[];
+  resolve: () => void;
+  reject: (reason?: unknown) => void;
+}
 
-export type ReadRemoteFunc = (
-  tr: TimeRange,
-  keys: channel.Keys,
-) => Promise<framer.Frame>;
+interface BatchFetch {
+  gap: TimeRange;
+  channels: Set<channel.Key>;
+}
 
-interface ReaderProps {
+export interface ReaderArgs {
   /**
    * Function used to read remote data from the server. Used instead of
    * passing in a Synnax client directly to make testing easier.
@@ -43,173 +48,105 @@ interface ReaderProps {
    * @default TimeSpan.milliseconds(50)
    */
   batchDebounce?: TimeSpan;
+  /**
+   * A threshold for overlap between time ranges in order for them to be batched into
+   * a single request to the server. For example, a read on channel one for time range
+   * [1ms, 5ms] and a read for channel two for time range [4ms, 6ms] would be batched
+   * under an overlap threshold of 2ms into a single request for time range [1ms, 6ms]
+   * for the channels [one, two].
+   * @default TimeSpan.milliseconds(5)
+   */
+  overlapThreshold?: TimeSpan;
   /** Used for logging, tracing, etc. */
   instrumentation?: alamos.Instrumentation;
-}
-
-interface ReaderMu {
-  mu: Mutex;
-  requests: Map<ToFetch, PromiseFns<void>>;
 }
 
 /**
  * Reader is used for reading telemetry data from the Synnax cluster. See the documentation
  * in the README for more.
  */
-export class Reader {
-  private readonly props: Required<ReaderProps>;
-
+export class Reader implements ReadClient {
+  /** Parsed and validated arguments passed to the constructor. */
+  private readonly args: Required<ReaderArgs>;
+  /**
+   * A function that debounced reads to the cluster by the debounce interval
+   * specified in args.batchDebounce.
+   */
   private readonly debouncedRead: () => void;
+  /** A mutex for serializing access to requests. */
+  private readonly mu = sync.newMutex({
+    requests: new Set<ReadRequest>(),
+    closed: false,
+  });
 
-  // Guards concurrency between the batchRead function and the read function.
-  private readonly guarded: ReaderMu = {
-    mu: new Mutex(),
-    requests: new Map(),
-  };
-
-  constructor(props: ReaderProps) {
-    this.props = {
-      instrumentation: alamos.NOOP,
-      batchDebounce: TimeSpan.milliseconds(50),
-      ...props,
+  constructor(args: ReaderArgs) {
+    this.args = {
+      ...args,
+      instrumentation: args.instrumentation ?? alamos.NOOP,
+      batchDebounce: args.batchDebounce ?? TimeSpan.milliseconds(50),
+      overlapThreshold: args.overlapThreshold ?? TimeSpan.milliseconds(5),
     };
-    this.debouncedRead = debounce(() => {
-      void this.batchRead();
-    }, this.props.batchDebounce.milliseconds);
+    const deb = this.args.batchDebounce.milliseconds;
+    this.debouncedRead = debounce(() => void this.batchRead(), deb);
   }
 
   /** Implements ReadClient. */
-  async read(
-    tr: TimeRange,
-    channels: channel.Keys,
-  ): Promise<Record<channel.Key, ReadResponse>> {
-    const {
-      instrumentation: { L },
-      cache,
-    } = this.props;
-    L.debug("starting read", { tr: tr.toPrettyString(), channels });
-    const start = performance.now();
-    // Instead of executing a fetch for each channel, we'll batch related time ranges
-    // together to get the most out of each fetch.
-    const toFetch = new Map<string, ToFetch>();
-    const responses: Record<channel.Key, ReadResponse> = {};
-
-    // If this is the first time we're fetching data for these channels, we'll need to
-    // populate new entries in the cache.
-    await cache.populateMissing(channels);
-
-    try {
-      for (const key of channels) {
-        // Try fetching from the cache.
-        const unary = cache.get(key);
-        const { series, gaps } = unary.read(tr);
-        // In this case we have all the data we need and don't need to execute a fetch
-        // for this channel.
-        if (gaps.length === 0) responses[key] = new ReadResponse(unary.channel, series);
-
-        // For each gap in the data, add it in the fetch map.
-        gaps.forEach((gap) => {
-          const exists = toFetch.get(gap.toString());
-          if (exists == null) toFetch.set(gap.toString(), [gap, new Set([key])]);
-          else toFetch.set(gap.toString(), [gap, new Set([...exists[1], key])]);
-        });
-      }
-
-      if (toFetch.size === 0) {
-        L.debug("read satisfied by cache", () => ({
-          tr: tr.toPrettyString(),
-          channels,
-          responses: responseDigests(Object.values(responses)),
-          time: TimeSpan.milliseconds(performance.now() - start).toString(),
-        }));
-        return responses;
-      }
-
-      L.debug("read cache miss", () => ({
-        tr: tr.toPrettyString(),
-        channels,
-        toFetch: Array.from(toFetch.values()).map(([r, k]) => ({
-          timeRange: r.toPrettyString(),
-          channels: k,
-        })),
-        responses: responseDigests(Object.values(responses)),
-      }));
-
-      // Fetch any missing gaps in the data using a batched read. This will automatically
-      // populate the cache with the new data.
-      const { mu, requests } = this.guarded;
-      for (const [, [range, keys]] of toFetch)
-        await new Promise<void>((resolve, reject) => {
-          void mu.runExclusive(async () => {
-            requests.set([range, keys], { resolve, reject });
-            this.debouncedRead();
-          });
-        });
-    } catch (e) {
-      L.error("read failed", { tr: tr.toPrettyString(), channels, error: e });
-      throw e;
-    }
-
-    // The cache has fetched all the data we need, so we just re-execute a cache read
-    // to get the new data.
-    for (const key of channels) {
-      const unary = cache.get(key);
-      const { series } = unary.read(tr);
-      responses[key] = new ReadResponse(unary.channel, series);
-    }
-
-    L.debug("read satisfied by fetch", () => ({
-      tr: tr.toPrettyString(),
-      channels,
-      responses: responseDigests(Object.values(responses)),
-      time: TimeSpan.milliseconds(performance.now() - start).toString(),
-    }));
-
-    return responses;
+  async read(tr: TimeRange, channel: channel.Key): Promise<MultiSeries> {
+    const { cache } = this.args;
+    await cache.populateMissing([channel]);
+    const unary = cache.get(channel);
+    const { series, gaps } = unary.read(tr);
+    if (gaps.length === 0) return series;
+    const { mu } = this;
+    await new Promise<void>((resolve, reject) => {
+      void mu.runExclusive(async () => {
+        if (mu.closed) return;
+        mu.requests.add({ channel, gaps, resolve, reject });
+      });
+      this.debouncedRead();
+    });
+    return unary.read(tr).series;
   }
 
   private async batchRead(): Promise<void> {
-    const {
-      instrumentation: { L },
-      readRemote,
-      cache,
-    } = this.props;
-    const { mu, requests } = this.guarded;
+    const { readRemote, cache, overlapThreshold } = this.args;
+    const { mu } = this;
     await mu.runExclusive(async () => {
-      const compressedToFetch: ToFetch[] = [];
+      const finish = (err?: unknown) =>
+        mu.requests.forEach(({ resolve, reject }) =>
+          err == null ? resolve() : reject(err),
+        );
       try {
-        requests.forEach((_, k) => {
-          const [tr, keys] = k;
-          const groupWith = compressedToFetch.find(
-            ([r]) =>
-              r.start.span(tr.start).lessThan(TimeSpan.milliseconds(5)) &&
-              r.end.span(tr.end).lessThan(TimeSpan.milliseconds(5)),
-          );
-          if (groupWith == null) compressedToFetch.push([tr, keys]);
-          else groupWith[1] = new Set([...groupWith[1], ...keys]);
-        });
-        L.debug("batch read", {
-          toFetch: compressedToFetch.map(([r, k]) => ({
-            timeRange: r.toPrettyString(),
-            channels: k,
-          })),
-        });
-        for (const [range, keys] of compressedToFetch) {
-          const keysArray = Array.from(keys);
-          const frame = await readRemote(range, keysArray);
-          keysArray.forEach((key) => {
-            const unary = cache.get(key);
-            const data = frame.get(key);
-            unary.writeStatic(data.series);
-          });
-        }
-        requests.forEach((toFetch) => toFetch.resolve());
-      } catch (e) {
-        L.error("batch read failed", { error: e }, true);
-        requests.forEach((toFetch) => toFetch.reject(e));
+        if (mu.closed) return finish();
+        const batched: BatchFetch[] = [];
+        mu.requests.forEach(({ channel, gaps }) =>
+          gaps.forEach((gap) => {
+            const g = batched.find((r) => r.gap.equals(gap, overlapThreshold));
+            if (g == null) batched.push({ gap, channels: new Set([channel]) });
+            else {
+              g.channels.add(channel);
+              g.gap = TimeRange.max(g.gap, gap);
+            }
+          }),
+        );
+        await Promise.all(
+          batched.map(async ({ gap, channels }) => {
+            const frame = await readRemote(gap, Array.from(channels));
+            channels.forEach((key) => cache.get(key).writeStatic(frame.get(key)));
+          }),
+        );
+        finish();
+      } catch (err) {
+        finish(err);
       } finally {
-        requests.clear();
+        mu.requests.clear();
       }
+    });
+  }
+
+  async close(): Promise<void> {
+    await this.mu.runExclusive(async () => {
+      this.mu.closed = true;
     });
   }
 }

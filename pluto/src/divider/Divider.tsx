@@ -20,6 +20,7 @@ export interface DividerProps
   extends Omit<HTMLAttributes<HTMLDivElement>, "children">,
     Pick<Align.SpaceProps, "x" | "y" | "direction"> {
   padded?: boolean | location.Location;
+  shade?: number;
 }
 
 /**
@@ -32,6 +33,8 @@ export const Divider = ({
   direction,
   className,
   padded = false,
+  shade = 3,
+  style,
   ...rest
 }: DividerProps): ReactElement => {
   if (padded === true) padded = "center";
@@ -43,6 +46,10 @@ export const Divider = ({
         typeof padded === "string" && CSS.loc(padded),
         className,
       )}
+      style={{
+        ...style,
+        borderColor: CSS.shadeVar(shade),
+      }}
       {...rest}
     />
   );

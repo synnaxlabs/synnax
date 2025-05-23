@@ -64,7 +64,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
         justify="center"
         grow
       >
-        <Form.Form {...methods}>
+        <Form.Form<typeof formSchema> {...methods}>
           <Form.Field<string> path="name">
             {(p) => (
               <Input.Text
