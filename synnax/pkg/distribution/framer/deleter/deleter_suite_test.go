@@ -88,10 +88,10 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			ChannelReader: container.channel,
 			Transport:     deleterNet.New(c.Config.AdvertiseAddress),
 		}))
-		container.iterator = MustSucceed(iterator.OpenService(iterator.ServiceConfig{
+		container.iterator = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			Instrumentation: ins,
 			TS:              c.Storage.TS,
-			ChannelReader:   container.channel,
+			Channels:        container.channel,
 			HostResolver:    c.Cluster,
 			Transport:       iteratorNet.New(c.Config.AdvertiseAddress, 10),
 		}))

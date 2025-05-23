@@ -30,7 +30,7 @@ import (
 
 type (
 	Frame            = core.Frame
-	Iterator         = iterator.StreamIterator
+	Iterator         = iterator.Iterator
 	IteratorRequest  = iterator.Request
 	IteratorResponse = iterator.Response
 	StreamIterator   = iterator.StreamIterator
@@ -49,7 +49,7 @@ type (
 
 type Config struct {
 	alamos.Instrumentation
-	// Distribution layer framer service.
+	// DistFramer layer framer service.
 	Framer  *framer.Service
 	Channel channel.Service
 }
@@ -82,15 +82,15 @@ type Service struct {
 	closer   io.Closer
 }
 
-func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (*framer.Iterator, error) {
-	return s.Framer.OpenIterator(ctx, cfg)
-}
-
-func (s *Service) NewStreamIterator(ctx context.Context, cfg framer.IteratorConfig) (framer.StreamIterator, error) {
+func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (*Iterator, error) {
 	return s.Iterator.Open(ctx, cfg)
 }
 
-func (s *Service) NewStreamWriter(ctx context.Context, cfg framer.WriterConfig) (framer.StreamWriter, error) {
+func (s *Service) NewStreamIterator(ctx context.Context, cfg framer.IteratorConfig) (StreamIterator, error) {
+	return s.Iterator.NewStream(ctx, cfg)
+}
+
+func (s *Service) NewStreamWriter(ctx context.Context, cfg framer.WriterConfig) (StreamWriter, error) {
 	return s.Framer.NewStreamWriter(ctx, cfg)
 }
 
@@ -111,7 +111,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	calcSvc, err := calculation.Open(ctx, calculation.Config{
+	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation:   cfg.Instrumentation.Child("calculated"),
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,
@@ -122,7 +122,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	streamerSvc, err := streamer.NewService(streamer.ServiceConfig{
 		Instrumentation: cfg.Instrumentation.Child("streamer"),
-		Framer:          cfg.Framer,
+		DistFramer:      cfg.Framer,
 		Channel:         cfg.Channel,
 		Calculation:     calcSvc,
 	})
@@ -130,8 +130,8 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
-		Framer:  cfg.Framer,
-		Channel: cfg.Channel,
+		DistFramer: cfg.Framer,
+		Channel:    cfg.Channel,
 	})
 	if err != nil {
 		return nil, err

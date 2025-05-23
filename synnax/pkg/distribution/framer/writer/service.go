@@ -45,10 +45,9 @@ import (
 type Config struct {
 	// ControlSubject is an identifier for the writer.
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
-	// Keys is keys to write to. At least one key must be provided. All keys must
-	// have the same data rate OR the same index. All Frames written to the Writer must
-	// have an array specified for each key, and all series must be the same length (i.e.
-	// calls to Frame.Even must return true).
+	// Keys are the channel keys to write to. At least one key must be provided. All
+	// Frames written to the Writer must have a array specified for each key, and all series must be the same length (i.e.
+	// calls Frame.Even must return true).
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Start marks the starting timestamp of the first sample in the first frame. If
@@ -122,11 +121,12 @@ func (k keyAuthority) Lease() dcore.NodeKey { return k.key.Lease() }
 
 var _ config.Config[Config] = Config{}
 
+// DefaultConfig is the default configuration for opening a new writer. This
+// configuration is not valid by itself and must be overridden by the required fields
+// specified in Config.
 func DefaultConfig() Config {
 	return Config{
-		ControlSubject: control.Subject{
-			Key: uuid.New().String(),
-		},
+		ControlSubject:           control.Subject{Key: uuid.New().String()},
 		Authorities:              []control.Authority{control.AuthorityAbsolute},
 		ErrOnUnauthorized:        config.False(),
 		Mode:                     ts.WriterPersistStream,
@@ -225,7 +225,7 @@ var (
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotNil(v, "TS", cfg.TS)
-	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
+	validate.NotNil(v, "Channels", cfg.ChannelReader)
 	validate.NotNil(v, "HostProvider", cfg.HostResolver)
 	validate.NotNil(v, "Transport", cfg.Transport)
 	return v.Error()

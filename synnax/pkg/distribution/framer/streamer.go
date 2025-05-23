@@ -73,11 +73,11 @@ const (
 )
 
 func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
-	rel, err := s.Relay.NewStreamer(ctx, cfg)
+	rel, err := s.relay.NewStreamer(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	controlStateSender := newControlStateSender(s.iterator.TS, s.controlStateKey, cfg.Keys)
+	controlStateSender := newControlStateSender(s.cfg.TS, s.controlStateKey, cfg.Keys)
 	p := plumber.New()
 	plumber.SetSegment(p, relayReaderAddr, rel)
 	plumber.SetSegment(p, controlStateSenderAddr, controlStateSender)

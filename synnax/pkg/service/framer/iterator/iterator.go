@@ -30,37 +30,57 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// ServiceConfig is the configuration for opening the service layer frame Service.
 type ServiceConfig struct {
+	// Instrumentation is for logging, tracing, and metrics.
+	// [OPTIONAL] - defaults to noop instrumentation.
 	alamos.Instrumentation
-	Framer  *framer.Service
+	// DistFramer is the distribution layer frame service to extend.
+	// [REQUIRED]
+	DistFramer *framer.Service
+	// Channel is used to retrieve information about channels.
+	// [REQUIRED]
 	Channel channel.Readable
 }
 
 var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening a Service. This
+	// configuration is not valid on its own and must be overridden with the required
+	// fields specified in ServiceConfig.
+	DefaultServiceConfig = ServiceConfig{}
 )
 
+// Override implements config.Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.Framer = override.Nil(cfg.Framer, other.Framer)
+	cfg.DistFramer = override.Nil(cfg.DistFramer, other.DistFramer)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
 	return cfg
 }
 
+// Validate implements config.Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
-	validate.NotNil(v, "framer", cfg.Framer)
+	validate.NotNil(v, "framer", cfg.DistFramer)
 	validate.NotNil(v, "channel", cfg.Channel)
 	return v.Error()
 }
 
+// Service is the service layer entry point for using iterators to read historical
+// telemetry from a multi-node Synnax cluster.
+type Service struct{ cfg ServiceConfig }
+
+// NewService creates a new service using the provided configuration(s). Each subsequent
+// configuration overrides the one in the previous configuration. If the configuration
+// is invalid, NewService returns a nil service and a non-nil error.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
-	return &Service{cfg: cfg}, err
+	if err != nil {
+		return nil, err
+	}
+	return &Service{cfg: cfg}, nil
 }
-
-type Service struct{ cfg ServiceConfig }
 
 type (
 	Config         = framer.IteratorConfig
@@ -91,7 +111,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	if err != nil {
 		return nil, err
 	}
-	dist, err := s.cfg.Framer.NewStreamIterator(ctx, cfg)
+	dist, err := s.cfg.DistFramer.NewStreamIterator(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}

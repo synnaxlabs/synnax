@@ -24,8 +24,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	BeforeAll(func() {
 		dist = builder.New(ctx)
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
-			Framer:  dist.Framer,
-			Channel: dist.Channel,
+			DistFramer: dist.Framer,
+			Channel:    dist.Channel,
 		}))
 	})
 
@@ -127,12 +127,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 			It("Should accumulate an error when the calculation fails", func() {
 				calculation := &channel.Channel{
-					Name:     "Output",
-					DataType: telem.Float32T,
-					Expression: `
-	error("cal failed")
-`,
-					Requires: []channel.Key{dataCh1.Key(), dataCh2.Key()},
+					Name:       "Output",
+					DataType:   telem.Float32T,
+					Expression: `error("cal failed")`,
+					Requires:   []channel.Key{dataCh1.Key(), dataCh2.Key()},
 				}
 				Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 				iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{

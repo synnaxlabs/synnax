@@ -39,8 +39,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Config is the configuration for opening the calculation service.
-type Config struct {
+// ServiceConfig is the configuration for opening the calculation service.
+type ServiceConfig struct {
 	alamos.Instrumentation
 	// Framer is the underlying frame service to stream required channel values and write
 	// calculated samples.
@@ -51,22 +51,22 @@ type Config struct {
 	Channel channel.Service
 	// ChannelObservable is used to listen to real-time changes in calculated channels
 	// so the calculation routines can be updated accordingly.
+	// [REQUIRED]
 	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
 	// StateCodec is the encoder/decoder used to communicate calculation state
 	// changes.
+	// [OPTIONAL]
 	StateCodec binary.Codec
 }
 
 var (
-	_ config.Config[Config] = Config{}
+	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultConfig is the default configuration for opening the calculation service.
-	DefaultConfig = Config{
-		StateCodec: &binary.JSONCodec{},
-	}
+	DefaultConfig = ServiceConfig{StateCodec: &binary.JSONCodec{}}
 )
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "Framer", c.Framer)
 	validate.NotNil(v, "Channel", c.Channel)
@@ -76,7 +76,7 @@ func (c Config) Validate() error {
 }
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -105,7 +105,7 @@ type State struct {
 
 // Service creates and operates calculations on channels.
 type Service struct {
-	cfg Config
+	cfg ServiceConfig
 	mu  struct {
 		sync.Mutex
 		entries map[channel.Key]*entry
@@ -115,9 +115,9 @@ type Service struct {
 	w                            *framer.Writer
 }
 
-// Open opens the service with the provided configuration. The service must be closed
+// OpenService opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
-func Open(ctx context.Context, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err

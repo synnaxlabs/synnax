@@ -65,7 +65,7 @@ var _ = Describe("Iterator", func() {
 			})
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
-				iter := MustSucceed(s.iteratorService.New(ctx, iterator.Config{
+				iter := MustSucceed(s.iteratorService.Open(ctx, iterator.Config{
 					Keys:   s.keys,
 					Bounds: telem.TimeRangeMax,
 				}))
@@ -92,7 +92,7 @@ var _ = Describe("Iterator", func() {
 			})
 
 			Specify(fmt.Sprintf("Scenario: %v - Auto chunk", i), func() {
-				iter := MustSucceed(s.iteratorService.New(context.TODO(), iterator.Config{
+				iter := MustSucceed(s.iteratorService.Open(context.TODO(), iterator.Config{
 					Keys:      s.keys,
 					Bounds:    telem.TimeRangeMax,
 					ChunkSize: 3,

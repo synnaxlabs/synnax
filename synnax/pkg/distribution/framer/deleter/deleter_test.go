@@ -65,7 +65,7 @@ var _ = Describe("Deleter", Ordered, func() {
 					Expect(writer.Close()).To(Succeed())
 
 					d = s.deleter.NewDeleter()
-					i = MustSucceed(s.iterator.New(ctx, iterator.Config{
+					i = MustSucceed(s.iterator.Open(ctx, iterator.Config{
 						Keys:   s.keys,
 						Bounds: telem.TimeRangeMax,
 					}))
