@@ -169,7 +169,8 @@ xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
         buf.int64(ref_tr.end.nanoseconds());
     }
 
-    if (flags.equal_alignments && !flags.zero_alignments) buf.uint64(ref_alignment.uint64());
+    if (flags.equal_alignments && !flags.zero_alignments)
+        buf.uint64(ref_alignment.uint64());
 
     for (const auto &[key, idx]: sorting_indices) {
         const telem::Series &ser = frame.series->at(idx);
