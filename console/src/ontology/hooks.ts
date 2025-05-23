@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { TimeSpan } from "@synnaxlabs/client";
+import { toArray } from "@synnaxlabs/x";
 
 import { Modals } from "@/modals";
 
@@ -16,21 +17,31 @@ interface UseConfirmDeleteProps {
   description?: string;
 }
 
+const CONFIRM_DELETE_DELAY = TimeSpan.milliseconds(500);
+
+interface ConfirmDeleteItem {
+  name: string;
+}
 export const useConfirmDelete = ({
   type,
   description = "This action cannot be undone.",
 }: UseConfirmDeleteProps) => {
   const confirm = Modals.useConfirm();
-  return async (resources: ontology.Resource[]): Promise<boolean> => {
-    let message = `Are you sure you want to delete ${resources.length} ${type.toLowerCase()}s?`;
-    if (resources.length === 1)
-      message = `Are you sure you want to delete ${resources[0].name}?`;
+  return async (items_: ConfirmDeleteItem | ConfirmDeleteItem[]): Promise<boolean> => {
+    const items = toArray(items_);
+    let message = `Are you sure you want to delete ${items.length} ${type.toLowerCase()}s?`;
+    if (items.length === 1)
+      message = `Are you sure you want to delete ${items[0].name}?`;
     return (
       (await confirm(
         {
           message,
           description,
-          confirm: { variant: "error", label: "Delete" },
+          confirm: {
+            variant: "error",
+            label: "Delete",
+            delay: CONFIRM_DELETE_DELAY.milliseconds,
+          },
           cancel: { label: "Cancel" },
         },
         { name: `${type}.Delete`, icon: type },

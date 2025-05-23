@@ -140,7 +140,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   return (
     <Align.Space align="start" className={CSS.B("opc-connect")} justify="center">
       <Align.Space className={CSS.B("content")} grow size="small">
-        <Form.Form {...methods}>
+        <Form.Form<typeof formSchema> {...methods}>
           <Form.TextField
             inputProps={{
               level: "h2",

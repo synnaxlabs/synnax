@@ -143,7 +143,6 @@ const Content = () => {
           cancel: { label: "Cancel" },
           confirm: { label: "Rename", variant: "error" },
         });
-        console.log(confirmed);
         if (!confirmed) return;
       }
       dispatch(Layout.rename({ key, name }));
@@ -266,7 +265,7 @@ const Content = () => {
       setTasks((prev) => prev.filter(({ key }) => !keys.includes(key)));
     },
     onError: (e) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       handleError(e, "Failed to delete tasks");
     },
   }).mutate;

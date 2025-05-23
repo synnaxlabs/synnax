@@ -13,4 +13,5 @@ export * from "@/vis/lineplot/Line";
 export * from "@/vis/lineplot/LinePlot";
 export * from "@/vis/lineplot/Title";
 export * from "@/vis/lineplot/tooltip";
+export * from "@/vis/lineplot/useBoundQuerier";
 export * from "@/vis/lineplot/Viewport";

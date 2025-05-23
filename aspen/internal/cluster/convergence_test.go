@@ -72,7 +72,7 @@ var _ = Describe("Convergence", func() {
 					clusters  []*cluster.Cluster
 					addresses []address.Address
 				)
-				for i := 0; i < values.clusterSize; i++ {
+				for range values.clusterSize {
 					gossipT := gossipNet.UnaryServer("")
 					pledgeT := pledgeNet.UnaryServer(gossipT.Address)
 					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)

@@ -11,11 +11,11 @@ package domain_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/cesium/internal/testutil"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 )
 
 var (

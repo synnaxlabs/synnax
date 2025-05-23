@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { selectWindowKey } from "@synnaxlabs/drift";
+import { Drift, selectWindowKey } from "@synnaxlabs/drift";
 import { Text, Triggers } from "@synnaxlabs/pluto";
 import { useStore } from "react-redux";
 
@@ -45,7 +45,10 @@ export const useTriggers = (): void => {
       if (stage !== "start") return;
       const state = store.getState();
       const active = selectActiveMosaicTabKey(state);
-      if (active == null) return;
+      if (active == null) {
+        store.dispatch(Drift.closeWindow({}));
+        return;
+      }
       remove(active);
     },
   });

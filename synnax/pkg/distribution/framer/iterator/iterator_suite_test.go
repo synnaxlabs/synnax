@@ -11,7 +11,6 @@ package iterator_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
@@ -48,9 +48,9 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 		iterNet    = tmock.NewIteratorNetwork()
 		writerNet  = tmock.NewWriterNetwork()
 	)
-	for i := 0; i < n; i++ {
+	for range n {
 		var (
-			c    = builder.New()
+			c    = builder.New(ctx)
 			cont serviceContainer
 		)
 		cont.channel = MustSucceed(channel.New(ctx, channel.ServiceConfig{

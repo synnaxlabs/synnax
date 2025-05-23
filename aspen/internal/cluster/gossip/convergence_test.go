@@ -93,7 +93,7 @@ var _ = Describe("Convergence", func() {
 				stores = append(stores, s)
 			}
 			ctx := context.Background()
-			for i := 0; i < values.convergenceThreshold; i++ {
+			for range values.convergenceThreshold {
 				wg := sync.WaitGroup{}
 				for _, g := range gossips {
 					wg.Add(1)

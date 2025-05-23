@@ -25,7 +25,7 @@ const xerrors::Error STREAM_CLOSED = {
     TYPE_UNREACHABLE + ".stream_closed",
     "Stream closed"
 };
-const xerrors::Error EOF_ = {"freighter.eof", "EOF"};
+const xerrors::Error EOF_ERR = {"freighter.eof", "EOF"};
 const xerrors::Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
 
 
@@ -213,7 +213,7 @@ public:
         RQ &req
     ) const {
         class NextImpl : public Next {
-            int index;
+            std::size_t index;
             const MiddlewareCollector &collector;
             RQ req;
             freighter::Finalizer<RQ, RS> *finalizer;

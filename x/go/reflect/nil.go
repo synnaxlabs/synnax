@@ -12,6 +12,6 @@ package reflect
 import "reflect"
 
 // IsNil checks if an interface or the value it points to is nil.
-func IsNil(i interface{}) bool {
+func IsNil(i any) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
 }

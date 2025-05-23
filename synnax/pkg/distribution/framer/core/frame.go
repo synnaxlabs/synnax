@@ -10,134 +10,73 @@
 package core
 
 import (
-	"fmt"
-	"strings"
-
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Frame struct {
-	Keys   channel.Keys   `json:"keys" msgpack:"keys"`
-	Series []telem.Series `json:"series" msgpack:"series"`
+// Frame is an extension of telem.Frame that provides a distribution layer specific
+// API.
+type Frame struct{ telem.Frame[channel.Key] }
+
+// Append appends a series to the frame with the given key. For more details, see the
+// telem.Frame.Append implementation.
+func (f Frame) Append(key channel.Key, series telem.Series) Frame {
+	return Frame{f.Frame.Append(key, series)}
 }
 
-func (f Frame) Vertical() bool { return len(f.Keys.Unique()) == len(f.Series) }
+func UnaryFrame(key channel.Key, series telem.Series) Frame {
+	return Frame{telem.UnaryFrame(key, series)}
+}
+
+func MultiFrame(keys []channel.Key, series []telem.Series) Frame {
+	return Frame{telem.MultiFrame(keys, series)}
+}
+
+func AllocFrame(cap int) Frame {
+	return Frame{telem.AllocFrame[channel.Key](cap)}
+}
 
 func (f Frame) SplitByLeaseholder() map[core.NodeKey]Frame {
 	frames := make(map[core.NodeKey]Frame)
-	for i, key := range f.Keys {
+	for key, ser := range f.Entries() {
 		nodeKey := key.Leaseholder()
-		nf, ok := frames[nodeKey]
-		if !ok {
-			frames[nodeKey] = Frame{
-				Keys:   channel.Keys{key},
-				Series: []telem.Series{f.Series[i]},
-			}
-		} else {
-			nf.Keys = append(nf.Keys, key)
-			nf.Series = append(nf.Series, f.Series[i])
-			frames[nodeKey] = nf
-		}
+		frames[nodeKey] = frames[nodeKey].Append(key, ser)
 	}
 	return frames
 }
 
+func (f *Frame) Sort() { f.Frame.Sort() }
+
 func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame, free Frame) {
-	for i, key := range f.Keys {
+	for key, series := range f.Entries() {
 		if key.Leaseholder() == host {
-			local.Keys = append(local.Keys, key)
-			local.Series = append(local.Series, f.Series[i])
+			local = local.Append(key, series)
 		} else if key.Leaseholder().IsFree() {
-			free.Keys = append(free.Keys, key)
-			free.Series = append(free.Series, f.Series[i])
+			free = free.Append(key, series)
 		} else {
-			remote.Keys = append(remote.Keys, key)
-			remote.Series = append(remote.Series, f.Series[i])
+			remote = remote.Append(key, series)
 		}
 	}
 	return local, remote, free
 }
 
-func (f Frame) Even() bool {
-	for i := 1; i < len(f.Series); i++ {
-		if f.Series[i].Len() != f.Series[0].Len() {
-			return false
-		}
-		if f.Series[i].TimeRange != f.Series[0].TimeRange {
-			return false
-		}
-	}
-	return true
-}
-
 func (f Frame) ToStorage() (fr ts.Frame) {
-	fr.Series = f.Series
-	fr.Keys = f.Keys.Storage()
-	return fr
+	return telem.MultiFrame[cesium.ChannelKey](channel.Keys(f.KeysSlice()).Storage(), f.SeriesSlice())
 }
 
 func (f Frame) FilterKeys(keys channel.Keys) Frame {
-	var (
-		fKeys   = make(channel.Keys, 0, len(keys))
-		fArrays = make([]telem.Series, 0, len(keys))
-	)
-	for i, key := range f.Keys {
-		if keys.Contains(key) {
-			fKeys = append(fKeys, key)
-			fArrays = append(fArrays, f.Series[i])
-		}
-	}
-	return Frame{Keys: fKeys, Series: fArrays}
+	return Frame{f.Frame.FilterKeys(keys)}
 }
 
-func (f Frame) Get(key channel.Key) (series []telem.Series) {
-	for i, k := range f.Keys {
-		if k == key {
-			series = append(series, f.Series[i])
-		}
-	}
-	return series
+func (f Frame) Extend(frame Frame) Frame {
+	return Frame{f.Frame.Extend(frame.Frame)}
 }
 
-func (f Frame) Extend(fr Frame) Frame {
-	f.Keys = append(f.Keys, fr.Keys...)
-	f.Series = append(f.Series, fr.Series...)
-	return f
-}
-
-func (f Frame) String() string {
-	if len(f.Keys) == 0 {
-		return "Frame{}"
-	}
-
-	var b strings.Builder
-	b.WriteString("Frame{\n")
-
-	// Calculate the maximum key width for alignment
-	maxKeyWidth := 0
-	for _, key := range f.Keys {
-		if len(key.String()) > maxKeyWidth {
-			maxKeyWidth = len(key.String())
-		}
-	}
-
-	// Format each key-series pair
-	for i, key := range f.Keys {
-		// Pad the key with spaces for alignment
-		keyStr := key.String()
-		padding := strings.Repeat(" ", maxKeyWidth-len(keyStr))
-
-		b.WriteString(fmt.Sprintf("    %s%s: %v", keyStr, padding, f.Series[i]))
-		if i < len(f.Keys)-1 {
-			b.WriteString(",\n")
-		}
-	}
-
-	b.WriteString("\n}")
-	return b.String()
+func (f Frame) ShallowCopy() Frame {
+	return Frame{f.Frame.ShallowCopy()}
 }
 
 func MergeFrames(frames []Frame) (f Frame) {
@@ -148,16 +87,13 @@ func MergeFrames(frames []Frame) (f Frame) {
 		return frames[0]
 	}
 	for _, frame := range frames {
-		f.Keys = append(f.Keys, frame.Keys...)
-		f.Series = append(f.Series, frame.Series...)
+		for key, series := range frame.Entries() {
+			f = f.Append(key, series)
+		}
 	}
 	return f
 }
 
 func NewFrameFromStorage(frame ts.Frame) Frame {
-	keys := make(channel.Keys, len(frame.Series))
-	for i := range frame.Series {
-		keys[i] = channel.Key(frame.Keys[i])
-	}
-	return Frame{Keys: keys, Series: frame.Series}
+	return Frame{telem.UnsafeReinterpretKeysAs[cesium.ChannelKey, channel.Key](frame)}
 }

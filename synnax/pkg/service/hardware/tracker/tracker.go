@@ -172,7 +172,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 		Exec(ctx, nil); err != nil {
 		return
 	}
-	sCtx, cancel := signal.Isolated()
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	t = &Tracker{cfg: cfg}
 	t.mu.Racks = make(map[rack.Key]*RackState, len(racks))
 	t.mu.Devices = make(map[string]device.State)
@@ -310,7 +310,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	t.stateWriter = taskStateWriterStream
 	obs := confluence.NewObservableSubscriber[framer.WriterResponse]()
 	obs.OnChange(func(ctx context.Context, r framer.WriterResponse) {
-		cfg.L.Error("unexpected writer error", zap.Error(r.Error))
+		cfg.L.Error("unexpected writer error", zap.Int("seqNum", r.SeqNum))
 	})
 	outlets := confluence.NewStream[framer.WriterResponse](1)
 	obs.InFrom(outlets)
@@ -318,11 +318,9 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	stateWriter.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	dcTaskStateObs := taskStateObs.OnChange(t.handleTaskState)
 	t.saveNotifications = make(chan task.Key, 10)
-	signal.GoRange(sCtx, t.saveNotifications, t.saveTaskState)
+	signal.GoRange(sCtx, t.saveNotifications, t.saveTaskState, signal.WithKey("save_task_state"))
 	t.deviceSaveNotifications = make(chan string, 10)
-	signal.GoRange(sCtx, t.deviceSaveNotifications, func(ctx context.Context, notification string) error {
-		return t.saveDeviceState(ctx, notification)
-	})
+	signal.GoRange(sCtx, t.deviceSaveNotifications, t.saveDeviceState, signal.WithKey("save_device_state"))
 	deviceStateObs, closeDeviceStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
 		SetChannelName: "sy_device_state",
 	})
@@ -337,7 +335,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 		defer t.mu.RUnlock()
 		t.checkRackState(ctx)
 		return nil
-	})
+	}, signal.WithKey("check_rack_state"))
 	t.closer = xio.MultiCloser{
 		xio.CloserFunc(func() error {
 			defer cancel()
@@ -423,7 +421,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 				state := task.State{
 					Task:    c.Key,
 					Variant: status.WarningVariant,
-					Details: xjson.NewStaticString(ctx, map[string]interface{}{
+					Details: xjson.NewStaticString(ctx, map[string]any{
 						"message": "rack is not alive",
 						"running": false,
 					}),
@@ -436,17 +434,17 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 						Exec(ctx, t.cfg.DB); err != nil {
 						t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
 					}
-					state.Details = xjson.NewStaticString(ctx, map[string]interface{}{
+					state.Details = xjson.NewStaticString(ctx, map[string]any{
 						"running": "false",
 						"message": fmt.Sprintf("Synnax Driver on %s is not running, so the task may fail to configure. Driver was last alive %s ago.", rck.Name, telem.Since(rackState.LastReceived).Truncate(telem.Second)),
 					})
 				}
 				t.stateWriter.Inlet() <- framer.WriterRequest{
-					Command: writer.Data,
-					Frame: core.Frame{
-						Keys:   channel.Keys{t.taskStateChannelKey},
-						Series: []telem.Series{telem.NewStaticJSONV(state)},
-					},
+					Command: writer.Write,
+					Frame: core.UnaryFrame(
+						t.taskStateChannelKey,
+						telem.NewStaticJSONV(state),
+					),
 				}
 			}
 		}
@@ -496,7 +494,7 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 		msg := fmt.Sprintf("Synnax Driver on %s is not running. Driver was last alive %s ago.", rck.Name, telem.Since(r.LastReceived).Truncate(telem.Second))
 		for _, taskState := range r.Tasks {
 			taskState.Variant = status.WarningVariant
-			taskState.Details = xjson.NewStaticString(ctx, map[string]interface{}{
+			taskState.Details = xjson.NewStaticString(ctx, map[string]any{
 				"message": msg,
 				"running": false,
 			})
@@ -506,7 +504,7 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 		for _, dev := range t.mu.Devices {
 			if dev.Rack == r.Key {
 				dev.Variant = status.WarningVariant
-				dev.Details = xjson.NewStaticString(ctx, map[string]interface{}{
+				dev.Details = xjson.NewStaticString(ctx, map[string]any{
 					"message": msg,
 				})
 				deviceStates = append(deviceStates, dev)
@@ -517,23 +515,19 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 
 	fr := core.Frame{}
 	if len(rackStates) > 0 {
-		fr.Keys = append(fr.Keys, t.rackStateChannelKey)
-		fr.Series = append(fr.Series, telem.NewStaticJSONV(rackStates...))
+		fr = fr.Append(t.rackStateChannelKey, telem.NewStaticJSONV(rackStates...))
 	}
 	if len(taskStates) > 0 {
-		fr.Keys = append(fr.Keys, t.taskStateChannelKey)
-		fr.Series = append(fr.Series, telem.NewStaticJSONV(taskStates...))
+		fr = fr.Append(t.taskStateChannelKey, telem.NewStaticJSONV(taskStates...))
 	}
 	if len(deviceStates) > 0 {
-		fr.Keys = append(fr.Keys, t.deviceStateChannelKey)
-		fr.Series = append(fr.Series, telem.NewStaticJSONV(deviceStates...))
+		fr = fr.Append(t.deviceStateChannelKey, telem.NewStaticJSONV(deviceStates...))
 	}
-
-	if len(fr.Keys) == 0 {
+	if fr.Empty() {
 		return
 	}
 
-	t.stateWriter.Inlet() <- framer.WriterRequest{Command: writer.Data, Frame: fr}
+	t.stateWriter.Inlet() <- framer.WriterRequest{Command: writer.Write, Frame: fr}
 }
 
 // handleRackState handles heartbeat changes.

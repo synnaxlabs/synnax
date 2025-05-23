@@ -10,11 +10,12 @@
 package ontology
 
 import (
+	"strings"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
-	"strings"
 )
 
 // RelationshipType is a string that uniquely identifies the type of a relationship
@@ -54,7 +55,7 @@ func (r Relationship) GorpKey() []byte {
 }
 
 // SetOptions implements the gorp.Entry interface.
-func (r Relationship) SetOptions() []interface{} { return nil }
+func (r Relationship) SetOptions() []any { return nil }
 
 func ParseRelationship(key []byte) (r Relationship, err error) {
 	split := strings.Split(string(key), "->")

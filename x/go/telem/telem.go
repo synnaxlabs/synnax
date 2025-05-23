@@ -19,6 +19,7 @@ import (
 
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/clamp"
+	"github.com/synnaxlabs/x/types"
 )
 
 const (
@@ -31,14 +32,19 @@ const (
 // TimeStamp stores an epoch time in nanoseconds.
 type TimeStamp int64
 
+var (
+	_ json.Marshaler   = TimeStamp(0)
+	_ json.Unmarshaler = (*TimeStamp)(nil)
+)
+
 func (ts *TimeStamp) UnmarshalJSON(b []byte) error {
 	n, err := binary.UnmarshalStringInt64(b)
 	*ts = TimeStamp(n)
 	return err
 }
 
-func (ts *TimeStamp) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + strconv.Itoa(int(*ts)) + "\""), nil
+func (ts TimeStamp) MarshalJSON() ([]byte, error) {
+	return binary.MarshalStringInt64(int64(ts))
 }
 
 // Now returns the current time as a TimeStamp.
@@ -88,13 +94,6 @@ func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp {
 // Sub returns a new TimeStamp with the provided TimeSpan subtracted from it.
 func (ts TimeStamp) Sub(tspan TimeSpan) TimeStamp { return ts.Add(-tspan) }
 
-func (ts TimeStamp) Abs() TimeStamp {
-	if ts < 0 {
-		return -ts
-	}
-	return ts
-}
-
 // SpanRange constructs a new TimeRange with the TimeStamp and provided TimeSpan.
 func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
 	rng := ts.Range(ts.Add(span))
@@ -119,11 +118,16 @@ type TimeRange struct {
 	End TimeStamp `json:"end" msgpack:"end"`
 }
 
+// NewSecondsRange creates a new TimeRange between start and end seconds.
+func NewSecondsRange(start, end int) TimeRange {
+	return TimeRange{Start: TimeStamp(start) * SecondTS, End: TimeStamp(end) * SecondTS}
+}
+
 // Span returns the TimeSpan that the TimeRange occupies.
 func (tr TimeRange) Span() TimeSpan { return TimeSpan(tr.End - tr.Start) }
 
-// IsZero returns true if the TimeSpan of TimeRange is empty.
-func (tr TimeRange) IsZero() bool { return tr.Span().IsZero() }
+// IsZero returns true if both the start and end timestamps are zero.
+func (tr TimeRange) IsZero() bool { return tr.Start.IsZero() && tr.End.IsZero() }
 
 // BoundBy limits the time range to the provided bounds.
 func (tr TimeRange) BoundBy(otr TimeRange) TimeRange {
@@ -147,7 +151,7 @@ func (tr TimeRange) ContainsStamp(stamp TimeStamp) bool {
 	return stamp.AfterEq(tr.Start) && stamp.Before(tr.End)
 }
 
-// ContainsRange returns true if provided TimeRange contains the provided TimeRange.
+// ContainsRange returns true if the TimeRange contains the provided TimeRange.
 // Returns true if the two ranges are equal.
 func (tr TimeRange) ContainsRange(rng TimeRange) bool {
 	return rng.Start.AfterEq(tr.Start) && rng.End.BeforeEq(tr.End)
@@ -160,14 +164,14 @@ func (tr TimeRange) OverlapsWith(rng TimeRange) bool {
 		return true
 	}
 
-	vTr := tr.MakeValid()
+	validTR := tr.MakeValid()
 	rng = rng.MakeValid()
 
-	if rng.Start == vTr.Start {
+	if rng.Start == validTR.Start {
 		return true
 	}
 
-	if rng.End == vTr.Start || rng.Start == vTr.End {
+	if rng.End == validTR.Start || rng.Start == validTR.End {
 		return false
 	}
 
@@ -195,13 +199,68 @@ func (tr TimeRange) RawString() string {
 	return tr.Start.RawString() + " - " + tr.End.RawString()
 }
 
-// String displays the time range with both timestamps as formatted time.
-// String implements fmt.Stringer.
+// String displays the time range with both timestamps in a human-readable format,
+// omitting redundant time components between start and end times.
 func (tr TimeRange) String() string {
-	return tr.Start.String() + " - " + tr.End.String()
+	if tr.Start == TimeStampMax || tr.End == TimeStampMax {
+		return "end of time"
+	}
+
+	start := tr.Start.Time().UTC()
+	end := tr.End.Time().UTC()
+
+	startYear, startMonth, startDay := start.Date()
+	endYear, endMonth, endDay := end.Date()
+	startHour, startMin, startSec := start.Clock()
+	endHour, endMin, endSec := end.Clock()
+	startNano := start.Nanosecond()
+	endNano := end.Nanosecond()
+
+	var endStr string
+	if startYear != endYear {
+		endStr = end.Format("2006-01-02T15:04:05") + formatNanos(endNano)
+	} else if startMonth != endMonth || startDay != endDay {
+		endStr = end.Format("01-02T15:04:05") + formatNanos(endNano)
+	} else if startHour != endHour {
+		endStr = end.Format("15:04:05") + formatNanos(endNano)
+	} else if startMin != endMin {
+		endStr = end.Format("04:05") + formatNanos(endNano)
+	} else if startSec != endSec {
+		endStr = end.Format(":05") + formatNanos(endNano)
+	} else if startNano != endNano {
+		endStr = "." + formatSubsecond(endNano)
+	} else {
+		endStr = end.Format("15:04:05")
+	}
+
+	startStr := start.Format("2006-01-02T15:04:05")
+	if startNano > 0 {
+		startStr += "." + formatSubsecond(startNano)
+	}
+	startStr += "Z"
+
+	return startStr + " - " + endStr + " (" + tr.Span().String() + ")"
 }
 
-func (tr TimeRange) Union(rng TimeRange) (ret TimeRange) {
+func formatNanos(nanos int) string {
+	if nanos == 0 {
+		return ""
+	}
+	return "." + formatSubsecond(nanos)
+}
+
+func formatSubsecond(nanos int) string {
+	if nanos < 1000 {
+		return fmt.Sprintf("%09d", nanos)
+	} else if nanos < 1000000 {
+		microseconds := nanos / 1000
+		return fmt.Sprintf("%06d", microseconds)
+	}
+	milliseconds := nanos / 1000000
+	return fmt.Sprintf("%03d", milliseconds)
+}
+
+func (tr TimeRange) MaxUnion(rng TimeRange) (ret TimeRange) {
 	if tr.Start.Before(rng.Start) {
 		ret.Start = tr.Start
 	} else {
@@ -223,14 +282,18 @@ func (tr TimeRange) Intersection(rng TimeRange) (ret TimeRange) {
 	} else {
 		ret.Start = tr.Start
 	}
-
 	if tr.End.After(rng.End) {
 		ret.End = rng.End
 	} else {
 		ret.End = tr.End
 	}
-
 	return
+}
+
+// PointIntersection returns the time between the start of the time range and the given
+// timestamp and the time between the end of the time range and the given timestamp.
+func (tr TimeRange) PointIntersection(ts TimeStamp) (before TimeSpan, after TimeSpan) {
+	return tr.Start.Span(ts), -tr.End.Span(ts)
 }
 
 var (
@@ -245,8 +308,13 @@ var (
 // TimeSpan represents a duration of time in nanoseconds.
 type TimeSpan int64
 
-func (ts *TimeSpan) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + strconv.Itoa(int(*ts)) + "\""), nil
+var (
+	_ json.Unmarshaler = (*TimeSpan)(nil)
+	_ json.Marshaler   = TimeSpan(0)
+)
+
+func (ts TimeSpan) MarshalJSON() ([]byte, error) {
+	return binary.MarshalStringInt64(int64(ts))
 }
 
 const (
@@ -254,11 +322,6 @@ const (
 	TimeSpanZero = TimeSpan(0)
 	// TimeSpanMax represents the maximum possible TimeSpan.
 	TimeSpanMax = TimeSpan(^uint64(0) >> 1)
-)
-
-var (
-	_ json.Unmarshaler = (*TimeSpan)(nil)
-	_ json.Marshaler   = (*TimeSpan)(nil)
 )
 
 func (ts *TimeSpan) UnmarshalJSON(b []byte) error {
@@ -349,9 +412,6 @@ func (ts TimeSpan) Truncate(unit TimeSpan) TimeSpan {
 	return ts / unit * unit
 }
 
-// RawString returns the timespan in nanoseconds.
-func (ts TimeSpan) RawString() string { return strconv.Itoa(int(ts)) + "ns" }
-
 const (
 	Nanosecond    = TimeSpan(1)
 	NanosecondTS  = TimeStamp(1)
@@ -403,20 +463,6 @@ func (dr Rate) SizeSpan(size Size, Density Density) TimeSpan {
 	return dr.Span(int(size) / int(Density))
 }
 
-// ClosestGE returns the closest larger timestamp that is a whole number multiple of the rate's period.
-func (dr Rate) ClosestGE(ts TimeStamp) TimeStamp {
-	if TimeSpan(ts)%dr.Period() == 0 {
-		return ts
-	}
-
-	return ts.Add(dr.Period() - TimeSpan(ts)%dr.Period())
-}
-
-// ClosestLE returns the closest smaller timestamp that is a whole number multiple of the rate's period.
-func (dr Rate) ClosestLE(ts TimeStamp) TimeStamp {
-	return ts.Sub(TimeSpan(ts) % dr.Period())
-}
-
 const (
 	// Hz represents a data rate of 1 Hz.
 	Hz  Rate = 1
@@ -437,20 +483,18 @@ func (d Density) SampleCount(size Size) int64 {
 func (d Density) Size(sampleCount int64) Size { return Size(sampleCount) * Size(d) }
 
 const (
-	DensityUnknown   Density = 0
-	Bit128           Density = 16
-	Bit64            Density = 8
-	Bit32            Density = 4
-	Bit16            Density = 2
-	Bit8             Density = 1
-	TimeStampDensity         = Bit64
-	TimeSpanDensity          = Bit64
+	DensityUnknown Density = 0
+	Bit128         Density = 16
+	Bit64          Density = 8
+	Bit32          Density = 4
+	Bit16          Density = 2
+	Bit8           Density = 1
 )
 
-// AlignmentPair is essentially two array index values that can be used to represent
+// Alignment is essentially two array index values that can be used to represent
 // the location of a sample within a group of arrays. For example, if you have two arrays
 // that have 50 elements each, and you want the 15th element of the second array, you would
-// use NewAlignmentPair(1, 15). The first index is called the 'domain index' and the second
+// use NewAlignment(1, 15). The first index is called the 'domain index' and the second
 // index is called the 'sample index'. The domain index is the index of the array, and the
 // sample index is the index of the sample within that array.
 //
@@ -458,51 +502,131 @@ const (
 // before it i.e. the value of our previous example would be 50 + 14 = 64. However, this
 // requires us to know the size of all arrays, which is not always possible.
 //
-// While not as meaningful as a single number, AlignmentPair is a uint64 that guarantees
+// While not as meaningful as a single number, Alignment is a uint64 that guarantees
 // that a larger value is, in fact, 'positionally' after a smaller value. This is useful
 // for ordering samples correctly.
-type AlignmentPair uint64
+type Alignment uint64
 
 var (
-	_ json.Unmarshaler = (*AlignmentPair)(nil)
-	_ json.Marshaler   = (*AlignmentPair)(nil)
+	_ json.Unmarshaler = (*Alignment)(nil)
+	_ json.Marshaler   = (*Alignment)(nil)
 )
 
-// NewAlignmentPair takes the given array index and sample index within that array and
-// returns a new AlignmentPair (see AlignmentPair for more information).
-func NewAlignmentPair(domainIdx, sampleIdx uint32) AlignmentPair {
-	return AlignmentPair(domainIdx)<<32 | AlignmentPair(sampleIdx)
+// NewAlignment takes the given array index and sample index within that array and
+// returns a new Alignment (see Alignment for more information).
+func NewAlignment(domainIdx, sampleIdx uint32) Alignment {
+	return Alignment(domainIdx)<<32 | Alignment(sampleIdx)
 }
 
 // ZeroLeadingAlignment represents the start of a region reserved for written data that
 // has not yet been persisted. This is useful for correctly ordering new data while
 // ensuring that it is significantly after any persisted data.
-const ZeroLeadingAlignment = math.MaxUint32 - 1e6
+const ZeroLeadingAlignment uint32 = math.MaxUint32 - 1e6
+const MaxAlignmentPair = Alignment(math.MaxUint64)
 
-// LeadingAlignment returns an AlignmentPair whose array index is the maximum possible value
+// LeadingAlignment returns an Alignment whose array index is the maximum possible value
 // and whose sample index is the provided value.
-func LeadingAlignment(domainIdx, sampleIdx uint32) AlignmentPair {
-	return NewAlignmentPair(ZeroLeadingAlignment+domainIdx, sampleIdx)
+func LeadingAlignment(domainIdx, sampleIdx uint32) Alignment {
+	return NewAlignment(ZeroLeadingAlignment+domainIdx, sampleIdx)
 }
 
-// DomainIndex returns the domain index of the AlignmentPair. See AlignmentPair for more information.
-func (a AlignmentPair) DomainIndex() uint32 { return uint32(a >> 32) }
+// DomainIndex returns the domain index of the Alignment. See Alignment for more information.
+func (a Alignment) DomainIndex() uint32 { return uint32(a >> 32) }
 
-// SampleIndex returns the sample index of the AlignmentPair. See AlignmentPair for more information.
-func (a AlignmentPair) SampleIndex() uint32 { return uint32(a) }
+// SampleIndex returns the sample index of the Alignment. See Alignment for more information.
+func (a Alignment) SampleIndex() uint32 { return uint32(a) }
+
+// String implements fmt.Stringer to return a nicely formatted string representing the
+// alignment.
+func (a Alignment) String() string {
+	return fmt.Sprintf("%v-%v", a.DomainIndex(), a.SampleIndex())
+}
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (a *AlignmentPair) UnmarshalJSON(b []byte) error {
+func (a *Alignment) UnmarshalJSON(b []byte) error {
 	n, err := binary.UnmarshalStringUint64(b)
-	*a = AlignmentPair(n)
+	*a = Alignment(n)
 	return err
 }
 
 // MarshalJSON implements json.Marshaler.
-func (a *AlignmentPair) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + strconv.FormatUint(uint64(*a), 10) + "\""), nil
+func (a Alignment) MarshalJSON() ([]byte, error) {
+	return binary.MarshalStringUint64(uint64(a))
 }
 
-func (a AlignmentPair) AddSamples(samples uint32) AlignmentPair {
-	return NewAlignmentPair(a.DomainIndex(), a.SampleIndex()+samples)
+func (a Alignment) AddSamples(samples uint32) Alignment {
+	return NewAlignment(a.DomainIndex(), a.SampleIndex()+samples)
 }
+
+// DataType is a string that represents a data type.
+type DataType string
+
+// Density returns the density of the given data type. If the data type has no known
+// density, DensityUnknown is returned.
+func (d DataType) Density() Density {
+	switch d {
+	case TimeStampT, Float64T, Uint64T, Int64T:
+		return Bit64
+	case Float32T, Int32T, Uint32T:
+		return Bit32
+	case Int16T, Uint16T:
+		return Bit16
+	case Int8T, Uint8T:
+		return Bit8
+	case UUIDT:
+		return Bit128
+	default:
+		return DensityUnknown
+	}
+}
+
+// IsVariable returns true if the data type has a variable density i.e. is a string,
+// JSON, or bytes.
+func (d DataType) IsVariable() bool {
+	return d == BytesT || d == StringT || d == JSONT
+}
+
+var dataTypes = map[string]DataType{
+	"timestamp": TimeStampT,
+	"uuid":      UUIDT,
+	"float64":   Float64T,
+	"float32":   Float32T,
+	"int64":     Int64T,
+	"int32":     Int32T,
+	"int16":     Int16T,
+	"int8":      Int8T,
+	"uint8":     Uint8T,
+	"uint64":    Uint64T,
+	"uint32":    Uint32T,
+	"uint16":    Uint16T,
+	"bytes":     BytesT,
+	"string":    StringT,
+	"json":      JSONT,
+}
+
+func InferDataType[T any]() DataType {
+	name := strings.ToLower(types.Name[T]())
+	if dt, ok := dataTypes[name]; ok {
+		return dt
+	}
+	panic(fmt.Sprintf("unknown data type %s", name))
+}
+
+var (
+	UnknownT   DataType = ""
+	TimeStampT          = DataType("timestamp")
+	UUIDT               = DataType("uuid")
+	Float64T   DataType = "float64"
+	Float32T   DataType = "float32"
+	Int64T     DataType = "int64"
+	Int32T     DataType = "int32"
+	Int16T     DataType = "int16"
+	Int8T      DataType = "int8"
+	Uint64T    DataType = "uint64"
+	Uint32T    DataType = "uint32"
+	Uint16T    DataType = "uint16"
+	Uint8T     DataType = "uint8"
+	BytesT     DataType = "bytes"
+	StringT    DataType = "string"
+	JSONT      DataType = "json"
+)

@@ -36,7 +36,7 @@ export class StreamProxy<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny> {
       if (res != null)
         console.warn(
           `${this.name} received unexpected response on closure.
-        Please report this error to the Synnax team. ${JSON.stringify(res)}`,
+        Please report this error to the Synnax team.`,
         );
       if (err != null) {
         if (EOF.matches(err)) return;

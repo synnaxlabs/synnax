@@ -11,6 +11,8 @@ package mock
 
 import (
 	"context"
+	"io"
+
 	"github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
@@ -22,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"io"
 )
 
 // CoreBuilder is a utility for provisioning mock distribution cores that
@@ -64,13 +65,13 @@ func NewCoreBuilder(configs ...core.Config) *CoreBuilder {
 
 // New provisions a new core connected to the rest of the nodes in the builder's cluster.
 // Panics if the core cannot be opened.
-func (cb *CoreBuilder) New() core.Core {
-	store := cb.Builder.New()
+func (cb *CoreBuilder) New(ctx context.Context) core.Core {
+	store := cb.Builder.New(ctx)
 	trans := cb.net.NewTransport()
 	addr := cb.addrFactory.Next()
 
 	clusterKV := lo.Must(aspen.Open(
-		context.TODO(),
+		ctx,
 		/* dirname */ "",
 		addr,
 		cb.peerAddresses(),

@@ -42,21 +42,18 @@ export class Toggle
 
   schema = toggleStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     this.internal.addStatus = status.useOptionalAdder(ctx);
     const { sink: sinkProps, source: sourceProps, triggered, enabled } = this.state;
     const { triggered: prevTriggered } = this.prevState;
     const { internal: i } = this;
-    i.source = await telem.useSource(ctx, sourceProps, i.source);
-    i.sink = await telem.useSink(ctx, sinkProps, i.sink);
+    i.source = telem.useSource(ctx, sourceProps, i.source);
+    i.sink = telem.useSink(ctx, sinkProps, i.sink);
 
-    if (triggered && !prevTriggered) await i.sink.set(!enabled);
-
-    await this.updateEnabledState();
+    if (triggered && !prevTriggered) i.sink.set(!enabled);
+    this.updateEnabledState();
     i.stopListening?.();
-    i.stopListening = i.source.onChange(() => {
-      this.updateEnabledState().catch(this.reportError.bind(this));
-    });
+    i.stopListening = i.source.onChange(() => this.updateEnabledState());
   }
 
   private reportError(e: Error): void {
@@ -67,23 +64,17 @@ export class Toggle
     });
   }
 
-  private async updateEnabledState(): Promise<void> {
-    const nextEnabled = await this.internal.source.value();
+  private updateEnabledState(): void {
+    const nextEnabled = this.internal.source.value();
     if (nextEnabled !== this.state.enabled)
       this.setState((p) => ({ ...p, enabled: nextEnabled, triggered: false }));
   }
 
-  async afterDelete(): Promise<void> {
-    await this.internalAfterDelete();
-  }
-
-  private async internalAfterDelete(): Promise<void> {
+  afterDelete(): void {
     this.internal.stopListening();
-    await this.internal.source.cleanup?.();
-    await this.internal.sink.cleanup?.();
+    this.internal.source.cleanup?.();
+    this.internal.sink.cleanup?.();
   }
-
-  async render(): Promise<void> {}
 }
 
 export const REGISTRY: aether.ComponentRegistry = { [Toggle.TYPE]: Toggle };

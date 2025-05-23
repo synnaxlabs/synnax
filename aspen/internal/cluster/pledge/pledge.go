@@ -32,6 +32,7 @@ package pledge
 import (
 	"context"
 	"math/rand"
+	"slices"
 	"sync"
 	"time"
 
@@ -163,7 +164,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 	res.ClusterKey = r.ClusterKey
 
 	var propC int
-	for propC = 0; propC < r.MaxProposals; propC++ {
+	for propC = range r.MaxProposals {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			err = errors.Combine(err, ctxErr)
 			break
@@ -279,12 +280,10 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	j.L.Debug("juror received proposal. making verdict", logID)
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	for _, approval := range j.approvals {
-		if approval == req.Key {
-			j.L.Warn("juror rejected proposal. already approved for a different pledge", logID)
-			err = proposalRejected
-			return
-		}
+	if slices.Contains(j.approvals, req.Key) {
+		j.L.Warn("juror rejected proposal. already approved for a different pledge", logID)
+		err = proposalRejected
+		return
 	}
 	if req.Key <= highestNodeID(j.Candidates()) {
 		j.L.Warn("juror rejected proposal. id out of range", logID)

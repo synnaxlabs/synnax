@@ -11,6 +11,7 @@ package freightfluence
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/freighter"
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -62,6 +63,11 @@ func (r *TransformReceiver[I, M]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.AttachClosables(r.Out)
 	ctx.Go(r.receive, o.Signal...)
+}
+
+type message[I freighter.Payload] struct {
+	Res I
+	Err error
 }
 
 func (r *TransformReceiver[I, M]) receive(ctx context.Context) error {

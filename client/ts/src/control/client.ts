@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { StateTracker } from "@/control/state";
-import { type framer } from "@/framer";
+import { framer } from "@/framer";
 
 const CONTROL_STATE_KEY = "sy_node_1_control";
 
@@ -20,7 +20,10 @@ export class Client {
   }
 
   async openStateTracker(): Promise<StateTracker> {
-    const stream = await this.framer.openStreamer(CONTROL_STATE_KEY);
+    const stream = await framer.HardenedStreamer.open(
+      async () => await this.framer.openStreamer(CONTROL_STATE_KEY),
+      CONTROL_STATE_KEY,
+    );
     return new StateTracker(stream);
   }
 }

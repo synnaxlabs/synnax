@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, runtime, type URL } from "@synnaxlabs/x";
+import { type binary, errors, runtime, type URL } from "@synnaxlabs/x";
 import { type z } from "zod";
 
-import { decodeError, errorZ, Unreachable } from "@/errors";
+import { Unreachable } from "@/errors";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type UnaryClient } from "@/unary";
 
@@ -27,6 +27,12 @@ const resolveFetchAPI = (protocol: "http" | "https"): typeof fetch => {
   // @ts-expect-error - TS doesn't know about qhis option
   return async (info, init) => await _fetch(info, { ...init, agent });
 };
+
+const shouldCastToUnreachable = (err: Error): boolean =>
+  ("code" in err && err.code === "ECONNREFUSED") ||
+  err.message.toLowerCase().includes("load failed");
+
+const HTTP_STATUS_BAD_REQUEST = 400;
 
 /**
  * HTTPClientFactory provides a POST and GET implementation of the Unary
@@ -65,14 +71,13 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     req: z.input<RQ> | z.output<RQ>,
     reqSchema: RQ,
     resSchema: RS,
-  ): Promise<[z.output<RS> | null, Error | null]> {
+  ): Promise<[z.output<RS>, null] | [null, Error]> {
     req = reqSchema?.parse(req);
-    let res: RS | null = null;
+    let res: z.output<RS> | null = null;
     const url = this.endpoint.child(target);
     const request: RequestInit = {};
     request.method = "POST";
     request.body = this.encoder.encode(req ?? {});
-
     const [, err] = await this.executeMiddleware(
       {
         target: url.toString(),
@@ -92,18 +97,19 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           httpRes = await f(ctx.target, request);
         } catch (err_) {
           let err = err_ as Error;
-          if (err.message === "Load failed") err = new Unreachable({ url });
+          if (shouldCastToUnreachable(err)) err = new Unreachable({ url });
           return [outCtx, err];
         }
-        const data = await httpRes.arrayBuffer();
+        const data = new Uint8Array(await (await httpRes.blob()).arrayBuffer());
         if (httpRes?.ok) {
-          if (resSchema != null) res = this.encoder.decode(data, resSchema);
+          if (resSchema != null) res = this.encoder.decode<RS>(data, resSchema);
           return [outCtx, null];
         }
         try {
-          if (httpRes.status !== 400) return [outCtx, new Error(httpRes.statusText)];
-          const err = this.encoder.decode(data, errorZ);
-          const decoded = decodeError(err);
+          if (httpRes.status !== HTTP_STATUS_BAD_REQUEST)
+            return [outCtx, new Error(httpRes.statusText)];
+          const err = this.encoder.decode(data, errors.payloadZ);
+          const decoded = errors.decode(err);
           return [outCtx, decoded];
         } catch (e) {
           return [
@@ -118,6 +124,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
       },
     );
 
-    return [res, err];
+    if (err != null) return [null, err];
+    return [res, null];
   }
 }

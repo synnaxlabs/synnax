@@ -7,24 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// math is a package that extends math functionality.
-
 package math
+
+import "github.com/synnaxlabs/x/types"
+
+const (
+	// MaxUint20 is the maximum value of a 20-bit unsigned integer.
+	MaxUint20 types.Uint20 = 2<<19 - 1
+	// MaxUint12 is the maximum value of a 12-bit unsigned integer.
+	MaxUint12 types.Uint12 = 2<<11 - 1
+)
 
 // IntPow returns x^n for two integers x and n. IntPow requires n to be a
 // nonnegative integer.
 func IntPow(x, n int) int {
-	return exp_by_squaring(1, x, n)
+	return expBySquaring(1, x, n)
 }
 
-// exp_by_squaring returns y*x^n for integers y, x, and n. This requires n to be
+// expBySquaring returns y*x^n for integers y, x, and n. This requires n to be
 // a nonnegative integer.
-func exp_by_squaring(y, x, n int) int {
+func expBySquaring(y, x, n int) int {
 	if n == 0 {
 		return y
 	}
 	if n%2 == 0 {
-		return exp_by_squaring(y, x*x, n/2)
+		return expBySquaring(y, x*x, n/2)
 	}
-	return exp_by_squaring(x*y, x*x, (n-1)/2)
+	return expBySquaring(x*y, x*x, (n-1)/2)
 }

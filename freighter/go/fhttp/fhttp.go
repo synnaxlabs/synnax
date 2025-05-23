@@ -29,3 +29,30 @@ var unaryReporter = freighter.Reporter{
 	Protocol:  "http",
 	Encodings: httputil.SupportedContentTypes(),
 }
+
+type serverOptions struct {
+	internal      bool
+	codecResolver httputil.CodecResolver
+}
+
+type ServerOption func(*serverOptions)
+
+func WithCodecResolver(r httputil.CodecResolver) ServerOption {
+	return func(o *serverOptions) {
+		o.codecResolver = r
+	}
+}
+
+func InternalRoute() ServerOption {
+	return func(o *serverOptions) {
+		o.internal = true
+	}
+}
+
+func newServerOptions(opts []ServerOption) (so serverOptions) {
+	so.codecResolver = httputil.ResolveCodec
+	for _, opt := range opts {
+		opt(&so)
+	}
+	return so
+}

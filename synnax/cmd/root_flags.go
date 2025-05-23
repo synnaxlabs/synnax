@@ -12,17 +12,22 @@ package cmd
 import "github.com/synnaxlabs/synnax/pkg/security/cert"
 
 const (
-	configFlag        = "config"
-	versionFlag       = "version"
-	certsDirFlag      = "certs-dir"
-	caKeyFlag         = "ca-key"
-	caCertFlag        = "ca-cert"
-	nodeKeyFlag       = "node-key"
-	nodeCertFlag      = "node-cert"
-	allowKeyReuseFlag = "allow-key-reuse"
-	keySizeFlag       = "key-size"
-	verboseFlag       = "verbose"
-	debugFlag         = "debug"
+	configFlag            = "config"
+	versionFlag           = "version"
+	certsDirFlag          = "certs-dir"
+	caKeyFlag             = "ca-key"
+	caCertFlag            = "ca-cert"
+	nodeKeyFlag           = "node-key"
+	nodeCertFlag          = "node-cert"
+	allowKeyReuseFlag     = "allow-key-reuse"
+	keySizeFlag           = "key-size"
+	verboseFlag           = "verbose"
+	debugFlag             = "debug"
+	logFilePathFlag       = "log-file-path"
+	logFileMaxSizeFlag    = "log-file-max-size"
+	logFileMaxBackupsFlag = "log-file-max-backups"
+	logFileMaxAgeFlag     = "log-file-max-age"
+	logFileCompressFlag   = "log-file-compress"
 )
 
 func configureRootFlags() {
@@ -82,7 +87,7 @@ func configureRootFlags() {
 	)
 
 	rootCmd.PersistentFlags().BoolP(
-		versionFlag,
+		verboseFlag,
 		"v",
 		false,
 		"Enable verbose debugging.",
@@ -94,4 +99,33 @@ func configureRootFlags() {
 		"Enable debug logging.",
 	)
 
+	rootCmd.PersistentFlags().String(
+		logFilePathFlag,
+		"./synnax-logs/synnax.log",
+		"Log file path",
+	)
+
+	rootCmd.PersistentFlags().Int(
+		logFileMaxSizeFlag,
+		50,
+		"Maximum size of log file in megabytes",
+	)
+
+	rootCmd.PersistentFlags().Int(
+		logFileMaxBackupsFlag,
+		5,
+		"Maximum number of log files to retain",
+	)
+
+	rootCmd.PersistentFlags().Int(
+		logFileMaxAgeFlag,
+		30,
+		"Maximum age of log files to retain",
+	)
+
+	rootCmd.PersistentFlags().Bool(
+		logFileCompressFlag,
+		false,
+		"Compress log files",
+	)
 }

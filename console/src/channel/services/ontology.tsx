@@ -113,7 +113,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
-      if (!(await confirm(resources))) throw errors.CANCELED;
+      if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
@@ -129,7 +129,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       { selection: { resources }, handleError, state: { setNodes } },
       prevNodes,
     ) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       let message = "Failed to delete channels";
       if (resources.length === 1)

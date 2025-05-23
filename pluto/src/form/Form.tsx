@@ -528,7 +528,8 @@ export const use = <Z extends z.ZodTypeAny>({
       const schema = schemaRef.current;
       const zField = zod.getFieldSchema(schema, path, { optional: true });
       if (zField == null) return fs;
-      fs.required = !zField.isOptional();
+      if ("isOptional" in zField && typeof zField.isOptional === "function")
+        fs.required = !zField.isOptional();
       return fs;
     },
     [],
@@ -629,7 +630,7 @@ export const use = <Z extends z.ZodTypeAny>({
 
   const processValidationResult = useCallback(
     (
-      result: z.SafeParseReturnType<z.input<Z>, z.output<Z>>,
+      result: z.ZodSafeParseResult<z.output<Z>>,
       validationPath: string = "",
       validateChildren: boolean = true,
     ): boolean => {
@@ -794,9 +795,9 @@ export const use = <Z extends z.ZodTypeAny>({
   );
 };
 
-export const Form = ({
+export const Form = <Z extends z.ZodTypeAny>({
   children,
   ...rest
-}: PropsWithChildren<ContextValue>): ReactElement => (
+}: PropsWithChildren<ContextValue<Z>>): ReactElement => (
   <Context value={rest}>{children}</Context>
 );

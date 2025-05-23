@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker } from "@synnaxlabs/x";
+import { breaker, type errors } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
@@ -30,7 +30,7 @@ export interface UnaryClient extends Transport {
     req: z.input<RQ> | z.output<RQ>,
     reqSchema: RQ,
     resSchema: RS,
-  ) => Promise<[z.output<RS>, null] | [null, Error]>;
+  ) => Promise<errors.Return<z.output<RS>>>;
 }
 
 export const unaryWithBreaker = (
@@ -53,12 +53,13 @@ export const unaryWithBreaker = (
       req: z.input<RQ> | z.output<RQ>,
       reqSchema: RQ,
       resSchema: RS,
-    ): Promise<[z.output<RS>, null] | [null, Error]> {
-      const brk = breaker.create(cfg);
+    ): Promise<errors.Return<z.output<RS>>> {
+      const brk = new breaker.Breaker(cfg);
       do {
         const [res, err] = await this.wrapped.send(target, req, reqSchema, resSchema);
-        if (err == null || !Unreachable.matches(err)) return [res, err];
-        if (!(await brk())) return [res, err];
+        if (err == null) return [res, null];
+        if (!Unreachable.matches(err)) return [null, err];
+        if (!(await brk.wait())) return [res, err];
       } while (true);
     }
   }

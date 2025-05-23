@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type change } from "@synnaxlabs/x";
-import { DataType, Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { DataType, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
-import { QueryError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import { type ranger } from "@/ranger";
 import { newClient } from "@/setupspecs";
 
@@ -74,7 +74,7 @@ describe("Ranger", () => {
       });
       await client.ranges.delete(range.key);
       await expect(async () => await client.ranges.retrieve(range.key)).rejects.toThrow(
-        QueryError,
+        NotFoundError,
       );
     });
   });
@@ -172,7 +172,9 @@ describe("Ranger", () => {
       const val = await rng.kv.get("foo");
       expect(val).toEqual("bar");
       await rng.kv.delete("foo");
-      await expect(async () => await rng.kv.get("foo")).rejects.toThrow(QueryError);
+      await expect(async () => await rng.kv.get("foo")).rejects.toThrowError(
+        NotFoundError,
+      );
     });
 
     it("should set and get multiple keys", async () => {
@@ -240,7 +242,7 @@ describe("Ranger", () => {
         const ch = await client.channels.create({
           name: "My New Channel",
           dataType: DataType.FLOAT32,
-          rate: Rate.hz(1),
+          virtual: true,
         });
         const rng = await client.ranges.create({
           name: "My New One Second Range",
@@ -256,7 +258,7 @@ describe("Ranger", () => {
         const ch = await client.channels.create({
           name: "My New Channel",
           dataType: DataType.FLOAT32,
-          rate: Rate.hz(1),
+          virtual: true,
         });
         const rng = await client.ranges.create({
           name: "My New One Second Range",
@@ -272,7 +274,7 @@ describe("Ranger", () => {
         const ch = await client.channels.create({
           name: "My New Channel",
           dataType: DataType.FLOAT32,
-          rate: Rate.hz(1),
+          virtual: true,
         });
         const rng = await client.ranges.create({
           name: "My New One Second Range",

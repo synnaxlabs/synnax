@@ -111,8 +111,8 @@ var _ = Describe("Delete", Ordered, func() {
 			channels := make([]channel.Channel, int(limit))
 			for i := range limit {
 				ch := channel.Channel{
-					Rate:        10 * telem.Hz,
-					DataType:    telem.Float64T,
+					IsIndex:     true,
+					DataType:    telem.TimeStampT,
 					Name:        fmt.Sprintf("LimitTest%d", i),
 					Leaseholder: 1,
 				}
@@ -122,8 +122,8 @@ var _ = Describe("Delete", Ordered, func() {
 
 			// Try to create one more channel over the limit
 			overLimitCh := channel.Channel{
-				Rate:        10 * telem.Hz,
-				DataType:    telem.Float64T,
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
 				Name:        "OverLimit",
 				Leaseholder: 1,
 			}
@@ -137,8 +137,8 @@ var _ = Describe("Delete", Ordered, func() {
 
 			// Now we should be able to create a new channel
 			newCh := channel.Channel{
-				Rate:        10 * telem.Hz,
-				DataType:    telem.Float64T,
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
 				Name:        "NewAfterDelete",
 				Leaseholder: 1,
 			}
@@ -146,8 +146,8 @@ var _ = Describe("Delete", Ordered, func() {
 
 			// Try to create one more channel (should fail again)
 			anotherCh := channel.Channel{
-				Rate:        10 * telem.Hz,
-				DataType:    telem.Float64T,
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
 				Name:        "AnotherOverLimit",
 				Leaseholder: 1,
 			}

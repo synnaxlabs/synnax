@@ -11,14 +11,14 @@ package api
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/version"
-	"github.com/synnaxlabs/x/telem"
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // AuthService is the core authentication service for the Synnax API.

@@ -96,11 +96,11 @@ func start(cmd *cobra.Command) {
 	v := version.Get()
 	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")
 	var (
-		ins, prettyLogger = configureInstrumentation(v)
-		insecure          = viper.GetBool(insecureFlag)
-		debug             = viper.GetBool(debugFlag)
-		autoCert          = viper.GetBool(autoCertFlag)
-		verifier          = viper.GetString(string(decodedName))
+		ins      = configureInstrumentation(v)
+		insecure = viper.GetBool(insecureFlag)
+		debug    = viper.GetBool(debugFlag)
+		autoCert = viper.GetBool(autoCertFlag)
+		verifier = viper.GetString(string(decodedName))
 	)
 	defer cleanupInstrumentation(cmd.Context(), ins)
 
@@ -110,7 +110,7 @@ func start(cmd *cobra.Command) {
 		}
 	}
 
-	prettyLogger.Sugar().Infof("\033[34mSynnax version %s starting\033[0m", v)
+	ins.L.Zap().Sugar().Infof("\033[34mSynnax version %s starting\033[0m", v)
 	ins.L.Info("starting synnax node", zap.String("version", v))
 
 	interruptC := make(chan os.Signal, 1)
@@ -324,23 +324,21 @@ func start(cmd *cobra.Command) {
 		// where bleve would concurrently read and write to a map.
 		// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
 		// for more details on this issue.
-		sCtx.Go(func(ctx context.Context) error {
-			return dist.Ontology.RunStartupSearchIndexing(ctx)
-		})
+		sCtx.Go(dist.Ontology.RunStartupSearchIndexing, xsignal.WithKey("startup_search_indexing"))
 
 		// Configure the HTTP API Transport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{
 			Instrumentation:     ins,
 			StreamWriteDeadline: viper.GetDuration(slowConsumerTimeoutFlag),
 		})
-		_api.BindTo(httpapi.New(r))
+		_api.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(dist.Channel)))
 
 		// Configure the GRPC API Transport.
-		grpcAPI, grpcAPITrans := grpcapi.New()
+		grpcAPI, grpcAPITrans := grpcapi.New(dist.Channel)
 		*grpcServerTransports = append(*grpcServerTransports, grpcAPITrans...)
 		_api.BindTo(grpcAPI)
 
-		srv, err := server.New(buildServerConfig(
+		srv, err := server.Open(buildServerConfig(
 			*grpcServerTransports,
 			[]fhttp.BindableTransport{r},
 			secProvider,
@@ -350,14 +348,9 @@ func start(cmd *cobra.Command) {
 		if err != nil || ctx.Err() != nil {
 			return err
 		}
-		sCtx.Go(func(_ context.Context) error {
-			defer cancel()
-			return srv.Serve()
-		},
-			xsignal.WithKey("server"),
-			xsignal.RecoverWithErrOnPanic(),
-		)
-		defer srv.Stop()
+		defer func() {
+			err = errors.Combine(err, srv.Close())
+		}()
 
 		d, err := embedded.OpenDriver(
 			ctx,
@@ -375,7 +368,7 @@ func start(cmd *cobra.Command) {
 			err = errors.Combine(err, d.Stop())
 		}()
 
-		prettyLogger.Info("\033[32mSynnax is running and available at " + viper.GetString(listenFlag) + "\033[0m")
+		ins.L.Info("\033[32mSynnax is running and available at " + viper.GetString(listenFlag) + "\033[0m")
 
 		<-ctx.Done()
 		return err
@@ -386,18 +379,16 @@ func start(cmd *cobra.Command) {
 
 	select {
 	case <-interruptC:
-		ins.L.Info("received interrupt signal, shutting down")
-		prettyLogger.Info("\033[33mSynnax is shutting down\033[0m")
+		ins.L.Info("\033[33mSynnax is shutting down. This can take up to 5 seconds. Please be patient\033[0m")
 		cancel()
 	case <-sCtx.Stopped():
 	}
 
 	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		prettyLogger.Sugar().Errorf("\033[31mSynnax has encountered an error and is shutting down: %v\033[0m", err)
+		ins.L.Zap().Sugar().Errorf("\033[31mSynnax has encountered an error and is shutting down: %v\033[0m", err)
 		ins.L.Fatal("synnax failed", zap.Error(err))
 	}
-	ins.L.Info("shutdown successful")
-	prettyLogger.Info("\033[34mSynnax has shut down\033[0m")
+	ins.L.Info("\033[34mSynnax has shut down\033[0m")
 }
 
 func init() {

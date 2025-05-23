@@ -9,12 +9,11 @@
 
 import "@/telem/control/Indicator.css";
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { color, TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useMemoDeepEqualProps } from "@/memo";
 import { control } from "@/telem/control/aether";
@@ -31,7 +30,7 @@ export const Indicator = ({
 }: IndicatorProps): ReactElement => {
   const memoProps = useMemoDeepEqualProps({ colorSource, statusSource });
 
-  const [, { color, status }, setState] = Aether.use({
+  const [, { color: colorVal, status }, setState] = Aether.use({
     type: control.Indicator.TYPE,
     initialState: {
       ...memoProps,
@@ -49,9 +48,9 @@ export const Indicator = ({
     setState((p) => ({ ...p, ...memoProps }));
   }, [memoProps, setState]);
 
-  let parsedColor: Color.Crude;
-  if (status.data?.color != null) parsedColor = Color.Color.z.parse(status.data.color);
-  else if (color != null && !color.isZero) parsedColor = color;
+  let parsedColor: color.Crude;
+  if (status.data?.color != null) parsedColor = color.colorZ.parse(status.data.color);
+  else if (colorVal != null && !color.isZero(colorVal)) parsedColor = colorVal;
   else parsedColor = "var(--pluto-gray-l10)";
 
   return (
@@ -60,7 +59,7 @@ export const Indicator = ({
       <div
         className={CSS.B("indicator")}
         style={{
-          backgroundColor: Color.cssString(parsedColor),
+          backgroundColor: color.cssString(parsedColor),
           flexGrow: 1,
         }}
       />

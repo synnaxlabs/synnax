@@ -30,5 +30,8 @@ type (
 	WriterConfig     = writer.Config
 	IteratorConfig   = iterator.Config
 	StreamerResponse = relay.Response
+	StreamerRequest  = relay.Request
+	StreamerConfig   = relay.StreamerConfig
+	Streamer         = relay.Streamer
 	Deleter          = deleter.Deleter
 )

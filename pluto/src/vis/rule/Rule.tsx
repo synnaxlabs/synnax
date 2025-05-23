@@ -9,6 +9,7 @@
 
 import "@/vis/rule/Rule.css";
 
+import { color } from "@synnaxlabs/x";
 import { box } from "@synnaxlabs/x/spatial";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -16,7 +17,6 @@ import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { useSyncedRef } from "@/hooks";
@@ -46,7 +46,7 @@ export const Rule = ({
   onPositionChange,
   onUnitsChange,
   units = "",
-  color,
+  color: colorVal,
   lineWidth,
   lineDash,
   className,
@@ -67,7 +67,7 @@ export const Rule = ({
     type: rule.Rule.TYPE,
     schema: rule.ruleStateZ,
     initialState: {
-      color,
+      color: colorVal,
       dragging: false,
       position: propsPosition,
       lineWidth,
@@ -93,8 +93,14 @@ export const Rule = ({
   const dragStartRef = useRef(pixelPosition);
 
   useEffect(() => {
-    setState((p) => ({ ...p, position: propsPosition, color, lineWidth, lineDash }));
-  }, [propsPosition, color, lineWidth, lineDash]);
+    setState((p) => ({
+      ...p,
+      position: propsPosition,
+      color: colorVal,
+      lineWidth,
+      lineDash,
+    }));
+  }, [propsPosition, colorVal, lineWidth, lineDash]);
 
   const handleDragStart = useCursorDrag({
     onStart: useCallback(() => {
@@ -118,8 +124,7 @@ export const Rule = ({
 
   if (propsPosition == null || pixelPosition == null) return null;
 
-  const pColor = new Color.Color(color);
-  const textColor = pColor.pickByContrast("#000000", "#ffffff");
+  const textColor = color.pickByContrast(colorVal, color.BLACK, color.WHITE);
 
   const content = (
     <div
@@ -141,8 +146,8 @@ export const Rule = ({
         size={1}
         rounded
         style={{
-          borderColor: Color.cssString(color),
-          backgroundColor: new Color.Color(color).setAlpha(0.7).hex,
+          borderColor: color.cssString(colorVal),
+          backgroundColor: color.hex(color.setAlpha(colorVal, 0.7)),
           ...style,
         }}
         {...rest}
@@ -154,7 +159,7 @@ export const Rule = ({
           onChange={setInternalLabel}
           color={textColor}
         />
-        <Divider.Divider y style={{ borderColor: Color.cssString(color) }} />
+        <Divider.Divider y style={{ borderColor: color.cssString(colorVal) }} />
         <Align.Space size="small" x align="center">
           <Text.Editable
             value={propsPosition.toFixed(2)}

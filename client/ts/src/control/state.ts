@@ -15,8 +15,9 @@ import { z } from "zod";
 import { type channel } from "@/channel";
 import { framer } from "@/framer";
 
-export interface Authority extends control.Authority {}
-export const Authority = control.Authority;
+export type Authority = control.Authority;
+export const ABSOLUTE_AUTHORITY = control.ABSOLUTE_AUTHORITY;
+export const ZERO_AUTHORITY = control.ZERO_AUTHORITY;
 export type Transfer = control.Transfer<channel.Key>;
 export interface State extends control.State<channel.Key> {}
 export interface Subject extends control.Subject {}
@@ -33,6 +34,10 @@ export const transferString = (t: Transfer): string => {
   } (${t.to.authority.toString()})`;
 };
 
+const updateZ = z.object({
+  transfers: z.array(control.transferZ),
+});
+
 interface Update {
   transfers: control.Transfer<channel.Key>[];
 }
@@ -46,7 +51,7 @@ export class StateTracker
 
   constructor(streamer: framer.Streamer) {
     super(streamer, (frame) => {
-      const update: Update = this.codec.decode(frame.series[0].buffer);
+      const update: Update = this.codec.decode(frame.series[0].buffer, updateZ);
       this.merge(update);
       return [update.transfers, true];
     });

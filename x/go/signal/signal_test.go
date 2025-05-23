@@ -337,7 +337,7 @@ var _ = Describe("Signal", func() {
 			}()
 
 			Eventually(done).Should(BeClosed())
-			Expect(time.Now().Sub(start)).To(BeNumerically("~", 511*time.Millisecond, 150*time.Millisecond))
+			Expect(time.Since(start)).To(BeNumerically("~", 511*time.Millisecond, 150*time.Millisecond))
 		})
 
 	})
@@ -377,6 +377,44 @@ var _ = Describe("Signal", func() {
 
 			Expect(ctx.Wait()).To(Succeed())
 			Expect(counter).To(Equal(1))
+		})
+	})
+
+	Describe("Shutdown Closers", func() {
+		It("NewHardShutdown should cancel context and wait for routines, skipping context.Canceled error", func() {
+			ctx, cancel := signal.Isolated()
+			done := make(chan struct{})
+			ctx.Go(func(ctx context.Context) error {
+				<-ctx.Done()
+				close(done)
+				return ctx.Err()
+			})
+			closer := signal.NewHardShutdown(ctx, cancel)
+			err := closer.Close()
+			Expect(err).To(BeNil()) // context.Canceled should be skipped
+			Eventually(done).Should(BeClosed())
+			Eventually(ctx.Stopped()).Should(BeClosed())
+		})
+
+		It("NewGracefulShutdown should wait for routines and then cancel context", func() {
+			ctx, cancel := signal.Isolated()
+			release := make(chan struct{})
+			exit := make(chan struct{})
+			ctx.Go(func(ctx context.Context) error {
+				select {
+				case <-release:
+					close(exit)
+					return nil
+				case <-ctx.Done():
+				}
+				return ctx.Err()
+			})
+			closer := signal.NewGracefulShutdown(ctx, cancel)
+			close(release)
+			err := closer.Close()
+			Eventually(exit).Should(BeClosed())
+			Expect(err).To(BeNil())
+			Eventually(ctx.Stopped()).Should(BeClosed())
 		})
 	})
 

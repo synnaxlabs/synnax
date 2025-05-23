@@ -41,6 +41,6 @@ export const primitiveIsZero = <V extends Primitive>(value: V): boolean => {
     case "undefined":
       return true;
     case "object":
-      return value === null;
+      return true;
   }
 };

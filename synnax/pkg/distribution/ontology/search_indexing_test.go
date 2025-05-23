@@ -11,7 +11,6 @@ package ontology
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/kv/memkv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
+	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
 )
 
@@ -90,25 +90,25 @@ var _ = Describe("Search Indexing", func() {
 				ID:     ID{Type: testType, Key: "1"},
 				Name:   "cat",
 				Schema: schema_,
-				Data:   map[string]interface{}{},
+				Data:   map[string]any{},
 			},
 			{
 				ID:     ID{Type: testType, Key: "2"},
 				Name:   "Test Resource Two",
 				Schema: schema_,
-				Data:   map[string]interface{}{},
+				Data:   map[string]any{},
 			},
 			{
 				ID:     ID{Type: testType, Key: "3"},
 				Name:   "Special_Resource_Three",
 				Schema: schema_,
-				Data:   map[string]interface{}{},
+				Data:   map[string]any{},
 			},
 			{
 				ID:     ID{Type: testType, Key: "4"},
 				Name:   "UPPERCASE RESOURCE",
 				Schema: schema_,
-				Data:   map[string]interface{}{},
+				Data:   map[string]any{},
 			},
 		}
 

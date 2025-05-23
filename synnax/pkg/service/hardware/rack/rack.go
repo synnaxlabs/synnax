@@ -95,7 +95,7 @@ var _ gorp.Entry[Key] = Rack{}
 func (r Rack) GorpKey() Key { return r.Key }
 
 // SetOptions implements gorp.Entry.
-func (r Rack) SetOptions() []interface{} { return []interface{}{r.Key.Node()} }
+func (r Rack) SetOptions() []any { return []any{r.Key.Node()} }
 
 // Validate implements config.Config.
 func (r Rack) Validate() error {

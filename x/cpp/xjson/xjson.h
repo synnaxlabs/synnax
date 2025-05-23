@@ -287,6 +287,10 @@ public:
         return results;
     }
 
+    void field_err(const std::string &path, const xerrors::Error &err) const {
+        this->field_err(path, err.message());
+    }
+
     /// @brief binds a new error to the field at the given path.
     /// @param path The JSON path to the field.
     /// @param message The error message to bind.

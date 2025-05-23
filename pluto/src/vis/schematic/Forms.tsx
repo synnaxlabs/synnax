@@ -11,7 +11,13 @@ import "@/vis/schematic/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type bounds, type direction, type location, type xy } from "@synnaxlabs/x";
+import {
+  type bounds,
+  color,
+  type direction,
+  type location,
+  type xy,
+} from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback, useEffect } from "react";
 
 import { Align } from "@/align";
@@ -143,12 +149,12 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
   </Align.Space>
 );
 
-const ColorControl: Form.FieldT<Color.Crude> = (props): ReactElement => (
+const ColorControl: Form.FieldT<color.Crude> = (props): ReactElement => (
   <Form.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>
     {({ value, onChange, variant: _, ...rest }) => (
       <Color.Swatch
-        value={value ?? Color.ZERO.setAlpha(1).rgba255}
-        onChange={(v) => onChange(v.rgba255)}
+        value={value ?? color.setAlpha(color.ZERO, 1)}
+        onChange={onChange}
         {...rest}
         bordered
       />

@@ -198,8 +198,7 @@ with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
                 randomized = introduce_randomness(clamped)
                 translated = translate_valves(randomized)
                 translated[DAQ_TIME] = sy.TimeStamp.now()
-                if not writer.write(translated):
-                    break
+                writer.write(translated)
 
             except Exception as e:
                 print(e)

@@ -9,6 +9,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+echo "Clang format version"
+clang-format --version
+
 # Check for correct usage
 if [ "$#" -ne 1 ]; then
   echo "Usage: $0 <path>"
@@ -46,26 +49,28 @@ declare -a files_to_format=()
 
 while IFS= read -r file; do
     should_format=true
-    
+
     while IFS= read -r pattern || [ -n "$pattern" ]; do
         # Skip empty lines and comments
         [[ -z "$pattern" || "$pattern" =~ ^# ]] && continue
-        
+
         # Clean up pattern
         pattern=$(echo "$pattern" | tr -d '[:space:]')
         filename=$(basename "$file")
-        
+
         if [[ "$filename" == "$pattern" ]]; then
             echo "Skipping $file (ignored by pattern $pattern)..."
             should_format=false
             break
         fi
     done < "$ignore_file"
-    
+
     if [ "$should_format" = true ]; then
         files_to_format+=("$file")
     fi
 done <<< "$files"
+
+
 
 # Format all files and report
 formatted_count=0

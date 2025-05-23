@@ -11,11 +11,12 @@ package breaker_test
 
 import (
 	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/breaker"
 	. "github.com/synnaxlabs/x/testutil"
-	"time"
 )
 
 var _ = Describe("Breaker", func() {
@@ -47,7 +48,7 @@ var _ = Describe("Breaker", func() {
 		Expect(b.Wait()).To(BeTrue()) // 40ms
 		Expect(b.Wait()).To(BeTrue()) // 80ms
 		Expect(b.Wait()).To(BeTrue()) // 160ms
-		duration := time.Now().Sub(start)
+		duration := time.Since(start)
 		Expect(duration).To(BeNumerically("~", 310*time.Millisecond, 100*time.Millisecond))
 	})
 })

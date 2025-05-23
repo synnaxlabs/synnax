@@ -126,7 +126,7 @@ func getNumChan(input string) types.Uint20 {
 func inputCheckFunc(input string) error {
 	code := strings.Split(input, "-")[2]
 	var digits [10]int
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		digits[i], _ = strconv.Atoi(string(code[i]))
 	}
 	firstFive, _ := strconv.Atoi(code[0:5])

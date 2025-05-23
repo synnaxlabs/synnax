@@ -53,7 +53,7 @@ using the default for now.  */
     background: var(--pluto-gray-l1);
     padding: 2rem 1px;
     border-color: var(--pluto-gray-l6);
-    &:has(.focused) {
+    &.pluto--bordered:has(.focused) {
         box-sizing: border-box !important;
         border-color: var(--pluto-primary-z);
         border-width: 1px;
