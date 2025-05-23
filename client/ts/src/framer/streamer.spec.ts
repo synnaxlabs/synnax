@@ -203,8 +203,8 @@ describe("Streamer - Calculated Channels", () => {
     try {
       const timestamps = [
         startTime,
-        new TimeStamp(startTime.valueOf() + BigInt(1000000000)),
-        new TimeStamp(startTime.valueOf() + BigInt(2000000000)),
+        new TimeStamp(startTime.valueOf() + 1000000000n),
+        new TimeStamp(startTime.valueOf() + 2000000000n),
       ];
 
       await writer.write({

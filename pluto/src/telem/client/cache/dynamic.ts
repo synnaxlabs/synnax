@@ -118,7 +118,7 @@ export class Dynamic {
       capacity: isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
       dataType: resolveGLDataType(this.props.dataType),
       timeRange: start.range(TimeStamp.MAX),
-      sampleOffset: isTimestamp ? BigInt(start.valueOf()) : 0,
+      sampleOffset: isTimestamp ? start.valueOf() : 0,
       glBufferUsage: "dynamic",
       alignment,
       key: `dynamic-${this.counter}`,
