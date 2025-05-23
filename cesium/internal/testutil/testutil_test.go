@@ -10,13 +10,14 @@
 package testutil
 
 import (
+	"os"
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/x/testutil"
-	"os"
-	"sync"
 )
 
 var _ = Describe("Test Util Test", func() {
@@ -27,7 +28,7 @@ var _ = Describe("Test Util Test", func() {
 				wg   = sync.WaitGroup{}
 			)
 			wg.Add(1000)
-			for i := 0; i < 1000; i++ {
+			for i := range 1000 {
 				i := i
 				go func() {
 					defer wg.Done()
@@ -84,16 +85,16 @@ var _ = Describe("Test Util Test", func() {
 
 					By("Asserting it was an exact replica")
 					infoToName := func(i os.FileInfo, _ int) string { return i.Name() }
-					sub1list := lo.Map[os.FileInfo, string](MustSucceed(sub1.List("")), infoToName)
-					sub2list := lo.Map[os.FileInfo, string](MustSucceed(sub2.List("")), infoToName)
+					sub1list := lo.Map(MustSucceed(sub1.List("")), infoToName)
+					sub2list := lo.Map(MustSucceed(sub2.List("")), infoToName)
 					Expect(sub1list).To(Equal(sub2list))
 
-					subsub1list := lo.Map[os.FileInfo, string](MustSucceed(sub1.List("subsub1")), infoToName)
-					subsub2list := lo.Map[os.FileInfo, string](MustSucceed(sub2.List("subsub1")), infoToName)
+					subsub1list := lo.Map(MustSucceed(sub1.List("subsub1")), infoToName)
+					subsub2list := lo.Map(MustSucceed(sub2.List("subsub1")), infoToName)
 					Expect(subsub1list).To(Equal(subsub2list))
 
-					subsubsub1list := lo.Map[os.FileInfo, string](MustSucceed(sub1.List("subsub1/subsubsub1")), infoToName)
-					subsubsub2list := lo.Map[os.FileInfo, string](MustSucceed(sub2.List("subsub1/subsubsub1")), infoToName)
+					subsubsub1list := lo.Map(MustSucceed(sub1.List("subsub1/subsubsub1")), infoToName)
+					subsubsub2list := lo.Map(MustSucceed(sub2.List("subsub1/subsubsub1")), infoToName)
 					Expect(subsubsub1list).To(Equal(subsubsub2list))
 
 					Expect(cleanUp()).To(Succeed())
@@ -106,7 +107,7 @@ var _ = Describe("Test Util Test", func() {
 		data, chs, keys := GenerateDataAndChannels(numIndex, numData, samplesPerDomain)
 
 		Expect(chs).To(HaveLen(numIndex + numData))
-		for i := 0; i < numIndex; i++ {
+		for i := range numIndex {
 			Expect(chs[i].IsIndex).To(BeTrue())
 			Expect(keys[i]).To(Equal(cesium.ChannelKey(i + 1)))
 		}

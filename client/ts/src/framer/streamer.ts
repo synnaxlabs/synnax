@@ -17,7 +17,7 @@ import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
-const reqZ = z.object({ keys: z.number().array(), downSampleFactor: z.number() });
+const reqZ = z.object({ keys: z.number().array(), downsampleFactor: z.number() });
 
 export type StreamerRequest = z.infer<typeof reqZ>;
 
@@ -29,7 +29,7 @@ const ENDPOINT = "/frame/stream";
 
 export interface StreamerConfig {
   channels: channel.Params;
-  downSampleFactor?: number;
+  downsampleFactor?: number;
   useExperimentalCodec?: boolean;
 }
 
@@ -51,14 +51,14 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   static async _open(
     retriever: channel.Retriever,
     client: WebSocketClient,
-    { channels, downSampleFactor, useExperimentalCodec = true }: StreamerConfig,
+    { channels, downsampleFactor, useExperimentalCodec = true }: StreamerConfig,
   ): Promise<Streamer> {
     const adapter = await ReadAdapter.open(retriever, channels);
     if (useExperimentalCodec)
       client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream(ENDPOINT, reqZ, resZ);
     const streamer = new Streamer(stream, adapter);
-    stream.send({ keys: adapter.keys, downSampleFactor: downSampleFactor ?? 1 });
+    stream.send({ keys: adapter.keys, downsampleFactor: downsampleFactor ?? 1 });
     const [, err] = await stream.receive();
     if (err != null) throw err;
     return streamer;
@@ -82,7 +82,7 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     await this.adapter.update(channels);
     this.stream.send({
       keys: this.adapter.keys,
-      downSampleFactor: this.downsampleFactor,
+      downsampleFactor: this.downsampleFactor,
     });
   }
 

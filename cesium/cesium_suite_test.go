@@ -11,6 +11,7 @@ package cesium_test
 
 import (
 	"context"
+	"runtime"
 	"strconv"
 	"testing"
 
@@ -40,6 +41,7 @@ func channelKeyToPath(key cesium.ChannelKey) string {
 }
 
 func TestCesium(t *testing.T) {
+	runtime.GOMAXPROCS(4)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")
 }

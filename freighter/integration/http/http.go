@@ -97,7 +97,7 @@ func streamRespondWithTenMessages(
 	_ context.Context,
 	stream ServerStream,
 ) error {
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if err := stream.Send(Message{Message: "hello", ID: i}); err != nil {
 			return err
 		}
@@ -118,7 +118,7 @@ func streamSlamMessages(
 	if err != nil {
 		return err
 	}
-	for i := 0; i < 1e6; i++ {
+	for i := range 1_000_000 {
 		if err := stream.Send(Message{Message: "hello", ID: i}); err != nil {
 			timeoutMu.Lock()
 			timeouts[msg.Message] = types.Nil{}

@@ -11,8 +11,6 @@ package atomic_test
 
 import (
 	"sync"
-	"sync/atomic"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,10 +23,10 @@ var _ = Describe("Counter", func() {
 			wg := sync.WaitGroup{}
 			c := xatomic.Int32Counter{}
 			wg.Add(10)
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				go func() {
 					defer wg.Done()
-					for i := 0; i < 1000; i++ {
+					for i := range 1000 {
 						if i == 0 {
 							c.Add(1)
 						} else if i == 1 {
@@ -48,10 +46,10 @@ var _ = Describe("Counter", func() {
 			wg := sync.WaitGroup{}
 			c := xatomic.Int64Counter{}
 			wg.Add(10)
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				go func() {
 					defer wg.Done()
-					for i := 0; i < 1000; i++ {
+					for range 1000 {
 						c.Add(1)
 					}
 				}()
@@ -70,21 +68,3 @@ var _ = Describe("Counter", func() {
 	})
 
 })
-
-func BenchmarkABC(b *testing.B) {
-	ch := make(chan struct{})
-	for i := 0; i < b.N; i++ {
-		select {
-		case <-ch:
-		default:
-		}
-	}
-}
-
-func BenchmarkBCD(b *testing.B) {
-	v := &atomic.Bool{}
-	v.Store(true)
-	for i := 0; i < b.N; i++ {
-		v.Load()
-	}
-}

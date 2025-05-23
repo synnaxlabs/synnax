@@ -70,8 +70,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("auth")
 	validate.NotNil(v, "key_provider", c.KeyProvider)
-	validate.NonNegative(v, "expiration", c.Expiration)
-	validate.NonNegative(v, "refresh_threshold", c.RefreshThreshold)
+	validate.Positive(v, "expiration", c.Expiration)
+	validate.Positive(v, "refresh_threshold", c.RefreshThreshold)
 	validate.NotNil(v, "now", c.Now)
 	return v.Error()
 }
@@ -139,7 +139,7 @@ func (s *Service) ValidateMaybeRefresh(token string) (uuid.UUID, string, error) 
 
 func (s *Service) validate(token string) (uuid.UUID, *jwt.StandardClaims, error) {
 	claims := &jwt.StandardClaims{}
-	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (any, error) {
 		return s.publicKey(), nil
 	})
 	if err != nil {
@@ -167,7 +167,7 @@ func (s *Service) isCloseToExpired(claims *jwt.StandardClaims) bool {
 	return expiration.Sub(currentTime) < s.cfg.RefreshThreshold
 }
 
-func (s *Service) signingMethodAndKey() (jwt.SigningMethod, interface{}) {
+func (s *Service) signingMethodAndKey() (jwt.SigningMethod, any) {
 	key := s.cfg.KeyProvider.NodePrivate()
 	switch k := key.(type) {
 	case *rsa.PrivateKey:
@@ -187,7 +187,7 @@ func (s *Service) signingMethodAndKey() (jwt.SigningMethod, interface{}) {
 	panic("unsupported key type")
 }
 
-func (s *Service) publicKey() interface{} {
+func (s *Service) publicKey() any {
 	key := s.cfg.KeyProvider.NodePrivate()
 	switch key.(type) {
 	case *rsa.PrivateKey:

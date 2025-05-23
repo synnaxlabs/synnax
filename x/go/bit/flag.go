@@ -21,8 +21,8 @@ func (f FlagPos) Get(b byte) bool {
 	return ((b >> f) & 1) == 1
 }
 
-// Set sets the bit at the flag position to 1 if the value is true, and false if it
-// is 0.
+// Set sets the bit at the flag position to 1 if the value is true, and false if it is
+// 0.
 func (f FlagPos) Set(b byte, value bool) byte {
 	mask := ^(byte(1) << f)
 	b &= mask

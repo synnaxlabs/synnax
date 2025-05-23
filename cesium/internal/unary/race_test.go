@@ -41,6 +41,7 @@ var _ = Describe("Unary racing", func() {
 					FS:        indexFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "Anker",
 						Key:      indexKey,
 						IsIndex:  true,
 						DataType: telem.TimeStampT,
@@ -52,6 +53,7 @@ var _ = Describe("Unary racing", func() {
 					FS:        dataFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
+						Name:     "Jimmy",
 						Key:      dataKey,
 						DataType: telem.Int64T,
 						Index:    indexKey,
@@ -70,13 +72,13 @@ var _ = Describe("Unary racing", func() {
 
 			Describe("Multiple deletes", func() {
 				Specify("Overlapping regions – index", func() {
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
 					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
 
 					var wg sync.WaitGroup
 					wg.Add(4)
 
-					for i := 0; i < 4; i++ {
+					for i := range 4 {
 						i := i
 						go func() {
 							defer GinkgoRecover()

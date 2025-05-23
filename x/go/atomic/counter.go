@@ -9,9 +9,7 @@
 
 package atomic
 
-import (
-	"sync/atomic"
-)
+import "sync/atomic"
 
 // Int32Counter is an int32 counter that is safe for concurrent use.
 type Int32Counter struct{ value int32 }

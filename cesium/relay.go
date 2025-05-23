@@ -33,8 +33,8 @@ type DBStreamingConfig struct {
 	// BufferSize sets the buffer size for the main streaming pipe. All written frames
 	// are moved through this pipe, so the value should be relatively large.
 	BufferSize int
-	// SlowConsumerTimeout sets the maximum amount of time the relay will wait for a consumer to receive
-	// a frame before dropping the frame.
+	// SlowConsumerTimeout sets the maximum amount of time the relay will wait for a
+	// consumer to receive a frame before dropping the frame.
 	SlowConsumerTimeout time.Duration
 }
 
@@ -56,8 +56,8 @@ func (sc DBStreamingConfig) Override(other DBStreamingConfig) DBStreamingConfig 
 
 func (sc DBStreamingConfig) Validate() error {
 	v := validate.New("cesium.DBStreamingConfig")
-	validate.NonNegative(v, "buffer_size", sc.BufferSize)
-	validate.NonNegative(v, "slow_consumer_timeout", sc.SlowConsumerTimeout)
+	validate.Positive(v, "buffer_size", sc.BufferSize)
+	validate.Positive(v, "slow_consumer_timeout", sc.SlowConsumerTimeout)
 	return v.Error()
 }
 
@@ -92,7 +92,7 @@ func (r *relay) connect() (confluence.Outlet[Frame], func()) {
 		// inside the relay.
 		wg.Add(1)
 		go func() {
-			confluence.Drain[Frame](frames)
+			confluence.Drain(frames)
 			wg.Done()
 		}()
 		r.delta.Disconnect(frames)

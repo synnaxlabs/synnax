@@ -55,6 +55,10 @@ func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatch
 	return m
 }
 
+// MatchWrittenSeries returns a Gomega matcher that compares two Series for equality,
+// but excludes TimeRange and Alignment fields by default. This is useful when comparing
+// Series that have been written to and read from storage, where these fields might differ
+// but the actual data remains the same.
 func MatchWrittenSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatcher {
 	m := &seriesMatcher{
 		expected:       expected,
@@ -72,11 +76,14 @@ func MatchSeriesData(expected Series) types.GomegaMatcher {
 	return MatchSeries(expected, ExcludeSeriesFields("TimeRange", "Alignment"))
 }
 
+// MatchSeriesDataV is a generic variant of MatchSeriesData that creates a Series from the
+// provided sample data and returns a matcher. This is a convenience function for testing
+// when you want to directly provide data values instead of constructing a Series first.
 func MatchSeriesDataV[T Sample](data ...T) types.GomegaMatcher {
-	return MatchSeriesData(NewSeriesV[T](data...))
+	return MatchSeriesData(NewSeriesV(data...))
 }
 
-func (m *seriesMatcher) Match(actual interface{}) (success bool, err error) {
+func (m *seriesMatcher) Match(actual any) (success bool, err error) {
 	actualSeries, ok := actual.(Series)
 	if !ok {
 		return false, errors.Newf("MatchSeries matcher expects a Series but got %K", actual)
@@ -96,7 +103,7 @@ func (m *seriesMatcher) Match(actual interface{}) (success bool, err error) {
 	return true, nil
 }
 
-func (m *seriesMatcher) FailureMessage(actual interface{}) string {
+func (m *seriesMatcher) FailureMessage(actual any) string {
 	actualSeries, ok := actual.(Series)
 	if !ok {
 		return fmt.Sprintf("Expected Series but got %K", actual)
@@ -137,7 +144,7 @@ func (m *seriesMatcher) FailureMessage(actual interface{}) string {
 		formatDifferences(differences))
 }
 
-func (m *seriesMatcher) NegatedFailureMessage(actual interface{}) string {
+func (m *seriesMatcher) NegatedFailureMessage(actual any) string {
 	return fmt.Sprintf("Expected series not to match:\n\tActual: %v\n\tExpected: %v",
 		actual, m.expected)
 }
@@ -154,14 +161,22 @@ func formatDifferences(differences []string) string {
 }
 
 type frameMatcher[K xtypes.Numeric] struct {
-	expected Frame[K]
+	expected        Frame[K]
+	matchSeriesOpts []SeriesMatcherOption
 }
 
-func MatchFrame[K xtypes.Numeric](expected Frame[K]) types.GomegaMatcher {
-	return &frameMatcher[K]{expected: expected}
+// MatchFrame returns a Gomega matcher that compares two Frame objects for equality.
+// The matcher verifies that both frames have the same number of series and that each
+// series matches its corresponding one in the expected frame. K must be a numeric type.
+func MatchFrame[K xtypes.Numeric](expected Frame[K], matchSeriesOpts ...SeriesMatcherOption) types.GomegaMatcher {
+	return &frameMatcher[K]{expected: expected, matchSeriesOpts: matchSeriesOpts}
 }
 
-func (m *frameMatcher[K]) Match(actual interface{}) (success bool, err error) {
+func MatchWrittenFrame[K xtypes.Numeric](expected Frame[K], opts ...SeriesMatcherOption) types.GomegaMatcher {
+	return &frameMatcher[K]{expected: expected, matchSeriesOpts: append([]SeriesMatcherOption{ExcludeSeriesFields("TimeRange", "Alignment")}, opts...)}
+}
+
+func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
 	actualFrame, ok := actual.(Frame[K])
 	if !ok {
 		return false, errors.Newf("MatchFrame matcher expects a Frame but got %K", actual)
@@ -176,14 +191,16 @@ func (m *frameMatcher[K]) Match(actual interface{}) (success bool, err error) {
 			return false, nil
 		}
 		for i, s := range decodedSeries.Series {
-			m := &seriesMatcher{expected: originalSeries.Series[i]}
-			return m.Match(s)
+			matched, err := MatchSeries(originalSeries.Series[i], m.matchSeriesOpts...).Match(s)
+			if !matched || err != nil {
+				return matched, err
+			}
 		}
 	}
 	return true, nil
 }
 
-func (m *frameMatcher[K]) FailureMessage(actual interface{}) string {
+func (m *frameMatcher[K]) FailureMessage(actual any) string {
 	actualFrame, ok := actual.(Frame[K])
 	if !ok {
 		return fmt.Sprintf("Expected Frame but got %K", actual)
@@ -196,7 +213,7 @@ func (m *frameMatcher[K]) FailureMessage(actual interface{}) string {
 		decodedSeries := actualFrame.Get(k)
 		originalSeries := m.expected.Get(k)
 		for i, s := range decodedSeries.Series {
-			m := &seriesMatcher{expected: originalSeries.Series[i]}
+			m := MatchSeries(originalSeries.Series[i], m.matchSeriesOpts...)
 			success, _ := m.Match(s)
 			if !success {
 				return m.FailureMessage(s)
@@ -206,20 +223,20 @@ func (m *frameMatcher[K]) FailureMessage(actual interface{}) string {
 	return "Frames match"
 }
 
-func (m *frameMatcher[K]) NegatedFailureMessage(actual interface{}) string {
+func (m *frameMatcher[K]) NegatedFailureMessage(actual any) string {
 	actualFrame, ok := actual.(Frame[K])
 	if !ok {
 		return fmt.Sprintf("Expected Frame but got %K", actual)
 	}
 	if actualFrame.Count() != m.expected.Count() {
-		return fmt.Sprintf("Frames have different counts: expected %d, got %d",
+		return fmt.Sprintf("Frames have different number of series: expected %d, got %d",
 			m.expected.Count(), actualFrame.Count())
 	}
 	for k := range actualFrame.Keys() {
 		decodedSeries := actualFrame.Get(k)
 		originalSeries := m.expected.Get(k)
 		for i, s := range decodedSeries.Series {
-			m := &seriesMatcher{expected: originalSeries.Series[i]}
+			m := MatchSeries(originalSeries.Series[i], m.matchSeriesOpts...)
 			success, _ := m.Match(s)
 			if success {
 				return fmt.Sprintf("Frames match for key %v", k)

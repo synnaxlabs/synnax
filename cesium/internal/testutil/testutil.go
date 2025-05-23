@@ -59,7 +59,7 @@ func GenerateDataAndChannels(
 	}
 
 	var data = make([]int64, numSamplesPerDomain)
-	for i := 0; i < numSamplesPerDomain; i++ {
+	for i := range numSamplesPerDomain {
 		data[i] = rand.Int63()
 	}
 

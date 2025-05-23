@@ -182,7 +182,7 @@ export class Controller
   }
 
   async set(
-    frame: framer.Crude | Record<channel.KeyOrName, CrudeSeries>,
+    frame: framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
   ): Promise<void> {
     if (this.writer == null) await this.acquire();
     await this.writer?.write(frame);
@@ -207,7 +207,7 @@ export class Controller
     void this.updateNeedsControlOf();
   }
 
-  /** @implements telem.Factory to create telemetry that is bound to this controller. */
+  /** @implements telem.Factory to create telemetry that is bound to this control. */
   create<T>(spec: telem.Spec): T | null {
     const f = (): T | null => {
       switch (spec.type) {

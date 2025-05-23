@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package bounds_test
 
 import (
@@ -13,6 +22,8 @@ var _ = Describe("Bounds", func() {
 		Entry("In Middle", bounds.Bounds[int]{Lower: 5, Upper: 10}, 7, true),
 		Entry("At Start", bounds.Bounds[int]{Lower: 5, Upper: 10}, 5, true),
 		Entry("At End", bounds.Bounds[int]{Lower: 5, Upper: 10}, 10, false),
+		Entry("Both The Same", bounds.Bounds[int]{Lower: 10, Upper: 10}, 10, false),
+		Entry("Lower Higher than Upper", bounds.Bounds[int]{Lower: 10, Upper: 5}, 10, false),
 	)
 	Describe("String", func() {
 		It("Should return a formatted string", func() {

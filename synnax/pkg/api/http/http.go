@@ -10,11 +10,11 @@
 package http
 
 import (
-	"github.com/synnaxlabs/x/httputil"
 	"go/types"
 
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/api"
+	"github.com/synnaxlabs/x/httputil"
 )
 
 func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Transport) {

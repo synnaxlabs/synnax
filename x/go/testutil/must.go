@@ -9,9 +9,7 @@
 
 package testutil
 
-import (
-	. "github.com/onsi/gomega"
-)
+import . "github.com/onsi/gomega"
 
 func MustSucceed[T any](value T, err error) T {
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())

@@ -11,6 +11,7 @@ package domain
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
@@ -61,11 +62,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	} else if insertAt == len(idx.mu.pointers) {
 		idx.mu.pointers = append(idx.mu.pointers, p)
 	} else {
-		idx.mu.pointers = append(
-			idx.mu.pointers[:insertAt],
-			append([]pointer{p},
-				idx.mu.pointers[insertAt:]...)...,
-		)
+		idx.mu.pointers = slices.Insert(idx.mu.pointers, insertAt, p)
 	}
 
 	idx.persistHead = min(idx.persistHead, insertAt)
@@ -102,7 +99,8 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	defer span.End()
 
 	if len(idx.mu.pointers) == 0 {
-		// This should be inconceivable since update would not be called with no pointers.
+		// This should be inconceivable since update would not be called with no
+		// pointers.
 		idx.L.DPanic("cannot update a database with no domains")
 		idx.mu.Unlock()
 		return span.Error(NewErrRangeNotFound(p.TimeRange))
@@ -209,7 +207,7 @@ func (idx *index) getGE(ctx context.Context, ts telem.TimeStamp) (ptr pointer, o
 // unprotectedSearch returns the position in the index of a domain that overlaps with
 // the given time range. If there is no domain that contains tr, then the immediate
 // previous domain with a smaller start timestamp than the end is returned. False is
-// returned as the inUse.
+// returned as the flag.
 // If tr is before all domains, -1 is returned.
 // If tr is after all domains, len(idx.mu.pointers) - 1 is returned.
 func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {

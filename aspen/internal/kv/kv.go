@@ -41,7 +41,7 @@ var _ kvx.DB = (*DB)(nil)
 func (d *DB) Set(
 	ctx context.Context,
 	key, value []byte,
-	maybeLease ...interface{},
+	maybeLease ...any,
 ) (err error) {
 	b := d.OpenTx()
 	defer func() { err = errors.Combine(err, b.Close()) }()
@@ -55,7 +55,7 @@ func (d *DB) Set(
 func (d *DB) Delete(
 	ctx context.Context,
 	key []byte,
-	maybeLease ...interface{},
+	maybeLease ...any,
 ) (err error) {
 	b := d.OpenTx()
 	defer func() { err = errors.Combine(err, b.Close()) }()

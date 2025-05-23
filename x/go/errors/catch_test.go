@@ -26,7 +26,7 @@ var _ = Describe("Catcher", func() {
 			BeforeEach(func() {
 				counter = 1
 				catcher = errors.NewCatcher()
-				for i := 0; i < 4; i++ {
+				for range 4 {
 					catcher.Exec(func() error {
 						counter++
 						return nil
@@ -49,7 +49,7 @@ var _ = Describe("Catcher", func() {
 			BeforeEach(func() {
 				counter = 1
 				catcher = errors.NewCatcher()
-				for i := 0; i < 4; i++ {
+				for i := range 4 {
 					catcher.Exec(func() error {
 						if i == 2 {
 							return fmt.Errorf("encountered unknown error")
@@ -77,7 +77,7 @@ var _ = Describe("Catcher", func() {
 			var catcher = errors.NewCatcher(errors.WithAggregation())
 			It("Should aggregate the errors", func() {
 				counter := 1
-				for i := 0; i < 4; i++ {
+				for range 4 {
 					catcher.Exec(func() error {
 						counter++
 						return fmt.Errorf("error encountered")

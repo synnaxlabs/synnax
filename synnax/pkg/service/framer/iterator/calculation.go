@@ -15,11 +15,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type calculationTransform struct {
 	confluence.LinearTransform[framer.IteratorResponse, framer.IteratorResponse]
-	calculators []*calculation.Calculator
+	calculators      []*calculation.Calculator
+	accumulatedError error
 }
 
 func newCalculationTransform(
@@ -34,10 +36,22 @@ func (t *calculationTransform) transform(
 	_ context.Context,
 	res framer.IteratorResponse,
 ) (framer.IteratorResponse, bool, error) {
+	if res.Command == Error {
+		res.Error = errors.Combine(res.Error, t.accumulatedError)
+		return res, true, nil
+	}
+	if res.Variant == AckResponse {
+		if t.accumulatedError != nil {
+			res.Ack = false
+		}
+		return res, true, nil
+	}
+
 	for _, c := range t.calculators {
 		s, err := c.Next(res.Frame)
 		if err != nil {
-			return framer.IteratorResponse{}, false, err
+			t.accumulatedError = err
+			continue
 		}
 		if s.Len() > 0 {
 			res.Frame = res.Frame.Append(c.Channel().Key(), s)

@@ -11,6 +11,7 @@ package telem
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 
 	"github.com/samber/lo"
@@ -19,60 +20,55 @@ import (
 )
 
 // Sample represents any numeric value that can be stored in a Series.
-// It must satisfy the types.Numeric interface.
+// It must satisfy the Sample interface.
 type Sample interface{ types.Numeric }
 
-// NewSeries creates a new Series from a slice of numeric values.
-// It automatically determines the data type from the first element.
-// Panics if the input slice is empty.
+// NewSeries creates a new Series from a slice of numeric values. It automatically
+// determines the data type from the first element.
 func NewSeries[T Sample](data []T) Series {
 	return Series{
 		DataType: InferDataType[T](),
-		Data:     MarshalSlice(data),
+		Data:     MarshalSlice[T](data),
 	}
 }
 
-// NewSeriesV is a variadic version of NewSeries that creates a new Series
-// from individual numeric values.
-func NewSeriesV[T Sample](data ...T) (series Series) { return NewSeries[T](data) }
+// NewSeriesV is a variadic version of NewSeries that creates a new Series from
+// individual numeric values.
+func NewSeriesV[T Sample](data ...T) Series { return NewSeries(data) }
 
-// AllocSeries allocates a new Series with the specified DataType and length. Note that
+// MakeSeries allocates a new Series with the specified DataType and length. Note that
 // this function allocates a length and not a capacity.
-func AllocSeries(dt DataType, size int64) (series Series) {
-	series.DataType = dt
-	series.Data = make([]byte, size*int64(dt.Density()))
-	return series
+func MakeSeries(dt DataType, len int64) Series {
+	return Series{DataType: dt, Data: make([]byte, len*int64(dt.Density()))}
 }
 
-// NewSecondsTSV creates a new Series containing TimeStamp values.
-// All input timestamps are multiplied by SecondTS to convert them to the standard
-// time unit used in the system.
-func NewSecondsTSV(data ...TimeStamp) (series Series) {
+// NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input timestamps
+// are multiplied by SecondTS to convert them to the standard time unit used in the
+// system.
+func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 	for i := range data {
 		data[i] *= SecondTS
 	}
-	series.DataType = TimeStampT
-	series.Data = MarshalSlice(data)
-	return series
+	return Series{DataType: TimeStampT, Data: MarshalSlice(data)}
 }
 
-// NewStrings creates a new Series from a slice of strings.
-// The strings are stored with newline characters as delimiters.
-func NewStrings(data []string) (series Series) {
-	series.DataType = StringT
-	series.Data = MarshalStrings(data, series.DataType)
-	return series
+// NewSeriesStrings creates a new Series from a slice of strings. The strings are stored with
+// newline characters as delimiters.
+func NewSeriesStrings(data []string) Series {
+	return Series{DataType: StringT, Data: MarshalStrings(data, StringT)}
 }
 
-// NewStringsV is a variadic version of NewStrings that creates a new Series
-// from individual string values.
-func NewStringsV(data ...string) (series Series) { return NewStrings(data) }
+// NewSeriesStringsV is a variadic version of NewSeriesStrings that creates a new Series from
+// individual string values.
+func NewSeriesStringsV(data ...string) Series { return NewSeriesStrings(data) }
 
-func NewStaticJSONV[T any](data ...T) (series Series) {
+// NewSeriesStaticJSONV constructs a new series from an arbitrary set of JSON values,
+// marshaling each one in the process.
+func NewSeriesStaticJSONV[T any](data ...T) (series Series) {
 	series.DataType = JSONT
 	strings := make([]string, len(data))
 	for i, v := range data {
-		strings[i] = xbinary.MustEncodeJSONtoString(v)
+		strings[i] = xbinary.MustEncodeJSONToString(v)
 	}
 	series.Data = MarshalStrings(strings, series.DataType)
 	return series
@@ -80,9 +76,8 @@ func NewStaticJSONV[T any](data ...T) (series Series) {
 
 const newLine = '\n'
 
-// MarshalStrings converts a slice of strings into a byte slice.
-// Each string is terminated with a newline character.
-// Panics if the DataType is not variable.
+// MarshalStrings converts a slice of strings into a byte slice. Each string is
+// terminated with a newline character. Panics if the DataType is not variable.
 func MarshalStrings(data []string, dt DataType) []byte {
 	if !dt.IsVariable() {
 		panic("data type must be variable length")
@@ -98,8 +93,8 @@ func MarshalStrings(data []string, dt DataType) []byte {
 	return b
 }
 
-// UnmarshalStrings converts a byte slice back into a slice of strings.
-// It assumes strings are separated by newline characters.
+// UnmarshalStrings converts a byte slice back into a slice of strings. It assumes
+// strings are separated by newline characters.
 func UnmarshalStrings(b []byte) (data []string) {
 	offset := 0
 	for offset < len(b) {
@@ -113,8 +108,8 @@ func UnmarshalStrings(b []byte) (data []string) {
 	return data
 }
 
-// MarshalSlice converts a slice of numeric values into a byte slice according
-// to the specified DataType.
+// MarshalSlice converts a slice of numeric values into a byte slice according to the
+// specified DataType.
 func MarshalSlice[T Sample](data []T) []byte {
 	var (
 		dt = InferDataType[T]()
@@ -128,8 +123,8 @@ func MarshalSlice[T Sample](data []T) []byte {
 	return b
 }
 
-// UnmarshalSlice converts a byte slice back into a slice of numeric values
-// according to the specified DataType.
+// UnmarshalSlice converts a byte slice back into a slice of numeric values according to
+// the specified DataType.
 func UnmarshalSlice[T Sample](b []byte, dt DataType) []T {
 	data := make([]T, len(b)/int(dt.Density()))
 	um := UnmarshalF[T](dt)
@@ -140,35 +135,66 @@ func UnmarshalSlice[T Sample](b []byte, dt DataType) []T {
 	return data
 }
 
-// Unmarshal converts a Series' data back into a slice of the original type.
-func Unmarshal[T Sample](series Series) []T {
+// UnmarshalSeries converts a Series' data back into a slice of the original type.
+func UnmarshalSeries[T Sample](series Series) []T {
 	return UnmarshalSlice[T](series.Data, series.DataType)
 }
 
-// ByteOrder specifies the byte order used for encoding numeric values.
-// The package uses little-endian byte order by default.
+// ByteOrder is the standard order for encoding/decoding numeric values across
+// the Synnax telemetry ecosystem.
 var ByteOrder = binary.LittleEndian
 
-func MarshalInt8[T types.Numeric](b []byte, v T)   { b[0] = byte(v) }
-func MarshalInt16[T types.Numeric](b []byte, v T)  { ByteOrder.PutUint16(b, uint16(v)) }
-func MarshalInt32[T types.Numeric](b []byte, v T)  { ByteOrder.PutUint32(b, uint32(v)) }
-func MarshalInt64[T types.Numeric](b []byte, v T)  { ByteOrder.PutUint64(b, uint64(v)) }
-func MarshalUint8[T types.Numeric](b []byte, v T)  { b[0] = byte(v) }
-func MarshalUint16[T types.Numeric](b []byte, v T) { ByteOrder.PutUint16(b, uint16(v)) }
-func MarshalUint32[T types.Numeric](b []byte, v T) { ByteOrder.PutUint32(b, uint32(v)) }
-func MarshalUint64[T types.Numeric](b []byte, v T) { ByteOrder.PutUint64(b, uint64(v)) }
-func MarshalFloat32[T types.Numeric](b []byte, v T) {
+// MarshalInt8 casts the value to uint8 and marshals it into the byte slice.
+// The byte slice should have a length of at least 1.
+func MarshalInt8[T Sample](b []byte, v T) { b[0] = byte(v) }
+
+// MarshalInt16 casts the value to int64 and marshals it into the byte slice.
+// The byte slice should have a length of at least 2.
+func MarshalInt16[T Sample](b []byte, v T) { ByteOrder.PutUint16(b, uint16(v)) }
+
+// MarshalInt32 casts the value to int32 and marshals it into the byte slice.
+// The byte slice should have a length of at least 4.
+func MarshalInt32[T Sample](b []byte, v T) { ByteOrder.PutUint32(b, uint32(v)) }
+
+// MarshalInt64 casts the value to int64 and marshals it into the byte slice.
+// The byte slice should have a length of at least 8.
+func MarshalInt64[T Sample](b []byte, v T) { ByteOrder.PutUint64(b, uint64(v)) }
+
+// MarshalUint8 casts the value to uint8 and marshals it into the byte slice.
+// The byte slice should have a length of at least 1.
+func MarshalUint8[T Sample](b []byte, v T) { b[0] = byte(v) }
+
+// MarshalUint16 casts the value to uint16 and marshals it into the byte slice.
+// The byte slice should have a length of at least 2.
+func MarshalUint16[T Sample](b []byte, v T) { ByteOrder.PutUint16(b, uint16(v)) }
+
+// MarshalUint32 casts the value to uint32 and marshals it into the byte slice.
+// The byte slice should have a length of at least 4.
+func MarshalUint32[T Sample](b []byte, v T) { ByteOrder.PutUint32(b, uint32(v)) }
+
+// MarshalUint64 casts the value to uint64 and marshals it into the byte slice.
+// The byte slice should have a length of at least 8.
+func MarshalUint64[T Sample](b []byte, v T) { ByteOrder.PutUint64(b, uint64(v)) }
+
+// MarshalFloat32 casts the value to float32 and marshals it into the byte slice.
+// The byte slice should have a length of at least 4.
+func MarshalFloat32[T Sample](b []byte, v T) {
 	ByteOrder.PutUint32(b, math.Float32bits(float32(v)))
 }
-func MarshalFloat64[T types.Numeric](b []byte, v T) {
+
+// MarshalFloat64 casts the value to float64 and marshals it into the byte slice.
+// The byte slice should have a length of at least 8.
+func MarshalFloat64[T Sample](b []byte, v T) {
 	ByteOrder.PutUint64(b, math.Float64bits(float64(v)))
 }
-func MarshalTimeStamp[T types.Numeric](b []byte, v T) { ByteOrder.PutUint64(b, uint64(v)) }
 
-// MarshalF returns a function that can marshal a single value of type K
-// into a byte slice according to the specified DataType.
-// Panics if the DataType is not supported.
-func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
+// MarshalTimeStamp casts the value to a TimeStamp and marshals it into the byte slice.
+// The byte slice should have a length of at least 8.
+func MarshalTimeStamp[T Sample](b []byte, v T) { ByteOrder.PutUint64(b, uint64(v)) }
+
+// MarshalF returns a function that can marshal a single value of type K into a byte
+// slice according to the specified DataType. Panics if the DataType is not supported.
+func MarshalF[T Sample](dt DataType) func(b []byte, v T) {
 	switch dt {
 	case Float64T:
 		return MarshalFloat64[T]
@@ -193,29 +219,49 @@ func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 	case TimeStampT:
 		return MarshalTimeStamp[T]
 	}
-	panic("unsupported data type")
+	panic(fmt.Sprintf("unsupported data type %s", dt))
 }
 
-func UnmarshalInt8[T types.Numeric](b []byte) (res T)   { return T(b[0]) }
-func UnmarshalInt16[T types.Numeric](b []byte) (res T)  { return T(ByteOrder.Uint16(b)) }
-func UnmarshalInt32[T types.Numeric](b []byte) (res T)  { return T(ByteOrder.Uint32(b)) }
-func UnmarshalInt64[T types.Numeric](b []byte) (res T)  { return T(ByteOrder.Uint64(b)) }
-func UnmarshalUint8[T types.Numeric](b []byte) (res T)  { return T(b[0]) }
-func UnmarshalUint16[T types.Numeric](b []byte) (res T) { return T(ByteOrder.Uint16(b)) }
-func UnmarshalUint32[T types.Numeric](b []byte) (res T) { return T(ByteOrder.Uint32(b)) }
-func UnmarshalUint64[T types.Numeric](b []byte) (res T) { return T(ByteOrder.Uint64(b)) }
-func UnmarshalFloat32[T types.Numeric](b []byte) (res T) {
+// UnmarshalInt8 unmarshals an 8-bit signed integer from a byte slice.
+func UnmarshalInt8[T Sample](b []byte) T { return T(b[0]) }
+
+// UnmarshalInt16 unmarshals a 16-bit signed integer from a byte slice.
+func UnmarshalInt16[T Sample](b []byte) T { return T(ByteOrder.Uint16(b)) }
+
+// UnmarshalInt32 unmarshals a 32-bit signed integer from a byte slice.
+func UnmarshalInt32[T Sample](b []byte) T { return T(ByteOrder.Uint32(b)) }
+
+// UnmarshalInt64 unmarshals a 64-bit signed integer from a byte slice.
+func UnmarshalInt64[T Sample](b []byte) T { return T(ByteOrder.Uint64(b)) }
+
+// UnmarshalUint8 unmarshals an 8-bit unsigned integer from a byte slice.
+func UnmarshalUint8[T Sample](b []byte) T { return T(b[0]) }
+
+// UnmarshalUint16 unmarshals a 16-bit unsigned integer from a byte slice.
+func UnmarshalUint16[T Sample](b []byte) T { return T(ByteOrder.Uint16(b)) }
+
+// UnmarshalUint32 unmarshals a 32-bit unsigned integer from a byte slice.
+func UnmarshalUint32[T Sample](b []byte) T { return T(ByteOrder.Uint32(b)) }
+
+// UnmarshalUint64 unmarshals a 64-bit unsigned integer from a byte slice.
+func UnmarshalUint64[T Sample](b []byte) T { return T(ByteOrder.Uint64(b)) }
+
+// UnmarshalFloat32 unmarshals a 32-bit floating point number from a byte slice.
+func UnmarshalFloat32[T Sample](b []byte) T {
 	return T(math.Float32frombits(ByteOrder.Uint32(b)))
 }
-func UnmarshalFloat64[T types.Numeric](b []byte) (res T) {
+
+// UnmarshalFloat64 unmarshals a 64-bit floating point number from a byte slice.
+func UnmarshalFloat64[T Sample](b []byte) T {
 	return T(math.Float64frombits(ByteOrder.Uint64(b)))
 }
-func UnmarshalTimeStamp[T types.Numeric](b []byte) (res T) { return T(TimeStamp(ByteOrder.Uint64(b))) }
 
-// UnmarshalF returns a function that can unmarshal a byte slice into
-// a single value of type K according to the specified DataType.
-// Panics if the DataType is not supported.
-func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) (res T) {
+// UnmarshalTimeStamp unmarshals a TimeStamp from a byte slice.
+func UnmarshalTimeStamp[T Sample](b []byte) T { return T(TimeStamp(ByteOrder.Uint64(b))) }
+
+// UnmarshalF returns a function that can unmarshal a byte slice into a single value of
+// type K according to the specified DataType. Panics if the DataType is not supported.
+func UnmarshalF[T Sample](dt DataType) func(b []byte) T {
 	switch dt {
 	case Float64T:
 		return UnmarshalFloat64[T]
@@ -240,5 +286,5 @@ func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) (res T) {
 	case TimeStampT:
 		return UnmarshalTimeStamp[T]
 	}
-	panic("unsupported data type")
+	panic(fmt.Sprintf("unsupported data type %s", dt))
 }

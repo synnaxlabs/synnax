@@ -17,14 +17,12 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
 )
 
 type Writer struct {
 	cfg       WriterConfig
 	requests  confluence.Inlet[WriterRequest]
 	responses confluence.Outlet[WriterResponse]
-	logger    *zap.Logger
 	shutdown  io.Closer
 	closeErr  error
 }
