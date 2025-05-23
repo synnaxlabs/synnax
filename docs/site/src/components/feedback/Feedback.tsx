@@ -68,7 +68,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
     void (async () => {
       if (!methods.validate()) return;
       const data = new FormData();
-      const value = await methods.value();
+      const value = methods.value();
       data.append("name", value.name ?? "");
       data.append("email", value.email ?? "");
       data.append("description", value.description);

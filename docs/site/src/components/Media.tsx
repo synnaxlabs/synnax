@@ -64,7 +64,7 @@ export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (ref.current == null) return;
-        if (entry.isIntersecting) ref.current.play();
+        if (entry.isIntersecting) void ref.current.play();
         else ref.current.pause();
       },
       { threshold: 0.85 },
