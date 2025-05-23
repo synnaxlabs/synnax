@@ -15,10 +15,11 @@ import {
   type Store,
   Tuple,
 } from "@reduxjs/toolkit";
-import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
+import { Drift, MAIN_WINDOW, type Runtime } from "@synnaxlabs/drift";
+import { NoopRuntime } from "@synnaxlabs/drift/noop";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { type deep, type UnknownRecord } from "@synnaxlabs/x";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isTauri } from "@tauri-apps/api/core";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
@@ -30,6 +31,7 @@ import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
+import { getCurrentWindow } from "@/tauriShim";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -162,8 +164,14 @@ const BASE_MIDDLEWARE = [
 
 const createStore = async (): Promise<RootStore> => {
   const { initialState, persistMiddleware } = await openPersist();
+  let runtime: Runtime<RootState, RootAction>;
+  if (isTauri())
+    runtime = new TauriRuntime();
+  else
+    runtime = new NoopRuntime();
+
   return await Drift.configureStore<RootState, RootAction>({
-    runtime: new TauriRuntime(),
+    runtime,
     preloadedState: initialState,
     middleware: (def) => new Tuple(...def(), ...BASE_MIDDLEWARE, persistMiddleware),
     reducer,
