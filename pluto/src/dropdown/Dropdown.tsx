@@ -139,10 +139,10 @@ export const Dialog = ({
 
   Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
 
-  const { ref: resizeParentRef } = useResize(calculatePosition, { enabled: visible });
+  const resizeParentRef = useResize(calculatePosition, { enabled: visible });
   const combinedParentRef = useCombinedRefs(targetRef, resizeParentRef);
 
-  const { ref: resizeDialogRef } = useResize(calculatePosition, { enabled: visible });
+  const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
   let dialogStyle: CSSProperties = {};

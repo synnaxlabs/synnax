@@ -588,8 +588,8 @@ export class TimeStamp implements Stringer {
    * @param value - The number of nanoseconds.
    * @returns A TimeStamp representing the given number of nanoseconds.
    */
-  static nanoseconds(value: number): TimeStamp {
-    return new TimeStamp(value);
+  static nanoseconds(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+    return new TimeStamp(value, tzInfo);
   }
 
   /** One nanosecond after the unix epoch */
@@ -1326,7 +1326,7 @@ export class TimeRange implements Stringer {
     return overlapDuration.greaterThanOrEqual(delta);
   }
 
-   /**
+  /**
    * Checks if the TimeRange contains the given TimeRange or TimeStamp.
    *
    * @param other - The TimeRange or TimeStamp to check if it is contained in the TimeRange.
