@@ -210,7 +210,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Status.Text level="p" variant={connectionState.variant as Status.Variant}>
+            <Status.Text level="p" variant={connectionState.variant}>
               {connectionState.details?.message}
             </Status.Text>
           )}
@@ -258,7 +258,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   });
   if (isPending)
     return (
-      <Status.Text.Centered level="h4" variant="loading">
+      <Status.Text.Centered level="h4" loading>
         Loading Configuration from Synnax Server
       </Status.Text.Centered>
     );

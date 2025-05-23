@@ -9,14 +9,13 @@
 
 import "@/input/Item.css";
 
-import { direction } from "@synnaxlabs/x";
+import { direction, type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
-import { type status } from "@/status/aether";
 
 export interface ItemProps extends Align.SpaceProps {
   label?: string;
