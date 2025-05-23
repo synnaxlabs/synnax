@@ -11,7 +11,7 @@ import { type change } from "@synnaxlabs/x";
 import { DataType, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
-import { QueryError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import { type ranger } from "@/ranger";
 import { newClient } from "@/setupspecs";
 
@@ -74,7 +74,7 @@ describe("Ranger", () => {
       });
       await client.ranges.delete(range.key);
       await expect(async () => await client.ranges.retrieve(range.key)).rejects.toThrow(
-        QueryError,
+        NotFoundError,
       );
     });
   });
@@ -172,7 +172,9 @@ describe("Ranger", () => {
       const val = await rng.kv.get("foo");
       expect(val).toEqual("bar");
       await rng.kv.delete("foo");
-      await expect(async () => await rng.kv.get("foo")).rejects.toThrow(QueryError);
+      await expect(async () => await rng.kv.get("foo")).rejects.toThrowError(
+        NotFoundError,
+      );
     });
 
     it("should set and get multiple keys", async () => {

@@ -34,7 +34,7 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
   schema = canvasStateZ;
   renderCtx: render.Context | null = null;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     if (this.renderCtx == null) {
       if (!this.state.bootstrap) return;
       const { glCanvas, lower2dCanvas, upper2dCanvas, os } = this.state;

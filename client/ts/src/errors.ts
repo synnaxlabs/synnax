@@ -7,35 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  BaseTypedError,
-  errorMatcher,
-  type ErrorPayload,
-  type Middleware,
-  registerError,
-  Unreachable,
-} from "@synnaxlabs/freighter";
+import { type Middleware, Unreachable } from "@synnaxlabs/freighter";
+import { errors } from "@synnaxlabs/x";
 
-const _FREIGHTER_EXCEPTION_PREFIX = "sy.";
-
-export interface Field {
-  field: string;
-  message: string;
-}
+export class SynnaxError extends errors.createTyped("sy") {}
 
 /**
  * Raised when a validation error occurs.
  */
-export class ValidationError extends BaseTypedError {
-  static readonly TYPE: string = `${_FREIGHTER_EXCEPTION_PREFIX}validation`;
-  type = ValidationError.TYPE;
-  static readonly matches = errorMatcher(ValidationError.TYPE);
-}
+export class ValidationError extends SynnaxError.sub("validation") {}
 
-export class FieldError extends ValidationError {
-  static readonly TYPE = `${ValidationError.TYPE}.field`;
-  type = FieldError.TYPE;
-  static readonly matches = errorMatcher(FieldError.TYPE);
+export class FieldError extends ValidationError.sub("field") {
   readonly field: string;
   readonly message: string;
 
@@ -49,35 +31,19 @@ export class FieldError extends ValidationError {
 /**
  * AuthError is raised when an authentication error occurs.
  */
-export class AuthError extends BaseTypedError {
-  static readonly TYPE: string = `${_FREIGHTER_EXCEPTION_PREFIX}auth`;
-  type = AuthError.TYPE;
-  static readonly matches = errorMatcher(AuthError.TYPE);
-}
+export class AuthError extends SynnaxError.sub("auth") {}
 
 /**
  * InvalidTokenError is raised when an authentication token is invalid.
  */
-export class InvalidTokenError extends AuthError {
-  static readonly TYPE = `${AuthError.TYPE}.invalid-token`;
-  type = InvalidTokenError.TYPE;
-  static readonly matches = errorMatcher(InvalidTokenError.TYPE);
-}
+export class InvalidTokenError extends AuthError.sub("invalid-token") {}
 
-export class ExpiredTokenError extends AuthError {
-  static readonly TYPE = `${AuthError.TYPE}.expired-token`;
-  type = ExpiredTokenError.TYPE;
-  static readonly matches = errorMatcher(ExpiredTokenError.TYPE);
-}
+export class ExpiredTokenError extends AuthError.sub("expired-token") {}
 
 /**
  * UnexpectedError is raised when an unexpected error occurs.
  */
-export class UnexpectedError extends BaseTypedError {
-  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX}unexpected`;
-  type = UnexpectedError.TYPE;
-  static readonly matches = errorMatcher(UnexpectedError.TYPE);
-
+export class UnexpectedError extends SynnaxError.sub("unexpected") {
   constructor(message: string) {
     super(`
     Unexpected error encountered:
@@ -92,31 +58,16 @@ export class UnexpectedError extends BaseTypedError {
 /**
  * QueryError is raised when a query error occurs.
  */
-export class QueryError extends BaseTypedError {
-  static readonly TYPE: string = `${_FREIGHTER_EXCEPTION_PREFIX}query`;
-  type = QueryError.TYPE;
-  static readonly matches = errorMatcher(QueryError.TYPE);
-}
+export class QueryError extends SynnaxError.sub("query") {}
 
-export class NotFoundError extends QueryError {
-  static readonly TYPE = `${QueryError.TYPE}.not_found`;
-  type = NotFoundError.TYPE;
-  static readonly matches = errorMatcher(NotFoundError.TYPE);
-}
+export class NotFoundError extends QueryError.sub("not_found") {}
 
-export class MultipleFoundError extends QueryError {
-  static readonly TYPE = `${QueryError.TYPE}.multiple_results`;
-  type = MultipleFoundError.TYPE;
-  static readonly matches = errorMatcher(MultipleFoundError.TYPE);
-}
+export class MultipleFoundError extends QueryError.sub("multiple_results") {}
 
 /**
  * RouteError is raised when a routing error occurs.
  */
-export class RouteError extends BaseTypedError {
-  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX}route`;
-  type = RouteError.TYPE;
-  static readonly matches = errorMatcher(RouteError.TYPE);
+export class RouteError extends SynnaxError.sub("route") {
   path: string;
 
   constructor(message: string, path: string) {
@@ -125,29 +76,17 @@ export class RouteError extends BaseTypedError {
   }
 }
 
-export class ControlError extends BaseTypedError {
-  static readonly TYPE: string = `${_FREIGHTER_EXCEPTION_PREFIX}control`;
-  type = ControlError.TYPE;
-  static readonly matches = errorMatcher(ControlError.TYPE);
-}
+export class ControlError extends SynnaxError.sub("control") {}
 
-export class UnauthorizedError extends ControlError {
-  static readonly TYPE = `${ControlError.TYPE}.unauthorized`;
-  type = UnauthorizedError.TYPE;
-  static readonly matches = errorMatcher(UnauthorizedError.TYPE);
-}
+export class UnauthorizedError extends ControlError.sub("unauthorized") {}
 
 /**
  * Raised when time-series data is not contiguous.
  */
-export class ContiguityError extends BaseTypedError {
-  static readonly TYPE = `${_FREIGHTER_EXCEPTION_PREFIX}contiguity`;
-  type = ContiguityError.TYPE;
-  static readonly matches = errorMatcher(ContiguityError.TYPE);
-}
+export class ContiguityError extends SynnaxError.sub("contiguity") {}
 
-const decode = (payload: ErrorPayload): Error | null => {
-  if (!payload.type.startsWith(_FREIGHTER_EXCEPTION_PREFIX)) return null;
+const decode = (payload: errors.Payload): Error | null => {
+  if (!payload.type.startsWith(SynnaxError.TYPE)) return null;
   if (payload.type.startsWith(ValidationError.TYPE)) {
     if (payload.type === FieldError.TYPE) {
       const values = payload.data.split(": ");
@@ -188,11 +127,11 @@ const decode = (payload: ErrorPayload): Error | null => {
   return new UnexpectedError(payload.data);
 };
 
-const encode = (): ErrorPayload => {
+const encode = (): errors.Payload => {
   throw new Error("Not implemented");
 };
 
-registerError({ encode, decode });
+errors.register({ encode, decode });
 
 export const validateFieldNotNull = (
   key: string,

@@ -45,7 +45,7 @@ export interface EraserProps extends PropsWithChildren, Aether.CProps {}
 
 export const Eraser = ({ aetherKey, children }: EraserProps): ReactElement => {
   const { erase } = use({ aetherKey });
-  const ref = useResize(erase);
+  const { ref } = useResize(erase);
   return (
     <div ref={ref} className={CSS(CSS.inheritDims())}>
       {children}

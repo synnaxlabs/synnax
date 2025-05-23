@@ -69,13 +69,15 @@ export const useResize = <E extends HTMLElement>(
     return () => obs.current?.disconnect();
   }, [startObserving, enabled]);
 
-  return useCallback(
+  const refCallback = useCallback(
     (el: E | null) => {
       ref.current = el;
       if (el != null && enabled) startObserving(el);
     },
     [startObserving],
   );
+
+  return refCallback;
 };
 
 const shouldResize = (

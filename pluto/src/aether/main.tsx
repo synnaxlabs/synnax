@@ -93,8 +93,22 @@ export const Provider = ({
     [worker, registry],
   );
 
+  const [error, setError] = useState<Error | null>(null);
+  if (error != null) throw error;
+
   useEffect(() => {
     worker?.handle((msg) => {
+      const { variant } = msg;
+      if (variant == "error") {
+        const {
+          error: { message, stack, name },
+        } = msg;
+        const err = new Error(message);
+        err.stack = stack;
+        err.name = name;
+        setError(err);
+        return;
+      }
       const { key, state } = msg;
       const component = registry.current.get(key);
       if (component == null)
@@ -314,6 +328,7 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
   const [internalState, setInternalState] = useState<z.output<S>>(() =>
     prettyParse(schema, initialState),
   );
+  const onAetherChangeRef = useRef(onAetherChange);
 
   // Update the internal component state when we receive communications from the
   // aether.
@@ -321,9 +336,9 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
     (rawState: any) => {
       const state = prettyParse(schema, rawState);
       setInternalState(state);
-      onAetherChange?.(state);
+      onAetherChangeRef.current?.(state);
     },
-    [schema],
+    [schema, setInternalState],
   );
 
   const { path, setState: setAetherState } = useLifecycle({
@@ -339,8 +354,6 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
       if (state.isSetter(next))
         setInternalState((prev) => {
           const nextS = next(prev);
-          // This makes our setter impure, so it's something we should be wary of causing
-          // unexpected behavior in the the future.
           setAetherState(nextS, transfer);
           return nextS;
         });

@@ -25,7 +25,7 @@ interface CellProps {
 }
 
 export interface Cell extends aether.Component {
-  render: ({ viewportScale }: CellProps) => Promise<void>;
+  render: ({ viewportScale }: CellProps) => void;
 }
 
 interface InternalState {
@@ -40,11 +40,11 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
   static readonly stateZ = tableStateZ;
   schema = Table.stateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.handleError = status.useErrorHandler(ctx);
-    render.Controller.control(ctx, () => {
+    render.control(ctx, () => {
       if (!this.state.visible) return;
       this.requestRender("low");
     });
@@ -52,20 +52,15 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     this.requestRender("high");
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     this.requestRender("high");
   }
 
-  async render(): Promise<render.Cleanup | undefined> {
+  render(): render.Cleanup | undefined {
     if (this.deleted) return;
     const eraseRegion = box.copy(this.state.region);
     if (!this.state.visible)
-      return async () =>
-        this.internal.renderCtx.erase(
-          this.state.region,
-          this.state.clearOverScan,
-          ...CANVASES,
-        );
+      return () => this.internal.renderCtx.erase(eraseRegion, this.state.clearOverScan);
     const { renderCtx, handleError } = this.internal;
     const viewportScale = scale.XY.translate(box.topLeft(this.state.region));
     const clearScissor = renderCtx.scissor(
@@ -75,15 +70,13 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     );
 
     try {
-      for (const child of this.children) await child.render({ viewportScale });
+      for (const child of this.children) child.render({ viewportScale });
     } catch (e) {
       handleError(e, "Failed to render table");
     } finally {
       clearScissor();
     }
-    return async () => {
-      this.internal.renderCtx.erase(eraseRegion, this.state.clearOverScan);
-    };
+    return () => this.internal.renderCtx.erase(eraseRegion, this.state.clearOverScan);
   }
 
   private requestRender(priority: render.Priority): void {

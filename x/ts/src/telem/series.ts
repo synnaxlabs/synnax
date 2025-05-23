@@ -938,7 +938,7 @@ class FixedSeriesIterator implements Iterator<math.Numeric> {
 export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<T> {
   readonly series: Array<Series<T>>;
 
-  constructor(series: Array<Series<T>>) {
+  constructor(series: Array<Series<T>> = []) {
     if (series.length !== 0) {
       const type = series[0].dataType;
       for (let i = 1; i < series.length; i++)
@@ -985,8 +985,12 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     );
   }
 
-  push(series: Series<T>): void {
-    this.series.push(series);
+  push(series: Series<T>): void;
+  push(series: MultiSeries<T>): void;
+
+  push(series: Series<T> | MultiSeries<T>): void {
+    if ("isSynnaxSeries" in series && series.isSynnaxSeries) this.series.push(series);
+    else this.series.push(...(series as MultiSeries<T>).series);
   }
 
   get length(): number {
@@ -1068,6 +1072,14 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     return new MultiSubIterator(this, startIdx, startIdx + span);
   }
 
+  updateGLBuffer(gl: GLBufferController): void {
+    this.series.forEach((s) => s.updateGLBuffer(gl));
+  }
+
+  get bounds(): bounds.Bounds {
+    return bounds.max(this.series.map((s) => s.bounds));
+  }
+
   get byteLength(): Size {
     return new Size(this.series.reduce((a, b) => a + b.byteLength.valueOf(), 0));
   }
@@ -1085,6 +1097,14 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   traverseAlignment(start: bigint, dist: bigint): bigint {
     const b = this.series.map((s) => s.alignmentBounds);
     return bounds.traverse(b, start, dist);
+  }
+
+  acquire(): void {
+    this.series.forEach((s) => s.acquire());
+  }
+
+  release(): void {
+    this.series.forEach((s) => s.release());
   }
 
   distance(start: bigint, end: bigint): bigint {
