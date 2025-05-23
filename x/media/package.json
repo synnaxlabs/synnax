@@ -15,8 +15,8 @@
   "scripts": {
     "build": "vite build",
     "watch": "vite build --watch",
-    "lint": "eslint --cache",
-    "fix": "eslint --cache --fix",
+    "lint": "eslint",
+    "fix": "eslint --fix",
     "madge": "madge --circular src"
   },
   "dependencies": {
