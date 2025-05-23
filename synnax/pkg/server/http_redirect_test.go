@@ -11,6 +11,8 @@ package server_test
 
 import (
 	"crypto/tls"
+	"net/http"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -20,8 +22,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
-	"net/http"
-	"sync"
 )
 
 var _ = Describe("HttpRedirect", func() {
@@ -34,7 +34,7 @@ var _ = Describe("HttpRedirect", func() {
 			Insecure:     config.Bool(false),
 		}))
 		received := false
-		b := MustSucceed(server.New(server.Config{
+		b := MustSucceed(server.Open(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
 				Insecure: config.Bool(false),
@@ -48,13 +48,6 @@ var _ = Describe("HttpRedirect", func() {
 				}), server.ServeAlwaysPreferSecure),
 			},
 		}))
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer GinkgoRecover()
-			Expect(b.Serve()).To(Succeed())
-			wg.Done()
-		}()
 
 		tr := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -64,8 +57,7 @@ var _ = Describe("HttpRedirect", func() {
 		Expect(err).To(Succeed())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(received).To(BeTrue())
-		b.Stop()
-		wg.Wait()
+		Expect(b.Close()).To(Succeed())
 	})
 
 })

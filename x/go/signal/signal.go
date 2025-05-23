@@ -39,14 +39,19 @@ func WithCancel(ctx context.Context, opts ...Option) (Context, context.CancelFun
 // timeout. If any goroutine returns a non-nil error, the Context will be canceled.
 func WithTimeout(ctx context.Context, d time.Duration, opts ...Option) (Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(ctx, d)
-	c := newCore(ctx, cancel)
+	c := newCore(ctx, cancel, opts...)
 	return c, cancel
 }
 
+// Isolated opens a new signal context completely isolated from any parent contexts.
+// This is equivalent to context.Background(), and is used to manage and independent
+// set of go-routines.
 func Isolated(opts ...Option) (Context, context.CancelFunc) {
 	return WithCancel(context.Background(), opts...)
 }
 
+// Wrap uses the context as the underlying context for the returned signal Context. When
+// the passed in context is cancelled, the
 func Wrap(ctx context.Context, opts ...Option) Context {
 	return newCore(ctx, func() {}, opts...)
 }
@@ -88,8 +93,6 @@ func (c *core) unsafeRunningKeys() []string {
 }
 
 func (c *core) routineDiagnostics() string {
-	// create a strings.Builder, iterate through each piece of info, and pretty
-	// print it.
 	var b strings.Builder
 	for _, i := range c.routines() {
 		b.WriteString(i.PrettyString())
@@ -123,5 +126,15 @@ func SendUnderContext[V any](ctx context.Context, ch chan<- V, v V) error {
 		return ctx.Err()
 	case ch <- v:
 		return nil
+	}
+}
+
+func RecvUnderContext[V any](ctx context.Context, ch <-chan V) (V, error) {
+	select {
+	case <-ctx.Done():
+		var o V
+		return o, ctx.Err()
+	case v := <-ch:
+		return v, nil
 	}
 }

@@ -14,6 +14,7 @@ package embedded
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/config"
 )
 
