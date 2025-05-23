@@ -205,27 +205,27 @@ func (s Series) DataString() string {
 	}
 	switch s.DataType {
 	case Float64T:
-		return truncateAndFormatSlice(Unmarshal[float64](s))
+		return truncateAndFormatSlice(UnmarshalSeries[float64](s))
 	case Float32T:
-		return truncateAndFormatSlice(Unmarshal[float32](s))
+		return truncateAndFormatSlice(UnmarshalSeries[float32](s))
 	case Int64T:
-		return truncateAndFormatSlice(Unmarshal[int64](s))
+		return truncateAndFormatSlice(UnmarshalSeries[int64](s))
 	case Int32T:
-		return truncateAndFormatSlice(Unmarshal[int32](s))
+		return truncateAndFormatSlice(UnmarshalSeries[int32](s))
 	case Int16T:
-		return truncateAndFormatSlice(Unmarshal[int16](s))
+		return truncateAndFormatSlice(UnmarshalSeries[int16](s))
 	case Int8T:
-		return truncateAndFormatSlice(Unmarshal[int8](s))
+		return truncateAndFormatSlice(UnmarshalSeries[int8](s))
 	case Uint64T:
-		return truncateAndFormatSlice(Unmarshal[uint64](s))
+		return truncateAndFormatSlice(UnmarshalSeries[uint64](s))
 	case Uint32T:
-		return truncateAndFormatSlice(Unmarshal[uint32](s))
+		return truncateAndFormatSlice(UnmarshalSeries[uint32](s))
 	case Uint16T:
-		return truncateAndFormatSlice(Unmarshal[uint16](s))
+		return truncateAndFormatSlice(UnmarshalSeries[uint16](s))
 	case Uint8T:
-		return truncateAndFormatSlice(Unmarshal[uint8](s))
+		return truncateAndFormatSlice(UnmarshalSeries[uint8](s))
 	case TimeStampT:
-		first, last := xslices.Truncate(Unmarshal[TimeStamp](s), maxDisplayValues)
+		first, last := xslices.Truncate(UnmarshalSeries[TimeStamp](s), maxDisplayValues)
 		firstDeltas := make([]string, len(first)-1)
 		for i := 1; i < len(first); i++ {
 			firstDeltas[i-1] = "+" + TimeSpan(first[i]-first[0]).String()

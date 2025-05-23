@@ -135,13 +135,13 @@ func UnmarshalSlice[T Sample](b []byte, dt DataType) []T {
 	return data
 }
 
-// Unmarshal converts a Series' data back into a slice of the original type.
-func Unmarshal[T Sample](series Series) []T {
+// UnmarshalSeries converts a Series' data back into a slice of the original type.
+func UnmarshalSeries[T Sample](series Series) []T {
 	return UnmarshalSlice[T](series.Data, series.DataType)
 }
 
 // ByteOrder is the standard order for encoding/decoding numeric values across
-// the Synnax telemetry ecosystem..
+// the Synnax telemetry ecosystem.
 var ByteOrder = binary.LittleEndian
 
 // MarshalInt8 casts the value to uint8 and marshals it into the byte slice.

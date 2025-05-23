@@ -33,25 +33,31 @@ type streamer struct {
 	cfg     StreamerConfig
 }
 
+// StreamerConfig is the configuration for creating a new streamer.
 type StreamerConfig struct {
-	Keys               channel.Keys `json:"keys" msgpack:"keys"`
-	SendOpenAck        *bool        `json:"send_open_ack" msgpack:"send_open_ack"`
-	ResponseBufferSize int          `json:"response_buffer_size" msgpack:"response_buffer_size"`
+	// Keys are the list of channels to read from. This slice may be empty, in
+	// which case no data will be streamed until a new configuration is provided
+	// as a request to the streamer.
+	// [OPTIONAL]
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// SendOpenAck sets whether to send an acknowledgement when the streamer has
+	// successfully connected to the relay and is ready to start streaming data.
+	// [OPTIONAL] - defaults to false
+	SendOpenAck *bool `json:"send_open_ack" msgpack:"send_open_ack"`
 }
 
 var (
-	_                     config.Config[StreamerConfig] = StreamerConfig{}
-	DefaultStreamerConfig                               = StreamerConfig{
-		ResponseBufferSize: 100, // 72 bytes * 100 = 7.2kb
-		SendOpenAck:        config.False(),
-	}
+	_ config.Config[StreamerConfig] = StreamerConfig{}
+	// DefaultStreamerConfig is the default configuration for opening a new streamer.
+	// This configuration is valid and will create a streamer that does
+	// not stream from any channels.
+	DefaultStreamerConfig = StreamerConfig{SendOpenAck: config.False()}
 )
 
 // Override implements config.Config.
 func (c StreamerConfig) Override(other StreamerConfig) StreamerConfig {
 	c.Keys = override.Slice(c.Keys, other.Keys)
 	c.SendOpenAck = override.Nil(c.SendOpenAck, other.SendOpenAck)
-	c.ResponseBufferSize = override.Numeric(c.ResponseBufferSize, other.ResponseBufferSize)
 	return c
 }
 
@@ -62,18 +68,23 @@ func (c StreamerConfig) Validate() error {
 	return v.Error()
 }
 
+// NewStreamer opens a new Streamer for consuming real-time telemetry frames from the
+// relay. Each subsequent StreamerConfig overrides the parameters specified in the
+// previous config. See the StreamerConfig struct for information on required fields.
 func (r *Relay) NewStreamer(ctx context.Context, cfgs ...StreamerConfig) (Streamer, error) {
 	cfg, err := config.New(DefaultStreamerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	err = r.cfg.ChannelReader.NewRetrieve().WhereKeys(cfg.Keys...).Exec(ctx, nil)
+	if err = r.cfg.ChannelReader.NewRetrieve().WhereKeys(cfg.Keys...).Exec(ctx, nil); err != nil {
+		return nil, err
+	}
 	return &streamer{
 		cfg:     cfg,
 		addr:    address.Rand(),
 		demands: r.demands,
 		relay:   r,
-	}, err
+	}, nil
 }
 
 // Flow implements confluence.Flow.

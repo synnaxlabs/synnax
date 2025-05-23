@@ -34,7 +34,7 @@ type ServiceConfig struct {
 var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (c ServiceConfig) Validate() error {
-	v := validate.New("distribution.framer.deleter")
+	v := validate.New("distribution.framer.Deleter")
 	validate.NotNil(v, "HostProvider", c.HostResolver)
 	validate.NotNil(v, "TSChannel", c.TSChannel)
 	validate.NotNil(v, "Transport", c.Transport)
@@ -70,5 +70,5 @@ func New(configs ...ServiceConfig) (*Service, error) {
 }
 
 func (s *Service) NewDeleter() Deleter {
-	return deleter{proxy: s.proxy, channelReader: s.channelReader}
+	return Deleter{proxy: s.proxy, channelReader: s.channelReader}
 }

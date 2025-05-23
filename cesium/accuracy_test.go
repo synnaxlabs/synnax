@@ -65,7 +65,7 @@ var _ = Describe("Accuracy", func() {
 							actual = make([]int64, 0, len(expected))
 						)
 						for series := range frame.Series() {
-							actual = append(actual, telem.Unmarshal[int64](series)...)
+							actual = append(actual, telem.UnmarshalSeries[int64](series)...)
 						}
 						Expect(actual).To(Equal(expected))
 					},
@@ -151,9 +151,9 @@ var _ = Describe("Accuracy", func() {
 							)
 							for k, series := range frame.Entries() {
 								if k == key1 {
-									actual1 = append(actual1, telem.Unmarshal[int64](series)...)
+									actual1 = append(actual1, telem.UnmarshalSeries[int64](series)...)
 								} else {
-									actual2 = append(actual2, telem.Unmarshal[int64](series)...)
+									actual2 = append(actual2, telem.UnmarshalSeries[int64](series)...)
 								}
 							}
 							Expect(actual1).To(Equal(expected1))

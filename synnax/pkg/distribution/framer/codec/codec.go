@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// For detailed information about the specifications,
-// please refer to the official RFC 0016 document.
-// Document here: docs/tech/rfc/0016-231001-frame-flight-protocol.md
-
 package codec
 
 import (
@@ -54,7 +50,7 @@ func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
 
 // Codec is a high-performance encoder/decoder specifically designed for moving
 // telemetry frames over the network. Codec is stateful, meaning that both the
-// encoding and decoding side must agree on the set of channels and their order
+// encoding and decoding sides must agree on the set of channels and their order
 // before any encoding or decoding can occur.
 type Codec struct {
 	// mu is non-routine safe structures that must be used carefully.

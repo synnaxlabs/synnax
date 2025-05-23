@@ -124,7 +124,7 @@ type scenario struct {
 	names    []string
 	writer   *writer.Service
 	iterator *iterator.Service
-	deleter  deleter.Service
+	deleter  *deleter.Service
 	channel  channel.Service
 	close    io.Closer
 }

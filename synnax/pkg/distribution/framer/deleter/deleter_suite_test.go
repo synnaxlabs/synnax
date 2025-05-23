@@ -43,7 +43,7 @@ func TestWriter(t *testing.T) {
 type serviceContainer struct {
 	channel   channel.Service
 	writer    *writer.Service
-	deleter   deleter.Service
+	deleter   *deleter.Service
 	iterator  *iterator.Service
 	transport struct {
 		channel  channel.Transport
