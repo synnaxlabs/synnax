@@ -133,12 +133,11 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.EffectCreate = fhttp.UnaryServer[api.EffectCreateRequest, api.EffectCreateResponse](router, "/api/v1/effect/create")
 	t.EffectDelete = fhttp.UnaryServer[api.EffectDeleteRequest, types.Nil](router, "/api/v1/effect/delete")
 	t.EffectRetrieve = fhttp.UnaryServer[api.EffectRetrieveRequest, api.EffectRetrieveResponse](router, "/api/v1/effect/retrieve")
-	t.EffectConditionCreate = fhttp.UnaryServer[api.ConditionCreateRequest, api.ConditionCreateResponse](router, "/api/v1/effect/condition/create")
-	t.EffectConditionDelete = fhttp.UnaryServer[api.ConditionDeleteRequest, types.Nil](router, "/api/v1/effect/condition/delete")
-	t.EffectConditionRetrieve = fhttp.UnaryServer[api.ConditionRetrieveRequest, api.ConditionRetrieveResponse](router, "/api/v1/effect/condition/retrieve")
-	t.EffectActionCreate = fhttp.UnaryServer[api.ActionCreateRequest, api.ActionCreateResponse](router, "/api/v1/effect/action/create")
-	t.EffectActionDelete = fhttp.UnaryServer[api.ActionDeleteRequest, types.Nil](router, "/api/v1/effect/action/delete")
-	t.EffectActionRetrieve = fhttp.UnaryServer[api.ActionRetrieveRequest, api.ActionRetrieveResponse](router, "/api/v1/effect/action/retrieve")
+
+	// SLATE
+	t.SlateCreate = fhttp.UnaryServer[api.SlateCreateRequest, api.SlateCreateResponse](router, "/api/v1/slate/create")
+	t.SlateDelete = fhttp.UnaryServer[api.SlateDeleteRequest, types.Nil](router, "/api/v1/slate/delete")
+	t.SlateRetrieve = fhttp.UnaryServer[api.SlateRetrieveRequest, api.SlateRetrieveResponse](router, "/api/v1/slate/retrieve")
 
 	return t
 }

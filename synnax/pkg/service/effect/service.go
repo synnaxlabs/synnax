@@ -14,8 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/effect/action"
-	"github.com/synnaxlabs/synnax/pkg/service/effect/condition"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -56,8 +54,6 @@ func (c Config) Validate() error {
 // Service is the primary service for retrieving and modifying effects from Synnax.
 type Service struct {
 	Config
-	Conditions *condition.Service
-	Actions    *action.Service
 }
 
 func (s Service) Close() error { return nil }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package action
+package slate
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Writer is used to create, update, and delete actions within Synnax. The writer
+// Writer is used to create, update, and delete slates within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
@@ -27,22 +27,22 @@ type Writer struct {
 	otg       *ontology.Ontology
 }
 
-// Create creates the given action. If the action does not have a key,
+// Create creates the given slate. If the slate does not have a key,
 // a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	c *Action,
+	c *Slate,
 ) (err error) {
 	var exists bool
 	if c.Key == uuid.Nil {
 		c.Key = uuid.New()
 	} else {
-		exists, err = gorp.NewRetrieve[uuid.UUID, Action]().WhereKeys(c.Key).Exists(ctx, w.tx)
+		exists, err = gorp.NewRetrieve[uuid.UUID, Slate]().WhereKeys(c.Key).Exists(ctx, w.tx)
 		if err != nil {
 			return
 		}
 	}
-	if err = gorp.NewCreate[uuid.UUID, Action]().Entry(c).Exec(ctx, w.tx); err != nil {
+	if err = gorp.NewCreate[uuid.UUID, Slate]().Entry(c).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	if exists {
@@ -52,12 +52,12 @@ func (w Writer) Create(
 	return w.otgWriter.DefineResource(ctx, otgID)
 }
 
-// Delete deletes the actions with the given keys.
+// Delete deletes the slates with the given keys.
 func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) (err error) {
-	if err = gorp.NewDelete[uuid.UUID, Action]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+	if err = gorp.NewDelete[uuid.UUID, Slate]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	for _, key := range keys {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/service/effect"
+	"github.com/synnaxlabs/synnax/pkg/service/slate"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -278,6 +279,21 @@ func start(cmd *cobra.Command) {
 		if ctx.Err() != nil {
 			return nil
 		}
+
+		slateSvc, err := slate.OpenService(ctx, slate.ServiceConfig{
+			DB:       gorpDB,
+			Ontology: dist.Ontology,
+		})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err = errors.Combine(err, slateSvc.Close())
+		}()
+		if ctx.Err() != nil {
+			return nil
+		}
+
 		effectSvc, err := effect.OpenService(
 			ctx,
 			effect.Config{
@@ -330,6 +346,7 @@ func start(cmd *cobra.Command) {
 				Label:           labelSvc,
 				Hardware:        hardwareSvc,
 				Effect:          effectSvc,
+				Slate:           slateSvc,
 			},
 		)
 		if err != nil || ctx.Err() != nil {
@@ -544,6 +561,8 @@ func maybeSetBasePermission(
 			"device":      access.All,
 			"task":        access.All,
 			"table":       access.All,
+			"slate":       access.All,
+			"effect":      access.All,
 			"user":        access.Retrieve,
 			"schematic":   access.Retrieve,
 			"policy":      access.Retrieve,

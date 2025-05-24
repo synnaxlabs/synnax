@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package action
+package slate
 
 import (
 	"context"
@@ -22,21 +22,21 @@ import (
 	"github.com/synnaxlabs/x/observe"
 )
 
-const ontologyType ontology.Type = "action"
+const ontologyType ontology.Type = "slate"
 
-// OntologyID returns unique identifier for the action within the ontology.
+// OntologyID returns unique identifier for the slate within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: k.String()}
 }
 
-// OntologyIDs returns unique identifiers for the actions within the ontology.
+// OntologyIDs returns unique identifiers for the slates within the ontology.
 func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	return lo.Map(keys, func(key uuid.UUID, _ int) ontology.ID {
 		return OntologyID(key)
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the actions from the ontology IDs.
+// KeysFromOntologyIDs extracts the keys of the slates from the ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -48,9 +48,9 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
-// OntologyIDsFromActions returns the ontology IDs of the actions.
-func OntologyIDsFromActions(actions []Action) []ontology.ID {
-	return lo.Map(actions, func(c Action, _ int) ontology.ID {
+// OntologyIDsFromSlates returns the ontology IDs of the slates.
+func OntologyIDsFromSlates(slates []Slate) []ontology.ID {
+	return lo.Map(slates, func(c Slate, _ int) ontology.ID {
 		return OntologyID(c.Key)
 	})
 }
@@ -64,18 +64,18 @@ var _schema = &ontology.Schema{
 	},
 }
 
-func newResource(c Action) schema.Resource {
-	// Using Type as the display name since actions don't have a name field
-	e := schema.NewResource(_schema, OntologyID(c.Key), c.Type)
-	schema.Set(e, "key", c.Key.String())
-	schema.Set(e, "type", c.Type)
-	schema.Set(e, "config", string(c.Config))
+func newResource(c Slate) schema.Resource {
+	// Using Type as the display name since slates don't have a name field
+	e := schema.NewResource(_schema, OntologyID(c.Key), "")
+	//schema.Set(e, "key", c.Key.String())
+	//schema.Set(e, "type", c)
+	//schema.Set(e, "config", string(c.Config))
 	return e
 }
 
 var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[uuid.UUID, Action]
+type change = changex.Change[uuid.UUID, Slate]
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() *schema.Schema { return _schema }
@@ -83,9 +83,9 @@ func (s *Service) Schema() *schema.Schema { return _schema }
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (schema.Resource, error) {
 	k := uuid.MustParse(key)
-	var action Action
-	err := s.NewRetrieve().WhereKeys(k).Entry(&action).Exec(ctx, tx)
-	return newResource(action), err
+	var slate Slate
+	err := s.NewRetrieve().WhereKeys(k).Entry(&slate).Exec(ctx, tx)
+	return newResource(slate), err
 }
 
 func translateChange(c change) schema.Change {
@@ -98,16 +98,16 @@ func translateChange(c change) schema.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[schema.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Action]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Slate]) {
 		f(ctx, iter.NexterTranslator[change, schema.Change]{Wrap: reader, Translate: translateChange})
 	}
-	return gorp.Observe[uuid.UUID, Action](s.DB).OnChange(handleChange)
+	return gorp.Observe[uuid.UUID, Slate](s.cfg.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
-	n, err := gorp.WrapReader[uuid.UUID, Action](s.DB).OpenNexter()
-	return iter.NexterCloserTranslator[Action, schema.Resource]{
+	n, err := gorp.WrapReader[uuid.UUID, Slate](s.cfg.DB).OpenNexter()
+	return iter.NexterCloserTranslator[Slate, schema.Resource]{
 		Wrap:      n,
 		Translate: newResource,
 	}, err

@@ -17,13 +17,11 @@ import {
 import { box, color, id, scale, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/slate/types";
-import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
 export type State = latest.State;
 export type StateWithName = State & { name: string };
-export type LegendState = latest.LegendState;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
 export const ZERO_STATE = latest.ZERO_STATE;
@@ -38,20 +36,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-/** Purges fields in slate state that should not be persisted. */
-export const purgeState = (state: State): State => {
-  // Reset control states.
-  state.control = "released";
-  state.controlAcquireTrigger = 0;
-  return state;
-};
-
-export const purgeSliceState = (state: RootState): RootState => {
-  Object.values(state[SLICE_NAME].slates).forEach(purgeState);
-  return state;
-};
-
-export const PERSIST_EXCLUDE = [purgeSliceState];
+export const PERSIST_EXCLUDE = [];
 
 export interface SetViewportPayload {
   key: string;
@@ -140,11 +125,6 @@ export interface SetViewportModePayload {
 
 export interface SetRemoteCreatedPayload {
   key: string;
-}
-
-export interface SetLegendPayload {
-  key: string;
-  legend: Partial<LegendState>;
 }
 
 export interface SelectAllPayload {
@@ -246,16 +226,7 @@ export const { actions, reducer } = createSlice({
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
-      const slate: State = purgeState({
-        ...ZERO_STATE,
-        ...latest.migrateState(payload),
-        key: layoutKey,
-      });
-      if (slate.snapshot) {
-        slate.editable = false;
-        clearSelections(slate);
-      }
-      state.slates[layoutKey] = slate;
+      state.slates[layoutKey] = latest.migrateState(payload);
       state.toolbar.activeTab = "symbols";
     },
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
@@ -274,7 +245,6 @@ export const { actions, reducer } = createSlice({
       layoutKeys.forEach((layoutKey) => {
         const slate = state.slates[layoutKey];
         if (slate == null) return;
-        if (slate.control === "acquired") slate.controlAcquireTrigger -= 1;
         delete state.slates[layoutKey];
       });
     },
@@ -293,8 +263,7 @@ export const { actions, reducer } = createSlice({
     setElementProps: (state, { payload }: PayloadAction<SetElementPropsPayload>) => {
       const { layoutKey, key, props } = payload;
       const slate = state.slates[layoutKey];
-      if (key in slate.props)
-        slate.props[key] = { ...slate.props[key], ...props };
+      if (key in slate.props) slate.props[key] = { ...slate.props[key], ...props };
       else {
         const edge = slate.edges.findIndex((edge) => edge.key === key);
         if (edge !== -1) slate.edges[edge] = { ...slate.edges[edge], ...props };
@@ -370,8 +339,6 @@ export const { actions, reducer } = createSlice({
       const { key: layoutKey, editable } = payload;
       const slate = state.slates[layoutKey];
       clearSelections(slate);
-      if (slate.control === "acquired") slate.controlAcquireTrigger -= 1;
-      if (slate.snapshot) return;
       slate.editable = editable;
     },
     setFitViewOnResize: (
@@ -381,24 +348,6 @@ export const { actions, reducer } = createSlice({
       const { key: layoutKey, fitViewOnResize } = payload;
       const slate = state.slates[layoutKey];
       slate.fitViewOnResize = fitViewOnResize;
-    },
-    toggleControl: (state, { payload }: PayloadAction<ToggleControlPayload>) => {
-      const { key: layoutKey } = payload;
-      let { status } = payload;
-      const slate = state.slates[layoutKey];
-      status ??= slate.control === "released" ? "acquired" : "released";
-      if (status === "released") slate.controlAcquireTrigger -= 1;
-      else slate.controlAcquireTrigger += 1;
-    },
-    setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
-      const { key: layoutKey, control } = payload;
-      const slate = state.slates[layoutKey];
-      if (slate == null) return;
-      slate.control = control;
-      if (control === "acquired") {
-        clearSelections(slate);
-        slate.editable = false;
-      }
     },
     setViewportMode: (
       state,
@@ -433,21 +382,11 @@ export const { actions, reducer } = createSlice({
         });
       });
     },
-    setLegend: (state, { payload }: PayloadAction<SetLegendPayload>) => {
-      const { key: layoutKey, legend } = payload;
-      const slate = state.slates[layoutKey];
-      slate.legend = { ...slate.legend, ...legend };
-    },
     selectAll: (state, { payload }: PayloadAction<SelectAllPayload>) => {
       const { key: layoutKey } = payload;
       const slate = state.slates[layoutKey];
       slate.nodes.forEach((node) => (node.selected = true));
       slate.edges.forEach((edge) => (edge.selected = true));
-    },
-    setAuthority: (state, { payload }: PayloadAction<SetAuthorityPayload>) => {
-      const { key, authority } = payload;
-      const slate = state.slates[key];
-      slate.authority = authority;
     },
   },
 });
@@ -470,10 +409,7 @@ const clearSelections = (state: State): void => {
 };
 
 export const {
-  setLegend,
   setNodePositions,
-  toggleControl,
-  setControlStatus,
   addElement,
   selectAll,
   setEdges,
@@ -491,7 +427,6 @@ export const {
   setViewportMode,
   setRemoteCreated,
   fixThemeContrast,
-  setAuthority,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
