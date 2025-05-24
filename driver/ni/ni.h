@@ -123,7 +123,7 @@ public:
         auto hw = std::make_unique<HardwareT>(this->dmx, handle);
         if (result.error = cfg.apply(this->dmx, handle); result.error) return result;
         // NI will look for invalid configuration parameters internally, so we
-        // quickly cycle the task in order to catch and communicate any errors as
+        // quickly cycle the task to catch and communicate any errors as
         // soon as possible.
         if (result.error = hw->start(); result.error) return result;
         if (result.error = hw->stop(); result.error) return result;

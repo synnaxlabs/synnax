@@ -1,6 +1,6 @@
 [project]
 name = "synnax"
-version = "0.41.0"
+version = "0.42.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -64,6 +64,7 @@ markers = [
     "control: mark test as a control test",
     "device: mark test as a device test",
     "framer: mark test as a framer test",
+    "frame_codec: mark test as a frame codec test",
     "iterator: mark test as a reader test",
     "internal: mark test as an internal test",
     "io: mark test as an io test",
@@ -80,7 +81,10 @@ markers = [
     "telem: mark test as a telem test",
     "timing: mark test as a timing test",
     "tsconvert: mark test as a tsconvert test",
-    "writer: mark test as a writer test",
+    "writer: mark test as a frame writer test",
+    "streamer: mark test as a frame streamer test",
+    "calculations: mark test as a calculated channels test",
+    "delete: mark test as a data deletion test",
     "focus: marker to temporarily focus a test",
 ]
 

@@ -40,4 +40,4 @@ var _ gorp.Entry[uuid.UUID] = User{}
 func (u User) GorpKey() uuid.UUID { return u.Key }
 
 // SetOptions implements gorp.Entry.
-func (u User) SetOptions() []interface{} { return nil }
+func (u User) SetOptions() []any { return nil }

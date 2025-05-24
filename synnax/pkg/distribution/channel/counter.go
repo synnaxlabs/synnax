@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/mathutil"
+	"github.com/synnaxlabs/x/math"
 )
 
 type counter struct {
@@ -27,7 +27,7 @@ func openCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, e
 }
 
 func (c *counter) add(delta LocalKey) (LocalKey, error) {
-	if c.wrap.Value()+int64(delta) > int64(mathutil.MaxUint20) {
+	if c.wrap.Value()+int64(delta) > int64(math.MaxUint20) {
 		return 0, errors.New("maximum number of channels created")
 	}
 	next, err := c.wrap.Add(int64(delta))

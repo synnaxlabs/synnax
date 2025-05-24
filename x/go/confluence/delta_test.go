@@ -11,10 +11,14 @@ package confluence_test
 
 import (
 	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Delta", func() {
@@ -30,6 +34,7 @@ var _ = Describe("Delta", func() {
 		outputTwo = NewStream[int](0)
 		outputTwo.SetInletAddress("outputTwo")
 	})
+
 	Describe("DeltaMultiplier", func() {
 		It("Should multiply input values to outputs", func() {
 			delta := &DeltaMultiplier[int]{}
@@ -59,6 +64,7 @@ var _ = Describe("Delta", func() {
 			Expect(ok).To(BeFalse())
 		})
 	})
+
 	Describe("DeltaTransformMultiplier", func() {
 		It("Should multiply input values to outputs", func() {
 			delta := &DeltaTransformMultiplier[int, int]{}
@@ -110,9 +116,10 @@ var _ = Describe("Delta", func() {
 			Expect(ok).To(BeFalse())
 		})
 	})
+
 	Describe("DynamicDeltaMultiplier", func() {
 		It("Should allow the caller to add and remove outlets dynamically", func() {
-			delta := NewDynamicDeltaMultiplier[int](0)
+			delta := NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()
@@ -127,5 +134,43 @@ var _ = Describe("Delta", func() {
 			Eventually(outputTwo.Outlet()).Should(Receive(Equal(2)))
 			Eventually(outputOne.Outlet()).Should(BeClosed())
 		})
+
+		Describe("Timeout", func() {
+			It("Should allow the delta to operate normally if a consumer receives within the timeout", func() {
+				delta := NewDynamicDeltaMultiplier[int](
+					10*time.Millisecond,
+					Instrumentation("dev", InstrumentationConfig{Log: config.True()}),
+				)
+				delta.InFrom(inputOne)
+				ctx, cancel := signal.Isolated()
+				defer cancel()
+				delta.Flow(ctx, CloseOutputInletsOnExit())
+				delta.Connect(outputOne)
+				delta.Connect(outputTwo)
+				Eventually(inputOne.Inlet()).Should(BeSent(1))
+				Eventually(outputOne.Outlet(), "1s", "1ms").Should(Receive(Equal(1)))
+				Eventually(outputTwo.Outlet(), "1s", "1ms").Should(Receive(Equal(1)))
+				delta.Disconnect(outputOne)
+				Eventually(inputOne.Inlet()).Should(BeSent(2))
+				Eventually(outputTwo.Outlet(), "1s", "1ms").Should(Receive(Equal(2)))
+				Eventually(outputOne.Outlet(), "1s", "1ms").Should(BeClosed())
+			})
+
+			It("Should allow other outlets to receive values even if one consumer times out", func() {
+				delta := NewDynamicDeltaMultiplier[int](
+					10*time.Millisecond,
+					Instrumentation("dev", InstrumentationConfig{Log: config.False()}),
+				)
+				delta.InFrom(inputOne)
+				ctx, cancel := signal.Isolated()
+				defer cancel()
+				delta.Flow(ctx, CloseOutputInletsOnExit())
+				delta.Connect(outputOne)
+				delta.Connect(outputTwo)
+				Eventually(inputOne.Inlet()).Should(BeSent(1))
+				Eventually(outputTwo.Outlet(), "40ms", "1ms").Should(Receive(Equal(1)))
+			})
+		})
 	})
+
 })

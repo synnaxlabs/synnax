@@ -30,7 +30,7 @@ type Switch[V Value] struct {
 
 // Flow implements the Flow interface, reading values from the Outlet, resolving their
 // address, and sending them to the correct Inlet. If an address cannot be found,
-// the switch will exit with an address.TargetNotFound error.
+// the switch will exit with an address.ErrTargetNotFound error.
 func (sw *Switch[V]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
 	fo.AttachClosables(InletMapToClosables(sw.Out)...)

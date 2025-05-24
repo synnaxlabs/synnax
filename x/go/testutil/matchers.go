@@ -25,7 +25,7 @@ type haveOccurredAsMatcher struct {
 	matchers.MatchErrorMatcher
 }
 
-func (m *haveOccurredAsMatcher) Match(actual interface{}) (bool, error) {
+func (m *haveOccurredAsMatcher) Match(actual any) (bool, error) {
 	if actual == nil {
 		if m.Expected == nil {
 			return true, nil

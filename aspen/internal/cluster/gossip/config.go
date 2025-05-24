@@ -10,11 +10,12 @@
 package gossip
 
 import (
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"time"
 )
 
 // Config sets specific parameters for the gossip service. See DefaultConfig

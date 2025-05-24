@@ -73,7 +73,7 @@ xerrors::Error task::Manager::configure_initial_tasks() {
         if (handled && driver_task != nullptr)
             this->tasks[task.key] = std::move(driver_task);
         else if (handled && driver_task == nullptr)
-            LOG(WARNING) << "[driver] unexpected nullptr returned by factory for"
+            LOG(WARNING) << "[driver] unexpected nullptr returned by factory for "
                          << task;
     }
     VLOG(1) << "[driver] configuring initial tasks from factories";

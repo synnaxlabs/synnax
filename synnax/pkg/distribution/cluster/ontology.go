@@ -12,12 +12,12 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/gorp"
@@ -37,9 +37,9 @@ func NodeOntologyID(key core.NodeKey) ontology.ID {
 	return ontology.ID{Type: nodeOntologyType, Key: strconv.Itoa(int(key))}
 }
 
-// ClusterOntologyID returns a unique identifier for a Cluster to use with a
+// OntologyID returns a unique identifier for a Cluster to use with a
 // resource Ontology.
-func ClusterOntologyID(key uuid.UUID) ontology.ID {
+func OntologyID(key uuid.UUID) ontology.ID {
 	return ontology.ID{Type: clusterOntologyType, Key: key.String()}
 }
 
@@ -82,18 +82,19 @@ func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
 	})
 }
 
+func translateNodeChange(ch core.NodeChange, _ int) schema.Change {
+	return schema.Change{
+		Variant: ch.Variant,
+		Key:     NodeOntologyID(ch.Key),
+		Value:   newNodeResource(ch.Value),
+	}
+}
+
 // OnChange implements ontology.Service.
 func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schema.Change])) observe.Disconnect {
 	var (
-		translate = func(ch core.NodeChange, _ int) schema.Change {
-			return schema.Change{
-				Variant: ch.Variant,
-				Key:     NodeOntologyID(ch.Key),
-				Value:   newNodeResource(ch.Value),
-			}
-		}
 		onChange = func(ctx context.Context, ch core.ClusterChange) {
-			f(ctx, iter.All(lo.Map(ch.Changes, translate)))
+			f(ctx, iter.All(lo.Map(ch.Changes, translateNodeChange)))
 		}
 	)
 	return s.Cluster.OnChange(onChange)
@@ -108,10 +109,10 @@ func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource]
 	), nil
 }
 
-func (s *NodeOntologyService) update(ctx context.Context, state core.ClusterState) {
+func (s *NodeOntologyService) update(ctx context.Context, _ core.ClusterState) {
 	err := s.Ontology.DB.WithTx(ctx, func(txn gorp.Tx) error {
 		//w := s.Ontology.NewWriter(txn)
-		//clusterID := ClusterOntologyID(s.Cluster.Key())
+		//clusterID := OntologyID(s.Cluster.Key())
 		//if err := w.DefineResource(ctx, clusterID); err != nil {
 		//	return err
 		//}
@@ -183,15 +184,11 @@ func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (on
 
 // OpenNexter implements ontology.Service.Relationship
 func (s *OntologyService) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
-	return iter.NexterNopCloser(
-		iter.All[schema.Resource]([]schema.Resource{
-			//newClusterResource(s.Cluster.Key()),
-		}),
-	), nil
+	return iter.NexterNopCloser(iter.All([]schema.Resource{})), nil
 }
 
 func newClusterResource(key uuid.UUID) ontology.Resource {
-	r := schema.NewResource(_clusterSchema, ClusterOntologyID(key), "Cluster")
+	r := schema.NewResource(_clusterSchema, OntologyID(key), "Cluster")
 	schema.Set(r, "key", key.String())
 	return r
 }

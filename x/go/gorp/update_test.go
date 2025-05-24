@@ -29,7 +29,7 @@ var _ = Describe("update", Ordered, func() {
 	BeforeAll(func() {
 		kv = memkv.New()
 		db = gorp.Wrap(kv)
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			entries = append(entries, entry{ID: i, Data: "data"})
 		}
 	})

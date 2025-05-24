@@ -11,9 +11,10 @@ package deleter_test
 
 import (
 	"context"
+	"testing"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,7 +43,7 @@ func TestWriter(t *testing.T) {
 type serviceContainer struct {
 	channel   channel.Service
 	writer    *writer.Service
-	deleter   deleter.Service
+	deleter   *deleter.Service
 	iterator  *iterator.Service
 	transport struct {
 		channel  channel.Transport
@@ -61,9 +62,9 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 		deleterNet  = tmock.NewDeleterNetwork()
 		iteratorNet = tmock.NewIteratorNetwork()
 	)
-	for i := 0; i < n; i++ {
+	for range n {
 		var (
-			c         = builder.New()
+			c         = builder.New(ctx)
 			container serviceContainer
 		)
 		container.channel = MustSucceed(channel.New(ctx, channel.ServiceConfig{
@@ -87,10 +88,10 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			ChannelReader: container.channel,
 			Transport:     deleterNet.New(c.Config.AdvertiseAddress),
 		}))
-		container.iterator = MustSucceed(iterator.OpenService(iterator.ServiceConfig{
+		container.iterator = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			Instrumentation: ins,
 			TS:              c.Storage.TS,
-			ChannelReader:   container.channel,
+			Channels:        container.channel,
 			HostResolver:    c.Cluster,
 			Transport:       iteratorNet.New(c.Config.AdvertiseAddress, 10),
 		}))

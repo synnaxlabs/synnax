@@ -12,6 +12,7 @@ package errors
 import (
 	"context"
 	"encoding/hex"
+
 	"github.com/cockroachdb/errors"
 )
 

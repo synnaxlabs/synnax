@@ -31,7 +31,6 @@ class ChannelPayload(Payload):
 
     key: ChannelKey = 0
     data_type: DataType
-    rate: Rate = Rate(0)
     name: str = ""
     leaseholder: int = 0
     is_index: bool = False

@@ -59,7 +59,7 @@ var _ gorp.Entry[string] = alias{}
 func (a alias) GorpKey() string { return aliasKey(a.Range, a.Channel) }
 
 // SetOptions implements gorp.Entry.
-func (a alias) SetOptions() []interface{} {
+func (a alias) SetOptions() []any {
 	// TODO: Figure out if we should return leaseholder here.
 	return nil
 }

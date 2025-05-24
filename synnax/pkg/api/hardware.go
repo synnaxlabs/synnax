@@ -14,7 +14,7 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	access "github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"

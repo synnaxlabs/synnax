@@ -11,15 +11,15 @@ package deleter
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 )
 
 type leaseProxy struct {
@@ -43,13 +43,6 @@ func (lp *leaseProxy) deleteTimeRange(
 	tr telem.TimeRange,
 ) error {
 	batch := lp.keyRouter.Batch(keys)
-	if len(batch.Free) != 0 {
-		return errors.Newf(
-			"cannot delete time range from virtual channel(s) %s",
-			batch.Free,
-		)
-	}
-
 	for nodeKey, entries := range batch.Peers {
 		err := lp.deleteTimeRangeRemote(ctx, nodeKey, entries, tr)
 		if err != nil {

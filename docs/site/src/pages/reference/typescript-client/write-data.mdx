@@ -114,32 +114,29 @@ To open the writer, we'll use the `openWriter` method on the client:
 import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 
 const writer = await client.openWriter({
-    start: TimeStamp.now(),
-    channels: ["time", "temperature"]
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
 });
 
 try {
-    for (let i = 0; i < 100; i++) {
-        const start = TimeStamp.now();
-        const timeSeries = BigInt64Array.from({ length: 10 }, (_, i) => (
-            start.add(TimeSpan.milliseconds(i)).valueOf()
-        ))
-        const dataSeries = Float32Array.from({ length: 10 }, (_, i) => (
-            Math.sin(i / 100)
-        ))
+  for (let i = 0; i < 100; i++) {
+    const start = TimeStamp.now();
+    const timeSeries = BigInt64Array.from({ length: 10 }, (_, i) =>
+      start.add(TimeSpan.milliseconds(i)).valueOf(),
+    );
+    const dataSeries = Float32Array.from({ length: 10 }, (_, i) => Math.sin(i / 100));
 
-        if (!await writer.write(new Frame({
-            [timeChannel.key]: new Series(timeSeries),
-            [temperatureChannel.key]: new Series(dataSeries)
-        }))) {
-            console.error("Failed to write");
-            break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    await writer.commit():
+    await writer.write(
+      new Frame({
+        [timeChannel.key]: new Series(timeSeries),
+        [temperatureChannel.key]: new Series(dataSeries),
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  await writer.commit();
 } finally {
-    await writer.close()
+  await writer.close();
 }
 ```
 
@@ -211,17 +208,10 @@ const writer = await client.openWriter({
 try {
   for (let i = 0; i < 100; i++) {
     const start = TimeStamp.now();
-    if (
-      !(await writer.write(
-        new Frame({
-          time: start,
-          temperature: Math.sin(i / 100),
-        }),
-      ))
-    ) {
-      console.error("Failed to write");
-      break;
-    }
+    await writer.write({
+      time: start,
+      temperature: Math.sin(i / 100),
+    });
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 } finally {
@@ -308,69 +298,6 @@ const writer = await client.openWriter({
 });
 ```
 
-### Error Handling
-
-The Synnax writer is optimized for performance, and as such, does not synchronously
-check for errors on every call to `write`. Instead, calls to `write` return a boolean
-indicating whether the writer has accumulated any errors on the current call or on any
-previous calls.
-
-Once a writer has accumulated an error, all future calls to `write` will fail until the
-writer is closed and a new writer is opened. When calls to `write` return `false`, you
-should check for the accumulated error by calling `writer.error()` or simply close the
-writer, at which point the error will be raised.
-
-#### Error Handling Example - Out of Order Timestamps
-
-Let's say we're writing a time series to a channel, but we accidentally write the
-timestamps out of order. This is a common mistake that can be hard to debug. Here's how
-we can use the writer to handle this:
-
-```typescript
-import { TimeStamp, TimeSpan, DataType } from "@synnaxlabs/client";
-
-const timeChannel = await client.channels.create({
-  name: "time",
-  dataType: DataType.TIMESTAMP,
-  isIndex: true,
-});
-
-const dataChannel = await client.channels.create({
-  name: "data",
-  dataType: DataType.FLOAT32,
-  index: timeChannel.key,
-});
-
-const writer = await client.openWriter({
-  start: TimeStamp.now(),
-  channels: [timeChannel.key, dataChannel.key],
-  enableAutoCommit: true,
-});
-
-try {
-  for (let i = 0; i < 100; i++) {
-    // This will cause an error because timestamps are decreasing
-    if (
-      !(await writer.write({
-        [timeChannel.key]: TimeStamp.now().subtract(TimeSpan.seconds(i)),
-        [dataChannel.key]: i,
-      }))
-    ) {
-      console.error("Write failed:", await writer.error());
-      break;
-    }
-  }
-} finally {
-  await writer.close();
-}
-```
-
-This will break out of the loop as soon as the writer encounters an out-of-order
-timestamp. The error can be retrieved using `writer.error()`, and the writer will be
-properly closed in the `finally` block.
-
-<Divider.Divider x />
-
 ## Common Pitfalls
 
 There are several common pitfalls to avoid when writing data to a Synnax cluster. These
@@ -386,13 +313,14 @@ creating, committing, and closing transactions has a dramatic impact on performa
 don't do this:
 
 ```typescript
-time = await client.channels.retrieve("timestamps")
-my_tc = await client.channels.retrieve("my_precise_tc")
-# This is a very bad idea
-for i in range(100):
-    ts = TimeStamp.now()
-    await time.write(ts, ts)
-    await my_tc.write(ts, i)
+const time = await client.channels.retrieve("timestamps");
+const my_tc = await client.channels.retrieve("my_precise_tc");
+// This is a very bad idea
+for (let i = 0; i < 100; i++) {
+  const ts = TimeStamp.now();
+  await time.write(ts, ts);
+  await my_tc.write(ts, i);
+}
 ```
 
 This is also a bad idea:
@@ -415,23 +343,20 @@ for (let i = 0; i < 100; i++) {
 Instead, repeatedly call `write` on a single writer:
 
 ```typescript
-# This is dramatically more efficient
+// This is dramatically more efficient
 const writer = await client.openWriter({
-    start: TimeStamp.now(),
-    channels: ["time", "temperature"],
-    enableAutoCommit: true
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  enableAutoCommit: true,
 });
 try {
-    for (let i = 0; i < 100; i++)
-        if (!await writer.write({
-            "time": TimeStamp.now(),
-            "temperature": Math.sin(i / 100)
-        })) {
-            console.error("Failed to write");
-            break;
-        }
+  for (let i = 0; i < 100; i++)
+    await writer.write({
+      time: TimeStamp.now(),
+      temperature: Math.sin(i / 100),
+    });
 } finally {
-    await writer.close();
+  await writer.close();
 }
 ```
 
@@ -453,15 +378,10 @@ const writer = await client.openWriter({
 });
 try {
   for (let i = 0; i < 100; i++) {
-    if (
-      !(await writer.write({
-        time: TimeStamp.now(),
-        temperature: Math.sin(i / 100),
-      }))
-    ) {
-      console.error("Failed to write");
-      break;
-    }
+    await writer.write({
+      time: TimeStamp.now(),
+      temperature: Math.sin(i / 100),
+    });
     await writer.commit();
   }
 } finally {
@@ -479,15 +399,10 @@ const writer = await client.openWriter({
 });
 try {
   for (let i = 0; i < 100; i++)
-    if (
-      !(await writer.write({
-        time: TimeStamp.now(),
-        temperature: Math.sin(i / 100),
-      }))
-    ) {
-      console.error("Failed to write");
-      break;
-    }
+    await writer.write({
+      time: TimeStamp.now(),
+      temperature: Math.sin(i / 100),
+    });
 } finally {
   await writer.close();
 }

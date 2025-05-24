@@ -11,29 +11,25 @@ package cmd
 
 import (
 	"context"
+	"log"
+	"time"
+
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/cmd/internal/invariants"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"log"
-	"time"
 )
 
-func configureInstrumentation(version string) (alamos.Instrumentation, *zap.Logger) {
+func configureInstrumentation() (alamos.Instrumentation, *zap.Logger) {
 	logger, err := configureLogger()
-	if err != nil {
-		log.Fatal(err)
-	}
-	tracer, err := configureTracer(version, logger)
 	if err != nil {
 		log.Fatal(err)
 	}
 	return alamos.New(
 		"sy",
 		alamos.WithLogger(logger),
-		alamos.WithTracer(tracer),
 	), newPrettyLogger()
 }
 
@@ -86,20 +82,4 @@ func newPrettyLogger() *zap.Logger {
 	cfg.DisableStacktrace = true
 	logger, _ := cfg.Build()
 	return logger
-}
-
-func configureTracer(version string, logger *alamos.Logger) (*alamos.Tracer, error) {
-	return nil, nil
-	//uptrace.ConfigureOpentelemetry(
-	//	uptrace.WithDSN("http://synnax_dev@localhost:14317/2"),
-	//	uptrace.WithServiceName("synnax"),
-	//	uptrace.WithServiceVersion(version),
-	//)
-	//otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
-	//	logger.Info("opentelemetry", alamos.DebugError(err))
-	//}))
-	//return alamos.NewTracer(alamos.TracingConfig{
-	//	OtelProvider:   otel.GetTracerProvider(),
-	//	OtelPropagator: otel.GetTextMapPropagator(),
-	//})
 }

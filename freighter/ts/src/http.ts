@@ -72,7 +72,6 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     const request: RequestInit = {};
     request.method = "POST";
     request.body = this.encoder.encode(req ?? {});
-
     const [, err] = await this.executeMiddleware(
       {
         target: url.toString(),
@@ -92,7 +91,11 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           httpRes = await f(ctx.target, request);
         } catch (err_) {
           let err = err_ as Error;
-          if (err.message === "Load failed") err = new Unreachable({ url });
+          if (
+            ("code" in err && err.code === "ECONNREFUSED") ||
+            err.message == "Load Failed"
+          )
+            err = new Unreachable({ url });
           return [outCtx, err];
         }
         const data = await httpRes.arrayBuffer();

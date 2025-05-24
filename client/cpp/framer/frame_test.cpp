@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <include/gtest/gtest.h>
+
+/// external
+#include "gtest/gtest.h"
+
+/// internal
 #include "client/cpp/framer/framer.h"
 
 /// @brief it should construct a frame with a pre-allocated size.

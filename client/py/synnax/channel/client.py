@@ -30,11 +30,9 @@ from synnax.framer.client import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.telem import (
     CrudeDataType,
-    CrudeRate,
     CrudeTimeStamp,
     DataType,
     MultiSeries,
-    Rate,
     Series,
     TimeRange,
 )
@@ -53,15 +51,11 @@ class Channel(ChannelPayload):
     ___frame_client: FrameClient | None = PrivateAttr(None)
     __client: ChannelClient | None = PrivateAttr(None)
 
-    class Config:
-        arbitrary_types_allowed = True
-
     def __init__(
         self,
         *,
         name: str,
         data_type: CrudeDataType,
-        rate: CrudeRate = 0,
         is_index: bool = False,
         index: ChannelKey = 0,
         leaseholder: int = 0,
@@ -79,9 +73,6 @@ class Channel(ChannelPayload):
 
         :param name: A name for the channel.
         :param data_type: The data type of the samples in the channel. For example, `"float32"`.
-        :param rate: Rate sets the rate at which the channels values are written. If this
-        parameter is non-zero, is_index must be false and index must be an empty string or
-        unspecified.
         :param is_index: Boolean indicating whether the channel is an index. Index
         channels should have a data type of synnax.TIMESTAMP.
         :param index: The key of the channel that indexes this channel.
@@ -107,7 +98,6 @@ class Channel(ChannelPayload):
             virtual = len(expression) > 0
         super().__init__(
             data_type=DataType(data_type),
-            rate=Rate(rate),
             name=name,
             leaseholder=leaseholder,
             key=key,
@@ -185,7 +175,6 @@ class Channel(ChannelPayload):
     def to_payload(self) -> ChannelPayload:
         return ChannelPayload(
             data_type=self.data_type,
-            rate=self.rate,
             name=self.name,
             leaseholder=self.leaseholder,
             key=self.key,
@@ -225,7 +214,6 @@ class ChannelClient:
         *,
         data_type: CrudeDataType = DataType.UNKNOWN,
         name: ChannelName = "",
-        rate: CrudeRate = Rate(0),
         index: ChannelKey = 0,
         is_index: bool = False,
         leaseholder: int = 0,
@@ -249,7 +237,6 @@ class ChannelClient:
         *,
         data_type: CrudeDataType = DataType.UNKNOWN,
         name: ChannelName = "",
-        rate: CrudeRate = Rate(0),
         is_index: bool = False,
         index: ChannelKey = 0,
         leaseholder: int = 0,
@@ -262,9 +249,6 @@ class ChannelClient:
 
         Overload 1:
         :param data_type: The data type of the samples in the channel. For example, `"float32"`.
-        :param rate: Rate sets the rate at which the channels values are written. If this
-        parameter is non-zero, is_index must be false and index must be an empty string or
-        unspecified.
         :param name: A name for the channel.
         :param is_index: Boolean indicating whether the channel is an index. Index
         channels should have a data type of synnax.TIMESTAMP.
@@ -306,7 +290,6 @@ class ChannelClient:
                 ChannelPayload(
                     name=name,
                     leaseholder=leaseholder,
-                    rate=Rate(rate),
                     data_type=DataType(data_type),
                     index=index,
                     is_index=is_index,

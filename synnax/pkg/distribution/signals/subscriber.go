@@ -11,6 +11,8 @@ package signals
 
 import (
 	"context"
+	"io"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/change"
@@ -23,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"io"
 )
 
 type ObservableSubscriberConfig struct {
@@ -68,12 +69,15 @@ func resolveChannelKey(
 	return ch.Key(), err
 }
 
-func decodeChanges(variant change.Variant, series []telem.Series) (changes []change.Change[[]byte, struct{}]) {
-	for _, s := range series {
-		for _, k := range s.Split() {
+func decodeChanges(
+	variant change.Variant,
+	series telem.MultiSeries,
+) (changes []change.Change[[]byte, struct{}]) {
+	for _, s := range series.Series {
+		for sample := range s.Samples() {
 			changes = append(changes, change.Change[[]byte, struct{}]{
 				Variant: variant,
-				Key:     k,
+				Key:     sample,
 			})
 		}
 	}
@@ -106,7 +110,7 @@ func (s *Provider) Subscribe(
 	}
 	streamer, err := s.Framer.NewStreamer(ctx, framer.StreamerConfig{
 		Keys:        keys,
-		SendOpenAck: true,
+		SendOpenAck: config.True(),
 	})
 	if err != nil {
 		return nil, nil, err
@@ -124,8 +128,8 @@ func (s *Provider) Subscribe(
 		return changes, len(changes) > 0, nil
 	})
 	p := plumber.New()
-	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](p, "streamer", streamer)
-	plumber.SetSink[framer.StreamerResponse](p, "observable", obs)
+	plumber.SetSegment(p, "streamer", streamer)
+	plumber.SetSink(p, "observable", obs)
 	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "observable", 10)
 	inlet := confluence.NewStream[framer.StreamerRequest]()
 	streamer.InFrom(inlet)

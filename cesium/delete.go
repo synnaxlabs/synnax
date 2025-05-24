@@ -16,34 +16,54 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 )
 
 type GCConfig struct {
-	// MaxGoroutine is the maximum number of GoRoutines that can be launched for
-	// each try of garbage collection.
-	MaxGoroutine int64
-
-	// GCTryInterval is the interval of time between two tries of garbage collection
-	// are started.
-	GCTryInterval time.Duration
-
-	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
-	// Must be in (0, 1].
-	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
-	// instead, set it to a very small number greater than 0.
+	// MaxGoroutine is the maximum number of Goroutines that can be launched for each
+	// try of garbage collection.
+	MaxGoroutine uint
+	// TryInterval is the interval of time between two tries of garbage collection are
+	// started.
+	TryInterval time.Duration
+	// Threshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// Must be in (0, 1]. Note: Setting this value to 0 will have NO EFFECT as it is the
+	// default value. instead, set it to a very small number greater than 0.
 	// [OPTIONAL] Default: 0.2
-	GCThreshold float32
+	Threshold float32
 }
 
-var DefaultGCConfig = GCConfig{
-	MaxGoroutine:  10,
-	GCTryInterval: 30 * time.Second,
-	GCThreshold:   0.2,
+var (
+	_               config.Config[GCConfig] = GCConfig{}
+	DefaultGCConfig                         = GCConfig{
+		MaxGoroutine: 10,
+		TryInterval:  30 * time.Second,
+		Threshold:    0.2,
+	}
+)
+
+// Override implements config.Config.
+func (cfg GCConfig) Override(other GCConfig) GCConfig {
+	cfg.TryInterval = override.Numeric(cfg.TryInterval, other.TryInterval)
+	cfg.Threshold = override.Numeric(cfg.Threshold, other.Threshold)
+	cfg.MaxGoroutine = override.Numeric(cfg.MaxGoroutine, other.MaxGoroutine)
+	return cfg
+}
+
+// Validate implements config.Config.
+func (cfg GCConfig) Validate() error {
+	v := validate.New("cesium.GCConfig")
+	validate.Positive(v, "gc_try_interval", cfg.TryInterval)
+	validate.Positive(v, "gc_threshold", cfg.Threshold)
+	validate.Positive(v, "max_goroutine", cfg.MaxGoroutine)
+	return v.Error()
 }
 
 func keyToDirName(ch ChannelKey) string {
@@ -51,17 +71,18 @@ func keyToDirName(ch ChannelKey) string {
 }
 
 // DeleteChannel deletes a channel by its key.
+//
 // This method returns an error if there are other channels depending on the current
 // channel, or if the current channel is being written to or read from.
+//
 // DeleteChannel is idempotent.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
 	// Rename the file first, so we can avoid hogging the mutex while deleting the
-	// directory, which may take a longer time.
-	// Rename the file to have a random suffix in case the channel is repeatedly created
-	// and deleted.
+	// directory, which may take a longer time. Rename the file to have a random suffix
+	// in case the channel is repeatedly created and deleted.
 	oldName := keyToDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 	if err := (func() error {
@@ -81,9 +102,8 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	return db.fs.Remove(newName)
 }
 
-// DeleteChannels deletes many channels by their keys.
-// This operation is not guaranteed to be atomic: it is possible some channels in chs
-// are deleted and some are not.
+// DeleteChannels deletes many channels by their keys. This operation is not guaranteed
+// to be atomic: it is possible some channels in chs are deleted and some are not.
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	if db.closed.Load() {
 		return errDBClosed
@@ -93,9 +113,9 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		directoriesToRemove = make([]string, 0, len(chs))
 	)
 	db.mu.Lock()
-	// This 'defer' statement does a best-effort removal of all renamed directories
-	// to ensure that all DBs deleted from db.mu.unaryDBs and db.mu.virtualDBs are also deleted
-	// on FS.
+	// This 'defer' statement does a best-effort removal of all renamed directories to
+	// ensure that all DBs deleted from db.mu.unaryDBs and db.mu.virtualDBs are also
+	// deleted on FS.
 	defer func() {
 		db.mu.Unlock()
 		c := errors.NewCatcher(errors.WithAggregation())
@@ -121,8 +141,8 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 			return
 		}
 
-		// Rename the files first, so we can avoid hogging the mutex while deleting
-		// the directory, which may take a longer time.
+		// Rename the files first, so we can avoid hogging the mutex while deleting the
+		// directory, which may take a longer time.
 		oldName := keyToDirName(ch)
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
@@ -153,37 +173,33 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	return
 }
 
-// removeChannel removes ch from db.mu.unaryDBs or db.mu.virtualDBs. If the key does not exist
-// or if there is an open entity on the specified database.
+// removeChannel removes ch from db.mu.unaryDBs or db.mu.virtualDBs. If the channel or
+// if there is an open resource on the specified database.
 func (db *DB) removeChannel(ch ChannelKey) error {
-	udb, uok := db.mu.unaryDBs[ch]
-	if uok {
-		if udb.Channel().IsIndex {
-			for otherDBKey := range db.mu.unaryDBs {
-				if otherDBKey == ch {
-					continue
-				}
-				otherDB := db.mu.unaryDBs[otherDBKey]
-				if otherDB.Channel().Index == udb.Channel().Key {
+	uDB, uOk := db.mu.unaryDBs[ch]
+	if uOk {
+		if uDB.Channel().IsIndex {
+			for otherDBKey, otherDB := range db.mu.unaryDBs {
+				if otherDBKey != ch && otherDB.Channel().Index == uDB.Channel().Key {
 					return errors.Newf(
 						"cannot delete channel %v "+
 							"because it indexes data in channel %v",
-						udb.Channel(),
+						uDB.Channel(),
 						otherDB.Channel(),
 					)
 				}
 			}
 		}
 
-		if err := udb.Close(); err != nil {
+		if err := uDB.Close(); err != nil {
 			return err
 		}
 		delete(db.mu.unaryDBs, ch)
 		return nil
 	}
-	vdb, vok := db.mu.virtualDBs[ch]
-	if vok {
-		if err := vdb.Close(); err != nil {
+	vDB, vOk := db.mu.virtualDBs[ch]
+	if vOk {
+		if err := vDB.Close(); err != nil {
 			return err
 		}
 		delete(db.mu.virtualDBs, ch)
@@ -195,9 +211,8 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 
 // DeleteTimeRange deletes a time range of data in the database in the given channels
 // This method return an error if the channel to be deleted is an index channel and
-// there are other channels depending on it in the time range.
-// DeleteTimeRange is idempotent, but when the channel does not exist, it returns
-// ErrChannelNotFound.
+// there are other channels depending on it in the time range. DeleteTimeRange is
+// idempotent, but when the channel does not exist, it returns ErrChannelNotFound.
 func (db *DB) DeleteTimeRange(
 	ctx context.Context,
 	chs []ChannelKey,
@@ -211,19 +226,18 @@ func (db *DB) DeleteTimeRange(
 	)
 
 	for _, ch := range chs {
-		udb, uok := db.mu.unaryDBs[ch]
-		if !uok {
-			if vdb, vok := db.mu.virtualDBs[ch]; vok {
-				return errors.Newf(
-					"cannot delete time range from virtual channel %v",
-					vdb.Channel(),
-				)
+		uDB, uOk := db.mu.unaryDBs[ch]
+		if !uOk {
+			// If the channel is virtual, delete is a no-op but we don't return an
+			// error.
+			if _, vOk := db.mu.virtualDBs[ch]; vOk {
+				continue
 			}
 			return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
 		}
 
 		// Cannot delete an index channel that other channels rely on.
-		if udb.Channel().IsIndex {
+		if uDB.Channel().IsIndex {
 			indexChannels = append(indexChannels, ch)
 			continue
 		}
@@ -265,36 +279,40 @@ func (db *DB) DeleteTimeRange(
 	return nil
 }
 
-func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
+func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 	_, span := db.T.Debug(ctx, "garbage_collect")
 	defer span.End()
 	db.mu.RLock()
 	var (
-		sem          = semaphore.NewWeighted(maxGoRoutine)
+		sem          = semaphore.NewWeighted(int64(maxGoRoutine))
 		sCtx, cancel = signal.WithCancel(ctx)
 	)
 	defer cancel()
-	for _, udb := range db.mu.unaryDBs {
+	for _, uDB := range db.mu.unaryDBs {
 		if err := sem.Acquire(ctx, 1); err != nil {
 			db.mu.RUnlock()
 			return err
 		}
-		udb := udb
+		uDB := uDB
 		sCtx.Go(func(_ctx context.Context) error {
 			defer sem.Release(1)
-			return udb.GarbageCollect(_ctx)
-		}, signal.RecoverWithErrOnPanic())
+			return uDB.GarbageCollect(_ctx)
+		}, signal.RecoverWithErrOnPanic(), signal.WithKeyf("garbage_collect_%v", uDB.Channel()))
 	}
 	db.mu.RUnlock()
 	return sCtx.Wait()
 }
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {
-	signal.GoTick(sCtx, opts.gcCfg.GCTryInterval, func(ctx context.Context, time time.Time) error {
+	signal.GoTick(sCtx, opts.gcCfg.TryInterval, func(ctx context.Context, time time.Time) error {
 		err := db.garbageCollect(ctx, opts.gcCfg.MaxGoroutine)
 		if err != nil {
 			db.L.Error("garbage collection error", zap.Error(err))
 		}
 		return nil
-	}, signal.WithRetryOnPanic(10), signal.RecoverWithoutErrOnPanic())
+	},
+		signal.WithRetryOnPanic(10),
+		signal.RecoverWithoutErrOnPanic(),
+		signal.WithKey("gc-ticker"),
+	)
 }

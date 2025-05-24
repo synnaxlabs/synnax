@@ -9,8 +9,8 @@
 
 package middleware
 
-// Middleware is an entity that be executed in a middleware chain. V represents the value
-// type pass through the chain.
+// Middleware is a function that can act on a request of type I, pass it on to the
+// next middleware, and process a response of type O.
 type Middleware[I, O any] interface {
 	// Exec executes the middleware. It receives a context and a request. It also receives
 	// a next function that can be used to execute the next middleware in the chain.

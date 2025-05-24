@@ -46,7 +46,6 @@ var _schema = &ontology.Schema{
 		"key":        {Type: schema.Uint32},
 		"name":       {Type: schema.String},
 		"node_key":   {Type: schema.Uint32},
-		"rate":       {Type: schema.Float64},
 		"is_index":   {Type: schema.Bool},
 		"index":      {Type: schema.String},
 		"data_type":  {Type: schema.String},
@@ -61,7 +60,6 @@ func newResource(c Channel) schema.Resource {
 	schema.Set(e, "key", uint32(c.Key()))
 	schema.Set(e, "name", c.Name)
 	schema.Set(e, "node_key", uint32(c.Leaseholder))
-	schema.Set(e, "rate", float64(c.Rate))
 	schema.Set(e, "is_index", c.IsIndex)
 	schema.Set(e, "index", c.Index().String())
 	schema.Set(e, "data_type", string(c.DataType))
