@@ -26,6 +26,7 @@ import { task } from "@/hardware/task";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
+import { slate } from "@/slate";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { workspace } from "@/workspace";
@@ -68,6 +69,7 @@ export default class Synnax extends framer.Client {
   readonly labels: label.Client;
   readonly hardware: hardware.Client;
   readonly control: control.Client;
+  readonly slates: slate.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -153,6 +155,7 @@ export default class Synnax extends framer.Client {
     );
     const racks = new rack.Client(this.transport.unary, tasks, this);
     this.hardware = new hardware.Client(tasks, racks, devices);
+    this.slates = new slate.Client(this.transport.unary);
   }
 
   get key(): string {

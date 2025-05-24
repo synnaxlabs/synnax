@@ -23,10 +23,10 @@ import (
 )
 
 type Node struct {
-	Key    string
-	Type   string
-	Data   map[string]interface{}
-	Schema *NodeSchema
+	Key    string                 `json:"key" msgpack:"key"`
+	Type   string                 `json:"type" msgpack:"type"`
+	Data   map[string]interface{} `json:"data" msgpack:"data"`
+	Schema *NodeSchema            `json:"schema" msgpack:"schema"`
 }
 
 func (n Node) String() string {
@@ -34,18 +34,18 @@ func (n Node) String() string {
 }
 
 type Handle struct {
-	Node string
-	Key  string
+	Node string `json:"node" msgpack:"node"`
+	Key  string `json:"key" msgpack:"key"`
 }
 
 type Edge struct {
-	Source Handle
-	Sink   Handle
+	Source Handle `json:"source" msgpack:"source"`
+	Sink   Handle `json:"sink" msgpack:"sink"`
 }
 
 type Graph struct {
-	Nodes []Node
-	Edges []Edge
+	Nodes []Node `json:"nodes" msgpack:"nodes"`
+	Edges []Edge `json:"edges" msgpack:"edges"`
 }
 
 type Input struct {

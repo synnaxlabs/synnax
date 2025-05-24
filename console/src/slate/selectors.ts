@@ -211,17 +211,6 @@ export const selectViewport = (state: StoreState, key: string): Diagram.Viewport
 export const useSelectViewport = (key: string): Diagram.Viewport =>
   useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
 
-export const selectControlStatus = (
-  state: StoreState,
-  layoutKey: string,
-): Control.Status => select(state, layoutKey).control;
-
-export const useSelectControlStatus = (layoutKey: string): Control.Status =>
-  useMemoSelect(
-    (state: StoreState) => selectControlStatus(state, layoutKey),
-    [layoutKey],
-  );
-
 export const selectHasPermission = (state: Permissions.StoreState): boolean =>
   Permissions.selectCanUseType(state, slate.ONTOLOGY_TYPE);
 
@@ -233,15 +222,3 @@ export const selectVersion = (state: StoreState, key: string): string | undefine
 
 export const useSelectVersion = (key: string): string | undefined =>
   useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);
-
-export const selectIsSnapshot = (state: StoreState, key: string): boolean =>
-  select(state, key).snapshot;
-
-export const useSelectIsSnapshot = (key: string): boolean =>
-  useMemoSelect((state: StoreState) => selectIsSnapshot(state, key), [key]);
-
-export const selectAuthority = (state: StoreState, key: string): number =>
-  select(state, key).authority;
-
-export const useSelectAuthority = (key: string): number =>
-  useMemoSelect((state: StoreState) => selectAuthority(state, key), [key]);

@@ -153,15 +153,13 @@ type Transport struct {
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
 	// EFFECT
-	EffectCreate            freighter.UnaryServer[EffectCreateRequest, EffectCreateResponse]
-	EffectDelete            freighter.UnaryServer[EffectDeleteRequest, types.Nil]
-	EffectRetrieve          freighter.UnaryServer[EffectRetrieveRequest, EffectRetrieveResponse]
-	EffectActionCreate      freighter.UnaryServer[ActionCreateRequest, ActionCreateResponse]
-	EffectActionDelete      freighter.UnaryServer[ActionDeleteRequest, types.Nil]
-	EffectActionRetrieve    freighter.UnaryServer[ActionRetrieveRequest, ActionRetrieveResponse]
-	EffectConditionCreate   freighter.UnaryServer[ConditionCreateRequest, ConditionCreateResponse]
-	EffectConditionDelete   freighter.UnaryServer[ConditionDeleteRequest, types.Nil]
-	EffectConditionRetrieve freighter.UnaryServer[ConditionRetrieveRequest, ConditionRetrieveResponse]
+	EffectCreate   freighter.UnaryServer[EffectCreateRequest, EffectCreateResponse]
+	EffectDelete   freighter.UnaryServer[EffectDeleteRequest, types.Nil]
+	EffectRetrieve freighter.UnaryServer[EffectRetrieveRequest, EffectRetrieveResponse]
+	// SLATE
+	SlateCreate   freighter.UnaryServer[SlateCreateRequest, SlateCreateResponse]
+	SlateDelete   freighter.UnaryServer[SlateDeleteRequest, types.Nil]
+	SlateRetrieve freighter.UnaryServer[SlateRetrieveRequest, SlateRetrieveResponse]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
@@ -185,6 +183,7 @@ type Layer struct {
 	Hardware     *HardwareService
 	Access       *AccessService
 	Effect       *EffectService
+	Slate        *SlateService
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
@@ -319,12 +318,11 @@ func (a *Layer) BindTo(t Transport) {
 		t.EffectCreate,
 		t.EffectDelete,
 		t.EffectRetrieve,
-		t.EffectActionCreate,
-		t.EffectActionDelete,
-		t.EffectActionRetrieve,
-		t.EffectConditionCreate,
-		t.EffectConditionDelete,
-		t.EffectConditionRetrieve,
+
+		// SLATE
+		t.SlateCreate,
+		t.SlateDelete,
+		t.SlateRetrieve,
 	)
 
 	// AUTH
@@ -440,12 +438,11 @@ func (a *Layer) BindTo(t Transport) {
 	t.EffectCreate.BindHandler(a.Effect.CreateEffect)
 	t.EffectDelete.BindHandler(a.Effect.DeleteEffect)
 	t.EffectRetrieve.BindHandler(a.Effect.RetrieveEffect)
-	t.EffectActionCreate.BindHandler(a.Effect.CreateAction)
-	t.EffectActionDelete.BindHandler(a.Effect.DeleteAction)
-	t.EffectActionRetrieve.BindHandler(a.Effect.RetrieveAction)
-	t.EffectConditionCreate.BindHandler(a.Effect.CreateCondition)
-	t.EffectConditionDelete.BindHandler(a.Effect.DeleteCondition)
-	t.EffectConditionRetrieve.BindHandler(a.Effect.RetrieveCondition)
+
+	// SLATE
+	t.SlateCreate.BindHandler(a.Slate.Create)
+	t.SlateDelete.BindHandler(a.Slate.Delete)
+	t.SlateRetrieve.BindHandler(a.Slate.Retrieve)
 }
 
 // New instantiates the server API layer using the provided Config. This should only be called
@@ -472,5 +469,6 @@ func New(configs ...Config) (*Layer, error) {
 	api.Log = NewLogService(api.provider)
 	api.Table = NewTableService(api.provider)
 	api.Effect = NewEffectService(api.provider)
+	api.Slate = NewSlateService(api.provider)
 	return api, nil
 }

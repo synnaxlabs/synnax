@@ -16,29 +16,18 @@ import { slate } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
-  Button,
-  Control,
   Diagram,
   Haul,
-  type Legend,
   Menu as PMenu,
   Slate as Core,
-  Text,
   Theming,
   Triggers,
   usePrevious,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, location, xy } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { box, deep, id, xy } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
 import { v4 as uuid } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
@@ -62,16 +51,13 @@ import {
   internalCreate,
   pasteSelection,
   selectAll,
-  setControlStatus,
   setEdges,
   setEditable,
   setElementProps,
   setFitViewOnResize,
-  setLegend,
   setNodes,
   setViewport,
   type State,
-  toggleControl,
   ZERO_STATE,
 } from "@/slate/slice";
 import { type RootState } from "@/store";
@@ -226,18 +212,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, dispatch],
   );
 
-  const handleControlStatusChange = useCallback(
-    (control: Control.Status) =>
-      dispatch(setControlStatus({ key: layoutKey, control })),
-    [layoutKey, dispatch],
-  );
-
-  const acquireControl = useCallback(
-    (v: boolean) =>
-      dispatch(toggleControl({ key: layoutKey, status: v ? "acquired" : "released" })),
-    [layoutKey, dispatch],
-  );
-
   const elRenderer = useCallback(
     (props: Diagram.SymbolProps) => (
       <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
@@ -332,27 +306,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     );
   }, [windowKey, slate.editable, dispatch]);
 
-  const [legendPosition, setLegendPosition] = useState<Legend.StickyXY>(
-    slate.legend.position,
-  );
-
-  const storeLegendPosition = useCallback(
-    (position: Legend.StickyXY) =>
-      dispatch(setLegend({ key: layoutKey, legend: { position } })),
-    [layoutKey, dispatch],
-  );
-
-  const handleLegendPositionChange = useCallback(
-    (position: Legend.StickyXY) => {
-      setLegendPosition(position);
-      storeLegendPosition(position);
-    },
-    [storeLegendPosition, setLegendPosition],
-  );
-
-  const canEditslate = useSelectHasPermission() && !slate.snapshot;
-
-  console.log(slate);
+  const canEditSlate = useSelectHasPermission();
 
   return (
     <div
@@ -360,64 +314,32 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       onDoubleClick={handleDoubleClick}
       style={{ width: "inherit", height: "inherit", position: "relative" }}
     >
-      <Control.Controller
-        name={name}
-        authority={slate.authority}
-        acquireTrigger={slate.controlAcquireTrigger}
-        onStatusChange={handleControlStatusChange}
+      <Diagram.Diagram
+        onViewportChange={handleViewportChange}
+        edges={slate.edges}
+        nodes={slate.nodes}
+        // Turns out that setting the zoom value to 1 here doesn't have any negative
+        // effects on the slate sizing and ensures that we position all the lines
+        // in the correct place.
+        viewport={{ ...slate.viewport, zoom: 1 }}
+        onEdgesChange={handleEdgesChange}
+        onNodesChange={handleNodesChange}
+        onEditableChange={handleEditableChange}
+        editable={slate.editable}
+        triggers={triggers}
+        onDoubleClick={handleDoubleClick}
+        fitViewOnResize={slate.fitViewOnResize}
+        setFitViewOnResize={handleSetFitViewOnResize}
+        visible={visible}
+        {...dropProps}
       >
-        <Diagram.Diagram
-          onViewportChange={handleViewportChange}
-          edges={slate.edges}
-          nodes={slate.nodes}
-          // Turns out that setting the zoom value to 1 here doesn't have any negative
-          // effects on the slate sizing and ensures that we position all the lines
-          // in the correct place.
-          viewport={{ ...slate.viewport, zoom: 1 }}
-          onEdgesChange={handleEdgesChange}
-          onNodesChange={handleNodesChange}
-          onEditableChange={handleEditableChange}
-          editable={slate.editable}
-          triggers={triggers}
-          onDoubleClick={handleDoubleClick}
-          fitViewOnResize={slate.fitViewOnResize}
-          setFitViewOnResize={handleSetFitViewOnResize}
-          visible={visible}
-          {...dropProps}
-        >
-          <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
-          <Diagram.Background />
-          <Diagram.Controls>
-            {canEditslate && (
-              <Diagram.ToggleEditControl disabled={slate.control === "acquired"} />
-            )}
-            <Diagram.FitViewControl />
-            {!slate.snapshot && (
-              <Button.ToggleIcon
-                value={slate.control === "acquired"}
-                onChange={acquireControl}
-                tooltipLocation={location.BOTTOM_LEFT}
-                variant="outlined"
-                size="small"
-                tooltip={
-                  <Text.Text level="small">
-                    {slate.control === "acquired"
-                      ? "Release control"
-                      : "Acquire control"}
-                  </Text.Text>
-                }
-              >
-                <Icon.Circle />
-              </Button.ToggleIcon>
-            )}
-          </Diagram.Controls>
-        </Diagram.Diagram>
-        <Control.Legend
-          position={legendPosition}
-          onPositionChange={handleLegendPositionChange}
-          allowVisibleChange={false}
-        />
-      </Control.Controller>
+        <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
+        <Diagram.Background />
+        <Diagram.Controls>
+          {canEditSlate && <Diagram.ToggleEditControl />}
+          <Diagram.FitViewControl />
+        </Diagram.Controls>
+      </Diagram.Diagram>
     </div>
   );
 };
@@ -429,8 +351,8 @@ export const Slate: Layout.Renderer = ({ layoutKey, ...rest }) => {
     layoutKey,
     useSelectVersion,
     fetcher: async (client, layoutKey) => {
-      const { key, data } = await client.workspaces.slate.retrieve(layoutKey);
-      return { key, ...data } as State;
+      const { key, graph } = await client.slates.retrieve(layoutKey);
+      return { key, graph } as State;
     },
     actionCreator: internalCreate,
   });

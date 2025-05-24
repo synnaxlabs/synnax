@@ -12,26 +12,39 @@ import { z } from "zod";
 
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
-export const keyZ = z.string().uuid();
+export const nodeZ = z.object({
+  key: z.string(),
+  type: z.string(),
+  data: unknownRecordZ.or(z.string().transform(parseWithoutKeyConversion)),
+});
+
+export const handleZ = z.object({
+  key: z.string(),
+  node: z.string(),
+});
+
+export const edgeZ = z.object({
+  source: handleZ,
+  sink: handleZ,
+});
+
+export const graphZ = z.object({
+  nodes: nodeZ.array(),
+  edges: edgeZ.array(),
+});
+
+export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
 
 export const slateZ = z.object({
   key: keyZ,
-  name: z.string(),
-  data: unknownRecordZ.or(z.string().transform(parseWithoutKeyConversion)),
-  snapshot: z.boolean(),
+  graph: graphZ,
 });
 export interface Slate extends z.infer<typeof slateZ> {}
 
-export const newZ = slateZ
-  .partial({ key: true, snapshot: true })
-  .transform((p) => ({ ...p, data: JSON.stringify(p.data) }));
+export const newZ = slateZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
-
-export const remoteZ = slateZ.extend({
-  data: z.string().transform(parseWithoutKeyConversion),
-});
 
 export const ONTOLOGY_TYPE = "slate";
 export type OntologyType = typeof ONTOLOGY_TYPE;

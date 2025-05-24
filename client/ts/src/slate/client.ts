@@ -8,12 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray, type UnknownRecord } from "@synnaxlabs/x";
+import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
-import { nullableArrayZ } from "@/util/zod";
-import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 import {
   type Key,
   keyZ,
@@ -21,28 +19,21 @@ import {
   newZ,
   ONTOLOGY_TYPE,
   type Params,
-  remoteZ,
   type Slate,
   slateZ,
-} from "@/workspace/slate/payload";
+} from "@/slate/payload";
+import { nullableArrayZ } from "@/util/zod";
 
 const RETRIEVE_ENDPOINT = "/workspace/slate/retrieve";
 const CREATE_ENDPOINT = "/workspace/slate/create";
-const RENAME_ENDPOINT = "/workspace/slate/rename";
-const SET_DATA_ENDPOINT = "/workspace/slate/set-data";
 const DELETE_ENDPOINT = "/workspace/slate/delete";
-const COPY_ENDPOINT = "/workspace/slate/copy";
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
-const createReqZ = z.object({ workspace: workspaceKeyZ, slates: newZ.array() });
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
-const setDataReqZ = z.object({ key: keyZ, data: z.string() });
+const createReqZ = z.object({ slates: newZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
 
-const retrieveResZ = z.object({ slates: nullableArrayZ(remoteZ) });
-const createResZ = z.object({ slates: remoteZ.array() });
-const copyResZ = z.object({ slate: slateZ });
+const retrieveResZ = z.object({ slates: nullableArrayZ(slateZ) });
+const createResZ = z.object({ slates: slateZ.array() });
 const emptyResZ = z.object({});
 
 export class Client {
@@ -52,41 +43,18 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: WorkspaceKey, slate: New): Promise<Slate>;
-  async create(workspace: WorkspaceKey, slates: New[]): Promise<Slate[]>;
-  async create(
-    workspace: WorkspaceKey,
-    slates: New | New[],
-  ): Promise<Slate | Slate[]> {
+  async create(slate: New): Promise<Slate>;
+  async create(slates: New[]): Promise<Slate[]>;
+  async create(slates: New | New[]): Promise<Slate | Slate[]> {
     const isMany = Array.isArray(slates);
     const res = await sendRequired(
       this.client,
       CREATE_ENDPOINT,
-      { workspace, slates: toArray(slates) },
+      { slates: toArray(slates) },
       createReqZ,
       createResZ,
     );
     return isMany ? res.slates : res.slates[0];
-  }
-
-  async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
-      RENAME_ENDPOINT,
-      { key, name },
-      renameReqZ,
-      emptyResZ,
-    );
-  }
-
-  async setData(key: Key, data: UnknownRecord): Promise<void> {
-    await sendRequired(
-      this.client,
-      SET_DATA_ENDPOINT,
-      { key, data: JSON.stringify(data) },
-      setDataReqZ,
-      emptyResZ,
-    );
   }
 
   async retrieve(key: Key): Promise<Slate>;
@@ -113,17 +81,6 @@ export class Client {
       deleteReqZ,
       emptyResZ,
     );
-  }
-
-  async copy(key: Key, name: string, snapshot: boolean): Promise<Slate> {
-    const res = await sendRequired(
-      this.client,
-      COPY_ENDPOINT,
-      { key, name, snapshot },
-      copyReqZ,
-      copyResZ,
-    );
-    return res.slate;
   }
 }
 

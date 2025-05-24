@@ -7,28 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Control, control, Diagram, Viewport } from "@synnaxlabs/pluto";
-import { color, type migrate, xy } from "@synnaxlabs/x";
+import { Diagram, Viewport } from "@synnaxlabs/pluto";
+import { type migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
 export type Version = typeof VERSION;
+export const TYPE = "slate";
+export type Type = typeof TYPE;
 
 export type NodeProps = object & {
   key: string;
-  color?: color.Crude;
-  label?: { label?: string };
 };
 
-export const nodePropsZ = z
-  .object({})
-  .and(z.object({ key: z.string(), color: color.crudeZ.optional() }).passthrough());
+export const nodePropsZ = z.object({}).and(z.object({ key: z.string() }).loose());
 
 export const stateZ = z.object({
+  key: z.string(),
+  type: z.literal(TYPE),
   version: z.literal(VERSION),
   editable: z.boolean(),
   fitViewOnResize: z.boolean(),
-  snapshot: z.boolean(),
   remoteCreated: z.boolean(),
   viewport: Diagram.viewportZ,
   nodes: z
@@ -40,21 +39,17 @@ export const stateZ = z.object({
     .transform((edges) => edges.filter((edge) => Diagram.edgeZ.safeParse(edge).success))
     .pipe(z.array(Diagram.edgeZ)),
   props: z.record(z.string(), nodePropsZ),
-  control: control.statusZ,
-  controlAcquireTrigger: z.number(),
 });
 
 export interface State extends migrate.Migratable<Version> {
+  key: string;
   editable: boolean;
   fitViewOnResize: boolean;
-  snapshot: boolean;
   remoteCreated: boolean;
   viewport: Diagram.Viewport;
   nodes: Diagram.Node[];
   edges: Diagram.Edge[];
   props: Record<string, NodeProps>;
-  control: Control.Status;
-  controlAcquireTrigger: number;
 }
 
 export const copyBufferZ = z.object({
@@ -98,16 +93,14 @@ export interface SliceState extends migrate.Migratable<Version> {
 }
 
 export const ZERO_STATE: State = {
+  key: "",
   version: VERSION,
-  snapshot: false,
   nodes: [],
   edges: [],
   props: {},
   remoteCreated: false,
   viewport: { position: xy.ZERO, zoom: 1 },
   editable: true,
-  control: "released",
-  controlAcquireTrigger: 0,
   fitViewOnResize: false,
 };
 
