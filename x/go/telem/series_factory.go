@@ -95,8 +95,11 @@ func MarshalStrings(data []string, dt DataType) []byte {
 
 // UnmarshalStrings converts a byte slice back into a slice of strings. It assumes
 // strings are separated by newline characters.
-func UnmarshalStrings(b []byte) (data []string) {
-	offset := 0
+func UnmarshalStrings(b []byte) []string {
+	var (
+		offset = 0
+		data   []string
+	)
 	for offset < len(b) {
 		end := offset
 		for b[end] != newLine {

@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package slices_test
 
 import (
@@ -74,6 +83,22 @@ var _ = Describe("Slices", func() {
 			first, last := slices.Truncate(slice, 10)
 			Expect(first).To(Equal([]int{1, 2, 3}))
 			Expect(last).To(BeNil())
+		})
+	})
+
+	Describe("ConvertNegativeIndex", func() {
+		It("Should correctly convert a negative to a positive index", func() {
+			Expect(slices.ConvertNegativeIndex(-1, 10)).To(Equal(9))
+		})
+
+		It("Should pass through a positive index", func() {
+			Expect(slices.ConvertNegativeIndex(5, 10)).To(Equal(5))
+		})
+
+		It("Should panic if the negative index is out of bounds", func() {
+			Expect(func() {
+				slices.ConvertNegativeIndex(-11, 10)
+			}).To(PanicWith("index out of range [-11] with length 10"))
 		})
 	})
 })

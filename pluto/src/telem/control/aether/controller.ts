@@ -207,7 +207,7 @@ export class Controller
     void this.updateNeedsControlOf();
   }
 
-  /** @implements telem.Factory to create telemetry that is bound to this control. */
+  /** @implements telem.Factory to create telemetry that is bound to this controller. */
   create<T>(spec: telem.Spec): T | null {
     const f = (): T | null => {
       switch (spec.type) {

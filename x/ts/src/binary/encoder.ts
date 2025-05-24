@@ -155,7 +155,9 @@ export class TextCodec implements Codec {
   contentType = "text/plain";
 
   encode(payload: unknown): Uint8Array {
-    return new TextEncoder().encode(payload as string);
+    if (typeof payload !== "string")
+      throw new Error("TextCodec.encode payload must be a string");
+    return new TextEncoder().encode(payload);
   }
 
   decode<P extends z.ZodTypeAny>(

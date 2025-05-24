@@ -68,8 +68,8 @@ var _ = Describe("Migrate", func() {
 			})
 
 			migrations = migrate.Migrations{
-				0: migrateV0toV1,
 				1: migrateV1toV2,
+				0: migrateV0toV1,
 			}
 
 			defaultV2 = ResourceV2{

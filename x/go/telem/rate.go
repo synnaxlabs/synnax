@@ -31,7 +31,7 @@ func (dr Rate) SizeSpan(size Size, Density Density) TimeSpan {
 const (
 	// Hz is a data rate of 1 Hz.
 	Hz Rate = 1
-	// KHz is a data rate of 1000 Hz.
+	// KHz is a data rate of 1,000 Hz.
 	KHz = 1000 * Hz
 	// MHz is a data rate of 1,000,000 Hz
 	MHz = 1000 * KHz

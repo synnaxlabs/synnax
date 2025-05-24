@@ -15,17 +15,17 @@ import "strconv"
 type Size int64
 
 // String implements fmt.Stringer.
-func (s Size) String() string { return strconv.Itoa(int(s)) + "B" }
+func (s Size) String() string { return strconv.Itoa(int(s)) + " B" }
 
 const (
 	// ByteSize is a single byte.
 	ByteSize = Size(1)
-	// Kilobyte is 1024 bytes.
-	Kilobyte = 1024 * ByteSize
-	// Megabyte is 1024 kilobytes.
-	Megabyte = 1024 * Kilobyte
-	// Gigabyte is 1024 megabytes.
-	Gigabyte = 1024 * Megabyte
+	// Kilobyte is 1000 bytes.
+	Kilobyte = 1000 * ByteSize
+	// Megabyte is 1000 kilobytes.
+	Megabyte = 1000 * Kilobyte
+	// Gigabyte is 1000 megabytes.
+	Gigabyte = 1000 * Megabyte
 )
 
 // Offset is a number of bytes to offset.
