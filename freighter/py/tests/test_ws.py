@@ -16,12 +16,13 @@ import freighter.exceptions
 from freighter.codec import Codec, JSONCodec, MsgPackCodec
 from freighter.context import Context
 from freighter.http import HTTPClient
-from freighter.transport import AsyncNext, Next, Payload
+from freighter.transport import AsyncNext, Next, Payload, P
 from freighter.url import URL
 from freighter.websocket import (
     AsyncWebsocketClient,
     ConnectionClosedError,
     WebsocketClient,
+    Message as WebsocketMessage,
 )
 
 from .interface import Error, Message
@@ -36,10 +37,11 @@ class MyVerySpecialCustomCodec(Codec):
         return "application/json"
 
     def encode(self, data: Payload) -> bytes:
-        data.payload = Message(id=4200, message="the key to the universe")
+        if isinstance(data, WebsocketMessage):
+            data.payload = Message(id=4200, message="the key to the universe")
         return self.base.encode(data)
 
-    def decode(self, data: bytes, pld_t: type[Payload]) -> Payload:
+    def decode(self, data: bytes, pld_t: type[P]) -> P:
         return self.base.decode(data, pld_t)
 
 

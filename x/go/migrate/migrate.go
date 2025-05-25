@@ -69,6 +69,17 @@ func CreateMigration[I, O Migratable](cfg MigrationConfig[I, O]) Migration[Migra
 // Migrations is a map of version strings to migration functions
 type Migrations map[version.Counter]Migration[Migratable, Migratable]
 
+// LatestVersion returns the most recent (highest) version in the migrations.
+func (m Migrations) LatestVersion() version.Counter {
+	var latestV version.Counter
+	for v := range m {
+		if v.NewerThan(latestV) {
+			latestV = v
+		}
+	}
+	return latestV
+}
+
 // MigratorConfig holds the configuration for creating a migrator
 type MigratorConfig[I, O Migratable] struct {
 	alamos.Instrumentation
@@ -79,13 +90,6 @@ type MigratorConfig[I, O Migratable] struct {
 
 // NewMigrator creates a function that can migrate data from one version to another
 func NewMigrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
-	var latestV version.Counter = 0
-	for v := range cfg.Migrations {
-		if v.NewerThan(latestV) {
-			latestV = v
-		}
-	}
-
 	if len(cfg.Migrations) == 0 {
 		return func(v I) O {
 			if v.GetVersion() != cfg.Default.GetVersion() {
@@ -99,12 +103,13 @@ func NewMigrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
 		}
 	}
 
-	var applied bool
-
-	var migrate func(Migratable) (O, error)
+	var (
+		applied bool
+		migrate func(Migratable) (O, error)
+		latestV = cfg.Migrations.LatestVersion()
+	)
 	migrate = func(old Migratable) (O, error) {
 		v := old.GetVersion()
-
 		if old.GetVersion().NewerThan(latestV) {
 			if applied {
 				cfg.L.Info("migration complete",

@@ -108,7 +108,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
-						FileSize:        telem.Size(10*telem.TimeStampT.Density()) * telem.ByteSize,
+						FileSize:        telem.Size(10*telem.TimeStampT.Density()) * telem.Byte,
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
@@ -121,7 +121,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							DataType: telem.Int64T,
 							Index:    index,
 						},
-						FileSize:        telem.Size(5*telem.Int64T.Density()) * telem.ByteSize,
+						FileSize:        telem.Size(5*telem.Int64T.Density()) * telem.Byte,
 						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
