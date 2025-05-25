@@ -141,7 +141,7 @@ type Writer struct {
 	// control stores the gate held by the writer in the controller of the unaryDB.
 	control *control.Gate[*controlledWriter]
 	// idx stores the index of the unaryDB (rate or domain).
-	idx index.Index
+	idx *index.Domain
 	// highWaterMark is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written. Only
 	// valid when Channel.IsIndex is true.

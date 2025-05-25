@@ -244,7 +244,7 @@ var _ = Describe("Series", func() {
 		It("Should make a series with the specified length", func() {
 			s := telem.MakeSeries(telem.Int64T, 20)
 			Expect(s.Len()).To(Equal(int64(20)))
-			Expect(s.Size()).To(Equal(telem.ByteSize * 20 * 8))
+			Expect(s.Size()).To(Equal(telem.Byte * 20 * 8))
 		})
 	})
 

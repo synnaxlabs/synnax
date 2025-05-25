@@ -431,16 +431,19 @@ func (f Frame[K]) Empty() bool {
 }
 
 // Len returns the largest total number of samples in all series for a particular key.
-func (f Frame[K]) Len() (len int64) {
-	lengths := make(map[K]int64)
+func (f Frame[K]) Len() int64 {
+	var (
+		length  int64
+		lengths = make(map[K]int64)
+	)
 	for k, s := range f.Entries() {
 		v := lengths[k] + s.Len()
 		lengths[k] = v
-		if v > len {
-			len = v
+		if v > length {
+			length = v
 		}
 	}
-	return len
+	return length
 }
 
 // Count returns the number of keys/series in the frame.

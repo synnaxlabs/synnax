@@ -119,7 +119,11 @@ type JSONCodec struct {
 }
 
 // Encode implements the Encoder interface.
-func (j *JSONCodec) Encode(_ context.Context, value any) (b []byte, err error) {
+func (j *JSONCodec) Encode(_ context.Context, value any) ([]byte, error) {
+	var (
+		b   []byte
+		err error
+	)
 	if j.Pretty {
 		b, err = json.MarshalIndent(value, "", "  ")
 	} else {
@@ -275,30 +279,30 @@ func (enc *TracingCodec) EncodeStream(ctx context.Context, w io.Writer, value an
 
 // UnmarshalJSONStringInt64 attempts to unmarshal an int64 directly. If that fails,
 // it attempts to convert a string to an int64.
-func UnmarshalJSONStringInt64(b []byte) (n int64, err error) {
-	if err = json.Unmarshal(b, &n); err == nil {
+func UnmarshalJSONStringInt64(b []byte) (int64, error) {
+	var n int64
+	if err := json.Unmarshal(b, &n); err == nil {
 		return n, nil
 	}
 	var str string
-	if err = json.Unmarshal(b, &str); err != nil {
+	if err := json.Unmarshal(b, &str); err != nil {
 		return n, err
 	}
-	n, err = strconv.ParseInt(str, 10, 64)
-	return n, err
+	return strconv.ParseInt(str, 10, 64)
 }
 
 // UnmarshalJSONStringUint64 attempts to unmarshal the uint64 directly. If that fails,
 // it attempts to convert a string to a uint64.
-func UnmarshalJSONStringUint64(b []byte) (n uint64, err error) {
-	if err = json.Unmarshal(b, &n); err == nil {
+func UnmarshalJSONStringUint64(b []byte) (uint64, error) {
+	var n uint64
+	if err := json.Unmarshal(b, &n); err == nil {
 		return n, nil
 	}
 	var str string
-	if err = json.Unmarshal(b, &str); err != nil {
+	if err := json.Unmarshal(b, &str); err != nil {
 		return n, err
 	}
-	n, err = strconv.ParseUint(str, 10, 64)
-	return n, err
+	return strconv.ParseUint(str, 10, 64)
 }
 
 // MarshalStringInt64 marshals the int64 value to a UTF-8 string.
@@ -359,7 +363,7 @@ func (f *decodeFallbackCodec) DecodeStream(
 		return err
 	}
 	for _, c := range f.Codecs {
-		if err := c.DecodeStream(ctx, bytes.NewReader(data), value); err == nil {
+		if err = c.DecodeStream(ctx, bytes.NewReader(data), value); err == nil {
 			return err
 		}
 	}

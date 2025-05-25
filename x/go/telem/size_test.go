@@ -9,9 +9,63 @@ import (
 
 var _ = Describe("Size", func() {
 	Describe("String", func() {
-		It("Should return the correct string", func() {
+		It("Should format zero size correctly", func() {
 			s := telem.Size(0)
-			Expect(s.String()).To(Equal("0B"))
+			Expect(s.String()).To(Equal("0 B"))
+		})
+
+		It("Should format bytes correctly", func() {
+			s := telem.Size(42)
+			Expect(s.String()).To(Equal("42 B"))
+		})
+
+		It("Should format kilobytes correctly", func() {
+			s := telem.Kilobyte + 24*telem.Byte
+			Expect(s.String()).To(Equal("1.024 kB"))
+		})
+
+		It("Should format megabytes correctly", func() {
+			s := telem.Megabyte + 24*telem.Byte
+			Expect(s.String()).To(Equal("1.000024 MB"))
+		})
+
+		It("Should format gigabytes correctly", func() {
+			s := telem.Gigabyte + 24*telem.Megabyte
+			Expect(s.String()).To(Equal("1.024 GB"))
+		})
+
+		It("Should format terabytes correctly", func() {
+			s := telem.Terabyte + 24*telem.Gigabyte
+			Expect(s.String()).To(Equal("1.024 TB"))
+		})
+
+		It("Should format mixed sizes correctly", func() {
+			s := telem.Gigabyte + telem.Megabyte + telem.Kilobyte + 42*telem.Byte
+			Expect(s.String()).To(Equal("1.001001042 GB"))
+		})
+
+		It("Should format large sizes correctly", func() {
+			s := telem.Terabyte + telem.Gigabyte + telem.Megabyte + telem.Kilobyte
+			Expect(s.String()).To(Equal("1.001001001 TB"))
+		})
+	})
+
+	Describe("IsZero", func() {
+		It("Should return true for zero size", func() {
+			s := telem.Size(0)
+			Expect(s.IsZero()).To(BeTrue())
+		})
+
+		It("Should return false for non-zero size", func() {
+			s := telem.Size(42)
+			Expect(s.IsZero()).To(BeFalse())
+		})
+	})
+
+	Describe("Truncate", func() {
+		It("Should truncate to the nearest multiple", func() {
+			s := telem.Size(1024 + 512)
+			Expect(s.Truncate(telem.Kilobyte)).To(Equal(telem.Size(1000)))
 		})
 	})
 })

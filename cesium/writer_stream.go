@@ -320,7 +320,7 @@ type idxWriter struct {
 	numWriteCalls int
 	idx           struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
-		index.Index
+		*index.Domain
 		// Key is the channel key of the index.
 		ch core.Channel
 		// highWaterMark is the highest timestamp written to the index. This watermark
