@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { isStringer, type Primitive } from "@/primitive";
+import { isStringer, type Value } from "@/primitive/primitive";
 import { type spatial } from "@/spatial";
 import { unique } from "@/unique";
 
@@ -75,7 +75,7 @@ export const newFieldF = <T>(
  * @returns The array with the greater length if the array lengths are not equal. If the
  * arrays are the same length, returns 0 if all elements are equal, otherwise returns -1.
  */
-export const primitiveArrays = <T extends Primitive>(
+export const primitiveArrays = <T extends Value>(
   a: readonly T[] | T[],
   b: readonly T[] | T[],
 ): number => {
@@ -83,7 +83,7 @@ export const primitiveArrays = <T extends Primitive>(
   return a.every((v, i) => v === b[i]) ? 0 : -1;
 };
 
-export const unorderedPrimitiveArrays = <T extends Primitive>(
+export const unorderedPrimitiveArrays = <T extends Value>(
   a: readonly T[] | T[],
   b: readonly T[] | T[],
 ): number => {
@@ -95,7 +95,7 @@ export const unorderedPrimitiveArrays = <T extends Primitive>(
   return aSorted.every((v, i) => v === bSorted[i]) ? 0 : -1;
 };
 
-export const uniqueUnorderedPrimitiveArrays = <T extends Primitive>(
+export const uniqueUnorderedPrimitiveArrays = <T extends Value>(
   a: readonly T[] | T[],
   b: readonly T[] | T[],
 ): number => {
