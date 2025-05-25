@@ -336,7 +336,6 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         client = AsyncWebsocketClient(
             encoder=codec,
             base_url=self._endpoint,
-            max_size=self._max_message_size,
             secure=self._secure,
             **self._kwargs,
         )
