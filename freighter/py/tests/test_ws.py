@@ -16,13 +16,15 @@ import freighter.exceptions
 from freighter.codec import Codec, JSONCodec, MsgPackCodec
 from freighter.context import Context
 from freighter.http import HTTPClient
-from freighter.transport import AsyncNext, Next, Payload, P
+from freighter.transport import AsyncNext, Next, P, Payload
 from freighter.url import URL
 from freighter.websocket import (
     AsyncWebsocketClient,
     ConnectionClosedError,
+)
+from freighter.websocket import Message as WebsocketMessage
+from freighter.websocket import (
     WebsocketClient,
-    Message as WebsocketMessage,
 )
 
 from .interface import Error, Message
