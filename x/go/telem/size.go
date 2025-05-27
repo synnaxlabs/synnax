@@ -33,18 +33,8 @@ func (s Size) String() string {
 	return fmt.Sprintf("%d B", s)
 }
 
-// IsZero returns true if the size is zero.
-func (s Size) IsZero() bool {
-	return s == 0
-}
-
-// Truncate returns the size truncated to the nearest multiple of the given size.
-func (s Size) Truncate(unit Size) Size {
-	return (s / unit) * unit
-}
-
 const (
-	// ByteSize is a single byte.
+	// Byte is a single byte.
 	Byte = Size(1)
 	// Kilobyte is 1000 bytes.
 	Kilobyte = 1000 * Byte
