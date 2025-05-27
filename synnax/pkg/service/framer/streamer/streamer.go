@@ -135,7 +135,7 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 	}
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
-		RouteInletsTo:    []address.Address{utAddr}
+		RouteInletsTo:    []address.Address{utAddr},
 		RouteOutletsFrom: []address.Address{routeOutletFrom},
 	}, nil
 }
