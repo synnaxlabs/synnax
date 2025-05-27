@@ -10,7 +10,7 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Form as PForm, List, Select } from "@synnaxlabs/pluto";
-import { deep, id } from "@synnaxlabs/x";
+import { caseconv, deep, id } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { CSS } from "@/css";
@@ -181,7 +181,9 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   const commandsToCreate: OutputChannel[] = [];
   for (const channel of config.channels) {
     const key = writeMapKey(channel);
-    const existing = dev.properties.write.channels[key];
+    const existing =
+      dev.properties.write.channels[key] ??
+      dev.properties.write.channels[caseconv.snakeToCamel(key)];
     if (existing == null) {
       commandsToCreate.push(channel);
       continue;
@@ -218,7 +220,9 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
 
   config.channels = config.channels.map((c) => ({
     ...c,
-    channel: dev.properties.write.channels[writeMapKey(c)],
+    channel:
+      dev.properties.write.channels[writeMapKey(c)] ??
+      dev.properties.write.channels[caseconv.snakeToCamel(writeMapKey(c))],
   }));
 
   return [config, dev.rack];

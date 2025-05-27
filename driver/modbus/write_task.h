@@ -118,6 +118,7 @@ public:
         const synnax::Frame &fr
     ) override {
         if (channels.empty()) return xerrors::NIL;
+        this->initialize_state(dev);
         const int start_addr = channels.front().address;
         for (const auto &channel: channels) {
             if (!fr.contains(channel.channel)) continue;
