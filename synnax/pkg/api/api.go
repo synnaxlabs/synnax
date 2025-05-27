@@ -101,6 +101,10 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "label", c.Label)
 	validate.NotNil(v, "log", c.Log)
 	validate.NotNil(v, "table", c.Table)
+	validate.NotNil(v, "token", c.Token)
+	validate.NotNil(v, "access", c.RBAC)
+	validate.NotNil(v, "effect", c.Effect)
+	validate.NotNil(v, "slate", c.Slate)
 	return v.Error()
 }
 
@@ -128,6 +132,9 @@ func (c Config) Override(other Config) Config {
 	c.Enforcer = override.Nil(c.Enforcer, other.Enforcer)
 	c.Hardware = override.Nil(c.Hardware, other.Hardware)
 	c.Table = override.Nil(c.Table, other.Table)
+	c.Token = override.Nil(c.Token, other.Token)
+	c.Slate = override.Nil(c.Slate, other.Slate)
+	c.Effect = override.Nil(c.Effect, other.Effect)
 	return c
 }
 

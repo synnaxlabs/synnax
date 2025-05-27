@@ -17,10 +17,10 @@ import (
 // Effect is a definition for a condition that results in a set of effects being
 // executed.
 type Effect struct {
-	Key       uuid.UUID
-	Condition uuid.UUID   `json:"condition" msgpack:"condition"`
-	Actions   []uuid.UUID `json:"actions" msgpack:"actions"`
-	Enabled   bool        `json:"enabled" msgpack:"enabled"`
+	Key     uuid.UUID `json:"key" msgpack:"key"`
+	Name    string    `json:"name" msgpack:"name"`
+	Slate   uuid.UUID `json:"slate" msgpack:"slate"`
+	Enabled bool      `json:"enabled" msgpack:"enabled"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Effect{}

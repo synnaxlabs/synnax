@@ -1,10 +1,10 @@
-import { Form } from "@/vis/slate/symbols/source/Form";
-import { type Config, Symbol } from "@/vis/slate/symbols/source/Source";
+import { Form } from "@/vis/slate/symbols/sink/Form";
+import { type Config, Symbol } from "@/vis/slate/symbols/sink/Sink";
 import { type Spec } from "@/vis/slate/symbols/types/spec";
 
 export const SPEC: Spec<Config> = {
-  key: "source",
-  name: "Telemetry Source",
+  key: "sink",
+  name: "Telemetry Sink",
   Form,
   Symbol,
   defaultProps: () => ({

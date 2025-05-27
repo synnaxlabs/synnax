@@ -78,6 +78,7 @@ var factories = []factory{
 	newComparison,
 	newTelemSource,
 	newTelemSink,
+	newSelectStatement,
 }
 
 type constant struct {
@@ -130,10 +131,10 @@ func newTelemSource(
 	cfg spec.Config,
 	node spec.Node,
 ) (bool, error) {
-	if node.Type != "telem_source" {
+	if node.Type != "source" {
 		return false, nil
 	}
-	chKey, _ := schema.Get[uint32](schema.Resource{Data: node.Data}, "channel")
+	chKey, _ := schema.Get[float64](schema.Resource{Data: node.Data}, "channel")
 	source := &telemSource{
 		channel: channel.Key(chKey),
 		framer:  cfg.Framer,
@@ -172,12 +173,43 @@ func (n *telemSource) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-type comparison struct {
+type operator struct {
 	confluence.MultiSink[spec.Value]
 	confluence.AbstractUnarySource[spec.Value]
 	x       *spec.Value
 	y       *spec.Value
-	compare func(a, b spec.Value) bool
+	compare func(a, b float64) bool
+}
+
+func toFloat64(v interface{}) float64 {
+	switch n := v.(type) {
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	case int32:
+		return float64(n)
+	case int16:
+		return float64(n)
+	case int8:
+		return float64(n)
+	case uint64:
+		return float64(n)
+	case uint32:
+		return float64(n)
+	case uint16:
+		return float64(n)
+	case uint8:
+		return float64(n)
+	case float64:
+		return n
+	case float32:
+		return float64(n)
+	case uint:
+		return float64(n)
+	default:
+		panic("unspupported convesion")
+	}
 }
 
 func newComparison(
@@ -186,22 +218,29 @@ func newComparison(
 	_ spec.Config,
 	node spec.Node,
 ) (bool, error) {
-	if !strings.HasPrefix(node.Schema.Type, "comparison") {
+	if !strings.HasPrefix(node.Schema.Type, "operator") {
 		return false, nil
 	}
 	suffix := strings.Split(node.Schema.Type, ".")[1]
-	c := &comparison{}
-	if suffix == "ge" {
-		c.compare = func(a, b spec.Value) bool {
-			return false
-		}
+	c := &operator{}
+	switch suffix {
+	case "gte":
+		c.compare = func(a, b float64) bool { return a >= b }
+	case "lte":
+		c.compare = func(a, b float64) bool { return a <= b }
+	case "ge":
+		c.compare = func(a, b float64) bool { return a > b }
+	case "lt":
+		c.compare = func(a, b float64) bool { return a < b }
+	case "eq":
+		c.compare = func(a, b float64) bool { return a == b }
 	}
 	plumber.SetSegment[spec.Value, spec.Value](p, address.Address(node.Key), c)
 	c.Sink = c.sink
 	return true, nil
 }
 
-func (n *comparison) sink(ctx context.Context, origin address.Address, value spec.Value) error {
+func (n *operator) sink(ctx context.Context, origin address.Address, value spec.Value) error {
 	if origin == "x" {
 		n.x = &value
 	}
@@ -211,7 +250,7 @@ func (n *comparison) sink(ctx context.Context, origin address.Address, value spe
 	if n.y == nil || n.x == nil {
 		return nil
 	}
-	res := n.compare(*n.x, *n.y)
+	res := n.compare(toFloat64(n.x.Value), toFloat64(n.y.Value))
 	return signal.SendUnderContext(ctx, n.Out.Inlet(), spec.Value{
 		DataType: "uint8",
 		Value:    types.BoolToUint8(res),
@@ -264,15 +303,36 @@ func newTelemSink(
 	cfg spec.Config,
 	node spec.Node,
 ) (bool, error) {
-	if node.Type != "telem_sink" {
+	if node.Type != "sink" {
 		return false, nil
 	}
-	chKey, _ := schema.Get[uint32](schema.Resource{Data: node.Data}, "channel")
+	chKey, _ := schema.Get[float64](schema.Resource{Data: node.Data}, "channel")
 	source := &telemSink{
 		channel: channel.Key(chKey),
 		framer:  cfg.Framer,
 	}
 	source.Sink = source.sink
 	plumber.SetSink[spec.Value](p, address.Address(node.Key), source)
+	return true, nil
+}
+
+func newSelectStatement(
+	_ context.Context,
+	p *plumber.Pipeline,
+	cfg spec.Config,
+	node spec.Node,
+) (bool, error) {
+	if node.Type != "select" {
+		return false, nil
+	}
+	s := &confluence.Switch[spec.Value]{
+		Switch: func(ctx context.Context, value spec.Value) (address.Address, bool, error) {
+			if value.Value.(uint8) == 1 {
+				return "true", true, nil
+			}
+			return "false", true, nil
+		},
+	}
+	plumber.SetSegment[spec.Value, spec.Value](p, address.Address(node.Key), s)
 	return true, nil
 }

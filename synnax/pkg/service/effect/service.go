@@ -11,23 +11,31 @@ package effect
 
 import (
 	"context"
+	"sync"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/slate"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for opening a effect service.
+// Config is the configuration for opening the effect service.
 type Config struct {
 	// DB is the database that the effect service will store effects in.
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between effects and other entities in
 	// the Synnax resource graph.
+	// [REQUIRED]
 	Ontology *ontology.Ontology
+	Framer   *framer.Service
+	Slate    *slate.Service
+	Channel  channel.Service
 }
 
 var (
@@ -40,6 +48,9 @@ var (
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Slate = override.Nil(c.Slate, other.Slate)
 	return c
 }
 
@@ -47,16 +58,23 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("effect")
 	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Ontology", c.Ontology)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "slate", c.Slate)
+	validate.NotNil(v, "framer", c.Framer)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying effects from Synnax.
 type Service struct {
-	Config
+	cfg Config
+	mu  struct {
+		sync.Mutex
+		entries map[uuid.UUID]*entry
+	}
 }
 
-func (s Service) Close() error { return nil }
+func (s *Service) Close() error { return nil }
 
 // OpenService instantiates a new effect service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
@@ -66,20 +84,22 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg}
+	s := &Service{cfg: cfg}
+	s.mu.entries = make(map[uuid.UUID]*entry)
 	cfg.Ontology.RegisterService(ctx, s)
+	obs := gorp.Observe[uuid.UUID, Effect](cfg.DB)
+	obs.OnChange(s.handleChange)
 	return s, nil
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting effects in Synnax. If
-// tx is provided, the writer will use that transeffect. If tx is nil, the Writer
+// tx is provided, the writer will use that transaction. If tx is nil, the Writer
 // will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		tx:        tx,
-		otgWriter: s.Ontology.NewWriter(tx),
-		otg:       s.Ontology,
+		tx:        gorp.OverrideTx(s.cfg.DB, tx),
+		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
 	}
 }
 
@@ -87,6 +107,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   gorp.NewRetrieve[uuid.UUID, Effect](),
-		baseTX: s.DB,
+		baseTX: s.cfg.DB,
 	}
 }

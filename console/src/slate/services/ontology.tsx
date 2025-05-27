@@ -23,7 +23,8 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
-import { slate } from "@/slate";
+import { Slate } from "@/slate";
+import { translateSlateForward } from "@/slate/types/translate";
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "slate" });
@@ -44,7 +45,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     mutationFn: async ({ client, selection }) => {
       const ids = selection.resources.map((res) => new ontology.ID(res.key));
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      await client.workspaces.slate.delete(ids.map((id) => id.key));
+      await client.slates.delete(ids.map((id) => id.key));
     },
     onError: (err, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
@@ -54,48 +55,36 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   }).mutate;
 };
 
-const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    mutationFn: async ({
-      client,
-      selection: { resources, parentID },
-      state,
-      services,
-    }) => {
-      if (parentID == null) return;
-      const slates = await Promise.all(
-        resources.map(
-          async (res) =>
-            await client.workspaces.slate.copy(
-              res.id.key,
-              `${res.name} (copy)`,
-              false,
-            ),
-        ),
-      );
-      const otgIDs = slates.map(({ key }) => slate.ontologyID(key));
-      const otg = await client.ontology.retrieve(otgIDs);
-      state.setResources([...state.resources, ...otg]);
-      const nextTree = Tree.setNode({
-        tree: state.nodes,
-        destination: parentID.toString(),
-        additions: Ontology.toTreeNodes(services, otg),
-      });
-      state.setNodes([...nextTree]);
-      Tree.startRenaming(otg[0].id.toString());
-    },
-    onError: (err, { handleError }) => {
-      handleError(err, "Failed to copy slate");
-    },
-  }).mutate;
-
-const useSnapshot = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const snapshot = slate.useRangeSnapshot();
-  return ({ selection: { resources } }) => {
-    const slates = resources.map((res) => ({ key: res.id.key, name: res.name }));
-    snapshot(slates);
-  };
-};
+// const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
+//   useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
+//     mutationFn: async ({
+//       client,
+//       selection: { resources, parentID },
+//       state,
+//       services,
+//     }) => {
+//       if (parentID == null) return;
+//       const slates = await Promise.all(
+//         resources.map(
+//           async (res) =>
+//             await client.slates.copy(res.id.key, `${res.name} (copy)`, false),
+//         ),
+//       );
+//       const otgIDs = slates.map(({ key }) => slate.ontologyID(key));
+//       const otg = await client.ontology.retrieve(otgIDs);
+//       state.setResources([...state.resources, ...otg]);
+//       const nextTree = Tree.setNode({
+//         tree: state.nodes,
+//         destination: parentID.toString(),
+//         additions: Ontology.toTreeNodes(services, otg),
+//       });
+//       state.setNodes([...nextTree]);
+//       Tree.startRenaming(otg[0].id.toString());
+//     },
+//     onError: (err, { handleError }) => {
+//       handleError(err, "Failed to copy slate");
+//     },
+//   }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
@@ -104,33 +93,22 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const activeRange = Range.useSelect();
   const del = useDelete();
-  const copy = useCopy();
-  const snapshot = useSnapshot();
-  const handleExport = slate.useExport();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const group = Group.useCreateFromSelection();
   const onSelect = useAsyncActionMenu({
     delete: () => del(props),
-    copy: () => copy(props),
-    rangeSnapshot: () => snapshot(props),
     rename: () => Tree.startRenaming(resources[0].key),
-    export: () => handleExport(resources[0].id.key),
     group: () => group(props),
     link: () =>
       handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
   });
-  const canEditslate = slate.useSelectHasPermission();
   const isSingle = resources.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      {canEditslate && (
-        <>
-          <Menu.RenameItem />
-          <Menu.DeleteItem />
-          <Group.MenuItem selection={selection} />
-          <PMenu.Divider />
-        </>
-      )}
+      <Menu.RenameItem />
+      <Menu.DeleteItem />
+      <Group.MenuItem selection={selection} />
+      <PMenu.Divider />
       {resources.every((r) => r.data?.snapshot === false) && (
         <>
           <Range.SnapshotMenuItem range={activeRange} />
@@ -154,27 +132,18 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const handleRename: Ontology.HandleTreeRename = {
   eager: ({ id: { key }, name, store }) => store.dispatch(Layout.rename({ key, name })),
-  execute: async ({ client, id, name }) =>
-    await client.workspaces.slate.rename(id.key, name),
+  execute: async ({ client, id, name }) => {},
   rollback: ({ id: { key }, name, store }) =>
     store.dispatch(Layout.rename({ key, name })),
 };
 
-const loadslate = async (
+const loadSlate = async (
   client: Synnax,
   id: ontology.ID,
   placeLayout: Layout.Placer,
 ) => {
-  const slate = await client.workspaces.slate.retrieve(id.key);
-  placeLayout(
-    slate.create({
-      ...slate.data,
-      key: slate.key,
-      name: slate.name,
-      snapshot: slate.snapshot,
-      editable: false,
-    }),
-  );
+  const slate = await client.slates.retrieve(id.key);
+  placeLayout(Slate.create(translateSlateForward(slate)));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -183,7 +152,7 @@ const handleSelect: Ontology.HandleSelect = ({
   placeLayout,
   handleError,
 }) => {
-  loadslate(client, selection[0].id, placeLayout).catch((e) => {
+  loadSlate(client, selection[0].id, placeLayout).catch((e) => {
     const names = strings.naturalLanguageJoin(
       selection.map(({ name }) => name),
       "slate",
@@ -195,31 +164,19 @@ const handleSelect: Ontology.HandleSelect = ({
 const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   client,
   id,
-  location,
-  nodeKey,
   placeLayout,
   handleError,
 }) => {
-  client.workspaces.slate
+  client.slates
     .retrieve(id.key)
-    .then((slate) =>
-      placeLayout(
-        slate.create({
-          name: slate.name,
-          ...slate.data,
-          key: id.key,
-          location: "mosaic",
-          tab: { mosaicKey: nodeKey, location },
-        }),
-      ),
-    )
+    .then((slate) => placeLayout(Slate.create(translateSlateForward(slate))))
     .catch((e) => handleError(e, "Failed to load slate"));
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: slate.ONTOLOGY_TYPE,
-  icon: <Icon.slate />,
+  icon: <Icon.Slate />,
   hasChildren: false,
   onSelect: handleSelect,
   haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],

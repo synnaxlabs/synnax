@@ -9,8 +9,8 @@
 
 import { Import } from "@/import";
 import { selectHasPermission } from "@/slate/selectors";
+import { create, LAYOUT_TYPE } from "@/slate/Slate";
 import { anyStateZ } from "@/slate/slice";
-import { create, LAYOUT_TYPE } from "@/slate/slate";
 
 export const ingest: Import.FileIngestor = (data, { layout, placeLayout, store }) => {
   const state = anyStateZ.parse(JSON.parse(data));

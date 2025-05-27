@@ -299,6 +299,9 @@ func start(cmd *cobra.Command) {
 			effect.Config{
 				DB:       gorpDB,
 				Ontology: dist.Ontology,
+				Channel:  dist.Channel,
+				Slate:    slateSvc,
+				Framer:   dist.Framer,
 			},
 		)
 		if err != nil {

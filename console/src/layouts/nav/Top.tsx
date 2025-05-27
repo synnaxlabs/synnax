@@ -18,6 +18,7 @@ import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Debug } from "@/debug";
 import { Docs } from "@/docs";
+import { EffectServices } from "@/effect/services";
 import { Hardware } from "@/hardware";
 import { LabelServices } from "@/label/services";
 import { Layout } from "@/layout";
@@ -56,6 +57,7 @@ const COMMANDS: Palette.Command[] = [
   ...UserServices.COMMANDS,
   ...WorkspaceServices.COMMANDS,
   ...Debug.COMMANDS,
+  ...EffectServices.COMMANDS,
 ];
 
 const TopPalette = (): ReactElement => (

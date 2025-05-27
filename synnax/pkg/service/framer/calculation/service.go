@@ -51,9 +51,11 @@ type Config struct {
 	Channel channel.Service
 	// ChannelObservable is used to listen to real-time changes in calculated channels
 	// so the calculation routines can be updated accordingly.
+	// [REQUIRED]
 	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
 	// StateCodec is the encoder/decoder used to communicate calculation state
 	// changes.
+	// [OPTIONAL] - defaults to a JSON codec.
 	StateCodec binary.Codec
 }
 
@@ -68,10 +70,10 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("calculate")
-	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "Channel", c.Channel)
-	validate.NotNil(v, "ChannelObservable", c.ChannelObservable)
-	validate.NotNil(v, "StateCodec", c.StateCodec)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "channelObservable", c.ChannelObservable)
+	validate.NotNil(v, "state_codec", c.StateCodec)
 	return v.Error()
 }
 

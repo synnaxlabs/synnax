@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { slate, UnexpectedError } from "@synnaxlabs/client";
-import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
+import { type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import { Permissions } from "@/permissions";
@@ -146,7 +146,7 @@ export const selectSelectedElementNames = (
 ): (string | null)[] => {
   const elements = selectSelectedElementsProps(state, layoutKey);
   return elements.map((element) => {
-    if (element.type === "node") return element.props.label?.label ?? null;
+    if (element.type === "node") return element.props.key ?? null;
     return null;
   });
 };

@@ -8,17 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Icon as PIcon } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 
-export const CreateIcon = (): ReactElement => (
-  <PIcon.Create>
-    <Icon.Slate />
-  </PIcon.Create>
-);
+import { createEditLayout } from "@/effect/edit/layout";
+import { type Palette } from "@/palette";
 
-export const ImportIcon = (): ReactElement => (
-  <PIcon.Import>
-    <Icon.Slate />
-  </PIcon.Import>
-);
+const CREATE_COMMAND: Palette.Command = {
+  key: "create_effect",
+  name: "Create an Effect",
+  icon: <Icon.Effect />,
+  onSelect: ({ placeLayout }) => placeLayout(createEditLayout()),
+};
+
+export const COMMANDS = [CREATE_COMMAND];

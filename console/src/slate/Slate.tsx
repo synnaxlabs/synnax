@@ -7,14 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Dispatch,
-  type PayloadAction,
-  type UnknownAction,
-} from "@reduxjs/toolkit";
-import { slate } from "@synnaxlabs/client";
+import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
 import {
   Diagram,
   Haul,
@@ -22,21 +16,18 @@ import {
   Slate as Core,
   Theming,
   Triggers,
-  usePrevious,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
-import { v4 as uuid } from "uuid";
+import { box, id, xy } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { useDispatch } from "react-redux";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
-import { type Selector } from "@/selector";
 import {
   select,
-  selectHasPermission,
   useSelect,
   useSelectHasPermission,
   useSelectNodeProps,
@@ -48,7 +39,7 @@ import {
   calculatePos,
   clearSelection,
   copySelection,
-  internalCreate,
+  create,
   pasteSelection,
   selectAll,
   setEdges,
@@ -60,42 +51,10 @@ import {
   type State,
   ZERO_STATE,
 } from "@/slate/slice";
+import { translateSlateForward } from "@/slate/types/translate";
 import { type RootState } from "@/store";
-import { Workspace } from "@/workspace";
-
-interface SyncPayload {
-  key?: string;
-}
 
 export const HAUL_TYPE = "slate-element";
-
-const useSyncComponent = (
-  layoutKey: string,
-  dispatch?: Dispatch<PayloadAction<SyncPayload>>,
-): Dispatch<PayloadAction<SyncPayload>> =>
-  Workspace.useSyncComponent<SyncPayload>(
-    "slate",
-    layoutKey,
-    async (ws, store, client) => {
-      // const storeState = store.getState();
-      // if (!selectHasPermission(storeState)) return;
-      // const data = select(storeState, layoutKey);
-      // if (data == null) return;
-      // const layout = Layout.selectRequired(storeState, layoutKey);
-      // if (data.snapshot) {
-      //   await client.workspaces.slate.rename(layoutKey, layout.name);
-      //   return;
-      // }
-      // const setData = { ...data, key: undefined };
-      // if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key: layoutKey }));
-      // await client.workspaces.slate.create(ws, {
-      //   key: layoutKey,
-      //   name: layout.name,
-      //   data: setData,
-      // });
-    },
-    dispatch,
-  );
 
 interface SymbolRendererProps extends Diagram.SymbolProps {
   layoutKey: string;
@@ -111,7 +70,7 @@ const SymbolRenderer = ({
   dispatch,
 }: SymbolRendererProps): ReactElement | null => {
   const props = useSelectNodeProps(layoutKey, symbolKey);
-  const key = props?.key;
+  const key = props?.key ?? "";
   const handleChange = useCallback(
     (props: object) => {
       if (key == null) return;
@@ -124,7 +83,7 @@ const SymbolRenderer = ({
 
   if (props == null) return null;
 
-  const C = Core.REGISTRY[key as Core.Variant];
+  const C = Core.REGISTRY[key];
 
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
@@ -153,28 +112,21 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
-  const { name } = Layout.useSelectRequired(layoutKey);
   const slate = useSelect(layoutKey);
 
-  const dispatch = useSyncComponent(layoutKey);
+  const dispatch = useDispatch();
   const selector = useCallback(
     (state: RootState) => select(state, layoutKey),
     [layoutKey],
   );
-  const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
+  const [undoableDispatch, undo, redo] = useUndoableDispatch<RootState, State>(
     selector,
-    internalCreate,
+    create,
     30, // roughly the right time needed to prevent actions that get dispatch automatically by Diagram.tsx, like setNodes immediately following addElement
   );
-  const undoableDispatch = useSyncComponent(layoutKey, undoableDispatch_);
 
   const theme = Theming.use();
   const viewportRef = useSyncedRef(slate.viewport);
-
-  const prevName = usePrevious(name);
-  useEffect(() => {
-    if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
-  }, [name, prevName, layoutKey, dispatch]);
 
   const canBeEditable = useSelectHasPermission();
   if (!canBeEditable && slate.editable)
@@ -227,7 +179,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       if (ref.current == null || event == null) return valid;
       const region = box.construct(ref.current);
       valid.forEach(({ key, data }) => {
-        const spec = Core.REGISTRY[key as Core.Variant];
+        const spec = Core.REGISTRY[key];
         if (spec == null) return;
         const pos = xy.truncate(
           calculatePos(
@@ -351,42 +303,15 @@ export const Slate: Layout.Renderer = ({ layoutKey, ...rest }) => {
     layoutKey,
     useSelectVersion,
     fetcher: async (client, layoutKey) => {
-      const { key, graph } = await client.slates.retrieve(layoutKey);
-      return { key, graph } as State;
+      try {
+        const { key, graph } = await client.slates.retrieve(layoutKey);
+        return translateSlateForward({ key, graph });
+      } catch (__) {
+        return { ...ZERO_STATE, key: layoutKey };
+      }
     },
-    actionCreator: internalCreate,
+    actionCreator: create,
   });
   if (!loaded) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
-
-export const LAYOUT_TYPE = "slate";
-export type LayoutType = typeof LAYOUT_TYPE;
-
-export const SELECTABLE: Selector.Selectable = {
-  key: LAYOUT_TYPE,
-  title: "slate",
-  icon: <Icon.Slate />,
-  create: async ({ layoutKey }) => create({ key: layoutKey }),
-};
-
-export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
-
-export const create =
-  (initial: CreateArg = {}): Layout.Creator =>
-  ({ dispatch, store }) => {
-    const canEditSlate = selectHasPermission(store.getState());
-    const { name = "slate", location = "mosaic", window, tab, ...rest } = initial;
-    if (!canEditSlate && tab?.editable) tab.editable = false;
-    const key = slate.keyZ.safeParse(initial.key).data ?? uuid();
-    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
-    return {
-      key,
-      location,
-      name,
-      icon: "Slate",
-      type: LAYOUT_TYPE,
-      window: { navTop: true, showTitle: true },
-      tab,
-    };
-  };

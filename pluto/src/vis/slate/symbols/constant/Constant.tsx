@@ -11,7 +11,7 @@ const stringConstant = z.object({
 });
 
 const numericConstant = z.object({
-  type: z.literal("number"),
+  dataType: z.literal("float32"),
   value: z.number(),
 });
 
@@ -21,7 +21,7 @@ export type Config = z.infer<typeof configZ>;
 
 export type SymbolProps = types.SymbolProps<Config>;
 
-export const Constant = ({ value, type }: SymbolProps) => (
+export const Constant = ({ value }: SymbolProps) => (
   <Align.Pack x align="center" background={1} bordered borderShade={5} rounded={0.5}>
     <Text.Text
       level="h4"
@@ -36,7 +36,7 @@ export const Constant = ({ value, type }: SymbolProps) => (
       C
     </Text.Text>
     <Text.Text level="p" weight={500} style={{ padding: "0 2rem" }} code>
-      {type === "string" ? value : value.toString()}
+      {value.toString()}
     </Text.Text>
     <Handle.Source location="right" id="value" />
   </Align.Pack>

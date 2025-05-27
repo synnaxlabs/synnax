@@ -24,9 +24,9 @@ import {
 } from "@/slate/payload";
 import { nullableArrayZ } from "@/util/zod";
 
-const RETRIEVE_ENDPOINT = "/workspace/slate/retrieve";
-const CREATE_ENDPOINT = "/workspace/slate/create";
-const DELETE_ENDPOINT = "/workspace/slate/delete";
+const RETRIEVE_ENDPOINT = "/slate/retrieve";
+const CREATE_ENDPOINT = "/slate/create";
+const DELETE_ENDPOINT = "/slate/delete";
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
 const createReqZ = z.object({ slates: newZ.array() });

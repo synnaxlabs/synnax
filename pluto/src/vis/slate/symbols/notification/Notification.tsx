@@ -1,8 +1,8 @@
 import { Icon } from "@synnaxlabs/media";
-import { Icon as PIcon } from "@synnaxlabs/pluto";
 import z from "zod";
 
 import { Align } from "@/align";
+import { Icon as PIcon } from "@/icon";
 import { status } from "@/status/aether";
 import { Text } from "@/text";
 import { Handle } from "@/vis/slate/handle";

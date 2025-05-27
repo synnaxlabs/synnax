@@ -30,6 +30,7 @@ import { Code } from "@/code";
 import { Lua } from "@/code/lua";
 import { Debug } from "@/debug";
 import { Docs } from "@/docs";
+import { Effect } from "@/effect";
 import { Error } from "@/error";
 import { Hardware } from "@/hardware";
 import { Label } from "@/label";
@@ -71,7 +72,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
   ...Debug.LAYOUTS,
-  ...Slate.LAYOUTS,
+  ...Effect.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

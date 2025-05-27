@@ -29,7 +29,7 @@ export const Symbol = () => (
         }}
       />
     </PIcon.Icon>
-    <Handle.Sink location="left" id="input" />
+    <Handle.Sink location="left" id="value" />
     <Handle.Source location="right" id="outputTrue" style={{ top: "33%" }} />
     <Handle.Source location="right" id="outputFalse" style={{ top: "66%" }} />
   </Align.Pack>
