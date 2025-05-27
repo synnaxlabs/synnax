@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Value } from "@/primitive/primitive";
+import { type primitive } from "@/primitive";
 
 interface DeepEqualBaseRecord {
   equals?: (other: any) => boolean;
 }
 
 export const equal = <
-  T extends unknown | DeepEqualBaseRecord | DeepEqualBaseRecord[] | Value[],
+  T extends unknown | DeepEqualBaseRecord | DeepEqualBaseRecord[] | primitive.Value[],
 >(
   a: T,
   b: T,
@@ -47,7 +47,7 @@ export const equal = <
   return true;
 };
 
-export const partialEqual = <T extends unknown | DeepEqualBaseRecord | Value>(
+export const partialEqual = <T extends unknown | DeepEqualBaseRecord | primitive.Value>(
   base: T,
   partial: Partial<T>,
 ): boolean => {

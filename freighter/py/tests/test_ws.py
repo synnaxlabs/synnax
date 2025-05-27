@@ -262,7 +262,7 @@ class TestSyncWebsocket:
         stream.close_send()
 
     def test_exit_immediately_with_err(self, sync_client: WebsocketClient) -> None:
-        """Should correctly return the error to the sttream"""
+        """Should correctly return the error to the stream"""
         stream = sync_client.stream("/immediatelyExitWithErr", Message, Message)
         for i in range(100):
             stream.send(Message(id=1, message="hello"))

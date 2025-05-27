@@ -13,20 +13,10 @@ package telem
 type Rate float64
 
 // Period returns a TimeSpan representing the period of the Rate.
-func (dr Rate) Period() TimeSpan { return TimeSpan(1 / float64(dr) * float64(Second)) }
+func (r Rate) Period() TimeSpan { return TimeSpan(float64(Second) / float64(r)) }
 
-// SampleCount returns n integer representing the number of samples in the provided Span.
-func (dr Rate) SampleCount(t TimeSpan) int { return int(t.Seconds() * float64(dr)) }
-
-// Span returns a TimeSpan representing the number of samples that occupy the provided Span.
-func (dr Rate) Span(sampleCount int) TimeSpan {
-	return dr.Period() * TimeSpan(sampleCount)
-}
-
-// SizeSpan returns a TimeSpan representing the number of samples that occupy a provided number of bytes.
-func (dr Rate) SizeSpan(size Size, Density Density) TimeSpan {
-	return dr.Span(int(size) / int(Density))
-}
+// SampleCount returns an integer representing the number of samples in the provided Span.
+func (r Rate) SampleCount(t TimeSpan) int { return int(t.Seconds() * float64(r)) }
 
 const (
 	// Hz is a data rate of 1 Hz.

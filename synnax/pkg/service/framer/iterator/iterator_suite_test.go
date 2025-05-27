@@ -21,5 +21,5 @@ var ctx = context.Background()
 
 func TestIterator(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "StreamIterator Suite")
+	RunSpecs(t, "Iterator Suite")
 }

@@ -10,6 +10,7 @@
 /** Union of types that are primitive values or can be converted to primitive values */
 export type Value = string | number | bigint | boolean | Stringer | null | undefined;
 
+/** A primitive value that is not undefined or null. */
 export type DefinedValue = Exclude<Value, undefined | null>;
 
 /**
@@ -78,5 +79,7 @@ export const isZero = <V extends Value>(value: V): boolean => {
       return true;
     case "object":
       return value == null;
+    default:
+      return false;
   }
 };

@@ -109,28 +109,27 @@ func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource]
 	), nil
 }
 
-func (s *NodeOntologyService) update(ctx context.Context, _ core.ClusterState) {
-	err := s.Ontology.DB.WithTx(ctx, func(txn gorp.Tx) error {
-		//w := s.Ontology.NewWriter(txn)
-		//clusterID := OntologyID(s.Cluster.Key())
-		//if err := w.DefineResource(ctx, clusterID); err != nil {
-		//	return err
-		//}
-		//if err := w.DefineRelationship(ctx, ontology.RootID, ontology.ParentOf, clusterID); err != nil {
-		//	return err
-		//}
-		//for _, n := range state.Nodes {
-		//	nodeID := NodeOntologyID(n.Key)
-		//	if err := w.DefineResource(ctx, NodeOntologyID(n.Key)); err != nil {
-		//		return err
-		//	}
-		//	if err := w.DefineRelationship(ctx, clusterID, ontology.ParentOf, nodeID); err != nil {
-		//		return err
-		//	}
-		//}
+func (s *NodeOntologyService) update(ctx context.Context, state core.ClusterState) {
+	if err := s.Ontology.DB.WithTx(ctx, func(txn gorp.Tx) error {
+		w := s.Ontology.NewWriter(txn)
+		clusterID := OntologyID(s.Cluster.Key())
+		if err := w.DefineResource(ctx, clusterID); err != nil {
+			return err
+		}
+		if err := w.DefineRelationship(ctx, ontology.RootID, ontology.ParentOf, clusterID); err != nil {
+			return err
+		}
+		for _, n := range state.Nodes {
+			nodeID := NodeOntologyID(n.Key)
+			if err := w.DefineResource(ctx, NodeOntologyID(n.Key)); err != nil {
+				return err
+			}
+			if err := w.DefineRelationship(ctx, clusterID, ontology.ParentOf, nodeID); err != nil {
+				return err
+			}
+		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		s.L.Error("failed to update node ontology", zap.Error(err))
 	}
 }
