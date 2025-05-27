@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Link } from "@/link";
-import { slate } from "@/slate";
+import { Slate } from "@/slate";
+import { translateSlateForward } from "@/slate/types/translate";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
-  const slate = await client.workspaces.slate.retrieve(key);
-  placeLayout(slate.create({ ...slate.data, ...slate, editable: false }));
+  const slate = await client.slates.retrieve(key);
+  placeLayout(Slate.create(translateSlateForward(slate)));
 };

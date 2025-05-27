@@ -22,8 +22,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Node is a node in the slate graph. Nodes can be thought of as functions/expressions
+// that receive inputs and produce outputs.
 type Node struct {
-	Key    string                 `json:"key" msgpack:"key"`
+	// Key is a unique key for the node.
+	Key string `json:"key" msgpack:"key"`
+	// Type is the type of the node.
 	Type   string                 `json:"type" msgpack:"type"`
 	Data   map[string]interface{} `json:"data" msgpack:"data"`
 	Schema *NodeSchema            `json:"schema" msgpack:"schema"`
@@ -90,36 +94,8 @@ func acceptsNumericDataType(input string) bool {
 
 type SchemaMatcher = func(context.Context, Config, Node) (NodeSchema, bool, error)
 
-func constant(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err error) {
-	if n.Type != "constant" {
-		return ns, false, err
-	}
-	fields := map[string]schema.Field{
-		"data_type": {
-			Type: schema.String,
-		},
-	}
-	dt, ok := schema.Get[string](schema.Resource{Data: n.Data}, "data_type")
-	if !ok {
-		return ns, true, errors.WithStack(validate.FieldError{
-			Field:   "data_type",
-			Message: "invalid data type",
-		})
-	}
-	fields["value"] = schema.Field{Type: schema.FieldType(dt)}
-	ns.Outputs = []Output{
-		{
-			Key:      "value",
-			DataType: dt,
-		},
-	}
-	ns.Data = fields
-	ns.Type = "constant"
-	return ns, true, nil
-}
-
-func greaterThan(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err error) {
-	if n.Type != "comparison.ge" {
+func greaterThanEq(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err error) {
+	if n.Type != "operator.gte" {
 		return ns, false, err
 	}
 	ns.Inputs = []Input{
@@ -138,15 +114,15 @@ func greaterThan(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, e
 			DataType: "uint8",
 		},
 	}
-	ns.Type = "comparison.ge"
+	ns.Type = "operator.gte"
 	return ns, true, nil
 }
 
 func telemSource(ctx context.Context, cfg Config, n Node) (ns NodeSchema, ok bool, err error) {
-	if n.Type != "telem_source" {
+	if n.Type != "source" {
 		return ns, false, err
 	}
-	chKey, ok := schema.Get[uint32](schema.Resource{Data: n.Data}, "channel")
+	chKey, ok := schema.Get[float64](schema.Resource{Data: n.Data}, "channel")
 	if !ok {
 		return ns, true, errors.WithStack(validate.FieldError{
 			Field:   "channel",
@@ -166,15 +142,15 @@ func telemSource(ctx context.Context, cfg Config, n Node) (ns NodeSchema, ok boo
 			DataType: string(ch.DataType),
 		},
 	}
-	ns.Type = "telem_source"
+	ns.Type = "source"
 	return ns, true, nil
 }
 
 func telemSink(ctx context.Context, cfg Config, n Node) (ns NodeSchema, ok bool, err error) {
-	if n.Type != "telem_sink" {
+	if n.Type != "sink" {
 		return ns, false, err
 	}
-	chKey, ok := schema.Get[uint32](schema.Resource{Data: n.Data}, "channel")
+	chKey, ok := schema.Get[float64](schema.Resource{Data: n.Data}, "channel")
 	if !ok {
 		return ns, true, errors.WithStack(validate.FieldError{})
 	}
@@ -188,15 +164,55 @@ func telemSink(ctx context.Context, cfg Config, n Node) (ns NodeSchema, ok bool,
 			AcceptsDataType: strictlyMatchDataType(string(ch.DataType)),
 		},
 	}
-	ns.Type = "telem_sink"
+	ns.Type = "sink"
+	return ns, true, nil
+}
+
+func selectStatement(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err error) {
+	if n.Type != "select" {
+		return ns, false, err
+	}
+	ns.Inputs = []Input{
+		{
+			Key:             "value",
+			AcceptsDataType: strictlyMatchDataType("uint8"),
+		},
+	}
+	ns.Outputs = []Output{
+		{
+			Key:      "true",
+			DataType: "uint8",
+		},
+		{
+			Key:      "false",
+			DataType: "uint8",
+		},
+	}
+	ns.Type = "select"
+	return ns, true, nil
+}
+
+func sendNotification(_ context.Context, cfg Config, n Node) (ns NodeSchema, ok bool, err error) {
+	if n.Type != "send_notification" {
+		return ns, false, err
+	}
+	ns.Inputs = []Input{
+		{
+			Key:             "value",
+			AcceptsDataType: strictlyMatchDataType("uint8"),
+		},
+	}
+	ns.Outputs = []Output{}
 	return ns, true, nil
 }
 
 var schemaMatchers = []SchemaMatcher{
 	constant,
-	greaterThan,
+	greaterThanEq,
 	telemSource,
 	telemSink,
+	selectStatement,
+	sendNotification,
 }
 
 type Config struct {

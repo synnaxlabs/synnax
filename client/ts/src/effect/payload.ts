@@ -9,9 +9,8 @@
 
 import { z } from "zod";
 
-import { keyZ as actionKeyZ } from "@/effect/action/payload";
-import { keyZ as conditionKeyZ } from "@/effect/condition/payload";
 import { ontology } from "@/ontology";
+import { slate } from "@/slate";
 
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -19,9 +18,9 @@ export type Params = Key | Key[];
 
 export const effectZ = z.object({
   key: keyZ,
-  condition: conditionKeyZ,
-  actions: z.array(actionKeyZ),
+  name: z.string(),
   enabled: z.boolean(),
+  slate: slate.keyZ,
 });
 export interface Effect extends z.infer<typeof effectZ> {}
 

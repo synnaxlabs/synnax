@@ -7,5 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/effect/condition/client";
-export * from "@/effect/condition/payload";
+import { Edit } from "@/effect/edit/Edit";
+import { EDIT_LAYOUT_TYPE } from "@/effect/edit/layout";
+import { type Layout } from "@/layout";
+
+export * from "@/effect/edit/Edit";
+export * from "@/effect/edit/layout";
+export * from "@/effect/slice";
+
+export const LAYOUTS: Record<string, Layout.Renderer> = {
+  [EDIT_LAYOUT_TYPE]: Edit,
+};

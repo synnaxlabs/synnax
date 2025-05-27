@@ -88,7 +88,7 @@ const IndividualProperties = ({
   });
 
   return (
-    <Align.Space style={{ height: "100%" }} y>
+    <Align.Space style={{ height: "100%", padding: "2rem" }} y>
       <Form.Form {...formMethods}>
         <C.Form {...formMethods} key={nodeKey} />
       </Form.Form>

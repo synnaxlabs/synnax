@@ -301,7 +301,7 @@ func UnmarshalAnyF(dt DataType) func(b []byte) (res any) {
 	case Float64T:
 		return unmarshalAny[float64](UnmarshalFloat64)
 	case Float32T:
-		return unmarshalAny[float32](UnmarshalFloat64)
+		return unmarshalAny[float32](UnmarshalFloat32)
 	case Int64T:
 		return unmarshalAny[int64](UnmarshalInt64)
 	case Int32T:

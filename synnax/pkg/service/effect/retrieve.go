@@ -17,7 +17,7 @@ import (
 )
 
 // Retrieve is a query builder for retrieving effects. It should not be instantiated
-// directly, and should instead be instantiated via the NewRetrieve method on
+// directly and should instead be instantiated via the NewRetrieve method on
 // effect.Service.
 type Retrieve struct {
 	baseTX gorp.Tx

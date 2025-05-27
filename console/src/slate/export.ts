@@ -19,13 +19,12 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   let name = Layout.select(storeState, key)?.name;
   if (state == null || name == null) {
     if (client == null) throw NULL_CLIENT_ERROR;
-    const slate = await client.workspaces.slate.retrieve(key);
+    const slate = await client.slates.retrieve(key);
     state ??= {
-      ...(slate.data as unknown as State),
-      snapshot: slate.snapshot,
+      ...(slate.graph as unknown as State),
       key: slate.key,
     };
-    name ??= slate.name;
+    name ??= slate.key;
   }
   return { data: JSON.stringify(state), name };
 };

@@ -19,15 +19,12 @@ import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/slate/export";
 import {
-  useSelectControlStatus,
   useSelectEditable,
   useSelectHasPermission,
-  useSelectIsSnapshot,
   useSelectSelectedElementNames,
   useSelectToolbar,
 } from "@/slate/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/slate/slice";
-import { Control } from "@/slate/toolbar/Control";
 import { PropertiesControls } from "@/slate/toolbar/Properties";
 import { Symbols } from "@/slate/toolbar/Symbols";
 
@@ -39,13 +36,13 @@ const TABS = [
 
 interface NotEditableContentProps extends ToolbarProps {}
 
-const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
+const NotEditableContent = ({
+  layoutKey,
+  name,
+}: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
-  const controlState = useSelectControlStatus(layoutKey);
   const hasEditingPermissions = useSelectHasPermission();
-  const isSnapshot = useSelectIsSnapshot(layoutKey);
-  const isEditable = hasEditingPermissions && !isSnapshot;
-  const name = Layout.useSelectRequired(layoutKey).name;
+  const isEditable = hasEditingPermissions;
   return (
     <Align.Center x size="small">
       <Status.Text variant="disabled" hideIcon>
@@ -59,11 +56,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
             dispatch(setEditable({ key: layoutKey, editable: true }));
           }}
           level="p"
-        >
-          {controlState === "acquired"
-            ? "release control and enable editing."
-            : "enable editing."}
-        </Text.Link>
+        />
       )}
     </Align.Center>
   );
@@ -71,10 +64,10 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
 
 export interface ToolbarProps {
   layoutKey: string;
+  name: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
-  const { name } = Layout.useSelectRequired(layoutKey);
+export const Toolbar = ({ layoutKey, name }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const editable = useSelectEditable(layoutKey);
@@ -82,12 +75,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const selectedNames = useSelectSelectedElementNames(layoutKey);
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
-      if (!editable) return <NotEditableContent layoutKey={layoutKey} />;
+      if (!editable) return <NotEditableContent layoutKey={layoutKey} name={name} />;
       switch (tabKey) {
         case "symbols":
           return <Symbols layoutKey={layoutKey} />;
-        case "control":
-          return <Control layoutKey={layoutKey} />;
         default:
           return <PropertiesControls layoutKey={layoutKey} />;
       }

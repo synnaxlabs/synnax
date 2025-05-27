@@ -47,12 +47,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("slate")
 	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Ontology", c.Ontology)
+	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying slates from Synnax.
-type Service struct{ cfg ServiceConfig }
+type Service struct {
+	cfg ServiceConfig
+}
 
 func (s Service) Close() error { return nil }
 

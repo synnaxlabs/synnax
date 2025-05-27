@@ -12,7 +12,7 @@ export const REGISTRY: Record<string, types.Spec<any>> = {
     Preview: Constant,
     defaultProps: () => ({
       value: 0,
-      type: "number",
+      dataType: "float32",
     }),
   },
 };

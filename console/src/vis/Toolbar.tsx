@@ -11,11 +11,12 @@ import { Align, Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { Toolbar } from "@/components";
+import { Effect } from "@/effect";
+import { EditToolbar } from "@/effect/edit/EditToolbar";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
-import { Slate } from "@/slate";
 import { Table } from "@/table";
 import { createSelectorLayout } from "@/vis/Selector";
 import { type LayoutType } from "@/vis/types";
@@ -29,7 +30,7 @@ const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
   [Log.LAYOUT_TYPE]: Log.Toolbar,
   [Schematic.LAYOUT_TYPE]: Schematic.Toolbar,
   [Table.LAYOUT_TYPE]: Table.Toolbar,
-  [Slate.LAYOUT_TYPE]: Slate.Toolbar,
+  [Effect.EDIT_LAYOUT_TYPE]: EditToolbar,
 };
 
 const NoVis = (): ReactElement => {

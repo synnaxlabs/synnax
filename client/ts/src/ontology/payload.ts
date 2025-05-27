@@ -15,8 +15,6 @@ import {
   ONTOLOGY_TYPE as POLICY_TYPE,
 } from "@/access/policy/ontology";
 import { ONTOLOGY_TYPE as CHANNEL_TYPE } from "@/channel/payload";
-import { ONTOLOGY_TYPE as ACTION_TYPE } from "@/effect/action/payload";
-import { ONTOLOGY_TYPE as CONDITION_TYPE } from "@/effect/condition/payload";
 import { ONTOLOGY_TYPE as EFFECT_TYPE } from "@/effect/payload";
 import { ONTOLOGY_TYPE as FRAMER_TYPE } from "@/framer/frame";
 import { ONTOLOGY_TYPE as DEVICE_TYPE } from "@/hardware/device/payload";
@@ -28,12 +26,12 @@ import {
   ALIAS_ONTOLOGY_TYPE as RANGE_ALIAS_TYPE,
   ONTOLOGY_TYPE as RANGE_TYPE,
 } from "@/ranger/payload";
+import { ONTOLOGY_TYPE as SLATE_TYPE } from "@/slate/payload";
 import { ONTOLOGY_TYPE as USER_TYPE } from "@/user/payload";
 import { ONTOLOGY_TYPE as LINE_PLOT_TYPE } from "@/workspace/lineplot/payload";
 import { ONTOLOGY_TYPE as LOG_TYPE } from "@/workspace/log/payload";
 import { ONTOLOGY_TYPE as WORKSPACE_TYPE } from "@/workspace/payload";
 import { ONTOLOGY_TYPE as SCHEMATIC_TYPE } from "@/workspace/schematic/payload";
-import { ONTOLOGY_TYPE as SLATE_TYPE } from "@/slate/payload";
 import { ONTOLOGY_TYPE as TABLE_TYPE } from "@/workspace/table/payload";
 export type ResourceChange = change.Change<ID, Resource>;
 export interface ResourceSet extends change.Set<ID, Resource> {}
@@ -68,8 +66,6 @@ export const resourceTypeZ = z.enum([
   POLICY_TYPE,
   TABLE_TYPE,
   EFFECT_TYPE,
-  ACTION_TYPE,
-  CONDITION_TYPE,
   SLATE_TYPE,
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;

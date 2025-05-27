@@ -131,11 +131,6 @@ export interface SelectAllPayload {
   key: string;
 }
 
-export interface SetAuthorityPayload {
-  key: string;
-  authority: number;
-}
-
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
@@ -301,18 +296,6 @@ export const { actions, reducer } = createSlice({
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
       const { key: layoutKey, edges } = payload;
       const slate = state.slates[layoutKey];
-      // check for new edges
-      const prevKeys = slate.edges.map((edge) => edge.key);
-      const newEdges = edges.filter((edge) => !prevKeys.includes(edge.key));
-      newEdges.forEach((edge) => {
-        const source = slate.nodes.find((node) => node.key === edge.source);
-        const target = slate.nodes.find((node) => node.key === edge.target);
-        if (source == null || target == null) return;
-        const sourceProps = slate.props[source.key];
-        const targetProps = slate.props[target.key];
-        if (sourceProps.color === targetProps.color && sourceProps.color != null)
-          edge.color = sourceProps.color;
-      });
       slate.edges = edges;
       const anySelected =
         edges.some((edge) => edge.selected) ||
@@ -417,7 +400,7 @@ export const {
   remove,
   clearSelection,
   setFitViewOnResize,
-  create: internalCreate,
+  create,
   setElementProps,
   setActiveToolbarTab,
   setViewport,

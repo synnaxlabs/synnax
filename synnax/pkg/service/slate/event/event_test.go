@@ -9,7 +9,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	"github.com/synnaxlabs/synnax/pkg/stage/event"
+	"github.com/synnaxlabs/synnax/pkg/service/slate/event"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
-	"github.com/synnaxlabs/synnax/pkg/stage/spec"
+	"github.com/synnaxlabs/synnax/pkg/service/slate/spec"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -61,8 +61,8 @@ var _ = Describe("Event", Ordered, func() {
 			g := spec.Graph{
 				Nodes: []spec.Node{
 					{
-						Type: "telem_source",
-						Key:  "telem_source",
+						Type: ,
+						Key:  "source",
 						Data: map[string]any{
 							"channel": uint32(sourceCh.Key()),
 						},
@@ -76,12 +76,12 @@ var _ = Describe("Event", Ordered, func() {
 						},
 					},
 					{
-						Type: "comparison.ge",
-						Key:  "comparison.ge",
+						Type: "operator.gte",
+						Key:  "operator.gte",
 					},
 					{
-						Type: "telem_sink",
-						Key:  "telem_sink",
+						Type: "sink",
+						Key:  "sink",
 						Data: map[string]any{
 							"channel": uint32(sinkCh.Key()),
 						},
@@ -89,16 +89,16 @@ var _ = Describe("Event", Ordered, func() {
 				},
 				Edges: []spec.Edge{
 					{
-						Source: spec.Handle{Node: "telem_source", Key: "value"},
-						Sink:   spec.Handle{Node: "comparison.ge", Key: "x"},
+						Source: spec.Handle{Node: "source", Key: "value"},
+						Sink:   spec.Handle{Node: "operator.gte", Key: "x"},
 					},
 					{
 						Source: spec.Handle{Node: "constant", Key: "value"},
-						Sink:   spec.Handle{Node: "comparison.ge", Key: "y"},
+						Sink:   spec.Handle{Node: "operator.gte", Key: "y"},
 					},
 					{
-						Source: spec.Handle{Node: "comparison.ge", Key: "value"},
-						Sink:   spec.Handle{Node: "telem_sink", Key: "value"},
+						Source: spec.Handle{Node: "operator.gte", Key: "value"},
+						Sink:   spec.Handle{Node: "sink", Key: "value"},
 					},
 				},
 			}

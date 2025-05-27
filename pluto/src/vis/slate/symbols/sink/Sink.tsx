@@ -21,14 +21,22 @@ export const Symbol = ({ channel }: SymbolProps) => {
   const name = Channel.useName(channel, "Channel");
 
   return (
-    <Align.Pack x align="center" background={1} bordered borderShade={5} rounded={0.5}>
+    <Align.Pack
+      x
+      align="center"
+      background={1}
+      bordered
+      borderShade={5}
+      rounded={0.5}
+      reverse
+    >
       <PIcon.Icon
         style={{
           padding: "0.5rem",
           paddingBottom: "0.25rem",
           background: "var(--pluto-primary-z)",
-          borderTopLeftRadius: "0.5rem",
-          borderBottomLeftRadius: "0.5rem",
+          borderTopRightRadius: "0.5rem",
+          borderBottomRightRadius: "0.5rem",
         }}
       >
         <Icon.Channel
@@ -44,7 +52,7 @@ export const Symbol = ({ channel }: SymbolProps) => {
           {name}
         </Text.Text>
       </Align.Space>
-      <Handle.Source location="right" id="value" />
+      <Handle.Sink location="left" id="value" />
     </Align.Pack>
   );
 };

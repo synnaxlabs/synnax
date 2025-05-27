@@ -21,6 +21,7 @@ import { type deep, type record } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
+import { Effect } from "@/effect";
 import { isMainWindow } from "@/isMainWindow";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -54,6 +55,7 @@ const ZERO_STATE: RootState = {
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
   [Slate.SLICE_NAME]: Slate.ZERO_SLICE_STATE,
+  [Effect.SLICE_NAME]: Effect.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
@@ -70,6 +72,7 @@ const reducer = combineReducers({
   [Log.SLICE_NAME]: Log.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Slate.SLICE_NAME]: Slate.reducer,
+  [Effect.SLICE_NAME]: Effect.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -86,6 +89,7 @@ export interface RootState {
   [Log.SLICE_NAME]: Log.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
   [Slate.SLICE_NAME]: Slate.SliceState;
+  [Effect.SLICE_NAME]: Effect.SliceState;
 }
 
 export type RootAction =
@@ -100,7 +104,8 @@ export type RootAction =
   | Version.Action
   | Workspace.Action
   | Log.Action
-  | Slate.Action;
+  | Slate.Action
+  | Effect.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
@@ -122,6 +127,7 @@ export const migrateState = (prev: RootState): RootState => {
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
   const slate = Slate.migrateSlice(prev.slate);
+  const effect = Effect.migrateSlice(prev.effect);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -136,6 +142,7 @@ export const migrateState = (prev: RootState): RootState => {
     cluster,
     permissions,
     slate,
+    effect,
   };
 };
 

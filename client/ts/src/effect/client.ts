@@ -11,8 +11,6 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Client as ActionClient } from "@/effect/action/client";
-import { Client as ConditionClient } from "@/effect/condition/client";
 import {
   type Effect,
   effectZ,
@@ -35,14 +33,10 @@ const retrieveResZ = z.object({ effects: z.array(effectZ) });
 const emptyResZ = z.object({});
 
 export class Client {
-  readonly actions: ActionClient;
-  readonly conditions: ConditionClient;
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
     this.client = client;
-    this.actions = new ActionClient(client);
-    this.conditions = new ConditionClient(client);
   }
 
   async create(effect: New): Promise<Effect>;
