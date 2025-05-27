@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -199,7 +200,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 	Describe("Downsampling", func() {
 		It("Should correctly downsample a factor of 2", func() {
-
 			ch := &channel.Channel{
 				Name:     "test",
 				DataType: telem.Float32T,
@@ -226,6 +226,96 @@ var _ = Describe("Streamer", Ordered, func() {
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 			Expect(res.Frame.Get(ch.Key()).Series[0]).To(telem.MatchSeriesData(writtenFr.Get(ch.Key()).Series[0].Downsample(2)))
+			inlet.Close()
+			Eventually(outlet.Outlet()).Should(BeClosed())
+			Expect(w.Close()).To(Succeed())
+		})
+
+		It("Should handle invalid downsampling factors", func() {
+			ch := &channel.Channel{
+				Name:     "test",
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			keys := []channel.Key{ch.Key()}
+
+			_, err := streamerSvc.New(ctx, streamer.Config{
+				Keys:             keys,
+				SendOpenAck:      true,
+				DownsampleFactor: -2,
+			})
+			Expect(err).To(HaveOccurredAs(validate.FieldError{
+				Field:   "downsample_factor",
+				Message: "must be greater than or equal to 0",
+			}))
+		})
+
+		It("Should correctly combine downsampling with calculations", func() {
+			indexCh := &channel.Channel{
+				Name:     "index",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
+
+			dataCh1 := &channel.Channel{
+				Name:       "data1",
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(dist.Channel.Create(ctx, dataCh1)).To(Succeed())
+
+			dataCh2 := &channel.Channel{
+				Name:       "data2",
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(dist.Channel.Create(ctx, dataCh2)).To(Succeed())
+
+			calculation := &channel.Channel{
+				Name:       "sum",
+				DataType:   telem.Float32T,
+				Expression: "return data1 + data2",
+				Requires:   []channel.Key{dataCh1.Key(), dataCh2.Key()},
+			}
+			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
+
+			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start:            telem.SecondTS,
+				Keys:             keys,
+				EnableAutoCommit: config.True(),
+			}))
+
+			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+				Keys:             []channel.Key{calculation.Key()},
+				SendOpenAck:      true,
+				DownsampleFactor: 2,
+			}))
+
+			sCtx, cancel := signal.Isolated()
+			inlet, outlet := confluence.Attach(s)
+			defer cancel()
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Eventually(outlet.Outlet()).Should(Receive())
+
+			writtenFr := core.MultiFrame(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
+					telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
+					telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
+				},
+			)
+			MustSucceed(w.Write(writtenFr))
+
+			var res streamer.Response
+			Eventually(outlet.Outlet()).Should(Receive(&res))
+
+			expectedValues := []float32{2, 6, 10, 14}
+			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](expectedValues...))
+
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
 			Expect(w.Close()).To(Succeed())

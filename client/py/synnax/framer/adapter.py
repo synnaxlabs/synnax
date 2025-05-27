@@ -9,7 +9,6 @@
 
 import warnings
 
-from numpy import can_cast as np_can_cast
 from pandas import DataFrame
 
 from synnax.channel.payload import (
