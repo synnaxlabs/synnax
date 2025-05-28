@@ -97,12 +97,11 @@ class TestStreamer:
                 w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = s.read(timeout=1)
                 assert np.array_equal(frame[virtual_channel.key], expect)
-        with client.open_streamer(virtual_channel.key, -1) as s:
-            with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-                w.write(pd.DataFrame({virtual_channel.key: data}))
-                frame = s.read(timeout=1)
-                assert np.array_equal(frame[virtual_channel.key], data)
+
+    def tesst_downsample_negative(self, virtual_channel: sy.Channel, client: sy.Synnax):
+        with pytest.raises(sy.ValidationError):
+            with client.open_streamer(virtual_channel.key, -1) as s:
+                ...
 
     @pytest.mark.multi_node
     def test_multi_node_stream_case_1(self):
@@ -194,10 +193,18 @@ class TestAsyncStreamer:
                 w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = await s.read()
                 assert np.array_equal(frame[virtual_channel.key], expect)
-        with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-            async with await client.open_async_streamer(virtual_channel.key, -1) as s:
-                time.sleep(0.1)
-                data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
-                w.write(pd.DataFrame({virtual_channel.key: data}))
-                frame = await s.read()
-                assert np.array_equal(frame[virtual_channel.key], data)
+
+    @pytest.mark.asyncio
+    async def test_downsample_negative(
+        self,
+        virtual_channel: sy.Channel,
+        client: sy.Synnax
+    ):
+        with pytest.raises(sy.ValidationError):
+            with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
+                async with await client.open_async_streamer(virtual_channel.key, -1) as s:
+                    time.sleep(0.1)
+                    data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+                    w.write(pd.DataFrame({virtual_channel.key: data}))
+                    frame = await s.read()
+                    assert np.array_equal(frame[virtual_channel.key], data)
