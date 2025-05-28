@@ -27,8 +27,8 @@ export const useTriggers = (): void => {
   Triggers.use({
     triggers: [["Control", "L"]],
     loose: true,
-    callback: ({ slate }) => {
-      if (slate !== "start") return;
+    callback: ({ stage }) => {
+      if (stage !== "start") return;
       const state = store.getState();
       const active = selectActiveMosaicTabKey(state);
       const windowKey = selectWindowKey(state);
@@ -41,8 +41,8 @@ export const useTriggers = (): void => {
   Triggers.use({
     triggers: [["Control", "W"]],
     loose: true,
-    callback: ({ slate }) => {
-      if (slate !== "start") return;
+    callback: ({ stage }) => {
+      if (stage !== "start") return;
       const state = store.getState();
       const active = selectActiveMosaicTabKey(state);
       if (active == null) {
@@ -55,8 +55,8 @@ export const useTriggers = (): void => {
   Triggers.use({
     triggers: [["Control", "O"]],
     loose: true,
-    callback: ({ slate }) => {
-      if (slate !== "start") return;
+    callback: ({ stage }) => {
+      if (stage !== "start") return;
       const state = store.getState();
       const active = selectActiveMosaicTabKey(state);
       if (active == null) return;
@@ -66,8 +66,8 @@ export const useTriggers = (): void => {
   Triggers.use({
     triggers: [["Control", "E"]],
     loose: true,
-    callback: ({ slate }) => {
-      if (slate !== "start") return;
+    callback: ({ stage }) => {
+      if (stage !== "start") return;
       const state = store.getState();
       const active = selectActiveMosaicTabKey(state);
       if (active == null) return;
@@ -77,8 +77,8 @@ export const useTriggers = (): void => {
   Triggers.use({
     triggers: [["Control", "T"]],
     loose: true,
-    callback: ({ slate }) => {
-      if (slate !== "start") return;
+    callback: ({ stage }) => {
+      if (stage !== "start") return;
       placeLayout(createSelectorLayout({ tab: { location: "center" } }));
     },
   });

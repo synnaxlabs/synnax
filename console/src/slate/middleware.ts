@@ -10,13 +10,7 @@
 import { Layout } from "@/layout";
 import { effectMiddleware, type MiddlewareEffect } from "@/middleware";
 import { selectSliceState } from "@/slate/selectors";
-import {
-  fixThemeContrast,
-  type FixThemeContrastPayload,
-  remove,
-  type RemovePayload,
-  type StoreState,
-} from "@/slate/slice";
+import { remove, type RemovePayload, type StoreState } from "@/slate/slice";
 
 export const deleteEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
@@ -35,16 +29,6 @@ export const deleteEffect: MiddlewareEffect<
   if (toRemove.length > 0) store.dispatch(remove({ keys: toRemove }));
 };
 
-export const themeChangeEffect: MiddlewareEffect<
-  Layout.StoreState & StoreState,
-  Layout.SetActiveThemePayload,
-  FixThemeContrastPayload
-> = ({ store }) => {
-  const theme = Layout.selectRawTheme(store.getState());
-  store.dispatch(fixThemeContrast({ theme }));
-};
-
 export const MIDDLEWARE = [
   effectMiddleware([Layout.remove.type, Layout.setWorkspace.type], [deleteEffect]),
-  effectMiddleware([Layout.setActiveTheme.type], [themeChangeEffect]),
 ];

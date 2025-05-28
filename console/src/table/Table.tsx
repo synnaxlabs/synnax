@@ -210,8 +210,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     triggers: [["Control", "V"], ["Control", "C"], ["Delete"], ["Backspace"]],
     region: ref,
     callback: useCallback(
-      ({ triggers, slate }: Triggers.UseEvent) => {
-        if (ref.current == null || slate !== "start") return;
+      ({ triggers, stage }: Triggers.UseEvent) => {
+        if (ref.current == null || stage !== "start") return;
         const isCopy = triggers.some((t) => t.includes("C"));
         const isDelete = triggers.some(
           (t) => t.includes("Delete") || t.includes("Backspace"),

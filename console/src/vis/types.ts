@@ -10,12 +10,10 @@
 import { type LinePlot } from "@/lineplot";
 import { type Log } from "@/log";
 import { type Schematic } from "@/schematic";
-import { type slate } from "@/slate";
 import { type Table } from "@/table";
 
 export type LayoutType =
   | LinePlot.LayoutType
   | Log.LayoutType
   | Schematic.LayoutType
-  | Table.LayoutType
-  | slate.LayoutType;
+  | Table.LayoutType;

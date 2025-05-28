@@ -6,6 +6,6 @@ import { Form as Core } from "@/form";
 
 export const Form = (): ReactElement => (
   <Core.Field<channel.Key> path="channel">
-    {(p) => <Channel.SelectSingle {...p} variant="connected" />}
+    {(p) => <Channel.SelectSingle {...p} />}
   </Core.Field>
 );

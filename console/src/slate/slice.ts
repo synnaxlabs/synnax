@@ -8,13 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import {
-  type Control,
-  type Diagram,
-  type Theming,
-  type Viewport,
-} from "@synnaxlabs/pluto";
-import { box, color, id, scale, xy } from "@synnaxlabs/x";
+import { type Diagram, type Theming, type Viewport } from "@synnaxlabs/pluto";
+import { box, id, scale, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/slate/types";
 
@@ -94,16 +89,6 @@ export interface SetFitViewOnResizePayload {
   fitViewOnResize: boolean;
 }
 
-export interface SetControlStatusPayload {
-  key: string;
-  control: Control.Status;
-}
-
-export interface ToggleControlPayload {
-  key: string;
-  status: Control.Status;
-}
-
 export interface SetActiveToolbarTabPayload {
   tab: ToolbarTab;
 }
@@ -167,12 +152,8 @@ export const { actions, reducer } = createSlice({
         const selectedEdges = edges.filter((edge) => edge.selected);
         copyBuffer.nodes = [...copyBuffer.nodes, ...selectedNodes];
         copyBuffer.edges = [...copyBuffer.edges, ...selectedEdges];
-        selectedNodes.forEach((node) => {
-          copyBuffer.props[node.key] = props[node.key];
-        });
-        selectedEdges.forEach((edge) => {
-          copyBuffer.props[edge.key] = props[edge.key];
-        });
+        selectedNodes.forEach((node) => (copyBuffer.props[node.key] = props[node.key]));
+        selectedEdges.forEach((edge) => (copyBuffer.props[edge.key] = props[edge.key]));
       });
       const { nodes } = copyBuffer;
       if (nodes.length > 0) {
@@ -343,28 +324,6 @@ export const { actions, reducer } = createSlice({
       const slate = state.slates[layoutKey];
       slate.remoteCreated = true;
     },
-    fixThemeContrast: (state, { payload }: PayloadAction<FixThemeContrastPayload>) => {
-      const { theme } = payload;
-      const bgColor = color.construct(theme.colors.gray.l0);
-      const shouldChange = (crude: color.Crude): boolean => {
-        const c = color.construct(crude);
-        return color.grayness(c) > 0.85 && color.contrast(c, bgColor) < 1.3;
-      };
-      Object.values(state.slates).forEach((slate) => {
-        const { nodes, edges, props } = slate;
-        nodes.forEach((node) => {
-          const nodeProps = props[node.key];
-          if ("color" in nodeProps)
-            if (shouldChange(nodeProps.color as string))
-              nodeProps.color = theme.colors.gray.l11;
-        });
-        edges.forEach((edge) => {
-          if (edge.color != null && shouldChange(edge.color as string))
-            edge.color = theme.colors.gray.l11;
-          else edge.color ??= theme.colors.gray.l11;
-        });
-      });
-    },
     selectAll: (state, { payload }: PayloadAction<SelectAllPayload>) => {
       const { key: layoutKey } = payload;
       const slate = state.slates[layoutKey];
@@ -383,12 +342,8 @@ const clearOtherSelections = (state: SliceState, layoutKey: string): void => {
 };
 
 const clearSelections = (state: State): void => {
-  state.nodes.forEach((node) => {
-    node.selected = false;
-  });
-  state.edges.forEach((edge) => {
-    edge.selected = false;
-  });
+  state.nodes.forEach((node) => (node.selected = false));
+  state.edges.forEach((edge) => (edge.selected = false));
 };
 
 export const {
@@ -409,7 +364,6 @@ export const {
   pasteSelection,
   setViewportMode,
   setRemoteCreated,
-  fixThemeContrast,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

@@ -26,7 +26,7 @@ const useWindowsContains = (): ((cursor: xy.XY) => boolean) => {
     (cursor) => {
       const windows = Drift.selectWindows(store.getState());
       const boxes = windows
-        .filter((w) => w.slate === "created" && w.reserved)
+        .filter((w) => w.stage === "created" && w.reserved)
         .map((w) => box.construct(w.position, w.size));
       return boxes.some((b) => box.contains(b, cursor));
     },

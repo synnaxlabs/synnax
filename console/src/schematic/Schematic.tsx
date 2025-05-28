@@ -138,14 +138,10 @@ const SymbolRenderer = ({
   );
 
   if (props == null) return null;
-
   const C = Core.SYMBOLS[key as Core.Variant];
-
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
-  // Just here to make sure we don't spread the key into the symbol.
   const { key: _, ...rest } = props;
-
   return (
     <C.Symbol
       key={key}
@@ -178,7 +174,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
     selector,
     internalCreate,
-    30, // roughly the right time needed to prevent actions that get dispatch automatically by Diagram.tsx, like setNodes immediately following addElement
+    30, // roughly the right time needed to prevent actions that get dispatch
+    // automatically by Diagram.tsx, like setNodes immediately following addElement
   );
   const undoableDispatch = useSyncComponent(layoutKey, undoableDispatch_);
 
@@ -302,8 +299,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     loose: true,
     region: ref,
     callback: useCallback(
-      ({ triggers, cursor, slate }: Triggers.UseEvent) => {
-        if (ref.current == null || slate !== "start") return;
+      ({ triggers, cursor, stage }: Triggers.UseEvent) => {
+        if (ref.current == null || stage !== "start") return;
         const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
         const isClear = triggers.some((t) => t.includes("Escape"));
