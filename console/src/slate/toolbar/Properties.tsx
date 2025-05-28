@@ -23,7 +23,6 @@ import { memo, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import {
-  type ElementInfo,
   selectViewport,
   useSelectRequiredEdge,
   useSelectRequiredNodeProps,
@@ -139,20 +138,6 @@ const MultiElementProperties = ({
 }: MultiElementPropertiesProps): ReactElement => {
   const elements = useSelectSelectedElementsProps(layoutKey);
   const dispatch = useDispatch();
-  const onChange = (key: string, props: any): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
-  };
-
-  const groups: Record<string, ElementInfo[]> = {};
-  elements.forEach((e) => {
-    let colorVal: color.Color | null = null;
-    if (e.type === "edge") colorVal = color.construct(e.edge.color);
-    else if (e.props.color != null) colorVal = color.construct(e.props.color);
-    if (colorVal === null) return;
-    const hex = color.hex(colorVal);
-    if (!(hex in groups)) groups[hex] = [];
-    groups[hex].push(e);
-  });
 
   const store = useStore<RootState>();
 
@@ -193,19 +178,6 @@ const MultiElementProperties = ({
 
   return (
     <Align.Space align="start" x style={{ padding: "2rem" }}>
-      <Input.Item label="Selection Colors" align="start">
-        <Align.Space y>
-          {Object.entries(groups).map(([hex, elements]) => (
-            <Color.Swatch
-              key={elements[0].key}
-              value={hex}
-              onChange={(v: color.Color) => {
-                elements.forEach((e) => onChange(e.key, { color: color.hex(v) }));
-              }}
-            />
-          ))}
-        </Align.Space>
-      </Input.Item>
       <Input.Item label="Align">
         <Align.Space x>
           <Button.Icon
