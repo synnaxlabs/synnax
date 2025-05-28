@@ -72,7 +72,7 @@ type Config struct {
 	// ResponseBufferSize sets the channel buffer size for the main response streaming
 	// pipe. All written frames will be moved through this pipe, so the value should be
 	// relatively large.
-	// [OPTIONAL: Default is 1000 (equivalent 72 KB of data)]
+	// [OPTIONAL: Default is 1000 (equivalent 72 kB of data)]
 	ResponseBufferSize int
 	// DemandBufferSize sets the channel buffer size for channel demands to the relay.
 	// This value should be relatively small.
@@ -87,7 +87,7 @@ var (
 	// Config for more information.
 	DefaultConfig = Config{
 		SlowConsumerTimeout: time.Millisecond * 20,
-		// 72 B * 1000 = 72 KB
+		// 72 B * 1000 = 72 kB
 		ResponseBufferSize: 1000,
 		DemandBufferSize:   50,
 	}

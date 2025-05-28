@@ -91,9 +91,7 @@ func (s Series) Samples() iter.Seq[[]byte] {
 
 // At returns the binary representation of the sample at the given index.
 func (s Series) At(i int) []byte {
-	if i < 0 {
-		i += int(s.Len())
-	}
+	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	if s.DataType.IsVariable() {
 		var offset int
 		for j := range s.Data {
@@ -121,12 +119,10 @@ func ValueAt[T Sample](s Series, i int) T {
 // SetValueAt sets the value at the given index in the series. SetValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
-func SetValueAt[T types.Numeric](s Series, i int64, v T) {
-	if i < 0 {
-		i += s.Len()
-	}
+func SetValueAt[T types.Numeric](s Series, i int, v T) {
+	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	f := MarshalF[T](s.DataType)
-	f(s.Data[i*int64(s.DataType.Density()):], v)
+	f(s.Data[i*int(s.DataType.Density()):], v)
 }
 
 // AlignmentBounds returns the alignment bounds of the series. The lower bound is the
@@ -252,6 +248,10 @@ func (s Series) DataString() string {
 // upper bound is exclusive.
 type AlignmentBounds = bounds.Bounds[Alignment]
 
+// AlignmentBoundsZero is a set of alignment bounds whose lower and upper bound
+// are both zero.
+var AlignmentBoundsZero = AlignmentBounds{}
+
 // MultiSeries is a collection of ordered Series that share the same data type.
 type MultiSeries struct{ Series []Series }
 
@@ -298,23 +298,27 @@ func NewMultiSeriesV(series ...Series) MultiSeries { return NewMultiSeries(serie
 // bound is the alignment of the first sample in the series, and the upper bound is the
 // alignment of the last sample in the series + 1, i.e., the lower value is inclusive, and
 // the upper value is exclusive.
-func (m MultiSeries) AlignmentBounds() (ab AlignmentBounds) {
-	if len(m.Series) != 0 {
-		ab.Lower = m.Series[0].AlignmentBounds().Lower
-		ab.Upper = m.Series[len(m.Series)-1].AlignmentBounds().Upper
+func (m MultiSeries) AlignmentBounds() AlignmentBounds {
+	if len(m.Series) == 0 {
+		return AlignmentBoundsZero
 	}
-	return ab
+	return AlignmentBounds{
+		Lower: m.Series[0].AlignmentBounds().Lower,
+		Upper: m.Series[len(m.Series)-1].AlignmentBounds().Upper,
+	}
 }
 
 // TimeRange returns the time range of the MultiSeries, where the start time is the
 // start time of the first series, and the end time is the end time of the last series.
 // The start time is inclusive and the end time is exclusive.
-func (m MultiSeries) TimeRange() (tr TimeRange) {
+func (m MultiSeries) TimeRange() TimeRange {
 	if len(m.Series) != 0 {
-		tr.Start = m.Series[0].TimeRange.Start
-		tr.End = m.Series[len(m.Series)-1].TimeRange.End
+		return TimeRange{
+			Start: m.Series[0].TimeRange.Start,
+			End:   m.Series[len(m.Series)-1].TimeRange.End,
+		}
 	}
-	return tr
+	return TimeRangeZero
 }
 
 // Append appends a series to the MultiSeries. The series must have the same data type
@@ -356,11 +360,11 @@ func (m MultiSeries) Len() int64 {
 
 // DataType returns the data type of the multi series. If the multi series is empty, the
 // data type is UnknownT.
-func (m MultiSeries) DataType() (dt DataType) {
+func (m MultiSeries) DataType() DataType {
 	if len(m.Series) != 0 {
-		dt = m.Series[0].DataType
+		return m.Series[0].DataType
 	}
-	return dt
+	return UnknownT
 }
 
 // Data returns a byte slice containing the aggregated data of all series in the

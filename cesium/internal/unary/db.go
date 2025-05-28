@@ -34,7 +34,7 @@ type DB struct {
 	domain     *domain.DB
 	controller *control.Controller[*controlledWriter]
 	// _idx is the index used for resolving timestamp positions on this channel.
-	_idx             index.Index
+	_idx             *index.Domain
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
@@ -48,7 +48,7 @@ func (db *DB) Channel() core.Channel { return db.cfg.Channel }
 
 // Index returns the index for the unary database IF AND ONLY IF the channel is an index
 // channel. Otherwise, this method will panic.
-func (db *DB) Index() index.Index {
+func (db *DB) Index() *index.Domain {
 	if !db.cfg.Channel.IsIndex {
 		// inconceivable state
 		panic(fmt.Sprintf("channel %v is not an index channel", db.cfg.Channel))
@@ -56,7 +56,7 @@ func (db *DB) Index() index.Index {
 	return db.index()
 }
 
-func (db *DB) index() index.Index {
+func (db *DB) index() *index.Domain {
 	if db._idx == nil {
 		// inconceivable state
 		panic(fmt.Sprintf("channel <%v> index is not set", db.cfg.Channel))
@@ -64,7 +64,7 @@ func (db *DB) index() index.Index {
 	return db._idx
 }
 
-func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
+func (db *DB) SetIndex(idx *index.Domain) { db._idx = idx }
 
 // LeadingControlState returns the first chronological gate in this unary database.
 func (db *DB) LeadingControlState() *control.State {

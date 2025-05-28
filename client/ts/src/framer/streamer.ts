@@ -19,11 +19,11 @@ import { StreamProxy } from "@/framer/streamProxy";
 
 const reqZ = z.object({ keys: z.number().array(), downsampleFactor: z.number() });
 
-export type StreamerRequest = z.infer<typeof reqZ>;
+export interface StreamerRequest extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({ frame: frameZ });
 
-export type StreamerResponse = z.infer<typeof resZ>;
+export interface StreamerResponse extends z.infer<typeof resZ> {}
 
 const ENDPOINT = "/frame/stream";
 

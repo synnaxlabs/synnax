@@ -89,7 +89,7 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
-func Open(ctx context.Context, configs ...Config) (db *DB, err error) {
+func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func Open(ctx context.Context, configs ...Config) (db *DB, err error) {
 	if err != nil {
 		return nil, err
 	}
-	db = &DB{
+	db := &DB{
 		cfg:              cfg,
 		controller:       c,
 		wrapError:        wrapError,

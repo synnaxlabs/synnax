@@ -23,7 +23,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, primitiveIsZero } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
@@ -115,7 +115,7 @@ const CreateLayoutForm = ({
       const timeRange = new TimeRange(tr);
       const name = values.name.trim();
       const key = initialValues.key ?? uuidv4();
-      const parentID = primitiveIsZero(parent)
+      const parentID = primitive.isZero(parent)
         ? undefined
         : ranger.ontologyID(parent as string);
       const otgID = ranger.ontologyID(key);

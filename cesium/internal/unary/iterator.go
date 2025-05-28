@@ -62,7 +62,7 @@ type Iterator struct {
 	internal *domain.Iterator
 	view     telem.TimeRange
 	frame    core.Frame
-	idx      index.Index
+	idx      *index.Domain
 	bounds   telem.TimeRange
 	err      error
 	closed   bool

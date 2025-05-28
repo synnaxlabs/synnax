@@ -7,16 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package slices_test
-
-import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-func TestSlices(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Slices Suite")
-}
+export * as primitive from "@/primitive/primitive";

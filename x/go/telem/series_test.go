@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-func MarshalSeriesTest[T telem.Sample](data []T, dt telem.DataType) func() {
+func marshalSeriesTest[T telem.Sample](data []T, dt telem.DataType) func() {
 	return func() {
 		s := telem.NewSeries(data)
 		ExpectWithOffset(1, s.DataType).To(Equal(dt))
@@ -26,14 +26,14 @@ func MarshalSeriesTest[T telem.Sample](data []T, dt telem.DataType) func() {
 	}
 }
 
-func MarshalUnmarshalSliceTest[T telem.Sample](data []T, dt telem.DataType) func() {
+func marshalUnmarshalSliceTest[T telem.Sample](data []T, dt telem.DataType) func() {
 	return func() {
 		s := telem.MarshalSlice[T](data)
 		Expect(telem.UnmarshalSlice[T](s, dt)).To(Equal(data))
 	}
 }
 
-func ValueAtTest[T telem.Sample](value T, dt telem.DataType) func() {
+func valueAtTest[T telem.Sample](value T, dt telem.DataType) func() {
 	return func() {
 		s := telem.NewSeriesV(value)
 		ExpectWithOffset(1, s.DataType).To(Equal(dt))
@@ -55,17 +55,17 @@ var _ = Describe("Series", func() {
 
 	Describe("Factory", func() {
 		Describe("MarshalSeries", func() {
-			Specify("float64", MarshalSeriesTest([]float64{1.0, 2.0, 3.0}, telem.Float64T))
-			Specify("float32", MarshalSeriesTest([]float32{1.0, 2.0, 3.0}, telem.Float32T))
-			Specify("int64", MarshalSeriesTest([]int64{1, 2, 3}, telem.Int64T))
-			Specify("int32", MarshalSeriesTest([]int32{1, 2, 3}, telem.Int32T))
-			Specify("int16", MarshalSeriesTest([]int16{1, 2, 3}, telem.Int16T))
-			Specify("int8", MarshalSeriesTest([]int8{1, 2, 3}, telem.Int8T))
-			Specify("uint64", MarshalSeriesTest([]uint64{1, 2, 3}, telem.Uint64T))
-			Specify("uint32", MarshalSeriesTest([]uint32{1, 2, 3}, telem.Uint32T))
-			Specify("uint16", MarshalSeriesTest([]uint16{1, 2, 3}, telem.Uint16T))
-			Specify("uint8", MarshalSeriesTest([]uint8{1, 2, 3}, telem.Uint8T))
-			Specify("timestamp", MarshalSeriesTest([]telem.TimeStamp{1, 2, 3}, telem.TimeStampT))
+			Specify("float64", marshalSeriesTest([]float64{1.0, 2.0, 3.0}, telem.Float64T))
+			Specify("float32", marshalSeriesTest([]float32{1.0, 2.0, 3.0}, telem.Float32T))
+			Specify("int64", marshalSeriesTest([]int64{1, 2, 3}, telem.Int64T))
+			Specify("int32", marshalSeriesTest([]int32{1, 2, 3}, telem.Int32T))
+			Specify("int16", marshalSeriesTest([]int16{1, 2, 3}, telem.Int16T))
+			Specify("int8", marshalSeriesTest([]int8{1, 2, 3}, telem.Int8T))
+			Specify("uint64", marshalSeriesTest([]uint64{1, 2, 3}, telem.Uint64T))
+			Specify("uint32", marshalSeriesTest([]uint32{1, 2, 3}, telem.Uint32T))
+			Specify("uint16", marshalSeriesTest([]uint16{1, 2, 3}, telem.Uint16T))
+			Specify("uint8", marshalSeriesTest([]uint8{1, 2, 3}, telem.Uint8T))
+			Specify("timestamp", marshalSeriesTest([]telem.TimeStamp{1, 2, 3}, telem.TimeStampT))
 			Specify("bad data type", func() {
 				type BadType uint32
 				Expect(func() {
@@ -75,17 +75,17 @@ var _ = Describe("Series", func() {
 		})
 
 		Describe("MarshalSlice", func() {
-			Specify("float64", MarshalUnmarshalSliceTest([]float64{1.0, 2.0, 3.0}, telem.Float64T))
-			Specify("float32", MarshalUnmarshalSliceTest([]float32{1.0, 2.0, 3.0}, telem.Float32T))
-			Specify("int64", MarshalUnmarshalSliceTest([]int64{1, 2, 3}, telem.Int64T))
-			Specify("int32", MarshalUnmarshalSliceTest([]int32{1, 2, 3}, telem.Int32T))
-			Specify("int16", MarshalUnmarshalSliceTest([]int16{1, 2, 3}, telem.Int16T))
-			Specify("int8", MarshalUnmarshalSliceTest([]int8{1, 2, 3}, telem.Int8T))
-			Specify("uint64", MarshalUnmarshalSliceTest([]uint64{1, 2, 3}, telem.Uint64T))
-			Specify("uint32", MarshalUnmarshalSliceTest([]uint32{1, 2, 3}, telem.Uint32T))
-			Specify("uint16", MarshalUnmarshalSliceTest([]uint16{1, 2, 3}, telem.Uint16T))
-			Specify("uint8", MarshalUnmarshalSliceTest([]uint8{1, 2, 3}, telem.Uint8T))
-			Specify("timestamp", MarshalUnmarshalSliceTest([]telem.TimeStamp{1, 2, 3}, telem.TimeStampT))
+			Specify("float64", marshalUnmarshalSliceTest([]float64{1.0, 2.0, 3.0}, telem.Float64T))
+			Specify("float32", marshalUnmarshalSliceTest([]float32{1.0, 2.0, 3.0}, telem.Float32T))
+			Specify("int64", marshalUnmarshalSliceTest([]int64{1, 2, 3}, telem.Int64T))
+			Specify("int32", marshalUnmarshalSliceTest([]int32{1, 2, 3}, telem.Int32T))
+			Specify("int16", marshalUnmarshalSliceTest([]int16{1, 2, 3}, telem.Int16T))
+			Specify("int8", marshalUnmarshalSliceTest([]int8{1, 2, 3}, telem.Int8T))
+			Specify("uint64", marshalUnmarshalSliceTest([]uint64{1, 2, 3}, telem.Uint64T))
+			Specify("uint32", marshalUnmarshalSliceTest([]uint32{1, 2, 3}, telem.Uint32T))
+			Specify("uint16", marshalUnmarshalSliceTest([]uint16{1, 2, 3}, telem.Uint16T))
+			Specify("uint8", marshalUnmarshalSliceTest([]uint8{1, 2, 3}, telem.Uint8T))
+			Specify("timestamp", marshalUnmarshalSliceTest([]telem.TimeStamp{1, 2, 3}, telem.TimeStampT))
 			Specify("bad data type", func() {
 				type BadType uint32
 				Expect(func() {
@@ -244,7 +244,7 @@ var _ = Describe("Series", func() {
 		It("Should make a series with the specified length", func() {
 			s := telem.MakeSeries(telem.Int64T, 20)
 			Expect(s.Len()).To(Equal(int64(20)))
-			Expect(s.Size()).To(Equal(telem.ByteSize * 20 * 8))
+			Expect(s.Size()).To(Equal(telem.Byte * 20 * 8))
 		})
 	})
 
@@ -290,16 +290,16 @@ var _ = Describe("Series", func() {
 
 	Describe("ValueAt", func() {
 		Describe("Happy Path", func() {
-			Specify("uint8", ValueAtTest(uint8(1), telem.Uint8T))
-			Specify("uint16", ValueAtTest(uint16(1), telem.Uint16T))
-			Specify("uint32", ValueAtTest(uint32(1), telem.Uint32T))
-			Specify("uint64", ValueAtTest(uint64(1), telem.Uint64T))
-			Specify("int8", ValueAtTest(int8(1), telem.Int8T))
-			Specify("int16", ValueAtTest(int16(1), telem.Int16T))
-			Specify("int32", ValueAtTest(int32(1), telem.Int32T))
-			Specify("int64", ValueAtTest(int64(1), telem.Int64T))
-			Specify("float32", ValueAtTest(float32(1.0), telem.Float32T))
-			Specify("float64", ValueAtTest(float64(1.0), telem.Float64T))
+			Specify("uint8", valueAtTest(uint8(1), telem.Uint8T))
+			Specify("uint16", valueAtTest(uint16(1), telem.Uint16T))
+			Specify("uint32", valueAtTest(uint32(1), telem.Uint32T))
+			Specify("uint64", valueAtTest(uint64(1), telem.Uint64T))
+			Specify("int8", valueAtTest(int8(1), telem.Int8T))
+			Specify("int16", valueAtTest(int16(1), telem.Int16T))
+			Specify("int32", valueAtTest(int32(1), telem.Int32T))
+			Specify("int64", valueAtTest(int64(1), telem.Int64T))
+			Specify("float32", valueAtTest(float32(1.0), telem.Float32T))
+			Specify("float64", valueAtTest(float64(1.0), telem.Float64T))
 		})
 		Describe("Negative Index", func() {
 			It("Should return a value at the given negative index", func() {

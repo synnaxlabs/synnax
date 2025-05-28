@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { decode, encode, ExtensionCodec } from "@msgpack/msgpack";
 import { type z } from "zod";
 
 import { caseconv } from "@/caseconv";
@@ -73,14 +72,10 @@ export class JSONCodec implements Codec {
     const caseConverted = caseconv.camelToSnake(payload);
     return JSON.stringify(caseConverted, (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
-      if (isObject(v) && "encode_value" in v)
-        return typeof v.value === "bigint" ? v.value.toString() : v.value;
       if (typeof v === "bigint") return v.toString();
       return v;
     });
   }
-
-  static registerCustomType(): void {}
 }
 
 /**
@@ -150,15 +145,15 @@ export class CSVCodec implements Codec {
     if (value.startsWith('"') && value.endsWith('"')) return value.slice(1, -1);
     return value;
   }
-
-  static registerCustomType(): void {}
 }
 
 export class TextCodec implements Codec {
   contentType = "text/plain";
 
   encode(payload: unknown): Uint8Array {
-    return new TextEncoder().encode(payload as string);
+    if (typeof payload !== "string")
+      throw new Error("TextCodec.encode payload must be a string");
+    return new TextEncoder().encode(payload);
   }
 
   decode<P extends z.ZodTypeAny>(
@@ -170,48 +165,8 @@ export class TextCodec implements Codec {
   }
 }
 
-const extensionCodec = new ExtensionCodec();
-
-extensionCodec.register({
-  type: 0,
-  encode: (value: unknown): Uint8Array | null => {
-    if (ArrayBuffer.isView(value)) {
-      const array = Array.from(value as Uint8Array);
-      return encode(array, { extensionCodec });
-    }
-    if (isObject(value) && "encode_value" in value) {
-      if (typeof value.value === "bigint")
-        return encode(value.value.toString(), { extensionCodec });
-      return encode(value.value, { extensionCodec });
-    }
-    if (typeof value === "bigint") return encode(value.toString(), { extensionCodec });
-    return null;
-  },
-  decode: (data: Uint8Array) => decode(data, { extensionCodec }),
-});
-
-export class MsgPackCodec implements Codec {
-  contentType = "application/msgpack";
-
-  encode(payload: unknown): Uint8Array {
-    const caseConverted = caseconv.camelToSnake(payload);
-    const d = encode(caseConverted, { extensionCodec });
-    return d.slice();
-  }
-
-  decode<P extends z.ZodTypeAny>(
-    data: Uint8Array | ArrayBuffer,
-    schema?: P,
-  ): z.output<P> {
-    const decoded = decode(data, { extensionCodec });
-    const unpacked = caseconv.snakeToCamel(decoded);
-    return schema != null ? schema.parse(unpacked) : (unpacked as z.output<P>);
-  }
-
-  static registerCustomType(): void {}
-}
-
 export const JSON_CODEC = new JSONCodec();
 export const CSV_CODEC = new CSVCodec();
 export const TEXT_CODEC = new TextCodec();
-export const MSGPACK_CODEC = new MsgPackCodec();
+
+export const ENCODERS: Codec[] = [JSON_CODEC];

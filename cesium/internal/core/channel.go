@@ -67,7 +67,7 @@ func (c Channel) String() string {
 	return fmt.Sprintf("<%d>", c.Key)
 }
 
-// ValidateSeries ensures that a given series is compatible with the channel, and
+// ValidateSeries ensures that a given series is compatible with the channel and
 // returns an error if it is not.
 func (c Channel) ValidateSeries(series telem.Series) error {
 	sDt := series.DataType
@@ -85,6 +85,8 @@ func (c Channel) ValidateSeries(series telem.Series) error {
 	return nil
 }
 
+// Validate checks that all channel fields are valid, and returns an error if they
+// are not.
 func (c Channel) Validate() error {
 	v := validate.New("meta")
 	validate.Positive(v, "key", c.Key)

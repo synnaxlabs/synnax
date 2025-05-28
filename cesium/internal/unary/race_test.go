@@ -46,7 +46,7 @@ var _ = Describe("Unary racing", func() {
 						IsIndex:  true,
 						DataType: telem.TimeStampT,
 					},
-					FileSize:        1 * telem.ByteSize,
+					FileSize:        1 * telem.Byte,
 					Instrumentation: PanicLogger(),
 				}))
 				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
@@ -58,7 +58,7 @@ var _ = Describe("Unary racing", func() {
 						DataType: telem.Int64T,
 						Index:    indexKey,
 					},
-					FileSize:        1 * telem.ByteSize,
+					FileSize:        1 * telem.Byte,
 					Instrumentation: PanicLogger(),
 				},
 				))

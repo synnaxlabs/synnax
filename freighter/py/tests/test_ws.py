@@ -6,25 +6,45 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-
+import base64
 import time
 from uuid import uuid4
 
 import pytest
 
 import freighter.exceptions
-from freighter.codec import JSONCodec, MsgPackCodec
+from freighter.codec import Codec, JSONCodec, MsgPackCodec
 from freighter.context import Context
 from freighter.http import HTTPClient
-from freighter.transport import AsyncNext, Next
+from freighter.transport import AsyncNext, Next, P, Payload
 from freighter.url import URL
 from freighter.websocket import (
     AsyncWebsocketClient,
     ConnectionClosedError,
+)
+from freighter.websocket import Message as WebsocketMessage
+from freighter.websocket import (
     WebsocketClient,
 )
 
 from .interface import Error, Message
+
+
+class MyVerySpecialCustomCodec(Codec):
+    """A custom codec that uses JSON for encoding and decoding."""
+
+    base = JSONCodec()
+
+    def content_type(self) -> str:
+        return "application/json"
+
+    def encode(self, data: Payload) -> bytes:
+        if isinstance(data, WebsocketMessage):
+            data.payload = Message(id=4200, message="the key to the universe")
+        return self.base.encode(data)
+
+    def decode(self, data: bytes, pld_t: type[P]) -> P:
+        return self.base.decode(data, pld_t)
 
 
 @pytest.fixture
@@ -125,6 +145,21 @@ class TestAsyncWebsocket:
                 _, err = await stream.receive()
                 if isinstance(err, freighter.EOF):
                     break
+
+    async def test_with_custom_codec(self, async_client: AsyncWebsocketClient) -> None:
+        """Should correctly use a custom codec for the websocket client."""
+        async_client = async_client.with_codec(MyVerySpecialCustomCodec())
+        stream = await async_client.stream("/echo", Message, Message)
+        for i in range(1):
+            err = await stream.send(
+                Message(id=12, message="what we send here is ignored")
+            )
+            assert err is None
+            msg, err = await stream.receive()
+            assert err is None
+            assert msg is not None
+            assert msg.id == 4201
+            assert msg.message == "the key to the universe"
 
 
 class TestSyncWebsocket:
@@ -227,6 +262,7 @@ class TestSyncWebsocket:
         stream.close_send()
 
     def test_exit_immediately_with_err(self, sync_client: WebsocketClient) -> None:
+        """Should correctly return the error to the stream"""
         stream = sync_client.stream("/immediatelyExitWithErr", Message, Message)
         for i in range(100):
             stream.send(Message(id=1, message="hello"))
@@ -235,3 +271,16 @@ class TestSyncWebsocket:
         assert err.code == 1
         assert err.message == "unexpected error"
         stream.close_send()
+
+    def test_with_custom_codec(self, sync_client: WebsocketClient) -> None:
+        """Should correctly use a custom codec for the websocket client."""
+        sync_client = sync_client.with_codec(MyVerySpecialCustomCodec())
+        stream = sync_client.stream("/echo", Message, Message)
+        for i in range(1):
+            err = stream.send(Message(id=12, message="what we send here is ignored"))
+            assert err is None
+            msg, err = stream.receive()
+            assert err is None
+            assert msg is not None
+            assert msg.id == 4201
+            assert msg.message == "the key to the universe"

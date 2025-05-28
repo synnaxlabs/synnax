@@ -9,23 +9,41 @@
 
 package telem
 
-import "strconv"
+import (
+	"fmt"
+)
 
 // Size represents the size of an element in bytes.
 type Size int64
 
 // String implements fmt.Stringer.
-func (s Size) String() string { return strconv.Itoa(int(s)) + "B" }
+func (s Size) String() string {
+	if s > Terabyte {
+		return fmt.Sprintf("%g TB", float64(s)/float64(Terabyte))
+	}
+	if s > Gigabyte {
+		return fmt.Sprintf("%g GB", float64(s)/float64(Gigabyte))
+	}
+	if s > Megabyte {
+		return fmt.Sprintf("%g MB", float64(s)/float64(Megabyte))
+	}
+	if s > Kilobyte {
+		return fmt.Sprintf("%g kB", float64(s)/float64(Kilobyte))
+	}
+	return fmt.Sprintf("%d B", s)
+}
 
 const (
-	// ByteSize is a single byte.
-	ByteSize = Size(1)
-	// Kilobyte is 1024 bytes.
-	Kilobyte = 1024 * ByteSize
-	// Megabyte is 1024 kilobytes.
-	Megabyte = 1024 * Kilobyte
-	// Gigabyte is 1024 megabytes.
-	Gigabyte = 1024 * Megabyte
+	// Byte is a single byte.
+	Byte = Size(1)
+	// Kilobyte is 1000 bytes.
+	Kilobyte = 1000 * Byte
+	// Megabyte is 1000 kilobytes.
+	Megabyte = 1000 * Kilobyte
+	// Gigabyte is 1000 megabytes.
+	Gigabyte = 1000 * Megabyte
+	// Terabyte is 1000 gigabytes.
+	Terabyte = 1000 * Gigabyte
 )
 
 // Offset is a number of bytes to offset.

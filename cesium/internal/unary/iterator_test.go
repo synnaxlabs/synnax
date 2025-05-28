@@ -736,7 +736,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									Index:    iKey,
 								},
 								Instrumentation: PanicLogger(),
-								FileSize:        40 * telem.ByteSize,
+								FileSize:        40 * telem.Byte,
 							}))
 							dataDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("data")),
@@ -747,7 +747,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									Index:    iKey,
 								},
 								Instrumentation: PanicLogger(),
-								FileSize:        40 * telem.ByteSize,
+								FileSize:        40 * telem.Byte,
 							}))
 						)
 						dataDB2.SetIndex(indexDB2.Index())
@@ -788,7 +788,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									Index:    iKey,
 								},
 								Instrumentation: PanicLogger(),
-								FileSize:        40 * telem.ByteSize,
+								FileSize:        40 * telem.Byte,
 							}))
 							w, _ := MustSucceed2(indexDB2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test"}}))
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15)))
@@ -925,7 +925,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					indexKey cesium.ChannelKey = 1
 					dataKey  cesium.ChannelKey = 2
 				)
-				fileSizeLimit := 8 * 4 * telem.ByteSize
+				fileSizeLimit := 8 * 4 * telem.Byte
 				fs := xfs.NewMem()
 				indexFS := MustSucceed(fs.Sub("index"))
 				unaryFS := MustSucceed(fs.Sub("data"))
@@ -1013,7 +1013,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					data2Key cesium.ChannelKey = 3
 				)
 				// 4 timestamps sample file size
-				fileSizeLimit := 8 * 4 * telem.ByteSize
+				fileSizeLimit := 8 * 4 * telem.Byte
 				fs := xfs.NewMem()
 				indexFS := MustSucceed(fs.Sub("index"))
 				uFS1 := MustSucceed(fs.Sub("data1"))
