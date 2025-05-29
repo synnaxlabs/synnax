@@ -68,8 +68,8 @@ type State struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Variant is the status variant representing the general state of the device.
 	Variant status.Variant `json:"variant" msgpack:"variant"`
-	// Details are JSON-stringified details about the device's state. These are arbitrary,
-	// and vary based on the device vendor.
+	// Details are JSON-stringified details about the device's state. These are
+	// arbitrary, and vary based on the device vendor.
 	Details xjson.String `json:"details" msgpack:"details"`
 }
 

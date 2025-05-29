@@ -132,7 +132,7 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	if req.IncludeState {
 		for i := range resRacks {
 			if s, ok := svc.internal.State.GetRack(ctx, resRacks[i].Key); ok {
-				resRacks[i].State = s.State
+				resRacks[i].State = &s.State
 			}
 		}
 	}
