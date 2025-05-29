@@ -80,7 +80,7 @@ var _ = Describe("Counter", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				wg.Add(1000)
-				for i := 0; i < 1000; i++ {
+				for i := range 1000 {
 					i := i
 					go func() {
 						defer wg.Done()

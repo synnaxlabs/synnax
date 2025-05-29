@@ -10,9 +10,10 @@
 package alamos_test
 
 import (
+	"testing"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

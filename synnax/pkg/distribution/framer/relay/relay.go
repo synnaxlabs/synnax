@@ -13,9 +13,10 @@
 package relay
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"io"
 	"time"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -65,14 +66,31 @@ type Config struct {
 	// ChannelReader is used for retrieving channel information from the cluster.
 	// [REQUIRED]
 	ChannelReader channel.Readable
+	// SlowConsumerTimeout sets the maximum amount of time that the relay will wait for
+	// a streamer to receive a response before dropping the frame.
+	SlowConsumerTimeout time.Duration
+	// ResponseBufferSize sets the channel buffer size for the main response streaming
+	// pipe. All written frames will be moved through this pipe, so the value should be
+	// relatively large.
+	// [OPTIONAL: Default is 1000 (equivalent 72 kB of data)]
+	ResponseBufferSize int
+	// DemandBufferSize sets the channel buffer size for channel demands to the relay.
+	// This value should be relatively small.
+	// [OPTIONAL: Default is 50]
+	DemandBufferSize int
 }
 
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for opening a relay. This configuration
-	// is not valid on its own, and must be overridden with the required fields. See
+	// is not valid on its own and must be overridden with the required fields. See
 	// Config for more information.
-	DefaultConfig = Config{}
+	DefaultConfig = Config{
+		SlowConsumerTimeout: time.Millisecond * 20,
+		// 72 B * 1000 = 72 kB
+		ResponseBufferSize: 1000,
+		DemandBufferSize:   50,
+	}
 )
 
 // Override implements config.Config.
@@ -83,6 +101,9 @@ func (c Config) Override(other Config) Config {
 	c.TS = override.Nil(c.TS, other.TS)
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
 	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
+	c.SlowConsumerTimeout = override.Numeric(c.SlowConsumerTimeout, other.SlowConsumerTimeout)
+	c.ResponseBufferSize = override.Numeric(c.ResponseBufferSize, other.ResponseBufferSize)
+	c.DemandBufferSize = override.Numeric(c.DemandBufferSize, other.DemandBufferSize)
 	return c
 }
 
@@ -93,7 +114,10 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "HostProvider", c.HostResolver)
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "FreeWrites", c.FreeWrites)
-	validate.NotNil(v, "ChannelReader", c.ChannelReader)
+	validate.NotNil(v, "Channels", c.ChannelReader)
+	validate.Positive(v, "SlowConsumerTimeout", c.SlowConsumerTimeout)
+	validate.Positive(v, "ResponseBufferSize", c.ResponseBufferSize)
+	validate.Positive(v, "DemandBufferSize", c.DemandBufferSize)
 	return v.Error()
 }
 
@@ -107,10 +131,6 @@ type Relay struct {
 	shutdown io.Closer
 }
 
-// defaultBuffer is the default buffer size for channels in the relay.
-// TODO: Figure out what the optimal buffer size is.
-const defaultBuffer = 25
-
 func Open(configs ...Config) (*Relay, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
@@ -120,14 +140,17 @@ func Open(configs ...Config) (*Relay, error) {
 	r := &Relay{cfg: cfg, ins: cfg.Instrumentation}
 
 	tpr := newTapper(cfg)
-	demands := confluence.NewStream[demand](defaultBuffer)
-	demands.SetOutletAddress("peer-demands")
+	demands := confluence.NewStream[demand](cfg.DemandBufferSize)
+	demands.SetOutletAddress("peer_demands")
 	demands.Acquire(1)
 	tpr.InFrom(demands)
 	r.demands = demands
 
-	r.delta = confluence.NewDynamicDeltaMultiplier[Response](20 * time.Millisecond)
-	writes := confluence.NewStream[Response](defaultBuffer)
+	r.delta = confluence.NewDynamicDeltaMultiplier[Response](
+		cfg.SlowConsumerTimeout,
+		cfg.Instrumentation,
+	)
+	writes := confluence.NewStream[Response](cfg.ResponseBufferSize)
 	writes.SetInletAddress("delta")
 	writes.SetOutletAddress("taps")
 	r.delta.InFrom(writes)
@@ -164,7 +187,7 @@ func (r *Relay) Close() error {
 func (r *Relay) connectToDelta(buf int) (confluence.Outlet[Response], observe.Disconnect) {
 	var (
 		data = confluence.NewStream[Response](buf)
-		addr = address.Newf("%s-%s", r.ins.Meta.Path, address.Rand().String())
+		addr = address.Newf("%s_%s", r.ins.Meta.Path, address.Rand().String())
 	)
 	data.SetInletAddress(addr)
 	r.delta.Connect(data)

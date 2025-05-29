@@ -44,7 +44,7 @@ func TranslateSeriesBackward(s *PBSeries) Series {
 		DataType:  DataType(s.DataType),
 		TimeRange: TranslateTimeRangeBackward(s.TimeRange),
 		Data:      s.Data,
-		Alignment: AlignmentPair(s.Alignment),
+		Alignment: Alignment(s.Alignment),
 	}
 }
 

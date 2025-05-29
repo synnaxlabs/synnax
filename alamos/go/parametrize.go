@@ -17,7 +17,7 @@ type ParametrizeConfig[V ParametrizeVars] interface {
 	Next() (V, error)
 }
 
-type ParametrizeVars interface{}
+type ParametrizeVars any
 
 func NewParametrize[V ParametrizeVars](config ParametrizeConfig[V]) *Parametrize[V] {
 	return &Parametrize[V]{config: config}
