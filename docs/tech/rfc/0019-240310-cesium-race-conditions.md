@@ -428,7 +428,7 @@ type Writer struct {
     idx *index
     // fileKey represents the key of the file written to by the writer.
     fileKey uint16
-    // fc is the file control for the writer's FS.
+    // fc is the file controller for the writer's FS.
     fc *fileController
     // fileSize is the writer's file's size
     fileSize telem.Size
