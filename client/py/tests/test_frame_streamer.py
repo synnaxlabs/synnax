@@ -196,13 +196,13 @@ class TestAsyncStreamer:
 
     @pytest.mark.asyncio
     async def test_downsample_negative(
-        self,
-        virtual_channel: sy.Channel,
-        client: sy.Synnax
+        self, virtual_channel: sy.Channel, client: sy.Synnax
     ):
         with pytest.raises(sy.ValidationError):
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-                async with await client.open_async_streamer(virtual_channel.key, -1) as s:
+                async with await client.open_async_streamer(
+                    virtual_channel.key, -1
+                ) as s:
                     time.sleep(0.1)
                     data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                     w.write(pd.DataFrame({virtual_channel.key: data}))

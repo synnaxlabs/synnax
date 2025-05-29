@@ -10,14 +10,11 @@
 /** Union of types that are primitive values or can be converted to primitive values */
 export type Value = string | number | bigint | boolean | Stringer | null | undefined;
 
-/** A primitive value that is not undefined or null. */
-export type DefinedValue = Exclude<Value, undefined | null>;
-
 /**
  * ValueExtension is a utility class that can be extended in order to implement objects
  * that pseudo-extend a primitive value with additional functionality.
  */
-export class ValueExtension<V extends DefinedValue> {
+export class ValueExtension<V extends NonNullable<Value>> {
   /** The underlying primitive value */
   protected readonly value: V;
 
