@@ -7,44 +7,46 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, test } from "vitest";
 
-import { type channel } from "@/channel";
 import { AUTO_SPAN } from "@/framer/iterator";
 import { newClient } from "@/setupspecs";
+import { newIndexedPair } from "@/testutil/channels";
+import { secondsLinspace } from "@/testutil/telem";
 import { randomSeries } from "@/util/telem";
 
 const client = newClient();
 
-const newChannel = async (): Promise<channel.Channel> =>
-  await client.channels.create({
-    name: "test",
-    leaseholder: 1,
-    rate: Rate.hz(25),
-    dataType: DataType.FLOAT64,
-  });
-
 describe("Iterator", () => {
   test("happy path", async () => {
-    const ch = await newChannel();
+    const channels = await newIndexedPair(client);
     const writer = await client.openWriter({
       start: TimeStamp.SECOND,
-      channels: ch.key,
+      channels,
     });
-    const data = randomSeries(25, ch.dataType);
+    const [idx_ch, data_ch] = channels;
     try {
-      await writer.write(ch.key, data);
-      await writer.write(ch.key, data);
-      await writer.write(ch.key, data);
+      await writer.write({
+        [idx_ch.key]: secondsLinspace(1, 10),
+        [data_ch.key]: randomSeries(10, data_ch.dataType),
+      });
+      await writer.write({
+        [idx_ch.key]: secondsLinspace(11, 10),
+        [data_ch.key]: randomSeries(10, data_ch.dataType),
+      });
+      await writer.write({
+        [idx_ch.key]: secondsLinspace(21, 10),
+        [data_ch.key]: randomSeries(10, data_ch.dataType),
+      });
       await writer.commit();
     } finally {
       await writer.close();
     }
 
     const iter = await client.openIterator(
-      new TimeRange(TimeSpan.ZERO, TimeSpan.seconds(4)),
-      [ch.key],
+      new TimeRange(TimeStamp.SECOND, TimeSpan.seconds(30)),
+      channels,
     );
 
     try {
@@ -52,31 +54,46 @@ describe("Iterator", () => {
       let c = 0;
       while (await iter.next(TimeSpan.seconds(1))) {
         c++;
-        expect(iter.value.get(ch.key)).toHaveLength(25);
+        expect(iter.value.get(idx_ch.key)).toHaveLength(1);
+        expect(iter.value.get(data_ch.key)).toHaveLength(1);
       }
-      expect(c).toEqual(3);
+      expect(c).toEqual(29);
     } finally {
       await iter.close();
     }
   });
   test("chunk size", async () => {
-    const ch = await newChannel();
-    const data = Float64Array.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-    await ch.write(0, data);
-
-    const iter = await client.openIterator(TimeRange.MAX, [ch.key], { chunkSize: 4 });
+    const channels = await newIndexedPair(client);
+    const [idx_ch, data_ch] = channels;
+    const writer = await client.openWriter({
+      start: TimeStamp.SECOND,
+      channels,
+      enableAutoCommit: true,
+    });
+    await writer.write({
+      [idx_ch.key]: secondsLinspace(1, 10),
+      [data_ch.key]: randomSeries(10, data_ch.dataType),
+    });
+    await writer.close();
+    const iter = await client.openIterator(TimeRange.MAX, channels, { chunkSize: 4 });
 
     try {
       expect(await iter.seekFirst()).toBeTruthy();
 
       expect(await iter.next(AUTO_SPAN)).toBeTruthy();
-      expect(iter.value.get(ch.key).data).toEqual(Float64Array.of(0, 1, 2, 3));
+      expect(iter.value.get(idx_ch.key).data).toEqual(
+        new BigInt64Array(secondsLinspace(1, 4).map((v) => v.valueOf())),
+      );
 
       expect(await iter.next(AUTO_SPAN)).toBeTruthy();
-      expect(iter.value.get(ch.key).data).toEqual(Float64Array.of(4, 5, 6, 7));
+      expect(iter.value.get(idx_ch.key).data).toEqual(
+        new BigInt64Array(secondsLinspace(5, 4).map((v) => v.valueOf())),
+      );
 
       expect(await iter.next(AUTO_SPAN)).toBeTruthy();
-      expect(iter.value.get(ch.key).data).toEqual(Float64Array.of(8, 9));
+      expect(iter.value.get(idx_ch.key).data).toEqual(
+        new BigInt64Array(secondsLinspace(9, 2).map((v) => v.valueOf())),
+      );
 
       expect(await iter.next(AUTO_SPAN)).toBeFalsy();
     } finally {

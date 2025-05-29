@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type observe, type Primitive } from "@synnaxlabs/x";
+import { type observe, type primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { type z } from "zod";
 
@@ -40,7 +40,7 @@ interface SyncLocalProps<Z extends z.ZodTypeAny> extends OnChangeProps<Z> {
 
 interface UseSyncedProps<Z extends z.ZodTypeAny, O = Z> extends UseProps<Z> {
   name: string;
-  key: Primitive[];
+  key: primitive.Value[];
   queryFn: (props: QueryFnProps) => Promise<z.output<Z>>;
   openObservable?: (client: Client) => Promise<observe.ObservableAsyncCloseable<O>>;
   applyObservable?: (props: ApplyObservableProps<Z, O>) => void;

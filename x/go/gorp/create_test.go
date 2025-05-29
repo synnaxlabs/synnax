@@ -28,7 +28,7 @@ type entry struct {
 
 func (m entry) GorpKey() int { return m.ID }
 
-func (m entry) SetOptions() []interface{} { return nil }
+func (m entry) SetOptions() []any { return nil }
 
 type prefixEntry struct {
 	ID   int
@@ -37,7 +37,7 @@ type prefixEntry struct {
 
 func (m prefixEntry) GorpKey() []byte { return []byte("prefix-" + strconv.Itoa(m.ID)) }
 
-func (m prefixEntry) SetOptions() []interface{} { return nil }
+func (m prefixEntry) SetOptions() []any { return nil }
 
 type entryTwo struct {
 	ID   int
@@ -46,7 +46,7 @@ type entryTwo struct {
 
 func (m entryTwo) GorpKey() int { return m.ID }
 
-func (m entryTwo) SetOptions() []interface{} { return nil }
+func (m entryTwo) SetOptions() []any { return nil }
 
 var _ = Describe("Create", Ordered, func() {
 	var (
@@ -77,7 +77,7 @@ var _ = Describe("Create", Ordered, func() {
 	Context("Multiple entries", func() {
 		It("Should create the entries in the db", func() {
 			var e []entry
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				e = append(e, entry{ID: i, Data: "data"})
 			}
 			Expect(gorp.NewCreate[int, entry]().Entries(&e).Exec(ctx, tx)).To(Succeed())
@@ -138,7 +138,7 @@ var _ = Describe("Create", Ordered, func() {
 				entries []entry
 				keys    []int
 			)
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				entries = append(entries, entry{ID: i, Data: "data"})
 				keys = append(keys, i)
 			}

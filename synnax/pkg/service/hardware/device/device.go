@@ -46,7 +46,7 @@ var _ gorp.Entry[string] = Device{}
 func (d Device) GorpKey() string { return d.Key }
 
 // SetOptions implements gorp.Entry.
-func (d Device) SetOptions() []interface{} { return nil }
+func (d Device) SetOptions() []any { return nil }
 
 // OntologyID returns the unique ID for the device within the ontology.
 func (d Device) OntologyID() ontology.ID { return OntologyID(d.Key) }

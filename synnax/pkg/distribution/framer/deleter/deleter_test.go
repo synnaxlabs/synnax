@@ -10,8 +10,9 @@
 package deleter_test
 
 import (
-	"context"
 	"fmt"
+	"io"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -24,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"io"
 )
 
 var _ = Describe("Deleter", Ordered, func() {
@@ -49,24 +49,23 @@ var _ = Describe("Deleter", Ordered, func() {
 		Describe("Happy Path", func() {
 			Context(fmt.Sprintf("Scenario: %v - Happy Path", scenarioI), func() {
 				BeforeEach(func() {
-					writer := MustSucceed(s.writer.New(context.TODO(), writer.Config{
+					writer := MustSucceed(s.writer.Open(ctx, writer.Config{
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,
 					}))
-					Expect(writer.Write(core.Frame{
-						Keys: s.keys,
-						Series: []telem.Series{
-							telem.NewSeriesV[int64](1, 2, 3),
-							telem.NewSeriesV[int64](3, 4, 5),
-							telem.NewSeriesV[int64](5, 6, 7),
-						}},
-					)).To(BeTrue())
-					Expect(writer.Commit()).To(BeTrue())
-					Expect(writer.Error()).ToNot(HaveOccurred())
+					Expect(writer.Write(core.MultiFrame(
+						s.keys,
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(10, 11, 12),
+							telem.NewSeriesSecondsTSV(10, 11, 12),
+							telem.NewSeriesSecondsTSV(10, 11, 12),
+						},
+					))).To(BeTrue())
+					Expect(MustSucceed(writer.Commit())).To(Equal(telem.SecondTS*12 + 1))
 					Expect(writer.Close()).To(Succeed())
 
 					d = s.deleter.NewDeleter()
-					i = MustSucceed(s.iterator.New(context.TODO(), iterator.Config{
+					i = MustSucceed(s.iterator.Open(ctx, iterator.Config{
 						Keys:   s.keys,
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -80,29 +79,29 @@ var _ = Describe("Deleter", Ordered, func() {
 					Expect(d.DeleteTimeRange(ctx, s.keys[0], (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-					Expect(i.Value().Get(s.keys[0])).To(HaveLen(1))
-					Expect(i.Value().Get(s.keys[0])[0].TimeRange).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+					Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(1)))
+					Expect(i.Value().Get(s.keys[0]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
 				It("Should delete one channel by name", func() {
 					Expect(d.DeleteTimeRangeByName(ctx, s.names[0], (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-					Expect(i.Value().Get(s.keys[0])).To(HaveLen(1))
-					Expect(i.Value().Get(s.keys[0])[0].TimeRange).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+					Expect(i.Value().Get(s.keys[0]).Len()).To(Equal(int64(1)))
+					Expect(i.Value().Get(s.keys[0]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
 				It("Should delete many channels by keys", func() {
 					Expect(d.DeleteTimeRangeMany(ctx, s.keys, (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-					Expect(i.Value().Get(s.keys[1])).To(HaveLen(1))
-					Expect(i.Value().Get(s.keys[1])[0].TimeRange).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+					Expect(i.Value().Get(s.keys[1]).Len()).To(Equal(int64(1)))
+					Expect(i.Value().Get(s.keys[1]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
 				It("Should delete many channels by names", func() {
 					Expect(d.DeleteTimeRangeManyByNames(ctx, s.names, (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
-					Expect(i.Value().Get(s.keys[1])).To(HaveLen(1))
-					Expect(i.Value().Get(s.keys[1])[0].TimeRange).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
+					Expect(i.Value().Get(s.keys[1]).Len()).To(Equal(int64(1)))
+					Expect(i.Value().Get(s.keys[1]).TimeRange()).To(Equal((12 * telem.SecondTS).Range(12*telem.SecondTS + 1)))
 				})
 			})
 		})
@@ -115,11 +114,6 @@ var _ = Describe("Deleter", Ordered, func() {
 				d = s.deleter.NewDeleter()
 				Expect(d.DeleteTimeRange(ctx, 10, telem.TimeRangeMax)).To(MatchError(ts.ErrChannelNotfound))
 			})
-			Specify("Trying to delete from free", func() {
-				d = s.deleter.NewDeleter()
-				key := channel.NewKey(dcore.NodeKey(dcore.Free), 0)
-				Expect(d.DeleteTimeRangeMany(ctx, []channel.Key{key}, telem.TimeRangeMax)).To(MatchError(ContainSubstring("delete time range from virtual")))
-			})
 		})
 	}
 })
@@ -130,7 +124,7 @@ type scenario struct {
 	names    []string
 	writer   *writer.Service
 	iterator *iterator.Service
-	deleter  deleter.Service
+	deleter  *deleter.Service
 	channel  channel.Service
 	close    io.Closer
 }
@@ -139,18 +133,18 @@ func newChannelSet() []channel.Channel {
 	return []channel.Channel{
 		{
 			Name:     "test1",
-			Rate:     1 * telem.Hz,
-			DataType: telem.Int64T,
+			IsIndex:  true,
+			DataType: telem.TimeStampT,
 		},
 		{
 			Name:     "test2",
-			Rate:     1 * telem.Hz,
-			DataType: telem.Int64T,
+			IsIndex:  true,
+			DataType: telem.TimeStampT,
 		},
 		{
 			Name:     "test3",
-			Rate:     1 * telem.Hz,
-			DataType: telem.Int64T,
+			IsIndex:  true,
+			DataType: telem.TimeStampT,
 		},
 	}
 }

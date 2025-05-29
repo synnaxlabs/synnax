@@ -11,6 +11,9 @@ package aspen_test
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -19,12 +22,10 @@ import (
 	"github.com/synnaxlabs/x/address"
 	xnet "github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
-	"sync"
-	"time"
 )
 
 var _ = Describe("Membership", Serial, Ordered, func() {
-	Describe("Bootstrap cluster", func() {
+	Describe("Bootstrap Cluster", func() {
 
 		It("Should correctly bootstrap a cluster", func() {
 			db, err := aspen.Open(
@@ -128,7 +129,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				ids       = make([]aspen.NodeKey, numNodes)
 				dbs       = make([]*aspen.DB, numNodes)
 			)
-			for i := 0; i < numNodes; i++ {
+			for i := range numNodes {
 				go func(i int) {
 					defer GinkgoRecover()
 					defer wg.Done()
@@ -183,7 +184,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					}()
 
 					By("Forking the databases")
-					for i := 0; i < 3; i++ {
+					for range 3 {
 						_, err := builder.New()
 						Expect(err).ToNot(HaveOccurred())
 					}

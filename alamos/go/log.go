@@ -11,6 +11,7 @@ package alamos
 
 import (
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
 	"go.uber.org/zap"
 )
 
@@ -18,6 +19,7 @@ import (
 type LoggerConfig struct {
 	// ZapConfig sets the underlying zap.Logger. If nil, a no-op logger is used.
 	ZapConfig zap.Config
+	ZapLogger *zap.Logger
 }
 
 var (
@@ -32,6 +34,7 @@ func (c LoggerConfig) Validate() error { return nil }
 // Override implements config.Config.
 func (c LoggerConfig) Override(other LoggerConfig) LoggerConfig {
 	c.ZapConfig = other.ZapConfig
+	c.ZapLogger = override.Nil(c.ZapLogger, other.ZapLogger)
 	return c
 }
 
@@ -48,11 +51,18 @@ func NewLogger(configs ...LoggerConfig) (*Logger, error) {
 	if err != nil {
 		return nil, err
 	}
-	z, err := cfg.ZapConfig.Build()
-	if err != nil {
-		return nil, err
+	l := &Logger{Config: cfg}
+	if cfg.ZapLogger != nil {
+		l.zap = cfg.ZapLogger
+	} else {
+		z, err := cfg.ZapConfig.Build()
+		if err != nil {
+			return nil, err
+		}
+		l.zap = z
 	}
-	return &Logger{Config: cfg, zap: z.WithOptions(zap.AddCallerSkip(1))}, nil
+	l.zap = l.zap.WithOptions(zap.AddCallerSkip(1))
+	return l, nil
 }
 
 // Zap returns the underlying zap Logger
@@ -83,7 +93,7 @@ func (l *Logger) Named(name string) *Logger {
 
 // Debugf logs a message at the Debug level using the given format. This is a slower
 // method that should not be used in hot paths.
-func (l *Logger) Debugf(format string, args ...interface{}) {
+func (l *Logger) Debugf(format string, args ...any) {
 	if l != nil {
 		l.zap.Sugar().Debugf(format, args...)
 	}

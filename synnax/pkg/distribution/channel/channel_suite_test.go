@@ -46,9 +46,9 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service, i
 		builder2 = mock.NewCoreBuilder(core.Config{
 			Storage: storage.Config{MemBacked: config.Bool(true)},
 		})
-		core1 = builder.New()
-		core2 = builder.New()
-		core3 = builder2.New()
+		core1 = builder.New(ctx)
+		core2 = builder.New(ctx)
+		core3 = builder2.New(ctx)
 		limit = 5
 	)
 	otg1 := MustSucceed(ontology.Open(ctx, ontology.Config{

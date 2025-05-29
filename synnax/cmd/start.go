@@ -96,7 +96,7 @@ func start(cmd *cobra.Command) {
 	v := version.Get()
 	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")
 	var (
-		ins, prettyLogger = configureInstrumentation(v)
+		ins, prettyLogger = configureInstrumentation()
 		insecure          = viper.GetBool(insecureFlag)
 		debug             = viper.GetBool(debugFlag)
 		autoCert          = viper.GetBool(autoCertFlag)
@@ -324,19 +324,17 @@ func start(cmd *cobra.Command) {
 		// where bleve would concurrently read and write to a map.
 		// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
 		// for more details on this issue.
-		sCtx.Go(func(ctx context.Context) error {
-			return dist.Ontology.RunStartupSearchIndexing(ctx)
-		})
+		sCtx.Go(dist.Ontology.RunStartupSearchIndexing, xsignal.WithKey("startup_search_indexing"))
 
 		// Configure the HTTP API Transport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{
 			Instrumentation:     ins,
 			StreamWriteDeadline: viper.GetDuration(slowConsumerTimeoutFlag),
 		})
-		_api.BindTo(httpapi.New(r))
+		_api.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(dist.Channel)))
 
 		// Configure the GRPC API Transport.
-		grpcAPI, grpcAPITrans := grpcapi.New()
+		grpcAPI, grpcAPITrans := grpcapi.New(dist.Channel)
 		*grpcServerTransports = append(*grpcServerTransports, grpcAPITrans...)
 		_api.BindTo(grpcAPI)
 

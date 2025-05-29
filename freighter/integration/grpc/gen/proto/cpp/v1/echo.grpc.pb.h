@@ -76,8 +76,12 @@ public:
         class async_interface {
         public:
             virtual ~async_interface() {}
-            virtual void
-            Exec(::grpc::ClientContext *context, const ::integration::v1::Message *request, ::integration::v1::Message *response, std::function<void(::grpc::Status)>) = 0;
+            virtual void Exec(
+                ::grpc::ClientContext *context,
+                const ::integration::v1::Message *request,
+                ::integration::v1::Message *response,
+                std::function<void(::grpc::Status)>
+            ) = 0;
             virtual void Exec(
                 ::grpc::ClientContext *context,
                 const ::integration::v1::Message *request,
@@ -138,9 +142,12 @@ public:
         }
         class async final : public StubInterface::async_interface {
         public:
-            void
-            Exec(::grpc::ClientContext *context, const ::integration::v1::Message *request, ::integration::v1::Message *response, std::function<void(::grpc::Status)>)
-                override;
+            void Exec(
+                ::grpc::ClientContext *context,
+                const ::integration::v1::Message *request,
+                ::integration::v1::Message *response,
+                std::function<void(::grpc::Status)>
+            ) override;
             void Exec(
                 ::grpc::ClientContext *context,
                 const ::integration::v1::Message *request,
@@ -158,9 +165,7 @@ public:
 
     private:
         std::shared_ptr<::grpc::ChannelInterface> channel_;
-        class async async_stub_ {
-            this
-        };
+        class async async_stub_{this};
         ::grpc::ClientAsyncResponseReader<::integration::v1::Message> *AsyncExecRaw(
             ::grpc::ClientContext *context,
             const ::integration::v1::Message &request,
@@ -246,9 +251,11 @@ public:
                 )
             );
         }
-        void SetMessageAllocatorFor_Exec(::grpc::MessageAllocator<
-                                         ::integration::v1::Message,
-                                         ::integration::v1::Message> *allocator) {
+        void SetMessageAllocatorFor_Exec(
+            ::grpc::MessageAllocator<
+                ::integration::v1::Message,
+                ::integration::v1::Message> *allocator
+        ) {
             ::grpc::internal::MethodHandler
                 *const handler = ::grpc::Service::GetHandler(0);
             static_cast<::grpc::internal::CallbackUnaryHandler<

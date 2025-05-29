@@ -11,6 +11,7 @@ package freightfluence
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/freighter"
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"

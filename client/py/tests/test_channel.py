@@ -13,61 +13,109 @@ import numpy as np
 import pytest
 
 import synnax as sy
+from tests.telem import seconds_linspace
 
 
 @pytest.mark.channel
 class TestChannel:
     """Tests all things related to channel operations. Create, delete, retrieve, etc."""
 
-    @pytest.fixture(scope="class")
-    def two_channels(self, client: sy.Synnax) -> list[sy.Channel]:
-        return client.channels.create(
-            [
-                sy.Channel(
-                    name="test",
-                    rate=1 * sy.Rate.HZ,
-                    data_type=sy.DataType.FLOAT64,
-                ),
-                sy.Channel(
-                    name="test2",
-                    rate=1 * sy.Rate.HZ,
-                    data_type=sy.DataType.FLOAT64,
-                ),
-            ]
+    def test_create_index(self, client: sy.Synnax):
+        """Should create an index channel."""
+        channel = client.channels.create(
+            name="Time", data_type=sy.DataType.TIMESTAMP, is_index=True
         )
+        assert channel.name == "Time"
+        assert channel.key != 0
+        assert channel.data_type == sy.DataType.TIMESTAMP
+        assert channel.is_index is True
+        assert channel.index == channel.key
 
-    def test_create_list(self, two_channels: list[sy.Channel]):
+    def test_create_index_channel_bad_data_type(self, client: sy.Synnax):
+        """Should raise a validation error when creating an index channel with a bad data type"""
+        with pytest.raises(sy.ValidationError):
+            client.channels.create(
+                name="Time", data_type=sy.DataType.FLOAT64, is_index=True
+            )
+
+    def test_create_index_no_data_type_provided(self, client: sy.Synnax):
+        """Should infer the data type as TimeStamp when creating an index channel without a data type"""
+        ch = client.channels.create(name="Time", is_index=True)
+        assert ch.data_type == sy.DataType.TIMESTAMP
+
+    def test_create_index_no_name_provided(self, client: sy.Synnax):
+        """Should raise a validation error when creating an index channel without a name"""
+        with pytest.raises(sy.ValidationError):
+            client.channels.create(data_type=sy.DataType.TIMESTAMP, is_index=True)
+
+    def test_create_indexed_pair(self, client: sy.Synnax):
+        """Should create a channel with an index channel"""
+        idx = client.channels.create(
+            name="Time", data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name="Data", data_type=sy.DataType.FLOAT64, index=idx.key
+        )
+        assert data.name == "Data"
+        assert data.key != 0
+        assert data.data_type == sy.DataType.FLOAT64
+        assert data.is_index is False
+        assert data.index == idx.key
+
+    def test_create_nonexistent_index(self, client: sy.Synnax):
+        """Should raise a validation error when creating a channel with a non-existent index"""
+        with pytest.raises(sy.ValidationError):
+            client.channels.create(
+                name="Data", data_type=sy.DataType.FLOAT64, index=1234
+            )
+
+    def test_create_indexed_pair_no_name(self, client: sy.Synnax):
+        """Should raise a validation error when creating a data channel with no name"""
+        idx = client.channels.create(
+            name="Time", data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        with pytest.raises(sy.ValidationError):
+            client.channels.create(data_type=sy.DataType.FLOAT64, index=idx.key)
+
+    def test_create_indexed_pair_no_data_type(self, client: sy.Synnax):
+        """Should raise a validation error when creating an index channel with no data type"""
+        idx = client.channels.create(
+            name="Time", data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        with pytest.raises(sy.ValidationError):
+            client.channels.create(name="Data", index=idx.key)
+
+    def test_create_from_list(self, client: sy.Synnax):
         """Should create a list of valid channels"""
-        assert len(two_channels) == 2
-        for channel in two_channels:
+        ch_one = sy.Channel(
+            name="test_osterone",
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        ch_two = sy.Channel(
+            name="test_ostertwo",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+        channels = client.channels.create([ch_one, ch_two])
+        assert len(channels) == 2
+        for channel in channels:
             assert channel.name.startswith("test")
             assert channel.key != ""
 
-    def test_create_single(self, client: sy.Synnax):
-        """Should create a single valid channel"""
-        channel = client.channels.create(
-            sy.Channel(
-                name="test",
-                rate=1 * sy.Rate.HZ,
-                data_type=sy.DataType.FLOAT64,
-            )
-        )
-        assert channel.name == "test"
-        assert channel.key != ""
-        assert channel.data_type == sy.DataType.FLOAT64
-        assert channel.rate == 1 * sy.Rate.HZ
-
-    def test_create_from_kwargs(self, client: sy.Synnax):
-        """Should create a single valid channel"""
-        channel = client.channels.create(
+    def test_create_from_single_instance(self, client: sy.Synnax):
+        """Should create a single channel from a channel instance"""
+        channel = sy.Channel(
             name="test",
-            rate=1 * sy.Rate.HZ,
-            data_type=sy.DataType.FLOAT64,
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
         )
+        channel = client.channels.create(channel)
         assert channel.name == "test"
-        assert channel.key != ""
-        assert channel.data_type == sy.DataType.FLOAT64
-        assert channel.rate == 1 * sy.Rate.HZ
+        assert channel.key != 0
+        assert channel.data_type == sy.DataType.TIMESTAMP
+        assert channel.is_index is True
+        assert channel.index == channel.key
 
     def test_create_virtual(self, client: sy.Synnax):
         """Should create a virtual channel"""
@@ -147,16 +195,16 @@ class TestChannel:
             client.channels.create(data_type=np.csingle)
 
     def test_retrieve_by_key(
-        self, two_channels: list[sy.Channel], client: sy.Synnax
+        self, indexed_pair: list[sy.Channel], client: sy.Synnax
     ) -> None:
         """Should retrieve channels using a list of keys"""
         res_channels = client.channels.retrieve(
-            [channel.key for channel in two_channels]
+            [channel.key for channel in indexed_pair]
         )
         assert len(res_channels) == 2
         for i, channel in enumerate(res_channels):
-            assert two_channels[i].key == channel.key
-            assert isinstance(two_channels[i].data_type.density, sy.Density)
+            assert indexed_pair[i].key == channel.key
+            assert isinstance(indexed_pair[i].data_type.density, sy.Density)
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax):
         """Should raise QueryError when key not found"""
@@ -164,13 +212,14 @@ class TestChannel:
             client.channels.retrieve(1234)
 
     def test_retrieve_by_list_of_names(
-        self, two_channels: list[sy.Channel], client: sy.Synnax
+        self, indexed_pair: list[sy.Channel], client: sy.Synnax
     ) -> None:
         """Should retrieve channels using list of names"""
-        res_channels = client.channels.retrieve(["test", "test2"])
+        names = [ch.name for ch in indexed_pair]
+        res_channels = client.channels.retrieve(names)
         assert len(res_channels) >= 2
         for channel in res_channels:
-            assert channel.name in ["test", "test2"]
+            assert channel.name in names
 
     def test_retrieve_list_of_names_not_found(self, client: sy.Synnax):
         """Should retrieve an empty list when can't find channels"""
@@ -185,20 +234,21 @@ class TestChannel:
             client.channels.retrieve(fake_keys)
 
     def test_retrieve_numeric_string(
-        self, client: sy.Synnax, two_channels: list[sy.channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.channel]
     ):
+        names = [ch.name for ch in indexed_pair]
         channels = client.channels.retrieve(
-            [str(two_channels[0].key), str(two_channels[1].key)]
+            [str(indexed_pair[0].key), str(indexed_pair[1].key)]
         )
         for channel in channels:
-            assert channel.name in ["test", "test2"]
+            assert channel.name in names
 
     def test_retrieve_bad_numeric_string(self, client: sy.Synnax):
         ch1 = client.channels.create(
-            data_type=sy.DataType.FLOAT32, name="test1", rate=1 * sy.Rate.HZ
+            data_type=sy.DataType.FLOAT32, name="test1", virtual=True
         )
         ch2 = client.channels.create(
-            data_type=sy.DataType.FLOAT32, name=str(ch1.key), rate=1 * sy.Rate.HZ
+            data_type=sy.DataType.FLOAT32, name=str(ch1.key), virtual=True
         )
 
         # Should get first channel since the numeric string gets converted to a key
@@ -208,7 +258,7 @@ class TestChannel:
     def test_retrieve_single_multiple_found(
         self,
         client: sy.Synnax,
-        two_channels: list[sy.Channel],
+        indexed_pair: list[sy.Channel],
     ):
         """Should raise QueryError when retrieving a single channel with
         multiple matches"""
@@ -221,12 +271,12 @@ class TestChannel:
             [
                 sy.Channel(
                     name="strange_channel_regex_1",
-                    rate=1 * sy.Rate.HZ,
+                    virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
                 sy.Channel(
                     name="strange_channel_regex_2",
-                    rate=1 * sy.Rate.HZ,
+                    virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
             ]
@@ -240,12 +290,12 @@ class TestChannel:
             [
                 sy.Channel(
                     name="test",
-                    rate=1 * sy.Rate.HZ,
+                    virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
                 sy.Channel(
                     name="test2",
-                    rate=1 * sy.Rate.HZ,
+                    virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
             ]
@@ -261,12 +311,12 @@ class TestChannel:
             [
                 sy.Channel(
                     name=str(uuid.uuid4()),
-                    rate=1 * sy.Rate.HZ,
+                    virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
                 sy.Channel(
                     name=str(uuid.uuid4()),
-                    rate=1 * sy.Rate.HZ,
+                    virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
             ]
@@ -283,7 +333,7 @@ class TestChannel:
         ch = client.channels.create(
             sy.Channel(
                 name=name,
-                rate=1 * sy.Rate.HZ,
+                virtual=True,
                 data_type=sy.DataType.FLOAT64,
             ),
             retrieve_if_name_exists=True,
@@ -296,7 +346,7 @@ class TestChannel:
         ch2 = client.channels.create(
             sy.Channel(
                 name=name,
-                rate=1 * sy.Rate.HZ,
+                virtual=True,
                 data_type=sy.DataType.FLOAT64,
             ),
             retrieve_if_name_exists=True,
@@ -314,7 +364,7 @@ class TestChannel:
         channel = client.channels.create(
             sy.Channel(
                 name=name,
-                rate=1 * sy.Rate.HZ,
+                virtual=True,
                 data_type=sy.DataType.FLOAT64,
             )
         )
@@ -331,12 +381,12 @@ class TestChannel:
             [
                 sy.Channel(
                     name="test",
-                    rate=1 * sy.Rate.HZ,
+                    virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
                 sy.Channel(
                     name="test2",
-                    rate=1 * sy.Rate.HZ,
+                    virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
             ]
@@ -347,6 +397,37 @@ class TestChannel:
             retrieved = client.channels.retrieve(name)
             assert retrieved.name == name
 
+    @pytest.fixture(scope="class")
+    def hundred_channels(self, client: sy.Synnax) -> list[sy.Channel]:
+        data = []
+        for i in range(100):
+            data.append(
+                sy.Channel(
+                    name=f"sensor_{i+1}_{str(uuid.uuid4())}",
+                    virtual=True,
+                    data_type=sy.DataType.FLOAT64,
+                    internal=True,
+                )
+            )
+        return client.channels.create(data)
+
+    def test_create_list(self, hundred_channels: list[sy.Channel]):
+        """Should create a list of 100 valid channels"""
+        assert len(hundred_channels) == 100
+        for channel in hundred_channels:
+            assert channel.name.startswith("sensor")
+            assert channel.key != ""
+
+    def test_retrieve_list(self, client: sy.Synnax, hundred_channels: list[sy.Channel]):
+        """Should retrieve a list of 100 valid channels"""
+        names = [ch.name for ch in hundred_channels]
+        res_channels = client.channels.retrieve(names)
+        assert len(res_channels) == 100
+        for channel in res_channels:
+            assert channel.name.startswith("sensor")
+            assert channel.key != ""
+            assert isinstance(channel.data_type.density, sy.Density)
+
 
 class TestChannelRetriever:
     """Tests methods internal to the channel retriever that are not publicly availble
@@ -355,7 +436,9 @@ class TestChannelRetriever:
 
     def test_retrieve_one(self, client: sy.Synnax):
         ch = client.channels.create(
-            data_type=sy.DataType.FLOAT32, name="test", rate=1 * sy.Rate.HZ
+            data_type=sy.DataType.FLOAT32,
+            name="test",
+            virtual=True,
         )
         retrieved = client.channels._retriever.retrieve_one(ch.key)
         assert retrieved.key == ch.key
@@ -363,3 +446,24 @@ class TestChannelRetriever:
     def test_retrieve_one_not_found(self, client: sy.Synnax):
         with pytest.raises(sy.NotFoundError):
             client.channels._retriever.retrieve_one(1234)
+
+
+@pytest.mark.framer
+class TestChannelWriteRead:
+    def test_write_read(self, client: sy.Synnax):
+        """Should create a channel and write then read from it"""
+        channel = client.channels.create(
+            sy.Channel(
+                name="test",
+                is_index=True,
+                data_type=sy.DataType.TIMESTAMP,
+            )
+        )
+        d = seconds_linspace(1, 10)
+        start = 1 * sy.TimeSpan.SECOND
+        channel.write(start, d)
+        data = channel.read(start, (start + len(d)) * sy.TimeSpan.SECOND)
+        assert data.time_range.start == start
+        assert len(d) == len(data)
+        assert data.time_range.end == start + (len(d) - 1) * sy.TimeSpan.SECOND + 1
+        assert np.array_equal(data, d)

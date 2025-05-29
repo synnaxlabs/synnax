@@ -125,7 +125,7 @@ TEST(TestSeries, testTimeStampVectorConstruction) {
     ASSERT_EQ(s.at<int64_t>(2), telem::MILLISECOND.nanoseconds() * 3);
 }
 
-/// @brief it should correclty construct a series from a signle string.
+/// @brief it should correctly construct a series from a signle string.
 TEST(TestSeries, testStringConstruction) {
     const std::string val = "hello";
     const telem::Series s{val};
@@ -157,7 +157,7 @@ TEST(TestSeries, testTimestampConstruction) {
     ASSERT_EQ(v[0], 100);
 }
 
-/// @brief it should correctly construct a series the current time.
+/// @brief it should correctly construct a series at the current time.
 TEST(TestSeries, testTimestampNowConstruction) {
     const auto now = telem::TimeStamp::now();
     const telem::Series s(now);
@@ -178,7 +178,7 @@ TEST(TestSeries, testSampleValueConstructionTimeStamp) {
     ASSERT_EQ(s.at<uint64_t>(0), 1000);
 }
 
-/// @brief it should correclty construct the series from a string sample value.
+/// @brief it should correctly construct the series from a string sample value.
 TEST(TestSeries, testSampleValueConstructionString) {
     telem::SampleValue val = std::string("test");
     telem::Series s(val);
@@ -187,7 +187,7 @@ TEST(TestSeries, testSampleValueConstructionString) {
     ASSERT_EQ(s.at<std::string>(0), "test");
 }
 
-/// @brief it should correclty construct a series from an inline vector.
+/// @brief it should correctly construct a series from an inline vector.
 TEST(TestSeries, testInlineVectorConstruction) {
     const auto s = telem::Series(std::vector<float>{1, 2, 3});
     ASSERT_EQ(s.data_type(), telem::FLOAT32_T);
@@ -211,6 +211,7 @@ TEST(TestSeries, testProto) {
     delete s2;
 }
 
+/// @brief it should correctly construct a series from a single value.
 TEST(TestSeries, testConstructionSingleValue) {
     constexpr std::uint64_t value = 1;
     const auto s = telem::Series(value);
@@ -222,7 +223,9 @@ TEST(TestSeries, testConstructionSingleValue) {
     ASSERT_EQ(s.at<std::uint64_t>(0), value);
 }
 
-TEST(TestSeries, testProtoVariable) {
+/// @brief it should construct a variable density series from it's protobuf
+/// representation.
+TEST(TestSeries, testConstrucitonFromVariableProtoSeries) {
     const std::vector<std::string> vals = {"hello", "world22"};
     const telem::Series s{vals};
     const auto s2 = new telem::PBSeries();
@@ -266,6 +269,17 @@ TEST(TestSeries, testAllocation) {
     ASSERT_EQ(s.byte_cap(), 20);
 }
 
+/// @brief it should pre-allocate a variable length series with a fixed capacity instead
+/// of a fixed size.
+TEST(TestSeries, testAllocationVariable) {
+    const telem::Series s{telem::STRING_T, 20};
+    ASSERT_EQ(s.data_type(), telem::STRING_T);
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_EQ(s.cap(), 0);
+    ASSERT_EQ(s.byte_size(), 0);
+    ASSERT_EQ(s.byte_cap(), 20);
+}
+
 /// @brief it should correctly write a value to the series.
 TEST(TestSeries, testWrite) {
     telem::Series s{telem::UINT32_T, 5};
@@ -302,7 +316,7 @@ TEST(TestSeries, testWriteVector) {
         ASSERT_EQ(v[i], values[i]);
 }
 
-/// @brief it should correclty print out the series.
+/// @brief it should correctly print out the series.
 TEST(TestSeries, testOstreamOperatorForAllTypes) {
     // Refactored tests to match the new format "Series(type: TYPE, size: SIZE, cap:
     // CAP, data: [DATA ])"
@@ -424,19 +438,19 @@ TEST_F(SeriesAtTest, testAtInt64) {
 }
 
 TEST_F(SeriesAtTest, testAtFloat32) {
-    const std::vector<float> vals = {-1.5f, 0.0f, 1.5f};
+    const std::vector vals = {-1.5f, 0.0f, 1.5f};
     const telem::Series s{vals};
     validateAt(s, vals, telem::FLOAT32_T);
 }
 
 TEST_F(SeriesAtTest, testAtFloat64) {
-    const std::vector<double> vals = {-1.5, 0.0, 1.5};
+    const std::vector vals = {-1.5, 0.0, 1.5};
     const telem::Series s{vals};
     validateAt(s, vals, telem::FLOAT64_T);
 }
 
 TEST_F(SeriesAtTest, testAtTimestamp) {
-    const std::vector<telem::TimeStamp> vals = {
+    const std::vector vals = {
         telem::TimeStamp(1000),
         telem::TimeStamp(2000),
         telem::TimeStamp(3000)
@@ -447,7 +461,6 @@ TEST_F(SeriesAtTest, testAtTimestamp) {
 }
 
 TEST(TestSeries, testJSONValueConstruction) {
-    // Test with a simple JSON object
     json obj = {{"key", "value"}};
     telem::Series s1(obj);
     ASSERT_EQ(s1.data_type(), telem::JSON_T);
@@ -455,7 +468,6 @@ TEST(TestSeries, testJSONValueConstruction) {
     auto v1 = s1.strings();
     ASSERT_EQ(v1[0], obj.dump());
 
-    // Test with a more complex JSON object
     json complex_obj = {
         {"string", "hello"},
         {"number", 42},
@@ -468,7 +480,6 @@ TEST(TestSeries, testJSONValueConstruction) {
     auto v2 = s2.strings();
     ASSERT_EQ(v2[0], complex_obj.dump());
 
-    // Test with a JSON array
     json arr = json::array({1, 2, 3});
     telem::Series s3(arr);
     ASSERT_EQ(s3.data_type(), telem::JSON_T);
@@ -499,7 +510,6 @@ TEST(TestSeries, testDeepCopyVariableDataType) {
     const telem::Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
     ASSERT_EQ(s2.at<std::string>(0), "hello");
-    ;
     ASSERT_EQ(s2.at<std::string>(1), "world");
     ASSERT_EQ(s2.at<std::string>(2), "test");
     ASSERT_EQ(s2.data_type(), telem::STRING_T);
@@ -754,16 +764,14 @@ TEST(TestSeries, testCastVoidPointer) {
 }
 
 TEST(TestSeriesInplace, testAddInplace) {
-    // Test with integer type
-    std::vector<int32_t> int_data = {1, 2, 3, 4, 5};
+    std::vector int_data = {1, 2, 3, 4, 5};
     telem::Series int_series(int_data);
     int_series.add_inplace(2);
     auto int_result = int_series.values<int32_t>();
     std::vector<int32_t> expected_int = {3, 4, 5, 6, 7};
     ASSERT_EQ(int_result, expected_int);
 
-    // Test with floating point type
-    std::vector<float> float_data = {1.5f, 2.5f, 3.5f, 4.5f, 5.5f};
+    std::vector float_data = {1.5f, 2.5f, 3.5f, 4.5f, 5.5f};
     telem::Series float_series(float_data);
     float_series.add_inplace(1.5f);
     auto float_result = float_series.values<float>();
@@ -772,16 +780,14 @@ TEST(TestSeriesInplace, testAddInplace) {
 }
 
 TEST(TestSeriesInplace, testSubInplace) {
-    // Test with integer type
-    std::vector<int32_t> int_data = {5, 6, 7, 8, 9};
+    std::vector int_data = {5, 6, 7, 8, 9};
     telem::Series int_series(int_data);
     int_series.sub_inplace(2);
     auto int_result = int_series.values<int32_t>();
     std::vector<int32_t> expected_int = {3, 4, 5, 6, 7};
     ASSERT_EQ(int_result, expected_int);
 
-    // Test with floating point type
-    std::vector<float> float_data = {3.5f, 4.5f, 5.5f, 6.5f, 7.5f};
+    std::vector float_data = {3.5f, 4.5f, 5.5f, 6.5f, 7.5f};
     telem::Series float_series(float_data);
     float_series.sub_inplace(1.5f);
     auto float_result = float_series.values<float>();
@@ -790,48 +796,42 @@ TEST(TestSeriesInplace, testSubInplace) {
 }
 
 TEST(TestSeriesInplace, testMultiplyInplace) {
-    // Test with integer type
-    std::vector<int32_t> int_data = {1, 2, 3, 4, 5};
+    std::vector int_data = {1, 2, 3, 4, 5};
     telem::Series int_series(int_data);
     int_series.multiply_inplace(2);
     auto int_result = int_series.values<int32_t>();
-    std::vector<int32_t> expected_int = {2, 4, 6, 8, 10};
+    std::vector expected_int = {2, 4, 6, 8, 10};
     ASSERT_EQ(int_result, expected_int);
 
-    // Test with floating point type
-    std::vector<float> float_data = {1.5f, 2.5f, 3.5f, 4.5f, 5.5f};
+    std::vector float_data = {1.5f, 2.5f, 3.5f, 4.5f, 5.5f};
     telem::Series float_series(float_data);
     float_series.multiply_inplace(2.0f);
     auto float_result = float_series.values<float>();
-    std::vector<float> expected_float = {3.0f, 5.0f, 7.0f, 9.0f, 11.0f};
+    std::vector expected_float = {3.0f, 5.0f, 7.0f, 9.0f, 11.0f};
     ASSERT_EQ(float_result, expected_float);
 }
 
 TEST(TestSeriesInplace, testDivideInplace) {
-    // Test with integer type
-    std::vector<int32_t> int_data = {2, 4, 6, 8, 10};
+    std::vector int_data = {2, 4, 6, 8, 10};
     telem::Series int_series(int_data);
     int_series.divide_inplace(2);
     auto int_result = int_series.values<int32_t>();
-    std::vector<int32_t> expected_int = {1, 2, 3, 4, 5};
+    std::vector expected_int = {1, 2, 3, 4, 5};
     ASSERT_EQ(int_result, expected_int);
 
-    // Test with floating point type
-    std::vector<float> float_data = {3.0f, 5.0f, 7.0f, 9.0f, 11.0f};
+    std::vector float_data = {3.0f, 5.0f, 7.0f, 9.0f, 11.0f};
     telem::Series float_series(float_data);
     float_series.divide_inplace(2.0f);
     auto float_result = float_series.values<float>();
     std::vector<float> expected_float = {1.5f, 2.5f, 3.5f, 4.5f, 5.5f};
     ASSERT_EQ(float_result, expected_float);
 
-    // Test division by zero
-    telem::Series zero_test(std::vector<int32_t>{1, 2, 3});
+    telem::Series zero_test(std::vector{1, 2, 3});
     ASSERT_THROW(zero_test.divide_inplace(0), std::runtime_error);
 }
 
 // Test all operations with different numeric types
 TEST(TestSeriesInplace, testMultipleTypes) {
-    // Test uint8_t
     std::vector<uint8_t> uint8_data = {1, 2, 3, 4, 5};
     telem::Series uint8_series(uint8_data);
     uint8_series.add_inplace(1);
@@ -842,20 +842,18 @@ TEST(TestSeriesInplace, testMultipleTypes) {
     std::vector<uint8_t> expected_uint8 = {1, 2, 3, 4, 5};
     ASSERT_EQ(uint8_result, expected_uint8);
 
-    // Test double
-    std::vector<double> double_data = {1.0, 2.0, 3.0, 4.0, 5.0};
+    std::vector double_data = {1.0, 2.0, 3.0, 4.0, 5.0};
     telem::Series double_series(double_data);
     double_series.add_inplace(1.0);
     double_series.multiply_inplace(2.0);
     double_series.sub_inplace(2.0);
     double_series.divide_inplace(2.0);
     auto double_result = double_series.values<double>();
-    std::vector<double> expected_double = {1.0, 2.0, 3.0, 4.0, 5.0};
+    std::vector expected_double = {1.0, 2.0, 3.0, 4.0, 5.0};
     ASSERT_EQ(double_result, expected_double);
 }
 
 TEST(TestSeries, testJSONVectorConstruction) {
-    // Test with simple JSON objects
     std::vector<json> simple_values = {
         json{{"key1", "value1"}},
         json{{"key2", "value2"}}
@@ -923,4 +921,105 @@ TEST(TestSeries, testJSONValuesEmpty) {
 TEST(TestSeries, testJSONValuesErrorOnNonJSON) {
     const telem::Series non_json_series(std::vector<int>{1, 2, 3});
     ASSERT_THROW(non_json_series.json_values(), std::runtime_error);
+}
+
+TEST(TestSeries, testFillFromFixedSize) {
+    std::vector<uint32_t> source_data = {1, 2, 3, 4, 5};
+    std::vector<uint8_t> binary_data;
+    binary::Writer writer(binary_data, source_data.size() * sizeof(uint32_t));
+    writer.write(source_data.data(), source_data.size() * sizeof(uint32_t));
+
+    telem::Series series(telem::UINT32_T, 10);
+    binary::Reader reader(binary_data);
+
+    size_t bytes_read = series.fill_from(reader);
+
+    ASSERT_EQ(bytes_read, source_data.size() * sizeof(uint32_t));
+    ASSERT_EQ(series.size(), source_data.size());
+    auto values = series.values<uint32_t>();
+    ASSERT_EQ(values, source_data);
+}
+
+TEST(TestSeries, testFillFromString) {
+    std::vector<std::string> source_strings = {"hello", "world", "test"};
+    std::vector<uint8_t> binary_data;
+    size_t total_size = 0;
+    for (const auto &str: source_strings)
+        total_size += str.size() + 1; // +1 for newline terminator
+
+    binary::Writer writer(binary_data, total_size);
+    for (const auto &str: source_strings) {
+        writer.write(str.data(), str.size());
+        writer.uint8('\n');
+    }
+
+    telem::Series series(telem::STRING_T, total_size);
+    binary::Reader reader(binary_data);
+
+    size_t bytes_read = series.fill_from(reader);
+
+    ASSERT_EQ(bytes_read, total_size);
+    ASSERT_EQ(series.size(), source_strings.size());
+    auto values = series.strings();
+    ASSERT_EQ(values, source_strings);
+}
+
+TEST(TestSeries, testFillFromPartial) {
+    std::vector<uint16_t> source_data = {1, 2, 3, 4, 5};
+    std::vector<uint8_t> binary_data;
+    binary::Writer writer(binary_data, source_data.size() * sizeof(uint16_t));
+    writer.write(source_data.data(), source_data.size() * sizeof(uint16_t));
+
+    telem::Series series(telem::UINT16_T, 3); // Only space for 3 elements
+    binary::Reader reader(binary_data);
+
+    size_t bytes_read = series.fill_from(reader);
+
+    ASSERT_EQ(bytes_read, 3 * sizeof(uint16_t));
+    ASSERT_EQ(series.size(), 3);
+    auto values = series.values<uint16_t>();
+    ASSERT_EQ(values.size(), 3);
+    for (size_t i = 0; i < 3; i++)
+        ASSERT_EQ(values[i], source_data[i]);
+}
+
+TEST(TestSeries, testFillFromEmpty) {
+    std::vector<uint8_t> empty_data;
+    binary::Reader reader(empty_data);
+
+    telem::Series series(telem::UINT32_T, 5);
+    size_t bytes_read = series.fill_from(reader);
+
+    ASSERT_EQ(bytes_read, 0);
+    ASSERT_EQ(series.size(), 0);
+}
+
+TEST(TestSeries, testFillFromMultipleReads) {
+    std::vector source_data1 = {1.0f, 2.0f, 3.0f};
+    std::vector source_data2 = {4.0f, 5.0f};
+
+    std::vector<uint8_t> binary_data1, binary_data2;
+    binary::Writer writer1(binary_data1, source_data1.size() * sizeof(float));
+    binary::Writer writer2(binary_data2, source_data2.size() * sizeof(float));
+
+    writer1.write(source_data1.data(), source_data1.size() * sizeof(float));
+    writer2.write(source_data2.data(), source_data2.size() * sizeof(float));
+
+    telem::Series series(telem::FLOAT32_T, 5);
+
+    binary::Reader reader1(binary_data1);
+    size_t bytes_read1 = series.fill_from(reader1);
+    ASSERT_EQ(bytes_read1, source_data1.size() * sizeof(float));
+    ASSERT_EQ(series.size(), source_data1.size());
+
+    binary::Reader reader2(binary_data2);
+    size_t bytes_read2 = series.fill_from(reader2);
+    ASSERT_EQ(bytes_read2, source_data2.size() * sizeof(float));
+    ASSERT_EQ(series.size(), source_data1.size() + source_data2.size());
+
+    auto values = series.values<float>();
+    std::vector<float> expected;
+    expected.insert(expected.end(), source_data1.begin(), source_data1.end());
+    expected.insert(expected.end(), source_data2.begin(), source_data2.end());
+    ASSERT_EQ(values, expected);
 }
