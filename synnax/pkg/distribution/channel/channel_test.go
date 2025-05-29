@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"github.com/synnaxlabs/x/mathutil"
+	"github.com/synnaxlabs/x/math"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -33,9 +33,9 @@ var _ = Describe("Channel Tests", func() {
 				Expect(k.LocalKey()).To(Equal(channel.LocalKey(2)))
 			})
 			It("Should correctly handle the maximum value of a 12 bit node key and 20 bit cesium key", func() {
-				k := channel.NewKey(core.NodeKey(mathutil.MaxUint12), channel.LocalKey(mathutil.MaxUint20))
-				Expect(k.Leaseholder()).To(Equal(core.NodeKey(mathutil.MaxUint12)))
-				Expect(k.LocalKey()).To(Equal(channel.LocalKey(mathutil.MaxUint20)))
+				k := channel.NewKey(core.NodeKey(math.MaxUint12), channel.LocalKey(math.MaxUint20))
+				Expect(k.Leaseholder()).To(Equal(core.NodeKey(math.MaxUint12)))
+				Expect(k.LocalKey()).To(Equal(channel.LocalKey(math.MaxUint20)))
 			})
 		})
 		Describe("ParseKey", func() {

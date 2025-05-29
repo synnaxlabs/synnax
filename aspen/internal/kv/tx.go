@@ -43,7 +43,7 @@ type tx struct {
 var _ kvx.Tx = (*tx)(nil)
 
 // Set implements kvx.Tx.
-func (b *tx) Set(ctx context.Context, key, value []byte, options ...interface{}) error {
+func (b *tx) Set(ctx context.Context, key, value []byte, options ...any) error {
 	lease, err := validateLeaseOption(options)
 	if err != nil {
 		return err
@@ -55,7 +55,7 @@ func (b *tx) Set(ctx context.Context, key, value []byte, options ...interface{})
 }
 
 // Delete implements kvx.Tx.
-func (b *tx) Delete(ctx context.Context, key []byte, _ ...interface{}) error {
+func (b *tx) Delete(ctx context.Context, key []byte, _ ...any) error {
 	op := Operation{Change: kvx.Change{Key: key, Variant: change.Delete}}
 	return b.applyOp(ctx, op)
 }
@@ -67,7 +67,7 @@ func (b *tx) Close() error {
 }
 
 // Commit implements kv.Tx.
-func (b *tx) Commit(ctx context.Context, _ ...interface{}) error {
+func (b *tx) Commit(ctx context.Context, _ ...any) error {
 	if ctx == nil {
 		b.L.DPanic("aspen encountered a nil context when committing transaction")
 	}
@@ -200,7 +200,7 @@ func (tr TxRequest) digests() []Digest {
 	return lo.Map(tr.Operations, func(o Operation, _ int) Digest { return o.Digest() })
 }
 
-func validateLeaseOption(maybeLease []interface{}) (node.Key, error) {
+func validateLeaseOption(maybeLease []any) (node.Key, error) {
 	lease := DefaultLeaseholder
 	if len(maybeLease) == 1 {
 		l, ok := maybeLease[0].(node.Key)

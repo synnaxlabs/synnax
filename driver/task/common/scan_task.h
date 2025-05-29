@@ -92,7 +92,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
 struct DeviceInfo {
     synnax::Device dev;
-    telem::TimeStamp last_available;
+    telem::TimeStamp last_available = telem::TimeStamp(0);
 };
 
 class ScanTask final : public task::Task, public pipeline::Base {
@@ -256,15 +256,15 @@ public:
                         {"last_available", dev.last_available.nanoseconds()}
                     }
             };
-            std::vector<std::string> keys{dev.dev.key};
-            auto [other_dev, err] = this->client->retrieve_devices(keys);
+            std::vector keys{dev.dev.key};
+            auto [remote_devs, err] = this->client->retrieve_devices(keys);
             if (err && !err.matches(xerrors::NOT_FOUND)) {
                 LOG(WARNING) << "[scan_task] failed to retrieve device: "
                              << err.message();
                 continue;
             }
-            if (err.matches(xerrors::NOT_FOUND) ||
-                other_dev[0].rack != synnax::rack_key_from_task_key(this->key))
+            if (!remote_devs.empty() &&
+                remote_devs[0].rack != synnax::rack_key_from_task_key(this->key))
                 to_erase.push_back(key);
         }
         for (const auto &key: to_erase)

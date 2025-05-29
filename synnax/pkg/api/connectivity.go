@@ -11,11 +11,11 @@ package api
 
 import (
 	"context"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/x/telem"
 	"go/types"
 
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/version"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // ConnectivityService is a simple service that allows a client to check their connection

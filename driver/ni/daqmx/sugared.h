@@ -40,7 +40,7 @@ const auto REQUIRES_RESTART = xerrors::Error(
 class SugaredAPI {
     std::shared_ptr<API> dmx;
 
-    xerrors::Error process_error(int32 status) const;
+    [[nodiscard]] xerrors::Error process_error(int32 status) const;
 
 public:
     explicit SugaredAPI(std::shared_ptr<API> dmx): dmx(std::move(dmx)) {}

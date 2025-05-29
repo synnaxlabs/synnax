@@ -139,10 +139,11 @@ public:
         close_err(close_err),
         return_false_ok_on(return_false_ok_on) {}
 
-    bool write(const synnax::Frame &fr) override {
-        if (this->writes->size() == this->return_false_ok_on) return false;
+    xerrors::Error write(const synnax::Frame &fr) override {
+        if (this->writes->size() == this->return_false_ok_on)
+            return xerrors::VALIDATION;
         this->writes->push_back(fr.deep_copy());
-        return true;
+        return xerrors::NIL;
     }
 
     xerrors::Error close() override { return this->close_err; }

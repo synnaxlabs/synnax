@@ -31,8 +31,8 @@ struct Transport {
     std::unique_ptr<AuthLoginClient> auth_login;
     std::unique_ptr<StreamerClient> frame_stream;
     std::unique_ptr<WriterClient> frame_write;
-    std::unique_ptr<ChannelCreateClient> chan_create;
-    std::unique_ptr<ChannelRetrieveClient> chan_retrieve;
+    std::shared_ptr<ChannelCreateClient> chan_create;
+    std::shared_ptr<ChannelRetrieveClient> chan_retrieve;
     std::unique_ptr<RangeRetrieveClient> range_retrieve;
     std::unique_ptr<RangeCreateClient> range_create;
     std::shared_ptr<RangeKVDeleteClient> range_kv_delete;

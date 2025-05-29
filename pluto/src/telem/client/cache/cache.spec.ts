@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { channel,DataType, UnexpectedError } from "@synnaxlabs/client";
+import { channel, DataType, UnexpectedError } from "@synnaxlabs/client";
 import { toArray } from "@synnaxlabs/x";
-import { describe, expect,it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Cache } from "@/telem/client/cache/cache";
 
@@ -49,7 +49,7 @@ describe("cacheManager", () => {
           (key) =>
             new channel.Channel({
               key: key as number,
-              name: `channel-${key}`,
+              name: `channel-${key as channel.Key}`,
               dataType: DataType.FLOAT32,
               isIndex: false,
             }),
@@ -73,7 +73,7 @@ describe("cacheManager", () => {
           (key) =>
             new channel.Channel({
               key: key as number,
-              name: `channel-${key}`,
+              name: `channel-${key as channel.Key}`,
               dataType: DataType.FLOAT32,
               isIndex: false,
             }),
