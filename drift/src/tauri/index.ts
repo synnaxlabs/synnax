@@ -96,7 +96,8 @@ const isPositionVisible = async (position?: xy.XY): Promise<boolean> => {
  * A Tauri backed implementation of the drift Runtime.
  */
 export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction>
-  implements Runtime<S, A> {
+  implements Runtime<S, A>
+{
   private readonly win: WebviewWindow;
   private unsubscribe: Record<string, UnlistenFn>;
   private fullscreenPoll: NodeJS.Timeout | null = null;
