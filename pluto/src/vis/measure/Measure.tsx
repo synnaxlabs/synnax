@@ -29,7 +29,7 @@ const MEASURE_TRIGGERS: Triggers.ModeConfig<ClickMode> = {
 
 const REDUCED_MEASURE_TRIGGERS = Triggers.flattenConfig(MEASURE_TRIGGERS);
 
-export interface MeasureProps extends Aether.CProps {}
+export interface MeasureProps extends Aether.ComponentProps {}
 
 export const Measure = ({ aetherKey }: MeasureProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);

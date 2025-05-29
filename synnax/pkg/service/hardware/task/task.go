@@ -36,7 +36,7 @@ func (k Key) String() string { return strconv.Itoa(int(k)) }
 func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }
 
 func (k *Key) UnmarshalJSON(b []byte) error {
-	n, err := binary.UnmarshalStringInt64(b)
+	n, err := binary.UnmarshalJSONStringUint64(b)
 	*k = Key(n)
 	return err
 }

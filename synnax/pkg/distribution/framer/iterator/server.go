@@ -22,7 +22,7 @@ import (
 
 type server struct{ ServiceConfig }
 
-func startServer(cfg ServiceConfig) *server {
+func newServer(cfg ServiceConfig) *server {
 	s := &server{ServiceConfig: cfg}
 	cfg.Transport.Server().BindHandler(s.handle)
 	return s

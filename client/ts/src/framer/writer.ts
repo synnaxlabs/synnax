@@ -22,7 +22,7 @@ import { channel } from "@/channel";
 import { SynnaxError } from "@/errors";
 import { WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
-import { type Crude, frameZ } from "@/framer/frame";
+import { type CrudeFrame, frameZ } from "@/framer/frame";
 
 export enum WriterCommand {
   Open = 0,
@@ -206,9 +206,14 @@ export class Writer {
 
   async write(channel: channel.KeyOrName, data: CrudeSeries): Promise<void>;
   async write(channel: channel.KeysOrNames, data: CrudeSeries[]): Promise<void>;
-  async write(frame: Crude | Record<channel.KeyOrName, CrudeSeries>): Promise<void>;
   async write(
-    channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
+    frame: CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
+  ): Promise<void>;
+  async write(
+    channelsOrData:
+      | channel.Params
+      | Record<channel.KeyOrName, CrudeSeries>
+      | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void>;
 
@@ -227,7 +232,10 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    */
   async write(
-    channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
+    channelsOrData:
+      | channel.Params
+      | Record<channel.KeyOrName, CrudeSeries>
+      | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {
     if (this.closeErr != null) throw this.closeErr;

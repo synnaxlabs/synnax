@@ -46,6 +46,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						FS:        fs,
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Conrad",
 							Key:      2,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
@@ -63,10 +64,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Subject: control.Subject{Key: "foo"},
 					}))
 					Expect(t.Occurred()).To(BeTrue())
-					v, err := w.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5))
+					v, err := w.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5))
 					Expect(err).ToNot(HaveOccurred())
-					Expect(v).To(Equal(telem.LeadingAlignment(1, 0)))
-					Expect(MustSucceed(w.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(telem.LeadingAlignment(1, 6)))
+					Expect(v).To(Equal(core.LeadingAlignment(1, 0)))
+					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(core.LeadingAlignment(1, 6)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(11*telem.SecondTS + 1))
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
@@ -107,7 +108,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
-						FileSize:        telem.Size(10*telem.TimeStampT.Density()) * telem.ByteSize,
+						FileSize:        telem.Size(10*telem.TimeStampT.Density()) * telem.Byte,
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
@@ -120,7 +121,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							DataType: telem.Int64T,
 							Index:    index,
 						},
-						FileSize:        telem.Size(5*telem.Int64T.Density()) * telem.ByteSize,
+						FileSize:        telem.Size(5*telem.Int64T.Density()) * telem.Byte,
 						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
@@ -131,7 +132,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(cleanUp()).To(Succeed())
 				})
 				Specify("Happy Path", func() {
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
 					w, t := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
@@ -139,7 +140,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					By("Taking control of the DB")
 					Expect(dataDB.LeadingControlState().Subject).To(Equal(control.Subject{Key: "foo"}))
 					Expect(t.Occurred()).To(BeTrue())
-					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))).To(Equal(telem.LeadingAlignment(1, 0)))
+					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))).To(Equal(core.LeadingAlignment(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(20*telem.SecondTS + 1))
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
@@ -147,17 +148,17 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(dataDB.LeadingControlState()).To(BeNil())
 				})
 				Specify("Open Writer domain overlap", func() {
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
 					}))
-					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4})))).To(Equal(telem.LeadingAlignment(1, 0)))
+					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4})))).To(Equal(core.LeadingAlignment(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(14*telem.SecondTS + 1))
 					_, err := w.Close()
 					Expect(err).ToNot(HaveOccurred())
 
-					w, _, err = dataDB.OpenWriter(ctx, unary.WriterConfig{
+					_, _, err = dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:   12 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
 					})
@@ -170,7 +171,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
 
 						By("Writing telemetry")
-						_, err := w1.Write(telem.NewSecondsTSV(10, 11, 13, 14, 15, 16, 17))
+						_, err := w1.Write(telem.NewSeriesSecondsTSV(10, 11, 13, 14, 15, 16, 17))
 						Expect(err).ToNot(HaveOccurred())
 						_, err = w2.Write(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107))
 						Expect(err).ToNot(HaveOccurred())
@@ -189,7 +190,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w2.Commit(ctx)).To(Equal(17*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						_, err = w1.Write(telem.NewSecondsTSV(23, 29, 31, 37, 41, 43))
+						_, err = w1.Write(telem.NewSeriesSecondsTSV(23, 29, 31, 37, 41, 43))
 						Expect(err).ToNot(HaveOccurred())
 						_, err = w2.Write(telem.NewSeriesV[int64](203, 209, 301, 307, 401, 403))
 						Expect(err).ToNot(HaveOccurred())
@@ -208,7 +209,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w2.Commit(ctx)).To(Equal(43*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						_, err = w1.Write(telem.NewSecondsTSV(47, 53))
+						_, err = w1.Write(telem.NewSeriesSecondsTSV(47, 53))
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the first writer is now writing to a different file")
@@ -240,7 +241,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
 
 						By("Writing telemetry")
-						_, err := w1.Write(telem.NewSecondsTSV(10, 11, 13, 14, 15, 16, 17))
+						_, err := w1.Write(telem.NewSeriesSecondsTSV(10, 11, 13, 14, 15, 16, 17))
 						Expect(err).ToNot(HaveOccurred())
 						_, err = w2.Write(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107))
 						Expect(err).ToNot(HaveOccurred())
@@ -259,7 +260,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w2.Commit(ctx)).To(Equal(17*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						_, err = w1.Write(telem.NewSecondsTSV(23, 29, 31, 37, 41, 43))
+						_, err = w1.Write(telem.NewSeriesSecondsTSV(23, 29, 31, 37, 41, 43))
 						Expect(err).ToNot(HaveOccurred())
 						_, err = w2.Write(telem.NewSeriesV[int64](203, 209, 301, 307, 401, 403))
 						Expect(err).ToNot(HaveOccurred())
@@ -278,7 +279,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w2.Commit(ctx)).To(Equal(43*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						_, err = w1.Write(telem.NewSecondsTSV(47, 53))
+						_, err = w1.Write(telem.NewSeriesSecondsTSV(47, 53))
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Asserting that the first writer is now writing to a different file")
@@ -311,7 +312,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
 
 						By("Writing telemetry")
-						_, err := w1.Write(telem.NewSecondsTSV(10, 11, 13, 14, 15, 16, 17, 18, 20, 23, 25))
+						_, err := w1.Write(telem.NewSeriesSecondsTSV(10, 11, 13, 14, 15, 16, 17, 18, 20, 23, 25))
 						Expect(err).ToNot(HaveOccurred())
 						_, err = w2.Write(telem.NewSeriesV[int64](100, 101, 103, 104, 105, 106, 107, 108, 200, 203, 205))
 						Expect(err).ToNot(HaveOccurred())
@@ -321,7 +322,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w2.Commit(ctx)).To(Equal(25*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						_, err = w1.Write(telem.NewSecondsTSV(29, 31, 37, 41, 43))
+						_, err = w1.Write(telem.NewSeriesSecondsTSV(29, 31, 37, 41, 43))
 						Expect(err).ToNot(HaveOccurred())
 						_, err = w2.Write(telem.NewSeriesV[int64](209, 301, 307, 401, 403))
 						Expect(err).ToNot(HaveOccurred())
@@ -363,7 +364,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS, Subject: control.Subject{Key: "moo"}}))
 
 						By("Writing telemetry")
-						_, err := w1.Write(telem.NewSecondsTSV(10))
+						_, err := w1.Write(telem.NewSeriesSecondsTSV(10))
 						Expect(err).ToNot(HaveOccurred())
 						_, err = w2.Write(telem.NewSeriesV[int64](100))
 						Expect(err).ToNot(HaveOccurred())
@@ -373,7 +374,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w2.Commit(ctx)).To(Equal(10*telem.SecondTS + 1))
 
 						By("Writing more telemetry")
-						_, err = w1.Write(telem.NewSecondsTSV(11, 12, 13, 14, 15, 16, 17, 18, 19))
+						_, err = w1.Write(telem.NewSeriesSecondsTSV(11, 12, 13, 14, 15, 16, 17, 18, 19))
 						Expect(err).ToNot(HaveOccurred())
 						_, err = w2.Write(telem.NewSeriesV[int64](101, 102, 103, 104, 105, 106, 107, 108, 109))
 						Expect(err).ToNot(HaveOccurred())
@@ -422,6 +423,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						FS:        fs,
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Frederick",
 							Key:      2,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
@@ -437,26 +439,26 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Specify("Control Handoff", func() {
 						w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 							Start:     10 * telem.SecondTS,
-							Authority: control.Absolute - 1,
+							Authority: control.AuthorityAbsolute - 1,
 							Subject:   control.Subject{Key: "foo"},
 						}))
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(MustSucceed(w1.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(telem.LeadingAlignment(1, 0)))
+						Expect(MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(core.LeadingAlignment(1, 0)))
 						w2, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 							Start:     10 * telem.SecondTS,
-							Authority: control.Absolute,
+							Authority: control.AuthorityAbsolute,
 							Subject:   control.Subject{Key: "bar"},
 						}))
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(MustSucceed(w2.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(telem.LeadingAlignment(1, 6)))
-						a, err := w1.Write(telem.NewSecondsTSV(12, 13, 14, 15, 16, 17))
+						Expect(MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(core.LeadingAlignment(1, 6)))
+						a, err := w1.Write(telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17))
 						Expect(err).To(MatchError(control.ErrUnauthorized))
 						Expect(a).To(Equal(telem.Alignment(0)))
 						_, err = w1.Commit(ctx)
 						Expect(err).To(MatchError(control.ErrUnauthorized))
 						t = MustSucceed(w2.Close())
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(MustSucceed(w1.Write(telem.NewSecondsTSV(12, 13, 14, 15, 16, 17)))).To(Equal(telem.LeadingAlignment(1, 12)))
+						Expect(MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17)))).To(Equal(core.LeadingAlignment(1, 12)))
 						Expect(MustSucceed(w1.Commit(ctx))).To(Equal(17*telem.SecondTS + 1))
 						t = MustSucceed(w1.Close())
 						Expect(t.Occurred()).To(BeTrue())
@@ -466,14 +468,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					It("Should return an error if the write does not acquire control", func() {
 						w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 							Start:                 10 * telem.SecondTS,
-							Authority:             control.Absolute,
+							Authority:             control.AuthorityAbsolute,
 							Subject:               control.Subject{Key: "foo"},
 							ErrOnUnauthorizedOpen: config.True(),
 						}))
 						Expect(t.Occurred()).To(BeTrue())
 						w2, t, err := db.OpenWriter(ctx, unary.WriterConfig{
 							Start:                 10 * telem.SecondTS,
-							Authority:             control.Absolute - 1,
+							Authority:             control.AuthorityAbsolute - 1,
 							Subject:               control.Subject{Key: "bar"},
 							ErrOnUnauthorizedOpen: config.True(),
 						})

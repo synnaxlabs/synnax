@@ -15,17 +15,25 @@ const (
 	// TypeEmpty represents an error that hasn't been properly parsed or detected.
 	// TypeEmpty errors typically represent a programming error.
 	TypeEmpty = ""
-	// TypeNil represents a nil error i.e., one that has not occurred.
+	// TypeNil represents a nil error i.e. one that has not occurred.
 	TypeNil = "nil"
-	// TypeUnknown represents an error not registered with the errors package.
+	// TypeUnknown represents an error that was not registered with the ferrors package.
 	TypeUnknown = "unknown"
-	// TypeRoach represents an error type encoded using cockroachdb's errors package.
-	// This is the default error type for errors that are not registered with the errors
-	// package, and is used mostly for go-to-go communication.
+	// TypeRoach represents an error type that was encoded using cockroachdb's errors package.
+	// This is the default error type for errors that are not registered with the ferrors package,
+	// and is used mostly for go-to-go communication.
 	TypeRoach = "roach"
 )
 
-// IsAny determines whether any of the causes of the given error or any of its causes is
+// Is determines whether one of the causes of the given error or any of its causes is
+// equivalent to some reference error.
+//
+// As in the Go standard library, an error is considered to match a reference error if
+// it is equal to that target or if it implements a method Is(error) bool such that
+// Is(reference) returns true
+func Is(err, ref error) bool { return errors.Is(err, ref) }
+
+// IsAny determines whether any causes the given error or any of its causes is
 // equivalent to one of the reference errors.
 //
 // Note that IsAny returns true if err matches errors.Is for ANY of the reference errors
@@ -43,14 +51,6 @@ func IsAny(err error, refs ...error) bool {
 	return false
 }
 
-// Is determines whether one of the causes of the given error or any of its causes is
-// equivalent to some reference error.
-//
-// As in the Go standard library, an error is considered to match a reference error if
-// it is equal to that target or if it implements a method Is(error) bool such that
-// Is(reference) returns true
-func Is(err, ref error) bool { return errors.Is(err, ref) }
-
 // Wrap wraps an error with a message prefix. A stack trace is retained
 func Wrap(err error, msg string) error { return errors.Wrap(err, msg) }
 
@@ -59,6 +59,14 @@ func Wrap(err error, msg string) error { return errors.Wrap(err, msg) }
 // processed for reportable strings
 func Wrapf(err error, format string, args ...any) error {
 	return errors.Wrapf(err, format, args...)
+}
+
+// Join returns an error that wraps the given errors. Any nil error values are discarded.
+// Join returns nil if errs contains no non-nil values. The error formats as the
+// concatenation of the strings obtained by calling the Error method of each element of
+// errs, with a newline between each string. A stack trace is also retained.
+func Join(errs ...error) error {
+	return errors.Join(errs...)
 }
 
 // Combine returns:
@@ -77,11 +85,11 @@ func New(msg string) error { return errors.New(msg) }
 // Newf creates an error with a formatted error message. A stack trace is retained.
 func Newf(format string, args ...any) error { return errors.Newf(format, args...) }
 
-// As finds the first error in the chain that matches the type to which target points,
+// As finds the first error in err's chain that matches the type to which target points,
 // and if so, sets the target to its value and returns true. An error matches a type if it
-// is assignable to the target type, or if it has a method As(interface{}) bool such that
-// As(target) returns true. As will panic if the target is not a non-nil pointer to a type
-// which implements an error or is of interface type.
+// is assignable to the target type, or if it has a method As(any) bool such that
+// As(target) returns true. As will panic if target is not a non-nil pointer to a type
+// which implements error or is of interface type.
 //
 // The As method should set the target to its value and return true if err matches the
 // type to which target points.

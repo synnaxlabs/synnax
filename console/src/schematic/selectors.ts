@@ -52,9 +52,14 @@ export const selectSelectedElementDigests = (
   layoutKey: string,
 ): ElementDigest[] => {
   const schematic = select(state, layoutKey);
-  return schematic.nodes
-    .filter((node) => node.selected)
-    .map((node) => ({ key: node.key, type: "node" }));
+  return [
+    ...schematic.nodes
+      .filter((node) => node.selected)
+      .map<ElementDigest>((node) => ({ key: node.key, type: "node" })),
+    ...schematic.edges
+      .filter((edge) => edge.selected)
+      .map<ElementDigest>((edge) => ({ key: edge.key, type: "edge" })),
+  ];
 };
 
 export const useSelectSelectedElementDigests = (layoutKey: string): ElementDigest[] =>

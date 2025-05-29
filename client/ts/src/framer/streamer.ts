@@ -17,19 +17,19 @@ import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
-const reqZ = z.object({ keys: z.number().array(), downSampleFactor: z.number() });
+const reqZ = z.object({ keys: z.number().array(), downsampleFactor: z.number() });
 
-export type StreamerRequest = z.infer<typeof reqZ>;
+export interface StreamerRequest extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({ frame: frameZ });
 
-export type StreamerResponse = z.infer<typeof resZ>;
+export interface StreamerResponse extends z.infer<typeof resZ> {}
 
 const ENDPOINT = "/frame/stream";
 
 export interface StreamerConfig {
   channels: channel.Params;
-  downSampleFactor?: number;
+  downsampleFactor?: number;
   useExperimentalCodec?: boolean;
 }
 
@@ -49,14 +49,14 @@ export const createStreamOpener =
   async (config) => {
     let cfg: StreamerConfig;
     if (Array.isArray(config) || typeof config !== "object")
-      cfg = { channels: config as channel.Params, downSampleFactor: 1 };
+      cfg = { channels: config as channel.Params, downsampleFactor: 1 };
     else cfg = config as StreamerConfig;
     const adapter = await ReadAdapter.open(retriever, cfg.channels);
     if (cfg.useExperimentalCodec)
       client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream(ENDPOINT, reqZ, resZ);
     const streamer = new CoreStreamer(stream, adapter);
-    stream.send({ keys: adapter.keys, downSampleFactor: cfg.downSampleFactor ?? 1 });
+    stream.send({ keys: adapter.keys, downsampleFactor: cfg.downsampleFactor ?? 1 });
     const [, err] = await stream.receive();
     if (err != null) throw err;
     return streamer;
@@ -101,7 +101,7 @@ class CoreStreamer implements Streamer {
     await this.adapter.update(channels);
     this.stream.send({
       keys: this.adapter.keys,
-      downSampleFactor: this.downsampleFactor,
+      downsampleFactor: this.downsampleFactor,
     });
   }
 
@@ -123,7 +123,7 @@ export class HardenedStreamer implements Streamer {
   private constructor(opener: StreamOpener, config: StreamerConfig | channel.Params) {
     this.opener = opener;
     if (Array.isArray(config) || typeof config !== "object")
-      this.config = { channels: config as channel.Params, downSampleFactor: 1 };
+      this.config = { channels: config as channel.Params, downsampleFactor: 1 };
     else this.config = config as StreamerConfig;
     this.breaker = new breaker.Breaker({
       maxRetries: 5000,

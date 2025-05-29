@@ -13,7 +13,7 @@ import {
   DataType,
   type Destructor,
   MultiSeries,
-  primitiveIsZero,
+  primitive,
   type Series,
   TimeRange,
   TimeSpan,
@@ -94,7 +94,7 @@ export class StreamChannelValue
 
   value(): number {
     // No valid channel has been set.
-    if (primitiveIsZero(this.props.channel)) return 0;
+    if (primitive.isZero(this.props.channel)) return 0;
     if (!this.valid) void this.read();
     // No data has been received and no recent samples were fetched on initialization.
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return 0;

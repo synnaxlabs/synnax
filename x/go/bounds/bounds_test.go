@@ -22,6 +22,8 @@ var _ = Describe("Bounds", func() {
 		Entry("In Middle", bounds.Bounds[int]{Lower: 5, Upper: 10}, 7, true),
 		Entry("At Start", bounds.Bounds[int]{Lower: 5, Upper: 10}, 5, true),
 		Entry("At End", bounds.Bounds[int]{Lower: 5, Upper: 10}, 10, false),
+		Entry("Both The Same", bounds.Bounds[int]{Lower: 10, Upper: 10}, 10, false),
+		Entry("Lower Higher than Upper", bounds.Bounds[int]{Lower: 10, Upper: 5}, 10, false),
 	)
 	Describe("String", func() {
 		It("Should return a formatted string", func() {

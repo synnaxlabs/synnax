@@ -25,20 +25,46 @@ import {
 } from "react";
 import { type z } from "zod";
 
-import { type MainMessage, type WorkerMessage } from "@/aether/message";
+import { type AetherMessage, type MainMessage } from "@/aether/message";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoCompare } from "@/memo";
 import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
 import { Worker } from "@/worker";
 
+/**
+ * return value of the create function in the Aether context.
+ * Provides methods to manage the lifecycle of an Aether component.
+ */
 export interface CreateReturn {
+  /**
+   * Updates the state of the component and optionally transfers objects to the worker thread.
+   * @param state - The new state to set on the component
+   * @param transfer - Optional array of Transferable objects to be transferred to the worker
+   */
   setState: (state: any, transfer?: Transferable[]) => void;
+
+  /**
+   * Deletes the component from the Aether tree, triggering cleanup
+   * on the worker thread.
+   */
   delete: () => void;
 }
 
+/**
+ * Interface representing the value provided by the Aether context.
+ * Used to create and manage Aether components in the component tree.
+ */
 export interface ContextValue {
+  /** The current path in the Aether component tree */
   path: string[];
+  /**
+   * Creates a new Aether component in the tree
+   * @param type - The type identifier for the component
+   * @param path - The path where the component should be created
+   * @param onReceive - Optional callback for handling state updates from the worker
+   * @returns An object with methods to manage the component's lifecycle
+   */
   create: (type: string, path: string[], onReceive?: StateHandler) => CreateReturn;
 }
 
@@ -49,9 +75,15 @@ const ZERO_CONTEXT_VALUE = {
 
 const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
 
+/**
+ * Props for the Aether Provider component that establishes the Aether context.
+ */
 export interface ProviderProps extends PropsWithChildren {
+  /** Unique identifier for the worker instance */
   workerKey: string;
-  worker?: SenderHandler<MainMessage, WorkerMessage>;
+
+  /** Optional worker handler for managing communication between main and worker threads */
+  worker?: SenderHandler<MainMessage, AetherMessage>;
 }
 
 export const Provider = ({
@@ -59,7 +91,7 @@ export const Provider = ({
   worker: propsWorker,
   children,
 }: ProviderProps): ReactElement => {
-  const contextWorker = Worker.use<MainMessage, WorkerMessage>(workerKey);
+  const contextWorker = Worker.use<MainMessage, AetherMessage>(workerKey);
   const registry = useRef<Map<string, RegisteredComponent>>(new Map());
   const [ready, setReady] = useState(false);
   const worker = useMemo(
@@ -255,12 +287,16 @@ export const useLifecycle = <S extends z.ZodTypeAny>({
   return useMemo(() => ({ setState, path }), [setState, key, path]);
 };
 
-export interface CProps {
+/** Props for components that use Aether functionality */
+export interface ComponentProps {
+  /** Optional unique identifier for the Aether component */
   aetherKey?: string;
 }
 
+/** Props for the use hook that manages Aether component lifecycle */
 export interface UseProps<S extends z.ZodTypeAny>
   extends Omit<UseLifecycleProps<S>, "onReceive"> {
+  /** Optional callback for handling state changes from the Aether component */
   onAetherChange?: (state: z.output<S>) => void;
 }
 
@@ -268,15 +304,23 @@ interface ComponentContext {
   path: string[];
 }
 
+/**
+ * Return type for the use hook, providing access to component context, state, and state setter
+ */
 export type UseReturn<S extends z.ZodTypeAny> = [
   ComponentContext,
   z.output<S>,
   (state: state.SetArg<z.input<S>>, transfer?: Transferable[]) => void,
 ];
 
+/**
+ * Props for the useUnidirectional hook that only propagates state to the Aether component
+ */
 export interface UseUnidirectionalProps<S extends z.ZodTypeAny>
   extends Pick<UseLifecycleProps<S>, "schema" | "aetherKey"> {
+  /** The type identifier for the Aether component */
   type: string;
+  /** The current state to propagate to the Aether component */
   state: z.input<S>;
 }
 
@@ -354,6 +398,8 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
       if (state.isSetter(next))
         setInternalState((prev) => {
           const nextS = next(prev);
+          // This makes our setter impure, so it's something we should be wary of causing
+          // unexpected behavior in the the future.
           setAetherState(nextS, transfer);
           return nextS;
         });
@@ -375,7 +421,13 @@ interface RegisteredComponent {
   handler?: StateHandler;
 }
 
+/**
+ * Props for the Composite component that establishes child components in the Aether tree
+ */
 export interface CompositeProps extends PropsWithChildren {
+  /**
+   * The path in the Aether component tree where children should be established
+   */
   path: string[];
 }
 

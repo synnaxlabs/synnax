@@ -341,13 +341,11 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   release(): void {
-    if (this._refCount <= 0) {
-      console.warn("attempted to release a series with a negative reference count");
-      return;
-    }
     this._refCount--;
     if (this._refCount === 0 && this.gl.control != null)
       this.maybeGarbageCollectGLBuffer(this.gl.control);
+    else if (this._refCount < 0)
+      throw new Error("cannot release an array with a negative reference count");
   }
 
   /**
@@ -716,7 +714,7 @@ export class Series<T extends TelemValue = TelemValue> {
         lower: alignmentDigest(this.alignmentBounds.lower),
         upper: alignmentDigest(this.alignmentBounds.upper),
       },
-      timeRange: this.timeRange?.toString(),
+      timeRange: this.timeRange.toString(),
       length: this.length,
       capacity: this.capacity,
     };
@@ -819,20 +817,20 @@ export class Series<T extends TelemValue = TelemValue> {
   }
 
   toString(): string {
-    let data = `${this.dataType.toString()} ${this.length} [`;
+    let data = `Series(${this.dataType.toString()} ${this.length} [`;
     if (this.length <= 10) data += Array.from(this).map((v) => v.toString());
     else {
       for (let i = 0; i < 5; i++) {
         data += `${this.at(i)?.toString()}`;
-        if (i < 4) data += ",";
+        data += ",";
       }
-      data += "...";
+      data += "...,";
       for (let i = -5; i < 0; i++) {
         data += this.at(i)?.toString();
         if (i < -1) data += ",";
       }
     }
-    data += "]";
+    data += "])";
     return data;
   }
 }
