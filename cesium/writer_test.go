@@ -748,7 +748,7 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("With AutoCommit", func() {
 						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSizeCap(40*telem.ByteSize),
+							cesium.WithFileSizeCap(40*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
 
@@ -829,7 +829,7 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("With AutoCommit: should not commit a tiny domain", func() {
 						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSizeCap(80*telem.ByteSize),
+							cesium.WithFileSizeCap(80*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
 
@@ -913,7 +913,7 @@ var _ = Describe("Writer Behavior", func() {
 
 						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSizeCap(64*telem.ByteSize),
+							cesium.WithFileSizeCap(64*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
 
@@ -965,7 +965,7 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("Without AutoCommit", func() {
 						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSizeCap(40*telem.ByteSize),
+							cesium.WithFileSizeCap(40*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
 
@@ -1043,7 +1043,7 @@ var _ = Describe("Writer Behavior", func() {
 					It("Should not break when auto committing to not all channels", func() {
 						db2 = MustSucceed(cesium.Open(ctx, "size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSizeCap(40*telem.ByteSize),
+							cesium.WithFileSizeCap(40*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
 

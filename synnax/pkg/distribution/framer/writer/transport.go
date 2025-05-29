@@ -27,6 +27,7 @@ const (
 	Write
 	// Commit represents a call to Writer.Commit.
 	Commit
+	// SetAuthority represents a call to Writer.SetAuthority
 	SetAuthority
 )
 
@@ -39,7 +40,7 @@ type Request struct {
 	// Command is the command to execute on the writer.
 	Command Command `json:"command" msgpack:"command"`
 	// Config sets the configuration to use when opening the writer. Only used internally
-	// when open command is sent.
+	// when an open command is sent.
 	Config Config `json:"config" msgpack:"config"`
 	// Frame is the telemetry frame. This field is only acknowledged during Write commands.
 	Frame core.Frame `json:"frame" msgpack:"keys"`

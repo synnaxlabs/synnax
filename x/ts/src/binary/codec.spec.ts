@@ -12,46 +12,49 @@ import { z } from "zod";
 
 import { binary } from "@/binary";
 
-const sampleSchema = z.object({
-  channelKey: z.string(),
-  timeStamp: z.number(),
-  value: z.unknown(),
-});
+describe("Codec", () => {
+  const sampleSchema = z.object({
+    channelKey: z.string(),
+    timeStamp: z.number(),
+    value: z.unknown(),
+  });
 
-binary.ENCODERS.forEach((e) => {
-  describe(`encoder ${e.contentType}`, () => {
-    it("should correctly encode and decode items", () => {
+  binary.ENCODERS.forEach((e) => {
+    describe(`encoder ${e.contentType}`, () => {
+      it("should correctly encode and decode items", () => {
+        const sample = {
+          channelKey: "test",
+          timeStamp: 123,
+          value: [1, 2, 3],
+        };
+        const encoded = e.encode(sample);
+        expect(e.decode(encoded, sampleSchema)).toEqual(sample);
+      });
+    });
+  });
+
+  describe("JSON", () => {
+    it("should correctly convert keys to snake case", () => {
       const sample = {
         channelKey: "test",
         timeStamp: 123,
-        value: [1, 2, 3],
+        value: new Array([1, 2, 3]),
       };
-      const encoded = e.encode(sample);
-      expect(e.decode(encoded, sampleSchema)).toEqual(sample);
+      const encoded = binary.JSON_CODEC.encodeString(sample);
+      const parse = JSON.parse(encoded);
+      expect(parse.channel_key).toEqual("test");
     });
-  });
-});
 
-describe("JSON", () => {
-  it("should correctly convert keys to snake case", () => {
-    const sample = {
-      channelKey: "test",
-      timeStamp: 123,
-      value: new Array([1, 2, 3]),
-    };
-    const encoded = binary.JSON_CODEC.encodeString(sample);
-    const parse = JSON.parse(encoded);
-    expect(parse.channel_key).toEqual("test");
-  });
-  it("should correctly decode keys from snake case", () => {
-    const sample = {
-      channel_key: "test",
-      time_stamp: 123,
-      value: new Array([1, 2, 3]),
-    };
-    const encoded = JSON.stringify(sample);
-    const decoded = binary.JSON_CODEC.decodeString(encoded, sampleSchema);
-    expect(decoded.channelKey).toEqual("test");
+    it("should correctly decode keys from snake case", () => {
+      const sample = {
+        channel_key: "test",
+        time_stamp: 123,
+        value: new Array([1, 2, 3]),
+      };
+      const encoded = JSON.stringify(sample);
+      const decoded = binary.JSON_CODEC.decodeString(encoded, sampleSchema);
+      expect(decoded.channelKey).toEqual("test");
+    });
   });
 
   describe("CSVCodec", () => {

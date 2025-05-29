@@ -534,15 +534,14 @@ func (c *WSFramerCodec) encodeWriteRequest(
 	ctx context.Context,
 	w io.Writer,
 	v fhttp.WSMessage[FrameWriterRequest],
-) (err error) {
+) error {
 	if v.Type != fhttp.WSMessageTypeData || v.Payload.Command != writer.Write {
 		return c.lowPerfEncode(ctx, w, v)
 	}
-	if _, err = w.Write([]byte{highPerfSpecialChar}); err != nil {
-		return
+	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
+		return err
 	}
-	err = c.Codec.EncodeStream(nil, w, v.Payload.Frame)
-	return
+	return c.Codec.EncodeStream(nil, w, v.Payload.Frame)
 }
 
 func (c *WSFramerCodec) decodeStreamResponse(
@@ -572,15 +571,14 @@ func (c *WSFramerCodec) encodeStreamResponse(
 	ctx context.Context,
 	w io.Writer,
 	v fhttp.WSMessage[FrameStreamerResponse],
-) (err error) {
+) error {
 	if v.Type != fhttp.WSMessageTypeData || v.Payload.Frame.Empty() {
 		return c.lowPerfEncode(ctx, w, v)
 	}
-	if _, err = w.Write([]byte{highPerfSpecialChar}); err != nil {
+	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	err = c.Codec.EncodeStream(nil, w, v.Payload.Frame)
-	return
+	return c.Codec.EncodeStream(nil, w, v.Payload.Frame)
 }
 
 func (c *WSFramerCodec) decodeStreamRequest(

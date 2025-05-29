@@ -92,7 +92,7 @@ func LValueFromMultiSeriesAlignment(series telem.MultiSeries, a telem.Alignment)
 func SetLValueOnSeries(
 	v lua.LValue,
 	series telem.Series,
-	index int64,
+	index int,
 ) telem.Series {
 	switch v.Type() {
 	case lua.LTNumber:

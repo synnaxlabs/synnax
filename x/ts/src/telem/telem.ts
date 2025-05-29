@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { math } from "@/math";
-import { type Stringer } from "@/primitive";
+import { primitive } from "@/primitive";
 
 /** Time zone specification when working with time stamps. */
 export type TZInfo = "UTC" | "local";
@@ -60,7 +60,7 @@ const remainder = <T extends TimeStamp | TimeSpan>(
 };
 
 /**
- * Represents a UTC timestamp. Synnax uses a nanosecond precision int64 timestamp.
+UTC timestamp. Synnax uses a nanosecond precision int64 timestamp.
  *
  * DISCLAIMER: JavaScript stores all numbers as 64-bit floating point numbers, so we expect a
  * expect a precision drop from nanoseconds to quarter microseconds when communicating
@@ -85,19 +85,17 @@ const remainder = <T extends TimeStamp | TimeSpan>(
  * @example ts = new TimeStamp([2021, 1, 1]).add(1 * TimeSpan.HOUR) // 1/1/2021 at 1am UTC
  * @example ts = new TimeStamp("2021-01-01T12:30:00Z") // 1/1/2021 at 12:30pm UTC
  */
-export class TimeStamp implements Stringer {
-  private readonly value: bigint;
-  // lets encoders know that the `value` field should be encoded directly instead
-  // of the class instance itself.
-  readonly encodeValue = true;
-
+export class TimeStamp
+  extends primitive.ValueExtension<bigint>
+  implements primitive.Stringer
+{
   constructor(value?: CrudeTimeStamp, tzInfo: TZInfo = "UTC") {
-    if (value == null) this.value = TimeStamp.now().valueOf();
+    if (value == null) super(TimeStamp.now().valueOf());
     else if (value instanceof Date)
-      this.value = BigInt(value.getTime()) * TimeStamp.MILLISECOND.valueOf();
+      super(BigInt(value.getTime()) * TimeStamp.MILLISECOND.valueOf());
     else if (typeof value === "string")
-      this.value = TimeStamp.parseDateTimeString(value, tzInfo).valueOf();
-    else if (Array.isArray(value)) this.value = TimeStamp.parseDate(value);
+      super(TimeStamp.parseDateTimeString(value, tzInfo).valueOf());
+    else if (Array.isArray(value)) super(TimeStamp.parseDate(value));
     else {
       let offset: bigint = BigInt(0);
       if (value instanceof Number) value = value.valueOf();
@@ -109,7 +107,7 @@ export class TimeStamp implements Stringer {
           if (value === Infinity) value = TimeStamp.MAX;
           else value = TimeStamp.MIN;
         }
-      this.value = BigInt(value.valueOf()) + offset;
+      super(BigInt(value.valueOf()) + offset);
     }
   }
 
@@ -127,13 +125,6 @@ export class TimeStamp implements Stringer {
    */
   valueOf(): bigint {
     return this.value;
-  }
-
-  /**
-   * @returns the string representation of the DataType to override default JSON encoding.
-   */
-  toJSON(): string {
-    return this.valueOf().toString();
   }
 
   private static parseTimeString(time: string, tzInfo: TZInfo = "UTC"): bigint {
@@ -670,15 +661,13 @@ export class TimeStamp implements Stringer {
 }
 
 /** TimeSpan represents a nanosecond precision duration. */
-export class TimeSpan implements Stringer {
-  private readonly value: bigint;
-  // lets encoders know that the `value` field should be encoded directly instead
-  // of the class instance itself.
-  readonly encodeValue = true;
-
+export class TimeSpan
+  extends primitive.ValueExtension<bigint>
+  implements primitive.Stringer
+{
   constructor(value: CrudeTimeSpan) {
     if (typeof value === "number") value = Math.trunc(value.valueOf());
-    this.value = BigInt(value.valueOf());
+    super(BigInt(value.valueOf()));
   }
 
   /**
@@ -715,13 +704,6 @@ export class TimeSpan implements Stringer {
    */
   valueOf(): bigint {
     return this.value;
-  }
-
-  /**
-   * @returns the string representation of the TimeSpan to override default JSON encoding.
-   */
-  toJSON(): string {
-    return this.valueOf().toString();
   }
 
   /**
@@ -1010,10 +992,12 @@ export class TimeSpan implements Stringer {
 }
 
 /** Rate represents a data rate in Hz. */
-export class Rate extends Number implements Stringer {
+export class Rate
+  extends primitive.ValueExtension<number>
+  implements primitive.Stringer
+{
   constructor(value: CrudeRate) {
-    if (value instanceof Number) super(value.valueOf());
-    else super(value);
+    super(value.valueOf());
   }
 
   /** @returns a pretty string representation of the rate in the format "X Hz". */
@@ -1106,9 +1090,10 @@ export class Rate extends Number implements Stringer {
 }
 
 /** Density represents the number of bytes in a value. */
-export class Density extends Number implements Stringer {
-  readonly encodeValue = true;
-
+export class Density
+  extends primitive.ValueExtension<number>
+  implements primitive.Stringer
+{
   /**
    * Creates a Density representing the given number of bytes per value.
    *
@@ -1117,8 +1102,7 @@ export class Density extends Number implements Stringer {
    * @returns A Density representing the given number of bytes per value.
    */
   constructor(value: CrudeDensity) {
-    if (value instanceof Number) super(value.valueOf());
-    else super(value);
+    super(value.valueOf());
   }
 
   /**
@@ -1169,7 +1153,7 @@ export class Density extends Number implements Stringer {
  * @property start - A TimeStamp representing the start of the range.
  * @property end - A Timestamp representing the end of the range.
  */
-export class TimeRange implements Stringer {
+export class TimeRange implements primitive.Stringer {
   /**
    * The starting TimeStamp of the TimeRange.
    *
@@ -1401,43 +1385,23 @@ export const sortTimeRange = (a: TimeRange, b: TimeRange): -1 | 0 | 1 => {
 };
 
 /** DataType is a string that represents a data type. */
-export class DataType implements Stringer {
-  private readonly value: string;
-  // lets encoders know that the `value` field should be encoded directly instead
-  // of the class instance itself.
-  readonly encodeValue = true;
-
-  /**
-   * @returns the primitive value of the DataType. Overrides standard JS valueOf()
-   * method.
-   */
-  valueOf(): string {
-    return this.value;
-  }
-
-  /**
-   * @returns the string representation of the DataType to override default JSON encoding.
-   */
-  toJSON(): string {
-    return this.valueOf();
-  }
-
+export class DataType
+  extends primitive.ValueExtension<string>
+  implements primitive.Stringer
+{
   constructor(value: CrudeDataType) {
     if (
       value instanceof DataType ||
       typeof value === "string" ||
       typeof value.valueOf() === "string"
-    ) {
-      this.value = value.valueOf() as string;
-      return;
+    )
+      super(value.valueOf() as string);
+    else {
+      const t = DataType.ARRAY_CONSTRUCTOR_DATA_TYPES.get(value.constructor.name);
+      if (t == null)
+        throw new Error(`unable to find data type for ${value.toString()}`);
+      super(t.valueOf());
     }
-    const t = DataType.ARRAY_CONSTRUCTOR_DATA_TYPES.get(value.constructor.name);
-    if (t != null) {
-      this.value = t.valueOf();
-      return;
-    }
-    this.value = DataType.UNKNOWN.valueOf();
-    throw new Error(`unable to find data type for ${value.toString()}`);
   }
 
   /**
@@ -1700,10 +1664,11 @@ export class DataType implements Stringer {
   ]);
 }
 
-/**
- * The Size of an elementy in bytes.
- */
-export class Size extends Number implements Stringer {
+/** The size of an element in bytes. */
+export class Size
+  extends primitive.ValueExtension<number>
+  implements primitive.Stringer
+{
   constructor(value: CrudeSize) {
     super(value.valueOf());
   }

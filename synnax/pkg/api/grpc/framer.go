@@ -132,7 +132,10 @@ func (t frameWriterRequestTranslator) Forward(
 	}
 	var err error
 	r.Buffer, err = t.codec.Encode(ctx, msg.Frame)
-	return r, err
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 func (t frameWriterRequestTranslator) Backward(

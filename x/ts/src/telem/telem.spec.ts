@@ -484,12 +484,6 @@ describe("TimeRange", () => {
 });
 
 describe("DataType", () => {
-  test("json serialization", () => {
-    const dt = DataType.INT32;
-    const v = JSON.parse(JSON.stringify({ dt }));
-    expect(v.dt).toEqual("int32");
-  });
-
   describe("isVariable", () => {
     it("should return true if the data type has a variable length", () => {
       expect(DataType.INT32.isVariable).toBe(false);
@@ -539,6 +533,7 @@ describe("DataType", () => {
       }),
     );
   });
+
   describe("canCastTo", () => {
     it("should return true for any two numeric data types", () => {
       const numericTypes = [

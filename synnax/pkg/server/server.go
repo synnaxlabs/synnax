@@ -12,7 +12,6 @@ package server
 import (
 	"context"
 	"crypto/tls"
-	"io"
 	"net"
 
 	"github.com/cockroachdb/cmux"
@@ -103,56 +102,52 @@ func (c Config) Validate() error {
 // It can also serve secure branches behind a TLS listener.
 type Server struct {
 	Config
-	shutdown io.Closer
+	wg      signal.WaitGroup
+	started chan struct{}
 }
 
-// Open creates a new server using the specified configuration. The server must be started
+// New creates a new server using the specified configuration. The server must be started
 // using the Serve method. If the configuration is invalid, an error is returned.
-func Open(configs ...Config) (*Server, error) {
+func New(configs ...Config) (*Server, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
-	if err != nil {
-		return nil, err
-	}
-	s := &Server{Config: cfg}
-	return s, s.start()
+	return &Server{Config: cfg, started: make(chan struct{})}, err
 }
+
+// Started is a channel that can be listened to for when the server has been successfully started.
+func (s *Server) Started() <-chan struct{} { return s.started }
 
 // Serve starts the server and blocks until all branches have stopped. Only returns an
-// error if the server exits abnormally (i.e, it will ignore any errors emitted during
-// the standard shutdown procedure).
-func (s *Server) start() (err error) {
+// error if the server exits abnormally (i.e. it wil ignore any errors emitted during
+// standard shutdown procedure).
+func (s *Server) Serve() (err error) {
 	s.L.Info("starting server", zap.Int("port", s.ListenAddress.Port()))
 	s.L.Debug("config", s.Report().ZapFields()...)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))
-	s.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
+	s.wg = sCtx
+	defer cancel()
 	lis, err := net.Listen("tcp", s.ListenAddress.PortString())
 	if err != nil {
 		return err
 	}
-	sCtx.Go(func(ctx context.Context) (err error) {
-		mux := cmux.New(lis)
-		if *s.Security.Insecure {
-			err = s.serveInsecure(sCtx, mux)
-			return err
-		}
-		err = s.serveSecure(sCtx, mux)
-		return err
-	}, signal.WithKey("server"), signal.RecoverWithErrOnPanic())
-	return nil
+	if *s.Security.Insecure {
+		return s.serveInsecure(sCtx, lis)
+	}
+	return s.serveSecure(sCtx, lis)
 }
 
-// Close stops the server gracefully, waiting for all branches to stop serving requests.
+// Stop stops the server gracefully, waiting for all branches to stop serving requests.
 // If the server exits abnormally, the error can be discovered through the return value
 // if the Serve method.
-func (s *Server) Close() error {
+func (s *Server) Stop() {
 	for _, b := range s.Branches {
 		b.Stop()
 	}
-	return s.shutdown.Close()
+	_ = s.wg.Wait()
 }
 
-func (s *Server) serveSecure(sCtx signal.Context, root cmux.CMux) error {
+func (s *Server) serveSecure(sCtx signal.Context, lis net.Listener) error {
 	var (
+		root     = cmux.New(lis)
 		insecure = cmux.New(root.Match(cmux.HTTP1Fast()))
 		secure   = cmux.New(tls.NewListener(root.Match(cmux.Any()), s.Security.TLS))
 	)
@@ -162,18 +157,25 @@ func (s *Server) serveSecure(sCtx signal.Context, root cmux.CMux) error {
 
 	sCtx.Go(func(ctx context.Context) error {
 		return filterCloserError(secure.Serve())
-	}, signal.WithKey("secure_mux"), signal.RecoverWithErrOnPanic())
+	}, signal.WithKey("secure"), signal.RecoverWithErrOnPanic())
 
 	sCtx.Go(func(ctx context.Context) error {
 		return filterCloserError(insecure.Serve())
 	}, signal.WithKey("insecure_mux"), signal.RecoverWithErrOnPanic())
 
-	return filterCloserError(root.Serve())
+	sCtx.Go(func(ctx context.Context) error {
+		return filterCloserError(root.Serve())
+	}, signal.WithKey("root_mux"), signal.RecoverWithErrOnPanic())
+
+	close(s.started)
+	return sCtx.Wait()
 }
 
-func (s *Server) serveInsecure(sCtx signal.Context, root cmux.CMux) error {
-	s.startBranches(sCtx, root /*insecureMux*/, true)
-	return filterCloserError(root.Serve())
+func (s *Server) serveInsecure(sCtx signal.Context, lis net.Listener) error {
+	mux := cmux.New(lis)
+	s.startBranches(sCtx, mux /*insecureMux*/, true)
+	close(s.started)
+	return filterCloserError(mux.Serve())
 }
 
 func (s *Server) startBranches(
@@ -212,7 +214,7 @@ func (s *Server) baseBranchContext() BranchContext {
 	return BranchContext{
 		Debug:      *s.Debug,
 		Security:   s.Security,
-		ServerName: s.ListenAddress.HostString(),
+		ServerName: s.ListenAddress.Host(),
 	}
 }
 

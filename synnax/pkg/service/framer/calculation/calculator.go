@@ -103,7 +103,7 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		startAlign = c.highWaterMark.alignment
 		startTS    = c.highWaterMark.timestamp
 		endAlign   = minAlignment
-		os         = telem.MakeSeries(c.ch.DataType, int64(endAlign-startAlign))
+		os         = telem.MakeSeries(c.ch.DataType, int(endAlign-startAlign))
 	)
 	c.highWaterMark.alignment = minAlignment
 	c.highWaterMark.timestamp = minTimeStamp
@@ -117,7 +117,7 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		if err != nil {
 			return telem.Series{DataType: c.ch.DataType}, err
 		}
-		computron.SetLValueOnSeries(v, os, int64(a-startAlign))
+		computron.SetLValueOnSeries(v, os, int(a-startAlign))
 	}
 	return os, nil
 }

@@ -38,8 +38,8 @@ func NewSeriesV[T Sample](data ...T) Series { return NewSeries(data) }
 
 // MakeSeries allocates a new Series with the specified DataType and length. Note that
 // this function allocates a length and not a capacity.
-func MakeSeries(dt DataType, len int64) Series {
-	return Series{DataType: dt, Data: make([]byte, len*int64(dt.Density()))}
+func MakeSeries(dt DataType, len int) Series {
+	return Series{DataType: dt, Data: make([]byte, len*int(dt.Density()))}
 }
 
 // NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input timestamps
@@ -95,8 +95,11 @@ func MarshalStrings(data []string, dt DataType) []byte {
 
 // UnmarshalStrings converts a byte slice back into a slice of strings. It assumes
 // strings are separated by newline characters.
-func UnmarshalStrings(b []byte) (data []string) {
-	offset := 0
+func UnmarshalStrings(b []byte) []string {
+	var (
+		offset = 0
+		data   []string
+	)
 	for offset < len(b) {
 		end := offset
 		for b[end] != newLine {

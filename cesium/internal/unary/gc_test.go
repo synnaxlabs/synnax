@@ -48,7 +48,7 @@ var _ = Describe("Garbage Collection", func() {
 							IsIndex:  true,
 							Index:    indexKey,
 						},
-						FileSize:        899 * telem.ByteSize,
+						FileSize:        899 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
@@ -62,7 +62,7 @@ var _ = Describe("Garbage Collection", func() {
 							DataType: telem.Int64T,
 							Index:    indexKey,
 						},
-						FileSize:        899 * telem.ByteSize,
+						FileSize:        899 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
@@ -127,7 +127,7 @@ var _ = Describe("Garbage Collection", func() {
 							IsIndex:  true,
 							Index:    indexKey,
 						},
-						FileSize:        50 * telem.ByteSize,
+						FileSize:        50 * telem.Byte,
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
@@ -141,7 +141,7 @@ var _ = Describe("Garbage Collection", func() {
 							Index:    indexKey,
 						},
 						GCThreshold:     0.5,
-						FileSize:        50 * telem.ByteSize,
+						FileSize:        50 * telem.Byte,
 						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())

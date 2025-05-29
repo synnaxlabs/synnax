@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,7 +35,26 @@ type Config struct {
 	Keys             channel.Keys `json:"keys" msgpack:"keys"`
 	SendOpenAck      bool         `json:"send_open_ack" msgpack:"send_open_ack"`
 	DownsampleFactor int          `json:"downsample_factor" msgpack:"downsample_factor"`
-	ThrottleRate     telem.Rate   `json:"throttle_rate" msgpack:"throttle_rate"`
+}
+
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
+)
+
+// Validate implements config.Config.
+func (cfg Config) Validate() error {
+	v := validate.New("streamer.config")
+	validate.GreaterThanEq(v, "downsample_factor", cfg.DownsampleFactor, 0)
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (cfg Config) Override(other Config) Config {
+	cfg.Keys = override.Slice(cfg.Keys, other.Keys)
+	cfg.SendOpenAck = other.SendOpenAck
+	cfg.DownsampleFactor = override.Numeric(cfg.DownsampleFactor, other.DownsampleFactor)
+	return cfg
 }
 
 func (cfg Config) distribution() framer.StreamerConfig {
@@ -68,7 +86,7 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("streamer")
 	validate.NotNil(v, "calculation", cfg.Calculation)
 	validate.NotNil(v, "channel", cfg.Channel)
-	validate.NotNil(v, "framer", cfg.DistFramer)
+	validate.NotNil(v, "dist_framer", cfg.DistFramer)
 	return v.Error()
 }
 
@@ -78,7 +96,10 @@ type Service struct {
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
-	return &Service{cfg: cfg}, err
+	if err != nil {
+		return nil, err
+	}
+	return &Service{cfg: cfg}, nil
 }
 
 var (
@@ -92,7 +113,11 @@ const (
 	requestBufferSize  = 10
 )
 
-func (s *Service) New(ctx context.Context, cfg Config) (Streamer, error) {
+func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	p := plumber.New()
 	dist, err := s.cfg.DistFramer.NewStreamer(ctx, cfg.distribution())
 	if err != nil {

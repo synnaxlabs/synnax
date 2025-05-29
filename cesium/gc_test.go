@@ -44,7 +44,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							Threshold:    math.SmallestNonzeroFloat32,
 						}),
 						cesium.WithFS(fs),
-						cesium.WithFileSizeCap(899*telem.ByteSize),
+						cesium.WithFileSizeCap(899*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger())))
 				})
 				AfterAll(func() {
@@ -113,7 +113,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							Threshold:    float32(250) / 719,
 						}),
 						cesium.WithFS(fs),
-						cesium.WithFileSizeCap(899*telem.ByteSize),
+						cesium.WithFileSizeCap(899*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger())))
 				})
 				AfterAll(func() {
@@ -189,7 +189,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							Threshold:    1,
 						}),
 						cesium.WithFS(fs),
-						cesium.WithFileSizeCap(49*telem.ByteSize),
+						cesium.WithFileSizeCap(49*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger()),
 					))
 				})

@@ -24,7 +24,7 @@ var _ = Describe("Domain", func() {
 		Describe("FS:"+fsName, Ordered, func() {
 			var (
 				db      *domain.DB
-				idx     index.Index
+				idx     *index.Domain
 				fs      xfs.FS
 				cleanUp func() error
 			)

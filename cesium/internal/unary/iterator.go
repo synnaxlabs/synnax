@@ -62,7 +62,7 @@ type Iterator struct {
 	internal *domain.Iterator
 	view     telem.TimeRange
 	frame    core.Frame
-	idx      index.Index
+	idx      *index.Domain
 	bounds   telem.TimeRange
 	err      error
 	closed   bool
@@ -355,7 +355,7 @@ func (i *Iterator) insert(series telem.Series) {
 func (i *Iterator) read(
 	ctx context.Context,
 	alignment telem.Alignment,
-	offset telem.Offset,
+	offset telem.Size,
 	size telem.Size,
 ) (series telem.Series, err error) {
 	series.DataType = i.Channel.DataType
@@ -381,7 +381,7 @@ func (i *Iterator) read(
 }
 
 func (i *Iterator) sliceDomain(ctx context.Context) (
-	telem.Offset,
+	telem.Size,
 	telem.Alignment,
 	telem.Size,
 	error,

@@ -17,12 +17,11 @@ import (
 	"github.com/cockroachdb/pebble/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Pebblekv", Ordered, func() {

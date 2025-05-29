@@ -339,7 +339,7 @@ func (db *DB) openDomainIdxWriter(
 	}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.ch = u.Channel()
-	w.idx.Index = u.Index()
+	w.idx.Domain = u.Index()
 	w.idx.highWaterMark = cfg.Start
 	w.writingToIdx = false
 	w.start = cfg.Start

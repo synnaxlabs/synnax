@@ -49,7 +49,7 @@ type (
 
 type Config struct {
 	alamos.Instrumentation
-	// DistFramer layer framer service.
+	//  Distribution layer framer service.
 	Framer  *framer.Service
 	Channel channel.Service
 }

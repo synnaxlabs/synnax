@@ -708,7 +708,7 @@ var _ = Describe("Delete", func() {
 								Index:    iKey,
 							},
 							Instrumentation: PanicLogger(),
-							FileSize:        40 * telem.ByteSize,
+							FileSize:        40 * telem.Byte,
 						}))
 						db2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("data")),
@@ -719,7 +719,7 @@ var _ = Describe("Delete", func() {
 								Index:    iKey,
 							},
 							Instrumentation: PanicLogger(),
-							FileSize:        40 * telem.ByteSize,
+							FileSize:        40 * telem.Byte,
 						}))
 					)
 					db2.SetIndex(indexDB2.Index())
@@ -764,7 +764,7 @@ var _ = Describe("Delete", func() {
 								Index:    iKey,
 							},
 							Instrumentation: PanicLogger(),
-							FileSize:        40 * telem.ByteSize,
+							FileSize:        40 * telem.Byte,
 						}))
 						db2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("data")),
@@ -775,7 +775,7 @@ var _ = Describe("Delete", func() {
 								Index:    iKey,
 							},
 							Instrumentation: PanicLogger(),
-							FileSize:        17 * telem.ByteSize,
+							FileSize:        17 * telem.Byte,
 						}))
 					)
 					db2.SetIndex(indexDB2.Index())
@@ -818,7 +818,7 @@ var _ = Describe("Delete", func() {
 								Index:    iKey,
 							},
 							Instrumentation: PanicLogger(),
-							FileSize:        40 * telem.ByteSize,
+							FileSize:        40 * telem.Byte,
 						}))
 						db2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("data")),
@@ -829,7 +829,7 @@ var _ = Describe("Delete", func() {
 								Index:    iKey,
 							},
 							Instrumentation: PanicLogger(),
-							FileSize:        17 * telem.ByteSize,
+							FileSize:        17 * telem.Byte,
 						}))
 					)
 					db2.SetIndex(indexDB2.Index())
@@ -869,7 +869,7 @@ var _ = Describe("Delete", func() {
 								Index:    iKey,
 							},
 							Instrumentation: PanicLogger(),
-							FileSize:        40 * telem.ByteSize,
+							FileSize:        40 * telem.Byte,
 						}))
 						db2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("data")),
@@ -880,7 +880,7 @@ var _ = Describe("Delete", func() {
 								Index:    iKey,
 							},
 							Instrumentation: PanicLogger(),
-							FileSize:        17 * telem.ByteSize,
+							FileSize:        17 * telem.Byte,
 						}))
 					)
 					db2.SetIndex(indexDB2.Index())

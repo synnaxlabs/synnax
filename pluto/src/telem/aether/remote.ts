@@ -12,7 +12,7 @@ import {
   type AsyncDestructor,
   bounds,
   DataType,
-  primitiveIsZero,
+  primitive,
   type Series,
   TimeRange,
   TimeSpan,
@@ -84,7 +84,7 @@ export class StreamChannelValue
 
   async value(): Promise<number> {
     // No valid channel has been set.
-    if (primitiveIsZero(this.props.channel)) return 0;
+    if (primitive.isZero(this.props.channel)) return 0;
     if (this.channelKey === 0) {
       const c = await fetchChannelProperties(this.client, this.props.channel, false);
       if (c == null) return 0;

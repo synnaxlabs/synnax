@@ -319,10 +319,10 @@ var _ = Describe("Frame", func() {
 				})
 
 			series := fr.Get(1)
-			Expect(series).To(Equal(telem.NewMultiSeriesV(
+			Expect(series).To(Equal(telem.MultiSeries{Series: []telem.Series{
 				telem.NewSeriesV[int32](1, 2),
 				telem.NewSeriesV[int32](5, 6),
-			)))
+			}}))
 		})
 
 		It("Should respect masking when getting series", func() {
@@ -336,10 +336,10 @@ var _ = Describe("Frame", func() {
 
 			filtered := fr.FilterKeys([]int{1})
 			series := filtered.Get(1)
-			Expect(series).To(Equal(telem.NewMultiSeriesV(
+			Expect(series).To(Equal(telem.MultiSeries{Series: []telem.Series{
 				telem.NewSeriesV[int32](1, 2),
 				telem.NewSeriesV[int32](5, 6),
-			)))
+			}}))
 		})
 
 		It("Should return empty slice for non-existent key", func() {

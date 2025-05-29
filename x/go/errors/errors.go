@@ -25,7 +25,15 @@ const (
 	TypeRoach = "roach"
 )
 
-// IsAny determines whether any of the causes of the given error or any of its causes is
+// Is determines whether one of the causes of the given error or any of its causes is
+// equivalent to some reference error.
+//
+// As in the Go standard library, an error is considered to match a reference error if
+// it is equal to that target or if it implements a method Is(error) bool such that
+// Is(reference) returns true
+func Is(err, ref error) bool { return errors.Is(err, ref) }
+
+// IsAny determines whether any causes the given error or any of its causes is
 // equivalent to one of the reference errors.
 //
 // Note that IsAny returns true if err matches errors.Is for ANY of the reference errors
@@ -43,31 +51,22 @@ func IsAny(err error, refs ...error) bool {
 	return false
 }
 
-// Is determines whether one of the causes of the given error or any of its causes is
-// equivalent to some reference error.
-//
-// As in the Go standard library, an error is considered to match a reference error if
-// it is equal to that target or if it implements a method Is(error) bool such that
-// Is(reference) returns true
-func Is(err, ref error) bool { return errors.Is(err, ref) }
-
 // Wrap wraps an error with a message prefix. A stack trace is retained
 func Wrap(err error, msg string) error { return errors.Wrap(err, msg) }
 
 // Wrapf wraps an error with a formatted message prefix. A stack trace is also retained.
 // If the format is empty, no prefix is added, but the extra arguments are still
 // processed for reportable strings
-func Wrapf(err error, format string, args ...interface{}) error {
+func Wrapf(err error, format string, args ...any) error {
 	return errors.Wrapf(err, format, args...)
 }
 
-// WithSecondaryError enhances the error given as first argument with an annotation that
-// carries the error given as second argument. The second error does not participate in cause
-// analysis (Is, etc) and is only revealed when printing out the error.
-//
-// Tip: consider using CombineErrors() below in the general case.
-func WithSecondaryError(err error, secondary error) error {
-	return errors.WithSecondaryError(err, secondary)
+// Join returns an error that wraps the given errors. Any nil error values are discarded.
+// Join returns nil if errs contains no non-nil values. The error formats as the
+// concatenation of the strings obtained by calling the Error method of each element of
+// errs, with a newline between each string. A stack trace is also retained.
+func Join(errs ...error) error {
+	return errors.Join(errs...)
 }
 
 // Combine returns:
@@ -84,17 +83,17 @@ func Combine(err error, otherErr error) error {
 func New(msg string) error { return errors.New(msg) }
 
 // Newf creates an error with a formatted error message. A stack trace is retained.
-func Newf(format string, args ...interface{}) error { return errors.Newf(format, args...) }
+func Newf(format string, args ...any) error { return errors.Newf(format, args...) }
 
-// As finds the first error in the chain that matches the type to which target points,
+// As finds the first error in err's chain that matches the type to which target points,
 // and if so, sets the target to its value and returns true. An error matches a type if it
-// is assignable to the target type, or if it has a method As(interface{}) bool such that
-// As(target) returns true. As will panic if the target is not a non-nil pointer to a type
-// which implements an error or is of interface type.
+// is assignable to the target type, or if it has a method As(any) bool such that
+// As(target) returns true. As will panic if target is not a non-nil pointer to a type
+// which implements error or is of interface type.
 //
 // The As method should set the target to its value and return true if err matches the
 // type to which target points.
-func As(err error, target interface{}) bool { return errors.As(err, target) }
+func As(err error, target any) bool { return errors.As(err, target) }
 
 // Skip returns nil if the error satisfied errors.Is for any of the reference errors.
 // Otherwise, it returns the error itself.

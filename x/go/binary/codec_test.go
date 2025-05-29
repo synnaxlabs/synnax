@@ -115,6 +115,7 @@ var _ = Describe("Codec", func() {
 			Expect(fbc.DecodeStream(ctx, buf, &res)).To(Succeed())
 			Expect(res.Value).To(Equal(12))
 		})
+
 		It("Should return error when DecodeStream fails for all codecs", func() {
 			fbc := binary.NewDecodeFallbackCodec(&binary.GobCodec{}, &binary.JSONCodec{})
 

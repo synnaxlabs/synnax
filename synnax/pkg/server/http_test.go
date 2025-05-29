@@ -12,6 +12,7 @@ package server_test
 import (
 	"context"
 	"net/http"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,7 +37,7 @@ var _ = Describe("HTTP", func() {
 	It("Should serve http requests", func() {
 		r := fhttp.NewRouter()
 		integerServer{}.BindTo(r)
-		b := MustSucceed(server.Open(server.Config{
+		b := MustSucceed(server.New(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
 				Insecure: config.Bool(true),
@@ -48,8 +49,16 @@ var _ = Describe("HTTP", func() {
 				},
 			},
 		}))
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer GinkgoRecover()
+			Expect(b.Serve()).To(Succeed())
+			wg.Done()
+		}()
 		_, err := http.Get("http://localhost:26260/basic")
 		Expect(err).To(Succeed())
-		Expect(b.Close()).To(Succeed())
+		b.Stop()
+		wg.Wait()
 	})
 })
