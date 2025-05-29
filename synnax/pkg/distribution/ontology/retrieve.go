@@ -118,7 +118,7 @@ var (
 		},
 		Direction: Backward,
 	}
-	// Children traverses to the children of a resource.
+	// Children traverse to the children of a resource.
 	Children = Traverser{
 		Filter: func(res *Resource, rel *Relationship) bool {
 			return rel.Type == ParentOf && rel.From == res.ID

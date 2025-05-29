@@ -11,35 +11,63 @@ package iterator
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/confluence"
+	"go.uber.org/zap"
 )
 
 type synchronizer struct {
-	internal core.Synchronizer
+	ins alamos.Instrumentation
 	confluence.LinearTransform[Response, Response]
+	nodeCount int
+	cycle     struct {
+		counter int
+		res     Response
+	}
 }
 
-func newSynchronizer(nodeCount int) confluence.Segment[Response, Response] {
-	s := &synchronizer{}
-	s.internal.NodeCount = nodeCount
-	s.internal.SeqNum = 1
+func newSynchronizer(nodeCount int, ins alamos.Instrumentation) confluence.Segment[Response, Response] {
+	s := &synchronizer{nodeCount: nodeCount, ins: ins}
+	s.nodeCount = nodeCount
 	s.Transform = s.sync
 	return s
 }
 
-func (a *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
+func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, error) {
+	if res.SeqNum == 0 {
+		s.ins.L.DPanic(
+			"received response with zero sequence number",
+			zap.Int("expected", s.cycle.res.SeqNum),
+		)
+		return res, false, nil
+	}
+
 	if res.Variant == DataResponse {
 		return res, true, nil
 	}
-	ack, seqNum, fulfilled := a.internal.Sync(res.SeqNum, res.Ack)
-	if fulfilled {
-		return Response{
-			Variant: AckResponse,
-			Command: res.Command,
-			Ack:     ack,
-			SeqNum:  seqNum,
-		}, true, nil
+
+	if s.cycle.counter == 0 {
+		s.cycle.res = res
 	}
-	return Response{}, false, nil
+
+	if res.SeqNum != s.cycle.res.SeqNum {
+		s.ins.L.DPanic(
+			"received out of order response", zap.Int("expected", s.cycle.res.SeqNum), zap.Int("actual", res.SeqNum),
+		)
+		return res, false, nil
+	}
+
+	s.cycle.counter++
+
+	if !res.Ack {
+		s.cycle.res.Ack = false
+	}
+
+	fulfilled := s.cycle.counter == s.nodeCount
+	if fulfilled {
+		s.cycle.counter = 0
+	}
+
+	return res, fulfilled, nil
 }

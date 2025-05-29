@@ -30,7 +30,7 @@ type Entry[K Key] interface {
 	// an error if the key is a duplicate. Key must be serializable by encoder and decoder.
 	GorpKey() K
 	// SetOptions returns a slice of options passed to kv.db.set.
-	SetOptions() []interface{}
+	SetOptions() []any
 }
 
 func entryKeys[K Key, E Entry[K]](entries []E) []K {
@@ -47,7 +47,7 @@ var _ Entry[string] = nopEntry{}
 
 func (nopEntry) GorpKey() string { return "" }
 
-func (nopEntry) SetOptions() []interface{} { return nil }
+func (nopEntry) SetOptions() []any { return nil }
 
 const entriesOptKey query.Parameter = "entries"
 

@@ -11,15 +11,16 @@ package cesium
 
 import (
 	"context"
+	"io"
+	"sync"
+	"sync/atomic"
+
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
-	"io"
-	"sync"
-	"sync/atomic"
 )
 
 type (
@@ -28,14 +29,16 @@ type (
 	Frame      = core.Frame
 )
 
-func NewFrame(keys []core.ChannelKey, series []telem.Series) Frame {
-	return core.NewFrame(keys, series)
-}
-
 var (
-	errDBClosed        = core.EntityClosed("cesium.db")
+	errDBClosed        = core.NewErrResourceClosed("cesium.db")
 	ErrChannelNotFound = core.ErrChannelNotFound
 )
+
+// LeadingAlignment returns an Alignment whose array index is the maximum possible value
+// and whose sample index is the provided value.
+func LeadingAlignment(domainIdx, sampleIdx uint32) telem.Alignment {
+	return core.LeadingAlignment(domainIdx, sampleIdx)
+}
 
 type DB struct {
 	*options
@@ -62,21 +65,25 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	}
 	_, span := db.T.Bench(ctx, "write")
 	defer span.End()
-	w, err := db.OpenWriter(ctx, WriterConfig{Start: start, Channels: frame.Keys})
+	w, err := db.OpenWriter(ctx, WriterConfig{Start: start, Channels: frame.KeysSlice()})
 	if err != nil {
 		return span.Error(err)
 	}
-	w.Write(frame)
-	w.Commit()
+	if _, err = w.Write(frame); err != nil {
+		return err
+	}
+	if _, err = w.Commit(); err != nil {
+		return err
+	}
 	return span.Error(w.Close())
 }
 
-// WriteArray writes a series into the specified channel at the specified start time.
-func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, series telem.Series) error {
+// WriteSeries writes a series into the specified channel at the specified start time.
+func (db *DB) WriteSeries(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, series telem.Series) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
-	return db.Write(ctx, start, core.NewFrame([]core.ChannelKey{key}, []telem.Series{series}))
+	return db.Write(ctx, start, telem.UnaryFrame(key, series))
 }
 
 // Read reads from the database at the specified time range and outputs a frame.
@@ -88,23 +95,26 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 	defer func() { err = span.EndWith(err) }()
 	iter, err := db.OpenIterator(IteratorConfig{Channels: keys, Bounds: tr})
 	if err != nil {
-		return
+		return frame, err
 	}
 	defer func() { err = iter.Close() }()
 	if !iter.SeekFirst() {
-		return
+		return frame, err
 	}
 	for iter.Next(telem.TimeSpanMax) {
-		frame = frame.AppendFrame(iter.Value())
+		frame = frame.Extend(iter.Value())
 	}
-	return
+	return frame, err
 }
 
 // Close closes the database.
+//
 // Close is not safe to call with any other DB methods concurrently.
+//
 // Note that if this method is called while writers are still open on channels in the
 // database, a deadlock is caused since the signal context is closed while the writers
 // attempt to send to relay.
+//
 // If there is an error in closing the cesium database, the database will be marked as
 // closed regardless of whether an error occurred.
 func (db *DB) Close() error {
@@ -113,11 +123,11 @@ func (db *DB) Close() error {
 	}
 
 	c := errors.NewCatcher(errors.WithAggregation())
-	// Crucial to close control digests here before closing the signal context so
-	// writes can still use the signal context to send frames to relay.
+	// Crucial to close control digests here before closing the signal context so writes
+	// can still use the signal context to send frames to relay.
 	//
-	// This function acquires the mutex lock internally, so there's no need to lock
-	// it here.
+	// This function acquires the mutex lock internally, so there's no need to lock it
+	// here.
 	c.Exec(db.closeControlDigests)
 	// Shut down without locking mutex to allow existing goroutines (e.g. GC) that
 	// require a mutex lock to exit.

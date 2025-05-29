@@ -3,5 +3,8 @@ cc_library(
     srcs = ["testutil.cpp"],
     hdrs = ["testutil.h"],
     visibility = ["//visibility:public"],
-    deps = ["//client/cpp:synnax"],
+    deps = [
+        "//client/cpp:synnax",
+        "//x/cpp/xtest",
+    ],
 )
