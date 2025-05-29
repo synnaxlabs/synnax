@@ -289,7 +289,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         """
         :param encoder: The encoder to use for this client.
         :param base_url: A base url to use as a prefix for all requests.
-        :param maxMessage_size: The maximum size of a message to receive. Defaults to
+        :param max_message_size: The maximum size of a message to receive. Defaults to
         DEFAULT_MAX_SIZE.
         :param secure: Whether to use TLS encryption on the connection or not.
         """

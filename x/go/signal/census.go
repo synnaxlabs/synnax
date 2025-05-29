@@ -16,7 +16,7 @@ type Census interface {
 	Routines() []RoutineInfo
 }
 
-// Routines implements the Census interface.
+// Routines implement the Census interface.
 func (c *core) Routines() []RoutineInfo {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
