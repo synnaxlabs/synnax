@@ -30,7 +30,6 @@ import { Symbols } from "@/slate/toolbar/Symbols";
 const TABS = [
   { tabKey: "symbols", name: "Symbols" },
   { tabKey: "properties", name: "Properties" },
-  { tabKey: "control", name: "Control" },
 ];
 
 interface NotEditableContentProps extends ToolbarProps {}
@@ -126,7 +125,7 @@ export const Toolbar = ({ layoutKey, name }: ToolbarProps): ReactElement | null 
               ontologyID={slate.ontologyID(layoutKey)}
             />
           </Align.Space>
-          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
+          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />}
         </Align.Space>
       </Core.Header>
       <Tabs.Content />

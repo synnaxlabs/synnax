@@ -11,13 +11,14 @@ import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { box, color, location, xy } from "@synnaxlabs/x";
+import { box, color, location, type UnknownRecord, xy } from "@synnaxlabs/x";
 import {
   addEdge as rfAddEdge,
   applyEdgeChanges as rfApplyEdgeChanges,
   applyNodeChanges as rfApplyNodeChanges,
   Background as RFBackground,
   type Connection as RFConnection,
+  type ConnectionLineComponent,
   ConnectionMode,
   type Edge as RFEdge,
   type EdgeChange as RFEdgeChange,
@@ -49,13 +50,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod";
+import type z from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
+import { useCombinedRefs, useDebouncedCallback } from "@/hooks";
 import { useMemoCompare, useMemoDeepEqualProps } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -69,17 +70,12 @@ import {
   edgeConverter,
   type Node,
   nodeConverter,
-  type RFEdgeData,
   translateEdgesForward,
   translateNodesForward,
   translateViewportBackward,
   translateViewportForward,
   type Viewport,
 } from "@/vis/diagram/aether/types";
-import { Edge as EdgeComponent } from "@/vis/diagram/edge";
-import { type connector } from "@/vis/diagram/edge/connector";
-import { CustomConnectionLine } from "@/vis/diagram/edge/Edge";
-import { type PathType } from "@/vis/diagram/edge/paths";
 
 export interface SymbolProps {
   symbolKey: string;
@@ -185,6 +181,8 @@ interface ContextValue {
   visible: boolean;
   onEditableChange: (v: boolean) => void;
   registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => void;
+  registerEdgeRenderer: (renderer: RenderProp<EdgeProps<UnknownRecord>>) => void;
+  registerConnectionLineComponent: (component: ConnectionLineComponent<RFNode>) => void;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
 }
@@ -194,6 +192,8 @@ const Context = createContext<ContextValue>({
   visible: true,
   onEditableChange: () => {},
   registerNodeRenderer: () => {},
+  registerEdgeRenderer: () => {},
+  registerConnectionLineComponent: () => {},
   fitViewOnResize: false,
   setFitViewOnResize: () => {},
 });
@@ -204,6 +204,10 @@ export interface NodeRendererProps {
   children: RenderProp<SymbolProps>;
 }
 
+export interface EdgeProps<D extends UnknownRecord> extends RFEdgeProps<RFEdge<D>> {
+  onDataChange: (data: D) => void;
+}
+
 export const NodeRenderer = memo(
   ({ children }: NodeRendererProps): ReactElement | null => {
     const { registerNodeRenderer } = useContext();
@@ -212,6 +216,33 @@ export const NodeRenderer = memo(
   },
 );
 NodeRenderer.displayName = "NodeRenderer";
+
+export interface EdgeRendererProps<D extends UnknownRecord> {
+  connectionLineComponent: ConnectionLineComponent<RFNode>;
+  children: RenderProp<EdgeProps<D>>;
+}
+
+const CoreEdgeRenderer = memo(
+  <D extends UnknownRecord>({
+    children,
+    connectionLineComponent,
+  }: EdgeRendererProps<D>): ReactElement | null => {
+    const { registerEdgeRenderer, registerConnectionLineComponent } = useContext();
+    useEffect(
+      () => registerEdgeRenderer(children as RenderProp<EdgeProps<UnknownRecord>>),
+      [registerEdgeRenderer, children],
+    );
+    useEffect(
+      () => registerConnectionLineComponent(connectionLineComponent),
+      [registerConnectionLineComponent, connectionLineComponent],
+    );
+    return null;
+  },
+);
+CoreEdgeRenderer.displayName = "EdgeRenderer";
+export const EdgeRenderer = CoreEdgeRenderer as <D extends UnknownRecord>(
+  props: EdgeRendererProps<D>,
+) => ReactElement | null;
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
@@ -229,6 +260,7 @@ const Core = ({
   fitViewOnResize,
   setFitViewOnResize,
   visible,
+  className,
   ...rest
 }: DiagramProps): ReactElement => {
   const memoProps = useMemoDeepEqualProps({ visible });
@@ -289,11 +321,30 @@ const Core = ({
     onEnd: handleViewport,
   });
 
-  const [renderer, setRenderer] = useState<RenderProp<SymbolProps>>(() => () => null);
+  const [nodeRenderer, setNodeRenderer] = useState<RenderProp<SymbolProps>>(
+    () => () => null,
+  );
+  const [edgeRenderer, setEdgeRenderer] = useState<RenderProp<
+    EdgeProps<UnknownRecord>
+  > | null>(null);
+  const [connectionLineComponent, setConnectionLineComponent] = useState<
+    ConnectionLineComponent<RFNode> | undefined
+  >(undefined);
 
   const registerNodeRenderer = useCallback(
-    (renderer: RenderProp<SymbolProps>) => setRenderer(() => renderer),
-    [],
+    (renderer: RenderProp<SymbolProps>) => setNodeRenderer(() => renderer),
+    [setNodeRenderer],
+  );
+
+  const registerEdgeRenderer = useCallback(
+    (renderer: RenderProp<EdgeProps<UnknownRecord>>) => setEdgeRenderer(() => renderer),
+    [setEdgeRenderer],
+  );
+
+  const registerConnectionLineComponent = useCallback(
+    (component: ConnectionLineComponent<RFNode>) =>
+      setConnectionLineComponent(() => component),
+    [setConnectionLineComponent],
   );
 
   const nodeTypes = useMemo(
@@ -305,13 +356,36 @@ const Core = ({
         selected = false,
         draggable = true,
       }: RFNodeProps) =>
-        renderer({ symbolKey: id, position: { x, y }, selected, draggable }),
+        nodeRenderer({ symbolKey: id, position: { x, y }, selected, draggable }),
     }),
-    [renderer],
+    [nodeRenderer],
   );
 
+  const handleDataChange = useCallback(
+    (id: string, data: UnknownRecord) => {
+      const next = [...edgesRef.current];
+      const index = next.findIndex((e) => e.key === id);
+      if (index === -1) return;
+      next[index] = { ...next[index], data };
+      edgesRef.current = next;
+      onEdgesChange(next);
+    },
+    [onEdgesChange, defaultEdgeColor],
+  );
+
+  const edgeTypes = useMemo(() => {
+    if (edgeRenderer == null) return undefined;
+    return {
+      default: (props: RFEdgeProps<RFEdge<UnknownRecord>>) =>
+        edgeRenderer({
+          ...props,
+          onDataChange: (data) => handleDataChange(props.id, data),
+        }),
+    };
+  }, [edgeRenderer, handleDataChange]);
+
   const edgesRef = useRef(edges);
-  const edges_ = useMemo<RFEdge<RFEdgeData>[]>(() => {
+  const edges_ = useMemo<RFEdge<UnknownRecord>[]>(() => {
     edgesRef.current = edges;
     return translateEdgesForward(edges);
   }, [edges]);
@@ -331,7 +405,7 @@ const Core = ({
   );
 
   const handleEdgesChange = useCallback(
-    (changes: RFEdgeChange<RFEdge<RFEdgeData>>[]) =>
+    (changes: RFEdgeChange<RFEdge<UnknownRecord>>[]) =>
       onEdgesChange(
         edgeConverter(
           edgesRef.current,
@@ -343,7 +417,7 @@ const Core = ({
   );
 
   const handleEdgeUpdate = useCallback(
-    (oldEdge: RFEdge<RFEdgeData>, newConnection: RFConnection) =>
+    (oldEdge: RFEdge<UnknownRecord>, newConnection: RFConnection) =>
       onEdgesChange(
         edgeConverter(
           edgesRef.current,
@@ -362,40 +436,7 @@ const Core = ({
     [onEdgesChange, defaultEdgeColor],
   );
 
-  const handleEdgeSegmentsChange = useCallback(
-    (id: string, segments: connector.Segment[]) => {
-      const next = [...edgesRef.current];
-      const index = next.findIndex((e) => e.key === id);
-      if (index === -1) return;
-      next[index] = { ...next[index], segments };
-      edgesRef.current = next;
-      onEdgesChange(next);
-    },
-    [onEdgesChange],
-  );
-
   const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
-
-  const handleEdgeSegmentsChangeRef = useSyncedRef(handleEdgeSegmentsChange);
-
-  const edgeTypes = useMemo(
-    () => ({
-      default: (props: RFEdgeProps<RFEdge<RFEdgeData>>) => (
-        <EdgeComponent
-          key={props.id}
-          {...props}
-          segments={props.data?.segments ?? []}
-          color={props.data?.color}
-          variant={props.data?.variant as PathType}
-          onSegmentsChange={useCallback(
-            (segment) => handleEdgeSegmentsChangeRef.current(props.id, segment),
-            [props.id],
-          )}
-        />
-      ),
-    }),
-    [],
-  );
 
   const adjustable = Triggers.useHeld({ triggers: [["Q"]], loose: true });
 
@@ -431,25 +472,35 @@ const Core = ({
       editable,
       onEditableChange,
       registerNodeRenderer,
+      registerEdgeRenderer,
+      registerConnectionLineComponent,
       fitViewOnResize,
       setFitViewOnResize,
     }),
-    [editable, visible, onEditableChange, registerNodeRenderer, fitViewOnResize],
+    [
+      editable,
+      visible,
+      registerConnectionLineComponent,
+      onEditableChange,
+      registerNodeRenderer,
+      registerEdgeRenderer,
+      fitViewOnResize,
+    ],
   );
 
   return (
     <Context value={ctxValue}>
       <Aether.Composite path={path}>
         {visible && (
-          <ReactFlow<RFNode, RFEdge<RFEdgeData>>
+          <ReactFlow<RFNode, RFEdge<UnknownRecord>>
             {...triggerProps}
             className={CSS(
+              className,
               CSS.B("diagram"),
               CSS.editable(editable),
               CSS.BE("symbol", "container"),
             )}
             nodes={nodes_}
-            // @ts-expect-error - edge types
             edges={edges_}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
@@ -458,10 +509,15 @@ const Core = ({
             onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}
             onConnect={handleConnect}
+            connectionLineComponent={connectionLineComponent}
             onReconnect={handleEdgeUpdate}
             defaultViewport={translateViewportForward(viewport)}
-            connectionLineComponent={CustomConnectionLine}
             elevateEdgesOnSelect
+            defaultEdgeOptions={{
+              type: edgeTypes != null ? "default" : "smoothstep",
+              markerStart: "arrow",
+              markerEnd: "arrow",
+            }}
             minZoom={0.5}
             maxZoom={1.2}
             isValidConnection={isValidConnection}

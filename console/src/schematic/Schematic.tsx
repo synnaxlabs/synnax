@@ -17,6 +17,7 @@ import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
   Button,
+  componentRenderProp,
   Control,
   Diagram,
   Haul,
@@ -156,6 +157,8 @@ const SymbolRenderer = ({
   );
 };
 
+const edgeRenderer = componentRenderProp(Core.Edge);
+
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   <PMenu.Menu level="small" iconSpacing="small">
     <Layout.MenuItems layoutKey={layoutKey} />
@@ -236,7 +239,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, dispatch],
   );
 
-  const elRenderer = useCallback(
+  const nodeRenderer = useCallback(
     (props: Diagram.SymbolProps) => (
       <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
     ),
@@ -362,7 +365,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         acquireTrigger={schematic.controlAcquireTrigger}
         onStatusChange={handleControlStatusChange}
       >
-        <Diagram.Diagram
+        <Core.Schematic
           onViewportChange={handleViewportChange}
           edges={schematic.edges}
           nodes={schematic.nodes}
@@ -381,7 +384,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           visible={visible}
           {...dropProps}
         >
-          <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
+          <Diagram.NodeRenderer>{nodeRenderer}</Diagram.NodeRenderer>
+          <Diagram.EdgeRenderer<Core.EdgeData>
+            connectionLineComponent={Core.ConnectionLine}
+          >
+            {edgeRenderer}
+          </Diagram.EdgeRenderer>
           <Diagram.Background />
           <Diagram.Controls>
             {canEditSchematic && (
@@ -407,7 +415,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               </Button.ToggleIcon>
             )}
           </Diagram.Controls>
-        </Diagram.Diagram>
+        </Core.Schematic>
         <Control.Legend
           position={legendPosition}
           onPositionChange={handleLegendPositionChange}
