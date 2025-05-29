@@ -198,6 +198,7 @@ export const DefaultItem = memo(
     children: childrenProp,
     index,
     sourceIndex,
+    className,
     hovered,
     ...rest
   }: ItemProps): ReactElement => {
@@ -295,6 +296,7 @@ export const DefaultItem = memo(
         CSS.selected(selected),
         actuallyHasChildren && CSS.M("has-children"),
         CSS.BM("depth", depth.toString()),
+        className,
       ),
       onDragLeave: () => setDraggingOver(false),
       onDragStart: handleDragStart,
@@ -319,7 +321,7 @@ export const DefaultItem = memo(
     const Base = href != null ? Button.Link : Button.Button;
 
     return (
-      <Base className={CSS.BE("list", "item")} {...baseProps} align="center" {...rest}>
+      <Base {...baseProps} align="center" {...rest}>
         {childrenProp != null ? (
           childrenProp({
             key,

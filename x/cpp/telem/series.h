@@ -106,6 +106,7 @@ private:
     /// @brief validates the input index is within the bounds of the series. If the
     /// write size is provided, it will also validate that the write does not exceed
     /// the capacity of the series.
+
     [[nodiscard]] size_t
     validate_bounds(const int &index, const size_t write_size = 0) const {
         auto adjusted = index;
@@ -354,8 +355,9 @@ public:
         size_(0) {
         if (!this->data_type().is_variable())
             this->size_ = s.data().size() / this->data_type().density();
-        for (const char &v: s.data())
-            if (v == NEWLINE_CHAR) ++this->size_;
+        else
+            for (const char &v: s.data())
+                if (v == NEWLINE_CHAR) ++this->size_;
         this->data_ = std::make_unique<std::byte[]>(byte_size());
         memcpy(this->data_.get(), s.data().data(), byte_size());
     }

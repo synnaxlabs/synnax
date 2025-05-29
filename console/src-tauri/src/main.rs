@@ -21,6 +21,10 @@ unsafe impl Sync for UnsafeWindowHandle {}
 
 use tauri::Window;
 
+use tauri_plugin_prevent_default::KeyboardShortcut;
+use tauri_plugin_prevent_default::ModifierKey::{MetaKey};
+
+
 #[cfg(target_os = "macos")]
 fn set_transparent_titlebar(win: &Window, transparent: bool) {
     let ns_window_handle =
@@ -56,6 +60,9 @@ fn set_transparent_titlebar(win: &Window, transparent: bool) {
 fn set_transparent_titlebar(_: &Window, _: bool) {}
 
 fn main() {
+    let prevent = tauri_plugin_prevent_default::Builder::new()
+        .shortcut(KeyboardShortcut::with_modifiers("W", &[MetaKey]))
+        .build();
     tauri::Builder::default()
         .on_page_load(|window, _| {
             set_transparent_titlebar(&window.window(), true);
@@ -81,6 +88,7 @@ fn main() {
             }
             _ => (),
         })
+        .plugin(prevent)
         .plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {}))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())

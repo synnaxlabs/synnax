@@ -11,7 +11,7 @@ import "@/hardware/device/ontology.css";
 
 import { device, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Menu as PMenu, Status, Text, Tree } from "@synnaxlabs/pluto";
+import { Align, Menu as PMenu, Status, Text, Tooltip, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -173,14 +173,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
-const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
+const Item: Tree.Item = ({ entry, className, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
   const devState = useState(id.key);
+  console.log(devState);
   return (
-    <Tree.DefaultItem {...rest} className={CSS.B("device-ontology-item")} entry={entry}>
+    <Tree.DefaultItem
+      className={CSS(className, CSS.B("device-ontology-item"))}
+      entry={entry}
+      {...rest}
+    >
       {({ entry, onRename, key }) => (
         <>
-          <Align.Space x grow align="center">
+          <Align.Space x grow align="center" className={CSS.B("name-location")}>
             <Text.MaybeEditable
               id={`text-${key}`}
               level="p"
@@ -194,9 +199,19 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
               {entry.extraData?.location as string}
             </Text.Text>
           </Align.Space>
-          <Status.Circle
-            variant={(devState?.variant ?? "disabled") as Status.Variant}
-          />
+          <Tooltip.Dialog location="right">
+            <Status.Text
+              variant={(devState?.variant ?? "error") as Status.Variant}
+              hideIcon
+              level="small"
+              weight={450}
+            >
+              {(devState?.details?.message ?? "Device State Unknown") as string}
+            </Status.Text>
+            <Status.Circle
+              variant={(devState?.variant ?? "disabled") as Status.Variant}
+            />
+          </Tooltip.Dialog>
         </>
       )}
     </Tree.DefaultItem>

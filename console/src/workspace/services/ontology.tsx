@@ -254,6 +254,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const importSchematic = SchematicServices.useImport(selection.resources[0].id.key);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport(EXTRACTORS);
+  const importLog = LogServices.useImport(selection.resources[0].id.key);
+  const importTable = TableServices.useImport(selection.resources[0].id.key);
   const handleSelect = {
     delete: () => handleDelete(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),
@@ -262,6 +264,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     createPlot: () => createPlot(props),
     createTable: () => createTable(props),
     importPlot: () => importPlot(),
+    importLog: () => importLog(),
+    importTable: () => importTable(),
     createSchematic: () => createSchematic(props),
     importSchematic: () => importSchematic(),
     export: () => handleExport(resources[0].id.key),

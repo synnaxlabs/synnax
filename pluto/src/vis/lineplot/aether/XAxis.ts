@@ -82,12 +82,17 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provide
     return this.childrenOfType<range.Provider>(range.Provider.TYPE);
   }
 
+  bounds(hold: boolean): bounds.Bounds {
+    const [bound, err] = this.iBounds(hold, this.dataBounds.bind(this));
+    if (err != null) throw err;
+    return bound;
+  }
+
   private renderRangeAnnotations(
     props: XAxisRenderProps,
     xDataToDecimalScale: scale.Scale,
   ): void {
-    const [bound, err] = this.bounds(props.hold, this.dataBounds.bind(this));
-    if (err != null) throw err;
+    const bound = this.bounds(props.hold);
     this.rangeAnnotations.forEach((el) =>
       el.render({
         dataToDecimalScale: xDataToDecimalScale,
