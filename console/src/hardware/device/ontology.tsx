@@ -176,7 +176,6 @@ const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.mak
 const Item: Tree.Item = ({ entry, className, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
   const devState = useState(id.key);
-  console.log(devState);
   return (
     <Tree.DefaultItem
       className={CSS(className, CSS.B("device-ontology-item"))}
