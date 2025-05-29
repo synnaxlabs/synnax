@@ -45,6 +45,3 @@ const (
 	// Terabyte is 1000 gigabytes.
 	Terabyte = 1000 * Gigabyte
 )
-
-// Offset is a number of bytes to offset.
-type Offset = Size
