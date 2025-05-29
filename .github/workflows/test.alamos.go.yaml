@@ -1,15 +1,18 @@
 name: Test - Alamos (Go)
 
 on:
-  push:
-    branches:
-      - main
-      - rc
   pull_request:
     paths:
       - .github/workflows/test.alamos.go.yaml
       - alamos/go/**
+      - go.work
+      - go.work.sum
+      - scripts/check-gofmt.sh
       - x/go/**
+  push:
+    branches:
+      - main
+      - rc
   workflow_dispatch:
 
 jobs:
@@ -23,10 +26,10 @@ jobs:
             format: true
         exclude:
           - os:
-              ${{ (github.ref != 'refs/heads/main' || github.base_ref != 'main') &&
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
               'macos-latest' }}
           - os:
-              ${{ (github.ref != 'refs/heads/main' || github.base_ref != 'main') &&
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
               'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -39,13 +42,10 @@ jobs:
           go-version-file: go.work
           cache-dependency-path: go.work.sum
 
-      - name: Format
+      - name: Check Formatting
         if: matrix.format
         run: bash scripts/check-gofmt.sh alamos/go
 
-      - name: Install Ginkgo
-        run: go install github.com/onsi/ginkgo/v2/ginkgo
-
       - name: Test
-        run: ginkgo ./...
+        run: go run github.com/onsi/ginkgo/v2/ginkgo -r -p --github-output
         working-directory: alamos/go
