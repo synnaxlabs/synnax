@@ -63,6 +63,14 @@ describe("color.Color", () => {
       expect(color.gValue(c)).toEqual(44);
       expect(color.bValue(c)).toEqual(38);
     });
+
+    test("from legacy object", () => {
+      const c = color.construct({ rgba255: [122, 44, 38, 0.5] });
+      expect(color.rValue(c)).toEqual(122);
+      expect(color.gValue(c)).toEqual(44);
+      expect(color.bValue(c)).toEqual(38);
+      expect(color.aValue(c)).toEqual(0.5);
+    });
   });
 
   describe("to hex", () => {
@@ -138,6 +146,84 @@ describe("color.Color", () => {
       const c1 = color.construct("#ffffff");
       const c2 = color.construct("#0000ff");
       expect(color.pickByContrast(c, c1, c2)).toEqual(c1);
+    });
+  });
+
+  describe("isDark", () => {
+    test("black is dark", () => {
+      expect(color.isDark("#000000")).toBe(true);
+    });
+
+    test("white is not dark", () => {
+      expect(color.isDark("#ffffff")).toBe(false);
+    });
+
+    test("mid gray is not dark", () => {
+      expect(color.isDark("#808080")).toBe(true);
+    });
+
+    test("dark red is dark", () => {
+      expect(color.isDark("#800000")).toBe(true);
+    });
+
+    test("light blue is not dark", () => {
+      expect(color.isDark("#add8e6")).toBe(false);
+    });
+
+    test("handles RGB array input", () => {
+      expect(color.isDark([0, 0, 0])).toBe(true);
+      expect(color.isDark([255, 255, 255])).toBe(false);
+    });
+
+    test("handles RGBA array input", () => {
+      expect(color.isDark([0, 0, 0, 0.5])).toBe(true);
+      expect(color.isDark([255, 255, 255, 0.5])).toBe(false);
+    });
+
+    test("handles Color object input", () => {
+      const darkColor = color.construct("#000000");
+      const lightColor = color.construct("#ffffff");
+      expect(color.isDark(darkColor)).toBe(true);
+      expect(color.isDark(lightColor)).toBe(false);
+    });
+  });
+
+  describe("isLight", () => {
+    test("white is light", () => {
+      expect(color.isLight("#ffffff")).toBe(true);
+    });
+
+    test("black is not light", () => {
+      expect(color.isLight("#000000")).toBe(false);
+    });
+
+    test("mid gray is not light", () => {
+      expect(color.isLight("#808080")).toBe(false);
+    });
+
+    test("dark red is not light", () => {
+      expect(color.isLight("#800000")).toBe(false);
+    });
+
+    test("light blue is light", () => {
+      expect(color.isLight("#add8e6")).toBe(true);
+    });
+
+    test("handles RGB array input", () => {
+      expect(color.isLight([255, 255, 255])).toBe(true);
+      expect(color.isLight([0, 0, 0])).toBe(false);
+    });
+
+    test("handles RGBA array input", () => {
+      expect(color.isLight([255, 255, 255, 0.5])).toBe(true);
+      expect(color.isLight([0, 0, 0, 0.5])).toBe(false);
+    });
+
+    test("handles Color object input", () => {
+      const lightColor = color.construct("#ffffff");
+      const darkColor = color.construct("#000000");
+      expect(color.isLight(lightColor)).toBe(true);
+      expect(color.isLight(darkColor)).toBe(false);
     });
   });
 
@@ -501,11 +587,11 @@ describe("color.Color", () => {
       expect(color.equals(c1, c2)).toBe(true);
     });
 
-    test("undefined values return false", () => {
+    test("comparing to undefined", () => {
       const c1: color.RGB = [255, 0, 0];
       expect(color.equals(c1, undefined)).toBe(false);
       expect(color.equals(undefined, c1)).toBe(false);
-      expect(color.equals(undefined, undefined)).toBe(false);
+      expect(color.equals(undefined, undefined)).toBe(true);
     });
 
     test("comparing color with itself returns true", () => {
@@ -668,6 +754,39 @@ describe("color.Color", () => {
       expect(color.isColor([0, 0, 0, 0.5])).toBe(true);
       expect(color.isColor([0, 0, 0, -0.1])).toBe(false);
       expect(color.isColor([0, 0, 0, 1.1])).toBe(false);
+    });
+  });
+
+  describe("isZero", () => {
+    test("returns true for zero color", () => {
+      expect(color.isZero([0, 0, 0, 0])).toBe(true);
+    });
+
+    test("returns false for non-zero RGB values", () => {
+      expect(color.isZero([1, 0, 0, 0])).toBe(false);
+      expect(color.isZero([0, 1, 0, 0])).toBe(false);
+      expect(color.isZero([0, 0, 1, 0])).toBe(false);
+    });
+
+    test("returns false for non-zero alpha", () => {
+      expect(color.isZero([0, 0, 0, 0.1])).toBe(false);
+      expect(color.isZero([0, 0, 0, 1])).toBe(false);
+    });
+
+    test("returns false for undefined input", () => {
+      expect(color.isZero(undefined)).toBe(false);
+    });
+
+    test("returns false for null input", () => {
+      expect(color.isZero(null as any)).toBe(false);
+    });
+
+    test("returns false for hex color", () => {
+      expect(color.isZero("#000000")).toBe(false);
+    });
+
+    test("returns false for constructed color", () => {
+      expect(color.isZero(color.construct("#000000"))).toBe(false);
     });
   });
 });
