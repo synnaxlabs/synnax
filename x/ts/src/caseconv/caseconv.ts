@@ -33,8 +33,6 @@ const createConverter = (
     opt = validateOptions(opt);
     const res: UnknownRecord = {};
     const anyObj = obj as UnknownRecord;
-    if ("toJSON" in anyObj && typeof anyObj.toJSON === "function")
-      return converter(anyObj.toJSON(), opt);
     Object.keys(anyObj).forEach((key) => {
       let value = anyObj[key];
       const nkey = f(key);

@@ -11,11 +11,10 @@ package domain
 
 import (
 	"encoding/binary"
-	"os"
-	"sync"
-
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	"os"
+	"sync"
 )
 
 const indexFile = "index" + extension
@@ -71,10 +70,10 @@ func openPointerPersist(fs fs.FS) (*pointerPersist, error) {
 
 func (p *pointerPersist) load() ([]pointer, error) {
 	info, err := p.Stat()
+	size := info.Size()
 	if err != nil {
 		return nil, err
 	}
-	size := info.Size()
 
 	b := make([]byte, size)
 	if len(b) != 0 {
@@ -82,6 +81,7 @@ func (p *pointerPersist) load() ([]pointer, error) {
 			return nil, err
 		}
 	}
+
 	return p.decode(b), nil
 }
 
@@ -110,7 +110,7 @@ func (f *pointerCodec) decode(b []byte) []pointer {
 	}
 
 	pointers := make([]pointer, len(b)/pointerByteSize)
-	for i := range len(b) / pointerByteSize {
+	for i := 0; i < len(b)/pointerByteSize; i++ {
 		base := i * pointerByteSize
 		pointers[i] = pointer{
 			TimeRange: telem.TimeRange{

@@ -38,7 +38,7 @@ func (fo *Options) AttachClosables(closables ...Closable) {
 			for _, inlet := range closables {
 				inlet.Close()
 			}
-		}, signal.WithKey("close_inlets")))
+		}, signal.WithKey("close-inlets")))
 	}
 }
 

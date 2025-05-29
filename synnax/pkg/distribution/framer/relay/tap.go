@@ -12,10 +12,7 @@ package relay
 import (
 	"context"
 	"fmt"
-	"io"
-
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -26,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
+	"io"
 )
 
 // demand represents a demand for streaming data from a specific entity.
@@ -167,18 +165,18 @@ func (t *tapper) tapInto(
 	)
 	if nodeKey.IsFree() {
 		tp, err = t.tapIntoFreeWrites()
-		tapKey = "free_write_tap"
+		tapKey = fmt.Sprintf("free-write-tap")
 	} else if nodeKey == t.HostResolver.HostKey() {
 		tp, err = t.tapIntoGateway(ctx, keys)
-		tapKey = "gateway_tap"
+		tapKey = fmt.Sprintf("gateway-tap")
 	} else {
 		tp, err = t.tapIntoPeer(ctx, nodeKey)
-		tapKey = fmt.Sprintf("peer_tap_%v", nodeKey)
+		tapKey = fmt.Sprintf("peer-tap-%v", nodeKey)
 	}
 	if err != nil {
 		return tapController{}, err
 	}
-	requests := confluence.NewStream[Request](1)
+	requests := confluence.NewStream[Request](defaultBuffer)
 	tp.InFrom(requests)
 	tp.OutTo(t.AbstractUnarySource.Out)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Instrumentation.Child(tapKey)))
@@ -188,13 +186,8 @@ func (t *tapper) tapInto(
 
 // tapIntoGateway opens a new tap over the given storage layer streamer.
 func (t *tapper) tapIntoGateway(ctx context.Context, keys channel.Keys) (tap, error) {
-	return cesium.NewTranslatedStreamer[Request, Response](
-		ctx,
-		t.TS,
-		ts.StreamerConfig{Channels: keys.Storage()},
-		reqToStorage,
-		resFromStorage,
-	)
+	sr, err := t.TS.NewStreamer(ctx, ts.StreamerConfig{Channels: keys.Storage()})
+	return confluence.NewTranslator(sr, reqToStorage, resFromStorage), err
 }
 
 // tapIntoPeer opens a new tap that sends requests and receives responses
@@ -245,7 +238,7 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				f.keys = req.Keys
 			case req := <-f.freeWrites.Outlet():
 				req.Frame = req.Frame.FilterKeys(f.keys)
-				if !req.Frame.Empty() {
+				if len(req.Frame.Keys) != 0 {
 					f.Out.Inlet() <- req
 				}
 			}

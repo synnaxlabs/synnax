@@ -7,23 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package fs
+package fs // import "github.com/cockroachdb/memfs"
 
 import (
 	"errors"
 	"fmt"
+	"github.com/cockroachdb/errors/oserror"
+	"github.com/synnaxlabs/x/io/fs/internal/invariants"
 	"io"
-	"maps"
 	"os"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/cockroachdb/errors/oserror"
-	"github.com/synnaxlabs/x/io/fs/internal/invariants"
 )
 
 const sep = "/"
@@ -41,16 +38,16 @@ type MemFS struct {
 	mu   sync.Mutex
 	root *memNode
 
-	// lockFiles holds a map of open file locks. Presence in this map indicates a file
-	// lock is currently held. Keys are strings holding the path of the locked file. The
-	// stored value is untyped and  unused; only presence of the key within the map is
-	// significant.
+	// lockFiles holds a map of open file locks. Presence in this map indicates
+	// a file lock is currently held. Keys are strings holding the path of the
+	// locked file. The stored value is untyped and  unused; only presence of
+	// the key within the map is significant.
 	lockedFiles sync.Map
 	strict      bool
 	ignoreSyncs bool
-	// Windows has peculiar semantics with respect to hard links and deleting open
-	// files. In tests meant to exercise this behavior, this flag can be set to error if
-	// removing an open file.
+	// Windows has peculiar semantics with respect to hard links and deleting
+	// open files. In tests meant to exercise this behavior, this flag can be
+	// set to error if removing an open file.
 	windowsSemantics bool
 	perm             int
 }
@@ -314,7 +311,7 @@ func (f *memNode) Size() int64 {
 	return int64(len(f.mu.data))
 }
 
-func (f *memNode) Sys() any {
+func (f *memNode) Sys() interface{} {
 	return nil
 }
 
@@ -537,10 +534,12 @@ func (f *memFile) Sync() error {
 		}
 		if f.n.isDir {
 			f.n.syncedChildren = make(map[string]*memNode)
-			maps.Copy(f.n.syncedChildren, f.n.children)
+			for k, v := range f.n.children {
+				f.n.syncedChildren[k] = v
+			}
 		} else {
 			f.n.mu.Lock()
-			f.n.mu.syncedData = slices.Clone(f.n.mu.data)
+			f.n.mu.syncedData = append([]byte(nil), f.n.mu.data...)
 			f.n.mu.Unlock()
 		}
 	}

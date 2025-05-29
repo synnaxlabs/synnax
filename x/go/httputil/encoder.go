@@ -41,9 +41,7 @@ var (
 
 var codecs = []Codec{JSONCodec, MsgPackCodec}
 
-type CodecResolver func(contentType string) (Codec, error)
-
-func ResolveCodec(contentType string) (Codec, error) {
+func DetermineCodec(contentType string) (Codec, error) {
 	for _, ecd := range codecs {
 		if ecd.ContentType() == contentType {
 			return ecd, nil
@@ -51,8 +49,6 @@ func ResolveCodec(contentType string) (Codec, error) {
 	}
 	return nil, errors.Newf("[encoding] - unable to determine encoding type for %s", contentType)
 }
-
-var _ CodecResolver = ResolveCodec
 
 func SupportedContentTypes() []string {
 	var contentTypes []string

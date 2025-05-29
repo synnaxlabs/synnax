@@ -11,10 +11,9 @@ package server
 
 import (
 	"context"
-	"net/http"
-
 	"github.com/cockroachdb/cmux"
 	"github.com/synnaxlabs/x/errors"
+	"net/http"
 )
 
 // SimpleHTTPBranch is a single handler Branch that serves HTTP requests.
@@ -37,7 +36,7 @@ func NewSimpleHTTPBranch(
 }
 
 // Key implements Branch.
-func (h *SimpleHTTPBranch) Key() string { return "http_redirect" }
+func (h *SimpleHTTPBranch) Key() string { return "http-redirect" }
 
 // Routing implements Branch.
 func (h *SimpleHTTPBranch) Routing() (i BranchRouting) {

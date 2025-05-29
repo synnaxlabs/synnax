@@ -22,14 +22,15 @@ type Request struct {
 
 type Response struct {
 	Frame core.Frame `json:"frame" msgpack:"frame"`
+	Error error      `json:"error" msgpack:"error"`
 }
 
-func reqToStorage(req Request) ts.StreamerRequest {
-	return ts.StreamerRequest{Channels: req.Keys.Storage()}
+func reqToStorage(req Request) (ts.StreamerRequest, error) {
+	return ts.StreamerRequest{Channels: req.Keys.Storage()}, nil
 }
 
-func resFromStorage(res ts.StreamerResponse) Response {
-	return Response{Frame: core.NewFrameFromStorage(res.Frame)}
+func resFromStorage(res ts.StreamerResponse) (Response, error) {
+	return Response{Frame: core.NewFrameFromStorage(res.Frame)}, nil
 }
 
 type (

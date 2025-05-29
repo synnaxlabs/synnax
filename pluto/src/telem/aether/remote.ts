@@ -12,7 +12,7 @@ import {
   type AsyncDestructor,
   bounds,
   DataType,
-  primitive,
+  primitiveIsZero,
   type Series,
   TimeRange,
   TimeSpan,
@@ -84,7 +84,7 @@ export class StreamChannelValue
 
   async value(): Promise<number> {
     // No valid channel has been set.
-    if (primitive.isZero(this.props.channel)) return 0;
+    if (primitiveIsZero(this.props.channel)) return 0;
     if (this.channelKey === 0) {
       const c = await fetchChannelProperties(this.client, this.props.channel, false);
       if (c == null) return 0;
@@ -120,9 +120,7 @@ export class StreamChannelValue
 }
 
 interface SelectedChannelProperties
-  extends Pick<channel.Payload, "key" | "dataType" | "virtual"> {
-  isCalculated: boolean;
-}
+  extends Pick<channel.Payload, "key" | "dataType" | "virtual"> {}
 
 const fetchChannelProperties = async (
   client: client.ChannelClient,
@@ -131,11 +129,9 @@ const fetchChannelProperties = async (
 ): Promise<SelectedChannelProperties | null> => {
   let c = await client.retrieveChannel(ch);
   if (c == null) return null;
-  const isCalculated = channel.isCalculated(c);
   if (!fetchIndex || c.isIndex)
-    return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
-
-  if (isCalculated) {
+    return { key: c.key, dataType: c.dataType, virtual: c.virtual };
+  if (channel.isCalculated(c)) {
     const indexKey = await channel.resolveCalculatedIndex(
       client.retrieveChannel.bind(client),
       c,
@@ -143,10 +139,10 @@ const fetchChannelProperties = async (
     if (indexKey == null) throw new ValidationError("Cannot resolve calculated index");
     c = await client.retrieveChannel(indexKey);
     if (c == null) return null;
-    return { key: c.key, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
+    return { key: c.key, dataType: DataType.TIMESTAMP, virtual: false };
   }
   if (c.virtual) throw new ValidationError("Cannot plot data from virtual channels");
-  return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
+  return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false };
 };
 
 const channelDataSourcePropsZ = z.object({
@@ -250,13 +246,9 @@ export class StreamChannelData
     return [b, this.data];
   }
 
-  private async read({
-    key,
-    virtual,
-    isCalculated,
-  }: SelectedChannelProperties): Promise<void> {
+  private async read({ key, virtual }: SelectedChannelProperties): Promise<void> {
     const tr = TimeStamp.now().spanRange(-this.props.timeSpan);
-    if (!virtual || isCalculated) {
+    if (!virtual) {
       const res = await this.client.read(tr, [key]);
       const newData = res[key].data;
       newData.forEach((d) => d.acquire());

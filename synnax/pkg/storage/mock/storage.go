@@ -10,13 +10,11 @@
 package mock
 
 import (
-	"context"
-	"os"
-
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"os"
 )
 
 // Builder is a utility for provisioning mock stores.
@@ -47,11 +45,11 @@ func NewBuilder(configs ...storage.Config) *Builder {
 }
 
 // New provisions a new store.
-func (b *Builder) New(ctx context.Context) (store *storage.Storage) {
+func (b *Builder) New() (store *storage.Storage) {
 	if *b.Config.MemBacked {
-		store = b.newMemBacked(ctx)
+		store = b.newMemBacked()
 	} else {
-		store = b.newFSBacked(ctx)
+		store = b.newFSBacked()
 	}
 	b.Stores = append(b.Stores, store)
 	return store
@@ -77,15 +75,15 @@ func (b *Builder) Close() error {
 	return c.Error()
 }
 
-func (b *Builder) newMemBacked(ctx context.Context) *storage.Storage {
-	store, err := storage.Open(ctx, b.Config)
+func (b *Builder) newMemBacked() *storage.Storage {
+	store, err := storage.Open(b.Config)
 	if err != nil {
 		panic(err)
 	}
 	return store
 }
 
-func (b *Builder) newFSBacked(ctx context.Context) *storage.Storage {
+func (b *Builder) newFSBacked() *storage.Storage {
 	// open a temporary directory prefixed with ServiceConfig.dirname
 	tempDir, err := os.MkdirTemp(b.Config.Dirname, "delta-test-")
 	if err != nil {
@@ -93,7 +91,7 @@ func (b *Builder) newFSBacked(ctx context.Context) *storage.Storage {
 	}
 	nCfg := b.Config
 	nCfg.Dirname = tempDir
-	store, err := storage.Open(ctx, nCfg)
+	store, err := storage.Open(nCfg)
 	if err != nil {
 		panic(err)
 	}

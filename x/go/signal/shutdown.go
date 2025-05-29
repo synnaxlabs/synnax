@@ -11,10 +11,9 @@ package signal
 
 import (
 	"context"
-	"io"
-
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"io"
 )
 
 func NewHardShutdown(

@@ -11,7 +11,6 @@ package iterator
 
 import (
 	"context"
-
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -33,20 +32,13 @@ func newStorageResponseTranslator(
 	}
 }
 
-func newStorageRequestTranslator(generateSeqNums bool) func(ctx context.Context, in Request) (ts.IteratorRequest, bool, error) {
-	seqNum := 0
+func newStorageRequestTranslator() func(ctx context.Context, in Request) (ts.IteratorRequest, bool, error) {
 	return func(ctx context.Context, req Request) (ts.IteratorRequest, bool, error) {
-		oReq := ts.IteratorRequest{
+		return ts.IteratorRequest{
 			Command: ts.IteratorCommand(req.Command),
 			Span:    req.Span,
 			Stamp:   req.Stamp,
 			Bounds:  req.Bounds,
-			SeqNum:  req.SeqNum,
-		}
-		if generateSeqNums {
-			seqNum++
-			oReq.SeqNum = seqNum
-		}
-		return oReq, true, nil
+		}, true, nil
 	}
 }

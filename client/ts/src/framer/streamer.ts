@@ -7,30 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
+import { EOF, errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
 import { observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { ReadAdapter } from "@/framer/adapter";
-import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
 const reqZ = z.object({ keys: z.number().array(), downsampleFactor: z.number() });
 
-export interface StreamerRequest extends z.infer<typeof reqZ> {}
-
-const resZ = z.object({ frame: frameZ });
-
-export interface StreamerResponse extends z.infer<typeof resZ> {}
+const resZ = z.object({ frame: frameZ, error: errorZ.optional().nullable() });
 
 const ENDPOINT = "/frame/stream";
 
 export interface StreamerConfig {
   channels: channel.Params;
   downsampleFactor?: number;
-  useExperimentalCodec?: boolean;
 }
 
 export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
@@ -50,12 +44,10 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
 
   static async _open(
     retriever: channel.Retriever,
-    client: WebSocketClient,
-    { channels, downsampleFactor, useExperimentalCodec = true }: StreamerConfig,
+    client: StreamClient,
+    { channels, downsampleFactor }: StreamerConfig,
   ): Promise<Streamer> {
     const adapter = await ReadAdapter.open(retriever, channels);
-    if (useExperimentalCodec)
-      client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream(ENDPOINT, reqZ, resZ);
     const streamer = new Streamer(stream, adapter);
     stream.send({ keys: adapter.keys, downsampleFactor: downsampleFactor ?? 1 });

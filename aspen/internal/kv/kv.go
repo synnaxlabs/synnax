@@ -41,7 +41,7 @@ var _ kvx.DB = (*DB)(nil)
 func (d *DB) Set(
 	ctx context.Context,
 	key, value []byte,
-	maybeLease ...any,
+	maybeLease ...interface{},
 ) (err error) {
 	b := d.OpenTx()
 	defer func() { err = errors.Combine(err, b.Close()) }()
@@ -55,7 +55,7 @@ func (d *DB) Set(
 func (d *DB) Delete(
 	ctx context.Context,
 	key []byte,
-	maybeLease ...any,
+	maybeLease ...interface{},
 ) (err error) {
 	b := d.OpenTx()
 	defer func() { err = errors.Combine(err, b.Close()) }()
@@ -96,21 +96,21 @@ func (d *DB) Report() alamos.Report {
 }
 
 const (
-	versionFilterAddr     = "version_filter"
-	versionAssignerAddr   = "version_assigner"
+	versionFilterAddr     = "versionFilter"
+	versionAssignerAddr   = "versionAssigner"
 	persistAddr           = "persist"
-	persistDeltaAddr      = "persist_delta"
-	storeEmitterAddr      = "store_emitter"
-	storeSinkAddr         = "store_sink"
+	persistDeltaAddr      = "persistDelta"
+	storeEmitterAddr      = "storeEmitter"
+	storeSinkAddr         = "storeSink"
 	observableAddr        = "observable"
-	operationSenderAddr   = "op_sender"
-	operationReceiverAddr = "op_receiver"
-	feedbackSenderAddr    = "feedback_sender"
-	feedbackReceiverAddr  = "feedback_receiver"
-	recoveryTransformAddr = "recovery_transform"
-	leaseSenderAddr       = "lease_sender"
-	leaseReceiverAddr     = "lease_receiver"
-	leaseProxyAddr        = "lease_proxy"
+	operationSenderAddr   = "opSender"
+	operationReceiverAddr = "opReceiver"
+	feedbackSenderAddr    = "feedbackSender"
+	feedbackReceiverAddr  = "feedbackReceiver"
+	recoveryTransformAddr = "recoveryTransform"
+	leaseSenderAddr       = "leaseSender"
+	leaseReceiverAddr     = "leaseReceiver"
+	leaseProxyAddr        = "leaseProxy"
 	executorAddr          = "executor"
 )
 

@@ -11,7 +11,6 @@ package writer
 
 import (
 	"context"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/confluence"
@@ -21,13 +20,15 @@ import (
 )
 
 type validator struct {
+	signal    chan bool
+	closed    bool
 	keys      channel.Keys
 	responses struct {
 		confluence.AbstractUnarySource[Response]
 		confluence.NopFlow
 	}
 	confluence.AbstractLinear[Request, Request]
-	seqNum int
+	accumulatedError error
 }
 
 // Flow implements the confluence.Flow interface.
@@ -39,19 +40,56 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
+			case v.closed = <-v.signal:
 			case req, ok := <-v.In.Outlet():
 				if !ok {
 					return nil
 				}
-				v.seqNum++
-				req.SeqNum = v.seqNum
-				if err := v.validate(req); err != nil {
-					return err
-				} else {
-					if err = signal.SendUnderContext(ctx, v.Out.Inlet(), req); err != nil {
-						return err
+				if v.accumulatedError != nil {
+					if req.Command == Error {
+						if err := signal.SendUnderContext(
+							ctx,
+							v.responses.Out.Inlet(),
+							Response{Command: Error, Error: v.accumulatedError},
+						); err != nil {
+							return err
+						}
+						v.accumulatedError = nil
+					} else {
+						if err := signal.SendUnderContext(
+							ctx,
+							v.responses.Out.Inlet(),
+							Response{Command: req.Command, Ack: false},
+						); err != nil {
+							return err
+						}
 					}
 					continue
+				}
+
+				block := v.closed && (req.Command == Data || req.Command == Commit)
+				if block {
+					if err := signal.SendUnderContext(
+						ctx,
+						v.responses.Out.Inlet(),
+						Response{Command: req.Command, Ack: false, SeqNum: -1},
+					); err != nil {
+						return err
+					}
+				} else {
+					if v.accumulatedError = v.validate(req); v.accumulatedError != nil {
+						if err := signal.SendUnderContext(
+							ctx,
+							v.responses.Out.Inlet(),
+							Response{Command: req.Command, Ack: false, SeqNum: -1},
+						); err != nil {
+							return err
+						}
+					} else {
+						if err := signal.SendUnderContext(ctx, v.Out.Inlet(), req); err != nil {
+							return err
+						}
+					}
 				}
 			}
 		}
@@ -59,18 +97,16 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (v *validator) validate(req Request) error {
-	if err := validateCommand(req.Command); err != nil {
-		return err
+	if req.Command < Data || req.Command > SetAuthority {
+		return errors.Wrapf(validate.Error, "invalid writer command: %d", req.Command)
 	}
-	if req.Command == Write {
-		for rawI, k := range req.Frame.RawKeys() {
-			if req.Frame.ShouldExcludeRaw(rawI) {
-				continue
-			}
+	if req.Command == Data {
+		for _, k := range req.Frame.Keys {
 			if !lo.Contains(v.keys, k) {
 				return errors.Wrapf(validate.Error, "invalid key: %s", k)
 			}
 		}
+
 	}
 	return nil
 }

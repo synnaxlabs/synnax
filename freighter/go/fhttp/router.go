@@ -11,14 +11,14 @@ package fhttp
 
 import (
 	"context"
-	"sync"
-	"time"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/override"
+	"sync"
+	"time"
 )
 
 type route struct {
@@ -119,13 +119,9 @@ func (r *Router) register(
 	})
 }
 
-func StreamServer[RQ, RS freighter.Payload](
-	r *Router,
-	path string,
-	opts ...ServerOption,
-) freighter.StreamServer[RQ, RS] {
+func StreamServer[RQ, RS freighter.Payload](r *Router, internal bool, path string) freighter.StreamServer[RQ, RS] {
 	s := &streamServer[RQ, RS]{
-		serverOptions:   newServerOptions(opts),
+		internal:        internal,
 		Reporter:        streamReporter,
 		path:            path,
 		Instrumentation: r.Instrumentation,
@@ -137,11 +133,14 @@ func StreamServer[RQ, RS freighter.Payload](
 	return s
 }
 
-func UnaryServer[RQ, RS freighter.Payload](r *Router, path string, opts ...ServerOption) freighter.UnaryServer[RQ, RS] {
+func UnaryServer[RQ, RS freighter.Payload](r *Router, internal bool, path string) freighter.UnaryServer[RQ, RS] {
 	us := &unaryServer[RQ, RS]{
-		serverOptions: newServerOptions(opts),
-		Reporter:      unaryReporter,
-		path:          path,
+		internal: internal,
+		Reporter: unaryReporter,
+		path:     path,
+		requestParser: func(c *fiber.Ctx, codec httputil.Codec) (req RQ, _ error) {
+			return req, c.BodyParser(&req)
+		},
 	}
 	r.register(path, "POST", us, us.fiberHandler)
 	return us

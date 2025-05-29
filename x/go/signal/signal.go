@@ -10,12 +10,11 @@
 package signal
 
 import (
+	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
 )
 
 // Context is an extension of the standard context.Context that provides a way to
@@ -75,16 +74,6 @@ type core struct {
 		routines []*routine
 		stopped  chan struct{}
 	}
-}
-
-func (c *core) unsafeRunningKeys() []string {
-	running := make([]string, 0, len(c.mu.routines))
-	for _, r := range c.mu.routines {
-		if r.state.state == Running {
-			running = append(running, r.key)
-		}
-	}
-	return running
 }
 
 func (c *core) routineDiagnostics() string {

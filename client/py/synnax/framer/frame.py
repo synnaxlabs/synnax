@@ -62,7 +62,6 @@ class Frame:
             | Frame
             | FramePayload
             | dict[ChannelKey, TypedCrudeSeries]
-            | dict[ChannelName, TypedCrudeSeries]
             | None
         ) = None,
         series: list[TypedCrudeSeries] | None = None,

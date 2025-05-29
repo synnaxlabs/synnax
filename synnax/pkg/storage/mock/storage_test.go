@@ -21,7 +21,7 @@ var _ = Describe("storage", func() {
 	Describe("Builder", func() {
 		DescribeTable("Name", func(cfg ...storage.Config) {
 			b := mock.NewBuilder(cfg...)
-			store := b.New(ctx)
+			store := b.New()
 			Expect(store).NotTo(BeNil())
 			Expect(store.KV.Set(ctx, []byte("foo"), []byte("bar"))).To(Succeed())
 			Expect(b.Close()).To(Succeed())

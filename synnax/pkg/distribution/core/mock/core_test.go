@@ -21,9 +21,9 @@ import (
 var _ = Describe("Mock", func() {
 	DescribeTable("Name", func(cfg ...core.Config) {
 		builder := mock.NewCoreBuilder(cfg...)
-		coreOne := builder.New(ctx)
-		coreTwo := builder.New(ctx)
-		coreThree := builder.New(ctx)
+		coreOne := builder.New()
+		coreTwo := builder.New()
+		coreThree := builder.New()
 
 		Expect(coreOne.Cluster.HostKey()).To(Equal(core.NodeKey(1)))
 		Expect(coreTwo.Cluster.HostKey()).To(Equal(core.NodeKey(2)))

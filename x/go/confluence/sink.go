@@ -11,7 +11,6 @@ package confluence
 
 import (
 	"context"
-
 	"github.com/synnaxlabs/x/signal"
 )
 

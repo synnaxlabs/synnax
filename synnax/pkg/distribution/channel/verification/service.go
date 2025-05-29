@@ -83,7 +83,6 @@ func OpenService(ctx context.Context, toOpen string, cfgs ...Config) (*Service, 
 			signal.WithRetryOnPanic(),
 			signal.WithBaseRetryInterval(2*time.Second),
 			signal.WithRetryScale(1.1),
-			signal.WithKey("verification"),
 		)
 	}
 

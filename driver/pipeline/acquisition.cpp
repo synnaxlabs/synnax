@@ -26,7 +26,7 @@ using json = nlohmann::json;
 namespace pipeline {
 SynnaxWriter::SynnaxWriter(synnax::Writer internal): internal(std::move(internal)) {}
 
-xerrors::Error SynnaxWriter::write(const synnax::Frame &fr) {
+bool SynnaxWriter::write(const synnax::Frame &fr) {
     return this->internal.write(fr);
 }
 
@@ -121,8 +121,8 @@ void Acquisition::run() {
             writer = std::move(writer_i);
             writer_opened = true;
         }
-        if (auto err = writer->write(frame)) {
-            LOG(ERROR) << "[acquisition] failed to write frame" << err;
+        if (!writer->write(frame)) {
+            LOG(ERROR) << "[acquisition] failed to write frame";
             break;
         }
         this->breaker.reset();

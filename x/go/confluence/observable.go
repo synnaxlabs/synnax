@@ -11,7 +11,6 @@ package confluence
 
 import (
 	"context"
-
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -50,7 +49,8 @@ func (ts *ObservableTransformPublisher[V, T]) Flow(ctx signal.Context, opts ...O
 	o.AttachClosables(ts.Out)
 	ctx.Go(func(ctx context.Context) error {
 		remove := ts.Observable.OnChange(func(ctx context.Context, v V) {
-			if t, ok, _ := ts.Transform(ctx, v); ok {
+			t, ok, _ := ts.Transform(ctx, v)
+			if ok {
 				_ = signal.SendUnderContext(ctx, ts.Out.Inlet(), t)
 			}
 		})

@@ -30,7 +30,7 @@ type ColumnType = "key" | "name" | null;
 
 export interface Digest extends Record<channel.KeyOrName, SeriesDigest[]> {}
 
-const columnType = (columns: channel.PrimitiveParams): ColumnType => {
+const columnType = (columns: channel.Params): ColumnType => {
   const arrKeys = toArray(columns);
   if (arrKeys.length === 0) return null;
   if (typeof arrKeys[0] === "number") return "key";
@@ -39,7 +39,7 @@ const columnType = (columns: channel.PrimitiveParams): ColumnType => {
 };
 
 const validateMatchedColsAndSeries = (
-  columns: channel.PrimitiveParams,
+  columns: channel.Params,
   series: Series[],
 ): void => {
   const colsArr = toArray(columns);
@@ -55,7 +55,7 @@ const validateMatchedColsAndSeries = (
   );
 };
 
-export type CrudeFrame =
+export type Crude =
   | Frame
   | CrudePayload
   | Map<channel.KeyOrName, Series[] | Series>
@@ -101,7 +101,7 @@ export class Frame {
   readonly series: Series[] = [];
 
   constructor(
-    columnsOrData: channel.PrimitiveParams | CrudeFrame = [],
+    columnsOrData: channel.Params | Crude = [],
     series: Series | Series[] = [],
   ) {
     if (columnsOrData instanceof Frame) {
@@ -209,7 +209,7 @@ export class Frame {
   toPayload(): Payload {
     return {
       series: this.series.map((a) => seriesToPayload(a)),
-      keys: [...this.keys],
+      keys: this.keys,
     };
   }
 
@@ -424,17 +424,6 @@ export class Frame {
   get length(): number {
     return this.series.reduce((acc, v) => acc + v.length, 0);
   }
-
-  toString(): string {
-    let str = `Frame{\n`;
-    this.uniqueColumns.forEach((c) => {
-      str += `  ${c}: ${this.get(c)
-        .series.map((s) => s.toString())
-        .join(",")}\n`;
-    });
-    str += "}";
-    return str;
-  }
 }
 
 export const frameZ = z.object({
@@ -458,7 +447,7 @@ export const seriesFromPayload = (series: SeriesPayload): Series => {
 };
 
 export const seriesToPayload = (series: Series): SeriesPayload => ({
-  timeRange: series.timeRange,
+  timeRange: series._timeRange,
   dataType: series.dataType,
   data: new Uint8Array(series.data.buffer),
   alignment: series.alignment,

@@ -131,7 +131,7 @@ func (b Bool) Decompress(src []byte) (dst []byte, err error) {
 			sum += int(src[i])
 			count += 8
 			if count == maxShift {
-				for range sum {
+				for j := 0; j < sum; j++ {
 					returnArray = append(returnArray, cur)
 				}
 				count, sum = 0, 0
@@ -149,21 +149,21 @@ func (b Bool) Decompress(src []byte) (dst []byte, err error) {
 		} else if maxShift == 2 {
 			mask := 192
 			for mask > 0 {
-				for range int(src[i]) & mask {
+				for j := 0; j < int(src[i])&mask; j++ {
 					returnArray = append(returnArray, cur)
 				}
 				mask >>= 2
 				cur ^= 1
 			}
 		} else if maxShift == 4 {
-			for range int(src[i]) >> 4 {
+			for j := 0; j < int(src[i])>>4; j++ {
 				returnArray = append(returnArray, byte(0))
 			}
-			for range int(src[i]) & 0xF {
+			for j := 0; j < int(src[i])&0xF; j++ {
 				returnArray = append(returnArray, byte(1))
 			}
 		} else if maxShift == 8 {
-			for range int(src[i]) {
+			for j := 0; j < int(src[i]); j++ {
 				returnArray = append(returnArray, cur)
 			}
 			cur ^= 1

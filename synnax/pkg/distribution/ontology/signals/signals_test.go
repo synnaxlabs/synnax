@@ -11,8 +11,6 @@ package signals_test
 
 import (
 	"context"
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -29,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
+	"time"
 )
 
 type changeService struct {
@@ -53,7 +52,7 @@ func (s *changeService) Schema() *ontology.Schema {
 }
 
 func (s *changeService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	return iter.NexterNopCloser(iter.All[ontology.Resource](nil)), nil
+	return iter.NexterNopCloser[ontology.Resource](iter.All[ontology.Resource](nil)), nil
 }
 
 func (s *changeService) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
@@ -100,7 +99,7 @@ var _ = Describe("Signals", Ordered, func() {
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
 			svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
-				return iter.All([]schema.Change{
+				return iter.All[schema.Change]([]schema.Change{
 					{
 						Variant: change.Set,
 						Key:     newChangeID(key),
@@ -110,7 +109,7 @@ var _ = Describe("Signals", Ordered, func() {
 			})
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			ids := MustSucceed(ontologycdc.DecodeIDs(res.Frame.SeriesAt(0).Data))
+			ids := MustSucceed(ontologycdc.DecodeIDs(res.Frame.Series[0].Data))
 			// There's a condition here where we might receive the channel creation
 			// signal, so we just do a length assertion.
 			Expect(len(ids)).To(BeNumerically(">", 0))
@@ -133,7 +132,7 @@ var _ = Describe("Signals", Ordered, func() {
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
 			svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
-				return iter.All([]schema.Change{
+				return iter.All[schema.Change]([]schema.Change{
 					{
 						Variant: change.Delete,
 						Key:     newChangeID(key),
@@ -142,7 +141,7 @@ var _ = Describe("Signals", Ordered, func() {
 			})
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			ids := MustSucceed(ontologycdc.DecodeIDs(res.Frame.SeriesAt(0).Data))
+			ids := MustSucceed(ontologycdc.DecodeIDs(res.Frame.Series[0].Data))
 			// There's a condition here where we might receive the channel creation
 			// signal, so we just do a length assertion.
 			Expect(len(ids)).To(BeNumerically(">", 0))
@@ -177,7 +176,7 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(w.DefineRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), 10*time.Second).Should(Receive(&res))
-		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.SeriesAt(0).Data))
+		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.Series[0].Data))
 		// There's a condition here where we might receive the channel creation
 		// signal, so we just do a length assertion.
 		Expect(len(relationships)).To(BeNumerically(">", 0))
@@ -217,7 +216,7 @@ var _ = Describe("Signals", Ordered, func() {
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		By("Decoding the relationships")
-		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.SeriesAt(0).Data))
+		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.Series[0].Data))
 		// There's a condition here where we might receive the channel creation
 		// signal, so we just do a length assertion.
 		Expect(len(relationships)).To(BeNumerically(">", 0))

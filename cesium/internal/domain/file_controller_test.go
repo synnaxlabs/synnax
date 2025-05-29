@@ -10,14 +10,13 @@
 package domain_test
 
 import (
-	"sync"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"sync"
 )
 
 var _ = Describe("File Controller", Ordered, func() {
@@ -81,7 +80,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        10 * telem.Byte,
+						FileSize:        10 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 					By("Acquiring one writer on the file 1.domain")
@@ -108,7 +107,7 @@ var _ = Describe("File Controller", Ordered, func() {
 				It("Should persist obey the file size limit", func() {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
-						FS: fs, FileSize: 10 * telem.Byte,
+						FS: fs, FileSize: 10 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 					By("Acquiring one writer on the file 1.domain")
@@ -128,7 +127,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					By("Reopening the db and fc")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        10 * telem.Byte,
+						FileSize:        10 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 
@@ -147,7 +146,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        10 * telem.Byte,
+						FileSize:        10 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 					By("Acquiring one writer on the file 1.domain")
@@ -176,7 +175,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        10 * telem.Byte,
+						FileSize:        10 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 					By("Acquiring one writer on the file 1.domain")
@@ -196,7 +195,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					By("Reopening the db and fc")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        10 * telem.Byte,
+						FileSize:        10 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 
@@ -262,7 +261,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        10 * telem.Byte,
+						FileSize:        10 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 
@@ -282,7 +281,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					By("Reopening the db on the same FS")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        10 * telem.Byte,
+						FileSize:        10 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 
@@ -314,7 +313,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        10 * telem.Byte,
+						FileSize:        10 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 
@@ -343,7 +342,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					By("Reopening the db on the same FS")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        10 * telem.Byte,
+						FileSize:        10 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 
@@ -458,7 +457,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        10 * telem.Byte,
+						FileSize:        10 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 
@@ -477,7 +476,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        10 * telem.Byte,
+						FileSize:        10 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 

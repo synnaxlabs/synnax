@@ -10,9 +10,8 @@
 package rand
 
 import (
-	"math/rand"
-
 	"github.com/samber/lo"
+	"math/rand"
 )
 
 func MapKey[K comparable, V any](m map[K]V) (key K) {

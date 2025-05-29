@@ -22,7 +22,7 @@ import (
 
 type server struct{ ServiceConfig }
 
-func newServer(cfg ServiceConfig) *server {
+func startServer(cfg ServiceConfig) *server {
 	s := &server{ServiceConfig: cfg}
 	cfg.Transport.Server().BindHandler(s.handle)
 	return s
@@ -39,7 +39,7 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	}
 
 	receiver := &freightfluence.TransformReceiver[ts.IteratorRequest, Request]{Receiver: server}
-	receiver.Transform = newStorageRequestTranslator(false)
+	receiver.Transform = newStorageRequestTranslator()
 	sender := &freightfluence.TransformSender[ts.IteratorResponse, Response]{
 		Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 	}

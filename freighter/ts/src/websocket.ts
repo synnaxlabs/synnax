@@ -10,7 +10,7 @@
 import { type binary, buildQueryString, runtime, type URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { decodeError, EOF, type ErrorPayload, errorZ, StreamClosed } from "@/errors";
+import { decodeError, EOF, errorZ, StreamClosed } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
@@ -21,20 +21,16 @@ const resolveWebSocketConstructor = (): ((target: string) => WebSocket) => {
   return (t) => new (require("ws").WebSocket)(t, { rejectUnauthorized: false });
 };
 
-const wsMessageZ = z.object({
+const MessageSchema = z.object({
   type: z.enum(["data", "close", "open"]),
-  payload: z.unknown(),
+  payload: z.unknown().optional(),
   error: z.optional(errorZ),
 });
 
-export type WebsocketMessage<P = unknown> = {
-  type: "data" | "close" | "open";
-  error?: ErrorPayload;
-  payload?: P;
-};
+type Message = z.infer<typeof MessageSchema>;
 
 type ReceiveCallbacksQueue = Array<{
-  resolve: (msg: WebsocketMessage<unknown>) => void;
+  resolve: (msg: Message) => void;
   reject: (reason: unknown) => void;
 }>;
 
@@ -42,17 +38,17 @@ type ReceiveCallbacksQueue = Array<{
 class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   implements Stream<RQ, RS>
 {
-  private readonly codec: binary.Codec;
+  private readonly encoder: binary.Codec;
   private readonly reqSchema: RQ;
   private readonly resSchema: RS;
   private readonly ws: WebSocket;
   private serverClosed: Error | null;
   private sendClosed: boolean;
-  private readonly receiveDataQueue: WebsocketMessage[] = [];
+  private readonly receiveDataQueue: Message[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
 
   constructor(ws: WebSocket, encoder: binary.Codec, reqSchema: RQ, resSchema: RS) {
-    this.codec = encoder;
+    this.encoder = encoder;
     this.reqSchema = reqSchema;
     this.resSchema = resSchema;
     this.ws = ws;
@@ -74,7 +70,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   send(req: z.input<RQ>): Error | null {
     if (this.serverClosed != null) return new EOF();
     if (this.sendClosed) throw new StreamClosed();
-    this.ws.send(this.codec.encode({ type: "data", payload: req }));
+    this.ws.send(this.encoder.encode({ type: "data", payload: req }));
     return null;
   }
 
@@ -98,16 +94,16 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   /** Implements the Stream protocol */
   closeSend(): void {
     if (this.sendClosed || this.serverClosed != null) return undefined;
-    const msg: WebsocketMessage = { type: "close" };
+    const msg: Message = { type: "close" };
     try {
-      this.ws.send(this.codec.encode(msg));
+      this.ws.send(this.encoder.encode(msg));
     } finally {
       this.sendClosed = true;
     }
     return undefined;
   }
 
-  private async receiveMsg(): Promise<WebsocketMessage> {
+  private async receiveMsg(): Promise<Message> {
     const msg = this.receiveDataQueue.shift();
     if (msg != null) return msg;
     return await new Promise((resolve, reject) =>
@@ -115,26 +111,21 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
     );
   }
 
-  private addMessage(msg: WebsocketMessage): void {
+  private addMessage(msg: Message): void {
     const callback = this.receiveCallbacksQueue.shift();
     if (callback != null) callback.resolve(msg);
     else this.receiveDataQueue.push(msg);
   }
 
   private listenForMessages(): void {
-    this.ws.onmessage = this.onMessage.bind(this);
-    this.ws.onclose = this.onClose.bind(this);
-  }
+    this.ws.onmessage = (ev: MessageEvent<Uint8Array>) =>
+      this.addMessage(this.encoder.decode(ev.data, MessageSchema));
 
-  private onMessage(ev: MessageEvent<Uint8Array>): void {
-    this.addMessage(this.codec.decode(ev.data, wsMessageZ));
-  }
-
-  private onClose(ev: CloseEvent): void {
-    this.addMessage({
-      type: "close",
-      error: { type: isNormalClosure(ev) ? EOF.TYPE : StreamClosed.TYPE, data: "" },
-    });
+    this.ws.onclose = (ev: CloseEvent) =>
+      this.addMessage({
+        type: "close",
+        error: { type: isNormalClosure(ev) ? EOF.TYPE : StreamClosed.TYPE, data: "" },
+      });
   }
 }
 
@@ -153,7 +144,6 @@ const isNormalClosure = (ev: CloseEvent): boolean => NORMAL_CLOSURES.includes(ev
 export class WebSocketClient extends MiddlewareCollector implements StreamClient {
   baseUrl: URL;
   encoder: binary.Codec;
-  secure: boolean;
 
   static readonly MESSAGE_TYPE = "arraybuffer";
 
@@ -164,15 +154,8 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
    */
   constructor(baseEndpoint: URL, encoder: binary.Codec, secure = false) {
     super();
-    this.secure = secure;
     this.baseUrl = baseEndpoint.replace({ protocol: secure ? "wss" : "ws" });
     this.encoder = encoder;
-  }
-
-  withCodec(codec: binary.Codec): WebSocketClient {
-    const c = new WebSocketClient(this.baseUrl, codec, this.secure);
-    c.use(...this.middleware);
-    return c;
   }
 
   /** Implements the StreamClient interface. */

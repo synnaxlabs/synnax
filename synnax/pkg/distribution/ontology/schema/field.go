@@ -101,7 +101,7 @@ type Value interface {
 		float64 |
 		bool |
 		uuid.UUID |
-		map[string]any
+		map[string]interface{}
 }
 
 func assertValueType[V Value](v any) bool { _, ok := v.(V); return ok }

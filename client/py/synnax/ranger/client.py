@@ -79,6 +79,9 @@ class _InternalScopedChannel(ChannelPayload):
         cls = overload_comparison_operators(cls, "__array__")
         return super().__new__(cls)
 
+    class Config:
+        arbitrary_types_allowed = True
+
     def __init__(
         self,
         rng: Range,
@@ -267,6 +270,9 @@ class Range(RangePayload):
     _client: RangeClient | None = PrivateAttr(None)
     _tasks: TaskClient | None = PrivateAttr(None)
     _ontology: OntologyClient | None = PrivateAttr(None)
+
+    class Config:
+        arbitrary_types_allowed = True
 
     def __init__(
         self,

@@ -12,6 +12,8 @@ package distribution
 import (
 	"context"
 	"fmt"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
 	"io"
 
 	"github.com/synnaxlabs/aspen"
@@ -26,9 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -222,5 +222,5 @@ func (d Distribution) configureControlUpdates(ctx context.Context) error {
 	if err := d.Channel.CreateMany(ctx, &controlCh, channel.RetrieveIfNameExists(true)); err != nil {
 		return err
 	}
-	return d.Framer.ConfigureControlUpdateChannel(ctx, controlCh[0].Key(), controlCh[0].Name)
+	return d.Framer.ConfigureControlUpdateChannel(ctx, controlCh[0].Key())
 }

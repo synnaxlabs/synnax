@@ -11,18 +11,16 @@ package virtual_test
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/binary"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/binary"
 )
 
 var (
-	ctx         = context.Background()
-	codec       = &binary.JSONCodec{}
-	fileSystems = testutil.FileSystems
+	ctx   = context.Background()
+	codec = &binary.JSONCodec{}
 )
 
 func TestVirtual(t *testing.T) {

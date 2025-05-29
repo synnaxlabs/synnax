@@ -35,7 +35,8 @@ type Channel struct {
 	Key         channel.Key          `json:"key" msgpack:"key"`
 	Name        string               `json:"name" msgpack:"name"`
 	Leaseholder distribution.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
-	DataType    telem.DataType       `json:"data_type" msgpack:"data_type"`
+	Rate        telem.Rate           `json:"rate" msgpack:"rate"`
+	DataType    telem.DataType       `json:"data_type" msgpack:"data_type" validate:"required"`
 	Density     telem.Density        `json:"density" msgpack:"density"`
 	IsIndex     bool                 `json:"is_index" msgpack:"is_index"`
 	Index       channel.Key          `json:"index" msgpack:"index"`
@@ -243,6 +244,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Key:         ch.Key(),
 			Name:        ch.Name,
 			Leaseholder: ch.Leaseholder,
+			Rate:        ch.Rate,
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
 			Index:       ch.Index(),
@@ -264,6 +266,7 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 		tCH := channel.Channel{
 			Name:        ch.Name,
 			Leaseholder: ch.Leaseholder,
+			Rate:        ch.Rate,
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
 			LocalIndex:  ch.Index.LocalKey(),
@@ -348,7 +351,8 @@ func (s *ChannelService) Rename(
 	})
 }
 
-type ChannelRetrieveGroupRequest struct{}
+type ChannelRetrieveGroupRequest struct {
+}
 
 type ChannelRetrieveGroupResponse struct {
 	Group group.Group `json:"group" msgpack:"group"`
@@ -356,15 +360,15 @@ type ChannelRetrieveGroupResponse struct {
 
 func (s *ChannelService) RetrieveGroup(
 	ctx context.Context,
-	_ ChannelRetrieveGroupRequest,
+	req ChannelRetrieveGroupRequest,
 ) (ChannelRetrieveGroupResponse, error) {
-	g := s.internal.Group()
+	var group = s.internal.Group()
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: []ontology.ID{g.OntologyID()},
+		Objects: []ontology.ID{group.OntologyID()},
 	}); err != nil {
 		return ChannelRetrieveGroupResponse{}, err
 	}
-	return ChannelRetrieveGroupResponse{Group: g}, nil
+	return ChannelRetrieveGroupResponse{Group: group}, nil
 }

@@ -13,9 +13,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"sync"
-	"testing"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/testutil"
@@ -25,6 +22,8 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"golang.org/x/sync/semaphore"
+	"sync"
+	"testing"
 )
 
 type BenchmarkConfig struct {
@@ -32,6 +31,7 @@ type BenchmarkConfig struct {
 	samplesPerDomain  int
 	numIndexChannels  int
 	numDataChannels   int
+	numRateChannels   int
 	numGoRoutines     int64
 	usingMemFS        bool
 }
@@ -52,8 +52,9 @@ type StreamBenchmarkConfig struct {
 var (
 	domainsPerChannel = flag.Int("d", 10, "domains per channel")
 	samplesPerDomain  = flag.Int("s", 10, "samples per domain")
-	numIndexChannels  = flag.Int("index", 10, "index channel count")
-	numDataChannels   = flag.Int("data", 10, "data channel count")
+	numIndexChannels  = flag.Int("index", 0, "index channel count")
+	numDataChannels   = flag.Int("data", 0, "data channel count")
+	numRateChannels   = flag.Int("rate", 0, "rate channel count")
 	usingMemFS        = flag.Bool("mem", false, "memFS")
 	numWriters        = flag.Int("w", 1, "writer count")
 	numGoRoutines     = flag.Int64("g", 1, "goroutine count")
@@ -73,6 +74,7 @@ func BenchmarkCesium(b *testing.B) {
 		samplesPerDomain:  *samplesPerDomain,
 		numIndexChannels:  *numIndexChannels,
 		numDataChannels:   *numDataChannels,
+		numRateChannels:   *numRateChannels,
 		numGoRoutines:     *numGoRoutines,
 		usingMemFS:        *usingMemFS,
 	}
@@ -89,16 +91,12 @@ func BenchmarkCesium(b *testing.B) {
 	makeFS := testutil.FileSystemsWithoutAssertion[lo.Ternary(benchCfg.usingMemFS, "memFS", "osFS")]
 	fs, cleanUp := makeFS()
 
-	dataSeries, channels, keys := testutil.GenerateDataAndChannels(
-		benchCfg.numIndexChannels,
-		benchCfg.numDataChannels,
-		benchCfg.samplesPerDomain,
-	)
+	dataSeries, channels, keys := testutil.GenerateDataAndChannels(benchCfg.numIndexChannels, benchCfg.numDataChannels, benchCfg.numRateChannels, benchCfg.samplesPerDomain)
 
-	b.Run("write", func(b *testing.B) { BenchWrite(b, writeCfg, dataSeries, channels, keys, fs) })
-	b.Run("read", func(b *testing.B) { BenchRead(b, benchCfg, dataSeries, channels, keys, fs) })
+	b.Run("write", func(b *testing.B) { bench_write(b, writeCfg, dataSeries, channels, keys, fs) })
+	b.Run("read", func(b *testing.B) { bench_read(b, benchCfg, dataSeries, channels, keys, fs) })
 	b.Run("stream", func(b *testing.B) {
-		BenchStream(b, streamCfg, dataSeries, channels, keys, fs)
+		bench_stream(b, streamCfg, dataSeries, channels, keys, fs)
 	})
 
 	err = cleanUp()
@@ -107,8 +105,8 @@ func BenchmarkCesium(b *testing.B) {
 	}
 }
 
-func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
-	for i := range b.N {
+func bench_write(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
+	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		var (
 			wg                        = sync.WaitGroup{}
@@ -116,7 +114,7 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 			sem                       = semaphore.NewWeighted(cfg.numGoRoutines)
 		)
 
-		db, err := cesium.Open(ctx, "benchmark_write_test", cesium.WithFS(fs))
+		db, err := cesium.Open("benchmark_write_test", cesium.WithFS(fs))
 		if err != nil {
 			b.Errorf("Error during DB creation: %s", err)
 		}
@@ -128,7 +126,7 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 
 		b.StartTimer()
 
-		for j := range cfg.numWriters {
+		for j := 0; j < cfg.numWriters; j++ {
 			var writerChannels []cesium.ChannelKey
 
 			// Filter out the index channels we are writing to
@@ -148,7 +146,7 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 			}
 
 			// Then arbitrarily assign rate channels
-			for k := cfg.numIndexChannels + cfg.numDataChannels + 1; k < cfg.numIndexChannels+cfg.numDataChannels+1; k++ {
+			for k := cfg.numIndexChannels + cfg.numDataChannels + 1; k < cfg.numIndexChannels+cfg.numDataChannels+cfg.numRateChannels+1; k++ {
 				if k%cfg.numWriters == j {
 					writerChannels = append(writerChannels, cesium.ChannelKey(k))
 				}
@@ -168,10 +166,10 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 					sem.Release(1)
 				}()
 				var (
-					commitCount                   = 0
-					highWaterMark telem.TimeStamp = 0
-					indexData                     = make([]telem.TimeStamp, cfg.samplesPerDomain)
-					frame         cesium.Frame
+					commitCount                 = 0
+					hwm         telem.TimeStamp = 0
+					indexData                   = make([]telem.TimeStamp, cfg.samplesPerDomain)
+					frame       cesium.Frame
 				)
 
 				w, err := db.OpenWriter(ctx, cesium.WriterConfig{
@@ -192,16 +190,16 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 					}
 				}
 
-				for k := range cfg.domainsPerChannel {
+				for k := 0; k < cfg.domainsPerChannel; k++ {
 					// Generate the index data for this frame.
-					for l := range cfg.samplesPerDomain {
+					for l := 0; l < cfg.samplesPerDomain; l++ {
 						if l == 0 && k == 0 {
 							indexData[l] = 0
 							continue
 						}
-						indexData[l] = highWaterMark + telem.TimeStamp(l)*telem.SecondTS
+						indexData[l] = hwm + telem.TimeStamp(l)*telem.SecondTS
 					}
-					highWaterMark += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
+					hwm += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
 
 					// Add the index data into frame / modify the index data in the frame
 					if k == 0 {
@@ -212,24 +210,26 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 						}
 					} else {
 						indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
-						for l := len(frame.KeysSlice()) - 1; l >= 0; l-- {
+						for l := len(frame.Keys) - 1; l >= 0; l-- {
 							if l > cfg.numIndexChannels {
 								break
 							}
-							frame.SetSeriesAt(i, indexDataSeries)
+							frame.Series[l] = indexDataSeries
 						}
 					}
 
-					if _, err := w.Write(frame); err != nil {
-						b.Error(err)
+					ok := w.Write(frame)
+					if !ok {
+						b.Error(w.Error())
 						return
 					}
 
 					if cfg.commitInterval != -1 {
 						commitCount += 1
 						if commitCount >= cfg.commitInterval {
-							if _, err = w.Commit(); err != nil {
-								b.Error(err)
+							_, ok = w.Commit()
+							if !ok {
+								b.Error(w.Error())
 								return
 							}
 							commitCount = 0
@@ -237,9 +237,10 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 					}
 				}
 
-				if _, err := w.Commit(); err != nil {
+				_, ok := w.Commit()
+				if !ok {
 					b.Error("Commit failed")
-					b.Error(err)
+					b.Error(w.Error())
 					return
 				}
 
@@ -267,26 +268,16 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 	}
 }
 
-func BenchRead(
-	b *testing.B,
-	cfg BenchmarkConfig,
-	dataSeries telem.Series,
-	channels []cesium.Channel,
-	keys []cesium.ChannelKey,
-	fs xfs.FS,
-) {
+func bench_read(b *testing.B, cfg BenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
 	var (
-		db            *cesium.DB
-		err           error
-		frame         cesium.Frame
-		indexData                     = make([]telem.TimeStamp, cfg.samplesPerDomain)
-		highWaterMark telem.TimeStamp = 0
+		db        *cesium.DB
+		err       error
+		frame     cesium.Frame
+		indexData                 = make([]telem.TimeStamp, cfg.samplesPerDomain)
+		hwm       telem.TimeStamp = 0
 	)
 
-	db, err = cesium.Open(ctx, "benchmark_read_test", cesium.WithFS(fs))
-	if err != nil {
-		b.Errorf("Error during DB creation: %s", err)
-	}
+	db, err = cesium.Open("benchmark_read_test", cesium.WithFS(fs))
 	err = db.CreateChannel(ctx, channels...)
 	if err != nil {
 		b.Errorf("Error during channel creation: %s", err)
@@ -310,16 +301,16 @@ func BenchRead(
 		}
 	}
 
-	for k := range cfg.domainsPerChannel {
+	for k := 0; k < cfg.domainsPerChannel; k++ {
 		// Generate the index data for this frame.
-		for l := range cfg.samplesPerDomain {
+		for l := 0; l < cfg.samplesPerDomain; l++ {
 			if l == 0 && k == 0 {
 				indexData[l] = 0
 				continue
 			}
-			indexData[l] = highWaterMark + telem.TimeStamp(l)*telem.SecondTS
+			indexData[l] = hwm + telem.TimeStamp(l)*telem.SecondTS
 		}
-		highWaterMark += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
+		hwm += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
 
 		// Add the index data into frame / modify the index data in the frame
 		if k == 0 {
@@ -330,31 +321,32 @@ func BenchRead(
 			}
 		} else {
 			indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
-			for l := len(frame.KeysSlice()) - 1; l >= 0; l-- {
+			for l := len(frame.Keys) - 1; l >= 0; l-- {
 				if l > cfg.numIndexChannels {
 					break
 				}
-				frame.SetSeriesAt(l, indexDataSeries)
+				frame.Series[l] = indexDataSeries
 			}
 		}
 
-		if _, err := w.Write(frame); err != nil {
-			b.Error(err)
+		ok := w.Write(frame)
+		if !ok {
+			b.Error(w.Error())
 			return
 		}
 	}
 
-	if _, err := w.Commit(); err != nil {
-		b.Error("Commit failed")
-		b.Error(err)
-		return
+	_, ok := w.Commit()
+	if !ok {
+		b.Error(w.Error())
 	}
 
 	if err = w.Close(); err != nil {
 		b.Error(err)
 	}
 
-	for b.Loop() {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		_, err = db.Read(ctx, telem.TimeRangeMax, keys...)
 
 		if err != nil {
@@ -374,15 +366,8 @@ func BenchRead(
 	}
 }
 
-func BenchStream(
-	b *testing.B,
-	cfg StreamBenchmarkConfig,
-	dataSeries telem.Series,
-	channels []cesium.Channel,
-	keys []cesium.ChannelKey,
-	fs xfs.FS,
-) {
-	for b.Loop() {
+func bench_stream(b *testing.B, cfg StreamBenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
+	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 		var (
 			wg                        = sync.WaitGroup{}
@@ -390,7 +375,7 @@ func BenchStream(
 			sem                       = semaphore.NewWeighted(cfg.numGoRoutines)
 		)
 
-		db, err := cesium.Open(ctx, "benchmark_stream_test", cesium.WithFS(fs))
+		db, err := cesium.Open("benchmark_stream_test", cesium.WithFS(fs))
 		if err != nil {
 			b.Errorf("Error during DB creation: %s", err)
 		}
@@ -402,7 +387,7 @@ func BenchStream(
 
 		b.StartTimer()
 
-		for j := range cfg.numWriters {
+		for j := 0; j < cfg.numWriters; j++ {
 			var writerChannels []cesium.ChannelKey
 
 			// Filter out the index channels we are writing to
@@ -422,7 +407,7 @@ func BenchStream(
 			}
 
 			// Then arbitrarily assign rate channels
-			for k := cfg.numIndexChannels + cfg.numDataChannels + 1; k < cfg.numIndexChannels+cfg.numDataChannels; k++ {
+			for k := cfg.numIndexChannels + cfg.numDataChannels + 1; k < cfg.numIndexChannels+cfg.numDataChannels+cfg.numRateChannels+1; k++ {
 				if k%cfg.numWriters == j {
 					writerChannels = append(writerChannels, cesium.ChannelKey(k))
 				}
@@ -442,12 +427,12 @@ func BenchStream(
 					sem.Release(1)
 				}()
 				var (
-					commitCount                   = 0
-					highWaterMark telem.TimeStamp = 0
-					indexData                     = make([]telem.TimeStamp, cfg.samplesPerDomain)
-					frame         cesium.Frame
-					w             *cesium.Writer
-					s             cesium.Streamer[cesium.StreamerRequest, cesium.StreamerResponse]
+					commitCount                 = 0
+					hwm         telem.TimeStamp = 0
+					indexData                   = make([]telem.TimeStamp, cfg.samplesPerDomain)
+					frame       cesium.Frame
+					w           *cesium.Writer
+					s           cesium.Streamer
 				)
 
 				w, err := db.OpenWriter(ctx, cesium.WriterConfig{
@@ -477,16 +462,16 @@ func BenchStream(
 					}
 				}
 
-				for k := range cfg.domainsPerChannel {
+				for k := 0; k < cfg.domainsPerChannel; k++ {
 					// Generate the index data for this frame.
-					for l := range cfg.samplesPerDomain {
+					for l := 0; l < cfg.samplesPerDomain; l++ {
 						if l == 0 && k == 0 {
 							indexData[l] = 0
 							continue
 						}
-						indexData[l] = highWaterMark + telem.TimeStamp(l)*telem.SecondTS
+						indexData[l] = hwm + telem.TimeStamp(l)*telem.SecondTS
 					}
-					highWaterMark += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
+					hwm += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
 
 					// Add the index data into frame / modify the index data in the frame
 					if k == 0 {
@@ -497,23 +482,27 @@ func BenchStream(
 						}
 					} else {
 						indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
-						for l := len(frame.KeysSlice()) - 1; l >= 0; l-- {
+						for l := len(frame.Keys) - 1; l >= 0; l-- {
 							if l > cfg.numIndexChannels {
 								break
 							}
-							frame.SetSeriesAt(l, indexDataSeries)
+							frame.Series[l] = indexDataSeries
 						}
 					}
 
-					if _, err := w.Write(frame); err != nil {
-						b.Error(err)
+					ok := w.Write(frame)
+					if !ok {
+						b.Error(w.Error())
+						return
 					}
 
 					if cfg.commitInterval != -1 {
 						commitCount += 1
 						if commitCount >= cfg.commitInterval {
-							if _, err = w.Commit(); err != nil {
-								b.Error(err)
+							_, ok = w.Commit()
+							if !ok {
+								b.Error(w.Error())
+								return
 							}
 							commitCount = 0
 						}
@@ -522,8 +511,11 @@ func BenchStream(
 					<-oStream.Outlet()
 				}
 
-				if _, err := w.Commit(); err != nil {
-					b.Error(err)
+				_, ok := w.Commit()
+				if !ok {
+					b.Error("Commit failed")
+					b.Error(w.Error())
+					return
 				}
 
 				err = w.Close()

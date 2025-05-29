@@ -10,16 +10,15 @@
 package storage_test
 
 import (
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 )
 
 var _ = Describe("storage", func() {
@@ -37,9 +36,9 @@ var _ = Describe("storage", func() {
 		AfterEach(func() { Expect(os.RemoveAll(tempDir)).ToNot(HaveOccurred()) })
 		Describe("Acquiring a lock", func() {
 			It("Should return an error if the lock is already acquired", func() {
-				store, err := storage.Open(ctx, cfg)
+				store, err := storage.Open(cfg)
 				Expect(err).NotTo(HaveOccurred())
-				_, err = storage.Open(ctx, cfg)
+				_, err = storage.Open(cfg)
 				Expect(err).To(HaveOccurred())
 				Expect(store.Close()).To(Succeed())
 			})
@@ -52,7 +51,7 @@ var _ = Describe("storage", func() {
 				Describe("Name Directory", func() {
 					It("Should set the correct permissions on the storage directory", func() {
 						cfg.Perm = storage.DefaultConfig.Perm
-						store, err := storage.Open(ctx, cfg)
+						store, err := storage.Open(cfg)
 						Expect(err).NotTo(HaveOccurred())
 						stat, err := os.Stat(cfg.Dirname)
 						Expect(err).ToNot(HaveOccurred())
@@ -71,7 +70,7 @@ var _ = Describe("storage", func() {
 					It("Should return an error if the directory exists but has insufficient permissions", func() {
 						// use os.Stat to check the dir permissions
 						cfg.Perm = xfs.OS_USER_RWX
-						_, err := storage.Open(ctx, cfg)
+						_, err := storage.Open(cfg)
 						Expect(err).To(HaveOccurred())
 					})
 				})
@@ -79,8 +78,8 @@ var _ = Describe("storage", func() {
 		})
 		Describe("Membacked", func() {
 			It("Should open a memory backed version of storage", func() {
-				cfg.MemBacked = config.True()
-				store, err := storage.Open(ctx, cfg)
+				cfg.MemBacked = config.Bool(true)
+				store, err := storage.Open(cfg)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(store.Close()).To(Succeed())
 			})

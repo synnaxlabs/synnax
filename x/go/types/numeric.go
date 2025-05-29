@@ -16,11 +16,11 @@ import (
 
 // Numeric represents a generic numeric value.
 type Numeric interface {
-	~int | ~uint | ~float64 | ~float32 | ~int64 | ~int32 | ~int16 | ~int8 | ~uint64 | ~uint32 | ~uint16 | ~uint8
+	~int | ~float64 | ~float32 | ~int64 | ~int32 | ~int16 | ~int8 | ~uint64 | ~uint32 | ~uint16 | ~uint8
 }
 
 type Integer interface {
-	~int | ~uint | ~int64 | ~int32 | ~int16 | ~int8 | ~uint64 | ~uint32 | ~uint16 | ~uint8
+	~int | ~int64 | ~int32 | ~int16 | ~int8 | ~uint64 | ~uint32 | ~uint16 | ~uint8
 }
 
 type StringParseableUint64 uint64

@@ -143,7 +143,7 @@ public:
     /// in a cluster.
     RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
     /// @brief Client for reading and writing telemetry to a cluster.
-    FrameClient telem = FrameClient(nullptr, nullptr, ChannelClient());
+    FrameClient telem = FrameClient(nullptr, nullptr);
     /// @brief Client for managing devices and their configuration.
     HardwareClient hardware = HardwareClient(
         nullptr,
@@ -168,27 +168,23 @@ public:
             cfg.client_key_file
         );
         priv::check_little_endian();
-        this->auth = std::make_shared<AuthMiddleware>(
+        auth = std::make_shared<AuthMiddleware>(
             std::move(t.auth_login),
             cfg.username,
             cfg.password,
             cfg.clock_skew_threshold
         );
-        t.use(this->auth);
-        this->channels = ChannelClient(t.chan_retrieve, t.chan_create);
-        this->ranges = RangeClient(
+        t.use(auth);
+        channels = ChannelClient(std::move(t.chan_retrieve), std::move(t.chan_create));
+        ranges = RangeClient(
             std::move(t.range_retrieve),
             std::move(t.range_create),
             t.range_kv_get,
             t.range_kv_set,
             t.range_kv_delete
         );
-        this->telem = FrameClient(
-            std::move(t.frame_stream),
-            std::move(t.frame_write),
-            ChannelClient(t.chan_retrieve, t.chan_create)
-        );
-        this->hardware = HardwareClient(
+        telem = FrameClient(std::move(t.frame_stream), std::move(t.frame_write));
+        hardware = HardwareClient(
             std::move(t.rack_create_client),
             std::move(t.rack_retrieve),
             std::move(t.rack_delete),

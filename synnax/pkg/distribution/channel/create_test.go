@@ -38,9 +38,9 @@ var _ = Describe("Create", Ordered, func() {
 		var ch channel.Channel
 		JustBeforeEach(func() {
 			var err error
-			ch.IsIndex = true
+			ch.Rate = 5 * telem.Hz
 			ch.Name = "SG01"
-			ch.DataType = telem.TimeStampT
+			ch.DataType = telem.Float64T
 			err = services[1].Create(ctx, &ch)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -60,8 +60,8 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
 				Expect(cesiumCH.Key).To(Equal(ch.Key().StorageKey()))
-				Expect(cesiumCH.DataType).To(Equal(telem.TimeStampT))
-				Expect(cesiumCH.IsIndex).To(BeTrue())
+				Expect(cesiumCH.DataType).To(Equal(telem.Float64T))
+				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
 		})
 		Context("Node is remote", func() {
@@ -75,8 +75,8 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
-				Expect(cesiumCH.DataType).To(Equal(telem.TimeStampT))
-				Expect(cesiumCH.IsIndex).To(BeTrue())
+				Expect(cesiumCH.DataType).To(Equal(telem.Float64T))
+				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
 			It("Should not create the channel on another nodes cesium DB", func() {
 				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
@@ -86,9 +86,9 @@ var _ = Describe("Create", Ordered, func() {
 			It("Should assign a sequential key to the channels on each node",
 				func() {
 					ch2 := &channel.Channel{
-						IsIndex:     true,
+						Rate:        5 * telem.Hz,
 						Name:        "SG01",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.Float64T,
 						Leaseholder: 1,
 					}
 					err := services[1].NewWriter(nil).Create(ctx, ch2)
@@ -149,9 +149,9 @@ var _ = Describe("Create", Ordered, func() {
 	Context("Creating if name doesn't exist", func() {
 		var ch channel.Channel
 		BeforeEach(func() {
-			ch.IsIndex = true
+			ch.Rate = 5 * telem.Hz
 			ch.Name = "SG0001"
-			ch.DataType = telem.TimeStampT
+			ch.DataType = telem.Float64T
 			ch.Leaseholder = 1
 		})
 		It("Should create the channel without error", func() {
@@ -171,8 +171,9 @@ var _ = Describe("Create", Ordered, func() {
 		Describe("OverwriteIfNameExists", func() {
 
 			It("Should overwrite the channel if it already exists by name and the new channel has different properties than the old one", func() {
+				// Create initial channel
 				ch := channel.Channel{
-					Virtual:     true,
+					Rate:        5 * telem.Hz,
 					Name:        "SG0001",
 					DataType:    telem.Float64T,
 					Leaseholder: 1,
@@ -182,7 +183,7 @@ var _ = Describe("Create", Ordered, func() {
 
 				// Try to create a new channel with the same name but different properties
 				newCh := channel.Channel{
-					Virtual:     true,
+					Rate:        10 * telem.Hz,
 					Name:        "SG0001",
 					DataType:    telem.Float32T,
 					Leaseholder: 1,
@@ -195,7 +196,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resChannels).To(HaveLen(1))
 
-				Expect(resChannels[0].Virtual).To(BeTrue())
+				Expect(resChannels[0].Rate).To(Equal(10 * telem.Hz))
 				Expect(resChannels[0].DataType).To(Equal(telem.Float32T))
 
 				err = services[1].NewRetrieve().WhereKeys(originalKey).Entries(&resChannels).Exec(ctx, nil)
@@ -203,18 +204,18 @@ var _ = Describe("Create", Ordered, func() {
 			})
 			It("Should not overwrite the channel if it already exists by name and the new channel has the same properties as the old one", func() {
 				ch := channel.Channel{
-					IsIndex:     true,
+					Rate:        5 * telem.Hz,
 					Name:        "SG0001",
-					DataType:    telem.TimeStampT,
+					DataType:    telem.Float64T,
 					Leaseholder: 1,
 				}
 				Expect(services[1].Create(ctx, &ch)).To(Succeed())
 				originalKey := ch.Key()
 
 				newCh := channel.Channel{
-					IsIndex:     true,
-					Name:        "SG0001",         // Same name
-					DataType:    telem.TimeStampT, // Same data type
+					Rate:        5 * telem.Hz,   // Same rate
+					Name:        "SG0001",       // Same name
+					DataType:    telem.Float64T, // Same data type
 					Leaseholder: 1,
 				}
 
@@ -225,8 +226,8 @@ var _ = Describe("Create", Ordered, func() {
 				err := services[1].NewRetrieve().WhereKeys(originalKey).Entries(&resChannels).Exec(ctx, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resChannels).To(HaveLen(1))
-				Expect(resChannels[0].IsIndex).To(BeTrue())
-				Expect(resChannels[0].DataType).To(Equal(telem.TimeStampT))
+				Expect(resChannels[0].Rate).To(Equal(5 * telem.Hz))
+				Expect(resChannels[0].DataType).To(Equal(telem.Float64T))
 			})
 		})
 		It("Should not create a free channel if it already exists by name", func() {
@@ -397,9 +398,9 @@ var _ = Describe("Create", Ordered, func() {
 			func() {
 				// Create initial non-virtual channel
 				nonVirtualCh := channel.Channel{
-					IsIndex:     true,
+					Rate:        5 * telem.Hz,
 					Name:        "NonVirtual",
-					DataType:    telem.TimeStampT,
+					DataType:    telem.Float64T,
 					Leaseholder: 1,
 					Virtual:     false,
 				}
@@ -426,8 +427,8 @@ var _ = Describe("Create", Ordered, func() {
 			// Create channels up to the limit
 			for i := range limit {
 				ch := channel.Channel{
-					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					Rate:        10 * telem.Hz,
+					DataType:    telem.Float64T,
 					Name:        fmt.Sprintf("LimitTest%d", i),
 					Leaseholder: 1,
 				}
@@ -436,8 +437,8 @@ var _ = Describe("Create", Ordered, func() {
 
 			// Try to create one more channel over the limit
 			overLimitCh := channel.Channel{
-				IsIndex:     true,
-				DataType:    telem.TimeStampT,
+				Rate:        10 * telem.Hz,
+				DataType:    telem.Float64T,
 				Name:        "OverLimit",
 				Leaseholder: 1,
 			}

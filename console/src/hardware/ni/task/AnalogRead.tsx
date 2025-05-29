@@ -10,7 +10,7 @@
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
-import { id, primitive, strings, unique } from "@synnaxlabs/x";
+import { id, primitiveIsZero, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -170,7 +170,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
     dev.properties = Device.enrich(dev.model, dev.properties);
     rackKey = dev.rack;
     let modified = false;
-    let shouldCreateIndex = primitive.isZero(dev.properties.analogInput.index);
+    let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
     if (!shouldCreateIndex)
       try {
         await client.channels.retrieve(dev.properties.analogInput.index);
@@ -193,7 +193,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
       if (channel.device !== dev.key) continue;
       // check if the channel is in properties
       const exKey = dev.properties.analogInput.channels[channel.port.toString()];
-      if (primitive.isZero(exKey)) toCreate.push(channel);
+      if (primitiveIsZero(exKey)) toCreate.push(channel);
       else
         try {
           await client.channels.retrieve(exKey.toString());

@@ -12,13 +12,12 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta, tzinfo
 from math import trunc
-from typing import Any, ClassVar, Literal, TypeAlias, cast, get_args
+from typing import ClassVar, Literal, TypeAlias, cast, get_args
 
 import numpy as np
 import pandas as pd
 from numpy.typing import DTypeLike
-from pydantic import BaseModel, GetCoreSchemaHandler
-from pydantic_core import core_schema
+from pydantic import BaseModel
 
 from synnax.exceptions import ContiguityError
 
@@ -64,11 +63,9 @@ class TimeStamp(int):
         return super().__new__(cls, value)
 
     @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: GetCoreSchemaHandler
-    ):
-        """Implemented for pydantic validation. Should not be used externally."""
-        return core_schema.no_info_after_validator_function(cls, handler(int))
+    def __get_validators__(cls):
+        """Implemented for pydantic validation"""
+        yield cls.validate
 
     @classmethod
     def validate(cls, value, *args, **kwargs):
@@ -183,6 +180,7 @@ class TimeStamp(int):
     MAX: TimeStamp
     """The maximum possible value of a TimeStamp"""
     ZERO: TimeStamp
+    """The zero value of a TimeStamp"""
 
 
 class TimeSpan(int):
@@ -211,11 +209,9 @@ class TimeSpan(int):
         return super().__new__(cls, value)
 
     @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: GetCoreSchemaHandler
-    ):
+    def __get_validators__(cls):
         """Implemented for pydantic validation. Should not be used externally."""
-        return core_schema.no_info_after_validator_function(cls, handler(int))
+        yield cls.validate
 
     @classmethod
     def validate(cls, value, *args, **kwargs):
@@ -483,7 +479,7 @@ TimeSpan.HOUR = TimeSpan(60) * TimeSpan.MINUTE
 TimeSpan.HOUR_UNITS = "h"
 TimeSpan.DAY = TimeSpan.HOUR * 24
 TimeSpan.DAY_UNITS = "d"
-TimeSpan.MAX = TimeSpan(2**63 - 1)
+TimeSpan.MAX = TimeSpan(0xFFFFFFFFFFFFFFFF)
 TimeSpan.MIN = TimeSpan(0)
 TimeSpan.ZERO = TimeSpan(0)
 TimeSpan.UNITS = {
@@ -544,11 +540,9 @@ class Rate(float):
         return super().__new__(cls, value)
 
     @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: GetCoreSchemaHandler
-    ):
+    def __get_validators__(cls):
         """Implemented for pydantic validation. Should not be used externally."""
-        return core_schema.no_info_after_validator_function(cls, handler(float))
+        yield cls.validate
 
     @classmethod
     def validate(cls, v, *args, **kwargs):
@@ -647,6 +641,11 @@ class TimeRange(BaseModel):
             start, end = start_.start, start_.end
         end = start if end is None else end
         super().__init__(start=TimeStamp(start), end=TimeStamp(end))
+
+    @classmethod
+    def __get_validators__(cls):
+        """Implemented for pydantic validation. Should not be used externally."""
+        yield cls.validate
 
     @classmethod
     def validate(cls, v, *args, **kwargs):
@@ -767,11 +766,9 @@ class Density(int):
         raise TypeError(f"Cannot convert {type(value)} to Density")
 
     @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: GetCoreSchemaHandler
-    ):
+    def __get_validators__(cls):
         """Implemented for pydantic validation. Should not be used externally."""
-        return core_schema.no_info_after_validator_function(cls, handler(int))
+        yield cls.validate
 
     @classmethod
     def validate(cls, v, *args, **kwargs):
@@ -978,11 +975,9 @@ class DataType(str):
         raise TypeError(f"Cannot convert {type(value)} to DataType")
 
     @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: GetCoreSchemaHandler
-    ):
+    def __get_validators__(cls):
         """Implemented for pydantic validation. Should not be used externally."""
-        return core_schema.no_info_after_validator_function(cls, handler(str))
+        yield cls.validate
 
     @classmethod
     def validate(cls, v, *args, **kwargs):
@@ -1010,8 +1005,10 @@ class DataType(str):
         return cast(np.dtype, npt)
 
     @property
-    def is_variable(self) -> bool:
-        return self == DataType.STRING or self == DataType.JSON
+    def has_fixed_density(self) -> bool:
+        """:returns: True if the DataType has a fixed density"""
+        d = DataType._DENSITIES.get(self, None)
+        return d is not None and d != Density.UNKNOWN
 
     @property
     def has_np(self) -> bool:

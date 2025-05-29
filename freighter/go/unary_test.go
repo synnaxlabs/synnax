@@ -11,10 +11,6 @@ package freighter_test
 
 import (
 	"context"
-	"log"
-	"net/http"
-	"time"
-
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,6 +18,9 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/httputil"
+	"log"
+	"net/http"
+	"time"
 )
 
 type (
@@ -110,7 +109,7 @@ func (h *httpUnaryImplementation) start(host address.Address) (unaryServer, unar
 	factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
 		Codec: httputil.JSONCodec,
 	})
-	server := fhttp.UnaryServer[request, response](router, "/")
+	server := fhttp.UnaryServer[request, response](router, false, "/")
 	client := fhttp.UnaryClient[request, response](factory)
 	router.BindTo(h.app)
 	h.app.Get("/health", func(c *fiber.Ctx) error {

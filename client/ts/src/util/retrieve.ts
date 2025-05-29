@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type primitive, toArray } from "@synnaxlabs/x";
+import { type Primitive, toArray } from "@synnaxlabs/x";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
 
 export type SingleParamAnalysisResult<
-  T extends primitive.Value,
+  T extends Primitive,
   K extends PartialTypeNameRecord<T>,
 > = T extends any
   ? { single: true; variant: K[keyof K]; normalized: T[]; actual: T }
   : never;
 
 export type MultiParamAnalysisResult<
-  T extends primitive.Value,
+  T extends Primitive,
   K extends PartialTypeNameRecord<T>,
 > = T extends any
   ? { single: false; variant: K[keyof K]; normalized: T[]; actual: T[] }
@@ -37,12 +37,12 @@ type TypeName<T> = T extends string
           ? "function"
           : "object";
 
-export type PartialTypeNameRecord<T extends primitive.Value> = Partial<
+export type PartialTypeNameRecord<T extends Primitive> = Partial<
   Record<TypeName<T>, string>
 >;
 
 export type ParamAnalysisResult<
-  T extends primitive.Value,
+  T extends Primitive,
   K extends PartialTypeNameRecord<T> = PartialTypeNameRecord<T>,
 > = SingleParamAnalysisResult<T, K> | MultiParamAnalysisResult<T, K>;
 
@@ -51,7 +51,7 @@ export interface AnalyzeParamsOptions {
 }
 
 export const analyzeParams = <
-  T extends primitive.Value = primitive.Value,
+  T extends Primitive = Primitive,
   K extends PartialTypeNameRecord<T> = PartialTypeNameRecord<T>,
 >(
   args: T extends any ? T | T[] : never,

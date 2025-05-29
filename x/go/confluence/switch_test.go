@@ -11,7 +11,6 @@ package confluence_test
 
 import (
 	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/address"
@@ -84,7 +83,7 @@ var _ = Describe("Switch", func() {
 				}
 				sw.Flow(ctx, CloseOutputInletsOnExit(), WithAddress("toCoverThis"))
 				input.Inlet() <- 1
-				Expect(ctx.Wait()).To(MatchError(address.ErrNotFound))
+				Expect(ctx.Wait()).To(MatchError(address.NotFound))
 
 			})
 		})

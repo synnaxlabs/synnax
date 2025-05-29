@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { primitive } from "@/primitive";
+import { isStringer, type Primitive } from "@/primitive";
 import { type spatial } from "@/spatial";
 import { unique } from "@/unique";
 
@@ -22,7 +22,7 @@ export type CompareF<T> = (a: T, b: T) => number;
  * @param reverse Whether to reverse the sort order.
  */
 export const newF = <T>(v: T, reverse: boolean = false): CompareF<T> => {
-  const t = primitive.isStringer(v) ? "stringer" : typeof v;
+  const t = isStringer(v) ? "stringer" : typeof v;
   let f: CompareF<T>;
   switch (t) {
     case "string":
@@ -75,7 +75,7 @@ export const newFieldF = <T>(
  * @returns The array with the greater length if the array lengths are not equal. If the
  * arrays are the same length, returns 0 if all elements are equal, otherwise returns -1.
  */
-export const primitiveArrays = <T extends primitive.Value>(
+export const primitiveArrays = <T extends Primitive>(
   a: readonly T[] | T[],
   b: readonly T[] | T[],
 ): number => {
@@ -83,7 +83,7 @@ export const primitiveArrays = <T extends primitive.Value>(
   return a.every((v, i) => v === b[i]) ? 0 : -1;
 };
 
-export const unorderedPrimitiveArrays = <T extends primitive.Value>(
+export const unorderedPrimitiveArrays = <T extends Primitive>(
   a: readonly T[] | T[],
   b: readonly T[] | T[],
 ): number => {
@@ -95,7 +95,7 @@ export const unorderedPrimitiveArrays = <T extends primitive.Value>(
   return aSorted.every((v, i) => v === bSorted[i]) ? 0 : -1;
 };
 
-export const uniqueUnorderedPrimitiveArrays = <T extends primitive.Value>(
+export const uniqueUnorderedPrimitiveArrays = <T extends Primitive>(
   a: readonly T[] | T[],
   b: readonly T[] | T[],
 ): number => {

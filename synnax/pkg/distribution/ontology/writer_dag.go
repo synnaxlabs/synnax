@@ -11,8 +11,6 @@ package ontology
 
 import (
 	"context"
-	"maps"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -171,7 +169,9 @@ func (d dagWriter) retrieveDescendants(ctx context.Context, id ID) (map[ID]Resou
 		if err != nil {
 			return nil, err
 		}
-		maps.Copy(descendants, childDescendants)
+		for k, v := range childDescendants {
+			descendants[k] = v
+		}
 		descendants[child.ID] = child
 	}
 	return descendants, nil

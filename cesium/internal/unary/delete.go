@@ -11,13 +11,10 @@ package unary
 
 import (
 	"context"
-
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/x/config"
-	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -39,35 +36,40 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	return db.wrapError(db.domain.GarbageCollect(ctx))
 }
 
-func (db *DB) lockControllerForNonWriteOp(tr telem.TimeRange, opName string) (release func(), err error) {
-	g, _, err := db.controller.OpenGate(control.GateConfig[*controlledWriter]{
-		ErrIfControlled: config.True(),
-		TimeRange:       tr,
-		Authority:       xcontrol.AuthorityAbsolute,
-		Subject:         xcontrol.Subject{Key: uuid.NewString(), Name: opName},
-		OpenResource: func() (*controlledWriter, error) {
-			return &controlledWriter{Writer: nil, channelKey: db.cfg.Channel.Key}, nil
-		},
-	})
-	return func() { g.Release() }, err
-}
-
 func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 	if !tr.Valid() {
 		return errors.Newf("delete start %d cannot be after delete end %d", tr.Start, tr.End)
 	}
-	release, err := db.lockControllerForNonWriteOp(tr, "delete")
+
+	// Open an absolute gate to avoid deleting a time range in write.
+	g, _, err := db.controller.OpenAbsoluteGateIfUncontrolled(
+		tr,
+		control.Subject{Key: uuid.NewString(), Name: "delete_writer"},
+		func() (*controlledWriter, error) {
+			return &controlledWriter{Writer: nil, channelKey: db.cfg.Channel.Key}, nil
+		})
 	if err != nil {
 		return err
 	}
-	defer release()
-	return db.domain.Delete(ctx, tr, db.calculateStartOffset, db.calculateEndOffset)
+
+	_, err = g.Authorize()
+	if err != nil {
+		return err
+	}
+	defer g.Release()
+
+	return db.domain.Delete(
+		ctx,
+		db.calculateStartOffset,
+		db.calculateEndOffset,
+		tr,
+		db.cfg.Channel.DataType.Density(),
+	)
 }
 
-// calculateStartOffset calculates the distance from a domain's start to the given time
-// stamp. Additionally, it "snaps" the time stamp to the nearest previous sample + 1.
-// calculateOffset returns the calculated offset, the "snapped" time stamp, and any
-// errors.
+// calculateStartOffset calculates the distance from a domain's start to the given time stamp.
+// Additionally, it "snaps" the time stamp to the nearest previous sample + 1.
+// calculateOffset returns the calculated offset, the "snapped" time stamp, and any errors.
 //
 // **THIS METHOD SHOULD NOT BE CALLED BY UNARY!** It should only be passed as a closure
 // to domain.Delete.
@@ -112,76 +114,55 @@ func (db *DB) calculateStartOffset(
 	ctx context.Context,
 	domainStart telem.TimeStamp,
 	ts telem.TimeStamp,
-) (telem.Size, telem.TimeStamp, error) {
+) (int64, telem.TimeStamp, error) {
 	var (
-		sampleOffset int64
-		approxStamp  index.TimeStampApproximation
-		density      = db.cfg.Channel.DataType.Density()
+		offset      int64
+		approxStamp index.TimeStampApproximation
 	)
 
-	approxDist, _, err := db.index().Distance(
-		ctx,
-		telem.TimeRange{Start: domainStart, End: ts},
-		index.MustBeContinuous,
-	)
+	approxDist, _, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
 	if err != nil {
 		return 0, ts, err
 	}
-	sampleOffset = approxDist.Upper
+	offset = approxDist.Upper
 	if !approxDist.Exact() {
 		if !approxDist.StartExact && !approxDist.EndExact {
-			// If both start and end are inexact, sampleOffset is in between the two.
-			// (Note that the start is only inexact because of domain cutoff).
-			sampleOffset = (approxDist.Lower + approxDist.Upper) / 2
-			// We stamp to sampleOffset - 1 here since if we are approximating the start
-			// sampleOffset, we want to stamp the last written sample.
-			if sampleOffset == 0 {
-				return density.Size(sampleOffset), ts, nil
+			// If both start and end are inexact, offset is in between the two. (Note
+			// that the start is only inexact because of domain cutoff).
+			offset = (approxDist.Lower + approxDist.Upper) / 2
+			// We stamp to offset - 1 here since if we are approximating the start offset,
+			// we want to stamp the last written sample.
+			if offset == 0 {
+				return offset, ts, err
 			}
-			approxStamp, err = db.index().Stamp(
-				ctx,
-				domainStart,
-				sampleOffset-1,
-				index.MustBeContinuous,
-			)
+			approxStamp, err = db.index().Stamp(ctx, domainStart, offset-1, true)
 			if err != nil {
-				return 0, 0, err
+				return offset, ts, err
 			}
 			ts = approxStamp.Upper + 1
 		} else if !approxDist.StartExact {
 			// If start is inexact, we must use the lower approximation. (Note that the
 			// start is only inexact because of domain cutoff).
-			sampleOffset = approxDist.Lower
-			approxStamp, err = db.index().Stamp(
-				ctx,
-				domainStart,
-				sampleOffset-1,
-				index.MustBeContinuous,
-			)
+			offset = approxDist.Lower
+			approxStamp, err = db.index().Stamp(ctx, domainStart, offset-1, true)
 			if err != nil {
-				return 0, 0, err
+				return offset, ts, err
 			}
 			ts = approxStamp.Lower + 1
 		} else {
-			approxStamp, err = db.index().Stamp(
-				ctx,
-				domainStart,
-				sampleOffset-1,
-				index.MustBeContinuous,
-			)
+			approxStamp, err = db.index().Stamp(ctx, domainStart, offset-1, true)
 			if err != nil {
-				return 0, 0, err
+				return offset, ts, err
 			}
 			ts = approxStamp.Upper + 1
 		}
 	}
-	return density.Size(sampleOffset), ts, nil
+	return offset, ts, nil
 }
 
-// calculateEndOffset calculates the distance from a domain's start to the given time
-// stamp. Additionally, it "snaps" the time stamp to the nearest next sample.
-// calculateOffset returns the calculated offset, the "snapped" time stamp, and any
-// errors.
+// calculateEndOffset calculates the distance from a domain's start to the given time stamp.
+// Additionally, it "snaps" the time stamp to the nearest next sample.
+// calculateOffset returns the calculated offset, the "snapped" time stamp, and any errors.
 //
 // **THIS METHOD SHOULD NOT BE CALLED BY UNARY!** It should only be passed as a closure
 // to domain.Delete.
@@ -189,64 +170,45 @@ func (db *DB) calculateEndOffset(
 	ctx context.Context,
 	domainStart telem.TimeStamp,
 	ts telem.TimeStamp,
-) (telem.Size, telem.TimeStamp, error) {
+) (int64, telem.TimeStamp, error) {
 	var (
-		sampleOffset int64
-		approxStamp  index.TimeStampApproximation
-		density      = db.cfg.Channel.DataType.Density()
+		offset      int64
+		approxStamp index.TimeStampApproximation
 	)
 
-	approxDist, _, err := db.index().Distance(
-		ctx,
-		telem.TimeRange{Start: domainStart, End: ts},
-		index.MustBeContinuous,
-	)
+	approxDist, _, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
 	if err != nil {
 		return 0, ts, err
 	}
-	sampleOffset = approxDist.Upper
+	offset = approxDist.Upper
 	if !approxDist.Exact() {
 		if !approxDist.StartExact && !approxDist.EndExact {
-			// If both start and end are inexact, sampleOffset is in between the two. (Note
+			// If both start and end are inexact, offset is in between the two. (Note
 			// that the start is only inexact because of domain cutoff).
-			sampleOffset = (approxDist.Lower + approxDist.Upper) / 2
-			// We stamp to sampleOffset - 1 here since if we are approximating the start sampleOffset,
+			offset = (approxDist.Lower + approxDist.Upper) / 2
+			// We stamp to offset - 1 here since if we are approximating the start offset,
 			// we want to stamp the last written sample.
-			if approxStamp, err = db.index().Stamp(
-				ctx,
-				domainStart,
-				sampleOffset,
-				index.MustBeContinuous,
-			); err != nil {
-				return 0, 0, err
+			approxStamp, err = db.index().Stamp(ctx, domainStart, offset, true)
+			if err != nil {
+				return offset, ts, err
 			}
 			ts = approxStamp.Lower
 		} else if !approxDist.StartExact {
 			// If start is inexact, we must use the lower approximation. (Note that the
 			// start is only inexact because of domain cutoff).
-			sampleOffset = approxDist.Lower
-			approxStamp, err = db.index().Stamp(
-				ctx,
-				domainStart,
-				sampleOffset,
-				index.MustBeContinuous,
-			)
+			offset = approxDist.Lower
+			approxStamp, err = db.index().Stamp(ctx, domainStart, offset, true)
 			if err != nil {
-				return 0, 0, err
+				return offset, ts, err
 			}
 			ts = approxStamp.Upper
 		} else {
-			approxStamp, err = db.index().Stamp(
-				ctx,
-				domainStart,
-				sampleOffset,
-				index.MustBeContinuous,
-			)
+			approxStamp, err = db.index().Stamp(ctx, domainStart, offset, true)
 			if err != nil {
-				return 0, 0, err
+				return offset, ts, err
 			}
 			ts = approxStamp.Lower
 		}
 	}
-	return density.Size(sampleOffset), ts, nil
+	return offset, ts, nil
 }

@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -41,84 +40,53 @@ type StreamerResponse struct {
 }
 
 // Streamer allows the caller to tap into the DB's write pipeline using a confluence
-// Segment based interface. To use a Streamer, call DB.NewStreamer with a list of
-// channels whose series you'd like to receive. Then, call Streamer.Flow to start
+// Segment based interface. To use a Streamer, call DB.NewStreamer with a list
+// of channels whose series you'd like to receive. Then, call Streamer.Flow to start
 // receiving frames.
 //
-// Streamer must be used carefully, as it can clog the write pipeline if the caller does
-// not receive the incoming frames fast enough. It's recommended that you use a buffered
-// channel for the readers output.
+// Streamer must be used carefully, as it can clog the write pipeline if the caller
+// does not receive the incoming frames fast enough. It's recommended that you use a
+// buffered channel for the readers output.
 //
 // Issuing a new StreamerRequest updates the set of channels the stream reader
 // subscribes to.
 //
-// To stop receiving values, simply close the inlet of the streamer. The streamer will
-// then gracefully exit and close its output channel.
-type Streamer[RQ any, RS any] = confluence.Segment[RQ, RS]
+// To stop receiving values, simply close the inlet of the streamer. The streamer will then
+// gracefully exit and close its output channel.
+type Streamer = confluence.Segment[StreamerRequest, StreamerResponse]
 
-func passThroughStreamerRequestTranslator(req StreamerRequest) StreamerRequest {
-	return req
-}
-
-func passThroughStreamerResponseTranslator(res StreamerResponse) StreamerResponse {
-	return res
-}
-
-// NewStreamer opens a new Streamer using the given configuration. To start receiving
-// frames, call Streamer.Flow. The provided context is only used for opening the
-// streamer, and cancelling it has no implications after NewStreamer returns.
-func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[StreamerRequest, StreamerResponse], error) {
-	return NewTranslatedStreamer(
-		ctx,
-		db,
-		cfg,
-		passThroughStreamerRequestTranslator,
-		passThroughStreamerResponseTranslator,
-	)
-
-}
-
-func NewTranslatedStreamer[I any, O any](
-	_ context.Context,
-	db *DB,
-	cfg StreamerConfig,
-	translateRequest func(I) StreamerRequest,
-	translateResponse func(response StreamerResponse) O,
-) (Streamer[I, O], error) {
+// NewStreamer opens a new Streamer using the given configuration. To start
+// receiving frames, call Streamer.Flow. The provided context is only used for
+// opening the streamer, and cancelling it has no implications after NewStreamer
+// returns.
+func (db *DB) NewStreamer(_ context.Context, cfg StreamerConfig) (Streamer, error) {
 	if db.closed.Load() {
 		return nil, errDBClosed
 	}
-	return &streamer[I, O]{
-		StreamerConfig:    cfg,
-		relay:             db.relay,
-		translateResponse: translateResponse,
-		translateRequest:  translateRequest,
-	}, nil
+	return &streamer{StreamerConfig: cfg, relay: db.relay}, nil
 }
 
-type streamer[I any, O any] struct {
+type streamer struct {
 	StreamerConfig
-	confluence.AbstractLinear[I, O]
-	relay             *relay
-	translateRequest  func(I) StreamerRequest
-	translateResponse func(StreamerResponse) O
+	confluence.AbstractLinear[StreamerRequest, StreamerResponse]
+	relay *relay
 }
 
-var _ Streamer[StreamerRequest, StreamerResponse] = (*streamer[StreamerRequest, StreamerResponse])(nil)
+var _ Streamer = (*streamer)(nil)
+
+// relayBufferSize is set to 100 to give ample room for the streamer to not block
+// writes to the DB.
+const relayBufferSize = 100
 
 // Flow implements confluence.Flow.
-func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
+func (s *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
-	frames, disconnect := s.relay.connect()
+	frames, disconnect := s.relay.connect(relayBufferSize)
 	sCtx.Go(func(ctx context.Context) error {
 		defer disconnect()
 		if s.SendOpenAck {
-			if err := signal.SendUnderContext(
-				ctx,
-				s.Out.Inlet(),
-				s.translateResponse(StreamerResponse{}),
-			); err != nil {
+			if err := signal.SendUnderContext(ctx, s.Out.Inlet(), StreamerResponse{}); err != nil {
 				return err
 			}
 		}
@@ -130,16 +98,18 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return nil
 				}
-				s.Channels = s.translateRequest(req).Channels
+				s.Channels = req.Channels
 			case f := <-frames.Outlet():
-				if filtered := f.FilterKeys(s.Channels); !filtered.Empty() {
-					if err := signal.SendUnderContext(
-						ctx,
-						s.Out.Inlet(),
-						s.translateResponse(StreamerResponse{Frame: filtered}),
-					); err != nil {
-						return err
-					}
+				filtered := f.FilterKeys(s.Channels)
+				if len(filtered.Keys) == 0 {
+					continue
+				}
+				if err := signal.SendUnderContext(
+					ctx,
+					s.Out.Inlet(),
+					StreamerResponse{Frame: filtered},
+				); err != nil {
+					return err
 				}
 			}
 		}

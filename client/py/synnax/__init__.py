@@ -30,6 +30,7 @@ from synnax.exceptions import (
 )
 from synnax.framer import (
     AUTO_SPAN,
+    BufferedWriter,
     Frame,
     Iterator,
     Streamer,
@@ -69,6 +70,7 @@ from synnax.user.payload import User
 
 __all__ = [
     "AUTO_SPAN",
+    "BufferedWriter",
     "AuthError",
     "Authority",
     "Bounds",

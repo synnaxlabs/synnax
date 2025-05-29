@@ -11,7 +11,6 @@ package domain
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"math"
 	"os"
@@ -20,10 +19,8 @@ import (
 	"sync/atomic"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -31,6 +28,10 @@ const extension = ".domain"
 
 func fileKeyToName(key uint16) string {
 	return strconv.Itoa(int(key)) + extension
+}
+
+func newErrEntityInUse(entity string, fileKey uint16) error {
+	return errors.Newf("%s for file %d is in use and cannot be closed", entity, fileKey)
 }
 
 // fileReaders represents readers on a file. It provides a mutex lock to prevent any
@@ -47,7 +48,7 @@ type fileController struct {
 		open map[uint16]controlledWriter
 		// unopened is a set of file keys to files that are not oversize and do not have
 		// any file handles for them in open.
-		unopened set.Set[uint16]
+		unopened map[uint16]struct{}
 	}
 	readers struct {
 		sync.RWMutex
@@ -77,22 +78,22 @@ func openFileController(cfg Config) (*fileController, error) {
 	fc.writers.open = make(map[uint16]controlledWriter, cfg.MaxDescriptors)
 	fc.readers.files = make(map[uint16]*fileReaders)
 	fc.release = make(chan struct{}, cfg.MaxDescriptors)
-	if fc.writers.unopened, err = fc.scanUnopenedFiles(); err != nil {
-		return nil, err
-	}
-	return fc, nil
+
+	fc.writers.unopened, err = fc.scanUnopenedFiles()
+	return fc, err
 }
 
-// realFileSizeCap returns the maximum allowed size of a file — though it may be
-// exceeded if commits are sparse. fc.Config.Filesize is the nominal file size to not
-// exceed, in reality, this value is set to 0.8 * the actual file size cap, therefore
-// the real value is 1.25 * the nominal value.
+// realFileSizeCap returns the maximum allowed size of a file – though it may be exceeded
+// if commits are sparse.
+// fc.Config.Filesize is the nominal file size to not exceed, in reality, this value
+// is set to 0.8 * the actual file size cap, therefore the real value is 1.25 * the nominal
+// value.
 func (fc *fileController) realFileSizeCap() telem.Size {
 	return telem.Size(math.Round(1.25 * float64(fc.FileSize)))
 }
 
-func (fc *fileController) scanUnopenedFiles() (set.Set[uint16], error) {
-	unopened := make(set.Set[uint16])
+func (fc *fileController) scanUnopenedFiles() (map[uint16]struct{}, error) {
+	unopened := make(map[uint16]struct{})
 	for i := 1; i <= int(fc.counter.Value()); i++ {
 		e, err := fc.Config.FS.Exists(fileKeyToName(uint16(i)))
 		if err != nil {
@@ -107,7 +108,7 @@ func (fc *fileController) scanUnopenedFiles() (set.Set[uint16], error) {
 			return unopened, err
 		}
 		if s.Size() < int64(fc.FileSize) {
-			unopened.Add(uint16(i))
+			unopened[uint16(i)] = struct{}{}
 		}
 	}
 
@@ -124,7 +125,7 @@ func (fc *fileController) scanUnopenedFiles() (set.Set[uint16], error) {
 // 3. If no unopened files are available, then the file controller creates a new file
 // handle to a new file, as governed by counter.
 func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio.TrackedWriteCloser, error) {
-	ctx, span := fc.T.Bench(ctx, "acquire_writer")
+	ctx, span := fc.T.Bench(ctx, "acquireWriter")
 	defer span.End()
 
 	fc.writers.RLock()
@@ -174,7 +175,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 // attempts to create a file handle for files from the directory that are not at
 // capacity. If there is none, it creates a new file and increments the counter.
 func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int64, error) {
-	_, span := fc.T.Bench(ctx, "new_writer")
+	ctx, span := fc.T.Bench(ctx, "newWriter")
 	fc.writers.Lock()
 
 	defer func() {
@@ -201,16 +202,13 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		}
 		w := controlledWriter{
 			TrackedWriteCloser: base,
-			controllerEntry:    newPoolEntry(key, fc.release, fc.Instrumentation),
+			controllerEntry:    newPoolEntry(key, fc.release),
 		}
 		fc.writers.open[key] = w
 		delete(fc.writers.unopened, key)
 
 		s, err := file.Stat()
-		if err != nil {
-			return nil, 0, span.Error(err)
-		}
-		return &w, s.Size(), nil
+		return &w, s.Size(), span.Error(err)
 	}
 
 	if lastFileKey != 0 {
@@ -224,15 +222,12 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		}
 		w := controlledWriter{
 			TrackedWriteCloser: base,
-			controllerEntry:    newPoolEntry(lastFileKey, fc.release, fc.Instrumentation),
+			controllerEntry:    newPoolEntry(lastFileKey, fc.release),
 		}
 		fc.writers.open[lastFileKey] = w
 		delete(fc.writers.unopened, lastFileKey)
 
 		s, err := file.Stat()
-		if err != nil {
-			return nil, 0, span.Error(err)
-		}
 		return &w, s.Size(), span.Error(err)
 	}
 
@@ -254,14 +249,14 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 	}
 	w := controlledWriter{
 		TrackedWriteCloser: base,
-		controllerEntry:    newPoolEntry(nextKey, fc.release, fc.Instrumentation),
+		controllerEntry:    newPoolEntry(nextKey, fc.release),
 	}
 	fc.writers.open[nextKey] = w
 	return &w, 0, nil
 }
 
 func (fc *fileController) acquireReader(ctx context.Context, key uint16) (*controlledReader, error) {
-	ctx, span := fc.T.Bench(ctx, "acquire_reader")
+	ctx, span := fc.T.Bench(ctx, "acquireReader")
 	defer span.End()
 
 	fc.readers.RLock()
@@ -302,7 +297,7 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (*contr
 }
 
 func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlledReader, error) {
-	_, span := fc.T.Bench(ctx, "new_reader")
+	ctx, span := fc.T.Bench(ctx, "newReader")
 	defer span.End()
 	file, err := fc.FS.Open(
 		fileKeyToName(key),
@@ -314,7 +309,7 @@ func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlle
 
 	r := controlledReader{
 		ReaderAtCloser:  file,
-		controllerEntry: newPoolEntry(key, fc.release, fc.Instrumentation),
+		controllerEntry: newPoolEntry(key, fc.release),
 	}
 	fc.readers.Lock()
 	f, ok := fc.readers.files[key]
@@ -389,14 +384,15 @@ func (fc *fileController) hasWriter(fileKey uint16) bool {
 }
 
 // rejuvenate adds a file key to the unopened writers set. If there is an open writer
-// for it, it is removed. rejuvenate is called after a file is garbage collected.
+// for it, it is removed.
+// rejuvenate is called after a file is garbage collected.
 func (fc *fileController) rejuvenate(fileKey uint16) error {
 	fc.writers.Lock()
 	defer fc.writers.Unlock()
 
 	if w, ok := fc.writers.open[fileKey]; ok {
 		if !w.tryAcquire() {
-			return newErrResourceInUse("writer", fileKey)
+			return newErrEntityInUse("writer", fileKey)
 		}
 		if err := w.TrackedWriteCloser.Close(); err != nil {
 			return err
@@ -441,7 +437,7 @@ func (fc *fileController) close() error {
 	for _, w := range fc.writers.open {
 		c.Exec(func() error {
 			if !w.tryAcquire() {
-				return newErrResourceInUse("writer", w.fileKey)
+				return newErrEntityInUse("writer", w.fileKey)
 			}
 			return w.HardClose()
 		})
@@ -451,7 +447,7 @@ func (fc *fileController) close() error {
 		for _, r := range f.open {
 			c.Exec(func() error {
 				if !r.tryAcquire() {
-					return newErrResourceInUse("reader", r.fileKey)
+					return newErrEntityInUse("reader", r.fileKey)
 				}
 				return r.HardClose()
 			})
@@ -505,27 +501,25 @@ func (c *controlledReader) HardClose() error {
 }
 
 type controllerEntry struct {
-	ins     alamos.Instrumentation
-	inUse   *atomic.Bool
+	// flag is "true" when the controlled entity is currently in use.
+	flag    *atomic.Bool
 	fileKey uint16
 	release chan struct{}
 }
 
-func newPoolEntry(key uint16, release chan struct{}, ins alamos.Instrumentation) controllerEntry {
+func newPoolEntry(key uint16, release chan struct{}) controllerEntry {
 	ce := controllerEntry{
-		ins:     ins,
 		release: release,
 		fileKey: key,
-		inUse:   &atomic.Bool{},
+		flag:    &atomic.Bool{},
 	}
-	ce.inUse.Store(true)
+	ce.flag.Store(true)
 	return ce
 }
 
 func (ce *controllerEntry) Close() error {
-	if !ce.inUse.CompareAndSwap(true, false) {
-		ce.ins.L.DPanic(fmt.Sprintf("controller: entry %d already closed", ce.fileKey))
-		return nil
+	if !ce.flag.CompareAndSwap(true, false) {
+		panic("controller: entry already closed")
 	}
 	select {
 	case ce.release <- struct{}{}:
@@ -535,5 +529,5 @@ func (ce *controllerEntry) Close() error {
 }
 
 func (ce *controllerEntry) tryAcquire() bool {
-	return ce.inUse.CompareAndSwap(false, true)
+	return ce.flag.CompareAndSwap(false, true)
 }

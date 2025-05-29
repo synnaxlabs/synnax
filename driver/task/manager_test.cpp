@@ -18,7 +18,6 @@
 #include "client/cpp/testutil/testutil.h"
 #include "driver/task/task.h"
 #include "x/cpp/status/status.h"
-#include "x/cpp/xtest/xtest.h"
 
 
 using json = nlohmann::json;
@@ -210,8 +209,9 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
         "test_command",
         json{{"message", "hello world"}}
     );
-    ASSERT_NIL(writer.write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json()))
-    ));
+    auto ok = writer.write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json()))
+    );
+    ASSERT_TRUE(ok);
     auto w_close_err = writer.close();
     ASSERT_FALSE(w_close_err) << w_close_err;
 

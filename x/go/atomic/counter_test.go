@@ -14,19 +14,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xatomic "github.com/synnaxlabs/x/atomic"
+	"github.com/synnaxlabs/x/atomic"
 )
 
-var _ = Describe("Counter", func() {
+var _ = Describe("SeqNum", func() {
 	Describe("Int32Counter", func() {
 		It("Should increment the counter atomically", func() {
 			wg := sync.WaitGroup{}
-			c := xatomic.Int32Counter{}
+			c := atomic.Int32Counter{}
 			wg.Add(10)
-			for range 10 {
+			for i := 0; i < 10; i++ {
 				go func() {
 					defer wg.Done()
-					for i := range 1000 {
+					for i := 0; i < 1000; i++ {
 						if i == 0 {
 							c.Add(1)
 						} else if i == 1 {
@@ -44,12 +44,12 @@ var _ = Describe("Counter", func() {
 	Describe("Int64Counter", func() {
 		It("Should increment the counter atomically", func() {
 			wg := sync.WaitGroup{}
-			c := xatomic.Int64Counter{}
+			c := atomic.Int64Counter{}
 			wg.Add(10)
-			for range 10 {
+			for i := 0; i < 10; i++ {
 				go func() {
 					defer wg.Done()
-					for range 1000 {
+					for i := 0; i < 1000; i++ {
 						c.Add(1)
 					}
 				}()
@@ -57,14 +57,5 @@ var _ = Describe("Counter", func() {
 			wg.Wait()
 			Expect(c.Value()).To(Equal(int64(10000)))
 		})
-
-		Describe("Set", func() {
-			It("Should set the counter value", func() {
-				c := xatomic.Int64Counter{}
-				c.Set(42)
-				Expect(c.Value()).To(Equal(int64(42)))
-			})
-		})
 	})
-
 })

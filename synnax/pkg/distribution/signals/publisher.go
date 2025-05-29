@@ -11,8 +11,6 @@ package signals
 
 import (
 	"context"
-	"io"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -29,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"io"
 )
 
 // ObservablePublisherConfig is the configuration for opening a Signals pipeline that subscribes
@@ -135,24 +134,26 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 				}
 			}
 			if len(sets.Data) > 0 {
-				frame = frame.Append(cfg.SetChannel.Key(), sets)
+				frame.Keys = []channel.Key{cfg.SetChannel.Key()}
+				frame.Series = []telem.Series{sets}
 			}
 			if len(deletes.Data) > 0 {
-				frame = frame.Append(cfg.DeleteChannel.Key(), deletes)
+				frame.Keys = append(frame.Keys, cfg.DeleteChannel.Key())
+				frame.Series = append(frame.Series, deletes)
 			}
-			return framer.WriterRequest{Command: writer.Write, Frame: frame}, true, nil
+			return framer.WriterRequest{Command: writer.Data, Frame: frame}, true, nil
 		},
 	}
 	p := plumber.New()
-	plumber.SetSource(p, "source", t)
-	plumber.SetSegment(p, "writer", w)
+	plumber.SetSource[framer.WriterRequest](p, "source", t)
+	plumber.SetSegment[framer.WriterRequest, framer.WriterResponse](p, "writer", w)
 	responses := &confluence.UnarySink[framer.WriterResponse]{
 		Sink: func(ctx context.Context, value framer.WriterResponse) error {
-			s.Instrumentation.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
+			s.Instrumentation.L.Error("unexpected writer response", zap.Bool("ack", value.Ack))
 			return nil
 		},
 	}
-	plumber.SetSink(p, "responses", responses)
+	plumber.SetSink[framer.WriterResponse](p, "responses", responses)
 	plumber.MustConnect[framer.WriterRequest](p, "source", "writer", 10)
 	plumber.MustConnect[framer.WriterResponse](p, "writer", "responses", 10)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation.Child(lo.Ternary(cfg.Name != "", cfg.Name, cfg.SetChannel.Name))))

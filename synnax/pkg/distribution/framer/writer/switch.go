@@ -11,7 +11,6 @@ package writer
 
 import (
 	"context"
-
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -42,7 +41,7 @@ func (rs *peerSwitchSender) _switch(
 	r Request,
 	oReqs map[address.Address]Request,
 ) error {
-	if r.Command == Write {
+	if r.Command == Data {
 		for nodeKey, frame := range r.Frame.SplitByLeaseholder() {
 			addr, ok := rs.addresses[nodeKey]
 			if !ok {

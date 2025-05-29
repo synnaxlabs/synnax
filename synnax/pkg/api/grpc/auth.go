@@ -11,7 +11,6 @@ package grpc
 
 import (
 	"context"
-
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/x/telem"
 

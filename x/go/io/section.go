@@ -9,7 +9,9 @@
 
 package io
 
-import "io"
+import (
+	"io"
+)
 
 type SectionReaderAtCloser struct {
 	io.ReaderAt
@@ -18,5 +20,6 @@ type SectionReaderAtCloser struct {
 
 func NewSectionReaderAtCloser(r ReaderAtCloser, off int64, n int64) *SectionReaderAtCloser {
 	sectionReader := io.NewSectionReader(r, off, n)
+
 	return &SectionReaderAtCloser{ReaderAt: sectionReader, Closer: r}
 }

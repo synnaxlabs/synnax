@@ -26,61 +26,30 @@ type Calculator struct {
 }
 
 // LValueFromSeries converts a numeric series value at an index to a lua value.
-func LValueFromSeries(s telem.Series, i int) lua.LValue {
-	switch s.DataType {
+func LValueFromSeries(series telem.Series, index int64) lua.LValue {
+	switch series.DataType {
 	case telem.Int8T:
-		return lua.LNumber(telem.ValueAt[int8](s, i))
+		return lua.LNumber(telem.ValueAt[int8](series, index))
 	case telem.Int16T:
-		return lua.LNumber(telem.ValueAt[int16](s, i))
+		return lua.LNumber(telem.ValueAt[int16](series, index))
 	case telem.Int32T:
-		return lua.LNumber(telem.ValueAt[int32](s, i))
+		return lua.LNumber(telem.ValueAt[int32](series, index))
 	case telem.Int64T:
-		return lua.LNumber(telem.ValueAt[int64](s, i))
+		return lua.LNumber(telem.ValueAt[int64](series, index))
 	case telem.Uint8T:
-		return lua.LNumber(telem.ValueAt[uint8](s, i))
+		return lua.LNumber(telem.ValueAt[uint8](series, index))
 	case telem.Uint16T:
-		return lua.LNumber(telem.ValueAt[uint16](s, i))
+		return lua.LNumber(telem.ValueAt[uint16](series, index))
 	case telem.Uint32T:
-		return lua.LNumber(telem.ValueAt[uint32](s, i))
+		return lua.LNumber(telem.ValueAt[uint32](series, index))
 	case telem.Uint64T:
-		return lua.LNumber(telem.ValueAt[uint64](s, i))
+		return lua.LNumber(telem.ValueAt[uint64](series, index))
 	case telem.Float32T:
-		return lua.LNumber(telem.ValueAt[float32](s, i))
+		return lua.LNumber(telem.ValueAt[float32](series, index))
 	case telem.Float64T:
-		return lua.LNumber(telem.ValueAt[float64](s, i))
+		return lua.LNumber(telem.ValueAt[float64](series, index))
 	case telem.StringT:
-		return lua.LString(s.At(i))
-	default:
-		return lua.LNil
-	}
-}
-
-// LValueFromMultiSeriesAlignment gets the value in the multi-series at the given
-// alignment and converts it into an LValue with the correct data type.
-func LValueFromMultiSeriesAlignment(series telem.MultiSeries, a telem.Alignment) lua.LValue {
-	switch series.DataType() {
-	case telem.Int8T:
-		return lua.LNumber(telem.MultiSeriesAtAlignment[int8](series, a))
-	case telem.Int16T:
-		return lua.LNumber(telem.MultiSeriesAtAlignment[int16](series, a))
-	case telem.Int32T:
-		return lua.LNumber(telem.MultiSeriesAtAlignment[int32](series, a))
-	case telem.Int64T:
-		return lua.LNumber(telem.MultiSeriesAtAlignment[int64](series, a))
-	case telem.Uint8T:
-		return lua.LNumber(telem.MultiSeriesAtAlignment[uint8](series, a))
-	case telem.Uint16T:
-		return lua.LNumber(telem.MultiSeriesAtAlignment[uint16](series, a))
-	case telem.Uint32T:
-		return lua.LNumber(telem.MultiSeriesAtAlignment[uint32](series, a))
-	case telem.Uint64T:
-		return lua.LNumber(telem.MultiSeriesAtAlignment[uint64](series, a))
-	case telem.Float32T:
-		return lua.LNumber(telem.MultiSeriesAtAlignment[float32](series, a))
-	case telem.Float64T:
-		return lua.LNumber(telem.MultiSeriesAtAlignment[float64](series, a))
-	case telem.StringT:
-		panic("not implemented")
+		return lua.LString(series.Split()[index])
 	default:
 		return lua.LNil
 	}
@@ -92,32 +61,32 @@ func LValueFromMultiSeriesAlignment(series telem.MultiSeries, a telem.Alignment)
 func SetLValueOnSeries(
 	v lua.LValue,
 	series telem.Series,
-	index int,
+	index int64,
 ) telem.Series {
 	switch v.Type() {
 	case lua.LTNumber:
 		num := float64(v.(lua.LNumber))
 		switch series.DataType {
 		case telem.Int8T:
-			telem.SetValueAt(series, index, int8(num))
+			telem.SetValueAt[int8](series, index, int8(num))
 		case telem.Int16T:
-			telem.SetValueAt(series, index, int16(num))
+			telem.SetValueAt[int16](series, index, int16(num))
 		case telem.Int32T:
-			telem.SetValueAt(series, index, int32(num))
+			telem.SetValueAt[int32](series, index, int32(num))
 		case telem.Int64T:
-			telem.SetValueAt(series, index, int64(num))
+			telem.SetValueAt[int64](series, index, int64(num))
 		case telem.Uint8T:
-			telem.SetValueAt(series, index, uint8(num))
+			telem.SetValueAt[uint8](series, index, uint8(num))
 		case telem.Uint16T:
-			telem.SetValueAt(series, index, uint16(num))
+			telem.SetValueAt[uint16](series, index, uint16(num))
 		case telem.Uint32T:
-			telem.SetValueAt(series, index, uint32(num))
+			telem.SetValueAt[uint32](series, index, uint32(num))
 		case telem.Uint64T:
-			telem.SetValueAt(series, index, uint64(num))
+			telem.SetValueAt[uint64](series, index, uint64(num))
 		case telem.Float32T:
-			telem.SetValueAt(series, index, float32(num))
+			telem.SetValueAt[float32](series, index, float32(num))
 		case telem.Float64T:
-			telem.SetValueAt(series, index, float64(num))
+			telem.SetValueAt[float64](series, index, float64(num))
 		}
 	default:
 		return series
@@ -131,6 +100,8 @@ var luaOptions = lua.Options{
 	// Keep a fixed size stack to keep CPU overhead low.
 	MinimizeStackMemory: false,
 }
+
+var _ error = &lua.ApiError{}
 
 func parseSyntaxError(err error) error {
 	if err == nil {
@@ -153,8 +124,6 @@ func parseSyntaxError(err error) error {
 		pErr.Message,
 	)
 }
-
-var RuntimeError = errors.Newf("runtime error")
 
 // Open creates a new calculator with the given expression as the calculation.
 func Open(expr string) (calc *Calculator, err error) {
@@ -181,7 +150,7 @@ func (c *Calculator) Set(name string, value lua.LValue) { c.luaState.SetGlobal(n
 // during evaluation, the error is returned.
 func (c *Calculator) Run() (result lua.LValue, err error) {
 	if err = c.luaState.CallByParam(lua.P{Fn: c.compiledExpr, NRet: 1, Protect: true}); err != nil {
-		return result, errors.Join(RuntimeError, err)
+		return
 	}
 	result = c.luaState.Get(-1)
 	c.luaState.Pop(1)

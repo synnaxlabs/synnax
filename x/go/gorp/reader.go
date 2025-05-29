@@ -203,6 +203,7 @@ func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bo
 	var err error
 	if op.Key, err = decodeKey[K](ctx, t.tools, pref, kvOp.Key); err != nil {
 		panic(err)
+		return op, false
 	}
 	op.Variant = kvOp.Variant
 	if op.Variant != change.Set {
@@ -212,6 +213,7 @@ func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bo
 	// TxReader to NexterCloser.
 	if err := t.tools.Decode(ctx, kvOp.Value, &op.Value); err != nil {
 		panic(err)
+		return op, false
 	}
 	op.Key = op.Value.GorpKey()
 	return

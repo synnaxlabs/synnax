@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/set"
 )
 
 // Policy is a simple access control policy in the RBAC model. A policy sets an action
@@ -40,7 +39,7 @@ var _ gorp.Entry[uuid.UUID] = Policy{}
 func (p Policy) GorpKey() uuid.UUID { return p.Key }
 
 // SetOptions implements the gorp.Entry interface.
-func (p Policy) SetOptions() []any { return nil }
+func (p Policy) SetOptions() []interface{} { return nil }
 
 // allowRequest returns true if the policies allow the given access.Request.
 //
@@ -51,7 +50,10 @@ func (p Policy) SetOptions() []any { return nil }
 //     object that is either a type object with the correct type, or an object that
 //     exactly matches one of the requested objects.
 func allowRequest(req access.Request, policies []Policy) bool {
-	requestedObjects := set.FromSlice(req.Objects)
+	requestedObjects := make(map[ontology.ID]struct{})
+	for _, o := range req.Objects {
+		requestedObjects[o] = struct{}{}
+	}
 
 	for _, policy := range policies {
 		if !lo.Contains(policy.Subjects, req.Subject) {

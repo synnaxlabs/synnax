@@ -50,7 +50,7 @@ var _ = Describe("Open", func() {
 	It("Should be able to join two clusters", func() {
 		Eventually(db1.Cluster.Nodes).Should(HaveLen(2))
 		tx := db1.OpenTx()
-		for range 10 {
+		for i := 0; i < 10; i++ {
 			Expect(tx.Set(ctx, []byte("key"), []byte("value"), aspen.NodeKey(2))).To(Succeed())
 		}
 		Expect(tx.Commit(ctx)).To(Succeed())

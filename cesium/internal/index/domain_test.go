@@ -24,7 +24,7 @@ var _ = Describe("Domain", func() {
 		Describe("FS:"+fsName, Ordered, func() {
 			var (
 				db      *domain.DB
-				idx     *index.Domain
+				idx     index.Index
 				fs      xfs.FS
 				cleanUp func() error
 			)
@@ -37,7 +37,6 @@ var _ = Describe("Domain", func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(cleanUp()).To(Succeed())
 			})
-
 			Describe("Distance", func() {
 				Context("Continuous", func() {
 					BeforeEach(func() {
@@ -45,7 +44,7 @@ var _ = Describe("Domain", func() {
 							ctx,
 							db,
 							(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
+							telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
 						)).To(Succeed())
 					})
 					DescribeTable("Continuous",
@@ -141,26 +140,26 @@ var _ = Describe("Domain", func() {
 							ctx,
 							db,
 							(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
+							telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
 						)).To(Succeed())
 						Expect(domain.Write(
 							ctx,
 							db,
 							(25 * telem.SecondTS).Range(30*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(25, 26, 28, 30).Data,
+							telem.NewSecondsTSV(25, 26, 28, 30).Data,
 						)).To(Succeed())
 						Expect(domain.Write(
 							ctx,
 							db,
 							(40 * telem.SecondTS).Range(43*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(40, 42, 43).Data,
+							telem.NewSecondsTSV(40, 42, 43).Data,
 						)).To(Succeed())
 					})
 					DescribeTable("Discontinuous",
 						func(
 							tr telem.TimeRange,
 							expected index.Approximation[int64],
-							align telem.Alignment,
+							align telem.AlignmentPair,
 							err error,
 						) {
 							actual, bounds, e := idx.Distance(ctx, tr, false)
@@ -174,123 +173,105 @@ var _ = Describe("Domain", func() {
 						Entry("Zero zero",
 							telem.TimeRangeZero,
 							index.Exactly[int64](0),
-							telem.NewAlignment(0, 0),
+							telem.NewAlignmentPair(0, 0),
 							index.ErrDiscontinuous,
 						),
 						Entry("Exact, start and end equal",
 							(27*telem.SecondTS).SpanRange(0),
 							index.Exactly[int64](0),
-							telem.NewAlignment(1, 0),
+							telem.NewAlignmentPair(1, 0),
 							nil,
 						),
 						Entry("Exact, start in domain, end not in domain",
 							(15*telem.SecondTS).Range(22*telem.SecondTS),
 							index.Exactly[int64](3),
-							telem.NewAlignment(0, 9),
+							telem.NewAlignmentPair(0, 9),
 							nil,
 						),
 						Entry("Inexact, start in domain, end not in domain",
 							(14*telem.SecondTS).Range(22*telem.SecondTS),
 							index.Between[int64](3, 4),
-							telem.NewAlignment(0, 9),
+							telem.NewAlignmentPair(0, 9),
 							nil,
 						),
 						Entry("Exact, start in domain, end not in domain (after a domain)",
 							(15*telem.SecondTS).Range(35*telem.SecondTS),
 							index.Exactly[int64](7),
-							telem.NewAlignment(1, 4),
+							telem.NewAlignmentPair(1, 4),
 							nil,
 						),
 						Entry("Inexact, start in domain end not in domain (after a domain)",
 							(14*telem.SecondTS).Range(35*telem.SecondTS),
 							index.Between[int64](7, 8),
-							telem.NewAlignment(1, 4),
+							telem.NewAlignmentPair(1, 4),
 							nil,
 						),
 						Entry("Exact, start in domain, end in domain",
 							(15*telem.SecondTS).Range(42*telem.SecondTS),
 							index.Exactly[int64](8),
-							telem.NewAlignment(2, 1),
+							telem.NewAlignmentPair(2, 1),
 							nil,
 						),
 						Entry("End inexact, start in domain, end in domain",
 							(15*telem.SecondTS).Range(42*telem.SecondTS+500*telem.MillisecondTS),
 							index.Between[int64](8, 9),
-							telem.NewAlignment(2, 1),
+							telem.NewAlignmentPair(2, 1),
 							nil,
 						),
 						Entry("Start inexact, start in domain, end in domain",
 							(14*telem.SecondTS).Range(42*telem.SecondTS),
 							index.Between[int64](8, 9),
-							telem.NewAlignment(2, 1),
+							telem.NewAlignmentPair(2, 1),
 							nil,
 						),
 						Entry("Both inexact, start in domain, end in domain",
 							(14*telem.SecondTS).Range(42*telem.SecondTS+500*telem.MillisecondTS),
 							index.Between[int64](8, 10),
-							telem.NewAlignment(2, 1),
+							telem.NewAlignmentPair(2, 1),
 							nil,
 						),
 						Entry("End exact, start not in domain, end in first domain",
 							(-1*telem.SecondTS).Range(5*telem.SecondTS),
 							index.Between[int64](3, 4),
-							telem.NewAlignment(0, 3),
+							telem.NewAlignmentPair(0, 3),
 							nil,
 						),
 						Entry("End inexact, start not in domain, end in first domain",
 							(-1*telem.SecondTS).Range(6*telem.SecondTS),
 							index.Between[int64](3, 5),
-							telem.NewAlignment(0, 4),
+							telem.NewAlignmentPair(0, 4),
 							nil,
 						),
 						Entry("End exact, start not in domain, end not in first domain",
 							(-1*telem.SecondTS).Range(26*telem.SecondTS),
 							index.Between[int64](10, 11),
-							telem.NewAlignment(1, 1),
+							telem.NewAlignmentPair(1, 1),
 							nil,
 						),
 						Entry("End inexact, start not in domain, end not in first domain",
 							(-1*telem.SecondTS).Range(27*telem.SecondTS),
 							index.Between[int64](10, 12),
-							telem.NewAlignment(1, 1),
+							telem.NewAlignmentPair(1, 1),
 							nil,
 						),
 					)
 				})
-
-				Context("Quasi Continuous (Many Continuous Domains)", func() {
+				Context("Effectively continuous", func() {
 					var (
 						db2  *domain.DB
 						idx2 *index.Domain
 					)
 					BeforeEach(func() {
-						// Open a new domain DB with a file size that corresponds
-						// 3 timestamp samples, so that we trigger automatic rollovers.
-						db2 = MustSucceed(domain.Open(domain.Config{
-							FS:              fs,
-							Instrumentation: PanicLogger(),
-							FileSize:        telem.TimeStampT.Density().Size(3),
-						}))
-
+						db2 = MustSucceed(domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger(), FileSize: 24 * telem.ByteSize}))
 						w := MustSucceed(db2.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 16, 17).Data))
+						MustSucceed(w.Write(telem.NewSecondsTSV(10, 11, 16, 17).Data))
 						Expect(w.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(18, 19, 20, 22).Data))
+						MustSucceed(w.Write(telem.NewSecondsTSV(18, 19, 20, 22).Data))
 						Expect(w.Commit(ctx, 22*telem.SecondTS+1)).To(Succeed())
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(25, 26).Data))
+						MustSucceed(w.Write(telem.NewSecondsTSV(25, 26).Data))
 						Expect(w.Commit(ctx, 26*telem.SecondTS+1)).To(Succeed())
 						Expect(w.Close()).To(Succeed())
-
-						// Write an additional domain that starts several seconds after
-						// the previous one i.e. we have an extra domain that is not
-						// continuous.
-						Expect(domain.Write(
-							ctx,
-							db2,
-							(30 * telem.SecondTS).Range(33*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(30, 32, 33).Data,
-						)).To(Succeed())
-
+						Expect(domain.Write(ctx, db2, (30 * telem.SecondTS).Range(33*telem.SecondTS+1), telem.NewSecondsTSV(30, 32, 33).Data)).To(Succeed())
 						idx2 = &index.Domain{DB: db2}
 					})
 					AfterEach(func() {
@@ -299,7 +280,7 @@ var _ = Describe("Domain", func() {
 					DescribeTable("effectively continuous", func(
 						tr telem.TimeRange,
 						expected index.Approximation[int64],
-						db telem.Alignment,
+						db telem.AlignmentPair,
 						err error,
 					) {
 						actual, bounds, e := idx2.Distance(ctx, tr, true)
@@ -313,31 +294,30 @@ var _ = Describe("Domain", func() {
 						Entry("exact exact",
 							(19*telem.SecondTS).Range(22*telem.SecondTS),
 							index.Exactly[int64](2),
-							telem.NewAlignment(1, 3),
+							telem.NewAlignmentPair(1, 3),
 							nil,
 						),
-						Entry("exact exact - between effectively continuous domains",
+						Entry("exact exact - between domains",
 							(16*telem.SecondTS).Range(26*telem.SecondTS),
 							index.Exactly[int64](7),
-							telem.NewAlignment(2, 1),
+							telem.NewAlignmentPair(2, 1),
 							nil,
 						),
 						Entry("exact exact - out of domain",
 							(16*telem.SecondTS).Range(32*telem.SecondTS),
 							index.Exactly[int64](0),
-							telem.NewAlignment(0, 0),
+							telem.NewAlignmentPair(0, 0),
 							index.ErrDiscontinuous,
 						),
 						Entry("inexact",
 							(12*telem.SecondTS).Range(25*telem.SecondTS+500*telem.MillisecondTS),
 							index.Between[int64](6, 8),
-							telem.NewAlignment(2, 0),
+							telem.NewAlignmentPair(2, 0),
 							nil,
 						),
 					)
 				})
 			})
-
 			Describe("Stamp", func() {
 				Context("Continuous", func() {
 					BeforeEach(func() {
@@ -345,7 +325,7 @@ var _ = Describe("Domain", func() {
 							ctx,
 							db,
 							(1 * telem.SecondTS).SpanRange(19*telem.Second+1),
-							telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
+							telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
 						)).To(Succeed())
 					})
 					DescribeTable("Continuous", func(
@@ -413,34 +393,34 @@ var _ = Describe("Domain", func() {
 					)
 				})
 
-				Context("Quasi-Continuous (Many Continuous domains)", func() {
+				Context("Quasi-continuous (many contiguous domains)", func() {
 					BeforeEach(func() {
 						Expect(domain.Write(
 							ctx,
 							db,
 							(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
+							telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
 						)).To(Succeed())
 
 						Expect(domain.Write(
 							ctx,
 							db,
 							(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(20, 21, 22, 23, 25, 26).Data,
+							telem.NewSecondsTSV(20, 21, 22, 23, 25, 26).Data,
 						)).To(Succeed())
 
 						Expect(domain.Write(
 							ctx,
 							db,
 							(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(27, 29, 30, 31, 32, 34, 35).Data,
+							telem.NewSecondsTSV(27, 29, 30, 31, 32, 34, 35).Data,
 						)).To(Succeed())
 
 						Expect(domain.Write(
 							ctx,
 							db,
 							(40 * telem.SecondTS).Range(45*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(40, 41, 45).Data,
+							telem.NewSecondsTSV(40, 41, 45).Data,
 						)).To(Succeed())
 					})
 					DescribeTable("Quasi-continuous", func(
@@ -555,27 +535,26 @@ var _ = Describe("Domain", func() {
 						),
 					)
 				})
-
-				Specify("Quasi-Continuous Without Ending Domain", func() {
+				Specify("Quasi-continuous without ending domain", func() {
 					Expect(domain.Write(
 						ctx,
 						db,
 						(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
-						telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
+						telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
 					)).To(Succeed())
 
 					Expect(domain.Write(
 						ctx,
 						db,
 						(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
-						telem.NewSeriesSecondsTSV(20, 21, 22, 23, 25, 26).Data,
+						telem.NewSecondsTSV(20, 21, 22, 23, 25, 26).Data,
 					)).To(Succeed())
 
 					Expect(domain.Write(
 						ctx,
 						db,
 						(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
-						telem.NewSeriesSecondsTSV(27, 29, 30, 31, 32, 34, 35).Data,
+						telem.NewSecondsTSV(27, 29, 30, 31, 32, 34, 35).Data,
 					)).To(Succeed())
 
 					Expect(MustSucceed(idx.Stamp(ctx, 25*telem.SecondTS, 8, true))).To(Equal(index.Exactly[telem.TimeStamp](35 * telem.SecondTS)))
@@ -587,26 +566,25 @@ var _ = Describe("Domain", func() {
 					_, err = idx.Stamp(ctx, 24*telem.SecondTS, 9, true)
 					Expect(err).To(MatchError(index.ErrDiscontinuous))
 				})
-
 				Context("Discontinuous", func() {
 					BeforeEach(func() {
 						Expect(domain.Write(
 							ctx,
 							db,
 							(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
+							telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
 						)).To(Succeed())
 						Expect(domain.Write(
 							ctx,
 							db,
 							(30 * telem.SecondTS).Range(40*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40).Data,
+							telem.NewSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40).Data,
 						))
 						Expect(domain.Write(
 							ctx,
 							db,
 							(55 * telem.SecondTS).Range(65*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65).Data,
+							telem.NewSecondsTSV(55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65).Data,
 						))
 					})
 					DescribeTable("Discontinuous", func(

@@ -13,10 +13,9 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
-	"os"
-
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/x/errors"
+	"os"
 )
 
 // secureProvider implements the Provider interface for use in a secure cluster.

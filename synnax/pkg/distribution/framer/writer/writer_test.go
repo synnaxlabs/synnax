@@ -12,19 +12,17 @@ package writer_test
 import (
 	"context"
 	"fmt"
-	"io"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"io"
 )
 
 var _ = Describe("Writer", func() {
@@ -41,29 +39,30 @@ var _ = Describe("Writer", func() {
 			BeforeAll(func() { s = _sF() })
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
-				writer := MustSucceed(s.service.Open(context.TODO(), writer.Config{
+				writer := MustSucceed(s.service.New(context.TODO(), writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
-					Sync:  config.True(),
 				}))
-				MustSucceed(writer.Write(core.MultiFrame(
-					s.keys,
-					[]telem.Series{
+				Expect(writer.Write(core.Frame{
+					Keys: s.keys,
+					Series: []telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
 						telem.NewSeriesV[int64](3, 4, 5),
 						telem.NewSeriesV[int64](5, 6, 7),
-					},
-				)))
-				MustSucceed(writer.Commit())
-				MustSucceed(writer.Write(core.MultiFrame(
-					s.keys,
-					[]telem.Series{
+					}},
+				)).To(BeTrue())
+				Expect(writer.Commit()).To(BeTrue())
+				Expect(writer.Error()).To(Succeed())
+				Expect(writer.Write(core.Frame{
+					Keys: s.keys,
+					Series: []telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
 						telem.NewSeriesV[int64](3, 4, 5),
 						telem.NewSeriesV[int64](5, 6, 7),
-					},
-				)))
-				MustSucceed(writer.Commit())
+					}},
+				)).To(BeTrue())
+				Expect(writer.Commit()).To(BeTrue())
+				Expect(writer.Error()).To(Succeed())
 				Expect(writer.Close()).To(Succeed())
 			})
 		}
@@ -73,10 +72,9 @@ var _ = Describe("Writer", func() {
 		BeforeAll(func() { s = gatewayOnlyScenario() })
 		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 		It("Should return an error if no keys are provided", func() {
-			_, err := s.service.Open(ctx, writer.Config{
+			_, err := s.service.New(context.TODO(), writer.Config{
 				Keys:  []channel.Key{},
 				Start: 10 * telem.SecondTS,
-				Sync:  config.True(),
 			})
 			Expect(err).To(Equal(validate.FieldError{
 				Field:   "keys",
@@ -84,13 +82,12 @@ var _ = Describe("Writer", func() {
 			}))
 		})
 		It("Should return an error if the channel can't be found", func() {
-			_, err := s.service.Open(ctx, writer.Config{
+			_, err := s.service.New(ctx, writer.Config{
 				Keys: []channel.Key{
 					channel.NewKey(0, 22),
 					s.keys[0],
 				},
 				Start: 10 * telem.SecondTS,
-				Sync:  config.True(),
 			})
 			Expect(err).To(HaveOccurredAs(query.NotFound))
 			Expect(err.Error()).To(ContainSubstring("Channel"))
@@ -102,23 +99,26 @@ var _ = Describe("Writer", func() {
 		var s scenario
 		BeforeAll(func() { s = peerOnlyScenario() })
 		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
+		ShouldNotLeakGoroutinesDuringEach()
 		It("Should return an error if a key is provided that is not in the list of keys provided to the writer", func() {
-			writer := MustSucceed(s.service.Open(context.TODO(), writer.Config{
+			writer := MustSucceed(s.service.New(context.TODO(), writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
-				Sync:  config.True(),
 			}))
-			_, err := writer.Write(core.MultiFrame(
-				append(s.keys, channel.NewKey(12, 22)),
-				[]telem.Series{
+			Expect(writer.Write(core.Frame{
+				Keys: append(s.keys, channel.NewKey(12, 22)),
+				Series: []telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3),
 					telem.NewSeriesV[int64](3, 4, 5),
 					telem.NewSeriesV[int64](5, 6, 7),
 					telem.NewSeriesV[int64](5, 6, 7),
-				},
-			))
-			Expect(err).To(HaveOccurredAs(validate.Error))
-			Expect(writer.Close()).To(HaveOccurredAs(validate.Error))
+				}},
+			)).To(BeTrue())
+			Expect(writer.Commit()).To(BeFalse())
+			Expect(writer.Error()).To(HaveOccurredAs(validate.Error))
+			Expect(writer.Error()).To(BeNil())
+			Expect(writer.Error()).To(BeNil())
+			Expect(writer.Close()).To(Succeed())
 		})
 	})
 })
@@ -135,17 +135,17 @@ func newChannelSet() []channel.Channel {
 	return []channel.Channel{
 		{
 			Name:     "test1",
-			Virtual:  true,
+			Rate:     1 * telem.Hz,
 			DataType: telem.Int64T,
 		},
 		{
 			Name:     "test2",
-			Virtual:  true,
+			Rate:     1 * telem.Hz,
 			DataType: telem.Int64T,
 		},
 		{
 			Name:     "test3",
-			Virtual:  true,
+			Rate:     1 * telem.Hz,
 			DataType: telem.Int64T,
 		},
 	}

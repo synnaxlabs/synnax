@@ -39,7 +39,7 @@ type LocalKey types.Uint20
 
 // NewKey generates a new Key from the provided components.
 func NewKey(nodeKey core.NodeKey, localKey LocalKey) (key Key) {
-	// Node key is the first 12 bits,
+	// Node key is first 12 bits,
 	k1 := uint32(nodeKey) << 20
 	// Local key is the last 20 bits
 	k2 := uint32(localKey)
@@ -139,7 +139,12 @@ func (k Keys) Strings() []string {
 
 // Contains returns true if the slice contains the given key, false otherwise.
 func (k Keys) Contains(key Key) bool {
-	return slices.Contains(k, key)
+	for _, ko := range k {
+		if ko == key {
+			return true
+		}
+	}
+	return false
 }
 
 // Unique removes duplicate keys from the slice and returns the result.
@@ -177,6 +182,9 @@ type Channel struct {
 	// be int64 values written in ascending order. LocalIndex channels are most commonly
 	// unix nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
+	// Rate sets the rate at which the channels values are written. This is used to
+	// determine the timestamp of each sample.
+	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// LocalKey is a unique identifier for the channel with relation to its leaseholder.
 	// When creating a channel, a unique key will be generated.
 	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
@@ -219,6 +227,7 @@ func (c Channel) Equals(other Channel, exclude ...string) bool {
 		{"Leaseholder", c.Leaseholder == other.Leaseholder},
 		{"DataType", c.DataType == other.DataType},
 		{"IsIndex", c.IsIndex == other.IsIndex},
+		{"Rate", c.Rate == other.Rate},
 		{"LocalKey", c.LocalKey == other.LocalKey},
 		{"LocalIndex", c.LocalIndex == other.LocalIndex},
 		{"Virtual", c.Virtual == other.Virtual},
@@ -270,11 +279,11 @@ func (c Channel) GorpKey() Key { return c.Key() }
 // SetOptions implements the gorp.Entry interface. Returns a set of options that
 // tell an aspen.DB to properly lease the Channel to the node it will be recording data
 // from.
-func (c Channel) SetOptions() []any {
+func (c Channel) SetOptions() []interface{} {
 	if c.Free() {
-		return []any{core.Bootstrapper}
+		return []interface{}{core.Bootstrapper}
 	}
-	return []any{c.Lease()}
+	return []interface{}{c.Lease()}
 }
 
 // Lease implements the proxy.UnaryServer interface.
@@ -292,6 +301,7 @@ func (c Channel) Storage() ts.Channel {
 		Name:        c.Name,
 		IsIndex:     c.IsIndex,
 		DataType:    c.DataType,
+		Rate:        c.Rate,
 		Index:       ts.ChannelKey(c.Index()),
 		Virtual:     c.Virtual,
 		Concurrency: c.Concurrency,

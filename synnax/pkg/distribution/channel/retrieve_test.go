@@ -35,12 +35,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a set of channels", func() {
 			ch1 := channel.Channel{
-				Virtual:  true,
+				Rate:     25 * telem.Hz,
 				DataType: telem.Float32T,
 				Name:     "SG02",
 			}
 			ch2 := channel.Channel{
-				Virtual:  true,
+				Rate:     25 * telem.Hz,
 				DataType: telem.Float32T,
 				Name:     "SG03",
 			}
@@ -74,12 +74,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 		It("Should correctly retrieve a channel by its key", func() {
 			created := []channel.Channel{
 				{
-					Virtual:  true,
+					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
 					Name:     "SG02",
 				},
 				{
-					Virtual:  true,
+					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
 					Name:     "SG03",
 				},
@@ -101,7 +101,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 			n := uuid.New().String()
 			created := []channel.Channel{
 				{
-					Virtual:  true,
+					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
 					Name:     n,
 				},
@@ -122,12 +122,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 		It("Should correctly retrieve channels by regex expression", func() {
 			created := []channel.Channel{
 				{
-					Virtual:  true,
+					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
 					Name:     "SG222",
 				},
 				{
-					Virtual:  true,
+					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
 					Name:     "SG223",
 				},
@@ -158,12 +158,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 		It("Should correctly filter channels by search term", func() {
 			created := []channel.Channel{
 				{
-					Virtual:  true,
+					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
 					Name:     "SG-----222",
 				},
 				{
-					Virtual:  true,
+					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
 					Name:     "SG-----223",
 				},
@@ -186,12 +186,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 		It("Should return true if a channel exists", func() {
 			created := []channel.Channel{
 				{
-					Virtual:  true,
+					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
 					Name:     "SG02",
 				},
 				{
-					Virtual:  true,
+					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
 					Name:     "SG03",
 				},
@@ -213,8 +213,8 @@ var _ = Describe("getAttributes", Ordered, func() {
 			createdChannels := make([]channel.Channel, int(limit))
 			for i := range limit {
 				ch := channel.Channel{
-					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					Rate:        10 * telem.Hz,
+					DataType:    telem.Float64T,
 					Name:        fmt.Sprintf("LimitTest%d", i),
 					Leaseholder: 1,
 				}
@@ -224,8 +224,8 @@ var _ = Describe("getAttributes", Ordered, func() {
 
 			// Try to create one more channel over the limit
 			overLimitCh := channel.Channel{
-				IsIndex:     true,
-				DataType:    telem.TimeStampT,
+				Rate:        10 * telem.Hz,
+				DataType:    telem.Float64T,
 				Name:        "OverLimit",
 				Leaseholder: 1,
 			}

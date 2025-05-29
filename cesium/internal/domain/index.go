@@ -11,12 +11,10 @@ package domain
 
 import (
 	"context"
-	"slices"
-	"sync"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"sync"
 )
 
 type index struct {
@@ -34,13 +32,14 @@ type index struct {
 func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	_, span := idx.T.Bench(ctx, "domain/index.insert")
 	idx.mu.Lock()
+
 	defer span.End()
 
 	insertAt := 0
 
 	if p.fileKey == 0 {
-		idx.mu.Unlock()
 		idx.L.DPanic("fileKey must be set")
+		idx.mu.Unlock()
 		return span.Error(errors.New("inserted pointer cannot have key 0"))
 	}
 	if len(idx.mu.pointers) != 0 {
@@ -51,7 +50,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
 				idx.mu.Unlock()
-				return span.Error(NewErrRangeWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
+				return span.Error(NewErrWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
 			}
 			insertAt = i + 1
 		}
@@ -62,18 +61,19 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	} else if insertAt == len(idx.mu.pointers) {
 		idx.mu.pointers = append(idx.mu.pointers, p)
 	} else {
-		idx.mu.pointers = slices.Insert(idx.mu.pointers, insertAt, p)
+		idx.mu.pointers = append(idx.mu.pointers[:insertAt], append([]pointer{p}, idx.mu.pointers[insertAt:]...)...)
 	}
 
 	idx.persistHead = min(idx.persistHead, insertAt)
 
-	idx.mu.Unlock()
-	if !persist {
-		return nil
+	if persist {
+		persistPointers := idx.indexPersist.prepare(idx.persistHead)
+		idx.mu.Unlock()
+		return persistPointers()
 	}
 
-	persistPointers := idx.indexPersist.prepare(idx.persistHead)
-	return persistPointers()
+	idx.mu.Unlock()
+	return nil
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {
@@ -99,8 +99,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	defer span.End()
 
 	if len(idx.mu.pointers) == 0 {
-		// This should be inconceivable since update would not be called with no
-		// pointers.
+		// This should be inconceivable since update would not be called with no pointers.
 		idx.L.DPanic("cannot update a database with no domains")
 		idx.mu.Unlock()
 		return span.Error(NewErrRangeNotFound(p.TimeRange))
@@ -126,10 +125,10 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
 	if overlapsWithPrev {
 		idx.mu.Unlock()
-		return span.Error(NewErrRangeWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
+		return span.Error(NewErrWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
 	} else if overlapsWithNext {
 		idx.mu.Unlock()
-		return span.Error(NewErrRangeWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
+		return span.Error(NewErrWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
 	} else {
 		idx.mu.pointers[updateAt] = p
 	}

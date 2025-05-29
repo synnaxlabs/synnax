@@ -125,12 +125,12 @@ class TestRangeClient:
                     sy.Channel(
                         name=f"{rng.name}_test1",
                         data_type=sy.DataType.FLOAT32,
-                        virtual=True,
+                        rate=1 * sy.Rate.HZ,
                     ),
                     sy.Channel(
                         name=f"{rng.name}_test2",
                         data_type=sy.DataType.FLOAT32,
-                        virtual=True,
+                        rate=1 * sy.Rate.HZ,
                     ),
                 ]
             )
@@ -211,7 +211,7 @@ class TestRangeClient:
     class TestRangeAlias:
         def test_basic_alias(self, client: sy.Synnax):
             ch = client.channels.create(
-                name="test", data_type=sy.DataType.INT8, virtual=True
+                name="test", data_type=sy.DataType.INT8, rate=1 * sy.Rate.HZ
             )
             rng = client.ranges.create(
                 name="test",

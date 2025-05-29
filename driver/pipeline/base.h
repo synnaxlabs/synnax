@@ -60,7 +60,7 @@ public:
     /// thread itself. If done so, the pipeline breaker will be stopped, but the
     /// thread will not be joined. If calling stop() from within the pipeline
     /// itself, it's important that stop() be called again before the pipeline is
-    /// destructed to properly join the thread.
+    /// destructed in order to properly join the thread.
     virtual bool stop() {
         const auto stopped = this->breaker.stop();
         if (this->thread.get_id() != std::this_thread::get_id() &&
@@ -70,9 +70,9 @@ public:
     }
 
     /// @brief returns true if the pipeline is currently running. This method may
-    /// return true if the pipeline is in a transient state, i.e., start has been
-    /// called, but the pipeline has not started or failed yet or if stop has been
-    /// called, but the pipeline has not stopped yet.
+    /// return true if the pipeline is in a transient state i.e. start has been
+    /// called but the pipeline has not started or failed yet or if stop has been
+    /// called but the pipeline has not stopped yet.
     bool running() const { return this->breaker.running(); }
 };
 }

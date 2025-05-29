@@ -10,16 +10,16 @@
 package virtual
 
 import (
-	"context"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
-	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
@@ -27,16 +27,16 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type controlResource struct {
+type controlEntity struct {
 	ck        core.ChannelKey
-	alignment telem.Alignment
+	alignment telem.AlignmentPair
 }
 
-func (r *controlResource) ChannelKey() core.ChannelKey { return r.ck }
+func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
 
 type DB struct {
 	cfg              Config
-	controller       *control.Controller[*controlResource]
+	controller       *controller.Controller[*controlEntity]
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
@@ -46,8 +46,8 @@ type DB struct {
 var (
 	// ErrNotVirtual is returned when the caller opens a DB on a non-virtual channel.
 	ErrNotVirtual = errors.New("channel is not virtual")
-	// ErrDBClosed is returned when an operation is attempted on a closed DB.
-	ErrDBClosed = core.NewErrResourceClosed("virtual.db")
+	// DBClosed is returned when an operation is attempted on a closed DB.
+	DBClosed = core.EntityClosed("virtual.db")
 )
 
 // Config is the configuration for opening a DB.
@@ -89,27 +89,27 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
-func Open(ctx context.Context, configs ...Config) (*DB, error) {
+func Open(configs ...Config) (db *DB, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	cfg.Channel, err = meta.Open(ctx, cfg.FS, cfg.Channel, cfg.MetaCodec)
+	cfg.Channel, err = meta.ReadOrCreate(cfg.FS, cfg.Channel, cfg.MetaCodec)
 	if err != nil {
 		return nil, err
 	}
-	wrapError := core.NewChannelErrWrapper(cfg.Channel)
+	wrapError := core.NewErrorWrapper(cfg.Channel)
 	if !cfg.Channel.Virtual {
 		return nil, wrapError(ErrNotVirtual)
 	}
-	c, err := control.New[*controlResource](control.Config{
-		Concurrency:     xcontrol.Shared,
+	c, err := controller.New[*controlEntity](controller.Config{
+		Concurrency:     control.Shared,
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
 		return nil, err
 	}
-	db := &DB{
+	db = &DB{
 		cfg:              cfg,
 		controller:       c,
 		wrapError:        wrapError,
@@ -117,15 +117,23 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		leadingAlignment: &atomic.Uint32{},
 		openWriters:      &atomic.Int32{},
 	}
-	db.leadingAlignment.Store(core.ZeroLeadingAlignment)
-	return db, nil
+	db.leadingAlignment.Store(telem.ZeroLeadingAlignment)
+	return db, db.checkMigration()
+}
+
+func (db *DB) checkMigration() error {
+	if db.cfg.Channel.Version == version.Current {
+		return nil
+	}
+	db.cfg.Channel.Version = version.Current
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
 func (db *DB) Channel() core.Channel {
 	return db.cfg.Channel
 }
 
-func (db *DB) LeadingControlState() *control.State {
+func (db *DB) LeadingControlState() *controller.State {
 	return db.controller.LeadingState()
 }
 
@@ -135,7 +143,7 @@ func (db *DB) Close() error {
 	}
 	count := db.openWriters.Load()
 	if count > 0 {
-		err := db.wrapError(errors.Wrapf(core.ErrOpenResource, "cannot close channel because there are %d unclosed writers accessing it", count))
+		err := db.wrapError(errors.Newf("cannot close channel because there are %d unclosed writers accessing it", count))
 		db.closed.Store(false)
 		return err
 	}
@@ -144,26 +152,26 @@ func (db *DB) Close() error {
 
 // RenameChannel renames the DB's channel to the given name, and persists the change to
 // the underlying DB.
-func (db *DB) RenameChannel(ctx context.Context, newName string) error {
+func (db *DB) RenameChannel(newName string) error {
 	if db.closed.Load() {
-		return ErrDBClosed
+		return DBClosed
 	}
 	if db.cfg.Channel.Name == newName {
 		return nil
 	}
 	db.cfg.Channel.Name = newName
-	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
 // SetChannelKeyInMeta sets the key of the channel for this DB, and persists that change
 // to the DB's meta file in the underlying filesystem.
-func (db *DB) SetChannelKeyInMeta(ctx context.Context, key core.ChannelKey) error {
+func (db *DB) SetChannelKeyInMeta(key core.ChannelKey) error {
 	if db.closed.Load() {
-		return ErrDBClosed
+		return DBClosed
 	}
 	if db.cfg.Channel.Key == key {
 		return nil
 	}
 	db.cfg.Channel.Key = key
-	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
