@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rc
+      - sy-2178-modbus-integration
   pull_request:
     branches:
       - main
