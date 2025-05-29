@@ -57,3 +57,8 @@ monorepo. The following is a summary of each:
 - [Synnax](synnax) - The core Synnax server, which integrates Aspen and Cesium to
   provide a unified telemetry system.
 - [X](x) - Common utilities used by other projects.
+
+# Attributions
+
+The Synnax server uses [Pebble](https://github.com/cockroachdb/pebble), and usage must
+follow their provided [disclaimer](licenses/BSD-3-Clause.txt).
