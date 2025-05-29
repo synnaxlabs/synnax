@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/device/ontology.css";
+
 import { device, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Menu as PMenu, Status, Text, Tree } from "@synnaxlabs/pluto";
@@ -14,6 +16,7 @@ import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Menu } from "@/components";
+import { CSS } from "@/css";
 import { Group } from "@/group";
 import {
   CONFIGURE_LAYOUTS,
@@ -174,23 +177,20 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
   const devState = useState(id.key);
   return (
-    <Tree.DefaultItem {...rest} entry={entry}>
+    <Tree.DefaultItem {...rest} className={CSS.B("device-ontology-item")} entry={entry}>
       {({ entry, onRename, key }) => (
         <>
           <Align.Space x grow align="center">
             <Text.MaybeEditable
               id={`text-${key}`}
               level="p"
+              className={CSS.B("name")}
               allowDoubleClick={false}
               value={entry.name}
               disabled={!entry.allowRename}
               onChange={(name) => onRename?.(entry.key, name)}
             />
-            <Text.Text
-              level="small"
-              shade={9}
-              style={{ lineHeight: "100%", marginTop: "0.25rem" }}
-            >
+            <Text.Text level="small" shade={9} className={CSS.B("location")}>
               {entry.extraData?.location as string}
             </Text.Text>
           </Align.Space>
