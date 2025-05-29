@@ -86,7 +86,7 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("streamer")
 	validate.NotNil(v, "calculation", cfg.Calculation)
 	validate.NotNil(v, "channel", cfg.Channel)
-	validate.NotNil(v, "framer", cfg.DistFramer)
+	validate.NotNil(v, "dist_framer", cfg.DistFramer)
 	return v.Error()
 }
 
@@ -96,7 +96,10 @@ type Service struct {
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
-	return &Service{cfg: cfg}, err
+	if err != nil {
+		return nil, err
+	}
+	return &Service{cfg: cfg}, nil
 }
 
 var (
