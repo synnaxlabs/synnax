@@ -13,13 +13,46 @@ const hexRegex = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
 const hexZ = z.string().regex(hexRegex);
 const rgbValueZ = z.number().min(0).max(255);
 const alphaZ = z.number().min(0).max(1);
+const hueZ = z.number().min(0).max(360);
+const saturationZ = z.number().min(0).max(100);
+const lightnessZ = z.number().min(0).max(100);
 const rgbaZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ, alphaZ]);
 const rgbZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ]);
+const hslaZ = z.tuple([hueZ, saturationZ, lightnessZ, alphaZ]);
 
-export type RGBA = [number, number, number, number];
-export type HSLA = [number, number, number, number];
-export type RGB = [number, number, number];
+/**
+ * A quadruple representing red, green, blue, and alpha values.
+ * @example [255, 255, 255, 1]
+ * @see https://en.wikipedia.org/wiki/RGBA_color_model
+ */
+export type RGBA = z.infer<typeof rgbaZ>;
+
+/**
+ * A triple representing red, green, and blue values.
+ * @example [255, 255, 255]
+ * @see https://en.wikipedia.org/wiki/RGB_color_model
+ */
+export type RGB = z.infer<typeof rgbZ>;
+
+/**
+ * A quadruple representing hue, saturation, lightness, and alpha values.
+ * @example [0, 0, 0, 1]
+ * @see https://en.wikipedia.org/wiki/HSL_and_HSV
+ */
+export type HSLA = z.infer<typeof hslaZ>;
+
+/**
+ * A hex string representing a color.
+ * @example "#000000"
+ * @see https://en.wikipedia.org/wiki/Web_colors
+ */
 export type Hex = z.infer<typeof hexZ>;
+
+export const crudeZ = z.union([hexZ, rgbaZ, rgbZ, hslaZ]);
+
+export const colorZ = crudeZ.transform((v) => construct(v));
+
+export type Color = RGBA;
 
 export const isCrude = (color: unknown): color is Crude =>
   colorZ.safeParse(color).success;
@@ -31,7 +64,7 @@ export const isColor = (color: unknown): color is Color =>
  * An unparsed representation of a color i.e. a value that can be converted into
  * a Color object.
  */
-export type Crude = Hex | RGBA | Color | string | RGB;
+export type Crude = Hex | RGBA | Color | RGB | HSLA;
 
 /**
  * Converts a crude color to its CSS representation. If the color cannot be parsed,
@@ -46,8 +79,6 @@ export const cssString = (color?: Crude): string | undefined => {
   if (typeof color === "string") return color;
   throw res.error;
 };
-
-export type Color = RGBA;
 
 /**
  * @constructor Creates a new color from the given color value. The color value can be
@@ -227,10 +258,6 @@ export const isDark = (color: Crude): boolean => luminance(color) < 0.5;
  */
 export const isLight = (color: Crude): boolean => !isDark(color);
 
-export const colorZ = z
-  .union([hexZ, rgbaZ, rgbZ])
-  .transform((v) => construct(v as string));
-
 const fromHex = (hex_: string, alpha: number = 1): RGBA => {
   const valid = hexZ.safeParse(hex_);
   if (!valid.success) throw new Error(`Invalid hex color: ${hex_}`);
@@ -315,5 +342,3 @@ const rgbaToHSLA = (rgba: RGBA): HSLA => {
 
   return [Math.round(h), Math.round(s), Math.round(l), a];
 };
-
-export const crudeZ = z.union([hexZ, rgbaZ, z.string(), rgbZ]);
