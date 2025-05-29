@@ -30,12 +30,15 @@ from freighter.url import URL
 CONTEXT_CANCELLED_CLOSE_CODE = 1001
 
 
-def handle_context_cancelled(e: ConnectionClosedOK):
+def handle_close_err(e: ConnectionClosedOK) -> Exception:
     if (
-        e.rcvd.code == CONTEXT_CANCELLED_CLOSE_CODE
+        e.rcvd is not None
+        and e.rcvd.code == CONTEXT_CANCELLED_CLOSE_CODE
+        and e.sent is not None
         and e.sent.code == CONTEXT_CANCELLED_CLOSE_CODE
     ):
-        raise StreamClosed
+        return StreamClosed()
+    return EOF()
 
 
 class Message(BaseModel, Generic[P]):
@@ -56,8 +59,6 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
             strict: bool | None = None,
             from_attributes: bool | None = None,
             context: Any | None = None,
-            by_alias: bool | None = None,
-            by_name: bool | None = None,
         ) -> Self:
             # Ensure the payload is validated as the correct type
             obj["payload"] = res_t.model_validate(
@@ -65,16 +66,9 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
                 strict=strict,
                 from_attributes=from_attributes,
                 context=context,
-                by_alias=by_alias,
-                by_name=by_name,
             )
             return super().model_validate(
-                obj,
-                strict=strict,
-                from_attributes=from_attributes,
-                context=context,
-                by_alias=by_alias,
-                by_name=by_name,
+                obj, strict=strict, from_attributes=from_attributes, context=context
             )
 
     return _ResMsg
@@ -199,8 +193,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         try:
             data = self.__internal.recv(timeout)
         except ConnectionClosedOK as e:
-            handle_context_cancelled(e)
-            return None, EOF()
+            return None, handle_close_err(e)
         assert isinstance(data, bytes)
         msg = self.__encoder.decode(data, self.__res_msg_t)
 
@@ -236,8 +229,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         try:
             self.__internal.send(encoded)
         except ConnectionClosedOK as e:
-            handle_context_cancelled(e)
-            return EOF()
+            return handle_close_err(e)
         return None
 
     def close_send(self) -> Exception | None:
@@ -248,8 +240,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         try:
             self.__internal.send(self.__encoder.encode(msg))
         except ConnectionClosedOK as e:
-            handle_context_cancelled(e)
-            return EOF()
+            return handle_close_err(e)
         finally:
             self.__send_closed = True
         return None
@@ -298,7 +289,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         """
         :param encoder: The encoder to use for this client.
         :param base_url: A base url to use as a prefix for all requests.
-        :param max_message_size: The maximum size of a message to receive. Defaults to
+        :param maxMessage_size: The maximum size of a message to receive. Defaults to
         DEFAULT_MAX_SIZE.
         :param secure: Whether to use TLS encryption on the connection or not.
         """

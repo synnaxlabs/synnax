@@ -198,8 +198,68 @@ describe("deepMerge", () => {
         message: "b must be greater than 0",
       });
     expect(deep.overrideValidItems(base, override, schema)).toEqual({
+      a: 3,
+      b: 2,
+    });
+  });
+
+  it("should work with zod unions", () => {
+    const schema1 = z.object({
+      a: z.number(),
+    });
+    const schema2 = z.object({
+      b: z.number(),
+    });
+    const schema = z.union([schema1, schema2]);
+    const base = {
+      a: 1,
+    };
+    const override = {
+      b: 2,
+    };
+    expect(deep.overrideValidItems(base, override, schema)).toEqual({
       a: 1,
       b: 2,
+    });
+  });
+
+  it("should work with extensions", () => {
+    const schema = z.object({
+      a: z.number(),
+    });
+    const extension = z.object({
+      b: z.string(),
+    });
+    const extendedSchema = schema.extend(extension);
+    const base = {
+      a: 1,
+    };
+    const override = {
+      b: "2",
+    };
+    expect(deep.overrideValidItems(base, override, extendedSchema)).toEqual({
+      a: 1,
+      b: "2",
+    });
+  });
+
+  it("should work with intersection", () => {
+    const schema1 = z.object({
+      a: z.number(),
+    });
+    const schema2 = z.object({
+      b: z.string(),
+      c: z.number(),
+    });
+    const schema = schema1.and(schema2);
+    const base = {};
+    const override = {
+      b: "2",
+      c: 3,
+    };
+    expect(deep.overrideValidItems(base, override, schema)).toEqual({
+      b: "2",
+      c: 3,
     });
   });
 });
