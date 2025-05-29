@@ -374,10 +374,10 @@ func (s *FrameService) openWriter(
 	ctx context.Context,
 	subject ontology.ID,
 	srv FrameWriterStream,
-) (w framer.StreamWriter, err error) {
+) (framer.StreamWriter, error) {
 	req, err := srv.Receive()
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	if err = s.access.Enforce(ctx, access.Request{
@@ -385,7 +385,7 @@ func (s *FrameService) openWriter(
 		Action:  access.Create,
 		Objects: framer.OntologyIDs(req.Config.Keys),
 	}); err != nil {
-		return
+		return nil, err
 	}
 
 	authorities := make([]control.Authority, len(req.Config.Authorities))
@@ -393,7 +393,7 @@ func (s *FrameService) openWriter(
 		authorities[i] = control.Authority(a)
 	}
 
-	w, err = s.Internal.NewStreamWriter(ctx, writer.Config{
+	w, err := s.Internal.NewStreamWriter(ctx, writer.Config{
 		ControlSubject:           req.Config.ControlSubject,
 		Start:                    req.Config.Start,
 		Keys:                     req.Config.Keys,
