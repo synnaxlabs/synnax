@@ -13,50 +13,28 @@ const hexRegex = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
 const hexZ = z.string().regex(hexRegex);
 const rgbValueZ = z.number().min(0).max(255);
 const alphaZ = z.number().min(0).max(1);
-const hueZ = z.number().min(0).max(360);
-const saturationZ = z.number().min(0).max(100);
-const lightnessZ = z.number().min(0).max(100);
 const rgbaZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ, alphaZ]);
 const rgbZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ]);
-const hslaZ = z.tuple([hueZ, saturationZ, lightnessZ, alphaZ]);
+const legacyObjectZ = z.object({ rgba255: rgbaZ });
 
-/**
- * A quadruple representing red, green, blue, and alpha values.
- * @example [255, 255, 255, 1]
- * @see https://en.wikipedia.org/wiki/RGBA_color_model
- */
-export type RGBA = z.infer<typeof rgbaZ>;
-
-/**
- * A triple representing red, green, and blue values.
- * @example [255, 255, 255]
- * @see https://en.wikipedia.org/wiki/RGB_color_model
- */
-export type RGB = z.infer<typeof rgbZ>;
-
-/**
- * A quadruple representing hue, saturation, lightness, and alpha values.
- * @example [0, 0, 0, 1]
- * @see https://en.wikipedia.org/wiki/HSL_and_HSV
- */
-export type HSLA = z.infer<typeof hslaZ>;
-
-/**
- * A hex string representing a color.
- * @example "#000000"
- * @see https://en.wikipedia.org/wiki/Web_colors
- */
+/** A color in RGBA format. */
+export type RGBA = [number, number, number, number];
+/** A color in HSLA format. */
+export type HSLA = [number, number, number, number];
+/** A color in RGB format. */
+export type RGB = [number, number, number];
+/** A color in hex format. */
 export type Hex = z.infer<typeof hexZ>;
-
-export const crudeZ = z.union([hexZ, rgbaZ, rgbZ, hslaZ]);
-
-export const colorZ = crudeZ.transform((v) => construct(v));
-
+/** A color in RGBA format. Used as the standard representation of a color in this package. */
 export type Color = RGBA;
+/** A legacy color object. */
+type LegacyObject = z.infer<typeof legacyObjectZ>;
 
+/** @returns true if the given color can be parsed into a valid color object. */
 export const isCrude = (color: unknown): color is Crude =>
   colorZ.safeParse(color).success;
 
+/** @returns true if the color is a true Color type. */
 export const isColor = (color: unknown): color is Color =>
   rgbaZ.safeParse(color).success;
 
@@ -64,13 +42,14 @@ export const isColor = (color: unknown): color is Color =>
  * An unparsed representation of a color i.e. a value that can be converted into
  * a Color object.
  */
-export type Crude = Hex | RGBA | Color | RGB | HSLA;
+export type Crude = Hex | RGBA | Color | string | RGB | LegacyObject;
 
 /**
- * Converts a crude color to its CSS representation. If the color cannot be parsed,
- *
- *
- * @param color -
+ * Converts a crude color to its most meaningful CSS format.
+ * @returns undefined if the color is undefined.
+ * @returns an RGBA CSS string if the color can be parsed into a Color.
+ * @returns the color directly if it is a css variable.
+ * @throws if the color does not match any of the preceding conditions.
  */
 export const cssString = (color?: Crude): string | undefined => {
   if (color == null) return undefined;
@@ -85,8 +64,8 @@ export const cssString = (color?: Crude): string | undefined => {
  * a hex string, an array of RGB or RGBA values, or another color.
  *
  * @param color - The color value to create the color from. If the color value is a
- * string, it must be a valid hex color (with or without the '#') with a hasheless
- * length 6 or 8. If the hex color is 8 characters long, the last twoc haracters are
+ * string, it must be a valid hex color (with or without the '#') with a hash-less
+ * length 6 or 8. If the hex color is 8 characters long, the last two characters are
  * used as the alpha value. If the color value is an array, it must be an array of
  * length 3 or 4, with each value between 0 and 255. If the color value is another
  * color, the color will be copied.
@@ -102,6 +81,7 @@ export const construct = (color: Crude, alpha: number = 1): Color => {
     if (color.length === 3) return [...color, alpha] as RGBA;
     return color;
   }
+  if (typeof color === "object" && "rgba255" in color) return color.rgba255;
   throw new Error(`Invalid color: ${JSON.stringify(color)}`);
 };
 
@@ -134,17 +114,13 @@ export const hex = ((color?: Crude) => {
   }`;
 }) as ToHex;
 
-/**
- * @returns the color as a CSS RGBA string.
- */
+/** @returns the color as a CSS RGBA string. i.e. rgba(r, g, b, a) */
 export const rgbaCSS = (color: Crude): string => {
   const [r, g, b, a] = construct(color);
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 };
 
-/**
- * @returns the color as a CSS RGB string with no alpha value.
- */
+/** @returns the color as a CSS RGB string with no alpha value. i.e. rgb(r, g, b) */
 export const rgbCSS = (color: Crude): string => `rgb(${rgbString(color)})`;
 
 /**
@@ -162,6 +138,7 @@ export const rgbString = (color: Crude): string => {
  */
 export const rgba1 = (color: Crude): RGBA => [...rgb1(color), aValue(color)];
 
+/** @returns the color normalized as an RGB tuple between 0 and 1. */
 const rgb1 = (color: Crude): RGB => [
   rValue(color) / 255,
   gValue(color) / 255,
@@ -187,11 +164,10 @@ export const isZero = (color?: Crude): boolean => equals(ZERO, color);
 export const hsla = (color: Crude): HSLA => rgbaToHSLA(construct(color));
 
 /**
- * Creates a new color with the given alpha.
- *
+ * @returns A new color with the given alpha.
+ * @param color - The color to set the alpha value on.
  * @param alpha - The alpha value to set. If the value is greater than 1, it will be
  * divided by 100.
- * @returns A new color with the given alpha.
  */
 export const setAlpha = (color: Crude, alpha: number): Color => {
   const [r, g, b] = construct(color);
@@ -201,9 +177,7 @@ export const setAlpha = (color: Crude, alpha: number): Color => {
   return [r, g, b, alpha] as Color;
 };
 
-/**
- * @returns the luminance of the color, between 0 and 1.
- */
+/** @returns the luminance of the color, between 0 and 1. */
 export const luminance = (color: Crude): number => {
   const [r, g, b] = rgb1(color).map((v) =>
     v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4,
@@ -211,9 +185,7 @@ export const luminance = (color: Crude): number => {
   return Number((0.2126 * r + 0.7152 * g + 0.0722 * b).toFixed(3));
 };
 
-/**
- * @returns the grayness of the color, between 0 and 1.
- */
+/** @returns the grayness of the color, between 0 and 1. */
 export const grayness = (color: Crude): number => {
   const [r, g, b] = rgb1(color);
   const deviation = Math.max(r, g, b) - Math.min(r, g, b);
@@ -248,16 +220,18 @@ export const pickByContrast = (source: Crude, ...colors: Crude[]): Color => {
   return best;
 };
 
-/**
- * @returns true if the color is dark.
- */
+/** @returns true if the color is dark i.e. it has a luminance less than 0.5. */
 export const isDark = (color: Crude): boolean => luminance(color) < 0.5;
 
-/**
- * @returns true if the color is light.
- */
+/** @returns true if the color is light i.e. the luminance is greater than or equal to 0.5. */
 export const isLight = (color: Crude): boolean => !isDark(color);
 
+/** A zod schema to parse color values from various crude representations. */
+export const colorZ = z
+  .union([hexZ, rgbaZ, rgbZ, legacyObjectZ])
+  .transform((v) => construct(v));
+
+/** @returns a color parsed from a hex string with an alpha value. */
 const fromHex = (hex_: string, alpha: number = 1): RGBA => {
   const valid = hexZ.safeParse(hex_);
   if (!valid.success) throw new Error(`Invalid hex color: ${hex_}`);
@@ -277,6 +251,7 @@ const rgbaToHex = (n: number): string => Math.floor(n).toString(16).padStart(2, 
 const hexToRgba = (s: string, n: number): number => parseInt(s.slice(n, n + 2), 16);
 const stripHash = (hex: string): string => (hex.startsWith("#") ? hex.slice(1) : hex);
 
+/** @returns a color parsed from an HSLA tuple. */
 export const fromHSLA = (hsla: RGBA): RGBA => {
   let [h, s, l] = hsla;
   const a = hsla[3];
@@ -314,10 +289,6 @@ const rgbaToHSLA = (rgba: RGBA): HSLA => {
   g /= 255;
   b /= 255;
 
-  r /= 255;
-  g /= 255;
-  b /= 255;
-
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
   let h: number;
@@ -342,3 +313,11 @@ const rgbaToHSLA = (rgba: RGBA): HSLA => {
 
   return [Math.round(h), Math.round(s), Math.round(l), a];
 };
+
+/** A zod schema for a crude color representation. */
+export const crudeZ = z.union([hexZ, rgbaZ, z.string(), rgbZ, legacyObjectZ]);
+
+/** The color black. */
+export const BLACK = construct("#000000");
+/** The color white. */
+export const WHITE = construct("#ffffff");
