@@ -387,7 +387,7 @@ export class TimeStamp
 
   /** @returns the integer year that the timestamp corresponds to. */
   get year(): number {
-    return this.date().getFullYear();
+    return this.date().getUTCFullYear();
   }
 
   /**
@@ -396,13 +396,13 @@ export class TimeStamp
    */
   setYear(year: number): TimeStamp {
     const d = this.date();
-    d.setFullYear(year);
+    d.setUTCFullYear(year);
     return new TimeStamp(d);
   }
 
   /** @returns the integer month that the timestamp corresponds to with its year. */
   get month(): number {
-    return this.date().getMonth();
+    return this.date().getUTCMonth();
   }
 
   /**
@@ -411,13 +411,13 @@ export class TimeStamp
    */
   setMonth(month: number): TimeStamp {
     const d = this.date();
-    d.setMonth(month);
+    d.setUTCMonth(month);
     return new TimeStamp(d);
   }
 
   /** @returns the integer day that the timestamp corresponds to within its month. */
   get day(): number {
-    return this.date().getDate();
+    return this.date().getUTCDate();
   }
 
   /**
@@ -426,7 +426,7 @@ export class TimeStamp
    */
   setDay(day: number): TimeStamp {
     const d = this.date();
-    d.setDate(day);
+    d.setUTCDate(day);
     return new TimeStamp(d);
   }
 
@@ -449,7 +449,7 @@ export class TimeStamp
 
   /** @returns the integer minute that the timestamp corresponds to within its hour. */
   get minute(): number {
-    return this.date().getMinutes();
+    return this.date().getUTCMinutes();
   }
 
   /**
@@ -467,7 +467,7 @@ export class TimeStamp
    * minute.
    */
   get second(): number {
-    return this.date().getSeconds();
+    return this.date().getUTCSeconds();
   }
 
   /**
@@ -485,7 +485,7 @@ export class TimeStamp
    * its second.
    */
   get millisecond(): number {
-    return this.date().getMilliseconds();
+    return this.date().getUTCMilliseconds();
   }
 
   /**
@@ -494,7 +494,7 @@ export class TimeStamp
    */
   setMillisecond(millisecond: number): TimeStamp {
     const d = this.date();
-    d.setMilliseconds(millisecond);
+    d.setUTCMilliseconds(millisecond);
     return new TimeStamp(d);
   }
 

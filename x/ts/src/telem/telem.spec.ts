@@ -250,7 +250,7 @@ describe("TimeStamp", () => {
       expect(new TimeStamp([2022, 12, 15]).month).toEqual(11);
     });
     test("day", () => {
-      expect(new TimeStamp([2022, 12, 15]).day).toEqual(14);
+      expect(new TimeStamp([2022, 12, 15], "UTC").day).toEqual(15);
     });
   });
 

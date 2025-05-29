@@ -31,7 +31,10 @@ CONTEXT_CANCELLED_CLOSE_CODE = 1001
 
 
 def handle_context_cancelled(e: ConnectionClosedOK):
-    if e.rcvd.code == CONTEXT_CANCELLED_CLOSE_CODE and e.sent.code == CONTEXT_CANCELLED_CLOSE_CODE:
+    if (
+        e.rcvd.code == CONTEXT_CANCELLED_CLOSE_CODE
+        and e.sent.code == CONTEXT_CANCELLED_CLOSE_CODE
+    ):
         raise StreamClosed
 
 
@@ -164,7 +167,7 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
             await self.__internal.close()
 
 
-DEFAULT_MAX_SIZE = 2 ** 20
+DEFAULT_MAX_SIZE = 2**20
 
 
 class SyncWebsocketStream(Stream[RQ, RS]):

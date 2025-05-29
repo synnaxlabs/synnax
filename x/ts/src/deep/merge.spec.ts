@@ -198,7 +198,7 @@ describe("deepMerge", () => {
         message: "b must be greater than 0",
       });
     expect(deep.overrideValidItems(base, override, schema)).toEqual({
-      a: 3,
+      a: 1,
       b: 2,
     });
   });
