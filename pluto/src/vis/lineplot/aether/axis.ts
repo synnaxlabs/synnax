@@ -148,7 +148,7 @@ export class CoreAxis<
       this.setState((p) => ({ ...p, size }));
   }
 
-  bounds(
+  iBounds(
     hold: boolean,
     fetchDataBounds: () => bounds.Bounds[],
   ): [bounds.Bounds, Error | null] {
@@ -188,7 +188,7 @@ export class CoreAxis<
     fetchDataBounds: () => bounds.Bounds[],
     viewport: box.Box,
   ): [scale.Scale, Error | null] {
-    const [bounds, err] = this.bounds(hold, fetchDataBounds);
+    const [bounds, err] = this.iBounds(hold, fetchDataBounds);
     const dir = direction.swap(direction.construct(this.state.location));
     return [
       scale.Scale.scale<number>(bounds)

@@ -30,7 +30,7 @@ from synnax.telem import TimeSpan
 
 class _Request(Payload):
     keys: ChannelKeys
-    down_sample_factor: int
+    downsample_factor: int
 
 
 class _Response(Payload):
@@ -89,7 +89,7 @@ class Streamer:
         self._downsample_factor = downsample_factor
         self._stream.send(
             _Request(
-                keys=self._adapter.keys, down_sample_factor=self._down_sample_factor
+                keys=self._adapter.keys, downsample_factor=self._downsample_factor
             )
         )
         _, exc = self._stream.receive()
@@ -150,7 +150,7 @@ class Streamer:
         self._adapter.update(channels)
         self._stream.send(
             _Request(
-                keys=self._adapter.keys, down_sample_factor=self._down_sample_factor
+                keys=self._adapter.keys, downsample_factor=self._downsample_factor
             )
         )
 
@@ -223,18 +223,18 @@ class AsyncStreamer:
         self,
         client: AsyncStreamClient,
         adapter: ReadFrameAdapter,
-        down_sample_factor: int,
+        downsample_factor: int,
     ) -> None:
         self._client = client
         self._adapter = adapter
-        self._down_sample_factor = down_sample_factor
+        self._downsample_factor = downsample_factor
 
     async def _open(self):
         self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
         await self._stream.send(
             _Request(
                 keys=self._adapter.keys,
-                down_sample_factor=self._down_sample_factor,
+                downsample_factor=self._downsample_factor,
             )
         )
         _, exc = await self._stream.receive()

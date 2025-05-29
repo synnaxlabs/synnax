@@ -7,28 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-<<<<<<<< HEAD:synnax/pkg/service/framer/streamer/streamer_suite_test.go
 package streamer_test
-========
-package control_test
->>>>>>>> 198c29031eeec58c5985ca14967ae9e3884f92e2:x/go/control/control_suite_test.go
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-<<<<<<<< HEAD:synnax/pkg/service/framer/streamer/streamer_suite_test.go
 var ctx = context.Background()
 
 func TestStreamer(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Streamer Suite")
-========
-func TestControl(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Control Suite")
->>>>>>>> 198c29031eeec58c5985ca14967ae9e3884f92e2:x/go/control/control_suite_test.go
 }

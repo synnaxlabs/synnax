@@ -101,7 +101,7 @@ class CoreStreamer implements Streamer {
     await this.adapter.update(channels);
     this.stream.send({
       keys: this.adapter.keys,
-      downSampleFactor: this.downsampleFactor,
+      downsampleFactor: this.downsampleFactor,
     });
   }
 

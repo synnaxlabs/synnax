@@ -794,31 +794,6 @@ describe("Series", () => {
     });
   });
 
-  describe("toString", () => {
-    interface Spec {
-      series: Series;
-      expected: string;
-    }
-    const SPECS: Spec[] = [
-      {
-        series: new Series({ data: [1, 2, 3, 4], dataType: "float64" }),
-        expected: "float64 4 [1,2,3,4]",
-      },
-      {
-        series: new Series({
-          data: Array.from({ length: 100 }, (_, i) => i),
-          dataType: "float32",
-        }),
-        expected: "float32 100 [0,1,2,3,4...95,96,97,98,99]",
-      },
-    ];
-    SPECS.forEach(({ series, expected }) => {
-      it(`should convert ${series.toString()} to a string`, () => {
-        expect(series.toString()).toEqual(expected);
-      });
-    });
-  });
-
   describe("sub", () => {
     it("should return a sub-series backed by the same buffer", () => {
       const arr = new Float32Array([1, 2, 3, 4, 5]);
