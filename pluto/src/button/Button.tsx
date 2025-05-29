@@ -163,12 +163,11 @@ export const Button = Tooltip.wrap(
     if (hasCustomColor) {
       const theme = Theming.use();
       // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-color")] = res.data.rgbString;
+      pStyle[CSS.var("btn-color")] = color.rgbString(res.data);
       // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-text-color")] = res.data.pickByContrast(
-        theme.colors.text,
-        theme.colors.textInverted,
-      ).rgbCSS;
+      pStyle[CSS.var("btn-text-color")] = color.rgbCSS(
+        color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
+      );
     }
 
     if (!parsedDelay.isZero)

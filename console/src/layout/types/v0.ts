@@ -139,8 +139,6 @@ export interface State<A = unknown> {
   unsavedChanges?: boolean;
 }
 
-const themeZ = Theming.themeZ;
-
 const mosaicStateZ = z.object({
   activeTab: z.string().nullable(),
   root: Mosaic.nodeZ,
@@ -196,7 +194,7 @@ export const MAIN_LAYOUT: State = {
 export const sliceStateZ = z.object({
   version: z.literal(VERSION),
   activeTheme: z.string(),
-  themes: z.record(z.string(), themeZ),
+  themes: z.record(z.string(), Theming.themeZ),
   layouts: z.record(z.string(), stateZ),
   hauling: Haul.draggingStateZ,
   mosaics: z.record(z.string(), mosaicStateZ),
