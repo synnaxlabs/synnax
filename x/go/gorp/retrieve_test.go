@@ -279,7 +279,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(res).To(Equal(entries))
 		})
 	})
-	Describe("TrueCount", func() {
+	Describe("Count", func() {
 		Context("WhereKeys", func() {
 			It("Should return the count of existing keys", func() {
 				count, err := gorp.NewRetrieve[int, entry]().

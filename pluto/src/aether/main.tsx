@@ -398,6 +398,8 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
       if (state.isSetter(next))
         setInternalState((prev) => {
           const nextS = next(prev);
+          // This makes our setter impure, so it's something we should be wary of causing
+          // unexpected behavior in the the future.
           setAetherState(nextS, transfer);
           return nextS;
         });
