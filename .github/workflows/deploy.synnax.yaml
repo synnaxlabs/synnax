@@ -106,9 +106,9 @@ jobs:
           msystem: MINGW64
           update: true
           install: >-
-            mingw-w64-x86_64-autoconf
-            mingw-w64-x86_64-automake
-            mingw-w64-x86_64-libtool
+            autoconf
+            automake
+            libtool
 
       - name: Update Submodules
         run: git submodule update --init --recursive
