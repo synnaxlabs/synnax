@@ -238,7 +238,7 @@ describe("TimeStamp", () => {
         TimeStamp.microseconds(500).add(TimeSpan.nanoseconds(20)).microseconds,
       ).toEqual(500.02);
     });
-    describe("nanoseconds", () => {
+    test("nanoseconds", () => {
       expect(
         TimeStamp.microseconds(1).add(TimeSpan.nanoseconds(30)).nanoseconds,
       ).toEqual(1030);
