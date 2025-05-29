@@ -255,7 +255,7 @@ func (t frameStreamerRequestTranslator) Forward(
 ) (*gapi.FrameStreamerRequest, error) {
 	return &gapi.FrameStreamerRequest{
 		Keys:             translateChannelKeysForward(msg.Keys),
-		DownsampleFactor: int32(msg.DownsampleFactor),
+		DownsampleFactor: int32(msg.DownSampleFactor),
 	}, nil
 }
 

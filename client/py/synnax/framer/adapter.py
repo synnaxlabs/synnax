@@ -178,6 +178,53 @@ class WriteFrameAdapter:
             ChannelPayload | list[ChannelPayload] | ChannelParams | CrudeFrame
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
+    ):
+        frame = self._adapt(channels_or_data, series)
+        missing = set(self.keys) - set(frame.channels)
+        extra = set(frame.channels) - set(self.keys)
+        if missing and extra:
+            raise ValidationError(
+                Field(
+                    "keys",
+                    f"frame is missing keys {missing} and has extra keys {extra}",
+                )
+            )
+        elif extra:
+            raise ValidationError(Field("keys", f"frame has extra keys {extra}"))
+
+        for i, (col, series) in enumerate(frame.items()):
+            ch = self.retriever.retrieve(col)[0]  # type: ignore
+            if series.data_type != ch.data_type:
+                if self._strict_data_types:
+                    raise ValidationError(
+                        Field(
+                            str(col),
+                            f"Data type {ch.data_type} for channel {ch} does "
+                            + f"not match series data type {series.data_type}.",
+                        )
+                    )
+                elif not self._suppress_warnings and not (
+                    ch.data_type == DataType.TIMESTAMP
+                    and series.data_type == DataType.INT64
+                ):
+                    warnings.warn(
+                        f"""Series for channel {ch.name} has type {series.data_type} but
+                        channel expects type {ch.data_type}. We can safely convert
+                        between the two, but this can cause performance degradations
+                        and is not recommended. To suppress this warning,
+                        set suppress_warnings=True when constructing the writer. To
+                        raise an error instead, set strict=True when constructing
+                        the writer."""
+                    )
+                frame.series[i] = series.astype(ch.data_type)
+        return frame
+
+    def _adapt(
+        self,
+        channels_or_data: (
+            ChannelPayload | list[ChannelPayload] | ChannelParams | CrudeFrame
+        ),
+        series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         if isinstance(channels_or_data, (ChannelName, ChannelKey, ChannelPayload)):
             if series is None:

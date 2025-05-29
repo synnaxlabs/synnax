@@ -173,15 +173,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
-const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
+const Item: Tree.Item = ({ entry, className, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
   const devState = useState(id.key);
   console.log(devState);
   return (
-    <Tree.DefaultItem {...rest} className={CSS.B("device-ontology-item")} entry={entry}>
+    <Tree.DefaultItem
+      className={CSS(className, CSS.B("device-ontology-item"))}
+      entry={entry}
+      {...rest}
+    >
       {({ entry, onRename, key }) => (
         <>
-          <Align.Space x grow align="center">
+          <Align.Space x grow align="center" className={CSS.B("name-location")}>
             <Text.MaybeEditable
               id={`text-${key}`}
               level="p"

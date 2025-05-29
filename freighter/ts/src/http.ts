@@ -100,7 +100,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           if (shouldCastToUnreachable(err)) err = new Unreachable({ url });
           return [outCtx, err];
         }
-        const data = await httpRes.arrayBuffer();
+        const data = new Uint8Array(await (await httpRes.blob()).arrayBuffer());
         if (httpRes?.ok) {
           if (resSchema != null) res = this.encoder.decode<RS>(data, resSchema);
           return [outCtx, null];

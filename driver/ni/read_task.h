@@ -192,7 +192,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             .channels = keys,
             .mode = synnax::data_saving_writer_mode(this->data_saving),
             .enable_auto_commit = true,
-            .enable_proto_frame_caching = true
         };
     }
 

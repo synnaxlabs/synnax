@@ -28,6 +28,7 @@ import { render } from "@/vis/render";
 
 export const coreAxisStateZ = axis.axisStateZ
   .extend({
+    axisKey: z.string().optional(),
     bounds: bounds.bounds.optional(),
     autoBounds: z
       .object({

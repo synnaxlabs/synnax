@@ -49,7 +49,7 @@ var _ = Describe("File", func() {
 				Expect(f.Close()).ToNot(HaveOccurred())
 				Expect(fsRoot.Remove("test-spec")).To(Succeed())
 			})
-			AfterAll(func() { Expect(xfs.Default.Remove("testData")).To(Succeed()) })
+			AfterAll(func() { Expect(xfs.Default.Remove("testdata")).To(Succeed()) })
 
 			Describe("Stat", func() {
 				It("Should give the size of the file correctly", func() {

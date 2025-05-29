@@ -225,7 +225,6 @@ export class ChannelData
         useIndexOfChannel,
       );
       const series = await this.client.read(timeRange, this.channel.key);
-      if (series == null) return;
       series.acquire();
       this.data = series;
       this.notify();
@@ -279,6 +278,7 @@ export class StreamChannelData
     if (!this.valid) void this.read();
     const { data, channel: ch } = this;
     const now = this.now();
+    if (ch != null && ch.dataType.isVariable) return [bounds.ZERO, this.data];
     const filtered = data.series
       .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
       .map((d) => d.bounds);
@@ -292,14 +292,14 @@ export class StreamChannelData
     try {
       this.valid = true;
       this.onStatusChange?.(LOADING_STATUS);
-      const { channel, useIndexOfChannel } = this.props;
+      const { channel, useIndexOfChannel, timeSpan } = this.props;
       this.channel = await fetchChannelProperties(
         this.client,
         channel,
         useIndexOfChannel,
       );
-      const tr = this.now().spanRange(-this.props.timeSpan);
-      if (!this.channel.virtual && !this.channel.isCalculated) {
+      const tr = this.now().spanRange(-timeSpan);
+      if (!this.channel.virtual || this.channel.isCalculated) {
         const res = await this.client.read(tr, this.channel.key);
         res.acquire();
         this.data.push(res);

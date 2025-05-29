@@ -101,7 +101,7 @@ class CoreStreamer implements Streamer {
     await this.adapter.update(channels);
     this.stream.send({
       keys: this.adapter.keys,
-      downsampleFactor: this.downsampleFactor,
+      downSampleFactor: this.downsampleFactor,
     });
   }
 
@@ -120,7 +120,7 @@ export class HardenedStreamer implements Streamer {
   private readonly opener: StreamOpener;
   private readonly config: StreamerConfig;
 
-  constructor(opener: StreamOpener, config: StreamerConfig | channel.Params) {
+  private constructor(opener: StreamOpener, config: StreamerConfig | channel.Params) {
     this.opener = opener;
     if (Array.isArray(config) || typeof config !== "object")
       this.config = { channels: config as channel.Params, downsampleFactor: 1 };
