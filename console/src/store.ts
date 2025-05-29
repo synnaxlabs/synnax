@@ -15,23 +15,22 @@ import {
   type Store,
   Tuple,
 } from "@reduxjs/toolkit";
-import { Drift, MAIN_WINDOW, type Runtime } from "@synnaxlabs/drift";
-import { NoopRuntime } from "@synnaxlabs/drift/noop";
+import { Drift, NoopRuntime } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { type deep, type UnknownRecord } from "@synnaxlabs/x";
-import { isTauri } from "@tauri-apps/api/core";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
+import { isMainWindow } from "@/isMainWindow";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Permissions } from "@/permissions";
 import { Persist } from "@/persist";
 import { Range } from "@/range";
+import { RUNTIME } from "@/runtime";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
-import { getCurrentWindow } from "@/tauriShim";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -139,8 +138,7 @@ interface OpenPersistReturn {
 }
 
 const openPersist = async (): Promise<OpenPersistReturn> => {
-  const label = getCurrentWindow()?.label;
-  if (label !== MAIN_WINDOW)
+  if (!isMainWindow())
     return {
       initialState: undefined,
       persistMiddleware: () => (next) => (action) => next(action),
@@ -164,12 +162,8 @@ const BASE_MIDDLEWARE = [
 
 const createStore = async (): Promise<RootStore> => {
   const { initialState, persistMiddleware } = await openPersist();
-  let runtime: Runtime<RootState, RootAction>;
-  if (isTauri())
-    runtime = new TauriRuntime();
-  else
-    runtime = new NoopRuntime();
-
+  const runtime: Drift.Runtime<RootState, RootAction> =
+    RUNTIME === "tauri" ? new TauriRuntime() : new NoopRuntime();
   return await Drift.configureStore<RootState, RootAction>({
     runtime,
     preloadedState: initialState,

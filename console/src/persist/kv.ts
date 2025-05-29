@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type kv } from "@synnaxlabs/x";
-import { isTauri } from "@tauri-apps/api/core";
 import { LazyStore } from "@tauri-apps/plugin-store";
+
+import { RUNTIME } from "@/runtime";
 
 /**
  * A SugaredKV is a spiced up key-value store that provides a few extra goodies needed
@@ -22,12 +23,8 @@ export interface SugaredKV extends kv.Async {
   clear(): Promise<void>;
 }
 
-/**
- * TauriKV an implementation of SugaredKV that communicates with a rust key-value store
- * running on the backend.
- */
-export class TauriKV implements SugaredKV {
-  store: LazyStore;
+class TauriKV implements SugaredKV {
+  private store: LazyStore;
 
   constructor(store: LazyStore) {
     this.store = store;
@@ -55,11 +52,8 @@ export class TauriKV implements SugaredKV {
   }
 }
 
-/**
- * LocalStorageKV is an implementation of SugaredKV that delegates to local storage.
- */
-export class LocalStorageKV implements SugaredKV {
-  store: Storage;
+class LocalStorageKV implements SugaredKV {
+  private store: Storage;
   baseKey: string;
 
   constructor(baseKey: string) {
@@ -84,9 +78,7 @@ export class LocalStorageKV implements SugaredKV {
     let count = 0;
     for (let i = 0; i < this.store.length; i++) {
       const key = this.store.key(i);
-      if (key && key.startsWith(`${this.baseKey}:`)) 
-        count++;
-      
+      if (key && key.startsWith(`${this.baseKey}:`)) count++;
     }
     return count;
   }
@@ -95,11 +87,9 @@ export class LocalStorageKV implements SugaredKV {
     const keysToRemove: string[] = [];
     for (let i = 0; i < this.store.length; i++) {
       const key = this.store.key(i);
-      if (key && key.startsWith(`${this.baseKey}:`)) 
-        keysToRemove.push(key);
-      
+      if (key && key.startsWith(`${this.baseKey}:`)) keysToRemove.push(key);
     }
-    keysToRemove.forEach(key => this.store.removeItem(key));
+    keysToRemove.forEach((key) => this.store.removeItem(key));
   }
 }
 
@@ -108,10 +98,11 @@ export class LocalStorageKV implements SugaredKV {
  * @param dir - The directory to store the key-value store in.
  * @returns A new SugaredKV instance.
  */
-export const openSugaredKV = async (dir: string): Promise<SugaredKV> => {
-  if (isTauri()) 
-    return new TauriKV(new LazyStore(dir, { autoSave: true }));
-   
-    return new LocalStorageKV(dir);
-  
-}
+export const openSugaredKV = (dir: string): SugaredKV => {
+  switch (RUNTIME) {
+    case "tauri":
+      return new TauriKV(new LazyStore(dir, { autoSave: true }));
+    case "web":
+      return new LocalStorageKV(dir);
+  }
+};

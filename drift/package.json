@@ -72,11 +72,6 @@
       "types": "./dist/src/electron/index.d.ts",
       "import": "./dist/electron.js",
       "require": "./dist/electron.cjs"
-    },
-    "./noop": {
-      "types": "./dist/src/noop.d.ts",
-      "import": "./dist/noop.js",
-      "require": "./dist/noop.cjs"
     }
   }
 }
