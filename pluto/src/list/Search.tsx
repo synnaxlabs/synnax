@@ -41,19 +41,19 @@ const STYLE = {
 };
 
 const NoResults = (): ReactElement => (
-  <Status.Text.Centered level="h4" disabled hideIcon style={STYLE}>
+  <Status.Text.Centered level="h4" variant="disabled" hideIcon style={STYLE}>
     No Results
   </Status.Text.Centered>
 );
 
 const NoTerm = (): ReactElement => (
-  <Status.Text.Centered level="h4" disabled hideIcon style={STYLE}>
+  <Status.Text.Centered level="h4" variant="disabled" hideIcon style={STYLE}>
     Type to search
   </Status.Text.Centered>
 );
 
 const Loading = (): ReactElement => (
-  <Status.Text.Centered level="h2" disabled hideIcon style={STYLE}>
+  <Status.Text.Centered level="h2" variant="disabled" hideIcon style={STYLE}>
     <Icon.Loading />
   </Status.Text.Centered>
 );

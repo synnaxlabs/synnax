@@ -194,7 +194,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
               {entry.extraData?.location as string}
             </Text.Text>
           </Align.Space>
-          <Status.Circle variant={variant} disabled={variant == null} />
+          <Status.Circle variant={variant ?? "disabled"} />
         </>
       )}
     </Tree.DefaultItem>

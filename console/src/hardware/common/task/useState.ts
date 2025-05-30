@@ -95,4 +95,4 @@ export const useState = <D extends StateDetails>(
   return { state, triggerError, triggerLoading };
 };
 
-export const LOADING_STATE: State = { status: LOADING_STATUS, variant: "info" };
+export const LOADING_STATE: State = { status: LOADING_STATUS, variant: "loading" };

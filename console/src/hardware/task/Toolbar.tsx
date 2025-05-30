@@ -405,8 +405,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
       <Align.Space y size="small" grow className={CSS.BE("task", "metadata")}>
         <Align.Space x align="center" size="small">
           <Status.Circle
-            loading={status === Common.Task.LOADING_STATUS}
-            variant={variant}
+            variant={status === Common.Task.LOADING_STATUS ? "loading" : variant}
             style={{ fontSize: "2rem", minWidth: "2rem" }}
           />
           <Text.WithIcon

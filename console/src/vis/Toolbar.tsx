@@ -42,7 +42,7 @@ const NoVis = (): ReactElement => {
         <Toolbar.Title icon={<Icon.Visualize />}>Visualization</Toolbar.Title>
       </Toolbar.Header>
       <Align.Center x size="small">
-        <Status.Text level="p" disabled hideIcon>
+        <Status.Text level="p" variant="disabled" hideIcon>
           No visualization selected. Select a visualization or
         </Status.Text>
         <Text.Link level="p" onClick={handleCreateNewVisualization}>

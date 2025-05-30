@@ -36,18 +36,11 @@ const STATUS_MESSAGES: Record<connection.Status, string> = {
 export const ConnectionStatusBadge = ({
   state: { status, message },
 }: ConnectionStateBadgeProps): ReactElement => {
-  const isLoading = status === "connecting";
   const variant = Synnax.CONNECTION_STATE_VARIANTS[status];
   return (
     <Tooltip.Dialog location={{ x: "left", y: "bottom" }}>
       <Align.Space y size="tiny">
-        <Status.Text
-          loading={isLoading}
-          variant={variant}
-          weight={650}
-          hideIcon
-          style={{ paddingLeft: 0 }}
-        >
+        <Status.Text variant={variant} weight={650} hideIcon style={{ paddingLeft: 0 }}>
           {STATUS_MESSAGES[status]}
         </Status.Text>
         {message != null && (
@@ -57,7 +50,6 @@ export const ConnectionStatusBadge = ({
         )}
       </Align.Space>
       <Status.Text
-        loading={isLoading}
         variant={variant}
         justify="center"
         className={CSS(CSS.B("connection-status-badge"), CSS.M(status))}

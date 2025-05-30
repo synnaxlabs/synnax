@@ -47,7 +47,7 @@ export const PropertiesControls = memo(
 
     if (elements.length === 0)
       return (
-        <Status.Text.Centered disabled hideIcon>
+        <Status.Text.Centered variant="disabled" hideIcon>
           Select a Schematic element to configure its properties.
         </Status.Text.Centered>
       );

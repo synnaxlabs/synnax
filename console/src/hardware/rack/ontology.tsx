@@ -76,8 +76,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
 
   const heartRef = useRef<SVGSVGElement>(null);
 
-  const variant = state?.variant;
-  const isDisabled = variant == null;
+  const variant = state?.variant ?? "disabled";
 
   useEffect(() => {
     if (variant !== "success") return;
@@ -106,19 +105,13 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
             }}
           />
           <Tooltip.Dialog location="right">
-            <Status.Text
-              variant={variant}
-              disabled={isDisabled}
-              hideIcon
-              level="small"
-              weight={450}
-            >
+            <Status.Text variant={variant} hideIcon level="small" weight={450}>
               {state?.message}
             </Status.Text>
             <Icon.Heart
               ref={heartRef}
               className="synnax-rack-heartbeat"
-              style={{ color: Status.VARIANT_COLORS[variant ?? "info"] }}
+              style={{ color: Status.VARIANT_COLORS[variant] }}
             />
           </Tooltip.Dialog>
         </>

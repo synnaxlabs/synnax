@@ -29,7 +29,7 @@ const SelectEmptyContent = (): ReactElement => {
   const add = useAdd();
   return (
     <Align.Center style={{ height: 150 }} y>
-      <Status.Text disabled hideIcon>
+      <Status.Text variant="disabled" hideIcon>
         No labels created.
       </Status.Text>
       <Text.Link level="p" onClick={add}>
