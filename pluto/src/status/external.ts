@@ -9,7 +9,7 @@
 
 export * from "@/status/aether/types";
 export * from "@/status/Aggregator";
-export * from "@/status/Indicator";
 export * from "@/status/colors";
+export * from "@/status/Indicator";
 export * from "@/status/Notification";
 export * from "@/status/Text";
