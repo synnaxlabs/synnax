@@ -140,7 +140,7 @@ func start(cmd *cobra.Command) {
 		grpcServerTransports := &[]fgrpc.BindableTransport{}
 		grpcClientPool := configureClientGRPC(secProvider, insecure)
 
-		// Open the distribution layer.
+		// Serve the distribution layer.
 		storageCfg := buildStorageConfig(ins)
 		distConfig, err := buildDistributionConfig(
 			grpcClientPool,
@@ -338,7 +338,7 @@ func start(cmd *cobra.Command) {
 		*grpcServerTransports = append(*grpcServerTransports, grpcAPITrans...)
 		_api.BindTo(grpcAPI)
 
-		srv, err := server.Open(buildServerConfig(
+		srv, err := server.Serve(buildServerConfig(
 			*grpcServerTransports,
 			[]fhttp.BindableTransport{r},
 			secProvider,
