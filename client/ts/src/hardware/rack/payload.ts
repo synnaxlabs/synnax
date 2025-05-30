@@ -26,10 +26,7 @@ export interface State extends z.infer<typeof stateZ> {}
 export const rackZ = z.object({
   key: keyZ,
   name: z.string(),
-  state: stateZ
-    .optional()
-    .nullable()
-    .transform((s) => (s === null ? undefined : s)),
+  state: zod.nullToUndefined(stateZ),
 });
 
 export interface Payload extends z.infer<typeof rackZ> {}
