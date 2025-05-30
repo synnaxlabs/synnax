@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location, type scale } from "@synnaxlabs/x";
+import { box, color, location, type scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { color } from "@/color/core";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
@@ -22,7 +21,7 @@ export const ruleStateZ = z.object({
   dragging: z.boolean(),
   lineWidth: z.number().optional().default(1),
   lineDash: z.number().optional().default(20),
-  color: color.Color.z,
+  color: color.colorZ,
 });
 
 export interface RuleProps {
@@ -111,7 +110,7 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
       position: pos,
     });
 
-    canvas.fillStyle = this.state.color.hex;
+    canvas.fillStyle = color.hex(this.state.color);
     canvas.lineJoin = "round";
     canvas.lineWidth = 3.5;
     canvas.lineCap = "round";

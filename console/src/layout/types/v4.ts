@@ -18,7 +18,7 @@ export const VERSION = "4.0.0";
 
 export const sliceStateZ = v3.sliceStateZ.omit({ version: true }).extend({
   version: z.literal(VERSION),
-  colorContext: Color.contextStateZ.transform(Color.transformColorsToHex),
+  colorContext: Color.contextStateZ,
 });
 
 export type SliceState = z.infer<typeof sliceStateZ>;
@@ -35,6 +35,6 @@ export const sliceMigration: migrate.Migration<v3.SliceState, SliceState> =
     migrate: (s) => ({
       ...s,
       version: VERSION,
-      colorContext: Color.transformColorsToHex(Color.ZERO_CONTEXT_STATE),
+      colorContext: Color.ZERO_CONTEXT_STATE,
     }),
   });

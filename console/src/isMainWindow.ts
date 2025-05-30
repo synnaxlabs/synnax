@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/color/GradientPicker";
-export * from "@/color/Picker";
-export * from "@/color/Provider";
-export * from "@/color/Swatch";
+import { Drift } from "@synnaxlabs/drift";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+
+import { RUNTIME } from "@/runtime";
+
+export const isMainWindow = (): boolean => {
+  switch (RUNTIME) {
+    case "tauri":
+      return getCurrentWindow().label === Drift.MAIN_WINDOW;
+    case "web":
+      return true;
+  }
+};

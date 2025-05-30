@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/color/GradientPicker";
-export * from "@/color/Picker";
-export * from "@/color/Provider";
-export * from "@/color/Swatch";
+import { isTauri } from "@tauri-apps/api/core";
+
+export type Runtime = "tauri" | "web";
+
+export const RUNTIME: Runtime = isTauri() ? "tauri" : "web";

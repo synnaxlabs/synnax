@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { color } from "@/color/core";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 
@@ -18,7 +18,7 @@ export const indicatorStateZ = z.object({
   statusSource: telem.statusSourceSpecZ.optional().default(telem.noopStatusSourceSpec),
   colorSource: telem.colorSourceSpecZ.optional().default(telem.noopColorSourceSpec),
   status: status.specZ,
-  color: color.Color.z.optional(),
+  color: color.colorZ.optional(),
 });
 
 interface InternalState {
@@ -56,10 +56,13 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
   async render(): Promise<void> {}
 
   async updateState(): Promise<void> {
-    const color = await this.internal.colorSource.value();
+    const colorVal = await this.internal.colorSource.value();
     const status = await this.internal.statusSource.value();
-    if (color.equals(this.state.color) && status.message === this.state.status.message)
+    if (
+      color.equals(colorVal, this.state.color) &&
+      status.message === this.state.status.message
+    )
       return;
-    this.setState((p) => ({ ...p, color, status }));
+    this.setState((p) => ({ ...p, color: colorVal, status }));
   }
 }

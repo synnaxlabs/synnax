@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, notation, scale, status as xstatus } from "@synnaxlabs/x";
+import { bounds, color, notation, scale, status as xstatus } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { color } from "@/color/core";
 import { type status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
 import {
