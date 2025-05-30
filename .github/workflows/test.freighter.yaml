@@ -20,7 +20,6 @@ jobs:
     name: Changes
     runs-on: ubuntu-latest
     outputs:
-      cpp: ${{ steps.filter.outputs.cpp }}
       integration: ${{ steps.filter.outputs.integration }}
       py: ${{ steps.filter.outputs.py }}
       ts: ${{ steps.filter.outputs.ts }}
@@ -36,9 +35,6 @@ jobs:
           filters: |
             shared: &shared
               - .github/workflows/test.freighter.yaml
-            cpp:
-              - *shared
-              - freighter/cpp/**
             integration: &integration
               - *shared
               - alamos/go/**
@@ -59,38 +55,6 @@ jobs:
               - configs/vite/**
               - freighter/ts/**
               - x/ts/**
-
-  cpp:
-    name: C++ (${{ matrix.os }})
-    needs: changes
-    if: needs.changes.outputs.cpp == 'true'
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            format: true
-        exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
-
-      - name: Check Formatting
-        if: matrix.format
-        run: bash scripts/check-clang-format.sh freighter/cpp
-
-      - name: Test
-        run: bazel test --test_output=all //freighter/cpp/... --nocache_test_results
 
   integration:
     runs-on: ubuntu-latest
