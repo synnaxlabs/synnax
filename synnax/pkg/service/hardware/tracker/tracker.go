@@ -192,12 +192,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 
 	for _, r := range racks {
 		rck := &RackState{
-			State: rack.State{
-				Key:          r.Key,
-				LastReceived: telem.Now(),
-				Variant:      status.WarningVariant,
-				Message:      "Unknown rack state",
-			},
+			State: newUnknownRackState(r.Key),
 			Tasks: make(map[task.Key]task.State),
 		}
 
@@ -214,13 +209,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 			if tsk.Snapshot {
 				continue
 			}
-			taskState := task.State{
-				Task:    tsk.Key,
-				Variant: status.WarningVariant,
-				Details: json.NewStaticString(ctx, map[string]any{
-					"message": "Unknown task state",
-				}),
-			}
+			taskState := newUnknownTaskState(ctx, tsk.Key)
 			if err = gorp.NewRetrieve[task.Key, task.State]().
 				WhereKeys(tsk.Key).
 				Entry(&taskState).
@@ -242,14 +231,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	}
 
 	for _, dev := range allDevices {
-		deviceState := device.State{
-			Key:     dev.Key,
-			Variant: status.WarningVariant,
-			Details: json.NewStaticString(ctx, map[string]any{
-				"message": "Unknown device state",
-			}),
-			Rack: dev.Rack,
-		}
+		deviceState := newUnknownDeviceState(ctx, dev.Key, dev.Rack)
 		if err = gorp.NewRetrieve[string, device.State]().
 			WhereKeys(dev.Key).
 			Entry(&deviceState).
@@ -436,24 +418,13 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 		rackState, rackExists := t.mu.Racks[rackKey]
 		if !rackExists {
 			rackState = &RackState{
-				State: rack.State{
-					Key:          rackKey,
-					LastReceived: telem.Now(),
-					Variant:      status.WarningVariant,
-					Message:      "Unknown rack state",
-				},
+				State: newUnknownRackState(rackKey),
 				Tasks: make(map[task.Key]task.State),
 			}
 			t.mu.Racks[rackKey] = rackState
 		}
 		if _, taskExists := rackState.Tasks[c.Key]; !taskExists {
-			rackState.Tasks[c.Key] = task.State{
-				Task:    c.Key,
-				Variant: status.WarningVariant,
-				Details: json.NewStaticString(ctx, map[string]any{
-					"message": "Unknown task state",
-				}),
-			}
+			rackState.Tasks[c.Key] = newUnknownTaskState(ctx, c.Key)
 		}
 		alive := rackState.Alive(t.cfg.RackStateAliveThreshold)
 		if !rackExists || !alive {
@@ -505,12 +476,8 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 		if _, rackExists := t.mu.Racks[c.Key]; !rackExists {
 			t.mu.Racks[c.Key] = &RackState{
 				Tasks: make(map[task.Key]task.State),
-				State: rack.State{
-					Key:          c.Key,
-					LastReceived: telem.Now(),
-					Variant:      status.WarningVariant,
-					Message:      "Unknown rack state",
-				}}
+				State: newUnknownRackState(c.Key),
+			}
 
 		}
 	}
@@ -705,4 +672,34 @@ func (t *Tracker) saveDeviceState(ctx context.Context, deviceKey string) error {
 		t.cfg.L.Warn("failed to save device state", zap.Error(err))
 	}
 	return nil
+}
+
+func newUnknownTaskState(ctx context.Context, key task.Key) task.State {
+	return task.State{
+		Task:    key,
+		Variant: status.WarningVariant,
+		Details: json.NewStaticString(ctx, map[string]any{
+			"message": "Task state unknown",
+		}),
+	}
+}
+
+func newUnknownRackState(key rack.Key) rack.State {
+	return rack.State{
+		Key:          key,
+		LastReceived: telem.Now(),
+		Variant:      status.WarningVariant,
+		Message:      "Rack state unknown",
+	}
+}
+
+func newUnknownDeviceState(ctx context.Context, devKey string, rackKey rack.Key) device.State {
+	return device.State{
+		Key:     devKey,
+		Variant: status.WarningVariant,
+		Details: json.NewStaticString(ctx, map[string]any{
+			"message": "Device state unknown",
+		}),
+		Rack: rackKey,
+	}
 }
