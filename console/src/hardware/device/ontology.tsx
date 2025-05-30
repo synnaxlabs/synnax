@@ -176,6 +176,12 @@ const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.mak
 const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
   const devState = useState(id.key);
+  let message = "Device State Unknown";
+  if (
+    devState?.details?.message != null &&
+    typeof devState.details.message === "string"
+  )
+    message = devState.details.message;
   return (
     <Tree.DefaultItem {...rest} className={CSS.B("device-ontology-item")} entry={entry}>
       {({ entry, onRename, key }) => (
@@ -201,7 +207,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
               level="small"
               weight={450}
             >
-              {(devState?.details?.message ?? "Device State Unknown") as string}
+              {message}
             </Status.Text>
             <Status.Circle
               variant={(devState?.variant ?? "disabled") as Status.Variant}
