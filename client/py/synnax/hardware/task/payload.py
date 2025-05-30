@@ -11,7 +11,7 @@ import json
 
 from freighter import Payload
 
-from synnax.status import Variant
+from synnax.status import Variant, INFO_VARIANT
 
 
 class TaskPayload(Payload):
@@ -24,14 +24,14 @@ class TaskPayload(Payload):
 
 class TaskState(Payload):
     task: int = 0
-    variant: Variant = ""
+    variant: Variant = INFO_VARIANT
     key: str = ""
     details: dict
 
     def __init__(
         self,
         task: int = 0,
-        variant: Variant = "",
+        variant: Variant = INFO_VARIANT,
         key: str = "",
         details: dict | str = "",
     ):
