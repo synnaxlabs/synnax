@@ -32,7 +32,7 @@ export interface LogProps
       "visible"
     >,
     Omit<Align.SpaceProps, "color">,
-    Aether.CProps {
+    Aether.ComponentProps {
   emptyContent?: ReactElement;
 }
 

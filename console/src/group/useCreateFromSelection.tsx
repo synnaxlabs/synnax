@@ -62,7 +62,7 @@ export const useCreateFromSelection = (): CreateFromSelection => {
     mutationFn: async ({ client, selection, newID }: CreateArgs) => {
       if (selection.parentID == null) return;
       const [groupName, renamed] = await Tree.asyncRename(newID.toString());
-      if (!renamed) throw errors.CANCELED;
+      if (!renamed) throw new errors.Canceled();
       const resourcesToGroup = getResourcesToGroup(selection);
       const parentID = new ontology.ID(selection.parentID.toString());
       await client.ontology.groups.create(parentID, groupName, newID.key);
@@ -70,7 +70,7 @@ export const useCreateFromSelection = (): CreateFromSelection => {
     },
     onError: async (e, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      if (errors.CANCELED.matches(e.message)) return;
+      if (errors.Canceled.matches(e.message)) return;
       handleError(e, "Failed to group resources");
     },
   }).mutate;

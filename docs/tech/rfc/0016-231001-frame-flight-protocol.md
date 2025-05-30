@@ -64,22 +64,26 @@ sent.
         {
             "DataType": "int8",
             "Data": [1, 2, 3, 4, 5],
-            "TimeRange": [5, 10]
+            "TimeRange": [5, 10],
+            "Alignment": 0
         },
         {
             "DataType": "int16",
             "Data": [20, 15, 12, 19, 32],
-            "TimeRange": [5, 10]
+            "TimeRange": [5, 10],
+            "Alignment": 0
         },
         {
             "DataType": "int8",
             "Data": [1, 2, 3, 4, 5, 6],
-            "TimeRange": [5, 10]
+            "TimeRange": [5, 10],
+            "Alignment": 0
         },
         {
             "DataType": "int16",
             "Data": [20, 15, 12, 19, 32],
-            "TimeRange": [5, 10]
+            "TimeRange": [5, 10],
+            "Alignment": 0
         }
     ]
 }

@@ -167,12 +167,11 @@ const createStore = async (): Promise<RootStore> => {
   return await Drift.configureStore<RootState, RootAction>({
     runtime,
     preloadedState: initialState,
-    middleware: (def) => new Tuple(...def(), ...BASE_MIDDLEWARE, persistMiddleware),
+    middleware: (def) => new Tuple(...def(), persistMiddleware, ...BASE_MIDDLEWARE),
     reducer,
     enablePrerender: true,
     debug: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
 };
-
 export const store = createStore();

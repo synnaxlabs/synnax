@@ -11,27 +11,16 @@ import { z } from "zod";
 
 import { type bounds } from "@/spatial";
 
-export class Authority extends Number {
-  static readonly ABSOLUTE = 255;
-  static readonly MINIMUM = 0;
+export const authorityZ = z.number().int().min(0).max(255);
+export type Authority = z.infer<typeof authorityZ>;
 
-  static readonly BOUNDS: bounds.Bounds<number> = {
-    lower: Authority.MINIMUM,
-    // upper bound is exclusive, so we add 1
-    upper: Authority.ABSOLUTE + 1,
-  };
+export const ABSOLUTE_AUTHORITY: Authority = 255;
+export const ZERO_AUTHORITY: Authority = 0;
 
-  static readonly z = z.union([
-    z.instanceof(Authority),
-    z
-      .number()
-      .int()
-      .min(0)
-      .max(255)
-      .transform((n) => new Authority(n)),
-    z.instanceof(Number).transform((n) => new Authority(n)),
-  ]);
-}
+export const AUTHORITY_BOUNDS: bounds.Bounds<Authority> = {
+  lower: ZERO_AUTHORITY,
+  upper: ABSOLUTE_AUTHORITY + 1,
+};
 
 export const subjectZ = z.object({
   name: z.string(),
@@ -47,7 +36,7 @@ export const stateZ = <T extends z.ZodTypeAny>(r: T) =>
   z.object({
     subject: subjectZ,
     resource: r,
-    authority: Authority.z,
+    authority: authorityZ,
   });
 
 export interface State<R> {
@@ -71,10 +60,20 @@ interface Release<R> {
   to?: null;
 }
 
+export const releaseZ = z.object({
+  from: stateZ(z.any()),
+  to: z.null(),
+});
+
 interface Acquire<R> {
   from?: null;
   to: State<R>;
 }
+
+export const acquireZ = z.object({
+  from: z.null(),
+  to: stateZ(z.any()),
+});
 
 export type Transfer<R> =
   | {
@@ -83,3 +82,12 @@ export type Transfer<R> =
     }
   | Release<R>
   | Acquire<R>;
+
+export const transferZ = z.union([
+  releaseZ,
+  acquireZ,
+  z.object({
+    from: stateZ(z.any()),
+    to: stateZ(z.any()),
+  }),
+]);

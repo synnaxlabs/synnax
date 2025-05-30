@@ -109,7 +109,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
   return (
     <Align.Space y grow>
       <Align.Space y grow style={{ padding: "5rem" }}>
-        <Form.Form {...methods}>
+        <Form.Form<typeof formSchema> {...methods}>
           <Align.Space y size="large">
             <Align.Space x align="center" size={8}>
               <Align.Space y>

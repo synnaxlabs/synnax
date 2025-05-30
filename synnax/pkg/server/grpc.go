@@ -43,15 +43,11 @@ func (g *GRPCBranch) Serve(ctx BranchContext) error {
 	for _, t := range g.Transports {
 		t.BindTo(g.server)
 	}
-	return filterCloserError(g.server.Serve(ctx.Lis))
+	return g.server.Serve(ctx.Lis)
 }
 
 // Stop implements Branch. Stop is safe to call even if Serve has not been called.
-func (g *GRPCBranch) Stop() {
-	if g.server != nil {
-		g.server.Stop()
-	}
-}
+func (g *GRPCBranch) Stop() { g.server.Stop() }
 
 func (g *GRPCBranch) credentials(ctx BranchContext) grpc.ServerOption {
 	if *ctx.Security.Insecure {

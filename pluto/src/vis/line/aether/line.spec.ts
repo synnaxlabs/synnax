@@ -11,6 +11,7 @@ import { type bounds } from "@synnaxlabs/x/spatial";
 import {
   type CrudeTimeRange,
   DataType,
+  MultiSeries,
   Series,
   TimeRange,
   TimeSpan,
@@ -41,17 +42,19 @@ describe("line", () => {
       expected: SpecExpected[];
     }
 
-    const buildSeriesFromEntries = (entries: SpecEntry[]): Series[] =>
-      entries.map(
-        ({ alignmentBounds, timeRange }) =>
-          new Series({
-            data: new Float32Array(
-              Number(alignmentBounds.upper - alignmentBounds.lower),
-            ),
-            dataType: DataType.FLOAT32,
-            timeRange: new TimeRange(timeRange.start, timeRange.end),
-            alignment: alignmentBounds.lower,
-          }),
+    const buildSeriesFromEntries = (entries: SpecEntry[]): MultiSeries =>
+      new MultiSeries(
+        entries.map(
+          ({ alignmentBounds, timeRange }) =>
+            new Series({
+              data: new Float32Array(
+                Number(alignmentBounds.upper - alignmentBounds.lower),
+              ),
+              dataType: DataType.FLOAT32,
+              timeRange: new TimeRange(timeRange.start, timeRange.end),
+              alignment: alignmentBounds.lower,
+            }),
+        ),
       );
 
     const CLEARLY_DISTINCT: Spec = {
@@ -231,8 +234,8 @@ describe("line", () => {
         );
         expect(drawOperations.length).toBe(expected.length);
         drawOperations.forEach((drawOperation: DrawOperation, i: number) => {
-          expect(drawOperation.x).toBe(xSeries[expected[i].xSeries]);
-          expect(drawOperation.y).toBe(ySeries[expected[i].ySeries]);
+          expect(drawOperation.x).toBe(xSeries.series[expected[i].xSeries]);
+          expect(drawOperation.y).toBe(ySeries.series[expected[i].ySeries]);
           expect(drawOperation.xOffset).toBe(expected[i].xOffset);
           expect(drawOperation.yOffset).toBe(expected[i].yOffset);
         });

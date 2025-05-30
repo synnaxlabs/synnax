@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos";
 import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
@@ -28,6 +29,7 @@ import { range } from "@/vis/lineplot/range/aether";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
 import { log } from "@/vis/log/aether";
 import { measure } from "@/vis/measure/aether";
+import { performance } from "@/vis/performance/aether";
 import { rule } from "@/vis/rule/aether";
 import { setpoint } from "@/vis/setpoint/aether";
 import { toggle } from "@/vis/toggle/aether";
@@ -61,7 +63,14 @@ export const render = (): void => {
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,
+    ...performance.REGISTRY,
   };
 
-  void aether.render({ comms: w.route("vis"), registry: REGISTRY });
+  void aether.render({
+    comms: w.route("vis"),
+    registry: REGISTRY,
+    instrumentation: new Instrumentation({
+      logger: new Logger({ filters: [logThresholdFilter("info")] }),
+    }),
+  });
 };

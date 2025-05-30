@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type MatchableErrorType } from "@synnaxlabs/freighter/src/errors";
-import { id } from "@synnaxlabs/x";
+import { type errors, id } from "@synnaxlabs/x";
 import { v4 as uuid } from "uuid";
 import { describe, expect, test } from "vitest";
 
@@ -30,7 +29,7 @@ import { newClient } from "@/setupspecs";
 
 describe("error", () => {
   describe("type matching", () => {
-    const ERRORS: [string, Error, MatchableErrorType][] = [
+    const ERRORS: [string, Error, errors.Matchable][] = [
       [ValidationError.TYPE, new ValidationError(), ValidationError],
       [FieldError.TYPE, new FieldError("field", "message"), FieldError],
       [AuthError.TYPE, new AuthError(), AuthError],
@@ -45,7 +44,9 @@ describe("error", () => {
       [ContiguityError.TYPE, new ContiguityError("message"), ContiguityError],
     ];
     ERRORS.forEach(([typeName, error, type]) =>
-      test(`matches ${typeName}`, () => expect(type.matches(error)).toBeTruthy()),
+      test(`matches ${typeName}`, () => {
+        expect(type.matches(error)).toBeTruthy();
+      }),
     );
   });
 });

@@ -39,14 +39,19 @@ func WithCancel(ctx context.Context, opts ...Option) (Context, context.CancelFun
 // timeout. If any goroutine returns a non-nil error, the Context will be canceled.
 func WithTimeout(ctx context.Context, d time.Duration, opts ...Option) (Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(ctx, d)
-	c := newCore(ctx, cancel)
+	c := newCore(ctx, cancel, opts...)
 	return c, cancel
 }
 
+// Isolated opens a new signal context completely isolated from any parent contexts.
+// This is equivalent to context.Background(), and is used to manage and independent
+// set of go-routines.
 func Isolated(opts ...Option) (Context, context.CancelFunc) {
 	return WithCancel(context.Background(), opts...)
 }
 
+// Wrap uses the context as the underlying context for the returned signal Context. When
+// the passed in context is cancelled, the signal context will be cancelled.
 func Wrap(ctx context.Context, opts ...Option) Context {
 	return newCore(ctx, func() {}, opts...)
 }
@@ -77,26 +82,16 @@ type core struct {
 	}
 }
 
-func (c *core) unsafeRunningKeys() []string {
-	running := make([]string, 0, len(c.mu.routines))
-	for _, r := range c.mu.routines {
-		if r.state.state == Running {
-			running = append(running, r.key)
-		}
-	}
-	return running
+// Stopped returns a channel that is closed when all routines in the context have stopped.
+// This can be used to wait for all routines to complete.
+func (c *core) Stopped() <-chan struct{} {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.mu.stopped
 }
 
-func (c *core) routineDiagnostics() string {
-	// create a strings.Builder, iterate through each piece of info, and pretty
-	// print it.
-	var b strings.Builder
-	for _, i := range c.routines() {
-		b.WriteString(i.PrettyString())
-	}
-	return b.String()
-}
-
+// maybeStop checks if all routines have stopped and closes the stopped channel if they have.
+// This is called after each routine completes to potentially signal that all routines are done.
 func (c *core) maybeStop() {
 	select {
 	case <-c.mu.stopped:
@@ -111,17 +106,50 @@ func (c *core) maybeStop() {
 	}
 }
 
-func (c *core) Stopped() <-chan struct{} {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.mu.stopped
+// routineDiagnostics returns a formatted string containing information about all routines
+// in the context, including their keys, states, and any failure reasons.
+func (c *core) routineDiagnostics() string {
+	var b strings.Builder
+	for _, i := range c.routines() {
+		b.WriteString(i.PrettyString())
+	}
+	return b.String()
 }
 
+// unsafeRunningKeys returns a slice of keys for all routines that are currently in the
+// Running state. This method is not thread-safe and should only be called while
+// holding the appropriate locks.
+func (c *core) unsafeRunningKeys() []string {
+	running := make([]string, 0, len(c.mu.routines))
+	for _, r := range c.mu.routines {
+		if r.state.state == Running {
+			running = append(running, r.key)
+		}
+	}
+	return running
+}
+
+// SendUnderContext attempts to send a value v to channel ch while respecting the
+// context's cancellation. It returns ctx.Err() if the context is canceled before the
+// send can complete.
 func SendUnderContext[V any](ctx context.Context, ch chan<- V, v V) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case ch <- v:
 		return nil
+	}
+}
+
+// RecvUnderContext attempts to receive a value from channel ch while respecting the
+// context's cancellation. It returns ctx.Err() if the context is canceled before the
+// receive can complete. If successful, it returns the received value and nil error.
+func RecvUnderContext[V any](ctx context.Context, ch <-chan V) (V, error) {
+	select {
+	case <-ctx.Done():
+		var o V
+		return o, ctx.Err()
+	case v := <-ch:
+		return v, nil
 	}
 }

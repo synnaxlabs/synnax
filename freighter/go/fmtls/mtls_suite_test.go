@@ -18,5 +18,5 @@ import (
 
 func TestMtls(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Mtls Suite")
+	RunSpecs(t, "MTLS Suite")
 }

@@ -176,7 +176,7 @@ export interface DiagramProps
   extends UseReturn,
     Omit<ComponentPropsWithoutRef<"div">, "onError">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible">,
-    Aether.CProps {
+    Aether.ComponentProps {
   triggers?: CoreViewport.UseTriggers;
 }
 
@@ -243,20 +243,11 @@ const Core = ({
       ...memoProps,
     },
   });
-  useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
-
-  const defaultEdgeColor = color.hex(Theming.use().colors.gray.l11);
-
-  const triggers = useMemoCompare(
-    () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
-    Triggers.compareModeConfigs,
-    [pTriggers],
-  );
-
   const { fitView } = useReactFlow();
   const debouncedFitView = useDebouncedCallback((args) => void fitView(args), 50, [
     fitView,
   ]);
+
   const resizeRef = Canvas.useRegion(
     useCallback(
       (b) => {
@@ -265,6 +256,15 @@ const Core = ({
       },
       [setState, debouncedFitView, fitViewOnResize],
     ),
+  );
+  useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
+
+  const defaultEdgeColor = color.hex(Theming.use().colors.gray.l11);
+
+  const triggers = useMemoCompare(
+    () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
+    Triggers.compareModeConfigs,
+    [pTriggers],
   );
 
   // For some reason, react flow repeatedly calls onViewportChange with the same

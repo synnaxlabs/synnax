@@ -10,6 +10,8 @@
 package server
 
 import (
+	"time"
+
 	"github.com/cockroachdb/cmux"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -17,7 +19,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/x/telem"
-	"time"
 )
 
 // SecureHTTPBranch is a Branch that serves HTTP requests behind a TLS multiplexer in
@@ -51,7 +52,7 @@ func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 	for _, t := range b.Transports {
 		t.BindTo(b.internal)
 	}
-	return filterCloserError(b.internal.Listener(ctx.Lis))
+	return b.internal.Listener(ctx.Lis)
 }
 
 // Stop	implements Branch. Stop is safe to call even if Serve has not been called.

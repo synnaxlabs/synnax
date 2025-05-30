@@ -7,86 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { errors } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import {
-  assertErrorType,
-  BaseTypedError,
-  decodeError,
-  encodeError,
-  EOF,
-  type ErrorPayload,
-  FREIGHTER,
-  isTypedError,
-  NONE,
-  registerError,
-  StreamClosed,
-  type TypedError,
-  UNKNOWN,
-  UnknownError,
-  Unreachable,
-} from "@/errors";
-
-class MyCustomError extends BaseTypedError {
-  type = "MyCustomError";
-}
-
-const myCustomErrorEncoder = (error: MyCustomError): ErrorPayload | null => {
-  if (error.type !== "MyCustomError") return null;
-  return { type: "MyCustomError", data: error.message };
-};
-
-const myCustomErrorDecoder = (encoded: ErrorPayload): TypedError =>
-  new MyCustomError(encoded.data);
+import { EOF, FreighterError, StreamClosed, Unreachable } from "@/errors";
 
 describe("errors", () => {
-  test("isTypedError", () => {
-    const error = new MyCustomError("test");
-    const fError = isTypedError(error);
-    expect(fError).toBeTruthy();
-    expect(error.type).toEqual("MyCustomError");
-  });
-
-  test("encoding and decoding a custom error through registry", () => {
-    registerError({
-      encode: myCustomErrorEncoder,
-      decode: myCustomErrorDecoder,
-    });
-    const error = new MyCustomError("test");
-    const encoded = encodeError(error);
-    expect(encoded.type).toEqual("MyCustomError");
-    expect(encoded.data).toEqual("test");
-    const decoded = assertErrorType<MyCustomError>(
-      "MyCustomError",
-      decodeError(encoded),
-    );
-    expect(decoded.message).toEqual("test");
-  });
-
-  test("encoding and decoding a null error", () => {
-    const encoded = encodeError(null);
-    expect(encoded.type).toEqual(NONE);
-    expect(encoded.data).toEqual("");
-    const decoded = decodeError(encoded);
-    expect(decoded).toBeNull();
-  });
-
-  test("encoding and decoding an unrecognized error", () => {
-    const error = new Error("test");
-    const encoded = encodeError(error);
-    expect(encoded.type).toEqual(UNKNOWN);
-    expect(encoded.data).toEqual("{}");
-    const decoded = decodeError(encoded);
-    expect(decoded).toEqual(new UnknownError("{}"));
-  });
-
   test("encoding and decoding freighter errors", () => {
     [new EOF(), new StreamClosed(), new Unreachable()].forEach((error) => {
-      const encoded = encodeError(error);
-      expect(encoded.type.startsWith(FREIGHTER)).toBeTruthy();
+      const encoded = errors.encode(error);
+      expect(encoded.type.startsWith(FreighterError.TYPE)).toBeTruthy();
       expect(encoded.data).toEqual(error.message);
-      const decoded = decodeError(encoded);
-      expect(decoded).toEqual(error);
+      const decoded = errors.decode(encoded);
+      expect(error.matches(decoded)).toBeTruthy();
     });
   });
 });

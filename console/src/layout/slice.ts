@@ -113,6 +113,11 @@ interface SetUnsavedChangesPayload {
   unsavedChanges: boolean;
 }
 
+interface SetLoadingPayload {
+  key: string;
+  loading: boolean;
+}
+
 interface SetHaulingPayload extends Haul.DraggingState {}
 
 export interface SetNavDrawerPayload extends NavDrawerEntryState {
@@ -557,6 +562,17 @@ export const { actions, reducer } = createSlice({
       }));
       state.mosaics[layout.windowKey] = mosaic;
     },
+    setLoading: (state, { payload }: PayloadAction<SetLoadingPayload>) => {
+      const layout = select(state, payload.key);
+      if (layout == null) return;
+      layout.loading = payload.loading;
+      const mosaic = state.mosaics[layout.windowKey];
+      mosaic.root = Mosaic.updateTab(mosaic.root, layout.key, () => ({
+        ...tabFromLayout(layout),
+        loading: payload.loading,
+      }));
+      state.mosaics[layout.windowKey] = mosaic;
+    },
   },
 });
 
@@ -573,6 +589,7 @@ export const {
   splitMosaicNode,
   rename,
   setNavDrawer,
+  setLoading,
   resizeNavDrawer,
   setNavDrawerVisible,
   maybeCreateGetStartedTab,

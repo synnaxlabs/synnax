@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type Action, type Middleware } from "@reduxjs/toolkit";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 
-import { isMainWindow } from "@/isMainWindow";
-import { openSugaredKV, type SugaredKV } from "@/persist/kv";
+import { openTauriKV, type SugaredKV } from "@/persist/kv";
+import { getCurrentWindow } from "@/tauriShim";
 import { type Version } from "@/version";
 
-const PERSISTED_STATE_KEY = "console-persisted-state";
+export const PERSISTED_STATE_KEY = "console-persisted-state";
 export const DB_VERSION_KEY = "console-version";
 
 // Note that these are relative paths related to the tauri standard app data directory.
@@ -30,17 +31,15 @@ interface StateVersionValue {
 export interface RequiredState extends Version.StoreState {}
 
 export interface KVOpener {
-  (base: string): SugaredKV;
+  (base: string): Promise<SugaredKV>;
 }
 
-const openAndMigrateKV = async (
-  openKV: KVOpener = openSugaredKV,
-): Promise<SugaredKV> => {
+const openAndMigrateKV = async (openKV: KVOpener = openTauriKV): Promise<SugaredKV> => {
   // Open V2 store and check its length. If it's greater than 0, return it. Otherwise,
   // open V1 store and return it.
-  const v2Store = openKV(V2_STORE_PATH);
+  const v2Store = await openKV(V2_STORE_PATH);
   if ((await v2Store.length()) > 0) return v2Store;
-  const v1Store = openKV(V1_STORE_PATH);
+  const v1Store = await openKV(V1_STORE_PATH);
   // If it's empty, we can just return the V2 store.
   if ((await v1Store.length()) === 0) return v2Store;
   // Otherwise, we need to migrate the V1 store to V2. Get the DB version key and use it
@@ -81,7 +80,8 @@ const nextVersion = (currentVersion: number): number =>
  * Clear the entire store and reload the page.
  */
 export const hardClearAndReload = () => {
-  if (!isMainWindow()) return;
+  const appWindow = getCurrentWindow();
+  if (appWindow == null || appWindow.label !== MAIN_WINDOW) return;
   openAndMigrateKV()
     .then(async (db) => await db.clear())
     .finally(() => window.location.reload())

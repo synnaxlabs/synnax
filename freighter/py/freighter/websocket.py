@@ -27,6 +27,19 @@ from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClien
 from freighter.transport import RQ, RS, AsyncMiddlewareCollector, MiddlewareCollector, P
 from freighter.url import URL
 
+CONTEXT_CANCELLED_CLOSE_CODE = 1001
+
+
+def handle_close_err(e: ConnectionClosedOK) -> Exception:
+    if (
+        e.rcvd is not None
+        and e.rcvd.code == CONTEXT_CANCELLED_CLOSE_CODE
+        and e.sent is not None
+        and e.sent.code == CONTEXT_CANCELLED_CLOSE_CODE
+    ):
+        return StreamClosed()
+    return EOF()
+
 
 class Message(BaseModel, Generic[P]):
     type: Literal["data", "close", "open"]
@@ -46,8 +59,6 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
             strict: bool | None = None,
             from_attributes: bool | None = None,
             context: Any | None = None,
-            by_alias: bool | None = None,
-            by_name: bool | None = None,
         ) -> Self:
             # Ensure the payload is validated as the correct type
             obj["payload"] = res_t.model_validate(
@@ -55,16 +66,9 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
                 strict=strict,
                 from_attributes=from_attributes,
                 context=context,
-                by_alias=by_alias,
-                by_name=by_name,
             )
             return super().model_validate(
-                obj,
-                strict=strict,
-                from_attributes=from_attributes,
-                context=context,
-                by_alias=by_alias,
-                by_name=by_name,
+                obj, strict=strict, from_attributes=from_attributes, context=context
             )
 
     return _ResMsg
@@ -186,7 +190,10 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         if server_closed is not None:
             return None, server_closed
 
-        data = self.__internal.recv(timeout)
+        try:
+            data = self.__internal.recv(timeout)
+        except ConnectionClosedOK as e:
+            return None, handle_close_err(e)
         assert isinstance(data, bytes)
         msg = self.__encoder.decode(data, self.__res_msg_t)
 
@@ -221,8 +228,8 @@ class SyncWebsocketStream(Stream[RQ, RS]):
 
         try:
             self.__internal.send(encoded)
-        except ConnectionClosedOK:
-            return EOF()
+        except ConnectionClosedOK as e:
+            return handle_close_err(e)
         return None
 
     def close_send(self) -> Exception | None:
@@ -232,6 +239,8 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         msg = Message[RQ](type="close", payload=None, error=None)
         try:
             self.__internal.send(self.__encoder.encode(msg))
+        except ConnectionClosedOK as e:
+            return handle_close_err(e)
         finally:
             self.__send_closed = True
         return None

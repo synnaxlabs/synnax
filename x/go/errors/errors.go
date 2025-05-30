@@ -80,7 +80,9 @@ func Combine(err error, otherErr error) error {
 }
 
 // New creates an error with a simple error message. A stack trace is retained.
-func New(msg string) error { return errors.New(msg) }
+func New(msg string) error {
+	return WithStackDepth(errors.New(msg), 1)
+}
 
 // Newf creates an error with a formatted error message. A stack trace is retained.
 func Newf(format string, args ...any) error { return errors.Newf(format, args...) }

@@ -84,9 +84,9 @@ export const themeZ = z
       error: scaleZ,
       secondary: scaleZ,
       warning: scaleZ,
-      palettes: z.record(color.paletteZ),
+      palettes: z.record(z.string(), color.paletteZ),
       visualization: z
-        .object({ palettes: z.record(z.array(color.colorZ)) })
+        .object({ palettes: z.record(z.string(), z.array(color.colorZ)) })
         .optional()
         .default({ palettes: {} }),
       white: color.colorZ,
@@ -120,6 +120,7 @@ export const themeZ = z
   .transform((theme) => {
     if (theme.colors.textOnPrimary == null || color.isZero(theme.colors.textOnPrimary))
       theme.colors.textOnPrimary = color.pickByContrast(
+        theme.colors.primary.z,
         theme.colors.text,
         theme.colors.textInverted,
       );
