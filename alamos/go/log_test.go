@@ -155,86 +155,82 @@ var _ = Describe("Log", func() {
 			Expect(func() { l.DPanic("test") }).ToNot(Panic())
 		})
 	})
-})
 
-var _ = Describe("CustomCore", func() {
-	var (
-		core    zapcore.Core
-		encoder zapcore.Encoder
-		buffer  *bytes.Buffer
-		writer  zapcore.WriteSyncer
-	)
+	Describe("CustomCore", func() {
+		var (
+			core    zapcore.Core
+			encoder zapcore.Encoder
+			buffer  *bytes.Buffer
+			writer  zapcore.WriteSyncer
+		)
 
-	BeforeEach(func() {
-		encoder = zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig())
-		buffer = &bytes.Buffer{}
-		writer = zapcore.AddSync(buffer)
-		core = zapcore.NewCore(encoder, writer, zapcore.DebugLevel)
+		BeforeEach(func() {
+			encoder = zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig())
+			buffer = &bytes.Buffer{}
+			writer = zapcore.AddSync(buffer)
+			core = zapcore.NewCore(encoder, writer, zapcore.DebugLevel)
+		})
+
+		It("Should wrap an existing core", func() {
+			custom := alamos.CustomZapCore(core)
+			Expect(custom.Enabled(zapcore.DebugLevel)).To(BeTrue())
+			Expect(custom.Enabled(zapcore.InfoLevel)).To(BeTrue())
+			Expect(custom.Enabled(zapcore.ErrorLevel)).To(BeTrue())
+		})
+
+		It("Should handle error stack traces", func() {
+			custom := alamos.CustomZapCore(core)
+			err := errors.New("test error")
+			entry := zapcore.Entry{
+				Level:   zapcore.ErrorLevel,
+				Message: "test",
+			}
+			fields := []zapcore.Field{zap.Error(err)}
+			Expect(custom.Write(entry, fields)).To(Succeed())
+			Expect(buffer.String()).To(ContainSubstring("test error"))
+			Expect(buffer.String()).To(ContainSubstring("stack trace"))
+			Expect(buffer.String()).To(ContainSubstring("log_test"))
+		})
+
+		It("Should handle custom caller information", func() {
+			custom := alamos.CustomZapCore(core)
+			entry := zapcore.Entry{
+				Level:   zapcore.InfoLevel,
+				Message: "test",
+			}
+			fields := []zapcore.Field{zap.String("caller", "custom/caller.go:42")}
+			Expect(custom.Write(entry, fields)).To(Succeed())
+			Expect(buffer.String()).To(ContainSubstring("custom/caller.go"))
+			Expect(buffer.String()).To(ContainSubstring("42"))
+		})
+
+		It("Should maintain core functionality", func() {
+			custom := alamos.CustomZapCore(core)
+			Expect(custom.With([]zapcore.Field{zap.String("key", "value")})).ToNot(BeNil())
+			Expect(custom.Sync()).To(Succeed())
+		})
+
+		It("Should handle Check in customCore", func() {
+			custom := alamos.CustomZapCore(core)
+			entry := zapcore.Entry{
+				Level:   zapcore.InfoLevel,
+				Message: "test",
+			}
+			checked := &zapcore.CheckedEntry{}
+			result := custom.Check(entry, checked)
+			Expect(result).ToNot(BeNil())
+			Expect(result).To(Equal(checked))
+		})
+
+		It("Should log with custom core", func() {
+			custom := alamos.CustomZapCore(core)
+			zapLogger := zap.New(custom)
+			newLogger, err := alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zapLogger})
+			Expect(err).ToNot(HaveOccurred())
+			newLogger.Info("test message", zap.String("key", "value"))
+			Expect(buffer.String()).To(ContainSubstring("test message"))
+			Expect(buffer.String()).To(ContainSubstring("key"))
+			Expect(buffer.String()).To(ContainSubstring("value"))
+		})
 	})
-
-	It("Should wrap an existing core", func() {
-		custom := alamos.CustomZapCore(core)
-		Expect(custom.Enabled(zapcore.DebugLevel)).To(BeTrue())
-		Expect(custom.Enabled(zapcore.InfoLevel)).To(BeTrue())
-		Expect(custom.Enabled(zapcore.ErrorLevel)).To(BeTrue())
-	})
-
-	It("Should handle error stack traces", func() {
-		custom := alamos.CustomZapCore(core)
-		err := errors.New("test error")
-		entry := zapcore.Entry{
-			Level:   zapcore.ErrorLevel,
-			Message: "test",
-		}
-		fields := []zapcore.Field{zap.Error(err)}
-		Expect(custom.Write(entry, fields)).To(Succeed())
-		Expect(buffer.String()).To(ContainSubstring("test error"))
-		Expect(buffer.String()).To(ContainSubstring("stack trace"))
-		Expect(buffer.String()).To(ContainSubstring("log_test"))
-	})
-
-	It("Should handle custom caller information", func() {
-		custom := alamos.CustomZapCore(core)
-		entry := zapcore.Entry{
-			Level:   zapcore.InfoLevel,
-			Message: "test",
-		}
-		fields := []zapcore.Field{zap.String("caller", "custom/caller.go:42")}
-		Expect(custom.Write(entry, fields)).To(Succeed())
-		Expect(buffer.String()).To(ContainSubstring("custom/caller.go"))
-		Expect(buffer.String()).To(ContainSubstring("42"))
-	})
-
-	It("Should maintain core functionality", func() {
-		custom := alamos.CustomZapCore(core)
-		Expect(custom.With([]zapcore.Field{zap.String("key", "value")})).ToNot(BeNil())
-		Expect(custom.Sync()).To(Succeed())
-	})
-
-	It("Should handle Check in customCore", func() {
-		custom := alamos.CustomZapCore(core)
-		entry := zapcore.Entry{
-			Level:   zapcore.InfoLevel,
-			Message: "test",
-		}
-		checked := &zapcore.CheckedEntry{}
-		result := custom.Check(entry, checked)
-		Expect(result).ToNot(BeNil())
-		Expect(result).To(Equal(checked))
-	})
-
-	It("Should log with custom core", func() {
-		custom := alamos.CustomZapCore(core)
-		zapLogger := zap.New(custom)
-		newLogger, err := alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zapLogger})
-		Expect(err).ToNot(HaveOccurred())
-		newLogger.Info("test message", zap.String("key", "value"))
-		Expect(buffer.String()).To(ContainSubstring("test message"))
-		Expect(buffer.String()).To(ContainSubstring("key"))
-		Expect(buffer.String()).To(ContainSubstring("value"))
-	})
-})
-
-var _ = Describe("Logger", func() {
-
 })
