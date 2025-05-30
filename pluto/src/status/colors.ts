@@ -14,6 +14,6 @@ export const VARIANT_COLORS: Record<status.Variant, string> = {
   error: "var(--pluto-error-z)",
   warning: "var(--pluto-warning-m1)",
   success: "var(--pluto-primary-z)",
+  loading: "var(--pluto-text-color)",
   disabled: "var(--pluto-gray-l8)",
-  loading: "var(--pluto--text-color)",
 };
