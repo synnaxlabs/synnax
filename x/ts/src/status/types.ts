@@ -9,7 +9,14 @@
 
 import { z as status } from "zod";
 
-export const variantZ = status.enum(["success", "info", "warning", "error"]);
+export const variantZ = status.enum([
+  "success",
+  "info",
+  "warning",
+  "error",
+  "loading",
+  "disabled",
+]);
 
 // Represents one of the possible variants of a status message.
 export type Variant = status.infer<typeof variantZ>;

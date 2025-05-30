@@ -386,7 +386,7 @@ export class AuthoritySource
     if (this.props.channel === 0)
       return {
         key: this.controller.key,
-        variant: "info",
+        variant: "disabled",
         message: "No Channel",
         time,
         data: { valid: false, authority: 0 },
@@ -397,7 +397,7 @@ export class AuthoritySource
     if (state == null)
       return {
         key: this.controller.key,
-        variant: "info",
+        variant: "disabled",
         message: "Uncontrolled",
         time,
         data: { valid: true, color: undefined, authority: 0 },

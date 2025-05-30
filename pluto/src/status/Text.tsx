@@ -22,24 +22,20 @@ export interface TextProps extends Omit<BaseText.WithIconProps, "level" | "wrap"
   hideIcon?: boolean;
   noColor?: boolean;
   variant?: status.Variant;
-  loading?: boolean;
-  disabled?: boolean;
 }
 
 const Core = ({
   variant = "info",
   level = "p",
   hideIcon = false,
-  loading = false,
-  disabled = false,
   className,
   ...rest
 }: TextProps): ReactElement => {
   let icon: PIcon.Element | undefined;
-  if (!hideIcon) icon = loading ? <Icon.Loading /> : <Icon.Circle />;
+  if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
   return (
     <BaseText.WithIcon
-      color={disabled ? "var(--pluto-gray-l8)" : VARIANT_COLORS[variant]}
+      color={VARIANT_COLORS[variant]}
       className={CSS(className, CSS.B("status-text"))}
       level={level}
       startIcon={icon}

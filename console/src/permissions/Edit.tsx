@@ -161,7 +161,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }) => {
       </Align.Space>
       <Modals.BottomNavBar size="6rem">
         <Nav.Bar.Start align="center" size="large">
-          <Status.Text loading={isPending} variant="success">
+          <Status.Text variant={isPending ? "loading" : "success"}>
             {isPending ? "Saving" : "Saved"}
           </Status.Text>
         </Nav.Bar.Start>

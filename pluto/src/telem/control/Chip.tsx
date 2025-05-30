@@ -34,7 +34,7 @@ interface ChipStyle {
 
 const tooltipMessage = (status: Status.Spec): ChipStyle => {
   switch (status.variant) {
-    case "info":
+    case "disabled":
       if (status.data?.valid === true)
         return {
           message: "Uncontrolled. Click to take control.",
@@ -82,7 +82,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
       ...memoProps,
       status: {
         key: "no_chip",
-        variant: "info",
+        variant: "disabled",
         message: "No chip connected.",
         time: TimeStamp.now(),
       },

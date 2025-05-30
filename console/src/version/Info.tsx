@@ -67,21 +67,21 @@ export const Info: Layout.Renderer = () => {
   });
 
   let updateContent = (
-    <Status.Text level="h4" weight={350} loading size="medium">
+    <Status.Text level="h4" weight={350} variant="loading" size="medium">
       Checking for updates
     </Status.Text>
   );
   if (updateMutation.isPending)
     if (progressPercent === 100)
       updateContent = (
-        <Status.Text level="h4" loading size="medium">
+        <Status.Text level="h4" variant="loading" size="medium">
           Update downloaded. Restarting
         </Status.Text>
       );
     else
       updateContent = (
         <Align.Space y size="medium">
-          <Status.Text loading level="h4" size="medium">
+          <Status.Text variant="loading" level="h4" size="medium">
             Downloading update
           </Status.Text>
           <Align.Space x size="medium" align="center" justify="center">

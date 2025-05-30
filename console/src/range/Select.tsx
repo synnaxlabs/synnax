@@ -94,7 +94,7 @@ const SelectEmptyContent = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Center style={{ height: 150 }} x>
-      <Status.Text disabled hideIcon>
+      <Status.Text variant="disabled" hideIcon>
         No Ranges:
       </Status.Text>
       <Button.Button variant="outlined" onClick={() => placeLayout(CREATE_LAYOUT)}>

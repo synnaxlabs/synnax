@@ -259,7 +259,7 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
   });
   if (isPending)
     return (
-      <Status.Text.Centered level="h4" loading>
+      <Status.Text.Centered level="h4" variant="loading">
         Loading Configuration from Synnax Server
       </Status.Text.Centered>
     );
