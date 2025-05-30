@@ -9,11 +9,17 @@
 
 import "@/vis/schematic/Symbols.css";
 
-import { box, direction, location, type UnknownRecord, xy } from "@synnaxlabs/x";
+import {
+  box,
+  type color,
+  direction,
+  location,
+  type UnknownRecord,
+  xy,
+} from "@synnaxlabs/x";
 import { type CSSProperties, type FC, type ReactElement } from "react";
 
 import { Align } from "@/align";
-import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
@@ -693,8 +699,8 @@ export interface ValueProps
     Primitives.ValueProps {
   position?: xy.XY;
   label?: LabelExtensionProps;
-  color?: Color.Crude;
-  textColor?: Color.Crude;
+  color?: color.Crude;
+  textColor?: color.Crude;
   tooltip?: string[];
 }
 

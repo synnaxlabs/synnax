@@ -8,11 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { ranger, type signals, type Synnax } from "@synnaxlabs/client";
-import { bounds, box, clamp, type scale, TimeRange, TimeSpan, xy } from "@synnaxlabs/x";
+import {
+  bounds,
+  box,
+  clamp,
+  color,
+  type scale,
+  TimeRange,
+  TimeSpan,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { color } from "@/color/core";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
@@ -23,8 +31,6 @@ export const selectedStateZ = ranger.payloadZ.extend({
 });
 
 export type SelectedState = z.infer<typeof selectedStateZ>;
-
-const hasColor = (c?: string): boolean => color.Color.z.safeParse(c).success;
 
 export const providerStateZ = z.object({
   cursor: xy.xy.or(z.null()),
@@ -67,7 +73,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.tracker.onChange((c) => {
       c.forEach((r) => {
         if (r.variant === "delete") i.ranges.delete(r.key);
-        else if (hasColor(r.value.color)) i.ranges.set(r.key, r.value);
+        else if (color.isColor(r.value.color)) i.ranges.set(r.key, r.value);
       });
       render.Controller.requestRender(ctx, render.REASON_TOOL);
       this.setState((s) => ({ ...s, count: i.ranges.size }));
@@ -85,7 +91,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     this.fetchedInitial = timeRange;
     const ranges = await i.client.ranges.retrieve(timeRange);
     ranges.forEach((r) => {
-      if (hasColor(r.color)) i.ranges.set(r.key, r);
+      if (color.isCrude(r.color)) i.ranges.set(r.key, r);
     });
     this.setState((s) => ({ ...s, count: i.ranges.size }));
   }
@@ -104,7 +110,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       ),
     );
     ranges.forEach((r) => {
-      const cRes = color.Color.z.safeParse(r.color);
+      const cRes = color.colorZ.safeParse(r.color);
       if (!cRes.success) return;
       const c = cRes.data;
       let startPos = regionScale.pos(Number(r.timeRange.start.valueOf()));
@@ -134,7 +140,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
           { x: startPos, y: box.top(region) - 1 },
           { x: endPos, y: box.bottom(region) - 1 },
         ),
-        backgroundColor: c.setAlpha(0.2),
+        backgroundColor: color.setAlpha(c, 0.2),
         bordered: false,
       });
       const titleRegion = box.construct(
@@ -145,12 +151,12 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         region: titleRegion,
         backgroundColor:
           box.width(titleRegion) < 20
-            ? c.setAlpha(0.4)
+            ? color.setAlpha(c, 0.4)
             : (t) => (hovered ? t.colors.gray.l2 : t.colors.gray.l0),
         bordered: true,
         borderWidth: 1,
         borderRadius: 2,
-        borderColor: c.setAlpha(0.8),
+        borderColor: color.setAlpha(c, 0.8),
       });
       draw.text({
         text: r.name,

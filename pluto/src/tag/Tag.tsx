@@ -10,11 +10,10 @@
 import "@/tag/Tag.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { type Optional } from "@synnaxlabs/x";
+import { color, type Optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button } from "@/button";
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { type Icon as PIcon } from "@/icon";
 import { Text } from "@/text";
@@ -24,7 +23,7 @@ export interface TagProps
   extends Optional<Omit<Text.TextProps, "size" | "wrap">, "level"> {
   icon?: PIcon.Element;
   onClose?: () => void;
-  color?: Color.Crude;
+  color?: color.Crude;
   size?: ComponentSize;
   variant?: "filled" | "outlined";
 }
@@ -32,15 +31,15 @@ export interface TagProps
 export const Tag = ({
   children = "",
   size = "medium",
-  color,
+  color: pColor,
   icon,
   onClose,
   className,
   onDragStart,
   ...rest
 }: TagProps): ReactElement => {
-  const cssColor = Color.cssString(color);
-  if (icon == null && color != null) icon = <Icon.Circle fill={cssColor} />;
+  const cssColor = color.cssString(pColor);
+  if (icon == null && pColor != null) icon = <Icon.Circle fill={cssColor} />;
   const closeIcon =
     onClose == null ? undefined : (
       <Button.Icon
