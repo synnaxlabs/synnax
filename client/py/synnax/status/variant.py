@@ -13,6 +13,15 @@ SUCCESS_VARIANT = "success"
 INFO_VARIANT = "info"
 WARNING_VARIANT = "warning"
 ERROR_VARIANT = "error"
+DISABLED_VARIANT = "disabled"
+LOADING_VARIANT = "loading"
 
-Variant = Literal["success", "info", "warning", "error"]
+Variant = Literal[
+    "success",
+    "info",
+    "warning",
+    "error",
+    "disabled",
+    "loading",
+]
 """Represents the variant of a status message."""
