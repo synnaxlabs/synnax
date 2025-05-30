@@ -10,20 +10,17 @@
 from enum import Enum
 from typing import Literal, TypeAlias, overload
 from uuid import uuid4
-from warnings import warn
 
 from freighter import (
     EOF,
+    ExceptionPayload,
     Payload,
     Stream,
-    StreamClient,
+    WebsocketClient,
     decode_exception,
 )
-from numpy import can_cast as np_can_cast
-from pandas import DataFrame
-from pandas import concat as pd_concat
+from freighter.websocket import Message
 
-from synnax import io
 from synnax.channel.payload import (
     ChannelKey,
     ChannelKeys,
@@ -31,21 +28,23 @@ from synnax.channel.payload import (
     ChannelNames,
     ChannelPayload,
 )
-from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
-from synnax.framer.frame import CrudeFrame, Frame, FramePayload
-from synnax.telem import CrudeSeries, CrudeTimeStamp, DataType, TimeSpan, TimeStamp
+from synnax.framer.codec import (
+    HIGH_PERF_SPECIAL_CHAR,
+    LOW_PERF_SPECIAL_CHAR,
+    WSFramerCodec,
+)
+from synnax.framer.frame import CrudeFrame, FramePayload
+from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
 from synnax.telem.control import Authority, CrudeAuthority, Subject
 from synnax.util.normalize import normalize
 
 
-class _Command(int, Enum):
+class WriterCommand(int, Enum):
     OPEN = 0
     WRITE = 1
     COMMIT = 2
-    ERROR = 3
-    SET_AUTHORITY = 4
-    SET_MODE = 5
+    SET_AUTHORITY = 3
 
 
 class WriterMode(int, Enum):
@@ -63,6 +62,48 @@ CrudeWriterMode: TypeAlias = (
 )
 
 
+class WriterConfig(Payload):
+    authorities: list[int] = Authority.ABSOLUTE
+    control_subject: Subject = Subject(name="", key=str(uuid4()))
+    start: TimeStamp | None = None
+    keys: ChannelKeys
+    mode: WriterMode = WriterMode.PERSIST_STREAM
+    err_on_unauthorized: bool = False
+    enable_auto_commit: bool = False
+    auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
+
+
+class WriterRequest(Payload):
+    config: WriterConfig | None = None
+    command: WriterCommand
+    frame: FramePayload | None = None
+
+
+class WriterResponse(Payload):
+    command: WriterCommand
+    end: TimeStamp | None
+    err: ExceptionPayload
+
+
+class WSWriterCodec(WSFramerCodec):
+    def encode(self, pld: Message[WriterRequest]) -> bytes:
+        if pld.type == "close" or pld.payload.command != WriterCommand.WRITE:
+            data = self.lower_perf_codec.encode(pld)
+            return bytes([LOW_PERF_SPECIAL_CHAR]) + data
+        data = self.codec.encode(pld.payload.frame, 1)
+        data = bytearray(data)
+        data[0] = HIGH_PERF_SPECIAL_CHAR
+        return bytes(data)
+
+    def decode(self, data: bytes, pld_t: Message[WriterResponse]) -> object:
+        if data[0] == LOW_PERF_SPECIAL_CHAR:
+            return self.lower_perf_codec.decode(data[1:], pld_t)
+        frame = self.codec.decode(data, 1)
+        msg = Message[WriterRequest](type="data")
+        msg.payload = Payload(command=WriterCommand.WRITE, frame=frame)
+        return msg
+
+
 def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     if mode == "persist_stream":
         return WriterMode.PERSIST_STREAM
@@ -76,34 +117,14 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
         try:
             return WriterMode(mode)
         except:
-            raise ValueError(f"invalid writer mode {mode}")
-
-
-class _Config(Payload):
-    authorities: list[int] = Authority.ABSOLUTE
-    control_subject: Subject = Subject(name="", key=str(uuid4()))
-    start: TimeStamp | None = None
-    keys: ChannelKeys
-    mode: WriterMode = WriterMode.PERSIST_STREAM
-    err_on_unauthorized: bool = False
-    enable_auto_commit: bool = False
-    auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
-
-
-class _Request(Payload):
-    config: _Config | None = None
-    command: _Command
-    frame: FramePayload | None = None
-
-
-class _Response(Payload):
-    command: _Command
-    ack: bool
-    error: str | None
-    end: TimeStamp | None
+            ...
+    raise ValueError(f"invalid writer mode {mode}")
 
 
 ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
+
+
+class WriterClosed(BaseException): ...
 
 
 class Writer:
@@ -147,37 +168,34 @@ class Writer:
     error, close will raise the accumulated error.
     """
 
-    __ENDPOINT = "/frame/write"
-    __stream: Stream[_Request, _Response]
-    __adapter: WriteFrameAdapter
-    __suppress_warnings: bool = False
-    __strict: bool = False
-    __err_accumulated: bool = False
+    _ENDPOINT = "/frame/write"
+    _stream: Stream[WriterRequest, WriterResponse]
+    _adapter: WriteFrameAdapter
+    _close_exc: Exception | None = None
 
     start: CrudeTimeStamp
 
     def __init__(
         self,
         start: CrudeTimeStamp,
-        client: StreamClient,
+        client: WebsocketClient,
         adapter: WriteFrameAdapter,
         name: str = "",
         authorities: list[Authority] | Authority = Authority.ABSOLUTE,
-        suppress_warnings: bool = False,
-        strict: bool = False,
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = False,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
+        use_experimental_codec: bool = True,
     ) -> None:
         self.start = start
-        self.__adapter = adapter
-        self.__suppress_warnings = suppress_warnings
-        self.__strict = strict
-        self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
-        config = _Config(
+        self._adapter = adapter
+        if use_experimental_codec:
+            client = client.with_codec(WSWriterCodec(adapter.codec))
+        self._stream = client.stream(self._ENDPOINT, WriterRequest, WriterResponse)
+        config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4())),
-            keys=self.__adapter.keys,
+            keys=self._adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
             mode=parse_writer_mode(mode),
@@ -185,8 +203,12 @@ class Writer:
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
         )
-        self.__stream.send(_Request(command=_Command.OPEN, config=config))
-        _, exc = self.__stream.receive()
+        exc = self._stream.send(
+            WriterRequest(command=WriterCommand.OPEN, config=config)
+        )
+        if exc is not None:
+            raise exc
+        _, exc = self._stream.receive()
         if exc is not None:
             raise exc
 
@@ -210,7 +232,7 @@ class Writer:
             ChannelName | ChannelKey | ChannelKeys | ChannelNames | CrudeFrame
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
-    ) -> bool:
+    ) -> None:
         """Writes the given data to the database. The formats are listed below. Before
         we get into them, here are some important terms to know.
 
@@ -248,19 +270,16 @@ class Writer:
         the caller should acknowledge the error by calling the error method or closing
         the writer.
         """
-        if self._check_for_bad_ack():
-            return False
-
-        frame = self.__adapter.adapt(channels_or_data, series)
-        self.__check_keys(frame)
-        self.__prep_data_types(frame)
-
-        exc = self.__stream.send(
-            _Request(command=_Command.WRITE, frame=frame.to_payload())
-        )
-        if exc is not None:
-            raise exc
-        return True
+        if self._close_exc is not None:
+            raise self._close_exc
+        frame = self._adapter.adapt(channels_or_data, series)
+        try:
+            self._exec(
+                WriterRequest(command=WriterCommand.WRITE, frame=frame.to_payload()),
+                timeout=0,
+            )
+        except TimeoutError:
+            ...
 
     @overload
     def set_authority(self, value: CrudeAuthority) -> bool: ...
@@ -278,15 +297,6 @@ class Writer:
         value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
     ) -> bool: ...
 
-    def _check_for_bad_ack(self) -> bool:
-        if not self.__err_accumulated:
-            try:
-                self.__stream.receive(timeout=0)
-            except TimeoutError:
-                return False
-            self.__err_accumulated = True
-        return self.__err_accumulated
-
     def set_authority(
         self,
         value: (
@@ -296,9 +306,11 @@ class Writer:
             | CrudeAuthority
         ),
         authority: CrudeAuthority | None = None,
-    ) -> bool:
+    ) -> None:
+        if self._close_exc is not None:
+            raise self._close_exc
         if isinstance(value, int) and authority is None:
-            cfg = _Config(keys=[], authorities=[value])
+            cfg = WriterConfig(keys=[], authorities=[value])
         else:
             if isinstance(value, (ChannelKey, ChannelName)):
                 if authority is None:
@@ -306,22 +318,14 @@ class Writer:
                         "authority must be provided when setting a single channel"
                     )
                 value = {value: authority}
-            value = self.__adapter.adapt_dict_keys(value)
-            cfg = _Config(
+            value = self._adapter.adapt_dict_keys(value)
+            cfg = WriterConfig(
                 keys=list(value.keys()),
                 authorities=list(value.values()),
             )
-        exc = self.__stream.send(_Request(command=_Command.SET_AUTHORITY, config=cfg))
-        if exc is not None:
-            raise exc
-        while True:
-            res, exc = self.__stream.receive()
-            if exc is not None:
-                raise exc
-            if res.command == _Command.SET_AUTHORITY:
-                return res.ack
+        self._exec(WriterRequest(command=WriterCommand.SET_AUTHORITY, config=cfg))
 
-    def commit(self) -> tuple[TimeStamp, bool]:
+    def commit(self) -> TimeStamp:
         """Commits the written frames to the database. Commit is synchronous, meaning
         that it will not return until all frames have been committed to the database.
 
@@ -329,147 +333,54 @@ class Writer:
         should acknowledge the error by calling the error method or closing the writer.
         After the error is acknowledged, the caller can attempt to commit again.
         """
-        if self._check_for_bad_ack():
-            return TimeStamp.now(), False
-        exc = self.__stream.send(_Request(command=_Command.COMMIT))
-        if exc is not None:
-            raise exc
-
-        while True:
-            res, exc = self.__stream.receive()
-            if exc is not None:
-                raise exc
-            if res.command == _Command.COMMIT:
-                return res.end, res.ack
-
-    def error(self) -> Exception | None:
-        """
-        :returns: The exception that the writer has accumulated, if any. If the writer
-        has not accumulated an error, this method will return None. This method will
-        clear the writer's error state, allowing the writer to be used again.
-        """
-        self.__stream.send(_Request(command=_Command.ERROR))
-
-        while True:
-            res, exc = self.__stream.receive()
-            if exc is not None:
-                raise exc
-            assert res is not None
-            if res.command == _Command.ERROR:
-                return decode_exception(res.error)
+        if self._close_exc is not None:
+            raise self._close_exc
+        res = self._exec(WriterRequest(command=WriterCommand.COMMIT))
+        return res.end
 
     def close(self):
         """Closes the writer, raising any accumulated error encountered during
         operation. A writer MUST be closed after use, and this method should probably
         be placed in a 'finally' block.
         """
-        self.__stream.close_send()
-        while True:
-            res, exc = self.__stream.receive()
-            if exc is None:
-                assert res is not None
-                exc = decode_exception(res.error)
+        return self._close(None)
 
-            if exc is not None:
-                if isinstance(exc, EOF):
+    def _close(self, exc: Exception | None) -> None:
+        if self._close_exc is not None:
+            if isinstance(self._close_exc, WriterClosed):
+                return
+            raise self._close_exc
+        self._close_exc = exc
+        self._stream.close_send()
+        while True:
+            if self._close_exc is not None:
+                if isinstance(self._close_exc, WriterClosed):
                     return
-                raise exc
+                raise self._close_exc
+            res, exc = self._stream.receive()
+            if exc is not None:
+                self._close_exc = WriterClosed() if isinstance(exc, EOF) else exc
+            else:
+                self._close_exc = decode_exception(res.err)
+
+    def _exec(
+        self, req: WriterRequest, timeout: int | None = None
+    ) -> WriterResponse | None:
+        exc = self._stream.send(req)
+        if exc is not None:
+            return self._close(exc)
+        while True:
+            res, exc = self._stream.receive(timeout)
+            if exc is not None:
+                return self._close(exc)
+            exc = decode_exception(res.err)
+            if exc is not None:
+                return self._close(exc)
+            if res.command == req.command:
+                return res
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
-
-    def __check_keys(self, frame: Frame):
-        missing = set(self.__adapter.keys) - set(frame.channels)
-        extra = set(frame.channels) - set(self.__adapter.keys)
-        if missing and extra:
-            raise ValidationError(
-                Field(
-                    "keys",
-                    f"frame is missing keys {missing} and has extra keys {extra}",
-                )
-            )
-        elif extra:
-            raise ValidationError(Field("keys", f"frame has extra keys {extra}"))
-
-    def __prep_data_types(self, frame: Frame):
-        for i, (col, series) in enumerate(frame.items()):
-            ch = self.__adapter.retriever.retrieve(col)[0]  # type: ignore
-            if series.data_type != ch.data_type:
-                if (
-                    not np_can_cast(series.data_type.np, ch.data_type.np)
-                    or self.__strict
-                ):
-                    raise ValidationError(
-                        Field(
-                            str(col),
-                            f"""Column {col} has type {series.data_type} but channel
-                            {ch.key} expects type {ch.data_type}""",
-                        )
-                    )
-                elif not self.__suppress_warnings and not (
-                    ch.data_type == DataType.TIMESTAMP
-                    and series.data_type == DataType.INT64
-                ):
-                    warn(
-                        f"""Series for channel {ch.name} has type {series.data_type} but
-                        channel expects type {ch.data_type}. We can safely convert
-                        between the two, but this can cause performance degradations
-                        and is not recommended. To suppress this warning,
-                        set suppress_warnings=True when constructing the writer. To
-                        raise an error instead, set strict=True when constructing
-                        the writer."""
-                    )
-                frame.series[i] = series.astype(ch.data_type)
-
-
-class BufferedWriter(io.DataFrameWriter):
-    """BufferedWriter extends the Writer class by buffering
-    writes to the underlying stream. This can improve performance by reducing the
-    number of round trips to the server.
-    """
-
-    size_threshold: int
-    time_threshold: TimeSpan
-    last_flush: TimeStamp
-    _wrapped: Writer
-    _buf: DataFrame
-
-    def __init__(
-        self,
-        wrapped: Writer,
-        size_threshold: int = int(1e6),
-        time_threshold: TimeSpan = TimeSpan.MAX,
-    ) -> None:
-        self._wrapped = wrapped
-        self._buf = DataFrame()
-        self.last_flush = TimeStamp.now()
-        self.size_threshold = size_threshold
-        self.time_threshold = time_threshold
-
-    def _(self) -> io.DataFrameWriter:
-        return self
-
-    def write(self, frame: DataFrame):
-        self._buf = pd_concat([self._buf, frame], ignore_index=True)
-        if self._exceeds_any:
-            self.__flush()
-
-    def close(self):
-        self.__flush()
-        self._wrapped.close()
-
-    @property
-    def _exceeds_any(self) -> bool:
-        return (
-            len(self._buf) * len(self._buf.columns) >= self.size_threshold
-            or TimeSpan.since(self.last_flush) >= self.time_threshold
-        )
-
-    def __flush(self):
-        self._wrapped.write(self._buf)
-        self._wrapped.commit()
-        self.last_flush = TimeStamp.now()
-        self._buf = DataFrame()

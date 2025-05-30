@@ -13,6 +13,7 @@ import {
   bounds,
   type box,
   clamp,
+  color,
   DataType,
   type Destructor,
   type direction,
@@ -26,7 +27,6 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { color } from "@/color/core";
 import { telem } from "@/telem/aether";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
@@ -37,7 +37,7 @@ export const stateZ = z.object({
   x: telem.seriesSourceSpecZ,
   y: telem.seriesSourceSpecZ,
   label: z.string().optional(),
-  color: color.Color.z,
+  color: color.colorZ,
   strokeWidth: z.number().default(1),
   downsample: z.number().min(1).max(50).optional().default(1),
   visible: z.boolean().optional().default(true),
@@ -470,12 +470,6 @@ const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
   ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));
 
 const seriesOverlap = (x: Series, ys: Series, overlapThreshold: TimeSpan): boolean => {
-  // This is just a runtime check that both series' have time ranges defined.
-  const haveTimeRanges = x._timeRange != null && ys._timeRange != null;
-  if (!haveTimeRanges)
-    throw new UnexpectedError(
-      `Encountered series without time range in buildDrawOperations. X series present: ${x._timeRange != null}, Y series present: ${ys._timeRange != null}`,
-    );
   // If the time ranges of the x and y series overlap, we meet the first condition
   // for drawing them together. Dynamic buffering can sometimes lead to very slight,
   // unintended overlaps, so we only consider them overlapping if they overlap by a

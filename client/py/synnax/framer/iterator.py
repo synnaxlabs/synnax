@@ -9,7 +9,7 @@
 
 from enum import Enum
 
-from alamos import NOOP, Instrumentation, trace
+from alamos import NOOP, Instrumentation
 from freighter import EOF, Payload, Stream, StreamClient
 
 from synnax.channel.payload import ChannelKeys
@@ -90,7 +90,6 @@ class Iterator:
         self._chunk_size = chunk_size
         self.__open()
 
-    @trace("debug", "open")
     def __open(self):
         """Opens the iterator, configuring it to iterate over the telemetry in the
         channels with the given keys within the provided time range.
@@ -106,7 +105,6 @@ class Iterator:
         )
         self.value = Frame()
 
-    @trace("debug")
     def next(self, span: TimeSpan) -> bool:
         """Reads the next time span of telemetry for each channel in the iterator.
 
@@ -120,7 +118,6 @@ class Iterator:
         """
         return self._exec(command=_Command.NEXT, span=span)
 
-    @trace("debug")
     def prev(self, span: TimeSpan) -> bool:
         """Reads the previous time span of telemetry for each channel in the iterator.
 
@@ -134,7 +131,6 @@ class Iterator:
         """
         return self._exec(command=_Command.PREV, span=span)
 
-    @trace("debug")
     def seek_first(self) -> bool:
         """Seeks the iterator to the first segment in the time range, but does not read
         it. Also invalidates the iterator. The iterator will not be considered valid
@@ -145,7 +141,6 @@ class Iterator:
         """
         return self._exec(command=_Command.SEEK_FIRST)
 
-    @trace("debug")
     def seek_last(self) -> bool:
         """Seeks the iterator to the last segment in the time range, but does not read it.
         Also invalidates the iterator. The iterator will not be considered valid
@@ -156,7 +151,6 @@ class Iterator:
         """
         return self._exec(command=_Command.SEEK_LAST)
 
-    @trace("debug")
     def seek_le(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is less than or equal to
         the provided timestamp. Also invalidates the iterator. The iterator will not be
@@ -167,7 +161,6 @@ class Iterator:
         """
         return self._exec(command=_Command.SEEK_LE, stamp=stamp)
 
-    @trace("debug")
     def seek_ge(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is greater than or equal to
         the provided timestamp. Also invalidates the iterator. The iterator will not be
@@ -178,7 +171,6 @@ class Iterator:
         """
         return self._exec(command=_Command.SEEK_GE, stamp=stamp)
 
-    @trace("debug")
     def valid(self) -> bool:
         """Returns true if the iterator value contains a valid segment, and False otherwise.
         valid most commonly returns false when the iterator is exhausted or has accumulated
@@ -186,7 +178,6 @@ class Iterator:
         """
         return self._exec(command=_Command.VALID)
 
-    @trace("debug")
     def close(self):
         """Close closes the iterator. An iterator MUST be closed after use, and this method
         should probably be placed in a 'finally' block. If the iterator is not closed, it may

@@ -18,6 +18,7 @@ import { useDispatch, useStore } from "react-redux";
 import { select } from "@/layout/selectors";
 import { createMosaicWindow, moveMosaicTab, type StoreState } from "@/layout/slice";
 import { usePlacer } from "@/layout/usePlacer";
+import { RUNTIME } from "@/runtime";
 
 const useWindowsContains = (): ((cursor: xy.XY) => boolean) => {
   const store = useStore<Drift.StoreState>();
@@ -48,28 +49,27 @@ const useDropOutsideMacOS = ({
   const windowsContain = useWindowsContains();
   const store = useStore<StoreState & Drift.StoreState>();
   const handleError = Status.useErrorHandler();
-  useAsyncEffect(
-    async () =>
-      listen("mouse_up", ({ payload: [x, y] }: { payload: [number, number] }) => {
-        handleError(async () => {
-          if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;
-          const state = store.getState();
-          const layout = select(state, dragging.current.items[0].key as string);
-          if (layout?.windowKey == null) return;
-          const winLabel = Drift.selectWindowLabel(state, layout.windowKey);
-          if (winLabel == null || winLabel !== Drift.MAIN_WINDOW) return;
-          const win = await Window.getByLabel(winLabel);
-          if (win == null) return;
-          const sf = await win.scaleFactor();
-          const rawCursor = xy.construct(x, y);
-          const cursor = xy.scale(rawCursor, sf);
-          if (windowsContain(cursor)) return;
-          const dropped = onDrop(dragging.current, rawCursor);
-          drop({ target, dropped });
-        }, "Failed to drop outside");
-      }),
-    [target],
-  );
+  useAsyncEffect(async () => {
+    if (RUNTIME !== "tauri") return;
+    return listen("mouse_up", ({ payload: [x, y] }: { payload: [number, number] }) => {
+      handleError(async () => {
+        if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;
+        const state = store.getState();
+        const layout = select(state, dragging.current.items[0].key as string);
+        if (layout?.windowKey == null) return;
+        const winLabel = Drift.selectWindowLabel(state, layout.windowKey);
+        if (winLabel == null || winLabel !== Drift.MAIN_WINDOW) return;
+        const win = await Window.getByLabel(winLabel);
+        if (win == null) return;
+        const sf = await win.scaleFactor();
+        const rawCursor = xy.construct(x, y);
+        const cursor = xy.scale(rawCursor, sf);
+        if (windowsContain(cursor)) return;
+        const dropped = onDrop(dragging.current, rawCursor);
+        drop({ target, dropped });
+      }, "Failed to drop outside");
+    });
+  }, [target]);
 };
 
 interface UseDropOutsideProps extends Omit<Haul.UseDropProps, "onDrop"> {
@@ -100,7 +100,7 @@ const useDropOutsideWindows = ({ type, key, ...rest }: UseDropOutsideProps): voi
 const canDrop: Haul.CanDrop = ({ items }) =>
   items.length === 1 && items[0].type === Mosaic.HAUL_DROP_TYPE;
 
-export const useBase =
+const useBase =
   runtime.getOS() === "macOS" ? useDropOutsideMacOS : useDropOutsideWindows;
 
 export const useDropOutside = (): void => {

@@ -130,7 +130,7 @@ var _ = Describe("Sender", func() {
 			clientTransport := net.StreamClient(1)
 			clientSender = make(map[address.Address]freighter.StreamSenderCloser[int], nStreams)
 			receiverStreams = make(map[address.Address]*confluence.Stream[int], nStreams)
-			for i := 0; i < nStreams; i++ {
+			for range nStreams {
 				stream := net.StreamServer("", 1)
 				receiverStream := confluence.NewStream[int](1)
 				stream.BindHandler(func(ctx context.Context, serverStream freighter.ServerStream[int, int]) error {
@@ -182,7 +182,7 @@ var _ = Describe("Sender", func() {
 				}
 				sender.InFrom(senderStream)
 				sender.Flow(sCtx)
-				for i := 0; i < nStreams; i++ {
+				for i := range nStreams {
 					senderStream.Inlet() <- i
 					addr := address.Newf("localhost:%v", i)
 					v := <-receiverStreams[addr].Outlet()

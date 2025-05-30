@@ -10,7 +10,7 @@
 import "@/button/Button.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { type status } from "@synnaxlabs/x";
+import { color, type status } from "@synnaxlabs/x";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import {
@@ -21,7 +21,6 @@ import {
 } from "react";
 
 import { type Align } from "@/align";
-import { color as Color } from "@/color/core";
 import { CSS } from "@/css";
 import { type Icon as PIcon } from "@/icon";
 import { Text } from "@/text";
@@ -47,7 +46,7 @@ export interface BaseProps extends Omit<ComponentPropsWithRef<"button">, "color"
   loading?: boolean;
   triggers?: Triggers.Trigger | Triggers.Trigger[];
   status?: status.Variant;
-  color?: Color.Crude;
+  color?: color.Crude;
   textShade?: Text.Shade;
 }
 
@@ -104,7 +103,7 @@ export const Button = Tooltip.wrap(
     startIcon = [],
     onClickDelay = 0,
     onClick,
-    color,
+    color: colorVal,
     status,
     style,
     onMouseDown,
@@ -157,18 +156,17 @@ export const Button = Tooltip.wrap(
     });
 
     const pStyle = { ...style };
-    const res = Color.Color.z.safeParse(color);
+    const res = color.colorZ.safeParse(colorVal);
     const hasCustomColor =
       res.success && (variant === "filled" || variant === "outlined");
     if (hasCustomColor) {
       const theme = Theming.use();
       // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-color")] = res.data.rgbString;
+      pStyle[CSS.var("btn-color")] = color.rgbString(res.data);
       // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-text-color")] = res.data.pickByContrast(
-        theme.colors.text,
-        theme.colors.textInverted,
-      ).rgbCSS;
+      pStyle[CSS.var("btn-text-color")] = color.rgbCSS(
+        color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
+      );
     }
 
     if (!parsedDelay.isZero)
@@ -203,7 +201,7 @@ export const Button = Tooltip.wrap(
         noWrap
         style={pStyle}
         startIcon={startIcon}
-        color={color}
+        color={colorVal}
         {...rest}
         shade={textShade}
       >

@@ -49,7 +49,7 @@ var _ gorp.Entry[uuid.UUID] = Range{}
 func (r Range) GorpKey() uuid.UUID { return r.Key }
 
 // SetOptions implements gorp.Entry.
-func (r Range) SetOptions() []interface{} { return nil }
+func (r Range) SetOptions() []any { return nil }
 
 // UseTx binds a transaction to use for all query operations on the Range.
 func (r Range) UseTx(tx gorp.Tx) Range { r.tx = tx; return r }

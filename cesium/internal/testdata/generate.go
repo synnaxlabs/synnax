@@ -11,6 +11,7 @@ package testdata
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -22,7 +23,7 @@ var (
 )
 
 func Generate() error {
-	db, err := cesium.Open("data", cesium.WithFileSize(20*telem.ByteSize))
+	db, err := cesium.Open(ctx, "data", cesium.WithFileSizeCap(20*telem.Byte))
 	if err != nil {
 		return err
 	}

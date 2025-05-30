@@ -11,8 +11,9 @@ package unary_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/binary"
 	"testing"
+
+	"github.com/synnaxlabs/x/binary"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

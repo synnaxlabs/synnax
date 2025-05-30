@@ -10,6 +10,8 @@
 package unary_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -17,20 +19,16 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"math"
 )
 
 var _ = Describe("Garbage Collection", func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, func() {
 			var (
-				rateDB   *unary.DB
-				rateFS   xfs.FS
 				dataDB   *unary.DB
 				dataFS   xfs.FS
 				indexDB  *unary.DB
 				indexFS  xfs.FS
-				rateKey  core.ChannelKey = 1
 				dataKey  core.ChannelKey = 2
 				indexKey core.ChannelKey = 3
 				cleanUp  func() error
@@ -39,43 +37,32 @@ var _ = Describe("Garbage Collection", func() {
 				BeforeEach(func() {
 					var fs xfs.FS
 					fs, cleanUp = makeFS()
-					rateFS = MustSucceed(fs.Sub("rate"))
-					rateDB = MustSucceed(unary.Open(unary.Config{
-						FS:        rateFS,
-						MetaCodec: codec,
-						Channel: core.Channel{
-							Key:      rateKey,
-							DataType: telem.Int64T,
-							Rate:     1 * telem.Hz,
-						},
-						FileSize:        899 * telem.ByteSize,
-						GCThreshold:     math.SmallestNonzeroFloat32,
-						Instrumentation: PanicLogger(),
-					}))
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(unary.Config{
+					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Chin",
 							Key:      indexKey,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 							Index:    indexKey,
 						},
-						FileSize:        899 * telem.ByteSize,
+						FileSize:        899 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(unary.Config{
+					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Renan",
 							Key:      dataKey,
 							DataType: telem.Int64T,
 							Index:    indexKey,
 						},
-						FileSize:        899 * telem.ByteSize,
+						FileSize:        899 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
@@ -84,52 +71,10 @@ var _ = Describe("Garbage Collection", func() {
 				AfterEach(func() {
 					Expect(indexDB.Close()).To(Succeed())
 					Expect(dataDB.Close()).To(Succeed())
-					Expect(rateDB.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
 				})
 
-				Specify("Rate DB", func() {
-					By("Writing data to the channel")
-					for i := 1; i <= 9; i++ {
-						var data []int64
-						for j := 0; j <= 9; j++ {
-							data = append(data, int64(i*10+j))
-						}
-						Expect(unary.Write(ctx, rateDB, telem.TimeStamp(10*i)*telem.SecondTS, telem.NewSeriesV[int64](data...))).To(Succeed())
-					}
-
-					By("Deleting data from the channel")
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 33 * telem.SecondTS,
-						End:   75 * telem.SecondTS,
-					})).To(Succeed())
-
-					Expect(MustSucceed(rateFS.Stat("1.domain")).Size()).To(Equal(int64(720)))
-					Expect(rateDB.GarbageCollect(ctx)).To(Succeed())
-					Expect(MustSucceed(rateFS.Stat("1.domain")).Size()).To(Equal(int64(384)))
-
-					By("Writing some new data")
-					Expect(unary.Write(ctx, rateDB, 100*telem.SecondTS, telem.NewSeriesV[int64](100, 101)))
-
-					By("Asserting that the data is still correct", func() {
-						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 105 * telem.SecondTS}))
-						Expect(frame.Series).To(HaveLen(7))
-
-						Expect(frame.Series[2].TimeRange.End).To(Equal(33 * telem.SecondTS))
-						series2Data := telem.UnmarshalSlice[int](frame.Series[2].Data, telem.Int64T)
-						Expect(series2Data).To(ConsistOf(30, 31, 32))
-
-						Expect(frame.Series[3].TimeRange.Start).To(Equal(75 * telem.SecondTS))
-						series3Data := telem.UnmarshalSlice[int](frame.Series[3].Data, telem.Int64T)
-						Expect(series3Data).To(ConsistOf(75, 76, 77, 78, 79))
-
-						Expect(frame.Series[6].TimeRange.Start).To(Equal(100 * telem.SecondTS))
-						series6Data := telem.UnmarshalSlice[int](frame.Series[6].Data, telem.Int64T)
-						Expect(series6Data).To(ConsistOf(100, 101))
-					})
-				})
-
-				Specify("Channel DB", func() {
+				It("Should correctly delete and re-read data from the channel", func() {
 					By("Writing data to the channel")
 					for i := 1; i <= 9; i++ {
 						var data []int64
@@ -139,7 +84,7 @@ var _ = Describe("Garbage Collection", func() {
 							data = append(data, int64(i*10+j))
 							index = append(index, telem.TimeStamp(i*10+j))
 						}
-						Expect(unary.Write(ctx, indexDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSecondsTSV(index...))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesSecondsTSV(index...))).To(Succeed())
 						Expect(unary.Write(ctx, dataDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV[int64](data...))).To(Succeed())
 					}
 
@@ -155,14 +100,14 @@ var _ = Describe("Garbage Collection", func() {
 
 					By("Reading data from the channel")
 					frame := MustSucceed(dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
-					Expect(frame.Series).To(HaveLen(6))
+					Expect(frame.Count()).To(Equal(6))
 
-					Expect(frame.Series[2].TimeRange.End).To(Equal(33 * telem.SecondTS))
-					series2Data := telem.UnmarshalSlice[int](frame.Series[2].Data, telem.Int64T)
+					Expect(frame.SeriesAt(2).TimeRange.End).To(Equal(33 * telem.SecondTS))
+					series2Data := telem.UnmarshalSlice[int](frame.SeriesAt(2).Data, telem.Int64T)
 					Expect(series2Data).To(ConsistOf(30, 31, 32))
 
-					Expect(frame.Series[3].TimeRange.Start).To(Equal(75 * telem.SecondTS))
-					series3Data := telem.UnmarshalSlice[int](frame.Series[3].Data, telem.Int64T)
+					Expect(frame.SeriesAt(3).TimeRange.Start).To(Equal(75 * telem.SecondTS))
+					series3Data := telem.UnmarshalSlice[int](frame.SeriesAt(3).Data, telem.Int64T)
 					Expect(series3Data).To(ConsistOf(75, 76, 77, 78, 79))
 				})
 			})
@@ -172,29 +117,31 @@ var _ = Describe("Garbage Collection", func() {
 					var fs xfs.FS
 					fs, cleanUp = makeFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(unary.Config{
+					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Wilkes",
 							Key:      indexKey,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 							Index:    indexKey,
 						},
-						FileSize:        50 * telem.ByteSize,
+						FileSize:        50 * telem.Byte,
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(unary.Config{
+					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: codec,
 						Channel: core.Channel{
+							Name:     "Lincoln",
 							Key:      dataKey,
 							DataType: telem.Int64T,
 							Index:    indexKey,
 						},
 						GCThreshold:     0.5,
-						FileSize:        50 * telem.ByteSize,
+						FileSize:        50 * telem.Byte,
 						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
@@ -206,10 +153,10 @@ var _ = Describe("Garbage Collection", func() {
 				})
 
 				Specify("Only some files GC", func() {
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18)))
-					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26)))
-					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41)))
-					Expect(unary.Write(ctx, indexDB, 50*telem.SecondTS, telem.NewSecondsTSV(50, 51, 52, 53, 54, 55, 56)))
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18)))
+					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24, 25, 26)))
+					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41)))
+					Expect(unary.Write(ctx, indexDB, 50*telem.SecondTS, telem.NewSeriesSecondsTSV(50, 51, 52, 53, 54, 55, 56)))
 
 					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18)))
 					Expect(unary.Write(ctx, dataDB, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 21, 22, 23, 24, 25, 26)))
@@ -233,21 +180,29 @@ var _ = Describe("Garbage Collection", func() {
 					Expect(unary.Write(ctx, dataDB, 50*telem.SecondTS, telem.NewSeriesV[int64](50, 51, 52, 53, 54, 55, 56))).To(Succeed())
 					Expect(unary.Write(ctx, dataDB, 17*telem.SecondTS, telem.NewSeriesV[int64](17, 18))).To(Succeed())
 
-					By("Asserting that the data is correct", func() {
-						f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
-						Expect(f.Series).To(HaveLen(5))
+					By("Asserting that the data is correct")
+					f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
+					Expect(f.Count()).To(Equal(5))
 
-						Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(17 * telem.SecondTS)))
-						Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16).Data))
-						Expect(f.Series[1].TimeRange).To(Equal((17 * telem.SecondTS).Range(18*telem.SecondTS + 1)))
-						Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](17, 18).Data))
-						Expect(f.Series[2].TimeRange).To(Equal((26 * telem.SecondTS).Range(26*telem.SecondTS + 1)))
-						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](26).Data))
-						Expect(f.Series[3].TimeRange).To(Equal((34 * telem.SecondTS).Range(41*telem.SecondTS + 1)))
-						Expect(f.Series[3].Data).To(Equal(telem.NewSeriesV[int64](34, 35, 36, 37, 38, 39, 40, 41).Data))
-						Expect(f.Series[4].TimeRange).To(Equal((50 * telem.SecondTS).Range(56*telem.SecondTS + 1)))
-						Expect(f.Series[4].Data).To(Equal(telem.NewSeriesV[int64](50, 51, 52, 53, 54, 55, 56).Data))
-					})
+					first := f.SeriesAt(0)
+					Expect(first.TimeRange).To(Equal((10 * telem.SecondTS).Range(17 * telem.SecondTS)))
+					Expect(first.Data).To(Equal(telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16).Data))
+
+					second := f.SeriesAt(1)
+					Expect(second.TimeRange).To(Equal((17 * telem.SecondTS).Range(18*telem.SecondTS + 1)))
+					Expect(second.Data).To(Equal(telem.NewSeriesV[int64](17, 18).Data))
+
+					third := f.SeriesAt(2)
+					Expect(third.TimeRange).To(Equal((26 * telem.SecondTS).Range(26*telem.SecondTS + 1)))
+					Expect(third.Data).To(Equal(telem.NewSeriesV[int64](26).Data))
+
+					fourth := f.SeriesAt(3)
+					Expect(fourth.TimeRange).To(Equal((34 * telem.SecondTS).Range(41*telem.SecondTS + 1)))
+					Expect(fourth.Data).To(Equal(telem.NewSeriesV[int64](34, 35, 36, 37, 38, 39, 40, 41).Data))
+
+					fifth := f.SeriesAt(4)
+					Expect(fifth.TimeRange).To(Equal((50 * telem.SecondTS).Range(56*telem.SecondTS + 1)))
+					Expect(fifth.Data).To(Equal(telem.NewSeriesV[int64](50, 51, 52, 53, 54, 55, 56).Data))
 				})
 			})
 		})

@@ -7,110 +7,98 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeRange, TimeStamp } from "@synnaxlabs/x/telem";
+import { TimeRange, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, test } from "vitest";
 
-import { type channel } from "@/channel";
 import { NotFoundError, UnauthorizedError } from "@/errors";
 import { newClient } from "@/setupspecs";
+import { newIndexedPair } from "@/testutil/channels";
+import { secondsLinspace } from "@/testutil/telem";
 import { randomSeries } from "@/util/telem";
 
 const client = newClient();
 
-const newChannel = async (): Promise<channel.Channel> =>
-  await client.channels.create({
-    name: "test",
-    leaseholder: 1,
-    rate: Rate.hz(1),
-    dataType: DataType.FLOAT64,
-  });
-
-const newIndexDataChannelPair = async (): Promise<channel.Channel[]> => {
-  const ind = await client.channels.create({
-    name: "index",
-    leaseholder: 1,
-    isIndex: true,
-    dataType: DataType.TIMESTAMP,
-  });
-  const data = await client.channels.create({
-    name: "data",
-    leaseholder: 1,
-    index: ind.key,
-    dataType: DataType.INT64,
-  });
-
-  return [ind, data];
-};
-
 describe("Deleter", () => {
   test("Client - basic delete", async () => {
-    const ch = await newChannel();
-    const data = randomSeries(10, ch.dataType);
-    await client.write(TimeStamp.seconds(0), ch.key, data);
+    const [indexCh, dataCh] = await newIndexedPair(client);
+    const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    await client.write(TimeStamp.seconds(5), {
+      [indexCh.key]: secondsLinspace(5, 10),
+      [dataCh.key]: data,
+    });
+    const res = await client.read(TimeRange.MAX, dataCh.key);
+    expect(res.data.length).toEqual(10);
+    await client.delete(dataCh.key, TimeStamp.seconds(5).range(TimeStamp.seconds(7)));
 
-    await client.delete(ch.key, TimeStamp.seconds(2).range(TimeStamp.seconds(5)));
-
-    const res = await client.read(TimeRange.MAX, ch.key);
-    expect(res.length).toEqual(data.length - 3);
-    expect(res.data.slice(0, 2)).toEqual(data.slice(0, 2));
-    expect(res.data.slice(2)).toEqual(data.slice(5));
+    const deletedRes = await client.read(TimeRange.MAX, dataCh.key);
+    expect(deletedRes.data.length).toEqual(8);
+    expect(Array.from(deletedRes)).toEqual([3, 4, 5, 6, 7, 8, 9, 10]);
   });
   test("Client - basic delete by name", async () => {
-    const ch = await newChannel();
-    const data = randomSeries(10, ch.dataType);
-    await client.write(TimeStamp.seconds(0), ch.key, data);
+    const [indexCh, dataCh] = await newIndexedPair(client);
+    const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    await client.write(TimeStamp.seconds(5), {
+      [indexCh.key]: secondsLinspace(5, 10),
+      [dataCh.key]: data,
+    });
+    const res = await client.read(TimeRange.MAX, dataCh.key);
+    expect(res.data.length).toEqual(10);
+    await client.delete(dataCh.name, TimeStamp.seconds(5).range(TimeStamp.seconds(7)));
 
-    await client.delete(ch.name, TimeStamp.seconds(2).range(TimeStamp.seconds(5)));
-
-    const res = await client.read(TimeRange.MAX, ch.key);
-    expect(res.length).toEqual(data.length - 3);
-    expect(res.data.slice(0, 2)).toEqual(data.slice(0, 2));
-    expect(res.data.slice(2)).toEqual(data.slice(5));
+    const deletedRes = await client.read(TimeRange.MAX, dataCh.key);
+    expect(deletedRes.data.length).toEqual(8);
+    expect(Array.from(deletedRes)).toEqual([3, 4, 5, 6, 7, 8, 9, 10]);
   });
   test("Client - delete name not found", async () => {
-    const ch = await newChannel();
-    const data = randomSeries(10, ch.dataType);
-    await client.write(TimeStamp.seconds(0), ch.key, data);
+    const [indexCh, dataCh] = await newIndexedPair(client);
+    const data = randomSeries(10, dataCh.dataType);
+    await client.write(TimeStamp.seconds(5), {
+      [indexCh.key]: secondsLinspace(5, 10),
+      [dataCh.key]: data,
+    });
 
-    await expect(client.delete(["billy bob", ch.name], TimeRange.MAX)).rejects.toThrow(
-      NotFoundError,
-    );
+    await expect(
+      client.delete(["billy bob", dataCh.name], TimeRange.MAX),
+    ).rejects.toThrow(NotFoundError);
 
-    const res = await client.read(TimeRange.MAX, ch.key);
+    const res = await client.read(TimeRange.MAX, dataCh.key);
     expect(res.data).toEqual(data);
   });
   test("Client - delete key not found", async () => {
-    const ch = await newChannel();
-    const data = randomSeries(10, ch.dataType);
-    await client.write(TimeStamp.seconds(0), ch.key, data);
+    const [indexCh, dataCh] = await newIndexedPair(client);
+    const data = randomSeries(10, dataCh.dataType);
+    await client.write(TimeStamp.seconds(0), {
+      [indexCh.key]: secondsLinspace(0, 10),
+      [dataCh.key]: data,
+    });
 
-    await expect(client.delete([ch.key, 1232], TimeRange.MAX)).rejects.toThrow(
+    await expect(client.delete([indexCh.key, 1232], TimeRange.MAX)).rejects.toThrow(
       NotFoundError,
     );
 
-    const res = await client.read(TimeRange.MAX, ch.key);
+    const res = await client.read(TimeRange.MAX, dataCh.key);
     expect(res.data).toEqual(data);
   });
 
   test("Client - delete with writer", async () => {
-    const ch = await newChannel();
+    const [indexCh] = await newIndexedPair(client);
 
     const writer = await client.openWriter({
       start: TimeStamp.seconds(10),
-      channels: [ch.key],
+      channels: [indexCh.key],
     });
 
     await expect(
-      client.delete([ch.key], TimeStamp.seconds(12).range(TimeStamp.seconds(30))),
+      client.delete([indexCh.key], TimeStamp.seconds(12).range(TimeStamp.seconds(30))),
     ).rejects.toThrow(UnauthorizedError);
 
     await writer.close();
   });
 
   test("Client - delete index channel alone", async () => {
-    const chs = await newIndexDataChannelPair();
-    const index = chs[0];
-    const dat = chs[1];
+    const [indexCh, dataCh] = await newIndexedPair(client);
+    const index = indexCh;
+    const dat = dataCh;
     const data = randomSeries(10, dat.dataType);
 
     const time = BigInt64Array.from({ length: 10 }, (_, i) =>

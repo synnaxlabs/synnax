@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { z } from "zod";
 
@@ -437,7 +438,7 @@ const threeWayValve: Spec<ThreeWayValveProps> = {
   Form: CommonToggleForm,
   Symbol: ThreeWayValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Three Way Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -451,7 +452,7 @@ const valve: Spec<ValveProps> = {
   Form: CommonToggleForm,
   Symbol: Valve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -465,7 +466,7 @@ const solenoidValve: Spec<SolenoidValveProps> = {
   Form: CommonToggleForm,
   Symbol: SolenoidValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Solenoid Valve"),
     normallyOpen: false,
     ...ZERO_TOGGLE_PROPS,
@@ -480,7 +481,7 @@ const fourWayValve: Spec<FourWayValveProps> = {
   Form: CommonToggleForm,
   Symbol: FourWayValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Four Way Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -494,7 +495,7 @@ const angledValve: Spec<AngledValveProps> = {
   Form: CommonToggleForm,
   Symbol: AngledValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Angled Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -508,7 +509,7 @@ const ballValve: Spec<BallValveProps> = {
   Form: CommonToggleForm,
   Symbol: BallValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Ball Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -522,7 +523,7 @@ const threeWayBallValve: Spec<ThreeWayBallValveProps> = {
   Form: CommonToggleForm,
   Symbol: ThreeWayBallValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Three-Way Ball Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -536,7 +537,7 @@ const gateValve: Spec<GateValveProps> = {
   Form: CommonToggleForm,
   Symbol: GateValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Gate Valve"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -550,7 +551,7 @@ const butterflyValveOne: Spec<ButterflyValveOneProps> = {
   Form: CommonToggleForm,
   Symbol: ButterflyValveOne,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Butterfly Valve (Remote)"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -564,7 +565,7 @@ const butterflyValveTwo: Spec<ButterflyValveTwoProps> = {
   Form: CommonToggleForm,
   Symbol: ButterflyValveTwo,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Butterfly Valve (Manual)"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -578,7 +579,7 @@ const breatherValve: Spec<BreatherValveProps> = {
   Form: CommonDummyToggleForm,
   Symbol: BreatherValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Breather Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
@@ -592,7 +593,7 @@ const pump: Spec<PumpProps> = {
   Form: CommonToggleForm,
   Symbol: Pump,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -606,7 +607,7 @@ const screwPump: Spec<ScrewPumpProps> = {
   Form: CommonToggleForm,
   Symbol: ScrewPump,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Screw Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -620,8 +621,8 @@ const tank: Spec<TankProps> = {
   Form: TankForm,
   Symbol: Tank,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
-    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
+    color: t.colors.gray.l11,
+    backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
     ...zeroLabel("Tank"),
     borderRadius: DEFAULT_BORDER_RADIUS,
     ...ZERO_BOX_PROPS,
@@ -641,8 +642,8 @@ const polygon: Spec<Primitives.PolygonProps> = {
     sideLength: DEFAULT_POLYGON_SIDE_LENGTH,
     cornerRounding: 0,
     rotation: 0,
-    color: t.colors.gray.l11.rgba255,
-    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
+    color: t.colors.gray.l11,
+    backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
     strokeWidth: 2,
     ...zeroLabel("Polygon"),
   }),
@@ -657,8 +658,8 @@ const circle: Spec<Primitives.CircleShapeProps> = {
   Form: CircleForm,
   defaultProps: (t) => ({
     radius: 20,
-    color: t.colors.gray.l11.rgba255,
-    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
+    color: t.colors.gray.l11,
+    backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
     ...zeroLabel("Circle"),
     strokeWidth: 2,
   }),
@@ -672,8 +673,8 @@ const cylinder: Spec<CylinderProps> = {
   Form: CylinderForm,
   Symbol: Cylinder,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
-    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
+    color: t.colors.gray.l11,
+    backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
     ...zeroLabel("cylinder"),
     dimensions: {
       width: 66,
@@ -691,8 +692,8 @@ const box: Spec<BoxProps> = {
   Form: BoxForm,
   Symbol: Box,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
-    backgroundColor: t.colors.gray.l1.setAlpha(0).rgba255,
+    color: t.colors.gray.l11,
+    backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
     ...zeroLabel("Box"),
     borderRadius: ZERO_BOX_BORDER_RADIUS,
     strokeWidth: 2,
@@ -709,7 +710,7 @@ const reliefValve: Spec<ReliefValveProps> = {
   Form: CommonDummyToggleForm,
   Symbol: ReliefValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
@@ -723,7 +724,7 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
   Form: CommonDummyToggleForm,
   Symbol: SpringLoadedReliefValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Spring Loaded Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
@@ -737,7 +738,7 @@ const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = 
   Form: CommonDummyToggleForm,
   Symbol: AngledSpringLoadedReliefValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Angled Spring Loaded Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
@@ -751,7 +752,7 @@ const regulator: Spec<RegulatorProps> = {
   Form: CommonStyleForm,
   Symbol: Regulator,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Regulator"),
     ...ZERO_PROPS,
   }),
@@ -765,7 +766,7 @@ const regulatorManual: Spec<RegulatorManualProps> = {
   Form: CommonStyleForm,
   Symbol: RegulatorManual,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Manual Regulator"),
     ...ZERO_PROPS,
   }),
@@ -779,7 +780,7 @@ const electricRegulator: Spec<ElectricRegulatorProps> = {
   Form: CommonStyleForm,
   Symbol: ElectricRegulator,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Electric Regulator"),
     ...ZERO_PROPS,
   }),
@@ -793,7 +794,7 @@ const electricRegulatorMotorized: Spec<ElectricRegulatorMotorizedProps> = {
   Form: CommonStyleForm,
   Symbol: ElectricRegulatorMotorized,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Electric Regulator Motorized"),
     ...ZERO_PROPS,
   }),
@@ -807,7 +808,7 @@ const burstDisc: Spec<BurstDiscProps> = {
   Form: CommonStyleForm,
   Symbol: BurstDisc,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Burst Disc"),
     ...ZERO_PROPS,
   }),
@@ -821,7 +822,7 @@ const isoBurstDisc: Spec<ISOBurstDiscProps> = {
   Form: CommonStyleForm,
   Symbol: ISOBurstDisc,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("ISO Burst Disc"),
     ...ZERO_PROPS,
   }),
@@ -835,7 +836,7 @@ const cap: Spec<CapProps> = {
   Form: CommonStyleForm,
   Symbol: Cap,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Cap"),
     ...ZERO_PROPS,
   }),
@@ -849,7 +850,7 @@ const isoCap: Spec<ISOCapProps> = {
   Form: CommonStyleForm,
   Symbol: ISOCap,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("ISO Cap"),
     ...ZERO_PROPS,
   }),
@@ -863,7 +864,7 @@ const manualValve: Spec<ManualValveProps> = {
   Form: CommonDummyToggleForm,
   Symbol: ManualValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Manual Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
@@ -877,7 +878,7 @@ const orificePlate: Spec<OrificePlateProps> = {
   Form: CommonStyleForm,
   Symbol: OrificePlate,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Orifice Plate"),
     ...ZERO_PROPS,
   }),
@@ -891,7 +892,7 @@ const isoFilter: Spec<ISOFilterProps> = {
   Form: CommonStyleForm,
   Symbol: ISOFilter,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("ISO Filter"),
     ...ZERO_PROPS,
   }),
@@ -905,7 +906,7 @@ const filter: Spec<FilterProps> = {
   Form: CommonStyleForm,
   Symbol: Filter,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Filter"),
     ...ZERO_PROPS,
   }),
@@ -919,7 +920,7 @@ const flowStraightener: Spec<FlowStraightenerProps> = {
   Form: CommonStyleForm,
   Symbol: FlowStraightener,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Flow Straightener"),
     ...ZERO_PROPS,
   }),
@@ -933,7 +934,7 @@ const heaterElement: Spec<HeaterElementProps> = {
   Form: CommonStyleForm,
   Symbol: HeaterElement,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Heater Element"),
     ...ZERO_PROPS,
   }),
@@ -947,7 +948,7 @@ const needleValve: Spec<NeedleValveProps> = {
   Form: CommonDummyToggleForm,
   Symbol: NeedleValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Needle Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
@@ -961,7 +962,7 @@ const checkValve: Spec<CheckValveProps> = {
   Form: CommonStyleForm,
   Symbol: CheckValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Check Valve"),
     ...ZERO_PROPS,
   }),
@@ -975,7 +976,7 @@ const orifice: Spec<OrificeProps> = {
   Form: CommonStyleForm,
   Symbol: Orifice,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Orifice"),
     ...ZERO_PROPS,
   }),
@@ -989,7 +990,7 @@ const angledReliefValve: Spec<ReliefValveProps> = {
   Form: CommonDummyToggleForm,
   Symbol: AngledReliefValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Angled Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
   }),
@@ -1004,7 +1005,7 @@ const value: Spec<ValueProps> = {
   Symbol: Value,
   Preview: ValuePreview,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     units: "psi",
     level: "h5",
     inlineSize: 70,
@@ -1022,7 +1023,7 @@ const button: Spec<ButtonProps> = {
   Form: ButtonForm,
   Preview: ButtonPreview,
   defaultProps: (t) => ({
-    color: t.colors.primary.z.rgba255,
+    color: t.colors.primary.z,
     ...zeroLabel("Button"),
     ...ZERO_BOOLEAN_SINK_PROPS,
     onClickDelay: 0,
@@ -1051,7 +1052,7 @@ const vacuumPump: Spec<VacuumPumpProps> = {
   Symbol: VacuumPump,
   Form: CommonToggleForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Vacuum Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1065,7 +1066,7 @@ const compressor: Spec<CompressorProps> = {
   Symbol: Compressor,
   Form: CommonToggleForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Compressor"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1079,7 +1080,7 @@ const cavityPump: Spec<CavityPumpProps> = {
   Symbol: CavityPump,
   Form: CommonToggleForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Cavity Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1093,7 +1094,7 @@ const pistonPump: Spec<PistonPumpProps> = {
   Symbol: PistonPump,
   Form: CommonToggleForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Piston Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1107,7 +1108,7 @@ const staticMixer: Spec<StaticMixerProps> = {
   Symbol: StaticMixer,
   Form: CommonStyleForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Static Mixer"),
     ...ZERO_PROPS,
   }),
@@ -1121,7 +1122,7 @@ const rotaryMixer: Spec<RotaryMixerProps> = {
   Symbol: RotaryMixer,
   Form: CommonToggleForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Rotary Mixer"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1135,7 +1136,7 @@ const light: Spec<LightProps> = {
   Symbol: Light,
   Form: LightForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Light"),
     ...ZERO_BOOLEAN_SOURCE_PROPS,
   }),
@@ -1150,7 +1151,7 @@ const setpoint: Spec<SetpointProps> = {
   Form: SetpointForm,
   defaultProps: (t) => ({
     units: "mV",
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     size: "small",
     ...zeroLabel("Setpoint"),
     ...ZERO_NUMERIC_SOURCE_PROPS,
@@ -1166,7 +1167,7 @@ const agitator: Spec<AgitatorProps> = {
   Symbol: Agitator,
   Form: CommonToggleForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1180,7 +1181,7 @@ const propellerAgitator: Spec<PropellerAgitatorProps> = {
   Symbol: PropellerAgitator,
   Form: CommonToggleForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Propeller Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1194,7 +1195,7 @@ const flatBladeAgitator: Spec<FlatBladeAgitatorProps> = {
   Symbol: FlatBladeAgitator,
   Form: CommonToggleForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Flat Blade Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1208,7 +1209,7 @@ const paddleAgitator: Spec<PaddleAgitatorProps> = {
   Symbol: PaddleAgitator,
   Form: CommonToggleForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Paddle Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1222,7 +1223,7 @@ const crossBeamAgitator: Spec<CrossBeamAgitatorProps> = {
   Symbol: CrossBeamAgitator,
   Form: CommonToggleForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Cross Beam Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1236,7 +1237,7 @@ const helicalAgitator: Spec<HelicalAgitatorProps> = {
   Symbol: HelicalAgitator,
   Form: CommonToggleForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Helical Agitator"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1250,7 +1251,7 @@ const textBox: Spec<TextBoxProps> = {
   Symbol: TextBox,
   Form: TextBoxForm,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     autoFit: true,
     align: "center",
     ...zeroLabel("Text Box"),
@@ -1270,7 +1271,7 @@ const offPageReference: Spec<OffPageReferenceProps> = {
   Form: OffPageReferenceForm,
   Symbol: OffPageReference,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     orientation: "right",
     ...zeroLabel("Off Page Reference"),
   }),
@@ -1284,7 +1285,7 @@ const isoCheckValve: Spec<ISOCheckValveProps> = {
   Form: CommonStyleForm,
   Symbol: ISOCheckValve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("ISO Check Valve"),
     ...ZERO_PROPS,
   }),
@@ -1298,7 +1299,7 @@ const checkValveWithArrow: Spec<CheckValveWithArrowProps> = {
   Form: CommonStyleForm,
   Symbol: CheckValveWithArrow,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Check Valve"),
     ...ZERO_PROPS,
   }),
@@ -1312,7 +1313,7 @@ const vent: Spec<VentProps> = {
   Form: CommonStyleForm,
   Symbol: Vent,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Vent"),
     ...ZERO_PROPS,
   }),
@@ -1326,7 +1327,7 @@ const tJunction: Spec<TJunctionProps> = {
   Form: CommonStyleForm,
   Symbol: TJunction,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel(""),
     ...ZERO_PROPS,
   }),
@@ -1340,7 +1341,7 @@ const crossJunction: Spec<CrossJunctionProps> = {
   Form: CommonStyleForm,
   Symbol: CrossJunction,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel(""),
     ...ZERO_PROPS,
   }),
@@ -1354,7 +1355,7 @@ const flowmeterGeneral: Spec<FlowmeterGeneralProps> = {
   Form: CommonStyleForm,
   Symbol: FlowmeterGeneral,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("General Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1368,7 +1369,7 @@ const flowmeterElectromagnetic: Spec<FlowmeterElectromagneticProps> = {
   Form: CommonStyleForm,
   Symbol: FlowmeterElectromagnetic,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Electromagnetic Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1382,7 +1383,7 @@ const flowmeterVariableArea: Spec<FlowmeterVariableAreaProps> = {
   Form: CommonStyleForm,
   Symbol: FlowmeterVariableArea,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Variable Area Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1396,7 +1397,7 @@ const flowmeterCoriolis: Spec<FlowmeterCoriolisProps> = {
   Form: CommonStyleForm,
   Symbol: FlowmeterCoriolis,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Coriolis Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1410,7 +1411,7 @@ const flowmeterNozzle: Spec<FlowmeterNozzleProps> = {
   Form: CommonStyleForm,
   Symbol: FlowmeterNozzle,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Nozzle Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1424,7 +1425,7 @@ const flowmeterVenturi: Spec<FlowmeterVenturiProps> = {
   Form: CommonStyleForm,
   Symbol: FlowmeterVenturi,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Venturi Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1438,7 +1439,7 @@ const flowmeterRingPiston: Spec<FlowmeterRingPistonProps> = {
   Form: CommonStyleForm,
   Symbol: FlowmeterRingPiston,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Ring Piston Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1452,7 +1453,7 @@ const flowmeterPositiveDisplacement: Spec<FlowmeterPositiveDisplacementProps> = 
   Form: CommonStyleForm,
   Symbol: FlowmeterPositiveDisplacement,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Positive Displacement Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1466,7 +1467,7 @@ const flowmeterTurbine: Spec<FlowmeterTurbineProps> = {
   Form: CommonStyleForm,
   Symbol: FlowmeterTurbine,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Turbine Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1480,7 +1481,7 @@ const flowmeterPulse: Spec<FlowmeterPulseProps> = {
   Form: CommonStyleForm,
   Symbol: FlowmeterPulse,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Pulse Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1494,7 +1495,7 @@ const flowmeterFloatSensor: Spec<FlowmeterFloatSensorProps> = {
   Form: CommonStyleForm,
   Symbol: FlowmeterFloatSensor,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Float Sensor Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1508,7 +1509,7 @@ const flowmeterOrifice: Spec<FlowmeterOrificeProps> = {
   Form: CommonStyleForm,
   Symbol: FlowmeterOrifice,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Orifice Flowmeter"),
     ...ZERO_PROPS,
   }),
@@ -1522,7 +1523,7 @@ const heatExchangerGeneral: Spec<HeatExchangerGeneralProps> = {
   Form: CommonStyleForm,
   Symbol: HeatExchangerGeneral,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("General Heat Exchanger"),
     ...ZERO_PROPS,
   }),
@@ -1536,7 +1537,7 @@ const heatExchangerM: Spec<HeatExchangerMProps> = {
   Form: CommonStyleForm,
   Symbol: HeatExchangerM,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("M Heat Exchanger"),
     ...ZERO_PROPS,
   }),
@@ -1550,7 +1551,7 @@ const heatExchangerStraightTube: Spec<HeatExchangerStraightTubeProps> = {
   Form: CommonStyleForm,
   Symbol: HeatExchangerStraightTube,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Straight Tube Heat Exchanger"),
     ...ZERO_PROPS,
   }),
@@ -1564,7 +1565,7 @@ const turboCompressor: Spec<TurboCompressorProps> = {
   Form: CommonToggleForm,
   Symbol: TurboCompressor,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Turbo Compressor"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1578,7 +1579,7 @@ const rollerVaneCompressor: Spec<RollerVaneCompressorProps> = {
   Form: CommonToggleForm,
   Symbol: RollerVaneCompressor,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Roller Vane Compressor"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1592,7 +1593,7 @@ const liquidRingCompressor: Spec<LiquidRingCompressorProps> = {
   Form: CommonToggleForm,
   Symbol: LiquidRingCompressor,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Liquid Ring Compressor"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1606,7 +1607,7 @@ const ejectorCompressor: Spec<EjectorCompressorProps> = {
   Form: CommonToggleForm,
   Symbol: EjectorCompressor,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Ejector Compressor"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1620,7 +1621,7 @@ const centrifugalCompressor: Spec<CentrifugalCompressorProps> = {
   Form: CommonToggleForm,
   Symbol: CentrifugalCompressor,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Centrifugal Compressor"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1634,7 +1635,7 @@ const diaphragmPump: Spec<DiaphragmPumpProps> = {
   Form: CommonToggleForm,
   Symbol: DiaphragmPump,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Diaphragm Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1648,7 +1649,7 @@ const ejectionPump: Spec<EjectionPumpProps> = {
   Form: CommonToggleForm,
   Symbol: EjectionPump,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Ejection Pump"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1662,7 +1663,7 @@ const flameArrestor: Spec<FlameArrestorProps> = {
   Form: CommonStyleForm,
   Symbol: FlameArrestor,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Flame Arrestor"),
     ...ZERO_PROPS,
   }),
@@ -1676,7 +1677,7 @@ const flameArrestorExplosion: Spec<FlameArrestorExplosionProps> = {
   Form: CommonStyleForm,
   Symbol: FlameArrestorExplosion,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Flame Arrestor (Explosion-Proof)"),
     ...ZERO_PROPS,
   }),
@@ -1690,7 +1691,7 @@ const flameArrestorDetonation: Spec<FlameArrestorDetonationProps> = {
   Form: CommonStyleForm,
   Symbol: FlameArrestorDetonation,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Flame Arrestor (Detonation-Proof)"),
     ...ZERO_PROPS,
   }),
@@ -1704,7 +1705,7 @@ const flameArrestorFireRes: Spec<FlameArrestorFireResProps> = {
   Form: CommonStyleForm,
   Symbol: FlameArrestorFireRes,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Flame Arrestor (Fire Resistant)"),
     ...ZERO_PROPS,
   }),
@@ -1718,7 +1719,7 @@ const flameArrestorFireResDetonation: Spec<FlameArrestorFireResDetonationProps> 
   Form: CommonStyleForm,
   Symbol: FlameArrestorFireResDetonation,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Flame Arrestor (Fire Resistant and Detonation-Proof)"),
     ...ZERO_PROPS,
   }),
@@ -1732,7 +1733,7 @@ const thruster: Spec<ThrusterProps> = {
   Form: CommonToggleForm,
   Symbol: Thruster,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Thruster"),
     ...ZERO_TOGGLE_PROPS,
   }),
@@ -1746,7 +1747,7 @@ const nozzle: Spec<NozzleProps> = {
   Form: CommonStyleForm,
   Symbol: Nozzle,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Nozzle"),
     ...ZERO_PROPS,
   }),
@@ -1760,7 +1761,7 @@ const strainer: Spec<StrainerProps> = {
   Form: CommonStyleForm,
   Symbol: Strainer,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Strainer"),
     ...ZERO_PROPS,
   }),
@@ -1774,7 +1775,7 @@ const strainerCone: Spec<StrainerConeProps> = {
   Form: CommonStyleForm,
   Symbol: StrainerCone,
   defaultProps: (t) => ({
-    color: t.colors.gray.l11.rgba255,
+    color: t.colors.gray.l11,
     ...zeroLabel("Strainer Cone"),
     ...ZERO_PROPS,
   }),

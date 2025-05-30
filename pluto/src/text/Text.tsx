@@ -9,9 +9,9 @@
 
 import "@/text/Text.css";
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
-import { color as Color } from "@/color/core";
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
 import { type text } from "@/text/core";
@@ -22,9 +22,10 @@ export interface CoreProps<L extends text.Level = text.Level> {
   /* The text to display */
   children?: ReactNode;
   /* The color of the text */
-  color?: Color.Crude | boolean;
+  color?: color.Crude | false;
   /* NoWrap prevents the text from wrapping */
   noWrap?: boolean;
+  /* Shade sets the shade of the text */
   shade?: text.Shade;
   /* Weight sets the weight of the text */
   weight?: text.Weight;
@@ -51,19 +52,19 @@ export const Text = <L extends text.Level = text.Level>({
   <Generic.Element<L>
     el={level}
     ref={ref}
-    style={{ color: evalColor(color, shade), fontWeight: weight, ...style }}
+    style={{ color: parseColor(color, shade), fontWeight: weight, ...style }}
     className={CSS(CSS.B("text"), CSS.BM("text", level), CSS.noWrap(noWrap), className)}
     {...rest}
   />
 );
 
-export const evalColor = (
-  color?: Color.Crude | boolean,
+export const parseColor = (
+  crudeColor?: color.Crude | false,
   shade?: number,
 ): string | undefined => {
-  if (color != null) {
-    if (typeof color === "boolean") return undefined;
-    return Color.cssString(color) as string;
+  if (crudeColor != null) {
+    if (typeof crudeColor === "boolean") return undefined;
+    return color.cssString(crudeColor);
   }
   if (shade != null) return `var(--pluto-gray-l${shade})`;
   return undefined;

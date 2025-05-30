@@ -166,12 +166,10 @@ with client.open_writer(
     channels=["timestamps", "my_precise_tc"],
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
         time.sleep(0.1)
     writer.commit()
 ```
@@ -204,64 +202,12 @@ with client.open_writer(
     enable_auto_commit=True,
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
         time.sleep(0.1)
 ```
-
-### Error Handling
-
-The Synnax writer is tuned for performance, and as such, does not synchronously check
-for errors on every single call to write. Instead, calls to `write` will return a
-boolean indicating whether the writer has accumulated any errors on the call to write or
-on any previous calls to write.
-
-Once a writer has accumulated an error, all future calls to `write` will fail until the
-writer is closed and a new writer is opened. After calls to `write` return `False`, you
-can check for the accumulated error by calling `writer.error()` or simply close the
-writer through `writer.close()`, at which point the error will be raised.
-
-#### Error Handling Example - Out of Order Timestamps
-
-Let's say we're writing a time series to a channel, but we accidentally write the
-timestamps out of order. This is a common mistake, and can be hard to debug. Here's how
-we can use the writer to handle this:
-
-```python
-import synnax as sy
-
-time_ch = client.channels.create(
-    name="time",
-    data_type=sy.DataType.TIMESTAMP,
-    is_index=True,
-)
-
-data_ch = client.channels.create(
-    name="data",
-    data_type=sy.DataType.FLOAT32,
-    index=time_ch.key,
-)
-
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=[time_ch.key, data_ch.key],
-    enable_auto_commit=True,
-) as writer:
-    for i in range(100):
-        if not writer.write({
-            time_ch.key: sy.TimeStamp.now() - i * sy.TimeSpan.SECOND,
-            data_ch.key: [i],
-        }):
-            break
-```
-
-This will break out of the loop as soon as the writer encounters an out of order
-timestamp, causing the context manager to complete, the writer to be closed, and a
-`ValidationError` to be raised.
 
 ### Write Authorities
 
@@ -289,12 +235,10 @@ with client.open_writer(
     authority=100,
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
         time.sleep(0.1)
 ```
 
@@ -311,12 +255,10 @@ with client.open_writer(
     authority=[100, 200],
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
         time.sleep(0.1)
 ```
 
@@ -354,12 +296,10 @@ with client.open_writer(
     mode="persist"
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
         time.sleep(0.1)
 ```
 
@@ -399,12 +339,10 @@ for i in range(100):
         channels=["timestamps", "my_precise_tc"],
         enable_auto_commit=True,
     ) as writer:
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
 ```
 
 Instead, repeatedly call `write` on a single writer:
@@ -417,12 +355,10 @@ with client.open_writer(
     enable_auto_commit=True,
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
 ```
 
 ### Calling Commit on Every Write
@@ -442,12 +378,10 @@ with client.open_writer(
     channels=["timestamps", "my_precise_tc"],
 ) as writer:
     for i in range(100):
-        if not writer.write({
+        writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
+        })
         writer.commit()
 ```
 
@@ -460,48 +394,8 @@ with client.open_writer(
     enable_auto_commit=True,
 ) as writer:
     for i in range(100):
-        if not writer.write({
-            "timestamps": sy.TimeStamp.now(),
-            "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
-```
-
-### Not Handling Errors by Checking the Return Value of `write`
-
-It's important to check the return value of `write` to ensure that the write was
-successful. Failing to check this return value can result in the writer silently failing
-to write data, causing hard to debug issues.
-
-This is a bad idea:
-
-```python
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["timestamps", "my_precise_tc"],
-    enable_auto_commit=True,
-) as writer:
-    for i in range(100):
         writer.write({
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
         })
-```
-
-Instead, check the return value of `write`:
-
-```python
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["timestamps", "my_precise_tc"],
-    enable_auto_commit=True,
-) as writer:
-    for i in range(100):
-        if not writer.write({
-            "timestamps": sy.TimeStamp.now(),
-            "my_precise_tc": i,
-        }):
-            print("Failed to write")
-            break
 ```

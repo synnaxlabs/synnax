@@ -98,7 +98,7 @@ describe("Task", async () => {
           task: t.key,
           variant: "success",
         };
-        expect(await w.write(task.STATE_CHANNEL_NAME, [state])).toBeTruthy();
+        await w.write(task.STATE_CHANNEL_NAME, [state]);
         await w.close();
         await expect
           .poll(async () => {
