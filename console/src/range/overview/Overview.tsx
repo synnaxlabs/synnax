@@ -22,12 +22,7 @@ import { Snapshots } from "@/range/overview/Snapshots";
 export const Overview: Layout.Renderer = ({ layoutKey }) => (
   <Align.Space
     y
-    style={{
-      padding: "5rem",
-      maxWidth: 1050,
-      margin: "0 auto",
-      overflowY: "auto",
-    }}
+    style={{ padding: "5rem", maxWidth: 1050, margin: "0 auto", overflowY: "auto" }}
     className={CSS.BE("range", "overview")}
     size="medium"
   >

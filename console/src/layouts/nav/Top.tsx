@@ -26,7 +26,6 @@ import { Palette } from "@/palette";
 import { Persist } from "@/persist";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
-import { SERVICES } from "@/services";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
 import { Version } from "@/version";
@@ -60,7 +59,6 @@ const TopPalette = (): ReactElement => (
   <Palette.Palette
     commands={COMMANDS}
     commandSymbol=">"
-    services={SERVICES}
     triggerConfig={PALETTE_TRIGGER_CONFIG}
   />
 );
