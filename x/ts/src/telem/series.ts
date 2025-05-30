@@ -701,8 +701,6 @@ export class Series<T extends TelemValue = TelemValue> {
   as(jsType: "bigint"): Series<bigint>;
 
   as<T extends TelemValue>(jsType: "string" | "number" | "bigint"): Series<T> {
-    if (this.dataType.equals(DataType.UNKNOWN) && this.length === 0)
-      return this as unknown as Series<T>;
     checkAsType(jsType, this.dataType);
     return this as unknown as Series<T>;
   }
@@ -956,8 +954,6 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   as(jsType: "bigint"): MultiSeries<bigint>;
 
   as<T extends TelemValue>(jsType: "string" | "number" | "bigint"): MultiSeries<T> {
-    if (this.dataType.equals(DataType.UNKNOWN) && this.length === 0)
-      return this as unknown as MultiSeries<T>;
     checkAsType(jsType, this.dataType);
     return this as unknown as MultiSeries<T>;
   }

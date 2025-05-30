@@ -10,7 +10,9 @@
 import { describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
+import { type math } from "@/math";
 import {
+  addSamples,
   type CrudeDataType,
   DataType,
   Density,
@@ -507,6 +509,28 @@ describe("TimeRange", () => {
     const trString = tr.toString();
     expect(trString).toEqual("1970-01-03T00:20:00.283Z - 1970-01-05T00:20:00.283Z");
   });
+
+  describe("sort", () => {
+    interface Spec {
+      a: TimeRange;
+      b: TimeRange;
+      expected: number;
+    }
+    const TESTS: Spec[] = [
+      { a: new TimeRange(1, 2), b: new TimeRange(2, 3), expected: -1 },
+      { a: new TimeRange(2, 3), b: new TimeRange(1, 2), expected: 1 },
+      { a: new TimeRange(1, 2), b: new TimeRange(1, 2), expected: 0 },
+      { a: new TimeRange(2, 0), b: new TimeRange(1, 1), expected: 1 },
+      { a: new TimeRange(2, 2), b: new TimeRange(3, 0), expected: -1 },
+      { a: new TimeRange(2, 8), b: new TimeRange(2, 9), expected: -1 },
+      { a: new TimeRange(2, 9), b: new TimeRange(2, 8), expected: 1 },
+    ];
+    TESTS.forEach(({ a, b, expected }) => {
+      test(`TimeRange.sort(${a.toString()}, ${b.toString()}) = ${expected}`, () => {
+        expect(TimeRange.sort(a, b)).toEqual(expected);
+      });
+    });
+  });
 });
 
 describe("DataType", () => {
@@ -622,6 +646,37 @@ describe("Size", () => {
   test("truncate", () => {
     TRUNCATE_TESTS.forEach(([size, unit, expected]) => {
       expect(size.truncate(unit).valueOf()).toEqual(expected.valueOf());
+    });
+  });
+});
+
+describe("addSamples", () => {
+  interface Spec {
+    a: math.Numeric;
+    b: math.Numeric;
+    expected: math.Numeric;
+  }
+  const TESTS: Spec[] = [
+    { a: 1, b: 1, expected: 2 },
+    { a: 1, b: 1n, expected: 2 },
+    { a: 1n, b: 1, expected: 2 },
+    { a: 1n, b: 1n, expected: 2n },
+    { a: 1, b: 0, expected: 1 },
+    { a: 1, b: 0n, expected: 1 },
+    { a: 1n, b: 0, expected: 1n },
+    { a: 1n, b: 0n, expected: 1n },
+    { a: 0, b: 1, expected: 1 },
+    { a: 0, b: 1n, expected: 1n },
+    { a: 0n, b: 1, expected: 1 },
+    { a: 0n, b: 1n, expected: 1n },
+    { a: 0, b: 0, expected: 0 },
+    { a: 0, b: 0n, expected: 0 },
+    { a: 0n, b: 0, expected: 0 },
+    { a: 0n, b: 0n, expected: 0n },
+  ];
+  TESTS.forEach(({ a, b, expected }) => {
+    test(`addSamples(${a.valueOf()}, ${b.valueOf()}) = ${expected.valueOf()}`, () => {
+      expect(addSamples(a, b)).toEqual(expected);
     });
   });
 });

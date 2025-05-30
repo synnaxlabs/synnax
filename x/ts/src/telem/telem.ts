@@ -659,6 +659,14 @@ export class TimeStamp
     z.instanceof(TimeStamp),
   ]);
 
+  /**
+   * Sorts two timestamps.
+   *
+   * @param a - The first timestamp.
+   * @param b - The second timestamp.
+   * @returns A number indicating the order of the two timestamps (positive if a is
+   * greater than b, negative if a is less than b, and 0 if they are equal).
+   */
   static readonly sort = (a: TimeStamp, b: TimeStamp): number =>
     Number(a.valueOf() - b.valueOf());
 }
@@ -1378,6 +1386,17 @@ export class TimeRange implements primitive.Stringer {
     z.instanceof(TimeRange),
   ]);
 
+  /**
+   * Sorts two time ranges. The range with the earlier start time is considered less than
+   * the range with the later start time. If the start times are equal, the range with the
+   * earlier end time is considered less than the range with the later end time.
+   *
+   * @param a - The first time range.
+   * @param b - The second time range.
+   * @returns A number indicating the order of the two time ranges. This number is
+   * positive if a is earlier than b, negative if a is later than b, and 0 if they are
+   * equal.
+   */
   static readonly sort = (a: TimeRange, b: TimeRange): number =>
     TimeStamp.sort(a.start, b.start) || TimeStamp.sort(a.end, b.end);
 }
@@ -1924,10 +1943,23 @@ export const convertDataType = (
   return addSamples(value, -offset).valueOf();
 };
 
+/**
+ * Adds two numbers. If both of the parameters are `number`s, the result will be a
+ * `number`. If both of the parameters are `bigint`s, the result will be a `bigint`. If
+ * one of the parameters is a `bigint` and the other is zero, the result will be a
+ * `bigint`. Otherwise, the result will be a `number`.
+ *
+ * @param a - The first number.
+ * @param b - The second number.
+ * @returns The sum of the two numbers.
+ */
 export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
   if (typeof a === "number" && typeof b === "number") return a + b;
-  if (b === 0 || b === 0n) return a;
+  if (b === 0 || b === 0n) {
+    if (a === 0n) return 0;
+    return a;
+  }
   if (a === 0 || a === 0n) return b;
   return Number(a) + Number(b);
 };
