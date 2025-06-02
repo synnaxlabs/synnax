@@ -14,7 +14,7 @@ import { type Transport } from "@/transport";
 /**
  * Interface for an entity that receives a stream of responses.
  */
-export interface StreamReceiver<RS extends z.ZodTypeAny> {
+export interface StreamReceiver<RS extends z.ZodType> {
   /**
    * Receives a response from the stream. It's not safe to call receive
    * concurrently.
@@ -35,7 +35,7 @@ export interface StreamReceiver<RS extends z.ZodTypeAny> {
 /**
  * Interface for an entity that sends a stream of requests.
  */
-export interface StreamSender<RQ extends z.ZodTypeAny> {
+export interface StreamSender<RQ extends z.ZodType> {
   /**
   * Sends a request to the stream. It is not safe to call send concurrently
   * with closeSend or send.
@@ -54,7 +54,7 @@ export interface StreamSender<RQ extends z.ZodTypeAny> {
  * Extension of the StreamSender interface that allows the client to close the sending
  * direction of the stream when finished issuing requrest.
  */
-export interface StreamSenderCloser<RQ extends z.ZodTypeAny> extends StreamSender<RQ> {
+export interface StreamSenderCloser<RQ extends z.ZodType> extends StreamSender<RQ> {
   /**
   * Lets the server know no more messages will be sent. If the client attempts
   * to call send() after calling closeSend(), a freighter.StreamClosed
@@ -70,7 +70,7 @@ export interface StreamSenderCloser<RQ extends z.ZodTypeAny> extends StreamSende
 /**
  * Interface for a bidirectional stream between a client and a server.
  */
-export interface Stream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
+export interface Stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>
   extends StreamSenderCloser<RQ>,
     StreamReceiver<RS> {}
 
@@ -89,7 +89,7 @@ export interface StreamClient extends Transport {
    * @param resSchema - The schema for the response type. This is used to
    * validate the response before returning it.
    */
-  stream: <RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+  stream: <RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     reqSchema: RQ,
     resSchema: RS,

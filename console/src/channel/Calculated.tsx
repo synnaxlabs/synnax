@@ -158,7 +158,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
     },
   });
 
-  if (res.isLoading) return <Text.Text level="p">Loading...</Text.Text>;
+  if (res.isPending) return <Text.Text level="p">Loading...</Text.Text>;
   if (res.isError)
     return (
       <Align.Space y grow style={{ height: "100%" }}>
@@ -166,7 +166,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
       </Align.Space>
     );
 
-  return <Internal onClose={onClose} initialValues={res.data as FormValues} />;
+  return <Internal onClose={onClose} initialValues={res.data} />;
 };
 
 interface InternalProps extends Pick<Layout.RendererProps, "onClose"> {

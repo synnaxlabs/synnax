@@ -32,7 +32,7 @@ export interface Subject {
   key: string;
 }
 
-export const stateZ = <T extends z.ZodTypeAny>(r: T) =>
+export const stateZ = <T extends z.ZodType>(r: T) =>
   z.object({
     subject: subjectZ,
     resource: r,

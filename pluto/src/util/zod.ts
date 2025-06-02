@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-export const prettyParse = <Z extends z.ZodTypeAny>(
+export const prettyParse = <Z extends z.ZodType>(
   schema: Z,
   value: unknown,
   prefix: string = "",

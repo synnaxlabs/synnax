@@ -130,7 +130,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         <Breadcrumb.Breadcrumb level="h5">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
         <Align.Space x align="center" empty>
           <Align.Space x empty style={{ height: "100%", width: 66 }}>
-            <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
+            <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
               ontologyID={schematic.ontologyID(layoutKey)}

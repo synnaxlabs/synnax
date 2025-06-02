@@ -45,7 +45,7 @@ type ReceiveCallbacksQueue = Array<{
 }>;
 
 /** WebSocketStream is an implementation of Stream that is backed by a websocket. */
-class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
+class WebSocketStream<RQ extends z.ZodType, RS extends z.ZodType = RQ>
   implements Stream<RQ, RS>
 {
   private readonly codec: binary.Codec;
@@ -181,7 +181,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   }
 
   /** Implements the StreamClient interface. */
-  async stream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+  async stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     reqSchema: RQ,
     resSchema: RS,
@@ -215,7 +215,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     return this.baseUrl.child(target).toString() + qs;
   }
 
-  private async wrapSocket<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+  private async wrapSocket<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     ws: WebSocket,
     reqSchema: RQ,
     resSchema: RS,

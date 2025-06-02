@@ -25,7 +25,7 @@ export interface UnaryClient extends Transport {
    * @param req - The request to send.
    * @param resSchema - The schema to validate the response against.
    */
-  send: <RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+  send: <RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     req: z.input<RQ> | z.output<RQ>,
     reqSchema: RQ,
@@ -48,7 +48,7 @@ export const unaryWithBreaker = (
       this.wrapped.use(...mw);
     }
 
-    async send<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+    async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
       target: string,
       req: z.input<RQ> | z.output<RQ>,
       reqSchema: RQ,
@@ -66,10 +66,7 @@ export const unaryWithBreaker = (
   return new WithBreaker(base);
 };
 
-export const sendRequired = async <
-  RQ extends z.ZodTypeAny,
-  RS extends z.ZodTypeAny = RQ,
->(
+export const sendRequired = async <RQ extends z.ZodType, RS extends z.ZodType = RQ>(
   client: UnaryClient,
   target: string,
   req: z.input<RQ> | z.output<RQ>,

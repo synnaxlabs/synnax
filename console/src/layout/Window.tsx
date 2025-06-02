@@ -12,6 +12,7 @@ import "@/layout/Window.css";
 import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Align, Haul, Menu as PMenu, OS } from "@synnaxlabs/pluto";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -19,7 +20,7 @@ import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
 import { useSelect } from "@/layout/selectors";
-import { getCurrentWindow } from "@/tauriShim";
+import { RUNTIME } from "@/runtime";
 
 export const DefaultContextMenu = (): ReactElement => (
   <PMenu.Menu>
@@ -28,7 +29,7 @@ export const DefaultContextMenu = (): ReactElement => (
 );
 
 const WindowInternal = (): ReactElement | null => {
-  const currLabel = getCurrentWindow().label;
+  const currLabel = RUNTIME === "tauri" ? getCurrentWindow().label : MAIN_WINDOW;
   const isMain = currLabel === MAIN_WINDOW;
   let win = useSelectWindowKey(currLabel) ?? "";
   if (isMain) win = MAIN_WINDOW;

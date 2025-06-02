@@ -25,7 +25,7 @@ describe("Persist", () => {
     it("should open a blank v2 store if the v1 store is empty", async () => {
       const v1Store = new kv.MockAsync();
       const v2Store = new kv.MockAsync();
-      const openKV = async (path: string): Promise<SugaredKV> => {
+      const openKV = (path: string): SugaredKV => {
         if (path === Persist.V1_STORE_PATH) return v1Store;
         if (path === Persist.V2_STORE_PATH) return v2Store;
         throw new Error(`Unknown path: ${path}`);
@@ -48,7 +48,7 @@ describe("Persist", () => {
         },
       };
       await v1Store.set(persistedStateKey, persistedState);
-      const openKV = async (path: string): Promise<SugaredKV> => {
+      const openKV = (path: string): SugaredKV => {
         if (path === Persist.V1_STORE_PATH) return v1Store;
         if (path === Persist.V2_STORE_PATH) return v2Store;
         throw new Error(`Unknown path: ${path}`);
@@ -78,7 +78,7 @@ describe("Persist", () => {
     it("should correctly persist state", async () => {
       const store = new kv.MockAsync();
       const engine = await Persist.open({
-        openKV: async () => store,
+        openKV: () => store,
         initial: ZERO_MOCK_STATE,
       });
       const state = {
@@ -95,7 +95,7 @@ describe("Persist", () => {
     });
     it("should maintain a maximum history of 4", async () => {
       const store = new kv.MockAsync();
-      const openKV = async () => store;
+      const openKV = () => store;
       const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       for (let i = 0; i < 10; i++)
         await engine.persist({
@@ -118,7 +118,7 @@ describe("Persist", () => {
     it("should correctly revert state", async () => {
       const store = new kv.MockAsync();
       const engine = await Persist.open({
-        openKV: async () => store,
+        openKV: () => store,
         initial: ZERO_MOCK_STATE,
       });
       const state = {
@@ -130,14 +130,14 @@ describe("Persist", () => {
       await engine.persist(state);
       await engine.revert();
       const engine2 = await Persist.open({
-        openKV: async () => store,
+        openKV: () => store,
         initial: ZERO_MOCK_STATE,
       });
       expect(engine2.initialState).toEqual(ZERO_MOCK_STATE);
     });
     it("should correctly revert the state when it has multiple versions", async () => {
       const store = new kv.MockAsync();
-      const openKV = async () => store;
+      const openKV = () => store;
       const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       const state = {
         [Version.SLICE_NAME]: {
@@ -161,7 +161,7 @@ describe("Persist", () => {
   describe("engine.clear", () => {
     it("should correctly clear the store", async () => {
       const store = new kv.MockAsync();
-      const openKV = async () => store;
+      const openKV = () => store;
       const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       await engine.persist({
         [Version.SLICE_NAME]: {
@@ -195,7 +195,7 @@ describe("Persist", () => {
       const v = await Persist.open<State>({
         exclude: ["a"],
         initial: state,
-        openKV: async () => store,
+        openKV: () => store,
       });
       await v.persist(state);
       await expect(store.get(Persist.persistedStateKey(1))).resolves.toEqual({
@@ -220,10 +220,10 @@ describe("Persist", () => {
         c: 3,
       };
       const store = new kv.MockAsync();
-      const engine1 = await Persist.open({ initial: state, openKV: async () => store });
+      const engine1 = await Persist.open({ initial: state, openKV: () => store });
       await engine1.persist(state);
       const migrator = (state: State) => ({ ...state, c: 5 });
-      await Persist.open({ initial: state, migrator, openKV: async () => store });
+      await Persist.open({ initial: state, migrator, openKV: () => store });
       await expect(store.length()).resolves.toBe(3);
       await expect(store.get(Persist.persistedStateKey(2))).resolves.toEqual({
         ...state,

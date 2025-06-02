@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Optional, status,TimeStamp, unknownRecordZ } from "@synnaxlabs/x";
+import { type Optional, status, TimeStamp, unknownRecordZ } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const specZ = z.object({

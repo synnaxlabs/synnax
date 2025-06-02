@@ -19,8 +19,8 @@ interface UseContextValue
   }> {}
 
 /**
- * @description A hook that retrieves and subscribes to updates for a device. Must be
- * used within a Form context that has a schema matching the following structure:
+ * A hook that retrieves and subscribes to updates for a device. Must be used within a
+ * Form context that has a schema matching the following structure:
  *
  * ```typescript
  * {
