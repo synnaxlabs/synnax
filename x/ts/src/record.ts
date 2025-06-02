@@ -40,8 +40,6 @@ export const getEntries = <T extends Record<Key, unknown>>(obj: T): Entries<T> =
 
 export const mapValues = <T extends Record<Key, unknown>, U>(
   obj: T,
-  fn: (value: T[keyof T], key: Key) => U,
+  fn: (value: T[keyof T], key: keyof T) => U,
 ): Record<Key, U> =>
-  Object.fromEntries(
-    getEntries(obj).map(([key, value]) => [key, fn(value, key as Key)]),
-  );
+  Object.fromEntries(getEntries(obj).map(([key, value]) => [key, fn(value, key)]));
