@@ -171,15 +171,42 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
       description:
         "List of device integrations to disable. This is useful when you don't want particular integrations. All integrations are enabled by default.",
     },
-
     {
       option: "--enable-integrations",
       default: "[]",
       description:
         "List of device integrations to enable. This is useful when you only want particular integrations. All integrations are enabled by default.",
     },
-
-]} />
+    {
+      option: "--log-file-path",
+      default: "./synnax-logs/synnax.log",
+      description:
+        "The path to the file in which the Synnax core should store its logs",
+    },
+    {
+      option: "--log-file-max-size",
+      default: "50",
+      description: "The maximum size (in MB) before a log file gets rotated.",
+    },
+    {
+      option: "--log-file-max-backups",
+      default: "5",
+      description:
+        "The maximum number of log files of size --log-file-max-size that should be kept before they are deleted",
+    },
+    {
+      option: "--log-file-max-age",
+      default: "30",
+      description:
+        "The maximum age (in days) that log files should be kept before they are removed",
+    },
+    {
+      option: "--log-file-compress",
+      default: "false",
+      description: "Whether to compress log files on disk.",
+    },
+  ]}
+/>
 
 ### Environment Variable Equivalents
 
@@ -208,6 +235,14 @@ Command line flags will take precedence over environment variables.
     { option: "--license-key", env: "SYNNAX_LICENSE_KEY" },
     { option: "--debug", env: "SYNNAX_DEBUG" },
     { option: "--slow-consumer-timeout", env: "SYNNAX_SLOW_CONSUMER_TIMEOUT" },
+    { option: "--no-driver", env: "SYNNAX_NO_DRIVER" },
+    { option: "--disable-integrations", env: "SYNNAX_DISABLE_INTEGRATIONS" },
+    { option: "--enable-integrations", env: "SYNNAX_ENABLE_INTEGRATIONS" },
+    { option: "--log-file-path", env: "SYNNAX_LOG_FILE_PATH" },
+    { option: "--log-file-max-size", env: "SYNNAX_LOG_FILE_MAX_SIZE" },
+    { option: "--log-file-max-backups", env: "SYNNAX_LOG_FILE_MAX_BACKUPS" },
+    { option: "--log-file-max-age", env: "SYNNAX_LOG_FILE_MAX_AGE" },
+    { option: "--log-file-compress", env: "SYNNAX_LOG_FILE_COMPRESS" },
   ]}
 />
 
@@ -249,7 +284,15 @@ Here are example configuration files in various formats:
     "password": "seldon",
     "license-key": "000000-00000000-0000000000",
     "debug": false,
-    "slow-consumer-timeout": "2.5s"
+    "slow-consumer-timeout": "2.5s",
+    "no-driver": false,
+    "disable-integrations": [],
+    "enable-integrations": [],
+    "log-file-path": "./synnax-logs/synnax.log",
+    "log-file-max-size": 50,
+    "log-file-max-backups": 5,
+    "log-file-max-age": 30,
+    "log-file-compress": true
 }
 ```
 </slot>
@@ -271,6 +314,14 @@ node-key: node.key
 username: synnax
 password: seldon
 license-key: 000000-00000000-0000000000
+no-driver: false
+disable-integrations: []
+enable-integrations: []
+log-file-path: ./synnax-logs/synnax.log
+log-file-max-size: 50
+log-file-max-backups: 5
+log-file-max-age: 30
+log-file-compress: true
 ```
 </slot>
 <slot slot="toml">
@@ -289,6 +340,14 @@ node-key = "node.key"
 username = "synnax"
 password = "seldon"
 license-key = "000000-00000000-0000000000"
+no-driver = false
+disable-integrations = []
+enable-integrations = []
+log-file-path = "./synnax-logs/synnax.log"
+log-file-max-size = 50
+log-file-max-backups = 5
+log-file-max-age = 30
+log-file-compress = true
 ```
 </slot>
 </Tabs>

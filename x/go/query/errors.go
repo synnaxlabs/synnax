@@ -11,8 +11,9 @@ package query
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/errors"
 	"strings"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 var (
