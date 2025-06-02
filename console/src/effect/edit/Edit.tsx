@@ -4,7 +4,6 @@ import { Align, Button, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useStore } from "react-redux";
-import { v4 as uuid } from "uuid";
 
 import { useSelect } from "@/effect/selectors";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -62,7 +61,6 @@ export const Edit: Layout.Renderer = ({ layoutKey }) => {
       }
     },
   });
-  console.log(res.data);
   if (res.isLoading) return <Text.Text level="p">Loading...</Text.Text>;
   if (res.isError)
     return (
