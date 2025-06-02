@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-// UserService is the core authentication service for the Synnax API.
+// UserService is the core authentication service for the Synnax Layer.
 type UserService struct {
 	dbProvider
 	authProvider
@@ -40,7 +40,7 @@ func NewUserService(p Provider) *UserService {
 		dbProvider:     p.db,
 		authProvider:   p.auth,
 		accessProvider: p.access,
-		internal:       p.Config.User,
+		internal:       p.Service.User,
 	}
 }
 

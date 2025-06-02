@@ -34,7 +34,7 @@ type CoreBuilder struct {
 	// Config is the configuration used to provision new cores.
 	Config core.Config
 	// Cores contains a map of all cores paired with their respective host Name.
-	Cores map[core.NodeKey]core.Core
+	Cores map[core.NodeKey]*core.Core
 	// net is the network for transporting key-value operations.
 	net *aspentransmock.Network
 	// addrFactory generates unique addresses for nodes.
@@ -57,7 +57,7 @@ func NewCoreBuilder(configs ...core.Config) *CoreBuilder {
 	return &CoreBuilder{
 		Config:      cfg,
 		Builder:     *storeBuilder,
-		Cores:       make(map[core.NodeKey]core.Core),
+		Cores:       make(map[core.NodeKey]*core.Core),
 		net:         net,
 		addrFactory: addrFactory,
 	}
@@ -65,7 +65,7 @@ func NewCoreBuilder(configs ...core.Config) *CoreBuilder {
 
 // New provisions a new core connected to the rest of the nodes in the builder's cluster.
 // Panics if the core cannot be opened.
-func (cb *CoreBuilder) New(ctx context.Context) core.Core {
+func (cb *CoreBuilder) New(ctx context.Context) *core.Core {
 	store := cb.Builder.New(ctx)
 	trans := cb.net.NewTransport()
 	addr := cb.addrFactory.Next()
@@ -86,7 +86,7 @@ func (cb *CoreBuilder) New(ctx context.Context) core.Core {
 
 	store.KV = clusterKV
 
-	_core := distribution.Core{
+	_core := &distribution.Core{
 		Config:  cfg,
 		Cluster: clusterKV.Cluster,
 		Storage: store,

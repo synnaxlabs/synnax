@@ -55,7 +55,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{tx: gorp.OverrideTx(s.DB, tx)}
 }
 
-func (s *Service) NewRetriever() Retriever {
+func (s *Service) NewRetrieve() Retriever {
 	return Retriever{
 		baseTx: s.DB,
 		gorp:   gorp.NewRetrieve[uuid.UUID, Policy](),

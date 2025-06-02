@@ -29,7 +29,7 @@ type LogService struct {
 func NewLogService(p Provider) *LogService {
 	return &LogService{
 		dbProvider:     p.db,
-		internal:       p.Config.Log,
+		internal:       p.Service.Log,
 		accessProvider: p.access,
 	}
 }

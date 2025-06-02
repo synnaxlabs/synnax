@@ -11,9 +11,10 @@ package signals_test
 
 import (
 	"context"
+	"testing"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,7 +27,7 @@ func TestSignals(t *testing.T) {
 
 var (
 	_b   *mock.Builder
-	dist distribution.Distribution
+	dist *distribution.Layer
 	ctx  = context.Background()
 )
 

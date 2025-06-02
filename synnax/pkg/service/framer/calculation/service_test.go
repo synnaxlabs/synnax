@@ -37,7 +37,7 @@ var sleepInterval = 25 * time.Millisecond
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c    *calculation.Service
-		dist distribution.Distribution
+		dist *distribution.Layer
 	)
 
 	BeforeAll(func() {

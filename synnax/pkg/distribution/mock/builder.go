@@ -30,13 +30,26 @@ import (
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/types"
 )
+
+type NodeEntry struct {
+	*distribution.Layer
+	extraClosers xio.MultiCloser
+}
+
+func (n NodeEntry) Close() error {
+	if err := n.extraClosers.Close(); err != nil {
+		return err
+	}
+	return n.Layer.Close()
+}
 
 type Builder struct {
 	cfg        distribution.Config
 	core       mock.CoreBuilder
-	Nodes      map[dcore.NodeKey]distribution.Distribution
+	Nodes      map[dcore.NodeKey]NodeEntry
 	writerNet  *tmock.FramerWriterNetwork
 	iterNet    *tmock.FramerIteratorNetwork
 	channelNet *tmock.ChannelNetwork
@@ -55,13 +68,13 @@ func NewBuilder(cfgs ...distribution.Config) *Builder {
 		channelNet: tmock.NewChannelNetwork(),
 		relayNet:   tmock.NewRelayNetwork(),
 		deleteNet:  tmock.NewDeleterNetwork(),
-		Nodes:      make(map[dcore.NodeKey]distribution.Distribution),
+		Nodes:      make(map[dcore.NodeKey]NodeEntry),
 	}
 }
 
-func (b *Builder) New(ctx context.Context) distribution.Distribution {
+func (b *Builder) New(ctx context.Context) *distribution.Layer {
 	core := b.core.New(ctx)
-	d := distribution.Distribution{Core: core}
+	d := &distribution.Layer{Core: core}
 
 	trans := mockFramerTransport{
 		iter:    b.iterNet.New(core.Config.AdvertiseAddress, 1),
@@ -106,14 +119,19 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		Framer:          d.Framer,
 	}))
 
+	var extraClosers xio.MultiCloser
+
 	// If we're not the bootstrapper, don't propagate changes to prevent issues when
 	// trying to find free channels. We're going to resolve this issue in #105:
 	// https://github.com/synnaxlabs/synnax/issues/105
 	if d.Cluster.HostKey().IsBootstrapper() {
-		d.Closers = append(d.Closers, lo.Must(ontologycdc.Publish(ctx, d.Signals, d.Ontology)))
+		extraClosers = append(extraClosers, lo.Must(ontologycdc.Publish(ctx, d.Signals, d.Ontology)))
 	}
 
-	b.Nodes[core.Cluster.HostKey()] = d
+	b.Nodes[core.Cluster.HostKey()] = NodeEntry{
+		Layer:        d,
+		extraClosers: extraClosers,
+	}
 
 	return d
 }

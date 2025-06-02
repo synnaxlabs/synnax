@@ -29,7 +29,7 @@ import (
 
 type ChannelKey = channel.Key
 
-// Channel is an API-friendly version of the channel.Channel type. It is simplified for
+// Channel is an Layer-friendly version of the channel.Channel type. It is simplified for
 // use purely as a data container.
 type Channel struct {
 	Key         channel.Key          `json:"key" msgpack:"key"`
@@ -46,7 +46,7 @@ type Channel struct {
 	Expression  string               `json:"expression" msgpack:"expression"`
 }
 
-// ChannelService is the central API for all things Channel related.
+// ChannelService is the central Layer for all things Channel related.
 type ChannelService struct {
 	dbProvider
 	accessProvider
@@ -57,8 +57,8 @@ type ChannelService struct {
 func NewChannelService(p Provider) *ChannelService {
 	return &ChannelService{
 		accessProvider: p.access,
-		internal:       p.Config.Channel,
-		ranger:         p.Config.Ranger,
+		internal:       p.Distribution.Channel,
+		ranger:         p.Service.Ranger,
 		dbProvider:     p.db,
 	}
 }
@@ -256,7 +256,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 	return translated
 }
 
-// translateChannelsBackward translates a slice of a API channel structs to a slice of
+// translateChannelsBackward translates a slice of a Layer channel structs to a slice of
 // the internal channel structs.
 func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 	translated := make([]channel.Channel, len(channels))

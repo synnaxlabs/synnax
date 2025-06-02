@@ -18,6 +18,7 @@ import (
 	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Core is the foundational primitive for distributed compute in a synnax Cluster. It
@@ -38,19 +39,20 @@ type Core struct {
 	Storage *storage.Storage
 }
 
-// Open opens a new  core distribution layer. The caller is responsible for closing the
+// Open opens a new core distribution layer. The caller is responsible for closing the
 // distribution layer when it is no longer in use.
-func Open(ctx context.Context, configs ...Config) (c Core, err error) {
+func Open(ctx context.Context, configs ...Config) (*Core, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
-		return c, err
+		return nil, err
 	}
+	c := &Core{}
 
 	cfg.Storage.Instrumentation = cfg.Instrumentation.Child("storage")
 	c.Config = cfg
 	c.Storage, err = storage.Open(ctx, cfg.Storage)
 	if err != nil {
-		return c, err
+		return nil, err
 	}
 
 	clusterTransport := aspentransport.New(cfg.Pool)
@@ -68,7 +70,7 @@ func Open(ctx context.Context, configs ...Config) (c Core, err error) {
 		aspen.WithInstrumentation(c.Instrumentation.Child("aspen")),
 	)
 	if err != nil {
-		return c, err
+		return nil, errors.Combine(err, c.Storage.Close())
 	}
 	c.Cluster = clusterDB.Cluster
 	// Replace storage's key-value store with a distributed version.

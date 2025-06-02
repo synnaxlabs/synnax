@@ -12,7 +12,6 @@ package distribution
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -26,8 +25,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/synnax/pkg/layer"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -92,65 +93,64 @@ func (c Config) Override(other Config) Config {
 // validation to the individual components.
 func (c Config) Validate() error { return nil }
 
-type Distribution struct {
-	Core
-	Channel  channel.Service
-	Framer   *framer.Service
-	Ontology *ontology.Ontology
-	Signals  *signals.Provider
-	Group    *group.Service
-	Closers  []io.Closer
+type Layer struct {
+	*Core
+	Channel      channel.Service
+	Framer       *framer.Service
+	Ontology     *ontology.Ontology
+	Signals      *signals.Provider
+	Group        *group.Service
+	Verification *verification.Service
+	closer       xio.MultiCloser
 }
 
 // Close closes the distribution layer.
-func (d Distribution) Close() error {
+func (l *Layer) Close() error {
 	e := errors.NewCatcher(errors.WithAggregation())
-	e.Exec(d.Ontology.Close)
-	e.Exec(d.Framer.Close)
-	for _, c := range d.Closers {
-		e.Exec(c.Close)
-	}
-	e.Exec(d.Core.Close)
+	e.Exec(l.closer.Close)
 	return e.Error()
 }
 
 // Open opens the distribution layer for the node using the provided Config. The caller
 // is responsible for closing the distribution layer when it is no longer in use.
-func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
-	d.Core, err = core.Open(ctx, cfg.Config)
-	if err != nil {
-		return d, err
+func Open(ctx context.Context, cfg Config) (*Layer, error) {
+	var (
+		l   = &Layer{}
+		err error
+	)
+	cleanup, ok := layer.NewOpener(ctx, &err, &l.closer)
+	defer cleanup()
+	if l.Core, err = core.Open(ctx, cfg.Config); !ok(l.Core) {
+		return nil, err
 	}
-
-	gorpDB := d.Storage.Gorpify()
-
-	if d.Ontology, err = ontology.Open(ctx,
+	gorpDB := l.Storage.Gorpify()
+	if l.Ontology, err = ontology.Open(ctx,
 		cfg.Ontology,
 		ontology.Config{
 			Instrumentation: cfg.Instrumentation.Child("ontology"),
 			DB:              gorpDB,
 		},
-	); err != nil {
-		return d, err
+	); !ok(l.Ontology) {
+		return nil, err
 	}
-	if d.Group, err = group.OpenService(
+	if l.Group, err = group.OpenService(
 		ctx,
 		cfg.Group,
 		group.Config{
 			DB:       gorpDB,
-			Ontology: d.Ontology,
+			Ontology: l.Ontology,
 		},
-	); err != nil {
-		return d, err
+	); !ok(l.Group) {
+		return nil, err
 	}
 
 	nodeOntologySvc := &cluster.NodeOntologyService{
-		Ontology: d.Ontology,
-		Cluster:  d.Cluster,
+		Ontology: l.Ontology,
+		Cluster:  l.Cluster,
 	}
-	clusterOntologySvc := &cluster.OntologyService{Cluster: d.Cluster}
-	d.Ontology.RegisterService(ctx, clusterOntologySvc)
-	d.Ontology.RegisterService(ctx, nodeOntologySvc)
+	clusterOntologySvc := &cluster.OntologyService{Cluster: l.Cluster}
+	l.Ontology.RegisterService(ctx, clusterOntologySvc)
+	l.Ontology.RegisterService(ctx, nodeOntologySvc)
 
 	nodeOntologySvc.ListenForChanges(ctx)
 
@@ -158,69 +158,65 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	frameTransport := frametransport.New(cfg.Pool)
 	*cfg.Transports = append(*cfg.Transports, channelTransport, frameTransport)
 
-	ver, err := verification.OpenService(
-		ctx,
-		cfg.Verifier,
-		verification.Config{
-			DB:  d.Storage.KV,
-			Ins: cfg.Instrumentation,
-		})
-	if err != nil {
-		return d, err
+	if l.Verification, err = verification.OpenService(ctx, verification.Config{
+		Verifier: cfg.Verifier,
+		DB:       l.Storage.KV,
+		Ins:      cfg.Instrumentation,
+	}); !ok(l.Verification) {
+		return nil, err
 	}
-	d.Closers = append(d.Closers, ver)
 
-	d.Channel, err = channel.New(ctx, cfg.Channel, channel.ServiceConfig{
-		HostResolver:     d.Cluster,
+	if l.Channel, err = channel.New(ctx, cfg.Channel, channel.ServiceConfig{
+		HostResolver:     l.Cluster,
 		ClusterDB:        gorpDB,
-		TSChannel:        d.Storage.TS,
+		TSChannel:        l.Storage.TS,
 		Transport:        channelTransport,
-		Ontology:         d.Ontology,
-		Group:            d.Group,
-		IntOverflowCheck: ver.IsOverflowed,
-	})
-	if err != nil {
-		return d, err
+		Ontology:         l.Ontology,
+		Group:            l.Group,
+		IntOverflowCheck: l.Verification.IsOverflowed,
+	}); !ok(nil) {
+		return nil, err
 	}
 
-	d.Framer, err = framer.Open(cfg.Framer, framer.Config{
+	if l.Framer, err = framer.Open(cfg.Framer, framer.Config{
 		Instrumentation: cfg.Instrumentation.Child("framer"),
-		ChannelReader:   d.Channel,
-		TS:              d.Storage.TS,
+		ChannelReader:   l.Channel,
+		TS:              l.Storage.TS,
 		Transport:       frameTransport,
-		HostResolver:    d.Cluster,
-	})
-	if err != nil {
-		return d, err
+		HostResolver:    l.Cluster,
+	}); !ok(nil) {
+		return nil, err
 	}
 
-	if err = d.configureControlUpdates(ctx); err != nil {
-		return d, err
+	if err = l.configureControlUpdates(ctx); !ok(nil) {
+		return nil, err
 	}
 
-	d.Signals, err = signals.New(cfg.Signals, signals.Config{
-		Channel:         d.Channel,
-		Framer:          d.Framer,
+	if l.Signals, err = signals.New(cfg.Signals, signals.Config{
+		Channel:         l.Channel,
+		Framer:          l.Framer,
 		Instrumentation: cfg.Instrumentation.Child("signals"),
-	})
-	if err != nil {
-		return d, err
+	}); !ok(nil) {
+		return nil, err
 	}
-	c, err := ontologycdc.Publish(ctx, d.Signals, d.Ontology)
-	d.Closers = append(d.Closers, c)
-	return d, err
+	c, err := ontologycdc.Publish(ctx, l.Signals, l.Ontology)
+	if err != nil {
+		return nil, err
+	}
+	l.closer = append(l.closer, c)
+	return l, err
 }
 
-func (d Distribution) configureControlUpdates(ctx context.Context) error {
+func (l Layer) configureControlUpdates(ctx context.Context) error {
 	controlCh := []channel.Channel{{
-		Name:        fmt.Sprintf("sy_node_%v_control", d.Cluster.HostKey()),
-		Leaseholder: d.Cluster.HostKey(),
+		Name:        fmt.Sprintf("sy_node_%v_control", l.Cluster.HostKey()),
+		Leaseholder: l.Cluster.HostKey(),
 		Virtual:     true,
 		DataType:    telem.StringT,
 		Internal:    true,
 	}}
-	if err := d.Channel.CreateMany(ctx, &controlCh, channel.RetrieveIfNameExists(true)); err != nil {
+	if err := l.Channel.CreateMany(ctx, &controlCh, channel.RetrieveIfNameExists(true)); err != nil {
 		return err
 	}
-	return d.Framer.ConfigureControlUpdateChannel(ctx, controlCh[0].Key(), controlCh[0].Name)
+	return l.Framer.ConfigureControlUpdateChannel(ctx, controlCh[0].Key(), controlCh[0].Name)
 }
