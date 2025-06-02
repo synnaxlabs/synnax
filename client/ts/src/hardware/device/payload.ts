@@ -35,7 +35,7 @@ export const deviceZ = z.object({
   model: z.string(),
   location: z.string(),
   configured: z.boolean().optional(),
-  properties: z.record(z.unknown()).or(z.string().transform(decodeJSONString)),
+  properties: unknownRecordZ.or(z.string().transform(decodeJSONString)),
   state: zod.nullToUndefined(stateZ),
 });
 

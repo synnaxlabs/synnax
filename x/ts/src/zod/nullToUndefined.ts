@@ -11,11 +11,13 @@ import { type z } from "zod";
 
 export const nullToUndefined = <Input, Output>(
   schema: z.ZodType<Input, Output>,
-): z.ZodPipe<
-  z.ZodNullable<z.ZodOptional<z.ZodType<Input, Output>>>,
-  z.ZodTransform<Awaited<Input & {}> | undefined, Input | null | undefined>
+): z.ZodOptional<
+  z.ZodPipe<
+    z.ZodNullable<z.ZodType<Input, Output>>,
+    z.ZodTransform<Awaited<Input & {}> | undefined, Input | null>
+  >
 > =>
   schema
-    .optional()
     .nullable()
-    .transform((s) => (s === null ? undefined : s));
+    .transform((s) => (s === null ? undefined : s))
+    .optional();
