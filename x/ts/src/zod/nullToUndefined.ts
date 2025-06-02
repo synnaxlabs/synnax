@@ -7,18 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z, type ZodTypeDef } from "zod";
+import { type z } from "zod";
 
-export const nullToUndefined = <
-  Output = any,
-  Def extends ZodTypeDef = ZodTypeDef,
-  Input = Output,
->(
-  schema: z.ZodSchema<Output, Def, Input>,
-): z.ZodEffects<
-  z.ZodNullable<z.ZodOptional<z.ZodType<Output, Def, Input>>>,
-  (Output & {}) | undefined,
-  Input | null | undefined
+export const nullToUndefined = <Input, Output>(
+  schema: z.ZodType<Input, Output>,
+): z.ZodPipe<
+  z.ZodNullable<z.ZodOptional<z.ZodType<Input, Output>>>,
+  z.ZodTransform<Awaited<Input & {}> | undefined, Input | null | undefined>
 > =>
   schema
     .optional()
