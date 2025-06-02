@@ -38,7 +38,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       <Core.Header>
         <Core.Title icon={<Icon.Log />}>{name}</Core.Title>
         <Align.Space x style={{ width: 66 }} empty>
-          <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
+          <Export.ToolbarButton onExport={() => handleExport(state.key)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={log.ontologyID(state.key)}
