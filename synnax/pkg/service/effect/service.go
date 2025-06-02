@@ -24,8 +24,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for opening the effect service.
-type Config struct {
+// ServiceConfig is the configuration for opening the effect service.
+type ServiceConfig struct {
 	// DB is the database that the effect service will store effects in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -39,13 +39,13 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
+	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultConfig is the default configuration for opening a effect service.
-	DefaultConfig = Config{}
+	DefaultConfig = ServiceConfig{}
 )
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -55,7 +55,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("effect")
 	validate.NotNil(v, "DB", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -67,7 +67,7 @@ func (c Config) Validate() error {
 
 // Service is the primary service for retrieving and modifying effects from Synnax.
 type Service struct {
-	cfg Config
+	cfg ServiceConfig
 	mu  struct {
 		sync.Mutex
 		entries map[uuid.UUID]*entry
@@ -78,8 +78,8 @@ func (s *Service) Close() error { return nil }
 
 // OpenService instantiates a new effect service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
-// See the Config struct for information on which fields should be set.
-func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
+// See the ServiceConfig struct for information on which fields should be set.
+func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err

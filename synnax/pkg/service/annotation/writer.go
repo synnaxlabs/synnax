@@ -31,18 +31,18 @@ type Writer struct {
 // a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	c *Slate,
+	c *Annotation,
 ) (err error) {
 	var exists bool
 	if c.Key == uuid.Nil {
 		c.Key = uuid.New()
 	} else {
-		exists, err = gorp.NewRetrieve[uuid.UUID, Slate]().WhereKeys(c.Key).Exists(ctx, w.tx)
+		exists, err = gorp.NewRetrieve[uuid.UUID, Annotation]().WhereKeys(c.Key).Exists(ctx, w.tx)
 		if err != nil {
 			return
 		}
 	}
-	if err = gorp.NewCreate[uuid.UUID, Slate]().Entry(c).Exec(ctx, w.tx); err != nil {
+	if err = gorp.NewCreate[uuid.UUID, Annotation]().Entry(c).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	if exists {
@@ -57,7 +57,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) (err error) {
-	if err = gorp.NewDelete[uuid.UUID, Slate]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+	if err = gorp.NewDelete[uuid.UUID, Annotation]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	for _, key := range keys {

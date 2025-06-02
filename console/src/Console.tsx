@@ -28,7 +28,6 @@ import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
-import { Debug } from "@/debug";
 import { Docs } from "@/docs";
 import { Effect } from "@/effect";
 import { Error } from "@/error";
@@ -44,7 +43,6 @@ import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
-import { Slate } from "@/slate";
 import { store } from "@/store";
 import { Table } from "@/table";
 import { User } from "@/user";
@@ -71,7 +69,6 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Version.LAYOUTS,
   ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
-  ...Debug.LAYOUTS,
   ...Effect.LAYOUTS,
 };
 

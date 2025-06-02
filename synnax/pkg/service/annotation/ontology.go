@@ -48,9 +48,9 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
-// OntologyIDsFromSlates returns the ontology IDs of the annotations.
-func OntologyIDsFromSlates(annotations []Slate) []ontology.ID {
-	return lo.Map(annotations, func(c Slate, _ int) ontology.ID {
+// OntologyIDsFromAnnotations returns the ontology IDs of the annotations.
+func OntologyIDsFromAnnotations(annotations []Annotation) []ontology.ID {
+	return lo.Map(annotations, func(c Annotation, _ int) ontology.ID {
 		return OntologyID(c.Key)
 	})
 }
@@ -64,7 +64,7 @@ var _schema = &ontology.Schema{
 	},
 }
 
-func newResource(c Slate) schema.Resource {
+func newResource(c Annotation) schema.Resource {
 	// Using Type as the display name since annotations don't have a name field
 	e := schema.NewResource(_schema, OntologyID(c.Key), "")
 	//schema.Set(e, "key", c.Key.String())
@@ -75,7 +75,7 @@ func newResource(c Slate) schema.Resource {
 
 var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[uuid.UUID, Slate]
+type change = changex.Change[uuid.UUID, Annotation]
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() *schema.Schema { return _schema }
@@ -83,12 +83,12 @@ func (s *Service) Schema() *schema.Schema { return _schema }
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (schema.Resource, error) {
 	k := uuid.MustParse(key)
-	var annotation Slate
+	var annotation Annotation
 	err := s.NewRetrieve().WhereKeys(k).Entry(&annotation).Exec(ctx, tx)
 	return newResource(annotation), err
 }
 
-func translateChange(c change) schema.Change {
+func translateAnnotationChange(c change) schema.Change {
 	return schema.Change{
 		Variant: c.Variant,
 		Key:     OntologyID(c.Key),
@@ -98,16 +98,16 @@ func translateChange(c change) schema.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[schema.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Slate]) {
-		f(ctx, iter.NexterTranslator[change, schema.Change]{Wrap: reader, Translate: translateChange})
+	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Annotation]) {
+		f(ctx, iter.NexterTranslator[change, schema.Change]{Wrap: reader, Translate: translateAnnotationChange})
 	}
-	return gorp.Observe[uuid.UUID, Slate](s.cfg.DB).OnChange(handleChange)
+	return gorp.Observe[uuid.UUID, Annotation](s.cfg.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
-	n, err := gorp.WrapReader[uuid.UUID, Slate](s.cfg.DB).OpenNexter()
-	return iter.NexterCloserTranslator[Slate, schema.Resource]{
+	n, err := gorp.WrapReader[uuid.UUID, Annotation](s.cfg.DB).OpenNexter()
+	return iter.NexterCloserTranslator[Annotation, schema.Resource]{
 		Wrap:      n,
 		Translate: newResource,
 	}, err

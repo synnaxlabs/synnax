@@ -16,7 +16,6 @@ import { type ReactElement } from "react";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
-import { Debug } from "@/debug";
 import { Docs } from "@/docs";
 import { EffectServices } from "@/effect/services";
 import { Hardware } from "@/hardware";
@@ -56,7 +55,6 @@ const COMMANDS: Palette.Command[] = [
   ...TableServices.COMMANDS,
   ...UserServices.COMMANDS,
   ...WorkspaceServices.COMMANDS,
-  ...Debug.COMMANDS,
   ...EffectServices.COMMANDS,
 ];
 

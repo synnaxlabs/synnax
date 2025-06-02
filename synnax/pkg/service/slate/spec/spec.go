@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -94,130 +95,19 @@ func acceptsNumericDataType(input string) bool {
 
 type SchemaMatcher = func(context.Context, Config, Node) (NodeSchema, bool, error)
 
-func greaterThanEq(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err error) {
-	if n.Type != "operator.gte" {
-		return ns, false, err
-	}
-	ns.Inputs = []Input{
-		{
-			Key:             "x",
-			AcceptsDataType: acceptsNumericDataType,
-		},
-		{
-			Key:             "y",
-			AcceptsDataType: acceptsNumericDataType,
-		},
-	}
-	ns.Outputs = []Output{
-		{
-			Key:      "value",
-			DataType: "uint8",
-		},
-	}
-	ns.Type = "operator.gte"
-	return ns, true, nil
-}
-
-func telemSource(ctx context.Context, cfg Config, n Node) (ns NodeSchema, ok bool, err error) {
-	if n.Type != "source" {
-		return ns, false, err
-	}
-	chKey, ok := schema.Get[float64](schema.Resource{Data: n.Data}, "channel")
-	if !ok {
-		return ns, true, errors.WithStack(validate.FieldError{
-			Field:   "channel",
-			Message: "invalid channel",
-		})
-	}
-	var ch channel.Channel
-	if err = cfg.Channel.NewRetrieve().
-		WhereKeys(channel.Key(chKey)).
-		Entry(&ch).
-		Exec(ctx, nil); err != nil {
-		return ns, ok, err
-	}
-	ns.Outputs = []Output{
-		{
-			Key:      "value",
-			DataType: string(ch.DataType),
-		},
-	}
-	ns.Type = "source"
-	return ns, true, nil
-}
-
-func telemSink(ctx context.Context, cfg Config, n Node) (ns NodeSchema, ok bool, err error) {
-	if n.Type != "sink" {
-		return ns, false, err
-	}
-	chKey, ok := schema.Get[float64](schema.Resource{Data: n.Data}, "channel")
-	if !ok {
-		return ns, true, errors.WithStack(validate.FieldError{})
-	}
-	var ch channel.Channel
-	if err = cfg.Channel.NewRetrieve().WhereKeys(channel.Key(chKey)).Entry(&ch).Exec(ctx, nil); err != nil {
-		return ns, ok, err
-	}
-	ns.Inputs = []Input{
-		{
-			Key:             "value",
-			AcceptsDataType: strictlyMatchDataType(string(ch.DataType)),
-		},
-	}
-	ns.Type = "sink"
-	return ns, true, nil
-}
-
-func selectStatement(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err error) {
-	if n.Type != "select" {
-		return ns, false, err
-	}
-	ns.Inputs = []Input{
-		{
-			Key:             "value",
-			AcceptsDataType: strictlyMatchDataType("uint8"),
-		},
-	}
-	ns.Outputs = []Output{
-		{
-			Key:      "true",
-			DataType: "uint8",
-		},
-		{
-			Key:      "false",
-			DataType: "uint8",
-		},
-	}
-	ns.Type = "select"
-	return ns, true, nil
-}
-
-func sendNotification(_ context.Context, cfg Config, n Node) (ns NodeSchema, ok bool, err error) {
-	if n.Type != "send_notification" {
-		return ns, false, err
-	}
-	ns.Inputs = []Input{
-		{
-			Key:             "value",
-			AcceptsDataType: strictlyMatchDataType("uint8"),
-		},
-	}
-	ns.Outputs = []Output{}
-	return ns, true, nil
-}
-
 var schemaMatchers = []SchemaMatcher{
 	constant,
 	greaterThanEq,
 	telemSource,
 	telemSink,
 	selectStatement,
-	sendNotification,
+	createAnnotation,
 }
 
 type Config struct {
-	Channel channel.Service
-	Framer  *framer.Service
+	Channel    channel.Service
+	Framer     *framer.Service
+	Annotation *annotation.Service
 }
 
 func Validate(ctx context.Context, cfg Config, g Graph) (Graph, error) {
