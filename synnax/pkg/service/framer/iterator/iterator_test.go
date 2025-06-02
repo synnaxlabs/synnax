@@ -27,7 +27,7 @@ import (
 var _ = Describe("StreamIterator", Ordered, func() {
 	var (
 		builder     = mock.NewBuilder()
-		dist        distribution.Distribution
+		dist        *distribution.Layer
 		iteratorSvc *iterator.Service
 	)
 	BeforeAll(func() {

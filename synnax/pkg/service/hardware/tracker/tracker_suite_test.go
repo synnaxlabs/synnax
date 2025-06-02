@@ -11,11 +11,12 @@ package tracker_test
 
 import (
 	"context"
+	"testing"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,7 +25,7 @@ import (
 var (
 	ctx  = context.Background()
 	_b   *mock.Builder
-	dist distribution.Distribution
+	dist *distribution.Layer
 )
 
 var _ = BeforeSuite(func() {

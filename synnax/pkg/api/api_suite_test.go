@@ -21,5 +21,5 @@ var ctx = context.Background()
 
 func TestApi(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Suite")
+	RunSpecs(t, "Layer Suite")
 }

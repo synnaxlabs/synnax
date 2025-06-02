@@ -27,6 +27,6 @@ func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	return &Driver{}, nil
 }
 
-func (d *Driver) Stop() error {
+func (d *Driver) Close() error {
 	return nil
 }

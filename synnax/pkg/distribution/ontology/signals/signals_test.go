@@ -66,7 +66,7 @@ var _ = Describe("Signals", Ordered, func() {
 	var (
 		builder *mock.Builder
 		ctx     = context.Background()
-		dist    distribution.Distribution
+		dist    *distribution.Layer
 		svc     *changeService
 	)
 	BeforeAll(func() {

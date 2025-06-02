@@ -33,7 +33,7 @@ import (
 var _ = Describe("Streamer", Ordered, func() {
 	var (
 		builder     = mock.NewBuilder()
-		dist        distribution.Distribution
+		dist        *distribution.Layer
 		streamerSvc *streamer.Service
 	)
 	BeforeAll(func() {
