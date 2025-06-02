@@ -22,6 +22,8 @@ import (
 type LoggerConfig struct {
 	// ZapConfig sets the underlying zap.Logger. If nil, a no-op logger is used.
 	ZapConfig zap.Config
+	// ZapLogger provides a custom zap logger to override the default logger defined
+	// in ZapConfig.
 	ZapLogger *zap.Logger
 }
 
@@ -44,7 +46,7 @@ func (c LoggerConfig) Override(other LoggerConfig) LoggerConfig {
 // Logger provides logging functionality. It's an enhanced wrapper around a zap.Logger
 // that provides no-lop logging when nil.
 type Logger struct {
-	Config LoggerConfig
+	config LoggerConfig
 	zap    *zap.Logger
 }
 
@@ -54,7 +56,7 @@ func NewLogger(configs ...LoggerConfig) (*Logger, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := &Logger{Config: cfg}
+	l := &Logger{config: cfg}
 	if cfg.ZapLogger != nil {
 		l.zap = cfg.ZapLogger
 	} else {
@@ -75,7 +77,7 @@ func (l *Logger) Zap() *zap.Logger {
 
 func (l *Logger) child(meta InstrumentationMeta) (nl *Logger) {
 	if l != nil {
-		nl = &Logger{zap: l.zap.Named(meta.Key), Config: l.Config}
+		nl = &Logger{zap: l.zap.Named(meta.Key), config: l.config}
 	}
 	return
 }
@@ -89,7 +91,7 @@ func (l *Logger) Debug(msg string, fields ...zap.Field) {
 
 func (l *Logger) Named(name string) *Logger {
 	if l != nil {
-		return &Logger{zap: l.zap.Named(name), Config: l.Config}
+		return &Logger{zap: l.zap.Named(name), config: l.config}
 	}
 	return nil
 }
@@ -141,7 +143,7 @@ func (l *Logger) DPanic(msg string, fields ...zap.Field) {
 
 func (l *Logger) WithOptions(opts ...zap.Option) *Logger {
 	if l != nil {
-		return &Logger{zap: l.zap.WithOptions(opts...), Config: l.Config}
+		return &Logger{zap: l.zap.WithOptions(opts...), config: l.config}
 	}
 	return nil
 }
@@ -154,18 +156,7 @@ func (l *Logger) WithConfig(configs ...LoggerConfig) (*Logger, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Logger{zap: l2.zap.Named(l.zap.Name()), Config: l2.Config}, nil
-}
-
-// DebugError returns a zap field that can be used to log an error whose presence
-// is not exceptional i.e. it does not deserve a stack trace. zap.Error has no way
-// to disable stack traces in debug logging, so we use this instead. DebugError should
-// only be used in debug logging, and NOT for production errors that are exceptional.
-func DebugError(err error) zap.Field {
-	if err == nil {
-		return zap.Skip()
-	}
-	return zap.String("error", err.Error())
+	return &Logger{zap: l2.zap.Named(l.zap.Name()), config: l2.config}, nil
 }
 
 func CustomZapCore(core zapcore.Core) zapcore.Core {
@@ -194,15 +185,15 @@ func (c customCore) Check(entry zapcore.Entry, entry2 *zapcore.CheckedEntry) *za
 // Sync implements zapcore.Core.
 func (c customCore) Sync() error { return c.c.Sync() }
 
+// Write implements zapcore.Core.
 func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	toRemove := -1
 	for i, field := range fields {
-		// If there is an error in the log and we can get its stack trace, use that
+		// If there is an error in the log, and we can get its stack trace, use that
 		// instead of the built-in stack trace.
 		if field.Type == zapcore.ErrorType {
 			if err, ok := field.Interface.(error); ok {
-				stack := errors.GetStackTrace(err)
-				entry.Stack = stack.String()
+				entry.Stack = errors.GetStackTrace(err).String()
 			}
 		} else if field.Key == "caller" && field.Type == zapcore.StringType && len(field.String) > 0 {
 			// This means that we should specify a custom caller.

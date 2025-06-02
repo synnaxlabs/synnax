@@ -205,7 +205,7 @@ export class LinePlot extends aether.Composite<
       this.internal.aggregate({
         key: `${this.type}-${this.key}`,
         variant: "error",
-        message: (e as Error).message,
+        message: err.message,
       });
     } finally {
       removeCanvasScissor();
