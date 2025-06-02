@@ -160,6 +160,10 @@ type Transport struct {
 	SlateCreate   freighter.UnaryServer[SlateCreateRequest, SlateCreateResponse]
 	SlateDelete   freighter.UnaryServer[SlateDeleteRequest, types.Nil]
 	SlateRetrieve freighter.UnaryServer[SlateRetrieveRequest, SlateRetrieveResponse]
+	// ANNOTATION
+	AnnotationCreate   freighter.UnaryServer[AnnotationCreateRequest, AnnotationCreateResponse]
+	AnnotationRetrieve freighter.UnaryServer[AnnotationRetrieveRequest, AnnotationRetrieveResponse]
+	AnnotationDelete   freighter.UnaryServer[AnnotationDeleteRequest, types.Nil]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
@@ -184,6 +188,7 @@ type Layer struct {
 	Access       *AccessService
 	Effect       *EffectService
 	Slate        *SlateService
+	Annotation   *AnnotationService
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
@@ -323,6 +328,11 @@ func (a *Layer) BindTo(t Transport) {
 		t.SlateCreate,
 		t.SlateDelete,
 		t.SlateRetrieve,
+
+		// ANNOTATION
+		t.AnnotationCreate,
+		t.AnnotationDelete,
+		t.AnnotationRetrieve,
 	)
 
 	// AUTH
@@ -443,6 +453,11 @@ func (a *Layer) BindTo(t Transport) {
 	t.SlateCreate.BindHandler(a.Slate.Create)
 	t.SlateDelete.BindHandler(a.Slate.Delete)
 	t.SlateRetrieve.BindHandler(a.Slate.Retrieve)
+
+	// ANNOTATION
+	t.AnnotationCreate.BindHandler(a.Annotation.Create)
+	t.AnnotationDelete.BindHandler(a.Annotation.Delete)
+	t.AnnotationRetrieve.BindHandler(a.Annotation.Retrieve)
 }
 
 // New instantiates the server API layer using the provided Config. This should only be called
@@ -470,5 +485,6 @@ func New(configs ...Config) (*Layer, error) {
 	api.Table = NewTableService(api.provider)
 	api.Effect = NewEffectService(api.provider)
 	api.Slate = NewSlateService(api.provider)
+	api.Annotation = NewAnnotationService(api.provider)
 	return api, nil
 }

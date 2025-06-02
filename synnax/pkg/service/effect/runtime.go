@@ -28,7 +28,7 @@ type entry struct {
 }
 
 type Runtime struct {
-	cfg Config
+	cfg ServiceConfig
 }
 
 func (s *Service) handleChange(

@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type List } from "@/list";
 import { Select as Core } from "@/select";
-import { type Status } from "@/status";
 import { Text } from "@/status/Text";
 
 interface ListEntry {
-  key: Status.Variant;
+  key: status.Variant;
   name: string;
 }
 

@@ -17,14 +17,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+const ConstantType = "constant"
+
 func constant(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err error) {
-	if n.Type != "constant" {
+	if n.Type != ConstantType {
 		return ns, false, err
 	}
 	fields := map[string]schema.Field{
-		"data_type": {
-			Type: schema.String,
-		},
+		"data_type": {Type: schema.String},
 	}
 	dt, ok := schema.Get[string](schema.Resource{Data: n.Data}, "data_type")
 	if !ok {
@@ -41,6 +41,6 @@ func constant(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err 
 		},
 	}
 	ns.Data = fields
-	ns.Type = "constant"
+	ns.Type = ConstantType
 	return ns, true, nil
 }

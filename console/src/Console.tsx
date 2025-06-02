@@ -43,7 +43,6 @@ import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
-import { Slate } from "@/slate";
 import { store } from "@/store";
 import { Table } from "@/table";
 import { User } from "@/user";

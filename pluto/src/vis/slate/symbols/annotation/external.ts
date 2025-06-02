@@ -1,10 +1,10 @@
-import { Form } from "@/vis/slate/symbols/notification/Form";
-import { type Config, Symbol } from "@/vis/slate/symbols/notification/Notification";
+import { type Config, Symbol } from "@/vis/slate/symbols/annotation/Create";
+import { Form } from "@/vis/slate/symbols/annotation/Form";
 import { type Spec } from "@/vis/slate/symbols/types/spec";
 
 export const SPEC: Spec<Config> = {
-  key: "notification",
-  name: "Notification",
+  key: "annotation.create",
+  name: "Create",
   zIndex: 100,
   Form,
   Symbol,

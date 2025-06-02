@@ -69,7 +69,7 @@ func newResource(c Effect) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(c.Key), "")
 	//schema.Set(e, "key", c.Key.String())
 	//schema.Set(e, "type", c)
-	//schema.Set(e, "config", string(c.Config))
+	//schema.Set(e, "config", string(c.ServiceConfig))
 	return e
 }
 

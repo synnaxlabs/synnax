@@ -29,7 +29,7 @@ func NewSlateService(p Provider) *SlateService {
 	return &SlateService{
 		dbProvider:     p.db,
 		accessProvider: p.access,
-		internal:       p.Config.Slate,
+		internal:       p.Service.Slate,
 	}
 }
 

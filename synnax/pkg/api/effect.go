@@ -29,7 +29,7 @@ func NewEffectService(p Provider) *EffectService {
 	return &EffectService{
 		dbProvider:     p.db,
 		accessProvider: p.access,
-		internal:       p.Config.Effect,
+		internal:       p.Service.Effect,
 	}
 }
 

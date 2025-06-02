@@ -27,16 +27,10 @@ export const createComparison = (operator: string): FC => {
       <Handle.Source location="right" id="value" style={{ top: "50%" }} />
     </Align.Space>
   );
-  C.displayName = `Comparison(${operator})`;
+  C.displayName = `Operator(${operator})`;
   return C;
 };
 
-export const GreaterThan = createComparison(">");
-export const LessThan = createComparison("<");
-export const Equal = createComparison("=");
-export const NotEqual = createComparison("≠");
-export const GreaterThanOrEqual = createComparison("≥");
-export const LessThanOrEqual = createComparison("≤");
 export const Add = createComparison("+");
 export const Subtract = createComparison("-");
 export const Multiply = createComparison("*");

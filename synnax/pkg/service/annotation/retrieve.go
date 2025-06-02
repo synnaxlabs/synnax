@@ -21,7 +21,7 @@ import (
 // annotation.Service.
 type Retrieve struct {
 	baseTX gorp.Tx
-	gorp   gorp.Retrieve[uuid.UUID, Slate]
+	gorp   gorp.Retrieve[uuid.UUID, Annotation]
 }
 
 // WhereKeys filters the annotations by the given keys.
@@ -32,19 +32,19 @@ func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
 
 // Entry binds the given annotation to the query. This pointer is where the results of the
 // query will be stored after Exec is called.
-func (r Retrieve) Entry(annotation *Slate) Retrieve {
+func (r Retrieve) Entry(annotation *Annotation) Retrieve {
 	r.gorp = r.gorp.Entry(annotation)
 	return r
 }
 
 // Entries binds the given slice of annotations to the query. This pointer is where the results
 // of the query will be stored after Exec is called.
-func (r Retrieve) Entries(annotations *[]Slate) Retrieve {
+func (r Retrieve) Entries(annotations *[]Annotation) Retrieve {
 	r.gorp = r.gorp.Entries(annotations)
 	return r
 }
 
-// Exec executes the query against the given transannotation. The results of the query
+// Exec executes the query against the given annotation. The results of the query
 // will be stored in the pointer given to the Entry or Entries method. If tx is nil,
 // the query will be executed directly against the underlying gorp.DB provided to the
 // annotation service.
