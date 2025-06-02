@@ -13,6 +13,8 @@ export const config = z.object({
   description: z.string().optional(),
 });
 
+export interface Config extends z.infer<typeof config> {}
+
 export const Symbol = () => (
   <Align.Pack x align="center" background={1} bordered borderShade={5} rounded={1}>
     <PIcon.Icon

@@ -94,11 +94,7 @@ export const selectSelectedElementsProps = (
     }));
   const edges: ElementInfo[] = slate.edges
     .filter((edge) => edge.selected)
-    .map((edge) => ({
-      key: edge.key,
-      type: "edge",
-      edge,
-    }));
+    .map((edge) => ({ key: edge.key, type: "edge", edge }));
   return [...nodes, ...edges];
 };
 

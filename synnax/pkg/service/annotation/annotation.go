@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/status/Aggregator";
-export * from "@/status/colors";
-export * from "@/status/Indicator";
-export * from "@/status/Notification";
-export * from "@/status/Select";
-export * from "@/status/Text";
+package annotation
+
+import (
+	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/telem"
+)
+
+type Annotation struct {
+	Key     uuid.UUID       `json:"key" msgpack:"key"`
+	Time    telem.TimeStamp `json:"time" msgpack:"time"`
+	Message string          `json:"message" msgpack:"message"`
+}
