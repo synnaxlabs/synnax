@@ -9,6 +9,8 @@ on:
       - .clang-format-ignore
       - .github/workflows/test.x.cpp.yaml
       - freighter/cpp/**
+      - MODULE.bazel
+      - MODULE.bazel.lock
       - scripts/check-clang-format.sh
       - x/cpp/**
       - x/go/**/*.pb.h

@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: wrifte
   packages: write
 
 jobs:
@@ -70,7 +70,9 @@ jobs:
     name: Server
     needs: changes
     runs-on: ubuntu-latest
-    if: needs.changes.outputs.cpp == 'true' || needs.changes.outputs.py == 'true' || needs.changes.outputs.ts == 'true'
+    if:
+      needs.changes.outputs.cpp == 'true' || needs.changes.outputs.py == 'true' ||
+      needs.changes.outputs.ts == 'true'
     env:
       GITHUB_SHA: ${{ github.sha }}
     steps:
@@ -187,7 +189,6 @@ jobs:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
         env:
-          SYNNAX_LISTEN: localhost:9090
           SYNNAX_VERBOSE: true
           SYNNAX_INSECURE: true
           SYNNAX_MEM: true
