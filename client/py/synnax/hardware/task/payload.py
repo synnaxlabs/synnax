@@ -11,7 +11,7 @@ import json
 
 from freighter import Payload
 
-from synnax.status import Variant, INFO_VARIANT
+from synnax.status import INFO_VARIANT, Variant
 
 
 class TaskPayload(Payload):

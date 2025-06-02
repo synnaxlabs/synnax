@@ -13,11 +13,14 @@ import { type ReactElement } from "react";
 
 import { VARIANT_COLORS } from "@/status/colors";
 
-export interface CircleProps extends IconProps {
+export interface IndicatorProps extends IconProps {
   variant?: status.Variant;
 }
 
-export const Circle = ({ variant = "info", ...rest }: CircleProps): ReactElement =>
+export const Indicator = ({
+  variant = "info",
+  ...rest
+}: IndicatorProps): ReactElement =>
   variant === "loading" ? (
     <Icon.Loading {...rest} />
   ) : (
