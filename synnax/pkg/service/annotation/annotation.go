@@ -11,11 +11,20 @@ package annotation
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 type Annotation struct {
-	Key     uuid.UUID       `json:"key" msgpack:"key"`
-	Time    telem.TimeStamp `json:"time" msgpack:"time"`
-	Message string          `json:"message" msgpack:"message"`
+	Key     uuid.UUID `json:"key" msgpack:"key"`
+	Variant string    `json:"variant" msgpack:"variant"`
+	Message string    `json:"message" msgpack:"message"`
+	Notify  bool      `json:"notify" msgpack:"notify"`
 }
+
+var _ gorp.Entry[uuid.UUID] = Annotation{}
+
+// GorpKey implements gorp.Entry.
+func (a Annotation) GorpKey() uuid.UUID { return a.Key }
+
+// SetOptions implements gorp.Entry.
+func (a Annotation) SetOptions() []any { return nil }
