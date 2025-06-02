@@ -49,7 +49,7 @@ export const createStreamOpener =
   async (config) => {
     let cfg: StreamerConfig;
     if (Array.isArray(config) || typeof config !== "object")
-      cfg = { channels: config as channel.Params, downsampleFactor: 1 };
+      cfg = { channels: config, downsampleFactor: 1 };
     else cfg = config as StreamerConfig;
     const adapter = await ReadAdapter.open(retriever, cfg.channels);
     if (cfg.useExperimentalCodec)
@@ -123,7 +123,7 @@ export class HardenedStreamer implements Streamer {
   constructor(opener: StreamOpener, config: StreamerConfig | channel.Params) {
     this.opener = opener;
     if (Array.isArray(config) || typeof config !== "object")
-      this.config = { channels: config as channel.Params, downsampleFactor: 1 };
+      this.config = { channels: config, downsampleFactor: 1 };
     else this.config = config as StreamerConfig;
     this.breaker = new breaker.Breaker({
       maxRetries: 5000,
