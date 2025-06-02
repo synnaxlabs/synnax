@@ -10,13 +10,12 @@
 import "@/cluster/Connect.css";
 
 import { type connection } from "@synnaxlabs/client";
-import { Align, Button, Form, Input, Nav, Status } from "@synnaxlabs/pluto";
+import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
 
-import { STATUS_VARIANTS } from "@/cluster/Badges";
 import { useSelectAllNames } from "@/cluster/selectors";
 import { clusterZ, set, setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
@@ -115,7 +114,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
       <Modals.BottomNavBar>
         <Nav.Bar.Start size="small">
           {connState != null ? (
-            <Status.Text variant={STATUS_VARIANTS[connState.status]}>
+            <Status.Text variant={Synnax.CONNECTION_STATE_VARIANTS[connState.status]}>
               {connState.status === "connected"
                 ? caseconv.capitalize(connState.status)
                 : connState.message}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, type UnknownRecord, unknownRecordZ } from "@synnaxlabs/x";
+import { binary, status, type UnknownRecord, unknownRecordZ, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
@@ -18,7 +18,7 @@ export type Key = z.infer<typeof keyZ>;
 
 export const stateZ = z.object({
   key: keyZ,
-  variant: z.string(),
+  variant: status.variantZ,
   details: unknownRecordZ.or(z.string().transform(decodeJSONString)),
 });
 
@@ -35,8 +35,8 @@ export const deviceZ = z.object({
   model: z.string(),
   location: z.string(),
   configured: z.boolean().optional(),
-  properties: unknownRecordZ.or(z.string().transform(decodeJSONString)),
-  state: stateZ.optional(),
+  properties: z.record(z.unknown()).or(z.string().transform(decodeJSONString)),
+  state: zod.nullToUndefined(stateZ),
 });
 
 export interface Device<

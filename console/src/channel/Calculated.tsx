@@ -99,17 +99,9 @@ export const createCalculatedLayout = ({
 
 const ZERO_FORM_VALUES: FormValues = {
   ...ZERO_CHANNEL,
-  virtual: true, // Set to true by default
+  virtual: true,
   expression: "return 0",
 };
-
-const calculationStateZ = z.object({
-  key: channel.keyZ,
-  variant: z.enum(["error", "success", "info"]),
-  message: z.string(),
-});
-
-const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
 
 export const useListenForCalculationState = (): void => {
   const client = Synnax.use();
@@ -119,11 +111,15 @@ export const useListenForCalculationState = (): void => {
     key: [client?.key, addStatus, handleError],
     open: async () => {
       if (client == null) return;
-      const s = await client.openStreamer({ channels: [CALCULATION_STATE_CHANNEL] });
+      const s = await client.openStreamer({
+        channels: [channel.CALCULATION_STATE_CHANNEL_NAME],
+      });
       return new framer.ObservableStreamer(s);
     },
     onChange: (frame) => {
-      const state = frame.get(CALCULATION_STATE_CHANNEL).parseJSON(calculationStateZ);
+      const state = frame
+        .get(channel.CALCULATION_STATE_CHANNEL_NAME)
+        .parseJSON(channel.calculationStateZ);
       state.forEach(({ key, variant, message }) => {
         client?.channels
           .retrieve(key)

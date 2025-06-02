@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Nav, type Status, Text } from "@synnaxlabs/pluto";
+import { Button, Nav, Text } from "@synnaxlabs/pluto";
+import { type status } from "@synnaxlabs/x";
 
 import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
 import { ModalContentLayout } from "@/modals/layout";
@@ -16,8 +17,8 @@ import { Triggers } from "@/triggers";
 export interface PromptConfirmLayoutArgs extends BaseArgs<boolean> {
   message: string;
   description: string;
-  confirm?: { variant?: Status.Variant; label?: string };
-  cancel?: { variant?: Status.Variant; label?: string };
+  confirm?: { variant?: status.Variant; label?: string };
+  cancel?: { variant?: status.Variant; label?: string };
 }
 
 export const CONFIRM_LAYOUT_TYPE = "confirm";

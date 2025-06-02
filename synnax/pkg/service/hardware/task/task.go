@@ -71,8 +71,6 @@ type State struct {
 	// Key is used to uniquely identify the state update, and is usually used to tie
 	// back a command with its corresponding state value.
 	Key string `json:"key" msgpack:"key"`
-	// Internal is true if the state update is for an internal task.
-	Internal bool `json:"internal" msgpack:"internal"`
 	// Task is the key of the task that the state update is for.
 	Task Key `json:"task" msgpack:"task"`
 	// Variant is the status of the task.
