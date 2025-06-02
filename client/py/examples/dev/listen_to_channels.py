@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 import sys
+
+import synnax as sy
 
 if len(sys.argv) < 2:
     print("Usage: python listen_to_channels.py <channel_name> [<channel_name> ...]")
