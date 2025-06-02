@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestPebblekv(t *testing.T) {
+func TestPebbleKV(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "PebbleKV Suite")
 }
