@@ -40,6 +40,7 @@ export * from "@/search";
 export * from "@/shallowCopy";
 export * from "@/sleep";
 export * from "@/spatial";
+export * from "@/status";
 export * from "@/strings";
 export * from "@/sync";
 export * from "@/telem";

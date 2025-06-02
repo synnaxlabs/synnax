@@ -9,21 +9,20 @@
 
 import "@/input/Input.css";
 
-import { color } from "@synnaxlabs/x";
+import { color, type status } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { type BaseProps } from "@/input/types";
-import { type Status } from "@/status";
 import { Text as CoreText } from "@/text";
 
 export interface TextExtraProps {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;
-  status?: Status.Variant;
+  status?: status.Variant;
   outlineColor?: color.Crude;
   color?: color.Crude;
 }

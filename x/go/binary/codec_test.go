@@ -41,17 +41,17 @@ var _ = Describe("Codec", func() {
 	Describe("PassThrough encoding and decoding", func() {
 		It("Should pass through the encoding and decoding when a byte slice is provided", func() {
 			codec := &binary.PassThroughCodec{Codec: &binary.GobCodec{}}
-			b, err := codec.Encode(nil, []byte{1, 2, 3})
+			b, err := codec.Encode(ctx, []byte{1, 2, 3})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(b).To(Equal([]byte{1, 2, 3}))
 			var d []byte
-			Expect(codec.Decode(nil, b, &d)).To(Succeed())
+			Expect(codec.Decode(ctx, b, &d)).To(Succeed())
 			Expect(d).To(Equal([]byte{1, 2, 3}))
 		})
 	})
 	Describe("Additional Error Info", func() {
 		DescribeTable("Standard Type", func(codec binary.Codec) {
-			_, err := codec.Encode(nil, make(chan int))
+			_, err := codec.Encode(ctx, make(chan int))
 			Expect(err).To(HaveOccurred())
 			msg := err.Error()
 			Expect(msg).To(ContainSubstring("failed to encode value"))
@@ -66,7 +66,7 @@ var _ = Describe("Codec", func() {
 				Value int
 				Chan  chan int
 			}
-			_, err := codec.Encode(nil, custom{Chan: make(chan int)})
+			_, err := codec.Encode(ctx, custom{Chan: make(chan int)})
 			Expect(err).To(HaveOccurred())
 			msg := err.Error()
 			Expect(msg).To(ContainSubstring("failed to encode value"))
@@ -85,18 +85,18 @@ var _ = Describe("Codec", func() {
 				Value int `json:"value"`
 			}
 			v := abc{Value: 12}
-			jsonB := MustSucceed(js.Encode(nil, v))
-			gobB := MustSucceed(gb.Encode(nil, v))
+			jsonB := MustSucceed(js.Encode(ctx, v))
+			gobB := MustSucceed(gb.Encode(ctx, v))
 			var res abc
 			fbc := binary.NewDecodeFallbackCodec(&binary.GobCodec{}, &binary.JSONCodec{})
-			Expect(fbc.Decode(nil, jsonB, &res)).To(Succeed())
+			Expect(fbc.Decode(ctx, jsonB, &res)).To(Succeed())
 			Expect(res.Value).To(Equal(12))
-			Expect(fbc.Decode(nil, gobB, &res)).To(Succeed())
+			Expect(fbc.Decode(ctx, gobB, &res)).To(Succeed())
 			Expect(res.Value).To(Equal(12))
 		})
 		It("Should return the error of the last decoder if all codecs fail", func() {
 			fbc := binary.NewDecodeFallbackCodec(&binary.GobCodec{}, &binary.JSONCodec{})
-			_, err := fbc.Encode(nil, make(chan int))
+			_, err := fbc.Encode(ctx, make(chan int))
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should handle DecodeStream fallback correctly", func() {
@@ -105,22 +105,23 @@ var _ = Describe("Codec", func() {
 				Value int `json:"value"`
 			}
 			v := abc{Value: 12}
-			jsonB := MustSucceed(js.Encode(nil, v))
+			jsonB := MustSucceed(js.Encode(ctx, v))
 
 			var res abc
 			fbc := binary.NewDecodeFallbackCodec(&binary.MsgPackCodec{}, &binary.JSONCodec{})
 
 			// Create a bytes.Buffer that implements io.Reader
 			buf := bytes.NewBuffer(jsonB)
-			Expect(fbc.DecodeStream(nil, buf, &res)).To(Succeed())
+			Expect(fbc.DecodeStream(ctx, buf, &res)).To(Succeed())
 			Expect(res.Value).To(Equal(12))
 		})
+
 		It("Should return error when DecodeStream fails for all codecs", func() {
 			fbc := binary.NewDecodeFallbackCodec(&binary.GobCodec{}, &binary.JSONCodec{})
 
 			invalidData := []byte("completely invalid data")
 			var res struct{ Value int }
-			err := fbc.DecodeStream(nil, bytes.NewReader(invalidData), &res)
+			err := fbc.DecodeStream(ctx, bytes.NewReader(invalidData), &res)
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -132,17 +133,17 @@ var _ = Describe("Codec", func() {
 			}
 
 			// Test encoding
-			b, err := codec.Encode(nil, toEncode{1})
+			b, err := codec.Encode(ctx, toEncode{1})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Test decoding
 			var d toEncode
-			Expect(codec.Decode(nil, b, &d)).To(Succeed())
+			Expect(codec.Decode(ctx, b, &d)).To(Succeed())
 			Expect(d.Value).To(Equal(1))
 
 			// Test stream decoding
 			var d2 toEncode
-			Expect(codec.DecodeStream(nil, bytes.NewReader(b), &d2)).To(Succeed())
+			Expect(codec.DecodeStream(ctx, bytes.NewReader(b), &d2)).To(Succeed())
 			Expect(d2.Value).To(Equal(1))
 		})
 
@@ -153,7 +154,7 @@ var _ = Describe("Codec", func() {
 			}
 
 			// Try to encode an unencodable type
-			_, err := codec.Encode(nil, make(chan int))
+			_, err := codec.Encode(ctx, make(chan int))
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to encode value"))
 		})
@@ -164,23 +165,21 @@ var _ = Describe("Codec", func() {
 				Codec: underlying,
 			}
 
-			// Try to decode invalid data
 			invalidData := []byte("invalid json")
 			var d toEncode
-			err := codec.Decode(nil, invalidData, &d)
+			err := codec.Decode(ctx, invalidData, &d)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to decode"))
 
-			// Try to decode invalid data through stream
-			err = codec.DecodeStream(nil, bytes.NewReader(invalidData), &d)
+			err = codec.DecodeStream(ctx, bytes.NewReader(invalidData), &d)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to decode"))
 		})
 	})
 	Describe("String Number Unmarshaling", func() {
-		DescribeTable("UnmarshalStringInt64", func(input string, expected int64, shouldError bool) {
+		DescribeTable("UnmarshalJSONStringInt64", func(input string, expected int64, shouldError bool) {
 			b := []byte(input)
-			val, err := binary.UnmarshalStringInt64(b)
+			val, err := binary.UnmarshalJSONStringInt64(b)
 			if shouldError {
 				Expect(err).To(HaveOccurred())
 			} else {
@@ -197,9 +196,9 @@ var _ = Describe("Codec", func() {
 			Entry("invalid json", `{invalid}`, int64(0), true),
 		)
 
-		DescribeTable("UnmarshalStringUint64", func(input string, expected uint64, shouldError bool) {
+		DescribeTable("UnmarshalJSONStringUint64", func(input string, expected uint64, shouldError bool) {
 			b := []byte(input)
-			val, err := binary.UnmarshalStringUint64(b)
+			val, err := binary.UnmarshalJSONStringUint64(b)
 			if shouldError {
 				Expect(err).To(HaveOccurred())
 			} else {
@@ -216,18 +215,18 @@ var _ = Describe("Codec", func() {
 			Entry("invalid json", `{invalid}`, uint64(0), true),
 		)
 	})
-	Describe("MustEncodeJSONtoString", func() {
+	Describe("MustEncodeJSONToString", func() {
 		It("Should encode valid values to JSON string", func() {
 			type testStruct struct {
 				Value string `json:"value"`
 			}
-			str := binary.MustEncodeJSONtoString(testStruct{Value: "test"})
+			str := binary.MustEncodeJSONToString(testStruct{Value: "test"})
 			Expect(str).To(Equal(`{"value":"test"}`))
 		})
 
 		It("Should panic on unencodable values", func() {
 			Expect(func() {
-				binary.MustEncodeJSONtoString(make(chan int))
+				binary.MustEncodeJSONToString(make(chan int))
 			}).To(Panic())
 		})
 	})

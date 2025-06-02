@@ -12,7 +12,7 @@ import clsx from "clsx";
 import { cloneElement, type ReactElement } from "react";
 
 import { type BaseProps } from "@/button/Button";
-import { color } from "@/button/color";
+import { parseColor } from "@/button/color";
 import { CSS } from "@/css";
 import { type Text } from "@/text";
 import { Tooltip } from "@/tooltip";
@@ -92,7 +92,7 @@ export const Icon = Tooltip.wrap(
         {typeof children === "string"
           ? children
           : cloneElement(children, {
-              color: color(variant, isDisabled, propColor),
+              color: parseColor(variant, isDisabled, propColor),
               fill: "currentColor",
               ...children.props,
             })}

@@ -43,7 +43,7 @@ type Config struct {
 	// Framer is the service used for writing frames containing changes to the Synnax
 	// telemetry pipeline.
 	// [REQUIRED]
-	Framer framer.WriteStreamable
+	Framer *framer.Service
 }
 
 var (

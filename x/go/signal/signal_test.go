@@ -224,6 +224,37 @@ var _ = Describe("Signal", func() {
 
 	})
 
+	Describe("RecvUnderContext", func() {
+
+		It("Should receive a value from the channel", func() {
+			v := make(chan int, 1)
+			v <- 1
+			val, err := signal.RecvUnderContext(context.Background(), v)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(val).To(Equal(1))
+		})
+
+		It("Should return context error if context is cancelled before receive", func() {
+			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
+			v := make(chan int)
+			cancel()
+			val, err := signal.RecvUnderContext(ctx, v)
+			Expect(err).To(HaveOccurredAs(context.Canceled))
+			Expect(val).To(Equal(0))
+		})
+
+		It("Should receive value even if context is cancelled after value is available", func() {
+			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
+			v := make(chan int, 1)
+			v <- 1
+			val, err := signal.RecvUnderContext(ctx, v)
+			cancel()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(val).To(Equal(1))
+		})
+
+	})
+
 	Describe("Panic recovery", func() {
 
 		// We cannot test with a test case that a goroutine indeed panics when it is

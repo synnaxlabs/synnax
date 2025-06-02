@@ -3,6 +3,7 @@ package core_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -38,6 +39,7 @@ var _ = Describe("Frame", func() {
 			)))
 		})
 	})
+
 	Describe("SplitByHost", func() {
 		It("Should split a frame into a local, remote, and free frame", func() {
 			localNodeCh := channel.NewKey(1, 1)
@@ -119,6 +121,66 @@ var _ = Describe("Frame", func() {
 			)
 			merged := core.MergeFrames([]core.Frame{f})
 			Expect(merged).To(Equal(f))
+		})
+	})
+
+	Describe("ShallowCopy", func() {
+		It("Should create a shall;ow copy of the frame", func() {
+			original := core.MultiFrame(
+				[]channel.Key{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+
+			copied := original.ShallowCopy()
+
+			Expect(copied.KeysSlice()).To(Equal(original.KeysSlice()))
+			Expect(copied.SeriesSlice()).To(Equal(original.SeriesSlice()))
+
+			copied = copied.Append(4, telem.NewSeriesV[int32](10, 11, 12))
+			Expect(copied.KeysSlice()).To(HaveLen(4))
+			Expect(original.KeysSlice()).To(HaveLen(3))
+
+			newSeries := telem.NewSeriesV[int32](13, 14, 15)
+			copied.SetSeriesAt(0, newSeries)
+			Expect(copied.SeriesAt(0)).To(Equal(newSeries))
+
+			Expect(original.SeriesAt(0)).NotTo(Equal(newSeries))
+		})
+	})
+
+	Describe("NewFrameFromStorage", func() {
+		It("Should create a new frame from its storage later representation", func() {
+			storageFrame := telem.UnaryFrame[cesium.ChannelKey](1, telem.NewSeriesV[float32](1, 2, 3, 4))
+			distFrame := core.NewFrameFromStorage(storageFrame)
+			Expect(distFrame.SeriesSlice()).To(HaveLen(1))
+			Expect(distFrame.KeysSlice()).To(HaveLen(1))
+			Expect(distFrame.KeysSlice()[0]).To(Equal(channel.Key(1)))
+			Expect(distFrame.SeriesAt(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2, 3, 4)))
+		})
+	})
+
+	Describe("AllocFrame", func() {
+		It("Should allocate a frame with the specified capacity", func() {
+			fr := core.AllocFrame(12)
+			Expect(fr.RawKeys()).To(HaveCap(12))
+			Expect(fr.RawSeries()).To(HaveCap(12))
+		})
+	})
+
+	Describe("Sort", func() {
+		It("Should sort the frame by channel-key in place", func() {
+			original := core.MultiFrame(
+				[]channel.Key{3, 2, 1},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+			original.Sort()
+			Expect(original.KeysSlice()).To(Equal([]channel.Key{1, 2, 3}))
 		})
 	})
 })

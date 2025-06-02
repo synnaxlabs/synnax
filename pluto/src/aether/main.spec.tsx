@@ -15,7 +15,7 @@ import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
-import { type MainMessage, type WorkerMessage } from "@/aether/message";
+import { type AetherMessage, type MainMessage } from "@/aether/message";
 
 export const exampleProps = z.object({
   x: z.number(),
@@ -62,7 +62,7 @@ const REGISTRY: aether.ComponentRegistry = {
 const newProvider = async (): Promise<[FC<PropsWithChildren>, aether.Root]> => {
   const [a, b] = createMockWorkers();
   const root = aether.render({ comms: a.route("vis"), registry: REGISTRY });
-  const worker = b.route<MainMessage, WorkerMessage>("vis");
+  const worker = b.route<MainMessage, AetherMessage>("vis");
   return [
     (props: PropsWithChildren) => (
       <Aether.Provider worker={worker} workerKey="vis" {...props} />

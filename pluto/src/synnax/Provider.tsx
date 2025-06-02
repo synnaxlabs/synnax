@@ -13,7 +13,7 @@ import {
   type SynnaxProps,
   TimeSpan,
 } from "@synnaxlabs/client";
-import { caseconv, migrate } from "@synnaxlabs/x";
+import { caseconv, migrate, type status } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -48,9 +48,9 @@ export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxProps;
 }
 
-const CONNECTION_STATE_VARIANT: Record<connection.Status, Status.Variant> = {
+export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
   connected: "success",
-  connecting: "info",
+  connecting: "loading",
   disconnected: "info",
   failed: "error",
 };
@@ -80,7 +80,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     (state: connection.State) => {
       if (ref.current.state.status !== state.status)
         addStatus({
-          variant: CONNECTION_STATE_VARIANT[state.status],
+          variant: CONNECTION_STATE_VARIANTS[state.status],
           message: state.message ?? caseconv.capitalize(state.status),
         });
       setState((prev) => ({ ...prev, state }));
@@ -112,7 +112,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
 
     setState({ client: c, state: connectivity });
     addStatus({
-      variant: CONNECTION_STATE_VARIANT[connectivity.status],
+      variant: CONNECTION_STATE_VARIANTS[connectivity.status],
       message: connectivity.message ?? connectivity.status.toUpperCase(),
     });
 

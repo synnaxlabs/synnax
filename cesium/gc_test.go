@@ -34,17 +34,17 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				cleanUp func() error
 			)
 
-			Context("GCThreshold = 0", Ordered, func() {
+			Context("Threshold = 0", Ordered, func() {
 				BeforeAll(func() {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
-							MaxGoroutine:  10,
-							GCTryInterval: 10 * telem.Millisecond.Duration(),
-							GCThreshold:   math.SmallestNonzeroFloat32,
+							MaxGoroutine: 10,
+							TryInterval:  10 * telem.Millisecond.Duration(),
+							Threshold:    math.SmallestNonzeroFloat32,
 						}),
 						cesium.WithFS(fs),
-						cesium.WithFileSizeCap(899*telem.ByteSize),
+						cesium.WithFileSizeCap(899*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger())))
 				})
 				AfterAll(func() {
@@ -69,11 +69,11 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							timestamps = append(timestamps, telem.TimeStamp(i*10+j))
 						}
 
-						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
-								telem.NewSeriesV[int64](data...),
-								telem.NewSecondsTSV(timestamps...),
+								telem.NewSeriesV(data...),
+								telem.NewSeriesSecondsTSV(timestamps...),
 							},
 						))).To(Succeed())
 					}
@@ -103,17 +103,17 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				})
 			})
 
-			Context("GCThreshold != 0", Ordered, func() {
+			Context("Threshold != 0", Ordered, func() {
 				BeforeAll(func() {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
-							MaxGoroutine:  10,
-							GCTryInterval: 10 * telem.Millisecond.Duration(),
-							GCThreshold:   float32(250) / 719,
+							MaxGoroutine: 10,
+							TryInterval:  10 * telem.Millisecond.Duration(),
+							Threshold:    float32(250) / 719,
 						}),
 						cesium.WithFS(fs),
-						cesium.WithFileSizeCap(899*telem.ByteSize),
+						cesium.WithFileSizeCap(899*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger())))
 				})
 				AfterAll(func() {
@@ -137,11 +137,11 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							timestamps = append(timestamps, telem.TimeStamp(i*10+j))
 						}
 
-						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
-								telem.NewSeriesV[int64](data...),
-								telem.NewSecondsTSV(timestamps...),
+								telem.NewSeriesV(data...),
+								telem.NewSeriesSecondsTSV(timestamps...),
 							},
 						))).To(Succeed())
 					}
@@ -184,12 +184,12 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
-							MaxGoroutine:  10,
-							GCTryInterval: 10 * telem.Millisecond.Duration(),
-							GCThreshold:   1,
+							MaxGoroutine: 10,
+							TryInterval:  10 * telem.Millisecond.Duration(),
+							Threshold:    1,
 						}),
 						cesium.WithFS(fs),
-						cesium.WithFileSizeCap(49*telem.ByteSize),
+						cesium.WithFileSizeCap(49*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger()),
 					))
 				})
@@ -214,11 +214,11 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							timestamps = append(timestamps, telem.TimeStamp(i*10+j))
 						}
 
-						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{basic, index},
 							[]telem.Series{
-								telem.NewSeriesV[int64](data...),
-								telem.NewSecondsTSV(timestamps...),
+								telem.NewSeriesV(data...),
+								telem.NewSeriesSecondsTSV(timestamps...),
 							},
 						))).To(Succeed())
 					}
@@ -243,18 +243,18 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 					By("Writing more data – they should go to the newly freed files, i.e. file 3 or file 4")
 					// This should go to file 10.
-					Expect(db.Write(ctx, 200*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 200*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{basic, index},
 						[]telem.Series{
 							telem.NewSeriesV[int64](2000, 2010, 2020, 2030, 2040),
-							telem.NewSecondsTSV(200, 201, 202, 203, 204),
+							telem.NewSeriesSecondsTSV(200, 201, 202, 203, 204),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 300*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 300*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{basic, index},
 						[]telem.Series{
 							telem.NewSeriesV[int64](3000, 3010, 3020),
-							telem.NewSecondsTSV(300, 301, 302),
+							telem.NewSeriesSecondsTSV(300, 301, 302),
 						},
 					))).To(Succeed())
 					Expect([]int64{MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/3.domain"))).Size(),

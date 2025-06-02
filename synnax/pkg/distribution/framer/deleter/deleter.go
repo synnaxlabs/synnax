@@ -16,41 +16,15 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Deleter interface {
-	// DeleteTimeRange deletes a time range in the specified channel. It is idempotent:
-	// if no data is found in the range, nil is returned. However, if the channel
-	// does not exist, an ErrChannelNotfound is returned.
-	DeleteTimeRange(ctx context.Context, key channel.Key, tr telem.TimeRange) error
-	// DeleteTimeRangeByName deletes a time range in the specified channel. It is idempotent:
-	// if no data is found in the range, nil is returned. However, if the channel
-	// does not exist, a query.NotFound is returned.
-	// All channels with the provided name are affected.
-	DeleteTimeRangeByName(ctx context.Context, name string, tr telem.TimeRange) error
-	// DeleteTimeRangeMany deletes a time range in the specified channels. It is idempotent:
-	// if no data is found in the range, that channel is skipped.
-	// It is NOT atomic: if any deletion fails after others have succeeded, the operation
-	// is abandoned midway.
-	// However, if any channel is not found by its name, the operation is abandoned before
-	// any data is deleted.
-	DeleteTimeRangeMany(ctx context.Context, keys []channel.Key, tr telem.TimeRange) error
-	// DeleteTimeRangeManyByNames deletes a time range in the specified channels.
-	// It is idempotent: if no data is found in the range, that channel is skipped.
-	// It is NOT atomic: if any deletion fails after others have succeeded, the operation
-	// is abandoned midway.
-	// However, if any one channel is not found by its name, the operation is abandoned
-	// before any data is deleted.
-	// All channels with the provided name are affected.
-	DeleteTimeRangeManyByNames(ctx context.Context, name []string, tr telem.TimeRange) error
-}
-
-type deleter struct {
+type Deleter struct {
 	proxy         *leaseProxy
 	channelReader channel.Readable
 }
 
-var _ Deleter = deleter{}
-
-func (d deleter) DeleteTimeRange(
+// DeleteTimeRange deletes a time range in the specified channel. It is idempotent:
+// if no data is found in the range, nil is returned. However, if the channel
+// does not exist, an ErrChannelNotfound is returned.
+func (d Deleter) DeleteTimeRange(
 	ctx context.Context,
 	key channel.Key,
 	tr telem.TimeRange,
@@ -58,7 +32,11 @@ func (d deleter) DeleteTimeRange(
 	return d.DeleteTimeRangeMany(ctx, []channel.Key{key}, tr)
 }
 
-func (d deleter) DeleteTimeRangeByName(
+// DeleteTimeRangeByName deletes a time range in the specified channel. It is idempotent:
+// if no data is found in the range, nil is returned. However, if the channel
+// does not exist, a query.NotFound is returned.
+// All channels with the provided name are affected.
+func (d Deleter) DeleteTimeRangeByName(
 	ctx context.Context,
 	name string,
 	tr telem.TimeRange,
@@ -66,7 +44,15 @@ func (d deleter) DeleteTimeRangeByName(
 	return d.DeleteTimeRangeManyByNames(ctx, []string{name}, tr)
 }
 
-func (d deleter) DeleteTimeRangeMany(
+// DeleteTimeRangeMany deletes a time range in the specified channels. It is idempotent:
+// if no data is found in the range, that channel is skipped.
+//
+// It is NOT atomic: if any deletion fails after others have succeeded, the operation
+// is abandoned midway.
+//
+// However, if any channel is not found by its name, the operation is abandoned before
+// any data is deleted.
+func (d Deleter) DeleteTimeRangeMany(
 	ctx context.Context,
 	keys []channel.Key,
 	tr telem.TimeRange,
@@ -74,7 +60,16 @@ func (d deleter) DeleteTimeRangeMany(
 	return d.proxy.deleteTimeRange(ctx, keys, tr)
 }
 
-func (d deleter) DeleteTimeRangeManyByNames(
+// DeleteTimeRangeManyByNames deletes a time range in the specified channels.
+// It is idempotent: if no data is found in the range, that channel is skipped.
+//
+// It is NOT atomic: if any deletion fails after others have succeeded, the operation
+// is abandoned midway.
+//
+// However, if any one channel is not found by its name, the operation is abandoned
+// before any data is deleted.
+// All channels with the provided name are affected.
+func (d Deleter) DeleteTimeRangeManyByNames(
 	ctx context.Context,
 	names []string,
 	tr telem.TimeRange,

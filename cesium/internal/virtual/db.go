@@ -14,12 +14,12 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/control"
+	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
@@ -32,11 +32,11 @@ type controlResource struct {
 	alignment telem.Alignment
 }
 
-func (e *controlResource) ChannelKey() core.ChannelKey { return e.ck }
+func (r *controlResource) ChannelKey() core.ChannelKey { return r.ck }
 
 type DB struct {
 	cfg              Config
-	controller       *controller.Controller[*controlResource]
+	controller       *control.Controller[*controlResource]
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
@@ -89,7 +89,7 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
-func Open(ctx context.Context, configs ...Config) (db *DB, err error) {
+func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
@@ -102,14 +102,14 @@ func Open(ctx context.Context, configs ...Config) (db *DB, err error) {
 	if !cfg.Channel.Virtual {
 		return nil, wrapError(ErrNotVirtual)
 	}
-	c, err := controller.New[*controlResource](controller.Config{
-		Concurrency:     control.Shared,
+	c, err := control.New[*controlResource](control.Config{
+		Concurrency:     xcontrol.Shared,
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
 		return nil, err
 	}
-	db = &DB{
+	db := &DB{
 		cfg:              cfg,
 		controller:       c,
 		wrapError:        wrapError,
@@ -117,7 +117,7 @@ func Open(ctx context.Context, configs ...Config) (db *DB, err error) {
 		leadingAlignment: &atomic.Uint32{},
 		openWriters:      &atomic.Int32{},
 	}
-	db.leadingAlignment.Store(telem.ZeroLeadingAlignment)
+	db.leadingAlignment.Store(core.ZeroLeadingAlignment)
 	return db, nil
 }
 
@@ -125,7 +125,7 @@ func (db *DB) Channel() core.Channel {
 	return db.cfg.Channel
 }
 
-func (db *DB) LeadingControlState() *controller.State {
+func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
 

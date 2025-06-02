@@ -26,7 +26,7 @@ message IteratorResponse {
   int32 variant = 1;
   int32 command = 2;
   Frame frame = 3;
-  int32 node_key = 43;
+  int32 node_key = 4;
   bool ack = 5;
   int32 seq_num = 6;
   errors.PBPayload error = 7;

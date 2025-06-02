@@ -110,7 +110,7 @@ export interface LinePlotProps
       >
     >,
     HTMLDivProps,
-    Aether.CProps {
+    Aether.ComponentProps {
   resizeDebounce?: number;
   onHold?: (hold: boolean) => void;
 }

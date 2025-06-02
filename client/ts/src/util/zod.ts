@@ -11,6 +11,6 @@ import { z } from "zod";
 
 export const nullableArrayZ = <Z extends z.ZodTypeAny>(item: Z) =>
   z.union([
-    z.union([z.null(), z.undefined()]).transform(() => [] as z.output<Z>[]),
+    z.union([z.null(), z.undefined()]).transform<z.output<Z>[]>(() => []),
     item.array(),
   ]);

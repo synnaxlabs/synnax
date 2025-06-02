@@ -65,11 +65,6 @@ func (r *TransformReceiver[I, M]) Flow(ctx signal.Context, opts ...Option) {
 	ctx.Go(r.receive, o.Signal...)
 }
 
-type message[I freighter.Payload] struct {
-	Res I
-	Err error
-}
-
 func (r *TransformReceiver[I, M]) receive(ctx context.Context) error {
 o:
 	for {

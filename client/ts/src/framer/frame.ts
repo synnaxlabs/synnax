@@ -55,7 +55,7 @@ const validateMatchedColsAndSeries = (
   );
 };
 
-export type Crude =
+export type CrudeFrame =
   | Frame
   | CrudePayload
   | Map<channel.KeyOrName, Series[] | Series>
@@ -101,7 +101,7 @@ export class Frame {
   readonly series: Series[] = [];
 
   constructor(
-    columnsOrData: channel.PrimitiveParams | Crude = [],
+    columnsOrData: channel.PrimitiveParams | CrudeFrame = [],
     series: Series | Series[] = [],
   ) {
     if (columnsOrData instanceof Frame) {
@@ -429,7 +429,7 @@ export class Frame {
     let str = `Frame{\n`;
     this.uniqueColumns.forEach((c) => {
       str += `  ${c}: ${this.get(c)
-        .series.map((c) => c.toString())
+        .series.map((s) => s.toString())
         .join(",")}\n`;
     });
     str += "}";
@@ -439,11 +439,11 @@ export class Frame {
 
 export const frameZ = z.object({
   keys: z.union([
-    z.null().transform(() => [] as number[]),
+    z.null().transform<number[]>(() => []),
     z.number().array().optional().default([]),
   ]),
   series: z.union([
-    z.null().transform(() => [] as Array<z.infer<typeof Series.crudeZ>>),
+    z.null().transform<z.infer<typeof Series.crudeZ>[]>(() => []),
     Series.crudeZ.array().optional().default([]),
   ]),
 });

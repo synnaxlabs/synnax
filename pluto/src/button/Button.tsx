@@ -10,7 +10,7 @@
 import "@/button/Button.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { color } from "@synnaxlabs/x";
+import { color, type status } from "@synnaxlabs/x";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import {
@@ -23,7 +23,6 @@ import {
 import { type Align } from "@/align";
 import { CSS } from "@/css";
 import { type Icon as PIcon } from "@/icon";
-import { type status } from "@/status/aether";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";

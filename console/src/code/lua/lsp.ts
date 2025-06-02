@@ -21,7 +21,7 @@ const stringToError = (str: string): Error => new Error(str);
 
 export const LANGUAGE = "lua";
 
-export const startLuaLSP = async (): Promise<AsyncDestructor> => {
+const startLuaLSP = async (): Promise<AsyncDestructor> => {
   const command = Command.create(`lua-language-server-${runtime.getOS()}`);
   const child = await command.spawn();
   const reader: MessageReader = {

@@ -10,6 +10,7 @@
 import { alamos } from "@synnaxlabs/alamos";
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import {
+  type errors,
   type Sender,
   type SenderHandler,
   shallowCopy,
@@ -18,20 +19,16 @@ import {
 import { deep } from "@synnaxlabs/x/deep";
 import { z } from "zod";
 
-import {
-  type ErrorObject,
-  type MainMessage,
-  type WorkerMessage,
-} from "@/aether/message";
+import { type AetherMessage, type MainMessage } from "@/aether/message";
 import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
 
-const newTreeError = (e: unknown, message?: string): Error => {
+const newTreeError = (e: unknown, pathOrMessage?: string): Error => {
   if (e instanceof Error) {
-    e.message = `[${message}] - ${e.message}`;
+    e.message = `[${pathOrMessage}] - ${e.message}`;
     return e;
   }
-  return new Error(message ?? "unknown error", { cause: e });
+  return new Error(pathOrMessage ?? "unknown error", { cause: e });
 };
 
 /**
@@ -92,7 +89,7 @@ interface ComponentConstructorProps {
   /** The type of the component. */
   type: string;
   /** A sender used to propagate messages back to the main thread. */
-  sender: Sender<WorkerMessage>;
+  sender: Sender<AetherMessage>;
   /** Instrumentation used for logging and tracing. */
   instrumentation: alamos.Instrumentation;
   /**
@@ -166,7 +163,7 @@ export abstract class Leaf<
   readonly type: string;
   readonly key: string;
 
-  private readonly sender: Sender<WorkerMessage>;
+  private readonly sender: Sender<AetherMessage>;
 
   private readonly _internalState: InternalState;
   private _state: z.output<StateSchema> | undefined;
@@ -442,7 +439,8 @@ export abstract class Composite<
   }
 
   private updateChildContexts(): void {
-    for (const c of this.children) c._updateContext(this.childCtx());
+    const childCtx = this.childCtx();
+    this.children.forEach((c) => c._updateContext(childCtx));
   }
 
   _delete(path: string[]): void {
@@ -484,7 +482,7 @@ const aetherRootState = z.object({});
  */
 export interface RootProps {
   /** A communication mechanism for sending messages to the main thread. */
-  comms: SenderHandler<WorkerMessage, MainMessage>;
+  comms: SenderHandler<AetherMessage, MainMessage>;
   /** A registry of available components that can be used to mirror those on the main thread. */
   registry: ComponentRegistry;
   /** Instrumentation used for logging and tracing. */
@@ -502,7 +500,7 @@ export class Root extends Composite<typeof aetherRootState> {
   private static readonly KEY = "root";
 
   /** A communication mechanism for sending messages to the main thread. */
-  private readonly comms: SenderHandler<WorkerMessage, MainMessage>;
+  private readonly comms: SenderHandler<AetherMessage, MainMessage>;
   /** A registry used for creating new components in the tree. */
   private readonly registry: ComponentRegistry;
 
@@ -540,7 +538,7 @@ export class Root extends Composite<typeof aetherRootState> {
       try {
         root.handle(msg);
       } catch (e) {
-        const errorObj: ErrorObject = {
+        const errorObj: errors.NativePayload = {
           name: "unknown",
           message: JSON.stringify(e),
           stack: "unknown",

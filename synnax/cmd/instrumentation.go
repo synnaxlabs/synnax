@@ -24,16 +24,12 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-func configureInstrumentation(version string) alamos.Instrumentation {
+func configureInstrumentation() alamos.Instrumentation {
 	logger, err := configureLogger()
 	if err != nil {
 		log.Fatal(err)
 	}
-	tracer, err := configureTracer(version, logger)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return alamos.New("sy", alamos.WithLogger(logger), alamos.WithTracer(tracer))
+	return alamos.New("sy", alamos.WithLogger(logger))
 }
 
 func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
@@ -85,8 +81,4 @@ func configureLogger() (logger *alamos.Logger, err error) {
 	}
 	zap.ReplaceGlobals(logger.Zap())
 	return
-}
-
-func configureTracer(version string, logger *alamos.Logger) (*alamos.Tracer, error) {
-	return nil, nil
 }

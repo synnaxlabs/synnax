@@ -18,22 +18,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type Service interface {
-	Deletable
-}
-
-type Deletable interface {
-	Deleter
-	NewDeleter() Deleter
-}
-
-type service struct {
+type Service struct {
 	channelReader channel.Readable
 	Deleter
 	proxy *leaseProxy
 }
-
-var _ Service = (*service)(nil)
 
 type ServiceConfig struct {
 	HostResolver  core.HostResolver
@@ -45,11 +34,11 @@ type ServiceConfig struct {
 var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (c ServiceConfig) Validate() error {
-	v := validate.New("distribution.framer.deleter")
+	v := validate.New("distribution.framer.Deleter")
 	validate.NotNil(v, "HostProvider", c.HostResolver)
 	validate.NotNil(v, "TSChannel", c.TSChannel)
 	validate.NotNil(v, "Transport", c.Transport)
-	validate.NotNil(v, "ChannelReader", c.ChannelReader)
+	validate.NotNil(v, "Channels", c.ChannelReader)
 	return v.Error()
 }
 
@@ -63,7 +52,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultConfig = ServiceConfig{}
 
-func New(configs ...ServiceConfig) (Service, error) {
+func New(configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
@@ -72,7 +61,7 @@ func New(configs ...ServiceConfig) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &service{
+	s := &Service{
 		proxy:         proxy,
 		channelReader: cfg.ChannelReader,
 	}
@@ -80,6 +69,6 @@ func New(configs ...ServiceConfig) (Service, error) {
 	return s, nil
 }
 
-func (s *service) NewDeleter() Deleter {
-	return deleter{proxy: s.proxy, channelReader: s.channelReader}
+func (s *Service) NewDeleter() Deleter {
+	return Deleter{proxy: s.proxy, channelReader: s.channelReader}
 }

@@ -17,4 +17,6 @@ const std::string VARIANT_SUCCESS = "success";
 const std::string VARIANT_ERROR = "error";
 const std::string VARIANT_WARNING = "warning";
 const std::string VARIANT_INFO = "info";
+const std::string VARIANT_DISABLED = "disabled";
+const std::string VARIANT_LOADING = "loading";
 }

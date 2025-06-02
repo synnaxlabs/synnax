@@ -81,18 +81,26 @@ class Series {
     size_t cached_byte_cap = 0;
     /// @brief the size of the series in number of samples.
     size_t size_;
-    /// @brief Holds the underlying data_.
+    /// @brief Holds the underlying data.
     std::unique_ptr<std::byte[]> data_;
+
+public:
     /// @brief an optional property that defines the time range occupied by the
     /// Series' data_. This property is guaranteed to be defined when reading data
-    /// from a Synnax cluster, and is particularly useful for understanding the
-    /// alignment of samples in relation to another series. When read from a
-    /// cluster, the start of the time range represents the timestamp of the first
-    /// sample in the array (inclusive), while the end of the time range is set to
-    /// the nanosecond AFTER the last sample in the array (exclusive).
-public:
-    telem::TimeRange time_range = telem::TimeRange();
-    std::uint64_t alignment = 0;
+    /// from a Synnax Cluster, and is particularly useful for understanding the
+    /// alignment of samples in relation to another series.
+    ///
+    /// When reading from a cluster:
+    ///   - The start of the time range represents the timestamp of the first
+    ///     sample in the array (inclusive),
+    ///   - The end of the time range is set to the nanosecond AFTER the last sample
+    ///     in the array (exclusive).
+    ///
+    TimeRange time_range = TimeRange();
+    /// @brief alignment defines the location of the series relative to other series in
+    /// a logical group. This is typically used to define the location of the series
+    /// within a channel's data.
+    Alignment alignment = Alignment();
 
 private:
     /// @brief validates the input index is within the bounds of the series. If the
@@ -227,7 +235,7 @@ public:
     /// @param dt the data type of the series.
     template<typename NumericType>
     Series(const NumericType *d, const size_t size, const DataType &dt = UNKNOWN_T):
-        data_type_(telem::DataType::infer<NumericType>(dt)),
+        data_type_(DataType::infer<NumericType>(dt)),
         cap_(size),
         size_(size),
         data_(std::make_unique<std::byte[]>(this->size() * this->data_type().density())
@@ -252,8 +260,8 @@ public:
 
     /// @brief constructs a series with a data type of TIMESTAMP containing the given
     /// vector of timestamps.
-    explicit Series(const std::vector<telem::TimeStamp> &d):
-        data_type_(telem::TIMESTAMP_T),
+    explicit Series(const std::vector<TimeStamp> &d):
+        data_type_(TIMESTAMP_T),
         cap_(d.size()),
         size_(d.size()),
         data_(std::make_unique<std::byte[]>(d.size() * this->data_type().density())) {
@@ -271,7 +279,7 @@ public:
     /// given timestamp.
     /// @param v the timestamp to be used.
     explicit Series(const TimeStamp v):
-        data_type_(telem::TIMESTAMP_T),
+        data_type_(TIMESTAMP_T),
         cap_(1),
         size_(1),
         data_(std::make_unique<std::byte[]>(this->byte_size())) {
@@ -287,7 +295,7 @@ public:
     /// compatible with the data type.
     template<typename NumericType>
     explicit Series(NumericType v, const DataType &override_dt = UNKNOWN_T):
-        data_type_(telem::DataType::infer<NumericType>(override_dt)),
+        data_type_(DataType::infer<NumericType>(override_dt)),
         cap_(1),
         size_(1),
         data_(std::make_unique<std::byte[]>(this->byte_size())) {
@@ -340,7 +348,7 @@ public:
     }
 
     /// @brief constructs the series from its protobuf representation.
-    explicit Series(const telem::PBSeries &s):
+    explicit Series(const PBSeries &s):
         data_type_(s.data_type()),
         cap_(this->size()),
         cached_byte_size(s.data().size()),
@@ -488,7 +496,7 @@ public:
     /// @param value the SampleValue to be written.
     /// @returns 1 if the value was written, 0 if the series is at capacity and the
     /// sample was not written.
-    size_t write(const telem::SampleValue &value) {
+    size_t write(const SampleValue &value) {
         if (std::holds_alternative<std::string>(value))
             return write(std::get<std::string>(value));
         return std::visit([this](const auto &v) { return this->write(v); }, value);
@@ -548,7 +556,7 @@ public:
     /// @brief Optimized hot path for writing timestamps to the series.
     /// @param ts the timestamp to write
     /// @returns 1 if the timestamp was written, 0 if the series is at capacity
-    size_t write(const telem::TimeStamp &ts) { return this->write(ts.nanoseconds()); }
+    size_t write(const TimeStamp &ts) { return this->write(ts.nanoseconds()); }
 
     /// @brief writes the given array of numeric data to the series.
     /// @param d the array of numeric data to be written.
@@ -569,7 +577,7 @@ public:
 
     /// @brief encodes the series' fields into the given protobuf message.
     /// @param pb the protobuf message to encode the fields into.
-    void to_proto(telem::PBSeries *pb) const {
+    void to_proto(PBSeries *pb) const {
         pb->set_data_type(this->data_type().name());
         pb->set_data(this->data_.get(), byte_size());
     }
@@ -695,29 +703,29 @@ public:
         value = json::parse(this->at<std::string>(index));
     }
 
-    friend std::ostream &operator<<(std::ostream &os, const telem::Series &s) {
+    friend std::ostream &operator<<(std::ostream &os, const Series &s) {
         const auto dt = s.data_type();
         os << "Series(type: " << dt.name() << ", size: " << s.size()
            << ", cap: " << s.cap() << ", data: [";
-        if (dt == telem::STRING_T || dt == telem::JSON_T)
+        if (dt == STRING_T || dt == JSON_T)
             output_partial_vector(os, s.strings());
-        else if (dt == telem::FLOAT32_T)
+        else if (dt == FLOAT32_T)
             output_partial_vector(os, s.values<float>());
-        else if (dt == telem::INT64_T || dt == telem::TIMESTAMP_T)
+        else if (dt == INT64_T || dt == TIMESTAMP_T)
             output_partial_vector(os, s.values<int64_t>());
-        else if (dt == telem::UINT64_T)
+        else if (dt == UINT64_T)
             output_partial_vector(os, s.values<uint64_t>());
-        else if (dt == telem::UINT8_T)
+        else if (dt == UINT8_T)
             output_partial_vector_byte(os, s.values<uint8_t>());
-        else if (dt == telem::INT32_T)
+        else if (dt == INT32_T)
             output_partial_vector(os, s.values<int32_t>());
-        else if (dt == telem::INT16_T)
+        else if (dt == INT16_T)
             output_partial_vector(os, s.values<int16_t>());
-        else if (dt == telem::UINT16_T)
+        else if (dt == UINT16_T)
             output_partial_vector(os, s.values<uint16_t>());
-        else if (dt == telem::UINT32_T)
+        else if (dt == UINT32_T)
             output_partial_vector(os, s.values<uint32_t>());
-        else if (dt == telem::FLOAT64_T)
+        else if (dt == FLOAT64_T)
             output_partial_vector(os, s.values<double>());
         else
             os << "unknown data type";
@@ -1008,7 +1016,7 @@ public:
 
     /// @brief fills the series with data from the given binary reader. Reads until
     /// the series is full or the reader is exhausted, whichever comes first. Returns
-    /// // the total number of samples read.
+    /// the total number of samples read.
     size_t fill_from(binary::Reader &reader) {
         auto n_read = reader.read(this->data() + this->byte_size(), this->byte_cap());
         this->cached_byte_size += n_read;

@@ -30,7 +30,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 				fs, cleanUp = makeFS()
 				db = MustSucceed(domain.Open(domain.Config{
 					FS:              fs,
-					FileSize:        5 * telem.ByteSize,
+					FileSize:        5 * telem.Byte,
 					GCThreshold:     0,
 					Instrumentation: PanicLogger(),
 				}))
@@ -66,7 +66,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        5 * telem.ByteSize,
+						FileSize:        5 * telem.Byte,
 						GCThreshold:     0,
 						Instrumentation: PanicLogger(),
 					}))

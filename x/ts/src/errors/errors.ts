@@ -146,15 +146,31 @@ export const UNKNOWN = "unknown";
 /** @description Constant representing no error (null) */
 export const NONE = "nil";
 
-interface provider {
+/**
+ * @description provides custom encoding/decoding mechanisms for specific error
+ * categories.
+ */
+interface Provider {
+  /**
+   * @description Encodes an error into a payload that can be sent between a freighter server
+   * and client.
+   * @param error - The error to encode.
+   * @returns The encoded error.
+   */
   encode: Encoder;
+  /**
+   * @description Decodes an error from a payload that can be sent between a freighter server
+   * and client.
+   * @param payload - The encoded error.
+   * @returns The decoded error.
+   */
   decode: Decoder;
 }
 
 class Registry {
-  private readonly providers: provider[] = [];
+  private readonly providers: Provider[] = [];
 
-  register(provider: provider): void {
+  register(provider: Provider): void {
     this.providers.push(provider);
   }
 
@@ -195,13 +211,8 @@ const getRegistry = singleton.define("synnax-error-registry", () => new Registry
  * @param encode - A function that encodes the error into a string.
  * @param decode - A function that decodes the error from a string.
  */
-export const register = ({
-  encode,
-  decode,
-}: {
-  encode: Encoder;
-  decode: Decoder;
-}): void => getRegistry().register({ encode, decode });
+export const register = ({ encode, decode }: Provider): void =>
+  getRegistry().register({ encode, decode });
 
 /**
  * Encodes an error into a payload that can be sent between a freighter server
@@ -238,4 +249,12 @@ export type Payload = z.infer<typeof payloadZ>;
 /** @description Error for representing the cancellation of an operation */
 export class Canceled extends createTyped("canceled") {}
 
-export type Return<T> = [T, null] | [null, Error];
+/** @description A payload representing a native JavaScript Error */
+export interface NativePayload {
+  /** @description The name of the error */
+  name: string;
+  /** @description The message of the error */
+  message: string;
+  /** @description The stack trace of the error */
+  stack?: string;
+}

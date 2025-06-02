@@ -64,6 +64,10 @@ func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(ctx context.Contex
 	return d.SendToEach(ctx, o)
 }
 
+// DynamicDeltaMultiplier is a segment that reads values from an input stream and
+// dynamically distributes them to multiple output streams. It supports runtime
+// connection and disconnection of output streams, with optional timeout handling
+// for sending values to downstream consumers.
 type DynamicDeltaMultiplier[V Value] struct {
 	alamos.Instrumentation
 	UnarySink[V]
@@ -73,6 +77,9 @@ type DynamicDeltaMultiplier[V Value] struct {
 	timeout        time.Duration
 }
 
+// NewDynamicDeltaMultiplier creates a new DynamicDeltaMultiplier with the specified
+// timeout duration and instrumentation. The connectionBuffers parameter optionally
+// specifies the buffer size for connection and disconnection channels.
 func NewDynamicDeltaMultiplier[V Value](
 	timeout time.Duration,
 	instrumentation alamos.Instrumentation,
@@ -87,14 +94,23 @@ func NewDynamicDeltaMultiplier[V Value](
 	}
 }
 
+// Connect adds one or more inlets to the DynamicDeltaMultiplier's output streams.
+// The inlets will receive values from the input stream until they are disconnected.
 func (d *DynamicDeltaMultiplier[V]) Connect(inlets ...Inlet[V]) {
 	d.connections <- inlets
 }
 
+// Disconnect removes one or more inlets from the DynamicDeltaMultiplier's output streams.
+// The inlets will no longer receive values from the input stream.
 func (d *DynamicDeltaMultiplier[V]) Disconnect(inlets ...Inlet[V]) {
 	d.disconnections <- inlets
 }
 
+// Flow implements the Segment interface. It continuously reads values from the input
+// stream and distributes them to all connected output streams. If a timeout is configured,
+// it will attempt to send values to downstream consumers within the timeout period.
+// The Flow method handles dynamic connection and disconnection of output streams
+// through the connections and disconnections channels.
 func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	ctx.Go(func(ctx context.Context) error {
@@ -145,6 +161,7 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 	}, o.Signal...)
 }
 
+// disconnectAll closes all connected inlets and clears the output streams.
 func (d *DynamicDeltaMultiplier[V]) disconnectAll() {
 	for _, inlet := range d.Source.Out {
 		inlet.Close()
@@ -152,6 +169,8 @@ func (d *DynamicDeltaMultiplier[V]) disconnectAll() {
 	d.Source.Out = nil
 }
 
+// disconnect removes the specified inlets from the output streams and closes them.
+// If an inlet is not found in the current connections, it logs a warning.
 func (d *DynamicDeltaMultiplier[V]) disconnect(inlets []Inlet[V]) {
 	for _, inlet := range inlets {
 		i, ok := d.findInletIndex(inlet)
@@ -167,6 +186,8 @@ func (d *DynamicDeltaMultiplier[V]) disconnect(inlets []Inlet[V]) {
 	}
 }
 
+// connect adds the specified inlets to the output streams. If an inlet is already
+// connected, it logs a warning. Each new inlet is acquired with a count of 1.
 func (d *DynamicDeltaMultiplier[V]) connect(inlets []Inlet[V]) {
 	for _, inlet := range inlets {
 		if _, ok := d.findInletIndex(inlet); ok {
@@ -180,6 +201,8 @@ func (d *DynamicDeltaMultiplier[V]) connect(inlets []Inlet[V]) {
 	}
 }
 
+// findInletIndex returns the index of the specified inlet in the output streams
+// and a boolean indicating whether the inlet was found.
 func (d *DynamicDeltaMultiplier[V]) findInletIndex(inlet Inlet[V]) (int, bool) {
 	_, i, ok := lo.FindIndexOf(d.Source.Out, func(i Inlet[V]) bool {
 		return i.InletAddress() == inlet.InletAddress()

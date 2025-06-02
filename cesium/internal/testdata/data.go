@@ -37,10 +37,10 @@ var (
 		telem.MultiFrame[cesium.ChannelKey](
 			[]cesium.ChannelKey{Index1, Basic1, Basic2, Index2},
 			[]telem.Series{
-				telem.NewSecondsTSV(0, 1, 2, 3, 5, 6, 7, 9),
+				telem.NewSeriesSecondsTSV(0, 1, 2, 3, 5, 6, 7, 9),
 				telem.NewSeriesV[uint8](10, 11, 12, 13, 15, 16, 17, 19),
 				telem.NewSeriesV[int64](100, 101, 102, 103, 105, 106, 107, 109),
-				telem.NewSecondsTSV(0, 1, 2, 3, 6, 7, 8, 9),
+				telem.NewSeriesSecondsTSV(0, 1, 2, 3, 6, 7, 8, 9),
 			}),
 		telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{Basic3, Basic4},
 			[]telem.Series{
@@ -50,21 +50,21 @@ var (
 		telem.MultiFrame[cesium.ChannelKey](
 			[]cesium.ChannelKey{Index1, Basic1, Basic2},
 			[]telem.Series{
-				telem.NewSecondsTSV(10, 13, 17, 18, 19),
+				telem.NewSeriesSecondsTSV(10, 13, 17, 18, 19),
 				telem.NewSeriesV[uint8](100, 103, 107, 108, 109),
 				telem.NewSeriesV[int64](100, 103, 107, 108, 109),
 			}),
 		telem.MultiFrame[cesium.ChannelKey](
 			[]cesium.ChannelKey{Index2, Basic3, Basic4},
 			[]telem.Series{
-				telem.NewSecondsTSV(13, 14, 15),
+				telem.NewSeriesSecondsTSV(13, 14, 15),
 				telem.NewSeriesV[uint16](130, 140, 150),
 				telem.NewSeriesV[int64](13, 14, 15),
 			}),
 		telem.MultiFrame[cesium.ChannelKey](
 			[]cesium.ChannelKey{Index2, Basic4},
 			[]telem.Series{
-				telem.NewSecondsTSV(20, 25, 30),
+				telem.NewSeriesSecondsTSV(20, 25, 30),
 				telem.NewSeriesV[int64](2, 2, 3),
 			}),
 	}

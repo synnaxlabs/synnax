@@ -897,6 +897,54 @@ private:
     };
 };
 
+// Alignment is two array index values that can be used to represent
+// the location of a sample within an array of arrays. For example, if you have two
+// arrays that have 50 elements each, and you want the 15th element of the second array,
+// you would use NewAlignment(1, 15). The first index is called the 'domain index' and
+// the second index is called the 'sample index'. The domain index is the index of the
+// array, and the sample index is the index of the sample within that array.
+//
+// You may think a better design is to just use a single number that overflows the
+// arrays before it, i.e., the value of our previous example would be 50 + 14 = 64.
+// However, this requires us to know the size of all arrays, which is not always
+// possible.
+//
+// While not as meaningful as a single number, Alignment is a uint64 that guarantees
+// that a larger value is, in fact, 'positionally' after a smaller value. This is useful
+// for ordering samples correctly.
+class Alignment {
+    std::uint64_t value;
+
+public:
+    explicit Alignment(const std::uint64_t value = 0): value(value) {}
+
+    Alignment(const std::uint32_t domain_index, const std::uint32_t sample_index):
+        value(static_cast<std::uint64_t>(domain_index) << 32 | sample_index) {}
+
+    /// @returns the value of the Alignment as a uint64_t.
+    [[nodiscard]] std::uint64_t uint64() const { return this->value; }
+
+    /// @returns the domain index of the Alignment. This is the index in
+    /// the array of arrays.
+    [[nodiscard]] std::uint32_t domain_index() const {
+        return static_cast<uint32_t>(this->value >> 32);
+    }
+
+    /// @returns the sample index of the Alignment. This is the index
+    /// inside a particular array.
+    [[nodiscard]] std::uint32_t sample_index() const {
+        return static_cast<uint32_t>(this->value);
+    }
+
+    bool operator==(const Alignment &other) const { return value == other.value; }
+
+    bool operator!=(const Alignment &other) const { return value != other.value; }
+
+    bool operator==(const std::uint64_t &other) const { return value == other; }
+
+    bool operator!=(const std::uint64_t &other) const { return value != other; }
+};
+
 /// Note for future editors of these types, using `inline const` is dangerous as it
 /// causes problems with density lookups.
 

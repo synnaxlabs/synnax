@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package controller_test
+import { type z } from "zod";
 
-import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-func TestControl(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Control Suite")
-}
+export const nullToUndefined = <Input, Output>(
+  schema: z.ZodType<Input, Output>,
+): z.ZodOptional<
+  z.ZodPipe<
+    z.ZodNullable<z.ZodType<Input, Output>>,
+    z.ZodTransform<Awaited<Input & {}> | undefined, Input | null>
+  >
+> =>
+  schema
+    .nullable()
+    .transform((s) => (s === null ? undefined : s))
+    .optional();

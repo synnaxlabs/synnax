@@ -13,6 +13,7 @@ import {
   deep,
   type Destructor,
   shallowCopy,
+  type status,
   toArray,
   zod,
 } from "@synnaxlabs/x";
@@ -32,7 +33,6 @@ import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
 import { state } from "@/state";
 import { Status } from "@/status";
-import { type status } from "@/status/aether";
 
 /** Props for the @link useField hook */
 export interface UseFieldProps<I, O = I> {
@@ -50,8 +50,8 @@ export interface UseNullableFieldProps<I, O = I>
 export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I>
   extends FieldState<I> {
   onChange: (value: O) => void;
-  setStatus: (status: status.CrudeSpec) => void;
-  status: status.CrudeSpec;
+  setStatus: (status: Status.CrudeSpec) => void;
+  status: Status.CrudeSpec;
   variant?: Input.Variant;
 }
 
@@ -98,7 +98,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   );
 
   const handleSetStatus = useCallback(
-    (status: status.CrudeSpec) => setStatus(path, status),
+    (status: Status.CrudeSpec) => setStatus(path, status),
     [path, setStatus],
   );
 
@@ -332,7 +332,7 @@ export interface Listener<V = unknown> {
 
 export interface FieldState<V = unknown> {
   value: V;
-  status: status.CrudeSpec;
+  status: Status.CrudeSpec;
   touched: boolean;
   required: boolean;
 }
@@ -393,7 +393,7 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
   validate: (path?: string) => boolean;
   validateAsync: (path?: string) => Promise<boolean>;
   has: (path: string) => boolean;
-  setStatus: (path: string, status: status.CrudeSpec) => void;
+  setStatus: (path: string, status: Status.CrudeSpec) => void;
   clearStatuses: () => void;
   setCurrentStateAsInitialValues: () => void;
 }
@@ -426,7 +426,7 @@ export const useContext = <Z extends z.ZodTypeAny = z.ZodTypeAny>(
   return override ?? (internal as unknown as ContextValue<Z>);
 };
 
-const NO_ERROR_STATUS = (path: string): status.CrudeSpec => ({
+const NO_ERROR_STATUS = (path: string): Status.CrudeSpec => ({
   key: path,
   variant: "success",
   message: "",
@@ -434,7 +434,7 @@ const NO_ERROR_STATUS = (path: string): status.CrudeSpec => ({
 
 interface UseRef<Z extends z.ZodTypeAny> {
   state: z.output<Z>;
-  statuses: Map<string, status.CrudeSpec>;
+  statuses: Map<string, Status.CrudeSpec>;
   touched: Set<string>;
   listeners: Map<string, Set<Listener>>;
   parentListeners: Map<string, Set<Listener>>;
@@ -739,7 +739,7 @@ export const use = <Z extends z.ZodTypeAny>({
     [],
   );
 
-  const setStatus = useCallback((path: string, status: status.CrudeSpec): void => {
+  const setStatus = useCallback((path: string, status: Status.CrudeSpec): void => {
     ref.current.statuses.set(path, status);
     addTouched(path);
     updateFieldState(path);

@@ -16,7 +16,7 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { type text } from "@/text/core";
-import { type CoreProps, evalColor, Text } from "@/text/Text";
+import { type CoreProps, parseColor, Text } from "@/text/Text";
 import { isValidElement } from "@/util/children";
 
 interface IconProps {
@@ -56,7 +56,7 @@ export const WithIcon = <
   ellipsis = false,
   ...rest
 }: WithIconProps<E, L>): ReactElement => {
-  const color = evalColor(crudeColor, shade);
+  const color = parseColor(crudeColor, shade);
   const startIcons = Children.toArray(startIcon);
   const endIcons = Children.toArray(endIcon);
   const formatted = formatChildren(level, children, color, shade, weight);

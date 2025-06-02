@@ -12,7 +12,7 @@ import { type CrudeSeries, Series } from "@synnaxlabs/x/telem";
 import { channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
-import { type Crude, Frame } from "@/framer/frame";
+import { type CrudeFrame, Frame } from "@/framer/frame";
 
 export class ReadAdapter {
   private adapter: Map<channel.Key, channel.Name> | null;
@@ -133,7 +133,7 @@ export class WriteAdapter {
   }
 
   async adapt(
-    columnsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
+    columnsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<Frame> {
     if (typeof columnsOrData === "string" || typeof columnsOrData === "number") {

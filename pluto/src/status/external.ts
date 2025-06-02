@@ -9,8 +9,8 @@
 
 export * from "@/status/aether/types";
 export * from "@/status/Aggregator";
-export * from "@/status/Circle";
 export * from "@/status/colors";
+export * from "@/status/Indicator";
 export * from "@/status/Notification";
 export * from "@/status/Select";
 export * from "@/status/Text";

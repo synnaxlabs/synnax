@@ -11,7 +11,7 @@ import { DataType, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, it, test } from "vitest";
 
 import { newClient } from "@/setupspecs";
-import { newVirtualChannel } from "@/testutil/indexedPair";
+import { newVirtualChannel } from "@/testutil/channels";
 
 const client = newClient();
 
@@ -45,7 +45,7 @@ describe("Streamer", () => {
     const ch = await newVirtualChannel(client);
     const streamer = await client.openStreamer({
       channels: ch.key,
-      downSampleFactor: 1,
+      downsampleFactor: 1,
     });
     const writer = await client.openWriter({
       start: TimeStamp.now(),
@@ -63,7 +63,7 @@ describe("Streamer", () => {
     const ch = await newVirtualChannel(client);
     const streamer = await client.openStreamer({
       channels: ch.key,
-      downSampleFactor: 2,
+      downsampleFactor: 2,
     });
     const writer = await client.openWriter({
       start: TimeStamp.now(),
@@ -81,7 +81,7 @@ describe("Streamer", () => {
     const ch = await newVirtualChannel(client);
     const streamer = await client.openStreamer({
       channels: ch.key,
-      downSampleFactor: 10,
+      downsampleFactor: 10,
     });
     const writer = await client.openWriter({
       start: TimeStamp.now(),
