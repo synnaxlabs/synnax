@@ -29,16 +29,16 @@ interface QueryFnProps {
   client: Client;
 }
 
-interface ApplyObservableProps<Z extends z.ZodTypeAny, O = Z> {
+interface ApplyObservableProps<Z extends z.ZodType, O = Z> {
   changes: O;
   ctx: ContextValue<Z>;
 }
 
-interface SyncLocalProps<Z extends z.ZodTypeAny> extends OnChangeProps<Z> {
+interface SyncLocalProps<Z extends z.ZodType> extends OnChangeProps<Z> {
   client: Client;
 }
 
-interface UseSyncedProps<Z extends z.ZodTypeAny, O = Z> extends UseProps<Z> {
+interface UseSyncedProps<Z extends z.ZodType, O = Z> extends UseProps<Z> {
   name: string;
   key: primitive.Value[];
   queryFn: (props: QueryFnProps) => Promise<z.output<Z>>;
@@ -47,7 +47,7 @@ interface UseSyncedProps<Z extends z.ZodTypeAny, O = Z> extends UseProps<Z> {
   applyChanges?: (props: SyncLocalProps<Z>) => Promise<void>;
 }
 
-export const useSynced = <Z extends z.ZodTypeAny, O = Z>({
+export const useSynced = <Z extends z.ZodType, O = Z>({
   key,
   name,
   queryFn,

@@ -145,9 +145,9 @@ export class Tracer {
   }
 
   /**
-   * Injects metadata about the current trace into the provided carrier. This
-   * metadata can be parsed on teh other side of a network or IPC request to
-   * allow the trace to propagate across services.
+   * Injects metadata about the current trace into the provided carrier. This metadata
+   * can be parsed on the other side of a network or IPC request to allow the trace to
+   * propagate across services.
    *
    * @param carrier - The carrier to inject the metadata into.
    */

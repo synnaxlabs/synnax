@@ -163,12 +163,12 @@ export const Provider = ({
 
 export const useContext = () => reactUse(Context);
 
-export interface UseLifecycleReturn<S extends z.ZodTypeAny> {
+export interface UseLifecycleReturn<S extends z.ZodType> {
   path: string[];
   setState: (state: z.input<S>, transfer?: Transferable[]) => void;
 }
 
-interface UseLifecycleProps<S extends z.ZodTypeAny> {
+interface UseLifecycleProps<S extends z.ZodType> {
   type: string;
   schema: S;
   aetherKey?: string;
@@ -224,7 +224,7 @@ interface UseLifecycleProps<S extends z.ZodTypeAny> {
  * - Changes to initialState after the first render will not affect the component's state.
  *   Use setState to update the state instead.
  */
-export const useLifecycle = <S extends z.ZodTypeAny>({
+export const useLifecycle = <S extends z.ZodType>({
   type,
   aetherKey,
   initialState,
@@ -294,7 +294,7 @@ export interface ComponentProps {
 }
 
 /** Props for the use hook that manages Aether component lifecycle */
-export interface UseProps<S extends z.ZodTypeAny>
+export interface UseProps<S extends z.ZodType>
   extends Omit<UseLifecycleProps<S>, "onReceive"> {
   /** Optional callback for handling state changes from the Aether component */
   onAetherChange?: (state: z.output<S>) => void;
@@ -307,7 +307,7 @@ interface ComponentContext {
 /**
  * Return type for the use hook, providing access to component context, state, and state setter
  */
-export type UseReturn<S extends z.ZodTypeAny> = [
+export type UseReturn<S extends z.ZodType> = [
   ComponentContext,
   z.output<S>,
   (state: state.SetArg<z.input<S>>, transfer?: Transferable[]) => void,
@@ -316,7 +316,7 @@ export type UseReturn<S extends z.ZodTypeAny> = [
 /**
  * Props for the useUnidirectional hook that only propagates state to the Aether component
  */
-export interface UseUnidirectionalProps<S extends z.ZodTypeAny>
+export interface UseUnidirectionalProps<S extends z.ZodType>
   extends Pick<UseLifecycleProps<S>, "schema" | "aetherKey"> {
   /** The type identifier for the Aether component */
   type: string;
@@ -328,7 +328,7 @@ export interface UseUnidirectionalProps<S extends z.ZodTypeAny>
  * A simpler version of {@link use} that assumes the caller only wants to propagate
  * state to the aether component, and not receive state from the aether component.
  */
-export const useUnidirectional = <S extends z.ZodTypeAny>({
+export const useUnidirectional = <S extends z.ZodType>({
   state,
   ...rest
 }: UseUnidirectionalProps<S>): ComponentContext => {
@@ -367,7 +367,7 @@ export const useUnidirectional = <S extends z.ZodTypeAny>({
  * the next state. This function is impure, and will update the component's state on the
  * worker thread.
  */
-export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> => {
+export const use = <S extends z.ZodType>(props: UseProps<S>): UseReturn<S> => {
   const { type, schema, initialState, onAetherChange } = props;
   const [internalState, setInternalState] = useState<z.output<S>>(() =>
     prettyParse(schema, initialState),

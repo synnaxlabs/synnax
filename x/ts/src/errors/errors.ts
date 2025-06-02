@@ -15,9 +15,9 @@ import { singleton } from "@/singleton";
  * @returns general function that returns true if an error matches a set of
  * abstracted criteria
  */
-export type Matcher = (e: string | Error | unknown) => boolean;
+export type Matcher = (e: unknown) => boolean;
 
-/** @description an error type that can match against other errors. */
+/** an error type that can match against other errors. */
 export interface Matchable {
   /**
    * @returns a function that matches errors of the given type. Returns true if
@@ -27,39 +27,39 @@ export interface Matchable {
 }
 
 /**
- * @description an error that has a network-portable type, allowing it to be encoded/
- * decoded by freighter. Also allows for simpler matching using @method matches instead
- * of using instanceof, which has a number of caveats.
+ * an error that has a network-portable type, allowing it to be encoded/ decoded by
+ * freighter. Also allows for simpler matching using @method matches instead of using
+ * instanceof, which has a number of caveats.
  */
 export interface Typed extends Error, Matchable {
   discriminator: "FreighterError";
   /**
-   * @description Returns a unique type identifier for the error. Freighter uses this to
-   * determine the correct decoder to use on the other end of the freighter.
+   * Returns a unique type identifier for the error. Freighter uses this to determine
+   * the correct decoder to use on the other end of the freighter.
    */
   type: string;
 }
 
 /**
- * @description a class that, when constructed, implements the TypedError interface.
- * Also provides utilities for matching and creating subclasses.
+ * a class that, when constructed, implements the TypedError interface. Also provides
+ * utilities for matching and creating subclasses.
  */
 export interface TypedClass extends Matchable {
   /**
-   * @description constructs a new TypedError. Identical to the Error constructor.
+   * constructs a new TypedError. Identical to the Error constructor.
    * @param message - the error message.
    * @param options - the error options.
    * @returns a new TypedError.
    */
   new (message?: string, options?: ErrorOptions): Typed;
   /**
-   * @description the type of the error.
+   * the type of the error.
    */
   TYPE: string;
   /**
-   * @description creates a new subclass of the error that extends its type. So if
-   * the type of this class is `dog` and subType is `labrador`, the type of the new
-   * class will be `dog.labrador`.
+   * creates a new subclass of the error that extends its type. So if the type of this
+   * class is `dog` and subType is `labrador`, the type of the new class will be
+   * `dog.labrador`.
    * @param subType - the type of the new error.
    * @returns a new TypedErrorClass.
    */
@@ -111,21 +111,22 @@ export const createTyped = (type: string): TypedClass =>
   };
 
 /**
- * @description Function that decodes an encoded error payload back into an error object
+ * Function that decodes an encoded error payload back into an error object
  * @param encoded - The encoded error payload to decode
- * @returns The decoded error object or null if the decoder cannot handle this error type
+ * @returns The decoded error object or null if the decoder cannot handle this error
+ * type
  */
 export type Decoder = (encoded: Payload) => Error | null;
 
 /**
- * @description Function that encodes a typed error into a network-portable payload
+ * Function that encodes a typed error into a network-portable payload
  * @param error - The typed error to encode
  * @returns The encoded error payload or null if the encoder cannot handle this error type
  */
 export type Encoder = (error: Typed) => Payload | null;
 
 /**
- * @description Checks if an unknown value is a TypedError
+ * Checks if an unknown value is a TypedError
  * @param error - The value to check
  * @returns True if the value is a TypedError, false otherwise
  */
@@ -140,27 +141,27 @@ export const isTyped = (error: unknown): error is Typed => {
   return true;
 };
 
-/** @description Constant representing an unknown error type */
+/** Constant representing an unknown error type */
 export const UNKNOWN = "unknown";
 
-/** @description Constant representing no error (null) */
+/** Constant representing no error (null) */
 export const NONE = "nil";
 
 /**
- * @description provides custom encoding/decoding mechanisms for specific error
+ * provides custom encoding/decoding mechanisms for specific error
  * categories.
  */
 interface Provider {
   /**
-   * @description Encodes an error into a payload that can be sent between a freighter server
-   * and client.
+   * Encodes an error into a payload that can be sent between a freighter server and
+   * client.
    * @param error - The error to encode.
    * @returns The encoded error.
    */
   encode: Encoder;
   /**
-   * @description Decodes an error from a payload that can be sent between a freighter server
-   * and client.
+   * Decodes an error from a payload that can be sent between a freighter server and
+   * client.
    * @param payload - The encoded error.
    * @returns The decoded error.
    */
@@ -236,25 +237,25 @@ export const decode = (payload?: Payload | null): Error | null => {
 };
 
 /**
- * @description Generic error for representing unknown errors
+ * Generic error for representing unknown errors
  */
 export class Unknown extends createTyped("unknown") {}
 
-/** @description Zod schema for validating error payloads */
+/** Zod schema for validating error payloads */
 export const payloadZ = z.object({ type: z.string(), data: z.string() });
 
-/** @description Network-portable representation of an error */
+/** Network-portable representation of an error */
 export type Payload = z.infer<typeof payloadZ>;
 
-/** @description Error for representing the cancellation of an operation */
+/** Error for representing the cancellation of an operation */
 export class Canceled extends createTyped("canceled") {}
 
-/** @description A payload representing a native JavaScript Error */
+/** A payload representing a native JavaScript Error */
 export interface NativePayload {
-  /** @description The name of the error */
+  /** The name of the error */
   name: string;
-  /** @description The message of the error */
+  /** The message of the error */
   message: string;
-  /** @description The stack trace of the error */
+  /** The stack trace of the error */
   stack?: string;
 }

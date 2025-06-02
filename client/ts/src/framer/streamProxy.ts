@@ -10,7 +10,7 @@
 import { EOF, type Stream } from "@synnaxlabs/freighter";
 import { type z } from "zod";
 
-export class StreamProxy<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny> {
+export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
   readonly name: string;
   private readonly stream: Stream<RQ, RS>;
 

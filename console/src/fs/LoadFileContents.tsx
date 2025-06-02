@@ -70,7 +70,7 @@ export const InputFilePath = ({
   );
 };
 
-export interface InputFileContentsProps<P extends z.ZodTypeAny = z.ZodString>
+export interface InputFileContentsProps<P extends z.ZodType = z.ZodString>
   extends Omit<InputFilePathProps, "value" | "onChange"> {
   onChange: (value: z.output<P>, path: string) => void;
   initialPath?: string;
@@ -78,7 +78,7 @@ export interface InputFileContentsProps<P extends z.ZodTypeAny = z.ZodString>
   decoder?: binary.Codec;
 }
 
-export const InputFileContents = <P extends z.ZodTypeAny = z.ZodString>({
+export const InputFileContents = <P extends z.ZodType = z.ZodString>({
   onChange,
   decoder = binary.TEXT_CODEC,
   initialPath,

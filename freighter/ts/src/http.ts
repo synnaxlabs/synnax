@@ -66,7 +66,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     };
   }
 
-  async send<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+  async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     req: z.input<RQ> | z.output<RQ>,
     reqSchema: RQ,

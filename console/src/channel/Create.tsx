@@ -65,9 +65,7 @@ export const baseFormSchema = channel.newZ
     path: ["dataType"],
   });
 
-const createFormSchema = baseFormSchema;
-
-type Schema = typeof createFormSchema;
+type Schema = typeof baseFormSchema;
 
 export const ZERO_CHANNEL: z.infer<Schema> = {
   key: 0,
@@ -85,7 +83,7 @@ export const ZERO_CHANNEL: z.infer<Schema> = {
 export const Create: Layout.Renderer = ({ onClose }) => {
   const client = Synnax.use();
   const methods = Form.use<Schema>({
-    schema: createFormSchema,
+    schema: baseFormSchema,
     values: { ...ZERO_CHANNEL },
   });
   const [createMore, setCreateMore] = useState(false);
@@ -115,7 +113,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
       <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
-        <Form.Form<typeof createFormSchema> {...methods}>
+        <Form.Form<typeof baseFormSchema> {...methods}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
               <Input.Text

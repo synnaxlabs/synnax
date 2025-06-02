@@ -155,10 +155,8 @@ export interface Context {
  * class for the AetherComposite type. The corresponding react component should NOT have
  * any children that use Aether functionality; for those cases, use AetherComposite instead.
  */
-export abstract class Leaf<
-  StateSchema extends z.ZodTypeAny,
-  InternalState extends {} = {},
-> implements Component
+export abstract class Leaf<StateSchema extends z.ZodType, InternalState extends {} = {}>
+  implements Component
 {
   readonly type: string;
   readonly key: string;
@@ -353,7 +351,7 @@ export abstract class Leaf<
  * be used directly.
  */
 export abstract class Composite<
-    StateSchema extends z.ZodTypeAny,
+    StateSchema extends z.ZodType,
     InternalState extends {} = {},
     ChildComponents extends Component = Component,
   >

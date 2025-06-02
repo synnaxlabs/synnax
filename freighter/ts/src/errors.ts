@@ -10,12 +10,12 @@
 import { errors, URL } from "@synnaxlabs/x";
 
 /**
- * @description Base class for all freighter-specific errors
+ * Base class for all freighter-specific errors
  */
 export class FreighterError extends errors.createTyped("freighter") {}
 
 /**
- * @description Error thrown when reaching the end of a file or stream
+ * Error thrown when reaching the end of a file or stream
  */
 export class EOF extends FreighterError.sub("eof") {
   constructor() {
@@ -24,7 +24,7 @@ export class EOF extends FreighterError.sub("eof") {
 }
 
 /**
- * @description Error thrown when attempting to operate on a closed stream
+ * Error thrown when attempting to operate on a closed stream
  */
 export class StreamClosed extends FreighterError.sub("stream_closed") {
   constructor() {
@@ -33,14 +33,14 @@ export class StreamClosed extends FreighterError.sub("stream_closed") {
 }
 
 /**
- * @description Arguments for constructing an Unreachable error
+ * Arguments for constructing an Unreachable error
  */
 export interface UnreachableArgs {
   message?: string;
   url?: URL;
 }
 
-/** @description Thrown when a network target is unreachable. */
+/** Thrown when a network target is unreachable. */
 export class Unreachable extends FreighterError.sub("unreachable") {
   url: URL;
 

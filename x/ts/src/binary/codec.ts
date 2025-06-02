@@ -34,7 +34,7 @@ export interface Codec {
    * @param data - The data to decode.
    * @param schema - The schema to decode the data with.
    */
-  decode: <P extends z.ZodTypeAny>(
+  decode: <P extends z.ZodType>(
     data: Uint8Array | ArrayBuffer,
     schema?: P,
   ) => z.output<P>;
@@ -55,14 +55,11 @@ export class JSONCodec implements Codec {
     return this.encoder.encode(this.encodeString(payload));
   }
 
-  decode<P extends z.ZodTypeAny>(
-    data: Uint8Array | ArrayBuffer,
-    schema?: P,
-  ): z.output<P> {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.output<P> {
     return this.decodeString(this.decoder.decode(data), schema);
   }
 
-  decodeString<P extends z.ZodTypeAny>(data: string, schema?: P): z.output<P> {
+  decodeString<P extends z.ZodType>(data: string, schema?: P): z.output<P> {
     const parsed = JSON.parse(data);
     const unpacked = caseconv.snakeToCamel(parsed);
     return schema != null ? schema.parse(unpacked) : (unpacked as z.output<P>);
@@ -89,10 +86,7 @@ export class CSVCodec implements Codec {
     return new TextEncoder().encode(csvString);
   }
 
-  decode<P extends z.ZodTypeAny>(
-    data: Uint8Array | ArrayBuffer,
-    schema?: P,
-  ): z.output<P> {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.output<P> {
     const csvString = new TextDecoder().decode(data);
     return this.decodeString(csvString, schema);
   }
@@ -112,7 +106,7 @@ export class CSVCodec implements Codec {
     return csvRows.join("\n");
   }
 
-  decodeString<P extends z.ZodTypeAny>(data: string, schema?: P): z.output<P> {
+  decodeString<P extends z.ZodType>(data: string, schema?: P): z.output<P> {
     const [headerLine, ...lines] = data
       .trim()
       .split("\n")
@@ -156,10 +150,7 @@ export class TextCodec implements Codec {
     return new TextEncoder().encode(payload);
   }
 
-  decode<P extends z.ZodTypeAny>(
-    data: Uint8Array | ArrayBuffer,
-    schema?: P,
-  ): z.output<P> {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.output<P> {
     const text = new TextDecoder().decode(data);
     return schema != null ? schema.parse(text) : (text as z.output<P>);
   }

@@ -113,12 +113,12 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
 }) as UseField;
 
 export interface UseFieldValue {
-  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodTypeAny = any>(
+  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = any>(
     path: string,
     optional?: false,
     ctx?: ContextValue<Z>,
   ): O;
-  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodTypeAny = any>(
+  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = any>(
     path: string,
     optional: true,
     ctx?: ContextValue<Z>,
@@ -126,20 +126,12 @@ export interface UseFieldValue {
 }
 
 export interface UseFieldState {
-  <
-    I extends Input.Value,
-    O extends Input.Value = I,
-    Z extends z.ZodTypeAny = z.ZodTypeAny,
-  >(
+  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
     path: string,
     optional?: false,
     ctx?: ContextValue<Z>,
   ): FieldState<O>;
-  <
-    I extends Input.Value,
-    O extends Input.Value = I,
-    Z extends z.ZodTypeAny = z.ZodTypeAny,
-  >(
+  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
     path: string,
     optional: true,
     ctx?: ContextValue<Z>,
@@ -179,7 +171,7 @@ export const useFieldValid = (path: string): boolean =>
 
 export interface UseFieldListenerProps<
   I extends Input.Value,
-  Z extends z.ZodTypeAny = z.ZodTypeAny,
+  Z extends z.ZodType = z.ZodType,
 > {
   ctx?: ContextValue<Z>;
   path: string;
@@ -188,7 +180,7 @@ export interface UseFieldListenerProps<
 
 export const useFieldListener = <
   I extends Input.Value,
-  Z extends z.ZodTypeAny = z.ZodTypeAny,
+  Z extends z.ZodType = z.ZodType,
 >({
   path,
   ctx: override,
@@ -382,7 +374,7 @@ interface BindFunc {
 
 type Mode = "normal" | "preview";
 
-export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
+export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   mode: Mode;
   bind: BindFunc;
   set: SetFunc;
@@ -419,7 +411,7 @@ const Context = createContext<ContextValue>({
   setCurrentStateAsInitialValues: () => {},
 });
 
-export const useContext = <Z extends z.ZodTypeAny = z.ZodTypeAny>(
+export const useContext = <Z extends z.ZodType = z.ZodType>(
   override?: ContextValue<Z>,
 ): ContextValue<Z> => {
   const internal = reactUse(Context);
@@ -432,7 +424,7 @@ const NO_ERROR_STATUS = (path: string): Status.CrudeSpec => ({
   message: "",
 });
 
-interface UseRef<Z extends z.ZodTypeAny> {
+interface UseRef<Z extends z.ZodType> {
   state: z.output<Z>;
   statuses: Map<string, Status.CrudeSpec>;
   touched: Set<string>;
@@ -440,7 +432,7 @@ interface UseRef<Z extends z.ZodTypeAny> {
   parentListeners: Map<string, Set<Listener>>;
 }
 
-export interface OnChangeProps<Z extends z.ZodTypeAny> {
+export interface OnChangeProps<Z extends z.ZodType> {
   /** The values in the form AFTER the change. */
   values: z.output<Z>;
   /** The path that was changed. */
@@ -451,7 +443,7 @@ export interface OnChangeProps<Z extends z.ZodTypeAny> {
   valid: boolean;
 }
 
-export interface UseProps<Z extends z.ZodTypeAny> {
+export interface UseProps<Z extends z.ZodType> {
   values: z.output<Z>;
   mode?: Mode;
   sync?: boolean;
@@ -460,7 +452,7 @@ export interface UseProps<Z extends z.ZodTypeAny> {
   schema?: Z;
 }
 
-export interface UseReturn<Z extends z.ZodTypeAny> extends ContextValue<Z> {}
+export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}
 
 const getVariant = (issue: z.ZodIssue): status.Variant =>
   issue.code === z.ZodIssueCode.custom &&
@@ -469,7 +461,7 @@ const getVariant = (issue: z.ZodIssue): status.Variant =>
     ? issue.params.variant
     : "error";
 
-export const use = <Z extends z.ZodTypeAny>({
+export const use = <Z extends z.ZodType>({
   values: initialValues,
   sync = false,
   schema,
@@ -794,7 +786,7 @@ export const use = <Z extends z.ZodTypeAny>({
   );
 };
 
-export const Form = <Z extends z.ZodTypeAny>({
+export const Form = <Z extends z.ZodType>({
   children,
   ...rest
 }: PropsWithChildren<ContextValue<Z>>): ReactElement => (
