@@ -23,7 +23,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("KV Metadata Operations", func() {
+var _ = Describe("DB Metadata Operations", func() {
 	for fsName, makeFS := range fileSystems {
 		var (
 			fs      xfs.FS
@@ -88,11 +88,11 @@ var _ = Describe("KV Metadata Operations", func() {
 			})
 
 			Describe("LeadingControlState", func() {
-				It("Should return nil when there are no writers open on the KV", func() {
+				It("Should return nil when there are no writers open on the DB", func() {
 					Expect(db.LeadingControlState()).To(BeNil())
 				})
 
-				It("Should return the leading control state when there are writers open on the KV", func() {
+				It("Should return the leading control state when there are writers open on the DB", func() {
 					w, transfer := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 						Start:     10 * telem.SecondTS,
 						Authority: control.AuthorityAbsolute,
@@ -125,13 +125,13 @@ var _ = Describe("KV Metadata Operations", func() {
 			}))
 		})
 
-		It("Should return an error when methods are called on a closed KV", func() {
+		It("Should return an error when methods are called on a closed DB", func() {
 			Expect(db.Close()).To(Succeed())
 			Expect(db.RenameChannel(ctx, "new_name")).To(MatchError(virtual.ErrDBClosed))
 			Expect(db.SetChannelKeyInMeta(ctx, testutil.GenerateChannelKey())).To(MatchError(virtual.ErrDBClosed))
 		})
 
-		It("Should return an error when a KV is closed while writers are still accessing it", func() {
+		It("Should return an error when a DB is closed while writers are still accessing it", func() {
 			db := MustSucceed(virtual.Open(ctx, virtual.Config{
 				FS:        xfs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},

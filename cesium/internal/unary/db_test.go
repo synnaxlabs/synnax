@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("KV Metadata Operations", func() {
+var _ = Describe("DB Metadata Operations", func() {
 	for fsName, makeFS := range fileSystems {
 		var (
 			fs         xfs.FS
@@ -162,7 +162,7 @@ var _ = Describe("KV Metadata Operations", func() {
 			}))
 		})
 
-		It("Should return an error when methods are called on a closed KV", func() {
+		It("Should return an error when methods are called on a closed DB", func() {
 
 			Expect(db.Close()).To(Succeed())
 			Expect(db.RenameChannelInMeta(ctx, "new_name")).To(HaveOccurredAs(unary.ErrDBClosed))
@@ -179,7 +179,7 @@ var _ = Describe("KV Metadata Operations", func() {
 			Expect(err).To(HaveOccurredAs(unary.ErrDBClosed))
 		})
 
-		It("Should return an error when a KV is closed while writers are still accessing it", func() {
+		It("Should return an error when a DB is closed while writers are still accessing it", func() {
 			db := MustSucceed(unary.Open(ctx, unary.Config{
 				FS:        xfs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},

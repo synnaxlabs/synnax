@@ -264,7 +264,7 @@ var _ = Describe("Domain", func() {
 						idx2 *index.Domain
 					)
 					BeforeEach(func() {
-						// Open a new domain KV with a file size that corresponds
+						// Open a new domain DB with a file size that corresponds
 						// 3 timestamp samples, so that we trigger automatic rollovers.
 						db2 = MustSucceed(domain.Open(domain.Config{
 							FS:              fs,

@@ -141,7 +141,7 @@ func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
 	if errors.Is(err, virtual.ErrNotVirtual) {
 		err = db.openUnary(ctx, ch, fs)
 	}
-	// For legacy, rate-based channels (V1), attempting to open a unary KV on them will
+	// For legacy, rate-based channels (V1), attempting to open a unary DB on them will
 	// return a meta.ErrIgnoreChannel error, which tells us to just ignore and not open
 	// that directory as an actual channel. This is a better alternative to deleting the
 	// channel, as we don't want to risk losing user data.

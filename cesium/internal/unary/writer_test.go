@@ -137,14 +137,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
 					}))
-					By("Taking control of the KV")
+					By("Taking control of the DB")
 					Expect(dataDB.LeadingControlState().Subject).To(Equal(control.Subject{Key: "foo"}))
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))).To(Equal(core.LeadingAlignment(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(20*telem.SecondTS + 1))
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
-					By("Releasing control of the KV")
+					By("Releasing control of the DB")
 					Expect(dataDB.LeadingControlState()).To(BeNil())
 				})
 				Specify("Open Writer domain overlap", func() {

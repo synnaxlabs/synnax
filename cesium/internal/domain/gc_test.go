@@ -528,7 +528,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						fixedOffset(1),
 					)).To(Succeed())
 
-					By("Reopening the KV")
+					By("Reopening the DB")
 					Expect(db.Close()).To(Succeed())
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
@@ -653,7 +653,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			})
 
 			Context("Close", func() {
-				It("Should not allow GC on a closed KV", func() {
+				It("Should not allow GC on a closed DB", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        20 * telem.Byte,
