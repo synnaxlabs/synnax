@@ -31,21 +31,16 @@ type telemSource struct {
 	framer  *framer.Service
 }
 
-func newTelemSource(
-	_ context.Context,
-	p *plumber.Pipeline,
-	cfg spec.Config,
-	node spec.Node,
-) (bool, error) {
-	if node.Type != spec.TelemSourceType {
+func newTelemSource(_ context.Context, cfg factoryConfig) (bool, error) {
+	if cfg.node.Type != spec.TelemSourceType {
 		return false, nil
 	}
-	chKey, _ := schema.Get[float64](schema.Resource{Data: node.Data}, "channel")
+	chKey, _ := schema.Get[float64](schema.Resource{Data: cfg.node.Data}, "channel")
 	source := &telemSource{
 		channel: channel.Key(chKey),
 		framer:  cfg.Framer,
 	}
-	plumber.SetSource[spec.Value](p, address.Address(node.Key), source)
+	plumber.SetSource[spec.Value](cfg.pipeline, address.Address(cfg.node.Key), source)
 	return true, nil
 }
 
@@ -119,21 +114,16 @@ func (n *telemSink) sink(ctx context.Context, value spec.Value) error {
 	return nil
 }
 
-func newTelemSink(
-	_ context.Context,
-	p *plumber.Pipeline,
-	cfg spec.Config,
-	node spec.Node,
-) (bool, error) {
-	if node.Type != spec.TelemSinkType {
+func newTelemSink(_ context.Context, cfg factoryConfig) (bool, error) {
+	if cfg.node.Type != spec.TelemSinkType {
 		return false, nil
 	}
-	chKey, _ := schema.Get[float64](schema.Resource{Data: node.Data}, "channel")
+	chKey, _ := schema.Get[float64](schema.Resource{Data: cfg.node.Data}, "channel")
 	source := &telemSink{
 		channel: channel.Key(chKey),
 		framer:  cfg.Framer,
 	}
 	source.Sink = source.sink
-	plumber.SetSink[spec.Value](p, address.Address(node.Key), source)
+	plumber.SetSink[spec.Value](cfg.pipeline, address.Address(cfg.node.Key), source)
 	return true, nil
 }

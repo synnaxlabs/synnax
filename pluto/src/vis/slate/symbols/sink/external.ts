@@ -3,7 +3,7 @@ import { type Config, Symbol } from "@/vis/slate/symbols/sink/Sink";
 import { type Spec } from "@/vis/slate/symbols/types/spec";
 
 export const SPEC: Spec<Config> = {
-  key: "sink",
+  key: "telem.sink",
   name: "Telemetry Sink",
   Form,
   Symbol,

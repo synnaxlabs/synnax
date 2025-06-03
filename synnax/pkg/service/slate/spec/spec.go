@@ -11,6 +11,7 @@ package spec
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -35,7 +36,7 @@ type Node struct {
 }
 
 func (n Node) String() string {
-	return n.Key
+	return fmt.Sprintf("%s<%s>", n.Key, n.Type)
 }
 
 type Handle struct {
@@ -51,6 +52,10 @@ type Edge struct {
 type Graph struct {
 	Nodes []Node `json:"nodes" msgpack:"nodes"`
 	Edges []Edge `json:"edges" msgpack:"edges"`
+}
+
+func (g Graph) FindEdge(match func(item Edge) bool) (Edge, bool) {
+	return lo.Find(g.Edges, match)
 }
 
 type Input struct {
@@ -97,7 +102,7 @@ type SchemaMatcher = func(context.Context, Config, Node) (NodeSchema, bool, erro
 
 var schemaMatchers = []SchemaMatcher{
 	constant,
-	greaterThanEq,
+	operator,
 	telemSource,
 	telemSink,
 	selectStatement,
@@ -140,7 +145,7 @@ func Validate(ctx context.Context, cfg Config, g Graph) (Graph, error) {
 		if !ok {
 			return g, errors.Wrapf(
 				query.NotFound,
-				"output not found for source node %s", sourceNode,
+				"output %s not found on source node %s", e.Source.Key, sourceNode,
 			)
 		}
 		input, ok := sinkNode.Schema.GetInput(e.Sink.Key)

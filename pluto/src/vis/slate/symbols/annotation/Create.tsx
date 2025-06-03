@@ -15,7 +15,7 @@ export const config = z.object({
 
 export interface Config extends z.infer<typeof config> {}
 
-export const Symbol = () => (
+export const Symbol = ({ message }: Config) => (
   <Align.Pack x align="center" background={1} bordered borderShade={5} rounded={1}>
     <PIcon.Icon
       style={{
@@ -35,8 +35,8 @@ export const Symbol = () => (
       />
     </PIcon.Icon>
     <Text.Text level="p" weight={500} style={{ padding: "0 2rem" }}>
-      Send Notification
+      {message ?? "Create Annotation"}
     </Text.Text>
-    <Handle.Sink location="left" id="input" />
+    <Handle.Sink location="left" id="value" />
   </Align.Pack>
 );

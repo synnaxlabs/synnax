@@ -28,21 +28,18 @@ var factories = []factory{
 	newAnnotationCreate,
 }
 
-type factory = func(
-	ctx context.Context,
-	p *plumber.Pipeline,
-	cfg spec.Config,
-	node spec.Node,
-) (bool, error)
+type factoryConfig struct {
+	spec.Config
+	pipeline *plumber.Pipeline
+	node     spec.Node
+	graph    spec.Graph
+}
 
-func create(
-	ctx context.Context,
-	p *plumber.Pipeline,
-	cfg spec.Config,
-	node spec.Node,
-) error {
+type factory = func(context.Context, factoryConfig) (bool, error)
+
+func create(ctx context.Context, cfg factoryConfig) error {
 	for _, f := range factories {
-		if ok, err := f(ctx, p, cfg, node); err != nil || ok {
+		if ok, err := f(ctx, cfg); err != nil || ok {
 			return err
 		}
 	}
@@ -53,7 +50,12 @@ func Create(ctx context.Context, cfg spec.Config, g spec.Graph) (confluence.Flow
 	p := plumber.New()
 	nodeMap := make(map[string]spec.Node, len(g.Nodes))
 	for _, n := range g.Nodes {
-		if err := create(ctx, p, cfg, n); err != nil {
+		if err := create(ctx, factoryConfig{
+			Config:   cfg,
+			graph:    g,
+			node:     n,
+			pipeline: p,
+		}); err != nil {
 			return nil, err
 		}
 		nodeMap[n.Key] = n

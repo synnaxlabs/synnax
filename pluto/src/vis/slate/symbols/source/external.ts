@@ -3,7 +3,7 @@ import { type Config, Symbol } from "@/vis/slate/symbols/source/Source";
 import { type Spec } from "@/vis/slate/symbols/types/spec";
 
 export const SPEC: Spec<Config> = {
-  key: "source",
+  key: "telem.source",
   name: "Telemetry Source",
   Form,
   Symbol,

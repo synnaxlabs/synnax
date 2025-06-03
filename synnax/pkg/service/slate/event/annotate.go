@@ -20,27 +20,23 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 )
 
-func newAnnotationCreate(
-	_ context.Context,
-	p *plumber.Pipeline,
-	cfg spec.Config,
-	node spec.Node,
-) (bool, error) {
-	if node.Type != spec.CreateAnnotationType {
+func newAnnotationCreate(_ context.Context, cfg factoryConfig) (bool, error) {
+	if cfg.node.Type != spec.CreateAnnotationType {
 		return false, nil
 	}
-	message, _ := schema.Get[string](schema.Resource{Data: node.Data}, "message")
-	variant, _ := schema.Get[string](schema.Resource{Data: node.Data}, "variant")
+	message, _ := schema.Get[string](schema.Resource{Data: cfg.node.Data}, "message")
+	variant, _ := schema.Get[string](schema.Resource{Data: cfg.node.Data}, "variant")
 	sink := &confluence.UnarySink[spec.Value]{
 		Sink: func(ctx context.Context, value spec.Value) error {
-			return cfg.Annotation.NewWriter(nil).Create(
+			err := cfg.Annotation.NewWriter(nil).Create(
 				ctx,
 				&annotation.Annotation{
 					Message: message,
 					Variant: variant,
 				})
+			return err
 		},
 	}
-	plumber.SetSink[spec.Value](p, address.Address(node.Key), sink)
+	plumber.SetSink[spec.Value](cfg.pipeline, address.Address(cfg.node.Key), sink)
 	return true, nil
 }

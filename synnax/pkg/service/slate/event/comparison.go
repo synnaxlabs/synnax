@@ -60,28 +60,23 @@ func toFloat64(v interface{}) float64 {
 	}
 }
 
-func newComparison(
-	_ context.Context,
-	p *plumber.Pipeline,
-	_ spec.Config,
-	node spec.Node,
-) (bool, error) {
-	if !strings.HasPrefix(node.Type, spec.ComparisonPrefix) {
+func newComparison(_ context.Context, cfg factoryConfig) (bool, error) {
+	if !strings.HasPrefix(cfg.node.Type, spec.OperatorPrefix) {
 		return false, nil
 	}
 	c := &operator{}
-	if strings.HasSuffix(node.Type, spec.ComparisonGTESuffix) {
+	if strings.HasSuffix(cfg.node.Type, spec.OperatorGTESuffix) {
 		c.compare = func(a, b float64) bool { return a >= b }
-	} else if strings.HasSuffix(node.Type, spec.ComparisonLTESuffix) {
+	} else if strings.HasSuffix(cfg.node.Type, spec.OperatorLTESuffix) {
 		c.compare = func(a, b float64) bool { return a <= b }
-	} else if strings.HasSuffix(node.Type, spec.ComparisonLTSuffix) {
+	} else if strings.HasSuffix(cfg.node.Type, spec.OperatorLTSuffix) {
 		c.compare = func(a, b float64) bool { return a < b }
-	} else if strings.HasSuffix(node.Type, spec.ComparisonGTSuffix) {
+	} else if strings.HasSuffix(cfg.node.Type, spec.OperatorGTSuffix) {
 		c.compare = func(a, b float64) bool { return a > b }
-	} else if strings.HasSuffix(node.Type, spec.ComparisonEQSuffix) {
+	} else if strings.HasSuffix(cfg.node.Type, spec.OperatorEQSuffix) {
 		c.compare = func(a, b float64) bool { return a == b }
 	}
-	plumber.SetSegment[spec.Value, spec.Value](p, address.Address(node.Key), c)
+	plumber.SetSegment[spec.Value, spec.Value](cfg.pipeline, address.Address(cfg.node.Key), c)
 	c.Sink = c.sink
 	return true, nil
 }
