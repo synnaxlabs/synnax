@@ -12,10 +12,10 @@ import { channel } from "@synnaxlabs/client";
 import { Sync } from "@/sync";
 
 export const useCalculationStateSynchronizer = (
-  onUpdate: (state: channel.CalculationState) => void,
+  onChange: (state: channel.CalculationState) => void,
 ): void =>
   Sync.useParsedListener(
     channel.CALCULATION_STATE_CHANNEL_NAME,
     channel.calculationStateZ,
-    onUpdate,
+    onChange,
   );

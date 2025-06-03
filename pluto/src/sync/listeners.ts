@@ -15,43 +15,43 @@ import { useAddListener } from "@/sync/Context";
 
 export const useListener = (
   channel: channel.Name,
-  onUpdate: (series: MultiSeries) => void,
+  onChange: (series: MultiSeries) => void,
 ): void => {
   const addListener = useAddListener();
   useEffect(
     () =>
       addListener({
         channels: channel,
-        handler: (frame) => onUpdate(frame.get(channel)),
+        handler: (frame) => onChange(frame.get(channel)),
       }),
-    [addListener, channel, onUpdate],
+    [addListener, channel, onChange],
   );
 };
 
 export const useParsedListener = <Z extends z.ZodTypeAny>(
   channel: channel.Name,
   schema: Z,
-  onUpdate: (value: z.infer<Z>) => void,
+  onChange: (value: z.infer<Z>) => void,
 ): void => {
-  const handleUpdate = useCallback(
-    (series: MultiSeries) => series.parseJSON(schema).forEach(onUpdate),
-    [onUpdate, schema],
+  const handleChange = useCallback(
+    (series: MultiSeries) => series.parseJSON(schema).forEach(onChange),
+    [onChange, schema],
   );
-  useListener(channel, handleUpdate);
+  useListener(channel, handleChange);
 };
 
 export const useStringListener = <T>(
   channel: channel.Name,
   parseString: (str: string) => T,
-  onUpdate: (value: T) => void,
+  onChange: (value: T) => void,
 ): void => {
-  const handleUpdate = useCallback(
+  const handleChange = useCallback(
     ({ series }: MultiSeries) =>
       series
         .flatMap((s) => s.toStrings())
         .map(parseString)
-        .forEach(onUpdate),
-    [parseString, onUpdate],
+        .forEach(onChange),
+    [parseString, onChange],
   );
-  useListener(channel, handleUpdate);
+  useListener(channel, handleChange);
 };

@@ -9,7 +9,7 @@
 
 import { type channel, framer } from "@synnaxlabs/client";
 import { strings, toArray } from "@synnaxlabs/x";
-import { type PropsWithChildren, useCallback, useRef } from "react";
+import { type PropsWithChildren, type ReactElement, useCallback, useRef } from "react";
 
 import { useAsyncEffect } from "@/hooks";
 import { Status } from "@/status";
@@ -19,7 +19,7 @@ import { Synnax } from "@/synnax";
 
 export interface ProviderProps extends PropsWithChildren {}
 
-export const Provider: React.FC<ProviderProps> = (props) => {
+export const Provider = (props: PropsWithChildren): ReactElement => {
   const client = Synnax.use();
   const handlersRef = useRef(new Map<channel.Name, Set<FrameHandler>>());
   const streamerRef = useRef<framer.Streamer>(null);
@@ -40,7 +40,7 @@ export const Provider: React.FC<ProviderProps> = (props) => {
           try {
             handler(frame);
           } catch (e) {
-            handleError(e, `Error calling Synch Frame Handler on channel ${name}`);
+            handleError(e, `Error calling Sync Frame Handler on channel ${name}`);
           }
           calledHandlers.add(handler);
         });
@@ -64,7 +64,7 @@ export const Provider: React.FC<ProviderProps> = (props) => {
         handleError(
           async () =>
             await streamerRef.current?.update([...handlersRef.current.keys()]),
-          `Failed to add ${strings.naturalLanguageJoin(addedChannels)} to the Synch.Provider streamer`,
+          `Failed to add ${strings.naturalLanguageJoin(addedChannels)} to the Sync.Provider streamer`,
         );
       return () => {
         const removedChannels: channel.Names = [];
@@ -80,7 +80,7 @@ export const Provider: React.FC<ProviderProps> = (props) => {
           handleError(
             async () =>
               await streamerRef.current?.update([...handlersRef.current.keys()]),
-            `Failed to remove ${strings.naturalLanguageJoin(removedChannels)} from the Synch.Provider streamer`,
+            `Failed to remove ${strings.naturalLanguageJoin(removedChannels)} from the Sync.Provider streamer`,
           );
       };
     },

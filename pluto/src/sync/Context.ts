@@ -12,9 +12,7 @@ import { createContext, use } from "react";
 import { type ListenerAdder } from "@/sync/types";
 
 export const Context = createContext<ListenerAdder>(() => {
-  throw new Error(
-    "Synch.useAddListener must be used within a Synch.Provider component",
-  );
+  throw new Error("Sync.useAddListener must be used within a Sync.Provider component");
 });
 
 export const useAddListener = (): ListenerAdder => use(Context);
