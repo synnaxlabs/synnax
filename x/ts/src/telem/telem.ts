@@ -667,8 +667,9 @@ export class TimeStamp
    * @returns A number indicating the order of the two timestamps (positive if a is
    * greater than b, negative if a is less than b, and 0 if they are equal).
    */
-  static readonly sort = (a: TimeStamp, b: TimeStamp): number =>
-    Number(a.valueOf() - b.valueOf());
+  static sort(a: TimeStamp, b: TimeStamp): number {
+    return Number(a.valueOf() - b.valueOf());
+  }
 }
 
 /** TimeSpan represents a nanosecond precision duration. */
@@ -1397,8 +1398,9 @@ export class TimeRange implements primitive.Stringer {
    * positive if a is earlier than b, negative if a is later than b, and 0 if they are
    * equal.
    */
-  static readonly sort = (a: TimeRange, b: TimeRange): number =>
-    TimeStamp.sort(a.start, b.start) || TimeStamp.sort(a.end, b.end);
+  static sort(a: TimeRange, b: TimeRange): number {
+    return TimeStamp.sort(a.start, b.start) || TimeStamp.sort(a.end, b.end);
+  }
 }
 
 /** DataType is a string that represents a data type. */
