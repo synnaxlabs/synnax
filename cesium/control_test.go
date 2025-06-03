@@ -58,7 +58,7 @@ var _ = Describe("Control", func() {
 					Expect(db.Close()).To(Succeed())
 				})
 
-				Describe("Single Channels, Two Writer Contention", func() {
+				Describe("Single Channel, Two Writer Contention", func() {
 					It("Should correctly manage control authority between two writers", func() {
 						var (
 							indexCHKey = GenerateChannelKey()

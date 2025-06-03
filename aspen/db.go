@@ -89,7 +89,7 @@ type DB struct {
 	transportCloser io.Closer
 }
 
-// Close implements kvx.KV, shutting down the key-value store, cluster and transport.
+// Close implements kvx.DB, shutting down the key-value store, cluster and transport.
 // Close is not safe to call concurrently with any other DB method. All DB methods
 // called after Close will panic.
 func (db *DB) Close() error {

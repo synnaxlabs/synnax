@@ -44,7 +44,7 @@ var _ = Describe("Delete", func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(cleanUp()).To(Succeed())
 			})
-			Describe("Delete Channels", func() {
+			Describe("Delete Channel", func() {
 				var (
 					uChannelKey = GenerateChannelKey()
 					vChannelKey = GenerateChannelKey()
@@ -68,7 +68,7 @@ var _ = Describe("Delete", func() {
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
 					Describe("Deleting a channel that is being written to should error", func() {
-						Specify("Virtual Channels", func() {
+						Specify("Virtual Channel", func() {
 							Expect(db.CreateChannel(ctx, vChannel)).To(Succeed())
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{vChannelKey}, Start: 10 * telem.SecondTS}))
 							Expect(db.DeleteChannel(vChannelKey)).To(MatchError(ContainSubstring("1 unclosed writers")))
@@ -76,7 +76,7 @@ var _ = Describe("Delete", func() {
 							Expect(db.DeleteChannel(vChannelKey)).To(Succeed())
 						})
 
-						Specify("Unary Channels", func() {
+						Specify("Unary Channel", func() {
 							Expect(db.CreateChannel(ctx, uChannel)).To(Succeed())
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{uChannelKey}, Start: 10 * telem.SecondTS}))
 							Expect(db.DeleteChannel(uChannelKey)).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
@@ -85,7 +85,7 @@ var _ = Describe("Delete", func() {
 						})
 					})
 					Describe("Deleting a channel that is being read from should error", func() {
-						Specify("Unary Channels", func() {
+						Specify("Unary Channel", func() {
 							Expect(db.CreateChannel(ctx, uChannel)).To(Succeed())
 							i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{uChannelKey}}))
 							Expect(db.DeleteChannel(uChannelKey)).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
@@ -93,7 +93,7 @@ var _ = Describe("Delete", func() {
 							Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
 						})
 
-						Specify("Unary Channels double reader", func() {
+						Specify("Unary Channel double reader", func() {
 							Expect(db.CreateChannel(ctx, uChannel)).To(Succeed())
 							i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{uChannelKey}}))
 							i2 := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{uChannelKey}}))
@@ -104,7 +104,7 @@ var _ = Describe("Delete", func() {
 						})
 					})
 					Describe("Deleting a channel that is being streamed from should error", func() {
-						Specify("Virtual Channels", func() {
+						Specify("Virtual Channel", func() {
 							By("Creating a channel")
 							Expect(db.CreateChannel(ctx, vChannel)).To(Succeed())
 							By("Opening a streamer on the channel")
@@ -124,7 +124,7 @@ var _ = Describe("Delete", func() {
 							i.Close()
 						})
 
-						Specify("Unary Channels", func() {
+						Specify("Unary Channel", func() {
 							By("Creating a channel")
 							Expect(db.CreateChannel(ctx, uChannel)).To(Succeed())
 							By("Opening a streamer on the channel")
@@ -236,7 +236,7 @@ var _ = Describe("Delete", func() {
 						})
 					})
 				})
-				Describe("Deleting Index Channels when other channels depend on it", func() {
+				Describe("Deleting Index Channel when other channels depend on it", func() {
 					It("Should not allow such deletion when another channel is indexed by it on the same time range", func() {
 						By("Creating an indexed channel and a channel indexed by it")
 						var (

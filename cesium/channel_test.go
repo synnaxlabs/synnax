@@ -29,7 +29,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Channels", Ordered, func() {
+var _ = Describe("Channel", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
 		ShouldNotLeakRoutinesJustBeforeEach()
 		Context("FS: "+fsName, Ordered, func() {
@@ -88,7 +88,7 @@ var _ = Describe("Channels", Ordered, func() {
 						cesium.Channel{Name: "Kathy", Key: 9982, Index: 9981, DataType: telem.Float32T},
 					),
 				)
-				Describe("KV Closed", func() {
+				Describe("DB Closed", func() {
 					It("Should not allow creating a channel", func() {
 						sub := MustSucceed(fs.Sub("closed-fs"))
 						key := cesium.ChannelKey(1)

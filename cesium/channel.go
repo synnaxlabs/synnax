@@ -238,7 +238,7 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey core.C
 		delete(db.mu.unaryDBs, oldKey)
 		db.mu.unaryDBs[newKey] = *newDB
 
-		// If the KV is an index channel, we need to update the databases that depend on
+		// If the DB is an index channel, we need to update the databases that depend on
 		// this channel.
 		if uDB.Channel().IsIndex {
 			for otherDBKey := range db.mu.unaryDBs {

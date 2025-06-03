@@ -34,7 +34,7 @@ var _ = Describe("Accuracy", func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(cleanUp()).To(Succeed())
 			})
-			Context("Single Channels", func() {
+			Context("Single Channel", func() {
 				var (
 					key    cesium.ChannelKey = 2
 					idxKey cesium.ChannelKey = 3
@@ -112,7 +112,7 @@ var _ = Describe("Accuracy", func() {
 				)
 			})
 
-			Context("Multi Channels", func() {
+			Context("Multi Channel", func() {
 				Context("Different Indexes", Ordered, func() {
 					var (
 						idxKey1 cesium.ChannelKey = 6

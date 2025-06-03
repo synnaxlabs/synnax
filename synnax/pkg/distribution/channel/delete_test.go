@@ -37,7 +37,7 @@ var _ = Describe("Delete", Ordered, func() {
 		Expect(mockCluster.Close()).To(Succeed())
 	})
 	Describe("Channels Deletion", func() {
-		Context("Single Channels", func() {
+		Context("Single Channel", func() {
 			var (
 				idxCh, ch channel.Channel
 			)
