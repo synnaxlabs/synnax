@@ -164,8 +164,8 @@ export abstract class Leaf<StateSchema extends z.ZodType, InternalState extends 
   private readonly sender: Sender<AetherMessage>;
 
   private readonly _internalState: InternalState;
-  private _state: z.output<StateSchema> | undefined;
-  private _prevState: z.output<StateSchema> | undefined;
+  private _state: z.infer<StateSchema> | undefined;
+  private _prevState: z.infer<StateSchema> | undefined;
   private _deleted: boolean = false;
   protected readonly parentCtxValues: Map<string, any>;
   protected readonly childCtxValues: Map<string, any>;
@@ -210,8 +210,8 @@ export abstract class Leaf<StateSchema extends z.ZodType, InternalState extends 
    */
   setState(
     next: state.SetArg<
-      z.input<StateSchema> | z.output<StateSchema>,
-      z.output<StateSchema>
+      z.input<StateSchema> | z.infer<StateSchema>,
+      z.infer<StateSchema>
     >,
   ): void {
     const nextState: z.input<StateSchema> = state.executeSetter(next, this._state);
@@ -221,7 +221,7 @@ export abstract class Leaf<StateSchema extends z.ZodType, InternalState extends 
   }
 
   /** @returns the current state of the component. */
-  get state(): z.output<StateSchema> {
+  get state(): z.infer<StateSchema> {
     if (this._state == null)
       throw new UnexpectedError(
         `[AetherLeaf] - state not defined in ${this.type}:${this.key}`,
@@ -234,7 +234,7 @@ export abstract class Leaf<StateSchema extends z.ZodType, InternalState extends 
   }
 
   /** @returns the previous state of the component. */
-  get prevState(): z.output<StateSchema> {
+  get prevState(): z.infer<StateSchema> {
     return this._prevState;
   }
 

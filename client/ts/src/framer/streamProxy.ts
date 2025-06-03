@@ -19,7 +19,7 @@ export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
     this.name = name;
   }
 
-  async receive(): Promise<z.output<RS>> {
+  async receive(): Promise<z.infer<RS>> {
     const [res, err] = await this.stream.receive();
     if (err != null) throw err;
     return res;

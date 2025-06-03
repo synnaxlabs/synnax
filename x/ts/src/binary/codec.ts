@@ -37,7 +37,7 @@ export interface Codec {
   decode: <P extends z.ZodType>(
     data: Uint8Array | ArrayBuffer,
     schema?: P,
-  ) => z.output<P>;
+  ) => z.infer<P>;
 }
 
 /** JSONCodec is a JSON implementation of Codec. */
@@ -55,14 +55,14 @@ export class JSONCodec implements Codec {
     return this.encoder.encode(this.encodeString(payload));
   }
 
-  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.output<P> {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     return this.decodeString(this.decoder.decode(data), schema);
   }
 
-  decodeString<P extends z.ZodType>(data: string, schema?: P): z.output<P> {
+  decodeString<P extends z.ZodType>(data: string, schema?: P): z.infer<P> {
     const parsed = JSON.parse(data);
     const unpacked = caseconv.snakeToCamel(parsed);
-    return schema != null ? schema.parse(unpacked) : (unpacked as z.output<P>);
+    return schema != null ? schema.parse(unpacked) : (unpacked as z.infer<P>);
   }
 
   encodeString(payload: unknown): string {
@@ -86,7 +86,7 @@ export class CSVCodec implements Codec {
     return new TextEncoder().encode(csvString);
   }
 
-  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.output<P> {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const csvString = new TextDecoder().decode(data);
     return this.decodeString(csvString, schema);
   }
@@ -106,13 +106,13 @@ export class CSVCodec implements Codec {
     return csvRows.join("\n");
   }
 
-  decodeString<P extends z.ZodType>(data: string, schema?: P): z.output<P> {
+  decodeString<P extends z.ZodType>(data: string, schema?: P): z.infer<P> {
     const [headerLine, ...lines] = data
       .trim()
       .split("\n")
       .map((line) => line.trim());
     if (headerLine.length === 0)
-      return schema != null ? schema.parse({}) : ({} as z.output<P>);
+      return schema != null ? schema.parse({}) : ({} as z.infer<P>);
     const headers = headerLine.split(",").map((header) => header.trim());
     const result: { [key: string]: any[] } = {};
 
@@ -129,7 +129,7 @@ export class CSVCodec implements Codec {
       });
     });
 
-    return schema != null ? schema.parse(result) : (result as z.output<P>);
+    return schema != null ? schema.parse(result) : (result as z.infer<P>);
   }
 
   private parseValue(value?: string): any {
@@ -150,9 +150,9 @@ export class TextCodec implements Codec {
     return new TextEncoder().encode(payload);
   }
 
-  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.output<P> {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const text = new TextDecoder().decode(data);
-    return schema != null ? schema.parse(text) : (text as z.output<P>);
+    return schema != null ? schema.parse(text) : (text as z.infer<P>);
   }
 }
 

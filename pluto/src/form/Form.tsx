@@ -378,10 +378,10 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   mode: Mode;
   bind: BindFunc;
   set: SetFunc;
-  reset: (values?: z.output<Z>) => void;
+  reset: (values?: z.infer<Z>) => void;
   get: GetFunc;
   remove: RemoveFunc;
-  value: () => z.output<Z>;
+  value: () => z.infer<Z>;
   validate: (path?: string) => boolean;
   validateAsync: (path?: string) => Promise<boolean>;
   has: (path: string) => boolean;
@@ -425,7 +425,7 @@ const NO_ERROR_STATUS = (path: string): Status.CrudeSpec => ({
 });
 
 interface UseRef<Z extends z.ZodType> {
-  state: z.output<Z>;
+  state: z.infer<Z>;
   statuses: Map<string, Status.CrudeSpec>;
   touched: Set<string>;
   listeners: Map<string, Set<Listener>>;
@@ -434,7 +434,7 @@ interface UseRef<Z extends z.ZodType> {
 
 export interface OnChangeProps<Z extends z.ZodType> {
   /** The values in the form AFTER the change. */
-  values: z.output<Z>;
+  values: z.infer<Z>;
   /** The path that was changed. */
   path: string;
   /** The previous value at the path. */
@@ -444,7 +444,7 @@ export interface OnChangeProps<Z extends z.ZodType> {
 }
 
 export interface UseProps<Z extends z.ZodType> {
-  values: z.output<Z>;
+  values: z.infer<Z>;
   mode?: Mode;
   sync?: boolean;
   onChange?: (props: OnChangeProps<Z>) => void;
@@ -478,7 +478,7 @@ export const use = <Z extends z.ZodType>({
   }));
   const schemaRef = useSyncedRef(schema);
   const onChangeRef = useSyncedRef(onChange);
-  const initialValuesRef = useSyncedRef<z.output<Z>>(initialValues);
+  const initialValuesRef = useSyncedRef<z.infer<Z>>(initialValues);
   const onHasTouchedRef = useSyncedRef(onHasTouched);
   const handleError = Status.useErrorHandler();
 
@@ -559,7 +559,7 @@ export const use = <Z extends z.ZodType>({
     parentListeners.delete(path);
   }, []);
 
-  const reset = useCallback((values?: z.output<Z>) => {
+  const reset = useCallback((values?: z.infer<Z>) => {
     const { statuses } = ref.current;
     ref.current.state = values ?? deep.copy(initialValuesRef.current);
     updateFieldValues("");
@@ -621,7 +621,7 @@ export const use = <Z extends z.ZodType>({
 
   const processValidationResult = useCallback(
     (
-      result: z.ZodSafeParseResult<z.output<Z>>,
+      result: z.ZodSafeParseResult<z.infer<Z>>,
       validationPath: string = "",
       validateChildren: boolean = true,
     ): boolean => {
@@ -711,7 +711,7 @@ export const use = <Z extends z.ZodType>({
     const equalsInitial = deep.equal(initialValue, value);
     if (equalsInitial) removeTouched(path);
     else addTouched(path);
-    if (path.length === 0) ref.current.state = value as z.output<Z>;
+    if (path.length === 0) ref.current.state = value as z.infer<Z>;
     else deep.set(state, path, value);
     updateFieldValues(path);
     handleError(async () => {

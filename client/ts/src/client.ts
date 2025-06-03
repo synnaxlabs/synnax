@@ -44,7 +44,7 @@ export const synnaxPropsZ = z.object({
 });
 
 export interface SynnaxProps extends z.input<typeof synnaxPropsZ> {}
-export interface ParsedSynnaxProps extends z.output<typeof synnaxPropsZ> {}
+export interface ParsedSynnaxProps extends z.infer<typeof synnaxPropsZ> {}
 
 /**
  * Client to perform operations against a Synnax cluster.

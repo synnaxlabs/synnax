@@ -55,7 +55,7 @@ const safelyGetDataValue = (
 };
 
 export type State = z.input<typeof stateZ>;
-export type ParsedState = z.output<typeof stateZ>;
+export type ParsedState = z.infer<typeof stateZ>;
 
 const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
 

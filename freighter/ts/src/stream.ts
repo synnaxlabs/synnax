@@ -24,7 +24,7 @@ export interface StreamReceiver<RS extends z.ZodType> {
    *  returns the error the server returned.
    *  @raises Error: if the transport fails.
    */
-  receive: () => Promise<[z.output<RS>, null] | [null, Error]>;
+  receive: () => Promise<[z.infer<RS>, null] | [null, Error]>;
 
   /**
    * @returns true if the stream has received a response
@@ -47,7 +47,7 @@ export interface StreamSender<RQ extends z.ZodType> {
   * @raises freighter.StreamClosed: if the client called close_send()
   * @raises Error: if the transport fails.
   */
-  send: (req: z.input<RQ> | z.output<RQ>) => Error | null;
+  send: (req: z.input<RQ> | z.infer<RQ>) => Error | null;
 }
 
 /**

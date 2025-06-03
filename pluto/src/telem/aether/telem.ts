@@ -131,7 +131,7 @@ export const stringSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("stri
 export type StringSourceSpec = z.infer<typeof stringSourceSpecZ>;
 
 export class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
-  private props_: z.output<P> | undefined = undefined;
+  private props_: z.infer<P> | undefined = undefined;
   private readonly uProps_: unknown | undefined = undefined;
   schema: P | undefined = undefined;
 
@@ -140,7 +140,7 @@ export class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
     this.uProps_ = props;
   }
 
-  get props(): z.output<P> {
+  get props(): z.infer<P> {
     if (this.props_ == null) {
       const res = this._schema.safeParse(this.uProps_);
       if (res.success) this.props_ = res.data;

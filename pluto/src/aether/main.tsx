@@ -297,7 +297,7 @@ export interface ComponentProps {
 export interface UseProps<S extends z.ZodType>
   extends Omit<UseLifecycleProps<S>, "onReceive"> {
   /** Optional callback for handling state changes from the Aether component */
-  onAetherChange?: (state: z.output<S>) => void;
+  onAetherChange?: (state: z.infer<S>) => void;
 }
 
 interface ComponentContext {
@@ -309,7 +309,7 @@ interface ComponentContext {
  */
 export type UseReturn<S extends z.ZodType> = [
   ComponentContext,
-  z.output<S>,
+  z.infer<S>,
   (state: state.SetArg<z.input<S>>, transfer?: Transferable[]) => void,
 ];
 
@@ -333,7 +333,7 @@ export const useUnidirectional = <S extends z.ZodType>({
   ...rest
 }: UseUnidirectionalProps<S>): ComponentContext => {
   const { path, setState } = useLifecycle({ ...rest, initialState: state });
-  const ref = useRef<z.output<S> | null>(null);
+  const ref = useRef<z.infer<S> | null>(null);
   if (!deep.equal(ref.current, state)) {
     ref.current = state;
     setState(state);
@@ -369,7 +369,7 @@ export const useUnidirectional = <S extends z.ZodType>({
  */
 export const use = <S extends z.ZodType>(props: UseProps<S>): UseReturn<S> => {
   const { type, schema, initialState, onAetherChange } = props;
-  const [internalState, setInternalState] = useState<z.output<S>>(() =>
+  const [internalState, setInternalState] = useState<z.infer<S>>(() =>
     prettyParse(schema, initialState),
   );
   const onAetherChangeRef = useRef(onAetherChange);
@@ -392,7 +392,7 @@ export const use = <S extends z.ZodType>(props: UseProps<S>): UseReturn<S> => {
 
   const setState = useCallback(
     (
-      next: state.SetArg<z.input<S> | z.output<S>>,
+      next: state.SetArg<z.input<S> | z.infer<S>>,
       transfer: Transferable[] = [],
     ): void => {
       if (state.isSetter(next))
