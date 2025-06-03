@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { task } from "@/hardware/task";
@@ -130,6 +130,61 @@ describe("Task", async () => {
       await testRack.createTask({ name: "test", config: { a: "dog" }, type: "ni" });
       const tasks = await client.hardware.tasks.list();
       expect(tasks.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("executeCommand", () => {
+    it("should execute a command on a task", async () => {
+      const type = "testCmd";
+      const args = { a: "dog" };
+      const t = await testRack.createTask({
+        name: "test",
+        config: { a: "dog" },
+        type: "ni",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      const key = await client.hardware.tasks.executeCommand(t.key, type, args);
+      await expect
+        .poll<Promise<task.Command>>(async () => {
+          const fr = await streamer.read();
+          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+          return task.commandZ.parse(sample);
+        })
+        .toMatchObject({ key, task: t.key, type, args });
+      streamer.close();
+    });
+    it("should timeout on a synchronously executed command", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: {},
+        type: "ni",
+      });
+      await expect(t.executeCommandSync("test", 0)).rejects.toThrow("timed out");
+    });
+    it("should execute synchronously if timeout is large enough", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: {},
+        type: "ni",
+      });
+      const commandObs = await t.openCommandObserver();
+      const w = await client.openWriter([task.STATE_CHANNEL_NAME]);
+      commandObs.onChange((cmd) => {
+        void (async () => {
+          const state: task.State = {
+            key: cmd.key,
+            task: cmd.task,
+            variant: "success",
+            details: { beacons: "lit" },
+          };
+          await w.write(task.STATE_CHANNEL_NAME, [state]);
+        })();
+      });
+      const state = await t.executeCommandSync("test", TimeSpan.fromSeconds(1));
+      expect(state.variant).toBe("success");
+      expect(state.details).toMatchObject({ beacons: "lit" });
+      await w.close();
+      await commandObs.close();
     });
   });
 });
