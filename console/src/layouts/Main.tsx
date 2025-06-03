@@ -17,7 +17,7 @@ import {
   workspace,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Align, Ontology } from "@synnaxlabs/pluto";
+import { Align } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
