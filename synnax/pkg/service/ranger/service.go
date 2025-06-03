@@ -48,7 +48,7 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ranger")
-	validate.NotNil(v, "KV", c.DB)
+	validate.NotNil(v, "DB", c.DB)
 	validate.NotNil(v, "Ontology", c.Ontology)
 	validate.NotNil(v, "Group", c.Group)
 	return v.Error()

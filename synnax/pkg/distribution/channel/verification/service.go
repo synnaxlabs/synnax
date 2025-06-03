@@ -49,7 +49,7 @@ var (
 
 func (c Config) Validate() error {
 	v := validate.New("key")
-	validate.NotNil(v, "KV", c.DB)
+	validate.NotNil(v, "DB", c.DB)
 	validate.NonZero(v, decode("V2FybmluZ1RpbWU="), c.WarningTime)
 	validate.NonZero(v, decode("Q2hlY2tJbnRlcnZhbA=="), c.CheckInterval)
 	return v.Error()
