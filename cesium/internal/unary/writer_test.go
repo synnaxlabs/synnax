@@ -85,7 +85,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					})
 				})
 			})
-			Describe("Channels Indexed", func() {
+			Describe("Channel Indexed", func() {
 				var (
 					dataDB  *unary.DB
 					dataFS  xfs.FS

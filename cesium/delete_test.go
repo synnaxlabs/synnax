@@ -603,7 +603,7 @@ var _ = Describe("Delete", func() {
 					})
 				})
 
-				Describe("Deleting Index Channels when other channels depend on it", func() {
+				Describe("Deleting Index Channel when other channels depend on it", func() {
 					It("Should not allow such deletion when another channel is indexed by it on the same time range", func() {
 						By("Creating an indexed channel and a channel indexed by it")
 						Expect(db.CreateChannel(

@@ -25,7 +25,7 @@ import (
 var _ = Describe("Iterator Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, func() {
-			Describe("Channels Indexed", func() {
+			Describe("Channel Indexed", func() {
 				var (
 					db      *unary.DB
 					indexDB *unary.DB
