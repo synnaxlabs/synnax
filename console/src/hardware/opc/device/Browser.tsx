@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Browser.css";
 
-import { UnexpectedError } from "@synnaxlabs/client";
+import { type task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -21,7 +21,7 @@ import {
   TimeSpan,
   Tree,
 } from "@synnaxlabs/pluto";
-import { type Optional, type UnknownRecord } from "@synnaxlabs/x";
+import { type Optional } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
@@ -30,7 +30,9 @@ import { type Device } from "@/hardware/opc/device/types";
 import {
   SCAN_COMMAND_TYPE,
   SCAN_TYPE,
+  type ScanConfig,
   type ScanStateDetails,
+  type ScanType,
 } from "@/hardware/opc/task/types";
 
 const ICONS: Record<string, ReactElement> = {
@@ -58,7 +60,12 @@ export const Browser = ({ device }: BrowserProps) => {
       if (client == null) return null;
       const rck = await client.hardware.racks.retrieve(device.rack);
       const scanTasks = await rck.retrieveTaskByType(SCAN_TYPE);
-      if (scanTasks.length > 0) return scanTasks[0];
+      if (scanTasks.length > 0)
+        return scanTasks[0] as unknown as task.Task<
+          ScanConfig,
+          ScanStateDetails,
+          ScanType
+        >;
       throw new UnexpectedError(`No scan task found for driver ${rck.name}`);
     },
   });
@@ -75,10 +82,11 @@ export const Browser = ({ device }: BrowserProps) => {
       const nodeID = isRoot ? "" : parseNodeID(clicked);
       const { connection } = device.properties;
       setLoading(clicked);
-      const { details } = await scanTask.executeCommandSync<
-        UnknownRecord,
-        ScanStateDetails
-      >(SCAN_COMMAND_TYPE, TimeSpan.seconds(10), { connection, node_id: nodeID });
+      const { details } = await scanTask.executeCommandSync(
+        SCAN_COMMAND_TYPE,
+        TimeSpan.seconds(10),
+        { connection, node_id: nodeID },
+      );
       if (details == null) return;
       if (!("channels" in details)) return;
       const { channels } = details;

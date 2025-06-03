@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
+import { rack, type task, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -22,7 +22,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, type UnknownRecord } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { v4 as uuid } from "uuid";
@@ -48,6 +48,9 @@ import {
 } from "@/hardware/opc/device/types";
 import {
   SCAN_TYPE,
+  type ScanConfig,
+  type ScanStateDetails,
+  type ScanType,
   TEST_CONNECTION_COMMAND_TYPE,
   type TestConnectionCommandResponse,
   type TestConnectionCommandState,
@@ -95,13 +98,16 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       const scanTasks = await rack.retrieveTaskByType(SCAN_TYPE);
       if (scanTasks.length === 0)
         throw new UnexpectedError(`No scan task found for driver ${rack.name}`);
-      const task = scanTasks[0];
-      const state = await task.executeCommandSync<
-        UnknownRecord,
-        TestConnectionCommandResponse
-      >(TEST_CONNECTION_COMMAND_TYPE, TimeSpan.seconds(10), {
-        connection: methods.get("connection").value,
-      });
+      const task = scanTasks[0] as unknown as task.Task<
+        ScanConfig,
+        ScanStateDetails,
+        ScanType
+      >;
+      const state = (await task.executeCommandSync(
+        TEST_CONNECTION_COMMAND_TYPE,
+        TimeSpan.seconds(10),
+        { connection: methods.get("connection").value },
+      )) as task.State<TestConnectionCommandResponse>;
       setConnectionState(state);
     },
   });
