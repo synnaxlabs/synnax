@@ -1,6 +1,20 @@
-import { Add, Divide, Multiply, Subtract } from "@/vis/slate/symbols/operator/Symbols";
+import {
+  Add,
+  And,
+  Divide,
+  Equal,
+  GreaterThan,
+  GreaterThanOrEqual,
+  LessThan,
+  LessThanOrEqual,
+  Multiply,
+  Not,
+  NotEqual,
+  Or,
+  Subtract,
+} from "@/vis/slate/symbols/operator/Symbols";
 
-const OPERATOR_ADD = {
+const ADD = {
   key: "operator.add",
   name: "Add",
   Form: () => null,
@@ -10,7 +24,7 @@ const OPERATOR_ADD = {
   zIndex: 0,
 };
 
-const OPERATOR_SUBTRACT = {
+const SUBTRACT = {
   key: "operator.subtract",
   name: "Subtract",
   Form: () => null,
@@ -20,7 +34,7 @@ const OPERATOR_SUBTRACT = {
   zIndex: 0,
 };
 
-const OPERATOR_MULTIPLY = {
+const MULTIPLY = {
   key: "operator.multiply",
   name: "Multiply",
   Form: () => null,
@@ -30,7 +44,7 @@ const OPERATOR_MULTIPLY = {
   zIndex: 0,
 };
 
-const OPERATOR_DIVIDE = {
+const DIVIDE = {
   key: "operator.divide",
   name: "Divide",
   Form: () => null,
@@ -40,9 +54,108 @@ const OPERATOR_DIVIDE = {
   zIndex: 0,
 };
 
+const GREATER_THAN = {
+  key: "operator.gt",
+  name: "Greater Than",
+  Form: () => null,
+  Symbol: GreaterThan,
+  Preview: GreaterThan,
+  defaultProps: () => ({}),
+  zIndex: 0,
+};
+
+const LESS_THAN = {
+  key: "operator.lt",
+  name: "Less Than",
+  Form: () => null,
+  Symbol: LessThan,
+  Preview: LessThan,
+  defaultProps: () => ({}),
+  zIndex: 0,
+};
+
+const EQUAL = {
+  key: "operator.eq",
+  name: "Equal",
+  Form: () => null,
+  Symbol: Equal,
+  Preview: Equal,
+  defaultProps: () => ({}),
+  zIndex: 0,
+};
+
+const NOT_EQUAL = {
+  key: "operator.ne",
+  name: "Not Equal",
+  Form: () => null,
+  Symbol: NotEqual,
+  Preview: NotEqual,
+  defaultProps: () => ({}),
+  zIndex: 0,
+};
+
+const GREATER_THAN_OR_EQUAL = {
+  key: "operator.ge",
+  name: "Greater Than or Equal",
+  Form: () => null,
+  Symbol: GreaterThanOrEqual,
+  Preview: GreaterThanOrEqual,
+  defaultProps: () => ({}),
+  zIndex: 0,
+};
+
+const LESS_THAN_OR_EQUAL = {
+  key: "operator.le",
+  name: "Less Than or Equal",
+  Form: () => null,
+  Symbol: LessThanOrEqual,
+  Preview: LessThanOrEqual,
+  defaultProps: () => ({}),
+  zIndex: 0,
+};
+
+const AND = {
+  key: "operator.and",
+  name: "And",
+  Form: () => null,
+  Symbol: And,
+  Preview: And,
+  defaultProps: () => ({}),
+  zIndex: 0,
+};
+
+const OR = {
+  key: "operator.or",
+  name: "Or",
+  Form: () => null,
+  Symbol: Or,
+  Preview: Or,
+  defaultProps: () => ({}),
+  zIndex: 0,
+};
+
+const NOT = {
+  key: "operator.not",
+  name: "Not",
+  Form: () => null,
+  Symbol: Not,
+  Preview: Not,
+  defaultProps: () => ({}),
+  zIndex: 0,
+};
+
 export const REGISTRY = {
-  [OPERATOR_ADD.key]: OPERATOR_ADD,
-  [OPERATOR_SUBTRACT.key]: OPERATOR_SUBTRACT,
-  [OPERATOR_MULTIPLY.key]: OPERATOR_MULTIPLY,
-  [OPERATOR_DIVIDE.key]: OPERATOR_DIVIDE,
+  [ADD.key]: ADD,
+  [SUBTRACT.key]: SUBTRACT,
+  [MULTIPLY.key]: MULTIPLY,
+  [DIVIDE.key]: DIVIDE,
+  [GREATER_THAN.key]: GREATER_THAN,
+  [LESS_THAN.key]: LESS_THAN,
+  [EQUAL.key]: EQUAL,
+  [NOT_EQUAL.key]: NOT_EQUAL,
+  [GREATER_THAN_OR_EQUAL.key]: GREATER_THAN_OR_EQUAL,
+  [LESS_THAN_OR_EQUAL.key]: LESS_THAN_OR_EQUAL,
+  [AND.key]: AND,
+  [OR.key]: OR,
+  [NOT.key]: NOT,
 };

@@ -24,23 +24,18 @@ type constant struct {
 	value spec.Value
 }
 
-func newConstant(
-	_ context.Context,
-	p *plumber.Pipeline,
-	_ spec.Config,
-	node spec.Node,
-) (bool, error) {
-	if node.Type != spec.ConstantType {
+func newConstant(_ context.Context, cfg factoryConfig) (bool, error) {
+	if cfg.node.Type != spec.ConstantType {
 		return false, nil
 	}
-	value := node.Data["value"]
+	value := cfg.node.Data["value"]
 	c := &constant{
 		value: spec.Value{
-			DataType: string(node.Schema.Data["value"].Type),
+			DataType: string(cfg.node.Schema.Data["value"].Type),
 			Value:    value,
 		},
 	}
-	plumber.SetSource[spec.Value](p, address.Address(node.Key), c)
+	plumber.SetSource[spec.Value](cfg.pipeline, address.Address(cfg.node.Key), c)
 	return true, nil
 }
 

@@ -14,9 +14,11 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/synnax/pkg/service/slate"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -26,16 +28,18 @@ import (
 
 // ServiceConfig is the configuration for opening the effect service.
 type ServiceConfig struct {
+	alamos.Instrumentation
 	// DB is the database that the effect service will store effects in.
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between effects and other entities in
 	// the Synnax resource graph.
 	// [REQUIRED]
-	Ontology *ontology.Ontology
-	Framer   *framer.Service
-	Slate    *slate.Service
-	Channel  channel.Service
+	Ontology   *ontology.Ontology
+	Framer     *framer.Service
+	Slate      *slate.Service
+	Channel    channel.Service
+	Annotation *annotation.Service
 }
 
 var (
@@ -51,6 +55,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Slate = override.Nil(c.Slate, other.Slate)
+	c.Annotation = override.Nil(c.Annotation, other.Annotation)
 	return c
 }
 
@@ -62,6 +67,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "slate", c.Slate)
 	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "annotation", c.Annotation)
 	return v.Error()
 }
 

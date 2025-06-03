@@ -4,7 +4,7 @@ import { type Spec } from "@/vis/slate/symbols/types/spec";
 
 export const SPEC: Spec<Config> = {
   key: "annotation.create",
-  name: "Create",
+  name: "Create Annotation",
   zIndex: 100,
   Form,
   Symbol,

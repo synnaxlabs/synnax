@@ -52,8 +52,9 @@ func (s *Service) handleChange(
 			return
 		}
 		specCfg := spec.Config{
-			Channel: s.cfg.Channel,
-			Framer:  s.cfg.Framer,
+			Channel:    s.cfg.Channel,
+			Framer:     s.cfg.Framer,
+			Annotation: s.cfg.Annotation,
 		}
 		if _, err := spec.Validate(ctx, specCfg, slt.Graph); err != nil {
 			fmt.Println(err)
@@ -64,7 +65,7 @@ func (s *Service) handleChange(
 			fmt.Println(err)
 			return
 		}
-		sCtx, cancel := signal.Isolated()
+		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation.Child(fmt.Sprintf("%s<%s>", e.Value.Name, e.Value.Key))))
 		cfs.Flow(sCtx)
 		s.mu.entries[e.Key] = &entry{shutdown: signal.NewHardShutdown(sCtx, cancel)}
 	}

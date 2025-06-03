@@ -193,17 +193,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(l.Slate) {
 		return nil, err
 	}
-	if l.Effect, err = effect.OpenService(
-		ctx,
-		effect.ServiceConfig{
-			DB:       l.DB,
-			Ontology: cfg.Distribution.Ontology,
-			Framer:   cfg.Distribution.Framer,
-			Slate:    l.Slate,
-			Channel:  cfg.Distribution.Channel,
-		}); !ok(l.Effect) {
-		return nil, err
-	}
 	if l.Annotation, err = annotation.OpenService(
 		ctx,
 		annotation.ServiceConfig{
@@ -214,6 +203,20 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(l.Annotation) {
 		return nil, err
 	}
+	if l.Effect, err = effect.OpenService(
+		ctx,
+		effect.ServiceConfig{
+			DB:              l.DB,
+			Ontology:        cfg.Distribution.Ontology,
+			Framer:          cfg.Distribution.Framer,
+			Slate:           l.Slate,
+			Channel:         cfg.Distribution.Channel,
+			Annotation:      l.Annotation,
+			Instrumentation: cfg.Instrumentation.Child("effect"),
+		}); !ok(l.Effect) {
+		return nil, err
+	}
+
 	return l, nil
 }
 
