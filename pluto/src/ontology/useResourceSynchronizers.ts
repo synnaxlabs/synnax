@@ -9,14 +9,14 @@
 
 import { ontology } from "@synnaxlabs/client";
 
-import { Synch } from "@/synch";
+import { Sync } from "@/sync";
 
 const parseID = (str: string): ontology.ID => new ontology.ID(str);
 
 export const useResourceSetSynchronizer = (onSet: (id: ontology.ID) => void): void =>
-  Synch.useStringListener(ontology.RESOURCE_SET_CHANNEL_NAME, parseID, onSet);
+  Sync.useStringListener(ontology.RESOURCE_SET_CHANNEL_NAME, parseID, onSet);
 
 export const useResourceDeleteSynchronizer = (
   onDelete: (id: ontology.ID) => void,
 ): void =>
-  Synch.useStringListener(ontology.RESOURCE_DELETE_CHANNEL_NAME, parseID, onDelete);
+  Sync.useStringListener(ontology.RESOURCE_DELETE_CHANNEL_NAME, parseID, onDelete);

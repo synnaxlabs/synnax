@@ -9,7 +9,7 @@
 
 import { ranger } from "@synnaxlabs/client";
 
-import { Synch } from "@/synch";
+import { Sync } from "@/sync";
 
 export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void =>
-  Synch.useParsedListener(ranger.DELETE_CHANNEL_NAME, ranger.keyZ, onDelete);
+  Sync.useParsedListener(ranger.DELETE_CHANNEL_NAME, ranger.keyZ, onDelete);

@@ -9,7 +9,7 @@
 
 import { device } from "@synnaxlabs/client";
 
-import { Synch } from "@/synch";
+import { Sync } from "@/sync";
 
 export const useSetSynchronizer = (onSet: (device: device.Device) => void): void =>
-  Synch.useParsedListener(device.SET_CHANNEL_NAME, device.deviceZ, onSet);
+  Sync.useParsedListener(device.SET_CHANNEL_NAME, device.deviceZ, onSet);

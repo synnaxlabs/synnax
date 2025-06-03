@@ -9,12 +9,12 @@
 
 import { ontology } from "@synnaxlabs/client";
 
-import { Synch } from "@/synch";
+import { Sync } from "@/sync";
 
 export const useRelationshipDeleteSynchronizer = (
   onDelete: (relationship: ontology.Relationship) => void,
 ): void =>
-  Synch.useStringListener(
+  Sync.useStringListener(
     ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
     ontology.parseRelationship,
     onDelete,

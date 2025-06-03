@@ -9,7 +9,7 @@
 
 import { createContext } from "react";
 
-import { type ListenerAdder } from "@/synch/types";
+import { type ListenerAdder } from "@/sync/types";
 
 export const Context = createContext<ListenerAdder>(() => {
   throw new Error(

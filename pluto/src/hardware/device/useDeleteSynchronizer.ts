@@ -9,7 +9,7 @@
 
 import { device } from "@synnaxlabs/client";
 
-import { Synch } from "@/synch";
+import { Sync } from "@/sync";
 
 export const useDeleteSynchronizer = (onDelete: (key: device.Key) => void): void =>
-  Synch.useParsedListener(device.DELETE_CHANNEL_NAME, device.keyZ, onDelete);
+  Sync.useParsedListener(device.DELETE_CHANNEL_NAME, device.keyZ, onDelete);

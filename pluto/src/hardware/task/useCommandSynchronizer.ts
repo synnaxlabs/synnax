@@ -9,8 +9,8 @@
 
 import { task } from "@synnaxlabs/client";
 
-import { Synch } from "@/synch";
+import { Sync } from "@/sync";
 
 export const useCommandSynchronizer = (
   onUpdate: (command: task.Command) => void,
-): void => Synch.useParsedListener(task.COMMAND_CHANNEL_NAME, task.commandZ, onUpdate);
+): void => Sync.useParsedListener(task.COMMAND_CHANNEL_NAME, task.commandZ, onUpdate);

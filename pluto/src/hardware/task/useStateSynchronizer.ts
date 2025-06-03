@@ -9,7 +9,7 @@
 
 import { task } from "@synnaxlabs/client";
 
-import { Synch } from "@/synch";
+import { Sync } from "@/sync";
 
 export const useStateSynchronizer = (onUpdate: (state: task.State) => void): void =>
-  Synch.useParsedListener(task.STATE_CHANNEL_NAME, task.stateZ, onUpdate);
+  Sync.useParsedListener(task.STATE_CHANNEL_NAME, task.stateZ, onUpdate);

@@ -50,7 +50,7 @@ export { Select } from "@/select";
 export { state } from "@/state";
 export { Status } from "@/status";
 export { Steps } from "@/steps";
-export { Synch } from "@/synch";
+export { Sync } from "@/sync";
 export { Synnax } from "@/synnax";
 export { Table } from "@/table";
 export { TableCells } from "@/table/cells";

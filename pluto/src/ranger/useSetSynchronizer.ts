@@ -9,7 +9,7 @@
 
 import { ranger } from "@synnaxlabs/client";
 
-import { Synch } from "@/synch";
+import { Sync } from "@/sync";
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void =>
-  Synch.useParsedListener(ranger.SET_CHANNEL_NAME, ranger.payloadZ, onSet);
+  Sync.useParsedListener(ranger.SET_CHANNEL_NAME, ranger.payloadZ, onSet);

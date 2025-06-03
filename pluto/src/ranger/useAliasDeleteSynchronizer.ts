@@ -9,12 +9,12 @@
 
 import { ranger } from "@synnaxlabs/client";
 
-import { Synch } from "@/synch";
+import { Sync } from "@/sync";
 
 export const useAliasDeleteSynchronizer = (
   onDelete: (alias: ranger.DecodedDeleteAliasChange) => void,
 ): void =>
-  Synch.useStringListener(
+  Sync.useStringListener(
     ranger.DELETE_ALIAS_CHANNEL_NAME,
     ranger.decodeDeleteAliasChange,
     onDelete,

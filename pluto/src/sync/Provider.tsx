@@ -13,8 +13,8 @@ import { type PropsWithChildren, useCallback, useRef } from "react";
 
 import { useAsyncEffect } from "@/hooks";
 import { Status } from "@/status";
-import { Context } from "@/synch/Context";
-import { type FrameHandler, type ListenerAdder } from "@/synch/types";
+import { Context } from "@/sync/Context";
+import { type FrameHandler, type ListenerAdder } from "@/sync/types";
 import { Synnax } from "@/synnax";
 
 export interface ProviderProps extends PropsWithChildren {}

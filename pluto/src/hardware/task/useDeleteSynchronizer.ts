@@ -9,7 +9,7 @@
 
 import { task } from "@synnaxlabs/client";
 
-import { Synch } from "@/synch";
+import { Sync } from "@/sync";
 
 export const useDeleteSynchronizer = (onDelete: (key: task.Key) => void): void =>
-  Synch.useParsedListener(task.DELETE_CHANNEL_NAME, task.keyZ, onDelete);
+  Sync.useParsedListener(task.DELETE_CHANNEL_NAME, task.keyZ, onDelete);

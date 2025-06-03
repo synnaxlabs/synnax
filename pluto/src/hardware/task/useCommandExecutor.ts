@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/x";
 import { useEffect, useRef, useState } from "react";
 
-import { Synch } from "@/synch";
+import { Sync } from "@/sync";
 import { Synnax } from "@/synnax";
 
 interface CommandExecutorParams {
@@ -68,7 +68,7 @@ export const useCommandExecutor = (): UseCommandExecutorReturn => {
       setKey(null);
     }, timeout.milliseconds);
   };
-  const addListener = Synch.useAddListener();
+  const addListener = Sync.useAddListener();
   useEffect(() => {
     if (key == null) return;
     return addListener({

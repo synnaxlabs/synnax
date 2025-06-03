@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/synch/Provider";
-export * from "@/synch/types";
-export * from "@/synch/useAddListener";
-export * from "@/synch/useListener";
-export * from "@/synch/useParsedListener";
-export * from "@/synch/useStringListener";
+export { useAddListener } from "@/sync/Context";
+export * from "@/sync/listeners";
+export * from "@/sync/Provider";
+export * from "@/sync/types";

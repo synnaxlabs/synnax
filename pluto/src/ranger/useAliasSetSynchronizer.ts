@@ -9,7 +9,7 @@
 
 import { ranger } from "@synnaxlabs/client";
 
-import { Synch } from "@/synch";
+import { Sync } from "@/sync";
 
 export const useAliasSetSynchronizer = (onSet: (alias: ranger.Alias) => void): void =>
-  Synch.useParsedListener(ranger.SET_ALIAS_CHANNEL_NAME, ranger.aliasZ, onSet);
+  Sync.useParsedListener(ranger.SET_ALIAS_CHANNEL_NAME, ranger.aliasZ, onSet);

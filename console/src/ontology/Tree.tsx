@@ -13,7 +13,7 @@ import {
   Menu,
   type state,
   Status,
-  Synch,
+  Sync,
   Synnax,
   Tree as Core,
   useAsyncEffect,
@@ -214,7 +214,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     [client, store, placeLayout, removeLayout, services, addStatus, handleError],
   );
 
-  const addListener = Synch.useAddListener();
+  const addListener = Sync.useAddListener();
 
   // Processes incoming changes to the ontology from the cluster
   useAsyncEffect(async () => {
