@@ -30,7 +30,6 @@ import {
 
 import { type Align } from "@/align";
 import { Button as CoreButton } from "@/button";
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Text } from "@/text";
@@ -272,14 +271,13 @@ const InternalSVG = ({
   dims = dir === "y" ? dimensions.swap(dims) : dims;
   const colorStr = color.cssString(colorVal);
   const theme = Theming.use();
-  if (color != null) {
+  if (colorVal != null) {
     // @ts-expect-error - css variables
-    style[CSS.var("symbol-color")] = new Color.Color(color).rgbString;
+    style[CSS.var("symbol-color")] = color.rgbString(colorVal);
     // @ts-expect-error - css variables
-    style[CSS.var("symbol-color-contrast")] = new Color.Color(color).pickByContrast(
-      theme.colors.gray.l0,
-      theme.colors.gray.l11,
-    ).rgbString;
+    style[CSS.var("symbol-color-contrast")] = color.rgbString(
+      color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
+    );
   }
   return (
     <svg
