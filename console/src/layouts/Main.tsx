@@ -71,7 +71,6 @@ const SideEffect = (): null => {
   Workspace.useSyncLayout();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
-  Ontology.useRelationshipSetSynchronizer(console.log);
   Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
   Permissions.useFetchPermissions();
   Layout.useDropOutside();
