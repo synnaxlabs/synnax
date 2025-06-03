@@ -11,9 +11,11 @@ import { ontology } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
 import { useAsyncEffect } from "@/hooks";
-import { useRelationshipDeleteSynchronizer } from "@/ontology/useRelationshipDeleteSynchronizer";
-import { useRelationshipSetSynchronizer } from "@/ontology/useRelationshipSetSynchronizer";
-import { useResourceSetSynchronizer } from "@/ontology/useResourceSynchronizers";
+import {
+  useRelationshipDeleteSynchronizer,
+  useRelationshipSetSynchronizer,
+  useResourceSetSynchronizer,
+} from "@/ontology/synchronizers";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 

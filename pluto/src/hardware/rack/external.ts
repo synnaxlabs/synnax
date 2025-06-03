@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/hardware/rack/Select";
-export * from "@/hardware/rack/useStateSynchronizer";
+export * from "@/hardware/rack/synchronizers";

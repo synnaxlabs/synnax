@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/ontology/synchronizers";
 export * from "@/ontology/useChildren";
 export * from "@/ontology/useParents";
-export * from "@/ontology/useRelationshipDeleteSynchronizer";
-export * from "@/ontology/useRelationshipSetSynchronizer";
-export * from "@/ontology/useResourceSynchronizers";

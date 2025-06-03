@@ -11,8 +11,7 @@ import { type label, ontology } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
 import { useAsyncEffect } from "@/hooks";
-import { useDeleteSynchronizer } from "@/label/useDeleteSynchronizer";
-import { useSetSynchronizer } from "@/label/useSetSynchronizer";
+import { useDeleteSynchronizer, useSetSynchronizer } from "@/label/synchronizers";
 import { Ontology } from "@/ontology";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";

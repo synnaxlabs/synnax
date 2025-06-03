@@ -13,3 +13,6 @@ import { Sync } from "@/sync";
 
 export const useDeleteSynchronizer = (onDelete: (key: label.Key) => void): void =>
   Sync.useParsedListener(label.DELETE_CHANNEL_NAME, label.keyZ, onDelete);
+
+export const useSetSynchronizer = (onSet: (label: label.Label) => void): void =>
+  Sync.useParsedListener(label.SET_CHANNEL_NAME, label.labelZ, onSet);

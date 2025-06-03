@@ -19,4 +19,4 @@ export * from "@/channel/AliasInput";
 export * from "@/channel/AliasProvider";
 export * from "@/channel/LinePlot";
 export * from "@/channel/Select";
-export * from "@/channel/useCalculationStateSynchronizer";
+export * from "@/channel/synchronizers";

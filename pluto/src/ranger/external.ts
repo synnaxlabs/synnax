@@ -9,10 +9,7 @@
 
 export * from "@/ranger/Select";
 export * from "@/ranger/SelectLabel";
+export * from "@/ranger/synchronizers";
 export * from "@/ranger/TimeRangeChip";
 export * from "@/ranger/types";
-export * from "@/ranger/useAliasDeleteSynchronizer";
-export * from "@/ranger/useAliasSetSynchronizer";
-export * from "@/ranger/useDeleteSynchronizer";
 export * from "@/ranger/useParent";
-export * from "@/ranger/useSetSynchronizer";
