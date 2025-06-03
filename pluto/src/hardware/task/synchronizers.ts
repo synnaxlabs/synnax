@@ -12,11 +12,13 @@ import { task } from "@synnaxlabs/client";
 import { Sync } from "@/sync";
 
 export const useCommandSynchronizer = (
-  onCommand: (command: task.Command) => void,
-): void => Sync.useParsedListener(task.COMMAND_CHANNEL_NAME, task.commandZ, onCommand);
+  onCommandUpdate: (command: task.Command) => void,
+): void =>
+  Sync.useParsedListener(task.COMMAND_CHANNEL_NAME, task.commandZ, onCommandUpdate);
 
-export const useStateSynchronizer = (onChange: (state: task.State) => void): void =>
-  Sync.useParsedListener(task.STATE_CHANNEL_NAME, task.stateZ, onChange);
+export const useStateSynchronizer = (
+  onStateUpdate: (state: task.State) => void,
+): void => Sync.useParsedListener(task.STATE_CHANNEL_NAME, task.stateZ, onStateUpdate);
 
 export const useSetSynchronizer = (onSet: (key: task.Key) => void): void =>
   Sync.useParsedListener(task.SET_CHANNEL_NAME, task.keyZ, onSet);

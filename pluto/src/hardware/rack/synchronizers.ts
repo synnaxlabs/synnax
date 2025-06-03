@@ -11,5 +11,6 @@ import { rack } from "@synnaxlabs/client";
 
 import { Sync } from "@/sync";
 
-export const useStateSynchronizer = (onChange: (state: rack.State) => void): void =>
-  Sync.useParsedListener(rack.STATE_CHANNEL_NAME, rack.stateZ, onChange);
+export const useStateSynchronizer = (
+  onStateChange: (state: rack.State) => void,
+): void => Sync.useParsedListener(rack.STATE_CHANNEL_NAME, rack.stateZ, onStateChange);
