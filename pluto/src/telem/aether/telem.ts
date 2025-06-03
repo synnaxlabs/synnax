@@ -218,7 +218,7 @@ export class MultiSourceTransformer<I, O, P extends z.ZodType>
   value(): O {
     const values = Object.fromEntries(
       Object.entries(this.sources).map(([id, source]) => [id, source.value()]),
-    ) as Record<string, I>;
+    );
     return this.transform(values);
   }
 
