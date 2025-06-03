@@ -23,13 +23,13 @@ import (
 const metaFile = "meta.json"
 
 // ErrIgnoreChannel lets callers know that this channel is no longer valid and should
-// be ignored when opening a DB.
+// be ignored when opening a KV.
 var ErrIgnoreChannel = errors.New("channel should be ignored")
 
 // Open reads the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. If the file does not exist, it will be created. If
 // the file does exist, it will be read and returned. The provided channel should have
-// all fields required by the DB correctly set.
+// all fields required by the KV correctly set.
 func Open(ctx context.Context, fs xfs.FS, ch core.Channel, codec binary.Codec) (core.Channel, error) {
 	exists, err := fs.Exists(metaFile)
 	if err != nil {
@@ -80,7 +80,7 @@ func Read(ctx context.Context, fs xfs.FS, codec binary.Codec) (core.Channel, err
 
 // Create creates the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. The provided channel should have all fields
-// required by the DB correctly set.
+// required by the KV correctly set.
 func Create(ctx context.Context, fs xfs.FS, codec binary.Codec, ch core.Channel) error {
 	if err := ch.Validate(); err != nil {
 		return err

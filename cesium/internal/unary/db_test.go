@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("DB Metadata Operations", func() {
+var _ = Describe("KV Metadata Operations", func() {
 	for fsName, makeFS := range fileSystems {
 		var (
 			fs         xfs.FS
@@ -100,7 +100,7 @@ var _ = Describe("DB Metadata Operations", func() {
 					Expect(dataDB.Close()).To(Succeed())
 				})
 
-				Describe("Index Channel", func() {
+				Describe("Index Channels", func() {
 					It("Should set the index channel to a new key", func() {
 						newIndexKey := testutil.GenerateChannelKey()
 						Expect(indexDB.Channel().Key).ToNot(Equal(newIndexKey))
@@ -119,7 +119,7 @@ var _ = Describe("DB Metadata Operations", func() {
 					})
 				})
 
-				Describe("Data Channel", func() {
+				Describe("Data Channels", func() {
 					It("Should set the data channel to a new key", func() {
 						newIndexKey := testutil.GenerateChannelKey()
 						Expect(dataDB.SetIndexKeyInMeta(ctx, newIndexKey)).To(Succeed())
@@ -162,7 +162,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			}))
 		})
 
-		It("Should return an error when methods are called on a closed DB", func() {
+		It("Should return an error when methods are called on a closed KV", func() {
 
 			Expect(db.Close()).To(Succeed())
 			Expect(db.RenameChannelInMeta(ctx, "new_name")).To(HaveOccurredAs(unary.ErrDBClosed))
@@ -179,7 +179,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			Expect(err).To(HaveOccurredAs(unary.ErrDBClosed))
 		})
 
-		It("Should return an error when a DB is closed while writers are still accessing it", func() {
+		It("Should return an error when a KV is closed while writers are still accessing it", func() {
 			db := MustSucceed(unary.Open(ctx, unary.Config{
 				FS:        xfs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},

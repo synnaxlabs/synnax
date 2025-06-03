@@ -57,7 +57,7 @@ type ChannelService struct {
 func NewChannelService(p Provider) *ChannelService {
 	return &ChannelService{
 		accessProvider: p.access,
-		internal:       p.Distribution.Channel,
+		internal:       p.Distribution.Channels,
 		ranger:         p.Service.Ranger,
 		dbProvider:     p.db,
 	}

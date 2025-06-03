@@ -34,7 +34,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				"localhost:22546",
 				[]aspen.Address{},
 				aspen.Bootstrap(),
-				aspen.MemBacked(),
+				aspen.InMemory(),
 			)
 
 			By("Opening without error")
@@ -59,7 +59,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				"",
 				addr1,
 				[]aspen.Address{"localhost:22547"},
-				aspen.MemBacked(),
+				aspen.InMemory(),
 				aspen.Bootstrap(),
 			)
 			defer func() { Expect(db.Close()).To(Succeed()) }()
@@ -86,7 +86,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					"",
 					addr1,
 					[]aspen.Address{addr2},
-					aspen.MemBacked(),
+					aspen.InMemory(),
 				)
 				defer func() { Expect(db.Close()).To(Succeed()) }()
 
@@ -101,7 +101,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				"",
 				addr2,
 				[]aspen.Address{},
-				aspen.MemBacked(),
+				aspen.InMemory(),
 				aspen.Bootstrap(),
 			)
 
@@ -133,7 +133,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				go func(i int) {
 					defer GinkgoRecover()
 					defer wg.Done()
-					opts := []aspen.Option{aspen.MemBacked()}
+					opts := []aspen.Option{aspen.InMemory()}
 					if i == 0 {
 						opts = append(opts, aspen.Bootstrap())
 					}

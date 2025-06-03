@@ -15,25 +15,29 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Delete", Ordered, func() {
 	var (
-		services map[core.NodeKey]channel.Service
-		builder  *mock.CoreBuilder
-		limit    int
+		mockCluster *mock.Cluster
+		limit       int
 	)
-	BeforeAll(func() { builder, services, limit = provisionServices() })
-	AfterAll(func() {
-		Expect(builder.Close()).To(Succeed())
-		Expect(builder.Cleanup()).To(Succeed())
+	BeforeAll(func() {
+		limit = 5
+		mockCluster = mock.ProvisionCluster(ctx, 2)
+		mockCluster.Provision(ctx, distribution.Config{
+			TestingIntOverflowCheck: channel.FixedOverflowChecker(limit),
+		})
 	})
-	Describe("Channel Deletion", func() {
-		Context("Single Channel", func() {
+	AfterAll(func() {
+		Expect(mockCluster.Close()).To(Succeed())
+	})
+	Describe("Channels Deletion", func() {
+		Context("Single Channels", func() {
 			var (
 				idxCh, ch channel.Channel
 			)
@@ -41,11 +45,11 @@ var _ = Describe("Delete", Ordered, func() {
 				idxCh.Name = "SG01_time"
 				idxCh.DataType = telem.TimeStampT
 				idxCh.IsIndex = true
-				Expect(services[1].Create(ctx, &idxCh)).To(Succeed())
+				Expect(mockCluster.Nodes[1].Channels.Create(ctx, &idxCh)).To(Succeed())
 				ch.Name = "SG01"
 				ch.DataType = telem.Float64T
 				ch.LocalIndex = idxCh.LocalKey
-				Expect(services[1].Create(ctx, &ch)).To(Succeed())
+				Expect(mockCluster.Nodes[1].Channels.Create(ctx, &ch)).To(Succeed())
 			})
 			Context("Node is local", func() {
 				BeforeEach(func() {
@@ -53,20 +57,20 @@ var _ = Describe("Delete", Ordered, func() {
 					ch.Leaseholder = 1
 				})
 				It("Should not allow deletion of index channel with dependent channels", func() {
-					Expect(services[1].Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
+					Expect(mockCluster.Nodes[1].Channels.Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
 				})
 				It("Should delete the channel without error", func() {
-					Expect(services[1].DeleteMany(ctx, channel.Keys{idxCh.Key(), ch.Key()}, true)).To(Succeed())
+					Expect(mockCluster.Nodes[1].Channels.DeleteMany(ctx, channel.Keys{idxCh.Key(), ch.Key()}, true)).To(Succeed())
 				})
 				It("Should not be able to retrieve the channel after deletion", func() {
-					Expect(services[1].Delete(ctx, ch.Key(), true)).To(Succeed())
-					exists, err := services[1].NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil)
+					Expect(mockCluster.Nodes[1].Channels.Delete(ctx, ch.Key(), true)).To(Succeed())
+					exists, err := mockCluster.Nodes[1].Channels.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(exists).To(BeFalse())
 				})
-				It("Should not be able to retrieve the channel from the storage DB", func() {
-					Expect(services[1].Delete(ctx, ch.Key(), true)).To(Succeed())
-					channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
+				It("Should not be able to retrieve the channel from the storage KV", func() {
+					Expect(mockCluster.Nodes[1].Channels.Delete(ctx, ch.Key(), true)).To(Succeed())
+					channels, err := mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 					Expect(channels).To(BeEmpty())
 				})
@@ -78,25 +82,25 @@ var _ = Describe("Delete", Ordered, func() {
 					ch.Leaseholder = 2
 				})
 				It("Should not allow deletion of index channel with dependent channels", func() {
-					Expect(services[1].Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
+					Expect(mockCluster.Nodes[1].Channels.Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
 				})
 				It("Should delete the channel without error", func() {
-					Expect(services[1].DeleteMany(ctx, []channel.Key{idxCh.Key(), ch.Key()}, true)).To(Succeed())
+					Expect(mockCluster.Nodes[1].Channels.DeleteMany(ctx, []channel.Key{idxCh.Key(), ch.Key()}, true)).To(Succeed())
 				})
 				It("Should not be able to retrieve the channel after deletion", func() {
-					Expect(services[1].Delete(ctx, ch.Key(), true)).To(Succeed())
-					exists, err := services[2].NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil)
+					Expect(mockCluster.Nodes[1].Channels.Delete(ctx, ch.Key(), true)).To(Succeed())
+					exists, err := mockCluster.Nodes[2].Channels.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(exists).To(BeFalse())
 					Eventually(func(g Gomega) {
-						exists, err = services[1].NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil)
+						exists, err = mockCluster.Nodes[1].Channels.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil)
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(exists).To(BeFalse())
 					}).Should(Succeed())
 				})
-				It("Should not be able to retrieve the channel from the storage DB", func() {
-					Expect(services[1].Delete(ctx, ch.Key(), true)).To(Succeed())
-					channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
+				It("Should not be able to retrieve the channel from the storage KV", func() {
+					Expect(mockCluster.Nodes[1].Channels.Delete(ctx, ch.Key(), true)).To(Succeed())
+					channels, err := mockCluster.Nodes[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 					Expect(channels).To(BeEmpty())
 				})
@@ -104,7 +108,7 @@ var _ = Describe("Delete", Ordered, func() {
 		})
 	})
 
-	Context("Channel Limit", func() {
+	Context("Channels Limit", func() {
 
 		It("Should allow creating channels after deleting some to stay under the limit", func() {
 			// Create channels up to the limit
@@ -114,9 +118,9 @@ var _ = Describe("Delete", Ordered, func() {
 					IsIndex:     true,
 					DataType:    telem.TimeStampT,
 					Name:        fmt.Sprintf("LimitTest%d", i),
-					Leaseholder: 1,
+					Leaseholder: 3,
 				}
-				Expect(services[3].Create(ctx, &ch)).To(Succeed())
+				Expect(mockCluster.Nodes[3].Channels.Create(ctx, &ch)).To(Succeed())
 				channels[i] = ch
 			}
 
@@ -125,14 +129,14 @@ var _ = Describe("Delete", Ordered, func() {
 				IsIndex:     true,
 				DataType:    telem.TimeStampT,
 				Name:        "OverLimit",
-				Leaseholder: 1,
+				Leaseholder: 3,
 			}
-			err := services[3].Create(ctx, &overLimitCh)
+			err := mockCluster.Nodes[3].Channels.Create(ctx, &overLimitCh)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
 
 			// Delete one channel
-			writer := services[3].NewWriter(nil)
+			writer := mockCluster.Nodes[3].Channels.NewWriter(nil)
 			Expect(writer.Delete(ctx, channels[0].Key(), false)).To(Succeed())
 
 			// Now we should be able to create a new channel
@@ -140,18 +144,18 @@ var _ = Describe("Delete", Ordered, func() {
 				IsIndex:     true,
 				DataType:    telem.TimeStampT,
 				Name:        "NewAfterDelete",
-				Leaseholder: 1,
+				Leaseholder: 3,
 			}
-			Expect(services[3].Create(ctx, &newCh)).To(Succeed())
+			Expect(mockCluster.Nodes[3].Channels.Create(ctx, &newCh)).To(Succeed())
 
 			// Try to create one more channel (should fail again)
 			anotherCh := channel.Channel{
 				IsIndex:     true,
 				DataType:    telem.TimeStampT,
 				Name:        "AnotherOverLimit",
-				Leaseholder: 1,
+				Leaseholder: 3,
 			}
-			err = services[3].Create(ctx, &anotherCh)
+			err = mockCluster.Nodes[3].Channels.Create(ctx, &anotherCh)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
 		})

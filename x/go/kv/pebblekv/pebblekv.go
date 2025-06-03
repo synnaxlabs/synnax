@@ -12,7 +12,7 @@
 // information.
 
 // Package pebblekv implements a wrapper around cockroachdb's pebble storage engine that implements
-// the kv.db interface. To use it, open a new pebble.DB and call Wrap() to wrap it.
+// the kv.db interface. To use it, open a new pebble.KV and call Wrap() to wrap it.
 package pebblekv
 
 import (
@@ -48,7 +48,7 @@ func parseOpts(opts []any) *pebble.WriteOptions {
 	return defaultWriteOpts
 }
 
-// Wrap wraps a pebble.DB to satisfy the kv.db interface.
+// Wrap wraps a pebble.KV to satisfy the kv.db interface.
 func Wrap(db_ *pebble.DB) kv.DB {
 	return &db{DB: db_, Observer: observe.New[kv.TxReader]()}
 }

@@ -11,7 +11,8 @@ package writer
 
 import (
 	"github.com/synnaxlabs/freighter"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
@@ -56,7 +57,7 @@ type Response struct {
 	// correspond to the Request.SeqNum that executed the command.
 	SeqNum int `json:"seq_num" msgpack:"seq_num"`
 	// The NodeKey of the node that sent the response.
-	NodeKey dcore.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
 	// End is the end timestamp of the domain on commit. This value is only
 	// validate during calls to WriterCommit.
 	End telem.TimeStamp `json:"end" msgpack:"end"`

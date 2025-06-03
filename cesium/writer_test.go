@@ -103,7 +103,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.Channel{Key: basic1Index, Name: "Orwell", IsIndex: true, DataType: telem.TimeStampT},
 							)).To(Succeed())
 
-							By("Writing to the Index Channel")
+							By("Writing to the Index Channels")
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{basic1Index},
 								Start:    10 * telem.SecondTS,
@@ -1208,7 +1208,7 @@ var _ = Describe("Writer Behavior", func() {
 
 			Describe("Open Errors", func() {
 				ShouldNotLeakRoutinesJustBeforeEach()
-				Specify("Channel that does not exist", func() {
+				Specify("Channels that does not exist", func() {
 					_, err := db.OpenWriter(
 						ctx,
 						cesium.WriterConfig{
@@ -1270,7 +1270,7 @@ var _ = Describe("Writer Behavior", func() {
 
 				Context("Missing Channels", func() {
 
-					Specify("Frame With Index Channel but without Data Channel", func() {
+					Specify("Frame With Index Channels but without Data Channels", func() {
 						w := MustSucceed(db.OpenWriter(
 							ctx,
 							cesium.WriterConfig{
@@ -1292,7 +1292,7 @@ var _ = Describe("Writer Behavior", func() {
 								"frame must have exactly one series for each data channel associated with index [uneven 1]<%d>, but is missing a series for channel [uneven 2]<%d>", idx, data))))
 					})
 
-					Specify("Frame With Data Channel but without Index", func() {
+					Specify("Frame With Data Channels but without Index", func() {
 						w := MustSucceed(db.OpenWriter(
 							ctx,
 							cesium.WriterConfig{

@@ -75,7 +75,7 @@ var tsEngines = []TSEngine{CesiumTS}
 // used to read and write data. A Layer must be closed when it is no longer in use.
 type Layer struct {
 	// Config is the configuration for the storage provided to Open.
-	Config
+	cfg Config
 	// KV is the key-value store for the node.
 	KV kv.DB
 	// TS is the time-series engine for the node.
@@ -91,13 +91,13 @@ func (s *Layer) Close() error { return s.closer.Close() }
 // Config is used to configure delta's storage layer.
 type Config struct {
 	alamos.Instrumentation
-	// Dirname defines the root directory the Layer resides. The given directory
-	// shouldn't be used by another process while the node is running.
+	// Dirname defines the root directory the Layer resides. Another process
+	// shouldn't use the given directory while the node is running.
 	Dirname string
 	// Perm is the file permissions to use for the storage directory.
 	Perm fs.FileMode
-	// MemBacked defines whether the node should use a memory-backed file system.
-	MemBacked *bool
+	// InMemory defines whether the node should use a memory-backed file system.
+	InMemory *bool
 	// KVEngine is the key-value engine storage will use.
 	KVEngine KVEngine
 	// TSEngine is the time-series engine storage will use.
@@ -108,10 +108,10 @@ var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig returns the default configuration for the storage layer.
 	DefaultConfig = Config{
-		Perm:      xfs.OS_USER_RWX,
-		MemBacked: config.False(),
-		KVEngine:  PebbleKV,
-		TSEngine:  CesiumTS,
+		Perm:     xfs.OS_USER_RWX,
+		InMemory: config.False(),
+		KVEngine: PebbleKV,
+		TSEngine: CesiumTS,
 	}
 )
 
@@ -121,9 +121,9 @@ func (cfg Config) Override(other Config) Config {
 	cfg.Perm = override.Numeric(cfg.Perm, other.Perm)
 	cfg.KVEngine = override.Numeric(cfg.KVEngine, other.KVEngine)
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
-	cfg.MemBacked = override.Nil(cfg.MemBacked, other.MemBacked)
+	cfg.InMemory = override.Nil(cfg.InMemory, other.InMemory)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	if cfg.MemBacked != nil && *cfg.MemBacked {
+	if cfg.InMemory != nil && *cfg.InMemory {
 		cfg.Dirname = ""
 	}
 	return cfg
@@ -132,9 +132,9 @@ func (cfg Config) Override(other Config) Config {
 // Validate implements Config.
 func (cfg Config) Validate() error {
 	v := validate.New("storage")
-	v.Ternaryf("dirname", !*cfg.MemBacked && cfg.Dirname == "", "dirname must be set")
-	v.Ternaryf("kvEngine", !lo.Contains(kvEngines, cfg.KVEngine), "invalid key-value engine %s", cfg.KVEngine)
-	v.Ternaryf("tsEngine", !lo.Contains(tsEngines, cfg.TSEngine), "invalid time-series engine %s", cfg.TSEngine)
+	v.Ternaryf("dirname", !*cfg.InMemory && cfg.Dirname == "", "dirname must be set")
+	v.Ternaryf("kv_engine", !lo.Contains(kvEngines, cfg.KVEngine), "invalid key-value engine %s", cfg.KVEngine)
+	v.Ternaryf("ts_engne", !lo.Contains(tsEngines, cfg.TSEngine), "invalid time-series engine %s", cfg.TSEngine)
 	v.Ternary("permissions", cfg.Perm == 0, "insufficient permission bits on directory")
 	return v.Error()
 }
@@ -144,7 +144,7 @@ func (cfg Config) Report() alamos.Report {
 	return alamos.Report{
 		"dirname":     cfg.Dirname,
 		"permissions": cfg.Perm,
-		"mem_backed":  cfg.MemBacked,
+		"mem_backed":  cfg.InMemory,
 		"kv_engine":   cfg.KVEngine.String(),
 		"ts_engine":   cfg.TSEngine.String(),
 	}
@@ -154,21 +154,21 @@ func (cfg Config) Report() alamos.Report {
 // specified in the Config. If the lock cannot be acquired, Open returns an error.
 // The lock is released when the Layer is/closed. Layer MUST be closed when it is no
 // longer in use.
-func Open(ctx context.Context, cfg Config) (*Layer, error) {
-	cfg, err := config.New(DefaultConfig, cfg)
+func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	l := &Layer{Config: cfg}
+	l := &Layer{cfg: cfg}
 	cleanup, ok := layer.NewOpener(ctx, &err, &l.closer)
 	defer cleanup()
 
-	if *cfg.MemBacked {
-		l.L.Info("starting with memory-backed storage. no data will be persisted")
+	if *cfg.InMemory {
+		l.cfg.L.Info("starting with memory-backed storage. no data will be persisted")
 	} else {
-		l.L.Info("starting in directory", zap.String("dirname", cfg.Dirname))
+		l.cfg.L.Info("starting in directory", zap.String("dirname", cfg.Dirname))
 	}
-	l.L.Debug("config", cfg.Report().ZapFields()...)
+	l.cfg.L.Debug("config", cfg.Report().ZapFields()...)
 
 	// Open our two file system implementations. We use VFS for acquiring the directory
 	// lock and for the key-value store. We use XFS for the time-series engine, as we
@@ -207,7 +207,7 @@ const (
 )
 
 func openBaseFS(cfg Config) (vfs.FS, xfs.FS) {
-	if *cfg.MemBacked {
+	if *cfg.InMemory {
 		return vfs.NewMem(), xfs.NewMem()
 	} else {
 		return vfs.Default, xfs.Default
@@ -218,7 +218,7 @@ func configureStorageDir(cfg Config, vfs vfs.FS) error {
 	if err := vfs.MkdirAll(cfg.Dirname, cfg.Perm); err != nil {
 		return errors.Wrapf(err, "failed to create storage directory %s", cfg.Dirname)
 	}
-	if !*cfg.MemBacked {
+	if !*cfg.InMemory {
 		return validateSufficientDirPermissions(cfg)
 	}
 	return nil

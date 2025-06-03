@@ -144,7 +144,7 @@ type Writer struct {
 	idx *index.Domain
 	// highWaterMark is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written. Only
-	// valid when Channel.IsIndex is true.
+	// valid when Channels.IsIndex is true.
 	highWaterMark telem.TimeStamp
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.

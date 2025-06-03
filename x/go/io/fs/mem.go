@@ -264,7 +264,7 @@ type memNode struct {
 
 	// Mutable state.
 	// - For a file: data, syncedDate, modTime: A file is only being mutated by a single goroutine,
-	//   but there can be concurrent readers e.g. DB.Checkpoint() which can read WAL or MANIFEST
+	//   but there can be concurrent readers e.g. KV.Checkpoint() which can read WAL or MANIFEST
 	//   files that are being written to. Additionally Sync() calls can be concurrent with writing.
 	// - For a directory: children and syncedChildren. Concurrent writes are possible, and
 	//   these are protected using MemFS.mu.

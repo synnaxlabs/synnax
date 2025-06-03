@@ -18,29 +18,29 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	distribution "github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
-	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/json"
-	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
+distribution
+"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
+"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
+"github.com/synnaxlabs/x/binary"
+"github.com/synnaxlabs/x/change"
+"github.com/synnaxlabs/x/config"
+"github.com/synnaxlabs/x/confluence"
+"github.com/synnaxlabs/x/errors"
+"github.com/synnaxlabs/x/gorp"
+xio "github.com/synnaxlabs/x/io"
+"github.com/synnaxlabs/x/json"
+"github.com/synnaxlabs/x/override"
+"github.com/synnaxlabs/x/query"
+"github.com/synnaxlabs/x/signal"
+"github.com/synnaxlabs/x/status"
+"github.com/synnaxlabs/x/telem"
+"github.com/synnaxlabs/x/validate"
+"go.uber.org/zap"
 )
 
 // RackState is the state of a hardware rack. Unfortunately, we can't put this into the
@@ -405,7 +405,7 @@ func (t *Tracker) Close() error {
 	return t.closer.Close()
 }
 
-// handleTaskChanges handles changes to tasks in the DB.
+// handleTaskChanges handles changes to tasks in the KV.
 func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Key, task.Task]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -464,7 +464,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 	}
 }
 
-// handleRackChanges handles changes to racks in the DB.
+// handleRackChanges handles changes to racks in the KV.
 func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Key, rack.Rack]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -643,7 +643,7 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 	}
 }
 
-// handleDeviceChanges handles changes to devices in the DB.
+// handleDeviceChanges handles changes to devices in the KV.
 func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[string, device.Device]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

@@ -11,7 +11,8 @@ package deleter
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -25,7 +26,7 @@ type Service struct {
 }
 
 type ServiceConfig struct {
-	HostResolver  core.HostResolver
+	HostResolver  cluster.HostResolver
 	ChannelReader channel.Readable
 	TSChannel     *ts.DB
 	Transport     Transport
@@ -34,11 +35,11 @@ type ServiceConfig struct {
 var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (c ServiceConfig) Validate() error {
-	v := validate.New("distribution.framer.Deleter")
-	validate.NotNil(v, "HostProvider", c.HostResolver)
-	validate.NotNil(v, "TSChannel", c.TSChannel)
-	validate.NotNil(v, "AspenTransport", c.Transport)
-	validate.NotNil(v, "Channels", c.ChannelReader)
+	v := validate.New("distribution.framer.deleter")
+	validate.NotNil(v, "host_resolver", c.HostResolver)
+	validate.NotNil(v, "ts_channel", c.TSChannel)
+	validate.NotNil(v, "aspen_transport", c.Transport)
+	validate.NotNil(v, "channels", c.ChannelReader)
 	return v.Error()
 }
 
@@ -65,10 +66,10 @@ func New(configs ...ServiceConfig) (*Service, error) {
 		proxy:         proxy,
 		channelReader: cfg.ChannelReader,
 	}
-	s.Deleter = s.NewDeleter()
+	s.Deleter = s.New()
 	return s, nil
 }
 
-func (s *Service) NewDeleter() Deleter {
+func (s *Service) New() Deleter {
 	return Deleter{proxy: s.proxy, channelReader: s.channelReader}
 }

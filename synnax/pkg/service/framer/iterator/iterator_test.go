@@ -26,15 +26,15 @@ import (
 
 var _ = Describe("StreamIterator", Ordered, func() {
 	var (
-		builder     = mock.NewBuilder()
+		builder     = mock.NewCluster()
 		dist        *distribution.Layer
 		iteratorSvc *iterator.Service
 	)
 	BeforeAll(func() {
-		dist = builder.New(ctx)
+		dist = builder.Provision(ctx)
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			DistFramer: dist.Framer,
-			Channel:    dist.Channel,
+			Channel:    dist.Channels,
 		}))
 	})
 
@@ -50,7 +50,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, ch)).To(Succeed())
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             []channel.Key{ch.Key()},
@@ -83,19 +83,19 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				}
-				Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
+				Expect(dist.Channels.Create(ctx, indexCh)).To(Succeed())
 				dataCh1 = &channel.Channel{
 					Name:       "Hobbs",
 					DataType:   telem.Float32T,
 					LocalIndex: indexCh.LocalKey,
 				}
-				Expect(dist.Channel.Create(ctx, dataCh1)).To(Succeed())
+				Expect(dist.Channels.Create(ctx, dataCh1)).To(Succeed())
 				dataCh2 = &channel.Channel{
 					Name:       "Winston",
 					DataType:   telem.Float32T,
 					LocalIndex: indexCh.LocalKey,
 				}
-				Expect(dist.Channel.Create(ctx, dataCh2)).To(Succeed())
+				Expect(dist.Channels.Create(ctx, dataCh2)).To(Succeed())
 				keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS,
@@ -121,7 +121,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expression: "return Hobbs + Winston",
 					Requires:   []channel.Key{dataCh1.Key(), dataCh2.Key()},
 				}
-				Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
+				Expect(dist.Channels.Create(ctx, calculation)).To(Succeed())
 
 				iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
 					Keys:   []channel.Key{calculation.Key()},
@@ -141,7 +141,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expression: `error("cal failed")`,
 					Requires:   []channel.Key{dataCh1.Key(), dataCh2.Key()},
 				}
-				Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
+				Expect(dist.Channels.Create(ctx, calculation)).To(Succeed())
 				iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
 					Keys:   []channel.Key{calculation.Key()},
 					Bounds: telem.TimeRangeMax,

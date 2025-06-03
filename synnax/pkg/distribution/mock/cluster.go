@@ -15,12 +15,14 @@ import (
 	"github.com/synnaxlabs/aspen"
 	aspentransmock "github.com/synnaxlabs/aspen/transport/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -28,10 +30,15 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type Builder struct {
+type Node struct {
+	*distribution.Layer
+	Storage *storage.Layer
+}
+
+type Cluster struct {
 	cfg         distribution.Config
-	storage     *mock.Builder
-	Nodes       map[distribution.NodeKey]*distribution.Layer
+	storage     *mock.Cluster
+	Nodes       map[cluster.NodeKey]Node
 	writerNet   *tmock.FramerWriterNetwork
 	iterNet     *tmock.FramerIteratorNetwork
 	channelNet  *tmock.ChannelNetwork
@@ -41,11 +48,19 @@ type Builder struct {
 	addrFactory *address.Factory
 }
 
-func NewBuilder(cfgs ...distribution.Config) *Builder {
-	cfg := MustSucceed(config.New(distribution.DefaultConfig, cfgs...))
-	return &Builder{
+func ProvisionCluster(ctx context.Context, n int, cfgs ...distribution.Config) *Cluster {
+	b := NewCluster(cfgs...)
+	for range n {
+		b.Provision(ctx)
+	}
+	return b
+}
+
+func NewCluster(cfgs ...distribution.Config) *Cluster {
+	cfg, _ := config.New(distribution.Config{}, cfgs...)
+	return &Cluster{
 		cfg:         cfg,
-		storage:     mock.NewBuilder(),
+		storage:     mock.NewCluster(),
 		writerNet:   tmock.NewWriterNetwork(),
 		iterNet:     tmock.NewIteratorNetwork(),
 		channelNet:  tmock.NewChannelNetwork(),
@@ -53,43 +68,47 @@ func NewBuilder(cfgs ...distribution.Config) *Builder {
 		deleteNet:   tmock.NewDeleterNetwork(),
 		aspenNet:    aspentransmock.NewNetwork(),
 		addrFactory: address.NewLocalFactory(0),
-		Nodes:       make(map[distribution.NodeKey]*distribution.Layer),
+		Nodes:       make(map[cluster.NodeKey]Node),
 	}
 }
 
-func (b *Builder) New(ctx context.Context) *distribution.Layer {
-	peers := b.addrFactory.Generated()
-	addr := b.addrFactory.Next()
-	dist := MustSucceed(distribution.Open(ctx, distribution.Config{
-		Storage: b.storage.New(ctx),
-		FrameTransport: mockFramerTransport{
-			iter:    b.iterNet.New(addr, 1),
-			writer:  b.writerNet.New(addr, 1),
-			relay:   b.relayNet.New(addr, 1),
-			deleter: b.deleteNet.New(addr),
-		},
-		ChannelTransport: b.channelNet.New(addr),
-		AspenTransport:   b.aspenNet.NewTransport(),
-		AdvertiseAddress: b.cfg.AdvertiseAddress,
-		PeerAddresses:    peers,
-		AspenOptions: []aspen.Option{
-			aspen.WithPropagationConfig(aspen.FastPropagationConfig),
-		},
-	}, b.cfg))
-	b.Nodes[dist.Cluster.HostKey()] = dist
-	return dist
+func (b *Cluster) Provision(
+	ctx context.Context,
+	cfgs ...distribution.Config,
+) *distribution.Layer {
+	var (
+		peers             = b.addrFactory.Generated()
+		addr              = b.addrFactory.Next()
+		storageLayer      = b.storage.Provision(ctx)
+		distributionLayer = MustSucceed(distribution.Open(ctx, append([]distribution.Config{{
+			Storage: storageLayer,
+			FrameTransport: mockFramerTransport{
+				iter:    b.iterNet.New(addr, 1),
+				writer:  b.writerNet.New(addr, 1),
+				relay:   b.relayNet.New(addr, 1),
+				deleter: b.deleteNet.New(addr),
+			},
+			ChannelTransport: b.channelNet.New(addr),
+			AspenTransport:   b.aspenNet.NewTransport(),
+			AdvertiseAddress: addr,
+			PeerAddresses:    peers,
+			AspenOptions: []aspen.Option{
+				aspen.WithPropagationConfig(aspen.FastPropagationConfig),
+			},
+			EnableOntologySignals: config.False(),
+		}, b.cfg}, cfgs...)...))
+	)
+	b.Nodes[distributionLayer.Cluster.HostKey()] = Node{Layer: distributionLayer, Storage: storageLayer}
+	return distributionLayer
 }
 
-func (b *Builder) Close() error {
+func (b *Cluster) Close() error {
 	c := errors.NewCatcher(errors.WithAggregation())
 	for _, node := range b.Nodes {
 		c.Exec(node.Close)
 	}
+	c.Exec(b.storage.Close)
 	return c.Error()
-}
-
-func (b *Builder) Cleanup() error {
-	return b.storage.Cleanup()
 }
 
 type mockFramerTransport struct {

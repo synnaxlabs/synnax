@@ -45,7 +45,7 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("Log")
-	validate.NotNil(v, "DB", c.DB)
+	validate.NotNil(v, "KV", c.DB)
 	validate.NotNil(v, "Ontology", c.Ontology)
 	return v.Error()
 }

@@ -10,14 +10,16 @@
 package iterator_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -37,7 +39,7 @@ var _ = Describe("Iterator", func() {
 			var s scenario
 			BeforeAll(func() {
 				s = _sF()
-				writer := MustSucceed(s.writerService.Open(context.TODO(), writer.Config{
+				writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  config.True(),
@@ -65,7 +67,7 @@ var _ = Describe("Iterator", func() {
 			})
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
-				iter := MustSucceed(s.iteratorService.Open(ctx, iterator.Config{
+				iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 					Keys:   s.keys,
 					Bounds: telem.TimeRangeMax,
 				}))
@@ -92,7 +94,7 @@ var _ = Describe("Iterator", func() {
 			})
 
 			Specify(fmt.Sprintf("Scenario: %v - Auto chunk", i), func() {
-				iter := MustSucceed(s.iteratorService.Open(context.TODO(), iterator.Config{
+				iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 					Keys:      s.keys,
 					Bounds:    telem.TimeRangeMax,
 					ChunkSize: 3,
@@ -112,12 +114,10 @@ var _ = Describe("Iterator", func() {
 })
 
 type scenario struct {
-	name            string
-	keys            channel.Keys
-	writerService   *writer.Service
-	iteratorService *iterator.Service
-	channel         channel.Service
-	close           io.Closer
+	name  string
+	keys  channel.Keys
+	dist  *distribution.Layer
+	close io.Closer
 }
 
 func newChannelSet() []channel.Channel {
@@ -132,42 +132,28 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(1)
-	svc := services[1]
-	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	builder := mock.ProvisionCluster(ctx, 1)
+	dist := builder.Nodes[1]
+	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:            "gatewayOnly",
-		keys:            keys,
-		writerService:   svc.writer,
-		iteratorService: svc.iter,
-		close:           builder,
-		channel:         svc.channel,
-	}
+	return scenario{name: "Gateway Only", keys: keys, dist: dist, close: builder}
 }
 
 func peerOnlyScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(4)
-	svc := services[1]
+	builder := mock.ProvisionCluster(ctx, 4)
+	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = dcore.NodeKey(i + 2)
+		ch.Leaseholder = cluster.NodeKey(i + 2)
 		channels[i] = ch
 	}
-	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
+		err := dist.Channels.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:            "peerOnly",
-		keys:            keys,
-		writerService:   svc.writer,
-		iteratorService: svc.iter,
-		close:           builder,
-		channel:         svc.channel,
-	}
+	return scenario{name: "Peer Only", keys: keys, dist: dist, close: builder}
 }

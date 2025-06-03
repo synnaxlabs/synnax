@@ -26,14 +26,14 @@ func TestSignals(t *testing.T) {
 }
 
 var (
-	_b   *mock.Builder
+	_b   *mock.Cluster
 	dist *distribution.Layer
 	ctx  = context.Background()
 )
 
 var _ = BeforeSuite(func() {
-	_b = mock.NewBuilder()
-	dist = _b.New(ctx)
+	_b = mock.NewCluster()
+	dist = _b.Provision(ctx)
 })
 
 var _ = AfterSuite(func() {

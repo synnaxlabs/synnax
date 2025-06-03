@@ -137,7 +137,7 @@ var _ = Describe("Is", func() {
 		})
 	})
 
-	Describe("New", func() {
+	Describe("Provision", func() {
 		It("Should create a new error with the given message", func() {
 			err := errors.New("test error")
 			Expect(err.Error()).To(Equal("test error"))

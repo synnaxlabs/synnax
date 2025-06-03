@@ -25,7 +25,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -117,7 +118,7 @@ type keyAuthority struct {
 var _ proxy.Entry = keyAuthority{}
 
 // Lease implements proxy.Entry.
-func (k keyAuthority) Lease() dcore.NodeKey { return k.key.Lease() }
+func (k keyAuthority) Lease() cluster.NodeKey { return k.key.Lease() }
 
 var _ config.Config[Config] = Config{}
 
@@ -205,7 +206,7 @@ type ServiceConfig struct {
 	// HostResolver is used to resolve the host address for nodes in the cluster in order
 	// to route writes.
 	// [REQUIRED]
-	HostResolver dcore.HostResolver
+	HostResolver cluster.HostResolver
 	// Transport is the network transport for sending and receiving writes from other
 	// nodes in the cluster.
 	// [REQUIRED]
@@ -224,10 +225,10 @@ var (
 // Validate implements config.Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
-	validate.NotNil(v, "TS", cfg.TS)
-	validate.NotNil(v, "Channels", cfg.ChannelReader)
-	validate.NotNil(v, "HostProvider", cfg.HostResolver)
-	validate.NotNil(v, "AspenTransport", cfg.Transport)
+	validate.NotNil(v, "ts", cfg.TS)
+	validate.NotNil(v, "channels", cfg.ChannelReader)
+	validate.NotNil(v, "host_provider", cfg.HostResolver)
+	validate.NotNil(v, "transport", cfg.Transport)
 	return v.Error()
 }
 

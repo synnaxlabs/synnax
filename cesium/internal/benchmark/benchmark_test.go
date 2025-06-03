@@ -118,7 +118,7 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 
 		db, err := cesium.Open(ctx, "benchmark_write_test", cesium.WithFS(fs))
 		if err != nil {
-			b.Errorf("Error during DB creation: %s", err)
+			b.Errorf("Error during KV creation: %s", err)
 		}
 
 		err = db.CreateChannel(ctx, channels...)
@@ -285,7 +285,7 @@ func BenchRead(
 
 	db, err = cesium.Open(ctx, "benchmark_read_test", cesium.WithFS(fs))
 	if err != nil {
-		b.Errorf("Error during DB creation: %s", err)
+		b.Errorf("Error during KV creation: %s", err)
 	}
 	err = db.CreateChannel(ctx, channels...)
 	if err != nil {
@@ -392,7 +392,7 @@ func BenchStream(
 
 		db, err := cesium.Open(ctx, "benchmark_stream_test", cesium.WithFS(fs))
 		if err != nil {
-			b.Errorf("Error during DB creation: %s", err)
+			b.Errorf("Error during KV creation: %s", err)
 		}
 
 		err = db.CreateChannel(ctx, channels...)

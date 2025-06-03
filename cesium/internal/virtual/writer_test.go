@@ -117,7 +117,7 @@ var _ = Describe("Write", func() {
 				Expect(t.Occurred()).To(BeFalse())
 			})
 
-			It("Should return an error on Write when the DB is closed", func() {
+			It("Should return an error on Write when the KV is closed", func() {
 				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.AuthorityAbsolute,

@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -37,15 +38,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type (
-	Node         = aspen.Node
-	NodeKey      = aspen.NodeKey
-	NodeState    = aspen.NodeState
-	Cluster      = aspen.Cluster
-	Resolver     = aspen.Resolver
-	ClusterState = aspen.ClusterState
-)
-
 // Config is the configuration for opening the distribution layer.  See fields for
 // details on defining the configuration.
 type Config struct {
@@ -54,17 +46,21 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Verifier string
+	// TestingIntOverflowCheck is used for overriding default verifier behavior
+	// for testing purposes only.
+	TestingIntOverflowCheck channel.IntOverflowChecker
 	// EnableSearch sets whether search indexing is enabled for cluster resources.
 	//
 	// [OPTIONAL] - Defaults to true
-	EnableSearch     *bool
-	ChannelTransport channel.Transport
-	FrameTransport   framer.Transport
-	AspenTransport   aspen.Transport
-	AdvertiseAddress address.Address
-	PeerAddresses    []address.Address
-	Storage          *storage.Layer
-	AspenOptions     []aspen.Option
+	EnableSearch          *bool
+	ChannelTransport      channel.Transport
+	FrameTransport        framer.Transport
+	AspenTransport        aspen.Transport
+	AdvertiseAddress      address.Address
+	PeerAddresses         []address.Address
+	Storage               *storage.Layer
+	AspenOptions          []aspen.Option
+	EnableOntologySignals *bool
 }
 
 var (
@@ -72,7 +68,7 @@ var (
 	// DefaultConfig is the default configuration for opening the distribution layer.
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
-	DefaultConfig = Config{EnableSearch: config.True()}
+	DefaultConfig = Config{EnableSearch: config.True(), EnableOntologySignals: config.True()}
 )
 
 // Override implements config.Config.
@@ -86,6 +82,8 @@ func (c Config) Override(other Config) Config {
 	c.AdvertiseAddress = override.String(c.AdvertiseAddress, other.AdvertiseAddress)
 	c.PeerAddresses = override.Slice(c.PeerAddresses, other.PeerAddresses)
 	c.AspenOptions = override.Slice(c.AspenOptions, other.AspenOptions)
+	c.EnableOntologySignals = override.Nil(c.EnableOntologySignals, other.EnableOntologySignals)
+	c.TestingIntOverflowCheck = override.Nil(c.TestingIntOverflowCheck, other.TestingIntOverflowCheck)
 	return c
 }
 
@@ -93,10 +91,12 @@ func (c Config) Override(other Config) Config {
 // validation to the individual components.
 func (c Config) Validate() error {
 	v := validate.New("distribution")
-	validate.NotNil(v, "channel_transport", c.ChannelTransport)
 	validate.NotNil(v, "frame_transport", c.FrameTransport)
+	validate.NotNil(v, "channel_transport", c.ChannelTransport)
 	validate.NotNil(v, "storage", c.Storage)
 	validate.NotNil(v, "aspen_transport", c.AspenTransport)
+	validate.NotNil(v, "enable_search", c.EnableSearch)
+	validate.NotNil(v, "enable_ontology_signals", c.EnableOntologySignals)
 	return v.Error()
 }
 
@@ -104,11 +104,14 @@ func (c Config) Validate() error {
 // The distribution layer wraps the storage layer to provide a monolithic data space
 // for working with core data structures across Synnax.
 type Layer struct {
-	cfg     Config
-	DB      kvx.DB
-	Cluster Cluster
-	// Channel is for creating, deleting, and retrieving channels across the cluster.
-	Channel channel.Service
+	cfg Config
+	// KV is an eventually consistent, distributed key-value store that synchronizes key-value pairs across the
+	// cluster.
+	KV kvx.DB
+	// Cluster provides information about the cluster topology. Nodes, keys, addresses, states, etc.
+	Cluster cluster.Cluster
+	// Channels is for creating, deleting, and retrieving channels across the cluster.
+	Channels channel.Service
 	// Framer is for reading, writing, and streaming frames of telemetry across the
 	// cluster.
 	Framer *framer.Service
@@ -130,7 +133,7 @@ type Layer struct {
 // GorpDB returns a gorp.DB that can be used to interact with the storage key-value store.
 func (l *Layer) GorpDB() *gorp.DB {
 	return gorp.Wrap(
-		l.DB,
+		l.KV,
 		gorp.WithCodec(&binary.TracingCodec{
 			Level:           alamos.Bench,
 			Instrumentation: l.cfg.Instrumentation,
@@ -151,7 +154,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := &Layer{}
+	l := &Layer{cfg: cfg}
 	cleanup, ok := layer.NewOpener(ctx, &err, &l.closer)
 	defer cleanup()
 	aspenOptions := append([]aspen.Option{
@@ -160,20 +163,20 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		aspen.WithInstrumentation(cfg.Instrumentation.Child("aspen")),
 	}, cfg.AspenOptions...)
 
+	var aspenDB *aspen.DB
 	// Since we're using our own key-value engine, the value we use for 'dirname'
 	// doesn't matter.
-	clusterDB, err := aspen.Open(
+	if aspenDB, err = aspen.Open(
 		ctx,
 		/* dirname */ "",
 		cfg.AdvertiseAddress,
 		cfg.PeerAddresses,
 		aspenOptions...,
-	)
-	if err != nil {
+	); !ok(aspenDB) {
 		return nil, err
 	}
-	l.Cluster = clusterDB.Cluster
-	l.DB = clusterDB.DB
+	l.Cluster = aspenDB.Cluster
+	l.KV = aspenDB.DB
 	gorpDB := l.GorpDB()
 
 	if l.Ontology, err = ontology.Open(
@@ -207,31 +210,35 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 
 	if l.Verification, err = verification.OpenService(ctx, verification.Config{
 		Verifier: cfg.Verifier,
-		DB:       l.DB,
+		DB:       l.KV,
 		Ins:      cfg.Instrumentation,
 	}); !ok(l.Verification) {
 		return nil, err
 	}
 
-	if l.Channel, err = channel.New(ctx, channel.ServiceConfig{
-		HostResolver:     l.Cluster,
-		ClusterDB:        gorpDB,
-		TSChannel:        cfg.Storage.TS,
-		Transport:        cfg.ChannelTransport,
-		Ontology:         l.Ontology,
-		Group:            l.Group,
-		IntOverflowCheck: l.Verification.IsOverflowed,
+	if l.Channels, err = channel.New(ctx, channel.ServiceConfig{
+		HostResolver: l.Cluster,
+		ClusterDB:    gorpDB,
+		TSChannel:    cfg.Storage.TS,
+		Transport:    cfg.ChannelTransport,
+		Ontology:     l.Ontology,
+		Group:        l.Group,
+		IntOverflowCheck: lo.Ternary(
+			cfg.TestingIntOverflowCheck != nil,
+			cfg.TestingIntOverflowCheck,
+			l.Verification.IsOverflowed,
+		),
 	}); !ok(nil) {
 		return nil, err
 	}
 
 	if l.Framer, err = framer.Open(framer.Config{
 		Instrumentation: cfg.Instrumentation.Child("framer"),
-		ChannelReader:   l.Channel,
+		ChannelReader:   l.Channels,
 		TS:              cfg.Storage.TS,
 		Transport:       cfg.FrameTransport,
 		HostResolver:    l.Cluster,
-	}); !ok(nil) {
+	}); !ok(l.Framer) {
 		return nil, err
 	}
 
@@ -240,19 +247,21 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}
 
 	if l.Signals, err = signals.New(signals.Config{
-		Channel:         l.Channel,
+		Channel:         l.Channels,
 		Framer:          l.Framer,
 		Instrumentation: cfg.Instrumentation.Child("signals"),
 	}); !ok(nil) {
 		return nil, err
 	}
-	var ontologyCDCCloser io.Closer
-	if ontologyCDCCloser, err = ontologycdc.Publish(
-		ctx,
-		l.Signals,
-		l.Ontology,
-	); !ok(ontologyCDCCloser) {
-		return nil, err
+	if *cfg.EnableOntologySignals {
+		var ontologyCDCCloser io.Closer
+		if ontologyCDCCloser, err = ontologycdc.Publish(
+			ctx,
+			l.Signals,
+			l.Ontology,
+		); !ok(ontologyCDCCloser) {
+			return nil, err
+		}
 	}
 	return l, err
 }
@@ -265,7 +274,7 @@ func (l Layer) configureControlUpdates(ctx context.Context) error {
 		DataType:    telem.StringT,
 		Internal:    true,
 	}
-	if err := l.Channel.Create(ctx, &controlCh, channel.RetrieveIfNameExists(true)); err != nil {
+	if err := l.Channels.Create(ctx, &controlCh, channel.RetrieveIfNameExists(true)); err != nil {
 		return err
 	}
 	return l.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), controlCh.Name)

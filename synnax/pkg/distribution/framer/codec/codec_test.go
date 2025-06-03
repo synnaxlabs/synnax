@@ -188,7 +188,7 @@ var _ = Describe("Codec", func() {
 				},
 			),
 		),
-		Entry("Multiple Series for the Same Channel",
+		Entry("Multiple Series for the Same Channels",
 			channel.Keys{1, 2},
 			[]telem.DataType{telem.Uint8T, telem.Float32T},
 			core.MultiFrame(
@@ -262,16 +262,16 @@ var _ = Describe("Codec", func() {
 
 	Describe("Dynamic Codec", Ordered, func() {
 		var (
-			builder    *mock.Builder
+			builder    *mock.Cluster
 			channelSvc channel.Service
 			idxCh      channel.Channel
 			dataCh     channel.Channel
 		)
 		BeforeAll(func() {
-			builder = mock.NewBuilder()
-			dist := builder.New(ctx)
-			channelSvc = dist.Channel
-			w := dist.Channel.NewWriter(nil)
+			builder = mock.NewCluster()
+			dist := builder.Provision(ctx)
+			channelSvc = dist.Channels
+			w := dist.Channels.NewWriter(nil)
 			idxCh = channel.Channel{
 				DataType: telem.TimeStampT,
 				Name:     "time",

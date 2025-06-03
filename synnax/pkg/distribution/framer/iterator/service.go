@@ -87,11 +87,11 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements Config.
 func (cfg ServiceConfig) Validate() error {
-	v := validate.New("distribution.framer.Iterator")
-	validate.NotNil(v, "TS", cfg.TS)
-	validate.NotNil(v, "Channels", cfg.Channels)
-	validate.NotNil(v, "AspenTransport", cfg.Transport)
-	validate.NotNil(v, "Resolver", cfg.HostResolver)
+	v := validate.New("distribution.framer.iterator")
+	validate.NotNil(v, "ts", cfg.TS)
+	validate.NotNil(v, "channels", cfg.Channels)
+	validate.NotNil(v, "aspen_transport", cfg.Transport)
+	validate.NotNil(v, "resolver", cfg.HostResolver)
 	return v.Error()
 }
 
@@ -114,8 +114,8 @@ func NewService(configs ...ServiceConfig) (*Service, error) {
 }
 
 const (
-	peerSenderAddr   address.Address = "peerSender"
-	gatewayIterAddr  address.Address = "gatewayWriter"
+	peerSenderAddr   address.Address = "peer_sender"
+	gatewayIterAddr  address.Address = "gateway_writer"
 	broadcasterAddr  address.Address = "broadcaster"
 	synchronizerAddr address.Address = "synchronizer"
 )
@@ -227,8 +227,8 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 }
 
 func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) error {
-	v := validate.New("distribution.framer.Iterator")
-	if validate.NotEmptySlice(v, "Keys", keys) {
+	v := validate.New("distribution.framer.iterator")
+	if validate.NotEmptySlice(v, "keys", keys) {
 		return v.Error()
 	}
 	for _, k := range keys {

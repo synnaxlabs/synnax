@@ -18,7 +18,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("DB", Ordered, func() {
+var _ = Describe("KV", Ordered, func() {
 	var (
 		db *gorp.DB
 	)

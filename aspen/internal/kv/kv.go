@@ -133,7 +133,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	db_.config.L.Debug("opening cluster DB", db_.config.Report().ZapFields()...)
+	db_.config.L.Debug("opening cluster KV", db_.config.Report().ZapFields()...)
 
 	st := newStore()
 

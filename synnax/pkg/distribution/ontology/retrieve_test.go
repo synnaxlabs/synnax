@@ -10,12 +10,13 @@
 package ontology_test
 
 import (
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
-	"strconv"
 )
 
 var _ = Describe("retrieveResource", func() {

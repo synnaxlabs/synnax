@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("Calculator", func() {
 
-	Context("Single Channel Calculation", func() {
+	Context("Single Channels Calculation", func() {
 		It("Should correctly calculate the output value", func() {
 			out := channel.Channel{
 				Leaseholder: 1,
@@ -48,7 +48,7 @@ var _ = Describe("Calculator", func() {
 		})
 	})
 
-	Context("Multi-Channel Calculation", func() {
+	Context("Multi-Channels Calculation", func() {
 		var (
 			inCh1 = channel.Channel{
 				Leaseholder: 1,
@@ -130,7 +130,7 @@ var _ = Describe("Calculator", func() {
 		})
 	})
 
-	Describe("Channel", func() {
+	Describe("Channels", func() {
 		It("Should return information about the channel being calculated", func() {
 			in := channel.Channel{
 				Name:     "Cat",

@@ -52,7 +52,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Group:        dist.Group,
 			Rack:         rackSvc,
 			HostProvider: dist.Cluster,
-			Channel:      dist.Channel,
+			Channel:      dist.Channels,
 			Signals:      dist.Signals,
 		}))
 		deviceSvc = MustSucceed(device.OpenService(ctx, device.Config{
@@ -66,7 +66,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Rack:         rackSvc,
 			Task:         taskSvc,
 			Signals:      dist.Signals,
-			Channels:     dist.Channel,
+			Channels:     dist.Channels,
 			HostProvider: dist.Cluster,
 			Framer:       dist.Framer,
 			Device:       deviceSvc,
@@ -147,7 +147,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rck)).To(Succeed())
 
 			var rackStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_rack_state").Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channels.NewRetrieve().WhereNames("sy_rack_state").Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -179,7 +179,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			taskKey := task.NewKey(rck.Key, 1)
 
 			var rackStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_rack_state").Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channels.NewRetrieve().WhereNames("sy_rack_state").Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -198,7 +198,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			var taskStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channels.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
 
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: []channel.Key{taskStateCh.Key()},
@@ -223,7 +223,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			tsk := &task.Task{Key: task.NewKey(rack.Key, 0), Name: "task1"}
 			Expect(cfg.Task.NewWriter(nil).Create(ctx, tsk)).To(Succeed())
 			var taskStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channels.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{taskStateCh.Key()},
@@ -255,7 +255,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			tsk := &task.Task{Key: task.NewKey(rack.Key, 0), Name: "task1"}
 			Expect(cfg.Task.NewWriter(nil).Create(ctx, tsk)).To(Succeed())
 			var taskStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channels.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{taskStateCh.Key()},
@@ -288,7 +288,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			taskKey := task.NewKey(rack.Key, 1)
 
 			var taskStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channels.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
 
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: []channel.Key{taskStateCh.Key()},
@@ -314,7 +314,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rck)).To(Succeed())
 			taskKey := task.NewKey(rck.Key, 1)
 			var rackStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_rack_state").Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channels.NewRetrieve().WhereNames("sy_rack_state").Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{rackStateCh.Key()},
@@ -335,7 +335,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			var taskStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channels.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
 
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: []channel.Key{taskStateCh.Key()},
@@ -415,7 +415,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(cfg.Device.NewWriter(nil).Create(ctx, dev)).To(Succeed())
 
 			var deviceStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_device_state").Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channels.NewRetrieve().WhereNames("sy_device_state").Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -461,7 +461,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(cfg.Device.NewWriter(nil).Create(ctx, dev)).To(Succeed())
 
 			var deviceStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_device_state").Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channels.NewRetrieve().WhereNames("sy_device_state").Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -512,7 +512,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(cfg.Device.NewWriter(nil).Create(ctx, dev)).To(Succeed())
 
 			var deviceStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_device_state").Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channels.NewRetrieve().WhereNames("sy_device_state").Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),

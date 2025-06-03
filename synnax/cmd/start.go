@@ -28,7 +28,7 @@ import (
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	framertransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 	"github.com/synnaxlabs/synnax/pkg/layer"
@@ -149,7 +149,7 @@ func start(cmd *cobra.Command) {
 
 		if storageLayer, err = storage.Open(ctx, storage.Config{
 			Instrumentation: ins.Child("storage"),
-			MemBacked:       config.Bool(memBacked),
+			InMemory:        config.Bool(memBacked),
 			Dirname:         dataPath,
 		}); !ok(storageLayer) {
 			return err
@@ -168,16 +168,14 @@ func start(cmd *cobra.Command) {
 		)
 
 		if distributionLayer, err = distribution.Open(ctx, distribution.Config{
-			Config: core.Config{
-				Instrumentation:  ins.Child("distribution"),
-				AdvertiseAddress: listenAddress,
-				PeerAddresses:    peers,
-				AspenTransport:   aspenTransport,
-				Storage:          storageLayer,
-			},
+			Instrumentation:  ins.Child("distribution"),
+			AdvertiseAddress: listenAddress,
+			PeerAddresses:    peers,
+			AspenTransport:   aspenTransport,
 			FrameTransport:   frameTransport,
 			ChannelTransport: channelTransport,
 			Verifier:         verifier,
+			Storage:          storageLayer,
 		}); !ok(distributionLayer) {
 			return err
 		}
@@ -222,10 +220,10 @@ func start(cmd *cobra.Command) {
 			Instrumentation:     ins,
 			StreamWriteDeadline: slowConsumerTimeout,
 		})
-		apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channel)))
+		apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channels)))
 
 		// Configure the GRPC Layer AspenTransport.
-		grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channel)
+		grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channels)
 		apiLayer.BindTo(grpcAPI)
 
 		if rootServer, err = server.Serve(

@@ -15,20 +15,18 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/config"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("storage", func() {
-	Describe("Builder", func() {
-		DescribeTable("Name", func(cfg ...storage.Config) {
-			b := mock.NewBuilder(cfg...)
-			store := b.New(ctx)
-			Expect(store).NotTo(BeNil())
-			Expect(store.KV.Set(ctx, []byte("foo"), []byte("bar"))).To(Succeed())
-			Expect(b.Close()).To(Succeed())
-			Expect(b.Cleanup()).To(Succeed())
-		},
-			Entry("Memory-backed storage implementation"),
-			Entry("Stamp-backed storage implementation", storage.Config{MemBacked: config.Bool(false), Dirname: "./tmp"}),
-		)
-	})
+var _ = Describe("Storage", func() {
+	ShouldNotLeakGoroutinesBeforeEach()
+	DescribeTable("Name", func(cfg ...storage.Config) {
+		b := mock.NewCluster(cfg...)
+		store := b.Provision(ctx)
+		Expect(store).NotTo(BeNil())
+		Expect(store.KV.Set(ctx, []byte("foo"), []byte("bar"))).To(Succeed())
+	},
+		Entry("Memory-backed storage implementation"),
+		Entry("Stamp-backed storage implementation", storage.Config{InMemory: config.Bool(false), Dirname: "./tmp"}),
+	)
 })

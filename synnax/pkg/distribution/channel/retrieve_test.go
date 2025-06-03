@@ -15,22 +15,29 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/aspen"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/telem"
 )
 
-var _ = Describe("getAttributes", Ordered, func() {
+const internalChannelCount = 1
+
+var _ = Describe("Retrieve", Ordered, func() {
 	var (
-		services map[aspen.NodeKey]channel.Service
-		builder  *mock.CoreBuilder
-		limit    int
+		mockCluster *mock.Cluster
+		limit       int
 	)
-	BeforeAll(func() { builder, services, limit = provisionServices() })
+	BeforeAll(func() {
+		limit = 5
+		mockCluster = mock.ProvisionCluster(ctx, 2)
+		mockCluster.Provision(ctx, distribution.Config{
+			TestingIntOverflowCheck: channel.FixedOverflowChecker(limit),
+		})
+
+	})
 	AfterAll(func() {
-		Expect(builder.Close()).To(Succeed())
-		Expect(builder.Cleanup()).To(Succeed())
+		Expect(mockCluster.Close()).To(Succeed())
 	})
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a set of channels", func() {
@@ -45,29 +52,29 @@ var _ = Describe("getAttributes", Ordered, func() {
 				Name:     "SG03",
 			}
 			created := []channel.Channel{ch1, ch2}
-			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
+			err := mockCluster.Nodes[1].Channels.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 
 			var resChannels []channel.Channel
 
-			err = services[1].
+			err = mockCluster.Nodes[1].Channels.
 				NewRetrieve().
 				WhereNodeKey(1).
 				Entries(&resChannels).
 				Exec(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(resChannels).To(HaveLen(len(created)))
+			Expect(resChannels).To(HaveLen(len(created) + internalChannelCount))
 
 			Eventually(func(g Gomega) {
 				var resChannelsTwo []channel.Channel
 
-				err = services[2].
+				err = mockCluster.Nodes[2].Channels.
 					NewRetrieve().
 					WhereNodeKey(1).
 					Entries(&resChannelsTwo).
 					Exec(ctx, nil)
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(resChannelsTwo).To(HaveLen(len(created)))
+				g.Expect(resChannelsTwo).To(HaveLen(len(created) + internalChannelCount))
 			})
 
 		})
@@ -84,11 +91,11 @@ var _ = Describe("getAttributes", Ordered, func() {
 					Name:     "SG03",
 				},
 			}
-			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
+			err := mockCluster.Nodes[1].Channels.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 			var resChannels []channel.Channel
 
-			err = services[1].
+			err = mockCluster.Nodes[1].Channels.
 				NewRetrieve().
 				WhereKeys(created[0].Key()).
 				Entries(&resChannels).
@@ -106,11 +113,11 @@ var _ = Describe("getAttributes", Ordered, func() {
 					Name:     n,
 				},
 			}
-			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
+			err := mockCluster.Nodes[1].Channels.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 			var resChannels []channel.Channel
 
-			err = services[1].
+			err = mockCluster.Nodes[1].Channels.
 				NewRetrieve().
 				WhereNames(n).
 				Entries(&resChannels).
@@ -132,11 +139,11 @@ var _ = Describe("getAttributes", Ordered, func() {
 					Name:     "SG223",
 				},
 			}
-			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
+			err := mockCluster.Nodes[1].Channels.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 			var resChannels []channel.Channel
 
-			err = services[1].
+			err = mockCluster.Nodes[1].Channels.
 				NewRetrieve().
 				WhereNames("SG22.*").
 				Entries(&resChannels).
@@ -146,7 +153,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 		})
 		It("Should return a well formatted error if a channel cannot be found by its key", func() {
 			var resChannels []channel.Channel
-			err := services[1].
+			err := mockCluster.Nodes[1].Channels.
 				NewRetrieve().
 				WhereKeys(435).
 				Entries(&resChannels).
@@ -168,10 +175,10 @@ var _ = Describe("getAttributes", Ordered, func() {
 					Name:     "SG-----223",
 				},
 			}
-			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
+			err := mockCluster.Nodes[1].Channels.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 			var resChannels []channel.Channel
-			err = services[1].
+			err = mockCluster.Nodes[1].Channels.
 				NewRetrieve().
 				Search("SG-----222").
 				Entries(&resChannels).
@@ -196,10 +203,10 @@ var _ = Describe("getAttributes", Ordered, func() {
 					Name:     "SG03",
 				},
 			}
-			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
+			err := mockCluster.Nodes[1].Channels.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 
-			exists, err := services[1].
+			exists, err := mockCluster.Nodes[1].Channels.
 				NewRetrieve().
 				WhereKeys(created[0].Key()).
 				Exists(ctx, nil)
@@ -207,8 +214,8 @@ var _ = Describe("getAttributes", Ordered, func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
-	Context("Channel Limit", func() {
-		It("Should allow retrieving channels even at the limit", func() {
+	Context("Channels Limit", func() {
+		FIt("Should allow retrieving channels even at the limit", func() {
 			// Create channels up to the limit
 			createdChannels := make([]channel.Channel, int(limit))
 			for i := range limit {
@@ -216,9 +223,9 @@ var _ = Describe("getAttributes", Ordered, func() {
 					IsIndex:     true,
 					DataType:    telem.TimeStampT,
 					Name:        fmt.Sprintf("LimitTest%d", i),
-					Leaseholder: 1,
+					Leaseholder: 3,
 				}
-				Expect(services[3].Create(ctx, &ch)).To(Succeed())
+				Expect(mockCluster.Nodes[3].Channels.Create(ctx, &ch)).To(Succeed())
 				createdChannels[i] = ch
 			}
 
@@ -227,18 +234,18 @@ var _ = Describe("getAttributes", Ordered, func() {
 				IsIndex:     true,
 				DataType:    telem.TimeStampT,
 				Name:        "OverLimit",
-				Leaseholder: 1,
+				Leaseholder: 3,
 			}
-			err := services[3].Create(ctx, &overLimitCh)
+			err := mockCluster.Nodes[3].Channels.Create(ctx, &overLimitCh)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
 
 			// Retrieve all channels - this should work fine even at the limit
 			var retrievedChannels []channel.Channel
-			retrieve := services[3].NewRetrieve()
-			err = retrieve.Entries(&retrievedChannels).Exec(ctx, nil)
+			retrieve := mockCluster.Nodes[3].Channels.NewRetrieve()
+			err = retrieve.Entries(&retrievedChannels).WhereNodeKey(3).Exec(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(retrievedChannels).To(HaveLen(int(limit)))
+			Expect(retrievedChannels).To(HaveLen(limit + internalChannelCount))
 
 			// Retrieve a specific channel by name
 			var singleChannel channel.Channel

@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 )
 
-var _ = Describe("Channel", func() {
+var _ = Describe("Channels", func() {
 	Describe("String", func() {
 		It("Should return a nicely formatting string with the channel's key and name", func() {
 			c := core.Channel{Key: 1, Name: "foo"}

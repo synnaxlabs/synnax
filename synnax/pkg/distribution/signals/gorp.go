@@ -75,7 +75,7 @@ func (g GorpPublisherConfig[K, E]) Validate() error {
 	v := validate.New("cdc.GorpPublisherConfig")
 	validate.NotEmptyString(v, "SetName", g.SetName)
 	validate.NotEmptyString(v, "DeleteName", g.DeleteName)
-	validate.NotNil(v, "DB", g.DB)
+	validate.NotNil(v, "KV", g.DB)
 	validate.NotEmptyString(v, "SetDataType", g.SetDataType)
 	validate.NotEmptyString(v, "DeleteDataType", g.DeleteDataType)
 	validate.NotNil(v, "MarshalSet", g.MarshalSet)
@@ -94,7 +94,7 @@ func marshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
 }
 
 // GorpPublisherConfigUUID is a helper function for creating a Signals pipeline that propagates
-// changes to UUID keyed gorp entries written to the provided DB. The returned
+// changes to UUID keyed gorp entries written to the provided KV. The returned
 // configuration should be passed to PublishFromGorp.
 func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpPublisherConfig[uuid.UUID, E] {
 	return GorpPublisherConfig[uuid.UUID, E]{

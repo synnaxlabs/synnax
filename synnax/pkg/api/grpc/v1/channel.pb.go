@@ -122,7 +122,7 @@ func (x *Channel) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Channel.ProtoReflect.Descriptor instead.
+// Deprecated: Use Channels.ProtoReflect.Descriptor instead.
 func (*Channel) Descriptor() ([]byte, []int) {
 	return file_synnax_pkg_api_grpc_v1_channel_proto_rawDescGZIP(), []int{1}
 }
@@ -454,7 +454,7 @@ func file_synnax_pkg_api_grpc_v1_channel_proto_rawDescGZIP() []byte {
 var file_synnax_pkg_api_grpc_v1_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_synnax_pkg_api_grpc_v1_channel_proto_goTypes = []any{
 	(*ChannelDeleteRequest)(nil),    // 0: api.v1.ChannelDeleteRequest
-	(*Channel)(nil),                 // 1: api.v1.Channel
+	(*Channel)(nil),                 // 1: api.v1.Channels
 	(*ChannelRetrieveRequest)(nil),  // 2: api.v1.ChannelRetrieveRequest
 	(*ChannelRetrieveResponse)(nil), // 3: api.v1.ChannelRetrieveResponse
 	(*ChannelCreateRequest)(nil),    // 4: api.v1.ChannelCreateRequest
@@ -462,9 +462,9 @@ var file_synnax_pkg_api_grpc_v1_channel_proto_goTypes = []any{
 	(*emptypb.Empty)(nil),           // 6: google.protobuf.Empty
 }
 var file_synnax_pkg_api_grpc_v1_channel_proto_depIdxs = []int32{
-	1, // 0: api.v1.ChannelRetrieveResponse.channels:type_name -> api.v1.Channel
-	1, // 1: api.v1.ChannelCreateRequest.channels:type_name -> api.v1.Channel
-	1, // 2: api.v1.ChannelCreateResponse.channels:type_name -> api.v1.Channel
+	1, // 0: api.v1.ChannelRetrieveResponse.channels:type_name -> api.v1.Channels
+	1, // 1: api.v1.ChannelCreateRequest.channels:type_name -> api.v1.Channels
+	1, // 2: api.v1.ChannelCreateResponse.channels:type_name -> api.v1.Channels
 	4, // 3: api.v1.ChannelCreateService.Exec:input_type -> api.v1.ChannelCreateRequest
 	2, // 4: api.v1.ChannelRetrieveService.Exec:input_type -> api.v1.ChannelRetrieveRequest
 	0, // 5: api.v1.ChannelDeleteService.Exec:input_type -> api.v1.ChannelDeleteRequest

@@ -10,7 +10,7 @@
 package api
 
 import (
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -33,7 +33,7 @@ type Provider struct {
 
 func NewProvider(cfg Config) Provider {
 	p := Provider{Config: cfg}
-	p.db = dbProvider{DB: gorp.Wrap(cfg.Distribution.Storage.KV)}
+	p.db = dbProvider{DB: gorp.Wrap(cfg.Distribution.KV)}
 	p.user = userProvider{user: cfg.Service.User}
 	p.access = accessProvider{access: cfg.Service.RBAC}
 	p.auth = authProvider{token: cfg.Service.Token, authenticator: cfg.Service.Auth}
@@ -71,5 +71,5 @@ type OntologyProvider struct {
 
 // clusterProvider provides cluster topology information to services.
 type clusterProvider struct {
-	cluster dcore.Cluster
+	cluster cluster.Cluster
 }

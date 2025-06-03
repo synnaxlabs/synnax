@@ -57,7 +57,7 @@ import (
 //				return nil, err
 //			}
 //			// service2 does not have a closer for shutdown, so we can pass nil to ok.
-//			if myLayer.Service2, err = service2.New(...); !ok(nil) {
+//			if myLayer.Service2, err = service2.Provision(...); !ok(nil) {
 //				return nil, err
 //			}
 //			return myLayer, nil

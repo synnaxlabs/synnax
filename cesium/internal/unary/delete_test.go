@@ -555,7 +555,7 @@ var _ = Describe("Delete", func() {
 					Expect(series1).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37)))
 				})
 
-				It("Should delete even when the end timestamp is not in the bounds of the DB", func() {
+				It("Should delete even when the end timestamp is not in the bounds of the KV", func() {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(12, 10123))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))

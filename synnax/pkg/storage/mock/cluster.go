@@ -19,36 +19,36 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 )
 
-// Builder is a utility for provisioning mock stores.
-type Builder struct {
+// Cluster is a utility for provisioning a set of storage layers in a mock cluster.
+type Cluster struct {
 	// Config is the configuration used to provision new stores.
 	Config storage.Config
-	// Stores is a slice all stores provisioned by the Builder.
+	// Stores is a slice all stores provisioned by the Cluster.
 	Stores []*storage.Layer
 }
 
-// NewBuilder opens a new Builder that provisions stores using the given configuration.
-func NewBuilder(configs ...storage.Config) *Builder {
+// NewCluster opens a new Cluster that provisions stores using the given configuration.
+func NewCluster(configs ...storage.Config) *Cluster {
 	cfg, err := config.New(storage.DefaultConfig, append([]storage.Config{{
-		MemBacked: config.Bool(true),
-		Perm:      xfs.OS_USER_RWX,
+		InMemory: config.Bool(true),
+		Perm:     xfs.OS_USER_RWX,
 	}}, configs...)...)
 	if err != nil {
 		panic(err)
 	}
 
-	if !*cfg.MemBacked {
+	if !*cfg.InMemory {
 		if err := os.MkdirAll(cfg.Dirname, cfg.Perm); err != nil {
 			panic(err)
 		}
 	}
 
-	return &Builder{Config: cfg}
+	return &Cluster{Config: cfg}
 }
 
-// New provisions a new store.
-func (b *Builder) New(ctx context.Context) (store *storage.Layer) {
-	if *b.Config.MemBacked {
+// Provision provisions a new store.
+func (b *Cluster) Provision(ctx context.Context) (store *storage.Layer) {
+	if *b.Config.InMemory {
 		store = b.newMemBacked(ctx)
 	} else {
 		store = b.newFSBacked(ctx)
@@ -57,27 +57,20 @@ func (b *Builder) New(ctx context.Context) (store *storage.Layer) {
 	return store
 }
 
-// Cleanup removes all test data written to disk by the stores provisioned by the Builder.
-// Cleanup should only be called after Close, and is not safe to call concurrently
-// with any other Builder or Layer methods.
-func (b *Builder) Cleanup() error {
-	if *b.Config.MemBacked {
-		return nil
-	}
-	return os.RemoveAll(b.Config.Dirname)
-}
-
-// Close closes all stores provisioned by the Builder. Close is not safe to call concurrently
-// with any other Builder or provisioned Layer methods.
-func (b *Builder) Close() error {
+// Close closes all stores provisioned by the Cluster. Close is not safe to call concurrently
+// with any other Cluster or provisioned Layer methods.
+func (b *Cluster) Close() error {
 	c := errors.NewCatcher(errors.WithAggregation())
 	for _, store := range b.Stores {
 		c.Exec(store.Close)
 	}
+	if !*b.Config.InMemory {
+		c.Exec(func() error { return os.RemoveAll(b.Config.Dirname) })
+	}
 	return c.Error()
 }
 
-func (b *Builder) newMemBacked(ctx context.Context) *storage.Layer {
+func (b *Cluster) newMemBacked(ctx context.Context) *storage.Layer {
 	store, err := storage.Open(ctx, b.Config)
 	if err != nil {
 		panic(err)
@@ -85,7 +78,7 @@ func (b *Builder) newMemBacked(ctx context.Context) *storage.Layer {
 	return store
 }
 
-func (b *Builder) newFSBacked(ctx context.Context) *storage.Layer {
+func (b *Cluster) newFSBacked(ctx context.Context) *storage.Layer {
 	// open a temporary directory prefixed with ServiceConfig.dirname
 	tempDir, err := os.MkdirTemp(b.Config.Dirname, "delta-test-")
 	if err != nil {

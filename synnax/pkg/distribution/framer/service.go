@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
@@ -35,10 +35,10 @@ import (
 // must be closed after used.
 type Service struct {
 	cfg             Config
+	Relay           *relay.Relay
 	writer          *writer.Service
 	iterator        *iterator.Service
 	deleter         *deleter.Service
-	relay           *relay.Relay
 	controlStateKey channel.Key
 }
 
@@ -58,7 +58,7 @@ type Config struct {
 	Transport Transport
 	// HostResolved is used to resolve address information about hosts on the network.
 	// [REQUIRED]
-	HostResolver core.HostResolver
+	HostResolver cluster.HostResolver
 }
 
 var (
@@ -72,10 +72,10 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer")
-	validate.NotNil(v, "Channels", c.ChannelReader)
-	validate.NotNil(v, "TS", c.TS)
-	validate.NotNil(v, "AspenTransport", c.Transport)
-	validate.NotNil(v, "HostProvider", c.HostResolver)
+	validate.NotNil(v, "channels", c.ChannelReader)
+	validate.NotNil(v, "ts", c.TS)
+	validate.NotNil(v, "transport", c.Transport)
+	validate.NotNil(v, "host_resolver", c.HostResolver)
 	return v.Error()
 }
 
@@ -114,7 +114,7 @@ func Open(configs ...Config) (*Service, error) {
 		return nil, err
 	}
 	freeWrites := confluence.NewStream[relay.Response](25)
-	s.relay, err = relay.Open(relay.Config{
+	s.Relay, err = relay.Open(relay.Config{
 		Instrumentation: cfg.Instrumentation.Child("relay"),
 		ChannelReader:   cfg.ChannelReader,
 		TS:              cfg.TS,
@@ -182,7 +182,7 @@ func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (Stream
 
 // NewDeleter opens a new deleter for deleting data from a Synnax cluster.
 func (s *Service) NewDeleter() Deleter {
-	return s.deleter.NewDeleter()
+	return s.deleter.New()
 }
 
 // ConfigureControlUpdateChannel sets the name and key of the channel used to propagate
@@ -193,4 +193,4 @@ func (s *Service) ConfigureControlUpdateChannel(ctx context.Context, ch channel.
 }
 
 // Close closes the Service.
-func (s *Service) Close() error { return s.relay.Close() }
+func (s *Service) Close() error { return s.Relay.Close() }

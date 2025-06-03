@@ -24,13 +24,13 @@ import (
 
 var (
 	ctx  = context.Background()
-	_b   *mock.Builder
+	_b   *mock.Cluster
 	dist *distribution.Layer
 )
 
 var _ = BeforeSuite(func() {
-	_b = mock.NewBuilder(distribution.Config{Ontology: ontology.Config{EnableSearch: config.False()}})
-	dist = _b.New(ctx)
+	_b = mock.NewCluster(distribution.Config{Ontology: ontology.Config{EnableSearch: config.False()}})
+	dist = _b.Provision(ctx)
 })
 
 var _ = AfterSuite(func() {
