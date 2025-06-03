@@ -67,7 +67,7 @@ export interface ChildRangesProps {
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const children = Ontology.useChildren(ranger.ontologyID(rangeKey), filterChild);
   const childRanges = useMemo(
-    () => children.map(ranger.Range.convertOntologyResourceToPayload),
+    () => children.map(ranger.convertOntologyResourceToPayload),
     [children],
   );
   const placeLayout = Layout.usePlacer();
