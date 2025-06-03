@@ -14,4 +14,5 @@ export * from "@/ranger/types";
 export * from "@/ranger/useAliasDeleteSynchronizer";
 export * from "@/ranger/useAliasSetSynchronizer";
 export * from "@/ranger/useDeleteSynchronizer";
+export * from "@/ranger/useParent";
 export * from "@/ranger/useSetSynchronizer";

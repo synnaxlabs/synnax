@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Ontology } from "@synnaxlabs/pluto";
+import { Ontology, Synnax } from "@synnaxlabs/pluto";
 
-export const useParent = (rangeKey: ranger.Key): ranger.Payload | null => {
-  const parent = Ontology.useParents(ranger.ontologyID(rangeKey))?.find(
+export const useParent = (rangeKey: ranger.Key): ranger.Range | null => {
+  const parent = Ontology.useParents(ranger.ontologyID(rangeKey)).find(
     ({ id: { type } }) => type === ranger.ONTOLOGY_TYPE,
   );
-  if (parent == null) return null;
-  return ranger.Range.convertOntologyResourceToPayload(parent);
+  const client = Synnax.use();
+  if (parent == null || client == null) return null;
+  return client.ranges.sugarOntologyResource(parent);
 };

@@ -15,6 +15,7 @@ import {
   Divider,
   Form,
   Input,
+  Ranger,
   Text,
   usePrevious,
 } from "@synnaxlabs/pluto";
@@ -30,7 +31,6 @@ import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelect } from "@/range/selectors";
 import { add, type StaticRange } from "@/range/slice";
-import { useParent } from "@/range/useParent";
 
 interface ParentRangeButtonProps {
   rangeKey: string;
@@ -39,7 +39,7 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const parent = useParent(rangeKey);
+  const parent = Ranger.useParent(rangeKey);
   const placeLayout = Layout.usePlacer();
 
   if (parent == null) return null;

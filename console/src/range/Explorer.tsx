@@ -42,7 +42,6 @@ import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelectKeys } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
 import { useRename } from "@/range/Toolbar";
-import { useParent } from "@/range/useParent";
 
 export const EXPLORER_LAYOUT_TYPE = "explorer";
 
@@ -67,7 +66,7 @@ const ExplorerListItem = ({
   const { entry } = props;
   const placeLayout = Layout.usePlacer();
   const labels = useLabels(entry.key);
-  const parent = useParent(entry.key);
+  const parent = Ranger.useParent(entry.key);
   const dragGhost = useRef<HTMLElement | null>(null);
   const elRef = useRef<HTMLDivElement>(null);
   const onRename = useRename(entry.key);
