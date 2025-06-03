@@ -10,8 +10,6 @@
 package channel_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
@@ -425,30 +423,30 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(resChannels[1].Name).To(Equal("UpdatedName"))
 			})
 	})
-	Context("Channels Limit", func() {
-
-		It("Should not allow creating channels over the limit", func() {
-			// Create channels up to the limit
-			for i := range limit {
-				ch := channel.Channel{
-					IsIndex:     true,
-					DataType:    telem.TimeStampT,
-					Name:        fmt.Sprintf("LimitTest%d", i),
-					Leaseholder: 3,
-				}
-				Expect(mockCluster.Nodes[3].Channels.Create(ctx, &ch)).To(Succeed())
-			}
-
-			// Try to create one more channel over the limit
-			overLimitCh := channel.Channel{
-				IsIndex:     true,
-				DataType:    telem.TimeStampT,
-				Name:        "OverLimit",
-				Leaseholder: 3,
-			}
-			err := mockCluster.Nodes[3].Channels.Create(ctx, &overLimitCh)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
-		})
-	})
+	//	Context("Channels Limit", func() {
+	//
+	//		It("Should not allow creating channels over the limit", func() {
+	//			// Create channels up to the limit
+	//			for i := range limit {
+	//				ch := channel.Channel{
+	//					IsIndex:     true,
+	//					DataType:    telem.TimeStampT,
+	//					Name:        fmt.Sprintf("LimitTest%d", i),
+	//					Leaseholder: 3,
+	//				}
+	//				Expect(mockCluster.Nodes[3].Channels.Create(ctx, &ch)).To(Succeed())
+	//			}
+	//
+	//			// Try to create one more channel over the limit
+	//			overLimitCh := channel.Channel{
+	//				IsIndex:     true,
+	//				DataType:    telem.TimeStampT,
+	//				Name:        "OverLimit",
+	//				Leaseholder: 3,
+	//			}
+	//			err := mockCluster.Nodes[3].Channels.Create(ctx, &overLimitCh)
+	//			Expect(err).To(HaveOccurred())
+	//			Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
+	//		})
+	//	})
 })

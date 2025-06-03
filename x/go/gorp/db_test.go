@@ -18,10 +18,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("KV", Ordered, func() {
-	var (
-		db *gorp.DB
-	)
+var _ = Describe("DB", Ordered, func() {
+	var db *gorp.DB
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 	})

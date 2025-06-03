@@ -176,7 +176,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 	l.Cluster = aspenDB.Cluster
-	l.KV = aspenDB.DB
+	l.KV = aspenDB
 	gorpDB := l.GorpDB()
 
 	if l.Ontology, err = ontology.Open(

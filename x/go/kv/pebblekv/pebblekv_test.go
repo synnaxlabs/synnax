@@ -255,7 +255,7 @@ var _ = Describe("Pebblekv", Ordered, func() {
 		Expect(db.Commit(ctx)).To(Succeed())
 	})
 
-	It("Should immediately return false when opening a reader directly on the KV", func() {
+	It("Should immediately return false when opening a reader directly on the DB", func() {
 		Expect(db.Set(ctx, []byte("reader-key"), []byte("reader-value"))).To(Succeed())
 		reader := db.NewReader()
 		Expect(reader).ToNot(BeNil())
