@@ -26,17 +26,13 @@ export interface AliasContextValue {
   setAlias: AliasSetter | null;
 }
 
-export const Context = createContext<AliasContextValue>({
-  aliases: {},
-  getName: () => {
-    throw new Error("getName must be used within a Channel.AliasProvider component");
-  },
-  setAlias: () => {
-    throw new Error("setAlias must be used within a Channel.AliasProvider component");
-  },
-});
+export const Context = createContext<AliasContextValue | undefined>(undefined);
 
-const useContext = (): AliasContextValue => use(Context);
+const useContext = (): AliasContextValue => {
+  const ctx = use(Context);
+  if (ctx == null) throw new Error("Channel.AliasProvider not found");
+  return ctx;
+};
 
 export const useActiveRange = (): ranger.Key | string | null | undefined =>
   useContext().activeRange;
