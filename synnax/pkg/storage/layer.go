@@ -35,12 +35,11 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/synnax/pkg/layer"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	errors2 "github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
@@ -72,49 +71,27 @@ const (
 
 var tsEngines = []TSEngine{CesiumTS}
 
-// Storage represents a node's local storage. The provided KV and TS engines can be
-// used to read and write data. A Storage must be closed when it is no longer in use.
-type Storage struct {
+// Layer represents a node's local storage. The provided KV and TS engines can be
+// used to read and write data. A Layer must be closed when it is no longer in use.
+type Layer struct {
 	// Config is the configuration for the storage provided to Open.
 	Config
 	// KV is the key-value store for the node.
 	KV kv.DB
 	// TS is the time-series engine for the node.
-	TS *cesium.DB
-	// lock is the lock held on the storage directory.
-	lock io.Closer
+	TS     *cesium.DB
+	closer xio.MultiCloser
 }
 
-// Gorpify returns a gorp.DB that can be used to interact with the storage key-value store.
-func (s *Storage) Gorpify() *gorp.DB {
-	return gorp.Wrap(
-		s.KV,
-		gorp.WithCodec(&binary.TracingCodec{
-			Level:           alamos.Bench,
-			Instrumentation: s.Instrumentation,
-			Codec:           &binary.MsgPackCodec{},
-		}),
-	)
-}
-
-// Close closes the Storage, releasing the lock on the storage directory. Close
-// MUST be called when the Storage is no longer in use. The caller must ensure that
-// all processes interacting the Storage have finished before calling Close.
-func (s *Storage) Close() error {
-	// We execute with aggregation here to ensure that we close all engines and release
-	// the lock regardless if one engine fails to close. This may cause unexpected
-	// behavior in the future, so we need to track it.
-	c := errors2.NewCatcher(errors2.WithAggregation())
-	c.Exec(s.TS.Close)
-	c.Exec(s.KV.Close)
-	c.Exec(s.lock.Close)
-	return c.Error()
-}
+// Close closes the Layer, releasing the lock on the storage directory. Close
+// MUST be called when the Layer is no longer in use. The caller must ensure that
+// all processes interacting the Layer have finished before calling Close.
+func (s *Layer) Close() error { return s.closer.Close() }
 
 // Config is used to configure delta's storage layer.
 type Config struct {
 	alamos.Instrumentation
-	// Dirname defines the root directory the Storage resides. The given directory
+	// Dirname defines the root directory the Layer resides. The given directory
 	// shouldn't be used by another process while the node is running.
 	Dirname string
 	// Perm is the file permissions to use for the storage directory.
@@ -173,24 +150,25 @@ func (cfg Config) Report() alamos.Report {
 	}
 }
 
-// Open opens a new Storage with the given Config. Open acquires a lock on the directory
+// Open opens a new Layer with the given Config. Open acquires a lock on the directory
 // specified in the Config. If the lock cannot be acquired, Open returns an error.
-// The lock is released when the Storage is/closed. Storage MUST be closed when it is no
+// The lock is released when the Layer is/closed. Layer MUST be closed when it is no
 // longer in use.
-func Open(ctx context.Context, cfg Config) (s *Storage, err error) {
-	cfg, err = config.New(DefaultConfig, cfg)
+func Open(ctx context.Context, cfg Config) (*Layer, error) {
+	cfg, err := config.New(DefaultConfig, cfg)
 	if err != nil {
 		return nil, err
 	}
-
-	s = &Storage{Config: cfg}
+	l := &Layer{Config: cfg}
+	cleanup, ok := layer.NewOpener(ctx, &err, &l.closer)
+	defer cleanup()
 
 	if *cfg.MemBacked {
-		s.L.Info("starting with memory-backed storage. no data will be persisted")
+		l.L.Info("starting with memory-backed storage. no data will be persisted")
 	} else {
-		s.L.Info("starting in directory", zap.String("dirname", cfg.Dirname))
+		l.L.Info("starting in directory", zap.String("dirname", cfg.Dirname))
 	}
-	s.L.Debug("config", cfg.Report().ZapFields()...)
+	l.L.Debug("config", cfg.Report().ZapFields()...)
 
 	// Open our two file system implementations. We use VFS for acquiring the directory
 	// lock and for the key-value store. We use XFS for the time-series engine, as we
@@ -198,31 +176,28 @@ func Open(ctx context.Context, cfg Config) (s *Storage, err error) {
 	baseVFS, baseXFS := openBaseFS(cfg)
 
 	// Configure our storage directory with the correct permissions.
-	if err = configureStorageDir(cfg, baseVFS); err != nil {
-		return s, err
+	if err = configureStorageDir(cfg, baseVFS); !ok(nil) {
+		return nil, err
 	}
 
 	// Try to lock the storage directory. If any other synnax node is using the
-	// same directory we return an error to the client.
-	releaser, err := acquireLock(cfg, baseVFS)
-	if err != nil {
-		return s, err
+	// same directory, we return an error to the client. We'll also add it to the
+	// list of closers to release the lock when the storage layer shuts down.
+	var lock io.Closer
+	if lock, err = acquireLock(cfg, baseVFS); !ok(lock) {
+		return nil, err
 	}
-	// Allow the caller to release the lock when they finish using the storage.
-	s.lock = releaser
 
 	// Open the key-value storage engine.
-	if s.KV, err = openKV(cfg, baseVFS); err != nil {
-		return s, errors.Combine(err, s.lock.Close())
+	if l.KV, err = openKV(cfg, baseVFS); !ok(l.KV) {
+		return nil, err
 	}
 
 	// Open the time-series engine.
-	if s.TS, err = openTS(ctx, cfg, baseXFS); err != nil {
-		err = errors.Combine(err, s.KV.Close())
-		return s, errors.Combine(err, s.lock.Close())
+	if l.TS, err = openTS(ctx, cfg, baseXFS); !ok(l.TS) {
+		return nil, err
 	}
-
-	return s, nil
+	return l, nil
 }
 
 const (

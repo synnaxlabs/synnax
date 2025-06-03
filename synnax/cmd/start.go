@@ -16,29 +16,32 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/layer"
-	"github.com/synnaxlabs/synnax/pkg/service"
-	xio "github.com/synnaxlabs/x/io"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
+	framertransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/synnax/pkg/layer"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	xsignal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
@@ -74,6 +77,7 @@ will bootstrap a new cluster.
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
 	var (
+		ctx                 = cmd.Context()
 		v                   = version.Get()
 		verifierFlag        = lo.Must(base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk="))
 		insecure            = viper.GetBool(insecureFlag)
@@ -87,10 +91,10 @@ func start(cmd *cobra.Command) {
 		rootUsername        = viper.GetString(usernameFlag)
 		rootPassword        = viper.GetString(passwordFlag)
 		noDriver            = viper.GetBool(noDriverFlag)
-		keySizeFlag         = viper.GetInt(keySizeFlag)
+		keySize             = viper.GetInt(keySizeFlag)
 		ins                 = configureInstrumentation()
 	)
-	defer cleanupInstrumentation(cmd.Context(), ins)
+	defer cleanupInstrumentation(ctx, ins)
 
 	if autoCert {
 		if err := generateAutoCerts(ins); err != nil {
@@ -108,7 +112,7 @@ func start(cmd *cobra.Command) {
 	// permission mask for all files appropriately.
 	disablePermissionBits()
 
-	sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithInstrumentation(ins))
+	sCtx, cancel := xsignal.WithCancel(ctx, xsignal.WithInstrumentation(ins))
 	defer cancel()
 
 	// Listen for a custom stop keyword that can be used in place of a Ctrl+C signal.
@@ -122,8 +126,9 @@ func start(cmd *cobra.Command) {
 		var (
 			err               error
 			closer            xio.MultiCloser
-			peers             []address.Address
+			peers             = parsePeerAddressFlag()
 			securityProvider  security.Provider
+			storageLayer      *storage.Layer
 			distributionLayer *distribution.Layer
 			serviceLayer      *service.Layer
 			apiLayer          *api.Layer
@@ -133,36 +138,46 @@ func start(cmd *cobra.Command) {
 		)
 		cleanup, ok := layer.NewOpener(ctx, &err, &closer)
 		defer cleanup()
+
 		if securityProvider, err = security.NewProvider(security.ProviderConfig{
 			LoaderConfig: certLoaderConfig,
 			Insecure:     config.Bool(insecure),
-			KeySize:      keySizeFlag,
+			KeySize:      keySize,
 		}); !ok(nil) {
 			return err
 		}
 
-		// An array to hold the grpcServerTransports we use for cluster internal communication.
-		grpcServerTransports := &[]fgrpc.BindableTransport{}
-		grpcClientPool := configureClientGRPC(securityProvider, insecure)
-
-		if peers, err = parsePeerAddressFlag(); !ok(nil) {
+		if storageLayer, err = storage.Open(ctx, storage.Config{
+			Instrumentation: ins.Child("storage"),
+			MemBacked:       config.Bool(memBacked),
+			Dirname:         dataPath,
+		}); !ok(storageLayer) {
 			return err
 		}
+
+		var (
+			grpcClientPool         = configureClientGRPC(securityProvider, insecure)
+			aspenTransport         = aspentransport.New(grpcClientPool)
+			frameTransport         = framertransport.New(grpcClientPool)
+			channelTransport       = channeltransport.New(grpcClientPool)
+			distributionTransports = []fgrpc.BindableTransport{
+				aspenTransport,
+				frameTransport,
+				channelTransport,
+			}
+		)
 
 		if distributionLayer, err = distribution.Open(ctx, distribution.Config{
 			Config: core.Config{
 				Instrumentation:  ins.Child("distribution"),
 				AdvertiseAddress: listenAddress,
 				PeerAddresses:    peers,
-				Pool:             grpcClientPool,
-				Storage: storage.Config{
-					Instrumentation: ins.Child("storage"),
-					MemBacked:       config.Bool(memBacked),
-					Dirname:         dataPath,
-				},
-				Transports: grpcServerTransports,
+				AspenTransport:   aspenTransport,
+				Storage:          storageLayer,
 			},
-			Verifier: verifier,
+			FrameTransport:   frameTransport,
+			ChannelTransport: channelTransport,
+			Verifier:         verifier,
 		}); !ok(distributionLayer) {
 			return err
 		}
@@ -175,22 +190,19 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
-		// Provision the root user.
-		if err = maybeProvisionRootUser(ctx, serviceLayer); !ok(nil) {
-			return err
-		}
-
-		// Set the base permissions for all users.
-		if err = maybeSetBasePermission(ctx, serviceLayer); !ok(nil) {
-			return err
-		}
-
-		// Configure the Layer core.
 		if apiLayer, err = api.New(api.Config{
 			Instrumentation: ins.Child("api"),
 			Service:         serviceLayer,
 			Distribution:    distributionLayer,
 		}); !ok(nil) {
+			return err
+		}
+
+		if err = maybeProvisionRootUser(ctx, serviceLayer); !ok(nil) {
+			return err
+		}
+
+		if err = maybeSetBasePermissions(ctx, serviceLayer); !ok(nil) {
 			return err
 		}
 
@@ -200,25 +212,30 @@ func start(cmd *cobra.Command) {
 		// where bleve would concurrently read and write to a map.
 		// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
 		// for more details on this issue.
-		sCtx.Go(distributionLayer.Ontology.RunStartupSearchIndexing, xsignal.WithKey("startup_search_indexing"))
+		sCtx.Go(
+			distributionLayer.Ontology.RunStartupSearchIndexing,
+			xsignal.WithKey("startup_search_indexing"),
+		)
 
-		// Configure the HTTP Layer Transport.
+		// Configure the HTTP Layer AspenTransport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{
 			Instrumentation:     ins,
 			StreamWriteDeadline: slowConsumerTimeout,
 		})
 		apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channel)))
 
-		// Configure the GRPC Layer Transport.
+		// Configure the GRPC Layer AspenTransport.
 		grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channel)
-		*grpcServerTransports = append(*grpcServerTransports, grpcAPITrans...)
 		apiLayer.BindTo(grpcAPI)
 
 		if rootServer, err = server.Serve(
 			server.Config{
 				Branches: []server.Branch{
 					&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r}},
-					&server.GRPCBranch{Transports: *grpcServerTransports},
+					&server.GRPCBranch{Transports: slices.Concat(
+						grpcAPITrans,
+						distributionTransports,
+					)},
 					server.NewHTTPRedirectBranch(),
 				},
 				Debug:           config.Bool(debug),

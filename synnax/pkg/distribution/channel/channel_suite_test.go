@@ -40,16 +40,12 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service, i
 	var (
 		services = make(map[aspen.NodeKey]channel.Service)
 		net      = tmock.NewChannelNetwork()
-		builder  = mock.NewCoreBuilder(core.Config{
-			Storage: storage.Config{MemBacked: config.Bool(true)},
-		})
-		builder2 = mock.NewCoreBuilder(core.Config{
-			Storage: storage.Config{MemBacked: config.Bool(true)},
-		})
-		core1 = builder.New(ctx)
-		core2 = builder.New(ctx)
-		core3 = builder2.New(ctx)
-		limit = 5
+		builder  = mock.NewCoreBuilder()
+		builder2 = mock.NewCoreBuilder()
+		core1    = builder.New(ctx)
+		core2    = builder.New(ctx)
+		core3    = builder2.New(ctx)
+		limit    = 5
 	)
 	otg1 := MustSucceed(ontology.Open(ctx, ontology.Config{
 		DB: core1.Storage.Gorpify(),

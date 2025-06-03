@@ -227,7 +227,7 @@ func (cfg ServiceConfig) Validate() error {
 	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "Channels", cfg.ChannelReader)
 	validate.NotNil(v, "HostProvider", cfg.HostResolver)
-	validate.NotNil(v, "Transport", cfg.Transport)
+	validate.NotNil(v, "AspenTransport", cfg.Transport)
 	return v.Error()
 }
 

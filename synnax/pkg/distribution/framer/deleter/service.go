@@ -37,7 +37,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.Deleter")
 	validate.NotNil(v, "HostProvider", c.HostResolver)
 	validate.NotNil(v, "TSChannel", c.TSChannel)
-	validate.NotNil(v, "Transport", c.Transport)
+	validate.NotNil(v, "AspenTransport", c.Transport)
 	validate.NotNil(v, "Channels", c.ChannelReader)
 	return v.Error()
 }

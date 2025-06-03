@@ -26,7 +26,7 @@ import (
 )
 
 // sets the base permissions that need to exist in the server.
-func maybeSetBasePermission(
+func maybeSetBasePermissions(
 	ctx context.Context,
 	svc *service.Layer,
 ) error {
@@ -64,7 +64,7 @@ func maybeSetBasePermission(
 		}
 		for _, p := range existingPolicies {
 			if len(p.Subjects) != 1 || len(p.Objects) != 1 || len(p.Actions) != 1 {
-				// then this policy is not one of the policies created in maybeSetBasePermission
+				// then this policy is not one of the policies created in maybeSetBasePermissions
 				continue
 			}
 			s := p.Subjects[0]

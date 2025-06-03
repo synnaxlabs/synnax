@@ -27,9 +27,7 @@ import (
 )
 
 var _ = Describe("txn", func() {
-	var (
-		builder *kvmock.Builder
-	)
+	var builder *kvmock.Builder
 
 	BeforeEach(func() {
 		builder = kvmock.NewBuilder(

@@ -74,7 +74,7 @@ func (c Config) Validate() error {
 	v := validate.New("distribution.framer")
 	validate.NotNil(v, "Channels", c.ChannelReader)
 	validate.NotNil(v, "TS", c.TS)
-	validate.NotNil(v, "Transport", c.Transport)
+	validate.NotNil(v, "AspenTransport", c.Transport)
 	validate.NotNil(v, "HostProvider", c.HostResolver)
 	return v.Error()
 }

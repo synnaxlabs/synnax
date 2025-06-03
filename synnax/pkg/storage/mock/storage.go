@@ -24,7 +24,7 @@ type Builder struct {
 	// Config is the configuration used to provision new stores.
 	Config storage.Config
 	// Stores is a slice all stores provisioned by the Builder.
-	Stores []*storage.Storage
+	Stores []*storage.Layer
 }
 
 // NewBuilder opens a new Builder that provisions stores using the given configuration.
@@ -47,7 +47,7 @@ func NewBuilder(configs ...storage.Config) *Builder {
 }
 
 // New provisions a new store.
-func (b *Builder) New(ctx context.Context) (store *storage.Storage) {
+func (b *Builder) New(ctx context.Context) (store *storage.Layer) {
 	if *b.Config.MemBacked {
 		store = b.newMemBacked(ctx)
 	} else {
@@ -59,7 +59,7 @@ func (b *Builder) New(ctx context.Context) (store *storage.Storage) {
 
 // Cleanup removes all test data written to disk by the stores provisioned by the Builder.
 // Cleanup should only be called after Close, and is not safe to call concurrently
-// with any other Builder or Storage methods.
+// with any other Builder or Layer methods.
 func (b *Builder) Cleanup() error {
 	if *b.Config.MemBacked {
 		return nil
@@ -68,7 +68,7 @@ func (b *Builder) Cleanup() error {
 }
 
 // Close closes all stores provisioned by the Builder. Close is not safe to call concurrently
-// with any other Builder or provisioned Storage methods.
+// with any other Builder or provisioned Layer methods.
 func (b *Builder) Close() error {
 	c := errors.NewCatcher(errors.WithAggregation())
 	for _, store := range b.Stores {
@@ -77,7 +77,7 @@ func (b *Builder) Close() error {
 	return c.Error()
 }
 
-func (b *Builder) newMemBacked(ctx context.Context) *storage.Storage {
+func (b *Builder) newMemBacked(ctx context.Context) *storage.Layer {
 	store, err := storage.Open(ctx, b.Config)
 	if err != nil {
 		panic(err)
@@ -85,7 +85,7 @@ func (b *Builder) newMemBacked(ctx context.Context) *storage.Storage {
 	return store
 }
 
-func (b *Builder) newFSBacked(ctx context.Context) *storage.Storage {
+func (b *Builder) newFSBacked(ctx context.Context) *storage.Layer {
 	// open a temporary directory prefixed with ServiceConfig.dirname
 	tempDir, err := os.MkdirTemp(b.Config.Dirname, "delta-test-")
 	if err != nil {

@@ -75,7 +75,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "HostProvider", c.HostResolver)
 	validate.NotNil(v, "ClusterDB", c.ClusterDB)
 	validate.NotNil(v, "TSChannel", c.TSChannel)
-	validate.NotNil(v, "Transport", c.Transport)
+	validate.NotNil(v, "AspenTransport", c.Transport)
 	validate.NotNil(v, "IntOverflowCheck", c.IntOverflowCheck)
 	return v.Error()
 }

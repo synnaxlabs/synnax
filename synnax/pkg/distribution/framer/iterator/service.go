@@ -90,7 +90,7 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.Iterator")
 	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "Channels", cfg.Channels)
-	validate.NotNil(v, "Transport", cfg.Transport)
+	validate.NotNil(v, "AspenTransport", cfg.Transport)
 	validate.NotNil(v, "Resolver", cfg.HostResolver)
 	return v.Error()
 }

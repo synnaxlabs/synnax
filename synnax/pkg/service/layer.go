@@ -37,15 +37,29 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Config is the configuration for opening the distribution layer. See fields for
+// details on defining the configuration.
 type Config struct {
+	// Instrumentation is for logging, tracing, metrics, etc.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
+	// Distribution is the underlying distribution layer.
+	//
+	// [REQUIRED]
 	Distribution *distribution.Layer
-	Security     security.Provider
+	// Security provides TLS certificates and encryption keys for the service layer.
+	//
+	// [REQUIRED]
+	Security security.Provider
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration for opening the service layer.
+	// This configuration is not valid on its own and must be overridden by the
+	// required fields specified in Config.
+	DefaultConfig = Config{}
 )
 
 // Override implements config.Config.
@@ -65,24 +79,51 @@ func (c Config) Validate() error {
 
 }
 
+// Layer contains all relevant services within the Synnax service layer.
+// The service layer wraps the distribution layer to provide the core services of
+// synnax that do not require network awareness.
 type Layer struct {
-	DB        *gorp.DB
-	User      *user.Service
-	RBAC      *rbac.Service
-	Token     *token.Service
-	Auth      auth.Authenticator
-	Ranger    *ranger.Service
+	DB *gorp.DB
+	// User is the service for registering and retrieving information about users.
+	User *user.Service
+	// RBAC implements role-based access control for users.
+	RBAC *rbac.Service
+	// Token is for creating and validating authentication tokens.
+	Token *token.Service
+	// Auth is for authenticating users with credentials.
+	Auth auth.Authenticator
+	// Ranger is for working with ranges.
+	Ranger *ranger.Service
+	// Workspace is for working with Workspaces.
 	Workspace *workspace.Service
+	// Schematic is for working with schematic visualizations.
 	Schematic *schematic.Service
-	LinePlot  *lineplot.Service
-	Label     *label.Service
-	Log       *log.Service
-	Table     *table.Service
-	Hardware  *hardware.Service
-	Framer    *framer.Service
-	closer    xio.MultiCloser
+	// LinePlot is for working with line plot visualizations.
+	LinePlot *lineplot.Service
+	// Log is for working with log visualizations.
+	Log *log.Service
+	// Table is for working with table visualizations.
+	Table *table.Service
+	// Label is for working with user-defined labels that can be attached to various
+	// data structures within Synnax.
+	Label *label.Service
+	// Hardware is for managing devices, racks, and tasks to control data acquisition
+	// and control processes across the cluster.
+	Hardware *hardware.Service
+	// Framer is for reading, writing, and streaming frames of telemetry from channels
+	// across the cluster.
+	Framer *framer.Service
+	// closer shuts down any necessary services when the service layer is no longer needed.
+	closer xio.MultiCloser
 }
 
+// Close shuts down the service layer, returning any error encountered.
+func (l *Layer) Close() error { return l.closer.Close() }
+
+// Open opens the service layer using the provided configurations. Later configurations
+// override the fields set in previous ones. If the configuration is invalid, or
+// any services fail to open, Open returns a nil layer and an error. If the returned
+// error is nil, the Layer must be closed by calling Close after use.
 func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -180,5 +221,3 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}
 	return l, nil
 }
-
-func (l *Layer) Close() error { return l.closer.Close() }

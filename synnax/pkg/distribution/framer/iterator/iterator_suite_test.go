@@ -25,9 +25,7 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-var (
-	ctx = context.Background()
-)
+var ctx = context.Background()
 
 func TestIterator(t *testing.T) {
 	RegisterFailHandler(Fail)
