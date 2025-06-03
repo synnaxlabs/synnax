@@ -12,6 +12,7 @@ package mock
 import (
 	"context"
 
+	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
 	aspentransmock "github.com/synnaxlabs/aspen/transport/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -99,7 +100,18 @@ func (b *Cluster) Provision(
 		}, b.cfg}, cfgs...)...))
 	)
 	b.Nodes[distributionLayer.Cluster.HostKey()] = Node{Layer: distributionLayer, Storage: storageLayer}
+	b.WaitForTopologyToStabilize()
 	return distributionLayer
+}
+
+// WaitForTopologyToStabilize waits for all nodes in the cluster to be aware of each
+// other.
+func (b *Cluster) WaitForTopologyToStabilize() {
+	for _, node := range b.Nodes {
+		gomega.Eventually(func() int {
+			return len(node.Cluster.Nodes())
+		}).Should(gomega.Equal(len(b.Nodes)))
+	}
 }
 
 func (b *Cluster) Close() error {

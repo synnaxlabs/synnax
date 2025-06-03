@@ -1270,7 +1270,7 @@ var _ = Describe("Writer Behavior", func() {
 
 				Context("Missing Channels", func() {
 
-					Specify("Frame With Index Channel but without Data Channels", func() {
+					Specify("Frame With Index Channel but without Data Channel", func() {
 						w := MustSucceed(db.OpenWriter(
 							ctx,
 							cesium.WriterConfig{

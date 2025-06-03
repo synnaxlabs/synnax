@@ -186,7 +186,7 @@ type Channel struct {
 	// indexed using its rate. One of LocalIndex or Rate must be non-zero.
 	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
 	// Virtual is set to true if the channel is a virtual channel. The data from virtual
-	// channels is not persisted into the KV.
+	// channels is not persisted into the DB.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
 	// Concurrency sets the policy for concurrent writes to the same region of the
 	// channel's data. Only virtual channels can have a policy of control.Shared.
