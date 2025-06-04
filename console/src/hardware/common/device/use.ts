@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device as cDevice, NotFoundError } from "@synnaxlabs/client";
+import { type device, NotFoundError } from "@synnaxlabs/client";
 import {
   Device,
   Form,
@@ -47,17 +47,17 @@ export const use = <
   Make extends string = string,
   Model extends string = string,
   StateDetails extends {} = UnknownRecord,
->(): cDevice.Device<Properties, Make, Model, StateDetails> | undefined => {
+>(): device.Device<Properties, Make, Model, StateDetails> | undefined => {
   const ctx = Form.useContext<UseContextValue>();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const [device, setDevice] =
-    useState<cDevice.Device<Properties, Make, Model, StateDetails>>();
-  const deviceNameRef = useSyncedRef(device?.name);
+  const [dev, setDev] =
+    useState<device.Device<Properties, Make, Model, StateDetails>>();
+  const deviceNameRef = useSyncedRef(dev?.name);
   const handleExc = useCallback(
     (e: unknown) => {
       if (NotFoundError.matches(e)) {
-        setDevice(undefined);
+        setDev(undefined);
         return;
       }
       handleError(e, `Failed to retrieve ${deviceNameRef.current ?? "device"}`);
@@ -68,17 +68,17 @@ export const use = <
     if (client == null) return;
     const deviceKey = ctx.value().config.device;
     if (deviceKey === "") {
-      setDevice(undefined);
+      setDev(undefined);
       return;
     }
     try {
-      const device = await client.hardware.devices.retrieve<
+      const d = await client.hardware.devices.retrieve<
         Properties,
         Make,
         Model,
         StateDetails
       >(deviceKey);
-      setDevice(device);
+      setDev(d);
     } catch (e) {
       handleExc(e);
     }
@@ -91,26 +91,26 @@ export const use = <
         if (!fs.touched || fs.status.variant !== "success" || client == null) return;
         client.hardware.devices
           .retrieve<Properties, Make, Model, StateDetails>(fs.value)
-          .then(setDevice)
+          .then(setDev)
           .catch(handleExc);
       },
-      [client?.key, setDevice, handleExc],
+      [client?.key, setDev, handleExc],
     ),
   });
   const handleSet = useCallback(
-    (d: cDevice.Device) => {
-      if (d.key === device?.key)
-        setDevice(d as cDevice.Device<Properties, Make, Model, StateDetails>);
+    (d: device.Device) => {
+      if (d.key === dev?.key)
+        setDev(d as device.Device<Properties, Make, Model, StateDetails>);
     },
-    [device?.key],
+    [dev?.key],
   );
   const handleDelete = useCallback(
-    (key: cDevice.Key) => {
-      if (key === device?.key) setDevice(undefined);
+    (key: device.Key) => {
+      if (key === dev?.key) setDev(undefined);
     },
-    [device?.key],
+    [dev?.key],
   );
   Device.useSetSynchronizer(handleSet);
   Device.useDeleteSynchronizer(handleDelete);
-  return device;
+  return dev;
 };
