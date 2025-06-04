@@ -203,14 +203,6 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
-		if err = maybeSetBasePermissions(
-			ctx,
-			distributionLayer,
-			serviceLayer,
-		); !ok(nil) {
-			return err
-		}
-
 		// We run startup searching indexing after all services have been
 		// registered within the ontology. We used to fork a new goroutine for
 		// every service at registration time, but this caused a race condition

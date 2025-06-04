@@ -146,7 +146,7 @@ func maybeProvisionRootUser(
 	}
 
 	// Register the user first, then give them all permissions
-	return dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if err = dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		if err = svc.Auth.NewWriter(tx).Register(ctx, creds); err != nil {
 			return err
 		}
@@ -162,5 +162,8 @@ func maybeProvisionRootUser(
 				Actions:  []access.Action{},
 			},
 		)
-	})
+	}); err != nil {
+		return err
+	}
+	return maybeSetBasePermissions(ctx, dist, svc)
 }
