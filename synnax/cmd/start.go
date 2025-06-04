@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	framertransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
-	"github.com/synnaxlabs/synnax/pkg/layer"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -41,6 +40,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	xservice "github.com/synnaxlabs/x/service"
 	xsignal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
@@ -135,7 +135,7 @@ func start(cmd *cobra.Command) {
 			embeddedDriver    *embedded.Driver
 			certLoaderConfig  = buildCertLoaderConfig(ins)
 		)
-		cleanup, ok := layer.NewOpener(ctx, &err, &closer)
+		cleanup, ok := xservice.NewOpener(ctx, &err, &closer)
 		defer cleanup()
 
 		if securityProvider, err = security.NewProvider(security.ProviderConfig{

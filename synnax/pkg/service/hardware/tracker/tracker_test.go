@@ -62,14 +62,15 @@ var _ = Describe("Tracker", Ordered, func() {
 			Signals:  dist.Signals,
 		}))
 		cfg = tracker.Config{
-			DB:           dist.DB,
-			Rack:         rackSvc,
-			Task:         taskSvc,
-			Signals:      dist.Signals,
-			Channels:     dist.Channels,
-			HostProvider: dist.Cluster,
-			Framer:       dist.Framer,
-			Device:       deviceSvc,
+			DB:                      dist.DB,
+			Rack:                    rackSvc,
+			Task:                    taskSvc,
+			Signals:                 dist.Signals,
+			Channels:                dist.Channels,
+			HostProvider:            dist.Cluster,
+			Framer:                  dist.Framer,
+			Device:                  deviceSvc,
+			RackStateAliveThreshold: 5 * telem.Minute,
 		}
 	})
 	JustBeforeEach(func() {
@@ -145,6 +146,10 @@ var _ = Describe("Tracker", Ordered, func() {
 		It("Should update the rack state when received", func() {
 			rck := &rack.Rack{Name: "rack1"}
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rck)).To(Succeed())
+			Eventually(func(g Gomega) {
+				_, ok := tr.GetRack(ctx, rck.Key)
+				g.Expect(ok).To(BeTrue())
+			}).Should(Succeed())
 
 			var rackStateCh channel.Channel
 			Expect(dist.Channels.NewRetrieve().WhereNames("sy_rack_state").Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
@@ -168,8 +173,8 @@ var _ = Describe("Tracker", Ordered, func() {
 			Eventually(func(g Gomega) {
 				r, ok := tr.GetRack(ctx, rck.Key)
 				g.Expect(ok).To(BeTrue())
-				g.Expect(r.State.Variant).To(Equal(status.InfoVariant))
 				g.Expect(r.State.Message).To(Equal("Rack is alive"))
+				g.Expect(r.State.Variant).To(Equal(status.InfoVariant))
 			}).Should(Succeed())
 		})
 
@@ -510,6 +515,11 @@ var _ = Describe("Tracker", Ordered, func() {
 				Location: "slot1",
 			}
 			Expect(cfg.Device.NewWriter(nil).Create(ctx, dev)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				_, ok := tr.GetDevice(ctx, dev.Key)
+				g.Expect(ok).To(BeTrue())
+			}).Should(Succeed())
 
 			var deviceStateCh channel.Channel
 			Expect(dist.Channels.NewRetrieve().WhereNames("sy_device_state").Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())

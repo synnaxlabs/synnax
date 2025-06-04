@@ -35,7 +35,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/synnax/pkg/layer"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -44,6 +43,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -180,7 +180,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 	l := &Layer{}
-	cleanup, ok := layer.NewOpener(ctx, &err, &l.closer)
+	cleanup, ok := service.NewOpener(ctx, &err, &l.closer)
 	defer cleanup()
 
 	if *cfg.InMemory {

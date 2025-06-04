@@ -22,7 +22,9 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/freighter/falamos"
 	"github.com/synnaxlabs/x/address"
+	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -34,38 +36,30 @@ func Open(
 	opts ...Option,
 ) (*DB, error) {
 	var (
-		o   = newOptions(dirname, addr, peers, opts...)
-		d   = &DB{}
-		err error
+		o           = newOptions(dirname, addr, peers, opts...)
+		db          = &DB{}
+		err         error
+		cleanup, ok = service.NewOpener(ctx, &err, &db.closer)
 	)
-	if err = openStorageEngine(o); err != nil {
-		return nil, err
-	}
-	d.transportCloser, err = configureTransport(ctx, o)
-	if err != nil {
-		return nil, err
-	}
-	c, err := cluster.Open(ctx, o.cluster)
-	d.Cluster = c
-	if err != nil {
-		return nil, err
-	}
-	o.kv.Cluster = c
-	db, err := kv.Open(ctx, o.kv)
-	d.DB = db
-	return d, err
-}
-
-func openStorageEngine(opts *options) error {
-	if opts.kv.Engine == nil {
-		pebbleDB, err := pebble.Open(opts.dirname, &pebble.Options{FS: opts.fs})
-		if err != nil {
-			return err
+	defer cleanup()
+	if o.kv.Engine == nil {
+		if o.kv.Engine, err = openKV(o); !ok(o.kv.Engine) {
+			return nil, err
 		}
-		opts.kv.Engine = pebblekv.Wrap(pebbleDB)
 	}
-	opts.cluster.Storage = opts.kv.Engine
-	return nil
+	o.cluster.Storage = o.kv.Engine
+	var transportCloser io.Closer
+	if transportCloser, err = configureTransport(ctx, o); !ok(transportCloser) {
+		return nil, err
+	}
+	if db.Cluster, err = cluster.Open(ctx, o.cluster); !ok(db.Cluster) {
+		return nil, err
+	}
+	o.kv.Cluster = db.Cluster
+	if db.DB, err = kv.Open(ctx, o.kv); !ok(db.DB) {
+		return nil, err
+	}
+	return db, err
 }
 
 func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
@@ -95,4 +89,12 @@ func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
 	o.kv.RecoveryTransportServer = o.transport.RecoveryServer()
 	o.kv.RecoveryTransportClient = o.transport.RecoveryClient()
 	return transportShutdown, nil
+}
+
+func openKV(o *options) (kvx.DB, error) {
+	pebbleDB, err := pebble.Open(o.dirname, &pebble.Options{FS: o.fs})
+	if err != nil {
+		return nil, err
+	}
+	return pebblekv.Wrap(pebbleDB), nil
 }

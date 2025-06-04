@@ -405,7 +405,7 @@ func (t *Tracker) Close() error {
 	return t.closer.Close()
 }
 
-// handleTaskChanges handles changes to tasks in the KV.
+// handleTaskChanges handles changes to tasks in the DB.
 func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Key, task.Task]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -464,7 +464,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 	}
 }
 
-// handleRackChanges handles changes to racks in the KV.
+// handleRackChanges handles changes to racks in the DB.
 func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Key, rack.Rack]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -643,7 +643,7 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 	}
 }
 
-// handleDeviceChanges handles changes to devices in the KV.
+// handleDeviceChanges handles changes to devices in the DB.
 func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[string, device.Device]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

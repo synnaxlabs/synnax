@@ -185,7 +185,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 
 					By("Forking the databases")
 					for range 3 {
-						_, err := builder.New()
+						_, err := builder.New(ctx)
 						Expect(err).ToNot(HaveOccurred())
 					}
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package layer
+package service
 
 import (
 	"context"
@@ -17,8 +17,8 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 )
 
-// NewOpener returns a set of utility functions for opening 'layers' that contain
-// collections of services.
+// NewOpener returns a set of utility functions for opening collections of services
+// that have a specific startup and shutdown order.
 //
 // NewOpener returns two functions, cleanup and ok. cleanup must be called in a defer
 // statement directly after NewOpener returns.
@@ -34,7 +34,7 @@ import (
 // that modifies the value of err. If ok returns false, the calling function must
 // immediately return. ok also accepts an optional io.Closer that will be added to the
 // provided closer. This will be used to gracefully shut down the service in case
-// any subsequent service fails to open.
+// any later service fails to open.
 //
 // if ok returns false, this means either err != nil or ctx.Err() != nil, in which case
 // all previously opened services that have closers will be closed in the cleanup()

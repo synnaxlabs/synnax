@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/layer"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -33,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -128,7 +128,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 	l := &Layer{}
-	cleanup, ok := layer.NewOpener(ctx, &err, &l.closer)
+	cleanup, ok := service.NewOpener(ctx, &err, &l.closer)
 	defer cleanup()
 
 	if l.User, err = user.NewService(ctx, user.Config{

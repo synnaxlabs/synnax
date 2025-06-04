@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/layer"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
@@ -33,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -185,7 +185,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 	l := &Layer{}
-	cleanup, ok := layer.NewOpener(ctx, &err, &l.closer)
+	cleanup, ok := service.NewOpener(ctx, &err, &l.closer)
 	defer cleanup()
 
 	aspenOptions := append([]aspen.Option{

@@ -25,6 +25,7 @@ var _ = Describe("Storage", func() {
 		store := b.Provision(ctx)
 		Expect(store).NotTo(BeNil())
 		Expect(store.KV.Set(ctx, []byte("foo"), []byte("bar"))).To(Succeed())
+		Expect(b.Close()).To(Succeed())
 	},
 		Entry("Memory-backed storage implementation"),
 		Entry("Stamp-backed storage implementation", storage.Config{InMemory: config.Bool(false), Dirname: "./tmp"}),

@@ -1,4 +1,4 @@
-package layer_test
+package service_test
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/service"
 
-	"github.com/synnaxlabs/synnax/pkg/layer"
 	xio "github.com/synnaxlabs/x/io"
 )
 
@@ -32,7 +32,7 @@ var _ = Describe("Opener", Ordered, func() {
 				return nil
 			}),
 		}
-		cleanup, ok = layer.NewOpener(cancelCtx, &err, &closer)
+		cleanup, ok = service.NewOpener(cancelCtx, &err, &closer)
 	})
 	It("Should correctly open a set of services that return without an error", func() {
 		open := func(ctx context.Context) error {
