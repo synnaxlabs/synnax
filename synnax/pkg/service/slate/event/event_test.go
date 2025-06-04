@@ -61,7 +61,7 @@ var _ = Describe("Event", Ordered, func() {
 			g := spec.Graph{
 				Nodes: []spec.Node{
 					{
-						Type: ,
+						Type: "cat",
 						Key:  "source",
 						Data: map[string]any{
 							"channel": uint32(sourceCh.Key()),
