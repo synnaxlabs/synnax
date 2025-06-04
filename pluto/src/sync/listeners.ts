@@ -11,6 +11,7 @@ import { type channel, type MultiSeries } from "@synnaxlabs/client";
 import { useCallback, useEffect } from "react";
 import { type z } from "zod";
 
+import { useSyncedRef } from "@/hooks";
 import { useAddListener } from "@/sync/Context";
 
 export const useListener = (
@@ -18,13 +19,14 @@ export const useListener = (
   onChange: (series: MultiSeries) => void,
 ): void => {
   const addListener = useAddListener();
+  const onChangeRef = useSyncedRef(onChange);
   useEffect(
     () =>
       addListener({
         channels: channel,
-        handler: (frame) => onChange(frame.get(channel)),
+        handler: (frame) => onChangeRef.current(frame.get(channel)),
       }),
-    [addListener, channel, onChange],
+    [addListener, channel],
   );
 };
 

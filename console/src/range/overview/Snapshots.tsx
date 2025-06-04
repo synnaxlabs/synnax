@@ -98,11 +98,10 @@ export interface SnapshotsProps {
   rangeKey: string;
 }
 
-const filter = (resource: ontology.Resource): boolean =>
-  resource.data?.snapshot === true;
-
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const snapshots = Ontology.useChildren(ranger.ontologyID(rangeKey), filter);
+  const snapshots = Ontology.useChildren(ranger.ontologyID(rangeKey)).filter(
+    ({ data }) => data?.snapshot === true,
+  );
   return (
     <Align.Space y>
       <Text.Text level="h4" shade={10} weight={500}>

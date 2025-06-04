@@ -31,7 +31,12 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
       streamerRef.current = null;
       return;
     }
-    streamerRef.current = await client.openStreamer([...handlersRef.current.keys()]);
+    try {
+      streamerRef.current = await client.openStreamer([...handlersRef.current.keys()]);
+    } catch (e) {
+      handleError(e, "Failed to open Sync.Provider streamer");
+      return;
+    }
     const observableStreamer = new framer.ObservableStreamer(streamerRef.current);
     observableStreamer.onChange((frame) => {
       const calledHandlers = new Set<FrameHandler>();

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, ranger, task } from "@synnaxlabs/client";
+import { ranger, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Ontology, Text } from "@synnaxlabs/pluto";
 
@@ -18,13 +18,11 @@ export interface ParentRangeButtonProps {
   taskKey: task.Key;
 }
 
-const filter = (resource: ontology.Resource): boolean =>
-  resource.id.type === ranger.ONTOLOGY_TYPE;
-
 export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
-  const parentRange = Ontology.useParents(task.ontologyID(taskKey), filter)?.find(
-    ({ id: { type } }) => type === ranger.ONTOLOGY_TYPE,
-  );
+  const parentRange =
+    Ontology.useParents(task.ontologyID(taskKey))?.find(
+      ({ id: { type } }) => type === ranger.ONTOLOGY_TYPE,
+    ) ?? null;
   const placeLayout = Layout.usePlacer();
   if (parentRange == null) return null;
   const handleClick = () =>
