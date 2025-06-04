@@ -1,19 +1,34 @@
 name: Test - Freighter
 
 on:
+  pull_request:
+    paths:
+      - .github/workflows/test.freighter.yaml
+      - alamos/go/**
+      - alamos/py/**
+      - alamos/ts/**
+      - configs/eslint/**
+      - configs/ts/**
+      - configs/vite/**
+      - freighter/go/**
+      - freighter/integration/**
+      - freighter/py/**
+      - freighter/ts/**
+      - go.work
+      - go.work.sum
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts/check-gofmt.sh
+      - turbo.json
+      - vitest.workspace.ts
+      - x/go/**
+      - x/ts/**
   push:
     branches:
       - main
       - rc
-  pull_request:
-    branches:
-      - main
-      - rc
   workflow_dispatch:
-
-permissions:
-  contents: write
-  packages: write
 
 jobs:
   changes:
@@ -33,33 +48,42 @@ jobs:
         with:
           base: ${{ github.ref }}
           filters: |
-            shared: &shared
+            server:
               - .github/workflows/test.freighter.yaml
-            integration: &integration
-              - *shared
               - alamos/go/**
               - freighter/go/**
               - freighter/integration/**
+              - go.work
+              - go.work.sum
               - x/go/**
+            integration:
+              - *server
+              - scripts/check-gofmt.sh
             py:
-              - *shared
-              - *integration
+              - *server
               - alamos/py/**
               - freighter/py/**
             ts:
-              - *shared
-              - *integration
+              - *server
               - alamos/ts/**
               - configs/eslint/**
               - configs/ts/**
               - configs/vite/**
               - freighter/ts/**
+              - package.json
+              - pnpm-lock.yaml
+              - pnpm-workspace.yaml
+              - turbo.json
+              - vitest.workspace.ts
               - x/ts/**
 
-  integration:
+  server:
+    name: Server
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.integration == 'true'
+    if: needs.changes.outputs.py == 'true' || needs.changes.outputs.ts == 'true'
+    permissions:
+      packages: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -78,6 +102,15 @@ jobs:
         run: earthly --push +docker
         working-directory: freighter/integration
 
+  integration:
+    name: Test - Integration
+    needs: changes
+    runs-on: ubuntu-latest
+    if: needs.changes.outputs.integration == 'true'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -85,11 +118,11 @@ jobs:
           cache-dependency-path: go.work.sum
 
       - name: Check Formatting
-        run: bash scripts/check-gofmt.sh freighter/integration
+        run: ./scripts/check-gofmt.sh freighter/integration
 
   py:
-    name: Python
-    needs: [changes, integration]
+    name: Test - Python
+    needs: [changes, server]
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
     services:
@@ -134,8 +167,8 @@ jobs:
         working-directory: freighter/py
 
   ts:
-    name: TypeScript
-    needs: [changes, integration]
+    name: Test - TypeScript
+    needs: [changes, server]
     if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     services:

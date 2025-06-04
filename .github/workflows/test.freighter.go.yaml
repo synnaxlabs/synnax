@@ -45,8 +45,8 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: bash scripts/check-gofmt.sh freighter/go
+        run: ./scripts/check-gofmt.sh freighter/go
 
       - name: Test
-        run: go run github.com/onsi/ginkgo/v2/ginkgo -r -p --github-output
+        run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output
         working-directory: freighter/go

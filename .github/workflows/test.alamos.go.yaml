@@ -44,8 +44,8 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: bash scripts/check-gofmt.sh alamos/go
+        run: ./scripts/check-gofmt.sh alamos/go
 
       - name: Test
-        run: go run github.com/onsi/ginkgo/v2/ginkgo -r -p --github-output
+        run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output
         working-directory: alamos/go

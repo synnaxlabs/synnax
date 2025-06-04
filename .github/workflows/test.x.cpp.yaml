@@ -47,12 +47,12 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
+          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
           repository-cache: true
 
       - name: Check Formatting
         if: matrix.format
-        run: bash scripts/check-clang-format.sh x/cpp
+        run: ./scripts/check-clang-format.sh x/cpp
 
       - name: Test
         run: bazel test --test_output=all //x/cpp/... --nocache_test_results
