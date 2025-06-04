@@ -141,18 +141,11 @@ export interface Resource<T extends UnknownRecord = UnknownRecord>
   data?: T | null;
 }
 
-export const TO_RELATIONSHIP_DIRECTION = "to";
-export const FROM_RELATIONSHIP_DIRECTION = "from";
-export type RelationshipDirection =
-  | typeof TO_RELATIONSHIP_DIRECTION
-  | typeof FROM_RELATIONSHIP_DIRECTION;
+export type RelationshipDirection = "to" | "from";
 
 export const getOppositeRelationshipDirection = (
   direction: RelationshipDirection,
-): RelationshipDirection =>
-  direction === TO_RELATIONSHIP_DIRECTION
-    ? FROM_RELATIONSHIP_DIRECTION
-    : TO_RELATIONSHIP_DIRECTION;
+): RelationshipDirection => (direction === "to" ? "from" : "to");
 
 export const relationshipSchemaZ = z.object({ from: ID.z, type: z.string(), to: ID.z });
 export interface Relationship extends z.infer<typeof relationshipSchemaZ> {}

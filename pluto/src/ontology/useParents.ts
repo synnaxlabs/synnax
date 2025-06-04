@@ -7,12 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { type ontology } from "@synnaxlabs/client";
 
 import { useDependentTracker } from "@/ontology/useDependentTracker";
 
-export const useParents = (
-  id: ontology.CrudeID,
-  filter?: (parent: ontology.Resource) => boolean,
-): ontology.Resource[] =>
-  useDependentTracker(id, ontology.FROM_RELATIONSHIP_DIRECTION, filter);
+export const useParents = (id: ontology.CrudeID): ontology.Resource[] =>
+  useDependentTracker(id, "from");

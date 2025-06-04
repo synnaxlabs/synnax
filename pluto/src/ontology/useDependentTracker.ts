@@ -22,7 +22,6 @@ import { Synnax } from "@/synnax";
 export const useDependentTracker = (
   id: ontology.CrudeID,
   direction: ontology.RelationshipDirection,
-  filter?: (dependent: ontology.Resource) => boolean,
 ): ontology.Resource[] => {
   const [dependents, setDependents] = useState<ontology.Resource[]>([]);
   const client = Synnax.use();
@@ -36,13 +35,11 @@ export const useDependentTracker = (
   useAsyncEffect(async () => {
     if (client == null) return;
     const dependents =
-      await client.ontology[
-        `retrieve${
-          direction === ontology.TO_RELATIONSHIP_DIRECTION ? "Children" : "Parents"
-        }`
-      ](key);
-    setDependents(filter ? dependents.filter(filter) : dependents);
-  }, [key, direction, client, filter]);
+      await client.ontology[`retrieve${direction === "to" ? "Children" : "Parents"}`](
+        key,
+      );
+    setDependents(dependents);
+  }, [key, direction, client]);
   const handleError = Status.useErrorHandler();
   const handleRelationshipSet = useCallback(
     (relationship: ontology.Relationship) => {
@@ -53,7 +50,6 @@ export const useDependentTracker = (
           throw new Error(
             `Ontology resource with key ${relationship[direction].toString()} was not found`,
           );
-        if (filter != null && !filter(dependent)) return;
         setDependents((prevDependents) => {
           let changed = false;
           const nextDependents = prevDependents.map((d) => {
@@ -93,13 +89,12 @@ export const useDependentTracker = (
         setDependents((prevDependents) =>
           prevDependents.flatMap((d) => {
             if (!d.id.equals(id)) return [d];
-            if (filter == null || filter(nextDependent)) return [nextDependent];
-            return [];
+            return [nextDependent];
           }),
         );
       }, "Failed to process ontology resource");
     },
-    [client, handleError, key, dependents, filter],
+    [client, handleError, key, dependents],
   );
   useResourceSetSynchronizer(handleResourceSet);
 

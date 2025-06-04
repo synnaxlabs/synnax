@@ -10,8 +10,17 @@
 import { ranger } from "@synnaxlabs/client";
 import { Ontology, Synnax } from "@synnaxlabs/pluto";
 
-export const useParent = (rangeKey: ranger.Key): ranger.Range | null => {
-  const parent = Ontology.useParents(ranger.ontologyID(rangeKey)).find(
+export const useChildRanges = (key: ranger.Key): ranger.Range[] => {
+  const children = Ontology.useChildren(ranger.ontologyID(key)).filter(
+    ({ id: { type } }) => type === ranger.ONTOLOGY_TYPE,
+  );
+  const client = Synnax.use();
+  if (client == null) return [];
+  return children.map((child) => client.ranges.sugarOntologyResource(child));
+};
+
+export const useParentRange = (key: ranger.Key): ranger.Range | null => {
+  const parent = Ontology.useParents(ranger.ontologyID(key)).find(
     ({ id: { type } }) => type === ranger.ONTOLOGY_TYPE,
   );
   const client = Synnax.use();
