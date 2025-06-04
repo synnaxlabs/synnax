@@ -12,7 +12,6 @@ package iterator_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -27,7 +26,7 @@ import (
 var _ = Describe("StreamIterator", Ordered, func() {
 	var (
 		builder     = mock.NewCluster()
-		dist        *distribution.Layer
+		dist        mock.Node
 		iteratorSvc *iterator.Service
 	)
 	BeforeAll(func() {
@@ -39,8 +38,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		Expect(dist.Close()).To(Succeed())
-		Expect(builder.Cleanup()).To(Succeed())
+		Expect(builder.Close()).To(Succeed())
 	})
 	Describe("Basic Iteration", func() {
 		It("Should read written frames correctly", func() {

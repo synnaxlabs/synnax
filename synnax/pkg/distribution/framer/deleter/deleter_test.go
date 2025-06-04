@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -125,7 +124,7 @@ type scenario struct {
 	name   string
 	keys   channel.Keys
 	names  []string
-	dist   *distribution.Layer
+	dist   mock.Node
 	closer io.Closer
 }
 
@@ -156,7 +155,13 @@ func gatewayOnlyScenario() scenario {
 	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(channel channel.Channel, _ int) string { return channel.Name })
-	return scenario{name: "Gateway Only", keys: keys, names: names, dist: dist}
+	return scenario{
+		name:   "Gateway Only",
+		keys:   keys,
+		names:  names,
+		dist:   dist,
+		closer: builder,
+	}
 }
 
 func peerOnlyScenario() scenario {
@@ -175,7 +180,12 @@ func peerOnlyScenario() scenario {
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Peer Only", keys: keys, dist: dist, closer: builder}
+	return scenario{
+		name:   "Peer Only",
+		keys:   keys,
+		dist:   dist,
+		closer: builder,
+	}
 }
 
 func mixedScenario() scenario {

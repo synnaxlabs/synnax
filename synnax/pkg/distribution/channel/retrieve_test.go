@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/telem"
@@ -22,17 +21,9 @@ import (
 const internalChannelCount = 1
 
 var _ = Describe("Retrieve", Ordered, func() {
-	var (
-		mockCluster *mock.Cluster
-		limit       int
-	)
+	var mockCluster *mock.Cluster
 	BeforeAll(func() {
-		limit = 5
 		mockCluster = mock.ProvisionCluster(ctx, 2)
-		mockCluster.Provision(ctx, distribution.Config{
-			TestingIntOverflowCheck: channel.FixedOverflowChecker(limit),
-		})
-
 	})
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
@@ -212,44 +203,5 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
-	//Context("Channels Limit", func() {
-	//	It("Should allow retrieving channels even at the limit", func() {
-	//		// Create channels up to the limit
-	//		createdChannels := make([]channel.Channel, int(limit))
-	//		for i := range limit {
-	//			ch := channel.Channel{
-	//				IsIndex:     true,
-	//				DataType:    telem.TimeStampT,
-	//				Name:        fmt.Sprintf("LimitTest%d", i),
-	//				Leaseholder: 3,
-	//			}
-	//			Expect(mockCluster.Nodes[3].Channels.Create(ctx, &ch)).To(Succeed())
-	//			createdChannels[i] = ch
-	//		}
-	//
-	//		// Try to create one more channel over the limit
-	//		overLimitCh := channel.Channel{
-	//			IsIndex:     true,
-	//			DataType:    telem.TimeStampT,
-	//			Name:        "OverLimit",
-	//			Leaseholder: 3,
-	//		}
-	//		err := mockCluster.Nodes[3].Channels.Create(ctx, &overLimitCh)
-	//		Expect(err).To(HaveOccurred())
-	//		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
-	//
-	//		// Retrieve all channels - this should work fine even at the limit
-	//		var retrievedChannels []channel.Channel
-	//		retrieve := mockCluster.Nodes[3].Channels.NewRetrieve()
-	//		err = retrieve.Entries(&retrievedChannels).WhereNodeKey(3).Exec(ctx, nil)
-	//		Expect(err).ToNot(HaveOccurred())
-	//		Expect(retrievedChannels).To(HaveLen(limit + internalChannelCount))
-	//
-	//		// Retrieve a specific channel by name
-	//		var singleChannel channel.Channel
-	//		err = retrieve.WhereKeys(createdChannels[0].Key()).Entry(&singleChannel).Exec(ctx, nil)
-	//		Expect(err).ToNot(HaveOccurred())
-	//		Expect(singleChannel.Name).To(Equal(createdChannels[0].Name))
-	//	})
-	//})
+
 })

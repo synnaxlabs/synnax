@@ -28,7 +28,6 @@ import (
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	framertransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 	"github.com/synnaxlabs/synnax/pkg/layer"
@@ -196,11 +195,19 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
-		if err = maybeProvisionRootUser(ctx, serviceLayer); !ok(nil) {
+		if err = maybeProvisionRootUser(
+			ctx,
+			distributionLayer,
+			serviceLayer,
+		); !ok(nil) {
 			return err
 		}
 
-		if err = maybeSetBasePermissions(ctx, serviceLayer); !ok(nil) {
+		if err = maybeSetBasePermissions(
+			ctx,
+			distributionLayer,
+			serviceLayer,
+		); !ok(nil) {
 			return err
 		}
 

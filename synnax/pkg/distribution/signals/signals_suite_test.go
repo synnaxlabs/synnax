@@ -13,7 +13,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,17 +25,16 @@ func TestSignals(t *testing.T) {
 }
 
 var (
-	_b   *mock.Cluster
-	dist *distribution.Layer
-	ctx  = context.Background()
+	mockCluster *mock.Cluster
+	dist        mock.Node
+	ctx         = context.Background()
 )
 
 var _ = BeforeSuite(func() {
-	_b = mock.NewCluster()
-	dist = _b.Provision(ctx)
+	mockCluster = mock.NewCluster()
+	dist = mockCluster.Provision(ctx)
 })
 
 var _ = AfterSuite(func() {
-	Expect(_b.Close()).To(Succeed())
-	Expect(_b.Cleanup()).To(Succeed())
+	Expect(mockCluster.Close()).To(Succeed())
 })

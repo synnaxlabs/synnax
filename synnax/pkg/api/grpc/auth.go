@@ -12,6 +12,7 @@ package grpc
 import (
 	"context"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/x/telem"
 
 	"github.com/google/uuid"

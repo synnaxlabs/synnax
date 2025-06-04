@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -66,7 +65,7 @@ var _ = Describe("Signals", Ordered, func() {
 	var (
 		builder *mock.Cluster
 		ctx     = context.Background()
-		dist    *distribution.Layer
+		dist    mock.Node
 		svc     *changeService
 	)
 	BeforeAll(func() {

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("storage", func() {
@@ -33,6 +34,7 @@ var _ = Describe("storage", func() {
 			tempDir, err = os.MkdirTemp("", "synnax-test")
 			Expect(err).ToNot(HaveOccurred())
 			cfg = storage.Config{Dirname: filepath.Join(tempDir, "storage")}
+			ShouldNotLeakGoroutines()
 		})
 		AfterEach(func() { Expect(os.RemoveAll(tempDir)).ToNot(HaveOccurred()) })
 		Describe("Acquiring a lock", func() {

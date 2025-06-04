@@ -33,7 +33,7 @@ type Provider struct {
 
 func NewProvider(cfg Config) Provider {
 	p := Provider{Config: cfg}
-	p.db = dbProvider{DB: gorp.Wrap(cfg.Distribution.KV)}
+	p.db = dbProvider{DB: cfg.Distribution.DB}
 	p.user = userProvider{user: cfg.Service.User}
 	p.access = accessProvider{access: cfg.Service.RBAC}
 	p.auth = authProvider{token: cfg.Service.Token, authenticator: cfg.Service.Auth}

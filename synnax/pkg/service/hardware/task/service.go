@@ -11,9 +11,11 @@ package task
 
 import (
 	"context"
-	"github.com/synnaxlabs/alamos"
-	"go.uber.org/zap"
 	"io"
+
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"go.uber.org/zap"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 
@@ -37,7 +39,7 @@ type Config struct {
 	Group        *group.Service
 	Rack         *rack.Service
 	Signals      *signals.Provider
-	HostProvider core.HostProvider
+	HostProvider cluster.HostProvider
 	Channel      channel.Writeable
 }
 

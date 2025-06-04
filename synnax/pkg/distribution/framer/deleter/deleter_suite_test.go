@@ -15,13 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
 )
 
-var (
-	ctx = context.Background()
-	ins alamos.Instrumentation
-)
+var ctx = context.Background()
 
 func TestWriter(t *testing.T) {
 	RegisterFailHandler(Fail)

@@ -40,14 +40,14 @@ var _ = Describe("Tracker", Ordered, func() {
 	)
 	BeforeAll(func() {
 		rackSvc = MustSucceed(rack.OpenService(ctx, rack.Config{
-			DB:           dist.Storage.Gorpify(),
+			DB:           dist.DB,
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
 			HostProvider: dist.Cluster,
 			Signals:      dist.Signals,
 		}))
 		taskSvc = MustSucceed(task.OpenService(ctx, task.Config{
-			DB:           dist.Storage.Gorpify(),
+			DB:           dist.DB,
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
 			Rack:         rackSvc,
@@ -56,13 +56,13 @@ var _ = Describe("Tracker", Ordered, func() {
 			Signals:      dist.Signals,
 		}))
 		deviceSvc = MustSucceed(device.OpenService(ctx, device.Config{
-			DB:       dist.Storage.Gorpify(),
+			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		}))
 		cfg = tracker.Config{
-			DB:           dist.Storage.Gorpify(),
+			DB:           dist.DB,
 			Rack:         rackSvc,
 			Task:         taskSvc,
 			Signals:      dist.Signals,

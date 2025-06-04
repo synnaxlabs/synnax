@@ -262,7 +262,7 @@ func (x *Channel) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Channels.ProtoReflect.Descriptor instead.
+// Deprecated: Use Channel.ProtoReflect.Descriptor instead.
 func (*Channel) Descriptor() ([]byte, []int) {
 	return file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescGZIP(), []int{4}
 }
@@ -347,7 +347,7 @@ const file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDe
 	"\rRenameRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\"\x8d\x02\n" +
-	"\aChannels\x12\x12\n" +
+	"\aChannel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vleaseholder\x18\x02 \x01(\x05R\vleaseholder\x12\x1b\n" +
 	"\tdata_type\x18\x03 \x01(\tR\bdataType\x12\x19\n" +
@@ -365,8 +365,8 @@ const file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDe
 	"\x14ChannelRenameService\x12;\n" +
 	"\x04Exec\x12\x19.channel.v1.RenameRequest\x1a\x16.google.protobuf.Empty\"\x00B\xb0\x01\n" +
 	"\x0ecom.channel.v1B\fChannelProtoP\x01ZGgithub.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel/v1\xa2\x02\x03CXX\xaa\x02\n" +
-	"Channels.V1\xca\x02\n" +
-	"Channels\\V1\xe2\x02\x16Channel\\V1\\GPBMetadata\xea\x02\vChannels::V1b\x06proto3"
+	"Channel.V1\xca\x02\n" +
+	"Channel\\V1\xe2\x02\x16Channel\\V1\\GPBMetadata\xea\x02\vChannel::V1b\x06proto3"
 
 var (
 	file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescOnce sync.Once
@@ -386,11 +386,11 @@ var file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_goTypes
 	(*CreateMessage)(nil), // 1: channel.v1.CreateMessage
 	(*DeleteRequest)(nil), // 2: channel.v1.DeleteRequest
 	(*RenameRequest)(nil), // 3: channel.v1.RenameRequest
-	(*Channel)(nil),       // 4: channel.v1.Channels
+	(*Channel)(nil),       // 4: channel.v1.Channel
 	(*emptypb.Empty)(nil), // 5: google.protobuf.Empty
 }
 var file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_depIdxs = []int32{
-	4, // 0: channel.v1.CreateMessage.channels:type_name -> channel.v1.Channels
+	4, // 0: channel.v1.CreateMessage.channels:type_name -> channel.v1.Channel
 	0, // 1: channel.v1.CreateMessage.opts:type_name -> channel.v1.CreateOptions
 	1, // 2: channel.v1.ChannelCreateService.Exec:input_type -> channel.v1.CreateMessage
 	2, // 3: channel.v1.ChannelDeleteService.Exec:input_type -> channel.v1.DeleteRequest

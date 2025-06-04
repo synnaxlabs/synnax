@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -23,16 +22,9 @@ import (
 )
 
 var _ = Describe("Create", Ordered, func() {
-	var (
-		mockCluster *mock.Cluster
-		limit       int
-	)
+	var mockCluster *mock.Cluster
 	BeforeAll(func() {
-		limit = 5
 		mockCluster = mock.ProvisionCluster(ctx, 2)
-		mockCluster.Provision(ctx, distribution.Config{
-			TestingIntOverflowCheck: channel.FixedOverflowChecker(limit),
-		})
 	})
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
@@ -81,7 +73,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(cesiumCH.DataType).To(Equal(telem.TimeStampT))
 				Expect(cesiumCH.IsIndex).To(BeTrue())
 			})
-			It("Should not create the channel on another nodes cesium KV", func() {
+			It("Should not create the channel on another nodes time-series DB", func() {
 				channels, err := mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).To(MatchError(query.NotFound))
 				Expect(channels).To(HaveLen(0))
@@ -142,7 +134,7 @@ var _ = Describe("Create", Ordered, func() {
 			})
 			It("Should create the channel without error", func() {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
-				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
+				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(5)))
 				channels, err := mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).To(MatchError(query.NotFound))
 				Expect(channels).To(HaveLen(0))
@@ -423,30 +415,5 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(resChannels[1].Name).To(Equal("UpdatedName"))
 			})
 	})
-	//	Context("Channels Limit", func() {
-	//
-	//		It("Should not allow creating channels over the limit", func() {
-	//			// Create channels up to the limit
-	//			for i := range limit {
-	//				ch := channel.Channel{
-	//					IsIndex:     true,
-	//					DataType:    telem.TimeStampT,
-	//					Name:        fmt.Sprintf("LimitTest%d", i),
-	//					Leaseholder: 3,
-	//				}
-	//				Expect(mockCluster.Nodes[3].Channels.Create(ctx, &ch)).To(Succeed())
-	//			}
-	//
-	//			// Try to create one more channel over the limit
-	//			overLimitCh := channel.Channel{
-	//				IsIndex:     true,
-	//				DataType:    telem.TimeStampT,
-	//				Name:        "OverLimit",
-	//				Leaseholder: 3,
-	//			}
-	//			err := mockCluster.Nodes[3].Channels.Create(ctx, &overLimitCh)
-	//			Expect(err).To(HaveOccurred())
-	//			Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
-	//		})
-	//	})
+
 })

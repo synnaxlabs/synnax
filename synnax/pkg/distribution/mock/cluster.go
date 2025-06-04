@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
@@ -76,7 +77,7 @@ func NewCluster(cfgs ...distribution.Config) *Cluster {
 func (b *Cluster) Provision(
 	ctx context.Context,
 	cfgs ...distribution.Config,
-) *distribution.Layer {
+) Node {
 	var (
 		peers             = b.addrFactory.Generated()
 		addr              = b.addrFactory.Next()
@@ -96,12 +97,13 @@ func (b *Cluster) Provision(
 			AspenOptions: []aspen.Option{
 				aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 			},
-			EnableOntologySignals: config.False(),
+			GorpCodec: &binary.JSONCodec{},
 		}, b.cfg}, cfgs...)...))
 	)
-	b.Nodes[distributionLayer.Cluster.HostKey()] = Node{Layer: distributionLayer, Storage: storageLayer}
+	node := Node{Layer: distributionLayer, Storage: storageLayer}
+	b.Nodes[distributionLayer.Cluster.HostKey()] = node
 	b.WaitForTopologyToStabilize()
-	return distributionLayer
+	return node
 }
 
 // WaitForTopologyToStabilize waits for all nodes in the cluster to be aware of each
@@ -147,3 +149,17 @@ func (m mockFramerTransport) Relay() relay.Transport {
 func (m mockFramerTransport) Deleter() deleter.Transport {
 	return m.deleter
 }
+
+type StaticHostProvider struct {
+	Node cluster.Node
+}
+
+var _ cluster.HostProvider = StaticHostProvider{}
+
+func StaticHostKeyProvider(key cluster.NodeKey) StaticHostProvider {
+	return StaticHostProvider{Node: cluster.Node{Key: key}}
+}
+
+func (s StaticHostProvider) Host() cluster.Node { return s.Node }
+
+func (s StaticHostProvider) HostKey() cluster.NodeKey { return s.Node.Key }

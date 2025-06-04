@@ -368,18 +368,19 @@ func (lp *leaseProxy) createGateway(
 		}
 	}
 	lp.mu.Lock()
-	lp.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
 	count := lp.mu.externalNonVirtualSet.Size()
-	lp.mu.Unlock()
-	if err := lp.IntOverflowCheck(ctx, xtypes.Uint20(count)); err != nil {
+	if err = lp.IntOverflowCheck(ctx, xtypes.Uint20(int(count)+len(externalCreatedKeys))); err != nil {
+		lp.mu.Unlock()
 		return err
 	}
+	lp.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
+	lp.mu.Unlock()
 
 	storageChannels := toStorage(toCreate)
-	if err := lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
+	if err = lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
 		return err
 	}
-	if err := gorp.
+	if err = gorp.
 		NewCreate[Key, Channel]().
 		Entries(&toCreate).
 		Exec(ctx, tx); err != nil {

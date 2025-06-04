@@ -287,7 +287,6 @@ var _ = Describe("Codec", func() {
 		})
 		AfterAll(func() {
 			Expect(builder.Close()).To(Succeed())
-			Expect(builder.Cleanup()).To(Succeed())
 		})
 		ShouldNotLeakGoroutinesBeforeEach()
 

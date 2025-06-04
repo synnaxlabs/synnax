@@ -31,13 +31,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for opening the distribution layer. See fields for
+// Config is the configuration for opening the service layer. See fields for
 // details on defining the configuration.
 type Config struct {
 	// Instrumentation is for logging, tracing, metrics, etc.
@@ -64,8 +63,8 @@ var (
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
-	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Security = override.Nil(c.Security, other.Security)
 	return c
 }
@@ -73,7 +72,7 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("service")
-	validate.NotNil(v, "dist", c.Distribution)
+	validate.NotNil(v, "distribution", c.Distribution)
 	validate.NotNil(v, "security", c.Security)
 	return v.Error()
 
@@ -83,7 +82,6 @@ func (c Config) Validate() error {
 // The service layer wraps the distribution layer to provide the core services of
 // synnax that do not require network awareness.
 type Layer struct {
-	KV *gorp.DB
 	// User is the service for registering and retrieving information about users.
 	User *user.Service
 	// RBAC implements role-based access control for users.
@@ -113,7 +111,7 @@ type Layer struct {
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
 	Framer *framer.Service
-	// closer shuts down any necessary services when the service layer is no longer needed.
+	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
 }
 
@@ -129,21 +127,23 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := &Layer{KV: cfg.Distribution.GorpDB()}
+	l := &Layer{}
 	cleanup, ok := layer.NewOpener(ctx, &err, &l.closer)
 	defer cleanup()
 
 	if l.User, err = user.NewService(ctx, user.Config{
-		DB:       l.KV,
+		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 	}); !ok(nil) {
 		return nil, err
 	}
-	if l.RBAC, err = rbac.NewService(rbac.Config{DB: l.KV}); !ok(nil) {
+	if l.RBAC, err = rbac.NewService(rbac.Config{
+		DB: cfg.Distribution.DB,
+	}); !ok(nil) {
 		return nil, err
 	}
-	l.Auth = &auth.KV{DB: l.KV}
+	l.Auth = &auth.KV{DB: cfg.Distribution.DB}
 	if l.Token, err = token.NewService(token.ServiceConfig{
 		KeyProvider:      cfg.Security,
 		Expiration:       24 * time.Hour,
@@ -152,7 +152,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 	if l.Ranger, err = ranger.OpenService(ctx, ranger.Config{
-		DB:       l.KV,
+		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
@@ -160,38 +160,38 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 	if l.Workspace, err = workspace.NewService(ctx, workspace.Config{
-		DB:       l.KV,
+		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 	}); !ok(nil) {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.NewService(ctx, schematic.Config{
-		DB:       l.KV,
+		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(nil) {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.NewService(ctx, lineplot.Config{
-		DB:       l.KV,
+		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(nil) {
 		return nil, err
 	}
 	if l.Log, err = log.NewService(ctx, log.Config{
-		DB:       l.KV,
+		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(nil) {
 		return nil, err
 	}
 	if l.Table, err = table.NewService(ctx, table.Config{
-		DB:       l.KV,
+		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(nil) {
 		return nil, err
 	}
 	if l.Label, err = label.OpenService(ctx, label.Config{
-		DB:       l.KV,
+		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
@@ -200,7 +200,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}
 	if l.Hardware, err = hardware.OpenService(ctx, hardware.Config{
 		Instrumentation: cfg.Instrumentation.Child("hardware"),
-		DB:              l.KV,
+		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Group:           cfg.Distribution.Group,
 		HostProvider:    cfg.Distribution.Cluster,

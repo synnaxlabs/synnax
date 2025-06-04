@@ -11,6 +11,8 @@ package hardware
 
 import (
 	"context"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/x/validate"
 
 	"github.com/synnaxlabs/alamos"
@@ -43,7 +45,7 @@ type Config struct {
 	// [REQUIRED]
 	Group *group.Service
 	// HostProvider is used to add cluster topology information to hardware resources.
-	HostProvider core.HostProvider
+	HostProvider cluster.HostProvider
 	// Signals is used to propagate changes to meta-data throughout the cluster.
 	Signals *signals.Provider
 	// Channel is used to create channels necessary for hardware communication.

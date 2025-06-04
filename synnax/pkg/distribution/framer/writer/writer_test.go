@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -128,7 +127,7 @@ var _ = Describe("Writer", func() {
 type scenario struct {
 	name   string
 	keys   channel.Keys
-	dist   *distribution.Layer
+	dist   mock.Node
 	closer io.Closer
 }
 

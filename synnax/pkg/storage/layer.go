@@ -16,7 +16,7 @@
 //
 //  1. A key-value store (implementing the kv.DB interface) for storing cluster wide
 //     metadata.
-//  2. A time-series engine (implementing the TS interface) for writing frames of
+//  2. A time-series engine (implementing the ts.TS interface) for writing frames of
 //     telemetry.
 //
 // It's important to note that the storage package does NOT manage any sort of
@@ -71,36 +71,33 @@ const (
 
 var tsEngines = []TSEngine{CesiumTS}
 
-// Layer represents a node's local storage. The provided KV and TS engines can be
-// used to read and write data. A Layer must be closed when it is no longer in use.
-type Layer struct {
-	// Config is the configuration for the storage provided to Open.
-	cfg Config
-	// KV is the key-value store for the node.
-	KV kv.DB
-	// TS is the time-series engine for the node.
-	TS     *cesium.DB
-	closer xio.MultiCloser
-}
-
-// Close closes the Layer, releasing the lock on the storage directory. Close
-// MUST be called when the Layer is no longer in use. The caller must ensure that
-// all processes interacting the Layer have finished before calling Close.
-func (s *Layer) Close() error { return s.closer.Close() }
-
-// Config is used to configure delta's storage layer.
+// Config is used to configure the Synnax storage layer. See fields for details on
+// defining the configuration.
 type Config struct {
+	// Instrumentation is for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// Dirname defines the root directory the Layer resides. Another process
 	// shouldn't use the given directory while the node is running.
+	//
+	// [OPTIONAL] - Defaults to ""
 	Dirname string
 	// Perm is the file permissions to use for the storage directory.
+	//
+	// [OPTIONAL] - Defaults to OS_USER_RWX
 	Perm fs.FileMode
 	// InMemory defines whether the node should use a memory-backed file system.
+	//
+	// [OPTIONAL] - Defaults to false.
 	InMemory *bool
 	// KVEngine is the key-value engine storage will use.
+	//
+	// [OPTIONAL] - Defaults to PebbleKV.
 	KVEngine KVEngine
 	// TSEngine is the time-series engine storage will use.
+	//
+	// [OPTIONAL] - Defaults to CesiumTS
 	TSEngine TSEngine
 }
 
@@ -117,12 +114,12 @@ var (
 
 // Override implements Config.
 func (cfg Config) Override(other Config) Config {
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.Dirname = override.String(cfg.Dirname, other.Dirname)
 	cfg.Perm = override.Numeric(cfg.Perm, other.Perm)
+	cfg.InMemory = override.Nil(cfg.InMemory, other.InMemory)
 	cfg.KVEngine = override.Numeric(cfg.KVEngine, other.KVEngine)
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
-	cfg.InMemory = override.Nil(cfg.InMemory, other.InMemory)
-	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	if cfg.InMemory != nil && *cfg.InMemory {
 		cfg.Dirname = ""
 	}
@@ -150,33 +147,56 @@ func (cfg Config) Report() alamos.Report {
 	}
 }
 
-// Open opens a new Layer with the given Config. Open acquires a lock on the directory
-// specified in the Config. If the lock cannot be acquired, Open returns an error.
-// The lock is released when the Layer is/closed. Layer MUST be closed when it is no
-// longer in use.
+// Layer represents a node's local storage. The provided KV and TS engines can be
+// used to read and write data.
+//
+// The Layer must be closed when it is no longer in use. It is not safe to modify any
+// of the public fields in this struct, or to access these fields after Close has
+// been called.
+type Layer struct {
+	// KV is the key-value store for the node.
+	KV kv.DB
+	// TS is the time-series engine for the node.
+	TS *cesium.DB
+	// closer is used for shutting down the storage layer.
+	closer xio.MultiCloser
+}
+
+// Open opens a new storage Layer with the given configuration(s). Specified fields in
+// later configurations override those in previous configurations. If the configuration
+// is invalid, Open returns a nil Layer and the configuration error.
+//
+// When Config.InMemory is false, Open acquires an exclusive lock on the directory
+// specified in Config.Dirname. If the lock cannot be acquired (commonly due to another
+// storage layer or unrelated process accessing it), then Open will return a nil Layer
+// and an error.
+//
+// If the returned error is nil, then the Layer must be closed after use. None of
+// the services in the Layer should be used after Close is called. It is the caller's
+// responsibility to ensure that the Layer is not accessed after it is closed.
 func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	l := &Layer{cfg: cfg}
+	l := &Layer{}
 	cleanup, ok := layer.NewOpener(ctx, &err, &l.closer)
 	defer cleanup()
 
 	if *cfg.InMemory {
-		l.cfg.L.Info("starting with memory-backed storage. no data will be persisted")
+		cfg.L.Info("starting with memory-backed storage. no data will be persisted")
 	} else {
-		l.cfg.L.Info("starting in directory", zap.String("dirname", cfg.Dirname))
+		cfg.L.Info("starting in directory", zap.String("dirname", cfg.Dirname))
 	}
-	l.cfg.L.Debug("config", cfg.Report().ZapFields()...)
+	cfg.L.Debug("config", cfg.Report().ZapFields()...)
 
 	// Open our two file system implementations. We use VFS for acquiring the directory
 	// lock and for the key-value store. We use XFS for the time-series engine, as we
 	// need seekable file handles.
-	baseVFS, baseXFS := openBaseFS(cfg)
+	kvFS, tsFS := openFileSystems(cfg)
 
 	// Configure our storage directory with the correct permissions.
-	if err = configureStorageDir(cfg, baseVFS); !ok(nil) {
+	if err = configureStorageDir(cfg, kvFS); !ok(nil) {
 		return nil, err
 	}
 
@@ -184,21 +204,26 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	// same directory, we return an error to the client. We'll also add it to the
 	// list of closers to release the lock when the storage layer shuts down.
 	var lock io.Closer
-	if lock, err = acquireLock(cfg, baseVFS); !ok(lock) {
+	if lock, err = acquireLock(cfg, kvFS); !ok(lock) {
 		return nil, err
 	}
 
 	// Open the key-value storage engine.
-	if l.KV, err = openKV(cfg, baseVFS); !ok(l.KV) {
+	if l.KV, err = openKV(cfg, kvFS); !ok(l.KV) {
 		return nil, err
 	}
 
 	// Open the time-series engine.
-	if l.TS, err = openTS(ctx, cfg, baseXFS); !ok(l.TS) {
+	if l.TS, err = openTS(ctx, cfg, tsFS); !ok(l.TS) {
 		return nil, err
 	}
 	return l, nil
 }
+
+// Close closes the Layer, releasing the lock on the storage directory. Close
+// must be called when the Layer is no longer in use. The caller must ensure that
+// all routines interacting with the Layer have finished before calling Close.
+func (s *Layer) Close() error { return s.closer.Close() }
 
 const (
 	kvDirname     = "kv"
@@ -206,7 +231,7 @@ const (
 	cesiumDirname = "cesium"
 )
 
-func openBaseFS(cfg Config) (vfs.FS, xfs.FS) {
+func openFileSystems(cfg Config) (vfs.FS, xfs.FS) {
 	if *cfg.InMemory {
 		return vfs.NewMem(), xfs.NewMem()
 	} else {
@@ -276,7 +301,7 @@ func acquireLock(cfg Config, fs vfs.FS) (io.Closer, error) {
 
 func openKV(cfg Config, fs vfs.FS) (kv.DB, error) {
 	if cfg.KVEngine != PebbleKV {
-		return nil, errors.Newf("[storage]- unsupported key-value engine: %s", cfg.KVEngine)
+		return nil, errors.Newf("[storage] - unsupported key-value engine: %s", cfg.KVEngine)
 	}
 
 	dirname := filepath.Join(cfg.Dirname, kvDirname)
@@ -286,7 +311,7 @@ func openKV(cfg Config, fs vfs.FS) (kv.DB, error) {
 	}
 	if requiresMigration {
 		cfg.Instrumentation.L.Info("existing key-value store requires migration. this may take a moment. Be patient and do not kill this process or risk corrupting data")
-		if err := pebblekv.Migrate(dirname); err != nil {
+		if err = pebblekv.Migrate(dirname); err != nil {
 			return nil, err
 		}
 	}

@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -33,7 +32,7 @@ import (
 var _ = Describe("Streamer", Ordered, func() {
 	var (
 		builder     = mock.NewCluster()
-		dist        *distribution.Layer
+		dist        mock.Node
 		streamerSvc *streamer.Service
 	)
 	BeforeAll(func() {
@@ -51,8 +50,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		Expect(dist.Close()).To(Succeed())
-		Expect(builder.Cleanup()).To(Succeed())
+		Expect(builder.Close()).To(Succeed())
 	})
 
 	Describe("Happy Path", func() {

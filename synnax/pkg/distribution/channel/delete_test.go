@@ -13,23 +13,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Delete", Ordered, func() {
-	var (
-		mockCluster *mock.Cluster
-		limit       int
-	)
+	var mockCluster *mock.Cluster
 	BeforeAll(func() {
-		limit = 5
 		mockCluster = mock.ProvisionCluster(ctx, 2)
-		mockCluster.Provision(ctx, distribution.Config{
-			TestingIntOverflowCheck: channel.FixedOverflowChecker(limit),
-		})
 	})
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
@@ -66,7 +58,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(exists).To(BeFalse())
 				})
-				It("Should not be able to retrieve the channel from the storage KV", func() {
+				It("Should not be able to retrieve the channel from the time-series DB", func() {
 					Expect(mockCluster.Nodes[1].Channels.Delete(ctx, ch.Key(), true)).To(Succeed())
 					channels, err := mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
@@ -96,7 +88,7 @@ var _ = Describe("Delete", Ordered, func() {
 						g.Expect(exists).To(BeFalse())
 					}).Should(Succeed())
 				})
-				It("Should not be able to retrieve the channel from the storage KV", func() {
+				It("Should not be able to retrieve the channel from the time-series DB", func() {
 					Expect(mockCluster.Nodes[1].Channels.Delete(ctx, ch.Key(), true)).To(Succeed())
 					channels, err := mockCluster.Nodes[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
@@ -106,56 +98,4 @@ var _ = Describe("Delete", Ordered, func() {
 		})
 	})
 
-	//Context("Channels Limit", func() {
-	//
-	//	It("Should allow creating channels after deleting some to stay under the limit", func() {
-	//		// Create channels up to the limit
-	//		channels := make([]channel.Channel, int(limit))
-	//		for i := range limit {
-	//			ch := channel.Channel{
-	//				IsIndex:     true,
-	//				DataType:    telem.TimeStampT,
-	//				Name:        fmt.Sprintf("LimitTest%d", i),
-	//				Leaseholder: 3,
-	//			}
-	//			Expect(mockCluster.Nodes[3].Channels.Create(ctx, &ch)).To(Succeed())
-	//			channels[i] = ch
-	//		}
-	//
-	//		// Try to create one more channel over the limit
-	//		overLimitCh := channel.Channel{
-	//			IsIndex:     true,
-	//			DataType:    telem.TimeStampT,
-	//			Name:        "OverLimit",
-	//			Leaseholder: 3,
-	//		}
-	//		err := mockCluster.Nodes[3].Channels.Create(ctx, &overLimitCh)
-	//		Expect(err).To(HaveOccurred())
-	//		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
-	//
-	//		// Delete one channel
-	//		writer := mockCluster.Nodes[3].Channels.NewWriter(nil)
-	//		Expect(writer.Delete(ctx, channels[0].Key(), false)).To(Succeed())
-	//
-	//		// Now we should be able to create a new channel
-	//		newCh := channel.Channel{
-	//			IsIndex:     true,
-	//			DataType:    telem.TimeStampT,
-	//			Name:        "NewAfterDelete",
-	//			Leaseholder: 3,
-	//		}
-	//		Expect(mockCluster.Nodes[3].Channels.Create(ctx, &newCh)).To(Succeed())
-	//
-	//		// Try to create one more channel (should fail again)
-	//		anotherCh := channel.Channel{
-	//			IsIndex:     true,
-	//			DataType:    telem.TimeStampT,
-	//			Name:        "AnotherOverLimit",
-	//			Leaseholder: 3,
-	//		}
-	//		err = mockCluster.Nodes[3].Channels.Create(ctx, &anotherCh)
-	//		Expect(err).To(HaveOccurred())
-	//		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
-	//	})
-	//})
 })

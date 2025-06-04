@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -23,7 +24,7 @@ type Retrieve struct {
 	baseTX       gorp.Tx
 	otg          *ontology.Ontology
 	gorp         gorp.Retrieve[Key, Rack]
-	hostProvider core.HostProvider
+	hostProvider cluster.HostProvider
 	searchTerm   string
 }
 

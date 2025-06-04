@@ -13,42 +13,36 @@ import (
 	"context"
 	"os"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	xfs "github.com/synnaxlabs/x/io/fs"
 )
 
 // Cluster is a utility for provisioning a set of storage layers in a mock cluster.
+// The provisioned
 type Cluster struct {
-	// Config is the configuration used to provision new stores.
-	Config storage.Config
+	// cfg is the configuration used to provision new stores.
+	cfg storage.Config
 	// Stores is a slice all stores provisioned by the Cluster.
 	Stores []*storage.Layer
 }
 
 // NewCluster opens a new Cluster that provisions stores using the given configuration.
 func NewCluster(configs ...storage.Config) *Cluster {
-	cfg, err := config.New(storage.DefaultConfig, append([]storage.Config{{
-		InMemory: config.Bool(true),
-		Perm:     xfs.OS_USER_RWX,
-	}}, configs...)...)
-	if err != nil {
-		panic(err)
-	}
-
+	cfg := lo.Must(config.New(storage.DefaultConfig, append([]storage.Config{{
+		InMemory: config.True(),
+	}}, configs...)...))
 	if !*cfg.InMemory {
-		if err := os.MkdirAll(cfg.Dirname, cfg.Perm); err != nil {
-			panic(err)
-		}
+		lo.Must0(os.MkdirAll(cfg.Dirname, cfg.Perm))
 	}
 
-	return &Cluster{Config: cfg}
+	return &Cluster{cfg: cfg}
 }
 
-// Provision provisions a new store.
+// Provision provisions a new independent storage layer.
 func (b *Cluster) Provision(ctx context.Context) (store *storage.Layer) {
-	if *b.Config.InMemory {
+	if *b.cfg.InMemory {
 		store = b.newMemBacked(ctx)
 	} else {
 		store = b.newFSBacked(ctx)
@@ -57,38 +51,27 @@ func (b *Cluster) Provision(ctx context.Context) (store *storage.Layer) {
 	return store
 }
 
-// Close closes all stores provisioned by the Cluster. Close is not safe to call concurrently
-// with any other Cluster or provisioned Layer methods.
+// Close closes all stores provisioned by the Cluster. Close is not safe to call
+// concurrently with any other Cluster or provisioned storage.Layer methods.
 func (b *Cluster) Close() error {
 	c := errors.NewCatcher(errors.WithAggregation())
 	for _, store := range b.Stores {
 		c.Exec(store.Close)
 	}
-	if !*b.Config.InMemory {
-		c.Exec(func() error { return os.RemoveAll(b.Config.Dirname) })
+	if !*b.cfg.InMemory {
+		c.Exec(func() error { return os.RemoveAll(b.cfg.Dirname) })
 	}
 	return c.Error()
 }
 
 func (b *Cluster) newMemBacked(ctx context.Context) *storage.Layer {
-	store, err := storage.Open(ctx, b.Config)
-	if err != nil {
-		panic(err)
-	}
-	return store
+	return lo.Must(storage.Open(ctx, b.cfg))
 }
 
 func (b *Cluster) newFSBacked(ctx context.Context) *storage.Layer {
 	// open a temporary directory prefixed with ServiceConfig.dirname
-	tempDir, err := os.MkdirTemp(b.Config.Dirname, "delta-test-")
-	if err != nil {
-		panic(err)
-	}
-	nCfg := b.Config
+	tempDir := lo.Must(os.MkdirTemp(b.cfg.Dirname, "delta-test-"))
+	nCfg := b.cfg
 	nCfg.Dirname = tempDir
-	store, err := storage.Open(ctx, nCfg)
-	if err != nil {
-		panic(err)
-	}
-	return store
+	return lo.Must(storage.Open(ctx, nCfg))
 }

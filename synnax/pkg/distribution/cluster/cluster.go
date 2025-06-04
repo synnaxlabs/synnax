@@ -20,6 +20,7 @@ type (
 	Change       = aspen.ClusterChange
 	Resolver     = aspen.Resolver
 	HostResolver = aspen.HostResolver
+	HostProvider = aspen.HostProvider
 	State        = aspen.ClusterState
 )
 

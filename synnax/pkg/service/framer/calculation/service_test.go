@@ -14,6 +14,7 @@ import (
 
 	"encoding/json"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/config"
@@ -21,7 +22,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -37,7 +37,7 @@ var sleepInterval = 25 * time.Millisecond
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c    *calculation.Service
-		dist *distribution.Layer
+		dist mock.Node
 	)
 
 	BeforeAll(func() {

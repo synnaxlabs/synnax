@@ -18,29 +18,29 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-distribution
-"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
-"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
-"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
-"github.com/synnaxlabs/x/binary"
-"github.com/synnaxlabs/x/change"
-"github.com/synnaxlabs/x/config"
-"github.com/synnaxlabs/x/confluence"
-"github.com/synnaxlabs/x/errors"
-"github.com/synnaxlabs/x/gorp"
-xio "github.com/synnaxlabs/x/io"
-"github.com/synnaxlabs/x/json"
-"github.com/synnaxlabs/x/override"
-"github.com/synnaxlabs/x/query"
-"github.com/synnaxlabs/x/signal"
-"github.com/synnaxlabs/x/status"
-"github.com/synnaxlabs/x/telem"
-"github.com/synnaxlabs/x/validate"
-"go.uber.org/zap"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // RackState is the state of a hardware rack. Unfortunately, we can't put this into the
@@ -117,7 +117,7 @@ type Config struct {
 	// HostProvider returns information about the cluster host.
 	//
 	// [REQUIRED]
-	HostProvider distribution.HostProvider
+	HostProvider cluster.HostProvider
 	// DB is used to persist and retrieve information about rack and task state.
 	//
 	// [REQUIRED]
