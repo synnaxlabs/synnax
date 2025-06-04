@@ -10,7 +10,7 @@
     "build-vite": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
     "lint": {},
     "dev-vite": { "cache": false },
-    "dev": { "cache": false },
+    "dev": { "cache": false, "dependsOn": ["^build"] },
     "watch": { "cache": false },
     "fix": { "cache": false },
     "test": { "dependsOn": ["^build"], "cache": false },
