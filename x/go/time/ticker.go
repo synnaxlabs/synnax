@@ -42,7 +42,10 @@ func (s *ScaledTicker) tick(c chan time.Duration) {
 			return
 		case <-t.C:
 			s.dur = time.Duration(float64(s.dur) * s.Scale)
-			c <- s.dur
+			select {
+			case c <- s.dur:
+			case <-s.stop:
+			}
 			t.Reset(s.dur)
 		}
 	}
