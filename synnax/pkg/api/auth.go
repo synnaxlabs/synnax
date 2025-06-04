@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// AuthService is the core authentication service for the Synnax API.
+// AuthService is the core authentication service for the Synnax Layer.
 type AuthService struct {
 	dbProvider
 	authProvider

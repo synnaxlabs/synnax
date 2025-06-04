@@ -31,7 +31,7 @@ func NewWorkspaceService(p Provider) *WorkspaceService {
 	return &WorkspaceService{
 		dbProvider:     p.db,
 		accessProvider: p.access,
-		internal:       p.Config.Workspace,
+		internal:       p.Service.Workspace,
 	}
 }
 

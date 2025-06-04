@@ -30,7 +30,7 @@ var _ = Describe("Writer", func() {
 		db = gorp.Wrap(memkv.New())
 		svc = MustSucceed(rbac.NewService(rbac.Config{DB: db}))
 		writer = svc.NewWriter(nil)
-		retriever = svc.NewRetriever()
+		retriever = svc.NewRetrieve()
 	})
 	AfterEach(func() {
 		Expect(db.Close()).To(Succeed())

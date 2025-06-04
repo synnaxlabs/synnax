@@ -105,12 +105,12 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 		op := dig.Operation()
 		if op.Variant == change.Set {
 			v, closer, err := b.Tx.Get(ctx, dig.Key)
-			if err != nil {
-				return nil, err
-			}
 			if errors.Is(err, kvx.NotFound) {
 				zap.S().Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
 				continue
+			}
+			if err != nil {
+				return nil, err
 			}
 			op.Value = binary.MakeCopy(v)
 			if err = closer.Close(); err != nil {

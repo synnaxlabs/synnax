@@ -17,7 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
@@ -241,7 +242,7 @@ func (t frameIteratorResponseTranslator) Backward(
 	return api.FrameIteratorResponse{
 		Variant: iterator.ResponseVariant(msg.Variant),
 		Command: iterator.Command(msg.Command),
-		NodeKey: dcore.NodeKey(msg.NodeKey),
+		NodeKey: cluster.NodeKey(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int(msg.SeqNum),
 		Frame:   translateFrameBackward(msg.Frame),
