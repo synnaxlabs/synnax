@@ -45,6 +45,7 @@ func (s *ScaledTicker) tick(c chan time.Duration) {
 			select {
 			case c <- s.dur:
 			case <-s.stop:
+				return
 			}
 			t.Reset(s.dur)
 		}
