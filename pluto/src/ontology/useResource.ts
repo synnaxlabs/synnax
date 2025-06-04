@@ -24,17 +24,17 @@ export const useResource = (id: ontology.ID): ontology.Resource | null => {
   const [resource, setResource] = useState<ontology.Resource | null>(null);
   useAsyncEffect(async () => {
     if (client == null) throw NULL_CLIENT_ERROR;
-    const resource = await client.ontology.retrieve(id);
-    setResource(resource);
+    const retrieved = await client.ontology.retrieve(id);
+    setResource(retrieved);
   }, [client, id]);
   const handleError = Status.useErrorHandler();
   const handleResourceSet = (id: ontology.ID) => {
     if (!id.equals(id)) return;
     handleError(async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      const resource = await client.ontology.retrieve(id);
-      setResource(resource);
-    }, "Failed to retrieve resource");
+      const retrieved = await client.ontology.retrieve(id);
+      setResource(retrieved);
+    }, `Failed to retrieve ontology resource ${id.toString()}`);
   };
   useResourceSetSynchronizer(handleResourceSet);
   const handleResourceDelete = (id: ontology.ID) => {

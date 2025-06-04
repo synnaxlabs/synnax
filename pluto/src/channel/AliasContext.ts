@@ -78,7 +78,7 @@ export const useName = (
     },
     mutationFn: async (newName: string) => {
       if (currentAlias != null) {
-        if (setAlias == null) throw new Error("Alias setter not found");
+        if (setAlias == null) throw new Error("AliasSetter not found");
         await setAlias(key, newName);
         return;
       }

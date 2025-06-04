@@ -66,7 +66,7 @@ const useDependentTracker = (
           if (changed) return nextDependents;
           return [...nextDependents, dependent];
         });
-      }, "Failed to process new ontology relationships");
+      }, `Failed to add new dependents for ${key}`);
     },
     [client, handleError, key, direction, matchRelationshipAndID],
   );
@@ -95,7 +95,7 @@ const useDependentTracker = (
             return [nextDependent];
           }),
         );
-      }, "Failed to process ontology resource");
+      }, `Failed to update dependents for ${key}`);
     },
     [client, handleError, key, dependents],
   );

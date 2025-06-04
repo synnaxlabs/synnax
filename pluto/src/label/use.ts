@@ -56,7 +56,7 @@ export const use = (id: ontology.CrudeID): label.Label[] => {
           if (prevLabels.some((l) => l.key === key)) return prevLabels;
           return [...prevLabels, label];
         });
-      }, "Failed to process label relationship change");
+      }, `Failed to process new label for ${idStr}`);
     },
     [client, idStr, labels],
   );
