@@ -9,7 +9,7 @@
 
 import { type channel, framer } from "@synnaxlabs/client";
 import { StreamClosed } from "@synnaxlabs/freighter";
-import { strings, toArray } from "@synnaxlabs/x";
+import { strings, toArray, unique } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback, useRef } from "react";
 
 import { useAsyncEffect } from "@/hooks";
@@ -20,11 +20,15 @@ import { Synnax } from "@/synnax";
 
 export interface ProviderProps extends PropsWithChildren {}
 
+const uniqueNamesInMap = (map: Map<FrameHandler, Set<channel.Name>>): channel.Names =>
+  unique.unique([...map.values()].flatMap((names) => [...names]));
+
 export const Provider = (props: PropsWithChildren): ReactElement => {
   const client = Synnax.use();
-  const handlersRef = useRef(new Map<channel.Name, Set<FrameHandler>>());
+  const handlersRef = useRef(new Map<FrameHandler, Set<channel.Name>>());
   const streamerRef = useRef<framer.Streamer>(null);
   const handleError = Status.useErrorHandler();
+
   useAsyncEffect(async () => {
     if (client == null) {
       streamerRef.current?.close();
@@ -32,24 +36,26 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
       return;
     }
     try {
-      streamerRef.current = await client.openStreamer([...handlersRef.current.keys()]);
+      streamerRef.current = await client.openStreamer(
+        uniqueNamesInMap(handlersRef.current),
+      );
     } catch (e) {
-      handleError(e, "Failed to open Sync.Provider streamer");
+      handleError(e, "Failed to open streamer in Sync.Provider");
       return;
     }
     const observableStreamer = new framer.ObservableStreamer(streamerRef.current);
     observableStreamer.onChange((frame) => {
-      const calledHandlers = new Set<FrameHandler>();
-      frame.uniqueNames.forEach((name) => {
-        handlersRef.current.get(name)?.forEach((handler) => {
-          if (calledHandlers.has(handler)) return;
-          try {
-            handler(frame);
-          } catch (e) {
-            handleError(e, `Error calling Sync Frame Handler on channel ${name}`);
-          }
-          calledHandlers.add(handler);
-        });
+      const namesInFrame = new Set([...frame.uniqueNames]);
+      handlersRef.current.forEach((channels, handler) => {
+        if (namesInFrame.isDisjointFrom(channels)) return;
+        try {
+          handler(frame);
+        } catch (e) {
+          handleError(
+            e,
+            `Error calling Sync Frame Handler on channel(s): ${strings.naturalLanguageJoin([...channels])}`,
+          );
+        }
       });
     });
     return async () => await observableStreamer.close();
@@ -57,7 +63,7 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
 
   const updateStreamer = useCallback(async () => {
     try {
-      await streamerRef.current?.update([...handlersRef.current.keys()]);
+      await streamerRef.current?.update(uniqueNamesInMap(handlersRef.current));
     } catch (e) {
       if (StreamClosed.matches(e)) return;
       throw e;
@@ -66,35 +72,20 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
 
   const addListener: ListenerAdder = useCallback(
     ({ channels, handler }) => {
-      const addedChannels: channel.Names = [];
       const channelNames = toArray(channels);
-      channelNames.forEach((ch) => {
-        if (handlersRef.current.has(ch)) handlersRef.current.get(ch)?.add(handler);
-        else {
-          addedChannels.push(ch);
-          handlersRef.current.set(ch, new Set([handler]));
-        }
-      });
-      if (addedChannels.length > 0)
+      if (channelNames.length === 0)
+        throw new Error("No channels provided to Sync.Provider listener");
+      handlersRef.current.set(handler, new Set(channelNames));
+      handleError(
+        updateStreamer,
+        `Failed to add ${strings.naturalLanguageJoin(channelNames)} to the Sync.Provider streamer`,
+      );
+      return () => {
+        handlersRef.current.delete(handler);
         handleError(
           updateStreamer,
-          `Failed to add ${strings.naturalLanguageJoin(addedChannels)} to the Sync.Provider streamer`,
+          `Failed to remove ${strings.naturalLanguageJoin(channelNames)} from the Sync.Provider streamer`,
         );
-      return () => {
-        const removedChannels: channel.Names = [];
-        channelNames.forEach((ch) => {
-          const handlerSet = handlersRef.current.get(ch);
-          handlerSet?.delete(handler);
-          if (handlerSet?.size === 0) {
-            removedChannels.push(ch);
-            handlersRef.current.delete(ch);
-          }
-        });
-        if (removedChannels.length > 0)
-          handleError(
-            updateStreamer,
-            `Failed to remove ${strings.naturalLanguageJoin(removedChannels)} from the Sync.Provider streamer`,
-          );
       };
     },
     [handleError, updateStreamer],
