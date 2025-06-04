@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, ranger } from "@synnaxlabs/client";
+import { type ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   componentRenderProp,
   List,
-  Ontology,
   Ranger,
   Text,
 } from "@synnaxlabs/pluto";
@@ -57,19 +56,13 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
 
 const childRangeListItem = componentRenderProp(ChildRangeListItem);
 
-const filterChild = ({ id: { type } }: ontology.Resource): boolean =>
-  type === ranger.ONTOLOGY_TYPE;
-
 export interface ChildRangesProps {
   rangeKey: string;
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const children = Ontology.useChildren(ranger.ontologyID(rangeKey), filterChild);
-  const childRanges = useMemo(
-    () => children.map(ranger.convertOntologyResourceToPayload),
-    [children],
-  );
+  const children = Ranger.useChildRanges(rangeKey);
+  const childRanges = useMemo(() => children.map(({ payload }) => payload), [children]);
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Space y>

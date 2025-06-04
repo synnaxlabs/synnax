@@ -21,14 +21,14 @@ import { CREATE_LAYOUT } from "@/workspace/Create";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-  const group = useQuery<ontology.ID | undefined>({
+  const group = useQuery<ontology.ID | null>({
     queryKey: [client?.key, "workspace-group"],
     queryFn: async () => {
-      if (client == null) return undefined;
+      if (client == null) return null;
       const res = await client.ontology.retrieveChildren(ontology.ROOT_ID, {
         includeSchema: false,
       });
-      return res.find(({ name }) => name === "Workspaces")?.id;
+      return res.find(({ name }) => name === "Workspaces")?.id ?? null;
     },
   });
   const placeLayout = Layout.usePlacer();
@@ -48,7 +48,7 @@ const Content = (): ReactElement => {
             ]}
           </Toolbar.Actions>
         </Toolbar.Header>
-        <Ontology.Tree root={group.data} />
+        <Ontology.Tree root={group.data ?? undefined} />
       </Align.Space>
     </Cluster.NoneConnectedBoundary>
   );

@@ -36,7 +36,7 @@ export const Info: Layout.Renderer = () => {
   const updateQuery = useQuery({
     queryKey: ["version.update"],
     queryFn: async () => {
-      if (RUNTIME !== "tauri") return;
+      if (RUNTIME !== "tauri") return null;
       await new Promise((resolve) => setTimeout(resolve, 500));
       return await check();
     },
