@@ -65,7 +65,7 @@ func NewFrameService(p Provider) *FrameService {
 	return &FrameService{
 		Instrumentation: p.Instrumentation,
 		Internal:        p.Service.Framer,
-		Channel:         p.Distribution.Channel,
+		Channel:         p.Distribution.Channels,
 		authProvider:    p.auth,
 		dbProvider:      p.db,
 		accessProvider:  p.access,

@@ -133,11 +133,11 @@ func parseIntegrationsFlag() []string {
 	})
 }
 
-func parsePeerAddressFlag() ([]address.Address, error) {
+func parsePeerAddressFlag() []address.Address {
 	peerStrings := viper.GetStringSlice(peersFlag)
 	peerAddresses := make([]address.Address, len(peerStrings))
 	for i, listenString := range peerStrings {
 		peerAddresses[i] = address.Address(listenString)
 	}
-	return peerAddresses, nil
+	return peerAddresses
 }

@@ -25,34 +25,32 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Streamer", Ordered, func() {
 	var (
-		builder     = mock.NewBuilder()
-		dist        *distribution.Layer
+		builder     = mock.NewCluster()
+		dist        mock.Node
 		streamerSvc *streamer.Service
 	)
 	BeforeAll(func() {
-		dist = builder.New(ctx)
+		dist = builder.Provision(ctx)
 		calc := MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			Framer:            dist.Framer,
-			Channel:           dist.Channel,
-			ChannelObservable: dist.Channel.NewObservable(),
+			Channel:           dist.Channels,
+			ChannelObservable: dist.Channels.NewObservable(),
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
 			DistFramer:  dist.Framer,
-			Channel:     dist.Channel,
+			Channel:     dist.Channels,
 			Calculation: calc,
 		}))
 	})
 
 	AfterAll(func() {
-		Expect(dist.Close()).To(Succeed())
-		Expect(builder.Cleanup()).To(Succeed())
+		Expect(builder.Close()).To(Succeed())
 	})
 
 	Describe("Happy Path", func() {
@@ -62,7 +60,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -97,19 +95,19 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, indexCh)).To(Succeed())
 			dataCh1 = &channel.Channel{
 				Name:       "Hobbs",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(dist.Channel.Create(ctx, dataCh1)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, dataCh1)).To(Succeed())
 			dataCh2 = &channel.Channel{
 				Name:       "Winston",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(dist.Channel.Create(ctx, dataCh2)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, dataCh2)).To(Succeed())
 
 		})
 
@@ -120,7 +118,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Expression: "return Hobbs + Winston",
 				Requires:   []channel.Key{dataCh1.Key(), dataCh2.Key()},
 			}
-			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
@@ -161,7 +159,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Expression: "return Hobbs + Winston",
 				Requires:   []channel.Key{dataCh1.Key(), dataCh2.Key()},
 			}
-			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
@@ -205,7 +203,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -237,7 +235,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 
 			_, err := streamerSvc.New(ctx, streamer.Config{
@@ -257,21 +255,21 @@ var _ = Describe("Streamer", Ordered, func() {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, indexCh)).To(Succeed())
 
 			dataCh1 := &channel.Channel{
 				Name:       "data1",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(dist.Channel.Create(ctx, dataCh1)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, dataCh1)).To(Succeed())
 
 			dataCh2 := &channel.Channel{
 				Name:       "data2",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(dist.Channel.Create(ctx, dataCh2)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, dataCh2)).To(Succeed())
 
 			calculation := &channel.Channel{
 				Name:       "sum",
@@ -279,7 +277,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Expression: "return data1 + data2",
 				Requires:   []channel.Key{dataCh1.Key(), dataCh2.Key()},
 			}
-			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
+			Expect(dist.Channels.Create(ctx, calculation)).To(Succeed())
 
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{

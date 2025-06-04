@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -26,11 +27,12 @@ import (
 )
 
 // sets the base permissions that need to exist in the server.
-func maybeSetBasePermission(
+func maybeSetBasePermissions(
 	ctx context.Context,
+	dist *distribution.Layer,
 	svc *service.Layer,
 ) error {
-	return svc.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	return dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		// base policies that need to be created
 		basePolicies := map[ontology.Type]access.Action{
 			"label":       access.All,
@@ -64,7 +66,7 @@ func maybeSetBasePermission(
 		}
 		for _, p := range existingPolicies {
 			if len(p.Subjects) != 1 || len(p.Objects) != 1 || len(p.Actions) != 1 {
-				// then this policy is not one of the policies created in maybeSetBasePermission
+				// then this policy is not one of the policies created in maybeSetBasePermissions
 				continue
 			}
 			s := p.Subjects[0]
@@ -95,6 +97,7 @@ func maybeSetBasePermission(
 
 func maybeProvisionRootUser(
 	ctx context.Context,
+	dist *distribution.Layer,
 	svc *service.Layer,
 ) error {
 	creds := auth.InsecureCredentials{
@@ -108,7 +111,7 @@ func maybeProvisionRootUser(
 	if exists {
 		// we potentially need to update the root user flag
 		// we want to make sure the root user still has the allow_all policy
-		return svc.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			// For cluster versions before v0.31.0, the root user flag was not set. We
 			// need to set it here.
 			if err = svc.User.NewWriter(tx).MaybeSetRootUser(ctx, creds.Username); err != nil {
@@ -143,7 +146,7 @@ func maybeProvisionRootUser(
 	}
 
 	// Register the user first, then give them all permissions
-	return svc.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if err = dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		if err = svc.Auth.NewWriter(tx).Register(ctx, creds); err != nil {
 			return err
 		}
@@ -159,5 +162,8 @@ func maybeProvisionRootUser(
 				Actions:  []access.Action{},
 			},
 		)
-	})
+	}); err != nil {
+		return err
+	}
+	return maybeSetBasePermissions(ctx, dist, svc)
 }

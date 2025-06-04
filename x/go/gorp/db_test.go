@@ -19,9 +19,7 @@ import (
 )
 
 var _ = Describe("DB", Ordered, func() {
-	var (
-		db *gorp.DB
-	)
+	var db *gorp.DB
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 	})

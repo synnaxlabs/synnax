@@ -16,7 +16,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -68,8 +69,8 @@ var (
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "framer", c.Framer)
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "channelObservable", c.ChannelObservable)
+	validate.NotNil(v, "channels", c.Channel)
+	validate.NotNil(v, "channel_observable", c.ChannelObservable)
 	validate.NotNil(v, "state_codec", c.StateCodec)
 	return v.Error()
 }
@@ -126,7 +127,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Name:        "sy_calculation_state",
 		DataType:    telem.JSONT,
 		Virtual:     true,
-		Leaseholder: dcore.Free,
+		Leaseholder: cluster.Free,
 		Internal:    true,
 	}
 
