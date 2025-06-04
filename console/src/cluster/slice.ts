@@ -64,18 +64,23 @@ const {
   initialState: ZERO_SLICE_STATE,
   reducers: {
     set: (state, { payload: cluster }: PayloadAction<SetPayload>) => {
+      console.log("set", cluster);
       checkName(state, cluster.name);
       const predefinedKey = getPredefinedClusterKey(cluster);
       if (predefinedKey != null) delete state.clusters[predefinedKey];
       state.clusters[cluster.key] = cluster;
       state.activeCluster ??= cluster.key;
     },
-    remove: ({ clusters }, { payload: keys }: PayloadAction<RemovePayload>) =>
-      toArray(keys).forEach((key) => delete clusters[key]),
+    remove: ({ clusters }, { payload: keys }: PayloadAction<RemovePayload>) => {
+      toArray(keys).forEach((key) => delete clusters[key]);
+      console.log("remove", keys);
+    },
     setActive: (state, { payload: key }: PayloadAction<SetActivePayload>) => {
+      console.log("setActive", key);
       state.activeCluster = key;
     },
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
+      console.log("rename", key, name);
       checkName(state, name);
       state.clusters[key].name = name;
     },
@@ -83,6 +88,7 @@ const {
       state,
       { payload: { oldKey, newKey } }: PayloadAction<ChangeKeyPayload>,
     ) => {
+      console.log("changeKey", oldKey, newKey);
       const cluster = state.clusters[oldKey];
       delete state.clusters[oldKey];
       state.clusters[newKey] = { ...cluster, key: newKey };

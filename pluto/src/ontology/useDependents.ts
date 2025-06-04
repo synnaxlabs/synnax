@@ -19,21 +19,26 @@ import {
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
-export const useDependentTracker = (
+const matchRelationshipAndID = (
+  relationship: ontology.Relationship,
+  direction: ontology.RelationshipDirection,
+  key: string,
+) =>
+  relationship.type === "parent" &&
+  relationship[ontology.getOppositeRelationshipDirection(direction)].equals(key);
+
+const useDependentTracker = (
   id: ontology.CrudeID,
   direction: ontology.RelationshipDirection,
 ): ontology.Resource[] => {
   const [dependents, setDependents] = useState<ontology.Resource[]>([]);
   const client = Synnax.use();
-  const oppositeDirection = ontology.getOppositeRelationshipDirection(direction);
   const key = new ontology.ID(id).toString();
-  const matchRelationshipAndID = useCallback(
-    (relationship: ontology.Relationship) =>
-      relationship.type === "parent" && relationship[oppositeDirection].equals(key),
-    [key, oppositeDirection],
-  );
   useAsyncEffect(async () => {
-    if (client == null) return;
+    if (client == null) {
+      setDependents([]);
+      return;
+    }
     const dependents =
       await client.ontology[`retrieve${direction === "to" ? "Children" : "Parents"}`](
         key,
@@ -41,15 +46,13 @@ export const useDependentTracker = (
     setDependents(dependents);
   }, [key, direction, client]);
   const handleError = Status.useErrorHandler();
+
   const handleRelationshipSet = useCallback(
     (relationship: ontology.Relationship) => {
       handleError(async () => {
-        if (!matchRelationshipAndID(relationship)) return;
-        const dependent = await client?.ontology.retrieve(relationship[direction]);
-        if (dependent == null)
-          throw new Error(
-            `Ontology resource with key ${relationship[direction].toString()} was not found`,
-          );
+        if (!matchRelationshipAndID(relationship, direction, key)) return;
+        if (client == null) throw new Error("Client not found");
+        const dependent = await client.ontology.retrieve(relationship[direction]);
         setDependents((prevDependents) => {
           let changed = false;
           const nextDependents = prevDependents.map((d) => {
@@ -70,12 +73,12 @@ export const useDependentTracker = (
 
   const handleRelationshipDelete = useCallback(
     (relationship: ontology.Relationship) => {
-      if (!matchRelationshipAndID(relationship)) return;
+      if (!matchRelationshipAndID(relationship, direction, key)) return;
       setDependents((prevDependents) =>
         prevDependents.filter((d) => !d.id.equals(relationship[direction])),
       );
     },
-    [key, matchRelationshipAndID],
+    [key, direction, matchRelationshipAndID],
   );
   useRelationshipDeleteSynchronizer(handleRelationshipDelete);
 
@@ -83,9 +86,8 @@ export const useDependentTracker = (
     (id: ontology.ID) => {
       if (!dependents.some((d) => d.id.equals(id))) return;
       handleError(async () => {
-        const nextDependent = await client?.ontology.retrieve(id);
-        if (nextDependent == null)
-          throw new Error(`Ontology resource with key ${id.toString()} was not found`);
+        if (client == null) throw new Error("Client not found");
+        const nextDependent = await client.ontology.retrieve(id);
         setDependents((prevDependents) =>
           prevDependents.flatMap((d) => {
             if (!d.id.equals(id)) return [d];
@@ -100,3 +102,9 @@ export const useDependentTracker = (
 
   return dependents;
 };
+
+export const useChildren = (id: ontology.CrudeID): ontology.Resource[] =>
+  useDependentTracker(id, "to");
+
+export const useParents = (id: ontology.CrudeID): ontology.Resource[] =>
+  useDependentTracker(id, "from");

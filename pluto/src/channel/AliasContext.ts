@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type ranger } from "@synnaxlabs/client";
+import { channel, type ontology, type ranger } from "@synnaxlabs/client";
+import { useMutation } from "@tanstack/react-query";
 import { createContext, use, useCallback, useState } from "react";
 
 import { useAsyncEffect } from "@/hooks";
+import { Ontology } from "@/ontology";
+import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 export interface Aliases extends Record<channel.Key, string> {}
@@ -45,31 +48,48 @@ export const useAliases = (): Aliases => useContext().aliases;
 export const useName = (
   key: channel.Key,
   defaultName: string = "",
-): [string, (newName: string) => Promise<void>] => {
+): [string, (newName: string) => void] => {
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const handleResourceSet = useCallback(
+    (id: ontology.ID) => {
+      if (!id.equals(channel.ontologyID(key))) return;
+      if (currentAlias != null) return;
+      handleError(async () => {
+        const resource = await client?.ontology.retrieve(id);
+        setName(resource?.name);
+      }, "Failed to retrieve resource");
+    },
+    [client, handleError, key],
+  );
+  Ontology.useResourceSetSynchronizer(handleResourceSet);
   const currentAlias = useAlias(key);
   const { getName, setAlias } = useContext();
   const [name, setName] = useState<string | undefined>(defaultName);
-  const client = Synnax.use();
   useAsyncEffect(async () => {
     const n = await getName(key);
     setName(n);
   }, [key, getName]);
-  const rename = useCallback(
-    async (newName: string) => {
-      if (client == null) return;
-      const oldName = name;
+  const renameMutation = useMutation({
+    onMutate: (newName) => {
       setName(newName);
-      try {
-        if (currentAlias != null) await setAlias?.(key, newName);
-        else await client.channels.rename(key, newName);
-      } catch (e) {
-        setName(oldName);
-        throw e;
-      }
+      return name;
     },
-    [client, name, currentAlias, setAlias],
-  );
-  return [name ?? defaultName, rename];
+    mutationFn: async (newName: string) => {
+      if (currentAlias != null) {
+        if (setAlias == null) throw new Error("Alias setter not found");
+        await setAlias(key, newName);
+        return;
+      }
+      if (client == null) throw new Error("Client not found");
+      await client.channels.rename(key, newName);
+    },
+    onError: (e, newName, oldName) => {
+      setName(oldName);
+      handleError(e, `Failed to rename ${oldName ?? "channel"} to ${newName}`);
+    },
+  });
+  return [name ?? defaultName, renameMutation.mutate];
 };
 
 export const useAliasSetter = (): AliasSetter | null => useContext().setAlias;

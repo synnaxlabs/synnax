@@ -8,5 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/ontology/synchronizers";
-export * from "@/ontology/useChildren";
-export * from "@/ontology/useParents";
+export * from "@/ontology/useDependents";
