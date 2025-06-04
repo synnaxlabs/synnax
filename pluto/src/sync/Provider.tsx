@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, framer } from "@synnaxlabs/client";
+import { StreamClosed } from "@synnaxlabs/freighter";
 import { strings, toArray } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback, useRef } from "react";
 
@@ -49,6 +50,15 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
     return async () => await observableStreamer.close();
   }, [client, handleError]);
 
+  const updateStreamer = useCallback(async () => {
+    try {
+      await streamerRef.current?.update([...handlersRef.current.keys()]);
+    } catch (e) {
+      if (StreamClosed.matches(e)) return;
+      throw e;
+    }
+  }, []);
+
   const addListener: ListenerAdder = useCallback(
     ({ channels, handler }) => {
       const addedChannels: channel.Names = [];
@@ -62,8 +72,7 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
       });
       if (addedChannels.length > 0)
         handleError(
-          async () =>
-            await streamerRef.current?.update([...handlersRef.current.keys()]),
+          updateStreamer,
           `Failed to add ${strings.naturalLanguageJoin(addedChannels)} to the Sync.Provider streamer`,
         );
       return () => {
@@ -78,13 +87,13 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
         });
         if (removedChannels.length > 0)
           handleError(
-            async () =>
-              await streamerRef.current?.update([...handlersRef.current.keys()]),
+            updateStreamer,
             `Failed to remove ${strings.naturalLanguageJoin(removedChannels)} from the Sync.Provider streamer`,
           );
       };
     },
-    [client],
+    [handleError, updateStreamer],
   );
+
   return <Context {...props} value={addListener} />;
 };
