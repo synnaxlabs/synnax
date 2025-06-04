@@ -25,7 +25,7 @@ import { useEffect, useRef } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
-import { useRackState } from "@/hardware/device/Toolbar";
+import { useState } from "@/hardware/rack/StateContext";
 import { Sequence } from "@/hardware/task/sequence";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
@@ -72,7 +72,7 @@ const handleRename: Ontology.HandleTreeRename = {
 
 const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
-  const state = useRackState(id.key);
+  const state = useState(id.key);
 
   const heartRef = useRef<SVGSVGElement>(null);
 

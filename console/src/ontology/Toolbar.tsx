@@ -20,10 +20,10 @@ import { Tree } from "@/ontology/Tree";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-  const group = useQuery<ontology.ID | undefined>({
+  const group = useQuery<ontology.ID | null>({
     queryKey: [client?.key, "user-group"],
     queryFn: async () => {
-      if (client == null) return undefined;
+      if (client == null) return null;
       const { id } = await client.ontology.retrieve(ontology.ROOT_ID);
       return id;
     },
@@ -34,7 +34,7 @@ const Content = (): ReactElement => {
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Resources />}>Resources</Toolbar.Title>
         </Toolbar.Header>
-        <Tree root={group.data} />
+        <Tree root={group.data ?? undefined} />
       </Align.Space>
     </Cluster.NoneConnectedBoundary>
   );

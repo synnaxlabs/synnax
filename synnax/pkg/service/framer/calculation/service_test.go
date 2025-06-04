@@ -10,14 +10,8 @@
 package calculation_test
 
 import (
-	"time"
-
 	"encoding/json"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
-	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/status"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,9 +19,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -223,7 +221,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				},
 			),
 		)
-		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 
@@ -259,12 +257,12 @@ var _ = Describe("Calculation", Ordered, func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 
-		var stateCH channel.Channel
-		stateCH.Name = "sy_calculation_state"
+		var stateCh channel.Channel
+		stateCh.Name = "sy_calculation_state"
 		Expect(
 			dist.Channel.Create(
 				ctx,
-				&stateCH,
+				&stateCh,
 				channel.RetrieveIfNameExists(true),
 			),
 		).To(Succeed())
@@ -287,12 +285,12 @@ var _ = Describe("Calculation", Ordered, func() {
 			dist.Framer.NewStreamer(
 				ctx,
 				framer.StreamerConfig{
-					Keys:        []channel.Key{stateCH.Key()},
+					Keys:        []channel.Key{stateCh.Key()},
 					SendOpenAck: config.True(),
 				},
 			),
 		)
-		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())

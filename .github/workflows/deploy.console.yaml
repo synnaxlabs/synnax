@@ -347,7 +347,7 @@ jobs:
               },
             };
 
-            fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2));
+            fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2) + "\n");
 
       - name: Commit & Push Auto Update JSON File on Main
         if: github.ref == 'refs/heads/main'

@@ -237,7 +237,7 @@ describe("Series", () => {
         expect(series.length).toEqual(0);
         expect(series.byteLength).toEqual(Size.bytes(0));
       });
-      it("should throw an error when attempting to allocate an array of lenght 0", () => {
+      it("should throw an error when attempting to allocate an array of length 0", () => {
         expect(() => {
           Series.alloc({ capacity: 0, dataType: DataType.FLOAT32 });
         }).toThrow();

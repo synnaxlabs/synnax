@@ -23,8 +23,10 @@ export const Rack = ({ taskKey }: RackProps) => {
   const rackKey = task.getRackKey(taskKey);
   const rack = useQuery({
     queryKey: ["rack", rackKey, client?.key],
-    queryFn: async () =>
-      !rackKey ? null : await client?.hardware.racks.retrieve(rackKey),
+    queryFn: async () => {
+      if (rackKey === 0 || client == null) return null;
+      return await client.hardware.racks.retrieve(rackKey);
+    },
   }).data;
   if (rack == null) return null;
   return (
