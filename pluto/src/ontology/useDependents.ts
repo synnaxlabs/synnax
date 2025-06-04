@@ -10,6 +10,7 @@
 import { ontology } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { useAsyncEffect } from "@/hooks";
 import {
   useRelationshipDeleteSynchronizer,
@@ -51,7 +52,7 @@ const useDependentTracker = (
     (relationship: ontology.Relationship) => {
       handleError(async () => {
         if (!matchRelationshipAndID(relationship, direction, key)) return;
-        if (client == null) throw new Error("Client not found");
+        if (client == null) throw NULL_CLIENT_ERROR;
         const dependent = await client.ontology.retrieve(relationship[direction]);
         setDependents((prevDependents) => {
           let changed = false;
@@ -86,7 +87,7 @@ const useDependentTracker = (
     (id: ontology.ID) => {
       if (!dependents.some((d) => d.id.equals(id))) return;
       handleError(async () => {
-        if (client == null) throw new Error("Client not found");
+        if (client == null) throw NULL_CLIENT_ERROR;
         const nextDependent = await client.ontology.retrieve(id);
         setDependents((prevDependents) =>
           prevDependents.flatMap((d) => {

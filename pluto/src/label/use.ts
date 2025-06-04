@@ -10,6 +10,7 @@
 import { type label, ontology } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { useAsyncEffect } from "@/hooks";
 import { useDeleteSynchronizer, useSetSynchronizer } from "@/label/synchronizers";
 import { Ontology } from "@/ontology";
@@ -49,7 +50,7 @@ export const use = (id: ontology.CrudeID): label.Label[] => {
       const { key } = relationship.to;
       if (labels.some((l) => l.key === key)) return;
       handleError(async () => {
-        if (client == null) throw new Error("Client not found");
+        if (client == null) throw NULL_CLIENT_ERROR;
         const label = await client.labels.retrieve(key);
         setLabels((prevLabels) => {
           if (prevLabels.some((l) => l.key === key)) return prevLabels;

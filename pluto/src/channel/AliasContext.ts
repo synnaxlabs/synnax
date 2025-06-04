@@ -11,6 +11,7 @@ import { channel, type ontology, type ranger } from "@synnaxlabs/client";
 import { useMutation } from "@tanstack/react-query";
 import { createContext, use, useCallback, useState } from "react";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
 import { useAsyncEffect } from "@/hooks";
 import { Ontology } from "@/ontology";
 import { Status } from "@/status";
@@ -81,7 +82,7 @@ export const useName = (
         await setAlias(key, newName);
         return;
       }
-      if (client == null) throw new Error("Client not found");
+      if (client == null) throw NULL_CLIENT_ERROR;
       await client.channels.rename(key, newName);
     },
     onError: (e, newName, oldName) => {

@@ -27,7 +27,7 @@ import {
   type ReactElement,
   useCallback,
 } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { ConnectionBadge } from "@/cluster/Badges";
 import { CONNECT_LAYOUT } from "@/cluster/Connect";
@@ -39,7 +39,6 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 
 export const List = (): ReactElement => {
-  console.log("store", useStore().getState().cluster);
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
