@@ -23,7 +23,6 @@ import {
   Synnax,
   Tag,
   Text,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
@@ -66,7 +65,7 @@ const ExplorerListItem = ({
   const { entry } = props;
   const placeLayout = Layout.usePlacer();
   const labels = useLabels(entry.key);
-  const parent = Ranger.useParent(entry.key);
+  const parent = Ranger.useParentRange(entry.key);
   const dragGhost = useRef<HTMLElement | null>(null);
   const elRef = useRef<HTMLDivElement>(null);
   const onRename = useRename(entry.key);
@@ -186,28 +185,21 @@ const ExplorerListItem = ({
 };
 
 const ChangeLoader = () => {
-  const { setSourceData } = List.useDataUtils<string>();
-  const client = Synnax.use();
-  useAsyncEffect(async () => {
-    const obs = await client?.ranges.openTracker(); //todo
-    obs?.onChange((changes) => {
-      setSourceData((prev) => {
-        const deletes = new Set(
-          changes.filter((c) => c.variant === "delete").map((c) => c.key),
-        );
-        const next = prev.filter((r) => !deletes.has(r.key));
-        const sets = changes.filter((c) => c.variant === "set");
-        const setKeys = new Set(sets.map((c) => c.key));
-        return [
-          ...next.filter((r) => !setKeys.has(r.key)),
-          ...sets.map((c) => c.value),
-        ];
-      });
+  const { setSourceData } = List.useDataUtils<ranger.Key, ranger.Payload>();
+  const handleDelete = useCallback((key: ranger.Key) => {
+    setSourceData((prev) => prev.filter((r) => r.key !== key));
+  }, []);
+  const handleSet = useCallback((range: ranger.Payload) => {
+    setSourceData((prev) => {
+      const next = [...prev];
+      const index = next.findIndex((r) => r.key === range.key);
+      if (index !== -1) next[index] = range;
+      else next.push(range);
+      return next;
     });
-    return async () => {
-      await obs?.close();
-    };
-  }, [client]);
+  }, []);
+  Ranger.useDeleteSynchronizer(handleDelete);
+  Ranger.useSetSynchronizer(handleSet);
   return null;
 };
 
