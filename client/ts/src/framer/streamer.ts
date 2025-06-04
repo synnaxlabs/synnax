@@ -100,14 +100,20 @@ export class ObservableStreamer<V = Frame>
   implements observe.ObservableAsyncCloseable<V>
 {
   private readonly streamer: Streamer;
+  private readonly closePromise: Promise<void>;
 
   constructor(streamer: Streamer, transform?: observe.Transform<Frame, V>) {
     super(transform);
     this.streamer = streamer;
+    this.closePromise = this.stream();
   }
 
   async close(): Promise<void> {
     this.streamer.close();
+    await this.closePromise;
+  }
+
+  private async stream(): Promise<void> {
     for await (const frame of this.streamer) this.notify(frame);
   }
 }
