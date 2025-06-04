@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Ontology, Synnax } from "@synnaxlabs/pluto";
+
+import { Ontology } from "@/ontology";
+import { Synnax } from "@/synnax";
 
 export const useChildRanges = (key: ranger.Key): ranger.Range[] => {
   const children = Ontology.useChildren(ranger.ontologyID(key)).filter(
