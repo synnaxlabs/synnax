@@ -30,8 +30,8 @@ import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
 import {
-  type BaseParams,
-  type HandleTreeRenameParams,
+  type BaseProps,
+  type HandleTreeRenameProps,
   type Services,
   type TreeContextMenuProps,
 } from "@/ontology/service";
@@ -201,7 +201,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const mutexRef = useRef(new Mutex());
 
-  const baseProps: BaseParams = useMemo<BaseParams>(
+  const baseProps: BaseProps = useMemo<BaseProps>(
     () => ({
       client: client as Client,
       store,
@@ -424,7 +424,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   );
 
   const getRenameProps = useCallback(
-    (key: string, name: string): HandleTreeRenameParams => {
+    (key: string, name: string): HandleTreeRenameProps => {
       const id = new ontology.ID(key);
       return {
         id,

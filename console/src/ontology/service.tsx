@@ -21,7 +21,7 @@ import { type FC } from "react";
 import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
 
-export interface BaseParams {
+export interface BaseProps {
   client: Synnax;
   store: RootStore;
   placeLayout: Layout.Placer;
@@ -31,15 +31,15 @@ export interface BaseParams {
   handleError: Status.ErrorHandler;
 }
 
-export interface HandleSelectParams extends BaseParams {
+export interface HandleSelectProps extends BaseProps {
   selection: ontology.Resource[];
 }
 
 export interface HandleSelect {
-  (params: HandleSelectParams): void;
+  (props: HandleSelectProps): void;
 }
 
-export interface HandleMosaicDropParams {
+export interface HandleMosaicDropProps {
   client: Synnax;
   store: RootStore;
   placeLayout: Layout.Placer;
@@ -51,10 +51,10 @@ export interface HandleMosaicDropParams {
 }
 
 export interface HandleMosaicDrop {
-  (params: HandleMosaicDropParams): void;
+  (props: HandleMosaicDropProps): void;
 }
 
-export interface TreeContextMenuProps extends BaseParams {
+export interface TreeContextMenuProps extends BaseProps {
   selection: {
     parentID: ontology.ID;
     rootID: ontology.ID;
@@ -75,7 +75,7 @@ export interface TreeContextMenuProps extends BaseParams {
 
 export interface TreeContextMenu extends FC<TreeContextMenuProps> {}
 
-export interface HandleTreeRenameParams extends BaseParams {
+export interface HandleTreeRenameProps extends BaseProps {
   id: ontology.ID;
   name: string;
   state: {
@@ -87,9 +87,9 @@ export interface HandleTreeRenameParams extends BaseParams {
 }
 
 export interface HandleTreeRename {
-  eager?: (params: HandleTreeRenameParams) => void;
-  execute: (params: HandleTreeRenameParams) => Promise<void>;
-  rollback?: (params: HandleTreeRenameParams, prevName: string) => void;
+  eager?: (props: HandleTreeRenameProps) => void;
+  execute: (props: HandleTreeRenameProps) => Promise<void>;
+  rollback?: (props: HandleTreeRenameProps, prevName: string) => void;
 }
 
 export interface AllowRename {
