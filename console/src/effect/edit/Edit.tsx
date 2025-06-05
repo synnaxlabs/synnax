@@ -60,6 +60,7 @@ const Loaded = ({ effect }: LoadedProps): ReactElement => {
 const EffectState = ({ effect }: { effect: effect.Effect }) => {
   const client = Synnax.use();
   const [state, setState] = useState<effect.State | null>(null);
+  const addStatus = Status.useAdder();
   useAsyncEffect(async () => {
     if (client == null) return;
     const observer = await client.effects.openStateObserver();
@@ -67,6 +68,11 @@ const EffectState = ({ effect }: { effect: effect.Effect }) => {
       const s = states.find((s) => s.key === effect.key);
       if (s == null) return;
       setState(s);
+      addStatus({
+        key: effect.key,
+        variant: s.variant,
+        message: s.details?.message as string,
+      });
     });
     return () => observer.close();
   }, [client]);
