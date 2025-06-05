@@ -61,7 +61,7 @@ const schema = baseFormSchema
     path: ["requires"],
   });
 
-type FormValues = z.output<typeof schema>;
+type FormValues = z.infer<typeof schema>;
 
 export const CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
 

@@ -27,10 +27,10 @@ export interface UnaryClient extends Transport {
    */
   send: <RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
-    req: z.input<RQ> | z.output<RQ>,
+    req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
     resSchema: RS,
-  ) => Promise<[z.output<RS>, null] | [null, Error]>;
+  ) => Promise<[z.infer<RS>, null] | [null, Error]>;
 }
 
 export const unaryWithBreaker = (
@@ -50,10 +50,10 @@ export const unaryWithBreaker = (
 
     async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
       target: string,
-      req: z.input<RQ> | z.output<RQ>,
+      req: z.input<RQ> | z.infer<RQ>,
       reqSchema: RQ,
       resSchema: RS,
-    ): Promise<[z.output<RS>, null] | [null, Error]> {
+    ): Promise<[z.infer<RS>, null] | [null, Error]> {
       const brk = new breaker.Breaker(cfg);
       do {
         const [res, err] = await this.wrapped.send(target, req, reqSchema, resSchema);
@@ -69,10 +69,10 @@ export const unaryWithBreaker = (
 export const sendRequired = async <RQ extends z.ZodType, RS extends z.ZodType = RQ>(
   client: UnaryClient,
   target: string,
-  req: z.input<RQ> | z.output<RQ>,
+  req: z.input<RQ> | z.infer<RQ>,
   reqSchema: RQ,
   resSchema: RS,
-): Promise<z.output<RS>> => {
+): Promise<z.infer<RS>> => {
   const [res, err] = await client.send(target, req, reqSchema, resSchema);
   if (err != null) throw err;
   return res;

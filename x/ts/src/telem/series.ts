@@ -435,7 +435,7 @@ export class Series<T extends TelemValue = TelemValue> {
     return r;
   }
 
-  parseJSON<Z extends z.ZodType>(schema: Z): Array<z.output<Z>> {
+  parseJSON<Z extends z.ZodType>(schema: Z): Array<z.infer<Z>> {
     if (!this.dataType.equals(DataType.JSON))
       throw new Error("cannot parse non-JSON series as JSON");
     return new TextDecoder()
@@ -1112,7 +1112,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     return bounds.distance(b, start, end);
   }
 
-  parseJSON<Z extends z.ZodType>(schema: Z): Array<z.output<Z>> {
+  parseJSON<Z extends z.ZodType>(schema: Z): Array<z.infer<Z>> {
     if (!this.dataType.equals(DataType.JSON))
       throw new Error("cannot parse non-JSON series as JSON");
     return this.series.flatMap((s) => s.parseJSON(schema));

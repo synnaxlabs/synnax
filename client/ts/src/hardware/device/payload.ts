@@ -44,7 +44,7 @@ export interface Device<
   Make extends string = string,
   Model extends string = string,
   StateDetails extends {} = UnknownRecord,
-> extends Omit<z.output<typeof deviceZ>, "properties" | "state"> {
+> extends Omit<z.infer<typeof deviceZ>, "properties" | "state"> {
   properties: Properties;
   make: Make;
   model: Model;

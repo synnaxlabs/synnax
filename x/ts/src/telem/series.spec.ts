@@ -634,7 +634,7 @@ describe("Series", () => {
         a: z.number(),
         b: z.string(),
       });
-      const s = Series.fromJSON<z.output<typeof schema>>([
+      const s = Series.fromJSON<z.infer<typeof schema>>([
         { a: 1, b: "apple" },
         { a: 2, b: "banana" },
         { a: 3, b: "carrot" },

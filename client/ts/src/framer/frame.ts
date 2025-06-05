@@ -448,7 +448,7 @@ export const frameZ = z.object({
   ]),
 });
 
-export interface Payload extends z.output<typeof frameZ> {}
+export interface Payload extends z.infer<typeof frameZ> {}
 
 export interface CrudePayload extends z.input<typeof frameZ> {}
 
