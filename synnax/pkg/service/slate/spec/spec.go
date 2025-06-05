@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -107,12 +108,18 @@ var schemaMatchers = []SchemaMatcher{
 	telemSink,
 	selectStatement,
 	createAnnotation,
+	stableFor,
 }
 
 type Config struct {
-	Channel    channel.Service
-	Framer     *framer.Service
-	Annotation *annotation.Service
+	Channel        channel.Service
+	Framer         *framer.Service
+	Annotation     *annotation.Service
+	OnStatusChange func(
+		ctx context.Context,
+		variant status.Variant,
+		details map[string]interface{},
+	)
 }
 
 func Validate(ctx context.Context, cfg Config, g Graph) (Graph, error) {

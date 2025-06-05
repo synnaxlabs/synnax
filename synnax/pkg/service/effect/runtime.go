@@ -15,20 +15,22 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/service/slate"
-	"github.com/synnaxlabs/synnax/pkg/service/slate/event"
+	"github.com/synnaxlabs/synnax/pkg/service/slate/reactive"
 	"github.com/synnaxlabs/synnax/pkg/service/slate/spec"
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 type entry struct {
 	shutdown io.Closer
-}
-
-type Runtime struct {
-	cfg ServiceConfig
+	status   State
 }
 
 func (s *Service) handleChange(
@@ -42,30 +44,51 @@ func (s *Service) handleChange(
 		}
 		existing, found := s.mu.entries[e.Key]
 		if found {
-			existing.shutdown.Close()
+			if err := existing.shutdown.Close(); err != nil {
+				s.cfg.L.Error("effect shut down with error", zap.Error(err))
+			}
 		}
 		if e.Variant == changex.Delete {
 			return
 		}
 		var slt slate.Slate
-		if err := s.cfg.Slate.NewRetrieve().WhereKeys(e.Value.Slate).Entry(&slt).Exec(ctx, nil); err != nil {
+		if err := s.cfg.Slate.NewRetrieve().
+			WhereKeys(e.Value.Slate).
+			Entry(&slt).
+			Exec(ctx, nil); err != nil {
 			return
 		}
 		specCfg := spec.Config{
 			Channel:    s.cfg.Channel,
 			Framer:     s.cfg.Framer,
 			Annotation: s.cfg.Annotation,
+			OnStatusChange: func(
+				ctx context.Context,
+				variant status.Variant,
+				details map[string]interface{},
+			) {
+				state := State{
+					Key:     e.Key,
+					Variant: variant,
+					Details: xjson.NewStaticString(ctx, details),
+				}
+				if _, err := s.effectStateWriter.Write(core.UnaryFrame(
+					s.effectStateChannelKey,
+					telem.NewSeriesStaticJSONV(state),
+				)); err != nil {
+					s.cfg.L.Error("effect state writer write error", zap.Error(err))
+				}
+			},
 		}
 		if _, err := spec.Validate(ctx, specCfg, slt.Graph); err != nil {
-			fmt.Println(err)
 			return
 		}
-		cfs, err := event.Create(ctx, specCfg, slt.Graph)
+		cfs, err := reactive.Create(ctx, specCfg, slt.Graph)
 		if err != nil {
-			fmt.Println(err)
 			return
 		}
-		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation.Child(fmt.Sprintf("%s<%s>", e.Value.Name, e.Value.Key))))
+		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(
+			s.cfg.Instrumentation.Child(fmt.Sprintf("%s<%s>", e.Value.Name, e.Value.Key))))
 		cfs.Flow(sCtx)
 		s.mu.entries[e.Key] = &entry{shutdown: signal.NewHardShutdown(sCtx, cancel)}
 	}

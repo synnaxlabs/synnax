@@ -14,16 +14,22 @@ export const createOperator = (operator: string, single: boolean = false): FC =>
       }}
       bordered
       background={1}
-      borderShade={5}
+      borderShade={6}
       rounded={1}
       align="center"
       justify="center"
     >
-      <Text.Text level="h4" weight={500} code>
+      <Text.Text
+        level="h4"
+        weight={500}
+        code
+        shade={10}
+        style={{ transform: "scale(1.2) translateY(-5%)" }}
+      >
         {operator}
       </Text.Text>
-      <Handle.Sink location="left" id="x" style={{ top: "33%" }} />
-      {!single && <Handle.Sink location="left" id="y" style={{ top: "66%" }} />}
+      <Handle.Sink location="left" id="x" style={{ top: "30%" }} />
+      {!single && <Handle.Sink location="left" id="y" style={{ top: "70%" }} />}
       <Handle.Source location="right" id="value" style={{ top: "50%" }} />
     </Align.Space>
   );

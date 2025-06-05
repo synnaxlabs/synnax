@@ -101,6 +101,7 @@ type Value interface {
 		float64 |
 		bool |
 		uuid.UUID |
+		any |
 		map[string]any
 }
 

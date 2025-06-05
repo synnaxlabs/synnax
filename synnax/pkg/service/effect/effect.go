@@ -12,6 +12,8 @@ package effect
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/status"
 )
 
 // Effect is a definition for a condition that results in a set of effects being
@@ -30,3 +32,9 @@ func (e Effect) GorpKey() uuid.UUID { return e.Key }
 
 // SetOptions implements gorp.Entry.
 func (e Effect) SetOptions() []any { return nil }
+
+type State struct {
+	Key     uuid.UUID      `json:"key" msgpack:"key"`
+	Variant status.Variant `json:"variant" msgpack:"variant"`
+	Details xjson.String   `json:"details" msgpack:"details"`
+}

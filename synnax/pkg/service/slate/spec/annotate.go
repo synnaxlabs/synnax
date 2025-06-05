@@ -11,10 +11,10 @@ package spec
 
 import "context"
 
-const CreateAnnotationType = "annotation.create"
+const StatusChangeType = "status.change"
 
 func createAnnotation(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err error) {
-	if n.Type != CreateAnnotationType {
+	if n.Type != StatusChangeType {
 		return ns, false, err
 	}
 	ns.Inputs = []Input{
@@ -24,6 +24,6 @@ func createAnnotation(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bo
 		},
 	}
 	ns.Outputs = []Output{}
-	ns.Type = CreateAnnotationType
+	ns.Type = StatusChangeType
 	return ns, true, nil
 }

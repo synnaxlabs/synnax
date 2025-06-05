@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package event
+package reactive
 
 import (
 	"context"
@@ -24,9 +24,10 @@ import (
 type operator struct {
 	confluence.MultiSink[spec.Value]
 	confluence.AbstractUnarySource[spec.Value]
-	x       *spec.Value
-	y       *spec.Value
-	compare func(a, b float64) bool
+	nodeType string
+	x        *spec.Value
+	y        *spec.Value
+	compare  func(a, b float64) bool
 }
 
 func toFloat64(v interface{}) float64 {
@@ -75,6 +76,12 @@ func newComparison(_ context.Context, cfg factoryConfig) (bool, error) {
 		c.compare = func(a, b float64) bool { return a > b }
 	} else if strings.HasSuffix(cfg.node.Type, spec.OperatorEQSuffix) {
 		c.compare = func(a, b float64) bool { return a == b }
+	} else if strings.HasSuffix(cfg.node.Type, spec.OperatorAndSuffix) {
+		c.compare = func(a, b float64) bool { return a == 1 && b == 1 }
+	} else if strings.HasSuffix(cfg.node.Type, spec.OperatorOrSuffix) {
+		c.compare = func(a, b float64) bool { return a == 1 || b == 1 }
+	} else if strings.HasSuffix(cfg.node.Type, spec.OperatorNotSuffix) {
+		c.compare = func(a, b float64) bool { return a == 0 }
 	}
 	plumber.SetSegment[spec.Value, spec.Value](cfg.pipeline, address.Address(cfg.node.Key), c)
 	c.Sink = c.sink
@@ -88,10 +95,18 @@ func (n *operator) sink(ctx context.Context, origin address.Address, value spec.
 	if origin == "y" {
 		n.y = &value
 	}
-	if n.y == nil || n.x == nil {
+	if n.x == nil {
 		return nil
 	}
-	res := n.compare(toFloat64(n.x.Value), toFloat64(n.y.Value))
+	var res bool
+	if strings.HasSuffix(n.nodeType, spec.OperatorNotSuffix) {
+		res = n.compare(toFloat64(n.x), 0)
+	} else {
+		if n.y == nil {
+			return nil
+		}
+		res = n.compare(toFloat64(n.x.Value), toFloat64(n.y.Value))
+	}
 	return signal.SendUnderContext(ctx, n.Out.Inlet(), spec.Value{
 		DataType: "uint8",
 		Value:    types.BoolToUint8(res),

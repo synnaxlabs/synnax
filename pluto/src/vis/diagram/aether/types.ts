@@ -9,6 +9,7 @@
 
 import { type color, type UnknownRecord, unknownRecordZ, xy } from "@synnaxlabs/x";
 import type * as rf from "@xyflow/react";
+import { MarkerType } from "@xyflow/react";
 import { z } from "zod";
 
 /**
@@ -135,6 +136,7 @@ export const translateEdgesForward = (edges: Edge[]): Array<rf.Edge<UnknownRecor
     ...edge,
     id: edge.key,
     data,
+    markerEnd: { type: MarkerType.Arrow, strokeWidth: 2 },
   }));
 
 /** Translates nodes from their react-flow representation to their pluto representation. */

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/vis/slate/Slate.css";
+
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -14,6 +16,16 @@ import { Diagram } from "@/vis/diagram";
 
 export interface SlateProps extends Diagram.DiagramProps {}
 
+const FIT_VIEW_OPTIONS: Diagram.FitViewOptions = {
+  minZoom: 0.5,
+  maxZoom: 0.9,
+  padding: 0.1,
+};
+
 export const Slate = ({ className, ...props }: SlateProps): ReactElement => (
-  <Diagram.Diagram className={CSS(className, CSS.B("slate"))} {...props} />
+  <Diagram.Diagram
+    className={CSS(className, CSS.B("slate"))}
+    fitViewOptions={FIT_VIEW_OPTIONS}
+    {...props}
+  />
 );

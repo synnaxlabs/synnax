@@ -459,7 +459,6 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 					telem.NewSeriesStaticJSONV(state),
 				),
 			}
-
 		}
 	}
 }

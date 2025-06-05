@@ -1,8 +1,8 @@
 import { type effect, NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { Align, Button, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { useStore } from "react-redux";
 
 import { useSelect } from "@/effect/selectors";
@@ -21,6 +21,7 @@ const Loaded = ({ effect }: LoadedProps): ReactElement => {
   const store = useStore<RootState>();
   const publishMut = useMutation({
     mutationFn: async () => {
+      console.log("publishing");
       if (client == null) throw NULL_CLIENT_ERROR;
       const slate = Slate.select(store.getState(), effect.slate);
       await client.slates.create(translateSlateBackward(slate));
@@ -35,13 +36,41 @@ const Loaded = ({ effect }: LoadedProps): ReactElement => {
         focused={false}
         onClose={() => {}}
       />
-      <Align.Space x background={2} style={{ padding: "2rem" }} bordered justify="end">
-        <Button.Button startIcon={<Icon.Play />} onClick={() => publishMut.mutate()}>
-          Publish
-        </Button.Button>
+      <Align.Space x style={{ padding: "2rem" }} justify="end" grow>
+        <Align.Space
+          x
+          background={1}
+          style={{ padding: "2rem" }}
+          bordered
+          borderShade={5}
+          grow
+          rounded={2}
+          justify="spaceBetween"
+        >
+          <EffectState effect={effect} />
+          <Button.Button startIcon={<Icon.Play />} onClick={() => publishMut.mutate()}>
+            Publish
+          </Button.Button>
+        </Align.Space>
       </Align.Space>
     </Align.Space>
   );
+};
+
+const EffectState = ({ effect }: { effect: effect.Effect }) => {
+  const client = Synnax.use();
+  const [state, setState] = useState<effect.State | null>(null);
+  useAsyncEffect(async () => {
+    if (client == null) return;
+    const observer = await client.effects.openStateObserver();
+    observer.onChange((states) => {
+      const s = states.find((s) => s.key === effect.key);
+      if (s == null) return;
+      setState(s);
+    });
+    return () => observer.close();
+  }, [client]);
+  return <Status.Text variant={state?.variant}>{state?.details?.message}</Status.Text>;
 };
 
 export const Edit: Layout.Renderer = ({ layoutKey }) => {

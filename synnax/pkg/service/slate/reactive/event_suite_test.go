@@ -1,4 +1,4 @@
-package event_test
+package reactive_test
 
 import (
 	"testing"

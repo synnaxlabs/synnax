@@ -19,11 +19,11 @@
     background: none;
     border: none;
     width: fit-content;
-    padding: 1rem;
+    padding: 1rem 0;
     cursor: pointer;
     border-radius: var(--pluto-border-radius);
     min-width: 80px;
-    max-width: 150px;
+    max-width: 175px;
     max-height: 75px;
     margin: 1rem 0.5rem;
 
@@ -34,6 +34,7 @@
 
     & .preview-wrapper {
         height: 100%;
+        transform: scale(0.8);
     }
 }
 
