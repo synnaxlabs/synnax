@@ -17,7 +17,7 @@ export interface MainUpdateMessage {
   /** The type of the component to update. */
   type: string;
   /** The state of the component to update. */
-  state: any;
+  state: unknown;
 }
 
 /** A message from the main thread to delete an aether component. */
@@ -35,7 +35,7 @@ export interface AetherUpdateMessage {
   /** The key of the component to update. */
   key: string;
   /** The state of the component to update. */
-  state: any;
+  state: unknown;
 }
 
 /** A message from the aether thread to send an error to the main thread. */

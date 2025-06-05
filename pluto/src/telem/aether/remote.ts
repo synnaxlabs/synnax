@@ -60,7 +60,6 @@ export class StreamChannelValue
 
   private readonly client: client.Client;
   private removeStreamHandler: Destructor | null = null;
-  private channelKey: channel.Key = 0;
   private leadingBuffer: Series | null = null;
   private valid = false;
   private readonly onStatusChange?: status.Adder;

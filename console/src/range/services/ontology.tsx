@@ -11,7 +11,7 @@ import { type Store } from "@reduxjs/toolkit";
 import { ontology, ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, List, Menu as PMenu, Ranger, Text, Tree } from "@synnaxlabs/pluto";
-import { type CrudeTimeRange, errors, strings, toArray } from "@synnaxlabs/x";
+import { type CrudeTimeRange, errors, strings, array.toArray } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
 
@@ -78,7 +78,7 @@ const fetchIfNotInState = async (
   client: Synnax,
   keys: string | string[],
 ): Promise<void> => {
-  const keyList = toArray(keys);
+  const keyList = array.toArray(keys);
   const missing = keyList.filter((key) => select(store.getState(), key) == null);
   if (missing.length === 0) return;
   const ranges = await client.ranges.retrieve(missing);

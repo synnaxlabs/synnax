@@ -9,12 +9,12 @@
 
 /* eslint-disable @typescript-eslint/no-unnecessary-type-constraint */
 import {
+  array,
   type compare,
   deep,
   type Destructor,
   shallowCopy,
   type status,
-  toArray,
   zod,
 } from "@synnaxlabs/x";
 import {
@@ -252,18 +252,18 @@ export const fieldArrayUtils = <V extends unknown = unknown>(
 ): FieldArrayUtils<V> => ({
   add: (value, start) => {
     const copy = shallowCopy(ctx.get<V[]>(path).value);
-    copy.splice(start, 0, ...toArray(value));
+    copy.splice(start, 0, ...array.toArray(value));
     ctx.set(path, copy, { validateChildren: false });
   },
   push: (value, sort) => {
     const copy = shallowCopy(ctx.get<V[]>(path).value);
-    copy.push(...toArray(value));
+    copy.push(...array.toArray(value));
     if (sort != null) copy.sort(sort);
     ctx.set(path, copy, { validateChildren: false });
   },
   remove: (index) => {
     const val = ctx.get<V[]>(path).value;
-    const indices = new Set(toArray(index));
+    const indices = new Set(array.toArray(index));
     ctx.set(
       path,
       val.filter((_, i) => !indices.has(i)),
@@ -271,7 +271,7 @@ export const fieldArrayUtils = <V extends unknown = unknown>(
   },
   keepOnly: (index) => {
     const val = ctx.get<V[]>(path).value;
-    const indices = new Set(toArray(index));
+    const indices = new Set(array.toArray(index));
     ctx.set(
       path,
       val.filter((_, i) => indices.has(i)),
@@ -396,7 +396,7 @@ const Context = createContext<ContextValue>({
   set: () => {},
   reset: () => {},
   remove: () => {},
-  get: <V extends any = unknown>(): FieldState<V> => ({
+  get: <V extends unknown = unknown>(): FieldState<V> => ({
     value: undefined as V,
     status: { key: "", variant: "success", message: "" },
     touched: false,
@@ -488,7 +488,7 @@ export const use = <Z extends z.ZodType>({
   }, []);
 
   const bind: BindFunc = useCallback(
-    <V extends any = unknown>({
+    <V extends unknown = unknown>({
       path,
       onChange: callback,
       listenToChildren = false,
@@ -503,7 +503,7 @@ export const use = <Z extends z.ZodType>({
   );
 
   const get: GetFunc = useCallback(
-    <V extends any = unknown>(
+    <V extends unknown = unknown>(
       path: string,
       { optional }: GetOptions = { optional: false },
     ): FieldState<V> | null => {

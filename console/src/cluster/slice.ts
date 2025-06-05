@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { toArray } from "@synnaxlabs/x";
+import { array.toArray } from "@synnaxlabs/x";
 
 import * as latest from "@/cluster/types";
 
@@ -71,7 +71,7 @@ const {
       state.activeCluster ??= cluster.key;
     },
     remove: ({ clusters }, { payload: keys }: PayloadAction<RemovePayload>) =>
-      toArray(keys).forEach((key) => delete clusters[key]),
+      array.toArray(keys).forEach((key) => delete clusters[key]),
     setActive: (state, { payload: key }: PayloadAction<SetActivePayload>) => {
       state.activeCluster = key;
     },

@@ -11,6 +11,8 @@ import { z } from "zod";
 
 import { singleton } from "@/singleton";
 
+const ERROR_DISCRIMINATOR = "sy_x_error";
+
 /**
  * @returns general function that returns true if an error matches a set of
  * abstracted criteria
@@ -20,22 +22,21 @@ export type Matcher = (e: unknown) => boolean;
 /** an error type that can match against other errors. */
 export interface Matchable {
   /**
-   * @returns a function that matches errors of the given type. Returns true if
-   * the provided instance of Error or a string message contains the provided error type.
+   * @returns true if the provided error matches the matchable.
    */
   matches: Matcher;
 }
 
 /**
- * an error that has a network-portable type, allowing it to be encoded/ decoded by
- * freighter. Also allows for simpler matching using @method matches instead of using
+ * An error that has a network-portable type, allowing it to be encoded/decoded into
+ * a JSON representation. Also allows for simpler matching using @method matches instead of using
  * instanceof, which has a number of caveats.
  */
 export interface Typed extends Error, Matchable {
-  discriminator: "FreighterError";
+  discriminator: "sy_x_error";
   /**
-   * Returns a unique type identifier for the error. Freighter uses this to determine
-   * the correct decoder to use on the other end of the freighter.
+   * Returns a unique type identifier for the error. The errors package uses this to
+   *  determine the correct decoder to use when encoding/decoding errors.
    */
   type: string;
 }
@@ -92,7 +93,7 @@ const createTypeMatcher =
  */
 export const createTyped = (type: string): TypedClass =>
   class Internal extends Error implements Typed {
-    static readonly discriminator = "FreighterError";
+    static readonly discriminator = ERROR_DISCRIMINATOR;
     readonly discriminator = Internal.discriminator;
 
     static readonly TYPE = type;
@@ -133,10 +134,10 @@ export type Encoder = (error: Typed) => Payload | null;
 export const isTyped = (error: unknown): error is Typed => {
   if (error == null || typeof error !== "object") return false;
   const typedError = error as Typed;
-  if (typedError.discriminator !== "FreighterError") return false;
+  if (typedError.discriminator !== ERROR_DISCRIMINATOR) return false;
   if (!("type" in typedError))
     throw new Error(
-      `Freighter error is missing its type property: ${JSON.stringify(typedError)}`,
+      `X Error is missing its type property: ${JSON.stringify(typedError)}`,
     );
   return true;
 };
@@ -153,15 +154,15 @@ export const NONE = "nil";
  */
 interface Provider {
   /**
-   * Encodes an error into a payload that can be sent between a freighter server and
-   * client.
+   * Encodes an error into a primitive payload that can be sent over the network or stored
+   * on disk.
    * @param error - The error to encode.
    * @returns The encoded error.
    */
   encode: Encoder;
   /**
-   * Decodes an error from a payload that can be sent between a freighter server and
-   * client.
+   * Decodes an error from a primitive payload that can be sent over the network or stored
+   * on disk.
    * @param payload - The encoded error.
    * @returns The decoded error.
    */
@@ -216,8 +217,8 @@ export const register = ({ encode, decode }: Provider): void =>
   getRegistry().register({ encode, decode });
 
 /**
- * Encodes an error into a payload that can be sent between a freighter server
- * and client.
+ * Encodes an error into a primitive payload that can be sent over the network or stored
+ * on disk.
  * @param error - The error to encode.
  * @returns The encoded error.
  */

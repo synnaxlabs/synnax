@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import {
+  array,
   box,
   color,
   type Destructor,
   type dimensions,
   direction,
   location,
-  toArray,
   xy,
 } from "@synnaxlabs/x";
 
@@ -189,7 +189,7 @@ export class Draw2D {
         ctx.stroke();
       }
     else
-      toArray(location).forEach((loc) => {
+      array.toArray(location).forEach((loc) => {
         const [start, end] = box.edgePoints(region, loc);
         ctx.beginPath();
         ctx.moveTo(...xy.couple(start));

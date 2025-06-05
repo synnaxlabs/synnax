@@ -40,7 +40,7 @@ export const synnaxPropsZ = z.object({
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   secure: z.boolean().optional().default(false),
   name: z.string().optional(),
-  retry: breaker.breakerConfig.optional(),
+  retry: breaker.breakerConfigZ.optional(),
 });
 
 export interface SynnaxProps extends z.input<typeof synnaxPropsZ> {}

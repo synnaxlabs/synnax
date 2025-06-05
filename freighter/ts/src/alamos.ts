@@ -16,7 +16,7 @@ export const middleware =
   async (context, next) => {
     if (context.role === "client") instrumentation.T.propagate(context.params);
 
-    const [res, exc] = (await instrumentation.T.trace(
+    const [res, exc] = await instrumentation.T.trace(
       context.target,
       "debug",
       async (span): Promise<[Context, Error | null]> => {
@@ -24,7 +24,7 @@ export const middleware =
         if (err != null) span.recordError(err);
         return [ctx, err];
       },
-    )) as [Context, Error | null];
+    );
     log(context, instrumentation, exc);
     return [res, exc];
   };

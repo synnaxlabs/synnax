@@ -9,7 +9,7 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { isObject } from "@synnaxlabs/x/identity";
-import { toArray } from "@synnaxlabs/x/toArray";
+import { array } from "@synnaxlabs/x/array";
 import { z } from "zod";
 
 import { type framer } from "@/framer";
@@ -51,7 +51,7 @@ export class KV {
     const res = await sendRequired(
       this.client,
       KV.GET_ENDPOINT,
-      { range: this.rangeKey, keys: toArray(keys) },
+      { range: this.rangeKey, keys: array.toArray(keys) },
       getReqZ,
       getResZ,
     );
@@ -87,7 +87,7 @@ export class KV {
     await sendRequired(
       this.client,
       KV.DELETE_ENDPOINT,
-      { range: this.rangeKey, keys: toArray(key) },
+      { range: this.rangeKey, keys: array.toArray(key) },
       deleteReqZ,
       z.unknown(),
     );

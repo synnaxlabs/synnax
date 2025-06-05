@@ -67,7 +67,7 @@ export interface Component {
    * @param create - A function that creates a new component of the appropriate type if
    * it doesn't exist in the tree.
    */
-  _updateState: (path: string[], state: UnknownRecord, create: CreateComponent) => void;
+  _updateState: (path: string[], state: unknown, create: CreateComponent) => void;
   /**
    * Propagates a context update to the children and all of its descendants.
    */
@@ -259,7 +259,7 @@ export abstract class Leaf<StateSchema extends z.ZodType, InternalState extends 
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
    */
-  _updateState(path: string[], state: UnknownRecord, _: CreateComponent): void {
+  _updateState(path: string[], state: unknown, _: CreateComponent): void {
     if (this.deleted) return;
     try {
       const endSpan = this.instrumentation.T.debug(
@@ -389,7 +389,7 @@ export abstract class Composite<
     ) as unknown as readonly T[];
   }
 
-  _updateState(path: string[], state: UnknownRecord, create: CreateComponent): void {
+  _updateState(path: string[], state: unknown, create: CreateComponent): void {
     if (this.deleted) return;
     const subPath = this.parsePath(path);
 

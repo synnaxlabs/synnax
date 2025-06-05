@@ -7,8 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const toArray = <T>(value: T | T[]): T[] =>
-  Array.isArray(value) ? value : [value];
-
-export const nullToArr = <T>(value: T | T[] | null | undefined): T[] =>
-  Array.isArray(value) ? value : value == null ? [] : [value];
+export * as array from "@/array/toArray";

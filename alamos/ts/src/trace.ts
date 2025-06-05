@@ -54,7 +54,7 @@ export class Tracer {
   }
 
   debug(key: string): Destructor;
-  debug<F extends SpanF>(key: string, f: F): ReturnType<F> | Destructor;
+  debug<F extends SpanF>(key: string, f: F): ReturnType<F>;
 
   /**
    * Starts a new span in the debug environment. If a span already exists in the
@@ -70,7 +70,7 @@ export class Tracer {
   }
 
   bench(key: string): Destructor;
-  bench<F extends SpanF>(key: string, f: F): ReturnType<F> | Destructor;
+  bench<F extends SpanF>(key: string, f: F): ReturnType<F>;
 
   /**
    * Starts a new span in the bench environment. If a span already exists in the
@@ -86,7 +86,7 @@ export class Tracer {
   }
 
   prod(key: string): Destructor;
-  prod<F extends SpanF>(key: string, f: F): ReturnType<F> | Destructor;
+  prod<F extends SpanF>(key: string, f: F): ReturnType<F>;
 
   /**
    * Starts a new span in the prod environment. If a span already exists in the
@@ -100,16 +100,13 @@ export class Tracer {
   prod<F extends SpanF>(key: string, f?: F): ReturnType<F> | Destructor {
     return this.trace(key, "prod", f);
   }
+
+  trace(key: string, env: Environment): Destructor;
+  trace<F extends SpanF>(key: string, env: Environment, f: F): ReturnType<F>;
   trace<F extends SpanF>(
     key: string,
     env: Environment,
     f?: F,
-  ): ReturnType<F> | Destructor;
-  trace(key: string, env: Environment): Destructor;
-  trace<F extends SpanF>(
-    key: string,
-    env: Environment,
-    f: F,
   ): ReturnType<F> | Destructor;
 
   /**
@@ -127,16 +124,15 @@ export class Tracer {
     env: Environment,
     f?: F,
   ): ReturnType<F> | Destructor {
+    const skip = this.meta.noop || !this.filter(env) || this.otelTracer == null;
     if (f == null) {
-      if (this.meta.noop || !this.filter(env) || this.otelTracer == null)
-        return () => {};
+      if (skip) return () => {};
       const span = new _Span(key, this.otelTracer.startSpan(key));
       span.start();
       return () => span.end();
     }
 
-    if (this.meta.noop || !this.filter(env) || this.otelTracer == null)
-      return f(new NoopSpan(key)) as ReturnType<F>;
+    if (skip) return f(new NoopSpan(key)) as ReturnType<F>;
     return this.otelTracer.startActiveSpan(key, (otelSpan) => {
       const span = new _Span(key, otelSpan);
       const result = f(span);
@@ -217,7 +213,6 @@ export class _Span implements Span {
         `alamos.trace.start.${this.key}`,
         `alamos.trace.end.${this.key}`,
       );
-      this.set("duration", duration.duration);
       this.set("duration", duration.duration);
       this.otel.end();
     } catch (e) {

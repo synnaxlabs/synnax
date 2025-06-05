@@ -377,7 +377,7 @@ export const use = <S extends z.ZodType>(props: UseProps<S>): UseReturn<S> => {
   // Update the internal component state when we receive communications from the
   // aether.
   const handleReceive = useCallback(
-    (rawState: any) => {
+    (rawState: unknown) => {
       const state = prettyParse(schema, rawState);
       setInternalState(state);
       onAetherChangeRef.current?.(state);
@@ -408,13 +408,13 @@ export const use = <S extends z.ZodType>(props: UseProps<S>): UseReturn<S> => {
         setAetherState(next, transfer);
       }
     },
-    [path, type],
+    [path, type, setInternalState],
   );
 
   return [{ path }, internalState, setState];
 };
 
-type StateHandler = (state: any) => void;
+type StateHandler = (state: unknown) => void;
 
 interface RegisteredComponent {
   path: string[];
