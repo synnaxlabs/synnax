@@ -17,38 +17,34 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const ConstantType = "constant"
+const StableForType = "stable_for"
 
-func constant(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err error) {
-	if n.Type != ConstantType {
+func stableFor(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err error) {
+	if n.Type != StableForType {
 		return ns, false, err
 	}
-	fields := map[string]schema.Field{
-		"data_type": {Type: schema.String},
-	}
-	res := schema.Resource{Data: n.Data}
-	dt, ok := schema.Get[string](res, "data_type")
+	_, ok = schema.Get[float64](schema.Resource{Data: n.Data}, "duration")
 	if !ok {
 		return ns, true, errors.WithStack(validate.FieldError{
-			Field:   "data_type",
-			Message: "invalid data type",
+			Field:   "duration",
+			Message: "invalid duration",
 		})
 	}
-	_, ok = schema.Get[any](res, "value")
-	if !ok {
-		return ns, true, errors.WithStack(validate.FieldError{
-			Field:   "value",
-			Message: "invalid value",
-		})
-	}
-	fields["value"] = schema.Field{Type: schema.FieldType(dt)}
-	ns.Outputs = []Output{
+	ns.Inputs = []Input{
 		{
-			Key:      "value",
-			DataType: dt,
+			Key:             "input",
+			AcceptsDataType: acceptsNumericDataType,
 		},
 	}
-	ns.Data = fields
-	ns.Type = ConstantType
+	ns.Outputs = []Output{
+		{
+			Key:      "output",
+			DataType: "uint8",
+		},
+	}
+	ns.Data = map[string]schema.Field{
+		"duration": {Type: schema.Float64},
+	}
+	ns.Type = StableForType
 	return ns, true, nil
 }

@@ -1,4 +1,4 @@
-package event_test
+package reactive_test
 
 import (
 	"context"
@@ -107,7 +107,7 @@ var _ = Describe("Event", Ordered, func() {
 				Framer:  dist.Framer,
 			}
 			g = MustSucceed(spec.Validate(ctx, cfg, g))
-			slate := MustSucceed(event.Create(ctx, cfg, g))
+			slate := MustSucceed(reactive.Create(ctx, cfg, g))
 
 			writer := MustSucceed(dist.Framer.OpenWriter(
 				ctx,

@@ -48,7 +48,7 @@ const COLUMNS: Array<List.ColumnSpec<string, ListEntry>> = [
 
 export interface SelectProps
   extends Omit<
-    Core.DropdownButtonProps<string, ListEntry>,
+    Core.DropdownButtonProps<status.Variant, ListEntry>,
     "data" | "columns" | "entryRenderKey"
   > {}
 

@@ -266,7 +266,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       onDoubleClick={handleDoubleClick}
       style={{ width: "inherit", height: "inherit", position: "relative" }}
     >
-      <Diagram.Diagram
+      <Core.Slate
         onViewportChange={handleViewportChange}
         edges={slate.edges}
         nodes={slate.nodes}
@@ -291,7 +291,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           {canEditSlate && <Diagram.ToggleEditControl />}
           <Diagram.FitViewControl />
         </Diagram.Controls>
-      </Diagram.Diagram>
+      </Core.Slate>
     </div>
   );
 };

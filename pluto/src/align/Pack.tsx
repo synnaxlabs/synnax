@@ -59,6 +59,7 @@ export const Pack = <E extends ElementType = "div">({
   const dir = parseDirection(direction, x, y, "x");
   let pStyle = {
     [CSS.var("pack-border-shade")]: CSS.shadeVar(borderShade),
+    borderColor: CSS.shadeVar(borderShade),
     ...style,
   };
   if (borderWidth != null)

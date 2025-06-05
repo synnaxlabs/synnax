@@ -84,6 +84,7 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
           PCSS.M("editable"),
         )}
         wrap
+        empty
       >
         {(p) => (
           <SymbolsButton

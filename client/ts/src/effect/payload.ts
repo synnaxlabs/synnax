@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { status, unknownRecordZ } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { slate } from "@/slate";
+import { decodeJSONString } from "@/util/decodeJSONString";
 
 export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -23,6 +25,14 @@ export const effectZ = z.object({
   slate: slate.keyZ,
 });
 export interface Effect extends z.infer<typeof effectZ> {}
+
+export const stateZ = z.object({
+  key: keyZ,
+  variant: status.variantZ,
+  details: unknownRecordZ.or(z.string().transform(decodeJSONString)),
+});
+
+export interface State extends z.infer<typeof stateZ> {}
 
 export const newZ = effectZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}

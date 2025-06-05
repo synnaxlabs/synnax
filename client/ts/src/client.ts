@@ -158,7 +158,7 @@ export default class Synnax extends framer.Client {
     const racks = new rack.Client(this.transport.unary, tasks, this);
     this.hardware = new hardware.Client(tasks, racks, devices);
     this.slates = new slate.Client(this.transport.unary);
-    this.effects = new effect.Client(this.transport.unary);
+    this.effects = new effect.Client(this.transport.unary, this);
   }
 
   get key(): string {

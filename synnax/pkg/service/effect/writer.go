@@ -18,8 +18,8 @@ import (
 )
 
 // Writer is used to create, update, and delete effects within Synnax. The writer
-// executes all operations within the transeffect provided to the Service.NewWriter
-// method. If no transeffect is provided, the writer will execute operations directly
+// executes all operations within the transaction provided to the Service.NewWriter
+// method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
 	tx        gorp.Tx

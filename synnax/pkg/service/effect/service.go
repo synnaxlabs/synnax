@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -78,6 +79,8 @@ type Service struct {
 		sync.Mutex
 		entries map[uuid.UUID]*entry
 	}
+	effectStateChannelKey channel.Key
+	effectStateWriter     *framer.Writer
 }
 
 func (s *Service) Close() error { return nil }
@@ -92,9 +95,33 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	s := &Service{cfg: cfg}
 	s.mu.entries = make(map[uuid.UUID]*entry)
+
 	cfg.Ontology.RegisterService(ctx, s)
+
 	obs := gorp.Observe[uuid.UUID, Effect](cfg.DB)
 	obs.OnChange(s.handleChange)
+
+	effectStateCh := channel.Channel{
+		Name:     "sy_effect_state",
+		DataType: telem.JSONT,
+		Virtual:  true,
+		Internal: true,
+	}
+	if err = cfg.Channel.Create(
+		ctx,
+		&effectStateCh,
+		channel.OverwriteIfNameExistsAndDifferentProperties(),
+		channel.RetrieveIfNameExists(true),
+	); err != nil {
+		return nil, err
+	}
+	s.effectStateChannelKey = effectStateCh.Key()
+	if s.effectStateWriter, err = cfg.Framer.OpenWriter(ctx, framer.WriterConfig{
+		Keys:  []channel.Key{s.effectStateChannelKey},
+		Start: telem.Now(),
+	}); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 

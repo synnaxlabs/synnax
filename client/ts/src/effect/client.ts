@@ -19,7 +19,12 @@ import {
   type New,
   newZ,
   type Params,
+  type State,
+  stateZ,
 } from "@/effect/payload";
+import { framer } from "@/framer";
+
+const STATE_CHANNEL_NAME = "sy_effect_state";
 
 const CREATE_ENDPOINT = "/effect/create";
 const DELETE_ENDPOINT = "/effect/delete";
@@ -34,9 +39,11 @@ const emptyResZ = z.object({});
 
 export class Client {
   private readonly client: UnaryClient;
+  private readonly frameClient: framer.Client;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, frameClient: framer.Client) {
     this.client = client;
+    this.frameClient = frameClient;
   }
 
   async create(effect: New): Promise<Effect>;
@@ -77,5 +84,17 @@ export class Client {
       retrieveResZ,
     );
     return isMany ? res.effects : res.effects[0];
+  }
+
+  async openStateObserver(): Promise<framer.ObservableStreamer<State[]>> {
+    return new framer.ObservableStreamer<State[]>(
+      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+      (frame) => {
+        const s = frame.get(STATE_CHANNEL_NAME);
+        if (s.length === 0) return [null, false];
+        const states = s.parseJSON(stateZ);
+        return [states as State[], true];
+      },
+    );
   }
 }

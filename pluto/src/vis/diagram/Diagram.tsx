@@ -22,7 +22,7 @@ import {
   type Edge as RFEdge,
   type EdgeChange as RFEdgeChange,
   type EdgeProps as RFEdgeProps,
-  type FitViewOptions,
+  type FitViewOptions as RFFitViewOptions,
   type IsValidConnection,
   type Node as RFNode,
   type NodeChange,
@@ -172,7 +172,8 @@ export interface DiagramProps
   extends UseReturn,
     Omit<ComponentPropsWithoutRef<"div">, "onError">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible">,
-    Aether.ComponentProps {
+    Aether.ComponentProps,
+    Pick<ReactFlowProps, "minZoom" | "maxZoom" | "fitViewOptions"> {
   triggers?: CoreViewport.UseTriggers;
   dragHandleSelector?: string;
 }
@@ -186,6 +187,7 @@ interface ContextValue {
   registerConnectionLineComponent: (component: ConnectionLineComponent<RFNode>) => void;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
+  fitViewOptions: FitViewOptions;
 }
 
 const Context = createContext<ContextValue>({
@@ -197,6 +199,7 @@ const Context = createContext<ContextValue>({
   registerConnectionLineComponent: () => {},
   fitViewOnResize: false,
   setFitViewOnResize: () => {},
+  fitViewOptions: FIT_VIEW_OPTIONS,
 });
 
 export const useContext = () => reactUse(Context);
@@ -245,6 +248,8 @@ export const EdgeRenderer = CoreEdgeRenderer as <D extends UnknownRecord>(
   props: EdgeRendererProps<D>,
 ) => ReactElement | null;
 
+export type FitViewOptions = RFFitViewOptions;
+
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
 const Core = ({
@@ -261,6 +266,7 @@ const Core = ({
   fitViewOnResize,
   setFitViewOnResize,
   visible,
+  fitViewOptions = FIT_VIEW_OPTIONS,
   className,
   dragHandleSelector,
   ...rest
@@ -285,7 +291,7 @@ const Core = ({
   const resizeRef = Canvas.useRegion(
     useCallback(
       (b) => {
-        if (fitViewOnResize) debouncedFitView(FIT_VIEW_OPTIONS);
+        if (fitViewOnResize) debouncedFitView(fitViewOptions);
         setState((prev) => ({ ...prev, region: b }));
       },
       [setState, debouncedFitView, fitViewOnResize],
@@ -478,6 +484,7 @@ const Core = ({
       registerConnectionLineComponent,
       fitViewOnResize,
       setFitViewOnResize,
+      fitViewOptions,
     }),
     [
       editable,
@@ -487,6 +494,7 @@ const Core = ({
       registerNodeRenderer,
       registerEdgeRenderer,
       fitViewOnResize,
+      fitViewOptions,
     ],
   );
 
@@ -516,15 +524,13 @@ const Core = ({
             defaultViewport={translateViewportForward(viewport)}
             elevateEdgesOnSelect
             defaultEdgeOptions={{
-              type: edgeTypes != null ? "default" : "smoothstep",
-              markerStart: "arrow",
-              markerEnd: "arrow",
+              type: edgeRenderer == null ? "smoothstep" : "default",
             }}
-            minZoom={0.5}
-            maxZoom={1.2}
+            minZoom={fitViewOptions.minZoom}
+            maxZoom={fitViewOptions.maxZoom}
             isValidConnection={isValidConnection}
             connectionMode={ConnectionMode.Loose}
-            fitViewOptions={FIT_VIEW_OPTIONS}
+            fitViewOptions={fitViewOptions}
             selectionMode={SelectionMode.Partial}
             proOptions={PRO_OPTIONS}
             deleteKeyCode={DELETE_KEY_CODES}
@@ -582,11 +588,11 @@ export const FitViewControl = ({
   ...rest
 }: FitViewControlProps): ReactElement => {
   const { fitView } = useReactFlow();
-  const { fitViewOnResize, setFitViewOnResize } = useContext();
+  const { fitViewOnResize, setFitViewOnResize, fitViewOptions } = useContext();
   return (
     <Button.ToggleIcon
       onClick={(e) => {
-        void fitView(FIT_VIEW_OPTIONS);
+        void fitView(fitViewOptions);
         onClick?.(e);
       }}
       // @ts-expect-error - toggle icon issues

@@ -1,3 +1,4 @@
+import { color, TimeSpan } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Align } from "@/align";
@@ -6,28 +7,22 @@ import { Text } from "@/text";
 import { Handle } from "@/vis/slate/handle";
 import { type types } from "@/vis/slate/symbols/types";
 
-const stringConstant = z.object({
-  type: z.literal("string"),
-  value: z.string(),
+export const configZ = z.object({
+  duration: z.number(),
 });
-
-const numericConstant = z.object({
-  dataType: z.literal("float32"),
-  value: z.number(),
-});
-
-export const configZ = stringConstant.or(numericConstant);
 
 export type Config = z.infer<typeof configZ>;
 
 export type SymbolProps = types.SymbolProps<Config>;
 
-export const Constant = ({ value }: SymbolProps) => (
+const PURPLE_HEX = color.construct("#635BFF");
+
+export const StableFor = ({ duration }: SymbolProps) => (
   <Align.Pack x align="center" background={1} bordered borderShade={6} rounded={1}>
     <Align.Space
       style={{
         height: "8rem",
-        backgroundColor: "var(--pluto-success-z-20)",
+        backgroundColor: color.cssString(color.setAlpha(PURPLE_HEX, 0.2)),
         borderTopLeftRadius: "1rem",
         borderBottomLeftRadius: "1rem",
       }}
@@ -37,22 +32,25 @@ export const Constant = ({ value }: SymbolProps) => (
       <Text.Text
         level="h4"
         style={{
-          color: "var(--pluto-success-z)",
+          color: color.cssString(PURPLE_HEX),
+          borderTopLeftRadius: "1rem",
+          borderBottomLeftRadius: "1rem",
           padding: "0.25rem 1rem",
         }}
       >
-        C
+        S
       </Text.Text>
     </Align.Space>
     <Divider.Divider y shade={5} />
     <Align.Space style={{ padding: "0rem 2rem" }} align="start" empty>
       <Text.Text level="small" weight={500} shade={9}>
-        Constant
+        Stable For
       </Text.Text>
       <Text.Text level="h4" weight={500} code>
-        {value.toString()}
+        {new TimeSpan(duration).toString()}
       </Text.Text>
     </Align.Space>
-    <Handle.Source location="right" id="value" />
+    <Handle.Sink location="left" id="input" />
+    <Handle.Source location="right" id="output" />
   </Align.Pack>
 );

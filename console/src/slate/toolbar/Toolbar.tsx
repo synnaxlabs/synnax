@@ -103,7 +103,7 @@ export const Toolbar = ({ layoutKey, name }: ToolbarProps): ReactElement | null 
     breadCrumbSegments.push({
       label: selectedNames[0],
       weight: 400,
-      shade: 8,
+      shade: 9,
       level: "p",
     });
   return (

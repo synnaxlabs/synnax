@@ -14,13 +14,15 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const (
-	OperatorPrefix    = "comparison"
-	OperatorGTESuffix = "gte"
+	OperatorPrefix    = "operator"
+	OperatorGTESuffix = "ge"
 	OperatorGTSuffix  = "gt"
-	OperatorLTESuffix = "lte"
+	OperatorLTESuffix = "le"
 	OperatorLTSuffix  = "lt"
 	OperatorEQSuffix  = "eq"
 	OperatorAndSuffix = "and"
@@ -57,7 +59,7 @@ var (
 
 func containsSuffix(operator string, suffixes []string) bool {
 	return lo.ContainsBy(suffixes, func(item string) bool {
-		return strings.HasSuffix(item, operator)
+		return strings.HasSuffix(operator, item)
 	})
 }
 
@@ -77,6 +79,8 @@ func operator(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err 
 		}
 	} else if strings.HasSuffix(n.Type, OperatorNotSuffix) {
 		ns.Inputs = []Input{{Key: "x", AcceptsDataType: strictlyMatchDataType("uint8")}}
+	} else {
+		return ns, false, errors.Wrapf(validate.Error, "operator %s not supported", n.Type)
 	}
 	if containsSuffix(n.Type, numericOutputOperators) {
 		ns.Outputs = []Output{{Key: "value", DataType: "float64"}}

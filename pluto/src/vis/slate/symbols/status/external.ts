@@ -1,10 +1,10 @@
-import { type Config, Symbol } from "@/vis/slate/symbols/annotation/Create";
-import { Form } from "@/vis/slate/symbols/annotation/Form";
+import { type Config, Symbol } from "@/vis/slate/symbols/status/Change";
+import { Form } from "@/vis/slate/symbols/status/Form";
 import { type Spec } from "@/vis/slate/symbols/types/spec";
 
 export const SPEC: Spec<Config> = {
-  key: "annotation.create",
-  name: "Create Annotation",
+  key: "status.change",
+  name: "Change Status ",
   zIndex: 100,
   Form,
   Symbol,
@@ -12,7 +12,7 @@ export const SPEC: Spec<Config> = {
     variant: "success",
     message: "Notification",
   }),
-  Preview: () => null,
+  Preview: Symbol,
 };
 
 export const REGISTRY = {
