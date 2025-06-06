@@ -856,9 +856,9 @@ export const Light = ({
   );
 };
 
-export const TextBoxPreview = (
-  props: SymbolProps<Primitives.TextBoxProps>,
-): ReactElement => <Primitives.TextBox {...props} autoFit text="Text Box" />;
+export const TextBoxPreview = (props: Primitives.TextBoxProps): ReactElement => (
+  <Primitives.TextBox {...props} autoFit text="Text Box" />
+);
 
 export interface OffPageReferenceProps
   extends Omit<Primitives.OffPageReferenceProps, "label"> {

@@ -123,7 +123,7 @@ export class StreamChannelValue
       this.onStatusChange?.(SUCCESS_STATUS);
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(status.fromException(e));
+      this.onStatusChange?.(status.fromException(e, "failed to stream channel value"));
     }
   }
 }
@@ -231,7 +231,7 @@ export class ChannelData
       this.onStatusChange?.(SUCCESS_STATUS);
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(status.fromException(e));
+      this.onStatusChange?.(status.fromException(e, "failed to read channel data"));
     }
   }
 }
@@ -318,7 +318,7 @@ export class StreamChannelData
       this.onStatusChange?.(SUCCESS_STATUS);
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(status.fromException(e));
+      this.onStatusChange?.(status.fromException(e, "failed to stream channel data"));
     }
   }
 

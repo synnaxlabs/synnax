@@ -12,7 +12,17 @@ import { z } from "zod";
 
 import { Tabs } from "@/tabs";
 
-export const nodeZ = z.interface({
+interface BaseNode {
+  key: number;
+  tabs?: Tabs.Tab[];
+  selected?: string;
+  direction?: direction.Direction;
+  size?: number;
+  first?: BaseNode;
+  last?: BaseNode;
+}
+
+export const nodeZ: z.ZodType<BaseNode> = z.interface({
   key: z.number(),
   tabs: z.array(Tabs.tabZ).optional(),
   selected: z.string().optional(),

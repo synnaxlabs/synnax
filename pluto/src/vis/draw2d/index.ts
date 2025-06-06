@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { type text } from "@/text/core";
-import { dimensions as textDimensions } from "@/text/dimensions";
+import { dimensions as textDimensions } from "@/text/core/dimensions";
 import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
 import { type SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";

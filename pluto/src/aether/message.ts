@@ -9,6 +9,8 @@
 
 import { type errors } from "@synnaxlabs/x";
 
+import { type state } from "@/state";
+
 /** A message from the main thread to update or create an aether component. */
 export interface MainUpdateMessage {
   variant: "update";
@@ -17,7 +19,7 @@ export interface MainUpdateMessage {
   /** The type of the component to update. */
   type: string;
   /** The state of the component to update. */
-  state: unknown;
+  state: state.State;
 }
 
 /** A message from the main thread to delete an aether component. */
@@ -35,7 +37,7 @@ export interface AetherUpdateMessage {
   /** The key of the component to update. */
   key: string;
   /** The state of the component to update. */
-  state: unknown;
+  state: state.State;
 }
 
 /** A message from the aether thread to send an error to the main thread. */

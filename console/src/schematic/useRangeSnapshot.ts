@@ -9,7 +9,7 @@
 
 import { ranger, schematic } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { strings, array.toArray } from "@synnaxlabs/x";
+import { array, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { NULL_CLIENT_ERROR } from "@/errors";

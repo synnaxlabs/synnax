@@ -61,7 +61,6 @@ export class LinePlot extends aether.Composite<
     this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
     this.internal.aggregate = status.useAdder(ctx);
     this.internal.renderCtx = render.Context.use(ctx);
-    status.useInterceptor(ctx, () => null);
     render.control(ctx, (r) => {
       if (!this.state.visible) return;
       this.requestRender("low", r);

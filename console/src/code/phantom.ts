@@ -66,6 +66,12 @@ export const usePhantomGlobals = ({
         const variables = args[0] as Variable[];
         variables.forEach((variable) => varsRef.current.set(variable.key, variable));
       } else if (args.length >= 3) {
+        if (!args.every((arg) => typeof arg === "string"))
+          throw new Error(
+            `every argument to phantom globals must be a string, received: ${args
+              .map((arg) => typeof arg)
+              .join(", ")}`,
+          );
         const [key, name, value, docs] = args;
         varsRef.current.set(key, { key, name, value, docs });
       }

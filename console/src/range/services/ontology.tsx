@@ -11,7 +11,7 @@ import { type Store } from "@reduxjs/toolkit";
 import { ontology, ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, List, Menu as PMenu, Ranger, Text, Tree } from "@synnaxlabs/pluto";
-import { type CrudeTimeRange, errors, strings, array.toArray } from "@synnaxlabs/x";
+import { array, type CrudeTimeRange, errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
 

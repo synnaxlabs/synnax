@@ -37,7 +37,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     const runAsync = status.useErrorHandler(ctx);
     runAsync(async () => {
       await this.loadFonts();
-    });
+    }, "failed to load theme fonts");
   }
 
   private async loadFonts(): Promise<void> {

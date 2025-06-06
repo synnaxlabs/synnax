@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type workspace } from "@synnaxlabs/client";
-import { array.toArray } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 
 import * as latest from "@/workspace/types";
 

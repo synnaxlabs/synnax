@@ -67,7 +67,7 @@ export interface Component {
    * @param create - A function that creates a new component of the appropriate type if
    * it doesn't exist in the tree.
    */
-  _updateState: (path: string[], state: unknown, create: CreateComponent) => void;
+  _updateState: (path: string[], state: state.State, create: CreateComponent) => void;
   /**
    * Propagates a context update to the children and all of its descendants.
    */
@@ -155,8 +155,10 @@ export interface Context {
  * class for the AetherComposite type. The corresponding react component should NOT have
  * any children that use Aether functionality; for those cases, use AetherComposite instead.
  */
-export abstract class Leaf<StateSchema extends z.ZodType, InternalState extends {} = {}>
-  implements Component
+export abstract class Leaf<
+  StateSchema extends z.ZodType<state.State>,
+  InternalState extends {} = {},
+> implements Component
 {
   readonly type: string;
   readonly key: string;
@@ -208,16 +210,11 @@ export abstract class Leaf<StateSchema extends z.ZodType, InternalState extends 
    * @param next - The new state to set on the component. This can be the state object
    * or a pure function that takes in the previous state and returns the next state.
    */
-  setState(
-    next: state.SetArg<
-      z.input<StateSchema> | z.infer<StateSchema>,
-      z.infer<StateSchema>
-    >,
-  ): void {
+  setState(next: state.SetArg<z.infer<StateSchema>>): void {
     const nextState: z.input<StateSchema> = state.executeSetter(next, this._state);
     this._prevState = shallowCopy(this._state);
     this._state = prettyParse(this._schema, nextState, `${this.type}:${this.key}`);
-    this.sender.send({ variant: "update", key: this.key, state: nextState });
+    this.sender.send({ variant: "update", key: this.key, state: this._state });
   }
 
   /** @returns the current state of the component. */
@@ -259,7 +256,7 @@ export abstract class Leaf<StateSchema extends z.ZodType, InternalState extends 
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
    */
-  _updateState(path: string[], state: unknown, _: CreateComponent): void {
+  _updateState(path: string[], state: state.State, _: CreateComponent): void {
     if (this.deleted) return;
     try {
       const endSpan = this.instrumentation.T.debug(
@@ -351,7 +348,7 @@ export abstract class Leaf<StateSchema extends z.ZodType, InternalState extends 
  * be used directly.
  */
 export abstract class Composite<
-    StateSchema extends z.ZodType,
+    StateSchema extends z.ZodType<state.State>,
     InternalState extends {} = {},
     ChildComponents extends Component = Component,
   >
@@ -389,7 +386,7 @@ export abstract class Composite<
     ) as unknown as readonly T[];
   }
 
-  _updateState(path: string[], state: unknown, create: CreateComponent): void {
+  _updateState(path: string[], state: state.State, create: CreateComponent): void {
     if (this.deleted) return;
     const subPath = this.parsePath(path);
 

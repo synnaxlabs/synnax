@@ -18,7 +18,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { errors, array.toArray } from "@synnaxlabs/x";
+import { array, errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch, useStore } from "react-redux";

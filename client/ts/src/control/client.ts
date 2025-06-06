@@ -21,7 +21,7 @@ export class Client {
 
   async openStateTracker(): Promise<StateTracker> {
     const stream = new framer.HardenedStreamer(
-      () => this.framer.openStreamer(CONTROL_STATE_KEY),
+      (p) => this.framer.openStreamer(p),
       CONTROL_STATE_KEY,
     );
     return new StateTracker(stream);

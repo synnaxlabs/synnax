@@ -16,6 +16,7 @@ import { ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
+import { payloadZ } from "@/ranger/payload";
 
 const reqZ = z.object({ keys: z.number().array(), downsampleFactor: z.number() });
 
@@ -44,13 +45,26 @@ export interface StreamOpener {
   (config: StreamerConfig | channel.Params): Promise<Streamer>;
 }
 
+const parseStreamerConfig = (
+  config: StreamerConfig | channel.Params,
+): StreamerConfig => {
+  if (Array.isArray(config)) {
+    if (typeof config[0] === "object")
+      return {
+        channels: (config as channel.Payload[]).map((c) => c.key),
+        downsampleFactor: 1,
+      };
+    return { channels: config, downsampleFactor: 1 };
+  }
+  const parsed = payloadZ.safeParse(config);
+  if (parsed.success) return { channels: [parsed.data.key], downsampleFactor: 1 };
+  return config as StreamerConfig;
+};
+
 export const createStreamOpener =
   (retriever: channel.Retriever, client: WebSocketClient): StreamOpener =>
   async (config) => {
-    let cfg: StreamerConfig;
-    if (Array.isArray(config) || typeof config !== "object")
-      cfg = { channels: config, downsampleFactor: 1 };
-    else cfg = config as StreamerConfig;
+    const cfg = parseStreamerConfig(config);
     const adapter = await ReadAdapter.open(retriever, cfg.channels);
     if (cfg.useExperimentalCodec)
       client = client.withCodec(new WSStreamerCodec(adapter.codec));
@@ -122,9 +136,7 @@ export class HardenedStreamer implements Streamer {
 
   constructor(opener: StreamOpener, config: StreamerConfig | channel.Params) {
     this.opener = opener;
-    if (Array.isArray(config) || typeof config !== "object")
-      this.config = { channels: config, downsampleFactor: 1 };
-    else this.config = config as StreamerConfig;
+    this.config = parseStreamerConfig(config);
     this.breaker = new breaker.Breaker({
       maxRetries: 5000,
       baseInterval: TimeSpan.seconds(1),
@@ -151,6 +163,7 @@ export class HardenedStreamer implements Streamer {
       } catch (e) {
         this.wrapped_ = null;
         if (!(await this.breaker.wait())) throw e;
+        console.error("failed to open streamer", e);
         continue;
       }
   }

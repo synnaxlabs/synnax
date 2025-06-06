@@ -236,13 +236,13 @@ import {
   type VentProps,
 } from "@/vis/schematic/Symbols";
 
-export interface Spec<P extends object> {
+export interface Spec<P extends object = object> {
   key: Variant;
   name: string;
   Form: FC<SymbolFormProps>;
   Symbol: FC<SymbolProps<P>>;
   defaultProps: (t: Theming.Theme) => P;
-  Preview: FC<SymbolProps<P>>;
+  Preview: FC<P>;
   zIndex: number;
 }
 

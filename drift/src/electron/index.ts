@@ -255,11 +255,11 @@ export const listenOnMain = ({ mainWindow, createWindow }: ListenOnMainProps) =>
 };
 
 interface API {
-  send: (channel: OutboundEvent, ...args: unknown[]) => void;
-  invoke: (cmd: Command, ...args: unknown[]) => Promise<any>;
+  send: (channel: OutboundEvent, ...args: any[]) => void;
+  invoke: (cmd: Command, ...args: any[]) => Promise<any>;
   on: (
     event: InBoundEvent,
-    listener: (event: IpcRendererEvent, ...args: unknown[]) => void,
+    listener: (event: IpcRendererEvent, ...args: any[]) => void,
   ) => void;
 }
 

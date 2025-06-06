@@ -1078,7 +1078,7 @@ class StringSeriesIterator implements Iterator<string> {
 
 class JSONSeriesIterator implements Iterator<unknown> {
   private readonly wrapped: Iterator<string>;
-  private static SCHEMA = z.record(z.string(), z.unknown());
+  private static schema = z.record(z.string(), z.unknown());
 
   constructor(wrapped: Iterator<string>) {
     this.wrapped = wrapped;
@@ -1089,7 +1089,7 @@ class JSONSeriesIterator implements Iterator<unknown> {
     if (next.done === true) return { done: true, value: undefined };
     return {
       done: false,
-      value: binary.JSON_CODEC.decodeString(next.value, JSONSeriesIterator.SCHEMA),
+      value: binary.JSON_CODEC.decodeString(next.value, JSONSeriesIterator.schema),
     };
   }
 }
