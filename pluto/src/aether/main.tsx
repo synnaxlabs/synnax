@@ -42,7 +42,7 @@ export interface CreateReturn {
    * @param state - The new state to set on the component
    * @param transfer - Optional array of Transferable objects to be transferred to the worker
    */
-  setState: (state: any, transfer?: Transferable[]) => void;
+  setState: (state: unknown, transfer?: Transferable[]) => void;
 
   /**
    * Deletes the component from the Aether tree, triggering cleanup
@@ -112,7 +112,7 @@ export const Provider = ({
         );
       registry.current.set(key, { path, handler });
       return {
-        setState: (state: any, transfer: Transferable[] = []): void => {
+        setState: (state: unknown, transfer: Transferable[] = []): void => {
           if (worker == null) console.warn("aether - no worker");
           worker?.send({ variant: "update", path, state, type }, transfer);
         },

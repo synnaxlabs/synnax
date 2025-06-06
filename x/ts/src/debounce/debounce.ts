@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const debounce = <F extends (...args: any[]) => void>(
+export const debounce = <F extends (...args: unknown[]) => void>(
   func: F,
   waitFor: number,
 ): F => {
@@ -25,7 +25,7 @@ export const debounce = <F extends (...args: any[]) => void>(
   return debounced as F;
 };
 
-export const throttle = <F extends (...args: any[]) => void>(
+export const throttle = <F extends (...args: unknown[]) => void>(
   func: F,
   waitFor: number,
 ): F => {

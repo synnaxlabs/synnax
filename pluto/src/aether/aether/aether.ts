@@ -140,7 +140,7 @@ export interface Context {
    * @param value - The value to set for the given key.
    * @param trigger - If true, the component will be notified of the change.
    */
-  set(key: string, value: any, trigger?: boolean): void;
+  set(key: string, value: unknown, trigger?: boolean): void;
   /**
    * Checks if the component has previously set a context value for the given key. This
    * is an alternative to {@link has} that checks whether the component has set the value
@@ -248,7 +248,7 @@ export abstract class Leaf<StateSchema extends z.ZodType, InternalState extends 
       getOptional: (key: string) => this.parentCtxValues.get(key),
       has: (key: string) => this.parentCtxValues.has(key),
       wasSetPreviously: (key: string) => this.childCtxValues.has(key),
-      set: (key: string, value: any, trigger: boolean = true) => {
+      set: (key: string, value: unknown, trigger: boolean = true) => {
         this.childCtxValues.set(key, value);
         if (trigger) this.childCtxChangedKeys.add(key);
       },

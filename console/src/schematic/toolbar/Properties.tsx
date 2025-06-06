@@ -77,7 +77,7 @@ const IndividualProperties = ({
   const C = Schematic.SYMBOLS[props.key];
   const dispatch = useDispatch();
 
-  const onChange = (key: string, props: any): void => {
+  const onChange = (key: string, props: unknown): void => {
     dispatch(setElementProps({ layoutKey, key, props }));
   };
 
@@ -107,7 +107,7 @@ const EdgeProperties = ({
 }: EdgePropertiesProps): ReactElement | null => {
   const edge = useSelectRequiredEdge(layoutKey, edgeKey);
   const dispatch = useDispatch();
-  const onChange = (key: string, props: any): void => {
+  const onChange = (key: string, props: unknown): void => {
     dispatch(setElementProps({ layoutKey, key, props }));
   };
   return (
@@ -139,7 +139,7 @@ const MultiElementProperties = ({
 }: MultiElementPropertiesProps): ReactElement => {
   const elements = useSelectSelectedElementsProps(layoutKey);
   const dispatch = useDispatch();
-  const onChange = (key: string, props: any): void => {
+  const onChange = (key: string, props: unknown): void => {
     dispatch(setElementProps({ layoutKey, key, props }));
   };
 

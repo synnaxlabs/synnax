@@ -33,7 +33,7 @@ export interface Matchable {
  * instanceof, which has a number of caveats.
  */
 export interface Typed extends Error, Matchable {
-  discriminator: "sy_x_error";
+  discriminator: typeof ERROR_DISCRIMINATOR;
   /**
    * Returns a unique type identifier for the error. The errors package uses this to
    *  determine the correct decoder to use when encoding/decoding errors.

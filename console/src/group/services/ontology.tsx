@@ -10,12 +10,11 @@
 import { group, NotFoundError, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, uuid } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
-import { createNewID } from "@/group/createNewID";
 import { MenuItem } from "@/group/MenuItem";
 import { useCreateFromSelection } from "@/group/useCreateFromSelection";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
@@ -170,7 +169,7 @@ const useCreateEmpty = (): ((
     },
   });
   return async (props: Ontology.TreeContextMenuProps) =>
-    mut.mutate({ ...props, newID: createNewID() });
+    mut.mutate({ ...props, newID: group.ontologyID(uuid.create()) });
 };
 
 const handleRename: Ontology.HandleTreeRename = {

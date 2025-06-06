@@ -98,7 +98,7 @@ export class CSVCodec implements Codec {
     const keys = Object.keys(payload[0]);
     const csvRows = [keys.join(",")];
 
-    payload.forEach((item: any) => {
+    payload.forEach((item) => {
       const values = keys.map((key) => JSON.stringify(item[key] ?? ""));
       csvRows.push(values.join(","));
     });
@@ -114,7 +114,7 @@ export class CSVCodec implements Codec {
     if (headerLine.length === 0)
       return schema != null ? schema.parse({}) : ({} as z.infer<P>);
     const headers = headerLine.split(",").map((header) => header.trim());
-    const result: { [key: string]: any[] } = {};
+    const result: { [key: string]: unknown[] } = {};
 
     headers.forEach((header) => {
       result[header] = [];
@@ -132,7 +132,7 @@ export class CSVCodec implements Codec {
     return schema != null ? schema.parse(result) : (result as z.infer<P>);
   }
 
-  private parseValue(value?: string): any {
+  private parseValue(value?: string): unknown {
     if (value == null || value.length === 0) return null;
     const num = Number(value);
     if (!isNaN(num)) return num;

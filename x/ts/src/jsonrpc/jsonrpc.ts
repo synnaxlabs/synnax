@@ -13,7 +13,7 @@ import { binary } from "@/binary";
 
 export const requestZ = z.object({
   jsonrpc: z.literal("2.0"),
-  id: z.number(),
+  id: z.number().optional(),
   method: z.string(),
   params: z.unknown().optional(),
 });

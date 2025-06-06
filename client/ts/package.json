@@ -35,7 +35,6 @@
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
     "async-mutex": "^0.5.0",
-    "uuid": "^11.1.0",
     "zod": "^4.0.0-beta"
   },
   "devDependencies": {

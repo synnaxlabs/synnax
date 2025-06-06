@@ -58,7 +58,7 @@ export const usePhantomGlobals = ({
   }, [monaco]);
 
   const set = useCallback(
-    (...args: any[]) => {
+    (...args: unknown[]) => {
       if (args.length === 1 && !Array.isArray(args[0])) {
         const variable = args[0] as Variable;
         varsRef.current.set(variable.key, variable);

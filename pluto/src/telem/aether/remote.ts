@@ -207,7 +207,7 @@ export class ChannelData
     if (!this.valid) void this.read();
     const { channel: ch, data } = this;
     if (ch == null) return [bounds.ZERO, this.data];
-    let b = bounds.max(data.series.map((d) => d.bounds));
+    let b = data.bounds;
     if (ch.dataType.equals(DataType.TIMESTAMP))
       b = bounds.min([b, timeRange.numericBounds]);
     return [b, data];
