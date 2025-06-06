@@ -121,14 +121,8 @@ export class Loop {
   private render(): void {
     const { requests } = this;
     if (requests.size === 0) return;
-    const endCycle = this.instrumentation.T.bench("render-cycle");
-    const endCleanup = this.instrumentation.T.bench("render-cycle-cleanup");
     this.runCleanupsSync();
-    endCleanup();
-    const endRender = this.instrumentation.T.bench("render-cycle-render");
     this.renderSync();
-    endRender();
-    endCycle();
     this.requests.clear();
     this.afterRender?.();
   }

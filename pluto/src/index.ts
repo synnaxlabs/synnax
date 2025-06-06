@@ -77,7 +77,6 @@ export { LinePlot } from "@/vis/lineplot";
 export { Range } from "@/vis/lineplot/range";
 export { Log } from "@/vis/log";
 export { Measure } from "@/vis/measure";
-export { Performance } from "@/vis/performance";
 export { Rule } from "@/vis/rule";
 export { Schematic } from "@/vis/schematic";
 export { Value } from "@/vis/value";

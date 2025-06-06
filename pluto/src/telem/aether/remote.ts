@@ -40,15 +40,6 @@ export const streamChannelValuePropsZ = z.object({
 
 export type StreamChannelValueProps = z.infer<typeof streamChannelValuePropsZ>;
 
-const LOADING_STATUS: status.CrudeSpec = {
-  variant: "loading",
-  message: "loading data",
-};
-const SUCCESS_STATUS: status.CrudeSpec = {
-  variant: "success",
-  message: "data loaded",
-};
-
 // StreamChannelValue is an implementation of NumberSource that reads and returns the
 // most recent value of a channel in real-time.
 export class StreamChannelValue
@@ -103,7 +94,6 @@ export class StreamChannelValue
   private async read(): Promise<void> {
     try {
       this.valid = true;
-      this.onStatusChange?.(LOADING_STATUS);
       this.removeStreamHandler?.();
       const ch = await this.client.retrieveChannel(this.props.channel);
       const handler: client.StreamHandler = (res) => {
@@ -120,7 +110,6 @@ export class StreamChannelValue
       };
       this.removeStreamHandler = await this.client.stream(handler, [ch.key]);
       this.notify();
-      this.onStatusChange?.(SUCCESS_STATUS);
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(status.fromException(e, "failed to stream channel value"));
@@ -216,7 +205,6 @@ export class ChannelData
   private async read(): Promise<void> {
     try {
       this.valid = true;
-      this.onStatusChange?.(LOADING_STATUS);
       const { timeRange, channel, useIndexOfChannel } = this.props;
       this.channel = await fetchChannelProperties(
         this.client,
@@ -228,7 +216,6 @@ export class ChannelData
       series.acquire();
       this.data = series;
       this.notify();
-      this.onStatusChange?.(SUCCESS_STATUS);
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(status.fromException(e, "failed to read channel data"));
@@ -290,7 +277,6 @@ export class StreamChannelData
   private async read(): Promise<void> {
     try {
       this.valid = true;
-      this.onStatusChange?.(LOADING_STATUS);
       const { channel, useIndexOfChannel } = this.props;
       this.channel = await fetchChannelProperties(
         this.client,
@@ -315,7 +301,6 @@ export class StreamChannelData
       };
       this.stopStreaming = await this.client.stream(handler, [this.channel.key]);
       this.notify();
-      this.onStatusChange?.(SUCCESS_STATUS);
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(status.fromException(e, "failed to stream channel data"));
