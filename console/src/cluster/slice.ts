@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { array.toArray } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 
 import * as latest from "@/cluster/types";
 
