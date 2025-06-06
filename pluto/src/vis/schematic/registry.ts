@@ -179,6 +179,7 @@ import {
   PistonPump,
   type PistonPumpProps,
   PolygonSymbol,
+  type PreviewProps,
   PropellerAgitator,
   type PropellerAgitatorProps,
   Pump,
@@ -242,7 +243,7 @@ export interface Spec<P extends object = object> {
   Form: FC<SymbolFormProps>;
   Symbol: FC<SymbolProps<P>>;
   defaultProps: (t: Theming.Theme) => P;
-  Preview: FC<P>;
+  Preview: FC<PreviewProps<P>>;
   zIndex: number;
 }
 

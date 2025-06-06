@@ -129,7 +129,7 @@ const SymbolsButton = ({
     >
       <Text.Text level="small">{name}</Text.Text>
       <Align.Space className="preview-wrapper" align="center" justify="center">
-        <Preview {...defaultProps_} />
+        <Preview {...defaultProps_} scale={0.75} />
       </Align.Space>
     </Align.Space>
   );
