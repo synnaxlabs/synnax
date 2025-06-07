@@ -50,7 +50,6 @@ std::pair<synnax::Frame, xerrors::Error> Streamer::read() const {
             reinterpret_cast<const std::uint8_t *>(fr.buffer().data()),
             fr.buffer().size()
         );
-    auto api_frame = fr.frame();
     return {synnax::Frame(fr.frame()), exc};
 }
 

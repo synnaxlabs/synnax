@@ -30,7 +30,11 @@ import { z } from "zod";
 import { baseFormSchema, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
-import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom";
+import {
+  usePhantomGlobals,
+  type UsePhantomGlobalsReturn,
+  type Variable,
+} from "@/code/phantom";
 import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -169,6 +173,21 @@ interface InternalProps extends Pick<Layout.RendererProps, "onClose"> {
   initialValues: FormValues;
 }
 
+const GLOBALS: Variable[] = [
+  {
+    key: "get",
+    name: "get",
+    value: `
+    -- Get a channel's value by its name. This function should be used when
+    -- the channel name cannot be used directly as a variable. For example,
+    -- hyphenated names such as 'my-channel' should be accessed with get("my-channel")
+    -- instead of just my-channel.
+    function get(name)
+    end
+    `,
+  },
+];
+
 const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const client = Synnax.use();
 
@@ -208,6 +227,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,
     stringifyVar: Lua.stringifyVar,
+    initialVars: GLOBALS,
   });
   useAsyncEffect(async () => {
     if (client == null) return;

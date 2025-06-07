@@ -105,23 +105,18 @@ type streamCore[I, O freighter.Payload] struct {
 	peerCloseErr       error
 }
 
-func (c *streamCore[I, O]) send(msg WSMessage[O]) (err error) {
-	var w io.WriteCloser
-	w, err = c.conn.NextWriter(ws.BinaryMessage)
+func (c *streamCore[I, O]) send(msg WSMessage[O]) error {
+	if c.writeDeadline > 0 {
+		if err := c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline)); err != nil {
+			return err
+		}
+	}
+	w, err := c.conn.NextWriter(ws.BinaryMessage)
 	if err != nil {
-		return
+		return err
 	}
-	defer func() {
-		err = errors.Combine(err, w.Close())
-	}()
-	if err = c.codec.EncodeStream(nil, w, msg); err != nil {
-		return
-	}
-	if c.writeDeadline <= 0 {
-		return
-	}
-	err = c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline))
-	return
+	err = c.codec.EncodeStream(context.TODO(), w, msg)
+	return errors.Combine(err, w.Close())
 }
 
 func (c *streamCore[I, O]) receiveRaw() (msg WSMessage[I], err error) {
@@ -130,7 +125,7 @@ func (c *streamCore[I, O]) receiveRaw() (msg WSMessage[I], err error) {
 	if err != nil {
 		return msg, err
 	}
-	return msg, c.codec.DecodeStream(nil, r, &msg)
+	return msg, c.codec.DecodeStream(context.TODO(), r, &msg)
 }
 
 func (c *streamCore[I, O]) Receive() (pld I, err error) {
@@ -144,7 +139,7 @@ func (c *streamCore[I, O]) Receive() (pld I, err error) {
 		} else if ws.IsCloseError(err, contextCancelledCloseCode) {
 			c.peerCloseErr = context.Canceled
 		} else {
-			c.peerCloseErr = freighter.EOF
+			c.peerCloseErr = freighter.StreamClosed
 		}
 		return pld, c.peerCloseErr
 	}

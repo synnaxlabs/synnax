@@ -27,7 +27,10 @@ export const ZERO_CONFIG: Config = {
   rack: 0,
   read: [],
   write: [],
-  script: "",
+  script: `-- Edit your control sequence here.
+-- To access a channel value, simply type in its name or use the get('channel-name') function.
+-- To set a channel value, use the set('channel-name', value) function.
+-- For further documentation, see https://docs.synnaxlabs.com/reference/control/embedded/get-started`,
   globals: {},
 };
 

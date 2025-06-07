@@ -53,7 +53,7 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
       placeholder="Value"
       color={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
     >
-      <Button.Icon onClick={() => copyToClipboard(value, "value")}>
+      <Button.Icon onClick={() => copyToClipboard(value, "value")} variant="outlined">
         <Icon.Copy />
       </Button.Icon>
       {isLink && (

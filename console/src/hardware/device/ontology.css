@@ -10,18 +10,19 @@
  */
 
 .console-device-ontology-item {
-    .console-name {
-        text-overflow: ellipsis;
+    .console-name-location {
         width: 0;
-        overflow: hidden;
-        flex-grow: 1;
-    }
-    .console-location {
-        line-height: 100%;
-        margin-top: 0.25rem;
-        text-overflow: ellipsis;
-        width: 0;
-        overflow: hidden;
-        flex-grow: 1;
+        .console-name {
+            text-overflow: ellipsis;
+            overflow: hidden;
+            flex-shrink: 1;
+        }
+        .console-location {
+            line-height: 100%;
+            margin-top: 0.25rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-shrink: 10;
+        }
     }
 }

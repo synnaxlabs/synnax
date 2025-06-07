@@ -214,7 +214,7 @@ const ChangeLoader = () => {
 
 const ExplorerContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   const details = useViewDetails();
-  const del = useDelete("this range");
+  const del = useDelete();
   const handleSelect: PMenu.MenuProps["onChange"] = {
     details: () => details(key),
     delete: () => del.mutate(key),

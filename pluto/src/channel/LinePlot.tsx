@@ -29,7 +29,7 @@ import { Measure } from "@/vis/measure";
 import { Rule } from "@/vis/rule";
 
 /** Props for an axis in {@link LinePlot} */
-export interface AxisProps extends Core.AxisProps {
+export interface AxisProps extends Omit<Core.AxisProps, "axisKey"> {
   /** A unique identifier for the axis */
   key: string;
 }
@@ -246,6 +246,7 @@ const XAxis = ({
       {...axis}
       {...dropProps}
       location={location as loc.Y}
+      axisKey={key}
       showGrid={showGrid ?? index === 0}
       className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
@@ -331,6 +332,7 @@ const YAxis = ({
       {...props}
       {...dropProps}
       location={loc as loc.X}
+      axisKey={key}
       className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
     >
