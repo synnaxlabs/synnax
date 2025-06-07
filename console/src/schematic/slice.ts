@@ -21,6 +21,7 @@ import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
+export type EdgeProps = latest.EdgeProps;
 export type State = latest.State;
 export type StateWithName = State & { name: string };
 export type LegendState = latest.LegendState;
@@ -68,7 +69,7 @@ export interface AddElementPayload {
 export interface SetElementPropsPayload {
   layoutKey: string;
   key: string;
-  props: NodeProps;
+  props: Partial<NodeProps> | Partial<EdgeProps>;
 }
 
 export interface FixThemeContrastPayload {
@@ -294,7 +295,7 @@ export const { actions, reducer } = createSlice({
       const { layoutKey, key, props } = payload;
       const schematic = state.schematics[layoutKey];
       if (key in schematic.props)
-        schematic.props[key] = { ...schematic.props[key], ...props };
+        schematic.props[key] = { ...schematic.props[key], ...props } as NodeProps;
       else {
         const edge = schematic.edges.findIndex((edge) => edge.key === key);
         if (edge !== -1) schematic.edges[edge] = { ...schematic.edges[edge], ...props };

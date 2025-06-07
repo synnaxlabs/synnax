@@ -10,7 +10,6 @@
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 
 export const buttonStateZ = z.object({
@@ -35,10 +34,7 @@ export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
     const prevTrigger = this.internal.prevTrigger;
     this.internal.prevTrigger = this.state.trigger;
     if (this.state.trigger <= prevTrigger) return;
-    const runAsync = status.useErrorHandler(ctx);
-    runAsync(async () => {
-      this.internal.sink.set(true);
-    });
+    this.internal.sink.set(true);
   }
 
   afterDelete(): void {

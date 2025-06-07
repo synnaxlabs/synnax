@@ -19,7 +19,7 @@ import {
 describe("retrieve utils", () => {
   describe("analyze params", () => {
     interface Spec {
-      args: primitive.Value extends any ? any : never;
+      args: primitive.Value;
       variantMap: PartialTypeNameRecord<primitive.Value>;
       expected: ParamAnalysisResult<
         primitive.Value,

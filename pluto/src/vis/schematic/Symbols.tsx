@@ -89,6 +89,10 @@ export type SymbolProps<P extends object = UnknownRecord> = P & {
   onChange: (value: Partial<P>) => void;
 };
 
+export type PreviewProps<P extends object = UnknownRecord> = P & {
+  scale?: number;
+};
+
 const controlStateGridItem = (props?: ControlStateProps): GridItem | null => {
   if (props == null) return null;
   const {
@@ -856,9 +860,9 @@ export const Light = ({
   );
 };
 
-export const TextBoxPreview = (
-  props: SymbolProps<Primitives.TextBoxProps>,
-): ReactElement => <Primitives.TextBox {...props} autoFit text="Text Box" />;
+export const TextBoxPreview = (props: Primitives.TextBoxProps): ReactElement => (
+  <Primitives.TextBox {...props} autoFit text="Text Box" />
+);
 
 export interface OffPageReferenceProps
   extends Omit<Primitives.OffPageReferenceProps, "label"> {

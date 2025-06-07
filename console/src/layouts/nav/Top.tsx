@@ -16,7 +16,6 @@ import { type ReactElement } from "react";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
-import { Debug } from "@/debug";
 import { Docs } from "@/docs";
 import { Hardware } from "@/hardware";
 import { LabelServices } from "@/label/services";
@@ -55,7 +54,6 @@ const COMMANDS: Palette.Command[] = [
   ...TableServices.COMMANDS,
   ...UserServices.COMMANDS,
   ...WorkspaceServices.COMMANDS,
-  ...Debug.COMMANDS,
 ];
 
 const TopPalette = (): ReactElement => (

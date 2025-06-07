@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device, type task } from "@synnaxlabs/client";
-import { type core, z } from "zod";
+import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 import * as v0 from "@/hardware/ni/task/types/v0";
@@ -18,7 +18,7 @@ type PortToIndexMap = Map<number, number>;
 const validateAnalogPorts = ({
   value: channels,
   issues,
-}: core.ParsePayload<{ port: number; device: device.Key }[]>) => {
+}: z.core.ParsePayload<{ port: number; device: device.Key }[]>) => {
   const deviceToPortMap = new Map<device.Key, PortToIndexMap>();
   channels.forEach(({ device, port }, i) => {
     if (!deviceToPortMap.has(device)) deviceToPortMap.set(device, new Map());

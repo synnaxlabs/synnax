@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { channel, DataType, UnexpectedError } from "@synnaxlabs/client";
-import { toArray } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { Cache } from "@/telem/client/cache/cache";
@@ -45,7 +45,7 @@ describe("cacheManager", () => {
       const called = vi.fn();
       const ret = new MockRetriever(async (batch) => {
         called(batch);
-        return toArray(batch).map(
+        return array.toArray(batch).map(
           (key) =>
             new channel.Channel({
               key: key as number,
@@ -69,7 +69,7 @@ describe("cacheManager", () => {
       const called = vi.fn();
       const ret = new MockRetriever(async (batch) => {
         called(batch);
-        return toArray(batch).map(
+        return array.toArray(batch).map(
           (key) =>
             new channel.Channel({
               key: key as number,

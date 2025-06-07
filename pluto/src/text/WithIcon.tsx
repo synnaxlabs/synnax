@@ -9,7 +9,7 @@
 
 import "@/text/WithIcon.css";
 
-import { toArray } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { Children, type Key, type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
@@ -92,7 +92,7 @@ export const formatChildren = <L extends text.Level>(
   shade?: number,
   weight?: text.Weight,
 ): ReactElement | ReactElement[] => {
-  const arr = toArray(children);
+  const arr = array.toArray(children);
   const o: ReactElement[] = [];
   let buff: Array<ReactNode> = [];
   const props = { color, level, shade, weight };

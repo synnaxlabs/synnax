@@ -67,7 +67,7 @@ export interface Component {
    * @param create - A function that creates a new component of the appropriate type if
    * it doesn't exist in the tree.
    */
-  _updateState: (path: string[], state: UnknownRecord, create: CreateComponent) => void;
+  _updateState: (path: string[], state: state.State, create: CreateComponent) => void;
   /**
    * Propagates a context update to the children and all of its descendants.
    */
@@ -140,7 +140,7 @@ export interface Context {
    * @param value - The value to set for the given key.
    * @param trigger - If true, the component will be notified of the change.
    */
-  set(key: string, value: any, trigger?: boolean): void;
+  set(key: string, value: unknown, trigger?: boolean): void;
   /**
    * Checks if the component has previously set a context value for the given key. This
    * is an alternative to {@link has} that checks whether the component has set the value
@@ -156,7 +156,7 @@ export interface Context {
  * any children that use Aether functionality; for those cases, use AetherComposite instead.
  */
 export abstract class Leaf<
-  StateSchema extends z.ZodTypeAny,
+  StateSchema extends z.ZodType<state.State>,
   InternalState extends {} = {},
 > implements Component
 {
@@ -166,8 +166,8 @@ export abstract class Leaf<
   private readonly sender: Sender<AetherMessage>;
 
   private readonly _internalState: InternalState;
-  private _state: z.output<StateSchema> | undefined;
-  private _prevState: z.output<StateSchema> | undefined;
+  private _state: z.infer<StateSchema> | undefined;
+  private _prevState: z.infer<StateSchema> | undefined;
   private _deleted: boolean = false;
   protected readonly parentCtxValues: Map<string, any>;
   protected readonly childCtxValues: Map<string, any>;
@@ -210,20 +210,15 @@ export abstract class Leaf<
    * @param next - The new state to set on the component. This can be the state object
    * or a pure function that takes in the previous state and returns the next state.
    */
-  setState(
-    next: state.SetArg<
-      z.input<StateSchema> | z.output<StateSchema>,
-      z.output<StateSchema>
-    >,
-  ): void {
+  setState(next: state.SetArg<z.infer<StateSchema>>): void {
     const nextState: z.input<StateSchema> = state.executeSetter(next, this._state);
     this._prevState = shallowCopy(this._state);
     this._state = prettyParse(this._schema, nextState, `${this.type}:${this.key}`);
-    this.sender.send({ variant: "update", key: this.key, state: nextState });
+    this.sender.send({ variant: "update", key: this.key, state: this._state });
   }
 
   /** @returns the current state of the component. */
-  get state(): z.output<StateSchema> {
+  get state(): z.infer<StateSchema> {
     if (this._state == null)
       throw new UnexpectedError(
         `[AetherLeaf] - state not defined in ${this.type}:${this.key}`,
@@ -236,7 +231,7 @@ export abstract class Leaf<
   }
 
   /** @returns the previous state of the component. */
-  get prevState(): z.output<StateSchema> {
+  get prevState(): z.infer<StateSchema> {
     return this._prevState;
   }
 
@@ -250,7 +245,7 @@ export abstract class Leaf<
       getOptional: (key: string) => this.parentCtxValues.get(key),
       has: (key: string) => this.parentCtxValues.has(key),
       wasSetPreviously: (key: string) => this.childCtxValues.has(key),
-      set: (key: string, value: any, trigger: boolean = true) => {
+      set: (key: string, value: unknown, trigger: boolean = true) => {
         this.childCtxValues.set(key, value);
         if (trigger) this.childCtxChangedKeys.add(key);
       },
@@ -261,7 +256,7 @@ export abstract class Leaf<
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
    */
-  _updateState(path: string[], state: UnknownRecord, _: CreateComponent): void {
+  _updateState(path: string[], state: state.State, _: CreateComponent): void {
     if (this.deleted) return;
     try {
       const endSpan = this.instrumentation.T.debug(
@@ -353,7 +348,7 @@ export abstract class Leaf<
  * be used directly.
  */
 export abstract class Composite<
-    StateSchema extends z.ZodTypeAny,
+    StateSchema extends z.ZodType<state.State>,
     InternalState extends {} = {},
     ChildComponents extends Component = Component,
   >
@@ -391,7 +386,7 @@ export abstract class Composite<
     ) as unknown as readonly T[];
   }
 
-  _updateState(path: string[], state: UnknownRecord, create: CreateComponent): void {
+  _updateState(path: string[], state: state.State, create: CreateComponent): void {
     if (this.deleted) return;
     const subPath = this.parsePath(path);
 

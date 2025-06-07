@@ -23,7 +23,6 @@ export default defineConfig({
         react: path.resolve(".", "src/react/index.ts"),
         tauri: path.resolve(".", "src/tauri/index.ts"),
         electron: path.resolve(".", "src/electron/index.ts"),
-        noop: path.resolve(".", "src/noop/index.ts"),
       },
     },
     rollupOptions: {

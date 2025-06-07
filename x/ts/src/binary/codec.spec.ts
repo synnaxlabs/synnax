@@ -221,7 +221,7 @@ describe("Codec", () => {
     });
 
     it("should throw error when encoding empty array", () => {
-      const sampleData: any[] = [];
+      const sampleData: unknown[] = [];
 
       expect(() => {
         binary.CSV_CODEC.encodeString(sampleData);

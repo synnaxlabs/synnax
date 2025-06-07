@@ -32,15 +32,11 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
     ctx.set(CONTEXT_KEY, { add: this.add.bind(this), parse: this.parse.bind(this) });
   }
 
-  parse(spec: CrudeSpec): Spec {
-    return {
-      time: TimeStamp.now(),
-      ...spec,
-      key: id.create(),
-    };
+  private parse(spec: CrudeSpec): Spec {
+    return { time: TimeStamp.now(), key: id.create(), ...spec };
   }
 
-  add(spec: CrudeSpec): void {
+  private add(spec: CrudeSpec): void {
     this.setState((p) => ({
       ...p,
       statuses: [...p.statuses, this.parse(spec)],
@@ -110,18 +106,4 @@ export const useAsyncErrorHandler = (ctx: aether.Context): AsyncErrorHandler =>
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Aggregator.TYPE]: Aggregator,
-};
-
-export const useInterceptor = (
-  ctx: aether.Context,
-  interceptor: (spec: CrudeSpec, parse: (spec: CrudeSpec) => Spec) => CrudeSpec | null,
-): void => {
-  if (ctx.wasSetPreviously(CONTEXT_KEY)) return;
-  const value = ctx.get<ContextValue>(CONTEXT_KEY);
-  const add = (spec: CrudeSpec) => {
-    const inter = interceptor(spec, value.parse);
-    if (inter == null) return;
-    value.add(inter);
-  };
-  ctx.set(CONTEXT_KEY, { add, parse: value.parse });
 };

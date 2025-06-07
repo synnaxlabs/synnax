@@ -8,14 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { control, errors } from "@synnaxlabs/x";
+import { array, control, errors } from "@synnaxlabs/x";
 import {
   type CrudeSeries,
   type CrudeTimeStamp,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x/telem";
-import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import { channel } from "@/channel";
@@ -194,7 +193,7 @@ export class Writer {
         start: new TimeStamp(start),
         keys: adapter.keys,
         controlSubject: subject,
-        authorities: toArray(authorities),
+        authorities: array.toArray(authorities),
         mode: constructWriterMode(mode),
         errOnUnauthorized,
         enableAutoCommit,

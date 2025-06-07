@@ -32,10 +32,10 @@ export interface Subject {
   key: string;
 }
 
-export const stateZ = <T extends z.ZodTypeAny>(r: T) =>
+export const stateZ = <R extends z.ZodTypeAny>(resource: R) =>
   z.object({
     subject: subjectZ,
-    resource: r,
+    resource,
     authority: authorityZ,
   });
 
@@ -60,20 +60,22 @@ interface Release<R> {
   to?: null;
 }
 
-export const releaseZ = z.object({
-  from: stateZ(z.any()),
-  to: z.null(),
-});
+export const releaseZ = <R extends z.ZodTypeAny>(resource: R) =>
+  z.object({
+    from: stateZ(resource),
+    to: z.null(),
+  });
 
 interface Acquire<R> {
   from?: null;
   to: State<R>;
 }
 
-export const acquireZ = z.object({
-  from: z.null(),
-  to: stateZ(z.any()),
-});
+export const acquireZ = <R extends z.ZodTypeAny>(resource: R) =>
+  z.object({
+    from: z.null(),
+    to: stateZ(resource),
+  });
 
 export type Transfer<R> =
   | {
@@ -83,11 +85,12 @@ export type Transfer<R> =
   | Release<R>
   | Acquire<R>;
 
-export const transferZ = z.union([
-  releaseZ,
-  acquireZ,
-  z.object({
-    from: stateZ(z.any()),
-    to: stateZ(z.any()),
-  }),
-]);
+export const transferZ = <R extends z.ZodTypeAny>(resource: R) =>
+  z.union([
+    releaseZ(resource),
+    acquireZ(resource),
+    z.object({
+      from: stateZ(resource),
+      to: stateZ(resource),
+    }),
+  ]);

@@ -23,6 +23,7 @@
     "@msgpack/msgpack": "^3.1.1",
     "async-mutex": "^0.5.0",
     "nanoid": "^5.1.5",
+    "uuid": "^11.1.0",
     "zod": "^4.0.0-beta"
   },
   "devDependencies": {
@@ -146,10 +147,10 @@
       "import": "./dist/debounce.js",
       "require": "./dist/debounce.cjs"
     },
-    "./toArray": {
-      "types": "./dist/src/toArray.d.ts",
-      "import": "./dist/toArray.js",
-      "require": "./dist/toArray.cjs"
+    "./array": {
+      "types": "./dist/src/array/index.d.ts",
+      "import": "./dist/array.js",
+      "require": "./dist/array.cjs"
     },
     "./search": {
       "types": "./dist/src/search.d.ts",

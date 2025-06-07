@@ -76,7 +76,6 @@ export const stateZ = z.object({
   args: z.unknown().optional(),
   excludeFromWorkspace: z.boolean().optional(),
   beta: z.boolean().default(false).optional(),
-  loading: z.boolean().default(false).optional(),
   unsavedChanges: z.boolean().default(false).optional(),
 });
 
