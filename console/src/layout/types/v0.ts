@@ -137,6 +137,10 @@ export interface State<A = unknown> {
    * unsavedChanges is a flag that indicates whether the layout has unsaved changes.
    */
   unsavedChanges?: boolean;
+  /**
+   * loading is a flag that indicates whether the layout is loading.
+   */
+  loading?: boolean;
 }
 
 const mosaicStateZ = z.object({

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Key, type Keyed, type Optional, toArray, unique } from "@synnaxlabs/x";
+import { array, type Key, type Keyed, type Optional, unique } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks/ref";
@@ -183,7 +183,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
       let data = dataRef.current;
       if (!Array.isArray(data)) data = data();
       let nextSelected: K[] = [];
-      const value = toArray(valueRef.current).filter((v) => v != null);
+      const value = array.toArray(valueRef.current).filter((v) => v != null);
       // Simple case. If we can't allow multiple, then just toggle the key.
       if (allowMultiple === false) nextSelected = value.includes(key) ? [] : [key];
       // If the control key is held, we can still allow multiple selection.

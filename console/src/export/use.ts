@@ -10,6 +10,7 @@
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { type DialogFilter, save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import { type Extractor } from "@/export/extractor";
@@ -20,24 +21,28 @@ const FILTERS: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
 export const use = (
   extract: Extractor,
   type = "visualization",
-): ((key: string) => Promise<void>) => {
+): ((key: string) => void) => {
   const client = Synnax.use();
   const store = useStore<RootState>();
   const handleError = Status.useErrorHandler();
-  return async (key: string) => {
-    let name;
-    try {
-      const extractorReturn = await extract(key, { store, client });
-      name = extractorReturn.name;
-      const savePath = await save({
-        title: `Export ${name}`,
-        defaultPath: `${name}.json`,
-        filters: FILTERS,
-      });
-      if (savePath == null) return;
-      await writeTextFile(savePath, extractorReturn.data);
-    } catch (e) {
-      handleError(e, `Failed to export ${name ?? type}`);
-    }
-  };
+  return useCallback(
+    (key: string) => {
+      let name;
+      handleError(
+        async () => {
+          const extractorReturn = await extract(key, { store, client });
+          name = extractorReturn.name;
+          const savePath = await save({
+            title: `Export ${name}`,
+            defaultPath: `${name}.json`,
+            filters: FILTERS,
+          });
+          if (savePath == null) return;
+          await writeTextFile(savePath, extractorReturn.data);
+        },
+        `Failed to export ${name ?? type}`,
+      );
+    },
+    [client, store, handleError, extract, type],
+  );
 };

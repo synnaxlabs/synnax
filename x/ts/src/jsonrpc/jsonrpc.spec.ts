@@ -109,8 +109,9 @@ describe("JSON-RPC", () => {
   });
   describe("encodeMessage", () => {
     it("should encode a message", () => {
-      const message = {
+      const message: jsonRPC.Request = {
         jsonrpc: "2.0",
+        id: 1,
         method: "$/status/show",
       };
       const messageStr = JSON.stringify(message);

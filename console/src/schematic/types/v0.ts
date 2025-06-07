@@ -26,6 +26,8 @@ export const nodePropsZ = z
     z.object({ key: Schematic.variantZ, color: color.crudeZ.optional() }).passthrough(),
   );
 
+export interface EdgeProps extends Pick<Diagram.Edge, "color" | "variant"> {}
+
 export const stateZ = z.object({
   version: z.literal(VERSION),
   editable: z.boolean(),
@@ -63,7 +65,7 @@ export const copyBufferZ = z.object({
   pos: xy.xy,
   nodes: z.array(Diagram.nodeZ),
   edges: z.array(z.unknown()),
-  props: z.record(z.unknown()),
+  props: z.record(z.string(), z.unknown()),
 });
 
 export interface CopyBuffer {

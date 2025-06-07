@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type status } from "@/status/aether";
 import { type telem } from "@/telem/aether";
 import { NoopFactory } from "@/telem/aether/noop";
 import { PipelineFactory } from "@/telem/aether/pipeline";
@@ -15,9 +16,13 @@ import { StaticFactory } from "@/telem/aether/static";
 import { TransformerFactory } from "@/telem/aether/transformers";
 import { type client } from "@/telem/client";
 
+export interface CreateOptions {
+  onStatusChange?: status.Adder;
+}
+
 export interface Factory {
   type: string;
-  create: (spec: telem.Spec) => telem.Telem | null;
+  create: (spec: telem.Spec, options?: CreateOptions) => telem.Telem | null;
 }
 
 export class CompoundTelemFactory {
@@ -36,9 +41,9 @@ export class CompoundTelemFactory {
     ];
   }
 
-  create(props: telem.Spec): telem.Telem | null {
+  create(props: telem.Spec, options?: CreateOptions): telem.Telem | null {
     for (const factory of this.factories) {
-      const telem = factory.create(props);
+      const telem = factory.create(props, options);
       if (telem != null) return telem;
     }
     return null;

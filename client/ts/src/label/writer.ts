@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x/toArray";
+import { array } from "@synnaxlabs/x/array";
 import { z } from "zod";
 
 import { type Key, keyZ, type Label, labelZ } from "@/label/payload";
@@ -52,7 +52,7 @@ export class Writer {
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
-      { labels: toArray(labels) },
+      { labels: array.toArray(labels) },
       createReqZ,
       createResZ,
     );
@@ -63,7 +63,7 @@ export class Writer {
     await sendRequired<typeof deleteReqZ, typeof emptyResZ>(
       this.client,
       DELETE_ENDPOINT,
-      { keys: toArray(keys) },
+      { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
     );

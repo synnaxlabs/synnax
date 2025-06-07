@@ -45,7 +45,7 @@ export type TaskProps<
 };
 
 export interface ConfigSchema<Config extends UnknownRecord = UnknownRecord>
-  extends z.ZodType<Config, z.ZodTypeDef, unknown> {}
+  extends z.ZodType<Config> {}
 
 export interface GetInitialPayloadArgs {
   deviceKey?: device.Key;

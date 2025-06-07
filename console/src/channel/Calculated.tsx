@@ -27,7 +27,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
-import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
+import { baseFormSchema, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
 import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom";
@@ -47,21 +47,19 @@ export interface CalculatedLayoutArgs {
 
 const DEFAULT_ARGS: CalculatedLayoutArgs = { channelKey: undefined };
 
-const schema = createFormValidator(
-  baseFormSchema
-    .extend({
-      expression: z
-        .string()
-        .min(1, "Expression must not be empty")
-        .refine((v) => v.includes("return"), {
-          message: "Expression must contain a return statement",
-        }),
-    })
-    .refine((v) => v.requires?.length > 0, {
-      message: "Expression must use at least one synnax channel",
-      path: ["requires"],
-    }),
-);
+const schema = baseFormSchema
+  .extend({
+    expression: z
+      .string()
+      .min(1, "Expression must not be empty")
+      .refine((v) => v.includes("return"), {
+        message: "Expression must contain a return statement",
+      }),
+  })
+  .refine((v) => v.requires?.length > 0, {
+    message: "Expression must use at least one synnax channel",
+    path: ["requires"],
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -156,7 +154,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
     },
   });
 
-  if (res.isLoading) return <Text.Text level="p">Loading...</Text.Text>;
+  if (res.isPending) return <Text.Text level="p">Loading...</Text.Text>;
   if (res.isError)
     return (
       <Align.Space y grow style={{ height: "100%" }}>
@@ -225,7 +223,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
       <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
-        <Form.Form {...methods}>
+        <Form.Form<typeof schema> {...methods}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
               <Input.Text

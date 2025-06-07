@@ -61,5 +61,3 @@ export {
   type TypedArray,
   type TZInfo,
 } from "@synnaxlabs/x/telem";
-import { control } from "@synnaxlabs/x";
-export const Authority = control.Authority;

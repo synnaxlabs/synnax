@@ -44,6 +44,7 @@ export interface Construct {
 export const construct = <T extends numeric.Value>(
   lower: T | Crude<T>,
   upper?: T,
+  makeValid_: boolean = true,
 ): Bounds<T> => {
   const b: Bounds<T> = {} as const as Bounds<T>;
   if (typeof lower === "number" || typeof lower === "bigint")
@@ -57,8 +58,11 @@ export const construct = <T extends numeric.Value>(
   else if (Array.isArray(lower)) {
     if (lower.length !== 2) throw new Error("bounds: expected array of length 2");
     [b.lower, b.upper] = lower;
-  } else return makeValid(lower);
-  return makeValid(b);
+  } else {
+    b.lower = lower.lower;
+    b.upper = lower.upper;
+  }
+  return makeValid_ ? makeValid(b) : b;
 };
 
 /** A lower and upper bound of 0. */

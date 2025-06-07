@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { array } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import {
   type CrudeDensity,
@@ -17,7 +18,6 @@ import {
   type TimeRange,
   type TypedArray,
 } from "@synnaxlabs/x/telem";
-import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import {
@@ -300,7 +300,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   ): Promise<Channel | Channel[]> {
     const { retrieveIfNameExists = false } = options;
     const single = !Array.isArray(channels);
-    let toCreate = toArray(channels);
+    let toCreate = array.toArray(channels);
     let created: Channel[] = [];
     if (retrieveIfNameExists) {
       const res = await this.retriever.retrieve(toCreate.map((c) => c.name));
@@ -385,7 +385,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   async rename(key: Key, name: string): Promise<void>;
   async rename(keys: Key[], names: string[]): Promise<void>;
   async rename(keys: Key | Key[], names: string | string[]): Promise<void> {
-    return await this.writer.rename(toArray(keys), toArray(names));
+    return await this.writer.rename(array.toArray(keys), array.toArray(names));
   }
 
   newSearcherWithOptions(

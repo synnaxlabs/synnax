@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, status } from "@synnaxlabs/x";
+import { type CrudeDataType, DataType, type Optional, status } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { nullableArrayZ } from "@/util/zod";
@@ -48,7 +48,24 @@ export const newZ = channelZ.extend({
   expression: z.string().optional().default(""),
   requires: nullableArrayZ(keyZ).optional().default([]),
 });
-export interface New extends z.input<typeof newZ> {}
+
+export interface New
+  extends Omit<
+    Optional<
+      Payload,
+      | "key"
+      | "leaseholder"
+      | "index"
+      | "isIndex"
+      | "internal"
+      | "virtual"
+      | "expression"
+      | "requires"
+    >,
+    "dataType"
+  > {
+  dataType: CrudeDataType;
+}
 
 export const ONTOLOGY_TYPE = "channel";
 export type OntologyType = typeof ONTOLOGY_TYPE;

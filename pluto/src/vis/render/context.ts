@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
   box,
   color,
@@ -18,11 +19,14 @@ import {
 } from "@synnaxlabs/x";
 
 import { type aether } from "@/aether/aether";
+import { alamos } from "@/alamos/aether";
 import { CSS } from "@/css";
+import { status } from "@/status/aether";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 import { clear } from "@/vis/render/clear";
 import { Loop } from "@/vis/render/loop";
 import { applyOverScan } from "@/vis/render/util";
+import { text } from "@/vis/text";
 
 export type Canvas2DVariant = "upper2d" | "lower2d";
 export type CanvasGLVariant = "gl";
@@ -44,37 +48,27 @@ const applyDefaultCanvasOpts = <T extends OffscreenCanvasRenderingContext2D>(
 export class Context {
   /* The canvas element used by WebGL. */
   readonly glCanvas: OffscreenCanvas;
-
   /** The canvas element used by the 2D canvas. */
   readonly upper2dCanvas: OffscreenCanvas;
-
   /** The canvas element used by the 2D canvas. */
   readonly lower2dCanvas: OffscreenCanvas;
-
   /** The WebGL rendering context.  */
   readonly gl: WebGL2RenderingContext;
-
   /** A 2D canvas that sits below the WebGL canvas. */
   lower2d: SugaredOffscreenCanvasRenderingContext2D;
-
   /** A 2D canvas that sits above the WebGL canvas. */
   upper2d: SugaredOffscreenCanvasRenderingContext2D;
-
   /** The region the canvas occupies in pixel space */
   region: box.Box;
-
   /** The device pixel ratio of the canvas */
   dpr: number;
-
   /** queue render transitions onto the stack */
   readonly loop: Loop;
-
   /** See the @link{clear.Program} for why this is necessary. */
   private readonly clearProgram?: clear.Program;
-
   private readonly os: runtime.OS;
-
   private static readonly CONTEXT_KEY = CSS.B("render-context");
+  private readonly instrumentation: Instrumentation;
 
   static create(
     ctx: aether.Context,
@@ -83,7 +77,16 @@ export class Context {
     upper2dCanvas: OffscreenCanvas,
     os: runtime.OS,
   ): Context {
-    const render = new Context(glCanvas, lower2dCanvas, upper2dCanvas, os);
+    const instrumentation = alamos.useInstrumentation(ctx, "render_context");
+    const render = new Context(
+      glCanvas,
+      lower2dCanvas,
+      upper2dCanvas,
+      os,
+      instrumentation,
+      status.useAdder(ctx),
+      status.useErrorHandler(ctx),
+    );
     ctx.set(Context.CONTEXT_KEY, render);
     return render;
   }
@@ -93,22 +96,28 @@ export class Context {
     lower2dCanvas: OffscreenCanvas,
     upper2dCanvas: OffscreenCanvas,
     os: runtime.OS,
+    instrumentation: Instrumentation,
+    addStatus: status.Adder,
+    handleError: status.ErrorHandler,
   ) {
     this.upper2dCanvas = upper2dCanvas;
     this.lower2dCanvas = lower2dCanvas;
     this.glCanvas = glCanvas;
     this.os = os;
+    this.instrumentation = instrumentation;
+    this.dpr = 1;
 
     const lowerCtx = this.lower2dCanvas.getContext("2d");
     if (lowerCtx == null) throw new Error("Could not get 2D context");
+    const atlas = new text.AtlasRegistry();
     this.lower2d = applyDefaultCanvasOpts(
-      new SugaredOffscreenCanvasRenderingContext2D(lowerCtx),
+      new SugaredOffscreenCanvasRenderingContext2D(lowerCtx, atlas, this.dpr),
     );
 
     const upperCtx = this.upper2dCanvas.getContext("2d");
     if (upperCtx == null) throw new Error("Could not get 2D context");
     this.upper2d = applyDefaultCanvasOpts(
-      new SugaredOffscreenCanvasRenderingContext2D(upperCtx),
+      new SugaredOffscreenCanvasRenderingContext2D(upperCtx, atlas, this.dpr),
     );
 
     const webGlOpts: WebGLContextAttributes = {
@@ -125,17 +134,24 @@ export class Context {
     gl.disable(gl.DITHER);
     this.gl = gl;
 
-    this.glCanvas.oncontextlost = console.log;
+    this.glCanvas.oncontextlost = () =>
+      addStatus({
+        variant: "error",
+        message: "WebGL context lost",
+      });
 
     const afterRender = () => {
       this.gl.flush();
       this.gl.finish();
     };
 
-    this.loop = new Loop(afterRender);
+    this.loop = new Loop({
+      afterRender,
+      instrumentation: this.instrumentation,
+      handleError,
+    });
 
     this.region = box.ZERO;
-    this.dpr = 1;
 
     if (this.os === "Windows") this.clearProgram = new clear.Program(this);
   }

@@ -174,5 +174,4 @@ const createStore = async (): Promise<RootStore> => {
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
 };
-
 export const store = createStore();

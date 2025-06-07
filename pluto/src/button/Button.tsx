@@ -11,8 +11,8 @@ import "@/button/Button.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { color, type status } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
 import { TimeSpan } from "@synnaxlabs/x/telem";
-import { toArray } from "@synnaxlabs/x/toArray";
 import {
   type ComponentPropsWithRef,
   type ReactElement,
@@ -114,7 +114,8 @@ export const Button = Tooltip.wrap(
   }: ButtonProps): ReactElement => {
     if (variant == "outlined" && shade == null) shade = 0;
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-    if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
+    if (loading)
+      startIcon = [...array.toArray(startIcon), <Icon.Loading key="loader" />];
     const isDisabled = disabled || loading;
     iconSpacing ??= size === "small" ? "small" : "medium";
     // We implement the shadow variant to maintain compatibility with the input

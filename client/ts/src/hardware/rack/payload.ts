@@ -11,7 +11,7 @@ import { status, zod } from "@synnaxlabs/x";
 import { TimeStamp } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
-export const keyZ = zod.uint32;
+export const keyZ = z.uint32();
 export type Key = z.infer<typeof keyZ>;
 
 export const stateZ = z.object({

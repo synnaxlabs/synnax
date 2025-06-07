@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x/toArray";
+import { array } from "@synnaxlabs/x/array";
 import { z } from "zod";
 
 import { keyZ, type Label, labelZ, type Params } from "@/label/payload";
@@ -35,7 +35,7 @@ export class Retriever {
   }
 
   async retrieve(labels: Params): Promise<Label[]> {
-    return await this.execute({ keys: toArray(labels) });
+    return await this.execute({ keys: array.toArray(labels) });
   }
 
   async retrieveFor(id: ontology.ID): Promise<Label[]> {

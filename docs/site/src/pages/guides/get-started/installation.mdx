@@ -14,7 +14,7 @@ import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image, Video } from "@/components/Media";
 import { Platform } from "@/components/platform";
-import { Server } from "@/components/server";
+import WindowsDownloadButton from "@/components/server/WindowsDownloadButton.astro";
 
 export const components = mdxOverrides;
 
@@ -225,7 +225,7 @@ To install the Synnax cluster on Windows, download and run the latest Synnax ins
 <br />
 <br />
 <Align.Space direction="y" justify="center" align="center">
-  <Server.WindowsDownloadButton client:load />
+  <WindowsDownloadButton />
   <small>
     Releases for other operating systems and older versions can be found on the
     <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.

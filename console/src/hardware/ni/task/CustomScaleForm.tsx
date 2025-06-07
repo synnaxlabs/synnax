@@ -180,7 +180,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
     );
     const [path, setPath] = state.usePersisted<string>("", `${prefix}.path`);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const tableSchema = z.record(z.array(z.unknown()));
+    const tableSchema = z.record(z.string(), z.array(z.unknown()));
     const preScaledField = Form.useField<number[]>({ path: `${prefix}.preScaledVals` });
     const scaledField = Form.useField<number[]>({ path: `${prefix}.scaledVals` });
     const currValueRef = useRef<Record<string, unknown[]>>({});
@@ -202,7 +202,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
     };
 
     const handleFileContentsChange = (
-      value: z.output<typeof tableSchema>,
+      value: z.infer<typeof tableSchema>,
       path: string,
     ) => {
       setPath(path);

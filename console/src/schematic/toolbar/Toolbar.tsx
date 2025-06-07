@@ -20,9 +20,9 @@ import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
 import {
   useSelectControlStatus,
+  useSelectEditable,
   useSelectHasPermission,
   useSelectIsSnapshot,
-  useSelectOptional,
   useSelectSelectedElementNames,
   useSelectToolbar,
 } from "@/schematic/selectors";
@@ -77,12 +77,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
-  const state = useSelectOptional(layoutKey);
+  const editable = useSelectEditable(layoutKey);
   const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
-      if (!state?.editable) return <NotEditableContent layoutKey={layoutKey} />;
+      if (!editable) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "symbols":
           return <Symbols layoutKey={layoutKey} />;
@@ -92,7 +92,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           return <PropertiesControls layoutKey={layoutKey} />;
       }
     },
-    [layoutKey, state?.editable],
+    [layoutKey, editable],
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
@@ -117,7 +117,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       shade: 8,
       level: "p",
     });
-  if (state == null) return null;
   return (
     <Tabs.Provider
       value={{
@@ -131,10 +130,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         <Breadcrumb.Breadcrumb level="h5">{breadCrumbSegments}</Breadcrumb.Breadcrumb>
         <Align.Space x align="center" empty>
           <Align.Space x empty style={{ height: "100%", width: 66 }}>
-            <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
+            <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
-              ontologyID={schematic.ontologyID(state.key)}
+              ontologyID={schematic.ontologyID(layoutKey)}
             />
           </Align.Space>
           {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}

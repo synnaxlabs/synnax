@@ -12,8 +12,8 @@ import {
   type bounds,
   type color,
   type Destructor,
+  type MultiSeries,
   observe,
-  type Series,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -63,15 +63,15 @@ export interface ValueProps {
 }
 
 export interface Telem {
-  cleanup?: () => Promise<void>;
+  cleanup?: () => void;
 }
 
 export interface Source<V> extends Telem, observe.Observable<void> {
-  value: (props?: ValueProps) => Promise<V>;
+  value: (props?: ValueProps) => V;
 }
 
 export interface Sink<V> extends Telem {
-  set: (value: V) => Promise<void>;
+  set: (value: V) => void;
 }
 
 export interface SourceTransformer<I, O> extends Telem, Source<O> {
@@ -82,7 +82,7 @@ export interface SinkTransformer<I, O> extends Telem, Sink<I> {
   setSinks: (sinks: Record<string, Sink<O>>) => void;
 }
 
-export type SeriesSource = Source<[bounds.Bounds, Series[]]>;
+export type SeriesSource = Source<[bounds.Bounds, MultiSeries]>;
 export const seriesSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("series") });
 export type SeriesSourceSpec = z.infer<typeof seriesSourceSpecZ>;
 
@@ -130,8 +130,8 @@ export type StringSource = Source<string>;
 export const stringSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("string") });
 export type StringSourceSpec = z.infer<typeof stringSourceSpecZ>;
 
-export class Base<P extends z.ZodTypeAny> extends observe.BaseObserver<void> {
-  private props_: z.output<P> | undefined = undefined;
+export class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
+  private props_: z.infer<P> | undefined = undefined;
   private readonly uProps_: unknown | undefined = undefined;
   schema: P | undefined = undefined;
 
@@ -140,7 +140,7 @@ export class Base<P extends z.ZodTypeAny> extends observe.BaseObserver<void> {
     this.uProps_ = props;
   }
 
-  get props(): z.output<P> {
+  get props(): z.infer<P> {
     if (this.props_ == null) {
       const res = this._schema.safeParse(this.uProps_);
       if (res.success) this.props_ = res.data;
@@ -162,45 +162,39 @@ export class Base<P extends z.ZodTypeAny> extends observe.BaseObserver<void> {
     return this.schema;
   }
 
-  async cleanup(): Promise<void> {}
+  cleanup(): void {}
 }
 
-export class AbstractSource<P extends z.ZodTypeAny> extends Base<P> {}
+export class AbstractSource<P extends z.ZodType> extends Base<P> {}
 
-export class AbstractSink<P extends z.ZodTypeAny> extends Base<P> {}
+export class AbstractSink<P extends z.ZodType> extends Base<P> {}
 
-export class UnarySourceTransformer<I, O, P extends z.ZodTypeAny>
+export class UnarySourceTransformer<I, O, P extends z.ZodType>
   extends AbstractSource<P>
   implements SourceTransformer<I, O>
 {
-  sources: Record<string, Source<I>> = {};
+  source_: Source<I> | undefined = undefined;
 
   private get source(): Source<I> {
-    const [source] = Object.values(this.sources);
-    if (source == null)
+    if (this.source_ == null)
       throw new ValidationError(
         `[UnarySourceTransformer] - expected source to exist, but none was found.`,
       );
-    return source;
+    return this.source_;
   }
 
-  async value(): Promise<O> {
-    return this.transform(await this.source.value());
+  value(): O {
+    return this.transform(this.source.value());
   }
 
   onChange(handler: () => void): Destructor {
     return this.source.onChange(() => {
-      this.source
-        .value()
-        .then((value) => {
-          if (this.shouldNotify(value)) handler();
-        })
-        .catch(console.error);
+      if (this.shouldNotify(this.source.value())) handler();
     });
   }
 
   setSources(sources: Record<string, Source<I>>): void {
-    this.sources = sources;
+    this.source_ = Object.values(sources)[0];
   }
 
   protected shouldNotify(_: I): boolean {
@@ -215,21 +209,16 @@ export class UnarySourceTransformer<I, O, P extends z.ZodTypeAny>
   }
 }
 
-export class MultiSourceTransformer<I, O, P extends z.ZodTypeAny>
+export class MultiSourceTransformer<I, O, P extends z.ZodType>
   extends AbstractSource<P>
   implements SourceTransformer<I, O>
 {
   sources: Record<string, Source<I>> = {};
 
-  async value(): Promise<O> {
+  value(): O {
     const values = Object.fromEntries(
-      await Promise.all(
-        Object.entries(this.sources).map(async ([id, source]) => [
-          id,
-          await source.value(),
-        ]),
-      ),
-    ) as Record<string, I>;
+      Object.entries(this.sources).map(([id, source]) => [id, source.value()]),
+    );
     return this.transform(values);
   }
 
@@ -245,7 +234,7 @@ export class MultiSourceTransformer<I, O, P extends z.ZodTypeAny>
   }
 }
 
-export class UnarySinkTransformer<I, O, P extends z.ZodTypeAny>
+export class UnarySinkTransformer<I, O, P extends z.ZodType>
   extends Base<P>
   implements SinkTransformer<I, O>
 {
@@ -260,8 +249,8 @@ export class UnarySinkTransformer<I, O, P extends z.ZodTypeAny>
     return sink;
   }
 
-  async set(value: I): Promise<void> {
-    return await this.sink.set(this.transform(value));
+  set(value: I): void {
+    return this.sink.set(this.transform(value));
   }
 
   setSinks(sinks: Record<string, Sink<O>>): void {

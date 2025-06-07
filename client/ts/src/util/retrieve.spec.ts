@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type primitive } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
-import { type Primitive } from "zod";
 
 import {
   analyzeParams,
@@ -19,9 +19,12 @@ import {
 describe("retrieve utils", () => {
   describe("analyze params", () => {
     interface Spec {
-      args: Primitive extends any ? any : never;
-      variantMap: PartialTypeNameRecord<Primitive>;
-      expected: ParamAnalysisResult<Primitive, PartialTypeNameRecord<Primitive>>;
+      args: primitive.Value;
+      variantMap: PartialTypeNameRecord<primitive.Value>;
+      expected: ParamAnalysisResult<
+        primitive.Value,
+        PartialTypeNameRecord<primitive.Value>
+      >;
     }
 
     const SPECS: Spec[] = [

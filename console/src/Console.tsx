@@ -140,7 +140,7 @@ const MainUnderContext = (): ReactElement => {
         triggers={TRIGGERS_PROVIDER_PROPS}
         haul={{ useState: useHaulState }}
         color={{ useState: useColorContextState }}
-        alamos={{ level: "debug", include: [] }}
+        alamos={{ level: "info" }}
       >
         <Code.Provider importExtensions={Lua.EXTENSIONS} initServices={Lua.SERVICES}>
           <Vis.Canvas>
