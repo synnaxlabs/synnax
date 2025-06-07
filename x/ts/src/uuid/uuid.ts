@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { stringify, v4 as uuid } from "uuid";
+import { NIL, stringify, v4 as uuid } from "uuid";
 
 /**
  * Creates a new random UUID (Universally Unique Identifier) version 4.
@@ -43,3 +43,6 @@ export const create = (): string => uuid();
  */
 export const parse = (bytes: Uint8Array, offset?: number): string =>
   stringify(bytes, offset);
+
+/** The zero value for a UUID - 00000000-0000-0000-0000-000000000000 */
+export const ZERO = NIL;

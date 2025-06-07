@@ -20,27 +20,70 @@ import { payloadZ } from "@/ranger/payload";
 
 const reqZ = z.object({ keys: z.number().array(), downsampleFactor: z.number() });
 
+/**
+ * Request interface for streaming frames from a Synnax cluster.
+ * Contains the keys of channels to stream from and a downsample factor.
+ */
 export interface StreamerRequest extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({ frame: frameZ });
 
+/**
+ * Response interface for streaming frames from a Synnax cluster.
+ * Contains a frame of telemetry data.
+ */
 export interface StreamerResponse extends z.infer<typeof resZ> {}
 
 const ENDPOINT = "/frame/stream";
 
+/**
+ * Configuration options for creating a new streamer.
+ */
 export interface StreamerConfig {
+  /** The channels to stream data from. Can be channel keys, names, or payloads. */
   channels: channel.Params;
+  /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
   downsampleFactor?: number;
+  /** Whether to use the experimental codec for streaming. Defaults to false. */
   useExperimentalCodec?: boolean;
 }
 
+/**
+ * A streamer is used to stream frames of telemetry in real-time from a Synnax cluster.
+ * It should not be constructed directly, and should instead be created using the
+ * client's openStreamer method.
+ *
+ * To open a streamer, use the openStreamer method on the client and pass it in the list
+ * of channels you'd like to receive data from. Once the streamer has been opened, call
+ * the `read` method to read the next frame of telemetry, or use the streamer as an
+ * async iterator to iterate over the frames of telemetry as they are received.
+ *
+ * The list of channels being streamed can be updated at any time by using the `update`
+ * method.
+ *
+ * Once done, call the `close` method to close the streamer and free all associated
+ * resources. We recommend using the streamer within a try-finally block to ensure
+ * that it is closed properly in the event of an error.
+ *
+ * For details documentation, see https://docs.synnaxlabs.com/reference/typescript-client/stream-data
+ */
 export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
+  /** The keys of the channels currently being streamed from. */
   keys: channel.Key[];
+  /**
+   * Update the list of channels being streamed from. This replaces the list of channels
+   * being streamed from with the new list of channels.
+   */
   update: (channels: channel.Params) => Promise<void>;
+  /** Close the streamer and free all associated resources. */
   close: () => void;
+  /** Read the next frame of telemetry. */
   read: () => Promise<Frame>;
 }
 
+/**
+ * A function that opens a streamer.
+ */
 export interface StreamOpener {
   (config: StreamerConfig | channel.Params): Promise<Streamer>;
 }
@@ -61,6 +104,12 @@ const parseStreamerConfig = (
   return config as StreamerConfig;
 };
 
+/**
+ * Creates a function that opens streamers with the given retriever and client.
+ * @param retriever - The channel retriever to use for resolving channel information
+ * @param client - The WebSocket client to use for streaming
+ * @returns A function that opens streamers with the given configuration
+ */
 export const createStreamOpener =
   (retriever: channel.Retriever, client: WebSocketClient): StreamOpener =>
   async (config) => {
@@ -76,6 +125,13 @@ export const createStreamOpener =
     return streamer;
   };
 
+/**
+ * Opens a new streamer with the given configuration.
+ * @param retriever - The channel retriever to use for resolving channel information
+ * @param client - The WebSocket client to use for streaming
+ * @param config - The configuration for the streamer
+ * @returns A promise that resolves to a new streamer
+ */
 export const openStreamer = async (
   retriever: channel.Retriever,
   client: WebSocketClient,
@@ -128,6 +184,11 @@ class CoreStreamer implements Streamer {
   }
 }
 
+/**
+ * A hardened streamer that automatically reconnects on failure.
+ * This streamer wraps a regular streamer and adds automatic reconnection
+ * logic when the connection is lost or errors occur.
+ */
 export class HardenedStreamer implements Streamer {
   private wrapped_: Streamer | null = null;
   private readonly breaker: breaker.Breaker;
@@ -144,6 +205,12 @@ export class HardenedStreamer implements Streamer {
     });
   }
 
+  /**
+   * Opens a new hardened streamer with the given configuration.
+   * @param opener - The function to use for opening streamers
+   * @param config - The configuration for the streamer
+   * @returns A promise that resolves to a new hardened streamer
+   */
   static async open(
     opener: StreamOpener,
     config: StreamerConfig | channel.Params,
@@ -216,6 +283,10 @@ export class HardenedStreamer implements Streamer {
   }
 }
 
+/**
+ * Wraps a standard streamer to implement an observable interface for handling changes
+ * to channel values through an onChange handler.
+ */
 export class ObservableStreamer<V = Frame>
   extends observe.Observer<Frame, V>
   implements observe.ObservableAsyncCloseable<V>
@@ -223,6 +294,13 @@ export class ObservableStreamer<V = Frame>
   private readonly streamer: Streamer;
   private readonly closePromise: Promise<void>;
 
+  /**
+   * Creates a new observable streamer.
+   * @param streamer - The streamer to wrap
+   * @param transform - An optional transform function to apply to each frame
+   * @template V - The type of the transformed value. Only relevant if transform is
+   * provided. Defaults to Frame.
+   */
   constructor(streamer: Streamer, transform?: observe.Transform<Frame, V>) {
     super(transform);
     this.streamer = streamer;
