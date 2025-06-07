@@ -10,7 +10,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
 import { type Viewport } from "@synnaxlabs/pluto";
-import { deep, array, unique } from "@synnaxlabs/x";
+import { array, deep, unique } from "@synnaxlabs/x";
 
 import {
   type AxisKey,

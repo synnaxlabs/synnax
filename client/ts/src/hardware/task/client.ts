@@ -9,10 +9,10 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { id } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
 import { type UnknownRecord } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
-import { array } from "@synnaxlabs/x/array";
 import { z } from "zod";
 
 import { framer } from "@/framer";
