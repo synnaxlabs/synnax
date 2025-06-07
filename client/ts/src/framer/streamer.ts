@@ -88,7 +88,7 @@ export interface StreamOpener {
   (config: StreamerConfig | channel.Params): Promise<Streamer>;
 }
 
-const parseStreamerConfig = (
+export const parseStreamerConfig = (
   config: StreamerConfig | channel.Params,
 ): StreamerConfig => {
   if (Array.isArray(config)) {
@@ -195,14 +195,19 @@ export class HardenedStreamer implements Streamer {
   private readonly opener: StreamOpener;
   private readonly config: StreamerConfig;
 
-  constructor(opener: StreamOpener, config: StreamerConfig | channel.Params) {
+  constructor(
+    opener: StreamOpener,
+    config: StreamerConfig | channel.Params,
+    breakerConfig: breaker.Config = {},
+  ) {
     this.opener = opener;
     this.config = parseStreamerConfig(config);
-    this.breaker = new breaker.Breaker({
-      maxRetries: 5000,
-      baseInterval: TimeSpan.seconds(1),
-      scale: 1,
-    });
+    const {
+      maxRetries = 5000,
+      baseInterval = TimeSpan.seconds(1),
+      scale = 1,
+    } = breakerConfig ?? {};
+    this.breaker = new breaker.Breaker({ maxRetries, baseInterval, scale });
   }
 
   /**
@@ -214,9 +219,11 @@ export class HardenedStreamer implements Streamer {
   static async open(
     opener: StreamOpener,
     config: StreamerConfig | channel.Params,
+    breakerConfig?: breaker.Config,
   ): Promise<HardenedStreamer> {
-    const h = new HardenedStreamer(opener, config);
+    const h = new HardenedStreamer(opener, config, breakerConfig);
     await h.runStreamer();
+
     return h;
   }
 
