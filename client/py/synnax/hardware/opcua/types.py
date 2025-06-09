@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Annotated, Literal, Union
+import json
+from typing import Literal, Union
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -121,8 +122,8 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = WrappedReadTaskConfig.model_validate_json(
-                internal.config
+            self.config = WrappedReadTaskConfig.model_validate(
+                {"config": json.loads(internal.config)}
             ).config
             return
         self._internal = Task(name=name, type=self.TYPE)
