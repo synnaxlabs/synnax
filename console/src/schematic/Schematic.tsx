@@ -121,7 +121,6 @@ const SymbolRenderer = ({
   position,
   selected,
   layoutKey,
-  draggable,
   dispatch,
 }: SymbolRendererProps): ReactElement | null => {
   const props = useSelectNodeProps(layoutKey, symbolKey);
@@ -152,7 +151,6 @@ const SymbolRenderer = ({
       symbolKey={symbolKey}
       position={position}
       selected={selected}
-      draggable={draggable}
       onChange={handleChange}
       {...rest}
     />

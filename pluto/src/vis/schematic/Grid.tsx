@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { location } from "@synnaxlabs/x";
+import { compare, location } from "@synnaxlabs/x";
 import {
   cloneElement,
   type CSSProperties,
@@ -47,6 +47,7 @@ export interface GridProps extends PropsWithChildren<{}> {
   items: GridItem[];
   onLocationChange: (key: string, loc: location.Location) => void;
   onRotate?: () => void;
+  includeCenter?: boolean;
 }
 
 interface GridElProps {
@@ -72,15 +73,15 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
   }: GridElProps): ReactElement | null => {
     const haulType = `${symbolKey}.${HAUL_TYPE}`;
     const [draggingOver, setDraggingOver] = useState(false);
-    const canDrop: Haul.CanDrop = useCallback(
-      ({ items }) => items.every((i) => i.type === haulType),
-      [haulType],
-    );
+    const canDrop: Haul.CanDrop = Haul.canDropOfType(haulType);
     const onLocationChangeRef = useSyncedRef(onLocationChange);
     const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
       type: haulType,
       canDrop,
-      onDrop: useCallback(({ items }) => items, []),
+      onDrop: useCallback(({ items }) => {
+        setDraggingOver(false);
+        return items;
+      }, []),
       onDragOver: useCallback((props: Haul.OnDragOverProps) => {
         setDraggingOver(canDrop(props));
         props.items.forEach(({ key }) =>
@@ -92,9 +93,14 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
     const items = fItems.filter((i) => i.location === loc);
 
     const onDragStart = useCallback(
-      (_: DragEvent<HTMLElement>, key: string) => startDrag([{ key, type: haulType }]),
+      (e: DragEvent<HTMLElement>, key: string) => {
+        e.stopPropagation();
+        startDrag([{ key, type: haulType }]);
+      },
       [startDrag, haulType],
     );
+
+    const isDragging = canDrop(Haul.useDraggingState());
 
     return (
       <Align.Space
@@ -102,8 +108,9 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
         className={CSS(
           CSS.BE("grid", "item"),
           CSS.loc(loc),
-          CSS.dropRegion(true),
+          CSS.dropRegion(isDragging),
           draggingOver && CSS.B("dragging-over"),
+          isDragging && CSS.B("dragging"),
         )}
         onDragLeave={() => setDraggingOver(false)}
         empty
@@ -126,10 +133,11 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
   const GridEl = ({ symbolKey, ...rest }: GridElProps): ReactElement | null => {
     const { editable, items: fItems } = rest;
 
-    const prevEditable = useRef(editable);
-    if (editable !== prevEditable.current && loc === "top") {
+    const itemKeys = fItems.map((i) => i.key);
+    const prevItemKeys = useRef(itemKeys);
+    if (compare.primitiveArrays(itemKeys, prevItemKeys.current)) {
       reflowPane(symbolKey);
-      prevEditable.current = editable;
+      prevItemKeys.current = itemKeys;
     }
 
     if (editable) return <EditableGridEl symbolKey={symbolKey} {...rest} />;
@@ -156,13 +164,19 @@ const RightGridEl = createGridEl("right");
 const BottomGridEl = createGridEl("bottom");
 const CenterGridEl = createGridEl("center");
 
-export const Grid = ({ editable, onRotate, children, ...rest }: GridProps) => (
+export const Grid = ({
+  editable,
+  onRotate,
+  children,
+  includeCenter = false,
+  ...rest
+}: GridProps) => (
   <>
     <TopGridEl editable={editable} {...rest} />
     <LeftGridEl editable={editable} {...rest} />
     <RightGridEl editable={editable} {...rest} />
     <BottomGridEl editable={editable} {...rest} />
-    <CenterGridEl editable={editable} {...rest} />
+    {includeCenter && <CenterGridEl editable={editable} {...rest} />}
     {editable && (
       <Button.Icon
         className={CSS.BE("grid", "rotate")}

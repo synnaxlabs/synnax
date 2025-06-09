@@ -26,7 +26,7 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Button as CoreButton } from "@/vis/button";
 import { Light as CoreLight } from "@/vis/light";
-import { Grid, type GridItem } from "@/vis/schematic/Grid";
+import { Grid, type GridItem, type GridProps } from "@/vis/schematic/Grid";
 import { Primitives } from "@/vis/schematic/primitives";
 import { Setpoint as CoreSetpoint } from "@/vis/setpoint";
 import { Toggle } from "@/vis/toggle";
@@ -85,7 +85,6 @@ export type SymbolProps<P extends object = UnknownRecord> = P & {
   position: xy.XY;
   aetherKey: string;
   selected: boolean;
-  draggable: boolean;
   onChange: (value: Partial<P>) => void;
 };
 
@@ -135,7 +134,6 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
     sink,
     label,
     onChange,
-    draggable,
     selected,
     orientation = "left",
     ...rest
@@ -153,7 +151,7 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
     if (controlItem != null) gridItems.push(controlItem);
     return (
       <Grid
-        editable={selected && !draggable}
+        editable={selected}
         symbolKey={symbolKey}
         items={gridItems}
         onRotate={() =>
@@ -192,13 +190,19 @@ type LabeledProps<P extends object = UnknownRecord> = P & {
   orientation?: location.Outer;
 };
 
-export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P>) => {
+interface LabeledOverrides {
+  grid: Partial<Omit<GridProps, "editable">>;
+}
+
+export const createLabeled = <P extends object = UnknownRecord>(
+  BaseSymbol: FC<P>,
+  overrides?: LabeledOverrides,
+) => {
   const C = ({
     symbolKey,
     label,
     onChange,
     selected,
-    draggable,
     position: _,
     orientation = "left",
     ...rest
@@ -209,8 +213,9 @@ export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P
     if (labelItem != null) gridItems.push(labelItem);
     return (
       <Grid
+        {...overrides?.grid}
         items={gridItems}
-        editable={selected && !draggable}
+        editable={selected}
         symbolKey={symbolKey}
         onRotate={() =>
           onChange({ orientation: location.rotate90(orientation) } as Partial<
@@ -246,7 +251,6 @@ export const createDummyToggle = <P extends object = UnknownRecord>(
     label,
     onChange,
     selected,
-    draggable,
     position: _,
     orientation = "left",
     enabled = false,
@@ -264,7 +268,7 @@ export const createDummyToggle = <P extends object = UnknownRecord>(
     return (
       <Grid
         items={gridItems}
-        editable={selected && !draggable}
+        editable={selected}
         symbolKey={symbolKey}
         onRotate={() =>
           onChange({ orientation: location.rotate90(orientation) } as Partial<
@@ -525,6 +529,7 @@ export const Tank = createLabeled(
       backgroundColor={backgroundColor}
     />
   ),
+  { grid: { includeCenter: true } },
 );
 
 export const TankPreview = (props: TankProps): ReactElement => (
@@ -619,6 +624,7 @@ export const Box = createLabeled(
       strokeWidth={strokeWidth}
     />
   ),
+  { grid: { includeCenter: true } },
 );
 
 export const BoxPreview = (props: BoxProps): ReactElement => (
@@ -804,7 +810,7 @@ export const Button = ({
           orientation: location.rotate90(orientation),
         } as Partial<ButtonProps>)
       }
-      editable={selected && !draggable}
+      editable={selected}
       symbolKey={symbolKey}
       items={gridItems}
       onLocationChange={(key, loc) => {
@@ -838,7 +844,6 @@ export const Light = ({
   source,
   onChange,
   selected,
-  draggable,
   ...rest
 }: SymbolProps<LightProps>): ReactElement => {
   const { enabled } = CoreLight.use({ aetherKey: symbolKey, source });
@@ -848,7 +853,7 @@ export const Light = ({
   return (
     <Grid
       items={gridItems}
-      editable={selected && !draggable}
+      editable={selected}
       symbolKey={symbolKey}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;

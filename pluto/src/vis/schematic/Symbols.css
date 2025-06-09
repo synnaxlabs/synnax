@@ -27,6 +27,7 @@
     --offset: 0.666rem;
     justify-content: center;
     align-items: center;
+    outline: none;
 
     &.pluto-haul-drop-region {
         background: var(--haul-background);
@@ -72,6 +73,8 @@
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
+        min-height: 5rem;
+        min-width: 5rem;
     }
 }
 

@@ -163,6 +163,7 @@ export const translateNodesForward = (nodes: Node[]): rf.Node[] =>
     measured: { ...node.measured },
     position: { ...node.position },
     selected: node.selected,
+    dragHandle: ".pluto-symbol-primitive",
     data: {},
   }));
 
