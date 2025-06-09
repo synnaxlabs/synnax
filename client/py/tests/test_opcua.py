@@ -9,28 +9,77 @@
 
 import pytest
 
-from synnax.hardware.opcua import ReadTaskConfig
+from synnax.hardware.opcua import WrappedReadTaskConfig
 
 
 @pytest.mark.opcua
 class TestOPCUATask:
-    def test_parse_opcua_read_task(self):
-        data = {
-            "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
-            "sample_rate": 10,
-            "stream_rate": 5,
-            "array_mode": False,
-            "array_size": 1,
-            "data_saving": False,
-            "channels": [
-                {
-                    "name": "",
-                    "key": "k09AWoiyLxN",
-                    "node_id": "NS=2;I=8",
-                    "channel": 1234,
-                    "enabled": True,
-                    "use_as_index": False,
+    @pytest.mark.parametrize(
+        "test_data",
+        [
+            {
+                "name": "basic_config",
+                "data": {
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "sample_rate": 10,
+                    "stream_rate": 5,
+                    "array_mode": False,
+                    "array_size": 1,
+                    "data_saving": False,
+                    "channels": [
+                        {
+                            "name": "",
+                            "key": "k09AWoiyLxN",
+                            "node_id": "NS=2;I=8",
+                            "channel": 1234,
+                            "enabled": True,
+                            "use_as_index": False,
+                        },
+                    ],
                 },
-            ],
-        }
-        ReadTaskConfig.model_validate(data)
+            },
+            {
+                "name": "non_array_sampling",
+                "data": {
+                    "device": "some-device-key",
+                    "sample_rate": 10,
+                    "stream_rate": 5,
+                    "array_mode": False,
+                    "data_saving": False,
+                    "channels": [
+                        {
+                            "key": "k09AWoiyLxN",
+                            "node_id": "NS=2;I=8",
+                            "channel": 1234,
+                            "enabled": True,
+                            "use_as_index": False,
+                        },
+                    ],
+                },
+            },
+            {
+                "name": "array_sampling",
+                "data": {
+                    "device": "some-device-key",
+                    "sample_rate": 10,
+                    "data_saving": False,
+                    "array_mode": True,
+                    "array_size": 1,
+                    "channels": [
+                        {
+                            "key": "k09AWoiyLxN",
+                            "node_id": "NS=2;I=8",
+                            "node_name": "some-node-name",
+                            "channel": 1234,
+                            "enabled": True,
+                            "use_as_index": False,
+                        },
+                    ],
+                },
+            },
+        ],
+    )
+    def test_parse_opcua_read_task(self, test_data):
+        """Test that ReadTaskConfig can parse various configurations correctly."""
+        input_data = test_data["data"]
+        WrappedReadTaskConfig(config=input_data)
