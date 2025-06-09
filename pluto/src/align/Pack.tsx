@@ -57,13 +57,15 @@ export const Pack = <E extends ElementType = "div">({
   ...rest
 }: PackProps<E>): ReactElement => {
   const dir = parseDirection(direction, x, y, "x");
-  const pStyle = {
+  let pStyle = {
     [CSS.var("pack-border-shade")]: CSS.shadeVar(borderShade),
     ...style,
   };
   if (borderWidth != null)
-    // @ts-expect-error - generic element issues
-    pStyle[CSS.var("pack-border-width")] = `${borderWidth}px`;
+    pStyle = {
+      ...pStyle,
+      [CSS.var("pack-border-width")]: `${borderWidth}px`,
+    };
 
   return (
     // @ts-expect-error - generic element issues
