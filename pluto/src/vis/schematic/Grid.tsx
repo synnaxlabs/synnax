@@ -38,14 +38,14 @@ export interface GridItem {
     onDragStart?: (e: DragEvent<HTMLElement>) => void;
     onDragEnd?: (e: DragEvent<HTMLElement>) => void;
   }>;
-  location: location.Outer;
+  location: location.Location;
 }
 
 export interface GridProps extends PropsWithChildren<{}> {
   editable: boolean;
   symbolKey: string;
   items: GridItem[];
-  onLocationChange: (key: string, loc: location.Outer) => void;
+  onLocationChange: (key: string, loc: location.Location) => void;
   onRotate?: () => void;
 }
 
@@ -53,7 +53,7 @@ interface GridElProps {
   editable: boolean;
   symbolKey: string;
   items: GridItem[];
-  onLocationChange: (key: string, loc: location.Outer) => void;
+  onLocationChange: (key: string, loc: location.Location) => void;
 }
 
 const HAUL_TYPE = "Schematic.Grid";
@@ -64,7 +64,7 @@ const reflowPane = (symbolKey: string) => {
   if (nearestDiagram != null) triggerReflow(nearestDiagram as HTMLElement);
 };
 
-const createGridEl = (loc: location.Outer): FC<GridElProps> => {
+const createGridEl = (loc: location.Location): FC<GridElProps> => {
   const EditableGridEl = ({
     symbolKey,
     items: fItems,
@@ -154,6 +154,7 @@ const TopGridEl = createGridEl("top");
 const LeftGridEl = createGridEl("left");
 const RightGridEl = createGridEl("right");
 const BottomGridEl = createGridEl("bottom");
+const CenterGridEl = createGridEl("center");
 
 export const Grid = ({ editable, onRotate, children, ...rest }: GridProps) => (
   <>
@@ -161,6 +162,7 @@ export const Grid = ({ editable, onRotate, children, ...rest }: GridProps) => (
     <LeftGridEl editable={editable} {...rest} />
     <RightGridEl editable={editable} {...rest} />
     <BottomGridEl editable={editable} {...rest} />
+    <CenterGridEl editable={editable} {...rest} />
     {editable && (
       <Button.Icon
         className={CSS.BE("grid", "rotate")}
