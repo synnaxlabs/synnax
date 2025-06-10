@@ -68,14 +68,14 @@
   },
   "pnpm": {
     "overrides": {
-      "@reduxjs/toolkit": "^2.8.2",
+      "@reduxjs/toolkit": "^2.6.1",
       "@tanstack/react-virtual": "^3.13.6",
-      "@tauri-apps/api": "^2.5.0",
-      "@types/react": "^19.1.7",
-      "@types/react-dom": "^19.1.6",
-      "@vitejs/plugin-react": "^4.5.2",
-      "@vitest/coverage-v8": "^3.2.3",
-      "eslint": "^9.28.0",
+      "@tauri-apps/api": "^2.4.1",
+      "@types/react": "^19.1.0",
+      "@types/react-dom": "^19.1.1",
+      "@vitejs/plugin-react": "^4.3.4",
+      "@vitest/coverage-v8": "^3.1.1",
+      "eslint": "^9.24.0",
       "node-fetch": "^2.7.0",
       "prettier": "^3.5.3",
       "proxy-memoize": "2.0.3",
@@ -83,8 +83,8 @@
       "react-dom": "^19.1.0",
       "react-redux": "^9.2.0",
       "typescript": "^5.8.3",
-      "vite": "^6.3.5",
-      "vitest": "^3.2.3"
+      "vite": "^6.2.5",
+      "vitest": "^3.1.1"
     }
   },
   "packageManager": "pnpm@10.12.1",

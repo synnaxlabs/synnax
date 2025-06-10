@@ -12,11 +12,11 @@
     "fix": "eslint --cache --fix"
   },
   "dependencies": {
-    "stylelint": "^16.20.0",
-    "stylelint-config-standard": "^38.0.0"
+    "stylelint": "^16.15.0",
+    "stylelint-config-standard": "^37.0.0"
   },
   "devDependencies": {
-    "eslint": "^9.28.0",
+    "eslint": "^9.24.0",
     "eslint-config-synnaxlabs": "workspace:*"
   }
 }
