@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, device } from "@synnaxlabs/client";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";
 

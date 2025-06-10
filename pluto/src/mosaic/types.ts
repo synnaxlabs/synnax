@@ -8,21 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { direction } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Tabs } from "@/tabs";
 
-interface BaseNode {
-  key: number;
-  tabs?: Tabs.Tab[];
-  selected?: string;
-  direction?: direction.Direction;
-  size?: number;
-  first?: BaseNode;
-  last?: BaseNode;
-}
-
-export const nodeZ: z.ZodType<BaseNode> = z.interface({
+export const nodeZ: z.ZodType<Node> = z.object({
   key: z.number(),
   tabs: z.array(Tabs.tabZ).optional(),
   selected: z.string().optional(),

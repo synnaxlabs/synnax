@@ -9,7 +9,7 @@
 
 import { Synnax, synnaxPropsZ } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 

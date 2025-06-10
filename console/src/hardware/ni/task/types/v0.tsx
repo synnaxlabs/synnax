@@ -10,7 +10,7 @@
 import { type task } from "@synnaxlabs/client";
 import { Icon, type IconProps } from "@synnaxlabs/media";
 import { type FC, type JSX } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
 

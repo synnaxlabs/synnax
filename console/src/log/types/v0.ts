@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 const VERSION = "0.0.0";
 

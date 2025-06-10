@@ -10,7 +10,7 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { type observe, type primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import {
   type ContextValue,

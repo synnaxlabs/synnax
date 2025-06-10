@@ -10,7 +10,7 @@
 import { breaker } from "@synnaxlabs/x";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { URL } from "@synnaxlabs/x/url";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { access } from "@/access";
 import { auth } from "@/auth";

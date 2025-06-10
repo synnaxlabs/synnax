@@ -17,7 +17,7 @@ import {
   type UnknownRecord,
 } from "@synnaxlabs/x";
 import { deep } from "@synnaxlabs/x/deep";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type AetherMessage, type MainMessage } from "@/aether/message";
 import { state } from "@/state";
@@ -211,7 +211,8 @@ export abstract class Leaf<
    * or a pure function that takes in the previous state and returns the next state.
    */
   setState(next: state.SetArg<z.infer<StateSchema>>): void {
-    const nextState: z.input<StateSchema> = state.executeSetter(next, this._state);
+    if (this._state === undefined) throw new Error("setState called before Aether.use");
+    const nextState = state.executeSetter(next, this._state);
     this._prevState = shallowCopy(this._state);
     this._state = prettyParse(this._schema, nextState, `${this.type}:${this.key}`);
     this.sender.send({ variant: "update", key: this.key, state: this._state });
@@ -232,6 +233,7 @@ export abstract class Leaf<
 
   /** @returns the previous state of the component. */
   get prevState(): z.infer<StateSchema> {
+    if (this._prevState === undefined) throw new Error("prevState not defined");
     return this._prevState;
   }
 

@@ -15,7 +15,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x/telem";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { channel } from "@/channel";
 import { SynnaxError } from "@/errors";

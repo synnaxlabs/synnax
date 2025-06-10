@@ -10,7 +10,7 @@
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x/array";
 import { isObject } from "@synnaxlabs/x/identity";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type framer } from "@/framer";
 import { type Key, keyZ } from "@/ranger/payload";

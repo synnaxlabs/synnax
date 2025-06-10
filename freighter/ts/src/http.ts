@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type binary, errors, runtime, type URL } from "@synnaxlabs/x";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { Unreachable } from "@/errors";
 import { type Context, MiddlewareCollector } from "@/middleware";
@@ -125,6 +125,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     );
 
     if (err != null) return [null, err];
+    if (res == null) throw new Error("Response must be defined");
     return [res, null];
   }
 }

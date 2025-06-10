@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream } from "@synnaxlabs/freighter";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
   readonly name: string;

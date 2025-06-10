@@ -280,9 +280,9 @@ describe("encoder", () => {
       const codec = new WSWriterCodec(baseCodec);
       const encoded = codec.encode(msg);
       expect(encoded[0]).toEqual(HIGH_PERF_SPECIAL_CHAR);
-      const decoded = codec.decode<WebsocketMessage<WriteRequest>>(encoded);
-      expect(decoded.payload?.command).toEqual(WriterCommand.Write);
-      const decodedFr = new Frame(decoded.payload?.frame);
+      const decoded = codec.decode(encoded);
+      expect((decoded as WriteRequest).command).toEqual(WriterCommand.Write);
+      const decodedFr = new Frame((decoded as WriteRequest).frame);
       expect(decodedFr.series[0].data).toEqual(fr.series[0].data);
     });
 

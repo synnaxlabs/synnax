@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/alamos",
-  "version": "0.42.0",
+  "version": "0.43.0",
   "type": "module",
   "description": "Distributed instrumentation for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
@@ -15,6 +15,7 @@
     "control systems"
   ],
   "scripts": {
+    "check-types": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
@@ -32,12 +33,12 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "eslint": "^9.24.0",
+    "eslint": "^9.28.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "madge": "^8.0.0",
     "typescript": "^5.8.3",
-    "vite": "^6.2.5",
-    "vitest": "^3.1.1"
+    "vite": "^6.3.5",
+    "vitest": "^3.2.3"
   },
   "main": "dist/index.js",
   "module": "dist/index.js",

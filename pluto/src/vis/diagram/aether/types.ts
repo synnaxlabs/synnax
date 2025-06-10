@@ -9,7 +9,7 @@
 
 import { color, unknownRecordZ, xy } from "@synnaxlabs/x";
 import type * as rf from "@xyflow/react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { connector } from "@/vis/diagram/edge/connector";
 

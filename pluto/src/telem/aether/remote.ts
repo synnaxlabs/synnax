@@ -19,7 +19,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
