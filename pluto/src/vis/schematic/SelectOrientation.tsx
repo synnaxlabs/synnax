@@ -84,7 +84,7 @@ const InternalOrientation = ({
   onChange,
   className,
   hideInner = false,
-  showOuterCenter = true,
+  showOuterCenter = false,
   ...rest
 }: SelectOrientationProps): ReactElement => {
   const { inner } = value;

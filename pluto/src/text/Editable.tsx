@@ -13,14 +13,14 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type ReactElement,
-  useEffect,
+  useCallback,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
 
 import { CSS } from "@/css";
-import { useSyncedRef } from "@/hooks";
+import { useCombinedRefs, useSyncedRef } from "@/hooks";
 import { type Input } from "@/input";
 import { type state } from "@/state";
 import { type text } from "@/text/core";
@@ -43,6 +43,7 @@ const BASE_CLASS = CSS.BM("text", "editable");
 const MAX_EDIT_RETRIES = 10;
 const RENAMED_EVENT_NAME = "renamed";
 const ESCAPED_EVENT_NAME = "escaped";
+const START_EDITING_EVENT_NAME = "start-editing";
 
 export const edit = (
   id: string,
@@ -51,18 +52,19 @@ export const edit = (
   let currRetry = 0;
   const tryEdit = (): void => {
     currRetry++;
-    const d = document.getElementById(id);
-    if (d == null || !d.classList.contains(BASE_CLASS)) {
+    const el = document.getElementById(id);
+    if (el == null || !el.classList.contains(BASE_CLASS)) {
       if (currRetry < MAX_EDIT_RETRIES) setTimeout(() => tryEdit(), 100);
       else throw new Error(`Could not find element with id ${id}`);
       return;
     }
-    d.setAttribute("contenteditable", "true");
+    el.dispatchEvent(new Event(START_EDITING_EVENT_NAME));
+    el.setAttribute("contenteditable", "true");
     if (onChange == null) return;
-    d.addEventListener(RENAMED_EVENT_NAME, (e) =>
+    el.addEventListener(RENAMED_EVENT_NAME, (e) =>
       onChange(getInnerText(e.target as HTMLElement), true),
     );
-    d.addEventListener(ESCAPED_EVENT_NAME, (e) =>
+    el.addEventListener(ESCAPED_EVENT_NAME, (e) =>
       onChange(getInnerText(e.target as HTMLElement), false),
     );
   };
@@ -185,23 +187,17 @@ export const Editable = <L extends text.Level = text.Level>({
 
   if (ref.current !== null && !editable) ref.current.innerHTML = value;
 
-  useEffect(() => {
-    if (ref.current == null) return;
-    const m = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.attributeName !== "contenteditable") return;
-        const t = mutation.target as HTMLElement;
-        const makeEditable = t.contentEditable === "true";
-        if (makeEditable) setEditable(true);
-      });
-    });
-    m.observe(ref.current as Node, { attributes: true });
+  const refCallback = useCallback((el: HTMLElement) => {
+    if (el == null) return;
+    el.addEventListener(START_EDITING_EVENT_NAME, () => setEditable(true));
   }, []);
+
+  const combinedRef = useCombinedRefs(ref, refCallback);
 
   return (
     // @ts-expect-error - TODO: generic element behavior is funky
     <Text<L>
-      ref={ref}
+      ref={combinedRef}
       className={CSS(
         className,
         CSS.BM("text", "editable"),

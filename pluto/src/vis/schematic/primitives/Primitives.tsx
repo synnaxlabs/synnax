@@ -9,7 +9,14 @@
 
 import "@/vis/schematic/primitives/Primitives.css";
 
-import { color, dimensions, direction, type location, xy } from "@synnaxlabs/x";
+import {
+  color,
+  dimensions,
+  direction,
+  type location,
+  type Optional,
+  xy,
+} from "@synnaxlabs/x";
 import {
   Handle as RFHandle,
   type HandleProps as RFHandleProps,
@@ -1188,7 +1195,7 @@ export const OrificePlate = ({
     </HandleBoundary>
     <InternalSVG
       color={color}
-      dimensions={{ width: 72, height: 35 }}
+      dimensions={{ width: 72, height: 36 }}
       orientation={orientation}
       scale={scale}
     >
@@ -1900,8 +1907,12 @@ export const Button = ({
   </Div>
 );
 
-export interface TextBoxProps extends DivProps, Pick<Text.TextProps, "level"> {
-  text?: string;
+export interface TextBoxProps
+  extends Omit<DivProps, "onChange">,
+    Optional<
+      Pick<Text.EditableProps<Text.Level>, "level" | "value" | "onChange">,
+      "onChange"
+    > {
   color?: color.Crude;
   width?: number;
   align?: Align.Alignment;
@@ -1911,12 +1922,14 @@ export interface TextBoxProps extends DivProps, Pick<Text.TextProps, "level"> {
 export const TextBox = ({
   className,
   orientation = "left",
-  text = "",
   width,
   color: colorVal,
   level,
   autoFit,
   align = "center",
+  value,
+  onChange,
+  ...rest
 }: TextBoxProps): ReactElement => {
   const divStyle: CSSProperties = {
     textAlign: align as CSSProperties["textAlign"],
@@ -1930,10 +1943,14 @@ export const TextBox = ({
       style={divStyle}
       orientation={orientation}
       className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
+      {...rest}
     >
-      <Text.Text color={color.cssString(colorVal)} level={level}>
-        {text}
-      </Text.Text>
+      <Text.MaybeEditable
+        color={color.cssString(colorVal)}
+        level={level}
+        value={value}
+        onChange={onChange}
+      />
     </Div>
   );
 };
@@ -2532,12 +2549,9 @@ export const ElectricRegulatorMotorized = ({
   </Div>
 );
 
-export interface AgitatorProps extends ToggleProps, SVGBasedPrimitiveProps {
-  height?: number;
-}
+export interface AgitatorProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const Agitator = ({
-  height = 86,
   orientation = "left",
   color,
   scale,
@@ -2545,16 +2559,10 @@ export const Agitator = ({
 }: AgitatorProps): ReactElement => (
   <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={100 / height}
-        id="4"
-      />
+      <Handle location="top" orientation={orientation} left={50} top={1} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height }}
+      dimensions={{ width: 88, height: 86 }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -2568,7 +2576,6 @@ export const Agitator = ({
 export interface PropellerAgitatorProps extends AgitatorProps {}
 
 export const PropellerAgitator = ({
-  height = 86,
   orientation = "left",
   color,
   scale,
@@ -2576,16 +2583,10 @@ export const PropellerAgitator = ({
 }: PropellerAgitatorProps): ReactElement => (
   <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="top"
-        orientation={orientation}
-        left={50.5814}
-        top={200 / height}
-        id="4"
-      />
+      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height }}
+      dimensions={{ width: 87, height: 87 }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -2599,7 +2600,6 @@ export const PropellerAgitator = ({
 export interface FlatBladeAgitatorProps extends AgitatorProps {}
 
 export const FlatBladeAgitator = ({
-  height = 86,
   orientation = "left",
   color,
   scale,
@@ -2607,16 +2607,10 @@ export const FlatBladeAgitator = ({
 }: FlatBladeAgitatorProps): ReactElement => (
   <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={100 / height}
-        id="4"
-      />
+      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height }}
+      dimensions={{ width: 87, height: 87 }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -2630,7 +2624,6 @@ export const FlatBladeAgitator = ({
 export interface PaddleAgitatorProps extends AgitatorProps {}
 
 export const PaddleAgitator = ({
-  height = 86,
   className,
   orientation = "left",
   color,
@@ -2639,16 +2632,10 @@ export const PaddleAgitator = ({
 }: PaddleAgitatorProps): ReactElement => (
   <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={100 / height}
-        id="4"
-      />
+      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height }}
+      dimensions={{ width: 87, height: 87 }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -2687,7 +2674,6 @@ export interface CrossBeamAgitatorProps extends AgitatorProps {}
 
 export const CrossBeamAgitator = ({
   className,
-  height = 86,
   orientation = "left",
   color,
   scale,
@@ -2695,16 +2681,10 @@ export const CrossBeamAgitator = ({
 }: CrossBeamAgitatorProps): ReactElement => (
   <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={100 / height}
-        id="4"
-      />
+      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height }}
+      dimensions={{ width: 87, height: 87 }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -2723,7 +2703,6 @@ export interface HelicalAgitatorProps extends AgitatorProps {}
 
 export const HelicalAgitator = ({
   className,
-  height = 86,
   orientation = "left",
   color,
   scale,
@@ -2731,16 +2710,10 @@ export const HelicalAgitator = ({
 }: HelicalAgitatorProps): ReactElement => (
   <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={100 / height}
-        id="4"
-      />
+      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height }}
+      dimensions={{ width: 87, height: 87 }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -2912,22 +2885,10 @@ export const FlowStraightener = ({
 }: FlowStraightenerProps): ReactElement => (
   <Div className={CSS(CSS.B("flow-straightener"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={96.875}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={96.875}
-        id="4"
-      />
+      <Handle location="left" orientation={orientation} left={3} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={97} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={93} id="4" />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 72, height: 36 }}
@@ -3314,25 +3275,13 @@ export const FlowmeterGeneral = ({
 }: FlowmeterGeneralProps) => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-general"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
+      dimensions={{ width: 71, height: 36 }}
       color={colorVal}
       orientation={orientation}
       scale={scale}
@@ -3357,25 +3306,13 @@ export const FlowmeterElectromagnetic = ({
 }: FlowmeterElectromagneticProps) => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Electromagnetic"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
+      dimensions={{ width: 71, height: 36 }}
       color={colorVal}
       orientation={orientation}
       scale={scale}
@@ -3412,25 +3349,13 @@ export const FlowmeterVariableArea = ({
 }: FlowmeterVariableAreaProps) => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-VariableArea"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
+      dimensions={{ width: 71, height: 36 }}
       color={colorVal}
       orientation={orientation}
       scale={scale}
@@ -3457,25 +3382,13 @@ export const FlowmeterCoriolis = ({
 }: FlowmeterCoriolisProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Coriolis"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
+      dimensions={{ width: 71, height: 36 }}
       color={colorVal}
       orientation={orientation}
       scale={scale}
@@ -3506,25 +3419,13 @@ export const FlowmeterNozzle = ({
 }: FlowmeterNozzleProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Nozzle"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
+      dimensions={{ width: 71, height: 36 }}
       color={colorVal}
       orientation={orientation}
       scale={scale}
@@ -3551,7 +3452,7 @@ export const FlowmeterVenturi = ({
 }: FlowmeterVenturiProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Venturi"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
       <Handle
         location="right"
         orientation={orientation}
@@ -3569,7 +3470,7 @@ export const FlowmeterVenturi = ({
       />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
+      dimensions={{ width: 71, height: 36 }}
       color={colorVal}
       orientation={orientation}
       scale={scale}
@@ -3597,13 +3498,7 @@ export const FlowmeterRingPiston = ({
   <Div {...rest} className={CSS(CSS.B("flowmeter-RingPiston"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
       <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
       <Handle
         location="bottom"
@@ -3614,7 +3509,7 @@ export const FlowmeterRingPiston = ({
       />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
+      dimensions={{ width: 71, height: 36 }}
       color={colorVal}
       orientation={orientation}
       scale={scale}
@@ -3641,25 +3536,13 @@ export const FlowmeterPositiveDisplacement = ({
 }: FlowmeterPositiveDisplacementProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-PositiveDisplacement"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
+      dimensions={{ width: 72, height: 36 }}
       color={colorVal}
       orientation={orientation}
       scale={scale}
@@ -3690,25 +3573,13 @@ export const FlowmeterTurbine = ({
 }: FlowmeterTurbineProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Turbine"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
+      dimensions={{ width: 71, height: 36 }}
       color={colorVal}
       orientation={orientation}
       scale={scale}
@@ -3744,25 +3615,13 @@ export const FlowmeterPulse = ({
 }: FlowmeterPulseProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Pulse"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
+      dimensions={{ width: 71, height: 36 }}
       color={colorVal}
       orientation={orientation}
       scale={scale}
@@ -3790,17 +3649,13 @@ export const FlowmeterFloatSensor = ({
 }: FlowmeterFloatSensorProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-FloatSensor"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
+      dimensions={{ width: 71, height: 36 }}
       color={colorVal}
       orientation={orientation}
       scale={scale}
@@ -3827,25 +3682,13 @@ export const FlowmeterOrifice = ({
 }: FlowmeterOrificeProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Orifice"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
+      dimensions={{ width: 72, height: 36 }}
       color={colorVal}
       orientation={orientation}
       scale={scale}

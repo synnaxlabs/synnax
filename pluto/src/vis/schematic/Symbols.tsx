@@ -26,7 +26,12 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Button as CoreButton } from "@/vis/button";
 import { Light as CoreLight } from "@/vis/light";
-import { Grid, type GridItem } from "@/vis/schematic/Grid";
+import {
+  DRAG_HANDLE_CLASS,
+  Grid,
+  type GridItem,
+  type GridProps,
+} from "@/vis/schematic/Grid";
 import { Primitives } from "@/vis/schematic/primitives";
 import { Setpoint as CoreSetpoint } from "@/vis/setpoint";
 import { Toggle } from "@/vis/toggle";
@@ -85,7 +90,6 @@ export type SymbolProps<P extends object = UnknownRecord> = P & {
   position: xy.XY;
   aetherKey: string;
   selected: boolean;
-  draggable: boolean;
   onChange: (value: Partial<P>) => void;
 };
 
@@ -135,9 +139,9 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
     sink,
     label,
     onChange,
-    draggable,
     selected,
     orientation = "left",
+    position: _,
     ...rest
   }: SymbolProps<ToggleProps<P>>): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({
@@ -153,7 +157,7 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
     if (controlItem != null) gridItems.push(controlItem);
     return (
       <Grid
-        editable={selected && !draggable}
+        editable={selected}
         symbolKey={symbolKey}
         items={gridItems}
         onRotate={() =>
@@ -192,13 +196,19 @@ type LabeledProps<P extends object = UnknownRecord> = P & {
   orientation?: location.Outer;
 };
 
-export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P>) => {
+interface LabeledOverrides {
+  grid: Partial<Omit<GridProps, "editable">>;
+}
+
+export const createLabeled = <P extends object = UnknownRecord>(
+  BaseSymbol: FC<P>,
+  overrides?: LabeledOverrides,
+) => {
   const C = ({
     symbolKey,
     label,
     onChange,
     selected,
-    draggable,
     position: _,
     orientation = "left",
     ...rest
@@ -209,8 +219,9 @@ export const createLabeled = <P extends object = UnknownRecord>(BaseSymbol: FC<P
     if (labelItem != null) gridItems.push(labelItem);
     return (
       <Grid
+        {...overrides?.grid}
         items={gridItems}
-        editable={selected && !draggable}
+        editable={selected}
         symbolKey={symbolKey}
         onRotate={() =>
           onChange({ orientation: location.rotate90(orientation) } as Partial<
@@ -246,7 +257,6 @@ export const createDummyToggle = <P extends object = UnknownRecord>(
     label,
     onChange,
     selected,
-    draggable,
     position: _,
     orientation = "left",
     enabled = false,
@@ -264,7 +274,7 @@ export const createDummyToggle = <P extends object = UnknownRecord>(
     return (
       <Grid
         items={gridItems}
-        editable={selected && !draggable}
+        editable={selected}
         symbolKey={symbolKey}
         onRotate={() =>
           onChange({ orientation: location.rotate90(orientation) } as Partial<
@@ -404,7 +414,9 @@ export const ISOBurstDisc = createLabeled(Primitives.ISOBurstDisc);
 export type ISOBurstDiscProps = LabeledProps<Primitives.ISOBurstDiscProps>;
 export const TJunction = createLabeled(Primitives.TJunction);
 export type TJunctionProps = LabeledProps<Primitives.TJunctionProps>;
-export const CrossJunction = createLabeled(Primitives.CrossJunction);
+export const CrossJunction = createLabeled(Primitives.CrossJunction, {
+  grid: { allowRotate: false },
+});
 export type CrossJunctionProps = LabeledProps<Primitives.CrossJunctionProps>;
 export const StaticMixer = createLabeled(Primitives.StaticMixer);
 export type StaticMixerProps = LabeledProps<Primitives.StaticMixerProps>;
@@ -525,6 +537,7 @@ export const Tank = createLabeled(
       backgroundColor={backgroundColor}
     />
   ),
+  { grid: { allowCenter: true, allowRotate: false } },
 );
 
 export const TankPreview = (props: TankProps): ReactElement => (
@@ -597,6 +610,7 @@ export const Circle = createLabeled(
       {...rest}
     />
   ),
+  { grid: { allowRotate: false } },
 );
 
 export const Box = createLabeled(
@@ -619,6 +633,7 @@ export const Box = createLabeled(
       strokeWidth={strokeWidth}
     />
   ),
+  { grid: { allowCenter: true, allowRotate: false } },
 );
 
 export const BoxPreview = (props: BoxProps): ReactElement => (
@@ -656,6 +671,7 @@ export const Setpoint = ({
   return (
     <Grid
       symbolKey={symbolKey}
+      allowRotate={false}
       editable={selected && !draggable}
       onRotate={() =>
         onChange({
@@ -748,6 +764,7 @@ export const Value = ({
       editable={selected && !draggable}
       symbolKey={symbolKey}
       items={gridItems}
+      allowRotate={false}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
         onChange({
@@ -810,7 +827,7 @@ export const Button = ({
           orientation: location.rotate90(orientation),
         } as Partial<ButtonProps>)
       }
-      editable={selected && !draggable}
+      editable={selected}
       symbolKey={symbolKey}
       items={gridItems}
       onLocationChange={(key, loc) => {
@@ -845,7 +862,6 @@ export const Light = ({
   source,
   onChange,
   selected,
-  draggable,
   ...rest
 }: SymbolProps<LightProps>): ReactElement => {
   const { enabled } = CoreLight.use({ aetherKey: symbolKey, source });
@@ -855,7 +871,8 @@ export const Light = ({
   return (
     <Grid
       items={gridItems}
-      editable={selected && !draggable}
+      allowRotate={false}
+      editable={selected}
       symbolKey={symbolKey}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
@@ -866,10 +883,6 @@ export const Light = ({
     </Grid>
   );
 };
-
-export const TextBoxPreview = (props: Primitives.TextBoxProps): ReactElement => (
-  <Primitives.TextBox {...props} autoFit text="Text Box" />
-);
 
 export interface OffPageReferenceProps
   extends Omit<Primitives.OffPageReferenceProps, "label"> {
@@ -883,6 +896,7 @@ export const OffPageReference = ({
   onChange,
 }: SymbolProps<OffPageReferenceProps>): ReactElement => (
   <Primitives.OffPageReference
+    className={DRAG_HANDLE_CLASS}
     onLabelChange={(label) => onChange({ label: { label, level } })}
     label={label}
     level={level}
@@ -922,4 +936,33 @@ export type CylinderProps = LabeledProps<Omit<Primitives.CylinderProps, "onChang
 
 export const CylinderPreview = (props: CylinderProps): ReactElement => (
   <Primitives.Cylinder {...props} dimensions={{ width: 25, height: 50 }} />
+);
+
+export interface TextBoxProps extends Primitives.TextBoxProps {}
+
+export const TextBox = ({
+  onChange,
+  symbolKey,
+  color,
+  width,
+  align,
+  autoFit,
+  level,
+  value,
+}: SymbolProps<Omit<TextBoxProps, "onChange">>): ReactElement => (
+  <Primitives.TextBox
+    className={DRAG_HANDLE_CLASS}
+    onChange={(v) => onChange({ value: v })}
+    value={value}
+    level={level}
+    color={color}
+    key={symbolKey}
+    width={width}
+    align={align}
+    autoFit={autoFit}
+  />
+);
+
+export const TextBoxPreview = (props: Primitives.TextBoxProps): ReactElement => (
+  <Primitives.TextBox {...props} autoFit value="Text Box" />
 );

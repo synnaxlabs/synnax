@@ -16,6 +16,7 @@ import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { grid } from "@/vis/grid";
 import { type FindResult } from "@/vis/line/aether/line";
+import { type AxesBounds, BoundQuerier } from "@/vis/lineplot/aether/BoundQuerier";
 import { XAxis } from "@/vis/lineplot/aether/XAxis";
 import { YAxis } from "@/vis/lineplot/aether/YAxis";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
@@ -37,7 +38,7 @@ interface InternalState {
   renderCtx: render.Context;
 }
 
-type Children = XAxis | tooltip.Tooltip | measure.Measure;
+type Children = XAxis | tooltip.Tooltip | measure.Measure | BoundQuerier;
 
 const calculateExposure = (viewport: box.Box, region: box.Box): number => {
   const vpArea = box.width(viewport) * Math.sqrt(box.height(viewport));
@@ -104,6 +105,10 @@ export class LinePlot extends aether.Composite<
     return this.childrenOfType<measure.Measure>(measure.Measure.TYPE);
   }
 
+  private get bounds(): readonly BoundQuerier[] {
+    return this.childrenOfType<BoundQuerier>(BoundQuerier.TYPE);
+  }
+
   private get exposure(): number {
     return calculateExposure(this.state.viewport, this.state.container);
   }
@@ -116,6 +121,25 @@ export class LinePlot extends aether.Composite<
   private renderTooltips(region: box.Box, canvases: render.CanvasVariant[]): void {
     const p = { findByXDecimal: this.findByXDecimal.bind(this), region, canvases };
     this.tooltips.forEach((t) => t.render(p));
+  }
+
+  private renderBounds(): void {
+    this.bounds.forEach((b) =>
+      b.render({
+        getBounds: () => {
+          const bounds: AxesBounds = {};
+          this.axes.forEach((v) => {
+            const axisKey = v.state.axisKey ?? v.key;
+            bounds[axisKey] = v.bounds(this.state.hold);
+            v.yAxes.forEach((y) => {
+              const yAxisKey = y.state.axisKey ?? y.key;
+              bounds[yAxisKey] = y.bounds(this.state.hold);
+            });
+          });
+          return bounds;
+        },
+      }),
+    );
   }
 
   private renderMeasures(region: box.Box): void {
@@ -172,6 +196,7 @@ export class LinePlot extends aether.Composite<
       this.renderAxes(plot, canvases);
       this.renderTooltips(plot, canvases);
       this.renderMeasures(plot);
+      this.renderBounds();
     } catch (e) {
       i.handleError(e, "failed to render line plot");
     } finally {
@@ -204,4 +229,5 @@ export const REGISTRY: aether.ComponentRegistry = {
   [LinePlot.TYPE]: LinePlot,
   [XAxis.TYPE]: XAxis,
   [YAxis.TYPE]: YAxis,
+  [BoundQuerier.TYPE]: BoundQuerier,
 };

@@ -883,7 +883,7 @@ export const TextBoxForm = (): ReactElement => {
     <FormWrapper x align="stretch" grow>
       <Align.Space y grow>
         <Align.Space x align="stretch">
-          <Form.Field<string> path="text" label="Text" padHelpText={false} grow>
+          <Form.Field<string> path="value" label="Text" padHelpText={false} grow>
             {(p) => <Input.Text {...p} />}
           </Form.Field>
           <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>

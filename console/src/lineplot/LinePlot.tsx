@@ -17,6 +17,7 @@ import {
   type axis,
   Channel,
   type Legend,
+  LinePlot as Core,
   Menu as PMenu,
   Status,
   Synnax,
@@ -37,7 +38,14 @@ import {
   unique,
 } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
@@ -57,7 +65,6 @@ import { NavControls } from "@/lineplot/NavControls";
 import {
   select,
   useSelect,
-  useSelectAxisBounds,
   useSelectControlState,
   useSelectRanges,
   useSelectSelection,
@@ -118,6 +125,14 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
       });
     },
   );
+
+const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {
+  iso: "Failed to copy ISO time range",
+  python: "Failed to copy Python time range",
+  typescript: "Failed to copy TypeScript time range",
+  range: "Failed to create range from selection",
+  download: "Failed to download region as CSV",
+};
 
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const windowKey = useSelectWindowKey() as string;
@@ -312,49 +327,55 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     layoutKey: string;
   }
 
+  const boundsQuerierRef = useRef<Core.GetBoundsFn>(null);
+
   const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
     const { box: selection } = useSelectSelection(layoutKey);
-    const bounds = useSelectAxisBounds(layoutKey, "x1");
-    const s = scale.Scale.scale<number>(1).scale(bounds);
     const placeLayout = Layout.usePlacer();
+    const handleError = Status.useErrorHandler();
 
-    const timeRange = new TimeRange(
-      s.pos(box.left(selection)),
-      s.pos(box.right(selection)),
-    );
+    const getTimeRange = useCallback(async () => {
+      const bounds = await boundsQuerierRef.current?.();
+      if (bounds == null) return null;
+      const s = scale.Scale.scale<number>(1).scale(bounds.x1);
+      return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
+    }, []);
 
     const handleSelect = (key: string): void => {
-      switch (key) {
-        case "iso":
-          void navigator.clipboard.writeText(
-            `${timeRange.start.fString("ISO")} - ${timeRange.end.fString("ISO")}`,
-          );
-          break;
-        case "python":
-          void navigator.clipboard.writeText(
-            `sy.TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
-          );
-          break;
-        case "typescript":
-          void navigator.clipboard.writeText(
-            `new TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
-          );
-          break;
-        case "range":
-          placeLayout(
-            Range.createCreateLayout({
-              timeRange: {
-                start: Number(timeRange.start.valueOf()),
-                end: Number(timeRange.end.valueOf()),
-              },
-            }),
-          );
-          break;
-        case "download":
-          if (client == null) return;
-          download({ timeRange, lines, client, name: `${name}-data`, handleError });
-          break;
-      }
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        switch (key) {
+          case "iso":
+            await navigator.clipboard.writeText(
+              `${tr.start.fString("ISO")} - ${tr.end.fString("ISO")}`,
+            );
+            break;
+          case "python":
+            await navigator.clipboard.writeText(
+              `sy.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
+            );
+            break;
+          case "typescript":
+            await navigator.clipboard.writeText(
+              `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
+            );
+            break;
+          case "range":
+            placeLayout(Range.createCreateLayout({ timeRange: tr.numeric }));
+            break;
+          case "download":
+            if (client == null) return;
+            download({
+              timeRange: tr,
+              lines,
+              client,
+              name: `${name}-data`,
+              handleError,
+            });
+            break;
+        }
+      }, `Failed to perform ${CONTEXT_MENU_ERROR_MESSAGES[key]}`);
     };
 
     return (
@@ -376,7 +397,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-              Download as CSV
+              Download Region as CSV
             </PMenu.Item>
           </>
         )}
@@ -468,6 +489,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           annotationProvider={{ menu: AnnotationMenu }}
         >
           {!focused && <NavControls />}
+          <Core.BoundsQuerier ref={boundsQuerierRef} />
         </Channel.LinePlot>
       </PMenu.ContextMenu>
       {focused && <NavControls />}
