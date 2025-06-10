@@ -9,6 +9,7 @@
 
 import "@/cluster/Dropdown.css";
 
+import { Synnax as Client } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -31,14 +32,14 @@ import { useDispatch } from "react-redux";
 
 import { ConnectionBadge } from "@/cluster/Badges";
 import { CONNECT_LAYOUT } from "@/cluster/Connect";
-import { getClient } from "@/cluster/getClient";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
 import { type Cluster, remove, rename, setActive } from "@/cluster/slice";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { useCreateOrRetrieve } from "@/workspace/useCreateNew";
+import { clear } from "@/workspace/slice";
+import { useCreateOrRetrieve } from "@/workspace/useCreateOrRetrieve";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -53,7 +54,11 @@ export const List = (): ReactElement => {
   const handleConnect = (key: string | null): void => {
     dispatch(setActive(key));
     const cluster = allClusters.find((c) => c.key === key);
-    createWS(cluster == null ? null : getClient(cluster));
+    if (cluster == null) {
+      dispatch(clear());
+      return;
+    }
+    createWS(new Client(cluster));
   };
 
   const validateName = useCallback(

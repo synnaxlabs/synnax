@@ -14,7 +14,7 @@ import { useDispatch } from "react-redux";
 import { Layout } from "@/layout";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { useSelectActive } from "@/workspace/selectors";
-import { clear, clearAndReplace } from "@/workspace/slice";
+import { clearAndReplace } from "@/workspace/slice";
 
 export const useCreateOrRetrieve = () => {
   const handleError = Status.useErrorHandler();
@@ -22,7 +22,7 @@ export const useCreateOrRetrieve = () => {
   const prevClient = PSynnax.use();
   const layout = Layout.useSelectSliceState();
   const activeWS = useSelectActive();
-  return (client: Synnax | null) => {
+  return (client: Synnax) => {
     if (activeWS == null) return;
     const purgedLayout = purgeExcludedLayouts(layout);
     if (prevClient != null)
@@ -30,10 +30,6 @@ export const useCreateOrRetrieve = () => {
         async () => await prevClient.workspaces.setLayout(activeWS.key, purgedLayout),
         `Failed to save workspace ${activeWS.name}`,
       );
-    if (client == null) {
-      dispatch(clear());
-      return;
-    }
     handleError(async () => {
       try {
         await client.workspaces.retrieve(activeWS.key);
