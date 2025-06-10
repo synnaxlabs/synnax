@@ -31,4 +31,4 @@ with client.open_streamer(channels) as streamer:
     # Loop through the frames in the streamer. Each iteration will block until a new
     # frame is available, then we'll print out the frame of data.
     while True:
-        print(streamer.read()["stream_write_data_1"].series[0].alignment)
+        print(streamer.read())

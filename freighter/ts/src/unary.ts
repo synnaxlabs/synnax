@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker, type errors } from "@synnaxlabs/x";
+import { breaker } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
@@ -25,12 +25,12 @@ export interface UnaryClient extends Transport {
    * @param req - The request to send.
    * @param resSchema - The schema to validate the response against.
    */
-  send: <RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+  send: <RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
-    req: z.input<RQ> | z.output<RQ>,
+    req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
     resSchema: RS,
-  ) => Promise<errors.Return<z.output<RS>>>;
+  ) => Promise<[z.infer<RS>, null] | [null, Error]>;
 }
 
 export const unaryWithBreaker = (
@@ -48,12 +48,12 @@ export const unaryWithBreaker = (
       this.wrapped.use(...mw);
     }
 
-    async send<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+    async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
       target: string,
-      req: z.input<RQ> | z.output<RQ>,
+      req: z.input<RQ> | z.infer<RQ>,
       reqSchema: RQ,
       resSchema: RS,
-    ): Promise<errors.Return<z.output<RS>>> {
+    ): Promise<[z.infer<RS>, null] | [null, Error]> {
       const brk = new breaker.Breaker(cfg);
       do {
         const [res, err] = await this.wrapped.send(target, req, reqSchema, resSchema);
@@ -66,16 +66,13 @@ export const unaryWithBreaker = (
   return new WithBreaker(base);
 };
 
-export const sendRequired = async <
-  RQ extends z.ZodTypeAny,
-  RS extends z.ZodTypeAny = RQ,
->(
+export const sendRequired = async <RQ extends z.ZodType, RS extends z.ZodType = RQ>(
   client: UnaryClient,
   target: string,
-  req: z.input<RQ> | z.output<RQ>,
+  req: z.input<RQ> | z.infer<RQ>,
   reqSchema: RQ,
   resSchema: RS,
-): Promise<z.output<RS>> => {
+): Promise<z.infer<RS>> => {
   const [res, err] = await client.send(target, req, reqSchema, resSchema);
   if (err != null) throw err;
   return res;

@@ -66,14 +66,14 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     };
   }
 
-  async send<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+  async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
-    req: z.input<RQ> | z.output<RQ>,
+    req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
     resSchema: RS,
-  ): Promise<[z.output<RS>, null] | [null, Error]> {
+  ): Promise<[z.infer<RS>, null] | [null, Error]> {
     req = reqSchema?.parse(req);
-    let res: z.output<RS> | null = null;
+    let res: z.infer<RS> | null = null;
     const url = this.endpoint.child(target);
     const request: RequestInit = {};
     request.method = "POST";
@@ -100,7 +100,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           if (shouldCastToUnreachable(err)) err = new Unreachable({ url });
           return [outCtx, err];
         }
-        const data = new Uint8Array(await (await httpRes.blob()).arrayBuffer());
+        const data = await httpRes.arrayBuffer();
         if (httpRes?.ok) {
           if (resSchema != null) res = this.encoder.decode<RS>(data, resSchema);
           return [outCtx, null];

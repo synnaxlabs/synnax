@@ -18,8 +18,7 @@ export interface UseProps extends Pick<z.input<typeof light.lightStateZ>, "sourc
   aetherKey: string;
 }
 
-export interface UseReturn
-  extends Pick<z.output<typeof light.lightStateZ>, "enabled"> {}
+export interface UseReturn extends Pick<z.infer<typeof light.lightStateZ>, "enabled"> {}
 
 export const use = ({ aetherKey, source }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqualProps({ source });

@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { group, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, uuid } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-import { createNewID } from "@/group/createNewID";
 import { getResourcesToGroup } from "@/group/getResourcesToGroup";
 import { type Ontology } from "@/ontology";
 
@@ -74,5 +73,8 @@ export const useCreateFromSelection = (): CreateFromSelection => {
       handleError(e, "Failed to group resources");
     },
   }).mutate;
-  return useCallback((props) => create({ ...props, newID: createNewID() }), [create]);
+  return useCallback(
+    (props) => create({ ...props, newID: group.ontologyID(uuid.create()) }),
+    [create],
+  );
 };

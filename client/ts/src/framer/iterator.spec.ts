@@ -12,7 +12,7 @@ import { describe, expect, test } from "vitest";
 
 import { AUTO_SPAN } from "@/framer/iterator";
 import { newClient } from "@/setupspecs";
-import { newIndexedPair } from "@/testutil/indexedPair";
+import { newIndexedPair } from "@/testutil/channels";
 import { secondsLinspace } from "@/testutil/telem";
 import { randomSeries } from "@/util/telem";
 

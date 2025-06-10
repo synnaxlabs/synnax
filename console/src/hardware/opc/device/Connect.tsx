@@ -22,10 +22,9 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -115,7 +114,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
       );
-      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid() : layoutKey;
+      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid.create() : layoutKey;
       await client.hardware.devices.create<Properties>({
         key,
         name: methods.get<string>("name").value,
@@ -210,7 +209,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Status.Text level="p" variant={connectionState.variant as Status.Variant}>
+            <Status.Text level="p" variant={connectionState.variant}>
               {connectionState.details?.message}
             </Status.Text>
           )}

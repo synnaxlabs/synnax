@@ -25,7 +25,7 @@ export const debounce = <F extends (...args: any[]) => void>(
   return debounced as F;
 };
 
-export const throttle = <F extends (...args: any[]) => void>(
+export const throttle = <F extends (...args: unknown[]) => void>(
   func: F,
   waitFor: number,
 ): F => {

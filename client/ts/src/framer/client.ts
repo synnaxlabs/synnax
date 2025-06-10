@@ -108,6 +108,9 @@ export class Client {
    * and then will start reading new values.
    *
    */
+  async openStreamer(config: StreamerConfig): Promise<Streamer>;
+
+  /** Overload to provide interface compatibility with @see StreamOpener */
   async openStreamer(config: StreamerConfig | channel.Params): Promise<Streamer>;
 
   async openStreamer(config: StreamerConfig | channel.Params): Promise<Streamer> {
@@ -160,9 +163,7 @@ export class Client {
         autoIndexPersistInterval: TimeSpan.MAX,
       });
       await w.write(data_);
-      await w.commit();
-      await w.close();
-      return;
+      return await w.close();
     }
     const w = await this.openWriter({
       start,

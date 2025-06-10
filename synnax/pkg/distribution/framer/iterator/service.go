@@ -30,29 +30,55 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Config the configuration for opening an Iterator or StreamIterator.
 type Config struct {
-	Keys      channel.Keys    `json:"keys" msgpack:"keys"`
-	Bounds    telem.TimeRange `json:"bounds" msgpack:"bounds"`
-	ChunkSize int64           `json:"chunk_size" msgpack:"chunk_size"`
+	// Keys are the keys of the channels to iterator over. At least one key must
+	// be specified. An iterator cannot iterate over non-calculated virtual channels
+	// or free channels, and calls to Open or NewStream will return an error when
+	// attempting to iterate over channels of these types.
+	// [REQUIRED] - must have at least one key.
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// Bounds sets the time range to iterate over. This time range must be valid i.e.,
+	// the start value must be before or equal to the end value.
+	// [REQUIRED]
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	// ChunkSize sets the default number of samples to iterate over per-channel when
+	// calling Next or Prev with AutoSpan.
+	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
 }
 
+// ServiceConfig is the configuration for opening the iterator Service, the main
+// entrypoint for using iterators.
 type ServiceConfig struct {
+	// Instrumentation is used for Logging, Tracing, and Metrics.
+	// [OPTIONAL]
 	alamos.Instrumentation
-	TS            *ts.DB
-	ChannelReader channel.Readable
-	HostResolver  aspen.HostResolver
-	Transport     Transport
+	// TS is the underlying storage layer time-series database for reading frames.
+	// [REQUIRED]
+	TS *ts.DB
+	// Channels retrieves channel information.
+	// [REQUIRED}
+	Channels channel.Readable
+	// HostResolver is used to resolve reachable addresses for nodes in a Synnax cluster.
+	// [REQUIRED]
+	HostResolver aspen.HostResolver
+	// Transport is the network transport for moving telemetry frames across nodes.
+	// [REQUIRED]
+	Transport Transport
 }
 
 var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{}
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening a new iterator
+	// service. This configuration is not valid on its own and must be overridden
+	// with the required fields specified in ServiceConfig.
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Override implements Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
-	cfg.ChannelReader = override.Nil(cfg.ChannelReader, other.ChannelReader)
+	cfg.Channels = override.Nil(cfg.Channels, other.Channels)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
@@ -63,23 +89,28 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.Iterator")
 	validate.NotNil(v, "TS", cfg.TS)
-	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
+	validate.NotNil(v, "Channels", cfg.Channels)
 	validate.NotNil(v, "Transport", cfg.Transport)
 	validate.NotNil(v, "Resolver", cfg.HostResolver)
 	return v.Error()
 }
 
+// Service is the distribution layer entry point for using iterators within Synnax.
+// Iterators allow for reading chunks of historical data from channels distributed
+// across a muti-node cluster.
 type Service struct {
-	ServiceConfig
+	cfg    ServiceConfig
 	server *server
 }
 
-func OpenService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
-	return &Service{
-		ServiceConfig: cfg,
-		server:        startServer(cfg),
-	}, err
+// NewService opens a new iterator service using the provided configuration. If the
+// configuration is invalid, NewService returns a nil service and an error.
+func NewService(configs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{cfg: cfg, server: newServer(cfg)}, nil
 }
 
 const (
@@ -89,12 +120,18 @@ const (
 	synchronizerAddr address.Address = "synchronizer"
 )
 
-func (s *Service) New(ctx context.Context, cfg Config) (*Iterator, error) {
+// Open opens a new iterator for reading historical data from a Synnax cluster.
+// If the returned error is nil, the iterator must be closed after use. For
+// information on configuration parameters, see the IteratorConfig struct.
+//
+// The returned iterator uses a synchronous, method-based model. For a channel-based
+// iterator model, use NewStream.
+func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 	stream, err := s.NewStream(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
 	req := confluence.NewStream[Request]()
 	res := confluence.NewStream[Response]()
 	stream.InFrom(req)
@@ -108,14 +145,17 @@ func (s *Service) New(ctx context.Context, cfg Config) (*Iterator, error) {
 	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
+// NewStream returns an iterator for reading historical data from a Synnax cluster.
+// The returned StreamIterator is a confluence.Segment that uses a channel-based interface,
+// where requests are sent through an input stream, and responses are received through
+// an output stream.
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
 	if err := s.validateChannelKeys(ctx, cfg.Keys); err != nil {
 		return nil, err
 	}
 	cfg.Keys = cfg.Keys.Unique()
-
 	var (
-		hostID             = s.HostResolver.HostKey()
+		hostID             = s.cfg.HostResolver.HostKey()
 		batch              = proxy.BatchFactory[channel.Key]{Host: hostID}.Batch(cfg.Keys)
 		pipe               = plumber.New()
 		needPeerRouting    = len(batch.Peers) > 0
@@ -133,7 +173,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		plumber.SetSink[Request](pipe, peerSenderAddr, sender)
 		receiverAddresses = make([]address.Address, len(receivers))
 		for i, c := range receivers {
-			addr := address.Newf("client-%v", i+1)
+			addr := address.Newf("client_%v", i+1)
 			receiverAddresses[i] = addr
 			plumber.SetSource[Response](pipe, addr, c)
 		}
@@ -170,7 +210,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.Instrumentation),
+		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.cfg.Instrumentation),
 	)
 
 	plumber.MultiRouter[Response]{
@@ -196,7 +236,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 			return errors.Wrapf(validate.Error, "cannot read from free channel %v", k)
 		}
 	}
-	q := s.ChannelReader.NewRetrieve().WhereKeys(keys...)
+	q := s.cfg.Channels.NewRetrieve().WhereKeys(keys...)
 	exists, err := q.Exists(ctx, nil)
 	if err != nil {
 		return err

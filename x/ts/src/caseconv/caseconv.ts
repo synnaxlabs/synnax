@@ -33,6 +33,8 @@ const createConverter = (
     opt = validateOptions(opt);
     const res: UnknownRecord = {};
     const anyObj = obj as UnknownRecord;
+    if ("toJSON" in anyObj && typeof anyObj.toJSON === "function")
+      return converter(anyObj.toJSON(), opt);
     Object.keys(anyObj).forEach((key) => {
       let value = anyObj[key];
       const nkey = f(key);
@@ -115,7 +117,7 @@ export const capitalize = (str: string): string => {
 export interface Options {
   recursive: boolean;
   recursiveInArray?: boolean;
-  keepTypesOnRecursion?: any[];
+  keepTypesOnRecursion?: Function[];
 }
 
 /**
@@ -133,12 +135,12 @@ const validateOptions = (opt: Options = defaultOptions): Options => {
   return opt;
 };
 
-const isArrayObject = (obj: any): boolean => obj != null && Array.isArray(obj);
+const isArrayObject = (obj: unknown): boolean => obj != null && Array.isArray(obj);
 
-const isValidObject = (obj: any): boolean =>
+const isValidObject = (obj: unknown): boolean =>
   obj != null && typeof obj === "object" && !Array.isArray(obj);
 
-const belongToTypes = (obj: any, types?: any[]): boolean =>
+const belongToTypes = (obj: unknown, types?: Function[]): boolean =>
   (types || []).some((Type) => obj instanceof Type);
 
 /**

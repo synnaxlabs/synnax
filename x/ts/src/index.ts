@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/array";
 export * from "@/binary";
 export * from "@/breaker";
 export * from "@/caseconv";
@@ -21,6 +22,7 @@ export * from "@/destructor";
 export * from "@/errors";
 export * from "@/id";
 export * from "@/identity";
+export * from "@/instance";
 export * from "@/invert";
 export * from "@/jsonrpc";
 export * from "@/kv";
@@ -40,12 +42,13 @@ export * from "@/search";
 export * from "@/shallowCopy";
 export * from "@/sleep";
 export * from "@/spatial";
+export * from "@/status";
 export * from "@/strings";
 export * from "@/sync";
 export * from "@/telem";
-export * from "@/toArray";
 export * from "@/transform";
 export * from "@/unique";
 export * from "@/url";
+export * from "@/uuid";
 export * from "@/worker";
 export * from "@/zod";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Key, type Keyed, nullToArr } from "@synnaxlabs/x";
+import { array, type Key, type Keyed } from "@synnaxlabs/x";
 import {
   createContext,
   memo,
@@ -73,11 +73,15 @@ const Base = memo(
     } as const as UseSelectProps<K, E>);
     const selectedRef = useSyncedRef(value);
     const ctxValue: SelectContextValue<K> = useMemo(
-      () => ({ selected: nullToArr(value) }),
+      () => ({ selected: array.toArray(value) }),
       [value],
     );
     const utilCtxValue: SelectUtilsContextValue<K> = useMemo(
-      () => ({ onSelect, clear, getSelected: () => nullToArr(selectedRef.current) }),
+      () => ({
+        onSelect,
+        clear,
+        getSelected: () => array.toArray(selectedRef.current),
+      }),
       [onSelect, clear],
     );
     return (

@@ -13,35 +13,44 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"go/types"
 	"io"
-
-	"github.com/synnaxlabs/freighter/fhttp"
-	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	xbinary "github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/httputil"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"reflect"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/x/address"
+	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type Frame = framer.Frame
+
+const (
+	frameSenderAddr    address.Address = "sender"
+	frameReceiverAddr  address.Address = "receiver"
+	frameIteratorAddr  address.Address = "iterator"
+	framerStreamerAddr address.Address = "streamer"
+	frameWriterAddr    address.Address = "writer"
+)
 
 type FrameService struct {
 	alamos.Instrumentation
@@ -129,11 +138,11 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 		},
 	}
 	pipe := plumber.New()
-	plumber.SetSegment(pipe, "iterator", iter)
-	plumber.SetSink[iterator.Response](pipe, "sender", sender)
-	plumber.SetSource[iterator.Request](pipe, "receiver", receiver)
-	plumber.MustConnect[iterator.Response](pipe, "iterator", "sender", iteratorResponseBufferSize)
-	plumber.MustConnect[iterator.Request](pipe, "receiver", "iterator", iteratorRequestBufferSize)
+	plumber.SetSegment(pipe, frameIteratorAddr, iter)
+	plumber.SetSink[iterator.Response](pipe, frameSenderAddr, sender)
+	plumber.SetSource[iterator.Request](pipe, frameReceiverAddr, receiver)
+	plumber.MustConnect[iterator.Response](pipe, frameIteratorAddr, frameSenderAddr, iteratorResponseBufferSize)
+	plumber.MustConnect[iterator.Request](pipe, frameReceiverAddr, frameIteratorAddr, iteratorRequestBufferSize)
 
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	return sCtx.Wait()
@@ -189,11 +198,11 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 		pipe = plumber.New()
 	)
 
-	plumber.SetSegment[FrameStreamerRequest, FrameStreamerResponse](pipe, "streamer", streamer)
-	plumber.SetSink[FrameStreamerResponse](pipe, "sender", sender)
-	plumber.SetSource[FrameStreamerRequest](pipe, "receiver", receiver)
-	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "streamer", streamingRequestBufferSize)
-	plumber.MustConnect[FrameStreamerResponse](pipe, "streamer", "sender", streamingResponseBufferSize)
+	plumber.SetSegment[FrameStreamerRequest, FrameStreamerResponse](pipe, framerStreamerAddr, streamer)
+	plumber.SetSink[FrameStreamerResponse](pipe, frameSenderAddr, sender)
+	plumber.SetSource[FrameStreamerRequest](pipe, frameReceiverAddr, receiver)
+	plumber.MustConnect[FrameStreamerRequest](pipe, frameReceiverAddr, framerStreamerAddr, streamingRequestBufferSize)
+	plumber.MustConnect[FrameStreamerResponse](pipe, framerStreamerAddr, frameSenderAddr, streamingResponseBufferSize)
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	return sCtx.Wait()
 }
@@ -285,7 +294,7 @@ const (
 	writerRequestBufferSize  = 50
 )
 
-// Write exposes a high-level api for writing segmented telemetry to the delta
+// Write exposes a high-level api for writing segmented telemetry to Synnax0
 // cluster. The client is expected to send an initial request containing the
 // keys of the channels to write to. The server will acquire an exclusive lock on
 // these channels. If the channels are already locked, Write will return with
@@ -351,10 +360,10 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	pipe := plumber.New()
 
 	plumber.SetSegment(pipe, "writer", w)
-	plumber.SetSource[framer.WriterRequest](pipe, "receiver", receiver)
-	plumber.SetSink[framer.WriterResponse](pipe, "sender", sender)
-	plumber.MustConnect[framer.WriterRequest](pipe, "receiver", "writer", writerRequestBufferSize)
-	plumber.MustConnect[framer.WriterResponse](pipe, "writer", "sender", writerResponseBufferSize)
+	plumber.SetSource[framer.WriterRequest](pipe, frameReceiverAddr, receiver)
+	plumber.SetSink[framer.WriterResponse](pipe, frameSenderAddr, sender)
+	plumber.MustConnect[framer.WriterRequest](pipe, frameReceiverAddr, frameWriterAddr, writerRequestBufferSize)
+	plumber.MustConnect[framer.WriterResponse](pipe, frameWriterAddr, frameSenderAddr, writerResponseBufferSize)
 
 	pipe.Flow(ctx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	err = ctx.Wait()
@@ -365,10 +374,10 @@ func (s *FrameService) openWriter(
 	ctx context.Context,
 	subject ontology.ID,
 	srv FrameWriterStream,
-) (w framer.StreamWriter, err error) {
+) (framer.StreamWriter, error) {
 	req, err := srv.Receive()
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	if err = s.access.Enforce(ctx, access.Request{
@@ -376,7 +385,7 @@ func (s *FrameService) openWriter(
 		Action:  access.Create,
 		Objects: framer.OntologyIDs(req.Config.Keys),
 	}); err != nil {
-		return
+		return nil, err
 	}
 
 	authorities := make([]control.Authority, len(req.Config.Authorities))
@@ -384,7 +393,7 @@ func (s *FrameService) openWriter(
 		authorities[i] = control.Authority(a)
 	}
 
-	w, err = s.Internal.NewStreamWriter(ctx, writer.Config{
+	w, err := s.Internal.NewStreamWriter(ctx, writer.Config{
 		ControlSubject:           req.Config.ControlSubject,
 		Start:                    req.Config.Start,
 		Keys:                     req.Config.Keys,
@@ -395,12 +404,12 @@ func (s *FrameService) openWriter(
 		AutoIndexPersistInterval: req.Config.AutoIndexPersistInterval,
 	})
 	if err != nil {
-		return
+		return w, err
 	}
 
 	channels := make([]channel.Channel, 0, len(req.Config.Keys))
 	if err = s.Channel.NewRetrieve().WhereKeys(req.Config.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
-		return
+		return w, err
 	}
 	// Let the client know the writer is ready to receive segments.
 	return w, srv.Send(FrameWriterResponse{
@@ -452,7 +461,7 @@ func (c *WSFramerCodec) DecodeStream(
 	case *fhttp.WSMessage[FrameStreamerResponse]:
 		return c.decodeStreamResponse(ctx, r, v)
 	default:
-		panic("incompatible type")
+		panic(fmt.Sprintf("incompatible type %s provided to framer codec", reflect.TypeOf(value)))
 	}
 }
 
@@ -511,7 +520,7 @@ func (c *WSFramerCodec) decodeWriteRequest(
 		}
 		return nil
 	}
-	v.Type = fhttp.WSMsgTypeData
+	v.Type = fhttp.WSMessageTypeData
 	fr, err := c.Codec.DecodeStream(r)
 	if err != nil {
 		return err
@@ -525,15 +534,14 @@ func (c *WSFramerCodec) encodeWriteRequest(
 	ctx context.Context,
 	w io.Writer,
 	v fhttp.WSMessage[FrameWriterRequest],
-) (err error) {
-	if v.Type != fhttp.WSMsgTypeData || v.Payload.Command != writer.Write {
+) error {
+	if v.Type != fhttp.WSMessageTypeData || v.Payload.Command != writer.Write {
 		return c.lowPerfEncode(ctx, w, v)
 	}
-	if _, err = w.Write([]byte{highPerfSpecialChar}); err != nil {
-		return
+	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
+		return err
 	}
-	err = c.Codec.EncodeStream(nil, w, v.Payload.Frame)
-	return
+	return c.Codec.EncodeStream(nil, w, v.Payload.Frame)
 }
 
 func (c *WSFramerCodec) decodeStreamResponse(
@@ -550,7 +558,7 @@ func (c *WSFramerCodec) decodeStreamResponse(
 			return err
 		}
 	}
-	v.Type = fhttp.WSMsgTypeData
+	v.Type = fhttp.WSMessageTypeData
 	fr, err := c.Codec.DecodeStream(r)
 	if err != nil {
 		return err
@@ -563,15 +571,14 @@ func (c *WSFramerCodec) encodeStreamResponse(
 	ctx context.Context,
 	w io.Writer,
 	v fhttp.WSMessage[FrameStreamerResponse],
-) (err error) {
-	if v.Type != fhttp.WSMsgTypeData || v.Payload.Frame.Empty() {
+) error {
+	if v.Type != fhttp.WSMessageTypeData || v.Payload.Frame.Empty() {
 		return c.lowPerfEncode(ctx, w, v)
 	}
-	if _, err = w.Write([]byte{highPerfSpecialChar}); err != nil {
+	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	err = c.Codec.EncodeStream(nil, w, v.Payload.Frame)
-	return
+	return c.Codec.EncodeStream(nil, w, v.Payload.Frame)
 }
 
 func (c *WSFramerCodec) decodeStreamRequest(

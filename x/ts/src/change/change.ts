@@ -11,7 +11,7 @@ import { z } from "zod";
 
 export type Variant = "set" | "delete";
 
-export const Z = <V extends z.ZodTypeAny>(value: V) =>
+export const Z = <V extends z.ZodType>(value: V) =>
   z.object({
     variant: z.enum(["set", "delete"]),
     key: z.string(),

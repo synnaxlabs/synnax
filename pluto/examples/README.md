@@ -1,6 +1,7 @@
-## Pluto Example App  
+## Pluto Example App
 
-This is a simple example app that demos live data visualization using the Pluto component library. To run the app, follow the steps below.
+This is a simple example app that demos live data visualization using the Pluto
+component library. To run the app, follow the steps below.
 
 ### Clone the Synnax Repository
 

@@ -38,7 +38,7 @@ export interface AxisProps
   extends PropsWithChildren,
     Omit<z.input<typeof lineplot.xAxisStateZ>, "position" | "size">,
     Omit<Align.SpaceProps, "color">,
-    Aether.CProps {
+    Aether.ComponentProps {
   label?: string;
   labelLevel?: Text.Level;
   labelDirection?: direction.Direction;

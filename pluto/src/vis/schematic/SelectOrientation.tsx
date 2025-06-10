@@ -19,19 +19,21 @@ import { type Input } from "@/input";
 
 export interface OrientationValue {
   inner: location.Outer;
-  outer: location.Outer;
+  outer: location.Location;
 }
 
 export interface SelectOrientationProps
   extends Input.Control<OrientationValue>,
     Omit<Align.SpaceProps, "value" | "onChange"> {
   hideOuter?: boolean;
+  showOuterCenter?: boolean;
   hideInner?: boolean;
 }
 
 export const SelectOrientation = ({
   value,
   hideOuter = false,
+  showOuterCenter = false,
   hideInner,
   onChange,
 }: SelectOrientationProps): ReactElement => {
@@ -58,7 +60,12 @@ export const SelectOrientation = ({
       <Button selected={outer === "top"} onClick={handleChange({ outer: "top" })} />
       <Align.Space x align="center" justify="center" size="tiny">
         <Button selected={outer === "left"} onClick={handleChange({ outer: "left" })} />
-        <InternalOrientation hideInner={hideInner} value={value} onChange={onChange} />
+        <InternalOrientation
+          hideInner={hideInner}
+          value={value}
+          onChange={onChange}
+          showOuterCenter={showOuterCenter}
+        />
         <Button
           selected={outer === "right"}
           onClick={handleChange({ outer: "right" })}
@@ -77,6 +84,7 @@ const InternalOrientation = ({
   onChange,
   className,
   hideInner = false,
+  showOuterCenter = true,
   ...rest
 }: SelectOrientationProps): ReactElement => {
   const { inner } = value;
@@ -85,43 +93,61 @@ const InternalOrientation = ({
   let showStyle: CSSProperties = {};
   if (hideInner)
     showStyle = { opacity: 0, userSelect: "none", width: "1.5rem", height: "1.5rem" };
+  let content: ReactElement | null = null;
+  if (showOuterCenter)
+    content = (
+      <Button
+        selected={value.outer === "center"}
+        onClick={handleChange({ outer: "center" })}
+      />
+    );
+  else
+    content = (
+      <>
+        <Button
+          style={showStyle}
+          disabled={hideInner}
+          className={CSS(CSS.dir("y"))}
+          selected={inner === "top"}
+          onClick={handleChange({ inner: "top" })}
+        />
+        <Align.Space x align="center" justify="center">
+          <Button
+            style={showStyle}
+            disabled={hideInner}
+            selected={inner === "left"}
+            onClick={handleChange({ inner: "left" })}
+          />
+          <Button
+            style={showStyle}
+            disabled={hideInner}
+            selected={inner === "right"}
+            onClick={handleChange({ inner: "right" })}
+          />
+        </Align.Space>
+        <Button
+          style={showStyle}
+          disabled={hideInner}
+          className={CSS(CSS.dir("y"))}
+          selected={inner === "bottom"}
+          onClick={handleChange({ inner: "bottom" })}
+        />
+      </>
+    );
   return (
     <Align.Space
-      className={CSS(className, CSS.B("value"))}
+      className={CSS(
+        className,
+        CSS.B("value"),
+        showOuterCenter && CSS.M("show-outer-center"),
+      )}
       y
       align="center"
       justify="center"
       empty
       {...rest}
     >
-      <Button
-        style={showStyle}
-        disabled={hideInner}
-        className={CSS(CSS.dir("y"))}
-        selected={inner === "top"}
-        onClick={handleChange({ inner: "top" })}
-      />
-      <Align.Space x align="center" justify="center">
-        <Button
-          style={showStyle}
-          disabled={hideInner}
-          selected={inner === "left"}
-          onClick={handleChange({ inner: "left" })}
-        />
-        <Button
-          style={showStyle}
-          disabled={hideInner}
-          selected={inner === "right"}
-          onClick={handleChange({ inner: "right" })}
-        />
-      </Align.Space>
-      <Button
-        style={showStyle}
-        disabled={hideInner}
-        className={CSS(CSS.dir("y"))}
-        selected={inner === "bottom"}
-        onClick={handleChange({ inner: "bottom" })}
-      />
+      {content}
     </Align.Space>
   );
 };

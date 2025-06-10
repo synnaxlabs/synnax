@@ -11,6 +11,7 @@ import { binary, URL } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
+import { Unreachable } from "@/errors";
 import { HTTPClient } from "@/http";
 
 const ENDPOINT = new URL({
@@ -66,5 +67,26 @@ describe("http", () => {
     );
     expect(error).toBeNull();
     expect(response?.message).toEqual("");
+  });
+
+  test("unreachable", async () => {
+    const c = new HTTPClient(
+      new URL({
+        host: "127.0.0.1",
+        protocol: "http",
+        port: 9999,
+        pathPrefix: "unary",
+      }),
+      new binary.JSONCodec(),
+    );
+    const [response, error] = await c.send<typeof messageZ>(
+      "/unreachable",
+      {},
+      messageZ,
+      messageZ,
+    );
+    expect(error).toBeInstanceOf(Unreachable);
+    expect(error?.message).toEqual("Unreachable");
+    expect(response).toBeNull();
   });
 });

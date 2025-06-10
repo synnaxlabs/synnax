@@ -11,15 +11,31 @@ import z from "zod";
 
 import { binary } from "@/binary";
 
-const messageZ = z.object({
-  jsonrpc: z.string(),
+export const requestZ = z.object({
+  jsonrpc: z.literal("2.0"),
   id: z.number().optional(),
-  method: z.string().optional(),
+  method: z.string(),
   params: z.unknown().optional(),
-  result: z.unknown().optional(),
 });
 
-export type Message = z.infer<typeof messageZ>;
+export type Request = z.infer<typeof requestZ>;
+
+export const responseZ = z.object({
+  jsonrpc: z.literal("2.0"),
+  id: z.number(),
+  result: z.unknown().optional(),
+  error: z
+    .object({
+      code: z.number(),
+      message: z.string(),
+      data: z.unknown().optional(),
+    })
+    .optional(),
+});
+
+export type Response = z.infer<typeof responseZ>;
+
+export type Message = z.infer<typeof requestZ> | z.infer<typeof responseZ>;
 
 export interface ChunkParser {
   (chunk: Uint8Array | ArrayBuffer | string): void;
@@ -81,7 +97,7 @@ export const streamDecodeChunks = (
         buffer = buffer.slice(expectedLength);
         expectedLength = null;
         const messageStr = decoder.decode(messageBytes);
-        const parsed = binary.JSON_CODEC.decodeString(messageStr, messageZ);
+        const parsed = binary.JSON_CODEC.decodeString(messageStr, requestZ);
         onMessage(parsed);
       } else break;
     }

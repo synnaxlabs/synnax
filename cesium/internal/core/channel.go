@@ -27,11 +27,11 @@ type ChannelKey = uint32
 // A channel can also be used for storing derived data, such as a moving average or signal
 // processing result.
 type Channel struct {
-	// Key is a unique identifier to the channel within the cesium.
+	// Key is a unique identifier to the channel within cesium.
 	// [REQUIRED]
 	Key ChannelKey `json:"key" msgpack:"key"`
-	// Name is a non-unique, human-readable identifier to the channel within the data
-	// engine. Note that it is never used to index or retrieve a channel.
+	// Name is a non-unique, human-readable identifier to the channel within cesium.
+	// Note that it is never used to index or retrieve a channel.
 	// [REQUIRED]
 	Name string `json:"name" msgpack:"name"`
 	// IsIndex determines whether the channel acts as an index channel. If false, then
@@ -44,7 +44,7 @@ type Channel struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// Index is the key of the channel used to index the channel's values. The Index is
 	// used to associate a value in a data channel with a corresponding timestamp.
-	// [OPTIONAL if IsIndex is true and REQUIRED if IsIndex is false]
+	// [OPTIONAL if IsIndex is true and REQUIRED if IsIndex is false or Virtual is true]
 	Index ChannelKey `json:"index" msgpack:"index"`
 	// Virtual specifies whether the channel is virtual. Virtual channels do not store
 	// any data and do not require an index.
@@ -59,6 +59,7 @@ type Channel struct {
 	Version version.Version `json:"version" msgpack:"version"`
 }
 
+// String implements fmt.Stringer to return nicely formatted channel info.
 func (c Channel) String() string {
 	if c.Name != "" {
 		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key)
@@ -66,6 +67,8 @@ func (c Channel) String() string {
 	return fmt.Sprintf("<%d>", c.Key)
 }
 
+// ValidateSeries ensures that a given series is compatible with the channel and
+// returns an error if it is not.
 func (c Channel) ValidateSeries(series telem.Series) error {
 	sDt := series.DataType
 	cDt := c.DataType
@@ -80,4 +83,25 @@ func (c Channel) ValidateSeries(series telem.Series) error {
 		)
 	}
 	return nil
+}
+
+// Validate checks that all channel fields are valid, and returns an error if they
+// are not.
+func (c Channel) Validate() error {
+	v := validate.New("meta")
+	validate.Positive(v, "key", c.Key)
+	validate.NotEmptyString(v, "data_type", c.DataType)
+	validate.NotEmptyString(v, "name", c.Name)
+	if c.Virtual {
+		v.Ternaryf("index", c.Index != 0, "virtual channel cannot be indexed")
+	} else {
+		v.Ternary("data_type", c.DataType.IsVariable(), "persisted channels cannot have variable density data types")
+		if c.IsIndex {
+			v.Ternary("data_type", c.DataType != telem.TimeStampT, "index channel must be of type timestamp")
+			v.Ternaryf("index", c.Index != 0 && c.Index != c.Key, "index channel cannot be indexed by another channel")
+		} else {
+			v.Ternaryf("index", c.Index == 0, "non-indexed channel must have an index")
+		}
+	}
+	return v.Error()
 }

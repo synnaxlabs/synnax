@@ -67,7 +67,9 @@ jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' && needs.setup.outputs.changed == 'true') || github.event_name == 'workflow_dispatch'
+    if:
+      (github.event_name == 'push' && needs.setup.outputs.changed == 'true') ||
+      github.event_name == 'workflow_dispatch'
     needs: setup
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}
@@ -106,7 +108,8 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     needs: setup
-    if: needs.setup.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+    if:
+      needs.setup.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -121,7 +124,9 @@ jobs:
       - name: Import Apple Developer Certificate
         # Only notarize on macOS and on push events, not on PRs. This prevents excessive
         # notarization requests and long CI times on PRs.
-        if: matrix.os == 'macos-latest' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        if:
+          matrix.os == 'macos-latest' && (github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch')
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -139,7 +144,9 @@ jobs:
 
       - name: Verify Apple Developer Certificate
         # Same as above - only notarize on macOS and on push events, not on PRs
-        if: matrix.os == 'macos-latest' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        if:
+          matrix.os == 'macos-latest' && (github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch')
         run: |
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
@@ -169,7 +176,9 @@ jobs:
           cache: pnpm
 
       - name: Adjust Auto Updater URL for Release Candidate
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/rc'
+        if:
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          github.ref == 'refs/heads/rc'
         working-directory: console/src-tauri
         run: |
           jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"]' tauri.conf.json > temp.json
@@ -232,14 +241,18 @@ jobs:
         run: pnpm build
 
       - name: Upload macOS Release Asset
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && matrix.os == 'macos-latest'
+        if:
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          matrix.os == 'macos-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_aarch64.dmg
 
       - name: Upload Windows Release Asset
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && matrix.os == 'windows-latest'
+        if:
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          matrix.os == 'windows-latest'
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.sig
@@ -249,7 +262,9 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    if: (needs.setup.outputs.changed == 'true' && needs.create-release.outputs.release_id != '') || github.event_name == 'workflow_dispatch'
+    if:
+      (needs.setup.outputs.changed == 'true' && needs.create-release.outputs.release_id
+      != '') || github.event_name == 'workflow_dispatch'
     needs: [setup, create-release, build]
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}
@@ -275,15 +290,18 @@ jobs:
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
+        if: github.ref == 'refs/heads/main'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
+        if: github.ref == 'refs/heads/main'
         with:
           node-version-file: package.json
           cache: pnpm
 
       - name: Add Auto Update JSON File
         uses: actions/github-script@v7
+        if: github.ref == 'refs/heads/main'
         env:
           release_id: ${{ needs.create-release.outputs.release_id }}
         with:
@@ -330,16 +348,6 @@ jobs:
             };
 
             fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2));
-
-      - name: Commit & Push Auto Update JSON File on RC
-        if: github.ref == 'refs/heads/rc'
-        uses: EndBug/add-and-commit@v9
-        with:
-          add: "*"
-          default_author: github_actor
-          message: Auto Update JSON File
-          pull: --commit --no-edit
-          push: origin rc --force
 
       - name: Commit & Push Auto Update JSON File on Main
         if: github.ref == 'refs/heads/main'

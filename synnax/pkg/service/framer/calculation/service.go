@@ -14,33 +14,32 @@ import (
 	"io"
 	"sync"
 
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/status"
-
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
-// Config is the configuration for opening the calculation service.
-type Config struct {
+// ServiceConfig is the configuration for opening the calculation service.
+type ServiceConfig struct {
 	alamos.Instrumentation
 	// Framer is the underlying frame service to stream required channel values and write
 	// calculated samples.
@@ -51,22 +50,22 @@ type Config struct {
 	Channel channel.Service
 	// ChannelObservable is used to listen to real-time changes in calculated channels
 	// so the calculation routines can be updated accordingly.
+	// [REQUIRED]
 	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
 	// StateCodec is the encoder/decoder used to communicate calculation state
 	// changes.
+	// [OPTIONAL]
 	StateCodec binary.Codec
 }
 
 var (
-	_ config.Config[Config] = Config{}
+	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultConfig is the default configuration for opening the calculation service.
-	DefaultConfig = Config{
-		StateCodec: &binary.JSONCodec{},
-	}
+	DefaultConfig = ServiceConfig{StateCodec: &binary.JSONCodec{}}
 )
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "Framer", c.Framer)
 	validate.NotNil(v, "Channel", c.Channel)
@@ -76,7 +75,7 @@ func (c Config) Validate() error {
 }
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -105,7 +104,7 @@ type State struct {
 
 // Service creates and operates calculations on channels.
 type Service struct {
-	cfg Config
+	cfg ServiceConfig
 	mu  struct {
 		sync.Mutex
 		entries map[channel.Key]*entry
@@ -115,9 +114,9 @@ type Service struct {
 	w                            *framer.Writer
 }
 
-// Open opens the service with the provided configuration. The service must be closed
+// OpenService opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
-func Open(ctx context.Context, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -163,7 +162,7 @@ func (s *Service) setState(
 ) {
 	if _, err := s.w.Write(core.UnaryFrame(
 		s.stateKey,
-		telem.NewStaticJSONV(State{
+		telem.NewSeriesStaticJSONV(State{
 			Key:     ch.Key(),
 			Variant: variant,
 			Message: message,
@@ -276,7 +275,7 @@ func (s *Service) startCalculation(
 	ch.Leaseholder = key.Leaseholder()
 	defer func() {
 		if err != nil {
-			s.setState(ctx, ch, "error", err.Error())
+			s.setState(ctx, ch, status.ErrorVariant, err.Error())
 		}
 	}()
 	if err = s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {

@@ -41,7 +41,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It("Should garbage collect one tombstone", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        9 * telem.ByteSize,
+						FileSize:        9 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
@@ -94,7 +94,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It("Should garbage collect multiple tombstones", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        20 * telem.ByteSize,
+						FileSize:        20 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
@@ -167,7 +167,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It("Should garbage collect multiple tombstones based on the threshold", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        (1.25 * 20) * telem.ByteSize,
+						FileSize:        (1.25 * 20) * telem.Byte,
 						GCThreshold:     float32(16) / 20,
 						Instrumentation: PanicLogger(),
 					}))
@@ -222,7 +222,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It("Should not garbage collect a file that is oversize but not still being written to", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        13 * telem.ByteSize,
+						FileSize:        13 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
@@ -277,7 +277,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It("Should not garbage collect a file that has an open reader on it", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        9 * telem.ByteSize,
+						FileSize:        9 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
@@ -322,7 +322,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						MaxDescriptors:  4,
-						FileSize:        2 * telem.ByteSize,
+						FileSize:        2 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
@@ -391,7 +391,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It("Should garbage collect multiple tombstones across many files", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        7 * telem.ByteSize,
+						FileSize:        7 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
@@ -456,7 +456,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It("Should garbage collect tombstones based on the threshold", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        7 * telem.ByteSize,
+						FileSize:        7 * telem.Byte,
 						GCThreshold:     0.4,
 						Instrumentation: PanicLogger(),
 					}))
@@ -513,7 +513,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It("Should preserve the tombstones after database closure", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        7 * telem.ByteSize,
+						FileSize:        7 * telem.Byte,
 						GCThreshold:     0.4,
 						Instrumentation: PanicLogger(),
 					}))
@@ -532,7 +532,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        7 * telem.ByteSize,
+						FileSize:        7 * telem.Byte,
 						GCThreshold:     0.4,
 						Instrumentation: PanicLogger(),
 					}))
@@ -596,7 +596,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				Specify("Reader should be recycled", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        7 * telem.ByteSize,
+						FileSize:        7 * telem.Byte,
 						GCThreshold:     0,
 						Instrumentation: PanicLogger(),
 					}))
@@ -634,7 +634,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				Specify("Reader gc", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        7 * telem.ByteSize,
+						FileSize:        7 * telem.Byte,
 						GCThreshold:     0,
 						Instrumentation: PanicLogger(),
 					}))
@@ -656,7 +656,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				It("Should not allow GC on a closed DB", func() {
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        20 * telem.ByteSize,
+						FileSize:        20 * telem.Byte,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
