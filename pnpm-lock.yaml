@@ -6,7 +6,7 @@ settings:
 
 overrides:
   '@reduxjs/toolkit': ^2.8.2
-  '@tanstack/react-virtual': ^3.13.10
+  '@tanstack/react-virtual': ^3.13.6
   '@tauri-apps/api': ^2.5.0
   '@types/react': ^19.1.7
   '@types/react-dom': ^19.1.6
@@ -643,7 +643,7 @@ importers:
         specifier: workspace:*
         version: link:../x/ts
       '@tanstack/react-virtual':
-        specifier: ^3.13.10
+        specifier: ^3.13.6
         version: 3.13.10(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@xyflow/react':
         specifier: ^12.6.4
@@ -728,7 +728,7 @@ importers:
         specifier: workspace:*
         version: link:../configs/eslint
       jsdom:
-        specifier: ^26.1.0
+        specifier: ^26.0.0
         version: 26.1.0
       madge:
         specifier: ^8.0.0
@@ -8554,14 +8554,14 @@ snapshots:
       '@remotion/media-parser': 4.0.314
       '@remotion/studio': 4.0.314(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@remotion/studio-shared': 4.0.314(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      css-loader: 5.2.7(webpack@5.96.1)
+      css-loader: 5.2.7(webpack@5.96.1(esbuild@0.25.0))
       esbuild: 0.25.0
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
       react-refresh: 0.9.0
       remotion: 4.0.314(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       source-map: 0.7.3
-      style-loader: 4.0.0(webpack@5.96.1)
+      style-loader: 4.0.0(webpack@5.96.1(esbuild@0.25.0))
       webpack: 5.96.1(esbuild@0.25.0)
     transitivePeerDependencies:
       - '@swc/core'
@@ -10236,7 +10236,7 @@ snapshots:
 
   css-functions-list@3.2.3: {}
 
-  css-loader@5.2.7(webpack@5.96.1):
+  css-loader@5.2.7(webpack@5.96.1(esbuild@0.25.0)):
     dependencies:
       icss-utils: 5.1.0(postcss@8.5.4)
       loader-utils: 2.0.4
@@ -13588,7 +13588,7 @@ snapshots:
     dependencies:
       js-tokens: 9.0.1
 
-  style-loader@4.0.0(webpack@5.96.1):
+  style-loader@4.0.0(webpack@5.96.1(esbuild@0.25.0)):
     dependencies:
       webpack: 5.96.1(esbuild@0.25.0)
 

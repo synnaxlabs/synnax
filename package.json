@@ -69,7 +69,7 @@
   "pnpm": {
     "overrides": {
       "@reduxjs/toolkit": "^2.8.2",
-      "@tanstack/react-virtual": "^3.13.10",
+      "@tanstack/react-virtual": "^3.13.6",
       "@tauri-apps/api": "^2.5.0",
       "@types/react": "^19.1.7",
       "@types/react-dom": "^19.1.6",

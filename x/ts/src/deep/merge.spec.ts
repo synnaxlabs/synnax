@@ -243,6 +243,19 @@ describe("deepMerge", () => {
     });
   });
 
+  it("should work with multiple extensions", () => {
+    const az = z.object({ a: z.number() });
+    const cz = z.object({ c: z.boolean() });
+    const extendedSchema = az.extend(cz);
+    const base = { a: 1 };
+    const override = { b: "2", c: true };
+    expect(deep.overrideValidItems(base, override, extendedSchema)).toEqual({
+      a: 1,
+      b: "2",
+      c: true,
+    });
+  });
+
   it("should work with intersection", () => {
     const schema1 = z.object({
       a: z.number(),

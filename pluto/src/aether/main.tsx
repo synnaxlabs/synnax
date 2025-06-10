@@ -254,8 +254,7 @@ export const useLifecycle = <S extends z.ZodType<state.State>>({
   // We run the first effect synchronously so that parent components are created
   // before their children. This is impossible to do with effect hooks.
   if (comms.current == null) {
-    if (onReceive == null) throw new Error("onReceive is required");
-    comms.current = ctx.create(type, path, onReceive as StateHandler);
+    comms.current = ctx.create(type, path, onReceive as StateHandler<unknown>);
     comms.current.setState(prettyParse(schema, initialState), initialTransfer);
   }
 
@@ -387,7 +386,7 @@ export const use = <S extends z.ZodType<state.State>>(
   // Update the internal component state when we receive communications from the
   // aether.
   const handleReceive = useCallback(
-    (rawState: z.input<S>) => {
+    (rawState: z.output<S>) => {
       const state = prettyParse(schema, rawState);
       setInternalState(state);
       onAetherChangeRef.current?.(state);
@@ -397,7 +396,7 @@ export const use = <S extends z.ZodType<state.State>>(
 
   const { path, setState: setAetherState } = useLifecycle({
     ...props,
-    onReceive: handleReceive as StateHandler<z.infer<S>>,
+    onReceive: handleReceive,
   });
 
   const setState = useCallback(
