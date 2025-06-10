@@ -31,12 +31,14 @@ import { useDispatch } from "react-redux";
 
 import { ConnectionBadge } from "@/cluster/Badges";
 import { CONNECT_LAYOUT } from "@/cluster/Connect";
+import { getClient } from "@/cluster/getClient";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
 import { type Cluster, remove, rename, setActive } from "@/cluster/slice";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
+import { useCreateOrRetrieve } from "@/workspace/useCreateNew";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -46,9 +48,12 @@ export const List = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   const selected = active?.key ?? null;
   const addStatus = Status.useAdder();
+  const createWS = useCreateOrRetrieve();
 
   const handleConnect = (key: string | null): void => {
     dispatch(setActive(key));
+    const cluster = allClusters.find((c) => c.key === key);
+    createWS(cluster == null ? null : getClient(cluster));
   };
 
   const validateName = useCallback(
