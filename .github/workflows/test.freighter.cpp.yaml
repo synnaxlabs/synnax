@@ -1,4 +1,4 @@
-name: Test - X (C++)
+name: Test - Freighter (C++)
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
       - .bazelrc
       - .clang-format
       - .clang-format-ignore
-      - .github/workflows/test.x.cpp.yaml
+      - .github/workflows/test.freighter.cpp.yaml
       - freighter/cpp/**
       - MODULE.bazel
       - MODULE.bazel.lock
