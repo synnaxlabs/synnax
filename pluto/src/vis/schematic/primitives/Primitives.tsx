@@ -271,14 +271,20 @@ const InternalSVG = ({
   dims = dir === "y" ? dimensions.swap(dims) : dims;
   const colorStr = color.cssString(colorVal);
   const theme = Theming.use();
-  if (colorVal != null) {
-    // @ts-expect-error - css variables
-    style[CSS.var("symbol-color")] = color.rgbString(colorVal);
-    // @ts-expect-error - css variables
-    style[CSS.var("symbol-color-contrast")] = color.rgbString(
-      color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
-    );
-  }
+  let pStyle = {
+    ...style,
+    aspectRatio: `${dims.width} / ${dims.height}`,
+    width: dimensions.scale(dims, scale * BASE_SCALE).width,
+  };
+  if (colorVal != null)
+    pStyle = {
+      ...pStyle,
+      [CSS.var("symbol-color")]: color.rgbString(colorVal),
+      [CSS.var("symbol-color-contrast")]: color.rgbString(
+        color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
+      ),
+    };
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -287,11 +293,7 @@ const InternalSVG = ({
       fill={colorStr}
       stroke={colorStr}
       {...rest}
-      style={{
-        aspectRatio: `${dims.width} / ${dims.height}`,
-        width: dimensions.scale(dims, scale * BASE_SCALE).width,
-        ...style,
-      }}
+      style={pStyle}
     >
       <g>{children}</g>
     </svg>
