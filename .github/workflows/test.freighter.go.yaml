@@ -1,22 +1,19 @@
-name: Test - Synnax
+name: Test - Freighter (Go)
 
 on:
-  pull_request:
-    paths:
-      - .github/workflows/test.synnax.yaml
-      - alamos/go/**
-      - aspen/**
-      - cesium/**
-      - freighter/go/**
-      - go.work
-      - go.work.sum
-      - scripts/check-gofmt.sh
-      - synnax/**
-      - x/go/**
   push:
     branches:
       - main
       - rc
+  pull_request:
+    paths:
+      - .github/workflows/test.freighter.go.yaml
+      - alamos/go/**
+      - freighter/go/**
+      - go.work
+      - go.work.sum
+      - scripts/check-gofmt.sh
+      - x/go/**
   workflow_dispatch:
 
 jobs:
@@ -48,8 +45,8 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: ./scripts/check-gofmt.sh synnax
+        run: ./scripts/check-gofmt.sh freighter/go
 
       - name: Test
         run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output
-        working-directory: synnax
+        working-directory: freighter/go

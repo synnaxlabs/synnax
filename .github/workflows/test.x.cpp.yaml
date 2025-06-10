@@ -1,18 +1,18 @@
-name: Test - Synnax
+name: Test - X (C++)
 
 on:
   pull_request:
     paths:
-      - .github/workflows/test.synnax.yaml
-      - alamos/go/**
-      - aspen/**
-      - cesium/**
-      - freighter/go/**
-      - go.work
-      - go.work.sum
-      - scripts/check-gofmt.sh
-      - synnax/**
-      - x/go/**
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.x.cpp.yaml
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - scripts/check-clang-format.sh
+      - x/cpp/**
+      - x/go/**/*.pb.h
   push:
     branches:
       - main
@@ -40,16 +40,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          go-version-file: go.work
-          cache-dependency-path: go.work.sum
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
+          repository-cache: true
 
       - name: Check Formatting
         if: matrix.format
-        run: ./scripts/check-gofmt.sh synnax
+        run: ./scripts/check-clang-format.sh x/cpp
 
       - name: Test
-        run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output
-        working-directory: synnax
+        run: bazel test --test_output=all //x/cpp/... --nocache_test_results
