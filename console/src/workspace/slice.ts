@@ -27,7 +27,7 @@ type SetActivePayload = string | null;
 
 export type AddPayload = workspace.Workspace | workspace.Workspace[];
 
-export interface ClearAndReplacePayload extends workspace.Workspace {}
+export interface Replace extends workspace.Workspace {}
 
 export interface RemovePayload {
   keys: string[];
@@ -46,7 +46,7 @@ export const { actions, reducer } = createSlice({
       state.active = null;
       state.workspaces = {};
     },
-    clearAndReplace: (state, { payload }: PayloadAction<ClearAndReplacePayload>) => {
+    replace: (state, { payload }: PayloadAction<Replace>) => {
       state.active = payload.key;
       state.workspaces = { [payload.key]: payload };
     },
@@ -71,6 +71,6 @@ export const { actions, reducer } = createSlice({
   },
 });
 
-export const { clear, clearAndReplace, setActive, add, remove, rename } = actions;
+export const { clear, replace, setActive, add, remove, rename } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

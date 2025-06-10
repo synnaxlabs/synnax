@@ -14,7 +14,7 @@ import { useDispatch } from "react-redux";
 import { Layout } from "@/layout";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { useSelectActive } from "@/workspace/selectors";
-import { clearAndReplace } from "@/workspace/slice";
+import { replace } from "@/workspace/slice";
 
 export const useCreateOrRetrieve = () => {
   const handleError = Status.useErrorHandler();
@@ -33,12 +33,12 @@ export const useCreateOrRetrieve = () => {
     handleError(async () => {
       try {
         await client.workspaces.retrieve(activeWS.key);
-        dispatch(clearAndReplace(activeWS));
+        dispatch(replace(activeWS));
         await client.workspaces.setLayout(activeWS.key, purgedLayout);
       } catch (e) {
         if (!NotFoundError.matches(e)) throw e;
         await client.workspaces.create({ ...activeWS, layout: purgedLayout });
-        dispatch(clearAndReplace(activeWS));
+        dispatch(replace(activeWS));
       }
     }, `Failed to create workspace ${activeWS.name}`);
   };
