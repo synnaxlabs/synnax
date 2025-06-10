@@ -10,7 +10,6 @@
 import {
   binary,
   type observe,
-  status,
   type UnknownRecord,
   unknownRecordZ,
 } from "@synnaxlabs/x";
@@ -27,16 +26,18 @@ export const keyZ = z.union([
 ]);
 export type Key = z.infer<typeof keyZ>;
 
+export const statusZ = z.enum(["info", "success", "error", "warning"]);
+export type Status = z.infer<typeof statusZ>;
+
 export const stateZ = z.object({
   task: keyZ,
-  variant: status.variantZ,
+  variant: statusZ,
   key: z.string().optional(),
   details: unknownRecordZ
     .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))
     .or(z.null()) as z.ZodType<UnknownRecord | undefined>,
 });
-
 export interface State<Details extends {} = UnknownRecord>
   extends Omit<z.infer<typeof stateZ>, "details"> {
   details?: Details;
@@ -51,12 +52,11 @@ export const taskZ = z.object({
   state: stateZ.optional().nullable(),
   snapshot: z.boolean().optional(),
 });
-
 export interface Payload<
   Config extends UnknownRecord = UnknownRecord,
   Details extends {} = UnknownRecord,
   Type extends string = string,
-> extends Omit<z.infer<typeof taskZ>, "config" | "type" | "state"> {
+> extends Omit<z.output<typeof taskZ>, "config" | "type" | "state"> {
   type: Type;
   config: Config;
   state?: State<Details> | null;
@@ -66,7 +66,6 @@ export const newZ = taskZ.omit({ key: true }).extend({
   key: keyZ.transform((k) => k.toString()).optional(),
   config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
-
 export interface New<
   Config extends UnknownRecord = UnknownRecord,
   Type extends string = string,
@@ -85,7 +84,6 @@ export const commandZ = z.object({
     .or(z.null())
     .optional() as z.ZodOptional<z.ZodType<UnknownRecord>>,
 });
-
 export interface Command<Args extends {} = UnknownRecord>
   extends Omit<z.infer<typeof commandZ>, "args"> {
   args?: Args;

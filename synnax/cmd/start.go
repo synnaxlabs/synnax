@@ -96,7 +96,7 @@ func start(cmd *cobra.Command) {
 	v := version.Get()
 	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")
 	var (
-		ins      = configureInstrumentation()
+		ins      = configureInstrumentation(v)
 		insecure = viper.GetBool(insecureFlag)
 		debug    = viper.GetBool(debugFlag)
 		autoCert = viper.GetBool(autoCertFlag)
@@ -140,7 +140,7 @@ func start(cmd *cobra.Command) {
 		grpcServerTransports := &[]fgrpc.BindableTransport{}
 		grpcClientPool := configureClientGRPC(secProvider, insecure)
 
-		// Serve the distribution layer.
+		// Open the distribution layer.
 		storageCfg := buildStorageConfig(ins)
 		distConfig, err := buildDistributionConfig(
 			grpcClientPool,
@@ -338,7 +338,7 @@ func start(cmd *cobra.Command) {
 		*grpcServerTransports = append(*grpcServerTransports, grpcAPITrans...)
 		_api.BindTo(grpcAPI)
 
-		srv, err := server.Serve(buildServerConfig(
+		srv, err := server.Open(buildServerConfig(
 			*grpcServerTransports,
 			[]fhttp.BindableTransport{r},
 			secProvider,

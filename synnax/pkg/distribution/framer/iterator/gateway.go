@@ -17,7 +17,7 @@ import (
 )
 
 func (s *Service) newGateway(cfg Config, generateSeqNums bool) (confluence.Segment[Request, Response], error) {
-	iter, err := s.cfg.TS.NewStreamIterator(ts.IteratorConfig{
+	iter, err := s.TS.NewStreamIterator(ts.IteratorConfig{
 		Bounds:        cfg.Bounds,
 		Channels:      cfg.Keys.Storage(),
 		AutoChunkSize: cfg.ChunkSize,
@@ -29,7 +29,7 @@ func (s *Service) newGateway(cfg Config, generateSeqNums bool) (confluence.Segme
 	reqT := &confluence.LinearTransform[Request, ts.IteratorRequest]{}
 	reqT.Transform = newStorageRequestTranslator(generateSeqNums)
 	resT := &confluence.LinearTransform[ts.IteratorResponse, Response]{}
-	resT.Transform = newStorageResponseTranslator(s.cfg.HostResolver.HostKey())
+	resT.Transform = newStorageResponseTranslator(s.HostResolver.HostKey())
 	plumber.SetSegment[ts.IteratorRequest, ts.IteratorResponse](pipe, "storage", iter)
 	plumber.SetSegment[Request, ts.IteratorRequest](pipe, "requests", reqT)
 	plumber.SetSegment[ts.IteratorResponse, Response](pipe, "responses", resT)

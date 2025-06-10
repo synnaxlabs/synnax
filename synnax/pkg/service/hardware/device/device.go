@@ -37,7 +37,7 @@ type Device struct {
 	Properties string `json:"properties" msgpack:"properties"`
 	// State is the state of the device. This field is not stored directly with the
 	// device inside of gorp, and is not guaranteed to be valid.
-	State *State `json:"state" msgpack:"state"`
+	State State `json:"state" msgpack:"state"`
 }
 
 var _ gorp.Entry[string] = Device{}
@@ -68,8 +68,8 @@ type State struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Variant is the status variant representing the general state of the device.
 	Variant status.Variant `json:"variant" msgpack:"variant"`
-	// Details are JSON-stringified details about the device's state. These are
-	// arbitrary, and vary based on the device vendor.
+	// Details are JSON-stringified details about the device's state. These are arbitrary,
+	// and vary based on the device vendor.
 	Details xjson.String `json:"details" msgpack:"details"`
 }
 

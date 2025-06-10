@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, observe, strings } from "@synnaxlabs/x";
+import { observe, strings, toArray } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
@@ -51,7 +51,7 @@ export interface RetrieveOptions
 const retrieveResZ = z.object({ resources: resourceZ.array() });
 
 export const parseIDs = (ids: CrudeID | CrudeID[] | string | string[]): IDPayload[] =>
-  array.toArray(ids).map((id) => new ID(id).payload);
+  toArray(ids).map((id) => new ID(id).payload);
 
 /** The core client class for executing queries against a Synnax cluster ontology */
 export class Client implements AsyncTermSearcher<string, string, Resource> {
@@ -120,7 +120,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     if (resources.length === 0)
       throw new QueryError(
         `No resource found with ID ${strings.naturalLanguageJoin(
-          array.toArray(ids).map((id) => new ID(id).toString()),
+          toArray(ids).map((id) => new ID(id).toString()),
         )}`,
       );
     return resources[0];

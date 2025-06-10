@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestMTLS(t *testing.T) {
+func TestMtls(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "MTLS Suite")
+	RunSpecs(t, "Mtls Suite")
 }

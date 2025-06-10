@@ -264,7 +264,7 @@ class Client:
     def open_streamer(
         self,
         channels: ChannelParams,
-        downsample_factor: int = 1,
+        down_sample_factor: int = 1,
         use_experimental_codec: bool = True,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
@@ -273,26 +273,26 @@ class Client:
         :param channels: The channels to stream from. This can be a single channel name,
         a list of channel names, a single channel key, or a list of channel keys.
 
-        :param downsample_factor: The downsample factor to use for the streamer.
+        :param down_sample_factor: The downsample factor to use for the streamer.
         """
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
         return Streamer(
             adapter=adapter,
             client=self.__stream_client,
-            downsample_factor=downsample_factor,
+            down_sample_factor=down_sample_factor,
             use_experimental_codec=use_experimental_codec,
         )
 
     async def open_async_streamer(
-        self, channels: ChannelParams, downsample_factor: int = 1
+        self, channels: ChannelParams, down_sample_factor: int = 1
     ) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
         s = AsyncStreamer(
             adapter=adapter,
             client=self.__async_client,
-            downsample_factor=downsample_factor,
+            down_sample_factor=down_sample_factor,
         )
         await s._open()
         return s

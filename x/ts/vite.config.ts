@@ -41,7 +41,7 @@ export default defineConfig({
         worker: path.resolve(".", "src/worker/index.ts"),
         debounce: path.resolve(".", "src/debounce/index.ts"),
         destructor: path.resolve(".", "src/destructor.ts"),
-        array: path.resolve(".", "src/array/index.ts"),
+        toArray: path.resolve(".", "src/toArray.ts"),
         search: path.resolve(".", "src/search.ts"),
         unique: path.resolve(".", "src/unique/index.ts"),
         record: path.resolve(".", "src/record.ts"),

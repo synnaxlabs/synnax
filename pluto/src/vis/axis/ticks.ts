@@ -32,7 +32,7 @@ export const tickFactoryProps = z.object({
 });
 
 export type TickFactoryProps = z.input<typeof tickFactoryProps>;
-type ParsedTickFactoryProps = z.infer<typeof tickFactoryProps>;
+type ParsedTickFactoryProps = z.output<typeof tickFactoryProps>;
 
 export interface TickFactoryRenderArgs {
   /**

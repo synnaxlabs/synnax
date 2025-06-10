@@ -40,7 +40,7 @@ export const EnableDisableButton = ({
       value={value}
       {...rest}
     >
-      <Status.Indicator />
+      <Status.Circle />
     </Button.ToggleIcon>
   );
 };

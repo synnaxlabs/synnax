@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// For detailed information about the specifications,
+// please refer to the official RFC 0016 document.
+// Document here: docs/tech/rfc/0016-231001-frame-flight-protocol.md
+
 package codec
 
 import (
@@ -50,7 +54,7 @@ func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
 
 // Codec is a high-performance encoder/decoder specifically designed for moving
 // telemetry frames over the network. Codec is stateful, meaning that both the
-// encoding and decoding sides must agree on the set of channels and their order
+// encoding and decoding side must agree on the set of channels and their order
 // before any encoding or decoding can occur.
 type Codec struct {
 	// mu is non-routine safe structures that must be used carefully.
@@ -82,7 +86,7 @@ type Codec struct {
 	channels channel.Readable
 }
 
-var byteOrder = telem.ByteOrder
+var byteOrder = binary.LittleEndian
 
 // NewStatic creates a new codec that uses the given channel keys and data types as
 // its encoding state. It is not safe to call Update on a codec instantiated using
@@ -110,7 +114,7 @@ func NewDynamic(channels channel.Readable) *Codec {
 }
 
 func newCodec() *Codec {
-	c := &Codec{buf: xbinary.NewWriter(0, byteOrder)}
+	c := &Codec{buf: xbinary.NewWriter(0, 0, byteOrder)}
 	c.mu.updates = make(chan state, 50)
 	c.mu.updateAvailable.Store(false)
 	c.mu.states = make(map[uint32]state)

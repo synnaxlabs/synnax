@@ -23,6 +23,10 @@ import { type Frame, type Payload } from "@/framer/frame";
 import { type StreamerResponse } from "@/framer/streamer";
 import { WriterCommand, type WriteRequest } from "@/framer/writer";
 
+// For detailed information about the specifications,
+// please refer to the official RFC 0016 document.
+// Document here: docs/tech/rfc/0016-231001-frame-flight-protocol.md
+
 const seriesPldLength = (series: SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();
 

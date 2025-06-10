@@ -38,8 +38,8 @@ func (l *LinearTransform[I, O]) Flow(ctx signal.Context, opts ...Option) {
 }
 
 func (l *LinearTransform[I, O]) transform(ctx context.Context, i I) error {
-	v, shouldSend, err := l.Transform(ctx, i)
-	if err != nil || !shouldSend {
+	v, ok, err := l.Transform(ctx, i)
+	if err != nil || !ok {
 		return err
 	}
 	return signal.SendUnderContext(ctx, l.Out.Inlet(), v)

@@ -106,7 +106,7 @@ const Editor = ({ value, onChange, globals }: EditorProps) => {
 };
 
 const schema = configZ.extend({
-  rack: rack.keyZ.refine((v) => v > 0, "Location is required"),
+  rack: rack.keyZ.min(1, "Location is required"),
 });
 
 const Internal = ({

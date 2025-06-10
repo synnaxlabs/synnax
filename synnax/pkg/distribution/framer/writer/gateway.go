@@ -32,13 +32,13 @@ func (s *Service) newGateway(ctx context.Context, cfg Config) (StreamWriter, err
 		return nil, err
 	}
 	pipe := plumber.New()
-	plumber.SetSegment(pipe, gatewayTSWriterAddr, w)
+	plumber.SetSegment[ts.WriterRequest, ts.WriterResponse](pipe, gatewayTSWriterAddr, w)
 	reqT := &confluence.LinearTransform[Request, ts.WriterRequest]{}
 	reqT.Transform = newRequestTranslator()
 	resT := &confluence.LinearTransform[ts.WriterResponse, Response]{}
 	resT.Transform = newResponseTranslator(s.HostResolver.HostKey())
-	plumber.SetSegment(pipe, gatewayRequestsAddr, reqT)
-	plumber.SetSegment(pipe, gatewayResponsesAddr, resT)
+	plumber.SetSegment[Request, ts.WriterRequest](pipe, gatewayRequestsAddr, reqT)
+	plumber.SetSegment[ts.WriterResponse, Response](pipe, gatewayResponsesAddr, resT)
 	plumber.MustConnect[ts.WriterRequest](pipe, gatewayRequestsAddr, gatewayTSWriterAddr, 1)
 	plumber.MustConnect[ts.WriterResponse](pipe, gatewayTSWriterAddr, gatewayResponsesAddr, 1)
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}

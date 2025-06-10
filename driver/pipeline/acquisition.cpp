@@ -122,7 +122,7 @@ void Acquisition::run() {
             writer_opened = true;
         }
         if (auto err = writer->write(frame)) {
-            LOG(ERROR) << "[acquisition] failed to write frame" << err;
+            LOG(ERROR) << "[acquisition] failed to write frame";
             break;
         }
         this->breaker.reset();

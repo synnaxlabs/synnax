@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { linePlot } from "@synnaxlabs/client";
-import { deep, uuid } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
+import { v4 as uuid } from "uuid";
 
 import { type Layout } from "@/layout";
 import { internalCreate, type State, ZERO_STATE } from "@/lineplot/slice";
@@ -22,7 +23,7 @@ export const create =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
-    const key = linePlot.keyZ.safeParse(initial.key).data ?? uuid.create();
+    const key = linePlot.keyZ.safeParse(initial.key).data ?? uuid();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return { key, name, location, type: LAYOUT_TYPE, icon: "Visualize", window, tab };
   };

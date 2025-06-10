@@ -19,7 +19,7 @@ import { type RenderProp } from "@/util/renderProp";
 import { useContext, useGridEntry } from "@/vis/lineplot/LinePlot";
 import { range } from "@/vis/lineplot/range/aether";
 
-export interface ProviderProps extends Aether.ComponentProps {
+export interface ProviderProps extends Aether.CProps {
   menu?: RenderProp<range.SelectedState>;
 }
 

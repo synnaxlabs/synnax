@@ -13,18 +13,18 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
-	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type ControlUpdate struct {
-	Transfers []control.Transfer `json:"transfers"`
+	Transfers []controller.Transfer `json:"transfers"`
 }
 
 // ConfigureControlUpdateChannel configures a channel to be the update channel for the
@@ -57,7 +57,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey,
 	}
 
 	w, err := db.newStreamWriter(ctx, WriterConfig{
-		ControlSubject: xcontrol.Subject{
+		ControlSubject: control.Subject{
 			Name: "cesium_internal_control_digest",
 			Key:  uuid.New().String(),
 		},
@@ -71,7 +71,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey,
 	if err != nil {
 		return err
 	}
-	db.mu.digests.inlet, db.mu.digests.outlet = confluence.Attach(w, 100)
+	db.mu.digests.inlet, db.mu.digests.outlet = confluence.Attach[WriterRequest, WriterResponse](w, 100)
 	// We use a channel based mechanism to shut down this writer, so we create an
 	// isolated context here.
 	sCtx, cancel := signal.Isolated()
@@ -128,15 +128,15 @@ func (db *DB) ControlStates() (u ControlUpdate) {
 	if !db.digestsConfigured() {
 		return
 	}
-	u.Transfers = make([]control.Transfer, 0, len(db.mu.unaryDBs)+len(db.mu.virtualDBs))
+	u.Transfers = make([]controller.Transfer, 0, len(db.mu.unaryDBs)+len(db.mu.virtualDBs))
 	for _, d := range db.mu.unaryDBs {
 		if s := d.LeadingControlState(); s != nil {
-			u.Transfers = append(u.Transfers, control.Transfer{To: s})
+			u.Transfers = append(u.Transfers, controller.Transfer{To: s})
 		}
 	}
 	for _, d := range db.mu.virtualDBs {
 		if s := d.LeadingControlState(); s != nil {
-			u.Transfers = append(u.Transfers, control.Transfer{To: s})
+			u.Transfers = append(u.Transfers, controller.Transfer{To: s})
 		}
 	}
 	return u
@@ -147,7 +147,7 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 	if err != nil {
 		panic(err)
 	}
-	return telem.UnaryFrame(db.mu.digests.key, d)
+	return telem.UnaryFrame[ChannelKey](db.mu.digests.key, d)
 }
 
 func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {

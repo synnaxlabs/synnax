@@ -59,8 +59,6 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
             strict: bool | None = None,
             from_attributes: bool | None = None,
             context: Any | None = None,
-            by_alias: bool | None = None,
-            by_name: bool | None = None,
         ) -> Self:
             # Ensure the payload is validated as the correct type
             obj["payload"] = res_t.model_validate(
@@ -68,16 +66,9 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
                 strict=strict,
                 from_attributes=from_attributes,
                 context=context,
-                by_alias=by_alias,
-                by_name=by_name,
             )
             return super().model_validate(
-                obj,
-                strict=strict,
-                from_attributes=from_attributes,
-                context=context,
-                by_alias=by_alias,
-                by_name=by_name,
+                obj, strict=strict, from_attributes=from_attributes, context=context
             )
 
     return _ResMsg
@@ -298,7 +289,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         """
         :param encoder: The encoder to use for this client.
         :param base_url: A base url to use as a prefix for all requests.
-        :param max_message_size: The maximum size of a message to receive. Defaults to
+        :param maxMessage_size: The maximum size of a message to receive. Defaults to
         DEFAULT_MAX_SIZE.
         :param secure: Whether to use TLS encryption on the connection or not.
         """
@@ -354,6 +345,7 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         client = AsyncWebsocketClient(
             encoder=codec,
             base_url=self._endpoint,
+            max_size=self._max_message_size,
             secure=self._secure,
             **self._kwargs,
         )

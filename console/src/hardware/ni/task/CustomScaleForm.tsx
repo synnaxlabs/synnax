@@ -202,7 +202,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
     };
 
     const handleFileContentsChange = (
-      value: z.infer<typeof tableSchema>,
+      value: z.output<typeof tableSchema>,
       path: string,
     ) => {
       setPath(path);

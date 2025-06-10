@@ -11,7 +11,6 @@ package freighter_test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -35,7 +34,6 @@ type (
 )
 
 type streamImplementation interface {
-	name() string
 	start(host address.Address, ins alamos.Instrumentation) (streamServer, streamClient)
 	stop() error
 }
@@ -48,22 +46,21 @@ var streamImplementations = []streamImplementation{
 }
 
 var _ = Describe("Stream", Ordered, Serial, func() {
-	for _, impl := range streamImplementations {
-		impl := impl
-		var (
-			addr   address.Address
-			server streamServer
-			client streamClient
-		)
-		BeforeAll(func() {
-			addr = "localhost:8080"
-			server, client = impl.start(addr, alamos.Instrumentation{})
-		})
-		AfterAll(func() {
-			Expect(impl.stop()).ToNot(HaveOccurred())
-		})
-		Context(fmt.Sprintf("Implementation %s", impl.name()), func() {
-
+	Describe("Implementation Tests", func() {
+		for _, impl := range streamImplementations {
+			impl := impl
+			var (
+				addr   address.Address
+				server streamServer
+				client streamClient
+			)
+			BeforeAll(func() {
+				addr = "localhost:8080"
+				server, client = impl.start(addr, alamos.Instrumentation{})
+			})
+			AfterAll(func() {
+				Expect(impl.stop()).ToNot(HaveOccurred())
+			})
 			Describe("Normal Operation", func() {
 
 				It("Should exchange messages between a client and a server", func() {
@@ -333,8 +330,8 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					Expect(err).To(HaveOccurredAs(errors.New("middleware error")))
 				})
 			})
-		})
-	}
+		}
+	})
 	Describe("SenderNopCloser", func() {
 		It("Should implement the freighter.StreamSenderCloser interface", func() {
 			var closer freighter.StreamSenderCloser[int] = freighter.SenderNopCloser[int]{}
@@ -346,8 +343,6 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 type httpStreamImplementation struct {
 	app *fiber.App
 }
-
-func (impl *httpStreamImplementation) name() string { return "HTTP" }
 
 func (impl *httpStreamImplementation) start(
 	host address.Address,
@@ -382,8 +377,6 @@ func (impl *httpStreamImplementation) stop() error {
 type mockStreamImplementation struct {
 	net *fmock.Network[request, response]
 }
-
-func (impl *mockStreamImplementation) name() string { return "Mock" }
 
 func (impl *mockStreamImplementation) start(
 	host address.Address,

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type UnknownRecord } from "@synnaxlabs/x";
+import { toArray, type UnknownRecord } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
@@ -118,7 +118,7 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys), ...options },
+      { keys: toArray(keys), ...options },
       retrieveReqZ,
       retrieveResZ,
     );
@@ -173,7 +173,7 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     const res = await sendRequired(
       this.client,
       CREATE_ENDPOINT,
-      { devices: array.toArray(devices) },
+      { devices: toArray(devices) },
       createReqZ,
       createResZ,
     );
@@ -186,7 +186,7 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     await sendRequired(
       this.client,
       DELETE_ENDPOINT,
-      { keys: array.toArray(keys) },
+      { keys: toArray(keys) },
       deleteReqZ,
       deleteResZ,
     );

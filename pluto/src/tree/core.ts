@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, compare, unique, type UnknownRecord } from "@synnaxlabs/x";
+import { compare, toArray, unique, type UnknownRecord } from "@synnaxlabs/x";
 
 import { type Haul } from "@/haul";
 import { type Icon } from "@/icon";
@@ -113,7 +113,7 @@ export interface MoveNodeProps {
 }
 
 export const moveNode = ({ tree, destination, keys }: MoveNodeProps): Node[] => {
-  keys = array.toArray(keys);
+  keys = toArray(keys);
   if (destination == null) {
     const nodes = findNodes({ tree, keys });
     return [...nodes, ...tree.filter((node) => !keys.includes(node.key))];
@@ -133,7 +133,7 @@ export interface RemoveNodeProps {
 }
 
 export const removeNode = ({ tree, keys }: RemoveNodeProps): Node[] => {
-  keys = array.toArray(keys);
+  keys = toArray(keys);
   keys.forEach((key) => {
     const index = tree.findIndex((node) => node.key === key);
     if (index !== -1) tree.splice(index, 1);
@@ -153,7 +153,7 @@ export interface SetNodeProps {
 }
 
 export const setNode = ({ tree, destination, additions }: SetNodeProps): Node[] => {
-  additions = array.toArray(additions);
+  additions = toArray(additions);
   const uniqueAdditions = unique.by(additions, (node) => node.key, false);
   const addedKeys = uniqueAdditions.map((node) => node.key);
   if (destination == null)

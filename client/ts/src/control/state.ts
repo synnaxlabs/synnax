@@ -13,7 +13,6 @@ import { type observe } from "@synnaxlabs/x/observe";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
-import { keyZ } from "@/channel/payload";
 import { framer } from "@/framer";
 
 export type Authority = control.Authority;
@@ -36,10 +35,12 @@ export const transferString = (t: Transfer): string => {
 };
 
 const updateZ = z.object({
-  transfers: z.array(control.transferZ(keyZ)),
+  transfers: z.array(control.transferZ),
 });
 
-export interface Update extends z.infer<typeof updateZ> {}
+interface Update {
+  transfers: control.Transfer<channel.Key>[];
+}
 
 export class StateTracker
   extends framer.ObservableStreamer<Transfer[]>

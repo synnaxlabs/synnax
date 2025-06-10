@@ -15,7 +15,7 @@ import {
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { type Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
-import { type deep, type direction, id, type location } from "@synnaxlabs/x";
+import { color, type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
 import * as latest from "@/layout/types";
@@ -111,6 +111,11 @@ interface SetAltKeyPayload {
 interface SetUnsavedChangesPayload {
   key: string;
   unsavedChanges: boolean;
+}
+
+interface SetLoadingPayload {
+  key: string;
+  loading: boolean;
 }
 
 interface SetHaulingPayload extends Haul.DraggingState {}
@@ -541,7 +546,7 @@ export const { actions, reducer } = createSlice({
       mosaic.focused = key;
     },
     setColorContext: (state, { payload }: PayloadAction<SetColorContextPayload>) => {
-      state.colorContext = payload.state;
+      state.colorContext = color.transformColorsToHex(payload.state);
     },
     setUnsavedChanges: (
       state,
@@ -554,6 +559,17 @@ export const { actions, reducer } = createSlice({
       mosaic.root = Mosaic.updateTab(mosaic.root, layout.key, () => ({
         ...tabFromLayout(layout),
         unsavedChanges: payload.unsavedChanges,
+      }));
+      state.mosaics[layout.windowKey] = mosaic;
+    },
+    setLoading: (state, { payload }: PayloadAction<SetLoadingPayload>) => {
+      const layout = select(state, payload.key);
+      if (layout == null) return;
+      layout.loading = payload.loading;
+      const mosaic = state.mosaics[layout.windowKey];
+      mosaic.root = Mosaic.updateTab(mosaic.root, layout.key, () => ({
+        ...tabFromLayout(layout),
+        loading: payload.loading,
       }));
       state.mosaics[layout.windowKey] = mosaic;
     },
@@ -573,6 +589,7 @@ export const {
   splitMosaicNode,
   rename,
   setNavDrawer,
+  setLoading,
   resizeNavDrawer,
   setNavDrawerVisible,
   maybeCreateGetStartedTab,

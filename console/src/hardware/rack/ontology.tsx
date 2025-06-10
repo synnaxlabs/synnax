@@ -76,7 +76,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
 
   const heartRef = useRef<SVGSVGElement>(null);
 
-  const variant = state?.variant ?? "disabled";
+  const variant = (state?.variant ?? "disabled") as Status.Variant;
 
   useEffect(() => {
     if (variant !== "success") return;

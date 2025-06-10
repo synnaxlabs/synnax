@@ -30,7 +30,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, location, uuid, xy } from "@synnaxlabs/x";
+import { box, deep, id, location, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -39,6 +39,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { v4 as uuid } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
@@ -454,7 +455,7 @@ export const create =
     const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     if (!canEditSchematic && tab?.editable) tab.editable = false;
-    const key = schematic.keyZ.safeParse(initial.key).data ?? uuid.create();
+    const key = schematic.keyZ.safeParse(initial.key).data ?? uuid();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,

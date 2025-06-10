@@ -21,7 +21,7 @@ const stringToError = (str: string): Error => new Error(str);
 
 export const LANGUAGE = "lua";
 
-const startLuaLSP = async (): Promise<AsyncDestructor> => {
+export const startLuaLSP = async (): Promise<AsyncDestructor> => {
   const command = Command.create(`lua-language-server-${runtime.getOS()}`);
   const child = await command.spawn();
   const reader: MessageReader = {
@@ -46,7 +46,7 @@ const startLuaLSP = async (): Promise<AsyncDestructor> => {
 
   const writer: MessageWriter = {
     write: async (message) => {
-      await child.write(jsonRPC.encodeMessage(jsonRPC.requestZ.parse(message)));
+      await child.write(jsonRPC.encodeMessage(message));
     },
     dispose: () => {},
     onError: (callback) => {

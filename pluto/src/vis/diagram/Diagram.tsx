@@ -176,7 +176,7 @@ export interface DiagramProps
   extends UseReturn,
     Omit<ComponentPropsWithoutRef<"div">, "onError">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible">,
-    Aether.ComponentProps {
+    Aether.CProps {
   triggers?: CoreViewport.UseTriggers;
 }
 

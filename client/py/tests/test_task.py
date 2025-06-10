@@ -13,7 +13,6 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
-from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
 
 
 @pytest.mark.task
@@ -57,7 +56,7 @@ class TestTaskClient:
                             {
                                 "key": cmd["key"],
                                 "task": cmd["task"],
-                                "variant": SUCCESS_VARIANT,
+                                "variant": "success",
                                 "details": {"message": "Command executed."},
                             }
                         ],
@@ -85,7 +84,7 @@ class TestTaskClient:
                         [
                             {
                                 "task": int(key),
-                                "variant": SUCCESS_VARIANT,
+                                "variant": "success",
                                 "details": {"message": "Task configured."},
                             }
                         ],
@@ -113,7 +112,7 @@ class TestTaskClient:
                         [
                             {
                                 "task": int(key),
-                                "variant": ERROR_VARIANT,
+                                "variant": "error",
                                 "details": {"message": "Invalid Configuration."},
                             }
                         ],

@@ -28,21 +28,21 @@ type DistanceApproximation struct {
 }
 
 // Approximation represents the approximate location of a continuous value within
-// a discrete set of values, i.e., the 'index' of the value 1.5 within the indexes
-// [0,1,2,3] would lie between 1 and 2. The approximation is represented by an
-// upper and lower bound of candidate indices.
+// a discrete set of values i.e. the 'index' of the value 1.5 within the slice [1,2,3,4]
+// would lie between 1 and 2. The approximation is represented by an upper and lower
+// bound of candidate indices.
 type Approximation[T types.Numeric] struct{ bounds.Bounds[T] }
 
-// Exact returns true if the approximation represents an exact location i.e., a.Lower
+// Exact returns true if the approximation represents an exact location i.e. a.Lower
 // and a.Upper are equal.
 func (a Approximation[T]) Exact() bool { return a.Lower == a.Upper }
 
-// Exactly returns an approximation for an exact position. i.e., the approximation
-// for value 2 within [1,2,3,4,5] would be Exactly(1).
+// Exactly returns an approximation for an exact position. i.e. the approximation
+// for the value 2 within [1,2,3,4,5] would be Exactly(1).
 func Exactly[T types.Numeric](v T) Approximation[T] { return Between(v, v) }
 
 // Between returns an approximation for a position that is between two locations
-// in the discrete set i.e., the approximation for value 2 within [1,3,5,7] would
+// in the discrete set i.e. the approximation for the value 2 within [1,3,5,7] would
 // be Between(0, 1).
 func Between[T types.Numeric](lower, upper T) Approximation[T] {
 	return Approximation[T]{bounds.Bounds[T]{Lower: lower, Upper: upper}}

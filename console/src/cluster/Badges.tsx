@@ -20,6 +20,13 @@ export interface ConnectionStateBadgeProps {
   state: connection.State;
 }
 
+export const STATUS_VARIANTS: Record<connection.Status, Status.Variant> = {
+  connected: "success",
+  failed: "error",
+  connecting: "loading",
+  disconnected: "info",
+};
+
 const STATUS_MESSAGES: Record<connection.Status, string> = {
   connected: "Connected",
   failed: "Error",
@@ -35,28 +42,30 @@ const STATUS_MESSAGES: Record<connection.Status, string> = {
  */
 export const ConnectionStatusBadge = ({
   state: { status, message },
-}: ConnectionStateBadgeProps): ReactElement => {
-  const variant = Synnax.CONNECTION_STATE_VARIANTS[status];
-  return (
-    <Tooltip.Dialog location={{ x: "left", y: "bottom" }}>
-      <Align.Space y size="tiny">
-        <Status.Text variant={variant} weight={650} hideIcon style={{ paddingLeft: 0 }}>
-          {STATUS_MESSAGES[status]}
-        </Status.Text>
-        {message != null && (
-          <Text.Text level="p" shade={9} weight={450}>
-            {message}
-          </Text.Text>
-        )}
-      </Align.Space>
+}: ConnectionStateBadgeProps): ReactElement => (
+  <Tooltip.Dialog location={{ x: "left", y: "bottom" }}>
+    <Align.Space y size="tiny">
       <Status.Text
-        variant={variant}
-        justify="center"
-        className={CSS(CSS.B("connection-status-badge"), CSS.M(status))}
-      />
-    </Tooltip.Dialog>
-  );
-};
+        variant={STATUS_VARIANTS[status]}
+        weight={650}
+        hideIcon
+        style={{ paddingLeft: 0 }}
+      >
+        {STATUS_MESSAGES[status]}
+      </Status.Text>
+      {message != null && (
+        <Text.Text level="p" shade={9} weight={450}>
+          {message}
+        </Text.Text>
+      )}
+    </Align.Space>
+    <Status.Text
+      variant={STATUS_VARIANTS[status]}
+      justify="center"
+      className={CSS(CSS.B("connection-status-badge"), CSS.M(status))}
+    />
+  </Tooltip.Dialog>
+);
 
 /**
  * Displays the connection state of the cluster.

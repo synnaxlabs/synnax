@@ -31,8 +31,6 @@ import {
   useSelectSelectedElementsProps,
 } from "@/schematic/selectors";
 import { setElementProps, setNodePositions } from "@/schematic/slice";
-import { type EdgeProps, type NodeProps } from "@/schematic/types";
-import { type nodePropsZ } from "@/schematic/types/v0";
 import { type RootState } from "@/store";
 
 export interface PropertiesProps {
@@ -79,11 +77,11 @@ const IndividualProperties = ({
   const C = Schematic.SYMBOLS[props.key];
   const dispatch = useDispatch();
 
-  const onChange = (key: string, props: NodeProps): void => {
+  const onChange = (key: string, props: any): void => {
     dispatch(setElementProps({ layoutKey, key, props }));
   };
 
-  const formMethods = Form.use<typeof nodePropsZ>({
+  const formMethods = Form.use({
     values: structuredClone(props),
     sync: true,
     onChange: ({ values }) => onChange(nodeKey, values),
@@ -91,7 +89,7 @@ const IndividualProperties = ({
 
   return (
     <Align.Space style={{ height: "100%" }} y>
-      <Form.Form<typeof nodePropsZ> {...formMethods}>
+      <Form.Form {...formMethods}>
         <C.Form {...formMethods} key={nodeKey} />
       </Form.Form>
     </Align.Space>
@@ -109,7 +107,7 @@ const EdgeProperties = ({
 }: EdgePropertiesProps): ReactElement | null => {
   const edge = useSelectRequiredEdge(layoutKey, edgeKey);
   const dispatch = useDispatch();
-  const onChange = (key: string, props: Partial<EdgeProps>): void => {
+  const onChange = (key: string, props: any): void => {
     dispatch(setElementProps({ layoutKey, key, props }));
   };
   return (
@@ -139,22 +137,21 @@ interface MultiElementPropertiesProps {
 const MultiElementProperties = ({
   layoutKey,
 }: MultiElementPropertiesProps): ReactElement => {
-  const handleError = Status.useErrorHandler();
   const elements = useSelectSelectedElementsProps(layoutKey);
   const dispatch = useDispatch();
-  const onChange = (key: string, props: Partial<NodeProps>): void => {
+  const onChange = (key: string, props: any): void => {
     dispatch(setElementProps({ layoutKey, key, props }));
   };
 
-  const colorGroups: Record<string, ElementInfo[]> = {};
+  const groups: Record<string, ElementInfo[]> = {};
   elements.forEach((e) => {
     let colorVal: color.Color | null = null;
     if (e.type === "edge") colorVal = color.construct(e.edge.color);
     else if (e.props.color != null) colorVal = color.construct(e.props.color);
     if (colorVal === null) return;
     const hex = color.hex(colorVal);
-    if (!(hex in colorGroups)) colorGroups[hex] = [];
-    colorGroups[hex].push(e);
+    if (!(hex in groups)) groups[hex] = [];
+    groups[hex].push(e);
   });
 
   const store = useStore<RootState>();
@@ -187,7 +184,7 @@ const MultiElementProperties = ({
           });
           return new Diagram.NodeLayout(el.key, nodeBox, handles);
         } catch (e) {
-          handleError(e, "failed to calculate schematic node layout");
+          console.error(e);
         }
         return null;
       })
@@ -198,7 +195,7 @@ const MultiElementProperties = ({
     <Align.Space align="start" x style={{ padding: "2rem" }}>
       <Input.Item label="Selection Colors" align="start">
         <Align.Space y>
-          {Object.entries(colorGroups).map(([hex, elements]) => (
+          {Object.entries(groups).map(([hex, elements]) => (
             <Color.Swatch
               key={elements[0].key}
               value={hex}

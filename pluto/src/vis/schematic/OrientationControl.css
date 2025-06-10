@@ -28,9 +28,6 @@
         border: var(--pluto-border);
         border-radius: var(--pluto-border-radius);
         padding: 0.5rem;
-        &.pluto--show-outer-center {
-            padding: 1.5rem;
-        }
     }
 
     & button {

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
 import { TimeRange } from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 export const keyZ = z.string().uuid();
@@ -43,7 +43,7 @@ export type ParamAnalysisResult =
     };
 
 export const analyzeParams = (ranges: Params): ParamAnalysisResult => {
-  const normal = array.toArray(ranges) as Keys | Names;
+  const normal = toArray(ranges) as Keys | Names;
   const empty = normal.length === 0;
   let isKey = false;
   if (!empty) isKey = keyZ.safeParse(normal[0]).success;

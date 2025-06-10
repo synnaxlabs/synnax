@@ -71,13 +71,13 @@ class InvalidCredentials(AuthError):
 class InvalidToken(AuthError):
     """Raised when an invalid token is provided."""
 
-    TYPE = AuthError.TYPE + ".invalid_token"
+    TYPE = AuthError.TYPE + ".invalid-token"
 
 
 class ExpiredToken(AuthError):
     """Raised when a token has expired."""
 
-    TYPE = AuthError.TYPE + ".expired_token"
+    TYPE = AuthError.TYPE + ".expired-token"
 
 
 class UnexpectedError(Exception):

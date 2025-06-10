@@ -19,7 +19,7 @@ import (
 
 var ctx = context.Background()
 
-func TestKV(t *testing.T) {
+func TestKv(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "KV Suite")
+	RunSpecs(t, "Kv Suite")
 }

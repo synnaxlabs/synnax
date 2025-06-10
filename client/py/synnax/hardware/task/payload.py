@@ -11,8 +11,6 @@ import json
 
 from freighter import Payload
 
-from synnax.status import INFO_VARIANT, Variant
-
 
 class TaskPayload(Payload):
     key: int = 0
@@ -24,16 +22,12 @@ class TaskPayload(Payload):
 
 class TaskState(Payload):
     task: int = 0
-    variant: Variant = INFO_VARIANT
+    variant: str = ""
     key: str = ""
     details: dict
 
     def __init__(
-        self,
-        task: int = 0,
-        variant: Variant = INFO_VARIANT,
-        key: str = "",
-        details: dict | str = "",
+        self, task: int = 0, variant: str = "", key: str = "", details: dict | str = ""
     ):
         if isinstance(details, str):
             details = json.loads(details)

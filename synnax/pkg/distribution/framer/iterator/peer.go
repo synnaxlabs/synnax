@@ -55,7 +55,7 @@ func (s *Service) openManyPeers(
 		receivers = make([]*freightfluence.Receiver[Response], 0, len(targets))
 	)
 	for nodeKey, keys := range targets {
-		target, err := s.cfg.HostResolver.Resolve(nodeKey)
+		target, err := s.HostResolver.Resolve(nodeKey)
 		if err != nil {
 			return sender, receivers, err
 		}
@@ -70,7 +70,7 @@ func (s *Service) openManyPeers(
 }
 
 func (s *Service) openPeerClient(ctx context.Context, target address.Address, cfg Config) (ClientStream, error) {
-	client, err := s.cfg.Transport.Client().Stream(ctx, target)
+	client, err := s.Transport.Client().Stream(ctx, target)
 	if err != nil {
 		return nil, err
 	}

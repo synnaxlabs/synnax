@@ -102,7 +102,7 @@ func (r *registry) encode(ctx context.Context, e error, internal bool) Payload {
 }
 
 func (r *registry) decode(ctx context.Context, p Payload) error {
-	if p.Type == TypeNil || (p.Type == "" && p.Data == "") {
+	if p.Type == TypeNil || p.Type == "" {
 		return nil
 	}
 	for _, prov := range r.providers {

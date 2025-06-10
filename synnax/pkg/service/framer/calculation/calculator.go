@@ -28,8 +28,8 @@ type Calculator struct {
 	base *computron.Calculator
 	// ch is the calculated channel we're operating on.
 	ch channel.Channel
-	// highWaterMark is the high-water mark of the sample that we've run the calculation on.
-	highWaterMark struct {
+	// hwm is the high-water mark of the sample that we've run the calculation on.
+	hwm struct {
 		alignment telem.Alignment
 		timestamp telem.TimeStamp
 	}
@@ -80,15 +80,15 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		}
 		k := fr.RawKeyAt(rawI)
 		if v, ok := c.required[k]; ok {
-			v.data = v.data.Append(s).FilterGreaterThanOrEqualTo(c.highWaterMark.alignment)
+			v.data = v.data.Append(s).FilterLessThan(c.hwm.alignment)
 			c.required[k] = v
-			if c.highWaterMark.alignment == 0 {
-				c.highWaterMark.alignment = v.data.AlignmentBounds().Lower
-				c.highWaterMark.timestamp = v.data.TimeRange().Start
+			if c.hwm.alignment == 0 {
+				c.hwm.alignment = v.data.AlignmentBounds().Lower
+				c.hwm.timestamp = v.data.TimeRange().Start
 			}
 		}
 	}
-	minAlignment := telem.MaxAlignment
+	minAlignment := telem.MaxAlignmentPair
 	minTimeStamp := telem.TimeStamp(0)
 	for _, v := range c.required {
 		if v.data.AlignmentBounds().Upper < minAlignment {
@@ -96,17 +96,17 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 			minTimeStamp = v.data.TimeRange().End
 		}
 	}
-	if minAlignment <= c.highWaterMark.alignment {
+	if minAlignment <= c.hwm.alignment {
 		return telem.Series{DataType: c.ch.DataType}, nil
 	}
 	var (
-		startAlign = c.highWaterMark.alignment
-		startTS    = c.highWaterMark.timestamp
+		startAlign = c.hwm.alignment
+		startTS    = c.hwm.timestamp
 		endAlign   = minAlignment
-		os         = telem.MakeSeries(c.ch.DataType, int(endAlign-startAlign))
+		os         = telem.MakeSeries(c.ch.DataType, int64(endAlign-startAlign))
 	)
-	c.highWaterMark.alignment = minAlignment
-	c.highWaterMark.timestamp = minTimeStamp
+	c.hwm.alignment = minAlignment
+	c.hwm.timestamp = minTimeStamp
 	os.Alignment = startAlign
 	os.TimeRange = telem.TimeRange{Start: startTS, End: minTimeStamp}
 	for a := startAlign; a < endAlign; a++ {
@@ -117,7 +117,7 @@ func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {
 		if err != nil {
 			return telem.Series{DataType: c.ch.DataType}, err
 		}
-		computron.SetLValueOnSeries(v, os, int(a-startAlign))
+		computron.SetLValueOnSeries(v, os, int64(a-startAlign))
 	}
 	return os, nil
 }

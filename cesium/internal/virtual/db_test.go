@@ -1,12 +1,3 @@
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 package virtual_test
 
 import (
@@ -95,12 +86,12 @@ var _ = Describe("DB Metadata Operations", func() {
 				It("Should return the leading control state when there are writers open on the DB", func() {
 					w, transfer := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 						Start:     10 * telem.SecondTS,
-						Authority: control.AuthorityAbsolute,
+						Authority: control.Absolute,
 						Subject:   control.Subject{Key: "foo"},
 					}))
 					Expect(transfer.Occurred()).To(BeTrue())
 					Expect(db.LeadingControlState()).ToNot(BeNil())
-					Expect(db.LeadingControlState().Authority).To(Equal(control.AuthorityAbsolute))
+					Expect(db.LeadingControlState().Authority).To(Equal(control.Absolute))
 					Expect(db.LeadingControlState().Subject.Key).To(Equal("foo"))
 					t, err := w.Close()
 					Expect(t.Occurred()).To(BeTrue())

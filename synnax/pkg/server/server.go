@@ -106,10 +106,10 @@ type Server struct {
 	shutdown io.Closer
 }
 
-// Serve starts a new server using the provided configuration. If the configuration
-// is invalid, an error is returned. To stop the server, call the Close method.
-func Serve(cfgs ...Config) (*Server, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+// Open creates a new server using the specified configuration. The server must be started
+// using the Serve method. If the configuration is invalid, an error is returned.
+func Open(configs ...Config) (*Server, error) {
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +117,9 @@ func Serve(cfgs ...Config) (*Server, error) {
 	return s, s.start()
 }
 
+// Serve starts the server and blocks until all branches have stopped. Only returns an
+// error if the server exits abnormally (i.e, it will ignore any errors emitted during
+// the standard shutdown procedure).
 func (s *Server) start() (err error) {
 	s.L.Info("starting server", zap.Int("port", s.ListenAddress.Port()))
 	s.L.Debug("config", s.Report().ZapFields()...)
@@ -126,12 +129,14 @@ func (s *Server) start() (err error) {
 	if err != nil {
 		return err
 	}
-	sCtx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(ctx context.Context) (err error) {
 		mux := cmux.New(lis)
 		if *s.Security.Insecure {
-			return s.serveInsecure(sCtx, mux)
+			err = s.serveInsecure(sCtx, mux)
+			return err
 		}
-		return s.serveSecure(sCtx, mux)
+		err = s.serveSecure(sCtx, mux)
+		return err
 	}, signal.WithKey("server"), signal.RecoverWithErrOnPanic())
 	return nil
 }

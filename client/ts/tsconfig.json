@@ -1,7 +1,9 @@
 {
   "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": {
-    "baseUrl": "."
+    "baseUrl": ".",
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*"
+  ]
 }

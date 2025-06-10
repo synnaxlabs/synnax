@@ -42,13 +42,12 @@ var _ = Describe("Garbage Collection", func() {
 						FS:        indexFS,
 						MetaCodec: codec,
 						Channel: core.Channel{
-							Name:     "Chin",
 							Key:      indexKey,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 							Index:    indexKey,
 						},
-						FileSize:        899 * telem.Byte,
+						FileSize:        899 * telem.ByteSize,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
@@ -57,12 +56,11 @@ var _ = Describe("Garbage Collection", func() {
 						FS:        dataFS,
 						MetaCodec: codec,
 						Channel: core.Channel{
-							Name:     "Renan",
 							Key:      dataKey,
 							DataType: telem.Int64T,
 							Index:    indexKey,
 						},
-						FileSize:        899 * telem.Byte,
+						FileSize:        899 * telem.ByteSize,
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
@@ -84,7 +82,7 @@ var _ = Describe("Garbage Collection", func() {
 							data = append(data, int64(i*10+j))
 							index = append(index, telem.TimeStamp(i*10+j))
 						}
-						Expect(unary.Write(ctx, indexDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesSecondsTSV(index...))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSecondsTSV(index...))).To(Succeed())
 						Expect(unary.Write(ctx, dataDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV[int64](data...))).To(Succeed())
 					}
 
@@ -121,13 +119,12 @@ var _ = Describe("Garbage Collection", func() {
 						FS:        indexFS,
 						MetaCodec: codec,
 						Channel: core.Channel{
-							Name:     "Wilkes",
 							Key:      indexKey,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 							Index:    indexKey,
 						},
-						FileSize:        50 * telem.Byte,
+						FileSize:        50 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
@@ -135,13 +132,12 @@ var _ = Describe("Garbage Collection", func() {
 						FS:        dataFS,
 						MetaCodec: codec,
 						Channel: core.Channel{
-							Name:     "Lincoln",
 							Key:      dataKey,
 							DataType: telem.Int64T,
 							Index:    indexKey,
 						},
 						GCThreshold:     0.5,
-						FileSize:        50 * telem.Byte,
+						FileSize:        50 * telem.ByteSize,
 						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
@@ -153,10 +149,10 @@ var _ = Describe("Garbage Collection", func() {
 				})
 
 				Specify("Only some files GC", func() {
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18)))
-					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24, 25, 26)))
-					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41)))
-					Expect(unary.Write(ctx, indexDB, 50*telem.SecondTS, telem.NewSeriesSecondsTSV(50, 51, 52, 53, 54, 55, 56)))
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18)))
+					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26)))
+					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41)))
+					Expect(unary.Write(ctx, indexDB, 50*telem.SecondTS, telem.NewSecondsTSV(50, 51, 52, 53, 54, 55, 56)))
 
 					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18)))
 					Expect(unary.Write(ctx, dataDB, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 21, 22, 23, 24, 25, 26)))

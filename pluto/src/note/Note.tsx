@@ -9,14 +9,14 @@
 
 import "@/note/Note.css";
 
-import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
+import { type Status } from "@/status";
 
 export interface NoteProps extends Align.SpaceProps<"div"> {
-  variant: status.Variant;
+  variant: Status.Variant;
 }
 
 export const Note = ({ variant, className, ...rest }: NoteProps): ReactElement => (

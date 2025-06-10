@@ -122,15 +122,6 @@ var _ = Describe("Ferrors", Ordered, func() {
 				pld2.Unmarshal(pld.Error())
 				Expect(err).To(HaveOccurredAs(errors.New("unknown")))
 			})
-			It("Should decode an error with no type into a human readable string", func() {
-				err := errors.Decode(ctx, errors.Payload{Data: "cat"})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("cat"))
-			})
-			It("Should decode a completely empty payload into a nil error", func() {
-				err := errors.Decode(ctx, errors.Payload{})
-				Expect(err).To(BeNil())
-			})
 		})
 	})
 })

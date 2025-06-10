@@ -34,7 +34,7 @@ var _ = Describe("HttpRedirect", func() {
 			Insecure:     config.Bool(false),
 		}))
 		received := false
-		b := MustSucceed(server.Serve(server.Config{
+		b := MustSucceed(server.Open(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
 				Insecure: config.Bool(false),

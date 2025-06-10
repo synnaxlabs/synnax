@@ -56,6 +56,14 @@ export class Toggle
     i.stopListening = i.source.onChange(() => this.updateEnabledState());
   }
 
+  private reportError(e: Error): void {
+    this.internal.addStatus({
+      key: this.key,
+      variant: "error",
+      message: `Failed to update Toggle: ${e.message}`,
+    });
+  }
+
   private updateEnabledState(): void {
     const nextEnabled = this.internal.source.value();
     if (nextEnabled !== this.state.enabled)

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type errors, id, uuid } from "@synnaxlabs/x";
+import { type errors, id } from "@synnaxlabs/x";
+import { v4 as uuid } from "uuid";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -60,7 +61,7 @@ test("client", async () => {
     expect(NotFoundError.matches(e)).toBe(true);
   }
   try {
-    await client.workspaces.schematic.retrieve(uuid.create());
+    await client.workspaces.schematic.retrieve(uuid());
   } catch (e) {
     expect(NotFoundError.matches(e)).toBe(true);
   }

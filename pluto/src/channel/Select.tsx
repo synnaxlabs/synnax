@@ -9,7 +9,7 @@
 
 import { channel } from "@synnaxlabs/client";
 import { Icon, type IconProps } from "@synnaxlabs/media";
-import { array, DataType, unique } from "@synnaxlabs/x";
+import { DataType, nullToArr, toArray, unique } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type FC,
@@ -124,13 +124,13 @@ export const SelectMultiple = ({
     ...dropProps
   } = Haul.useDragAndDrop({
     type: "Channel.SelectMultiple",
-    canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
+    canDrop: useCallback((hauled) => canDrop(hauled, toArray(value)), [value]),
     onDrop: useCallback(
       ({ items }) => {
         const dropped = Haul.filterByType(HAUL_TYPE, items);
         if (dropped.length === 0) return [];
         const v = unique.unique([
-          ...array.toArray(value),
+          ...toArray(value),
           ...(dropped.map((c) => c.key) as channel.Keys),
         ]);
         onChange(v, {
@@ -148,7 +148,7 @@ export const SelectMultiple = ({
   const handleSuccessfulDrop = useCallback(
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
       onChange(
-        array.toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
+        toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
         {
           clickedIndex: null,
           clicked: null,
@@ -172,10 +172,7 @@ export const SelectMultiple = ({
 
   return (
     <Select.Multiple
-      className={CSS(
-        className,
-        CSS.dropRegion(canDrop(dragging, array.toArray(value))),
-      )}
+      className={CSS(className, CSS.dropRegion(canDrop(dragging, toArray(value))))}
       value={value}
       onTagDragStart={onDragStart}
       onTagDragEnd={endDrag}
@@ -239,7 +236,7 @@ export const SelectSingle = ({
     ...dragProps
   } = Haul.useDragAndDrop({
     type: "Channel.SelectSingle",
-    canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
+    canDrop: useCallback((hauled) => canDrop(hauled, nullToArr(value)), [value]),
     onDrop: useCallback(
       ({ items }) => {
         const ch = Haul.filterByType(HAUL_TYPE, items);
@@ -269,10 +266,7 @@ export const SelectSingle = ({
   return (
     <Select.Single
       data={data}
-      className={CSS(
-        className,
-        CSS.dropRegion(canDrop(dragging, array.toArray(value))),
-      )}
+      className={CSS(className, CSS.dropRegion(canDrop(dragging, nullToArr(value))))}
       value={value}
       onDragStart={onDragStart}
       onDragEnd={endDrag}

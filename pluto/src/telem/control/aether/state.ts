@@ -97,7 +97,7 @@ export class StateProvider extends aether.Composite<
       if (i.client == null) return;
       this.internal.instrumentation.L.debug("starting state tracker");
       await this.openTracker(i.client);
-    }, "failed to open control state tracker");
+    });
   }
 
   private async maybeCloseTracker(): Promise<void> {
@@ -112,7 +112,7 @@ export class StateProvider extends aether.Composite<
     const runAsync = status.useErrorHandler(ctx);
     runAsync(async () => {
       await this.maybeCloseTracker();
-    }, "failed to close control state tracker");
+    });
   }
 
   onChange(cb: (transfers: control.Transfer[]) => void): Destructor {

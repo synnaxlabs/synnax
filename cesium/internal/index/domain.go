@@ -21,38 +21,17 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Domain is an implementation of Index backed by a domain-based database that stores
-// the underlying timestamp values.
 type Domain struct {
 	alamos.Instrumentation
-	// DB is the database to query for timestamp values.
-	DB *domain.DB
-	// Channel is the channel definition for the index.
+	DB      *domain.DB
 	Channel core.Channel
 }
 
+var _ Index = (*Domain)(nil)
+
 var sampleDensity = int64(telem.TimeStampT.Density())
 
-// Distance calculates an approximate distance (arithmetic difference in offset)
-// between the start and end timestamps of the given time range. If continuous is
-// true, the index will return an error if the underlying telemetry has
-// discontinuities across the time range.
-//
-// The distance is approximated using a lower and upper bound. The underlying time
-// series can be viewed as a contiguous slice of timestamps, where each timestamp
-// exists at a specific index (i.e. slice[x]). The lower bound of the distance is
-// the index of the timestamp less than or equal to the end timestamp and
-// the index of the timestamp greater than or equal to the start timestamp. The upper
-// bound is calculated using the opposite approach (i.e. finding the index of the
-// timestamp greater than or equal to the end timestamp and the index of the
-// timestamp less than or equal to the start timestamp). Naturally, a time range
-// whose start timestamp and end timestamps are both known will have an equal lower
-// and upper bound.
-//
-// The distance method also returns an alignment pair, which represents the
-// alignment of the lower and upper bounds. The alignment pair is a 64-bit integer
-// where the lower 32 bits represent the domain and the upper 32 bits represent the
-// sample index within the domain.
+// Distance implements Index.
 func (i *Domain) Distance(
 	ctx context.Context,
 	tr telem.TimeRange,
@@ -175,11 +154,7 @@ func (i *Domain) Distance(
 	}
 }
 
-// Stamp calculates an approximate ending timestamp for a range given a known distance
-// in the number of samples. This operation may be understood as the
-// opposite of Distance.
-// Stamp assumes the caller is aware of discontinuities in the underlying time
-// series, and will calculate the ending timestamp even across discontinuous ranges.
+// Stamp implements Index.
 func (i *Domain) Stamp(
 	ctx context.Context,
 	ref telem.TimeStamp,
@@ -367,9 +342,6 @@ func newStampReader() func(r io.ReaderAt, offset int64) (telem.TimeStamp, error)
 
 }
 
-// Info returns the key and name of the channel of the index. If the database is
-// domain-indexed, the information of the domain channel is returned. If the database
-// is rate-based (i.e. self-indexing), the channel itself is returned.
 func (i *Domain) Info() string {
 	return fmt.Sprintf("domain index: %v", i.Channel)
 }

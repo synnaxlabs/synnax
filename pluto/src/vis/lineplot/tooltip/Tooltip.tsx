@@ -17,7 +17,7 @@ import { tooltip } from "@/vis/lineplot/tooltip/aether";
 
 export interface TooltipProps
   extends Omit<z.input<typeof tooltip.tooltipStateZ>, "position">,
-    Aether.ComponentProps {}
+    Aether.CProps {}
 
 export const Tooltip = ({ aetherKey, ...rest }: TooltipProps): ReactElement | null => {
   const cKey = useUniqueKey(aetherKey);

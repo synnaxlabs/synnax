@@ -29,7 +29,7 @@ import { rule } from "@/vis/rule/aether";
 export interface RuleProps
   extends Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition">,
     Omit<Align.SpaceProps, "color">,
-    Aether.ComponentProps {
+    Aether.CProps {
   label?: string;
   onLabelChange?: (label: string) => void;
   units?: string;

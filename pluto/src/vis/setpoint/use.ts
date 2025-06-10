@@ -20,7 +20,7 @@ export interface UseProps
 }
 
 export interface UseReturn
-  extends Pick<z.infer<typeof setpoint.setpointStateZ>, "value"> {
+  extends Pick<z.output<typeof setpoint.setpointStateZ>, "value"> {
   set: (value: number) => void;
 }
 

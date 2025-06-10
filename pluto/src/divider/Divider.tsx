@@ -46,7 +46,10 @@ export const Divider = ({
         typeof padded === "string" && CSS.loc(padded),
         className,
       )}
-      style={{ borderColor: CSS.shadeVar(shade), ...style }}
+      style={{
+        ...style,
+        borderColor: CSS.shadeVar(shade),
+      }}
       {...rest}
     />
   );

@@ -57,12 +57,17 @@ export class Cache {
    *
    * @param keys - The keys to populate the cache with.
    */
-  async populateMissing(keys: channel.Keys): Promise<void> {
+  async populateMissing(keys: channel.Keys): Promise<boolean> {
     const { instrumentation: ins, channelRetriever, dynamicBufferSize } = this.props;
     const toFetch: channel.Keys = [];
     for (const key of keys) if (!this.cache.has(key)) toFetch.push(key);
-    if (toFetch.length === 0) return;
-    const channels = await channelRetriever.retrieve(toFetch);
+    if (toFetch.length === 0) return true;
+    let channels: channel.Payload[] = [];
+    try {
+      channels = await channelRetriever.retrieve(toFetch);
+    } catch {
+      return false;
+    }
     channels.forEach((channel) => {
       if (this.cache.has(channel.key)) return;
       const unary = new Unary({
@@ -72,6 +77,7 @@ export class Cache {
       });
       this.cache.set(channel.key, unary);
     });
+    return true;
   }
 
   /**

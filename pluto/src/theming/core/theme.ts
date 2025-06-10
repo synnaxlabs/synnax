@@ -69,7 +69,7 @@ const scaleZ = strictScaleZ.or(
       z: c,
       p1: color.fromHSLA(setLightness(hsla, 55)),
       p2: color.fromHSLA(setLightness(hsla, 65)),
-    } as const as z.infer<typeof strictScaleZ>;
+    } as const as z.output<typeof strictScaleZ>;
   }),
 );
 
@@ -128,7 +128,7 @@ export const themeZ = z
   });
 
 export type ThemeSpec = z.input<typeof themeZ>;
-export type Theme = z.infer<typeof themeZ>;
+export type Theme = z.output<typeof themeZ>;
 
 const fontFamily = "'Inter Variable', sans-serif";
 const codeFontFamily = "'Geist Mono', monospace";

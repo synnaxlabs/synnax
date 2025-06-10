@@ -19,15 +19,15 @@ import (
 
 // Authority is an 8-bit unsigned integer that represents the authority that a
 // particular controlling subject has over a resource. A higher authority means higher
-// precedence over the resource. AuthorityAbsolute authority (255) maintains exclusive control
+// precedence over the resource. Absolute authority (255) maintains exclusive control
 // over the resource.
 type Authority uint8
 
 const (
 	errorPrefix  = "sy.control"
 	unauthorized = errorPrefix + ".unauthorized"
-	// AuthorityAbsolute control authority is the higher control authority possible.
-	AuthorityAbsolute Authority = math.MaxUint8
+	// Absolute control authority is the higher control authority possible.
+	Absolute Authority = math.MaxUint8
 )
 
 var (

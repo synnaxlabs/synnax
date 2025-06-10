@@ -153,7 +153,7 @@ const SearchDialogContent = ({ close, visible }: SearchDialogContentProps) => {
     });
     const json = await res.json();
     setResults(
-      json.hits.map((hit: unknown) => ({
+      json.hits.map((hit: any) => ({
         key: hit.objectID,
         title: hit._snippetResult?.title?.value ?? hit.title,
         description: hit.description,

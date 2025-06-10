@@ -161,7 +161,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Message:      "Rack is alive",
 			}
 
-			MustSucceed(w.Write(core.UnaryFrame(rackStateCh.Key(), telem.NewSeriesStaticJSONV(state))))
+			MustSucceed(w.Write(core.UnaryFrame(rackStateCh.Key(), telem.NewStaticJSONV(state))))
 
 			Expect(w.Close()).To(Succeed())
 
@@ -193,7 +193,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Message:      "Rack is alive",
 			}
 
-			MustSucceed(w.Write(core.UnaryFrame(rackStateCh.Key(), telem.NewSeriesStaticJSONV(state))))
+			MustSucceed(w.Write(core.UnaryFrame(rackStateCh.Key(), telem.NewStaticJSONV(state))))
 
 			Expect(w.Close()).To(Succeed())
 
@@ -262,7 +262,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			}))
 			MustSucceed(w.Write(core.UnaryFrame(
 				taskStateCh.Key(),
-				telem.NewSeriesStaticJSONV(task.State{Variant: status.ErrorVariant, Task: tsk.Key}),
+				telem.NewStaticJSONV(task.State{Variant: status.ErrorVariant, Task: tsk.Key}),
 			)))
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
@@ -329,7 +329,7 @@ var _ = Describe("Tracker", Ordered, func() {
 
 			MustSucceed(w.Write(core.UnaryFrame(
 				rackStateCh.Key(),
-				telem.NewSeriesStaticJSONV(state),
+				telem.NewStaticJSONV(state),
 			)))
 
 			Expect(w.Close()).To(Succeed())
@@ -434,7 +434,7 @@ var _ = Describe("Tracker", Ordered, func() {
 
 			MustSucceed(w.Write(core.UnaryFrame(
 				deviceStateCh.Key(),
-				telem.NewSeriesStaticJSONV(state),
+				telem.NewStaticJSONV(state),
 			)))
 
 			Expect(w.Close()).To(Succeed())
@@ -477,7 +477,7 @@ var _ = Describe("Tracker", Ordered, func() {
 
 			MustSucceed(w.Write(core.UnaryFrame(
 				deviceStateCh.Key(),
-				telem.NewSeriesStaticJSONV(state),
+				telem.NewStaticJSONV(state),
 			)))
 
 			Expect(w.Close()).To(Succeed())
@@ -528,7 +528,7 @@ var _ = Describe("Tracker", Ordered, func() {
 
 			MustSucceed(w.Write(core.UnaryFrame(
 				deviceStateCh.Key(),
-				telem.NewSeriesStaticJSONV(state),
+				telem.NewStaticJSONV(state),
 			)))
 
 			Expect(w.Close()).To(Succeed())

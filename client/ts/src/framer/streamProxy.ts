@@ -10,7 +10,7 @@
 import { EOF, type Stream } from "@synnaxlabs/freighter";
 import { type z } from "zod";
 
-export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
+export class StreamProxy<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny> {
   readonly name: string;
   private readonly stream: Stream<RQ, RS>;
 
@@ -19,7 +19,7 @@ export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
     this.name = name;
   }
 
-  async receive(): Promise<z.infer<RS>> {
+  async receive(): Promise<z.output<RS>> {
     const [res, err] = await this.stream.receive();
     if (err != null) throw err;
     return res;
@@ -35,7 +35,7 @@ export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
       const [res, err] = await this.stream.receive();
       if (res != null)
         console.warn(
-          `${this.name} received unexpected response on ${JSON.stringify(res)} closure.
+          `${this.name} received unexpected response on closure.
         Please report this error to the Synnax team.`,
         );
       if (err != null) {

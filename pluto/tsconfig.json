@@ -1,4 +1,4 @@
-{
+{  
   "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": {
     "baseUrl": ".",

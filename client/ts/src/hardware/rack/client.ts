@@ -9,8 +9,8 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type UnknownRecord } from "@synnaxlabs/x";
-import { array } from "@synnaxlabs/x/array";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import { framer } from "@/framer";
@@ -81,7 +81,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,
-      { keys: array.toArray(keys) },
+      { keys: toArray(keys) },
       deleteReqZ,
       deleteResZ,
     );
@@ -94,7 +94,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
-      { racks: array.toArray(rack) },
+      { racks: toArray(rack) },
       createReqZ,
       createResZ,
     );

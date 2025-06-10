@@ -10,7 +10,7 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, componentRenderProp } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -95,7 +95,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
-  let shouldCreateIndex = primitive.isZero(dev.properties.digitalInput.index);
+  let shouldCreateIndex = primitiveIsZero(dev.properties.digitalInput.index);
   if (!shouldCreateIndex)
     try {
       await client.channels.retrieve(dev.properties.digitalInput.index);
@@ -118,7 +118,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
     const key = getDigitalChannelDeviceKey(channel);
     // check if the channel is in properties
     const exKey = dev.properties.digitalInput.channels[key];
-    if (primitive.isZero(exKey)) toCreate.push(channel);
+    if (primitiveIsZero(exKey)) toCreate.push(channel);
     else
       try {
         await client.channels.retrieve(exKey.toString());

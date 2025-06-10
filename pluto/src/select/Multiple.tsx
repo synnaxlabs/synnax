@@ -11,7 +11,6 @@ import "@/select/Multiple.css";
 
 import { Icon } from "@synnaxlabs/media";
 import {
-  array,
   type AsyncTermSearcher,
   type color,
   compare,
@@ -19,6 +18,7 @@ import {
   type Key,
   type Keyed,
   type RenderableValue,
+  toArray,
 } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -164,7 +164,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     setLoading(true);
     if (selectValueIsZero(value)) setSelected([]);
     const inSelected = selected.map((v) => v.key);
-    const nextValue = array.toArray(value);
+    const nextValue = toArray(value);
     if (compare.unorderedPrimitiveArrays(inSelected, nextValue) === compare.EQUAL)
       return;
     let nextSelected: E[] = [];
@@ -183,7 +183,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     (v: K | K[] | null, extra: UseSelectOnChangeExtra<K, E>) => {
       if (v == null) return;
       setSelected(extra.entries);
-      onChange(array.toArray(v), extra);
+      onChange(toArray(v), extra);
     },
     [onChange],
   );
@@ -222,7 +222,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       </InputWrapper>
     );
   else {
-    const arrValue = array.toArray(value);
+    const arrValue = toArray(value);
     trigger = (
       <Align.Space x align="center" grow style={style} size="small">
         {arrValue.map((k) => {
@@ -382,7 +382,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
         grow
         size="small"
       >
-        {array.toArray(selectedKeys).map((k) => {
+        {toArray(selectedKeys).map((k) => {
           const e = selected.find((v) => v.key === k);
           return renderTag({
             key: k,

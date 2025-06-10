@@ -22,10 +22,9 @@ export interface CoreProps<L extends text.Level = text.Level> {
   /* The text to display */
   children?: ReactNode;
   /* The color of the text */
-  color?: color.Crude | false;
+  color?: color.Crude | boolean;
   /* NoWrap prevents the text from wrapping */
   noWrap?: boolean;
-  /* Shade sets the shade of the text */
   shade?: text.Shade;
   /* Weight sets the weight of the text */
   weight?: text.Weight;
@@ -54,7 +53,7 @@ export const Text = <L extends text.Level = text.Level>({
   <Generic.Element<L>
     el={level}
     ref={ref}
-    style={{ color: parseColor(color, shade), fontWeight: weight, ...style }}
+    style={{ color: evalColor(color, shade), fontWeight: weight, ...style }}
     className={CSS(
       CSS.B("text"),
       code && CSS.M("code"),
@@ -66,13 +65,13 @@ export const Text = <L extends text.Level = text.Level>({
   />
 );
 
-export const parseColor = (
-  crudeColor?: color.Crude | false,
+export const evalColor = (
+  colorVal?: color.Crude | boolean,
   shade?: number,
 ): string | undefined => {
-  if (crudeColor != null) {
-    if (typeof crudeColor === "boolean") return undefined;
-    return color.cssString(crudeColor);
+  if (colorVal != null) {
+    if (typeof colorVal === "boolean") return undefined;
+    return color.cssString(colorVal);
   }
   if (shade != null) return `var(--pluto-gray-l${shade})`;
   return undefined;

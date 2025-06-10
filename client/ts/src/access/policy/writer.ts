@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -37,11 +37,11 @@ export class Writer {
   }
 
   async create(policies: New | New[]): Promise<Policy[]> {
-    const parsedPolicies = newZ.array().parse(array.toArray(policies));
+    const parsedPolicies = newZ.array().parse(toArray(policies));
     const req = parsedPolicies.map((policy) => ({
-      objects: array.toArray(policy.objects),
-      actions: array.toArray(policy.actions),
-      subjects: array.toArray(policy.subjects),
+      objects: toArray(policy.objects),
+      actions: toArray(policy.actions),
+      subjects: toArray(policy.subjects),
     }));
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
@@ -57,7 +57,7 @@ export class Writer {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,
-      { keys: array.toArray(keys) },
+      { keys: toArray(keys) },
       deleteReqZ,
       deleteResZ,
     );

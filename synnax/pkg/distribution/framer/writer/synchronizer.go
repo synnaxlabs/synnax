@@ -18,8 +18,8 @@ import (
 )
 
 // Synchronizer is used to synchronized sequenced responses across multiple nodes.
-// Synchronizer assumes that a request sent to multiple nodes contains a sequence number
-// that is incremented with every request.
+// Synchronizer assumes that a request sent to multiple nodes contains a sequence
+// number that is incremented with every request.
 type synchronizer struct {
 	alamos.Instrumentation
 	confluence.LinearTransform[Response, Response]

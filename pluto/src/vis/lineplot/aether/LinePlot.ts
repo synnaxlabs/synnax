@@ -34,7 +34,7 @@ export const linePlotStateZ = z.object({
 
 interface InternalState {
   instrumentation: Instrumentation;
-  handleError: status.ErrorHandler;
+  aggregate: status.Adder;
   renderCtx: render.Context;
 }
 
@@ -60,8 +60,9 @@ export class LinePlot extends aether.Composite<
 
   afterUpdate(ctx: aether.Context): void {
     this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
-    this.internal.handleError = status.useErrorHandler(ctx);
+    this.internal.aggregate = status.useAdder(ctx);
     this.internal.renderCtx = render.Context.use(ctx);
+    status.useInterceptor(ctx, () => null);
     render.control(ctx, (r) => {
       if (!this.state.visible) return;
       this.requestRender("low", r);
@@ -156,21 +157,21 @@ export class LinePlot extends aether.Composite<
   }
 
   private render(canvases: render.CanvasVariant[]): render.Cleanup | undefined {
-    const { internal: i } = this;
-    const { instrumentation: ins } = i;
+    const { renderCtx } = this.internal;
+    const { instrumentation } = this.internal;
     if (this.deleted) {
-      ins.L.debug("deleted, skipping render", { key: this.key });
+      instrumentation.L.debug("deleted, skipping render", { key: this.key });
       return;
     }
     if (!this.state.visible) {
-      ins.L.debug("not visible, skipping render", { key: this.key });
+      instrumentation.L.debug("not visible, skipping render", { key: this.key });
       return ({ canvases }) =>
-        i.renderCtx.erase(this.state.container, this.state.clearOverScan, ...canvases);
+        renderCtx.erase(this.state.container, this.state.clearOverScan, ...canvases);
     }
 
     const plot = this.calculatePlot();
 
-    ins.L.debug("rendering", {
+    instrumentation.L.debug("rendering", {
       key: this.key,
       viewport: this.state.viewport,
       container: this.state.container,
@@ -181,12 +182,12 @@ export class LinePlot extends aether.Composite<
 
     const os = xy.construct(this.state.clearOverScan);
 
-    const removeCanvasScissor = i.renderCtx.scissor(
+    const removeCanvasScissor = renderCtx.scissor(
       this.state.container,
       os,
       canvases.filter((c) => c !== "gl"),
     );
-    const removeGLScissor = i.renderCtx.scissor(
+    const removeGLScissor = renderCtx.scissor(
       plot,
       xy.ZERO,
       canvases.filter((c) => c === "gl"),
@@ -198,16 +199,23 @@ export class LinePlot extends aether.Composite<
       this.renderMeasures(plot);
       this.renderBounds();
     } catch (e) {
-      i.handleError(e, "failed to render line plot");
+      const err = e as Error;
+      // TODO: Remove this temp fix after we resolve actual error.
+      if (err.message.toLowerCase().includes("bigint")) return;
+      this.internal.aggregate({
+        key: `${this.type}-${this.key}`,
+        variant: "error",
+        message: (e as Error).message,
+      });
     } finally {
       removeCanvasScissor();
       removeGLScissor();
     }
-    ins.L.debug("rendered", { key: this.key });
+    instrumentation.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
 
     return ({ canvases }) =>
-      i.renderCtx.erase(eraseRegion, this.state.clearOverScan, ...canvases);
+      renderCtx.erase(eraseRegion, this.state.clearOverScan, ...canvases);
   }
 
   requestRender(priority: render.Priority, reason: string): void {

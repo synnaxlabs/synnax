@@ -82,6 +82,9 @@ importers:
       async-mutex:
         specifier: ^0.5.0
         version: 0.5.0
+      uuid:
+        specifier: ^11.1.0
+        version: 11.1.0
       zod:
         specifier: ^4.0.0-beta
         version: 4.0.0-beta.20250424T163858
@@ -289,6 +292,9 @@ importers:
       react-redux:
         specifier: ^9.2.0
         version: 9.2.0(@types/react@19.1.0)(react@19.1.0)(redux@5.0.1)
+      uuid:
+        specifier: ^11.1.0
+        version: 11.1.0
       vscode:
         specifier: npm:@codingame/monaco-vscode-extension-api@^14.0.6
         version: '@codingame/monaco-vscode-extension-api@14.0.6'
@@ -809,9 +815,6 @@ importers:
       nanoid:
         specifier: ^5.1.5
         version: 5.1.5
-      uuid:
-        specifier: ^11.1.0
-        version: 11.1.0
       zod:
         specifier: ^4.0.0-beta
         version: 4.0.0-beta.20250424T163858

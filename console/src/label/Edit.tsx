@@ -21,7 +21,8 @@ import {
   List,
   Text,
 } from "@synnaxlabs/pluto";
-import { type change, color, uuid } from "@synnaxlabs/x";
+import { type change, color } from "@synnaxlabs/x";
+import { v4 as uuid } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -149,7 +150,7 @@ export const Edit: Layout.Renderer = () => {
                 const newColors = theme?.colors.visualization.palettes.default ?? [];
                 const v = color.hex(newColors[arr.value.length % newColors.length]);
                 arr.push({
-                  key: uuid.create(),
+                  key: uuid(),
                   name: "New Label",
                   color: v,
                 });

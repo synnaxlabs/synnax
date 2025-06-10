@@ -37,7 +37,7 @@ var _ = Describe("State", func() {
 				state := control.State[int]{
 					Subject:   s,
 					Resource:  1,
-					Authority: control.AuthorityAbsolute,
+					Authority: control.Absolute,
 				}
 				Expect(state.String()).To(Equal("[Hat]<cat> with authority 255 over 1"))
 			})

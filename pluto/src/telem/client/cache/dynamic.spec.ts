@@ -20,41 +20,41 @@ describe("DynamicCache", () => {
           dynamicBufferSize: 100,
           dataType: DataType.FLOAT32,
         });
-        const ser = new Series({
+        const arr = new Series({
           data: new Float32Array([1, 2, 3]),
           dataType: DataType.FLOAT32,
         });
-        const { flushed, allocated } = cache.write(new MultiSeries([ser]));
+        const { flushed, allocated } = cache.write(new MultiSeries([arr]));
         expect(flushed).toHaveLength(0);
         expect(allocated).toHaveLength(3);
         expect(allocated.timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
           TimeSpan.milliseconds(1).valueOf(),
         );
         expect(allocated.timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
-        expect(cache.length).toEqual(ser.length);
+        expect(cache.length).toEqual(arr.length);
       });
       it("Should not allocate a new buffer when the current buffer has sufficient space", () => {
         const cache = new Dynamic({
           dynamicBufferSize: 100,
           dataType: DataType.FLOAT32,
         });
-        const ser = new Series({
+        const arr = new Series({
           data: new Float32Array([1, 2, 3]),
           dataType: DataType.FLOAT32,
         });
-        cache.write(new MultiSeries([ser]));
-        const { flushed, allocated } = cache.write(new MultiSeries([ser.reAlign(3n)]));
+        cache.write(new MultiSeries([arr]));
+        const { flushed, allocated } = cache.write(new MultiSeries([arr.reAlign(3n)]));
         expect(flushed).toHaveLength(0);
         expect(allocated).toHaveLength(0);
-        expect(cache.length).toEqual(ser.length * 2);
+        expect(cache.length).toEqual(arr.length * 2);
       });
       it("should correctly allocate a single new buffer when the current one is full", async () => {
         const cache = new Dynamic({ dynamicBufferSize: 2, dataType: DataType.FLOAT32 });
-        const ser = new Series({
+        const arr = new Series({
           data: new Float32Array([1, 2, 3]),
           dataType: DataType.FLOAT32,
         });
-        const { flushed, allocated } = cache.write(new MultiSeries([ser]));
+        const { flushed, allocated } = cache.write(new MultiSeries([arr]));
         expect(flushed).toHaveLength(2);
         expect(allocated).toHaveLength(3);
         expect(flushed.series[0]).toBe(allocated.series[0]);
@@ -62,11 +62,11 @@ describe("DynamicCache", () => {
       });
       it("should correctly allocate multiple new buffers when the current one is full", () => {
         const cache = new Dynamic({ dynamicBufferSize: 1, dataType: DataType.FLOAT32 });
-        const ser = new Series({
+        const arr = new Series({
           data: new Float32Array([1, 2, 3]),
           dataType: DataType.FLOAT32,
         });
-        const { flushed, allocated } = cache.write(new MultiSeries([ser]));
+        const { flushed, allocated } = cache.write(new MultiSeries([arr]));
         expect(flushed).toHaveLength(2);
         expect(allocated).toHaveLength(3);
         expect(cache.length).toEqual(1);
@@ -76,26 +76,26 @@ describe("DynamicCache", () => {
           dynamicBufferSize: 10,
           dataType: DataType.FLOAT32,
         });
-        const ser = new Series({
+        const arr = new Series({
           data: new Float32Array([1, 2, 3]),
           dataType: DataType.FLOAT32,
         });
-        const res1 = cache.write(new MultiSeries([ser]));
+        const res1 = cache.write(new MultiSeries([arr]));
         expect(res1.allocated).toHaveLength(3);
         expect(res1.flushed).toHaveLength(0);
         expect(
           res1.allocated.timeRange.start.sub(TimeStamp.now()).valueOf(),
         ).toBeLessThan(TimeSpan.milliseconds(1).valueOf());
         expect(res1.allocated.timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
-        const res2 = cache.write(new MultiSeries([ser.reAlign(3n)]));
+        const res2 = cache.write(new MultiSeries([arr.reAlign(3n)]));
         expect(res2.allocated).toHaveLength(0);
         expect(res2.flushed).toHaveLength(0);
-        const res3 = cache.write(new MultiSeries([ser.reAlign(6n)]));
+        const res3 = cache.write(new MultiSeries([arr.reAlign(6n)]));
         expect(res3.allocated).toHaveLength(0);
         expect(res3.flushed).toHaveLength(0);
         const waitSpan = TimeSpan.milliseconds(10);
         await new Promise((resolve) => setTimeout(resolve, waitSpan.milliseconds));
-        const { flushed, allocated } = cache.write(new MultiSeries([ser.reAlign(9n)]));
+        const { flushed, allocated } = cache.write(new MultiSeries([arr.reAlign(9n)]));
         expect(allocated).toHaveLength(2);
         expect(allocated.timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
           TimeSpan.milliseconds(3).valueOf(),
@@ -154,20 +154,20 @@ describe("DynamicCache", () => {
           dataType: DataType.FLOAT32,
           now,
         });
-        const ser = new Series({
+        const arr = new Series({
           data: new Float32Array([1, 2, 3]),
           dataType: DataType.FLOAT32,
         });
-        const res1 = cache.write(new MultiSeries([ser]));
+        const res1 = cache.write(new MultiSeries([arr]));
         expect(res1.allocated).toHaveLength(3);
         expect(res1.flushed).toHaveLength(0);
         nowF = () => TimeStamp.seconds(2);
-        const res2 = cache.write(new MultiSeries([ser.reAlign(3n)]));
+        const res2 = cache.write(new MultiSeries([arr.reAlign(3n)]));
         expect(res2.allocated).toHaveLength(0);
         expect(res2.flushed).toHaveLength(0);
 
         nowF = () => TimeStamp.seconds(3);
-        const res3 = cache.write(new MultiSeries([ser.reAlign(6n)]));
+        const res3 = cache.write(new MultiSeries([arr.reAlign(6n)]));
         expect(res3.allocated).toHaveLength(0);
         expect(res3.flushed).toHaveLength(0);
         expect(cache.length).toBe(9);

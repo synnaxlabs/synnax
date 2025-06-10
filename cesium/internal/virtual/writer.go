@@ -13,10 +13,10 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
-	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -25,10 +25,10 @@ import (
 var errWriterClosed = core.NewErrResourceClosed("virtual.writer")
 
 type WriterConfig struct {
-	Subject               xcontrol.Subject
+	Subject               control.Subject
 	Start                 telem.TimeStamp
 	End                   telem.TimeStamp
-	Authority             xcontrol.Authority
+	Authority             control.Authority
 	ErrOnUnauthorizedOpen *bool
 }
 
@@ -68,7 +68,7 @@ type Writer struct {
 	onClose func()
 	// control stores the control gate held by the virtual writer, and used to track control
 	// handoff scenarios with other writers.
-	control *control.Gate[*controlResource]
+	control *controller.Gate[*controlResource]
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
@@ -77,7 +77,7 @@ type Writer struct {
 	closed bool
 }
 
-func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, transfer control.Transfer, err error) {
+func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
 	if db.closed.Load() {
 		err = ErrDBClosed
 		return nil, transfer, db.wrapError(err)
@@ -91,7 +91,8 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		Channel:      db.cfg.Channel,
 		wrapError:    db.wrapError,
 	}
-	if w.control, transfer, err = db.controller.OpenGate(control.GateConfig[*controlResource]{
+	var g *controller.Gate[*controlResource]
+	if g, transfer, err = db.controller.OpenGate(controller.GateConfig[*controlResource]{
 		TimeRange:             cfg.domain(),
 		ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
 		Authority:             cfg.Authority,
@@ -105,6 +106,7 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 	}); err != nil {
 		return nil, transfer, db.wrapError(err)
 	}
+	w.control = g
 	db.openWriters.Add(1)
 	w.onClose = func() {
 		db.openWriters.Add(-1)
@@ -130,13 +132,13 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	return a, nil
 }
 
-func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
+func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 	return w.control.SetAuthority(a)
 }
 
-func (w *Writer) Close() (control.Transfer, error) {
+func (w *Writer) Close() (controller.Transfer, error) {
 	if w.closed {
-		return control.Transfer{}, nil
+		return controller.Transfer{}, nil
 	}
 	w.closed = true
 	_, t := w.control.Release()

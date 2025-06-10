@@ -6,8 +6,8 @@ developing in the Synnax repository with TypeScript.
 
 ## Setup
 
-To properly build upstream packages for developing the client, run the following command
-in the root of the monorepo:
+To properly build upstream packages for developing the client, run the following
+command in the root of the monorepo:
 
 ```shell
 pnpm build:freighter
@@ -29,8 +29,7 @@ test the framework, run the following command in the `client/ts` directory:
 pnpm test
 ```
 
-To check code for linting errors, please run the following command in the `client/ts`
-directory:
+To check code for linting errors, please run the following command in the `client/ts` directory:
 
 ```bash
 pnpm lint
@@ -44,5 +43,5 @@ pnpm genApi
 ```
 
 Finally, if changes to the code warrant changing the documentation website, please edit
-the pages on the
-[TypeScript client](../../docs/site/src/pages/reference/typescript-client/)
+the pages on the [TypeScript
+client](../../docs/site/src/pages/reference/typescript-client/)

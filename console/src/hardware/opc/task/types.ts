@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
-import { z } from "zod";
+import { type core, z } from "zod";
 
 import { Common } from "@/hardware/common";
 import { type Device } from "@/hardware/opc/device";
@@ -39,10 +39,7 @@ export type WriteChannel = z.infer<typeof writeChannelZ>;
 
 export type Channel = ReadChannel | WriteChannel;
 
-const validateNodeIDs = ({
-  value: channels,
-  issues,
-}: z.core.ParsePayload<Channel[]>) => {
+const validateNodeIDs = ({ value: channels, issues }: core.ParsePayload<Channel[]>) => {
   const nodeIds = new Map<string, number>();
   channels.forEach(({ nodeId }) => nodeIds.set(nodeId, (nodeIds.get(nodeId) ?? 0) + 1));
   channels.forEach(({ nodeId }, i) => {
@@ -73,10 +70,12 @@ const baseReadConfigZ = Common.Task.baseConfigZ.extend({
         .map(({ useAsIndex }, i) => (useAsIndex ? i : -1))
         .filter((i) => i !== -1);
       if (indexChannelIndexes.length === 0 || indexChannelIndexes.length === 1) return;
+      const code = "custom";
+      const message = "Only one channel can be marked as an index channel";
       indexChannelIndexes.forEach((i) => {
         issues.push({
-          code: "custom",
-          message: "Only one channel can be marked as an index channel",
+          code,
+          message,
           path: ["channels", i, "useAsIndex"],
           input: channels,
         });

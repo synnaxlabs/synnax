@@ -21,7 +21,6 @@ import {
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import {
   ErrorBoundary,
@@ -33,7 +32,7 @@ import { useDispatch } from "react-redux";
 import { CSS } from "@/css";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
-import { RUNTIME } from "@/runtime";
+import { getCurrentWindow } from "@/tauriShim";
 
 export interface OverlayProps extends PropsWithChildren {}
 
@@ -87,7 +86,7 @@ const FallBackRenderContent = ({
     } catch (e) {
       console.error(e);
     }
-    if (RUNTIME === "tauri") void getCurrentWindow().show();
+    void getCurrentWindow().show();
   }, []);
   return (
     <Align.Space y className={CSS.B("error-overlay")}>
@@ -104,13 +103,13 @@ const FallBackRenderContent = ({
             visibleIfOS="macOS"
             forceOS={os}
             onClose={() => {
-              if (RUNTIME === "tauri") void getCurrentWindow().close();
+              void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              if (RUNTIME === "tauri") void getCurrentWindow().minimize();
+              void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              if (RUNTIME === "tauri") void getCurrentWindow().maximize();
+              void getCurrentWindow().maximize();
             }}
           />
           {os === "Windows" && (
@@ -124,13 +123,13 @@ const FallBackRenderContent = ({
             forceOS={os}
             shade={0}
             onClose={() => {
-              if (RUNTIME === "tauri") void getCurrentWindow().close();
+              void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              if (RUNTIME === "tauri") void getCurrentWindow().minimize();
+              void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              if (RUNTIME === "tauri") void getCurrentWindow().maximize();
+              void getCurrentWindow().maximize();
             }}
           />
         </Nav.Bar.End>
@@ -167,10 +166,10 @@ const FallBackRenderContent = ({
 const fallbackRenderWithStore = componentRenderProp(FallbackRenderWithStore);
 const fallbackRenderWithoutStore = componentRenderProp(FallbackRenderWithoutStore);
 
-export const OverlayWithStore = (props: OverlayProps): ReactElement => (
-  <ErrorBoundary {...props} fallbackRender={fallbackRenderWithStore} />
+export const OverlayWithStore = ({ children }: OverlayProps): ReactElement => (
+  <ErrorBoundary fallbackRender={fallbackRenderWithStore}>{children}</ErrorBoundary>
 );
 
-export const OverlayWithoutStore = (props: OverlayProps): ReactElement => (
-  <ErrorBoundary {...props} fallbackRender={fallbackRenderWithoutStore} />
+export const OverlayWithoutStore = ({ children }: OverlayProps): ReactElement => (
+  <ErrorBoundary fallbackRender={fallbackRenderWithoutStore}>{children}</ErrorBoundary>
 );

@@ -16,19 +16,20 @@ import (
 	"runtime"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
-	xcontrol "github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -75,7 +76,7 @@ var _ = Describe("Control", func() {
 							ControlSubject:    control.Subject{Name: "Writer One"},
 							Start:             start,
 							Channels:          []cesium.ChannelKey{indexCHKey, dataChKey},
-							Authorities:       []control.Authority{control.AuthorityAbsolute - 2},
+							Authorities:       []control.Authority{control.Absolute - 2},
 							ErrOnUnauthorized: config.False(),
 							Sync:              config.True(),
 						}))
@@ -84,7 +85,7 @@ var _ = Describe("Control", func() {
 							Start:             start,
 							ControlSubject:    control.Subject{Name: "Writer Two"},
 							Channels:          []cesium.ChannelKey{indexCHKey, dataChKey},
-							Authorities:       []control.Authority{control.AuthorityAbsolute - 2},
+							Authorities:       []control.Authority{control.Absolute - 2},
 							ErrOnUnauthorized: config.False(),
 							Sync:              config.True(),
 						}))
@@ -102,7 +103,7 @@ var _ = Describe("Control", func() {
 						Expect(MustSucceed(w1.Write(telem.MultiFrame[cesium.ChannelKey](
 							[]cesium.ChannelKey{indexCHKey, dataChKey},
 							[]telem.Series{
-								telem.NewSeriesSecondsTSV(10, 11, 12),
+								telem.NewSecondsTSV(10, 11, 12),
 								telem.NewSeriesV[int16](1, 2, 3),
 							},
 						)))).To(BeTrue())
@@ -111,7 +112,7 @@ var _ = Describe("Control", func() {
 						w2Frame := telem.MultiFrame[cesium.ChannelKey](
 							[]cesium.ChannelKey{indexCHKey, dataChKey},
 							[]telem.Series{
-								telem.NewSeriesSecondsTSV(12, 13, 14),
+								telem.NewSecondsTSV(12, 13, 14),
 								telem.NewSeriesV[int16](4, 5, 6),
 							},
 						)
@@ -120,7 +121,7 @@ var _ = Describe("Control", func() {
 						Expect(authorized).To(BeFalse())
 
 						Expect(w2.SetAuthority(cesium.WriterConfig{
-							Authorities: []control.Authority{control.AuthorityAbsolute - 1},
+							Authorities: []control.Authority{control.Absolute - 1},
 						})).To(Succeed())
 
 						By("Propagating the control transfer")
@@ -177,7 +178,7 @@ var _ = Describe("Control", func() {
 							ControlSubject:    control.Subject{Name: "Writer One"},
 							Start:             start,
 							Channels:          []cesium.ChannelKey{indexCHKey, dataChKey},
-							Authorities:       []control.Authority{control.AuthorityAbsolute - 2},
+							Authorities:       []control.Authority{control.Absolute - 2},
 							ErrOnUnauthorized: config.False(),
 							Sync:              config.True(),
 						}))
@@ -187,7 +188,7 @@ var _ = Describe("Control", func() {
 							Start:             start,
 							ControlSubject:    control.Subject{Name: "Writer Two"},
 							Channels:          []cesium.ChannelKey{indexCHKey, dataChKey},
-							Authorities:       []control.Authority{control.AuthorityAbsolute - 3},
+							Authorities:       []control.Authority{control.Absolute - 3},
 							ErrOnUnauthorized: config.False(),
 							Sync:              config.True(),
 						}))
@@ -209,7 +210,7 @@ var _ = Describe("Control", func() {
 							Frame: telem.MultiFrame[cesium.ChannelKey](
 								[]cesium.ChannelKey{indexCHKey, dataChKey},
 								[]telem.Series{
-									telem.NewSeriesSecondsTSV(10, 11, 12),
+									telem.NewSecondsTSV(10, 11, 12),
 									telem.NewSeriesV[int16](1, 2, 3),
 								}),
 						}
@@ -239,7 +240,7 @@ var _ = Describe("Control", func() {
 							Frame: telem.MultiFrame[cesium.ChannelKey](
 								[]cesium.ChannelKey{indexCHKey, dataChKey},
 								[]telem.Series{
-									telem.NewSeriesSecondsTSV(13, 14, 15),
+									telem.NewSecondsTSV(13, 14, 15),
 									telem.NewSeriesV[int16](4, 5, 6),
 								},
 							),
@@ -282,18 +283,18 @@ var _ = Describe("Control", func() {
 							Start:          0,
 							Channels:       []core.ChannelKey{k1, k2},
 							ControlSubject: control.Subject{Key: "1111", Name: "writer1"},
-							Authorities:    []control.Authority{control.AuthorityAbsolute - 1},
+							Authorities:    []control.Authority{control.Absolute - 1},
 						}))
 						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Start:          2,
 							Channels:       []core.ChannelKey{k2, k3},
 							ControlSubject: control.Subject{Key: "2222", Name: "writer2"},
-							Authorities:    []control.Authority{control.AuthorityAbsolute},
+							Authorities:    []control.Authority{control.Absolute},
 						}))
 
 						t := db.ControlStates().Transfers
 						Expect(t).To(HaveLen(4))
-						names := lo.Map(t, func(t xcontrol.Transfer, _ int) string {
+						names := lo.Map(t, func(t controller.Transfer, _ int) string {
 							return t.To.Subject.Name
 						})
 						Expect(names).To(ConsistOf("writer1", "writer2", "writer2", "cesium_internal_control_digest"))

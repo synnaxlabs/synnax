@@ -150,7 +150,7 @@ type MapTargetedSender[M freighter.Payload] map[address.Address]freighter.Stream
 func (s MapTargetedSender[M]) Send(_ context.Context, target address.Address, msg M) error {
 	sender, ok := s[target]
 	if !ok {
-		return address.NewErrTargetNotFound(target)
+		return address.TargetNotFound(target)
 	}
 	return sender.Send(msg)
 }

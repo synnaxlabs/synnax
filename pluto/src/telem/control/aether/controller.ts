@@ -27,6 +27,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { type theming } from "@/ether";
+import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
@@ -50,7 +51,6 @@ interface InternalState {
   instrumentation: Instrumentation;
   stateProv: StateProvider;
   addStatus: status.Adder;
-  runAsync: status.ErrorHandler;
   theme: theming.Theme;
   prevTrigger: number;
   telemCtx: telem.Context;
@@ -78,8 +78,6 @@ export class Controller
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.instrumentation = alamos.useInstrumentation(ctx);
-    i.addStatus = status.useAdder(ctx);
-    i.runAsync = status.useErrorHandler(ctx);
     if (
       i.prevTrigger == null ||
       Math.abs(this.state.acquireTrigger - i.prevTrigger) > 1
@@ -87,19 +85,25 @@ export class Controller
       i.prevTrigger = this.state.acquireTrigger;
     const nextClient = synnax.use(ctx);
     const nextStateProv = StateProvider.use(ctx);
-    i.stateProv = nextStateProv;
-    i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
-    i.client = nextClient;
-    i.runAsync(async () => {
+    const runAsync = status.useErrorHandler(ctx);
+    runAsync(async () => {
+      i.client = nextClient;
       if (i.client == null) await this.release();
+      i.stateProv = nextStateProv;
+      i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
+      i.addStatus = status.useAdder(ctx);
+
+      // Acquire or release control if necessary.
       if (this.state.acquireTrigger > i.prevTrigger) await this.acquire();
       else if (this.state.acquireTrigger < i.prevTrigger) await this.release();
-    }, "failed to acquire control");
+    });
   }
 
-  afterDelete(): void {
-    const { internal: i } = this;
-    i.runAsync(async () => await this.release(), "failed to release control");
+  afterDelete(ctx: aether.Context): void {
+    const runAsync = status.useErrorHandler(ctx);
+    runAsync(async () => {
+      await this.release();
+    });
   }
 
   private async updateNeedsControlOf(): Promise<void> {
@@ -181,7 +185,7 @@ export class Controller
   }
 
   async set(
-    frame: framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
+    frame: framer.Crude | Record<channel.KeyOrName, CrudeSeries>,
   ): Promise<void> {
     if (this.writer == null) await this.acquire();
     await this.writer?.write(frame);
@@ -208,11 +212,10 @@ export class Controller
 
   /** @implements telem.Factory to create telemetry that is bound to this controller. */
   create<T>(spec: telem.Spec): T | null {
-    const { internal: i } = this;
     const f = (): T | null => {
       switch (spec.type) {
         case SetChannelValue.TYPE: {
-          const sink = new SetChannelValue(this, i.runAsync, spec.props);
+          const sink = new SetChannelValue(this, spec.props);
           this.registry.set(sink, null);
           return sink as T;
         }
@@ -222,7 +225,7 @@ export class Controller
           return source as T;
         }
         case AcquireChannelControl.TYPE: {
-          const sink = new AcquireChannelControl(this, i.runAsync, spec.props);
+          const sink = new AcquireChannelControl(this, spec.props);
           return sink as T;
         }
         default:
@@ -248,13 +251,11 @@ export class SetChannelValue
   static readonly TYPE = "controlled-numeric-telem-sink";
 
   private readonly controller: Controller;
-  private readonly runAsync: status.ErrorHandler;
   schema = setChannelValuePropsZ;
 
-  constructor(controller: Controller, runAsync: status.ErrorHandler, props: unknown) {
+  constructor(controller: Controller, props: unknown) {
     super(props);
     this.controller = controller;
-    this.runAsync = runAsync;
   }
 
   invalidate(): void {}
@@ -272,7 +273,7 @@ export class SetChannelValue
   }
 
   set(value: number): void {
-    this.runAsync(async () => {
+    void (async () => {
       const { client } = this.controller.internal;
       if (client == null) return;
       const ch = await client.channels.retrieve(this.props.channel);
@@ -282,7 +283,7 @@ export class SetChannelValue
         fr[index.key] = TimeStamp.now();
       }
       await this.controller.set(fr);
-    }, "failed to set channel value");
+    })();
   }
 }
 
@@ -306,13 +307,11 @@ export class AcquireChannelControl
 {
   static readonly TYPE = "acquire-channel-control";
   private readonly controller: Controller;
-  private readonly runAsync: status.ErrorHandler;
   schema = acquireChannelControlPropsZ;
 
-  constructor(controller: Controller, runAsync: status.ErrorHandler, props: unknown) {
+  constructor(controller: Controller, props: unknown) {
     super(props);
     this.controller = controller;
-    this.runAsync = runAsync;
   }
 
   cleanup(): void {
@@ -327,7 +326,7 @@ export class AcquireChannelControl
   }
 
   set(acquire: boolean): void {
-    this.runAsync(async () => {
+    void (async () => {
       const { controller } = this;
       const { client } = controller.internal;
       if (client == null) return;
@@ -336,7 +335,7 @@ export class AcquireChannelControl
       if (ch.index !== 0) keys.push(ch.index);
       if (!acquire) await this.controller.releaseAuthority(keys);
       else await this.controller.setAuthority(keys, this.props.authority);
-    }, "failed to set channel authority");
+    })();
   }
 }
 

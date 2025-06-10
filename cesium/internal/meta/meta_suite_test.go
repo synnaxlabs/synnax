@@ -11,11 +11,10 @@ package meta_test
 
 import (
 	"context"
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/testutil"
+	"testing"
 )
 
 var (

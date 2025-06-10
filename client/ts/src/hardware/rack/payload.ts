@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, zod } from "@synnaxlabs/x";
+import { zod } from "@synnaxlabs/x";
 import { TimeStamp } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
-export const keyZ = z.uint32();
+export const keyZ = zod.uint32;
 export type Key = z.infer<typeof keyZ>;
 
 export const stateZ = z.object({
   key: keyZ,
-  variant: status.variantZ,
+  variant: z.string(),
   message: z.string(),
-  lastReceived: TimeStamp.z,
+  lastReceived: TimeStamp.z.optional(),
 });
 
 export interface State extends z.infer<typeof stateZ> {}
@@ -26,7 +26,7 @@ export interface State extends z.infer<typeof stateZ> {}
 export const rackZ = z.object({
   key: keyZ,
   name: z.string(),
-  state: zod.nullToUndefined(stateZ),
+  state: stateZ.optional(),
 });
 
 export interface Payload extends z.infer<typeof rackZ> {}

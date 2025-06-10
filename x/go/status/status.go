@@ -13,10 +13,8 @@ package status
 type Variant string
 
 const (
-	InfoVariant     Variant = "info"
-	SuccessVariant  Variant = "success"
-	ErrorVariant    Variant = "error"
-	WarningVariant  Variant = "warning"
-	DisabledVariant Variant = "disabled"
-	LoadingVariant  Variant = "loading"
+	InfoVariant    Variant = "info"
+	SuccessVariant Variant = "success"
+	ErrorVariant   Variant = "error"
+	WarningVariant Variant = "warning"
 )

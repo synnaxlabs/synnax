@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
-import { z } from "zod";
+import { type core, z } from "zod";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
@@ -224,10 +224,7 @@ export const ZERO_OUTPUT_CHANNEL: OutputChannel = ZERO_OUTPUT_CHANNELS[DO_CHANNE
 export type Channel = InputChannel | OutputChannel;
 export type ChannelType = Channel["type"];
 
-const validateUniquePorts: z.core.CheckFn<Channel[]> = ({
-  value: channels,
-  issues,
-}) => {
+const validateUniquePorts: core.CheckFn<Channel[]> = ({ value: channels, issues }) => {
   const portToIndexMap = new Map<string, number>();
   channels.forEach(({ port }, i) => {
     if (!portToIndexMap.has(port)) {
@@ -235,10 +232,11 @@ const validateUniquePorts: z.core.CheckFn<Channel[]> = ({
       return;
     }
     const index = portToIndexMap.get(port) as number;
+
     const code = "custom";
-    const message = `Port ${port} has already been used on another channel`;
-    issues.push({ code, message, path: [index, "port"], input: channels });
-    issues.push({ code, message, path: [i, "port"], input: channels });
+    const msg = `Port ${port} has already been used on another channel`;
+    issues.push({ code, message: msg, path: [index, "port"], input: channels });
+    issues.push({ code, message: msg, path: [i, "port"], input: channels });
   });
 };
 

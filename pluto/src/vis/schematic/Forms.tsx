@@ -69,13 +69,11 @@ interface SymbolOrientation {
 interface ShowOrientationProps {
   hideOuter?: boolean;
   hideInner?: boolean;
-  showOuterCenter?: boolean;
 }
 
 const OrientationControl = ({
   hideOuter,
   hideInner,
-  showOuterCenter,
   ...rest
 }: Form.FieldProps<SymbolOrientation> & ShowOrientationProps): ReactElement | null => {
   if (hideInner && hideOuter) return null;
@@ -89,7 +87,6 @@ const OrientationControl = ({
           }}
           hideInner={hideInner}
           hideOuter={hideOuter}
-          showOuterCenter={showOuterCenter}
           onChange={(v) =>
             onChange({
               ...value,
@@ -432,7 +429,7 @@ export const TankForm = ({
         </Form.Field>
       </Align.Space>
     </Align.Space>
-    <OrientationControl path="" hideInner showOuterCenter label="Label Location" />
+    <OrientationControl path="" hideInner />
   </FormWrapper>
 );
 

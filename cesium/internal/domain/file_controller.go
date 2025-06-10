@@ -33,6 +33,10 @@ func fileKeyToName(key uint16) string {
 	return strconv.Itoa(int(key)) + extension
 }
 
+func newErrResourceInUse(resource string, fileKey uint16) error {
+	return errors.Newf("%s for file %d is in use and cannot be closed", resource, fileKey)
+}
+
 // fileReaders represents readers on a file. It provides a mutex lock to prevent any
 // modifications to the list of readers.
 type fileReaders struct {
@@ -84,7 +88,7 @@ func openFileController(cfg Config) (*fileController, error) {
 }
 
 // realFileSizeCap returns the maximum allowed size of a file — though it may be
-// exceeded if commits are sparse. fc.Config.FileSize is the nominal file size to not
+// exceeded if commits are sparse. fc.Config.Filesize is the nominal file size to not
 // exceed, in reality, this value is set to 0.8 * the actual file size cap, therefore
 // the real value is 1.25 * the nominal value.
 func (fc *fileController) realFileSizeCap() telem.Size {
@@ -124,7 +128,7 @@ func (fc *fileController) scanUnopenedFiles() (set.Set[uint16], error) {
 // 3. If no unopened files are available, then the file controller creates a new file
 // handle to a new file, as governed by counter.
 func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio.TrackedWriteCloser, error) {
-	ctx, span := fc.T.Bench(ctx, "acquire_writer")
+	ctx, span := fc.T.Bench(ctx, "acquireWriter")
 	defer span.End()
 
 	fc.writers.RLock()
@@ -174,7 +178,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 // attempts to create a file handle for files from the directory that are not at
 // capacity. If there is none, it creates a new file and increments the counter.
 func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int64, error) {
-	_, span := fc.T.Bench(ctx, "new_writer")
+	_, span := fc.T.Bench(ctx, "newWriter")
 	fc.writers.Lock()
 
 	defer func() {
@@ -261,7 +265,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 }
 
 func (fc *fileController) acquireReader(ctx context.Context, key uint16) (*controlledReader, error) {
-	ctx, span := fc.T.Bench(ctx, "acquire_reader")
+	ctx, span := fc.T.Bench(ctx, "acquireReader")
 	defer span.End()
 
 	fc.readers.RLock()
@@ -302,7 +306,7 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (*contr
 }
 
 func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlledReader, error) {
-	_, span := fc.T.Bench(ctx, "new_reader")
+	_, span := fc.T.Bench(ctx, "newReader")
 	defer span.End()
 	file, err := fc.FS.Open(
 		fileKeyToName(key),

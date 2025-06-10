@@ -41,7 +41,7 @@ export const use = ({ aetherKey, enabled = true }: UseProps): UseReturn => {
   return { erase };
 };
 
-export interface EraserProps extends PropsWithChildren, Aether.ComponentProps {}
+export interface EraserProps extends PropsWithChildren, Aether.CProps {}
 
 export const Eraser = ({ aetherKey, children }: EraserProps): ReactElement => {
   const { erase } = use({ aetherKey });

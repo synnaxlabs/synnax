@@ -179,7 +179,6 @@ import {
   PistonPump,
   type PistonPumpProps,
   PolygonSymbol,
-  type PreviewProps,
   PropellerAgitator,
   type PropellerAgitatorProps,
   Pump,
@@ -237,13 +236,13 @@ import {
   type VentProps,
 } from "@/vis/schematic/Symbols";
 
-export interface Spec<P extends object = object> {
+export interface Spec<P extends object> {
   key: Variant;
   name: string;
   Form: FC<SymbolFormProps>;
   Symbol: FC<SymbolProps<P>>;
   defaultProps: (t: Theming.Theme) => P;
-  Preview: FC<PreviewProps<P>>;
+  Preview: FC<SymbolProps<P>>;
   zIndex: number;
 }
 

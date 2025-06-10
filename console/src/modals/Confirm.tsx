@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Nav, Text } from "@synnaxlabs/pluto";
-import { type status } from "@synnaxlabs/x";
+import { Button, Nav, type Status, Text } from "@synnaxlabs/pluto";
 
 import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
 import { ModalContentLayout } from "@/modals/layout";
 import { Triggers } from "@/triggers";
 
 interface ConfirmButtonProps {
-  variant?: status.Variant;
+  variant?: Status.Variant;
   label?: string;
   delay?: number;
 }

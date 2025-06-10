@@ -28,35 +28,15 @@ describe("Bounds", () => {
         expect(bound.upper).toEqual(2);
       });
     });
-
     it("should accept two arguments", () => {
       const bound = bounds.construct(1, 2);
       expect(bound.lower).toEqual(1);
       expect(bound.upper).toEqual(2);
     });
-
     it("should consider a single argument as the upper bound", () => {
       const bound = bounds.construct(1);
       expect(bound.lower).toEqual(0);
       expect(bound.upper).toEqual(1);
-    });
-
-    describe("makeValid", () => {
-      it("should make the bounds valid", () => {
-        const bound = bounds.construct<number>(2, 1, { makeValid: true });
-        expect(bound.lower).toEqual(1);
-        expect(bound.upper).toEqual(2);
-      });
-      it("should allow for options in a single argument constructor", () => {
-        const bound = bounds.construct<number>([2, 1], { makeValid: false });
-        expect(bound.lower).toEqual(2);
-        expect(bound.upper).toEqual(1);
-      });
-      it("should not make the bounds valid if makeValid is false", () => {
-        const bound = bounds.construct(1, 2, { makeValid: false });
-        expect(bound.lower).toEqual(1);
-        expect(bound.upper).toEqual(2);
-      });
     });
   });
   describe("equals", () => {

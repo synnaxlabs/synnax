@@ -10,10 +10,10 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax, type workspace } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
+import { v4 as uuid } from "uuid";
 
 import { type Import } from "@/import";
 import { Layout } from "@/layout";
@@ -34,7 +34,7 @@ export const ingest: Import.DirectoryIngestor = async (
     if (data == null) throw new Error(`Data for ${key} not found`);
     ingest(data, { layout, placeLayout, store });
   });
-  const wsKey = uuid.create();
+  const wsKey = uuid();
   const wsName = name;
   const ws: workspace.Workspace = { key: wsKey, name: wsName, layout };
   store.dispatch(Workspace.add(ws));

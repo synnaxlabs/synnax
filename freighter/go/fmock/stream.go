@@ -130,7 +130,7 @@ func (s *StreamClient[RQ, RS]) Stream(
 			} else if s.Network != nil {
 				srv, ok := s.Network.resolveStreamTarget(target)
 				if !ok || srv.Handler == nil {
-					return oCtx, address.NewErrTargetNotFound(target)
+					return oCtx, address.TargetNotFound(target)
 				}
 				server = srv
 				targetBufferSize = srv.BufferSize

@@ -53,38 +53,38 @@ var _ = Describe("Iterator Behavior", func() {
 					data2 = cesium.Channel{Key: data2Key, Name: "Vespucci", Index: index2Key, DataType: telem.Uint16T}
 
 					Expect(db.CreateChannel(ctx, index1, data1, index2, data2)).To(Succeed())
-					Expect(db.Write(ctx, 0, telem.MultiFrame(
+					Expect(db.Write(ctx, 0, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{index1Key, data1Key},
 						[]telem.Series{
-							telem.NewSeriesSecondsTSV(0, 1, 2),
+							telem.NewSecondsTSV(0, 1, 2),
 							telem.NewSeriesV[uint16](10, 11, 12),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+					Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{index1Key, data1Key},
 						[]telem.Series{
-							telem.NewSeriesSecondsTSV(10, 12, 15),
+							telem.NewSecondsTSV(10, 12, 15),
 							telem.NewSeriesV[uint16](20, 22, 25),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 4*telem.SecondTS, telem.MultiFrame(
+					Expect(db.Write(ctx, 4*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{index1Key, data1Key},
 						[]telem.Series{
-							telem.NewSeriesSecondsTSV(4, 7, 9),
+							telem.NewSecondsTSV(4, 7, 9),
 							telem.NewSeriesV[uint16](14, 17, 19),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 2*telem.SecondTS, telem.MultiFrame(
+					Expect(db.Write(ctx, 2*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{index2Key, data2Key},
 						[]telem.Series{
-							telem.NewSeriesSecondsTSV(2, 3, 6, 8),
+							telem.NewSecondsTSV(2, 3, 6, 8),
 							telem.NewSeriesV[uint16](2, 3, 6, 8),
 						},
 					))).To(Succeed())
-					Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame(
+					Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
 						[]cesium.ChannelKey{index2Key, data2Key},
 						[]telem.Series{
-							telem.NewSeriesSecondsTSV(11, 12, 13, 15),
+							telem.NewSecondsTSV(11, 12, 13, 15),
 							telem.NewSeriesV[uint16](11, 12, 13, 15),
 						},
 					)))

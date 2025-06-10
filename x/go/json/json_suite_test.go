@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestJSON(t *testing.T) {
+func TestJson(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "JSON Suite")
+	RunSpecs(t, "Json Suite")
 }

@@ -10,7 +10,7 @@
 import { type task } from "@synnaxlabs/client";
 import { Icon, type IconProps } from "@synnaxlabs/media";
 import { type FC, type JSX } from "react";
-import { z } from "zod";
+import { type core, z } from "zod";
 
 import { Common } from "@/hardware/common";
 
@@ -1107,7 +1107,7 @@ const ZERO_BASE_WRITE_CONFIG: BaseWriteConfig = {
 const validateAnalogPorts = ({
   value: channels,
   issues,
-}: z.core.ParsePayload<{ port: number }[]>) => {
+}: core.ParsePayload<{ port: number }[]>) => {
   const portsToIndexMap = new Map<number, number>();
   channels.forEach(({ port }, i) => {
     if (!portsToIndexMap.has(port)) {
@@ -1125,7 +1125,7 @@ const validateAnalogPorts = ({
 const validateDigitalPortsAndLines = ({
   value: channels,
   issues,
-}: z.core.ParsePayload<DigitalChannel[]>) => {
+}: core.ParsePayload<DigitalChannel[]>) => {
   const portLineToIndexMap = new Map<string, number>();
   channels.forEach(({ line, port }, i) => {
     const key = `${port}/${line}`;
@@ -1135,9 +1135,9 @@ const validateDigitalPortsAndLines = ({
     }
     const index = portLineToIndexMap.get(key) as number;
     const code = "custom";
-    const message = `Port ${port}, line ${line} has already been used on another channel`;
-    issues.push({ code, message, path: [index, "line"], input: channels[index] });
-    issues.push({ code, message, path: [i, "line"], input: channels[i] });
+    const msg = `Port ${port}, line ${line} has already been used on another channel`;
+    issues.push({ code, message: msg, path: [index, "line"], input: channels[index] });
+    issues.push({ code, message: msg, path: [i, "line"], input: channels[i] });
   });
 };
 

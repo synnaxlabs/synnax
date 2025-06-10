@@ -128,15 +128,9 @@ TEST(StreamerTests, TestStreamDownsample) {
     expected = {1};
     test_downsample(data, expected, 10);
 
-    test_downsample(data, data, 0);
-}
+    test_downsample(data, data, -1);
 
-TEST(StreamerTests, TestStreamDownsampleNegative) {
-    auto client = new_test_client();
-    ASSERT_OCCURRED_AS_P(
-        client.telem.open_streamer(synnax::StreamerConfig{.downsample_factor = -1}),
-        xerrors::VALIDATION
-    );
+    test_downsample(data, data, 0);
 }
 
 /// @brief it should correctly stream data from a variable density channel.

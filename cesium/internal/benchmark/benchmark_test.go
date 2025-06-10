@@ -168,10 +168,10 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 					sem.Release(1)
 				}()
 				var (
-					commitCount                   = 0
-					highWaterMark telem.TimeStamp = 0
-					indexData                     = make([]telem.TimeStamp, cfg.samplesPerDomain)
-					frame         cesium.Frame
+					commitCount                 = 0
+					hwm         telem.TimeStamp = 0
+					indexData                   = make([]telem.TimeStamp, cfg.samplesPerDomain)
+					frame       cesium.Frame
 				)
 
 				w, err := db.OpenWriter(ctx, cesium.WriterConfig{
@@ -199,9 +199,9 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 							indexData[l] = 0
 							continue
 						}
-						indexData[l] = highWaterMark + telem.TimeStamp(l)*telem.SecondTS
+						indexData[l] = hwm + telem.TimeStamp(l)*telem.SecondTS
 					}
-					highWaterMark += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
+					hwm += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
 
 					// Add the index data into frame / modify the index data in the frame
 					if k == 0 {
@@ -276,11 +276,11 @@ func BenchRead(
 	fs xfs.FS,
 ) {
 	var (
-		db            *cesium.DB
-		err           error
-		frame         cesium.Frame
-		indexData                     = make([]telem.TimeStamp, cfg.samplesPerDomain)
-		highWaterMark telem.TimeStamp = 0
+		db        *cesium.DB
+		err       error
+		frame     cesium.Frame
+		indexData                 = make([]telem.TimeStamp, cfg.samplesPerDomain)
+		hwm       telem.TimeStamp = 0
 	)
 
 	db, err = cesium.Open(ctx, "benchmark_read_test", cesium.WithFS(fs))
@@ -317,9 +317,9 @@ func BenchRead(
 				indexData[l] = 0
 				continue
 			}
-			indexData[l] = highWaterMark + telem.TimeStamp(l)*telem.SecondTS
+			indexData[l] = hwm + telem.TimeStamp(l)*telem.SecondTS
 		}
-		highWaterMark += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
+		hwm += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
 
 		// Add the index data into frame / modify the index data in the frame
 		if k == 0 {
@@ -442,12 +442,12 @@ func BenchStream(
 					sem.Release(1)
 				}()
 				var (
-					commitCount                   = 0
-					highWaterMark telem.TimeStamp = 0
-					indexData                     = make([]telem.TimeStamp, cfg.samplesPerDomain)
-					frame         cesium.Frame
-					w             *cesium.Writer
-					s             cesium.Streamer[cesium.StreamerRequest, cesium.StreamerResponse]
+					commitCount                 = 0
+					hwm         telem.TimeStamp = 0
+					indexData                   = make([]telem.TimeStamp, cfg.samplesPerDomain)
+					frame       cesium.Frame
+					w           *cesium.Writer
+					s           cesium.Streamer[cesium.StreamerRequest, cesium.StreamerResponse]
 				)
 
 				w, err := db.OpenWriter(ctx, cesium.WriterConfig{
@@ -484,9 +484,9 @@ func BenchStream(
 							indexData[l] = 0
 							continue
 						}
-						indexData[l] = highWaterMark + telem.TimeStamp(l)*telem.SecondTS
+						indexData[l] = hwm + telem.TimeStamp(l)*telem.SecondTS
 					}
-					highWaterMark += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
+					hwm += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
 
 					// Add the index data into frame / modify the index data in the frame
 					if k == 0 {

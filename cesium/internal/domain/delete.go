@@ -188,7 +188,7 @@ func (db *DB) Delete(
 }
 
 // GarbageCollect rewrites all files that are over the size limit of a file and has
-// enough tombstones to garbage collect, as defined by Threshold.
+// enough tombstones to garbage collect, as defined by GCThreshold.
 func (db *DB) GarbageCollect(ctx context.Context) error {
 	_, span := db.cfg.T.Bench(ctx, "garbage_collect")
 	defer span.End()

@@ -130,8 +130,8 @@ export type StringSource = Source<string>;
 export const stringSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("string") });
 export type StringSourceSpec = z.infer<typeof stringSourceSpecZ>;
 
-export class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
-  private props_: z.infer<P> | undefined = undefined;
+export class Base<P extends z.ZodTypeAny> extends observe.BaseObserver<void> {
+  private props_: z.output<P> | undefined = undefined;
   private readonly uProps_: unknown | undefined = undefined;
   schema: P | undefined = undefined;
 
@@ -140,7 +140,7 @@ export class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
     this.uProps_ = props;
   }
 
-  get props(): z.infer<P> {
+  get props(): z.output<P> {
     if (this.props_ == null) {
       const res = this._schema.safeParse(this.uProps_);
       if (res.success) this.props_ = res.data;
@@ -165,11 +165,11 @@ export class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
   cleanup(): void {}
 }
 
-export class AbstractSource<P extends z.ZodType> extends Base<P> {}
+export class AbstractSource<P extends z.ZodTypeAny> extends Base<P> {}
 
-export class AbstractSink<P extends z.ZodType> extends Base<P> {}
+export class AbstractSink<P extends z.ZodTypeAny> extends Base<P> {}
 
-export class UnarySourceTransformer<I, O, P extends z.ZodType>
+export class UnarySourceTransformer<I, O, P extends z.ZodTypeAny>
   extends AbstractSource<P>
   implements SourceTransformer<I, O>
 {
@@ -209,7 +209,7 @@ export class UnarySourceTransformer<I, O, P extends z.ZodType>
   }
 }
 
-export class MultiSourceTransformer<I, O, P extends z.ZodType>
+export class MultiSourceTransformer<I, O, P extends z.ZodTypeAny>
   extends AbstractSource<P>
   implements SourceTransformer<I, O>
 {
@@ -218,7 +218,7 @@ export class MultiSourceTransformer<I, O, P extends z.ZodType>
   value(): O {
     const values = Object.fromEntries(
       Object.entries(this.sources).map(([id, source]) => [id, source.value()]),
-    );
+    ) as Record<string, I>;
     return this.transform(values);
   }
 
@@ -234,7 +234,7 @@ export class MultiSourceTransformer<I, O, P extends z.ZodType>
   }
 }
 
-export class UnarySinkTransformer<I, O, P extends z.ZodType>
+export class UnarySinkTransformer<I, O, P extends z.ZodTypeAny>
   extends Base<P>
   implements SinkTransformer<I, O>
 {

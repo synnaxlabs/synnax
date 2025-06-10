@@ -45,13 +45,13 @@ export class Breaker {
   }
 }
 
-export const breakerConfigZ = z.object({
+export const breakerConfig = z.object({
   baseInterval: TimeSpan.z.optional(),
   maxRetries: z.number().optional(),
   scale: z.number().optional(),
 });
 
-export interface Config extends Omit<z.infer<typeof breakerConfigZ>, "baseInterval"> {
+export interface Config extends Omit<z.infer<typeof breakerConfig>, "baseInterval"> {
   baseInterval?: CrudeTimeSpan;
   maxRetries?: number;
   scale?: number;

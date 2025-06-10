@@ -88,7 +88,6 @@ func (t Transfer[R]) assertValid() {
 // Occurred returns true if a transfer occurred, i.e., one of From or To is not nil and
 // From.Subject != To.Subject.
 func (t Transfer[R]) Occurred() bool {
-	t.assertValid()
 	if t.From != nil && t.To != nil {
 		return t.From.Subject != t.To.Subject || t.From.Authority != t.To.Authority
 	}

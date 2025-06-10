@@ -17,13 +17,13 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 )
 
-// NewHardShutdown extends a signal WaitGroup and its corresponding cancellation
-// function to implement an io.Closer that (1) cancels the context and (2) waits for all
-// routines to exit. This order is reversed when compared to NewGracefulShutdown, as it
-// forces routines to exit before completing.
+// NewHardShutdown extends a signal WaitGroup and its corresponding cancellation function
+// to implement an io.Closer that (1) cancels the context and (2) waits for all routines to exit.
+// This order is reversed when compared to NewGracefulShutdown, as it forces routines to
+// exit before completing.
 //
-// The context.Canceled error returned by any routine is ignored, as it's assumed that a
-// context cancellation is a nominal shutdown.
+// The context.Canceled error returned by any routine is ignored, as it's assumed that
+// a context cancellation is a nominal shutdown.
 func NewHardShutdown(
 	wg WaitGroup,
 	cancel context.CancelFunc,
@@ -36,9 +36,9 @@ func NewHardShutdown(
 }
 
 // NewGracefulShutdown extends a signal WaitGroup and its corresponding cancellation
-// function to implement an io.Closer that (1) waits for all routines to exit and (2)
-// cancels the context. This order is reversed when compared to NewHardShutdown, as it
-// waits for all routines to gracefully exit before cancelling the context.
+// function to implement an io.Closer that (1) waits for all routines to exit and
+// (2) cancels the context. This order is reversed when compared to NewHardShutdown,
+// as it waits for all routines to gracefully exit before cancelling the context.
 func NewGracefulShutdown(
 	wg WaitGroup,
 	cancel context.CancelFunc,

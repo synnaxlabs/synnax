@@ -49,7 +49,7 @@ export const Controls = ({
       This task is a snapshot and cannot be modified or started.
     </Status.Text.Centered>
   ) : message != null ? (
-    <Status.Text variant={variant}>{message}</Status.Text>
+    <Status.Text variant={variant ?? "info"}>{message}</Status.Text>
   ) : isConfiguring ? (
     <Status.Text.Centered variant="loading">Configuring...</Status.Text.Centered>
   ) : !hasBeenConfigured ? (

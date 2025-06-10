@@ -12,13 +12,13 @@ package cesium
 import (
 	"context"
 
-	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
-	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
@@ -48,8 +48,7 @@ type WriterRequest struct {
 	Command WriterCommand
 	// Frame is the arrow record to write to the DB.
 	Frame Frame
-	// Config is used for updating the parameters in WriterSetAuthority and
-	// WriterSetMode.
+	// Config is used for updating the parameters in WriterSetAuthority and WriterSetMode.
 	Config WriterConfig
 	// SeqNum is used to match the request with the response. The sequence number should
 	// be incremented with each request.
@@ -69,9 +68,7 @@ type WriterResponse struct {
 	// Authorized flags whether the write or commit operation was authorized. It is only
 	// valid during calls to WriterWrite and WriterCommit.
 	Authorized bool
-	// Err contains an error that occurred when attempting to execute a request on the
-	// writer.
-	Err error
+	Err        error
 }
 
 // StreamWriter provides a streaming interface for writing telemetry to the DB.
@@ -93,10 +90,10 @@ type WriterResponse struct {
 // until the error is resolved. To resolve the error, see the above paragraph.
 //
 // To close the StreamWriter, simply close the inlet. The StreamWriter will ensure that
-// all in-progress requests have been served before closing the outlet. Closing the
-// Writer will NOT commit any pending writes. Once the StreamWriter has released all
-// resources, the output stream will be closed and the StreamWriter will return any
-// accumulated error through the signal context provided to Flow.
+// all in-progress requests have been served before closing the outlet. Closing the Writer
+// will NOT commit any pending writes. Once the StreamWriter has released all resources,
+// the output stream will be closed and the StreamWriter will return any accumulated error
+// through the signal context provided to Flow.
 type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 
 type streamWriter struct {
@@ -106,6 +103,7 @@ type streamWriter struct {
 	relay           confluence.Inlet[Frame]
 	internal        []*idxWriter
 	virtual         *virtualWriter
+	seqNum          int
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 	accumulatedErr  error
 }
@@ -117,8 +115,8 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	sCtx.Go(func(ctx context.Context) (err error) {
 		defer func() {
 			// Call close in a deferral to make sure writer resources get released even
-			// if the context is canceled or the function panics. We need to pass in a
-			// new context here because the original context may have been canceled.
+			// if the context is canceled or the function panics. We need to pass in
+			// a new context here because the original context may have been canceled.
 			// Using context.TODO() is not ideal, but it is the best we can do here.
 			err = errors.Combine(err, w.close(context.TODO()))
 		}()
@@ -168,18 +166,18 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 		return nil
 	}
 	var (
-		u       = ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
-		getAuth = func(ch ChannelKey) (xcontrol.Authority, bool) {
+		u       = ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
+		getAuth = func(ch ChannelKey) (control.Authority, bool) {
 			return cfg.Authorities[0], true
 		}
 	)
 
 	if len(cfg.Channels) > 0 {
-		values := make(map[ChannelKey]xcontrol.Authority, len(cfg.Channels))
+		values := make(map[ChannelKey]control.Authority, len(cfg.Channels))
 		for i, ch := range cfg.Channels {
 			values[ch] = cfg.authority(i)
 		}
-		getAuth = func(ch ChannelKey) (xcontrol.Authority, bool) {
+		getAuth = func(ch ChannelKey) (control.Authority, bool) {
 			v, ok := values[ch]
 			return v, ok
 		}
@@ -215,7 +213,7 @@ func (w *streamWriter) maybeSendRes(
 	end telem.TimeStamp,
 ) error {
 	res := WriterResponse{Command: req.Command, SeqNum: req.SeqNum, End: end, Authorized: true}
-	if w.accumulatedErr != nil && errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
+	if w.accumulatedErr != nil && errors.Is(w.accumulatedErr, control.ErrUnauthorized) {
 		w.accumulatedErr = nil
 		res.Authorized = false
 	}
@@ -235,19 +233,19 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 
 		if *w.EnableAutoCommit {
 			if _, err = idx.Commit(ctx); err != nil {
-				return err
+				return
 			}
 		}
 	}
 	if w.virtual.internal != nil {
 		if req.Frame, err = w.virtual.write(req.Frame); err != nil {
-			return err
+			return
 		}
 	}
 	if w.Mode.Stream() {
 		w.relay.Inlet() <- req.Frame
 	}
-	return err
+	return
 }
 
 func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
@@ -266,7 +264,7 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 
 func (w *streamWriter) close(ctx context.Context) error {
 	c := errors.NewCatcher(errors.WithAggregation())
-	u := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
+	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
 			u_, err := idx.Close()
@@ -313,22 +311,23 @@ type idxWriter struct {
 	start           telem.TimeStamp
 	// internal contains writers for each channel
 	internal map[ChannelKey]*unaryWriterState
-	// writingToIdx is true when the Write is writing to the index channel. This is
-	// typically true, which allows us to avoid unnecessary lookups.
+	// writingToIdx is true when the Write is writing to the index
+	// channel. This is typically true, which allows us to avoid
+	// unnecessary lookups.
 	writingToIdx bool
 	// numWriteCalls tracks the number of write calls made to the idxWriter.
 	numWriteCalls int
 	idx           struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
-		*index.Domain
+		index.Index
 		// Key is the channel key of the index.
 		ch core.Channel
 		// highWaterMark is the highest timestamp written to the index. This watermark
 		// is only relevant when writingToIdx is true.
 		highWaterMark telem.TimeStamp
 	}
-	// sampleCount is the total number of samples written to the index as if it were a
-	// single logical channel. i.e. N channels with M samples will result in a sample
+	// sampleCount is the total number of samples written to the index as if it were
+	// a single logical channel. i.e. N channels with M samples will result in a sample
 	// count of M.
 	sampleCount int64
 }
@@ -393,7 +392,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 func (w *idxWriter) Close() (ControlUpdate, error) {
 	c := errors.NewCatcher(errors.WithAggregation())
 	update := ControlUpdate{
-		Transfers: make([]control.Transfer, 0, len(w.internal)),
+		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
 	for _, unaryWriter := range w.internal {
 		c.Exec(func() error {
@@ -498,7 +497,7 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		if lengthOfFrame == -1 {
 			// Data type of first series must be known since we use it to calculate the
 			// length of series in the frame
-			if s.DataType.Density() == telem.UnknownDensity {
+			if s.DataType.Density() == telem.DensityUnknown {
 				return invalidDataTypeError(uWriter.Channel, s.DataType)
 			}
 			lengthOfFrame = s.Len()
@@ -552,9 +551,9 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 	return nil
 }
 
-// resolveCommitEnd returns the end timestamp for a commit. For an index channel, this
-// returns the high watermark. For a non-index channel, this returns a stamp to the
-// approximation of the end
+// resolveCommitEnd returns the end timestamp for a commit.
+// For an index channel, this returns the high watermark.
+// For a non-index channel, this returns a stamp to the approximation of the end
 func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApproximation, error) {
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil
@@ -589,10 +588,10 @@ func (w virtualWriter) write(fr Frame) (Frame, error) {
 
 func (w virtualWriter) Close() (ControlUpdate, error) {
 	c := errors.NewCatcher(errors.WithAggregation())
-	update := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
+	update := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	for _, chW := range w.internal {
-		// We do not want to clean up the digest channel since we want to use it to send
-		// updates for closures.
+		// We do not want to clean up the digest channel since we want to use it to
+		// send updates for closures.
 		if chW.Channel.Key != w.digestKey {
 			c.Exec(func() error {
 				transfer, err := chW.Close()

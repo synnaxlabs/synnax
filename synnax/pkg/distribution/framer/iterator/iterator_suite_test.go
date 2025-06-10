@@ -60,11 +60,11 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			TSChannel:        c.Storage.TS,
 			IntOverflowCheck: func(ctx context.Context, count types.Uint20) error { return nil },
 		}))
-		cont.iter = MustSucceed(iterator.NewService(iterator.ServiceConfig{
-			TS:           c.Storage.TS,
-			Channels:     cont.channel,
-			HostResolver: c.Cluster,
-			Transport:    iterNet.New(c.Config.AdvertiseAddress),
+		cont.iter = MustSucceed(iterator.OpenService(iterator.ServiceConfig{
+			TS:            c.Storage.TS,
+			ChannelReader: cont.channel,
+			HostResolver:  c.Cluster,
+			Transport:     iterNet.New(c.Config.AdvertiseAddress),
 		}))
 		cont.writer = MustSucceed(writer.OpenService(writer.ServiceConfig{
 			TS:            c.Storage.TS,

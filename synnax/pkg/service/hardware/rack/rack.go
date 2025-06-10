@@ -86,7 +86,7 @@ type Rack struct {
 	// external rack.
 	Embedded bool `json:"embedded" msgpack:"embedded"`
 	// State is the current state of the rack.
-	State *State `json:"state" msgpack:"state"`
+	State State `json:"state" msgpack:"state"`
 }
 
 var _ gorp.Entry[Key] = Rack{}

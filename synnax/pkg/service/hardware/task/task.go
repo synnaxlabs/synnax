@@ -36,7 +36,7 @@ func (k Key) String() string { return strconv.Itoa(int(k)) }
 func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }
 
 func (k *Key) UnmarshalJSON(b []byte) error {
-	n, err := binary.UnmarshalJSONStringUint64(b)
+	n, err := binary.UnmarshalStringInt64(b)
 	*k = Key(n)
 	return err
 }
@@ -71,6 +71,8 @@ type State struct {
 	// Key is used to uniquely identify the state update, and is usually used to tie
 	// back a command with its corresponding state value.
 	Key string `json:"key" msgpack:"key"`
+	// Internal is true if the state update is for an internal task.
+	Internal bool `json:"internal" msgpack:"internal"`
 	// Task is the key of the task that the state update is for.
 	Task Key `json:"task" msgpack:"task"`
 	// Variant is the status of the task.

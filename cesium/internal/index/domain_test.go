@@ -24,7 +24,7 @@ var _ = Describe("Domain", func() {
 		Describe("FS:"+fsName, Ordered, func() {
 			var (
 				db      *domain.DB
-				idx     *index.Domain
+				idx     index.Index
 				fs      xfs.FS
 				cleanUp func() error
 			)
@@ -45,7 +45,7 @@ var _ = Describe("Domain", func() {
 							ctx,
 							db,
 							(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
+							telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
 						)).To(Succeed())
 					})
 					DescribeTable("Continuous",
@@ -141,19 +141,19 @@ var _ = Describe("Domain", func() {
 							ctx,
 							db,
 							(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
+							telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
 						)).To(Succeed())
 						Expect(domain.Write(
 							ctx,
 							db,
 							(25 * telem.SecondTS).Range(30*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(25, 26, 28, 30).Data,
+							telem.NewSecondsTSV(25, 26, 28, 30).Data,
 						)).To(Succeed())
 						Expect(domain.Write(
 							ctx,
 							db,
 							(40 * telem.SecondTS).Range(43*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(40, 42, 43).Data,
+							telem.NewSecondsTSV(40, 42, 43).Data,
 						)).To(Succeed())
 					})
 					DescribeTable("Discontinuous",
@@ -273,11 +273,11 @@ var _ = Describe("Domain", func() {
 						}))
 
 						w := MustSucceed(db2.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 16, 17).Data))
+						MustSucceed(w.Write(telem.NewSecondsTSV(10, 11, 16, 17).Data))
 						Expect(w.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(18, 19, 20, 22).Data))
+						MustSucceed(w.Write(telem.NewSecondsTSV(18, 19, 20, 22).Data))
 						Expect(w.Commit(ctx, 22*telem.SecondTS+1)).To(Succeed())
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(25, 26).Data))
+						MustSucceed(w.Write(telem.NewSecondsTSV(25, 26).Data))
 						Expect(w.Commit(ctx, 26*telem.SecondTS+1)).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 
@@ -288,7 +288,7 @@ var _ = Describe("Domain", func() {
 							ctx,
 							db2,
 							(30 * telem.SecondTS).Range(33*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(30, 32, 33).Data,
+							telem.NewSecondsTSV(30, 32, 33).Data,
 						)).To(Succeed())
 
 						idx2 = &index.Domain{DB: db2}
@@ -345,7 +345,7 @@ var _ = Describe("Domain", func() {
 							ctx,
 							db,
 							(1 * telem.SecondTS).SpanRange(19*telem.Second+1),
-							telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
+							telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
 						)).To(Succeed())
 					})
 					DescribeTable("Continuous", func(
@@ -419,28 +419,28 @@ var _ = Describe("Domain", func() {
 							ctx,
 							db,
 							(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
+							telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
 						)).To(Succeed())
 
 						Expect(domain.Write(
 							ctx,
 							db,
 							(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(20, 21, 22, 23, 25, 26).Data,
+							telem.NewSecondsTSV(20, 21, 22, 23, 25, 26).Data,
 						)).To(Succeed())
 
 						Expect(domain.Write(
 							ctx,
 							db,
 							(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(27, 29, 30, 31, 32, 34, 35).Data,
+							telem.NewSecondsTSV(27, 29, 30, 31, 32, 34, 35).Data,
 						)).To(Succeed())
 
 						Expect(domain.Write(
 							ctx,
 							db,
 							(40 * telem.SecondTS).Range(45*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(40, 41, 45).Data,
+							telem.NewSecondsTSV(40, 41, 45).Data,
 						)).To(Succeed())
 					})
 					DescribeTable("Quasi-continuous", func(
@@ -561,21 +561,21 @@ var _ = Describe("Domain", func() {
 						ctx,
 						db,
 						(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
-						telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
+						telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
 					)).To(Succeed())
 
 					Expect(domain.Write(
 						ctx,
 						db,
 						(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
-						telem.NewSeriesSecondsTSV(20, 21, 22, 23, 25, 26).Data,
+						telem.NewSecondsTSV(20, 21, 22, 23, 25, 26).Data,
 					)).To(Succeed())
 
 					Expect(domain.Write(
 						ctx,
 						db,
 						(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
-						telem.NewSeriesSecondsTSV(27, 29, 30, 31, 32, 34, 35).Data,
+						telem.NewSecondsTSV(27, 29, 30, 31, 32, 34, 35).Data,
 					)).To(Succeed())
 
 					Expect(MustSucceed(idx.Stamp(ctx, 25*telem.SecondTS, 8, true))).To(Equal(index.Exactly[telem.TimeStamp](35 * telem.SecondTS)))
@@ -594,19 +594,19 @@ var _ = Describe("Domain", func() {
 							ctx,
 							db,
 							(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
+							telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
 						)).To(Succeed())
 						Expect(domain.Write(
 							ctx,
 							db,
 							(30 * telem.SecondTS).Range(40*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40).Data,
+							telem.NewSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40).Data,
 						))
 						Expect(domain.Write(
 							ctx,
 							db,
 							(55 * telem.SecondTS).Range(65*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65).Data,
+							telem.NewSecondsTSV(55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65).Data,
 						))
 					})
 					DescribeTable("Discontinuous", func(

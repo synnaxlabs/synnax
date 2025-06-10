@@ -25,7 +25,7 @@ const Pipe = ({ points, color: pathColor, ...rest }: PathProps): ReactElement =>
   <BaseEdge
     path={calcPath(points)}
     style={{
-      stroke: color.cssString(pathColor),
+      stroke: color.hex(pathColor),
     }}
     {...rest}
   />
@@ -39,7 +39,7 @@ const ElectricSignalPipe = ({
   <BaseEdge
     path={calcPath(points)}
     style={{
-      stroke: color.cssString(pathColor),
+      stroke: color.hex(pathColor),
       strokeDasharray: "12,4",
     }}
     {...rest}
@@ -54,7 +54,7 @@ const SecondaryPipe = ({
   <BaseEdge
     path={calcPath(points)}
     style={{
-      stroke: color.cssString(pathColor),
+      stroke: color.hex(pathColor),
       strokeDasharray: "12,4,4",
     }}
     {...rest}
@@ -65,7 +65,7 @@ const JackedPipe = ({ points, color: pathColor, ...rest }: PathProps): ReactElem
   const miters = xy.calculateMiters(points, 6);
   const abovePath = points.map((p, i) => xy.translate(p, miters[i]));
   const belowPath = points.map((p, i) => xy.translate(p, xy.scale(miters[i], -1)));
-  const stroke = color.cssString(pathColor);
+  const stroke = color.hex(pathColor);
   const opacity = 0.7;
   return (
     <>
@@ -132,7 +132,7 @@ const HydraulicLSymbol = ({
   return (
     <path
       d={pathData}
-      stroke={color.cssString(colorVal)}
+      stroke={color.hex(colorVal)}
       fill="none"
       strokeWidth={2}
       transform={`translate(${position.x},${position.y}) rotate(${rotationAngle})`}
@@ -160,7 +160,7 @@ const ContinuousPneumaticSignalSymbol = ({
     <>
       <path
         d={pathData}
-        stroke={color.cssString(colorVal)}
+        stroke={color.hex(colorVal)}
         fill="none"
         strokeWidth={2}
         transform={`translate(${position.x},${position.y}) rotate(${rotate})`}
@@ -168,7 +168,7 @@ const ContinuousPneumaticSignalSymbol = ({
       />
       <path
         d={pathData}
-        stroke={color.cssString(colorVal)}
+        stroke={color.hex(colorVal)}
         fill="none"
         strokeWidth={2}
         transform={`translate(${pointTwo.x},${pointTwo.y}) rotate(${rotate})`}
@@ -184,7 +184,7 @@ const DataLinkSymbol = ({ color: colorVal, position }: SymbolProps): ReactElemen
     cy={position.y}
     r={3}
     fill="var(--pluto-gray-l0)"
-    stroke={color.cssString(colorVal)}
+    stroke={color.hex(colorVal)}
     strokeWidth={2}
   />
 );
@@ -195,7 +195,7 @@ const createSymbolLine = (C: FC<SymbolProps>) => {
     const positions = computeSymbolPositions(points, 40); // Adjust the interval as needed
     return (
       <>
-        <BaseEdge path={path} {...rest} style={{ stroke: color.cssString(colorVal) }} />
+        <BaseEdge path={path} {...rest} style={{ stroke: color.hex(colorVal) }} />
         {positions.map(({ position, direction }, index) => (
           <C key={index} position={position} direction={direction} color={colorVal} />
         ))}

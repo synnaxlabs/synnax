@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { toArray } from "@synnaxlabs/x/toArray";
 
 import { ALLOW_ALL_ONTOLOGY_TYPE, ONTOLOGY_TYPE } from "@/access/policy/ontology";
 import { type Key, type New, type Policy } from "@/access/policy/payload";
@@ -37,7 +37,7 @@ export class Client {
   async retrieve(keys: Key[]): Promise<Policy[]>;
   async retrieve(keys: Key | Key[]): Promise<Policy | Policy[]> {
     const isMany = Array.isArray(keys);
-    const res = await this.retriever.retrieve({ keys: array.toArray(keys) });
+    const res = await this.retriever.retrieve({ keys: toArray(keys) });
     return isMany ? res : res[0];
   }
 
@@ -46,7 +46,7 @@ export class Client {
   async retrieveFor(
     subjects: ontology.CrudeID | ontology.CrudeID[],
   ): Promise<Policy[]> {
-    const newIds = array.toArray(subjects).map((id) => new ontology.ID(id).payload);
+    const newIds = toArray(subjects).map((id) => new ontology.ID(id).payload);
     return await this.retriever.retrieve({ subjects: newIds });
   }
 

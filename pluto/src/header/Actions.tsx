@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x";
+import { toArray } from "@synnaxlabs/x";
 import { Fragment, isValidElement, type ReactElement } from "react";
 
 import { Align } from "@/align";
@@ -41,7 +41,7 @@ export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement 
       className={CSS.BE("header", "actions")}
       {...rest}
     >
-      {array.toArray(children).map((action, i) => (
+      {toArray(children).map((action, i) => (
         <Action key={i} index={i} level={level} divided={divided}>
           {action}
         </Action>

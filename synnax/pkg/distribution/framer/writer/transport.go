@@ -27,7 +27,6 @@ const (
 	Write
 	// Commit represents a call to Writer.Commit.
 	Commit
-	// SetAuthority represents a call to Writer.SetAuthority
 	SetAuthority
 )
 
@@ -40,12 +39,12 @@ type Request struct {
 	// Command is the command to execute on the writer.
 	Command Command `json:"command" msgpack:"command"`
 	// Config sets the configuration to use when opening the writer. Only used internally
-	// when an open command is sent.
+	// when open command is sent.
 	Config Config `json:"config" msgpack:"config"`
 	// Frame is the telemetry frame. This field is only acknowledged during Write commands.
 	Frame core.Frame `json:"frame" msgpack:"keys"`
 	// SeqNum is used to match the request with the response.
-	SeqNum int `json:"seq_num" msgpack:"seq_num"`
+	SeqNum int
 }
 
 // Response represents a response to a streaming call to a Writer.
@@ -62,10 +61,8 @@ type Response struct {
 	End telem.TimeStamp `json:"end" msgpack:"end"`
 	// Authorized flags whether the writer or commit operation was authorized. It is only
 	// valid during calls to WriterWrite and WriterCommit.
-	Authorized bool `json:"authorized" msgpack:"authorized"`
-	// Err contains an error that occurred when attempting to execute a request on
-	// a writer.
-	Err error `json:"err" msgpack:"err"`
+	Authorized bool  `json:"authorized" msgpack:"authorized"`
+	Err        error `json:"err" msgpack:"err"`
 }
 
 type (

@@ -68,11 +68,6 @@
         top: 50%;
         transform: translate(calc(100% + var(--offset)), -50%);
     }
-    &.pluto--center {
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-    }
 }
 
 .pluto-symbol__label {

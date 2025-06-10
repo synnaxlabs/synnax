@@ -79,8 +79,8 @@ const readConfig = async (configPath: string): Promise<CompilerOptions> => {
       path.dirname(configPath),
     );
     return options;
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+  } catch (error: any) {
+    const message = "message" in error ? error.message : error;
     logError(`Could not read tsconfig.json: ${message}.`);
     return {};
   }

@@ -9,7 +9,7 @@
 
 import { type device, type rack, task } from "@synnaxlabs/client";
 import { Align, Eraser, Status, Synnax, Text, useSyncedRef } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord, type UnknownStringRecord } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
 import { type FC } from "react";
 import { useStore } from "react-redux";
@@ -44,7 +44,7 @@ export type TaskProps<
   task: task.Payload<Config, Details, Type>;
 };
 
-export interface ConfigSchema<Config extends UnknownRecord = UnknownRecord>
+export interface ConfigSchema<Config extends UnknownStringRecord = UnknownStringRecord>
   extends z.ZodType<Config> {}
 
 export interface GetInitialPayloadArgs {

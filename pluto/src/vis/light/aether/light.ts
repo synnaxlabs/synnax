@@ -42,11 +42,25 @@ export class Light
     const { source: sourceProps } = this.state;
     const { internal: i } = this;
     this.internal.source = telem.useSource(ctx, sourceProps, this.internal.source);
-    i.stopListening?.();
-    i.stopListening = i.source.onChange(() => this.updateEnabledState());
+    const runAsync = status.useErrorHandler(ctx);
+    runAsync(async () => {
+      await this.updateEnabledState();
+      i.stopListening?.();
+      i.stopListening = i.source.onChange(() => {
+        this.updateEnabledState().catch(this.reportError.bind(this));
+      });
+    });
   }
 
-  private updateEnabledState(): void {
+  private reportError(e: Error): void {
+    this.internal.addStatus({
+      key: this.key,
+      variant: "error",
+      message: `Failed to update Light: ${e.message}`,
+    });
+  }
+
+  private async updateEnabledState(): Promise<void> {
     const nextEnabled = this.internal.source.value();
     if (nextEnabled !== this.state.enabled)
       this.setState((p) => ({ ...p, enabled: nextEnabled }));

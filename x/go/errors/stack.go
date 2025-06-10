@@ -19,7 +19,8 @@ import (
 // GetStackTrace attempts to pull the stack trace from the given error. If the
 // stack trace is not available, returns an empty stack trace.
 func GetStackTrace(err error) *StackTrace {
-	return &StackTrace{ReportableStackTrace: errors.GetReportableStackTrace(err)}
+	stack := errors.GetReportableStackTrace(err)
+	return &StackTrace{stack}
 }
 
 // StackTrace provides information about the stack trace of an error.

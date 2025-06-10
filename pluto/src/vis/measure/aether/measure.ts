@@ -226,7 +226,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       radius: 5,
       position: onePos,
     });
-    draw.circle({ fill: color.WHITE, radius: 2, position: onePos });
+    draw.circle({ fill: color.construct("#ffffff"), radius: 2, position: onePos });
 
     draw.circle({
       fill: color.setAlpha(twoValue.color, 0.5),
@@ -238,7 +238,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       radius: 5,
       position: twoPos,
     });
-    draw.circle({ fill: color.WHITE, radius: 2, position: twoPos });
+    draw.circle({ fill: color.construct("#ffffff"), radius: 2, position: twoPos });
   }
 }
 

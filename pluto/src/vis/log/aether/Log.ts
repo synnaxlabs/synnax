@@ -117,10 +117,10 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       const [_, series] = this.internal.telem.value();
       this.checkEmpty();
       this.values = series;
-      this.requestRender();
+      void this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
-    this.requestRender();
+    void this.requestRender();
   }
 
   private checkEmpty(): void {
@@ -135,7 +135,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     renderCtx.erase(box.construct(this.state.region), xy.ZERO, CANVAS);
   }
 
-  private requestRender(): void {
+  private async requestRender(): Promise<void> {
     const { render } = this.internal;
     render.loop.set({
       key: `${this.type}-${this.key}`,

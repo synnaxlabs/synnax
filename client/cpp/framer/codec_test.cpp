@@ -23,17 +23,17 @@
 synnax::Frame create_test_frame() {
     auto frame = synnax::Frame(3);
     auto s1 = telem::Series(std::vector{1.0f, 2.0f, 3.0f});
-    s1.alignment = telem::Alignment(10);
+    s1.alignment = 10;
     s1.time_range = {telem::TimeStamp(1000), telem::TimeStamp(2000)};
     frame.emplace(65537, std::move(s1));
 
     auto s2 = telem::Series(std::vector{4.0, 5.0, 6.0});
-    s2.alignment = telem::Alignment(20);
+    s2.alignment = 20;
     s2.time_range = {telem::TimeStamp(1000), telem::TimeStamp(2000)};
     frame.emplace(65538, std::move(s2));
 
     auto s3 = telem::Series(std::vector{7, 8, 9});
-    s3.alignment = telem::Alignment(30);
+    s3.alignment = 30;
     s3.time_range = {telem::TimeStamp(1500), telem::TimeStamp(2500)};
     frame.emplace(65539, std::move(s3));
 
@@ -44,7 +44,7 @@ synnax::Frame create_equal_properties_frame() {
     auto frame = synnax::Frame(3);
 
     auto tr = telem::TimeRange{telem::TimeStamp(1000), telem::TimeStamp(2000)};
-    telem::Alignment alignment(10);
+    uint64_t alignment = 10;
 
     auto s1 = telem::Series(std::vector{1.0f, 2.0f, 3.0f});
     s1.alignment = alignment;
@@ -68,7 +68,7 @@ synnax::Frame create_zero_properties_frame() {
     auto frame = synnax::Frame(3);
 
     auto tr = telem::TimeRange{telem::TimeStamp(0), telem::TimeStamp(0)};
-    telem::Alignment alignment(0);
+    uint64_t alignment = 0;
 
     auto s1 = telem::Series(std::vector{1.0f, 2.0f, 3.0f});
     s1.alignment = alignment;
@@ -92,7 +92,7 @@ synnax::Frame create_diff_lengths_frame() {
     auto frame = synnax::Frame(3);
 
     auto tr = telem::TimeRange{telem::TimeStamp(1000), telem::TimeStamp(2000)};
-    telem::Alignment alignment(10);
+    uint64_t alignment = 10;
 
     auto s1 = telem::Series(std::vector{1.0f, 2.0f, 3.0f});
     s1.alignment = alignment;
@@ -156,7 +156,7 @@ synnax::Frame create_large_equal_frame() {
     for (size_t i = 0; i < NUM_CHANNELS; i++) {
         uint64_t alignment = 10;
         auto series = telem::Series(std::vector{1.0f, 2.0f, 3.0f});
-        series.alignment = telem::Alignment(alignment);
+        series.alignment = alignment;
         series.time_range = tr;
         frame.emplace(65537 + i, std::move(series));
     }
@@ -277,7 +277,7 @@ TEST(CodecTests, LargeFrame) {
     std::vector large_data(100000, 3.14159f);
     auto large_series = telem::Series(large_data);
     large_series.time_range = {telem::TimeStamp(1000), telem::TimeStamp(2000)};
-    large_series.alignment = telem::Alignment(42);
+    large_series.alignment = 42;
     frame.emplace(65537, std::move(large_series));
     const std::vector data_types = {telem::FLOAT32_T};
     std::vector<synnax::ChannelKey> channels = {65537};
@@ -387,7 +387,7 @@ TEST(CodecTests, EncodeMismatchedDataType) {
     // Using INT32_T instead of FLOAT32_T for channel 65537
     auto series = telem::Series(std::vector{1, 2, 3});
     series.time_range = {telem::TimeStamp(1000), telem::TimeStamp(2000)};
-    series.alignment = telem::Alignment(10);
+    series.alignment = 10;
     frame.emplace(65537, std::move(series));
 
     std::vector<uint8_t> encoded;
@@ -409,7 +409,7 @@ TEST(CodecTests, EncodeFrameUnknownKey) {
     auto frame = synnax::Frame(1);
     auto series = telem::Series(std::vector{7, 8, 9});
     series.time_range = {telem::TimeStamp(1500), telem::TimeStamp(2500)};
-    series.alignment = telem::Alignment(30);
+    series.alignment = 30;
     // Using key 65539 which wasn't provided to the codec
     frame.emplace(65539, std::move(series));
 
@@ -420,3 +420,46 @@ TEST(CodecTests, EncodeFrameUnknownKey) {
     ASSERT_TRUE(err.matches(xerrors::VALIDATION));
     ASSERT_TRUE(err.message().find("extra key") != std::string::npos);
 }
+
+// Replace the performance test with this updated version
+//
+// TEST(CodecTests, TestPerformance) {
+//     auto start = telem::TimeStamp::now();
+//     const auto original_frame = create_large_equal_frame();
+//
+//     std::vector data_types(500, telem::FLOAT32_T);
+//     std::vector<synnax::ChannelKey> channels;
+//     channels.reserve(500);
+//     for (size_t i = 0; i < 500; i++)
+//         channels.push_back(65537 + i);
+//
+//     synnax::Codec codec(data_types, channels);
+//     constexpr size_t count = 1e3;
+//     std::vector<uint8_t> encoded;
+//     for (size_t i = 0; i < count; ++i) {
+//         codec.encode(original_frame, 0, encoded);
+//         synnax::Frame decoded_frame = codec.decode(encoded);
+//     }
+//     auto end = telem::TimeStamp::now();
+//     auto duration = end - start;
+//     std::cout << encoded.size() << " bytes encoded" << std::endl;
+//     std::cout << "Performance test duration: " << duration / count << " ms" <<
+//     std::endl;
+//
+//     start = telem::TimeStamp::now();
+//     std::vector<uint8_t> encoded2;
+//     for (size_t i = 0; i < count; ++i) {
+//         const auto p = new api::v1::Frame();
+//         original_frame.to_proto(p);
+//         const size_t size = p->ByteSizeLong();
+//         encoded2.resize(size);
+//         p->SerializeToArray(encoded2.data(), size);
+//         const auto l = synnax::Frame(*p);
+//         delete p;
+//     }
+//     end = telem::TimeStamp::now();
+//     duration = end - start;
+//     std::cout << encoded2.size() << " bytes encoded" << std::endl;
+//     std::cout << "Performance test duration: " << duration / count << " ms" <<
+//     std::endl;
+// }

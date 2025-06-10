@@ -8,20 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { array, control, errors } from "@synnaxlabs/x";
+import { control, errors } from "@synnaxlabs/x";
 import {
   type CrudeSeries,
   type CrudeTimeStamp,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import { channel } from "@/channel";
 import { SynnaxError } from "@/errors";
 import { WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
-import { type CrudeFrame, frameZ } from "@/framer/frame";
+import { type Crude, frameZ } from "@/framer/frame";
 
 export enum WriterCommand {
   Open = 0,
@@ -193,7 +194,7 @@ export class Writer {
         start: new TimeStamp(start),
         keys: adapter.keys,
         controlSubject: subject,
-        authorities: array.toArray(authorities),
+        authorities: toArray(authorities),
         mode: constructWriterMode(mode),
         errOnUnauthorized,
         enableAutoCommit,
@@ -205,14 +206,9 @@ export class Writer {
 
   async write(channel: channel.KeyOrName, data: CrudeSeries): Promise<void>;
   async write(channel: channel.KeysOrNames, data: CrudeSeries[]): Promise<void>;
+  async write(frame: Crude | Record<channel.KeyOrName, CrudeSeries>): Promise<void>;
   async write(
-    frame: CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
-  ): Promise<void>;
-  async write(
-    channelsOrData:
-      | channel.Params
-      | Record<channel.KeyOrName, CrudeSeries>
-      | CrudeFrame,
+    channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void>;
 
@@ -231,10 +227,7 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    */
   async write(
-    channelsOrData:
-      | channel.Params
-      | Record<channel.KeyOrName, CrudeSeries>
-      | CrudeFrame,
+    channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {
     if (this.closeErr != null) throw this.closeErr;

@@ -9,9 +9,9 @@
 
 import { z } from "zod";
 
-import { type Dimensions, dimensions, numberCouple, xy } from "@/spatial/base";
+import { type Dimensions, dimensions, numberCouple,xy } from "@/spatial/base";
 
-export { type Dimensions, dimensions };
+export { type Dimensions,dimensions };
 
 export const signed = z.object({ signedWidth: z.number(), signedHeight: z.number() });
 export const crude = z.union([dimensions, signed, xy, numberCouple]);

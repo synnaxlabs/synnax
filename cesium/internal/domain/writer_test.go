@@ -118,7 +118,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						fs2, cleanUp2 := makeFS()
 						db2 := MustSucceed(domain.Open(domain.Config{
 							FS:              fs2,
-							FileSize:        10 * telem.Byte,
+							FileSize:        10 * telem.ByteSize,
 							Instrumentation: PanicLogger(),
 						}))
 
@@ -174,7 +174,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						fs2, cleanUp2 := makeFS()
 						db2 := MustSucceed(domain.Open(domain.Config{
 							FS:              fs2,
-							FileSize:        5 * telem.Byte,
+							FileSize:        5 * telem.ByteSize,
 							Instrumentation: PanicLogger(),
 						}))
 
@@ -222,7 +222,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						fs2, cleanUp2 := makeFS()
 						db2 := MustSucceed(domain.Open(domain.Config{
 							FS:              fs2,
-							FileSize:        10 * telem.Byte,
+							FileSize:        10 * telem.ByteSize,
 							Instrumentation: PanicLogger(),
 						}))
 

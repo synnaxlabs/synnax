@@ -38,13 +38,13 @@ export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
   showIndicator?: boolean;
   chip?: Control.ChipProps;
   indicator?: Control.IndicatorProps;
-  orientation?: location.Location;
+  orientation?: location.Outer;
 }
 
 export interface LabelExtensionProps {
   label?: string;
   level?: Text.Level;
-  orientation?: location.Location;
+  orientation?: location.Outer;
   direction?: direction.Direction;
   maxInlineSize?: number;
   align?: Align.Alignment;
@@ -87,10 +87,6 @@ export type SymbolProps<P extends object = UnknownRecord> = P & {
   selected: boolean;
   draggable: boolean;
   onChange: (value: Partial<P>) => void;
-};
-
-export type PreviewProps<P extends object = UnknownRecord> = P & {
-  scale?: number;
 };
 
 const controlStateGridItem = (props?: ControlStateProps): GridItem | null => {
@@ -860,9 +856,9 @@ export const Light = ({
   );
 };
 
-export const TextBoxPreview = (props: Primitives.TextBoxProps): ReactElement => (
-  <Primitives.TextBox {...props} autoFit text="Text Box" />
-);
+export const TextBoxPreview = (
+  props: SymbolProps<Primitives.TextBoxProps>,
+): ReactElement => <Primitives.TextBox {...props} autoFit text="Text Box" />;
 
 export interface OffPageReferenceProps
   extends Omit<Primitives.OffPageReferenceProps, "label"> {

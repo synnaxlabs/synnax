@@ -10,7 +10,7 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { primitiveIsZero } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -130,7 +130,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogWriteConfig> = async (
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
-  let shouldCreateStateIndex = primitive.isZero(dev.properties.analogOutput.stateIndex);
+  let shouldCreateStateIndex = primitiveIsZero(dev.properties.analogOutput.stateIndex);
   if (!shouldCreateStateIndex)
     try {
       await client.channels.retrieve(dev.properties.analogOutput.stateIndex);

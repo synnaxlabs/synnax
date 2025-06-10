@@ -167,10 +167,10 @@ func (t *tapper) tapInto(
 	)
 	if nodeKey.IsFree() {
 		tp, err = t.tapIntoFreeWrites()
-		tapKey = "free_write_tap"
+		tapKey = fmt.Sprintf("free_write_tap")
 	} else if nodeKey == t.HostResolver.HostKey() {
 		tp, err = t.tapIntoGateway(ctx, keys)
-		tapKey = "gateway_tap"
+		tapKey = fmt.Sprintf("gateway_tap")
 	} else {
 		tp, err = t.tapIntoPeer(ctx, nodeKey)
 		tapKey = fmt.Sprintf("peer_tap_%v", nodeKey)
@@ -188,13 +188,14 @@ func (t *tapper) tapInto(
 
 // tapIntoGateway opens a new tap over the given storage layer streamer.
 func (t *tapper) tapIntoGateway(ctx context.Context, keys channel.Keys) (tap, error) {
-	return cesium.NewTranslatedStreamer[Request, Response](
+	sr, err := cesium.NewTranslatedStreamer[Request, Response](
 		ctx,
 		t.TS,
 		ts.StreamerConfig{Channels: keys.Storage()},
 		reqToStorage,
 		resFromStorage,
 	)
+	return sr, err
 }
 
 // tapIntoPeer opens a new tap that sends requests and receives responses

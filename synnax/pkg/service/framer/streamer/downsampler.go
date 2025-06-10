@@ -15,24 +15,24 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 )
 
-type downsampler struct {
+type downSampler struct {
 	confluence.LinearTransform[Response, Response]
 	cfg Config
 }
 
-func newDownsampler(cfg Config) responseSegment {
-	d := &downsampler{cfg: cfg}
+func newDownSampler(cfg Config) responseSegment {
+	d := &downSampler{cfg: cfg}
 	d.Transform = d.transform
 	return d
 }
 
-func (d *downsampler) transform(
+func (d *downSampler) transform(
 	_ context.Context,
 	in Response,
 ) (out Response, ok bool, err error) {
 	in.Frame = in.Frame.ShallowCopy()
 	for i, s := range in.Frame.SeriesI() {
-		in.Frame.SetSeriesAt(i, s.Downsample(d.cfg.DownsampleFactor))
+		in.Frame.SetSeriesAt(i, s.DownSample(d.cfg.DownSampleFactor))
 	}
 	return in, true, nil
 }

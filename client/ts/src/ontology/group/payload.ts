@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 export const keyZ = z.string().uuid();
@@ -28,7 +28,7 @@ export type ParamAnalysisResult =
   | { single: false; variant: "names"; normalized: Names; actual: Names };
 
 export const analyzeParams = (groups: Params): ParamAnalysisResult => {
-  const normal = array.toArray(groups) as Keys | Names;
+  const normal = toArray(groups) as Keys | Names;
   if (normal.length === 0) throw new Error("No groups specified");
   const isKey = keyZ.safeParse(normal[0]).success;
   return {

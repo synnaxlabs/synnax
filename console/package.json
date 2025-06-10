@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.42.0",
+  "version": "0.42.5",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -52,6 +52,7 @@
     "react-error-boundary": "^5.0.0",
     "react-icons": "^5.5.0",
     "react-redux": "^9.2.0",
+    "uuid": "^11.1.0",
     "vscode": "npm:@codingame/monaco-vscode-extension-api@^14.0.6",
     "vscode-jsonrpc": "^8.2.1",
     "vscode-languageclient": "^9.0.1",

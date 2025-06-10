@@ -40,7 +40,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						FS:        MustSucceed(fs.Sub("index")),
 						MetaCodec: codec,
 						Channel: core.Channel{
-							Name:     "Alex",
 							Key:      index,
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
@@ -52,7 +51,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						FS:        MustSucceed(fs.Sub("data")),
 						MetaCodec: codec,
 						Channel: core.Channel{
-							Name:     "Megos",
 							Key:      data,
 							DataType: telem.Int64T,
 							Index:    index,
@@ -69,10 +67,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 				Describe("Happy Path", func() {
 					Specify("Next", func() {
-						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 
-						Expect(unary.Write(ctx, indexDB, 16*telem.SecondTS, telem.NewSeriesSecondsTSV(16, 17, 18, 19))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 16*telem.SecondTS, telem.NewSecondsTSV(16, 17, 18, 19))).To(Succeed())
 						Expect(unary.Write(ctx, db, 16*telem.SecondTS, telem.NewSeriesV[int64](7, 8, 9, 10))).To(Succeed())
 
 						iter := MustSucceed(db.OpenIterator(unary.IterRange(telem.TimeRangeMax)))
@@ -88,10 +86,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Close()).To(Succeed())
 					})
 					Specify("Prev", func() {
-						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 
-						Expect(unary.Write(ctx, indexDB, 16*telem.SecondTS, telem.NewSeriesSecondsTSV(16, 17, 18, 19))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 16*telem.SecondTS, telem.NewSecondsTSV(16, 17, 18, 19))).To(Succeed())
 						Expect(unary.Write(ctx, db, 16*telem.SecondTS, telem.NewSeriesV[int64](7, 8, 9, 10))).To(Succeed())
 
 						iter := MustSucceed(db.OpenIterator(unary.IterRange(telem.TimeRangeMax)))
@@ -106,13 +104,13 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Close()).To(Succeed())
 					})
 					Specify("Next and Prev", func() {
-						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15))).To(Succeed())
 
-						Expect(unary.Write(ctx, indexDB, 16*telem.SecondTS, telem.NewSeriesSecondsTSV(16, 17, 18, 19))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 16*telem.SecondTS, telem.NewSecondsTSV(16, 17, 18, 19))).To(Succeed())
 						Expect(unary.Write(ctx, db, 16*telem.SecondTS, telem.NewSeriesV[int64](16, 17, 18, 19))).To(Succeed())
 
-						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 23))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 23))).To(Succeed())
 						Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 23))).To(Succeed())
 
 						iter := MustSucceed(db.OpenIterator(unary.IterRange(telem.TimeRangeMax)))
@@ -140,7 +138,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Specify("Sample", func() {
 						// Test case added to fix the bug where immediately contiguous
 						// domains get flipped in order by read.
-						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18))).To(Succeed())
 						w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 17 * telem.SecondTS, Subject: control.Subject{Key: "test_writer"}}))
 						Expect(w.Write(telem.NewSeriesV[telem.TimeStamp](10, 11, 12, 13, 14, 15, 16)))
 						_, err := w.Commit(ctx)
@@ -169,7 +167,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 				Describe("Requests Exhaustion", func() {
 					Specify("Single Time Range", func() {
-						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 						iter := MustSucceed(db.OpenIterator(unary.IterRange((5 * telem.SecondTS).SpanRange(10 * telem.Second))))
 						Expect(iter.SeekFirst(ctx)).To(BeTrue())
@@ -184,9 +182,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Close()).To(Succeed())
 					})
 					Specify("Multi Time Range", func() {
-						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
-						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24, 25))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25))).To(Succeed())
 						Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](7, 8, 9, 10, 11, 12))).To(Succeed())
 						iter := MustSucceed(db.OpenIterator(unary.IterRange((5 * telem.SecondTS).SpanRange(30 * telem.Second))))
 						Expect(iter.SeekFirst(ctx)).To(BeTrue())
@@ -205,7 +203,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					})
 					Describe("Auto Exhaustion", func() {
 						Specify("Single Domain - Leftover chunk", func() {
-							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
 								Bounds:        (5 * telem.SecondTS).SpanRange(30 * telem.Second),
@@ -224,7 +222,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Close()).To(Succeed())
 						})
 						Specify("Single Domain - Full number chunks in domain", func() {
-							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8))).To(Succeed())
 							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
 								Bounds:        (5 * telem.SecondTS).SpanRange(30 * telem.Second),
@@ -243,7 +241,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Close()).To(Succeed())
 						})
 						Specify("Partial Domain", func() {
-							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
 								Bounds:        (10 * telem.SecondTS).SpanRange(3 * telem.Second),
@@ -258,7 +256,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Close()).To(Succeed())
 						})
 						Specify("Partial Domain 2 - Regression", func() {
-							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
 								Bounds:        (12 * telem.SecondTS).SpanRange(3 * telem.Second),
@@ -303,7 +301,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						//
 						// This spec asserts that this behavior is fixed.
 						Specify("Partial Domain 3 - Regression", func() {
-							Expect(unary.Write(ctx, indexDB, 6*telem.SecondTS, telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 6*telem.SecondTS, telem.NewSecondsTSV(6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 6*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8, 9, 10))).To(Succeed())
 							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
 								Bounds:        (10 * telem.SecondTS).SpanRange(4 * telem.Second),
@@ -335,9 +333,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						// SeekLE methods, for example, iter.SeekGE(ctx, 5*telem.SecondTS) would
 						// return true, but result in an invalid view of  (5 * telem.SecondTS).SpanRange(0)
 						Specify("Partial Domain 4 - Regression", func() {
-							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
-							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
 							Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](8, 9, 10, 11, 12, 13, 14))).To(Succeed())
 							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
 								Bounds:        (10 * telem.SecondTS).SpanRange(5 * telem.Second),
@@ -368,9 +366,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Close()).To(Succeed())
 						})
 						Specify("Multi domain - Uneven Crossing", func() {
-							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
-							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
 							Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](8, 9, 10, 11, 12, 13, 14))).To(Succeed())
 							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
 								Bounds:        (5 * telem.SecondTS).SpanRange(30 * telem.Second),
@@ -391,9 +389,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Close()).To(Succeed())
 						})
 						Specify("Multi TimeRange - Even Crossing", func() {
-							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
-							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24))).To(Succeed())
 							Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](7, 8, 9, 10, 11))).To(Succeed())
 							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
 								Bounds:        (5 * telem.SecondTS).SpanRange(30 * telem.Second),
@@ -414,7 +412,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Specify("Multi domain - Regression 1", func() {
 							var i telem.TimeStamp
 							for i = 1; i < 6; i++ {
-								Expect(unary.Write(ctx, indexDB, telem.SecondTS*i, telem.NewSeriesSecondsTSV(i))).To(Succeed())
+								Expect(unary.Write(ctx, indexDB, telem.SecondTS*i, telem.NewSecondsTSV(i))).To(Succeed())
 								Expect(unary.Write(ctx, db, telem.SecondTS*i, telem.NewSeriesV[int64](int64(i)))).To(Succeed())
 							}
 							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
@@ -430,11 +428,11 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							BeforeEach(func() {
 								// 0  1  4  6 / 10  11  12 / 13  15  17
 								// 0  1  4  6 / 10  11  12 / 13  15  17
-								Expect(unary.Write(ctx, indexDB, 0, telem.NewSeriesSecondsTSV(0, 1, 4, 6))).To(Succeed())
+								Expect(unary.Write(ctx, indexDB, 0, telem.NewSecondsTSV(0, 1, 4, 6))).To(Succeed())
 								Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](0, 1, 4, 6))).To(Succeed())
-								Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12))).To(Succeed())
+								Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12))).To(Succeed())
 								Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12))).To(Succeed())
-								Expect(unary.Write(ctx, indexDB, 13*telem.SecondTS, telem.NewSeriesSecondsTSV(13, 15, 17))).To(Succeed())
+								Expect(unary.Write(ctx, indexDB, 13*telem.SecondTS, telem.NewSecondsTSV(13, 15, 17))).To(Succeed())
 								Expect(unary.Write(ctx, db, 13*telem.SecondTS, telem.NewSeriesV[int64](13, 15, 17))).To(Succeed())
 							})
 							Specify("Multiple Domain - Forward - View in discontinuity", func() {
@@ -673,8 +671,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					// aligns with the index domain at (1d0p - 1d3p). This spec tests
 					// a fix made to ensure that the data domain has the alignment (1d0p - 1d3p)
 					It("Should correctly define the alignment of a series when a domain has already been written to the index channel", func() {
-						Expect(unary.Write(ctx, indexDB, 6*telem.SecondTS, telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11, 12, 13, 14, 15))).To(Succeed())
-						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 6*telem.SecondTS, telem.NewSecondsTSV(6, 7, 8, 9, 10, 11, 12, 13, 14, 15))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
 						Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](8, 9, 10, 11, 12, 13, 14))).To(Succeed())
 						iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
 							Bounds:        (20 * telem.SecondTS).SpanRange(15 * telem.Second),
@@ -704,9 +702,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					//
 					// A similar behaviour adjustment is put in place for SeekLE as well.
 					It("Should bound an iterator's view to a sought domain", func() {
-						Expect(unary.Write(ctx, indexDB, 0*telem.SecondTS, telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5))).To(Succeed())
-						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13))).To(Succeed())
-						Expect(unary.Write(ctx, indexDB, 15*telem.SecondTS, telem.NewSeriesSecondsTSV(15, 16, 17))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 0*telem.SecondTS, telem.NewSecondsTSV(0, 1, 2, 3, 4, 5))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 15*telem.SecondTS, telem.NewSecondsTSV(15, 16, 17))).To(Succeed())
 						Expect(unary.Write(ctx, db, 0*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5))).To(Succeed())
 						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13))).To(Succeed())
 						Expect(unary.Write(ctx, db, 15*telem.SecondTS, telem.NewSeriesV[int64](15, 16, 17))).To(Succeed())
@@ -736,7 +734,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									Index:    iKey,
 								},
 								Instrumentation: PanicLogger(),
-								FileSize:        40 * telem.Byte,
+								FileSize:        40 * telem.ByteSize,
 							}))
 							dataDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("data")),
@@ -747,14 +745,14 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									Index:    iKey,
 								},
 								Instrumentation: PanicLogger(),
-								FileSize:        40 * telem.Byte,
+								FileSize:        40 * telem.ByteSize,
 							}))
 						)
 						dataDB2.SetIndex(indexDB2.Index())
 						w, _ := MustSucceed2(indexDB2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test"}}))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15)))
+						MustSucceed(w.Write(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15)))
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20)))
+						MustSucceed(w.Write(telem.NewSecondsTSV(16, 17, 18, 19, 20)))
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Close())
 						Expect(unary.Write(ctx, dataDB2, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
@@ -781,19 +779,18 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								FS:        MustSucceed(fs.Sub("index3")),
 								MetaCodec: codec,
 								Channel: core.Channel{
-									Name:     "Ozturk",
 									Key:      iKey,
 									DataType: telem.TimeStampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},
 								Instrumentation: PanicLogger(),
-								FileSize:        40 * telem.Byte,
+								FileSize:        40 * telem.ByteSize,
 							}))
 							w, _ := MustSucceed2(indexDB2.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, Subject: control.Subject{Key: "test"}}))
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15)))
+							MustSucceed(w.Write(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15)))
 							MustSucceed(w.Commit(ctx))
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20, 21, 22, 23)))
+							MustSucceed(w.Write(telem.NewSecondsTSV(16, 17, 18, 19, 20, 21, 22, 23)))
 							MustSucceed(w.Commit(ctx))
 							MustSucceed(w.Close())
 						})
@@ -808,10 +805,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							i := MustSucceed(indexDB2.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax, AutoChunkSize: 7}))
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
-							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15).Data))
-							Expect(i.Value().SeriesAt(1).Data).To(Equal(telem.NewSeriesSecondsTSV(16).Data))
+							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15).Data))
+							Expect(i.Value().SeriesAt(1).Data).To(Equal(telem.NewSecondsTSV(16).Data))
 							Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
-							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSeriesSecondsTSV(17, 18, 19, 20, 21, 22, 23).Data))
+							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSecondsTSV(17, 18, 19, 20, 21, 22, 23).Data))
 							Expect(i.Close()).To(Succeed())
 						})
 
@@ -824,12 +821,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							i := MustSucceed(indexDB2.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax, AutoChunkSize: 7}))
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, 7*telem.Second)).To(BeTrue())
-							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15).Data))
-							Expect(i.Value().SeriesAt(1).Data).To(Equal(telem.NewSeriesSecondsTSV(16).Data))
+							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15).Data))
+							Expect(i.Value().SeriesAt(1).Data).To(Equal(telem.NewSecondsTSV(16).Data))
 							Expect(i.Next(ctx, 3*telem.Second)).To(BeTrue())
-							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSeriesSecondsTSV(17, 18, 19).Data))
+							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSecondsTSV(17, 18, 19).Data))
 							Expect(i.Next(ctx, 4*telem.Second)).To(BeTrue())
-							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSeriesSecondsTSV(20, 21, 22, 23).Data))
+							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSecondsTSV(20, 21, 22, 23).Data))
 							Expect(i.Close()).To(Succeed())
 
 							Expect(indexDB2.Close()).To(Succeed())
@@ -839,12 +836,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							i := MustSucceed(indexDB2.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax, AutoChunkSize: 7}))
 							Expect(i.SeekLast(ctx)).To(BeTrue())
 							Expect(i.Prev(ctx, 9*telem.Second)).To(BeTrue())
-							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSeriesSecondsTSV(15).Data))
-							Expect(i.Value().SeriesAt(1).Data).To(Equal(telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20, 21, 22, 23).Data))
+							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSecondsTSV(15).Data))
+							Expect(i.Value().SeriesAt(1).Data).To(Equal(telem.NewSecondsTSV(16, 17, 18, 19, 20, 21, 22, 23).Data))
 							Expect(i.Prev(ctx, 2*telem.Second)).To(BeTrue())
-							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSeriesSecondsTSV(13, 14).Data))
+							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSecondsTSV(13, 14).Data))
 							Expect(i.Prev(ctx, 3*telem.Second)).To(BeTrue())
-							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSeriesSecondsTSV(10, 11, 12).Data))
+							Expect(i.Value().SeriesAt(0).Data).To(Equal(telem.NewSecondsTSV(10, 11, 12).Data))
 							Expect(i.Close()).To(Succeed())
 
 							Expect(indexDB2.Close()).To(Succeed())
@@ -925,7 +922,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					indexKey cesium.ChannelKey = 1
 					dataKey  cesium.ChannelKey = 2
 				)
-				fileSizeLimit := 8 * 4 * telem.Byte
+				fileSizeLimit := 8 * 4 * telem.ByteSize
 				fs := xfs.NewMem()
 				indexFS := MustSucceed(fs.Sub("index"))
 				unaryFS := MustSucceed(fs.Sub("data"))
@@ -933,7 +930,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					FS:        indexFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
-						Name:     "Fred",
 						Key:      indexKey,
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
@@ -946,7 +942,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					FS:        unaryFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
-						Name:     "Armisen",
 						Key:      dataKey,
 						DataType: telem.Float32T,
 						Index:    indexKey,
@@ -963,9 +958,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Subject: control.Subject{Key: "test"},
 					},
 				))
-				MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
+				MustSucceed(indexW.Write(telem.NewSecondsTSV(1, 2, 3, 4, 5)))
 				MustSucceed(indexW.Commit(ctx))
-				MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(6, 7, 8)))
+				MustSucceed(indexW.Write(telem.NewSecondsTSV(6, 7, 8)))
 				MustSucceed(indexW.Commit(ctx))
 				MustSucceed(indexW.Close())
 				Expect(indexFS.List(".")).To(HaveLen(5 /* meta, index, counter, and 2 data files*/))
@@ -1013,7 +1008,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					data2Key cesium.ChannelKey = 3
 				)
 				// 4 timestamps sample file size
-				fileSizeLimit := 8 * 4 * telem.Byte
+				fileSizeLimit := 8 * 4 * telem.ByteSize
 				fs := xfs.NewMem()
 				indexFS := MustSucceed(fs.Sub("index"))
 				uFS1 := MustSucceed(fs.Sub("data1"))
@@ -1022,7 +1017,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					FS:        indexFS,
 					MetaCodec: codec,
 					Channel: core.Channel{
-						Name:     "GI",
 						Key:      indexKey,
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
@@ -1033,7 +1027,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					FS:        uFS1,
 					MetaCodec: codec,
 					Channel: core.Channel{
-						Name:     "Joe",
 						Key:      data1Key,
 						DataType: telem.Float32T,
 						Index:    indexKey,
@@ -1045,7 +1038,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					FS:        uFS2,
 					MetaCodec: codec,
 					Channel: core.Channel{
-						Name:     "Jon",
 						Key:      data2Key,
 						DataType: telem.Uint8T,
 						Index:    indexKey,
@@ -1061,13 +1053,13 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Subject: control.Subject{Key: "test"},
 					}),
 				)
-				MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
+				MustSucceed(indexW.Write(telem.NewSecondsTSV(1, 2, 3, 4, 5)))
 				// Rollover 1
 				MustSucceed(indexW.Commit(ctx))
-				MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10)))
+				MustSucceed(indexW.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10)))
 				MustSucceed(indexW.Commit(ctx))
 				// Rollover 2
-				MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(11)))
+				MustSucceed(indexW.Write(telem.NewSecondsTSV(11)))
 				MustSucceed(indexW.Commit(ctx))
 
 				MustSucceed(indexW.Close())
@@ -1120,7 +1112,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				firstSeries := i.Value().SeriesAt(0)
 				Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(2)))
 				Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(0)))
-				Expect(firstSeries.Data).To(Equal(telem.NewSeriesSecondsTSV(11).Data))
+				Expect(firstSeries.Data).To(Equal(telem.NewSecondsTSV(11).Data))
 
 				i = MustSucceed(db1.OpenIterator(iterCfg))
 				Expect(i.SeekFirst(ctx)).To(BeTrue())

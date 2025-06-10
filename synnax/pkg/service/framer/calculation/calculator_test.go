@@ -1,12 +1,3 @@
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 package calculation_test
 
 import (
@@ -84,16 +75,16 @@ var _ = Describe("Calculator", func() {
 		Context("Aligned", func() {
 			It("Should correctly calculate the output value", func() {
 				inSeries1 := telem.NewSeriesV[float32](1, 2, 3)
-				inSeries1.TimeRange = telem.NewRangeSeconds(5, 10)
+				inSeries1.TimeRange = telem.NewSecondsRange(5, 10)
 				inSeries2 := telem.NewSeriesV[float32](1, 2, 3)
-				inSeries2.TimeRange = telem.NewRangeSeconds(5, 10)
+				inSeries2.TimeRange = telem.NewSecondsRange(5, 10)
 				outSeries := MustSucceed(calc.Next(core.MultiFrame(
 					[]channel.Key{inCh1.Key(), inCh2.Key()},
 					[]telem.Series{inSeries1, inSeries2},
 				)))
 				Expect(outSeries.Len()).To(Equal(int64(3)))
 				Expect(outSeries.Alignment).To(Equal(telem.Alignment(0)))
-				Expect(outSeries.TimeRange).To(Equal(telem.NewRangeSeconds(5, 10)))
+				Expect(outSeries.TimeRange).To(Equal(telem.NewSecondsRange(5, 10)))
 				Expect(outSeries.AlignmentBounds().Upper).To(Equal(telem.Alignment(3)))
 				Expect(outSeries).To(telem.MatchSeriesDataV[float32](1, 4, 9))
 			})
@@ -103,11 +94,11 @@ var _ = Describe("Calculator", func() {
 			It("Should correctly align the series and calculate the output value", func() {
 				inCh1Series := telem.NewSeriesV[float32](1, 2, 3)
 				inCh1Series.Alignment = 3
-				inCh1Series.TimeRange = telem.NewRangeSeconds(5, 10)
+				inCh1Series.TimeRange = telem.NewSecondsRange(5, 10)
 
 				inCh2Series := telem.NewSeriesV[float32](1, 2, 3)
 				inCh2Series.Alignment = 3
-				inCh2Series.TimeRange = telem.NewRangeSeconds(5, 10)
+				inCh2Series.TimeRange = telem.NewSecondsRange(5, 10)
 				outSeries := MustSucceed(calc.Next(core.UnaryFrame(
 					inCh1.Key(),
 					inCh1Series,
@@ -122,7 +113,7 @@ var _ = Describe("Calculator", func() {
 				)))
 				Expect(outSeries.Len()).To(Equal(int64(3)))
 				Expect(outSeries.Alignment).To(Equal(telem.Alignment(3)))
-				Expect(outSeries.TimeRange).To(Equal(telem.NewRangeSeconds(5, 10)))
+				Expect(outSeries.TimeRange).To(Equal(telem.NewSecondsRange(5, 10)))
 				Expect(outSeries.AlignmentBounds().Upper).To(Equal(telem.Alignment(6)))
 
 				Expect(outSeries).To(telem.MatchSeriesDataV[float32](1, 4, 9))

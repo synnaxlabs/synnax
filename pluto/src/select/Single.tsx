@@ -9,7 +9,12 @@
 
 import "@/select/Single.css";
 
-import { type AsyncTermSearcher, type Key, type Keyed, primitive } from "@synnaxlabs/x";
+import {
+  type AsyncTermSearcher,
+  type Key,
+  type Keyed,
+  primitiveIsZero,
+} from "@synnaxlabs/x";
 import {
   type FocusEventHandler,
   type ReactElement,
@@ -243,7 +248,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   // Runs to set the value of the input to the item selected from the list.
   useEffect(() => {
     if (visible) return;
-    if (primitive.isZero(selected?.key)) return setInternalValue("");
+    if (primitiveIsZero(selected?.key)) return setInternalValue("");
     if (selected == null) return;
     setInternalValue(getRenderValue(entryRenderKey, selected) as string);
   }, [selected, visible, entryRenderKey]);

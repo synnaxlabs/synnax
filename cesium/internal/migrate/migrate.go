@@ -33,8 +33,8 @@ type DBState struct {
 }
 
 // GetVersion implements migrate.Migratable.
-func (d DBState) GetVersion() xversion.Counter {
-	return xversion.Counter(d.Channel.Version)
+func (d DBState) GetVersion() xversion.Semantic {
+	return xversion.Semantic(fmt.Sprintf("%d.%d.%d", d.Channel.Version, 0, 0))
 }
 
 var _ migrate.Migratable = DBState{}
@@ -44,9 +44,6 @@ var (
 		Name: "cesium.migrate",
 		Migrate: func(context migrate.Context, state DBState) (DBState, error) {
 			state.Channel.Version = version.V1
-			if state.Channel.Name == "" {
-				state.Channel.Name = fmt.Sprintf("Unknown %v", state.Channel.Key)
-			}
 			return state, nil
 		},
 	})
@@ -64,10 +61,10 @@ var (
 		},
 	})
 	migrations = migrate.Migrations{
-		0: migrateV0toV1,
-		1: migrateV1toV2,
+		"0.0.0": migrateV0toV1,
+		"1.0.0": migrateV1toV2,
 	}
-	Migrate = migrate.NewMigrator(migrate.MigratorConfig[DBState, DBState]{
+	Migrate = migrate.Migrator(migrate.MigratorConfig[DBState, DBState]{
 		Migrations: migrations,
 	})
 )

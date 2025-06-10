@@ -32,7 +32,7 @@ import {
   DataType,
   getEntries,
   location,
-  primitive,
+  primitiveIsZero,
   scale,
   TimeRange,
   unique,
@@ -126,14 +126,6 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     },
   );
 
-const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {
-  iso: "Failed to copy ISO time range",
-  python: "Failed to copy Python time range",
-  typescript: "Failed to copy TypeScript time range",
-  range: "Failed to create range from selection",
-  download: "Failed to download region as CSV",
-};
-
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
@@ -221,7 +213,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       const prevKey = prevVis?.channels[axis.key as XAxisKey];
       if (client == null || key === prevKey) return;
       let newType: axis.TickType = "time";
-      if (!primitive.isZero(key)) {
+      if (!primitiveIsZero(key)) {
         const ch = await client.channels.retrieve(key);
         if (!ch.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
       }
@@ -375,7 +367,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             });
             break;
         }
-      }, `Failed to perform ${CONTEXT_MENU_ERROR_MESSAGES[key]}`);
+      }, "Failed to perform operation");
     };
 
     return (
@@ -397,7 +389,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-              Download Region as CSV
+              Download as CSV
             </PMenu.Item>
           </>
         )}

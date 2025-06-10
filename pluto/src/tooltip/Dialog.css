@@ -42,50 +42,42 @@
 
     &.pluto--center {
         &.pluto--top {
-            --transform-x: calc(var(--pluto-pos-x) - 50%);
-            --transform-y: calc(
-                var(--pluto-pos-y) + calc(-100% - var(--translate-amount))
-            );
+            --transform-x: calc(var(--pos-x) - 50%);
+            --transform-y: calc(var(--pos-y) + calc(-100% - var(--translate-amount)));
         }
         &.pluto--bottom {
-            --transform-x: calc(var(--pluto-pos-x) - 50%);
-            --transform-y: calc(var(--pluto-pos-y) + var(--translate-amount));
+            --transform-x: calc(var(--pos-x) - 50%);
+            --transform-y: calc(var(--pos-y) + var(--translate-amount));
         }
         &.pluto--left {
-            --transform-x: calc(
-                var(--pluto-pos-x) + calc(-100% - var(--translate-amount))
-            );
-            --transform-y: calc(var(--pluto-pos-y) - 50%);
+            --transform-x: calc(var(--pos-x) + calc(-100% - var(--translate-amount)));
+            --transform-y: calc(var(--pos-y) - 50%);
         }
         &.pluto--right {
-            --transform-x: calc(var(--pluto-pos-x) + var(--translate-amount));
-            --transform-y: calc(var(--pluto-pos-y) - 50%);
+            --transform-x: calc(var(--pos-x) + var(--translate-amount));
+            --transform-y: calc(var(--pos-y) - 50%);
         }
     }
 
     &.pluto--top {
         &.pluto--right {
-            --transform-x: var(--pluto-pos-x);
-            --transform-y: calc(
-                var(--pluto-pos-y) + calc(-100% - var(--translate-amount))
-            );
+            --transform-x: var(--pos-x);
+            --transform-y: calc(var(--pos-y) + calc(-100% - var(--translate-amount)));
         }
         &.pluto--left {
-            --transform-x: calc(var(--pluto-pos-x) - 100%);
-            --transform-y: calc(
-                var(--pluto-pos-y) + calc(-100% - var(--translate-amount))
-            );
+            --transform-x: calc(var(--pos-x) - 100%);
+            --transform-y: calc(var(--pos-y) + calc(-100% - var(--translate-amount)));
         }
     }
 
     &.pluto--bottom {
         &.pluto--right {
-            --transform-x: var(--pluto-pos-x);
-            --transform-y: calc(var(--pluto-pos-y) - var(--translate-amount));
+            --transform-x: var(--pos-x);
+            --transform-y: calc(var(--pos-y) - var(--translate-amount));
         }
         &.pluto--left {
-            --transform-x: calc(var(--pluto-pos-x) - 100%);
-            --transform-y: calc(var(--pluto-pos-y) + var(--translate-amount));
+            --transform-x: calc(var(--pos-x) - 100%);
+            --transform-y: calc(var(--pos-y) + var(--translate-amount));
         }
     }
 }

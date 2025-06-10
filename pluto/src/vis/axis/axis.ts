@@ -30,7 +30,7 @@ export const axisStateZ = tickFactoryProps.extend({
 });
 
 export type AxisState = z.input<typeof axisStateZ>;
-export type ParsedAxisState = z.infer<typeof axisStateZ>;
+export type ParsedAxisState = z.output<typeof axisStateZ>;
 
 export interface AxisProps extends Omit<TickFactoryRenderArgs, "size"> {
   plot: box.Box;

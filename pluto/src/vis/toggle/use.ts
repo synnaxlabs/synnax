@@ -20,7 +20,7 @@ export interface UseProps
 }
 
 export interface UseReturn
-  extends Pick<z.infer<typeof toggle.toggleStateZ>, "triggered" | "enabled"> {
+  extends Pick<z.output<typeof toggle.toggleStateZ>, "triggered" | "enabled"> {
   toggle: () => void;
 }
 

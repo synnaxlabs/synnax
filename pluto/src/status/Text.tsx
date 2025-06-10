@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { type Icon as PIcon } from "@/icon";
+import { type Variant } from "@/status/aether/types";
 import { VARIANT_COLORS } from "@/status/colors";
 import { Text as BaseText } from "@/text";
 
@@ -21,7 +21,7 @@ export interface TextProps extends Omit<BaseText.WithIconProps, "level" | "wrap"
   level?: BaseText.Level;
   hideIcon?: boolean;
   noColor?: boolean;
-  variant?: status.Variant;
+  variant: Variant;
 }
 
 const Core = ({

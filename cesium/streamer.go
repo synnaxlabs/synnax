@@ -41,19 +41,19 @@ type StreamerResponse struct {
 }
 
 // Streamer allows the caller to tap into the DB's write pipeline using a confluence
-// Segment based interface. To use a Streamer, call DB.NewStreamer with a list of
-// channels whose series you'd like to receive. Then, call Streamer.Flow to start
+// Segment based interface. To use a Streamer, call DB.NewStreamer with a list
+// of channels whose series you'd like to receive. Then, call Streamer.Flow to start
 // receiving frames.
 //
-// Streamer must be used carefully, as it can clog the write pipeline if the caller does
-// not receive the incoming frames fast enough. It's recommended that you use a buffered
-// channel for the readers output.
+// Streamer must be used carefully, as it can clog the write pipeline if the caller
+// does not receive the incoming frames fast enough. It's recommended that you use a
+// buffered channel for the readers output.
 //
 // Issuing a new StreamerRequest updates the set of channels the stream reader
 // subscribes to.
 //
-// To stop receiving values, simply close the inlet of the streamer. The streamer will
-// then gracefully exit and close its output channel.
+// To stop receiving values, simply close the inlet of the streamer. The streamer will then
+// gracefully exit and close its output channel.
 type Streamer[RQ any, RS any] = confluence.Segment[RQ, RS]
 
 func passThroughStreamerRequestTranslator(req StreamerRequest) StreamerRequest {
@@ -64,11 +64,12 @@ func passThroughStreamerResponseTranslator(res StreamerResponse) StreamerRespons
 	return res
 }
 
-// NewStreamer opens a new Streamer using the given configuration. To start receiving
-// frames, call Streamer.Flow. The provided context is only used for opening the
-// streamer, and cancelling it has no implications after NewStreamer returns.
+// NewStreamer opens a new Streamer using the given configuration. To start
+// receiving frames, call Streamer.Flow. The provided context is only used for
+// opening the streamer, and cancelling it has no implications after NewStreamer
+// returns.
 func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[StreamerRequest, StreamerResponse], error) {
-	return NewTranslatedStreamer(
+	return NewTranslatedStreamer[StreamerRequest, StreamerResponse](
 		ctx,
 		db,
 		cfg,

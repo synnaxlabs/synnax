@@ -9,7 +9,7 @@
 
 import { Drift } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { color, location } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
@@ -76,6 +76,7 @@ export const stateZ = z.object({
   args: z.unknown().optional(),
   excludeFromWorkspace: z.boolean().optional(),
   beta: z.boolean().default(false).optional(),
+  loading: z.boolean().default(false).optional(),
   unsavedChanges: z.boolean().default(false).optional(),
 });
 
@@ -143,6 +144,11 @@ export interface State<A = unknown> {
   loading?: boolean;
 }
 
+const themeZ = Theming.themeZ.transform(
+  // Need to remove the Color classes from the theme so that we can store it in Redux properly
+  color.transformColorsToHex,
+);
+
 const mosaicStateZ = z.object({
   activeTab: z.string().nullable(),
   root: Mosaic.nodeZ,
@@ -198,7 +204,7 @@ export const MAIN_LAYOUT: State = {
 export const sliceStateZ = z.object({
   version: z.literal(VERSION),
   activeTheme: z.string(),
-  themes: z.record(z.string(), Theming.themeZ),
+  themes: z.record(z.string(), themeZ),
   layouts: z.record(z.string(), stateZ),
   hauling: Haul.draggingStateZ,
   mosaics: z.record(z.string(), mosaicStateZ),

@@ -209,7 +209,7 @@ export class CacheRetriever implements Retriever {
 
 export interface PromiseFns<T> {
   resolve: (value: T) => void;
-  reject: (reason?: unknown) => void;
+  reject: (reason?: any) => void;
 }
 
 // no interval

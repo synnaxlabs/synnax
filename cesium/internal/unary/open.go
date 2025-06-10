@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -39,8 +39,7 @@ type Config struct {
 	// creating a new database. If the database already exists, the Channel information
 	// will be read from the DB's meta file.
 	Channel core.Channel
-	// MetaCodec is used to encode and decode metadata about the channel.
-	// [REQUIRED]
+	// MetaCodec is used to encode and decode metadata about the channel. [REQUIRED]
 	MetaCodec binary.Codec
 	// FS is the filesystem that the DB will use to store its data. DB will write to the
 	// root of the filesystem, so this should probably be a subdirectory. DB should have
@@ -48,8 +47,8 @@ type Config struct {
 	// [REQUIRED]
 	FS xfs.FS
 	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
-	// Note while that a file's size may still exceed this value, it is not likely to
-	// exceed by much with frequent commits.
+	// Note while that a file's size may still exceed this value, it is not likely
+	// to exceed by much with frequent commits.
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
 	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
@@ -106,10 +105,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		FileSize:        cfg.FileSize,
 		GCThreshold:     cfg.GCThreshold,
 	})
-	if err != nil {
-		return nil, err
-	}
-	c, err := control.New[*controlledWriter](control.Config{
+	c, err := controller.New[*controlledWriter](controller.Config{
 		Concurrency:     cfg.Channel.Concurrency,
 		Instrumentation: cfg.Instrumentation,
 	})
@@ -124,7 +120,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		closed:           &atomic.Bool{},
 		leadingAlignment: &atomic.Uint32{},
 	}
-	db.leadingAlignment.Store(core.ZeroLeadingAlignment)
+	db.leadingAlignment.Store(telem.ZeroLeadingAlignment)
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation, Channel: cfg.Channel}
 	}

@@ -72,7 +72,7 @@ type Config struct {
 	// ResponseBufferSize sets the channel buffer size for the main response streaming
 	// pipe. All written frames will be moved through this pipe, so the value should be
 	// relatively large.
-	// [OPTIONAL: Default is 1000 (equivalent 72 kB of data)]
+	// [OPTIONAL: Default is 1000 or 72 KB]
 	ResponseBufferSize int
 	// DemandBufferSize sets the channel buffer size for channel demands to the relay.
 	// This value should be relatively small.
@@ -87,7 +87,7 @@ var (
 	// Config for more information.
 	DefaultConfig = Config{
 		SlowConsumerTimeout: time.Millisecond * 20,
-		// 72 B * 1000 = 72 kB
+		// 72 B * 1000 = 72 KB
 		ResponseBufferSize: 1000,
 		DemandBufferSize:   50,
 	}
@@ -114,7 +114,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "HostProvider", c.HostResolver)
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "FreeWrites", c.FreeWrites)
-	validate.NotNil(v, "Channels", c.ChannelReader)
+	validate.NotNil(v, "ChannelReader", c.ChannelReader)
 	validate.Positive(v, "SlowConsumerTimeout", c.SlowConsumerTimeout)
 	validate.Positive(v, "ResponseBufferSize", c.ResponseBufferSize)
 	validate.Positive(v, "DemandBufferSize", c.DemandBufferSize)

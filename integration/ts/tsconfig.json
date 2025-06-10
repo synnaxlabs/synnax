@@ -14,5 +14,7 @@
     "sourceMap": true,
     "baseUrl": "./"
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*"
+  ]
 }

@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type primitive } from "@/primitive";
+import { type Primitive } from "@/primitive";
 
 interface DeepEqualBaseRecord {
-  equals?: (other: unknown) => boolean;
+  equals?: (other: any) => boolean;
 }
 
 export const equal = <
-  T extends unknown | DeepEqualBaseRecord | DeepEqualBaseRecord[] | primitive.Value[],
+  T extends unknown | DeepEqualBaseRecord | DeepEqualBaseRecord[] | Primitive[],
 >(
   a: T,
   b: T,
@@ -31,7 +31,7 @@ export const equal = <
   }
   if (a == null || b == null || typeof a !== "object" || typeof b !== "object")
     return a === b;
-  if ("equals" in a) return (a.equals as (other: unknown) => boolean)(b);
+  if ("equals" in a) return (a.equals as (other: any) => boolean)(b);
   const aKeys = Object.keys(a);
   const bKeys = Object.keys(b);
   if (aKeys.length !== bKeys.length) return false;
@@ -47,7 +47,7 @@ export const equal = <
   return true;
 };
 
-export const partialEqual = <T extends unknown | DeepEqualBaseRecord | primitive.Value>(
+export const partialEqual = <T extends unknown | DeepEqualBaseRecord | Primitive>(
   base: T,
   partial: Partial<T>,
 ): boolean => {

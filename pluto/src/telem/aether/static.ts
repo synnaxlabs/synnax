@@ -79,7 +79,7 @@ class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
     );
   }
 
-  value(): [bounds.Bounds, Series[]] {
+  async value(): Promise<[bounds.Bounds, Series[]]> {
     const b = bounds.max(this.data.map((x) => x.bounds));
     return [b, this.data];
   }

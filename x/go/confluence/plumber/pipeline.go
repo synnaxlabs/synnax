@@ -115,8 +115,8 @@ func SetSegment[I, O cfs.Value](
 	segment cfs.Segment[I, O],
 	opts ...cfs.Option,
 ) {
-	SetSink(p, addr, segment, opts...)
-	SetSource(p, addr, segment, opts...)
+	SetSink[I](p, addr, segment)
+	SetSource[O](p, addr, segment, opts...)
 }
 
 func SetSink[V cfs.Value](

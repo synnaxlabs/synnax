@@ -9,43 +9,7 @@
 
 package types
 
-import (
-	"encoding/json"
-	"strconv"
-)
-
 // Numeric represents a generic numeric value.
 type Numeric interface {
-	~int | ~uint | ~float64 | ~float32 | ~int64 | ~int32 | ~int16 | ~int8 | ~uint64 | ~uint32 | ~uint16 | ~uint8
-}
-
-type Integer interface {
-	~int | ~uint | ~int64 | ~int32 | ~int16 | ~int8 | ~uint64 | ~uint32 | ~uint16 | ~uint8
-}
-
-type StringParseableUint64 uint64
-
-var _ json.Unmarshaler = (*StringParseableUint64)(nil)
-
-func (s *StringParseableUint64) UnmarshalJSON(b []byte) error {
-	// Try to unmarshal as a number first.
-	var n uint64
-	if err := json.Unmarshal(b, &n); err == nil {
-		*s = StringParseableUint64(n)
-		return nil
-	}
-
-	// Unmarshal as a string.
-	var str string
-	if err := json.Unmarshal(b, &str); err != nil {
-		return err
-	}
-
-	// Parse the string.
-	n, err := strconv.ParseUint(str, 10, 64)
-	if err != nil {
-		return err
-	}
-	*s = StringParseableUint64(n)
-	return nil
+	~uint | ~int | ~float64 | ~float32 | ~int64 | ~int32 | ~int16 | ~int8 | ~uint64 | ~uint32 | ~uint16 | ~uint8
 }

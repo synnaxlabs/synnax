@@ -36,9 +36,9 @@ export class AuthError extends SynnaxError.sub("auth") {}
 /**
  * InvalidTokenError is raised when an authentication token is invalid.
  */
-export class InvalidTokenError extends AuthError.sub("invalid_token") {}
+export class InvalidTokenError extends AuthError.sub("invalid-token") {}
 
-export class ExpiredTokenError extends AuthError.sub("expired_token") {}
+export class ExpiredTokenError extends AuthError.sub("expired-token") {}
 
 /**
  * UnexpectedError is raised when an unexpected error occurs.

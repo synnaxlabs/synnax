@@ -25,7 +25,6 @@ from synnax.framer import Client as FrameClient
 from synnax.hardware.rack import Client as RackClient
 from synnax.hardware.rack import Rack
 from synnax.hardware.task.payload import TaskPayload, TaskState
-from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
 
@@ -323,9 +322,9 @@ class Client:
                 if int(state["task"]) != task.key:
                     continue
                 variant = state["variant"]
-                if variant == SUCCESS_VARIANT:
+                if variant == "success":
                     break
-                if variant == ERROR_VARIANT:
+                if variant == "error":
                     raise ConfigurationError(state["details"]["message"])
         return task
 

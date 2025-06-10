@@ -27,42 +27,43 @@ import (
 )
 
 type GCConfig struct {
-	// MaxGoroutine is the maximum number of Goroutines that can be launched for each
-	// try of garbage collection.
+	// MaxGoroutine is the maximum number of GoRoutines that can be launched for
+	// each try of garbage collection.
 	MaxGoroutine uint
-	// TryInterval is the interval of time between two tries of garbage collection are
-	// started.
-	TryInterval time.Duration
-	// Threshold is the minimum tombstone proportion of the Filesize to trigger a GC.
-	// Must be in (0, 1]. Note: Setting this value to 0 will have NO EFFECT as it is the
-	// default value. instead, set it to a very small number greater than 0.
+	// GCTryInterval is the interval of time between two tries of garbage collection
+	// are started.
+	GCTryInterval time.Duration
+	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// Must be in (0, 1].
+	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
+	// instead, set it to a very small number greater than 0.
 	// [OPTIONAL] Default: 0.2
-	Threshold float32
+	GCThreshold float32
 }
 
 var (
 	_               config.Config[GCConfig] = GCConfig{}
 	DefaultGCConfig                         = GCConfig{
-		MaxGoroutine: 10,
-		TryInterval:  30 * time.Second,
-		Threshold:    0.2,
+		MaxGoroutine:  10,
+		GCTryInterval: 30 * time.Second,
+		GCThreshold:   0.2,
 	}
 )
 
 // Override implements config.Config.
-func (cfg GCConfig) Override(other GCConfig) GCConfig {
-	cfg.TryInterval = override.Numeric(cfg.TryInterval, other.TryInterval)
-	cfg.Threshold = override.Numeric(cfg.Threshold, other.Threshold)
-	cfg.MaxGoroutine = override.Numeric(cfg.MaxGoroutine, other.MaxGoroutine)
-	return cfg
+func (g GCConfig) Override(other GCConfig) GCConfig {
+	g.GCTryInterval = override.Numeric(g.GCTryInterval, other.GCTryInterval)
+	g.GCThreshold = override.Numeric(g.GCThreshold, other.GCThreshold)
+	g.MaxGoroutine = override.Numeric(g.MaxGoroutine, other.MaxGoroutine)
+	return g
 }
 
 // Validate implements config.Config.
-func (cfg GCConfig) Validate() error {
+func (g GCConfig) Validate() error {
 	v := validate.New("cesium.GCConfig")
-	validate.Positive(v, "gc_try_interval", cfg.TryInterval)
-	validate.Positive(v, "gc_threshold", cfg.Threshold)
-	validate.Positive(v, "max_goroutine", cfg.MaxGoroutine)
+	validate.Positive(v, "gc_try_interval", g.GCTryInterval)
+	validate.Positive(v, "gc_threshold", g.GCThreshold)
+	validate.Positive(v, "max_goroutine", g.MaxGoroutine)
 	return v.Error()
 }
 
@@ -71,18 +72,17 @@ func keyToDirName(ch ChannelKey) string {
 }
 
 // DeleteChannel deletes a channel by its key.
-//
 // This method returns an error if there are other channels depending on the current
 // channel, or if the current channel is being written to or read from.
-//
 // DeleteChannel is idempotent.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
 	// Rename the file first, so we can avoid hogging the mutex while deleting the
-	// directory, which may take a longer time. Rename the file to have a random suffix
-	// in case the channel is repeatedly created and deleted.
+	// directory, which may take a longer time.
+	// Rename the file to have a random suffix in case the channel is repeatedly created
+	// and deleted.
 	oldName := keyToDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 	if err := (func() error {
@@ -102,8 +102,9 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	return db.fs.Remove(newName)
 }
 
-// DeleteChannels deletes many channels by their keys. This operation is not guaranteed
-// to be atomic: it is possible some channels in chs are deleted and some are not.
+// DeleteChannels deletes many channels by their keys.
+// This operation is not guaranteed to be atomic: it is possible some channels in chs
+// are deleted and some are not.
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	if db.closed.Load() {
 		return errDBClosed
@@ -113,9 +114,9 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		directoriesToRemove = make([]string, 0, len(chs))
 	)
 	db.mu.Lock()
-	// This 'defer' statement does a best-effort removal of all renamed directories to
-	// ensure that all DBs deleted from db.mu.unaryDBs and db.mu.virtualDBs are also
-	// deleted on FS.
+	// This 'defer' statement does a best-effort removal of all renamed directories
+	// to ensure that all DBs deleted from db.mu.unaryDBs and db.mu.virtualDBs are also deleted
+	// on FS.
 	defer func() {
 		db.mu.Unlock()
 		c := errors.NewCatcher(errors.WithAggregation())
@@ -141,8 +142,8 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 			return
 		}
 
-		// Rename the files first, so we can avoid hogging the mutex while deleting the
-		// directory, which may take a longer time.
+		// Rename the files first, so we can avoid hogging the mutex while deleting
+		// the directory, which may take a longer time.
 		oldName := keyToDirName(ch)
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
@@ -173,8 +174,8 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	return
 }
 
-// removeChannel removes ch from db.mu.unaryDBs or db.mu.virtualDBs. If the channel or
-// if there is an open resource on the specified database.
+// removeChannel removes ch from db.mu.unaryDBs or db.mu.virtualDBs. If the channel
+// or if there is an open resource on the specified database.
 func (db *DB) removeChannel(ch ChannelKey) error {
 	uDB, uOk := db.mu.unaryDBs[ch]
 	if uOk {
@@ -211,8 +212,9 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 
 // DeleteTimeRange deletes a time range of data in the database in the given channels
 // This method return an error if the channel to be deleted is an index channel and
-// there are other channels depending on it in the time range. DeleteTimeRange is
-// idempotent, but when the channel does not exist, it returns ErrChannelNotFound.
+// there are other channels depending on it in the time range.
+// DeleteTimeRange is idempotent, but when the channel does not exist, it returns
+// ErrChannelNotFound.
 func (db *DB) DeleteTimeRange(
 	ctx context.Context,
 	chs []ChannelKey,
@@ -228,8 +230,7 @@ func (db *DB) DeleteTimeRange(
 	for _, ch := range chs {
 		uDB, uOk := db.mu.unaryDBs[ch]
 		if !uOk {
-			// If the channel is virtual, delete is a no-op but we don't return an
-			// error.
+			// If the channel is virtual, delete is a no-op but we don't return an error.
 			if _, vOk := db.mu.virtualDBs[ch]; vOk {
 				continue
 			}
@@ -304,7 +305,7 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 }
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {
-	signal.GoTick(sCtx, opts.gcCfg.TryInterval, func(ctx context.Context, time time.Time) error {
+	signal.GoTick(sCtx, opts.gcCfg.GCTryInterval, func(ctx context.Context, time time.Time) error {
 		err := db.garbageCollect(ctx, opts.gcCfg.MaxGoroutine)
 		if err != nil {
 			db.L.Error("garbage collection error", zap.Error(err))

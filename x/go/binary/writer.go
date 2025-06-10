@@ -1,16 +1,8 @@
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 package binary
 
 import (
 	"encoding/binary"
+	"fmt"
 )
 
 // Writer makes it easy to writer various primitive data types to binary using a given
@@ -22,27 +14,27 @@ type Writer struct {
 }
 
 // NewWriter creates a new writer with the given size, starting offset, and byte order.
-func NewWriter(size int, order binary.ByteOrder) *Writer {
-	return &Writer{buf: make([]byte, size), byteOrder: order}
+func NewWriter(size int, offset int, order binary.ByteOrder) *Writer {
+	if offset > size {
+		panic(fmt.Sprintf("offset %v is greater than buffer allocation size %v", offset, size))
+	}
+	return &Writer{buf: make([]byte, size), offset: offset, byteOrder: order}
 }
 
-// Reset resets the writer to reuse the underlying buffer.
-func (w *Writer) Reset() { w.offset = 0 }
+func (w *Writer) Reset() {
+	w.offset = 0
+}
 
-// Resize resizes the writer's buffer to the given capacity.
 func (w *Writer) Resize(size int) {
 	if size < len(w.buf) {
-		w.buf = w.buf[0:size]
-		if size < w.offset {
-			w.offset = size
-		}
+		w.buf = w.buf[:size]
 	} else if size > len(w.buf) {
-		w.buf = append(w.buf, make([]byte, size-len(w.buf))...)
+		w.buf = make([]byte, size)
 	}
 }
 
-// Uint8 writes a new Uint8 to the buffer. If the buffer is already at capacity, Uint8
-// returns 0. Otherwise, Uint8 returns 1.
+// Uint8 writes a new Uint8 to the buffer. If the buffer is already at capacity, returns
+// 0, otherwise returns 1.
 func (w *Writer) Uint8(value uint8) int {
 	if w.offset+1 > len(w.buf) {
 		return 0
@@ -52,8 +44,8 @@ func (w *Writer) Uint8(value uint8) int {
 	return 1
 }
 
-// Uint32 writes a new Uint32 to the buffer. If the buffer is at capacity, Uint32 returns 0.
-// Otherwise, Uint32 returns 4.
+// Uint32 writes a new Uint32 to the buffer. If the buffer is at capacity, returns 0,
+// otherwise returns 1.
 func (w *Writer) Uint32(value uint32) int {
 	if w.offset+4 > len(w.buf) {
 		return 0
@@ -63,8 +55,8 @@ func (w *Writer) Uint32(value uint32) int {
 	return 4
 }
 
-// Uint64 writes a new Uint64 to the buffer. If the buffer is at capacity, Uint64 returns 0.
-// Otherwise, Uint64 returns 8.
+// Uint64 writes a new Uint64 to the buffer. If the buffer is at capacity, returns 0,
+// otherwise returns 8.
 func (w *Writer) Uint64(value uint64) int {
 	if w.offset+8 > len(w.buf) {
 		return 0

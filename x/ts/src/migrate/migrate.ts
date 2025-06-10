@@ -118,8 +118,8 @@ export type Migration<I extends Migratable, O extends Migratable> = (input: I) =
 export interface MigrationProps<
   I extends Migratable,
   O extends Migratable,
-  ZI extends z.ZodType,
-  ZO extends z.ZodType,
+  ZI extends z.ZodTypeAny,
+  ZO extends z.ZodTypeAny,
 > {
   name: string;
   inputSchema?: ZI;
@@ -131,8 +131,8 @@ export const createMigration =
   <
     I extends Migratable,
     O extends Migratable,
-    ZI extends z.ZodType = z.ZodType,
-    ZO extends z.ZodType = z.ZodType,
+    ZI extends z.ZodTypeAny = z.ZodTypeAny,
+    ZO extends z.ZodTypeAny = z.ZodTypeAny,
   >({
     name,
     migrate,
@@ -155,7 +155,7 @@ export const createMigration =
  */
 export type Migrations = Record<string, Migration<any, any>>;
 
-interface MigratorProps<O extends Migratable, ZO extends z.ZodType = z.ZodType> {
+interface MigratorProps<O extends Migratable, ZO extends z.ZodTypeAny = z.ZodTypeAny> {
   name: string;
   migrations: Migrations;
   def: O;
@@ -168,7 +168,7 @@ export type Migrator = <I extends Optional<Migratable, "version">, O>(v: I) => O
 export const migrator = <
   I extends Optional<Migratable, "version">,
   O extends Migratable,
-  ZO extends z.ZodType = z.ZodType,
+  ZO extends z.ZodTypeAny = z.ZodTypeAny,
 >({
   name,
   migrations,

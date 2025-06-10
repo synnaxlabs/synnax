@@ -45,9 +45,10 @@ import (
 type Config struct {
 	// ControlSubject is an identifier for the writer.
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
-	// Keys are the channel keys to write to. At least one key must be provided. All
-	// Frames written to the Writer must have a array specified for each key, and all series must be the same length (i.e.
-	// calls Frame.Even must return true).
+	// Keys is keys to write to. At least one key must be provided. All keys must
+	// have the same data rate OR the same index. All Frames written to the Writer must
+	// have an array specified for each key, and all series must be the same length (i.e.
+	// calls to Frame.Even must return true).
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Start marks the starting timestamp of the first sample in the first frame. If
@@ -82,16 +83,15 @@ type Config struct {
 	// to AlwaysAutoPersist.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
-	// Sync is set to true if the writer should send acknowledgements for every write
-	// request, not just on failed requests.
+	// Sync is set to true if the writer should send acknowledgements for every write request,
+	// not just on failed requests.
 	//
-	// This only applies to write operations, as the writer will always send
-	// acknowledgements for calls to Commit and SetAuthority.
+	// This only applies to write operations, as the writer will always send acknowledgements
+	// for calls to Commit and SetAuthority.
 	//
-	// This setting is good for testing and debugging purposes, as it provides
-	// guarantees that a writer has successfully processed a frame, but can have a
-	// considerable performance impact.
-	//
+	// This setting is good for testing and debugging purposes, as it provides guarantees
+	// that a writer has successfully processed a frame, but can have a considerable
+	// performance impact.
 	// [OPTIONAL] - Defaults to false.
 	Sync *bool `json:"sync" msgpack:"sync"`
 }
@@ -121,13 +121,12 @@ func (k keyAuthority) Lease() dcore.NodeKey { return k.key.Lease() }
 
 var _ config.Config[Config] = Config{}
 
-// DefaultConfig is the default configuration for opening a new writer. This
-// configuration is not valid by itself and must be overridden by the required fields
-// specified in Config.
 func DefaultConfig() Config {
 	return Config{
-		ControlSubject:           control.Subject{Key: uuid.New().String()},
-		Authorities:              []control.Authority{control.AuthorityAbsolute},
+		ControlSubject: control.Subject{
+			Key: uuid.New().String(),
+		},
+		Authorities:              []control.Authority{control.Absolute},
 		ErrOnUnauthorized:        config.False(),
 		Mode:                     ts.WriterPersistStream,
 		EnableAutoCommit:         config.False(),
@@ -225,7 +224,7 @@ var (
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotNil(v, "TS", cfg.TS)
-	validate.NotNil(v, "Channels", cfg.ChannelReader)
+	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "HostProvider", cfg.HostResolver)
 	validate.NotNil(v, "Transport", cfg.Transport)
 	return v.Error()
@@ -267,8 +266,8 @@ const (
 )
 
 // Open a new writer using the given configuration. The provided context is used to
-// control the lifetime of goroutines spawned by the writer. If the given context is
-// cancelled, the writer will immediately abort all pending writes and return an error.
+// control the lifetime of goroutines spawned by the writer. If the given context is cancelled,
+// the writer will immediately abort all pending writes and return an error.
 func (s *Service) Open(ctx context.Context, cfgs ...Config) (*Writer, error) {
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
 	cfg, err := config.New(DefaultConfig(), cfgs...)
@@ -322,9 +321,9 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	)
 
 	v := &validator{keys: cfg.Keys}
-	plumber.SetSegment(pipe, validatorAddr, v)
-	plumber.SetSource(pipe, validatorResponsesAddr, &v.responses)
-	plumber.SetSegment(
+	plumber.SetSegment[Request, Request](pipe, validatorAddr, v)
+	plumber.SetSource[Response](pipe, validatorResponsesAddr, &v.responses)
+	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
 		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.Instrumentation),
@@ -342,10 +341,10 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		if err != nil {
 			return nil, err
 		}
-		plumber.SetSink(pipe, peerSenderAddr, sender)
+		plumber.SetSink[Request](pipe, peerSenderAddr, sender)
 		receiverAddresses = _receiverAddresses
 		for i, receiver := range receivers {
-			plumber.SetSource(pipe, _receiverAddresses[i], receiver)
+			plumber.SetSource[Response](pipe, _receiverAddresses[i], receiver)
 		}
 	}
 
@@ -356,7 +355,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		if err != nil {
 			return nil, err
 		}
-		plumber.SetSegment(pipe, gatewayWriterAddr, w)
+		plumber.SetSegment[Request, Response](pipe, gatewayWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, gatewayWriterAddr)
 	}
 
@@ -364,13 +363,13 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		routeValidatorTo = freeWriterAddr
 		switchTargets = append(switchTargets, freeWriterAddr)
 		w := s.newFree(cfg.Mode, *cfg.Sync)
-		plumber.SetSegment(pipe, freeWriterAddr, w)
+		plumber.SetSegment[Request, Response](pipe, freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}
 
 	if len(switchTargets) > 1 {
 		routeValidatorTo = peerGatewaySwitchAddr
-		plumber.SetSegment(
+		plumber.SetSegment[Request, Request](
 			pipe,
 			peerGatewaySwitchAddr,
 			newPeerGatewayFreeSwitch(hostKey, hasPeer, hasGateway, hasFree),

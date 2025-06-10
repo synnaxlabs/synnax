@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { array, id } from "@synnaxlabs/x";
+import { id, toArray } from "@synnaxlabs/x";
 import { deep } from "@synnaxlabs/x/deep";
 import { type Destructor } from "@synnaxlabs/x/destructor";
 import { type observe } from "@synnaxlabs/x/observe";
@@ -39,7 +39,7 @@ export class Context {
   child(factories: Factory | Factory[], parent?: Context): Context {
     const next = new CompoundTelemFactory([
       ...this.factory.factories,
-      ...array.toArray(factories),
+      ...toArray(factories),
     ]);
     next.add(new PipelineFactory(next));
     return new Context(next, parent);

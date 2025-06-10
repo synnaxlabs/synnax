@@ -50,10 +50,10 @@ var _ = Describe("Accuracy", func() {
 						cesium.Channel{Name: "Rufus", Key: idxKey, IsIndex: true, DataType: telem.TimeStampT},
 						cesium.Channel{Name: "Du", Key: key, Index: idxKey, DataType: telem.Int64T},
 					)).To(Succeed())
-					Expect(db.WriteSeries(ctx, idxKey, 2*telem.SecondTS, telem.NewSeriesSecondsTSV(firstTS...))).To(Succeed())
-					Expect(db.WriteSeries(ctx, idxKey, 22*telem.SecondTS, telem.NewSeriesSecondsTSV(secondTS...))).To(Succeed())
-					Expect(db.WriteSeries(ctx, key, 2*telem.SecondTS, telem.NewSeries(first))).To(Succeed())
-					Expect(db.WriteSeries(ctx, key, 22*telem.SecondTS, telem.NewSeries(second))).To(Succeed())
+					Expect(db.WriteArray(ctx, idxKey, 2*telem.SecondTS, telem.NewSecondsTSV(firstTS...))).To(Succeed())
+					Expect(db.WriteArray(ctx, idxKey, 22*telem.SecondTS, telem.NewSecondsTSV(secondTS...))).To(Succeed())
+					Expect(db.WriteArray(ctx, key, 2*telem.SecondTS, telem.NewSeries(first))).To(Succeed())
+					Expect(db.WriteArray(ctx, key, 22*telem.SecondTS, telem.NewSeries(second))).To(Succeed())
 				})
 				DescribeTable("Accuracy",
 					func(
@@ -65,7 +65,7 @@ var _ = Describe("Accuracy", func() {
 							actual = make([]int64, 0, len(expected))
 						)
 						for series := range frame.Series() {
-							actual = append(actual, telem.UnmarshalSeries[int64](series)...)
+							actual = append(actual, telem.Unmarshal[int64](series)...)
 						}
 						Expect(actual).To(Equal(expected))
 					},
@@ -133,10 +133,10 @@ var _ = Describe("Accuracy", func() {
 							cesium.Channel{Name: "Sheffield", Key: key1, Index: idxKey1, DataType: telem.Int64T},
 							cesium.Channel{Name: "London", Key: key2, Index: idxKey2, DataType: telem.Int64T},
 						)).To(Succeed())
-						Expect(db.WriteSeries(ctx, idxKey1, 1*telem.SecondTS, telem.NewSeriesSecondsTSV(idxData1...))).To(Succeed())
-						Expect(db.WriteSeries(ctx, idxKey2, 1*telem.SecondTS, telem.NewSeriesSecondsTSV(idxData2...))).To(Succeed())
-						Expect(db.WriteSeries(ctx, key1, 1*telem.SecondTS, telem.NewSeries(data1))).To(Succeed())
-						Expect(db.WriteSeries(ctx, key2, 1*telem.SecondTS, telem.NewSeries(data2))).To(Succeed())
+						Expect(db.WriteArray(ctx, idxKey1, 1*telem.SecondTS, telem.NewSecondsTSV(idxData1...))).To(Succeed())
+						Expect(db.WriteArray(ctx, idxKey2, 1*telem.SecondTS, telem.NewSecondsTSV(idxData2...))).To(Succeed())
+						Expect(db.WriteArray(ctx, key1, 1*telem.SecondTS, telem.NewSeries(data1))).To(Succeed())
+						Expect(db.WriteArray(ctx, key2, 1*telem.SecondTS, telem.NewSeries(data2))).To(Succeed())
 					})
 					DescribeTable("Accuracy",
 						func(
@@ -151,9 +151,9 @@ var _ = Describe("Accuracy", func() {
 							)
 							for k, series := range frame.Entries() {
 								if k == key1 {
-									actual1 = append(actual1, telem.UnmarshalSeries[int64](series)...)
+									actual1 = append(actual1, telem.Unmarshal[int64](series)...)
 								} else {
-									actual2 = append(actual2, telem.UnmarshalSeries[int64](series)...)
+									actual2 = append(actual2, telem.Unmarshal[int64](series)...)
 								}
 							}
 							Expect(actual1).To(Equal(expected1))

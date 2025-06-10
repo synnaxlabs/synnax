@@ -43,7 +43,7 @@ func TestWriter(t *testing.T) {
 type serviceContainer struct {
 	channel   channel.Service
 	writer    *writer.Service
-	deleter   *deleter.Service
+	deleter   deleter.Service
 	iterator  *iterator.Service
 	transport struct {
 		channel  channel.Transport
@@ -88,10 +88,10 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			ChannelReader: container.channel,
 			Transport:     deleterNet.New(c.Config.AdvertiseAddress),
 		}))
-		container.iterator = MustSucceed(iterator.NewService(iterator.ServiceConfig{
+		container.iterator = MustSucceed(iterator.OpenService(iterator.ServiceConfig{
 			Instrumentation: ins,
 			TS:              c.Storage.TS,
-			Channels:        container.channel,
+			ChannelReader:   container.channel,
 			HostResolver:    c.Cluster,
 			Transport:       iteratorNet.New(c.Config.AdvertiseAddress, 10),
 		}))

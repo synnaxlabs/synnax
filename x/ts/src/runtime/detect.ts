@@ -17,11 +17,13 @@ export type Runtime = "browser" | "node" | "webworker";
  */
 export const detect = (): Runtime => {
   if (
+
     typeof process !== "undefined" &&
     process.versions != null &&
     process.versions.node != null
   )
     return "node";
+
 
   if (typeof window === "undefined" || window.document === undefined)
     return "webworker";

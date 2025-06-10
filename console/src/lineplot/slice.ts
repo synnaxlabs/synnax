@@ -10,7 +10,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
 import { type Viewport } from "@synnaxlabs/pluto";
-import { array, deep, unique } from "@synnaxlabs/x";
+import { deep, toArray, unique } from "@synnaxlabs/x";
 
 import {
   type AxisKey,
@@ -291,7 +291,7 @@ export const { actions, reducer } = createSlice({
     setLine: (state, { payload }: PayloadAction<SetLinePayload>) => {
       const { key: layoutKey, line: line_ } = payload;
       const plot = state.plots[layoutKey];
-      array.toArray(line_).forEach((line) => {
+      toArray(line_).forEach((line) => {
         const idx = plot.lines.findIndex((l) => l.key === line.key);
         if (idx >= 0) plot.lines[idx] = { ...plot.lines[idx], ...line };
       });
@@ -352,7 +352,7 @@ export const { actions, reducer } = createSlice({
       { payload }: PayloadAction<{ key: string; ruleKey: string | string[] }>,
     ) => {
       const plot = state.plots[payload.key];
-      const keys = array.toArray(payload.ruleKey);
+      const keys = toArray(payload.ruleKey);
       plot.rules = plot.rules.map((rule) => ({
         ...rule,
         selected: keys.includes(rule.key),

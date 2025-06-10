@@ -71,7 +71,7 @@ type NodeOntologyService struct {
 var _ ontology.Service = (*NodeOntologyService)(nil)
 
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
-// joining, changing state, etc.) and updates the ontology accordingly.
+// joining, changing state, etc.) and updates the ontolgoy accordinly.
 func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
 	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(core.Free)); err != nil {
 		s.L.Error("failed to define free node ontology resource", zap.Error(err))
@@ -82,19 +82,18 @@ func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
 	})
 }
 
-func translateNodeChange(ch core.NodeChange, _ int) schema.Change {
-	return schema.Change{
-		Variant: ch.Variant,
-		Key:     NodeOntologyID(ch.Key),
-		Value:   newNodeResource(ch.Value),
-	}
-}
-
 // OnChange implements ontology.Service.
 func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schema.Change])) observe.Disconnect {
 	var (
+		translate = func(ch core.NodeChange, _ int) schema.Change {
+			return schema.Change{
+				Variant: ch.Variant,
+				Key:     NodeOntologyID(ch.Key),
+				Value:   newNodeResource(ch.Value),
+			}
+		}
 		onChange = func(ctx context.Context, ch core.ClusterChange) {
-			f(ctx, iter.All(lo.Map(ch.Changes, translateNodeChange)))
+			f(ctx, iter.All(lo.Map(ch.Changes, translate)))
 		}
 	)
 	return s.Cluster.OnChange(onChange)
@@ -109,27 +108,28 @@ func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource]
 	), nil
 }
 
-func (s *NodeOntologyService) update(ctx context.Context, state core.ClusterState) {
-	if err := s.Ontology.DB.WithTx(ctx, func(txn gorp.Tx) error {
-		w := s.Ontology.NewWriter(txn)
-		clusterID := OntologyID(s.Cluster.Key())
-		if err := w.DefineResource(ctx, clusterID); err != nil {
-			return err
-		}
-		if err := w.DefineRelationship(ctx, ontology.RootID, ontology.ParentOf, clusterID); err != nil {
-			return err
-		}
-		for _, n := range state.Nodes {
-			nodeID := NodeOntologyID(n.Key)
-			if err := w.DefineResource(ctx, NodeOntologyID(n.Key)); err != nil {
-				return err
-			}
-			if err := w.DefineRelationship(ctx, clusterID, ontology.ParentOf, nodeID); err != nil {
-				return err
-			}
-		}
+func (s *NodeOntologyService) update(ctx context.Context, _ core.ClusterState) {
+	err := s.Ontology.DB.WithTx(ctx, func(txn gorp.Tx) error {
+		//w := s.Ontology.NewWriter(txn)
+		//clusterID := OntologyID(s.Cluster.Key())
+		//if err := w.DefineResource(ctx, clusterID); err != nil {
+		//	return err
+		//}
+		//if err := w.DefineRelationship(ctx, ontology.RootID, ontology.ParentOf, clusterID); err != nil {
+		//	return err
+		//}
+		//for _, n := range state.Nodes {
+		//	nodeID := NodeOntologyID(n.Key)
+		//	if err := w.DefineResource(ctx, NodeOntologyID(n.Key)); err != nil {
+		//		return err
+		//	}
+		//	if err := w.DefineRelationship(ctx, clusterID, ontology.ParentOf, nodeID); err != nil {
+		//		return err
+		//	}
+		//}
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		s.L.Error("failed to update node ontology", zap.Error(err))
 	}
 }
@@ -183,7 +183,11 @@ func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (on
 
 // OpenNexter implements ontology.Service.Relationship
 func (s *OntologyService) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
-	return iter.NexterNopCloser(iter.All([]schema.Resource{})), nil
+	return iter.NexterNopCloser(
+		iter.All([]schema.Resource{
+			//newClusterResource(s.Cluster.Key()),
+		}),
+	), nil
 }
 
 func newClusterResource(key uuid.UUID) ontology.Resource {

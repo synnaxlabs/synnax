@@ -133,7 +133,7 @@ export const get = (<V = unknown, T = UnknownRecord>(
   opts: GetOptions = { optional: false, separator: "." },
 ): V | null => {
   opts.separator ??= ".";
-  const { optional, getter = (obj, key) => obj[key] } = opts;
+  const { optional, getter = (obj, key) => (obj)[key] } = opts;
   const parts = path.split(opts.separator);
   if (parts.length === 1 && parts[0] === "") return obj as unknown as V;
   let result: UnknownRecord = obj as UnknownRecord;
