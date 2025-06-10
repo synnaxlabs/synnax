@@ -43,6 +43,7 @@ interface InternalState {
   ranges: Map<string, ranger.Range>;
   client: Synnax | null;
   render: render.Context;
+  requestRender: render.Requestor;
   draw: Draw2D;
   tracker: signals.Observable<string, ranger.Range>;
   runAsync: status.ErrorHandler;
@@ -64,6 +65,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
+    i.requestRender = render.useRequestor(ctx);
     i.runAsync = status.useErrorHandler(ctx);
     i.ranges ??= new Map();
     const client = synnax.use(ctx);
@@ -76,12 +78,12 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       i.tracker.onChange((c) => {
         c.forEach((r) => {
           if (r.variant === "delete") i.ranges.delete(r.key);
-          else if (color.isColor(r.value.color)) i.ranges.set(r.key, r.value);
+          else if (color.isCrude(r.value.color)) i.ranges.set(r.key, r.value);
         });
-        render.request(ctx, "tool");
+        i.requestRender("tool");
         this.setState((s) => ({ ...s, count: i.ranges.size }));
       });
-      render.request(ctx, "tool");
+      i.requestRender("tool");
     }, "failed to open range tracker");
   }
 

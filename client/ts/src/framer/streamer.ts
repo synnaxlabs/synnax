@@ -195,7 +195,7 @@ export class HardenedStreamer implements Streamer {
   private readonly opener: StreamOpener;
   private readonly config: StreamerConfig;
 
-  constructor(
+  private constructor(
     opener: StreamOpener,
     config: StreamerConfig | channel.Params,
     breakerConfig: breaker.Config = {},

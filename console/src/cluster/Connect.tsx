@@ -53,8 +53,14 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
   const names = useSelectAllNames();
-  const formSchema = clusterZ.refine(({ name }) => !names.includes(name), {
-    error: ({ name }) => ({ message: `${name} is already in use.`, path: ["name"] }),
+  const formSchema = clusterZ.check(({ value: { name }, issues }) => {
+    if (names.includes(name))
+      issues.push({
+        input: name,
+        code: "custom",
+        path: ["name"],
+        message: `${name} is already in use.`,
+      });
   });
   const handleError = Status.useErrorHandler();
   const methods = Form.use<typeof formSchema>({

@@ -520,7 +520,8 @@ export const use = <Z extends z.ZodType>({
       const schema = schemaRef.current;
       const zField = zod.getFieldSchema(schema, path, { optional: true });
       if (zField == null) return fs;
-      fs.required = !zField.isOptional();
+      if ("isOptional" in zField && typeof zField.isOptional === "function")
+        fs.required = !zField.isOptional();
       return fs;
     },
     [],
