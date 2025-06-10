@@ -397,8 +397,6 @@ const Core = ({
     [],
   );
 
-  const adjustable = Triggers.useHeld({ triggers: [["Q"]], loose: true });
-
   const triggerRef = useRef<HTMLElement>(null);
   Triggers.use({
     triggers: triggers.zoomReset,
@@ -473,7 +471,7 @@ const Core = ({
             {...rest}
             style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }}
             {...editableProps}
-            nodesDraggable={editable && !adjustable.held}
+            nodesDraggable={editable}
           />
         )}
       </Aether.Composite>
