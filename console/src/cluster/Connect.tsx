@@ -9,7 +9,7 @@
 
 import "@/cluster/Connect.css";
 
-import { type connection } from "@synnaxlabs/client";
+import { type connection, Synnax as Client } from "@synnaxlabs/client";
 import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { useState } from "react";
@@ -23,6 +23,7 @@ import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
+import { useCreateOrRetrieve } from "@/workspace/useCreateOrRetrieve";
 
 export const CONNECT_LAYOUT_TYPE = "connectCluster";
 
@@ -68,6 +69,8 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
     values: { ...ZERO_VALUES },
   });
 
+  const createWS = useCreateOrRetrieve();
+
   const handleSubmit = (): void =>
     handleError(async () => {
       if (!methods.validate()) return;
@@ -79,8 +82,10 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
       setConnState(state);
       if (state.status !== "connected") return;
       setTimeout(() => {
-        dispatch(set({ ...data, key: state.clusterKey }));
+        const clusterProps = { ...data, key: state.clusterKey };
+        dispatch(set(clusterProps));
         dispatch(setActive(state.clusterKey));
+        createWS(new Client(clusterProps));
         onClose();
       }, 500);
     }, "Failed to connect to cluster");
