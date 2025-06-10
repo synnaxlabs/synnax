@@ -669,7 +669,7 @@ export class Series<T extends TelemValue = TelemValue>
 
   /** @returns the bounds of the series. */
   get bounds(): bounds.Bounds {
-    return bounds.construct(Number(this.min), Number(this.max), false);
+    return bounds.construct(Number(this.min), Number(this.max), { makeValid: false });
   }
 
   private maybeRecomputeMinMax(update: Series): void {

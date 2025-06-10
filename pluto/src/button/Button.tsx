@@ -156,23 +156,26 @@ export const Button = Tooltip.wrap(
       ),
     });
 
-    const pStyle = { ...style };
+    let pStyle = style;
     const res = color.colorZ.safeParse(colorVal);
     const hasCustomColor =
       res.success && (variant === "filled" || variant === "outlined");
     if (hasCustomColor) {
       const theme = Theming.use();
-      // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-color")] = color.rgbString(res.data);
-      // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-text-color")] = color.rgbCSS(
-        color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
-      );
+      pStyle = {
+        ...pStyle,
+        [CSS.var("btn-color")]: color.rgbString(res.data),
+        [CSS.var("btn-text-color")]: color.rgbCSS(
+          color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
+        ),
+      };
     }
 
     if (!parsedDelay.isZero)
-      // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-delay")] = `${parsedDelay.seconds.toString()}s`;
+      pStyle = {
+        ...pStyle,
+        [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
+      };
 
     if (size == null && level != null) size = Text.LevelComponentSizes[level];
     else if (size != null && level == null) level = Text.ComponentSizeLevels[size];

@@ -438,7 +438,7 @@ describe("Streamer", () => {
       ).rejects.toThrow("very unreachable");
     });
 
-    it.only("should retry update when the underlying streamer fails", async () => {
+    it("should retry update when the underlying streamer fails", async () => {
       const streamer1 = new MockStreamer();
       streamer1.updateErrors = [null, new Unreachable({ message: "cat" })];
       const streamer2 = new MockStreamer();
