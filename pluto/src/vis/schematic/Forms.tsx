@@ -69,11 +69,13 @@ interface SymbolOrientation {
 interface ShowOrientationProps {
   hideOuter?: boolean;
   hideInner?: boolean;
+  showOuterCenter?: boolean;
 }
 
 const OrientationControl = ({
   hideOuter,
   hideInner,
+  showOuterCenter,
   ...rest
 }: Form.FieldProps<SymbolOrientation> & ShowOrientationProps): ReactElement | null => {
   if (hideInner && hideOuter) return null;
@@ -87,6 +89,7 @@ const OrientationControl = ({
           }}
           hideInner={hideInner}
           hideOuter={hideOuter}
+          showOuterCenter={showOuterCenter}
           onChange={(v) =>
             onChange({
               ...value,
@@ -429,7 +432,7 @@ export const TankForm = ({
         </Form.Field>
       </Align.Space>
     </Align.Space>
-    <OrientationControl path="" hideInner />
+    <OrientationControl path="" hideInner showOuterCenter label="Label Location" />
   </FormWrapper>
 );
 
@@ -858,7 +861,7 @@ export const TextBoxForm = (): ReactElement => {
     <FormWrapper x align="stretch" grow>
       <Align.Space y grow>
         <Align.Space x align="stretch">
-          <Form.Field<string> path="text" label="Text" padHelpText={false} grow>
+          <Form.Field<string> path="value" label="Text" padHelpText={false} grow>
             {(p) => <Input.Text {...p} />}
           </Form.Field>
           <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>

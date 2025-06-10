@@ -1,7 +1,7 @@
 VERSION 0.7
+
 FROM golang:1.24
 WORKDIR /synnax
-
 
 deps:
     COPY ../freighter/go+source/* /freighter/go
@@ -25,6 +25,14 @@ build:
 
 docker:
     ARG tag="latest"
-    COPY +build/synnax .
+    FROM ubuntu:24.04
+    WORKDIR /synnax
+    COPY +build/synnax /synnax/synnax
+
+    # Install only the libraries you need
+    RUN apt-get update && apt-get install -y \
+        libc6 libstdc++6 libgcc-s1 ca-certificates && \
+        rm -rf /var/lib/apt/lists/*
+
     ENTRYPOINT ["/synnax/synnax", "start"]
     SAVE IMAGE ghcr.io/synnaxlabs/synnax:$tag
