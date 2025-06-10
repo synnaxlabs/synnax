@@ -12,10 +12,11 @@ import { Align, Button, Progress, Status, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { check, type DownloadEvent } from "@tauri-apps/plugin-updater";
+import { check } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 
 import { type Layout } from "@/layout";
+import { RUNTIME } from "@/runtime";
 import { useSelectVersion } from "@/version/selectors";
 
 export const INFO_LAYOUT_TYPE = "versionInfo";
@@ -35,6 +36,7 @@ export const Info: Layout.Renderer = () => {
   const updateQuery = useQuery({
     queryKey: ["version.update"],
     queryFn: async () => {
+      if (RUNTIME !== "tauri") return;
       await new Promise((resolve) => setTimeout(resolve, 500));
       return await check();
     },
@@ -49,7 +51,7 @@ export const Info: Layout.Renderer = () => {
       if (!updateQuery.isSuccess) return;
       const update = updateQuery.data;
       if (update == null) return;
-      await update.downloadAndInstall((progress: DownloadEvent) => {
+      await update.downloadAndInstall((progress) => {
         if (progress.event === "Started")
           setUpdateSize(Size.bytes(progress.data.contentLength ?? 0));
         else if (progress.event === "Progress")
@@ -60,7 +62,7 @@ export const Info: Layout.Renderer = () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       setAmountDownloaded(updateSize);
       await new Promise((resolve) => setTimeout(resolve, 750));
-      await relaunch();
+      if (RUNTIME === "tauri") await relaunch();
     },
   });
 

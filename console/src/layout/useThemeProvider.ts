@@ -16,6 +16,7 @@ import { useDispatch } from "react-redux";
 
 import { useSelectTheme } from "@/layout/selectors";
 import { setActiveTheme, toggleActiveTheme } from "@/layout/slice";
+import { RUNTIME } from "@/runtime";
 
 /**
  * useThemeProvider is a hook that returns the props to pass to a ThemeProvider from
@@ -29,6 +30,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
   const dispatch = useDispatch();
 
   useAsyncEffect(async () => {
+    if (RUNTIME !== "tauri") return;
     if (getCurrentWindow().label !== Drift.MAIN_WINDOW) return;
     await setInitialTheme(dispatch);
     return await synchronizeWithOS(dispatch);

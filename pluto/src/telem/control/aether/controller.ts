@@ -27,7 +27,6 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { type theming } from "@/ether";
-import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";

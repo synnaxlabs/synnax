@@ -7,8 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build !development
+import { z as status } from "zod";
 
-package invariants
+export const variantZ = status.enum([
+  "success",
+  "info",
+  "warning",
+  "error",
+  "loading",
+  "disabled",
+]);
 
-var IsDevelopment = false
+// Represents one of the possible variants of a status message.
+export type Variant = status.infer<typeof variantZ>;

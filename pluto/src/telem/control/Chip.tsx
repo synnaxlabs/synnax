@@ -61,7 +61,7 @@ const tooltipMessage = (status: Status.Spec): ChipStyle => {
           },
         };
       return {
-        message: "You're in control. Release P&ID to release control.",
+        message: "You're in control. Release schematic to release control.",
         chipColor: "var(--pluto-primary-z)",
       };
     default:

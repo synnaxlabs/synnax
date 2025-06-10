@@ -10,18 +10,18 @@
 package task
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/types"
 )
 
-type Key types.StringParseableUint64
+type Key uint64
 
 func NewKey(rack rack.Key, localKey uint32) Key {
 	return Key(uint64(rack)<<32 | uint64(localKey))
@@ -36,26 +36,9 @@ func (k Key) String() string { return strconv.Itoa(int(k)) }
 func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }
 
 func (k *Key) UnmarshalJSON(b []byte) error {
-	// Try to unmarshal as a number first.
-	var n uint64
-	if err := json.Unmarshal(b, &n); err == nil {
-		*k = Key(n)
-		return nil
-	}
-
-	// Unmarshal as a string.
-	var str string
-	if err := json.Unmarshal(b, &str); err != nil {
-		return err
-	}
-
-	// Parse the string.
-	n, err := strconv.ParseUint(str, 10, 64)
-	if err != nil {
-		return err
-	}
+	n, err := binary.UnmarshalJSONStringUint64(b)
 	*k = Key(n)
-	return nil
+	return err
 }
 
 type Task struct {
@@ -88,8 +71,6 @@ type State struct {
 	// Key is used to uniquely identify the state update, and is usually used to tie
 	// back a command with its corresponding state value.
 	Key string `json:"key" msgpack:"key"`
-	// Internal is true if the state update is for an internal task.
-	Internal bool `json:"internal" msgpack:"internal"`
 	// Task is the key of the task that the state update is for.
 	Task Key `json:"task" msgpack:"task"`
 	// Variant is the status of the task.
@@ -99,7 +80,10 @@ type State struct {
 	Details xjson.String `json:"details" msgpack:"details"`
 }
 
-var _ gorp.Entry[Key] = State{}
+var (
+	_ gorp.Entry[Key]      = State{}
+	_ types.CustomTypeName = (*State)(nil)
+)
 
 // GorpKey implements the gorp.Entry interface.
 func (s State) GorpKey() Key { return s.Task }
