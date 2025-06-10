@@ -126,6 +126,14 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     },
   );
 
+const CONEXT_MENU_TITLES: Record<string, string> = {
+  iso: "Copy ISO Time Range",
+  python: "Copy Python Time Range",
+  typescript: "Copy TypeScript Time Range",
+  range: "Create Range from Selection",
+  download: "Download as CSV",
+};
+
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
@@ -367,7 +375,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             });
             break;
         }
-      }, "Failed to perform operation");
+      }, `Failed to perform ${CONEXT_MENU_TITLES[key]}`);
     };
 
     return (
@@ -375,21 +383,21 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         {!box.areaIsZero(selection) && (
           <>
             <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
-              Copy ISO Time Range
+              {CONEXT_MENU_TITLES.iso}
             </PMenu.Item>
             <PMenu.Item itemKey="python" startIcon={<Icon.Python />}>
-              Copy Python Time Range
+              {CONEXT_MENU_TITLES.python}
             </PMenu.Item>
             <PMenu.Item itemKey="typescript" startIcon={<Icon.TypeScript />}>
-              Copy TypeScript Time Range
+              {CONEXT_MENU_TITLES.typescript}
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="range" startIcon={<Icon.Add />}>
-              Create Range from Selection
+              {CONEXT_MENU_TITLES.range}
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-              Download as CSV
+              {CONEXT_MENU_TITLES.download}
             </PMenu.Item>
           </>
         )}
