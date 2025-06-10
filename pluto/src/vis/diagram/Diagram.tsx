@@ -178,6 +178,7 @@ export interface DiagramProps
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible">,
     Aether.ComponentProps {
   triggers?: CoreViewport.UseTriggers;
+  dragHandleSelector?: string;
 }
 
 interface ContextValue {
@@ -229,6 +230,7 @@ const Core = ({
   fitViewOnResize,
   setFitViewOnResize,
   visible,
+  dragHandleSelector,
   ...rest
 }: DiagramProps): ReactElement => {
   const memoProps = useMemoDeepEqualProps({ visible });
@@ -318,8 +320,8 @@ const Core = ({
   const nodesRef = useRef(nodes);
   const nodes_ = useMemo(() => {
     nodesRef.current = nodes;
-    return translateNodesForward(nodes);
-  }, [nodes]);
+    return translateNodesForward(nodes, dragHandleSelector);
+  }, [nodes, dragHandleSelector]);
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) =>

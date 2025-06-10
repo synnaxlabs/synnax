@@ -12,7 +12,7 @@
 .pluto-symbol-primitive {
     width: fit-content;
     height: fit-content;
-    pointer-events: all !important;
+    /* pointer-events: all !important; */
 
     .react-flow__handle {
         scale: calc(1 / var(--pluto-diagram-zoom, 1));

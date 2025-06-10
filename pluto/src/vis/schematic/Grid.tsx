@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { compare, location } from "@synnaxlabs/x";
+import { location } from "@synnaxlabs/x";
 import {
   cloneElement,
   type CSSProperties,
@@ -18,6 +18,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
   useCallback,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -47,7 +48,8 @@ export interface GridProps extends PropsWithChildren<{}> {
   items: GridItem[];
   onLocationChange: (key: string, loc: location.Location) => void;
   onRotate?: () => void;
-  includeCenter?: boolean;
+  allowCenter?: boolean;
+  allowRotate?: boolean;
 }
 
 interface GridElProps {
@@ -58,6 +60,8 @@ interface GridElProps {
 }
 
 const HAUL_TYPE = "Schematic.Grid";
+
+export const DRAG_HANDLE_CLASS = CSS.B("drag-handle");
 
 const reflowPane = (symbolKey: string) => {
   const node = selectNode(symbolKey);
@@ -73,7 +77,10 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
   }: GridElProps): ReactElement | null => {
     const haulType = `${symbolKey}.${HAUL_TYPE}`;
     const [draggingOver, setDraggingOver] = useState(false);
-    const canDrop: Haul.CanDrop = Haul.canDropOfType(haulType);
+    const canDrop: Haul.CanDrop = useMemo(
+      () => Haul.canDropOfType(haulType),
+      [haulType],
+    );
     const onLocationChangeRef = useSyncedRef(onLocationChange);
     const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
       type: haulType,
@@ -83,21 +90,22 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
         return items;
       }, []),
       onDragOver: useCallback((props: Haul.OnDragOverProps) => {
+        const { items } = props;
         setDraggingOver(canDrop(props));
-        props.items.forEach(({ key }) =>
-          onLocationChangeRef.current(key as string, loc),
-        );
+        items.forEach(({ key }) => onLocationChangeRef.current(key as string, loc));
       }, []),
     });
 
     const items = fItems.filter((i) => i.location === loc);
 
     const onDragStart = useCallback(
-      (e: DragEvent<HTMLElement>, key: string) => {
-        e.stopPropagation();
+      (_: DragEvent<HTMLElement>, key: string) => {
         startDrag([{ key, type: haulType }]);
+        // We need to mount this listener because the onDragEnd will not fire if the
+        // element is dragged to a different grid element and then released.
+        document.addEventListener("mousemove", onDragEnd, { once: true });
       },
-      [startDrag, haulType],
+      [startDrag, haulType, onDragEnd],
     );
 
     const isDragging = canDrop(Haul.useDraggingState());
@@ -133,13 +141,6 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
   const GridEl = ({ symbolKey, ...rest }: GridElProps): ReactElement | null => {
     const { editable, items: fItems } = rest;
 
-    const itemKeys = fItems.map((i) => i.key);
-    const prevItemKeys = useRef(itemKeys);
-    if (compare.primitiveArrays(itemKeys, prevItemKeys.current)) {
-      reflowPane(symbolKey);
-      prevItemKeys.current = itemKeys;
-    }
-
     if (editable) return <EditableGridEl symbolKey={symbolKey} {...rest} />;
     const items = fItems.filter((i) => i.location === loc);
     if (items.length === 0) return null;
@@ -166,27 +167,64 @@ const CenterGridEl = createGridEl("center");
 
 export const Grid = ({
   editable,
-  onRotate,
+  allowRotate = true,
   children,
-  includeCenter = false,
+  allowCenter,
+  onRotate,
+  symbolKey,
   ...rest
-}: GridProps) => (
-  <>
-    <TopGridEl editable={editable} {...rest} />
-    <LeftGridEl editable={editable} {...rest} />
-    <RightGridEl editable={editable} {...rest} />
-    <BottomGridEl editable={editable} {...rest} />
-    {includeCenter && <CenterGridEl editable={editable} {...rest} />}
-    {editable && (
-      <Button.Icon
-        className={CSS.BE("grid", "rotate")}
-        size="small"
-        variant="filled"
-        onClick={onRotate}
-      >
-        <Icon.Rotate />
-      </Button.Icon>
-    )}
-    {children}
-  </>
-);
+}: GridProps) => {
+  const prevEditable = useRef(editable);
+  if (editable !== prevEditable.current) {
+    reflowPane(symbolKey);
+    prevEditable.current = editable;
+  }
+
+  return (
+    <>
+      <TopGridEl
+        key={`top-${symbolKey}`}
+        editable={editable}
+        symbolKey={symbolKey}
+        {...rest}
+      />
+      <LeftGridEl
+        key={`left-${symbolKey}`}
+        editable={editable}
+        symbolKey={symbolKey}
+        {...rest}
+      />
+      <RightGridEl
+        key={`right-${symbolKey}`}
+        editable={editable}
+        symbolKey={symbolKey}
+        {...rest}
+      />
+      <BottomGridEl
+        key={`bottom-${symbolKey}`}
+        editable={editable}
+        symbolKey={symbolKey}
+        {...rest}
+      />
+      {allowCenter && (
+        <CenterGridEl
+          key={`center-${symbolKey}`}
+          editable={editable}
+          symbolKey={symbolKey}
+          {...rest}
+        />
+      )}
+      {editable && allowRotate && (
+        <Button.Icon
+          className={CSS.BE("grid", "rotate")}
+          size="small"
+          variant="filled"
+          onClick={onRotate}
+        >
+          <Icon.Rotate />
+        </Button.Icon>
+      )}
+      <div className={DRAG_HANDLE_CLASS}>{children}</div>
+    </>
+  );
+};

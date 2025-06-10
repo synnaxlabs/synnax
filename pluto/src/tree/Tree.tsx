@@ -304,8 +304,7 @@ export const DefaultItem = memo(
         position: translate != null ? "absolute" : "relative",
         transform: `translateY(${translate}px)`,
         [offsetKey]: `${offset}rem`,
-        // @ts-expect-error - CSS variable
-        "--pluto-tree-indicator-offset": `${offset - 1.5}rem`,
+        [CSS.var("tree-indicator-offset")]: `${offset - 1.5}rem`,
       },
       startIcon: startIcons,
       iconSpacing: "small",
