@@ -48,7 +48,7 @@ jobs:
         with:
           base: ${{ github.ref }}
           filters: |
-            server:
+            server: &server
               - .github/workflows/test.freighter.yaml
               - alamos/go/**
               - freighter/go/**
