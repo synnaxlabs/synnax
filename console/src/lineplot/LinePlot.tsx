@@ -126,12 +126,12 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     },
   );
 
-const CONEXT_MENU_TITLES: Record<string, string> = {
-  iso: "Copy ISO Time Range",
-  python: "Copy Python Time Range",
-  typescript: "Copy TypeScript Time Range",
-  range: "Create Range from Selection",
-  download: "Download as CSV",
+const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {
+  iso: "Failed to copy ISO time range",
+  python: "Failed to copy Python time range",
+  typescript: "Failed to copy TypeScript time range",
+  range: "Failed to create range from selection",
+  download: "Failed to download region as CSV",
 };
 
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
@@ -375,7 +375,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             });
             break;
         }
-      }, `Failed to perform ${CONEXT_MENU_TITLES[key]}`);
+      }, `Failed to perform ${CONTEXT_MENU_ERROR_MESSAGES[key]}`);
     };
 
     return (
@@ -383,21 +383,21 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         {!box.areaIsZero(selection) && (
           <>
             <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
-              {CONEXT_MENU_TITLES.iso}
+              Copy ISO Time Range
             </PMenu.Item>
             <PMenu.Item itemKey="python" startIcon={<Icon.Python />}>
-              {CONEXT_MENU_TITLES.python}
+              Copy Python Time Range
             </PMenu.Item>
             <PMenu.Item itemKey="typescript" startIcon={<Icon.TypeScript />}>
-              {CONEXT_MENU_TITLES.typescript}
+              Copy TypeScript Time Range
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="range" startIcon={<Icon.Add />}>
-              {CONEXT_MENU_TITLES.range}
+              Create Range from Selection
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-              {CONEXT_MENU_TITLES.download}
+              Download Region as CSV
             </PMenu.Item>
           </>
         )}
