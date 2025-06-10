@@ -1,4 +1,4 @@
-name: Test - Freighter
+name: Test - Freighter (Python & TypeScript)
 
 on:
   pull_request:
