@@ -74,8 +74,8 @@ export class SetPoint
   static readonly propsZ = setpointProps;
   schema = SetPoint.propsZ;
 
-  transform(value: boolean): number {
-    return value ? this.props.truthy : this.props.falsy;
+  transform(...values: boolean[]): number[] {
+    return values.map((value) => (value ? this.props.truthy : this.props.falsy));
   }
 }
 

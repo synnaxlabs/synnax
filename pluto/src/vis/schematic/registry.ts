@@ -1027,6 +1027,7 @@ const button: Spec<ButtonProps> = {
     color: t.colors.primary.z,
     ...zeroLabel("Button"),
     ...ZERO_BOOLEAN_SINK_PROPS,
+    mode: "fire",
     onClickDelay: 0,
     scale: null,
   }),

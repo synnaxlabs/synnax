@@ -71,7 +71,7 @@ export interface Source<V> extends Telem, observe.Observable<void> {
 }
 
 export interface Sink<V> extends Telem {
-  set: (value: V) => void;
+  set: (...values: V[]) => void;
 }
 
 export interface SourceTransformer<I, O> extends Telem, Source<O> {
@@ -249,15 +249,15 @@ export class UnarySinkTransformer<I, O, P extends z.ZodType>
     return sink;
   }
 
-  set(value: I): void {
-    return this.sink.set(this.transform(value));
+  set(...values: I[]): void {
+    return this.sink.set(...this.transform(...values));
   }
 
   setSinks(sinks: Record<string, Sink<O>>): void {
     this.sinks = { ...this.sinks, ...sinks };
   }
 
-  protected transform(_: I): O {
+  protected transform(..._: I[]): O[] {
     throw new ValidationError(
       `[UnarySinkTransformer] - expected subclass to define transform method, but none was found.
       Make sure to define a method 'transform' on the class.`,

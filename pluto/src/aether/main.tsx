@@ -335,14 +335,16 @@ export interface UseUnidirectionalProps<S extends z.ZodType>
 export const useUnidirectional = <S extends z.ZodType<state.State>>({
   state,
   ...rest
-}: UseUnidirectionalProps<S>): ComponentContext => {
+}: UseUnidirectionalProps<S>): ComponentContext & {
+  setState: (state: z.input<S>, transfer?: Transferable[]) => void;
+} => {
   const { path, setState } = useLifecycle<S>({ ...rest, initialState: state });
   const ref = useRef<z.input<S> | z.output<S> | null>(null);
   if (!deep.equal(ref.current, state)) {
     ref.current = state;
     setState(state);
   }
-  return { path };
+  return { path, setState };
 };
 
 /**

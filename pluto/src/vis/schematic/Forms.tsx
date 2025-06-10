@@ -11,13 +11,7 @@ import "@/vis/schematic/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  type bounds,
-  color,
-  type direction,
-  type location,
-  type xy,
-} from "@synnaxlabs/x";
+import { type bounds, color, type direction, location, type xy } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback, useEffect } from "react";
 
 import { Align } from "@/align";
@@ -687,6 +681,29 @@ type ButtonTelemFormT = Omit<CoreButton.UseProps, "aetherKey"> & {
   control: ControlStateProps;
 };
 
+const SelectButtonMode = Form.buildButtonSelectField({
+  fieldProps: { label: "Mode" },
+  inputProps: {
+    entryRenderKey: "name",
+    tooltipKey: "tooltip",
+    tooltipLocation: location.TOP_RIGHT,
+    data: [
+      { key: "fire", name: "Fire", tooltip: "Output true when clicked" },
+      {
+        key: "momentary",
+        name: "Momentary",
+        tooltip: "Output true on press, false on release",
+      },
+      {
+        key: "pulse",
+        name: "Pulse",
+        tooltip: "Output true and then immediately output false on click",
+      },
+    ],
+    allowNone: false,
+  },
+});
+
 export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<ButtonTelemFormT>({ path });
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
@@ -724,22 +741,27 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <FormWrapper x>
-      <Input.Item label="Output Channel" grow>
-        <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
-      </Input.Item>
-      <Form.NumericField
-        label="Activation Delay"
-        path="onClickDelay"
-        inputProps={{ endContent: "ms" }}
-        hideIfNull
-      />
-      <Form.SwitchField
-        path="control.show"
-        label="Show Control Chip"
-        hideIfNull
-        optional
-      />
+    <FormWrapper y empty>
+      <Align.Space x>
+        <Input.Item label="Output Channel" grow padHelpText={false}>
+          <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
+        </Input.Item>
+        <Form.NumericField
+          label="Activation Delay"
+          path="onClickDelay"
+          inputProps={{ endContent: "ms" }}
+          hideIfNull
+          padHelpText={false}
+        />
+        <Form.SwitchField
+          path="control.show"
+          label="Show Control Chip"
+          hideIfNull
+          optional
+          padHelpText={false}
+        />
+      </Align.Space>
+      <SelectButtonMode path="mode" optional defaultValue="fire" />
     </FormWrapper>
   );
 };

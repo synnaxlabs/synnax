@@ -34,17 +34,31 @@ import { type Input } from "@/input";
 import { state } from "@/state";
 import { Status } from "@/status";
 
-/** Props for the @link useField hook */
-export interface UseFieldProps<I, O = I> {
+interface BaseUseFieldProps<I, O = I> {
   path: string;
-  optional?: false;
   onChange?: (value: O, extra: ContextValue & { path: string }) => void;
 }
 
-export interface UseNullableFieldProps<I, O = I>
-  extends Omit<UseFieldProps<I, O>, "optional"> {
-  optional: true;
+/** Props for the @link useField hook */
+export interface UseRequiredFieldProps<I, O = I> extends BaseUseFieldProps<I, O> {
+  optional?: false;
+  defaultValue?: undefined;
 }
+
+export interface UseDefaultFieldProps<I, O = I> extends BaseUseFieldProps<I, O> {
+  optional?: boolean;
+  defaultValue: I;
+}
+
+export interface UseOptionalFieldProps<I, O = I> extends BaseUseFieldProps<I, O> {
+  optional: true;
+  defaultValue?: undefined;
+}
+
+export type UseFieldProps<I, O = I> =
+  | UseRequiredFieldProps<I, O>
+  | UseDefaultFieldProps<I, O>
+  | UseOptionalFieldProps<I, O>;
 
 /** Return type for the @link useField hook */
 export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I>
@@ -60,7 +74,10 @@ interface UseField {
     props: UseFieldProps<I, O>,
   ): UseFieldReturn<I, O>;
   <I extends Input.Value, O extends Input.Value = I>(
-    props: UseNullableFieldProps<I, O>,
+    props: UseDefaultFieldProps<I, O>,
+  ): UseFieldReturn<I, O>;
+  <I extends Input.Value, O extends Input.Value = I>(
+    props: UseOptionalFieldProps<I, O>,
   ): UseFieldReturn<I, O> | null;
 }
 
@@ -74,20 +91,29 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   path,
   optional = false,
   onChange,
+  defaultValue,
 }: UseFieldProps<I, O>): UseFieldReturn<I, O> | null => {
   const ctx = useContext();
   const { get, bind, set, setStatus } = ctx;
 
-  const [state, setState] = useState<FieldState<I> | null>(get<I>(path, { optional }));
+  const [state, setState] = useState<FieldState<I> | null>(() => {
+    const state = get<I>(path, { optional: optional || defaultValue != null });
+    if (state != null || defaultValue == null || optional) return state;
+    const s: FieldState<I> = {
+      value: defaultValue,
+      status: { key: "", variant: "success", message: "" },
+      touched: false,
+      required: false,
+    };
+    return s;
+  });
 
   useEffect(() => {
+    const prev = get<I>(path, { optional: optional || defaultValue != null });
+    if (prev == null && defaultValue != null) set(path, defaultValue);
     setState(get<I>(path, { optional }));
-    return bind({
-      path,
-      onChange: setState,
-      listenToChildren: false,
-    });
-  }, [path, onChange, bind, get]);
+    return bind({ path, onChange: setState, listenToChildren: false });
+  }, [path, onChange, bind, get, optional, defaultValue]);
 
   const handleChange = useCallback(
     (value: O) => {

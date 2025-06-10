@@ -791,9 +791,15 @@ export const Button = ({
   selected,
   draggable,
   onChange,
+  mode,
   ...rest
 }: SymbolProps<ButtonProps>) => {
-  const { click } = CoreButton.use({ aetherKey: symbolKey, sink });
+  console.log(mode);
+  const { onMouseDown, onMouseUp } = CoreButton.use({
+    aetherKey: symbolKey,
+    sink,
+    mode,
+  });
   const gridItems: GridItem[] = [];
   const controlItem = controlStateGridItem(control);
   if (controlItem != null) gridItems.push(controlItem);
@@ -814,7 +820,8 @@ export const Button = ({
     >
       <Primitives.Button
         {...label}
-        onClick={click}
+        onMouseDown={onMouseDown}
+        onMouseUp={onMouseUp}
         orientation={orientation}
         {...rest}
       />
