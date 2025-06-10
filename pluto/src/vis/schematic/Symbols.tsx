@@ -38,13 +38,13 @@ export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
   showIndicator?: boolean;
   chip?: Control.ChipProps;
   indicator?: Control.IndicatorProps;
-  orientation?: location.Outer;
+  orientation?: location.Location;
 }
 
 export interface LabelExtensionProps {
   label?: string;
   level?: Text.Level;
-  orientation?: location.Outer;
+  orientation?: location.Location;
   direction?: direction.Direction;
   maxInlineSize?: number;
   align?: Align.Alignment;
