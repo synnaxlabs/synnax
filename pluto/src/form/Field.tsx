@@ -17,7 +17,6 @@ import {
   useContext,
   useField,
   type UseFieldProps,
-  type UseOptionalFieldProps,
 } from "@/form/Form";
 import { Input } from "@/input";
 import { Select } from "@/select";
@@ -31,7 +30,7 @@ interface FieldChild<I extends Input.Value, O extends Input.Value>
 export type FieldProps<
   I extends Input.Value = string | number,
   O extends Input.Value = I,
-> = (UseFieldProps<I, O> | UseOptionalFieldProps<I, O>) &
+> = UseFieldProps<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
     children?: RenderProp<FieldChild<I, O>>;
     padHelpText?: boolean;

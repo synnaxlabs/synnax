@@ -285,7 +285,6 @@ export class SetChannelValue
           now.add(TimeSpan.nanoseconds(i)),
         );
       }
-      console.log(fr);
       await this.controller.set(fr);
     }, "failed to set channel value");
   }
