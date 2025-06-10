@@ -1,46 +1,23 @@
 name: Test - Docs
 
 on:
-  push:
-    branches:
-      - main
-      - rc
   pull_request:
+    paths:
+      - .github/workflows/test.docs.yaml
+      - .prettierrc
+      - docs/site/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+  push:
     branches:
       - main
       - rc
   workflow_dispatch:
 
 jobs:
-  changes:
-    name: Changes
-    runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.filter.outputs.changed }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            changed:
-              - .github/workflows/test.docs.yaml
-              - alamos/ts/**
-              - client/ts/**
-              - docs/site/**
-              - freighter/ts/**
-              - pluto/**
-              - x/media/**
-              - x/ts/**
-
   test:
     name: Test
-    needs: changes
-    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -57,9 +34,6 @@ jobs:
 
       - name: Install Dependencies
         run: pnpm install
-
-      - name: Build Dependencies
-        run: pnpm build:pluto
 
       - name: Check Formatting
         run: pnpm format-check

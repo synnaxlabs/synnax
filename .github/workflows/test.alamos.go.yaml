@@ -1,17 +1,13 @@
-name: Test - Synnax
+name: Test - Alamos (Go)
 
 on:
   pull_request:
     paths:
-      - .github/workflows/test.synnax.yaml
+      - .github/workflows/test.alamos.go.yaml
       - alamos/go/**
-      - aspen/**
-      - cesium/**
-      - freighter/go/**
       - go.work
       - go.work.sum
       - scripts/check-gofmt.sh
-      - synnax/**
       - x/go/**
   push:
     branches:
@@ -48,8 +44,8 @@ jobs:
 
       - name: Check Formatting
         if: matrix.format
-        run: ./scripts/check-gofmt.sh synnax
+        run: ./scripts/check-gofmt.sh alamos/go
 
       - name: Test
         run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output
-        working-directory: synnax
+        working-directory: alamos/go

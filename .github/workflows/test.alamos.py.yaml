@@ -1,0 +1,66 @@
+name: Test - Alamos (Python)
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/test.alamos.py.yaml
+      - alamos/py/**
+  push:
+    branches:
+      - main
+      - rc
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
+        exclude:
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'macos-latest' }}
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'windows-latest' }}
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Poetry
+        run: pipx install poetry
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: alamos/py/pyproject.toml
+          cache: poetry
+
+      - name: Install Dependencies
+        run: poetry install
+        working-directory: alamos/py
+
+      - name: isort
+        if: matrix.format
+        run: poetry run isort -c .
+        working-directory: alamos/py
+
+      - name: Format
+        if: matrix.format
+        run: poetry run black --check --diff --color .
+        working-directory: alamos/py
+
+      - name: Mypy
+        if: matrix.format
+        run: poetry run mypy .
+        working-directory: alamos/py
+
+      - name: Test
+        run: poetry run pytest
+        working-directory: alamos/py

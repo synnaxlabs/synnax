@@ -1,25 +1,22 @@
-name: Test - Console
+name: Test - X (TypeScript)
 
 on:
   pull_request:
     paths:
-      - .github/workflows/test.console.yaml
-      - alamos/ts/**
-      - client/ts/**
+      - .github/workflows/test.x.ts.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
-      - console/**
-      - drift/**
-      - freighter/ts/**
       - package.json
-      - pluto/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - turbo.json
       - vitest.workspace.ts
-      - x/media/**
       - x/ts/**
+  push:
+    branches:
+      - main
+      - rc
   workflow_dispatch:
 
 jobs:
@@ -56,11 +53,11 @@ jobs:
         run: pnpm install
 
       - name: Build
-        run: pnpm build:console-vite
+        run: pnpm build:x
 
       - name: Lint
         if: matrix.lint
-        run: pnpm lint:console
+        run: pnpm lint:x
 
       - name: Test
-        run: pnpm test:console
+        run: pnpm test:x

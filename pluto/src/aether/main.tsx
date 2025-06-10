@@ -392,7 +392,7 @@ export const use = <S extends z.ZodType<state.State>>(
       setInternalState(state);
       onAetherChangeRef.current?.(state);
     },
-    [schema, setInternalState],
+    [schema],
   );
 
   const { path, setState: setAetherState } = useLifecycle({

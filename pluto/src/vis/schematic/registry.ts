@@ -1259,7 +1259,7 @@ const textBox: Spec<TextBoxProps> = {
     ...ZERO_PROPS,
     ...ZERO_BOX_PROPS,
     level: "p",
-    text: "Text Box",
+    value: "Text Box",
     width: 75,
   }),
   Preview: TextBoxPreview,

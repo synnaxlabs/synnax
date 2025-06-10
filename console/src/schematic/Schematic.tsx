@@ -121,7 +121,6 @@ const SymbolRenderer = ({
   position,
   selected,
   layoutKey,
-  draggable,
   dispatch,
 }: SymbolRendererProps): ReactElement | null => {
   const props = useSelectNodeProps(layoutKey, symbolKey);
@@ -152,7 +151,6 @@ const SymbolRenderer = ({
       symbolKey={symbolKey}
       position={position}
       selected={selected}
-      draggable={draggable}
       onChange={handleChange}
       {...rest}
     />
@@ -381,6 +379,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           fitViewOnResize={schematic.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
           visible={visible}
+          dragHandleSelector={`.${Core.DRAG_HANDLE_CLASS}`}
           {...dropProps}
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>

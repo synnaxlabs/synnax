@@ -202,6 +202,8 @@ func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 		}
 	}
 	if toRemove >= 0 {
+		// Clone the slice first to avoid accidentally modifying it if/when zap
+		// uses it to write to an alternate core.
 		fields = slices.Delete(slices.Clone(fields), toRemove, toRemove+1)
 	}
 	return c.c.Write(entry, fields)

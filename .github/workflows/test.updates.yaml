@@ -1,11 +1,8 @@
 name: Check Versions
 
 on:
-  push:
-    branches:
-      - main
-      - rc
   pull_request:
+  push:
     branches:
       - main
       - rc

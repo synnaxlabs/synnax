@@ -201,7 +201,7 @@ export interface UseDragReturn {
     items: Item[],
     onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void,
   ) => void;
-  onDragEnd: (e: DragEvent) => void;
+  onDragEnd: (e: DragEvent | MouseEvent) => void;
 }
 
 export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
@@ -212,7 +212,8 @@ export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
   const { start, end } = ctx;
   return {
     startDrag: useCallback((items, f) => start(source, items, f), [start, source]),
-    onDragEnd: (e: DragEvent) => end(xy.construct({ x: e.screenX, y: e.screenY })),
+    onDragEnd: (e: DragEvent | MouseEvent) =>
+      end(xy.construct({ x: e.screenX, y: e.screenY })),
   };
 };
 
