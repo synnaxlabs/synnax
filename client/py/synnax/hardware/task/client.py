@@ -17,7 +17,7 @@ from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from synnax import UnexpectedError
 from synnax.exceptions import ConfigurationError
@@ -204,7 +204,7 @@ class StarterStopperMixin:
 
 class JSONConfigMixin(MetaTask):
     _internal: Task
-    config: Any
+    config: BaseModel
 
     @property
     def name(self) -> str:
