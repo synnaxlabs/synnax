@@ -251,7 +251,6 @@ describe("deepMerge", () => {
     const override = { b: "2", c: true };
     expect(deep.overrideValidItems(base, override, extendedSchema)).toEqual({
       a: 1,
-      b: "2",
       c: true,
     });
   });

@@ -269,7 +269,7 @@ describe("encoder", () => {
   });
 
   describe("websocket writer codec", () => {
-    it("should correctly e + d a websocket write request", () => {
+    it("should correctly encode and decode a websocket write request", () => {
       const baseCodec = new Codec([1], [DataType.INT32]);
       const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
       const writeReq: WriteRequest = {
@@ -280,9 +280,9 @@ describe("encoder", () => {
       const codec = new WSWriterCodec(baseCodec);
       const encoded = codec.encode(msg);
       expect(encoded[0]).toEqual(HIGH_PERF_SPECIAL_CHAR);
-      const decoded = codec.decode(encoded);
-      expect((decoded as WriteRequest).command).toEqual(WriterCommand.Write);
-      const decodedFr = new Frame((decoded as WriteRequest).frame);
+      const decoded = codec.decode(encoded) as WebsocketMessage<WriteRequest>;
+      expect(decoded.payload?.command).toEqual(WriterCommand.Write);
+      const decodedFr = new Frame(decoded.payload?.frame);
       expect(decodedFr.series[0].data).toEqual(fr.series[0].data);
     });
 
