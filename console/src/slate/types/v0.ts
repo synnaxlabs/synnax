@@ -9,7 +9,7 @@
 
 import { Diagram, Viewport } from "@synnaxlabs/pluto";
 import { type migrate, xy } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const VERSION = "0.0.0";
 export type Version = typeof VERSION;

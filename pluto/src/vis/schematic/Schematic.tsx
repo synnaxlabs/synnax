@@ -6,8 +6,10 @@ import { CSS } from "@/css";
 import { componentRenderProp } from "@/util/renderProp";
 import { Diagram } from "@/vis/diagram";
 import { ConnectionLine, Edge, type EdgeData } from "@/vis/schematic/edge";
+import { DRAG_HANDLE_CLASS } from "@/vis/schematic/Grid";
 
-export interface SchematicProps extends Diagram.DiagramProps {}
+export interface SchematicProps
+  extends Omit<Diagram.DiagramProps, "dragHandleSelector"> {}
 
 const edgeRenderer = componentRenderProp(Edge);
 
@@ -16,7 +18,11 @@ export const Schematic = ({
   children,
   ...props
 }: SchematicProps): ReactElement => (
-  <Diagram.Diagram className={CSS(CSS.B("schematic"), className)} {...props}>
+  <Diagram.Diagram
+    className={CSS(CSS.B("schematic"), className)}
+    dragHandleSelector={`.${DRAG_HANDLE_CLASS}`}
+    {...props}
+  >
     <Diagram.EdgeRenderer<EdgeData> connectionLineComponent={ConnectionLine}>
       {edgeRenderer}
     </Diagram.EdgeRenderer>

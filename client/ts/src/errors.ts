@@ -97,7 +97,6 @@ export class UnauthorizedError extends ControlError.sub("unauthorized") {}
 export class ContiguityError extends SynnaxError.sub("contiguity") {}
 
 const decode = (payload: errors.Payload): Error | null => {
-  console.log("DECODEla", payload);
   if (!payload.type.startsWith(SynnaxError.TYPE)) return null;
   if (payload.type.startsWith(ValidationError.TYPE)) {
     if (payload.type === PathError.TYPE) return PathError.decode(payload);

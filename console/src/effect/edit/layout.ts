@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { effect } from "@synnaxlabs/client";
-import { deep } from "@synnaxlabs/x";
-import { v4 as uuid } from "uuid";
+import { deep, uuid } from "@synnaxlabs/x";
 
 import { add } from "@/effect/slice";
 import { type Effect, ZERO_EFFECT } from "@/effect/types";
@@ -17,6 +16,8 @@ import { type Layout } from "@/layout";
 import { Slate } from "@/slate";
 
 export const EDIT_LAYOUT_TYPE = "effect_edit";
+
+export type EditLayoutType = typeof EDIT_LAYOUT_TYPE;
 
 export const EDIT_LAYOUT: Layout.BaseState = {
   type: EDIT_LAYOUT_TYPE,
@@ -31,8 +32,8 @@ export const createEditLayout =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Edit Effect", location = "mosaic", window, tab, ...rest } = initial;
-    const key = effect.keyZ.safeParse(initial.key).data ?? uuid();
-    const slateKey = uuid();
+    const key = effect.keyZ.safeParse(initial.key).data ?? uuid.create();
+    const slateKey = uuid.create();
     dispatch(
       add({
         effects: [{ ...deep.copy(ZERO_EFFECT), ...rest, slate: slateKey, key }],
