@@ -63,12 +63,18 @@ export const overrideValidItems = <A, B>(
       const overrideValue = overrideObj[key];
       let shape = currentSchema?.shape;
       if (shape != null)
-        while (shape != null)
+        while (shape != null) {
           if (shape[key] != null) {
             const result = shape[key].safeParse(overrideValue);
             // Check if parsing succeeded
-            if (result.success) baseObj[key] = result.data;
-          } else shape = shape.def?.shape;
+            if (result.success) {
+              baseObj[key] = result.data;
+              break;
+            }
+          }
+          shape = shape.def?.shape;
+        }
+
       if (
         typeof overrideValue === "object" &&
         !Array.isArray(overrideValue) &&
