@@ -83,8 +83,8 @@ importers:
         specifier: ^0.5.0
         version: 0.5.0
       zod:
-        specifier: ^3.25.57
-        version: 3.25.57
+        specifier: ^3.25.58
+        version: 3.25.58
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
@@ -296,8 +296,8 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
       zod:
-        specifier: ^3.25.57
-        version: 3.25.57
+        specifier: ^3.25.58
+        version: 3.25.58
     devDependencies:
       '@codingame/esbuild-import-meta-url-plugin':
         specifier: ^1.0.3
@@ -499,8 +499,8 @@ importers:
         specifier: ^9.2.0
         version: 9.2.0(@types/react@19.1.7)(react@19.1.0)(redux@5.0.1)
       zod:
-        specifier: ^3.25.57
-        version: 3.25.57
+        specifier: ^3.25.58
+        version: 3.25.58
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
@@ -548,8 +548,8 @@ importers:
         specifier: ^8.18.2
         version: 8.18.2
       zod:
-        specifier: ^3.25.57
-        version: 3.25.57
+        specifier: ^3.25.58
+        version: 3.25.58
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
@@ -679,8 +679,8 @@ importers:
         specifier: ^2.19.3
         version: 2.19.3(react@19.1.0)
       zod:
-        specifier: ^3.25.57
-        version: 3.25.57
+        specifier: ^3.25.58
+        version: 3.25.58
     devDependencies:
       '@juggle/resize-observer':
         specifier: ^3.4.0
@@ -728,7 +728,7 @@ importers:
         specifier: workspace:*
         version: link:../configs/eslint
       jsdom:
-        specifier: ^26.0.0
+        specifier: ^26.1.0
         version: 26.1.0
       madge:
         specifier: ^8.0.0
@@ -804,8 +804,8 @@ importers:
         specifier: ^11.1.0
         version: 11.1.0
       zod:
-        specifier: ^3.25.57
-        version: 3.25.57
+        specifier: ^3.25.58
+        version: 3.25.58
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
@@ -6928,8 +6928,8 @@ packages:
   zod@3.22.3:
     resolution: {integrity: sha512-EjIevzuJRiRPbVH4mGc8nApb/lVLKVpmUhAaR5R5doKGfAnGJ6Gr3CViAVjP+4FWSxCsybeWQdcgCtbX+7oZug==}
 
-  zod@3.25.57:
-    resolution: {integrity: sha512-6tgzLuwVST5oLUxXTmBqoinKMd3JeesgbgseXeFasKKj8Q1FCZrHnbqJOyiEvr4cVAlbug+CgIsmJ8cl/pU5FA==}
+  zod@3.25.58:
+    resolution: {integrity: sha512-DVLmMQzSZwNYzQoMaM3MQWnxr2eq+AtM9Hx3w1/Yl0pH8sLTSjN4jGP7w6f7uand6Hw44tsnSu1hz1AOA6qI2Q==}
 
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
@@ -7246,14 +7246,14 @@ snapshots:
       await-lock: 2.2.2
       multiformats: 9.9.0
       tlds: 1.259.0
-      zod: 3.25.57
+      zod: 3.25.58
 
   '@atproto/common-web@0.4.2':
     dependencies:
       graphemer: 1.4.0
       multiformats: 9.9.0
       uint8arrays: 3.0.0
-      zod: 3.25.57
+      zod: 3.25.58
 
   '@atproto/lexicon@0.4.11':
     dependencies:
@@ -7261,7 +7261,7 @@ snapshots:
       '@atproto/syntax': 0.4.0
       iso-datestring-validator: 2.2.2
       multiformats: 9.9.0
-      zod: 3.25.57
+      zod: 3.25.58
 
   '@atproto/syntax@0.3.4': {}
 
@@ -7270,7 +7270,7 @@ snapshots:
   '@atproto/xrpc@0.6.12':
     dependencies:
       '@atproto/lexicon': 0.4.11
-      zod: 3.25.57
+      zod: 3.25.58
 
   '@babel/code-frame@7.27.1':
     dependencies:
@@ -9065,7 +9065,7 @@ snapshots:
     dependencies:
       '@types/http-cache-semantics': 4.0.4
       '@types/keyv': 3.1.4
-      '@types/node': 24.0.0
+      '@types/node': 22.15.31
       '@types/responselike': 1.0.3
 
   '@types/chai@5.2.2':
@@ -9139,7 +9139,7 @@ snapshots:
 
   '@types/keyv@3.1.4':
     dependencies:
-      '@types/node': 24.0.0
+      '@types/node': 22.15.31
 
   '@types/mdast@4.0.4':
     dependencies:
@@ -9186,7 +9186,7 @@ snapshots:
 
   '@types/responselike@1.0.3':
     dependencies:
-      '@types/node': 24.0.0
+      '@types/node': 22.15.31
 
   '@types/trusted-types@2.0.7':
     optional: true
@@ -9201,7 +9201,7 @@ snapshots:
 
   '@types/yauzl@2.10.3':
     dependencies:
-      '@types/node': 24.0.0
+      '@types/node': 22.15.31
     optional: true
 
   '@typescript-eslint/eslint-plugin@8.34.0(@typescript-eslint/parser@8.34.0(eslint@9.28.0)(typescript@5.8.3))(eslint@9.28.0)(typescript@5.8.3)':
@@ -9890,9 +9890,9 @@ snapshots:
       xxhash-wasm: 1.1.0
       yargs-parser: 21.1.1
       yocto-spinner: 0.2.3
-      zod: 3.25.57
-      zod-to-json-schema: 3.24.5(zod@3.25.57)
-      zod-to-ts: 1.2.0(typescript@5.8.3)(zod@3.25.57)
+      zod: 3.25.58
+      zod-to-json-schema: 3.24.5(zod@3.25.58)
+      zod-to-ts: 1.2.0(typescript@5.8.3)(zod@3.25.58)
     optionalDependencies:
       sharp: 0.33.5
     transitivePeerDependencies:
@@ -14521,18 +14521,18 @@ snapshots:
 
   yoctocolors@2.1.1: {}
 
-  zod-to-json-schema@3.24.5(zod@3.25.57):
+  zod-to-json-schema@3.24.5(zod@3.25.58):
     dependencies:
-      zod: 3.25.57
+      zod: 3.25.58
 
-  zod-to-ts@1.2.0(typescript@5.8.3)(zod@3.25.57):
+  zod-to-ts@1.2.0(typescript@5.8.3)(zod@3.25.58):
     dependencies:
       typescript: 5.8.3
-      zod: 3.25.57
+      zod: 3.25.58
 
   zod@3.22.3: {}
 
-  zod@3.25.57: {}
+  zod@3.25.58: {}
 
   zustand@4.5.7(@types/react@19.1.7)(immer@10.1.1)(react@19.1.0):
     dependencies:

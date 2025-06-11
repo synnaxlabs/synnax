@@ -56,7 +56,7 @@
     "vscode-jsonrpc": "^8.2.1",
     "vscode-languageclient": "^9.0.1",
     "vscode-ws-jsonrpc": "^3.4.0",
-    "zod": "^3.25.57"
+    "zod": "^3.25.58"
   },
   "devDependencies": {
     "@codingame/esbuild-import-meta-url-plugin": "^1.0.3",

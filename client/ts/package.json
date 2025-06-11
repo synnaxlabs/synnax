@@ -36,7 +36,7 @@
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
     "async-mutex": "^0.5.0",
-    "zod": "^3.25.57"
+    "zod": "^3.25.58"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
