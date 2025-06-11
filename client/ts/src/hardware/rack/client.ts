@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { array } from "@synnaxlabs/x/array";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { framer } from "@/framer";
 import {

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { breaker } from "@synnaxlabs/x";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { Unreachable } from "@/errors";
 import { type Middleware } from "@/middleware";

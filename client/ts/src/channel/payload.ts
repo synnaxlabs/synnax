@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type CrudeDataType, DataType, status } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { nullableArrayZ } from "@/util/zod";
 

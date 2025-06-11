@@ -13,7 +13,7 @@ import { array } from "@synnaxlabs/x/array";
 import { type UnknownRecord } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { framer } from "@/framer";
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";

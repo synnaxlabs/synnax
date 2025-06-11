@@ -27,7 +27,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
@@ -823,5 +823,5 @@ export const Form = <Z extends z.ZodType>({
   children,
   ...rest
 }: PropsWithChildren<ContextValue<Z>>): ReactElement => (
-  <Context value={rest}>{children}</Context>
+  <Context value={rest as ContextValue}>{children}</Context>
 );

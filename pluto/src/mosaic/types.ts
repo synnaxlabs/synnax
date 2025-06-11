@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { direction } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Tabs } from "@/tabs";
 
@@ -30,7 +30,7 @@ interface BaseNode {
  * Zod schema for a mosaic node. Used to validate the data for a node in the Mosaic
  * binary tree. See the `Node` interface for more information.
  */
-export const nodeZ: z.ZodType<BaseNode> = z.interface({
+export const nodeZ: z.ZodType<BaseNode> = z.object({
   key: z.number(),
   tabs: z.array(Tabs.tabZ).optional(),
   selected: z.string().optional(),

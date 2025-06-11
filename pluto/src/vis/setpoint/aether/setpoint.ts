@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Destructor } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";

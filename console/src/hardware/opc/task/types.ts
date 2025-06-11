@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
 import { type Device } from "@/hardware/opc/device";

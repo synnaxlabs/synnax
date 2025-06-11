@@ -14,7 +14,7 @@ import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/plu
 import { caseconv } from "@synnaxlabs/x";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { useSelectAllNames } from "@/cluster/selectors";
 import { clusterZ, set, setActive } from "@/cluster/slice";

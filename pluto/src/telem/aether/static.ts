@@ -17,7 +17,7 @@ import {
   TimeRange,
   typedArrayZ,
 } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type Factory } from "@/telem/aether/factory";
 import {

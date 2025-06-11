@@ -10,7 +10,7 @@
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, observe, strings } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";

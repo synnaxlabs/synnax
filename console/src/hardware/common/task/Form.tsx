@@ -21,7 +21,7 @@ import { TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
 import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";

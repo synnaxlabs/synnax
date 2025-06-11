@@ -12,7 +12,7 @@ import { type CrudeTimeRange, observe, sortTimeRange, TimeRange } from "@synnaxl
 import { array } from "@synnaxlabs/x/array";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type Series } from "@synnaxlabs/x/telem";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type channel } from "@/channel";
 import { MultipleFoundError, NotFoundError, QueryError } from "@/errors";

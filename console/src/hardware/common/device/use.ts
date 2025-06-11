@@ -11,7 +11,7 @@ import { type device, NotFoundError } from "@synnaxlabs/client";
 import { Form, Observe, Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 interface UseContextValue
   extends z.ZodObject<{

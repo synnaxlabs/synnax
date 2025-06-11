@@ -23,7 +23,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { type AetherMessage, type MainMessage } from "@/aether/message";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
@@ -178,7 +178,7 @@ interface UseLifecycleProps<S extends z.ZodType> {
   aetherKey?: string;
   initialState: z.input<S>;
   initialTransfer?: Transferable[];
-  onReceive?: StateHandler;
+  onReceive?: StateHandler<z.infer<S>>;
 }
 
 /**
@@ -246,7 +246,7 @@ export const useLifecycle = <S extends z.ZodType<state.State>>({
   );
 
   const setState = useCallback(
-    (state: z.input<S> | z.output<S>, transfer: Transferable[] = []) =>
+    (state: z.input<S>, transfer: Transferable[] = []) =>
       comms.current?.setState(prettyParse(schema, state), transfer),
     [],
   );
@@ -254,7 +254,7 @@ export const useLifecycle = <S extends z.ZodType<state.State>>({
   // We run the first effect synchronously so that parent components are created
   // before their children. This is impossible to do with effect hooks.
   if (comms.current == null) {
-    comms.current = ctx.create(type, path, onReceive);
+    comms.current = ctx.create(type, path, onReceive as StateHandler<unknown>);
     comms.current.setState(prettyParse(schema, initialState), initialTransfer);
   }
 
@@ -271,7 +271,7 @@ export const useLifecycle = <S extends z.ZodType<state.State>>({
       first.current = false;
       return;
     }
-    comms.current = ctx.create(type, path, onReceive);
+    comms.current = ctx.create(type, path, onReceive as StateHandler);
     setState(initialState, initialTransfer);
     return () => {
       comms.current?.delete();
@@ -288,7 +288,10 @@ export const useLifecycle = <S extends z.ZodType<state.State>>({
     [],
   );
 
-  return useMemo(() => ({ setState, path }), [setState, key, path]);
+  return useMemo(
+    () => ({ setState, path }),
+    [setState, key, path],
+  ) as UseLifecycleReturn<S>;
 };
 
 /** Props for components that use Aether functionality */
@@ -383,7 +386,7 @@ export const use = <S extends z.ZodType<state.State>>(
   // Update the internal component state when we receive communications from the
   // aether.
   const handleReceive = useCallback(
-    (rawState: z.input<S> | z.output<S>) => {
+    (rawState: z.output<S>) => {
       const state = prettyParse(schema, rawState);
       setInternalState(state);
       onAetherChangeRef.current?.(state);
@@ -417,7 +420,7 @@ export const use = <S extends z.ZodType<state.State>>(
   return [{ path }, internalState, setState];
 };
 
-type StateHandler = (state: state.State) => void;
+type StateHandler<S = unknown> = (state: S) => void;
 
 interface RegisteredComponent {
   path: string[];

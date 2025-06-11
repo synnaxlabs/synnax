@@ -14,7 +14,7 @@ import {
   runtime,
   type URL,
 } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { EOF, StreamClosed } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
@@ -77,7 +77,7 @@ class WebSocketStream<RQ extends z.ZodType, RS extends z.ZodType = RQ>
   }
 
   /** Implements the Stream protocol */
-  send(req: z.input<RQ>): Error | null {
+  send(req: z.input<RQ> | z.infer<RQ>): Error | null {
     if (this.serverClosed != null) return new EOF();
     if (this.sendClosed) throw new StreamClosed();
     this.ws.send(this.codec.encode({ type: "data", payload: req }));
@@ -91,6 +91,7 @@ class WebSocketStream<RQ extends z.ZodType, RS extends z.ZodType = RQ>
     if (msg.type === "close") {
       if (msg.error == null) throw new Error("Message error must be defined");
       this.serverClosed = errors.decode(msg.error);
+      if (this.serverClosed == null) throw new Error("Message error must be defined");
       return [null, this.serverClosed];
     }
     return [this.resSchema.parse(msg.payload), null];

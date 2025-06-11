@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type device } from "@synnaxlabs/client";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const VERSION = "0.0.0";
 type Version = typeof VERSION;

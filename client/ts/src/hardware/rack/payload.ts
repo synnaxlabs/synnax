@@ -9,7 +9,7 @@
 
 import { status, zod } from "@synnaxlabs/x";
 import { TimeStamp } from "@synnaxlabs/x/telem";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const keyZ = z.uint32();
 export type Key = z.infer<typeof keyZ>;

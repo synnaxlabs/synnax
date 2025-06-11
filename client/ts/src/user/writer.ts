@@ -9,7 +9,7 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x/array";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/payload";
 

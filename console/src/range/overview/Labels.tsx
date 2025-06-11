@@ -10,7 +10,7 @@
 import { type label, ranger } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/pluto";
 import { compare, unique } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Label } from "@/label";
 

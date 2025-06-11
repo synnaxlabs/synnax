@@ -27,7 +27,7 @@ import { deep, primitive, uuid } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { Label } from "@/label";

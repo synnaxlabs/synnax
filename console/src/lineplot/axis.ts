@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type direction, type location } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const Y1 = "y1";
 export const Y2 = "y2";

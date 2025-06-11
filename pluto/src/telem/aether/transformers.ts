@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds, color, notation, scale, status as xstatus } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";

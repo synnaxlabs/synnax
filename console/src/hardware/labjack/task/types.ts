@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
@@ -43,7 +43,7 @@ const NO_SCALE: NoScale = { type: NO_SCALE_TYPE };
 const scaleZ = z.union([noScaleZ, linearScaleZ]);
 export type Scale = z.infer<typeof scaleZ>;
 export type ScaleType = Scale["type"];
-export const SCALE_SCHEMAS: Record<ScaleType, z.ZodObjectLike<Scale>> = {
+export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {
   [NO_SCALE_TYPE]: noScaleZ,
   [LINEAR_SCALE_TYPE]: linearScaleZ,
 };
