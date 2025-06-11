@@ -99,12 +99,12 @@ func (o ObjectZ) Dump(data any) (any, error) {
 				if schema.Shape().Optional() {
 					continue
 				}
-				return nil, validate.FieldError{Message: "missing required field: " + fieldName}
+				return nil, requiredFieldError(fieldName)
 			}
 
 			fieldData, err := schema.Dump(fieldData)
 			if err != nil {
-				return nil, validate.FieldError{Message: "invalid field value for " + fieldName + ": " + err.Error()}
+				return nil, addFieldNameToError(fieldName, err)
 			}
 
 			// Skip nil optional fields
@@ -141,12 +141,12 @@ func (o ObjectZ) Dump(data any) (any, error) {
 			if schema.Shape().Optional() {
 				continue
 			}
-			return nil, validate.FieldError{Message: "missing required field: " + fieldName}
+			return nil, requiredFieldError(fieldName)
 		}
 
 		fieldData, err := schema.Dump(field.Interface())
 		if err != nil {
-			return nil, validate.FieldError{Message: "invalid field value for " + fieldName + ": " + err.Error()}
+			return nil, addFieldNameToError(fieldName, err)
 		}
 
 		// Skip nil optional fields

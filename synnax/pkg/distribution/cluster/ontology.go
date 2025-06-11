@@ -55,7 +55,7 @@ var (
 	)
 	_clusterSchema = ontology.NewSchema(
 		clusterOntologyType,
-		map[string]zyn.Z{"key": zyn.String()},
+		map[string]zyn.Z{"key": zyn.UUID()},
 	)
 )
 

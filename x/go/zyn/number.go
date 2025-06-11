@@ -156,7 +156,7 @@ func (n NumberZ) Dump(data any) (any, error) {
 	// If an expected type is set and coercion is not enabled, validate the input type
 	if n.expectedType != nil && !n.coerce {
 		if val.Type() != n.expectedType {
-			return nil, validate.FieldError{Message: "invalid type: expected " + n.expectedType.String()}
+			return nil, invalidTypeError(n.expectedType, val)
 		}
 		return val.Interface(), nil
 	}

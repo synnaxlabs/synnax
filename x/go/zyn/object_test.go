@@ -328,7 +328,10 @@ var _ = Describe("Object", func() {
 			}
 
 			_, err := schema.Dump(data)
-			Expect(err).To(MatchError(validate.FieldError{Message: "missing required field: Age"}))
+			Expect(err).To(MatchError(validate.FieldError{
+				Field:   "age",
+				Message: "field is required",
+			}))
 		})
 
 		Describe("Invalid Inputs", func() {
@@ -404,7 +407,10 @@ var _ = Describe("Object", func() {
 				}
 
 				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(validate.FieldError{Message: "missing required field: Age"}))
+				Expect(err).To(MatchError(validate.FieldError{
+					Field:   "age",
+					Message: "field is required",
+				}))
 			})
 		})
 
@@ -528,7 +534,10 @@ var _ = Describe("Object", func() {
 				}
 
 				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(validate.FieldError{Message: "invalid field value for Age: :invalid type: expected number or convertible to number"}))
+				Expect(err).To(MatchError(validate.FieldError{
+					Field:   "age",
+					Message: "invalid type: expected number or convertible to number",
+				}))
 			})
 
 			Specify("missing required field in map", func() {
@@ -542,7 +551,10 @@ var _ = Describe("Object", func() {
 				}
 
 				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(validate.FieldError{Message: "missing required field: Age"}))
+				Expect(err).To(MatchError(validate.FieldError{
+					Field:   "age",
+					Message: "field is required",
+				}))
 			})
 
 			Specify("invalid nested object in map", func() {
@@ -560,7 +572,10 @@ var _ = Describe("Object", func() {
 				}
 
 				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(validate.FieldError{Message: "invalid field value for Address: :invalid type: expected struct or map[string]any"}))
+				Expect(err).To(MatchError(validate.FieldError{
+					Field:   "address",
+					Message: "invalid type: expected struct or map[string]any",
+				}))
 			})
 		})
 	})

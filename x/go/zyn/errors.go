@@ -10,8 +10,10 @@
 package zyn
 
 import (
+	"fmt"
 	"reflect"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
@@ -47,4 +49,24 @@ func validateNilData(destVal reflect.Value, data any, base baseZ) (bool, error) 
 		return false, nil
 	}
 	return false, validate.FieldError{Message: "value is required but was nil"}
+}
+
+func invalidTypeError(expected reflect.Type, actual reflect.Value) validate.FieldError {
+	return validate.FieldError{
+		Message: fmt.Sprintf("invalid type: expected %s, got %s", expected, types.ValueName(actual)),
+	}
+}
+
+func requiredFieldError(fieldName string) validate.FieldError {
+	return validate.FieldError{Field: lo.SnakeCase(fieldName), Message: "field is required"}
+}
+
+func addFieldNameToError(field string, err error) error {
+	field = lo.SnakeCase(field)
+	var vfErr validate.FieldError
+	if errors.As(err, &vfErr) {
+		vfErr.Field = field
+		return vfErr
+	}
+	return validate.FieldError{Message: err.Error(), Field: field}
 }

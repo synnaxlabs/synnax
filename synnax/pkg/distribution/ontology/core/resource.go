@@ -12,7 +12,6 @@ package core
 import (
 	"strings"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -147,10 +146,14 @@ func (r Resource) SetOptions() []any { return nil }
 // NewResource creates a new entity with the given schema and name and an empty set of
 // field data.
 func NewResource(schema *Schema, id ID, name string, data any) Resource {
+	dumped, err := schema.Dump(data)
+	if err != nil {
+		panic(err)
+	}
 	return Resource{
 		Schema: schema,
 		ID:     id,
 		Name:   name,
-		Data:   lo.Must(schema.Dump(data)),
+		Data:   dumped,
 	}
 }

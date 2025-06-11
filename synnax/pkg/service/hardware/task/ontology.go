@@ -56,7 +56,7 @@ func KeysFromOntologyIds(ids []ontology.ID) (keys []Key, err error) {
 var _schema = ontology.NewSchema(
 	OntologyType,
 	map[string]zyn.Z{
-		"key":      zyn.Uint32(),
+		"key":      zyn.Uint64().Coerce(),
 		"name":     zyn.String(),
 		"type":     zyn.String(),
 		"snapshot": zyn.Bool(),

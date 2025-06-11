@@ -370,7 +370,9 @@ var _ = Describe("Number", func() {
 
 			Specify("invalid type", func() {
 				_, err := zyn.Number().Float64().Dump(12)
-				Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected float64"}))
+				Expect(err).To(MatchError(validate.FieldError{
+					Message: "invalid type: expected float64, got int",
+				}))
 			})
 
 			Specify("valid int", func() {
@@ -381,7 +383,7 @@ var _ = Describe("Number", func() {
 
 			Specify("invalid type for int", func() {
 				_, err := zyn.Number().Int().Dump(12.5)
-				Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected int"}))
+				Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected int, got float64"}))
 			})
 		})
 
