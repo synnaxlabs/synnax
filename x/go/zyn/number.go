@@ -15,90 +15,125 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// NumberZ is a schema for parsing numeric types.
 type NumberZ struct {
 	baseZ
 	expectedType reflect.Type
 	coerce       bool
 }
 
+// Optional marks the number field as optional. Optional fields can be nil or omitted.
 func (n NumberZ) Optional() NumberZ { n.optional = true; return n }
 
+// Coerce enables type coercion for the number field.
+// When enabled, the schema will attempt to convert values to the expected type.
+// This allows for more flexible type conversion but may result in precision loss.
 func (n NumberZ) Coerce() NumberZ { n.coerce = true; return n }
 
+// Shape returns the base shape of the number schema.
 func (n NumberZ) Shape() Shape { return n.baseZ }
 
+// Float64 marks the number field as a float64.
+// This enables float64-specific validation and conversion.
 func (n NumberZ) Float64() NumberZ {
 	n.expectedType = reflect.TypeOf(float64(0))
 	n.typ = Float64T
 	return n
 }
 
+// Float32 marks the number field as a float32.
+// This enables float32-specific validation and conversion.
 func (n NumberZ) Float32() NumberZ {
 	n.expectedType = reflect.TypeOf(float32(0))
 	n.typ = Float32T
 	return n
 }
 
+// Int marks the number field as an int.
+// This enables int-specific validation and conversion.
 func (n NumberZ) Int() NumberZ {
 	n.expectedType = reflect.TypeOf(int(0))
 	n.typ = IntT
 	return n
 }
 
+// Int8 marks the number field as an int8.
+// This enables int8-specific validation and conversion.
 func (n NumberZ) Int8() NumberZ {
 	n.expectedType = reflect.TypeOf(int8(0))
 	n.typ = Int8T
 	return n
 }
 
+// Int16 marks the number field as an int16.
+// This enables int16-specific validation and conversion.
 func (n NumberZ) Int16() NumberZ {
 	n.expectedType = reflect.TypeOf(int16(0))
 	n.typ = Int16T
 	return n
 }
 
+// Int32 marks the number field as an int32.
+// This enables int32-specific validation and conversion.
 func (n NumberZ) Int32() NumberZ {
 	n.expectedType = reflect.TypeOf(int32(0))
 	n.typ = Int32T
 	return n
 }
 
+// Int64 marks the number field as an int64.
+// This enables int64-specific validation and conversion.
 func (n NumberZ) Int64() NumberZ {
 	n.expectedType = reflect.TypeOf(int64(0))
 	n.typ = Int64T
 	return n
 }
 
+// Uint marks the number field as a uint.
+// This enables uint-specific validation and conversion.
 func (n NumberZ) Uint() NumberZ {
 	n.expectedType = reflect.TypeOf(uint(0))
 	n.typ = UintT
 	return n
 }
 
+// Uint8 marks the number field as a uint8.
+// This enables uint8-specific validation and conversion.
 func (n NumberZ) Uint8() NumberZ {
 	n.expectedType = reflect.TypeOf(uint8(0))
 	n.typ = Uint8T
 	return n
 }
 
+// Uint16 marks the number field as a uint16.
+// This enables uint16-specific validation and conversion.
 func (n NumberZ) Uint16() NumberZ {
 	n.expectedType = reflect.TypeOf(uint16(0))
 	n.typ = Uint16T
 	return n
 }
 
+// Uint32 marks the number field as a uint32.
+// This enables uint32-specific validation and conversion.
 func (n NumberZ) Uint32() NumberZ {
 	n.expectedType = reflect.TypeOf(uint32(0))
 	n.typ = Uint32T
 	return n
 }
 
+// Uint64 marks the number field as a uint64.
+// This enables uint64-specific validation and conversion.
 func (n NumberZ) Uint64() NumberZ {
 	n.expectedType = reflect.TypeOf(uint64(0))
 	n.typ = Uint64T
 	return n
 }
 
+// Dump converts the given data to a number according to the schema.
+// It validates the data and returns an error if the data is invalid.
+// The function handles type conversion and validation based on the expected type.
+// For integer types, it ensures the value is within the valid range.
+// For floating-point types, it handles precision conversion.
 func (n NumberZ) Dump(data any) (any, error) {
 	if data == nil {
 		if n.optional {
@@ -211,7 +246,6 @@ func (n NumberZ) Dump(data any) (any, error) {
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 				uintVal = val.Uint()
 			}
-			// Check for overflow
 			if uintVal > (1<<n.expectedType.Bits() - 1) {
 				return nil, validate.FieldError{Message: "unsigned integer value out of range for destination type"}
 			}
@@ -232,35 +266,18 @@ func (n NumberZ) Dump(data any) (any, error) {
 	}
 }
 
-func Number() NumberZ { return NumberZ{baseZ: baseZ{typ: NumberT}} }
-
-func Uint32() NumberZ  { return Number().Uint32() }
-func Uint64() NumberZ  { return Number().Uint64() }
-func Float32() NumberZ { return Number().Float32() }
-func Float64() NumberZ { return Number().Float64() }
-func Int() NumberZ     { return Number().Int() }
-func Int8() NumberZ    { return Number().Int8() }
-func Int16() NumberZ   { return Number().Int16() }
-func Int32() NumberZ   { return Number().Int32() }
-func Int64() NumberZ   { return Number().Int64() }
-func Uint() NumberZ    { return Number().Uint() }
-func Uint8() NumberZ   { return Number().Uint8() }
-func Uint16() NumberZ  { return Number().Uint16() }
-
+// Parse converts the given data from a number to the destination type.
+// It validates the data and returns an error if the data is invalid.
+// The function handles type conversion and validation based on the destination type.
+// For integer types, it ensures the value is within the valid range.
+// For floating-point types, it handles precision conversion.
 func (n NumberZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
-	if err := checkDestVal(destVal, string(n.typ)); err != nil {
+	if err := validateDestinationValue(destVal, string(n.typ)); err != nil {
 		return err
 	}
-
-	if data == nil {
-		if n.optional {
-			if destVal.Elem().Kind() == reflect.Ptr {
-				destVal.Elem().Set(reflect.Zero(destVal.Elem().Type()))
-			}
-			return nil
-		}
-		return validate.FieldError{Message: "value is required but was nil"}
+	if ok, err := validateNilData(destVal, data, n.baseZ); !ok || err != nil {
+		return err
 	}
 
 	destType := destVal.Type().Elem()
@@ -383,3 +400,42 @@ func (n NumberZ) Parse(data any, dest any) error {
 
 	return nil
 }
+
+// Number is a schema that validates numeric values.
+func Number() NumberZ { return NumberZ{baseZ: baseZ{typ: NumberT}} }
+
+// Uint32 is a schema that validates uint32 numbers.
+func Uint32() NumberZ { return Number().Uint32() }
+
+// Uint64 is a schema that validates uint64 numbers.
+func Uint64() NumberZ { return Number().Uint64() }
+
+// Float32 is a schema that validates float32 numbers.
+func Float32() NumberZ { return Number().Float32() }
+
+// Float64 is a schema that validates float64 numbers.
+func Float64() NumberZ { return Number().Float64() }
+
+// Int is a schema that validates integer numbers.
+func Int() NumberZ { return Number().Int() }
+
+// Int8 is a schema that validates int8 numbers.
+func Int8() NumberZ { return Number().Int8() }
+
+// Int16 is a schema that validates int16 numbers.
+func Int16() NumberZ { return Number().Int16() }
+
+// Int32 is a schema that validates int32 numbers.
+func Int32() NumberZ { return Number().Int32() }
+
+// Int64 is a schema that validates int64 numbers.
+func Int64() NumberZ { return Number().Int64() }
+
+// Uint is a schema that validates uint numbers.
+func Uint() NumberZ { return Number().Uint() }
+
+// Uint8 is a schema that validates uint8 numbers.
+func Uint8() NumberZ { return Number().Uint8() }
+
+// Uint16 is a schema that validates uint16 numbers.
+func Uint16() NumberZ { return Number().Uint16() }

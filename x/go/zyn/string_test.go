@@ -42,17 +42,17 @@ var _ = Describe("String", func() {
 
 		Specify("nil pointer", func() {
 			var dest *string
-			Expect(zyn.String().Parse("hello", dest)).To(MatchError(validate.FieldError{Message: "destination pointer is nil"}))
+			Expect(zyn.String().Parse("hello", dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 
 		Specify("non-pointer destination", func() {
 			var dest string
-			Expect(zyn.String().Parse("hello", dest)).To(HaveOccurredAs(zyn.InvalidDestError("string")))
+			Expect(zyn.String().Parse("hello", dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 
 		Specify("nil interface", func() {
 			var dest any
-			Expect(zyn.String().Parse("hello", dest)).To(HaveOccurredAs(zyn.InvalidDestError("string")))
+			Expect(zyn.String().Parse("hello", dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 
 		Specify("invalid type", func() {

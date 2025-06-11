@@ -115,7 +115,7 @@ var _ = Describe("Object", func() {
 			})
 
 			var dest *TestStruct
-			Expect(schema.Parse(map[string]any{"Name": "John"}, dest)).To(HaveOccurredAs(zyn.InvalidDestError("object")))
+			Expect(schema.Parse(map[string]any{"Name": "John"}, dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 
 		Specify("non-pointer destination", func() {
@@ -128,7 +128,7 @@ var _ = Describe("Object", func() {
 			})
 
 			var dest TestStruct
-			Expect(schema.Parse(map[string]any{"Name": "John"}, dest)).To(HaveOccurredAs(zyn.InvalidDestError("object")))
+			Expect(schema.Parse(map[string]any{"Name": "John"}, dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 
 		Specify("missing required field", func() {

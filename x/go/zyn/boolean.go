@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package zyn provides a type-safe schema validation and serialization system for Go.
+// It allows defining schemas for data structures and provides methods to validate,
+// serialize, and deserialize data according to those schemas.
 package zyn
 
 import (
@@ -16,12 +19,24 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// BoolZ represents a boolean schema.
+// It provides methods for validating and converting boolean data.
+// BoolZ supports conversion from various types to boolean values.
 type BoolZ struct{ baseZ }
 
+// Optional marks the boolean field as optional.
+// Optional fields can be nil or omitted.
 func (b BoolZ) Optional() BoolZ { b.optional = true; return b }
 
+// Shape returns the base shape of the boolean schema.
 func (b BoolZ) Shape() Shape { return b.baseZ }
 
+// Dump converts the given data to a boolean according to the schema.
+// It validates the data and returns an error if the data is invalid.
+// The function accepts:
+//   - boolean values
+//   - string values ("true", "false", "1", "0")
+//   - numeric values (non-zero is true, zero is false)
 func (b BoolZ) Dump(data any) (any, error) {
 	if data == nil {
 		if b.optional {
@@ -63,21 +78,20 @@ func (b BoolZ) Dump(data any) (any, error) {
 	return boolVal, nil
 }
 
+// Parse converts the given data from a boolean to the destination type.
+// It validates the data and returns an error if the data is invalid.
+// The function accepts:
+//   - boolean values
+//   - string values ("true", "false", "1", "0")
+//   - numeric values (non-zero is true, zero is false)
 func (b BoolZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
-	if err := checkDestVal(destVal, string(BoolT)); err != nil {
+	if err := validateDestinationValue(destVal, string(BoolT)); err != nil {
 		return err
 	}
 
-	// Handle nil data for optional fields
-	if data == nil {
-		if b.optional {
-			if destVal.Elem().Kind() == reflect.Ptr {
-				destVal.Elem().Set(reflect.Zero(destVal.Elem().Type()))
-			}
-			return nil
-		}
-		return validate.FieldError{Message: "value is required but was nil"}
+	if ok, err := validateNilData(destVal, data, b.baseZ); !ok || err != nil {
+		return err
 	}
 
 	destVal = destVal.Elem()
@@ -111,6 +125,8 @@ func (b BoolZ) Parse(data any, dest any) error {
 	return nil
 }
 
+// Bool creates a new boolean schema.
+// This is the entry point for creating boolean validation schemas.
 func Bool() BoolZ {
 	return BoolZ{}
 }

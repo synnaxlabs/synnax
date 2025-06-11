@@ -82,17 +82,17 @@ var _ = Describe("Bool", func() {
 
 		Specify("nil pointer", func() {
 			var dest *bool
-			Expect(zyn.Bool().Parse(true, dest)).To(HaveOccurredAs(zyn.InvalidDestError("bool")))
+			Expect(zyn.Bool().Parse(true, dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 
 		Specify("non-pointer destination", func() {
 			var dest bool
-			Expect(zyn.Bool().Parse(true, dest)).To(HaveOccurredAs(zyn.InvalidDestError("bool")))
+			Expect(zyn.Bool().Parse(true, dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 
 		Specify("nil interface", func() {
 			var dest any
-			Expect(zyn.Bool().Parse(true, dest)).To(HaveOccurredAs(zyn.InvalidDestError("bool")))
+			Expect(zyn.Bool().Parse(true, dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 
 		Specify("invalid type", func() {

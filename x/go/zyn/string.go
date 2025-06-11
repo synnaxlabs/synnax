@@ -17,6 +17,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// StringZ represents a string schema.
+// It provides methods for validating and converting string data.
+// StringZ supports validation of regular strings and UUIDs.
 type StringZ struct {
 	baseZ
 	expectedType reflect.Type
@@ -24,18 +27,33 @@ type StringZ struct {
 
 var _ Z = (*StringZ)(nil)
 
+// Optional marks the string field as optional.
+// Optional fields can be nil or omitted.
 func (s StringZ) Optional() StringZ { s.optional = true; return s }
 
+// Shape returns the base shape of the string schema.
 func (s StringZ) Shape() Shape { return s.baseZ }
 
+// UUID marks the string field as a UUID.
+// This enables UUID-specific validation and conversion.
+// The field will be validated to ensure it's a valid UUID format.
 func (s StringZ) UUID() StringZ {
 	s.expectedType = reflect.TypeOf(uuid.UUID{})
 	s.typ = UUIDT
 	return s
 }
 
+// UUID creates a new UUID schema.
+// This is a convenience function that creates a string schema with UUID validation.
 func UUID() StringZ { return String().UUID() }
 
+// Dump converts the given data to a string according to the schema.
+// It validates the data and returns an error if the data is invalid.
+// For UUID fields, it ensures the string is a valid UUID format.
+// For regular string fields, it accepts:
+//   - string values
+//   - numeric values (converted to string)
+//   - boolean values (converted to string)
 func (s StringZ) Dump(data any) (any, error) {
 	if data == nil {
 		if s.optional {
@@ -91,25 +109,21 @@ func (s StringZ) Dump(data any) (any, error) {
 	}
 }
 
+// Parse converts the given data from a string to the destination type.
+// It validates the data and returns an error if the data is invalid.
+// For UUID fields, it ensures the string is a valid UUID format and can parse into a UUID type.
+// For regular string fields, it accepts:
+//   - string values
+//   - numeric values (converted to string)
+//   - boolean values (converted to string)
 func (s StringZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
-	if destVal.Kind() != reflect.Ptr {
-		return InvalidDestError("string")
+	if err := validateDestinationValue(destVal, string(s.typ)); err != nil {
+		return err
 	}
 
-	if destVal.IsNil() {
-		return validate.FieldError{Message: "destination pointer is nil"}
-	}
-
-	// Handle nil data for optional fields
-	if data == nil {
-		if s.optional {
-			if destVal.Elem().Kind() == reflect.Ptr {
-				destVal.Elem().Set(reflect.Zero(destVal.Elem().Type()))
-			}
-			return nil
-		}
-		return validate.FieldError{Message: "value is required but was nil"}
+	if ok, err := validateNilData(destVal, data, s.baseZ); !ok || err != nil {
+		return err
 	}
 
 	// If UUID type is expected, validate the input type
@@ -168,19 +182,14 @@ func (s StringZ) Parse(data any, dest any) error {
 		if err != nil {
 			return validate.FieldError{Message: "invalid UUID format: " + err.Error()}
 		}
-
-		// If destination is a string, set the string representation
 		if destVal.Kind() == reflect.String {
 			destVal.SetString(parsedUUID.String())
 			return nil
 		}
-
-		// If destination is a UUID, set the UUID value
 		if destVal.Type() == reflect.TypeOf(uuid.UUID{}) {
 			destVal.Set(reflect.ValueOf(parsedUUID))
 			return nil
 		}
-
 		return validate.FieldError{Message: "invalid destination type: expected string or UUID"}
 	}
 
@@ -188,6 +197,8 @@ func (s StringZ) Parse(data any, dest any) error {
 	return nil
 }
 
+// String creates a new string schema.
+// This is the entry point for creating string validation schemas.
 func String() StringZ {
 	return StringZ{baseZ: baseZ{typ: StringT}}
 }

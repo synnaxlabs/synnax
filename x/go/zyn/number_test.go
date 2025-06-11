@@ -287,17 +287,17 @@ var _ = Describe("Number", func() {
 
 			Specify("nil pointer", func() {
 				var dest *int
-				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.InvalidDestError("number")))
+				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 			})
 
 			Specify("non-pointer destination", func() {
 				var dest int
-				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.InvalidDestError("number")))
+				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 			})
 
 			Specify("nil interface", func() {
 				var dest any
-				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.InvalidDestError("number")))
+				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 			})
 		})
 	})

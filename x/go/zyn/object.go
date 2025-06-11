@@ -16,11 +16,15 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// ObjectZ represents an object schema.
+// It provides methods for validating and converting structured data.
+// ObjectZ supports validation of structs and maps with defined field schemas.
 type ObjectZ struct {
 	baseZ
 	fields map[string]Z
 }
 
+// fieldByName finds a field in a struct by its name, supporting both PascalCase and snake_case.
 func fieldByName(v reflect.Value, field string) reflect.Value {
 	snake := lo.SnakeCase(field)
 	pascal := lo.PascalCase(field)
@@ -29,13 +33,17 @@ func fieldByName(v reflect.Value, field string) reflect.Value {
 	})
 }
 
+// Optional marks the object field as optional.
+// Optional fields can be nil or omitted.
 func (o ObjectZ) Optional() ObjectZ { o.optional = true; return o }
 
+// objectShape represents the shape of an object schema.
 type objectShape struct {
 	baseZ
 	fields map[string]Shape
 }
 
+// Shape returns the base shape of the object schema.
 func (o ObjectZ) Shape() Shape {
 	fields := make(map[string]Shape)
 	for k, v := range o.fields {
@@ -44,10 +52,14 @@ func (o ObjectZ) Shape() Shape {
 	return objectShape{baseZ: o.baseZ, fields: fields}
 }
 
+// Fields returns a map of field names to their shapes.
 func (o objectShape) Fields() map[string]Shape {
 	return o.fields
 }
 
+// Field adds a field to the object schema.
+// The field name can be in PascalCase or snake_case.
+// The shape parameter defines the validation rules for the field.
 func (o ObjectZ) Field(name string, shape Z) ObjectZ {
 	if o.fields == nil {
 		o.fields = make(map[string]Z)
@@ -56,6 +68,14 @@ func (o ObjectZ) Field(name string, shape Z) ObjectZ {
 	return o
 }
 
+// Dump converts the given data to an object according to the schema.
+// It validates the data and returns an error if the data is invalid.
+// The function accepts:
+//   - struct values
+//   - map[string]any values
+//
+// All fields are validated according to their defined schemas.
+// Field names are converted to snake_case in the output.
 func (o ObjectZ) Dump(data any) (any, error) {
 	if data == nil {
 		if o.optional {
@@ -142,9 +162,17 @@ func (o ObjectZ) Dump(data any) (any, error) {
 	return result, nil
 }
 
+// Parse converts the given data from an object to the destination type.
+// It validates the data and returns an error if the data is invalid.
+// The function expects:
+//   - A map[string]any as input
+//   - A pointer to a struct as destination
+//
+// Field names can be in PascalCase or snake_case.
+// All fields are validated according to their defined schemas.
 func (o ObjectZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
-	if err := checkDestVal(destVal, string(ObjectT)); err != nil {
+	if err := validateDestinationValue(destVal, string(ObjectT)); err != nil {
 		return err
 	}
 
@@ -158,7 +186,7 @@ func (o ObjectZ) Parse(data any, dest any) error {
 
 	destVal = destVal.Elem()
 	if destVal.Kind() != reflect.Struct {
-		return InvalidDestError("object")
+		return NewInvalidDestinationTypeError("object", destVal)
 	}
 
 	dataVal := reflect.ValueOf(data)
@@ -207,6 +235,9 @@ func (o ObjectZ) Parse(data any, dest any) error {
 	return nil
 }
 
+// Object creates a new object schema with the given fields.
+// This is the entry point for creating object validation schemas.
+// The fields parameter maps field names to their validation schemas.
 func Object(fields map[string]Z) ObjectZ {
 	return ObjectZ{
 		baseZ:  baseZ{typ: ObjectT},
