@@ -142,7 +142,6 @@ export const selectSelectedElementNames = (
 ): (string | null)[] => {
   const elements = selectSelectedElementsProps(state, layoutKey);
   return elements.map((element) => {
-    console.log(element);
     if (element.type === "node") return Slate.REGISTRY[element.props.key]?.name ?? null;
     return null;
   });

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status, unknownRecordZ } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { ontology } from "@/ontology";
 import { slate } from "@/slate";

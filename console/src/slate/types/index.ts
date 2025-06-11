@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import * as v0 from "@/slate/types/v0";
 

@@ -1,7 +1,7 @@
 import { channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { color } from "@synnaxlabs/x";
-import z from "zod";
+import z from "zod/v4";
 
 import { Align } from "@/align";
 import { Divider } from "@/divider";

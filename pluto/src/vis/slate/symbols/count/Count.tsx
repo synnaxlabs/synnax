@@ -1,5 +1,5 @@
 import { color } from "@synnaxlabs/x";
-import z from "zod";
+import z from "zod/v4";
 
 import { Align } from "@/align";
 import { Divider } from "@/divider";

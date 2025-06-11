@@ -7,15 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Effect } from "@/effect";
-import { type LinePlot } from "@/lineplot";
-import { type Log } from "@/log";
-import { type Schematic } from "@/schematic";
-import { type Table } from "@/table";
-
-export type LayoutType =
-  | LinePlot.LayoutType
-  | Log.LayoutType
-  | Schematic.LayoutType
-  | Table.LayoutType
-  | Effect.EditLayoutType;
+package zyn

@@ -21,7 +21,6 @@ const Loaded = ({ effect }: LoadedProps): ReactElement => {
   const store = useStore<RootState>();
   const publishMut = useMutation({
     mutationFn: async () => {
-      console.log("publishing");
       if (client == null) throw NULL_CLIENT_ERROR;
       const slate = Slate.select(store.getState(), effect.slate);
       await client.slates.create(translateSlateBackward(slate));
