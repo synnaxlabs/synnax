@@ -29,13 +29,13 @@ jobs:
         include:
           - os: ubuntu-latest
             lint: true
-            exclude:
-              - os:
-                  ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-                  'macos-latest' }}
-              - os:
-                  ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-                  'windows-latest' }}
+        exclude:
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'macos-latest' }}
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
