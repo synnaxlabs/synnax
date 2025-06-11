@@ -23,9 +23,6 @@
     "fix": "eslint --cache --fix",
     "madge": "madge --circular src"
   },
-  "engines": {
-    "node": ">=18"
-  },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@synnaxlabs/x": "workspace:*"
