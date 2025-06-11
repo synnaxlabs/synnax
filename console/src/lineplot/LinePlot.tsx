@@ -126,6 +126,14 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     },
   );
 
+const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {
+  iso: "Failed to copy ISO time range",
+  python: "Failed to copy Python time range",
+  typescript: "Failed to copy TypeScript time range",
+  range: "Failed to create range from selection",
+  download: "Failed to download region as CSV",
+};
+
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
@@ -367,7 +375,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             });
             break;
         }
-      }, "Failed to perform operation");
+      }, `Failed to perform ${CONTEXT_MENU_ERROR_MESSAGES[key]}`);
     };
 
     return (
@@ -389,7 +397,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-              Download as CSV
+              Download Region as CSV
             </PMenu.Item>
           </>
         )}

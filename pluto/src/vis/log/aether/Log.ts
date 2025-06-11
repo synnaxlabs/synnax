@@ -15,7 +15,7 @@ import {
   type TelemValue,
 } from "@synnaxlabs/x";
 import { box, xy } from "@synnaxlabs/x/spatial";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
@@ -117,10 +117,10 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       const [_, series] = this.internal.telem.value();
       this.checkEmpty();
       this.values = series;
-      void this.requestRender();
+      this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
-    void this.requestRender();
+    this.requestRender();
   }
 
   private checkEmpty(): void {
@@ -135,7 +135,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     renderCtx.erase(box.construct(this.state.region), xy.ZERO, CANVAS);
   }
 
-  private async requestRender(): Promise<void> {
+  private requestRender(): void {
     const { render } = this.internal;
     render.loop.set({
       key: `${this.type}-${this.key}`,

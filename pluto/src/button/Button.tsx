@@ -10,9 +10,9 @@
 import "@/button/Button.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { color } from "@synnaxlabs/x";
+import { color, type status } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
 import { TimeSpan } from "@synnaxlabs/x/telem";
-import { toArray } from "@synnaxlabs/x/toArray";
 import {
   type ComponentPropsWithRef,
   type ReactElement,
@@ -23,7 +23,6 @@ import {
 import { type Align } from "@/align";
 import { CSS } from "@/css";
 import { type Icon as PIcon } from "@/icon";
-import { type status } from "@/status/aether";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
@@ -115,7 +114,8 @@ export const Button = Tooltip.wrap(
   }: ButtonProps): ReactElement => {
     if (variant == "outlined" && shade == null) shade = 0;
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-    if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
+    if (loading)
+      startIcon = [...array.toArray(startIcon), <Icon.Loading key="loader" />];
     const isDisabled = disabled || loading;
     iconSpacing ??= size === "small" ? "small" : "medium";
     // We implement the shadow variant to maintain compatibility with the input
@@ -156,23 +156,26 @@ export const Button = Tooltip.wrap(
       ),
     });
 
-    const pStyle = { ...style };
+    let pStyle = style;
     const res = color.colorZ.safeParse(colorVal);
     const hasCustomColor =
       res.success && (variant === "filled" || variant === "outlined");
     if (hasCustomColor) {
       const theme = Theming.use();
-      // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-color")] = color.rgbString(res.data);
-      // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-text-color")] = color.rgbCSS(
-        color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
-      );
+      pStyle = {
+        ...pStyle,
+        [CSS.var("btn-color")]: color.rgbString(res.data),
+        [CSS.var("btn-text-color")]: color.rgbCSS(
+          color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
+        ),
+      };
     }
 
     if (!parsedDelay.isZero)
-      // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-delay")] = `${parsedDelay.seconds.toString()}s`;
+      pStyle = {
+        ...pStyle,
+        [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
+      };
 
     if (size == null && level != null) size = Text.LevelComponentSizes[level];
     else if (size != null && level == null) level = Text.ComponentSizeLevels[size];

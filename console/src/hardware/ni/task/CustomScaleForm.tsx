@@ -11,7 +11,7 @@ import { Align, Form, Input, type List, Select, state } from "@synnaxlabs/pluto"
 import { binary, deep, type KeyedNamed } from "@synnaxlabs/x";
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { FS } from "@/fs";
 import {
@@ -202,7 +202,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
     };
 
     const handleFileContentsChange = (
-      value: z.output<typeof tableSchema>,
+      value: z.infer<typeof tableSchema>,
       path: string,
     ) => {
       setPath(path);

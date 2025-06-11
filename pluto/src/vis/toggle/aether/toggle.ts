@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Destructor } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
@@ -54,14 +54,6 @@ export class Toggle
     this.updateEnabledState();
     i.stopListening?.();
     i.stopListening = i.source.onChange(() => this.updateEnabledState());
-  }
-
-  private reportError(e: Error): void {
-    this.internal.addStatus({
-      key: this.key,
-      variant: "error",
-      message: `Failed to update Toggle: ${e.message}`,
-    });
   }
 
   private updateEnabledState(): void {

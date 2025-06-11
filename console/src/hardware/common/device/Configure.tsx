@@ -15,7 +15,7 @@ import { Align, Button, Form, Nav, Status, Synnax, Text } from "@synnaxlabs/plut
 import { deep, strings, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";

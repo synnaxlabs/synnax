@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Destructor } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
@@ -42,25 +42,11 @@ export class Light
     const { source: sourceProps } = this.state;
     const { internal: i } = this;
     this.internal.source = telem.useSource(ctx, sourceProps, this.internal.source);
-    const runAsync = status.useErrorHandler(ctx);
-    runAsync(async () => {
-      await this.updateEnabledState();
-      i.stopListening?.();
-      i.stopListening = i.source.onChange(() => {
-        this.updateEnabledState().catch(this.reportError.bind(this));
-      });
-    });
+    i.stopListening?.();
+    i.stopListening = i.source.onChange(() => this.updateEnabledState());
   }
 
-  private reportError(e: Error): void {
-    this.internal.addStatus({
-      key: this.key,
-      variant: "error",
-      message: `Failed to update Light: ${e.message}`,
-    });
-  }
-
-  private async updateEnabledState(): Promise<void> {
+  private updateEnabledState(): void {
     const nextEnabled = this.internal.source.value();
     if (nextEnabled !== this.state.enabled)
       this.setState((p) => ({ ...p, enabled: nextEnabled }));

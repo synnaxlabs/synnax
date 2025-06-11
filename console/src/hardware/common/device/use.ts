@@ -11,7 +11,7 @@ import { type device, NotFoundError } from "@synnaxlabs/client";
 import { Form, Observe, Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 interface UseContextValue
   extends z.ZodObject<{
@@ -19,8 +19,8 @@ interface UseContextValue
   }> {}
 
 /**
- * @description A hook that retrieves and subscribes to updates for a device. Must be
- * used within a Form context that has a schema matching the following structure:
+ * A hook that retrieves and subscribes to updates for a device. Must be used within a
+ * Form context that has a schema matching the following structure:
  *
  * ```typescript
  * {

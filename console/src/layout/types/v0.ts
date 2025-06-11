@@ -10,7 +10,7 @@
 import { Drift } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const VERSION = "0.0.0";
 
@@ -76,7 +76,6 @@ export const stateZ = z.object({
   args: z.unknown().optional(),
   excludeFromWorkspace: z.boolean().optional(),
   beta: z.boolean().default(false).optional(),
-  loading: z.boolean().default(false).optional(),
   unsavedChanges: z.boolean().default(false).optional(),
 });
 

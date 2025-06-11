@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { binary } from "@/binary";
 
@@ -221,7 +221,7 @@ describe("Codec", () => {
     });
 
     it("should throw error when encoding empty array", () => {
-      const sampleData: any[] = [];
+      const sampleData: unknown[] = [];
 
       expect(() => {
         binary.CSV_CODEC.encodeString(sampleData);

@@ -11,6 +11,7 @@ import { describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
 import {
+  addSamples,
   type CrudeDataType,
   DataType,
   Density,
@@ -622,6 +623,36 @@ describe("TimeRange", () => {
     const trString = tr.toString();
     expect(trString).toEqual("1970-01-03T00:20:00.283Z - 1970-01-05T00:20:00.283Z");
   });
+
+  describe("numericBounds", () => {
+    it("should return correct numeric bounds for a valid time range", () => {
+      const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4));
+      const bounds = tr.numericBounds;
+      expect(bounds.lower).toBe(tr.start.nanoseconds);
+      expect(bounds.upper).toBe(tr.end.nanoseconds);
+    });
+
+    it("should return correct numeric bounds for an invalid time range", () => {
+      const tr = new TimeRange(TimeSpan.seconds(4), TimeSpan.seconds(1));
+      const bounds = tr.numericBounds;
+      expect(bounds.lower).toBe(tr.start.nanoseconds);
+      expect(bounds.upper).toBe(tr.end.nanoseconds);
+    });
+
+    it("should handle zero time range", () => {
+      const tr = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
+      const bounds = tr.numericBounds;
+      expect(bounds.lower).toBe(0);
+      expect(bounds.upper).toBe(0);
+    });
+
+    it("should handle large time values", () => {
+      const tr = new TimeRange(TimeSpan.days(365), TimeSpan.days(730));
+      const bounds = tr.numericBounds;
+      expect(bounds.lower).toBe(tr.start.nanoseconds);
+      expect(bounds.upper).toBe(tr.end.nanoseconds);
+    });
+  });
 });
 
 describe("DataType", () => {
@@ -738,5 +769,32 @@ describe("Size", () => {
     TRUNCATE_TESTS.forEach(([size, unit, expected]) => {
       expect(size.truncate(unit).valueOf()).toEqual(expected.valueOf());
     });
+  });
+});
+
+describe("addSamples", () => {
+  test("adds two numbers", () => {
+    expect(addSamples(1, 2)).toBe(3);
+    expect(addSamples(1.5, 2.5)).toBe(4);
+    expect(addSamples(-1, 1)).toBe(0);
+  });
+
+  test("adds two bigints", () => {
+    expect(addSamples(1n, 2n)).toBe(3n);
+    expect(addSamples(-1n, 1n)).toBe(0n);
+    expect(addSamples(9007199254740991n, 1n)).toBe(9007199254740992n);
+  });
+
+  test("handles mixed numeric types", () => {
+    expect(addSamples(1, 2n)).toBe(3);
+    expect(addSamples(2n, 1)).toBe(3);
+    expect(addSamples(1.5, 2n)).toBe(3.5);
+    expect(addSamples(2n, 1.5)).toBe(3.5);
+  });
+
+  test("handles edge cases", () => {
+    expect(addSamples(0, 0)).toBe(0);
+    expect(addSamples(Number.MAX_SAFE_INTEGER, 1)).toBe(Number.MAX_SAFE_INTEGER + 1);
+    expect(addSamples(Number.MIN_SAFE_INTEGER, -1)).toBe(Number.MIN_SAFE_INTEGER - 1);
   });
 });

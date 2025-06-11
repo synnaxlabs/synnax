@@ -11,7 +11,7 @@ import { control as clientControl } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useCallback, useEffect } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { Aether } from "@/aether";
 import { Button } from "@/button";
@@ -61,7 +61,7 @@ const tooltipMessage = (status: Status.Spec): ChipStyle => {
           },
         };
       return {
-        message: "You're in control. Release P&ID to release control.",
+        message: "You're in control. Release schematic to release control.",
         chipColor: "var(--pluto-primary-z)",
       };
     default:

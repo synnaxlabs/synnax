@@ -88,9 +88,7 @@ class Streamer:
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
         self._downsample_factor = downsample_factor
         self._stream.send(
-            _Request(
-                keys=self._adapter.keys, downsample_factor=self._downsample_factor
-            )
+            _Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor)
         )
         _, exc = self._stream.receive()
         if exc is not None:
@@ -149,9 +147,7 @@ class Streamer:
         """
         self._adapter.update(channels)
         self._stream.send(
-            _Request(
-                keys=self._adapter.keys, downsample_factor=self._downsample_factor
-            )
+            _Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor)
         )
 
     def close(self, timeout: float | int | TimeSpan | None = None):

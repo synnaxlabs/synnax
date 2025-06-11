@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
-import { type core, z } from "zod";
+import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
@@ -43,7 +43,7 @@ const NO_SCALE: NoScale = { type: NO_SCALE_TYPE };
 const scaleZ = z.union([noScaleZ, linearScaleZ]);
 export type Scale = z.infer<typeof scaleZ>;
 export type ScaleType = Scale["type"];
-export const SCALE_SCHEMAS: Record<ScaleType, z.ZodObjectLike<Scale>> = {
+export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {
   [NO_SCALE_TYPE]: noScaleZ,
   [LINEAR_SCALE_TYPE]: linearScaleZ,
 };
@@ -224,7 +224,10 @@ export const ZERO_OUTPUT_CHANNEL: OutputChannel = ZERO_OUTPUT_CHANNELS[DO_CHANNE
 export type Channel = InputChannel | OutputChannel;
 export type ChannelType = Channel["type"];
 
-const validateUniquePorts: core.CheckFn<Channel[]> = ({ value: channels, issues }) => {
+const validateUniquePorts: z.core.CheckFn<Channel[]> = ({
+  value: channels,
+  issues,
+}) => {
   const portToIndexMap = new Map<string, number>();
   channels.forEach(({ port }, i) => {
     if (!portToIndexMap.has(port)) {
@@ -232,11 +235,10 @@ const validateUniquePorts: core.CheckFn<Channel[]> = ({ value: channels, issues 
       return;
     }
     const index = portToIndexMap.get(port) as number;
-
     const code = "custom";
-    const msg = `Port ${port} has already been used on another channel`;
-    issues.push({ code, message: msg, path: [index, "port"], input: channels });
-    issues.push({ code, message: msg, path: [i, "port"], input: channels });
+    const message = `Port ${port} has already been used on another channel`;
+    issues.push({ code, message, path: [index, "port"], input: channels });
+    issues.push({ code, message, path: [i, "port"], input: channels });
   });
 };
 

@@ -9,43 +9,45 @@
 
 import { type errors } from "@synnaxlabs/x";
 
-/** @description A message from the main thread to update or create an aether component. */
+import { type state } from "@/state";
+
+/** A message from the main thread to update or create an aether component. */
 export interface MainUpdateMessage {
   variant: "update";
-  /** @description The path of the component to update. */
+  /** The path of the component to update. */
   path: string[];
-  /** @description The type of the component to update. */
+  /** The type of the component to update. */
   type: string;
-  /** @description The state of the component to update. */
-  state: any;
+  /** The state of the component to update. */
+  state: state.State;
 }
 
-/** @description A message from the main thread to delete an aether component. */
+/** A message from the main thread to delete an aether component. */
 export interface MainDeleteMessage {
   variant: "delete";
-  /** @description The type of the component to delete. */
+  /** The type of the component to delete. */
   type: string;
-  /** @description The path of the component to delete. */
+  /** The path of the component to delete. */
   path: string[];
 }
 
-/** @description A message from the aether thread to update an aether component. */
+/** A message from the aether thread to update an aether component. */
 export interface AetherUpdateMessage {
   variant: "update";
-  /** @description The key of the component to update. */
+  /** The key of the component to update. */
   key: string;
-  /** @description The state of the component to update. */
-  state: any;
+  /** The state of the component to update. */
+  state: state.State;
 }
 
-/** @description A message from the aether thread to send an error to the main thread. */
+/** A message from the aether thread to send an error to the main thread. */
 export interface AetherErrorMessage {
   variant: "error";
   error: errors.NativePayload;
 }
 
-/** @description A message from the aether thread to the main thread. */
+/** A message from the aether thread to the main thread. */
 export type AetherMessage = AetherUpdateMessage | AetherErrorMessage;
 
-/** @description A message from the main thread to the aether thread. */
+/** A message from the main thread to the aether thread. */
 export type MainMessage = MainUpdateMessage | MainDeleteMessage;

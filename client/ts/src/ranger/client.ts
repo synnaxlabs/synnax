@@ -9,10 +9,10 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type CrudeTimeRange, observe, sortTimeRange, TimeRange } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type Series } from "@synnaxlabs/x/telem";
-import { toArray } from "@synnaxlabs/x/toArray";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type channel } from "@/channel";
 import { MultipleFoundError, NotFoundError, QueryError } from "@/errors";
@@ -233,7 +233,9 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   async create(ranges: New[], options?: CreateOptions): Promise<Range[]>;
   async create(ranges: New | New[], options?: CreateOptions): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
-    const res = this.sugarMany(await this.writer.create(toArray(ranges), options));
+    const res = this.sugarMany(
+      await this.writer.create(array.toArray(ranges), options),
+    );
     return single ? res[0] : res;
   }
 
@@ -242,7 +244,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   }
 
   async delete(key: Key | Keys): Promise<void> {
-    await this.writer.delete(toArray(key));
+    await this.writer.delete(array.toArray(key));
   }
 
   async search(term: string): Promise<Range[]> {

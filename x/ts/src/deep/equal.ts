@@ -10,7 +10,7 @@
 import { type primitive } from "@/primitive";
 
 interface DeepEqualBaseRecord {
-  equals?: (other: any) => boolean;
+  equals?: (other: unknown) => boolean;
 }
 
 export const equal = <
@@ -31,7 +31,7 @@ export const equal = <
   }
   if (a == null || b == null || typeof a !== "object" || typeof b !== "object")
     return a === b;
-  if ("equals" in a) return (a.equals as (other: any) => boolean)(b);
+  if ("equals" in a) return (a.equals as (other: unknown) => boolean)(b);
   const aKeys = Object.keys(a);
   const bKeys = Object.keys(b);
   if (aKeys.length !== bKeys.length) return false;

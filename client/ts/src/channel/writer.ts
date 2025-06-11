@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { z } from "zod";
+import { type DataType } from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 import {
   channelZ,
@@ -53,7 +54,15 @@ export class Writer {
     const { channels: created } = await sendRequired<
       typeof createReqZ,
       typeof createResZ
-    >(this.client, CREATE_ENDPOINT, { channels }, createReqZ, createResZ);
+    >(
+      this.client,
+      CREATE_ENDPOINT,
+      {
+        channels: channels.map((c) => ({ ...c, dataType: c.dataType as DataType })),
+      },
+      createReqZ,
+      createResZ,
+    );
     this.cache.set(created);
     return created;
   }

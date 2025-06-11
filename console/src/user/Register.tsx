@@ -10,7 +10,7 @@
 import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Layout } from "@/layout";

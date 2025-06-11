@@ -9,7 +9,7 @@
 
 import { axis } from "@synnaxlabs/pluto";
 import { bounds, migrate } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { X_AXIS_KEYS, type XAxisKey } from "@/lineplot/axis";
 import * as v0 from "@/lineplot/types/v0";

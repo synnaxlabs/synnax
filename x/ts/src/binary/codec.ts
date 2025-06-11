@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { caseconv } from "@/caseconv";
 import { isObject } from "@/identity";
@@ -34,10 +34,10 @@ export interface Codec {
    * @param data - The data to decode.
    * @param schema - The schema to decode the data with.
    */
-  decode: <P extends z.ZodTypeAny>(
+  decode: <P extends z.ZodType>(
     data: Uint8Array | ArrayBuffer,
     schema?: P,
-  ) => z.output<P>;
+  ) => z.infer<P>;
 }
 
 /** JSONCodec is a JSON implementation of Codec. */
@@ -55,17 +55,14 @@ export class JSONCodec implements Codec {
     return this.encoder.encode(this.encodeString(payload));
   }
 
-  decode<P extends z.ZodTypeAny>(
-    data: Uint8Array | ArrayBuffer,
-    schema?: P,
-  ): z.output<P> {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     return this.decodeString(this.decoder.decode(data), schema);
   }
 
-  decodeString<P extends z.ZodTypeAny>(data: string, schema?: P): z.output<P> {
+  decodeString<P extends z.ZodType>(data: string, schema?: P): z.infer<P> {
     const parsed = JSON.parse(data);
     const unpacked = caseconv.snakeToCamel(parsed);
-    return schema != null ? schema.parse(unpacked) : (unpacked as z.output<P>);
+    return schema != null ? schema.parse(unpacked) : (unpacked as z.infer<P>);
   }
 
   encodeString(payload: unknown): string {
@@ -89,10 +86,7 @@ export class CSVCodec implements Codec {
     return new TextEncoder().encode(csvString);
   }
 
-  decode<P extends z.ZodTypeAny>(
-    data: Uint8Array | ArrayBuffer,
-    schema?: P,
-  ): z.output<P> {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const csvString = new TextDecoder().decode(data);
     return this.decodeString(csvString, schema);
   }
@@ -104,7 +98,7 @@ export class CSVCodec implements Codec {
     const keys = Object.keys(payload[0]);
     const csvRows = [keys.join(",")];
 
-    payload.forEach((item: any) => {
+    payload.forEach((item) => {
       const values = keys.map((key) => JSON.stringify(item[key] ?? ""));
       csvRows.push(values.join(","));
     });
@@ -112,15 +106,15 @@ export class CSVCodec implements Codec {
     return csvRows.join("\n");
   }
 
-  decodeString<P extends z.ZodTypeAny>(data: string, schema?: P): z.output<P> {
+  decodeString<P extends z.ZodType>(data: string, schema?: P): z.infer<P> {
     const [headerLine, ...lines] = data
       .trim()
       .split("\n")
       .map((line) => line.trim());
     if (headerLine.length === 0)
-      return schema != null ? schema.parse({}) : ({} as z.output<P>);
+      return schema != null ? schema.parse({}) : ({} as z.infer<P>);
     const headers = headerLine.split(",").map((header) => header.trim());
-    const result: { [key: string]: any[] } = {};
+    const result: { [key: string]: unknown[] } = {};
 
     headers.forEach((header) => {
       result[header] = [];
@@ -135,10 +129,10 @@ export class CSVCodec implements Codec {
       });
     });
 
-    return schema != null ? schema.parse(result) : (result as z.output<P>);
+    return schema != null ? schema.parse(result) : (result as z.infer<P>);
   }
 
-  private parseValue(value?: string): any {
+  private parseValue(value?: string): unknown {
     if (value == null || value.length === 0) return null;
     const num = Number(value);
     if (!isNaN(num)) return num;
@@ -156,12 +150,9 @@ export class TextCodec implements Codec {
     return new TextEncoder().encode(payload);
   }
 
-  decode<P extends z.ZodTypeAny>(
-    data: Uint8Array | ArrayBuffer,
-    schema?: P,
-  ): z.output<P> {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const text = new TextDecoder().decode(data);
-    return schema != null ? schema.parse(text) : (text as z.output<P>);
+    return schema != null ? schema.parse(text) : (text as z.infer<P>);
   }
 }
 

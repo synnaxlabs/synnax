@@ -15,7 +15,7 @@ import {
   TimeRange,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type ZodSchema } from "zod";
+import { type z } from "zod/v4";
 
 import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";
@@ -352,7 +352,7 @@ export class WSWriterCodec implements binary.Codec {
     return data;
   }
 
-  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
     if (codec === LOW_PER_SPECIAL_CHAR)
@@ -360,7 +360,7 @@ export class WSWriterCodec implements binary.Codec {
     const v: WebsocketMessage<WriteRequest> = { type: "data" };
     const frame = this.base.decode(data, 1);
     v.payload = { command: WriterCommand.Write, frame };
-    return v as P;
+    return v as z.infer<P>;
   }
 }
 
@@ -378,7 +378,7 @@ export class WSStreamerCodec implements binary.Codec {
     return this.lowPerfCodec.encode(payload);
   }
 
-  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
     if (codec === LOW_PER_SPECIAL_CHAR)
@@ -387,6 +387,6 @@ export class WSStreamerCodec implements binary.Codec {
       type: "data",
       payload: { frame: this.base.decode(data, 1) },
     };
-    return v as P;
+    return v as z.infer<P>;
   }
 }

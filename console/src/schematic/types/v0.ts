@@ -9,22 +9,23 @@
 
 import { type Control, control, Diagram, Schematic, Viewport } from "@synnaxlabs/pluto";
 import { color, type migrate, xy } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const VERSION = "0.0.0";
 export type Version = typeof VERSION;
 
-export type NodeProps = object & {
+export type NodeProps = {
   key: Schematic.Variant;
   color?: color.Crude;
   label?: { label?: string };
 };
 
-export const nodePropsZ = z
-  .object({})
-  .and(
-    z.object({ key: Schematic.variantZ, color: color.crudeZ.optional() }).passthrough(),
-  );
+export const nodePropsZ = z.looseObject({
+  key: Schematic.variantZ,
+  color: color.crudeZ.optional(),
+});
+
+export interface EdgeProps extends Pick<Diagram.Edge, "color" | "variant"> {}
 
 export const stateZ = z.object({
   version: z.literal(VERSION),

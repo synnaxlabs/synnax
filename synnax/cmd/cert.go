@@ -45,7 +45,6 @@ var certNode = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, hosts []string) error {
 		ins := configureInstrumentation()
-		// convert hosts to addresses
 		addresses := make([]address.Address, len(hosts))
 		for i, host := range hosts {
 			addresses[i] = address.Address(host)

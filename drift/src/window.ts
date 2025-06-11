@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { dimensions, xy } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 /** Represents the state of a window in it's lifecycle  */
 export type WindowStage = "creating" | "created" | "closing" | "closed" | "reloading";

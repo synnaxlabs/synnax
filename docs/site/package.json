@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/docs",
   "type": "module",
-  "version": "20.0",
+  "version": "0.43.0",
   "private": true,
   "scripts": {
     "dev": "astro dev",
@@ -16,19 +16,19 @@
     "format-check": "prettier --check ."
   },
   "dependencies": {
-    "@astrojs/mdx": "^4.2.6",
-    "@astrojs/react": "^4.2.7",
-    "@astrojs/vercel": "^8.1.4",
-    "@fontsource/geist-mono": "^5.2.5",
+    "@astrojs/mdx": "^4.3.0",
+    "@astrojs/react": "^4.3.0",
+    "@astrojs/vercel": "^8.1.5",
+    "@fontsource/geist-mono": "^5.2.6",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/pluto": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
-    "astro": "^5.7.12",
+    "astro": "^5.9.2",
     "astro-embed": "^0.9.0",
     "astro-seo": "^0.8.4",
     "clsx": "^2.1.1",
-    "posthog-js": "^1.230.2",
+    "posthog-js": "^1.250.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "shiki": "^1.29.2"
@@ -37,16 +37,16 @@
     "@synnaxlabs/tsconfig": "workspace:*",
     "@types/html-escaper": "^3.0.4",
     "@types/offscreencanvas": "^2019.7.3",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.1.1",
+    "@types/react": "^19.1.7",
+    "@types/react-dom": "^19.1.6",
     "algoliasearch": "^4.24.0",
-    "dotenv": "^16.4.7",
-    "eslint": "^9.24.0",
+    "dotenv": "^16.5.0",
+    "eslint": "^9.28.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "gray-matter": "^4.0.3",
     "html-escaper": "^3.0.3",
     "prettier": "^3.5.3",
-    "remove-markdown": "^0.6.0",
+    "remove-markdown": "^0.6.2",
     "typescript": "^5.8.3"
   }
 }

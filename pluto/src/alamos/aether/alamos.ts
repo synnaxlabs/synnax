@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 

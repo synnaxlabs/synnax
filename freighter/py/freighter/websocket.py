@@ -59,6 +59,8 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
             strict: bool | None = None,
             from_attributes: bool | None = None,
             context: Any | None = None,
+            by_alias: bool | None = None,
+            by_name: bool | None = None,
         ) -> Self:
             # Ensure the payload is validated as the correct type
             obj["payload"] = res_t.model_validate(
@@ -66,9 +68,16 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
                 strict=strict,
                 from_attributes=from_attributes,
                 context=context,
+                by_alias=by_alias,
+                by_name=by_name,
             )
             return super().model_validate(
-                obj, strict=strict, from_attributes=from_attributes, context=context
+                obj,
+                strict=strict,
+                from_attributes=from_attributes,
+                context=context,
+                by_alias=by_alias,
+                by_name=by_name,
             )
 
     return _ResMsg

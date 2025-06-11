@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/drift",
-  "version": "0.42.0",
+  "version": "0.43.0",
   "description": "State synchronization and Redux state synchronization for Tauri Apps",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/drift",
   "type": "module",
@@ -15,36 +15,37 @@
   ],
   "scripts": {
     "build": "tsc --noEmit && vite build",
+    "check-types": "tsc --noEmit",
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "lint": "eslint --cache",
     "fix": "eslint --cache --fix"
   },
   "dependencies": {
-    "@reduxjs/toolkit": "^2.6.1",
+    "@reduxjs/toolkit": "^2.8.2",
     "@synnaxlabs/x": "workspace:*",
-    "@tauri-apps/api": "^2.4.1",
+    "@tauri-apps/api": "^2.5.0",
     "async-mutex": "^0.5.0",
     "proxy-memoize": "2.0.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-redux": "^9.2.0",
-    "zod": "^4.0.0-beta"
+    "zod": "^3.25.58"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/react": "^19.1.0",
-    "@vitejs/plugin-react": "^4.3.4",
-    "electron": "^33.4.4",
-    "eslint": "^9.24.0",
+    "@types/react": "^19.1.7",
+    "@vitejs/plugin-react": "^4.5.2",
+    "electron": "^36.4.0",
+    "eslint": "^9.28.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-redux": "^9.2.0",
     "typescript": "^5.8.3",
-    "vite": "^6.2.5",
-    "vitest": "^3.1.1"
+    "vite": "^6.3.5",
+    "vitest": "^3.2.3"
   },
   "files": [
     "dist"
@@ -72,11 +73,6 @@
       "types": "./dist/src/electron/index.d.ts",
       "import": "./dist/electron.js",
       "require": "./dist/electron.cjs"
-    },
-    "./noop": {
-      "types": "./dist/src/noop/index.d.ts",
-      "import": "./dist/noop.js",
-      "require": "./dist/noop.cjs"
     }
   }
 }

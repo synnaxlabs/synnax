@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { bench, describe, vi } from "vitest";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 
