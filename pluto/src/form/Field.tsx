@@ -64,7 +64,7 @@ export const Field = <
     path,
     optional: optional ?? hideIfNull,
     onChange,
-    defaultValue: defaultValue as undefined,
+    defaultValue,
   });
   const ctx = useContext();
   if (field == null) return null;
