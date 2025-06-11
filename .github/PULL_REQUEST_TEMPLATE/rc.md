@@ -8,27 +8,7 @@
 
 - [ ] I have verified that any changes to the `rc.md` template in this diff have been manually added to this pull request.
 
-## Versioning
-
-### Version Consistency
-
-I have verified that the following files have the same minor version number:
-
-- [ ] `alamos/py`
-- [ ] `alamos/ts`
-- [ ] `client/py`
-- [ ] `client/ts`
-- [ ] `console`
-- [ ] `drift`
-- [ ] `freighter/py`
-- [ ] `freighter/ts`
-- [ ] `media`
-- [ ] `pluto`
-- [ ] `server`
-- [ ] `x/ts`
-- [ ] Root `package.json` file
-
-### Version Conflicts
+## Version Conflicts
 
 I have verified that, when released, the following packages will not conflict with any previously released packages:
 

@@ -8,3 +8,65 @@
 // included in the file licenses/APL.txt.
 
 package zyn
+
+import (
+	"fmt"
+	"reflect"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
+)
+
+var InvalidDestinationTypeError = errors.Wrap(validate.Error, "invalid destination type")
+
+func NewInvalidDestinationTypeError(expected string, received reflect.Value) error {
+	return errors.Wrapf(
+		InvalidDestinationTypeError,
+		"must be a non-nil pointer to a %s, but received %s",
+		expected,
+		types.ValueName(received),
+	)
+}
+
+func validateDestinationValue(dest reflect.Value, expected string) error {
+	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+		return NewInvalidDestinationTypeError(expected, dest)
+	}
+	return nil
+}
+
+func validateNilData(destVal reflect.Value, data any, base baseZ) (bool, error) {
+	if data != nil {
+		return true, nil
+
+	}
+	if base.optional {
+		if destVal.Elem().Kind() == reflect.Ptr {
+			destVal.Elem().Set(reflect.Zero(destVal.Elem().Type()))
+		}
+		return false, nil
+	}
+	return false, validate.FieldError{Message: "value is required but was nil"}
+}
+
+func invalidTypeError(expected reflect.Type, actual reflect.Value) validate.FieldError {
+	return validate.FieldError{
+		Message: fmt.Sprintf("invalid type: expected %s, got %s", expected, types.ValueName(actual)),
+	}
+}
+
+func requiredFieldError(fieldName string) validate.FieldError {
+	return validate.FieldError{Field: lo.SnakeCase(fieldName), Message: "field is required"}
+}
+
+func addFieldNameToError(field string, err error) error {
+	field = lo.SnakeCase(field)
+	var vfErr validate.FieldError
+	if errors.As(err, &vfErr) {
+		vfErr.Field = field
+		return vfErr
+	}
+	return validate.FieldError{Message: err.Error(), Field: field}
+}

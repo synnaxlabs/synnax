@@ -19,9 +19,10 @@ import (
 	"github.com/blevesearch/bleve/v2/search/query"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
 )
 
@@ -66,7 +67,7 @@ func (s *Index) WithTx(f func(Tx) error) error {
 	return t.Commit()
 }
 
-func (s *Index) Index(resources []schema.Resource) error {
+func (s *Index) Index(resources []core.Resource) error {
 	t := s.OpenTx()
 	defer t.Close()
 	for _, r := range resources {
@@ -84,7 +85,7 @@ type Tx struct {
 	batch *bleve.Batch
 }
 
-func (t *Tx) Apply(changes ...schema.Change) error {
+func (t *Tx) Apply(changes ...core.Change) error {
 	for _, ch := range changes {
 		if ch.Variant == change.Set {
 			if err := t.batch.Index(ch.Key.String(), ch.Value); err != nil {
@@ -101,15 +102,15 @@ func (t *Tx) Commit() error {
 	return t.idx.Batch(t.batch)
 }
 
-func (t *Tx) Index(resource schema.Resource) error {
+func (t *Tx) Index(resource core.Resource) error {
 	return t.batch.Index(resource.ID.String(), resource)
 }
 
-func (t *Tx) Delete(id schema.ID) { t.batch.Delete(id.String()) }
+func (t *Tx) Delete(id core.ID) { t.batch.Delete(id.String()) }
 
 func (t *Tx) Close() { t.idx = nil; t.batch = nil }
 
-func (s *Index) Register(ctx context.Context, sch schema.Schema) {
+func (s *Index) Register(ctx context.Context, sch *core.Schema) {
 	s.L.Debug("registering schema", zap.String("type", string(sch.Type)))
 	_, span := s.T.Prod(ctx, "register")
 	defer span.End()
@@ -117,8 +118,8 @@ func (s *Index) Register(ctx context.Context, sch schema.Schema) {
 	textFieldMapping.Analyzer = separatorAnalyzer
 	dm := bleve.NewDocumentMapping()
 	dm.AddFieldMappingsAt("name", textFieldMapping)
-	for k, fld := range sch.Fields {
-		if fMapping, ok := fieldMappings[fld.Type]; ok {
+	for k, fld := range sch.Shape().Fields() {
+		if fMapping, ok := fieldMappings[fld.Type()]; ok {
 			dm.AddFieldMappingsAt(k, fMapping())
 		}
 	}
@@ -127,7 +128,7 @@ func (s *Index) Register(ctx context.Context, sch schema.Schema) {
 
 type Request struct {
 	Term string
-	Type schema.Type
+	Type core.Type
 }
 
 func assembleWordQuery(word string, _ int) query.Query {
@@ -156,7 +157,7 @@ func (s *Index) execQuery(ctx context.Context, q query.Query) (*bleve.SearchResu
 	return s.idx.SearchInContext(ctx, search_)
 }
 
-func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
+func (s *Index) Search(ctx context.Context, req Request) ([]core.ID, error) {
 	ctx, span := s.T.Prod(ctx, "search")
 	words := strings.FieldsFunc(req.Term, func(r rune) bool { return r == ' ' || r == '_' || r == '-' })
 	querySet := lo.Map(words, assembleWordQuery)
@@ -173,29 +174,29 @@ func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 			return nil, span.EndWith(err)
 		}
 	}
-	ids, err := schema.ParseIDs(lo.Map(
+	ids, err := core.ParseIDs(lo.Map(
 		res.Hits,
 		func(hit *search.DocumentMatch, _ int) string { return hit.ID },
 	))
 	if len(req.Type) == 0 {
 		return ids, span.EndWith(err)
 	}
-	return lo.Filter(ids, func(id schema.ID, _ int) bool { return id.Type == req.Type }), span.EndWith(err)
+	return lo.Filter(ids, func(id core.ID, _ int) bool { return id.Type == req.Type }), span.EndWith(err)
 }
 
-var fieldMappings = map[schema.FieldType]func() *mapping.FieldMapping{
-	schema.String:  bleve.NewTextFieldMapping,
-	schema.Int:     bleve.NewNumericFieldMapping,
-	schema.Float64: bleve.NewNumericFieldMapping,
-	schema.Float32: bleve.NewNumericFieldMapping,
-	schema.Int64:   bleve.NewNumericFieldMapping,
-	schema.Int32:   bleve.NewNumericFieldMapping,
-	schema.Int16:   bleve.NewNumericFieldMapping,
-	schema.Int8:    bleve.NewNumericFieldMapping,
-	schema.Uint64:  bleve.NewNumericFieldMapping,
-	schema.Uint32:  bleve.NewNumericFieldMapping,
-	schema.Uint16:  bleve.NewNumericFieldMapping,
-	schema.Uint8:   bleve.NewNumericFieldMapping,
-	schema.Bool:    bleve.NewBooleanFieldMapping,
-	schema.UUID:    bleve.NewTextFieldMapping,
+var fieldMappings = map[zyn.Type]func() *mapping.FieldMapping{
+	zyn.StringT:  bleve.NewTextFieldMapping,
+	zyn.IntT:     bleve.NewNumericFieldMapping,
+	zyn.Float64T: bleve.NewNumericFieldMapping,
+	zyn.Float32T: bleve.NewNumericFieldMapping,
+	zyn.Int64T:   bleve.NewNumericFieldMapping,
+	zyn.Int32T:   bleve.NewNumericFieldMapping,
+	zyn.Int16T:   bleve.NewNumericFieldMapping,
+	zyn.Int8T:    bleve.NewNumericFieldMapping,
+	zyn.Uint64T:  bleve.NewNumericFieldMapping,
+	zyn.Uint32T:  bleve.NewNumericFieldMapping,
+	zyn.Uint16T:  bleve.NewNumericFieldMapping,
+	zyn.Uint8T:   bleve.NewNumericFieldMapping,
+	zyn.BoolT:    bleve.NewBooleanFieldMapping,
+	zyn.UUIDT:    bleve.NewTextFieldMapping,
 }

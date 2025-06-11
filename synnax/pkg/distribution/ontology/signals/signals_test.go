@@ -15,11 +15,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
@@ -28,10 +29,11 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 type changeService struct {
-	observe.Observer[iter.Nexter[schema.Change]]
+	observe.Observer[iter.Nexter[core.Change]]
 }
 
 const changeType ontology.Type = "change"
@@ -43,39 +45,45 @@ func newChangeID(key string) ontology.ID {
 var _ ontology.Service = (*changeService)(nil)
 
 func (s *changeService) Schema() *ontology.Schema {
-	return &ontology.Schema{
-		Type: changeType,
-		Fields: map[string]schema.Field{
-			"key": {Type: schema.String},
-		},
-	}
+	return ontology.NewSchema(
+		changeType,
+		map[string]zyn.Z{"key": zyn.String()},
+	)
 }
 
 func (s *changeService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	return iter.NexterNopCloser(iter.All[ontology.Resource](nil)), nil
 }
 
-func (s *changeService) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
-	e := schema.NewResource(s.Schema(), newChangeID(key), "empty")
-	schema.Set(e, "key", key)
-	return e, nil
+func (s *changeService) RetrieveResource(
+	_ context.Context,
+	key string,
+	_ gorp.Tx,
+) (ontology.Resource, error) {
+	return core.NewResource(
+		s.Schema(),
+		newChangeID(key),
+		"",
+		map[string]interface{}{"key": key},
+	), nil
 }
 
 var _ = Describe("Signals", Ordered, func() {
 	var (
-		builder *mock.Cluster
+		builder *mock.Builder
 		ctx     = context.Background()
-		dist    mock.Node
+		dist    distribution.Distribution
 		svc     *changeService
 	)
 	BeforeAll(func() {
-		builder = mock.NewCluster()
-		dist = builder.Provision(ctx)
-		svc = &changeService{Observer: observe.New[iter.Nexter[schema.Change]]()}
+		builder = mock.NewBuilder()
+		dist = builder.New(ctx)
+		svc = &changeService{Observer: observe.New[iter.Nexter[core.Change]]()}
 		dist.Ontology.RegisterService(ctx, svc)
 	})
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
+		Expect(builder.Cleanup()).To(Succeed())
 	})
 	Describe("DecodeIDs", func() {
 		It("Should decode a series of IDs", func() {
@@ -87,7 +95,7 @@ var _ = Describe("Signals", Ordered, func() {
 	Describe("Resource Changes", func() {
 		It("Should correctly propagate resource changes to the ontology", func() {
 			var resCh channel.Channel
-			Expect(dist.Channels.NewRetrieve().WhereNames("sy_ontology_resource_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_resource_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: channel.Keys{resCh.Key()},
 			}))
@@ -97,12 +105,12 @@ var _ = Describe("Signals", Ordered, func() {
 			time.Sleep(5 * time.Millisecond)
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
-			svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
-				return iter.All([]schema.Change{
+			svc.NotifyGenerator(ctx, func() iter.Nexter[core.Change] {
+				return iter.All([]core.Change{
 					{
 						Variant: change.Set,
 						Key:     newChangeID(key),
-						Value:   schema.NewResource(svc.Schema(), newChangeID(key), "empty"),
+						Value:   core.NewResource(svc.Schema(), newChangeID(key), "empty", map[string]interface{}{"key": key}),
 					},
 				})
 			})
@@ -120,7 +128,7 @@ var _ = Describe("Signals", Ordered, func() {
 		})
 		It("Should correctly propagate resource deletes to the ontology", func() {
 			var resCh channel.Channel
-			Expect(dist.Channels.NewRetrieve().WhereNames("sy_ontology_resource_delete").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_resource_delete").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: channel.Keys{resCh.Key()},
 			}))
@@ -130,8 +138,8 @@ var _ = Describe("Signals", Ordered, func() {
 			time.Sleep(5 * time.Millisecond)
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
-			svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
-				return iter.All([]schema.Change{
+			svc.NotifyGenerator(ctx, func() iter.Nexter[core.Change] {
+				return iter.All([]core.Change{
 					{
 						Variant: change.Delete,
 						Key:     newChangeID(key),
@@ -153,7 +161,7 @@ var _ = Describe("Signals", Ordered, func() {
 	})
 	It("Should correctly propagate relationship set to the ontology", func() {
 		var resCh channel.Channel
-		Expect(dist.Channels.NewRetrieve().WhereNames("sy_ontology_relationship_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+		Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_relationship_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{resCh.Key()},
 		}))
@@ -188,7 +196,7 @@ var _ = Describe("Signals", Ordered, func() {
 	It("Should correctly propagate a relationship delete to the ontology", func() {
 		var resCh channel.Channel
 		By("Correctly creating the deletion channel.")
-		Expect(dist.Channels.NewRetrieve().WhereNames("sy_ontology_relationship_delete").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+		Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_relationship_delete").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 		By("Opening a streamer on the deletion channel")
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{resCh.Key()},

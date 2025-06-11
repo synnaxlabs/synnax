@@ -98,7 +98,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 	if err != nil {
 		return
 	}
-	aliasSignalsCfg := signals.GorpPublisherConfigString[alias](cfg.DB)
+	aliasSignalsCfg := signals.GorpPublisherConfigString[Alias](cfg.DB)
 	aliasSignalsCfg.SetName = "sy_range_alias_set"
 	aliasSignalsCfg.DeleteName = "sy_range_alias_delete"
 	aliasSignals, err := signals.PublishFromGorp(ctx, cfg.Signals, aliasSignalsCfg)

@@ -28,7 +28,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -39,23 +39,28 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
 )
 
 type (
 	// Schema is a set of definitions that describe the structure of a resource.
-	Schema = schema.Schema
+	Schema = core.Schema
 	// Resource is the underlying data structure of a resource.
-	Resource = schema.Resource
-	ID       = schema.ID
+	Resource = core.Resource
+	ID       = core.ID
 	// Type is a unique identifier for a particular class of resources (channel, user, etc.)
-	Type = schema.Type
+	Type = core.Type
 )
+
+func NewSchema(t Type, fields map[string]zyn.Z) *Schema {
+	return core.NewSchema(t, fields)
+}
 
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {
 	Config
-	ResourceObserver     observe.Observer[iter.Nexter[schema.Change]]
+	ResourceObserver     observe.Observer[iter.Nexter[core.Change]]
 	RelationshipObserver observe.Observable[gorp.TxReader[[]byte, Relationship]]
 	search               struct {
 		*search.Index
@@ -102,9 +107,9 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	}
 	o := &Ontology{
 		Config:               cfg,
-		ResourceObserver:     observe.New[iter.Nexter[schema.Change]](),
+		ResourceObserver:     observe.New[iter.Nexter[core.Change]](),
 		RelationshipObserver: gorp.Observe[[]byte, Relationship](cfg.DB),
-		registrar:            serviceRegistrar{BuiltIn: &builtinService{}},
+		registrar:            serviceRegistrar{BuiltInType: &builtinService{}},
 	}
 
 	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.NotFound) {
@@ -204,11 +209,11 @@ func (o *Ontology) RegisterService(ctx context.Context, s Service) {
 	if !*o.Config.EnableSearch {
 		return
 	}
-	o.search.Register(ctx, *s.Schema())
+	o.search.Register(ctx, s.Schema())
 
 	d1 := s.OnChange(o.ResourceObserver.Notify)
 	// SetKV up a change handler to index new resources.
-	d2 := s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
+	d2 := s.OnChange(func(ctx context.Context, i iter.Nexter[core.Change]) {
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
 			for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
 				o.L.Debug(
