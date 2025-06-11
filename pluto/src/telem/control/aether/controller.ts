@@ -272,7 +272,6 @@ export class SetChannelValue
   }
 
   set(...values: number[]): void {
-    console.log(values);
     this.runAsync(async () => {
       const { client } = this.controller.internal;
       if (client == null) return;

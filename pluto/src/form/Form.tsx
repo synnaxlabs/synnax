@@ -55,10 +55,16 @@ export interface UseOptionalFieldProps<I, O = I> extends BaseUseFieldProps<I, O>
   defaultValue?: undefined;
 }
 
+export interface UseExtensionFieldProps<I, O = I> extends BaseUseFieldProps<I, O> {
+  optional?: boolean;
+  defaultValue?: I;
+}
+
 export type UseFieldProps<I, O = I> =
   | UseRequiredFieldProps<I, O>
   | UseDefaultFieldProps<I, O>
-  | UseOptionalFieldProps<I, O>;
+  | UseOptionalFieldProps<I, O>
+  | UseExtensionFieldProps<I, O>;
 
 /** Return type for the @link useField hook */
 export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I>

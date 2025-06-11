@@ -811,7 +811,6 @@ export const Button = ({
   mode,
   ...rest
 }: SymbolProps<ButtonProps>) => {
-  console.log(mode);
   const { onMouseDown, onMouseUp } = CoreButton.use({
     aetherKey: symbolKey,
     sink,

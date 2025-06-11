@@ -62,7 +62,7 @@ export const Field = <
 }: FieldProps<I, O>): ReactElement | null => {
   const field = useField<I, O>({
     path,
-    optional: (optional as true) ?? (hideIfNull as true),
+    optional: optional ?? hideIfNull,
     onChange,
     defaultValue: defaultValue as undefined,
   });
@@ -134,8 +134,8 @@ export const fieldBuilder =
       <Field<I, O>
         {...fieldProps}
         {...rest}
-        defaultValue={defaultValue as undefined}
-        optional={optional as true}
+        defaultValue={defaultValue}
+        optional={optional}
         path={fieldKey ? `${path}.${fieldKey}` : path}
       >
         {(cp) => <Component {...cp} {...baseInputProps} {...(inputProps as P)} />}
