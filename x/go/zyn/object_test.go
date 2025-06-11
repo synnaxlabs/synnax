@@ -10,6 +10,7 @@
 package zyn_test
 
 import (
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
@@ -274,6 +275,62 @@ var _ = Describe("Object", func() {
 			}))
 		})
 
+		Specify("already dumped map[string]any", func() {
+			type TestStruct struct {
+				Name  string
+				Age   int
+				Score float64
+			}
+
+			schema := zyn.Object(map[string]zyn.Z{
+				"Name":  zyn.String(),
+				"Age":   zyn.Number(),
+				"Score": zyn.Number(),
+			})
+
+			// First dump
+			data := TestStruct{
+				Name:  "John",
+				Age:   42,
+				Score: 95.5,
+			}
+
+			firstDump, err := schema.Dump(data)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(firstDump).To(Equal(map[string]any{
+				"name":  "John",
+				"age":   int64(42),
+				"score": 95.5,
+			}))
+
+			// Dump again with the already dumped data
+			secondDump, err := schema.Dump(firstDump)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(secondDump).To(Equal(map[string]any{
+				"name":  "John",
+				"age":   int64(42),
+				"score": 95.5,
+			}))
+		})
+
+		Specify("invalid map[string]any", func() {
+			schema := zyn.Object(map[string]zyn.Z{
+				"Name":  zyn.String(),
+				"Age":   zyn.Number(),
+				"Score": zyn.Number(),
+			})
+
+			// Missing required field
+			data := map[string]any{
+				"name": "John",
+				// Missing Age
+				"score": 95.5,
+			}
+
+			_, err := schema.Dump(data)
+			Expect(err).To(MatchError(validate.FieldError{Message: "missing required field: Age"}))
+		})
+
 		Describe("Invalid Inputs", func() {
 			Specify("nil value", func() {
 				schema := zyn.Object(map[string]zyn.Z{
@@ -329,7 +386,7 @@ var _ = Describe("Object", func() {
 				})
 
 				_, err := schema.Dump("not a struct")
-				Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected struct"}))
+				Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected struct or map[string]any"}))
 			})
 
 			Specify("missing required field", func() {
@@ -348,6 +405,162 @@ var _ = Describe("Object", func() {
 
 				_, err := schema.Dump(data)
 				Expect(err).To(MatchError(validate.FieldError{Message: "missing required field: Age"}))
+			})
+		})
+
+		Describe("Map Input", func() {
+			Specify("valid map with snake case keys", func() {
+				schema := zyn.Object(map[string]zyn.Z{
+					"Name":  zyn.String(),
+					"Age":   zyn.Number(),
+					"Score": zyn.Number(),
+				})
+
+				data := map[string]any{
+					"name":  "John",
+					"age":   42,
+					"score": 95.5,
+				}
+
+				result, err := schema.Dump(data)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(map[string]any{
+					"name":  "John",
+					"age":   int64(42),
+					"score": 95.5,
+				}))
+			})
+
+			Specify("valid map with mixed case keys", func() {
+				schema := zyn.Object(map[string]zyn.Z{
+					"Name":  zyn.String(),
+					"Age":   zyn.Number(),
+					"Score": zyn.Number(),
+				})
+
+				data := map[string]any{
+					"Name":  "John",
+					"age":   42,
+					"Score": 95.5,
+				}
+
+				result, err := schema.Dump(data)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(map[string]any{
+					"name":  "John",
+					"age":   int64(42),
+					"score": 95.5,
+				}))
+			})
+
+			Specify("nested object map", func() {
+				schema := zyn.Object(map[string]zyn.Z{
+					"Name": zyn.String(),
+					"Address": zyn.Object(map[string]zyn.Z{
+						"Street": zyn.String(),
+						"City":   zyn.String(),
+					}),
+				})
+
+				data := map[string]any{
+					"name": "John",
+					"address": map[string]any{
+						"street": "123 Main St",
+						"city":   "Boston",
+					},
+				}
+
+				result, err := schema.Dump(data)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(map[string]any{
+					"name": "John",
+					"address": map[string]any{
+						"street": "123 Main St",
+						"city":   "Boston",
+					},
+				}))
+			})
+
+			Specify("optional fields in map", func() {
+				schema := zyn.Object(map[string]zyn.Z{
+					"Name":  zyn.String(),
+					"Email": zyn.String().Optional(),
+				})
+
+				data := map[string]any{
+					"name": "John",
+				}
+
+				result, err := schema.Dump(data)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(map[string]any{
+					"name": "John",
+				}))
+			})
+
+			Specify("nil optional field in map", func() {
+				schema := zyn.Object(map[string]zyn.Z{
+					"Name":  zyn.String(),
+					"Email": zyn.String().Optional(),
+				})
+
+				data := map[string]any{
+					"name":  "John",
+					"email": nil,
+				}
+
+				result, err := schema.Dump(data)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(map[string]any{
+					"name": "John",
+				}))
+			})
+
+			Specify("invalid field type in map", func() {
+				schema := zyn.Object(map[string]zyn.Z{
+					"Name": zyn.String(),
+					"Age":  zyn.Number(),
+				})
+
+				data := map[string]any{
+					"name": "John",
+					"age":  "not a number",
+				}
+
+				_, err := schema.Dump(data)
+				Expect(err).To(MatchError(validate.FieldError{Message: "invalid field value for Age: :invalid type: expected number or convertible to number"}))
+			})
+
+			Specify("missing required field in map", func() {
+				schema := zyn.Object(map[string]zyn.Z{
+					"Name": zyn.String(),
+					"Age":  zyn.Number(),
+				})
+
+				data := map[string]any{
+					"name": "John",
+				}
+
+				_, err := schema.Dump(data)
+				Expect(err).To(MatchError(validate.FieldError{Message: "missing required field: Age"}))
+			})
+
+			Specify("invalid nested object in map", func() {
+				schema := zyn.Object(map[string]zyn.Z{
+					"Name": zyn.String(),
+					"Address": zyn.Object(map[string]zyn.Z{
+						"Street": zyn.String(),
+						"City":   zyn.String(),
+					}),
+				})
+
+				data := map[string]any{
+					"name":    "John",
+					"address": "not an object",
+				}
+
+				_, err := schema.Dump(data)
+				Expect(err).To(MatchError(validate.FieldError{Message: "invalid field value for Address: :invalid type: expected struct or map[string]any"}))
 			})
 		})
 	})
@@ -623,6 +836,26 @@ var _ = Describe("Object", func() {
 			Expect(dest.LastName).To(Equal("Doe"))
 			Expect(dest.Address.StreetName).To(Equal("123 Main St"))
 			Expect(dest.Address.CityName).To(Equal("Boston"))
+		})
+	})
+
+	Describe("Regression", func() {
+		Describe("UUID Object", func() {
+			It("Should parse correctly", func() {
+				type MyStruct struct {
+					Value uuid.UUID
+				}
+				var schema = zyn.Object(map[string]zyn.Z{
+					"value": zyn.UUID(),
+				})
+				value := uuid.New()
+				data := map[string]any{
+					"value": value.String(),
+				}
+				var res MyStruct
+				Expect(schema.Parse(data, &res)).To(Succeed())
+				Expect(res).To(Equal(MyStruct{Value: value}))
+			})
 		})
 	})
 })

@@ -42,19 +42,29 @@ func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
 }
 
 var _schema = ontology.NewSchema(OntologyType, map[string]zyn.Z{
-	"key":        zyn.Uint32(),
-	"name":       zyn.String(),
-	"node_key":   zyn.Uint16(),
-	"is_index":   zyn.Bool(),
-	"index":      zyn.Uint32(),
-	"data_type":  zyn.String(),
-	"internal":   zyn.Bool(),
-	"virtual":    zyn.Bool(),
-	"expression": zyn.String(),
+	"key":         zyn.Uint32().Coerce(),
+	"name":        zyn.String(),
+	"leaseholder": zyn.Uint16().Coerce(),
+	"is_index":    zyn.Bool(),
+	"index":       zyn.Uint32().Coerce(),
+	"data_type":   zyn.String(),
+	"internal":    zyn.Bool(),
+	"virtual":     zyn.Bool(),
+	"expression":  zyn.String(),
 })
 
 func newResource(c Channel) core.Resource {
-	return core.NewResource(_schema, OntologyID(c.Key()), c.Name, c)
+	return core.NewResource(_schema, OntologyID(c.Key()), c.Name, map[string]any{
+		"key":         c.Key(),
+		"name":        c.Name,
+		"leaseholder": c.Leaseholder,
+		"is_index":    c.IsIndex,
+		"index":       c.Index(),
+		"data_type":   c.DataType,
+		"internal":    c.Internal,
+		"virtual":     c.Virtual,
+		"expression":  c.Expression,
+	})
 }
 
 var _ ontology.Service = (*service)(nil)

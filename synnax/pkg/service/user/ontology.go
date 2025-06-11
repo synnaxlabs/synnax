@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
@@ -61,7 +61,7 @@ func KeyFromOntologyID(id ontology.ID) (uuid.UUID, error) {
 var OntologyTypeID = ontology.ID{Type: ontologyType, Key: ""}
 
 var _schema = ontology.NewSchema(ontologyType, map[string]zyn.Z{
-	"key":        zyn.String(),
+	"key":        zyn.UUID(),
 	"username":   zyn.String(),
 	"first_name": zyn.String(),
 	"last_name":  zyn.String(),

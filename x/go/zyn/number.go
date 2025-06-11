@@ -18,9 +18,12 @@ import (
 type NumberZ struct {
 	baseZ
 	expectedType reflect.Type
+	coerce       bool
 }
 
 func (n NumberZ) Optional() NumberZ { n.optional = true; return n }
+
+func (n NumberZ) Coerce() NumberZ { n.coerce = true; return n }
 
 func (n NumberZ) Shape() Shape { return n.baseZ }
 
@@ -115,15 +118,108 @@ func (n NumberZ) Dump(data any) (any, error) {
 		val = val.Elem()
 	}
 
-	// If an expected type is set, validate the input type
-	if n.expectedType != nil {
+	// If an expected type is set and coercion is not enabled, validate the input type
+	if n.expectedType != nil && !n.coerce {
 		if val.Type() != n.expectedType {
 			return nil, validate.FieldError{Message: "invalid type: expected " + n.expectedType.String()}
 		}
 		return val.Interface(), nil
 	}
 
-	// Handle the source value based on its type
+	// If the source is a custom type, try to convert it to a basic type first
+	if val.Type().Kind() != reflect.Float64 &&
+		val.Type().Kind() != reflect.Float32 &&
+		val.Type().Kind() != reflect.Int &&
+		val.Type().Kind() != reflect.Int8 &&
+		val.Type().Kind() != reflect.Int16 &&
+		val.Type().Kind() != reflect.Int32 &&
+		val.Type().Kind() != reflect.Int64 &&
+		val.Type().Kind() != reflect.Uint &&
+		val.Type().Kind() != reflect.Uint8 &&
+		val.Type().Kind() != reflect.Uint16 &&
+		val.Type().Kind() != reflect.Uint32 &&
+		val.Type().Kind() != reflect.Uint64 {
+		// Try to convert to float64 first
+		if val.CanConvert(reflect.TypeOf(float64(0))) {
+			val = val.Convert(reflect.TypeOf(float64(0)))
+		} else {
+			return nil, validate.FieldError{Message: "invalid type: expected number or convertible to number"}
+		}
+	}
+
+	// If an expected type is set, convert to that type
+	if n.expectedType != nil {
+		// Handle the conversion based on the expected type
+		switch n.expectedType.Kind() {
+		case reflect.Float64, reflect.Float32:
+			var floatVal float64
+			switch val.Kind() {
+			case reflect.Float64, reflect.Float32:
+				floatVal = val.Float()
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				floatVal = float64(val.Int())
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				floatVal = float64(val.Uint())
+			}
+			if n.expectedType.Kind() == reflect.Float32 {
+				return float32(floatVal), nil
+			}
+			return floatVal, nil
+
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			var intVal int64
+			switch val.Kind() {
+			case reflect.Float64, reflect.Float32:
+				floatVal := val.Float()
+				if floatVal != float64(int64(floatVal)) {
+					return nil, validate.FieldError{Message: "cannot convert float with fractional part to integer"}
+				}
+				intVal = int64(floatVal)
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				intVal = val.Int()
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				uintVal := val.Uint()
+				if uintVal > uint64(1<<63-1) {
+					return nil, validate.FieldError{Message: "unsigned integer value too large for signed integer type"}
+				}
+				intVal = int64(uintVal)
+			}
+			// Check for overflow
+			if intVal > (1<<(n.expectedType.Bits()-1)-1) || intVal < -(1<<(n.expectedType.Bits()-1)) {
+				return nil, validate.FieldError{Message: "integer value out of range for destination type"}
+			}
+			return reflect.ValueOf(intVal).Convert(n.expectedType).Interface(), nil
+
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			var uintVal uint64
+			switch val.Kind() {
+			case reflect.Float64, reflect.Float32:
+				floatVal := val.Float()
+				if floatVal != float64(int64(floatVal)) {
+					return nil, validate.FieldError{Message: "cannot convert float with fractional part to unsigned integer"}
+				}
+				if floatVal < 0 {
+					return nil, validate.FieldError{Message: "cannot convert negative value to unsigned integer"}
+				}
+				uintVal = uint64(floatVal)
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				intVal := val.Int()
+				if intVal < 0 {
+					return nil, validate.FieldError{Message: "cannot convert negative value to unsigned integer"}
+				}
+				uintVal = uint64(intVal)
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				uintVal = val.Uint()
+			}
+			// Check for overflow
+			if uintVal > (1<<n.expectedType.Bits() - 1) {
+				return nil, validate.FieldError{Message: "unsigned integer value out of range for destination type"}
+			}
+			return reflect.ValueOf(uintVal).Convert(n.expectedType).Interface(), nil
+		}
+	}
+
+	// If no expected type is set, return the value in its most appropriate form
 	switch val.Kind() {
 	case reflect.Float64, reflect.Float32:
 		return val.Float(), nil
@@ -132,10 +228,6 @@ func (n NumberZ) Dump(data any) (any, error) {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return val.Uint(), nil
 	default:
-		// Try to convert to float64 first
-		if val.CanConvert(reflect.TypeOf(float64(0))) {
-			return val.Convert(reflect.TypeOf(float64(0))).Float(), nil
-		}
 		return nil, validate.FieldError{Message: "invalid type: expected number or convertible to number"}
 	}
 }
@@ -186,8 +278,8 @@ func (n NumberZ) Parse(data any, dest any) error {
 	// Handle the source value based on its type
 	srcVal := reflect.ValueOf(data)
 
-	// If an expected type is set, validate the input type
-	if n.expectedType != nil {
+	// If an expected type is set and coercion is not enabled, validate the input type
+	if n.expectedType != nil && !n.coerce {
 		if srcVal.Type() != n.expectedType {
 			return validate.FieldError{Message: "invalid type: expected " + n.expectedType.String()}
 		}

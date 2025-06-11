@@ -31,14 +31,21 @@ func fieldByName(v reflect.Value, field string) reflect.Value {
 
 func (o ObjectZ) Optional() ObjectZ { o.optional = true; return o }
 
-func (o ObjectZ) Shape() Shape { return o.baseZ }
+type objectShape struct {
+	baseZ
+	fields map[string]Shape
+}
 
-func (o ObjectZ) Fields() map[string]Shape {
+func (o ObjectZ) Shape() Shape {
 	fields := make(map[string]Shape)
 	for k, v := range o.fields {
 		fields[k] = v.Shape()
 	}
-	return fields
+	return objectShape{baseZ: o.baseZ, fields: fields}
+}
+
+func (o objectShape) Fields() map[string]Shape {
+	return o.fields
 }
 
 func (o ObjectZ) Field(name string, shape Z) ObjectZ {
@@ -57,6 +64,41 @@ func (o ObjectZ) Dump(data any) (any, error) {
 		return nil, validate.FieldError{Message: "value is required but was nil"}
 	}
 
+	// Check if data is already a map[string]any
+	if dataMap, ok := data.(map[string]any); ok {
+		// Validate the map against the schema
+		result := make(map[string]any)
+		for fieldName, schema := range o.fields {
+			// Try both original and snake case field names
+			fieldData, exists := dataMap[fieldName]
+			if !exists {
+				fieldData, exists = dataMap[lo.SnakeCase(fieldName)]
+			}
+
+			if !exists {
+				if schema.Shape().Optional() {
+					continue
+				}
+				return nil, validate.FieldError{Message: "missing required field: " + fieldName}
+			}
+
+			fieldData, err := schema.Dump(fieldData)
+			if err != nil {
+				return nil, validate.FieldError{Message: "invalid field value for " + fieldName + ": " + err.Error()}
+			}
+
+			// Skip nil optional fields
+			if fieldData == nil && schema.Shape().Optional() {
+				continue
+			}
+
+			// Convert field name to snake case for output
+			snakeCaseName := lo.SnakeCase(fieldName)
+			result[snakeCaseName] = fieldData
+		}
+		return result, nil
+	}
+
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Ptr {
 		if val.IsNil() {
@@ -69,7 +111,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 	}
 
 	if val.Kind() != reflect.Struct {
-		return nil, validate.FieldError{Message: "invalid type: expected struct"}
+		return nil, validate.FieldError{Message: "invalid type: expected struct or map[string]any"}
 	}
 
 	result := make(map[string]any)

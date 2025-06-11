@@ -26,8 +26,8 @@ type TimeRange struct {
 }
 
 var TimeRangeZ = zyn.Object(map[string]zyn.Z{
-	"start": zyn.Int64(),
-	"end":   zyn.Int64(),
+	"start": zyn.Int64().Coerce(),
+	"end":   zyn.Int64().Coerce(),
 })
 
 // NewRangeSeconds creates a new TimeRange between start and end seconds.

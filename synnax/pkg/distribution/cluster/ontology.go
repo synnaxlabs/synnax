@@ -48,9 +48,9 @@ var (
 	_nodeSchema = ontology.NewSchema(
 		nodeOntologyType,
 		map[string]zyn.Z{
-			"key":     zyn.Uint16(),
+			"key":     zyn.Uint16().Coerce(),
 			"address": zyn.String(),
-			"state":   zyn.Uint32(),
+			"state":   zyn.Uint32().Coerce(),
 		},
 	)
 	_clusterSchema = ontology.NewSchema(

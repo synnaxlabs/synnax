@@ -68,7 +68,7 @@ func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 var _schema = ontology.NewSchema(
 	ontologyType,
 	map[string]zyn.Z{
-		"key":   zyn.String(),
+		"key":   zyn.UUID(),
 		"name":  zyn.String(),
 		"color": zyn.String(),
 	},

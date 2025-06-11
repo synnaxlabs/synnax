@@ -15,7 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
@@ -56,7 +56,7 @@ func KeysFromOntologyIds(ids []ontology.ID) (keys []Key, err error) {
 var _schema = ontology.NewSchema(
 	OntologyType,
 	map[string]zyn.Z{
-		"key":  zyn.Uint32(),
+		"key":  zyn.Uint32().Coerce(),
 		"name": zyn.String(),
 	},
 )

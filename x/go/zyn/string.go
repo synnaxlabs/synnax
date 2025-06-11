@@ -162,6 +162,28 @@ func (s StringZ) Parse(data any, dest any) error {
 		destVal = destVal.Elem()
 	}
 
+	// If UUID type is expected, handle both string and UUID destinations
+	if s.expectedType != nil && s.expectedType == reflect.TypeOf(uuid.UUID{}) {
+		parsedUUID, err := uuid.Parse(data_)
+		if err != nil {
+			return validate.FieldError{Message: "invalid UUID format: " + err.Error()}
+		}
+
+		// If destination is a string, set the string representation
+		if destVal.Kind() == reflect.String {
+			destVal.SetString(parsedUUID.String())
+			return nil
+		}
+
+		// If destination is a UUID, set the UUID value
+		if destVal.Type() == reflect.TypeOf(uuid.UUID{}) {
+			destVal.Set(reflect.ValueOf(parsedUUID))
+			return nil
+		}
+
+		return validate.FieldError{Message: "invalid destination type: expected string or UUID"}
+	}
+
 	destVal.SetString(data_)
 	return nil
 }
