@@ -1,0 +1,373 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package zyn_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/zyn"
+)
+
+func numberTest[V any](data V) func() {
+	return func() {
+		var dest V
+		ExpectWithOffset(1, zyn.Number().Parse(data, &dest)).To(Succeed())
+		Expect(dest).To(Equal(data))
+	}
+}
+
+var _ = Describe("Number", func() {
+	Describe("Basic Parsing", func() {
+		Specify("float64", numberTest[float64](12))
+		Specify("float32", numberTest[float32](12))
+		Specify("int", numberTest[int](12))
+		Specify("int8", numberTest[int8](12))
+		Specify("int16", numberTest[int16](12))
+		Specify("int32", numberTest[int32](12))
+		Specify("int64", numberTest[int64](12))
+		Specify("uint", numberTest[uint](12))
+		Specify("uint8", numberTest[uint8](12))
+		Specify("uint16", numberTest[uint16](12))
+		Specify("uint32", numberTest[uint32](12))
+		Specify("uint64", numberTest[uint64](12))
+	})
+
+	Describe("Type Validation", func() {
+		Describe("Float64", func() {
+			Specify("valid float64", func() {
+				var dest float64
+				Expect(zyn.Number().Float64().Parse(12.5, &dest)).To(Succeed())
+				Expect(dest).To(Equal(12.5))
+			})
+
+			Specify("invalid type", func() {
+				var dest float64
+				Expect(zyn.Number().Float64().Parse(12, &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected float64"}))
+			})
+
+			Specify("custom type", func() {
+				type MyFloat float64
+				var dest float64
+				Expect(zyn.Number().Float64().Parse(MyFloat(12.5), &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected float64"}))
+			})
+		})
+
+		Describe("Int", func() {
+			Specify("valid int", func() {
+				var dest int
+				Expect(zyn.Number().Int().Parse(12, &dest)).To(Succeed())
+				Expect(dest).To(Equal(12))
+			})
+
+			Specify("invalid type", func() {
+				var dest int
+				Expect(zyn.Number().Int().Parse(12.5, &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected int"}))
+			})
+
+			Specify("custom type", func() {
+				type MyInt int
+				var dest int
+				Expect(zyn.Number().Int().Parse(MyInt(12), &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected int"}))
+			})
+		})
+
+		Describe("Uint64", func() {
+			Specify("valid uint64", func() {
+				var dest uint64
+				Expect(zyn.Number().Uint64().Parse(uint64(12), &dest)).To(Succeed())
+				Expect(dest).To(Equal(uint64(12)))
+			})
+
+			Specify("invalid type", func() {
+				var dest uint64
+				Expect(zyn.Number().Uint64().Parse(12, &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected uint64"}))
+			})
+
+			Specify("custom type", func() {
+				type MyUint uint64
+				var dest uint64
+				Expect(zyn.Number().Uint64().Parse(MyUint(12), &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected uint64"}))
+			})
+		})
+	})
+
+	Describe("Conversion", func() {
+		Specify("int32 to float64", func() {
+			var (
+				data int32 = 12
+				dest float64
+			)
+			Expect(zyn.Number().Parse(data, &dest)).To(Succeed())
+		})
+	})
+
+	Describe("Edge Cases", func() {
+		Describe("Large Values", func() {
+			Specify("max int64", func() {
+				var dest int64
+				Expect(zyn.Number().Parse(int64(1<<63-1), &dest)).To(Succeed())
+				Expect(dest).To(Equal(int64(1<<63 - 1)))
+			})
+
+			Specify("max uint64", func() {
+				var dest uint64
+				Expect(zyn.Number().Parse(uint64(1<<64-1), &dest)).To(Succeed())
+				Expect(dest).To(Equal(uint64(1<<64 - 1)))
+			})
+
+			Specify("max float64", func() {
+				var dest float64
+				Expect(zyn.Number().Parse(1.7976931348623157e+308, &dest)).To(Succeed())
+				Expect(dest).To(Equal(1.7976931348623157e+308))
+			})
+		})
+
+		Describe("Precision", func() {
+			Specify("float64 to int64 with decimal", func() {
+				var dest int64
+				Expect(zyn.Number().Parse(12.5, &dest)).To(MatchError(validate.FieldError{Message: "cannot convert float with fractional part to integer"}))
+			})
+
+			Specify("float64 to uint64 with decimal", func() {
+				var dest uint64
+				Expect(zyn.Number().Parse(12.5, &dest)).To(MatchError(validate.FieldError{Message: "cannot convert float with fractional part to unsigned integer"}))
+			})
+
+			Specify("float64 to uint64 with negative", func() {
+				var dest uint64
+				Expect(zyn.Number().Parse(float64(-12), &dest)).To(MatchError(validate.FieldError{Message: "cannot convert negative value to unsigned integer"}))
+			})
+		})
+
+		Describe("Overflow", func() {
+			Specify("int64 to int8", func() {
+				var dest int8
+				Expect(zyn.Number().Parse(int64(1<<63-1), &dest)).To(MatchError(validate.FieldError{Message: "integer value out of range for destination type"}))
+			})
+
+			Specify("uint64 to int64", func() {
+				var dest int64
+				Expect(zyn.Number().Parse(uint64(1<<63), &dest)).To(MatchError(validate.FieldError{Message: "unsigned integer value too large for signed integer type"}))
+			})
+
+			Specify("uint64 to uint8", func() {
+				var dest uint8
+				Expect(zyn.Number().Parse(uint64(1<<64-1), &dest)).To(MatchError(validate.FieldError{Message: "unsigned integer value out of range for destination type"}))
+			})
+		})
+
+		Describe("Custom Types", func() {
+			type MyInt int
+			type MyFloat float64
+			type MyUint uint64
+
+			Specify("custom int type", func() {
+				var dest int
+				Expect(zyn.Number().Parse(MyInt(12), &dest)).To(Succeed())
+				Expect(dest).To(Equal(12))
+			})
+
+			Specify("custom float type", func() {
+				var dest float64
+				Expect(zyn.Number().Parse(MyFloat(12.5), &dest)).To(Succeed())
+				Expect(dest).To(Equal(12.5))
+			})
+
+			Specify("custom uint type", func() {
+				var dest uint64
+				Expect(zyn.Number().Parse(MyUint(1<<63), &dest)).To(Succeed())
+				Expect(dest).To(Equal(uint64(1 << 63)))
+			})
+		})
+
+		Describe("Invalid Inputs", func() {
+			Specify("non-numeric type", func() {
+				var dest int
+				Expect(zyn.Number().Parse("not a number", &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected number or convertible to number"}))
+			})
+
+			Specify("nil pointer", func() {
+				var dest *int
+				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.InvalidDestError("number")))
+			})
+
+			Specify("non-pointer destination", func() {
+				var dest int
+				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.InvalidDestError("number")))
+			})
+
+			Specify("nil interface", func() {
+				var dest any
+				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.InvalidDestError("number")))
+			})
+		})
+	})
+
+	Describe("Optional Fields", func() {
+		Specify("optional field with nil value", func() {
+			var dest *int
+			Expect(zyn.Number().Optional().Parse(nil, &dest)).To(Succeed())
+			Expect(dest).To(BeNil())
+		})
+
+		Specify("required field with nil value", func() {
+			var dest int
+			Expect(zyn.Number().Parse(nil, &dest)).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+		})
+
+		Specify("optional field with value", func() {
+			var dest *int
+			Expect(zyn.Number().Optional().Parse(42, &dest)).To(Succeed())
+			Expect(*dest).To(Equal(42))
+		})
+
+		Specify("optional field with custom type", func() {
+			type MyInt int
+			var dest *MyInt
+			Expect(zyn.Number().Optional().Parse(42, &dest)).To(Succeed())
+			Expect(*dest).To(Equal(MyInt(42)))
+		})
+	})
+
+	Describe("Dump", func() {
+		Describe("Basic Types", func() {
+			Specify("float64", func() {
+				result, err := zyn.Number().Dump(12.5)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(12.5))
+			})
+
+			Specify("float32", func() {
+				result, err := zyn.Number().Dump(float32(12.5))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(float64(12.5)))
+			})
+
+			Specify("int", func() {
+				result, err := zyn.Number().Dump(12)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(int64(12)))
+			})
+
+			Specify("uint", func() {
+				result, err := zyn.Number().Dump(uint(12))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(uint64(12)))
+			})
+		})
+
+		Describe("Type Validation", func() {
+			Specify("valid float64", func() {
+				result, err := zyn.Number().Float64().Dump(12.5)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(12.5))
+			})
+
+			Specify("valid float32", func() {
+				result, err := zyn.Number().Float32().Dump(float32(12.5))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(float32(12.5)))
+			})
+
+			Specify("invalid type", func() {
+				_, err := zyn.Number().Float64().Dump(12)
+				Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected float64"}))
+			})
+
+			Specify("valid int", func() {
+				result, err := zyn.Number().Int().Dump(12)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(12))
+			})
+
+			Specify("invalid type for int", func() {
+				_, err := zyn.Number().Int().Dump(12.5)
+				Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected int"}))
+			})
+		})
+
+		Describe("Edge Cases", func() {
+			Specify("max int64", func() {
+				result, err := zyn.Number().Dump(int64(1<<63 - 1))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(int64(1<<63 - 1)))
+			})
+
+			Specify("max uint64", func() {
+				result, err := zyn.Number().Dump(uint64(1<<64 - 1))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(uint64(1<<64 - 1)))
+			})
+
+			Specify("max float64", func() {
+				result, err := zyn.Number().Dump(1.7976931348623157e+308)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(1.7976931348623157e+308))
+			})
+		})
+
+		Describe("Custom Types", func() {
+			type MyInt int
+			type MyFloat float64
+			type MyUint uint64
+
+			Specify("custom int type", func() {
+				result, err := zyn.Number().Dump(MyInt(12))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(int64(12)))
+			})
+
+			Specify("custom float type", func() {
+				result, err := zyn.Number().Dump(MyFloat(12.5))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(12.5))
+			})
+
+			Specify("custom uint type", func() {
+				result, err := zyn.Number().Dump(MyUint(1 << 63))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(uint64(1 << 63)))
+			})
+		})
+
+		Describe("Invalid Inputs", func() {
+			Specify("non-numeric type", func() {
+				_, err := zyn.Number().Dump("not a number")
+				Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected number or convertible to number"}))
+			})
+
+			Specify("nil value", func() {
+				_, err := zyn.Number().Dump(nil)
+				Expect(err).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+			})
+
+			Specify("nil pointer", func() {
+				var n *int
+				_, err := zyn.Number().Dump(n)
+				Expect(err).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+			})
+
+			Specify("optional nil value", func() {
+				result, err := zyn.Number().Optional().Dump(nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(BeNil())
+			})
+
+			Specify("optional nil pointer", func() {
+				var n *int
+				result, err := zyn.Number().Optional().Dump(n)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(BeNil())
+			})
+		})
+	})
+})

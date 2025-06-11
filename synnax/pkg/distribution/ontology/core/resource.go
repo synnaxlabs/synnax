@@ -10,14 +10,40 @@
 package schema
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/zyn"
 )
+
+// Type is the type of an [Resource]/[Schema]. This type should be unique for each
+// [Schema] in the cluster. in the cluster. in the cluster. in the cluster.
+type Type string
+
+// ZeroType is the zero type and should be assigned to any resource.
+const ZeroType = Type("")
+
+// String implements fmt.Stringer.
+func (t Type) String() string { return string(t) }
+
+// Schema represents a dynamically defined schema for an arbitrary entity. This can be
+// though of as a dynamically defined struct that allows entities of different types
+// to be assembled into composite data structures (such as an ontology).
+type Schema struct {
+	// Type is the type of the entity. This type should be unique across all schemas
+	// in the cluster.
+	Type Type `json:"type" msgpack:"type"`
+	// Fields is a map of field names to field types.
+	zyn.Z
+}
+
+func NewSchema(t Type, fields map[string]zyn.Z) *Schema {
+	return &Schema{Type: t, Z: zyn.Object(fields)}
+}
 
 // ID is a unique identifier for a Resource. An example:
 //
@@ -81,8 +107,6 @@ func ParseIDs(s []string) ([]ID, error) {
 	return ids, nil
 }
 
-type Data = map[string]any
-
 // Resource represents an instance matching a [Schema] (think class and object in OOP).
 type Resource struct {
 	ID ID `json:"id" msgpack:"id"`
@@ -91,7 +115,11 @@ type Resource struct {
 	// Name is a human-readable name for the entity.
 	Name string `json:"name" msgpack:"name"`
 	// Data is the data for the entity. Data must match [Schema.Fields].
-	Data Data `json:"data" msgpack:"data"`
+	Data any `json:"data" msgpack:"data"`
+}
+
+func (r Resource) Parse(dest any) error {
+	return r.Schema.Parse(r.Data, dest)
 }
 
 func ResourceIDs(resources []Resource) []ID {
@@ -116,42 +144,13 @@ func (r Resource) GorpKey() ID { return r.ID }
 // SetOptions implements gorp.Entry.
 func (r Resource) SetOptions() []any { return nil }
 
-// Get is a strongly-typed getter for a [Resource] field value. Returns true if the
-// value was found, false otherwise. Panics if the value is not of the asserted type (
-// as defined in the type parameter).
-func Get[V Value](d Resource, k string) (v V, ok bool) {
-	rv, ok := d.Data[k]
-	if !ok {
-		return v, false
-	}
-	v, ok = rv.(V)
-	if !ok {
-		panic("[schema] - invalid field type")
-	}
-	return v, true
-}
-
-// Set is a strongly-typed setter for an [Resource] field value. Panics if the value is
-// not of the asserted type (as defined in the type parameter) or if the field is not
-// defined in the [Schema].
-func Set[V Value](D Resource, k string, v V) {
-	f, ok := D.Schema.Fields[k]
-	if !ok {
-		panic("[Schema] - field not found")
-	}
-	if !f.AssertValue(v) {
-		panic(fmt.Sprintf("[Schema] - invalid value %v for field %s", v, k))
-	}
-	D.Data[k] = v
-}
-
 // NewResource creates a new entity with the given schema and name and an empty set of
 // field data.
-func NewResource(schema *Schema, id ID, name string) Resource {
+func NewResource(schema *Schema, id ID, name string, data any) Resource {
 	return Resource{
 		Schema: schema,
 		ID:     id,
 		Name:   name,
-		Data:   make(map[string]any),
+		Data:   lo.Must(schema.Dump(data)),
 	}
 }
