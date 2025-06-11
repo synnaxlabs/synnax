@@ -20,9 +20,10 @@ export type NodeProps = {
   label?: { label?: string };
 };
 
-export const nodePropsZ = z
-  .looseObject({ key: Schematic.variantZ, color: color.crudeZ.optional() })
-  .passthrough();
+export const nodePropsZ = z.looseObject({
+  key: Schematic.variantZ,
+  color: color.crudeZ.optional(),
+});
 
 export interface EdgeProps extends Pick<Diagram.Edge, "color" | "variant"> {}
 
