@@ -17,30 +17,43 @@ package zyn
 type Type string
 
 const (
-	// Basic types
-	StringT Type = "string" // String type
-	BoolT   Type = "bool"   // Boolean type
-	NumberT Type = "number" // Generic number type
-	ObjectT Type = "object" // Object/struct type
-	UUIDT   Type = "uuid"   // UUID type
+	// StringT represents a string type in the schema.
+	StringT Type = "string"
+	// BoolT represents a boolean type in the schema.
+	BoolT Type = "bool"
+	// NumberT represents a generic number type in the schema.
+	NumberT Type = "number"
+	// ObjectT represents an object/struct type in the schema.
+	ObjectT Type = "object"
+	// UUIDT represents a UUID type in the schema.
+	UUIDT Type = "uuid"
 
-	// Integer types
-	IntT   Type = "int"   // int type
-	Int8T  Type = "int8"  // int8 type
-	Int16T Type = "int16" // int16 type
-	Int32T Type = "int32" // int32 type
-	Int64T Type = "int64" // int64 type
+	// IntT represents an int type in the schema.
+	IntT Type = "int"
+	// Int8T represents an int8 type in the schema.
+	Int8T Type = "int8"
+	// Int16T represents an int16 type in the schema.
+	Int16T Type = "int16"
+	// Int32T represents an int32 type in the schema.
+	Int32T Type = "int32"
+	// Int64T represents an int64 type in the schema.
+	Int64T Type = "int64"
 
-	// Unsigned integer types
-	UintT   Type = "uint"   // uint type
-	Uint8T  Type = "uint8"  // uint8 type
-	Uint16T Type = "uint16" // uint16 type
-	Uint32T Type = "uint32" // uint32 type
-	Uint64T Type = "uint64" // uint64 type
+	// UintT represents a uint type in the schema.
+	UintT Type = "uint"
+	// Uint8T represents a uint8 type in the schema.
+	Uint8T Type = "uint8"
+	// Uint16T represents a uint16 type in the schema.
+	Uint16T Type = "uint16"
+	// Uint32T represents a uint32 type in the schema.
+	Uint32T Type = "uint32"
+	// Uint64T represents a uint64 type in the schema.
+	Uint64T Type = "uint64"
 
-	// Floating-point types
-	Float32T Type = "float"  // float32 type
-	Float64T Type = "double" // float64 type
+	// Float32T represents a float32 type in the schema.
+	Float32T Type = "float"
+	// Float64T represents a float64 type in the schema.
+	Float64T Type = "double"
 )
 
 // Z is a schema that provides methods for validating and converting data.
