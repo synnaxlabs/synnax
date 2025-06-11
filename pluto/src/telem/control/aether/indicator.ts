@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
@@ -32,32 +32,32 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
   stopListeningStatus?: () => void;
   stopListeningColor?: () => void;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const { statusSource, colorSource } = this.state;
-    i.statusSource = await telem.useSource(ctx, statusSource, i.statusSource);
-    i.colorSource = await telem.useSource(ctx, colorSource, i.colorSource);
-    await this.updateState();
+    i.statusSource = telem.useSource(ctx, statusSource, i.statusSource);
+    i.colorSource = telem.useSource(ctx, colorSource, i.colorSource);
+    this.updateState();
     this.stopListeningStatus?.();
-    this.stopListeningStatus = i.statusSource.onChange(() => {
-      void this.updateState();
-    });
     this.stopListeningColor?.();
+    this.stopListeningStatus = i.statusSource.onChange(() => {
+      this.updateState();
+    });
     this.stopListeningColor = i.colorSource.onChange(() => {
-      void this.updateState();
+      this.updateState();
     });
   }
 
-  async afterDelete(): Promise<void> {
-    await this.internal.statusSource.cleanup?.();
-    await this.internal.colorSource.cleanup?.();
+  afterDelete(): void {
+    this.internal.statusSource.cleanup?.();
+    this.internal.colorSource.cleanup?.();
   }
 
-  async render(): Promise<void> {}
+  render(): void {}
 
-  async updateState(): Promise<void> {
-    const colorVal = await this.internal.colorSource.value();
-    const status = await this.internal.statusSource.value();
+  updateState(): void {
+    const colorVal = this.internal.colorSource.value();
+    const status = this.internal.statusSource.value();
     if (
       color.equals(colorVal, this.state.color) &&
       status.message === this.state.status.message

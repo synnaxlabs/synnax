@@ -63,14 +63,15 @@ export class Cache {
     for (const key of keys) if (!this.cache.has(key)) toFetch.push(key);
     if (toFetch.length === 0) return;
     const channels = await channelRetriever.retrieve(toFetch);
-    for (const channel of channels) {
+    channels.forEach((channel) => {
+      if (this.cache.has(channel.key)) return;
       const unary = new Unary({
         channel,
         dynamicBufferSize,
         instrumentation: ins.child(`cache-${channel.name}-${channel.key}`),
       });
-      if (!this.cache.has(channel.key)) this.cache.set(channel.key, unary);
-    }
+      this.cache.set(channel.key, unary);
+    });
   }
 
   /**

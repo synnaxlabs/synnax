@@ -11,7 +11,7 @@ import { DataType, TimeStamp } from "@synnaxlabs/x/telem";
 import { beforeAll, describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
-import { NotFoundError, QueryError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -194,7 +194,7 @@ describe("Channel", () => {
     test("retrieve by key - not found", async () => {
       await expect(
         async () => await client.channels.retrieve("1-1000"),
-      ).rejects.toThrow(QueryError);
+      ).rejects.toThrow(NotFoundError);
     });
     test("retrieve by name", async () => {
       const retrieved = await client.channels.retrieve(["test"]);
@@ -224,7 +224,7 @@ describe("Channel", () => {
       await client.channels.delete(channel.key);
       await expect(
         async () => await client.channels.retrieve(channel.key),
-      ).rejects.toThrow(QueryError);
+      ).rejects.toThrow(NotFoundError);
     });
     test("delete by name", async () => {
       const channel = await client.channels.create({
@@ -236,7 +236,7 @@ describe("Channel", () => {
       await client.channels.delete(["test"]);
       await expect(
         async () => await client.channels.retrieve(channel.key),
-      ).rejects.toThrow(QueryError);
+      ).rejects.toThrow(NotFoundError);
     });
   });
   describe("rename", async () => {

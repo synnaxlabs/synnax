@@ -9,7 +9,7 @@
 
 import { Legend } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import * as v0 from "@/lineplot/types/v0";
 
@@ -55,7 +55,7 @@ export const sliceStateZ = v0.sliceStateZ
   })
   .extend({
     version: z.literal("1.0.0"),
-    plots: z.record(stateZ),
+    plots: z.record(z.string(), stateZ),
   });
 
 export type SliceState = z.infer<typeof sliceStateZ>;

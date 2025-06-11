@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { bench, describe, vi } from "vitest";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 
@@ -34,7 +34,7 @@ const complexSchema = z.object({
 
 class BenchRoot extends aether.Composite<typeof complexSchema, {}, BenchL1> {
   schema = complexSchema;
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     ctx.set("rootTime", Date.now());
     ctx.set("rootValue", this.state.value);
   }
@@ -42,7 +42,7 @@ class BenchRoot extends aether.Composite<typeof complexSchema, {}, BenchL1> {
 
 class BenchL1 extends aether.Composite<typeof complexSchema, {}, BenchL2> {
   schema = complexSchema;
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const rootValue = ctx.getOptional<number>("rootValue") ?? 0;
     ctx.set("l1Value", rootValue * 2);
     ctx.set("l1Status", this.state.status);
@@ -51,7 +51,7 @@ class BenchL1 extends aether.Composite<typeof complexSchema, {}, BenchL2> {
 
 class BenchL2 extends aether.Composite<typeof complexSchema, {}, BenchL3> {
   schema = complexSchema;
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const l1Value = ctx.getOptional<number>("l1Value") ?? 0;
     ctx.set("l2Value", l1Value * 1.5);
     ctx.set("l2Status", this.state.status);
@@ -60,14 +60,14 @@ class BenchL2 extends aether.Composite<typeof complexSchema, {}, BenchL3> {
 
 class BenchL3 extends aether.Leaf<typeof complexSchema, { computedValue: number }> {
   schema = complexSchema;
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const l2Value = ctx.getOptional<number>("l2Value") ?? 0;
     this.internal.computedValue = l2Value + this.state.value;
   }
 }
 
 // Add this function before the benchmark
-async function createBenchmarkTree() {
+function createBenchmarkTree() {
   const root = new BenchRoot({
     key: "root",
     type: "bench",
@@ -77,7 +77,7 @@ async function createBenchmarkTree() {
   });
 
   // Initialize the root
-  await root._updateState(
+  root._updateState(
     ["root"],
     {
       id: "root-1",
@@ -95,7 +95,7 @@ async function createBenchmarkTree() {
   // Create 15 L1 nodes, each with 15 L2 nodes, each with 15 L3 nodes
   for (let i = 0; i < 15; i++) {
     const l1Key = `l1-${i}`;
-    await root._updateState(
+    root._updateState(
       ["root", l1Key],
       {
         id: l1Key,
@@ -119,7 +119,7 @@ async function createBenchmarkTree() {
 
     for (let j = 0; j < 15; j++) {
       const l2Key = `l2-${i}-${j}`;
-      await root._updateState(
+      root._updateState(
         ["root", l1Key, l2Key],
         {
           id: l2Key,
@@ -143,7 +143,7 @@ async function createBenchmarkTree() {
 
       for (let k = 0; k < 15; k++) {
         const l3Key = `l3-${i}-${j}-${k}`;
-        await root._updateState(
+        root._updateState(
           ["root", l1Key, l2Key, l3Key],
           {
             id: l3Key,
@@ -174,8 +174,8 @@ describe("deep tree updates", () => {
   let root: BenchRoot;
   bench(
     "should update the entire tree",
-    async () => {
-      await root._updateState(
+    () => {
+      root._updateState(
         ["root"],
         {
           id: "root-1",
@@ -192,8 +192,8 @@ describe("deep tree updates", () => {
     },
     {
       time: 1000,
-      setup: async () => {
-        root = await createBenchmarkTree();
+      setup: () => {
+        root = createBenchmarkTree();
       },
     },
   );

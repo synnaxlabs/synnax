@@ -46,7 +46,7 @@ type Request struct {
 	// Frame is the telemetry frame. This field is only acknowledged during Write commands.
 	Frame core.Frame `json:"frame" msgpack:"keys"`
 	// SeqNum is used to match the request with the response.
-	SeqNum int
+	SeqNum int `json:"seq_num" msgpack:"seq_num"`
 }
 
 // Response represents a response to a streaming call to a Writer.

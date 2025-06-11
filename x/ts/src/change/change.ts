@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export type Variant = "set" | "delete";
 
-export const Z = <V extends z.ZodTypeAny>(value: V) =>
+export const Z = <V extends z.ZodType>(value: V) =>
   z.object({
     variant: z.enum(["set", "delete"]),
     key: z.string(),

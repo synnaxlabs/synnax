@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { binary } from "@/binary";
 
@@ -57,7 +57,7 @@ describe("Codec", () => {
     });
   });
 
-  describe("CSVCodec", () => {
+  describe("CSV", () => {
     it("should correctly decode CSV data with valid input", () => {
       const sample = `
       channelKey,timeStamp,value
@@ -172,6 +172,122 @@ describe("Codec", () => {
       expect(decoded).toEqual({
         key: ["test", "test2"],
       });
+    });
+
+    it("should correctly encode array of objects to CSV", () => {
+      const sampleData = [
+        { name: "John", age: 30, city: "New York" },
+        { name: "Alice", age: 25, city: "Boston" },
+        { name: "Bob", age: 40, city: "Chicago" },
+      ];
+
+      const encoded = binary.CSV_CODEC.encodeString(sampleData);
+      expect(encoded).toBe(
+        'name,age,city\n"John",30,"New York"\n"Alice",25,"Boston"\n"Bob",40,"Chicago"',
+      );
+    });
+
+    it("should handle objects with missing values", () => {
+      const sampleData = [
+        { name: "John", age: 30, city: "New York" },
+        { name: "Alice", age: 25 },
+        { name: "Bob", city: "Chicago" },
+      ];
+
+      const encoded = binary.CSV_CODEC.encodeString(sampleData);
+      expect(encoded).toBe(
+        'name,age,city\n"John",30,"New York"\n"Alice",25,""\n"Bob","","Chicago"',
+      );
+    });
+
+    it("should handle objects with null and undefined values", () => {
+      const sampleData = [
+        { name: "John", age: null, city: undefined },
+        { name: "Alice", age: 25, city: null },
+      ];
+
+      const encoded = binary.CSV_CODEC.encodeString(sampleData);
+      expect(encoded).toBe('name,age,city\n"John","",""\n"Alice",25,""');
+    });
+
+    it("should handle different data types in objects", () => {
+      const sampleData = [
+        { name: "John", active: true, score: 98.5 },
+        { name: "Alice", active: false, score: 92.3 },
+      ];
+
+      const encoded = binary.CSV_CODEC.encodeString(sampleData);
+      expect(encoded).toBe('name,active,score\n"John",true,98.5\n"Alice",false,92.3');
+    });
+
+    it("should throw error when encoding empty array", () => {
+      const sampleData: unknown[] = [];
+
+      expect(() => {
+        binary.CSV_CODEC.encodeString(sampleData);
+      }).toThrow("Payload must be an array of objects");
+    });
+
+    it("should throw error when encoding non-array data", () => {
+      const sampleData = { name: "John", age: 30 };
+
+      expect(() => {
+        binary.CSV_CODEC.encodeString(sampleData);
+      }).toThrow("Payload must be an array of objects");
+    });
+
+    it("should round-trip encode and decode CSV data", () => {
+      const sampleData = [
+        { name: "John", age: 30, city: "New York" },
+        { name: "Alice", age: 25, city: "Boston" },
+      ];
+
+      const encoded = binary.CSV_CODEC.encode(sampleData);
+      const decoded = binary.CSV_CODEC.decode(encoded);
+
+      expect(decoded).toEqual({
+        name: ["John", "Alice"],
+        age: [30, 25],
+        city: ["New York", "Boston"],
+      });
+    });
+  });
+
+  describe("Text", () => {
+    it("should correctly encode and decode text", () => {
+      const sampleText = "Hello, world!";
+      const encoded = binary.TEXT_CODEC.encode(sampleText);
+      const decoded = binary.TEXT_CODEC.decode(encoded);
+      expect(decoded).toEqual(sampleText);
+    });
+
+    it("should handle empty strings", () => {
+      const sampleText = "";
+      const encoded = binary.TEXT_CODEC.encode(sampleText);
+      const decoded = binary.TEXT_CODEC.decode(encoded);
+      expect(decoded).toEqual(sampleText);
+    });
+
+    it("should validate text with schema", () => {
+      const textSchema = z.string();
+      const sampleText = "Validation test";
+      const encoded = binary.TEXT_CODEC.encode(sampleText);
+      const decoded = binary.TEXT_CODEC.decode(encoded, textSchema);
+      expect(decoded).toEqual(sampleText);
+    });
+
+    it("should handle special characters", () => {
+      const sampleText = "Special characters: äöü!@#$%^&*()_+";
+      const encoded = binary.TEXT_CODEC.encode(sampleText);
+      const decoded = binary.TEXT_CODEC.decode(encoded);
+      expect(decoded).toEqual(sampleText);
+    });
+
+    it("should handle multi-line text", () => {
+      const sampleText = "Line 1\nLine 2\nLine 3";
+      const encoded = binary.TEXT_CODEC.encode(sampleText);
+      const decoded = binary.TEXT_CODEC.decode(encoded);
+      expect(decoded).toEqual(sampleText);
     });
   });
 });

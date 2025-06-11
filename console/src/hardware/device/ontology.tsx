@@ -80,7 +80,7 @@ const useHandleChangeIdentifier = () => {
           properties: { ...device.properties, identifier: newIdentifier },
         });
       } catch (e) {
-        if (e instanceof Error && errors.CANCELED.matches(e)) return;
+        if (e instanceof Error && errors.Canceled.matches(e)) return;
         throw e;
       }
     }, "Failed to change identifier");
@@ -92,7 +92,7 @@ const useDelete = () => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
-      if (!(await confirm(resources))) throw errors.CANCELED;
+      if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
@@ -104,7 +104,7 @@ const useDelete = () => {
     mutationFn: async ({ selection, client }) =>
       await client.hardware.devices.delete(selection.resources.map((r) => r.id.key)),
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       handleError(e, `Failed to delete devices`);
     },
@@ -173,7 +173,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
-const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
+const Item: Tree.Item = ({ entry, className, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
   const devState = useState(id.key);
   const variant = devState?.variant;
@@ -184,10 +184,14 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   )
     message = devState.details.message;
   return (
-    <Tree.DefaultItem {...rest} className={CSS.B("device-ontology-item")} entry={entry}>
+    <Tree.DefaultItem
+      className={CSS(className, CSS.B("device-ontology-item"))}
+      entry={entry}
+      {...rest}
+    >
       {({ entry, onRename, key }) => (
         <>
-          <Align.Space x grow align="center">
+          <Align.Space x grow align="center" className={CSS.B("name-location")}>
             <Text.MaybeEditable
               id={`text-${key}`}
               level="p"

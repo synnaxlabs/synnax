@@ -21,7 +21,7 @@ import {
 import { type change, deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
@@ -173,7 +173,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   };
 
   return (
-    <Form.Form {...formCtx}>
+    <Form.Form<typeof formSchema> {...formCtx}>
       <Align.Space y size="large">
         <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
           <Align.Space y grow>

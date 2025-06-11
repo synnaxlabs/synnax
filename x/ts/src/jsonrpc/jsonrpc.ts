@@ -7,15 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import z from "zod/v4";
+
 import { binary } from "@/binary";
 
-export interface Message {
-  jsonrpc: string;
-  id?: number;
-  method?: string;
-  params?: unknown;
-  result?: unknown;
-}
+export const requestZ = z.object({
+  jsonrpc: z.literal("2.0"),
+  id: z.number().optional(),
+  method: z.string(),
+  params: z.unknown().optional(),
+});
+
+export type Request = z.infer<typeof requestZ>;
+
+export const responseZ = z.object({
+  jsonrpc: z.literal("2.0"),
+  id: z.number(),
+  result: z.unknown().optional(),
+  error: z
+    .object({
+      code: z.number(),
+      message: z.string(),
+      data: z.unknown().optional(),
+    })
+    .optional(),
+});
+
+export type Response = z.infer<typeof responseZ>;
+
+export type Message = z.infer<typeof requestZ> | z.infer<typeof responseZ>;
 
 export interface ChunkParser {
   (chunk: Uint8Array | ArrayBuffer | string): void;
@@ -77,7 +97,7 @@ export const streamDecodeChunks = (
         buffer = buffer.slice(expectedLength);
         expectedLength = null;
         const messageStr = decoder.decode(messageBytes);
-        const parsed = binary.JSON_CODEC.decodeString(messageStr);
+        const parsed = binary.JSON_CODEC.decodeString(messageStr, requestZ);
         onMessage(parsed);
       } else break;
     }

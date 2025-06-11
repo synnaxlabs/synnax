@@ -49,7 +49,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -176,8 +176,9 @@ export interface DiagramProps
   extends UseReturn,
     Omit<ComponentPropsWithoutRef<"div">, "onError">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible">,
-    Aether.CProps {
+    Aether.ComponentProps {
   triggers?: CoreViewport.UseTriggers;
+  dragHandleSelector?: string;
 }
 
 interface ContextValue {
@@ -229,6 +230,7 @@ const Core = ({
   fitViewOnResize,
   setFitViewOnResize,
   visible,
+  dragHandleSelector,
   ...rest
 }: DiagramProps): ReactElement => {
   const memoProps = useMemoDeepEqualProps({ visible });
@@ -243,20 +245,11 @@ const Core = ({
       ...memoProps,
     },
   });
-  useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
-
-  const defaultEdgeColor = color.hex(Theming.use().colors.gray.l11);
-
-  const triggers = useMemoCompare(
-    () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
-    Triggers.compareModeConfigs,
-    [pTriggers],
-  );
-
   const { fitView } = useReactFlow();
   const debouncedFitView = useDebouncedCallback((args) => void fitView(args), 50, [
     fitView,
   ]);
+
   const resizeRef = Canvas.useRegion(
     useCallback(
       (b) => {
@@ -265,6 +258,15 @@ const Core = ({
       },
       [setState, debouncedFitView, fitViewOnResize],
     ),
+  );
+  useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
+
+  const defaultEdgeColor = color.hex(Theming.use().colors.gray.l11);
+
+  const triggers = useMemoCompare(
+    () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
+    Triggers.compareModeConfigs,
+    [pTriggers],
   );
 
   // For some reason, react flow repeatedly calls onViewportChange with the same
@@ -318,8 +320,8 @@ const Core = ({
   const nodesRef = useRef(nodes);
   const nodes_ = useMemo(() => {
     nodesRef.current = nodes;
-    return translateNodesForward(nodes);
-  }, [nodes]);
+    return translateNodesForward(nodes, dragHandleSelector);
+  }, [nodes, dragHandleSelector]);
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) =>
@@ -397,8 +399,6 @@ const Core = ({
     [],
   );
 
-  const adjustable = Triggers.useHeld({ triggers: [["Q"]], loose: true });
-
   const triggerRef = useRef<HTMLElement>(null);
   Triggers.use({
     triggers: triggers.zoomReset,
@@ -473,7 +473,7 @@ const Core = ({
             {...rest}
             style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }}
             {...editableProps}
-            nodesDraggable={editable && !adjustable.held}
+            nodesDraggable={editable}
           />
         )}
       </Aether.Composite>

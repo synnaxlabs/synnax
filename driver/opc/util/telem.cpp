@@ -75,7 +75,7 @@ std::pair<size_t, xerrors::Error> ua_array_write_to_series(
 ) {
     const size_t size = val->arrayLength;
     if (size != target_size) {
-        const std::string verb = size < target_size ? "" : "large";
+        const std::string verb = size < target_size ? "small" : "large";
         return {
             0,
             xerrors::Error(

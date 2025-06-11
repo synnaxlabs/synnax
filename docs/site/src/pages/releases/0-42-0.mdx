@@ -1,0 +1,142 @@
+---
+title: "Version 0.42 Release Notes"
+---
+
+import Release from "@/components/releases/Release.astro";
+import { Image, Video } from "@/components/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Divider } from "@synnaxlabs/pluto";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.42.0"
+    date="May 13, 2025"
+    title="Performance & Client Library Improvements"
+    breakingChanges
+>
+
+<Image
+  client:only="react"
+  id="releases/0-42-0/thumbnail"
+  themed={false}
+  extension="svg"
+/>
+
+Synnax v0.42.0 has been dedicated to improving the performance of the Synnax Core,
+Driver, and Console UI, as well as refactoring the interfaces for writers in the Python,
+C++, and TypeScript clients.
+
+<Divider.Divider x />
+
+### Improved Client Library Writer API
+
+We've received feedback that the current writer API in Python, C++, and TypeScript has
+not been user friendly, especially when it comes to communicating errors. To address
+this, we've redesigned the `Writer` class in all three languages to be more simple and
+intuitive.
+
+Instead of returning a boolean from calls to `write`, writers will now directly raise
+any errors encountered during a write operation. This removes the need for calls to the
+`error` method, so we've completely removed it.
+
+#### Migration Guide
+
+To migrate to the new writer API:
+
+1. Remove any calls to `error`, and instead rely on the writer to raise an exception
+   when an error occurs.
+2. Remove any calls that check for the return value of `write`.
+
+For example, Python code that was previously written as:
+
+```python
+with client.open_writer(
+    channels=["pressure_0"],
+    start=sy.TimeStamp.now(),
+) as w:
+    for i in range(100)
+        if not w.write(
+            pressure_0=i,
+            timestamp=sy.TimeStamp.now(),
+        ):
+            print(w.error())
+```
+
+is now simply:
+
+```python
+with client.open_writer(
+    channels=["pressure_0"],
+    start=sy.TimeStamp.now(),
+) as w:
+    for i in range(100)
+        w.write(pressure_0=i, timestamp=sy.TimeStamp.now())
+```
+
+And TypeScript code that was previously written as:
+
+```typescript
+with client.openWriter({
+    channels: ["pressure_0"],
+    start: sy.TimeStamp.now(),
+}) as w:
+    for (let i = 0; i < 100; i++) {
+        if (!w.write({ pressure_0: i, timestamp: sy.TimeStamp.now() }))
+            console.error(w.error());
+    }
+```
+
+is now simply:
+
+```typescript
+with client.openWriter({
+    channels: ["pressure_0"],
+    start: sy.TimeStamp.now(),
+}) as w:
+    for (let i = 0; i < 100; i++)
+        w.write({ pressure_0: i, timestamp: sy.TimeStamp.now() });
+```
+
+<Divider.Divider x />
+
+### Performance Improvements
+
+These changes have been focused on improving the throughput, reducing the latency, and
+lowering the memory consumption of the Core, Driver, and Console UI. The following
+details are somewhat technical, and are provided for those curious about the inner
+workings of Synnax.
+
+#### Network Communication
+
+We've introduced a new telemetry encoding and decoding mechanism that reduces the amount
+of data transferred over the network. For small messages, such as digital write commands
+and their corresponding states, message sizes has been reduced by over 80% in most
+cases.
+
+#### Core
+
+The read, write, and data streaming pipelines have been tuned for higher throughput and
+lower memory consumption. Benchmarks have shown a 30% reduction in repeated memory
+allocations a 20% reduction in CPU consumption.
+
+#### Console
+
+The core rendering mechanisms of the Console UI have been refactored to reduce both GPU
+and CPU consumption. The most noticeable improvement is on devices that leverage GPUs
+built-in to the CPU, where we're leveraging text-atlases to reduce the number of GPU
+draw calls.
+
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
+
+- Added log persistence and rotation to the Synnax Core.
+- Fixed an issue where copying time ranges from a selected region on a real-time plot
+  would sometimes have incorrect values.
+- Fixed auto-complete of 'get' in calculated channels.
+- Fixed device toolbar statuses to still display when the toolbar is small.
+- Fixed an issue where control status transfers would not display correctly on the
+  Schematic.
+
+</Release>

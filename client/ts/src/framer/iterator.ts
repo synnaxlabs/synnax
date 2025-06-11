@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
+import { type Stream, type StreamClient } from "@synnaxlabs/freighter";
+import { errors } from "@synnaxlabs/x";
 import {
   type CrudeTimeRange,
   type CrudeTimeSpan,
@@ -16,7 +17,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x/telem";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { channel } from "@/channel";
 import { ReadAdapter } from "@/framer/adapter";
@@ -44,7 +45,7 @@ enum ResponseVariant {
 }
 
 const reqZ = z.object({
-  command: z.nativeEnum(Command),
+  command: z.enum(Command),
   span: TimeSpan.z.optional(),
   bounds: TimeRange.z.optional(),
   stamp: TimeStamp.z.optional(),
@@ -54,10 +55,10 @@ const reqZ = z.object({
 interface Request extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({
-  variant: z.nativeEnum(ResponseVariant),
+  variant: z.enum(ResponseVariant),
   ack: z.boolean(),
-  command: z.nativeEnum(Command),
-  error: errorZ.optional().nullable(),
+  command: z.enum(Command),
+  error: errors.payloadZ.optional().nullable(),
   frame: frameZ.optional(),
 });
 

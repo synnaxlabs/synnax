@@ -137,10 +137,10 @@ class WriteTask final : public task::Task {
         WriteTask &p;
         /// @brief the underlying wrapped sink that actually executes commands on
         /// the hardware.
-        std::unique_ptr<common::Sink> wrapped;
+        std::unique_ptr<common::Sink> internal;
 
         WrappedSink(WriteTask &p, std::unique_ptr<common::Sink> sink):
-            p(p), wrapped(std::move(sink)) {}
+            p(p), internal(std::move(sink)) {}
 
         /// @brief implements pipeline::Sink, and pipeline:Source
         void stopped_with_err(const xerrors::Error &err) override {
@@ -149,17 +149,23 @@ class WriteTask final : public task::Task {
         }
 
         xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
-            return this->wrapped->read(breaker, fr);
+            return this->internal->read(breaker, fr);
         }
 
         xerrors::Error write(const synnax::Frame &frame) override {
             if (frame.empty()) return xerrors::NIL;
-            auto err = this->wrapped->write(frame);
+            auto err = this->internal->write(frame);
             if (!err)
                 this->p.state.clear_warning();
             else if (err.matches(driver::TEMPORARY_HARDWARE_ERROR))
                 this->p.state.send_warning(err);
             return err;
+        }
+
+        [[nodiscard]] synnax::WriterConfig writer_config() const {
+            auto cfg = this->internal->writer_config();
+            if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
+            return cfg;
         }
     };
 
@@ -189,13 +195,13 @@ public:
         sink(std::make_shared<WrappedSink>(*this, std::move(sink))),
         cmd_write_pipe(
             streamer_factory,
-            this->sink->wrapped->streamer_config(),
+            this->sink->internal->streamer_config(),
             this->sink,
             breaker_cfg
         ),
         state_write_pipe(
             writer_factory,
-            this->sink->wrapped->writer_config(),
+            this->sink->writer_config(),
             this->sink,
             breaker_cfg
         ) {}
@@ -239,7 +245,7 @@ public:
         const auto write_pipe_stopped = this->cmd_write_pipe.stop();
         const auto state_pipe_stopped = this->state_write_pipe.stop();
         const auto stopped = write_pipe_stopped && state_pipe_stopped;
-        if (stopped) this->state.error(this->sink->wrapped->stop());
+        if (stopped) this->state.error(this->sink->internal->stop());
         if (propagate_state) this->state.send_stop(cmd_key);
         return stopped;
     }
@@ -249,10 +255,10 @@ public:
     /// Will be used internally to communicate the task state.
     bool start(const std::string &cmd_key) {
         this->stop("", false);
-        const auto sink_started = !this->state.error(this->sink->wrapped->start());
+        const auto sink_started = !this->state.error(this->sink->internal->start());
         if (sink_started) {
             this->cmd_write_pipe.start();
-            if (!this->sink->wrapped->writer_config().channels.empty())
+            if (!this->sink->internal->writer_config().channels.empty())
                 this->state_write_pipe.start();
         }
         this->state.send_start(cmd_key);

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type change, type UnknownRecord } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type change, type UnknownRecord, unknownRecordZ } from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 import {
   ALLOW_ALL_ONTOLOGY_TYPE as ALLOW_ALL_TYPE,
@@ -124,7 +124,7 @@ export interface SchemaField extends z.infer<typeof schemaFieldZ> {}
 
 export const schemaZ = z.object({
   type: resourceTypeZ,
-  fields: z.record(schemaFieldZ),
+  fields: z.record(z.string(), schemaFieldZ),
 });
 export interface Schema extends z.infer<typeof schemaZ> {}
 
@@ -133,11 +133,11 @@ export const resourceZ = z
     id: ID.z,
     name: z.string(),
     schema: schemaZ.optional().nullable(),
-    data: z.record(z.unknown()).optional().nullable(),
+    data: unknownRecordZ.optional().nullable(),
   })
   .transform((resource) => ({ key: resource.id.toString(), ...resource }));
 export interface Resource<T extends UnknownRecord = UnknownRecord>
-  extends Omit<z.output<typeof resourceZ>, "data"> {
+  extends Omit<z.infer<typeof resourceZ>, "data"> {
   data?: T | null;
 }
 

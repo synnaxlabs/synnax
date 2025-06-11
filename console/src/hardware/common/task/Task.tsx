@@ -13,7 +13,7 @@ import { type UnknownRecord } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
 import { type FC } from "react";
 import { useStore } from "react-redux";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
@@ -45,7 +45,7 @@ export type TaskProps<
 };
 
 export interface ConfigSchema<Config extends UnknownRecord = UnknownRecord>
-  extends z.ZodType<Config, z.ZodTypeDef, unknown> {}
+  extends z.ZodType<Config> {}
 
 export interface GetInitialPayloadArgs {
   deviceKey?: device.Key;

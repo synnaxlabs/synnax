@@ -13,7 +13,7 @@ import { color } from "@synnaxlabs/x";
 import { box } from "@synnaxlabs/x/spatial";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -29,7 +29,7 @@ import { rule } from "@/vis/rule/aether";
 export interface RuleProps
   extends Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition">,
     Omit<Align.SpaceProps, "color">,
-    Aether.CProps {
+    Aether.ComponentProps {
   label?: string;
   onLabelChange?: (label: string) => void;
   units?: string;
@@ -124,8 +124,7 @@ export const Rule = ({
 
   if (propsPosition == null || pixelPosition == null) return null;
 
-  const pColor = color.construct(colorVal);
-  const textColor = color.pickByContrast(pColor, "#000000", "#ffffff");
+  const textColor = color.pickByContrast(colorVal, color.BLACK, color.WHITE);
 
   const content = (
     <div

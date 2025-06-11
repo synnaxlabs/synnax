@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { unknownRecordZ } from "@synnaxlabs/x/record";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 

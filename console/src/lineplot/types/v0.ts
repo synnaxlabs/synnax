@@ -9,7 +9,7 @@
 
 import { Text, Viewport } from "@synnaxlabs/pluto";
 import { bounds, box, dimensions, direction, xy } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import {
   type AxisKey,
@@ -281,7 +281,7 @@ export const sliceStateZ = z.object({
   mode: Viewport.modeZ,
   control: controlStateZ,
   toolbar: toolbarStateZ,
-  plots: z.record(stateZ),
+  plots: z.record(z.string(), stateZ),
 });
 
 export type SliceState = z.infer<typeof sliceStateZ>;

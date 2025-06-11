@@ -9,7 +9,7 @@
 
 import "@/align/Stack.css";
 
-import { toArray } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
@@ -19,7 +19,7 @@ import { CSS } from "@/css";
 export interface StackProps extends SpaceProps {}
 
 export const Stack = ({ className, children, ...rest }: StackProps): ReactElement => {
-  const arr = toArray(children);
+  const arr = array.toArray(children);
   return (
     <Align.Space x className={CSS.B("stack")} {...rest}>
       <div />

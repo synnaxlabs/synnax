@@ -15,10 +15,9 @@ import {
   type TelemValue,
 } from "@synnaxlabs/x";
 import { box, xy } from "@synnaxlabs/x/spatial";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
-import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import { text } from "@/text/core";
 import { theming } from "@/theming/aether";
@@ -67,15 +66,14 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   values: MultiSeries = new MultiSeries([]);
   scrollState: ScrollbackState = ZERO_SCROLLBACK;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
     if (color.isZero(this.state.color))
       this.internal.textColor = i.theme.colors.gray.l11;
     else i.textColor = this.state.color;
-    i.telem = await telem.useSource(ctx, this.state.telem, i.telem);
-    const handleError = status.useErrorHandler(ctx);
+    i.telem = telem.useSource(ctx, this.state.telem, i.telem);
 
     const { scrolling, wheelPos } = this.state;
 
@@ -111,21 +109,18 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         this.setState((s) => ({ ...s, scrolling: false }));
     }
 
-    const [_, series] = await this.internal.telem.value();
-    this.values = new MultiSeries(series);
+    const [_, series] = this.internal.telem.value();
+    this.values = series;
     this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      this.internal.telem
-        .value()
-        .then(([_, series]) => {
-          this.checkEmpty();
-          this.values = new MultiSeries(series);
-          void this.requestRender();
-        })
-        .catch((e) => handleError(e, "Failed to update log"));
+      const [_, series] = this.internal.telem.value();
+      this.checkEmpty();
+      this.values = series;
+      this.requestRender();
     });
-    void this.requestRender();
+    if (!this.state.visible && !this.prevState.visible) return;
+    this.requestRender();
   }
 
   private checkEmpty(): void {
@@ -134,17 +129,17 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     this.setState((s) => ({ ...s, empty: actuallyEmpty }));
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     const { telem, render: renderCtx } = this.internal;
-    await telem.cleanup?.();
+    telem.cleanup?.();
     renderCtx.erase(box.construct(this.state.region), xy.ZERO, CANVAS);
   }
 
-  private async requestRender(): Promise<void> {
+  private requestRender(): void {
     const { render } = this.internal;
-    await render.loop.set({
+    render.loop.set({
       key: `${this.type}-${this.key}`,
-      render: async () => await this.render(),
+      render: () => this.render(),
       priority: "high",
       canvases: [CANVAS],
     });
@@ -168,12 +163,11 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     );
   }
 
-  async render(): Promise<render.Cleanup | undefined> {
+  render(): render.Cleanup | undefined {
     const { render: renderCtx } = this.internal;
     const region = this.state.region;
     if (box.areaIsZero(region)) return undefined;
-    if (!this.state.visible)
-      return async () => renderCtx.erase(region, xy.ZERO, CANVAS);
+    if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
     let range: Iterable<any>;
     if (!this.state.scrolling)
       range = this.values.subIterator(
@@ -196,7 +190,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     this.renderScrollbar(draw2d);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
-    return async ({ canvases }) =>
+    return ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.overshoot, ...canvases);
   }
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import * as v0 from "@/schematic/types/v0";
 import * as v1 from "@/schematic/types/v1";
@@ -17,6 +17,7 @@ import * as v3 from "@/schematic/types/v3";
 import * as v4 from "@/schematic/types/v4";
 
 export type NodeProps = v0.NodeProps;
+export type EdgeProps = v0.EdgeProps;
 export type State = v4.State;
 export type SliceState = v4.SliceState;
 export type ToolbarTab = v0.ToolbarTab;

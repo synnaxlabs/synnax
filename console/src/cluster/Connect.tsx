@@ -9,12 +9,12 @@
 
 import "@/cluster/Connect.css";
 
-import { type connection } from "@synnaxlabs/client";
+import { type connection, Synnax as Client } from "@synnaxlabs/client";
 import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { useSelectAllNames } from "@/cluster/selectors";
 import { clusterZ, set, setActive } from "@/cluster/slice";
@@ -23,6 +23,7 @@ import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
+import { useCreateOrRetrieve } from "@/workspace/useCreateOrRetrieve";
 
 export const CONNECT_LAYOUT_TYPE = "connectCluster";
 
@@ -53,15 +54,22 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
   const names = useSelectAllNames();
-  const formSchema = clusterZ.refine(
-    ({ name }) => !names.includes(name),
-    ({ name }) => ({ message: `${name} is already in use.`, path: ["name"] }),
-  );
+  const formSchema = clusterZ.check(({ value: { name }, issues }) => {
+    if (names.includes(name))
+      issues.push({
+        input: name,
+        code: "custom",
+        path: ["name"],
+        message: `${name} is already in use.`,
+      });
+  });
   const handleError = Status.useErrorHandler();
   const methods = Form.use<typeof formSchema>({
     schema: formSchema,
     values: { ...ZERO_VALUES },
   });
+
+  const createWS = useCreateOrRetrieve();
 
   const handleSubmit = (): void =>
     handleError(async () => {
@@ -74,15 +82,17 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
       setConnState(state);
       if (state.status !== "connected") return;
       setTimeout(() => {
-        dispatch(set({ ...data, key: state.clusterKey }));
+        const clusterProps = { ...data, key: state.clusterKey };
+        dispatch(set(clusterProps));
         dispatch(setActive(state.clusterKey));
+        createWS(new Client(clusterProps));
         onClose();
       }, 500);
     }, "Failed to connect to cluster");
 
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
-      <Form.Form {...methods}>
+      <Form.Form<typeof formSchema> {...methods}>
         <Align.Space className="console-form" grow size="tiny" justify="center">
           <Form.TextField
             path="name"

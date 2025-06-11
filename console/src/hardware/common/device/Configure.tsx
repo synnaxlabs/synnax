@@ -15,7 +15,7 @@ import { Align, Button, Form, Nav, Status, Synnax, Text } from "@synnaxlabs/plut
 import { deep, strings, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -93,7 +93,7 @@ const Internal = <
   });
   return (
     <Align.Space align="stretch" className={CSS.B("configure")} empty>
-      <Form.Form {...methods}>
+      <Form.Form<typeof configurablePropertiesZ> {...methods}>
         <Align.Space
           align="stretch"
           justify="center"

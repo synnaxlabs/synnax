@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, status, type UnknownRecord, zod } from "@synnaxlabs/x";
-import { z } from "zod";
+import { binary, status, type UnknownRecord, unknownRecordZ, zod } from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 import { decodeJSONString } from "@/util/decodeJSONString";
@@ -19,7 +19,7 @@ export type Key = z.infer<typeof keyZ>;
 export const stateZ = z.object({
   key: keyZ,
   variant: status.variantZ,
-  details: z.record(z.unknown()).or(z.string().transform(decodeJSONString)),
+  details: unknownRecordZ.or(z.string().transform(decodeJSONString)),
 });
 
 export interface State<Details extends {} = UnknownRecord>
@@ -35,7 +35,7 @@ export const deviceZ = z.object({
   model: z.string(),
   location: z.string(),
   configured: z.boolean().optional(),
-  properties: z.record(z.unknown()).or(z.string().transform(decodeJSONString)),
+  properties: unknownRecordZ.or(z.string().transform(decodeJSONString)),
   state: zod.nullToUndefined(stateZ),
 });
 
@@ -44,7 +44,7 @@ export interface Device<
   Make extends string = string,
   Model extends string = string,
   StateDetails extends {} = UnknownRecord,
-> extends Omit<z.output<typeof deviceZ>, "properties" | "state"> {
+> extends Omit<z.infer<typeof deviceZ>, "properties" | "state"> {
   properties: Properties;
   make: Make;
   model: Model;

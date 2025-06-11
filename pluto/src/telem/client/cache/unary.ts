@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type TimeRange } from "@synnaxlabs/client";
-import { type Series,Size } from "@synnaxlabs/x";
+import { MultiSeries, type Series, Size } from "@synnaxlabs/x";
 
 import { Dynamic, type DynamicProps } from "@/telem/client/cache/dynamic";
 import {
@@ -40,12 +40,12 @@ export class Unary {
     });
   }
 
-  writeDynamic(series: Series[]): Series[] {
+  writeDynamic(series: MultiSeries): MultiSeries {
     if (this.closed) {
       this.ins.L.warn(
         `Ignoring attempted dynamic write to a closed cache for channel ${this.channel.name}`,
       );
-      return [];
+      return new MultiSeries([]);
     }
     const { flushed, allocated } = this.dynamic.write(series);
     // Buffers that have been flushed out of the dynamic cache are written to the
@@ -58,7 +58,7 @@ export class Unary {
     return this.dynamic.leadingBuffer;
   }
 
-  writeStatic(series: Series[]): void {
+  writeStatic(series: MultiSeries): void {
     if (this.closed)
       return this.ins.L.warn(
         `Ignoring attempted static write to a closed cache for channel ${this.channel.name}`,
@@ -71,7 +71,7 @@ export class Unary {
       this.ins.L.warn(
         `Ignoring attempted dirty read from a closed cache for channel ${this.channel.name}`,
       );
-      return { series: [], gaps: [] };
+      return { series: new MultiSeries([]), gaps: [tr] };
     }
     return this.static.dirtyRead(tr);
   }

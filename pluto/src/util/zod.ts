@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
-export const prettyParse = <Z extends z.ZodTypeAny>(
+export const prettyParse = <Z extends z.ZodType>(
   schema: Z,
   value: unknown,
   prefix: string = "",
@@ -18,7 +18,7 @@ export const prettyParse = <Z extends z.ZodTypeAny>(
     return schema.parse(value);
   } catch (e) {
     if (e instanceof z.ZodError) {
-      const errors = e.errors.map((err) => {
+      const errors = e.issues.map((err) => {
         if (err.path.length === 0) return err.message;
         return `${err.path.join(".")}: ${err.message}`;
       });

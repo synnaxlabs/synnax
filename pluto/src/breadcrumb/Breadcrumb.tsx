@@ -10,7 +10,7 @@
 import "@/breadcrumb/Breadcrumb.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { caseconv, type Optional, toArray } from "@synnaxlabs/x";
+import { array, caseconv, type Optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
@@ -54,7 +54,8 @@ const normalizeSegments = (
   segments: string | Segment | (string | Segment)[],
   separator: string,
 ): Segment[] => {
-  const arr = toArray(segments)
+  const arr = array
+    .toArray(segments)
     .map((segment) => {
       if (typeof segment === "string")
         return segment.split(separator).map((label) => ({ label }));

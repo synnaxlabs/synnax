@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { math } from "@/math";
 import { primitive } from "@/primitive";
+import { type bounds } from "@/spatial";
 
 /** Time zone specification when working with time stamps. */
 export type TZInfo = "UTC" | "local";
@@ -62,17 +63,12 @@ const remainder = <T extends TimeStamp | TimeSpan>(
 /**
 UTC timestamp. Synnax uses a nanosecond precision int64 timestamp.
  *
- * DISCLAIMER: JavaScript stores all numbers as 64-bit floating point numbers, so we expect a
- * expect a precision drop from nanoseconds to quarter microseconds when communicating
- * with the server. If this is a problem, please file an issue with the Synnax team.
- * Caveat emptor.
- *
  * @param value - The timestamp value to parse. This can be any of the following:
  *
- * 1. A number representing the number of milliseconds since the Unix epoch.
- * 2. A javascript Date object.
+ * 1. A number representing the number of nanoseconds since the Unix epoch.
+ * 2. A JavaScript Date object.
  * 3. An array of numbers satisfying the DateComponents type, where the first element is the
- *   year, the second is the month, and the third is the day. To incraase resolution
+ *   year, the second is the month, and the third is the day. To increase resolution
  *   when using this method, use the add method. It's important to note that this initializes
  *   a timestamp at midnight UTC, regardless of the timezone specified.
  * 4. An ISO compliant date or date time string. The time zone component is ignored.
@@ -370,9 +366,7 @@ export class TimeStamp
     return Number(this.valueOf()) / Number(TimeSpan.SECOND.valueOf());
   }
 
-  /**
-   * @returns The number of milliseconds since the unix epoch.
-   */
+  /** @returns the floating point number of milliseconds since the unix epoch. */
   get milliseconds(): number {
     return Number(this.valueOf()) / Number(TimeStamp.MILLISECOND.valueOf());
   }
@@ -382,131 +376,129 @@ export class TimeStamp
     return Number(this.valueOf()) / Number(TimeStamp.MICROSECOND.valueOf());
   }
 
-  /** @returns the floating point number of nanoseconds since the unix epoch. */
+  /**
+   * @returns the floating point number of nanoseconds since the unix epoch.
+   * Note that since we're converting to float64, this reduces the resolution
+   * to a quarter of a microsecond.
+   */
   get nanoseconds(): number {
     return Number(this.valueOf());
   }
 
   /** @returns the integer year that the timestamp corresponds to. */
   get year(): number {
-    return this.date().getFullYear();
+    return this.date().getUTCFullYear();
   }
 
   /**
-   * Sets the year of the TimeStamp.
-   *
-   * @param year - The year to set.
-   * @returns A new TimeStamp with the updated year.
+   * @returns a copy of the timestamp with the year changed.
+   * @param year the value to set the year to.
    */
   setYear(year: number): TimeStamp {
     const d = this.date();
-    d.setFullYear(year);
+    d.setUTCFullYear(year);
     return new TimeStamp(d);
   }
 
   /** @returns the integer month that the timestamp corresponds to with its year. */
   get month(): number {
-    return this.date().getMonth();
+    return this.date().getUTCMonth();
   }
 
   /**
-   * Sets the month of the TimeStamp.
-   *
-   * @param month - The month to set.
-   * @returns A new TimeStamp with the updated month.
+   * @returns a copy of the timestamp with the month changed.
+   * @param month the value to set the month to.
    */
   setMonth(month: number): TimeStamp {
     const d = this.date();
-    d.setMonth(month);
+    d.setUTCMonth(month);
     return new TimeStamp(d);
   }
 
   /** @returns the integer day that the timestamp corresponds to within its month. */
   get day(): number {
-    return this.date().getDate();
+    return this.date().getUTCDate();
   }
 
   /**
-   * Sets the day of the TimeStamp.
-   *
-   * @param day - The day to set.
-   * @returns A new TimeStamp with the updated day.
+   * @returns a copy of the timestamp with the day changed.
+   * @param day the value the set the day to.
    */
   setDay(day: number): TimeStamp {
     const d = this.date();
-    d.setDate(day);
+    d.setUTCDate(day);
     return new TimeStamp(d);
-  }
-
-  /** @returns the integer hour that the timestamp corresponds to within its day. */
-  get hour(): number {
-    return this.date().getHours();
   }
 
   /**
-   * Sets the hour of the TimeStamp.
-   *
-   * @param hour - The hour to set.
-   * @returns A new TimeStamp with the updated hour.
+   * @returns the integer hour that the timestamp corresponds to within its day.
+   */
+  get hour(): number {
+    return this.date().getUTCHours();
+  }
+
+  /**
+   * @returns a copy of the timestamp with the hour changed.
+   * @param hour the value to set the hour to.
    */
   setHour(hour: number): TimeStamp {
     const d = this.date();
-    d.setHours(hour);
-    return new TimeStamp(d);
+    d.setUTCHours(hour);
+    return new TimeStamp(d, "UTC");
   }
 
   /** @returns the integer minute that the timestamp corresponds to within its hour. */
   get minute(): number {
-    return this.date().getMinutes();
+    return this.date().getUTCMinutes();
   }
 
   /**
-   * Sets the minute of the TimeStamp.
-   *
-   * @param minute - The minute to set.
-   * @returns A new TimeStamp with the updated minute.
+   * @returns a copy of the timestamp with the minute changed.
+   * @param minute the value to set the minute to.
    */
   setMinute(minute: number): TimeStamp {
     const d = this.date();
-    d.setMinutes(minute);
+    d.setUTCMinutes(minute);
     return new TimeStamp(d);
   }
 
-  /** @returns the integer second that the timestamp corresponds to within its minute. */
+  /**
+   * @returns the integer second that the timestamp corresponds to within its
+   * minute.
+   */
   get second(): number {
-    return this.date().getSeconds();
+    return this.date().getUTCSeconds();
   }
 
   /**
-   * Sets the second of the TimeStamp.
-   *
-   * @param second - The second to set.
-   * @returns A new TimeStamp with the updated second.
+   * @returns a copy of the timestamp with the second changed.
+   * @param second the value to set the second to.
    */
   setSecond(second: number): TimeStamp {
     const d = this.date();
-    d.setSeconds(second);
+    d.setUTCSeconds(second);
     return new TimeStamp(d);
-  }
-
-  /** @returns the integer millisecond that the timestamp corresponds to within its second. */
-  get millisecond(): number {
-    return this.date().getMilliseconds();
   }
 
   /**
-   * Sets the millisecond of the TimeStamp.
-   *
-   * @param millisecond - The millisecond to set.
-   * @returns A new TimeStamp with the updated millisecond.
+   * @reutrns the integer millisecond that the timestamp corresponds to within
+   * its second.
+   */
+  get millisecond(): number {
+    return this.date().getUTCMilliseconds();
+  }
+
+  /**
+   * @returns a copy of the timestamp with the milliseconds changed.
+   * @param millisecond the value to set the millisecond to.
    */
   setMillisecond(millisecond: number): TimeStamp {
     const d = this.date();
-    d.setMilliseconds(millisecond);
+    d.setUTCMilliseconds(millisecond);
     return new TimeStamp(d);
   }
 
-  /** @returns the ISO string representation of the TimeStamp. */
+  /** @returns the time stamp formatted as an ISO string. */
   toString(): string {
     return this.date().toISOString();
   }
@@ -514,7 +506,7 @@ export class TimeStamp
   /**
    * @returns A new TimeStamp that is the remainder of the TimeStamp divided by the
    * given span. This is useful in cases where you want only part of a TimeStamp's value
-   * i.e. the hours, minutes, seconds, milliseconds, microseconds, and nanoseconds but
+   * i.e., the hours, minutes, seconds, milliseconds, microseconds, and nanoseconds but
    * not the days, years, etc.
    *
    * @param divisor - The TimeSpan to divide by. Must be an even TimeSpan or TimeStamp. Even
@@ -586,56 +578,56 @@ export class TimeStamp
    * @param value - The number of nanoseconds.
    * @returns A TimeStamp representing the given number of nanoseconds.
    */
-  static nanoseconds(value: number): TimeStamp {
-    return new TimeStamp(value);
+  static nanoseconds(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+    return new TimeStamp(value, tzInfo);
   }
 
-  /* One nanosecond after the unix epoch */
+  /** One nanosecond after the unix epoch */
   static readonly NANOSECOND = TimeStamp.nanoseconds(1);
 
   /** @returns a new TimeStamp n microseconds after the unix epoch */
-  static microseconds(value: number): TimeStamp {
-    return TimeStamp.nanoseconds(value * 1000);
+  static microseconds(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+    return TimeStamp.nanoseconds(value * 1000, tzInfo);
   }
 
   /** One microsecond after the unix epoch */
   static readonly MICROSECOND = TimeStamp.microseconds(1);
 
   /** @returns a new TimeStamp n milliseconds after the unix epoch */
-  static milliseconds(value: number): TimeStamp {
-    return TimeStamp.microseconds(value * 1000);
+  static milliseconds(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+    return TimeStamp.microseconds(value * 1000, tzInfo);
   }
 
   /** One millisecond after the unix epoch */
   static readonly MILLISECOND = TimeStamp.milliseconds(1);
 
   /** @returns a new TimeStamp n seconds after the unix epoch */
-  static seconds(value: number): TimeStamp {
-    return TimeStamp.milliseconds(value * 1000);
+  static seconds(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+    return TimeStamp.milliseconds(value * 1000, tzInfo);
   }
 
   /** One second after the unix epoch */
   static readonly SECOND = TimeStamp.seconds(1);
 
   /** @returns a new TimeStamp n minutes after the unix epoch */
-  static minutes(value: number): TimeStamp {
-    return TimeStamp.seconds(value * 60);
+  static minutes(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+    return TimeStamp.seconds(value * 60, tzInfo);
   }
 
   /** One minute after the unix epoch */
   static readonly MINUTE = TimeStamp.minutes(1);
 
   /** @returns a new TimeStamp n hours after the unix epoch */
-  static hours(value: number): TimeStamp {
-    return TimeStamp.minutes(value * 60);
+  static hours(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+    return TimeStamp.minutes(value * 60, tzInfo);
   }
 
   /** One hour after the unix epoch */
   static readonly HOUR = TimeStamp.hours(1);
 
   /** @returns a new TimeStamp n days after the unix epoch */
-  static days(value: number): TimeStamp {
-    return TimeStamp.hours(value * 24);
+  static days(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+    return TimeStamp.hours(value * 24, tzInfo);
   }
 
   /** One day after the unix epoch */
@@ -1242,14 +1234,27 @@ export class TimeRange implements primitive.Stringer {
     return new TimeRange(this.end, this.start);
   }
 
+  get numericBounds(): bounds.Bounds<number> {
+    return {
+      lower: Number(this.start.valueOf()),
+      upper: Number(this.end.valueOf()),
+    };
+  }
+
   /**
    * Checks if the TimeRange is equal to the given TimeRange.
    *
    * @param other - The TimeRange to compare to.
    * @returns True if the TimeRange is equal to the given TimeRange.
    */
-  equals(other: TimeRange): boolean {
-    return this.start.equals(other.start) && this.end.equals(other.end);
+  equals(other: TimeRange, delta: TimeSpan = TimeSpan.ZERO): boolean {
+    if (delta.isZero)
+      return this.start.equals(other.start) && this.end.equals(other.end);
+    let startDist = this.start.sub(other.start).valueOf();
+    let endDist = this.end.sub(other.end).valueOf();
+    if (startDist < 0) startDist = -startDist;
+    if (endDist < 0) endDist = -endDist;
+    return startDist <= delta.valueOf() && endDist <= delta.valueOf();
   }
 
   /**
@@ -1271,11 +1276,14 @@ export class TimeRange implements primitive.Stringer {
   }
 
   /**
-   * Checks if if the two time ranges overlap. If the two time ranges are equal, returns
-   * true.  If the start of one range is equal to the end of the other, returns false.
-   * Just follow the rule [start, end) i.e. start is inclusive and end is exclusive.
+   * Checks if the two time ranges overlap. If the two time ranges are equal, returns
+   * true.  If the start of one range is equal to the end of the other, it returns false.
+   * Just follow the rule [start, end), i.e., start is inclusive, and the end is exclusive.
    *
    * @param other - The other TimeRange to compare to.
+   * @param delta - A TimeSpan representing the minimum amount of overlap for
+   * overlap to return true. This allows for a slight amount of leeway when
+   * checking for overlap.
    * @returns True if the two TimeRanges overlap, false otherwise.
    */
   overlapsWith(other: TimeRange, delta: TimeSpan = TimeSpan.ZERO): boolean {
@@ -1291,7 +1299,7 @@ export class TimeRange implements primitive.Stringer {
     const startOverlap = TimeStamp.max(rng.start, other.start);
     const endOverlap = TimeStamp.min(rng.end, other.end);
 
-    // If end of overlap is before start, then they don't overlap at all
+    // If the end of overlap is before the start, then they don't overlap at all
     if (endOverlap.before(startOverlap)) return false;
 
     // Calculate the duration of the overlap
@@ -1299,21 +1307,6 @@ export class TimeRange implements primitive.Stringer {
 
     // Compare the overlap duration with delta
     return overlapDuration.greaterThanOrEqual(delta);
-  }
-
-  /**
-   * Checks if the TimeRange is roughly equal to the given TimeRange.
-   *
-   * @param other - The TimeRange to compare to.
-   * @param delta - The TimeSpan representing the maximum allowed difference.
-   * @returns True if the TimeRange is roughly equal to the given TimeRange.
-   */
-  roughlyEquals(other: TimeRange, delta: TimeSpan): boolean {
-    let startDist = this.start.sub(other.start).valueOf();
-    let endDist = this.end.sub(other.end).valueOf();
-    if (startDist < 0) startDist = -startDist;
-    if (endDist < 0) endDist = -endDist;
-    return startDist <= delta.valueOf() && endDist <= delta.valueOf();
   }
 
   /**
@@ -1358,13 +1351,20 @@ export class TimeRange implements primitive.Stringer {
     return next;
   }
 
+  static max(...others: TimeRange[]): TimeRange {
+    return new TimeRange(
+      TimeStamp.min(...others.map((o) => o.start)),
+      TimeStamp.max(...others.map((o) => o.end)),
+    );
+  }
+
   /** The maximum possible time range. */
   static readonly MAX = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
 
   /** The minimum possible time range. */
   static readonly MIN = new TimeRange(TimeStamp.MAX, TimeStamp.MIN);
 
-  /** A zero time range. */
+  /** A time range whose start and end are both zero. */
   static readonly ZERO = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
 
   /** A zod schema for validating and transforming time ranges */
@@ -1678,7 +1678,7 @@ export class Size
     return this.valueOf() > other.valueOf();
   }
 
-  /** @returns true if the Size is smaller than the other sisze. */
+  /** @returns true if the Size is smaller than the other size. */
   smallerThan(other: CrudeSize): boolean {
     return this.valueOf() < other.valueOf();
   }
@@ -1927,9 +1927,9 @@ export const convertDataType = (
 };
 
 export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
+  if (b == 0) return a;
+  if (a == 0) return b;
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
   if (typeof a === "number" && typeof b === "number") return a + b;
-  if (b === 0) return a;
-  if (a === 0) return b;
   return Number(a) + Number(b);
 };

@@ -22,11 +22,10 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { v4 as uuid } from "uuid";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -115,7 +114,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
       );
-      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid() : layoutKey;
+      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid.create() : layoutKey;
       await client.hardware.devices.create<Properties>({
         key,
         name: methods.get<string>("name").value,
@@ -140,7 +139,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   return (
     <Align.Space align="start" className={CSS.B("opc-connect")} justify="center">
       <Align.Space className={CSS.B("content")} grow size="small">
-        <Form.Form {...methods}>
+        <Form.Form<typeof formSchema> {...methods}>
           <Form.TextField
             inputProps={{
               level: "h2",

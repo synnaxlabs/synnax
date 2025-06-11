@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type primitive, toArray } from "@synnaxlabs/x";
+import { array, type primitive } from "@synnaxlabs/x";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
 
 export type SingleParamAnalysisResult<
   T extends primitive.Value,
   K extends PartialTypeNameRecord<T>,
-> = T extends any
+> = T extends unknown
   ? { single: true; variant: K[keyof K]; normalized: T[]; actual: T }
   : never;
 
 export type MultiParamAnalysisResult<
   T extends primitive.Value,
   K extends PartialTypeNameRecord<T>,
-> = T extends any
+> = T extends unknown
   ? { single: false; variant: K[keyof K]; normalized: T[]; actual: T[] }
   : never;
 
@@ -54,12 +54,12 @@ export const analyzeParams = <
   T extends primitive.Value = primitive.Value,
   K extends PartialTypeNameRecord<T> = PartialTypeNameRecord<T>,
 >(
-  args: T extends any ? T | T[] : never,
+  args: T extends unknown ? T | T[] : never,
   variantMap: K,
   { convertNumericStrings = true }: AnalyzeParamsOptions = {},
 ): ParamAnalysisResult<T, K> => {
   const isSingle = !Array.isArray(args);
-  let normal = toArray(args);
+  let normal = array.toArray(args);
   const first = normal[0];
   const t = typeof first;
   let variant: K[keyof K];

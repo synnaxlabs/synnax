@@ -10,12 +10,11 @@
 import { group, NotFoundError, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, uuid } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
-import { createNewID } from "@/group/createNewID";
 import { MenuItem } from "@/group/MenuItem";
 import { useCreateFromSelection } from "@/group/useCreateFromSelection";
 import { useAsyncActionMenu } from "@/hooks/useAsyncAction";
@@ -157,7 +156,7 @@ const useCreateEmpty = (): ((
     mutationFn: async ({ client, selection: { resources }, newID }) => {
       const resource = resources[resources.length - 1];
       const [name, renamed] = await Tree.asyncRename(newID.toString());
-      if (!renamed) throw errors.CANCELED;
+      if (!renamed) throw new errors.Canceled();
       await client.ontology.groups.create(resource.id, name, newID.key);
     },
     onError: async (
@@ -165,12 +164,12 @@ const useCreateEmpty = (): ((
       { state: { nodes, setNodes }, handleError, selection, newID },
     ) => {
       if (selection.resources.length === 0) return;
-      if (!errors.CANCELED.matches(e)) handleError(e, "Failed to create group");
+      if (!errors.Canceled.matches(e)) handleError(e, "Failed to create group");
       setNodes([...Tree.removeNode({ tree: nodes, keys: newID.toString() })]);
     },
   });
   return async (props: Ontology.TreeContextMenuProps) =>
-    mut.mutate({ ...props, newID: createNewID() });
+    mut.mutate({ ...props, newID: group.ontologyID(uuid.create()) });
 };
 
 const handleRename: Ontology.HandleTreeRename = {

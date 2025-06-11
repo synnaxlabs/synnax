@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactNode } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type Icon } from "@/icon";
 import { type RenderProp as BaseRenderProp } from "@/util/renderProp";
@@ -21,6 +21,7 @@ export const specZ = z.object({
   editable: z.boolean().optional(),
   visible: z.boolean().optional(),
   unsavedChanges: z.boolean().optional(),
+  loading: z.boolean().optional(),
 });
 
 export interface Spec extends Omit<z.infer<typeof specZ>, "icon"> {
