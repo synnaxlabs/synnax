@@ -13,7 +13,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -26,14 +26,14 @@ import (
 // when the ontology requests them.
 type Service interface {
 	// Schema returns the schema of the entities returned by this service.
-	Schema() *Schema
+	Schema() *core.Schema
 	// RetrieveResource returns the resource with the give key (Name.Name). If the resource
 	// does not exist, returns a query.NotFound error.
 	RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (Resource, error)
 	// Observable is used by the ontology to subscribe to changes in the entities.
 	// This functionality is primarily used for search indexing. If the service's entities
 	// are static, use observe.Noop.
-	observe.Observable[iter.Nexter[schema.Change]]
+	observe.Observable[iter.Nexter[core.Change]]
 	// OpenNexter opens a Nexter type iterator that allows the caller to iterate over
 	// all resources held by the Service.
 	OpenNexter() (iter.NexterCloser[Resource], error)

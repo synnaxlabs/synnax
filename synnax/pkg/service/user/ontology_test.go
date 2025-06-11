@@ -15,11 +15,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 var _ = Describe("Ontology", Ordered, func() {
@@ -42,9 +42,11 @@ var _ = Describe("Ontology", Ordered, func() {
 	})
 	Describe("Schema", func() {
 		It("Should return the ontology schema", func() {
-			schema := svc.Schema()
-			Expect(schema.Fields).To(HaveKey("key"))
-			Expect(schema.Fields).To(HaveKey("username"))
+			schema := svc.Schema().Shape()
+			Expect(schema.Type()).To(Equal(zyn.ObjectT))
+			fields := schema.Fields()
+			Expect(fields).To(HaveKey("key"))
+			Expect(fields).To(HaveKey("username"))
 		})
 	})
 	Describe("retrieveResource", func() {
@@ -54,12 +56,9 @@ var _ = Describe("Ontology", Ordered, func() {
 			Expect(w.Create(ctx, u)).To(Succeed())
 			resource, err := svc.RetrieveResource(ctx, userKey.String(), nil)
 			Expect(err).ToNot(HaveOccurred())
-			key, ok := schema.Get[string](resource, "key")
-			Expect(ok).To(BeTrue())
-			Expect(key).To(Equal(userKey.String()))
-			username, ok := schema.Get[string](resource, "username")
-			Expect(ok).To(BeTrue())
-			Expect(username).To(Equal("test"))
+			var resU user.User
+			Expect(resource.Parse(&resU)).To(Succeed())
+			Expect(resU).To(Equal(u))
 		})
 	})
 

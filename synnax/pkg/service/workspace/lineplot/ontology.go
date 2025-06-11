@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 const ontologyType ontology.Type = "lineplot"
@@ -55,19 +56,16 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
-var _schema = &ontology.Schema{
-	Type: ontologyType,
-	Fields: map[string]schema.Field{
-		"key":  {Type: schema.String},
-		"name": {Type: schema.String},
+var _schema = ontology.NewSchema(
+	ontologyType,
+	map[string]zyn.Z{
+		"key":  zyn.UUID(),
+		"name": zyn.String(),
 	},
-}
+)
 
-func newResource(lineplot LinePlot) schema.Resource {
-	e := schema.NewResource(_schema, OntologyID(lineplot.Key), lineplot.Name)
-	schema.Set(e, "key", lineplot.Key.String())
-	schema.Set(e, "name", lineplot.Name)
-	return e
+func newResource(lineplot LinePlot) core.Resource {
+	return core.NewResource(_schema, OntologyID(lineplot.Key), lineplot.Name, lineplot)
 }
 
 var _ ontology.Service = (*Service)(nil)
@@ -75,7 +73,7 @@ var _ ontology.Service = (*Service)(nil)
 type change = changex.Change[uuid.UUID, LinePlot]
 
 // Schema implements ontology.Service.
-func (s *Service) Schema() *schema.Schema { return _schema }
+func (s *Service) Schema() *core.Schema { return _schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
@@ -85,8 +83,8 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 	return newResource(lineplot), err
 }
 
-func translateChange(c change) schema.Change {
-	return schema.Change{
+func translateChange(c change) core.Change {
+	return core.Change{
 		Variant: c.Variant,
 		Key:     OntologyID(c.Key),
 		Value:   newResource(c.Value),
@@ -94,17 +92,17 @@ func translateChange(c change) schema.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[schema.Change])) observe.Disconnect {
+func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[core.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, LinePlot]) {
-		f(ctx, iter.NexterTranslator[change, schema.Change]{Wrap: reader, Translate: translateChange})
+		f(ctx, iter.NexterTranslator[change, core.Change]{Wrap: reader, Translate: translateChange})
 	}
 	return gorp.Observe[uuid.UUID, LinePlot](s.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
+func (s *Service) OpenNexter() (iter.NexterCloser[core.Resource], error) {
 	n, err := gorp.WrapReader[uuid.UUID, LinePlot](s.DB).OpenNexter()
-	return iter.NexterCloserTranslator[LinePlot, schema.Resource]{
+	return iter.NexterCloserTranslator[LinePlot, core.Resource]{
 		Wrap:      n,
 		Translate: newResource,
 	}, err

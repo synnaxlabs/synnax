@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -23,60 +23,60 @@ var _ = Describe("Search", func() {
 		var idx *search.Index
 		BeforeEach(func() {
 			idx = MustSucceed(search.New())
-			idx.Register(ctx, schema.Schema{Type: "test"})
+			idx.Register(ctx, core.NewSchema("test", nil))
 		})
 		DescribeTable("Term Searching",
-			func(resource schema.Resource, term string) {
-				Expect(idx.Index([]schema.Resource{resource})).To(Succeed())
+			func(resource core.Resource, term string) {
+				Expect(idx.Index([]core.Resource{resource})).To(Succeed())
 				res := MustSucceed(idx.Search(ctx, search.Request{
 					Type: "test",
 					Term: term,
 				}))
 				Expect(res).To(HaveLen(1))
 			},
-			Entry("Exact Match", schema.Resource{
+			Entry("Exact Match", core.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "test",
 			}, "test"),
-			Entry("Word in Multi-Word Term", schema.Resource{
+			Entry("Word in Multi-Word Term", core.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "October 28 Gooster",
 			}, "Gooster"),
-			Entry("Near match to term", schema.Resource{
+			Entry("Near match to term", core.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "October 27 Gooster",
 			}, "Gooster"),
-			Entry("Underscores in term", schema.Resource{
+			Entry("Underscores in term", core.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "gse_ai_15",
 			}, "ai_15"),
-			Entry("All Caps", schema.Resource{
+			Entry("All Caps", core.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "BBTPC",
 			}, "BTTPC"),
-			Entry("Upper and lowercase", schema.Resource{
+			Entry("Upper and lowercase", core.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "BBTPC",
 			}, "bttpc"),
-			Entry("Close Match in Multi-Word Term", schema.Resource{
+			Entry("Close Match in Multi-Word Term", core.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "BBTPC Sim",
 			}, "BTTPC"),
-			Entry("Partial Match Beginning", schema.Resource{
+			Entry("Partial Match Beginning", core.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "Channel",
 			}, "ch"),
-			Entry("Scream Case with Underscore Exact", schema.Resource{
+			Entry("Scream Case with Underscore Exact", core.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "DAQ_PT",
 			}, "DAQ_PT"),
-			Entry("Scream Case with Underscore Partial", schema.Resource{
+			Entry("Scream Case with Underscore Partial", core.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "DAQ_PT_1",
 			}, "DAQ_PT"),
 		)
 		DescribeTable("Term Prioritization",
-			func(resources []schema.Resource, term string, first ontology.ID) {
+			func(resources []core.Resource, term string, first ontology.ID) {
 				Expect(idx.Index(resources)).To(Succeed())
 				res := MustSucceed(idx.Search(ctx, search.Request{
 					Type: "test",
@@ -85,7 +85,7 @@ var _ = Describe("Search", func() {
 				Expect(len(res)).To(BeNumerically(">", 0))
 				Expect(res[0].Key).To(Equal(first.Key))
 			},
-			Entry("Exact Match First", []schema.Resource{
+			Entry("Exact Match First", []core.Resource{
 				{
 					ID:   ontology.ID{Type: "test", Key: "1"},
 					Name: "test",
@@ -95,7 +95,7 @@ var _ = Describe("Search", func() {
 					Name: "test2",
 				},
 			}, "test", ontology.ID{Type: "test", Key: "1"}),
-			Entry("Exact Match Multiple Words", []schema.Resource{
+			Entry("Exact Match Multiple Words", []core.Resource{
 				{
 					ID:   ontology.ID{Type: "test", Key: "3"},
 					Name: "October 30 Gooster",
@@ -115,26 +115,26 @@ var _ = Describe("Search", func() {
 			}, "October 28 Gooster", ontology.ID{Type: "test", Key: "1"}),
 		)
 		DescribeTable("No Results",
-			func(resource schema.Resource, term string) {
-				Expect(idx.Index([]schema.Resource{resource})).To(Succeed())
+			func(resource core.Resource, term string) {
+				Expect(idx.Index([]core.Resource{resource})).To(Succeed())
 				res := MustSucceed(idx.Search(ctx, search.Request{
 					Type: "test",
 					Term: term,
 				}))
 				Expect(res).To(HaveLen(0))
 			},
-			Entry("No Match", schema.Resource{
+			Entry("No Match", core.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "test",
 			}, "nope"),
-			Entry("Partial No Match", schema.Resource{
+			Entry("Partial No Match", core.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "Channel",
 			}, "nn"),
 		)
 		Describe("Disjunction Fallback", func() {
 			It("Should fall back to a disjunction search if the conjunction search finds no results", func() {
-				Expect(idx.Index([]schema.Resource{
+				Expect(idx.Index([]core.Resource{
 					{
 						ID:   ontology.ID{Type: "test", Key: "1"},
 						Name: "My Blob",
@@ -147,7 +147,7 @@ var _ = Describe("Search", func() {
 				Expect(len(res)).To(BeNumerically(">", 0))
 			})
 			It("Should not fall back to a disjunction search if the conjunction search finds results", func() {
-				Expect(idx.Index([]schema.Resource{
+				Expect(idx.Index([]core.Resource{
 					{
 						ID:   ontology.ID{Type: "test", Key: "1"},
 						Name: "gse_ai_12",

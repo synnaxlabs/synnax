@@ -9,7 +9,11 @@
 
 package telem
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/synnaxlabs/x/zyn"
+)
 
 // TimeRange represents a range of time between two TimeStamp. It's important
 // to note that the start of the range is inclusive, while the end of the range is
@@ -20,6 +24,11 @@ type TimeRange struct {
 	// End is the end of the range.
 	End TimeStamp `json:"end" msgpack:"end"`
 }
+
+var TimeRangeZ = zyn.Object(map[string]zyn.Z{
+	"start": zyn.Int64(),
+	"end":   zyn.Int64(),
+})
 
 // NewRangeSeconds creates a new TimeRange between start and end seconds.
 func NewRangeSeconds(start, end int) TimeRange {

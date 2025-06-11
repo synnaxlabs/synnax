@@ -14,11 +14,12 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 const OntologyType ontology.Type = "channel"
@@ -40,33 +41,20 @@ func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
 	})
 }
 
-var _schema = &ontology.Schema{
-	Type: OntologyType,
-	Fields: map[string]schema.Field{
-		"key":        {Type: schema.Uint32},
-		"name":       {Type: schema.String},
-		"node_key":   {Type: schema.Uint32},
-		"is_index":   {Type: schema.Bool},
-		"index":      {Type: schema.String},
-		"data_type":  {Type: schema.String},
-		"internal":   {Type: schema.Bool},
-		"virtual":    {Type: schema.Bool},
-		"expression": {Type: schema.String},
-	},
-}
+var _schema = ontology.NewSchema(OntologyType, map[string]zyn.Z{
+	"key":        zyn.Uint32(),
+	"name":       zyn.String(),
+	"node_key":   zyn.Uint16(),
+	"is_index":   zyn.Bool(),
+	"index":      zyn.Uint32(),
+	"data_type":  zyn.String(),
+	"internal":   zyn.Bool(),
+	"virtual":    zyn.Bool(),
+	"expression": zyn.String(),
+})
 
-func newResource(c Channel) schema.Resource {
-	e := schema.NewResource(_schema, OntologyID(c.Key()), c.Name)
-	schema.Set(e, "key", uint32(c.Key()))
-	schema.Set(e, "name", c.Name)
-	schema.Set(e, "node_key", uint32(c.Leaseholder))
-	schema.Set(e, "is_index", c.IsIndex)
-	schema.Set(e, "index", c.Index().String())
-	schema.Set(e, "data_type", string(c.DataType))
-	schema.Set(e, "internal", c.Internal)
-	schema.Set(e, "virtual", c.Virtual)
-	schema.Set(e, "expression", c.Expression)
-	return e
+func newResource(c Channel) core.Resource {
+	return core.NewResource(_schema, OntologyID(c.Key()), c.Name, c)
 }
 
 var _ ontology.Service = (*service)(nil)
@@ -74,7 +62,7 @@ var _ ontology.Service = (*service)(nil)
 type change = changex.Change[Key, Channel]
 
 // Schema implements ontology.Service.
-func (s *service) Schema() *schema.Schema { return _schema }
+func (s *service) Schema() *core.Schema { return _schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
@@ -84,8 +72,8 @@ func (s *service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 	return newResource(ch), err
 }
 
-func translateChange(ch change) schema.Change {
-	return schema.Change{
+func translateChange(ch change) core.Change {
+	return core.Change{
 		Variant: ch.Variant,
 		Key:     OntologyID(ch.Key),
 		Value:   newResource(ch.Value),
@@ -93,9 +81,9 @@ func translateChange(ch change) schema.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) observe.Disconnect {
+func (s *service) OnChange(f func(context.Context, iter.Nexter[core.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
-		f(ctx, iter.NexterTranslator[change, schema.Change]{
+		f(ctx, iter.NexterTranslator[change, core.Change]{
 			Wrap:      reader,
 			Translate: translateChange,
 		})
@@ -108,9 +96,9 @@ func (s *service) NewObservable() observe.Observable[gorp.TxReader[Key, Channel]
 }
 
 // OpenNexter implements ontology.Service.
-func (s *service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
+func (s *service) OpenNexter() (iter.NexterCloser[core.Resource], error) {
 	n, err := gorp.WrapReader[Key, Channel](s.DB).OpenNexter()
-	return iter.NexterCloserTranslator[Channel, schema.Resource]{
+	return iter.NexterCloserTranslator[Channel, core.Resource]{
 		Wrap:      n,
 		Translate: newResource,
 	}, err

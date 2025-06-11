@@ -12,7 +12,7 @@ package ontology
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
@@ -20,26 +20,23 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-// BuiltIn is a resource type that is built into the ontology.
-const BuiltIn Type = "builtin"
+// BuiltInType is a resource type that is built into the ontology.
+const BuiltInType Type = "builtin"
 
 var (
 	// RootID is the root resource in the ontology. All other resources are reachable by
 	// traversing the ontology from the root.
-	RootID       = ID{Type: BuiltIn, Key: "root"}
+	RootID       = ID{Type: BuiltInType, Key: "root"}
 	rootResource = Resource{ID: RootID, Name: "root"}
 )
 
 type builtinService struct {
-	observe.Noop[iter.Nexter[schema.Change]]
+	observe.Noop[iter.Nexter[core.Change]]
 }
 
 var _ Service = (*builtinService)(nil)
 
-var builtinSchema = &Schema{
-	Type:   BuiltIn,
-	Fields: map[string]schema.Field{},
-}
+var builtinSchema = core.NewSchema(BuiltInType, nil)
 
 // Schema implements Service.
 func (b *builtinService) Schema() *Schema { return builtinSchema }

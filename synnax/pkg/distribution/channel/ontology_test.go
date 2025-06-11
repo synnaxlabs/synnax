@@ -56,9 +56,9 @@ var _ = Describe("Ontology", Ordered, func() {
 	Describe("OnChange", func() {
 		Context("Create", func() {
 			It("Should correctly propagate a create change", func() {
-				changes := make(chan []schema.Change, 5)
-				dc := services[1].OnChange(func(ctx context.Context, nexter iter.Nexter[schema.Change]) {
-					changesSlice := make([]schema.Change, 0)
+				changes := make(chan []core.Change, 5)
+				dc := services[1].OnChange(func(ctx context.Context, nexter iter.Nexter[core.Change]) {
+					changesSlice := make([]core.Change, 0)
 					for {
 						v, ok := nexter.Next(ctx)
 						if !ok {

@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -26,7 +26,7 @@ import (
 
 // mockIndexingService implements the Service interface for testing startup indexing
 type mockIndexingService struct {
-	observe.Observer[iter.Nexter[schema.Change]]
+	observe.Observer[iter.Nexter[core.Change]]
 	resources []Resource
 	schema_   *Schema
 }
@@ -35,7 +35,7 @@ var _ Service = (*mockIndexingService)(nil)
 
 func newMockIndexingService(schema_ *Schema, resources []Resource) *mockIndexingService {
 	return &mockIndexingService{
-		Observer:  observe.New[iter.Nexter[schema.Change]](),
+		Observer:  observe.New[iter.Nexter[core.Change]](),
 		resources: resources,
 		schema_:   schema_,
 	}
@@ -79,10 +79,7 @@ var _ = Describe("Search Indexing", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Create a schema with searchable fields
-		schema_ := &Schema{
-			Type:   testType,
-			Fields: map[string]schema.Field{},
-		}
+		schema_ := core.NewSchema(testType, nil)
 
 		// Create test resources
 		resources := []Resource{
