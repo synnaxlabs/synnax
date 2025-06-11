@@ -1866,15 +1866,19 @@ export const Switch = ({
 );
 
 export interface ButtonProps
-  extends Omit<DivProps, "onClick">,
+  extends Omit<DivProps, "onClick" | "onMouseDown" | "onMouseUp">,
     Pick<CoreButton.ButtonProps, "color" | "size" | "level" | "onClickDelay"> {
   label?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
+  onMouseDown?: MouseEventHandler<HTMLButtonElement>;
+  onMouseUp?: MouseEventHandler<HTMLButtonElement>;
   color?: color.Crude;
 }
 
 export const Button = ({
   onClick,
+  onMouseDown,
+  onMouseUp,
   orientation = "left",
   label = "",
   color,
@@ -1885,6 +1889,8 @@ export const Button = ({
   <Div orientation={orientation}>
     <CoreButton.Button
       onClick={onClick}
+      onMouseDown={onMouseDown}
+      onMouseUp={onMouseUp}
       color={color}
       size={size}
       level={level}
