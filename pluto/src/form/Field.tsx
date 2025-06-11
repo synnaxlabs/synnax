@@ -17,7 +17,6 @@ import {
   useContext,
   useField,
   type UseFieldProps,
-  type UseNullableFieldProps,
 } from "@/form/Form";
 import { Input } from "@/input";
 import { Select } from "@/select";
@@ -31,7 +30,7 @@ interface FieldChild<I extends Input.Value, O extends Input.Value>
 export type FieldProps<
   I extends Input.Value = string | number,
   O extends Input.Value = I,
-> = (UseFieldProps<I, O> | UseNullableFieldProps<I, O>) &
+> = UseFieldProps<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
     children?: RenderProp<FieldChild<I, O>>;
     padHelpText?: boolean;
@@ -58,12 +57,14 @@ export const Field = <
   optional,
   onChange,
   className,
+  defaultValue,
   ...rest
 }: FieldProps<I, O>): ReactElement | null => {
   const field = useField<I, O>({
     path,
-    optional: (optional as true) ?? (hideIfNull as true),
+    optional: optional ?? hideIfNull,
     onChange,
+    defaultValue,
   });
   const ctx = useContext();
   if (field == null) return null;
@@ -126,11 +127,15 @@ export const fieldBuilder =
       inputProps,
       path,
       fieldKey = baseFieldKey,
+      optional,
+      defaultValue,
       ...rest
     }: BuiltFieldProps<I, O, P>) => (
       <Field<I, O>
         {...fieldProps}
         {...rest}
+        defaultValue={defaultValue}
+        optional={optional}
         path={fieldKey ? `${path}.${fieldKey}` : path}
       >
         {(cp) => <Component {...cp} {...baseInputProps} {...(inputProps as P)} />}

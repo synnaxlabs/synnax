@@ -271,15 +271,18 @@ export class SetChannelValue
     return keys;
   }
 
-  set(value: number): void {
+  set(...values: number[]): void {
     this.runAsync(async () => {
       const { client } = this.controller.internal;
       if (client == null) return;
       const ch = await client.channels.retrieve(this.props.channel);
-      const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: value };
+      const fr: Record<channel.KeyOrName, CrudeSeries> = { [ch.key]: values };
       if (ch.index !== 0) {
         const index = await client.channels.retrieve(ch.index);
-        fr[index.key] = TimeStamp.now();
+        const now = TimeStamp.now();
+        fr[index.key] = Array.from({ length: values.length }, (_, i) =>
+          now.add(TimeSpan.nanoseconds(i)),
+        );
       }
       await this.controller.set(fr);
     }, "failed to set channel value");

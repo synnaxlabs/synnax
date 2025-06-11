@@ -165,8 +165,8 @@ export class SinkPipeline<V>
     });
   }
 
-  set(value: V): void {
-    return this.inlet.set(value);
+  set(...values: V[]): void {
+    return this.inlet.set(...values);
   }
 
   cleanup(): void {

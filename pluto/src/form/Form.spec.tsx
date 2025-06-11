@@ -19,14 +19,16 @@ import { Input } from "@/input";
 const basicFormSchema = z
   .object({
     name: z.string(),
+    optionalField: z.string().optional(),
     age: z.number().min(5, "You must be at least 5 years old."),
     nested: z.object({ ssn: z.string(), ein: z.string().optional() }),
     array: z.array(z.object({ name: z.string() })),
   })
-  .superRefine((c, ctx) => {
-    if (c.name === "Billy Bob")
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+  .check((ctx) => {
+    if (ctx.value.name === "Billy Bob")
+      ctx.issues.push({
+        input: ctx.value.name,
+        code: "custom",
         message: "You cannot be named Billy Bob.",
         path: ["name"],
         params: { variant: "warning" },
@@ -197,6 +199,25 @@ describe("Form", () => {
         wrapper,
       });
       expect(result.current.required).toBe(true);
+    });
+    it("should set the default value if the field is null", () => {
+      const { result } = renderHook(
+        () => Form.useField<string>({ path: "optionalField", defaultValue: "cat" }),
+        {
+          wrapper,
+        },
+      );
+      expect(result.current.value).toBe("cat");
+    });
+
+    it("should respect the initial value if it is provided", () => {
+      const { result } = renderHook(
+        () => Form.useField<string>({ path: "name", defaultValue: "Federico" }),
+        {
+          wrapper,
+        },
+      );
+      expect(result.current.value).toBe("John Doe");
     });
   });
 

@@ -71,7 +71,7 @@ export interface Source<V> extends Telem, observe.Observable<void> {
 }
 
 export interface Sink<V> extends Telem {
-  set: (value: V) => void;
+  set: (...values: V[]) => void;
 }
 
 export interface SourceTransformer<I, O> extends Telem, Source<O> {
@@ -130,10 +130,10 @@ export type StringSource = Source<string>;
 export const stringSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("string") });
 export type StringSourceSpec = z.infer<typeof stringSourceSpecZ>;
 
-export class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
+export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
   private props_: z.infer<P> | undefined = undefined;
   private readonly uProps_: unknown | undefined = undefined;
-  schema: P | undefined = undefined;
+  abstract schema: P;
 
   constructor(props: unknown) {
     super();
@@ -142,7 +142,7 @@ export class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
 
   get props(): z.infer<P> {
     if (this.props_ == null) {
-      const res = this._schema.safeParse(this.uProps_);
+      const res = this.schema.safeParse(this.uProps_);
       if (res.success) this.props_ = res.data;
       else
         throw new ValidationError(
@@ -153,23 +153,14 @@ export class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
     return this.props_;
   }
 
-  private get _schema(): P {
-    if (this.schema == null)
-      throw new ValidationError(
-        `[BaseTelem] - expected subclass to define props schema, but none was found.
-    Make sure to define a property 'schema' on the class.`,
-      );
-    return this.schema;
-  }
-
   cleanup(): void {}
 }
 
-export class AbstractSource<P extends z.ZodType> extends Base<P> {}
+export abstract class AbstractSource<P extends z.ZodType> extends Base<P> {}
 
-export class AbstractSink<P extends z.ZodType> extends Base<P> {}
+export abstract class AbstractSink<P extends z.ZodType> extends Base<P> {}
 
-export class UnarySourceTransformer<I, O, P extends z.ZodType>
+export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
   extends AbstractSource<P>
   implements SourceTransformer<I, O>
 {
@@ -201,15 +192,10 @@ export class UnarySourceTransformer<I, O, P extends z.ZodType>
     return true;
   }
 
-  protected transform(_: I): O {
-    throw new ValidationError(
-      `[UnarySourceTransformer] - expected subclass to define transform method, but none was found.
-      Make sure to define a method 'transform' on the class.`,
-    );
-  }
+  protected abstract transform(_: I): O;
 }
 
-export class MultiSourceTransformer<I, O, P extends z.ZodType>
+export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
   extends AbstractSource<P>
   implements SourceTransformer<I, O>
 {
@@ -226,15 +212,10 @@ export class MultiSourceTransformer<I, O, P extends z.ZodType>
     this.sources = { ...this.sources, ...sources };
   }
 
-  protected transform(_: Record<string, I>): O {
-    throw new ValidationError(
-      `[MultiSourceTransformer] - expected subclass to define transform method, but none was found.
-      Make sure to define a method 'transform' on the class.`,
-    );
-  }
+  protected abstract transform(_: Record<string, I>): O;
 }
 
-export class UnarySinkTransformer<I, O, P extends z.ZodType>
+export abstract class UnarySinkTransformer<I, O, P extends z.ZodType>
   extends Base<P>
   implements SinkTransformer<I, O>
 {
@@ -249,18 +230,13 @@ export class UnarySinkTransformer<I, O, P extends z.ZodType>
     return sink;
   }
 
-  set(value: I): void {
-    return this.sink.set(this.transform(value));
+  set(...values: I[]): void {
+    return this.sink.set(...this.transform(...values));
   }
 
   setSinks(sinks: Record<string, Sink<O>>): void {
     this.sinks = { ...this.sinks, ...sinks };
   }
 
-  protected transform(_: I): O {
-    throw new ValidationError(
-      `[UnarySinkTransformer] - expected subclass to define transform method, but none was found.
-      Make sure to define a method 'transform' on the class.`,
-    );
-  }
+  protected abstract transform(..._: I[]): O[];
 }

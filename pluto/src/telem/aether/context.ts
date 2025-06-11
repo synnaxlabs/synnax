@@ -106,8 +106,8 @@ class MemoizedSource<V> extends Memoized<Source<V>> {
 }
 
 class MemoizedSink<V> extends Memoized<Sink<V>> {
-  set(value: V): void {
-    this.wrapped.set(value);
+  set(...values: V[]): void {
+    this.wrapped.set(...values);
   }
 
   cleanup(): void {
