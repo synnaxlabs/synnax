@@ -9,7 +9,7 @@
 
 import { binary, URL } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Unreachable } from "@/errors";
 import { HTTPClient } from "@/http";

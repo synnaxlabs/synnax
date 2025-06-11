@@ -15,7 +15,7 @@ import { binary } from "@synnaxlabs/x";
 import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { type ReactElement, useEffect, useState } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { CSS } from "@/css";
 
@@ -72,7 +72,7 @@ export const InputFilePath = ({
 
 export interface InputFileContentsProps<P extends z.ZodType = z.ZodString>
   extends Omit<InputFilePathProps, "value" | "onChange"> {
-  onChange: (value: z.output<P>, path: string) => void;
+  onChange: (value: z.infer<P>, path: string) => void;
   initialPath?: string;
   schema?: P;
   decoder?: binary.Codec;

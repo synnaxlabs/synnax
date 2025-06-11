@@ -277,10 +277,8 @@ export const Dialog = ({
               loadCLS,
             )}
             style={{
-              // @ts-expect-error - css
-              "--pos-x": CSS.px(state.position.x),
-              "--pos-y": CSS.px(state.position.y),
-              "--el-width": CSS.px(state.triggerDims.width),
+              [CSS.var("pos-x")]: CSS.px(state.position.x),
+              [CSS.var("pos-y")]: CSS.px(state.position.y),
             }}
           >
             {isRenderProp(tip) ? tip(state) : formatTip(tip)}

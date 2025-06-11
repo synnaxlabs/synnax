@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
@@ -45,7 +45,7 @@ export class Client {
 
   async retrieve(keys: Key | Key[]): Promise<User | User[]> {
     const isMany = Array.isArray(keys);
-    const res = await this.reader.retrieve({ keys: toArray(keys) });
+    const res = await this.reader.retrieve({ keys: array.toArray(keys) });
     if (isMany) return res;
     if (res.length === 0) throw new NotFoundError(`No user with key ${keys} found`);
     if (res.length > 1)
@@ -59,7 +59,7 @@ export class Client {
 
   async retrieveByName(usernames: string | string[]): Promise<User | User[]> {
     const isMany = Array.isArray(usernames);
-    const res = await this.reader.retrieve({ usernames: toArray(usernames) });
+    const res = await this.reader.retrieve({ usernames: array.toArray(usernames) });
     if (isMany) return res;
     if (res.length === 0)
       throw new NotFoundError(`No user with username ${usernames} found`);

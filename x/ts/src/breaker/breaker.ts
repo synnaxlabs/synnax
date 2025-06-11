@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { sleep } from "@/sleep";
 import { type CrudeTimeSpan, TimeSpan } from "@/telem";
@@ -45,13 +45,13 @@ export class Breaker {
   }
 }
 
-export const breakerConfig = z.object({
+export const breakerConfigZ = z.object({
   baseInterval: TimeSpan.z.optional(),
   maxRetries: z.number().optional(),
   scale: z.number().optional(),
 });
 
-export interface Config extends Omit<z.infer<typeof breakerConfig>, "baseInterval"> {
+export interface Config extends Omit<z.infer<typeof breakerConfigZ>, "baseInterval"> {
   baseInterval?: CrudeTimeSpan;
   maxRetries?: number;
   scale?: number;

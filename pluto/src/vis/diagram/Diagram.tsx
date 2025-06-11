@@ -50,7 +50,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type z from "zod";
+import { type z } from "zod/v4";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -175,6 +175,7 @@ export interface DiagramProps
     Aether.ComponentProps,
     Pick<ReactFlowProps, "minZoom" | "maxZoom" | "fitViewOptions"> {
   triggers?: CoreViewport.UseTriggers;
+  dragHandleSelector?: string;
 }
 
 interface ContextValue {
@@ -267,6 +268,7 @@ const Core = ({
   visible,
   fitViewOptions = FIT_VIEW_OPTIONS,
   className,
+  dragHandleSelector,
   ...rest
 }: DiagramProps): ReactElement => {
   const memoProps = useMemoDeepEqualProps({ visible });
@@ -398,8 +400,8 @@ const Core = ({
   const nodesRef = useRef(nodes);
   const nodes_ = useMemo(() => {
     nodesRef.current = nodes;
-    return translateNodesForward(nodes);
-  }, [nodes]);
+    return translateNodesForward(nodes, dragHandleSelector);
+  }, [nodes, dragHandleSelector]);
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) =>
@@ -443,8 +445,6 @@ const Core = ({
   );
 
   const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
-
-  const adjustable = Triggers.useHeld({ triggers: [["Q"]], loose: true });
 
   const triggerRef = useRef<HTMLElement>(null);
   Triggers.use({
@@ -535,7 +535,7 @@ const Core = ({
             {...rest}
             style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }}
             {...editableProps}
-            nodesDraggable={editable && !adjustable.held}
+            nodesDraggable={editable}
           />
         )}
       </Aether.Composite>

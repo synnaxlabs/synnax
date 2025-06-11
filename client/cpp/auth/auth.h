@@ -39,8 +39,8 @@ using AuthLoginClient = freighter::
     UnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>;
 
 const xerrors::Error AUTH_ERROR = xerrors::SY.sub("auth");
-const xerrors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid-token");
-const xerrors::Error EXPIRED_TOKEN = AUTH_ERROR.sub("expired-token");
+const xerrors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid_token");
+const xerrors::Error EXPIRED_TOKEN = AUTH_ERROR.sub("expired_token");
 const xerrors::Error INVALID_CREDENTIALS = AUTH_ERROR.sub("invalid-credentials");
 const std::vector RETRY_ON_ERRORS = {INVALID_TOKEN, EXPIRED_TOKEN};
 

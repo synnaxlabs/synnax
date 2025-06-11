@@ -1,44 +1,39 @@
 name: Test - Driver
+
 on:
+  pull_request:
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.driver.yaml
+      - alamos/go/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - freighter/cpp/**
+      - freighter/go/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - scripts/check-clang-format.sh
+      - synnax/**
+      - x/cpp/**
+      - x/go/**
   push:
     branches:
       - main
       - rc
-  pull_request:
-    branches:
-      - main
-      - rc
   workflow_dispatch:
-permissions:
-  contents: write
-  packages: write
-jobs:
-  changes:
-    name: Changes
-    runs-on: ubuntu-latest
-    outputs:
-      cpp: ${{ steps.filter.outputs.cpp }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            cpp:
-              - .github/workflows/test.driver.yaml
-              - x/cpp/**
-              - client/cpp/**
-              - freighter/cpp/**
-              - driver/**
+jobs:
   server:
-    name: Server
-    needs: changes
+    name: Build - Server
     runs-on: ubuntu-latest
-    if: needs.changes.outputs.cpp == 'true' || needs.changes.outputs.py == 'true' || needs.changes.outputs.ts == 'true'
+    permissions:
+      packages: write
     env:
       GITHUB_SHA: ${{ github.sha }}
     steps:
@@ -63,10 +58,9 @@ jobs:
         run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
   test:
-    name: Test Driver
-    runs-on: ${{ matrix.os }}
+    name: Test
+    runs-on: ubuntu-latest
     needs: server
-    if: needs.changes.outputs.cpp == 'true'
     services:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -81,14 +75,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 9090:9090
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Deps On Ubuntu
+      - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev
@@ -97,14 +88,16 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
+        uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
+          disk-cache: ${{ github.workflow }}
           repository-cache: true
 
       - name: Check Formatting
-        run: bash scripts/check-clang-format.sh driver
+        run: ./scripts/check-clang-format.sh driver
 
       - name: Test Driver
-        run: bazel test --test_output=all //driver/... --jobs=1 --test_tag_filters=-hardware --nocache_test_results
+        run:
+          bazel test --test_output=all //driver/... --jobs=1
+          --test_tag_filters=-hardware --nocache_test_results

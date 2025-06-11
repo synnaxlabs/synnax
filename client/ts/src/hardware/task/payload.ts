@@ -14,7 +14,7 @@ import {
   type UnknownRecord,
   unknownRecordZ,
 } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type Key as RackKey } from "@/hardware/rack/payload";
 import { decodeJSONString } from "@/util/decodeJSONString";
@@ -56,7 +56,7 @@ export interface Payload<
   Config extends UnknownRecord = UnknownRecord,
   Details extends {} = UnknownRecord,
   Type extends string = string,
-> extends Omit<z.output<typeof taskZ>, "config" | "type" | "state"> {
+> extends Omit<z.infer<typeof taskZ>, "config" | "type" | "state"> {
   type: Type;
   config: Config;
   state?: State<Details> | null;

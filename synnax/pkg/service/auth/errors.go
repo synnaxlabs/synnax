@@ -11,9 +11,10 @@ package auth
 
 import (
 	"context"
+	"strings"
+
 	"github.com/synnaxlabs/synnax/pkg/service/auth/base"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"strings"
 
 	"github.com/synnaxlabs/x/errors"
 )
@@ -34,8 +35,8 @@ var (
 const (
 	errorType              = "sy.auth"
 	invalidCredentialsType = errorType + ".invalid-credentials"
-	invalidTokenType       = errorType + ".invalid-token"
-	expiredTokenType       = errorType + ".expired-token"
+	invalidTokenType       = errorType + ".invalid_token"
+	expiredTokenType       = errorType + ".expired_token"
 	repeatedUsernameType   = errorType + ".repeated-username"
 )
 

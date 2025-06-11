@@ -9,7 +9,7 @@
 
 import { Color } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import * as v1 from "@/layout/types/v1";
 import * as v3 from "@/layout/types/v3";

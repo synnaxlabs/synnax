@@ -18,7 +18,7 @@ import {
   type UnknownRecord,
 } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { Menu } from "@/menu";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { type Partial } from "@/deep/partial";
 import { isObject } from "@/identity";
@@ -61,12 +61,21 @@ export const overrideValidItems = <A, B>(
     // Iterate over each property in the override object
     for (const key in overrideObj) {
       const overrideValue = overrideObj[key];
-      const shape = currentSchema?.shape;
-      if (shape?.[key]) {
-        const result = shape[key].safeParse(overrideValue);
-        // Check if parsing succeeded
-        if (result.success) baseObj[key] = result.data;
-      } else if (
+      let shape = currentSchema?.shape;
+      if (shape != null)
+        while (shape != null) {
+          if (shape[key] != null) {
+            const result = shape[key].safeParse(overrideValue);
+            // Check if parsing succeeded
+            if (result.success) {
+              baseObj[key] = result.data;
+              break;
+            }
+          }
+          shape = shape.def?.shape;
+        }
+
+      if (
         typeof overrideValue === "object" &&
         !Array.isArray(overrideValue) &&
         overrideValue !== null

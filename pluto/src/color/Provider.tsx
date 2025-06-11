@@ -16,7 +16,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { useSyncedRef } from "@/hooks";
 import { type state } from "@/state";

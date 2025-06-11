@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useEffect } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { Aether } from "@/aether";
 import { useMemoDeepEqualProps } from "@/memo";
@@ -18,8 +18,7 @@ export interface UseProps extends Pick<z.input<typeof light.lightStateZ>, "sourc
   aetherKey: string;
 }
 
-export interface UseReturn
-  extends Pick<z.output<typeof light.lightStateZ>, "enabled"> {}
+export interface UseReturn extends Pick<z.infer<typeof light.lightStateZ>, "enabled"> {}
 
 export const use = ({ aetherKey, source }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqualProps({ source });

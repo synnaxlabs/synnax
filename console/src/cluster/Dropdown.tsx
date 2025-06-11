@@ -9,6 +9,7 @@
 
 import "@/cluster/Dropdown.css";
 
+import { Synnax as Client } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -37,6 +38,8 @@ import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
+import { clear } from "@/workspace/slice";
+import { useCreateOrRetrieve } from "@/workspace/useCreateOrRetrieve";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -46,9 +49,16 @@ export const List = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   const selected = active?.key ?? null;
   const addStatus = Status.useAdder();
+  const createWS = useCreateOrRetrieve();
 
   const handleConnect = (key: string | null): void => {
     dispatch(setActive(key));
+    const cluster = allClusters.find((c) => c.key === key);
+    if (cluster == null) {
+      dispatch(clear());
+      return;
+    }
+    createWS(new Client(cluster));
   };
 
   const validateName = useCallback(

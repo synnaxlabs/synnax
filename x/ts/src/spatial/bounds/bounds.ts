@@ -15,37 +15,117 @@ export { type Bounds, bounds };
 
 export type Crude<T extends numeric.Value = number> = CrudeBounds<T>;
 
+/** Options for the `construct` function. */
+interface ConstructOptions {
+  /**
+   * If true (default), automatically swaps the lower and upper bounds if the lower bound
+   * is greater than the upper bound. This ensures the resulting bounds are valid.
+   *
+   * @example
+   * // With makeValid: true (default)
+   * construct(10, 0) // => { lower: 0, upper: 10 }
+   *
+   * @example
+   * // With makeValid: false
+   * construct(10, 0, { makeValid: false }) // => { lower: 10, upper: 0 }
+   */
+  makeValid?: boolean;
+}
+
 export interface Construct {
   /**
-   * Constructs a bounds object from the given crude bounds.
+   * Constructs a bounds object from various input formats. The function supports multiple
+   * overloads to handle different input types:
    *
-   * @param bounds - The crude bounds to construct. Can either be a strict bounds object
-   * with a 'lower' and 'upper' property or an array of length 2. If the bounds are
-   * invalid i.e., the lower bound is greater than the upper bound, the bounds are
-   * swapped.
+   * 1. From a crude bounds object or array:
+   * ```typescript
+   * construct({ lower: 0, upper: 10 }) // => { lower: 0, upper: 10 }
+   * construct([0, 10]) // => { lower: 0, upper: 10 }
+   * ```
+   *
+   * 2. From separate lower and upper values:
+   * ```typescript
+   * construct(0, 10) // => { lower: 0, upper: 10 }
+   * construct(10) // => { lower: 0, upper: 10 }
+   * ```
+   *
+   * The function supports both number and bigint types through the generic parameter T.
+   * By default, T is number.
+   *
+   * Options:
+   * - makeValid: If true (default), swaps lower and upper bounds if lower > upper
+   *
+   * @param bounds - The input bounds to construct from. Can be:
+   *   - A bounds object with lower and upper properties
+   *   - An array of length 2 [lower, upper]
+   *   - A single number/bigint (treated as upper bound, with lower = 0)
+   *   - Two numbers/bigints (lower and upper bounds)
+   * @param options - Optional configuration for bounds construction
+   * @returns A bounds object with lower and upper properties
+   *
+   * @example
+   * // From bounds object
+   * construct({ lower: 0, upper: 10 })
+   * // => { lower: 0, upper: 10 }
+   *
+   * @example
+   * // From array
+   * construct([0, 10])
+   * // => { lower: 0, upper: 10 }
+   *
+   * @example
+   * // From separate values
+   * construct(0, 10)
+   * // => { lower: 0, upper: 10 }
+   *
+   * @example
+   * // Single value (upper bound only)
+   * construct(10)
+   * // => { lower: 0, upper: 10 }
+   *
+   * @example
+   * // With bigint
+   * construct(0n, 10n)
+   * // => { lower: 0n, upper: 10n }
+   *
+   * @example
+   * // Invalid bounds (lower > upper)
+   * construct(10, 0)
+   * // => { lower: 0, upper: 10 } (bounds are swapped)
    */
-  <T extends numeric.Value = number>(bounds: Crude<T>): Bounds<T>;
+  <T extends numeric.Value = number>(
+    bounds: Crude<T>,
+    options?: ConstructOptions,
+  ): Bounds<T>;
 
   /**
-   * Constructs a bounds object from the given lower and upper bounds.
-   * @param lower - The lower bound of the new bounds object.
-   * @param upper - The upper bound of the new bounds object.
+   * Constructs a bounds object from separate lower and upper values.
    *
-   * If only one argument is provided, it is assumed to be the upper bound and the lower
-   * bound is set to 0.
-   *
-   * If the lower bound is greater than the upper bound, the bounds are swapped.
+   * @param lower - The lower bound value
+   * @param upper - The upper bound value. If omitted, lower is used as the upper bound
+   * and 0 is used as the lower bound
+   * @returns A bounds object with lower and upper properties
    */
-  <T extends numeric.Value = number>(lower: T, upper?: T): Bounds<T>;
+  <T extends numeric.Value = number>(lower: T, upper?: T | ConstructOptions): Bounds<T>;
 
-  <T extends numeric.Value = number>(lower: T | Crude, upper?: T): Bounds<T>;
+  <T extends numeric.Value = number>(
+    lower: T | Crude,
+    upper?: T | ConstructOptions,
+    options?: ConstructOptions,
+  ): Bounds<T>;
 }
 
 export const construct = <T extends numeric.Value>(
   lower: T | Crude<T>,
-  upper?: T,
+  upper?: T | ConstructOptions,
+  options?: ConstructOptions,
 ): Bounds<T> => {
   const b: Bounds<T> = {} as const as Bounds<T>;
+  if (typeof upper === "object") {
+    options = upper;
+    upper = undefined;
+  }
+  options = { makeValid: true, ...options };
   if (typeof lower === "number" || typeof lower === "bigint")
     if (upper != null) {
       b.lower = lower;
@@ -57,8 +137,11 @@ export const construct = <T extends numeric.Value>(
   else if (Array.isArray(lower)) {
     if (lower.length !== 2) throw new Error("bounds: expected array of length 2");
     [b.lower, b.upper] = lower;
-  } else return makeValid(lower);
-  return makeValid(b);
+  } else {
+    b.lower = lower.lower;
+    b.upper = lower.upper;
+  }
+  return options?.makeValid ? makeValid<T>(b) : b;
 };
 
 /** A lower and upper bound of 0. */

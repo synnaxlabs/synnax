@@ -18,7 +18,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { errors, toArray } from "@synnaxlabs/x";
+import { array, errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -76,7 +76,7 @@ export const SnapshotMenuItem = ({
   ) : null;
 
 export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
-  toArray(ranges).map((range) => ({
+  array.toArray(ranges).map((range) => ({
     variant: "static",
     key: range.key,
     name: range.name,

@@ -21,6 +21,7 @@ import {
 import { type aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { CSS } from "@/css";
+import { status } from "@/status/aether";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 import { clear } from "@/vis/render/clear";
 import { Loop } from "@/vis/render/loop";
@@ -83,6 +84,8 @@ export class Context {
       upper2dCanvas,
       os,
       instrumentation,
+      status.useAdder(ctx),
+      status.useErrorHandler(ctx),
     );
     ctx.set(Context.CONTEXT_KEY, render);
     return render;
@@ -94,6 +97,8 @@ export class Context {
     upper2dCanvas: OffscreenCanvas,
     os: runtime.OS,
     instrumentation: Instrumentation,
+    addStatus: status.Adder,
+    handleError: status.ErrorHandler,
   ) {
     this.upper2dCanvas = upper2dCanvas;
     this.lower2dCanvas = lower2dCanvas;
@@ -129,7 +134,11 @@ export class Context {
     gl.disable(gl.DITHER);
     this.gl = gl;
 
-    this.glCanvas.oncontextlost = console.error;
+    this.glCanvas.oncontextlost = () =>
+      addStatus({
+        variant: "error",
+        message: "WebGL context lost",
+      });
 
     const afterRender = () => {
       this.gl.flush();
@@ -139,6 +148,7 @@ export class Context {
     this.loop = new Loop({
       afterRender,
       instrumentation: this.instrumentation,
+      handleError,
     });
 
     this.region = box.ZERO;

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { type AsyncTermSearcher, nullToArr, toArray, unique } from "@synnaxlabs/x";
+import { array, type AsyncTermSearcher, unique } from "@synnaxlabs/x";
 import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -58,13 +58,13 @@ export const SelectMultiple = ({
     ...dropProps
   } = Haul.useDragAndDrop({
     type: "Ranger.SelectMultiple",
-    canDrop: useCallback((hauled) => canDrop(hauled, toArray(value)), [value]),
+    canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
     onDrop: useCallback(
       ({ items }) => {
         const dropped = Haul.filterByType(HAUL_TYPE, items);
         if (dropped.length === 0) return [];
         const v = unique.unique([
-          ...toArray(value),
+          ...array.toArray(value),
           ...(dropped.map((c) => c.key) as ranger.Keys),
         ]);
         onChange(v, {
@@ -82,7 +82,7 @@ export const SelectMultiple = ({
   const handleSuccessfulDrop = useCallback(
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
       onChange(
-        toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
+        array.toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
         {
           clickedIndex: null,
           clicked: null,
@@ -101,7 +101,10 @@ export const SelectMultiple = ({
 
   return (
     <Select.Multiple
-      className={CSS(className, CSS.dropRegion(canDrop(dragging, toArray(value))))}
+      className={CSS(
+        className,
+        CSS.dropRegion(canDrop(dragging, array.toArray(value))),
+      )}
       value={value}
       onTagDragStart={onDragStart}
       onTagDragEnd={endDrag}
@@ -146,7 +149,7 @@ const useSingle = ({
 
   const { startDrag, ...dragProps } = Haul.useDragAndDrop({
     type: "Ranger.SelectSingle",
-    canDrop: useCallback((hauled) => canDrop(hauled, nullToArr(value)), [value]),
+    canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
     onDrop: useCallback(
       ({ items }) => {
         const ch = Haul.filterByType(HAUL_TYPE, items);
@@ -187,7 +190,10 @@ export const SelectSingle = ({
   return (
     <Select.Single<ranger.Key, ranger.Payload>
       data={data}
-      className={CSS(className, CSS.dropRegion(canDrop(dragging, nullToArr(value))))}
+      className={CSS(
+        className,
+        CSS.dropRegion(canDrop(dragging, array.toArray(value))),
+      )}
       value={value}
       onChange={onChange}
       columns={rangeCols}

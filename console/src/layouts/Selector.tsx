@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { useStore } from "react-redux";
-import { v4 as uuid } from "uuid";
 
 import { Hardware } from "@/hardware";
 import { type Layout } from "@/layout";
@@ -29,7 +29,7 @@ export const createSelectorLayout = (
   icon: "Visualize",
   location: "mosaic",
   name: "New Component",
-  key: uuid(),
+  key: uuid.create(),
 });
 
 export const Selector: Layout.Renderer = (props) => {

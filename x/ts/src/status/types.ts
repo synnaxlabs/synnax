@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z as status } from "zod";
+import { z } from "zod/v4";
 
-export const variantZ = status.enum([
+export const variantZ = z.enum([
   "success",
   "info",
   "warning",
@@ -19,4 +19,4 @@ export const variantZ = status.enum([
 ]);
 
 // Represents one of the possible variants of a status message.
-export type Variant = status.infer<typeof variantZ>;
+export type Variant = z.infer<typeof variantZ>;

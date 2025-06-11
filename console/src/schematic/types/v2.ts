@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { migrate } from "@synnaxlabs/x";
-import { v4 as uuid } from "uuid";
-import { z } from "zod";
+import { migrate, uuid } from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 import * as v1 from "@/schematic/types/v1";
 
@@ -49,7 +48,7 @@ export interface SliceState extends Omit<v1.SliceState, "version" | "schematics"
 
 export const stateMigration = migrate.createMigration<v1.State, State>({
   name: "schematic.state",
-  migrate: (state) => ({ ...state, version: VERSION, key: uuid(), type: TYPE }),
+  migrate: (state) => ({ ...state, version: VERSION, key: uuid.create(), type: TYPE }),
 });
 
 export const sliceMigration = migrate.createMigration<v1.SliceState, SliceState>({

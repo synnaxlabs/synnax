@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Optional, status, TimeStamp, unknownRecordZ } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const specZ = z.object({
   key: z.string(),

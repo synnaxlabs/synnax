@@ -9,7 +9,7 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
-import { ZodError } from "zod";
+import { ZodError } from "zod/v4";
 
 import { type DirectoryIngestor, type FileIngestor } from "@/import/ingestor";
 import { trimFileName } from "@/import/trimFileName";

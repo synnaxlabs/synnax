@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
@@ -179,6 +179,7 @@ import {
   PistonPump,
   type PistonPumpProps,
   PolygonSymbol,
+  type PreviewProps,
   PropellerAgitator,
   type PropellerAgitatorProps,
   Pump,
@@ -236,13 +237,13 @@ import {
   type VentProps,
 } from "@/vis/schematic/Symbols";
 
-export interface Spec<P extends object> {
+export interface Spec<P extends object = object> {
   key: Variant;
   name: string;
   Form: FC<SymbolFormProps>;
   Symbol: FC<SymbolProps<P>>;
   defaultProps: (t: Theming.Theme) => P;
-  Preview: FC<SymbolProps<P>>;
+  Preview: FC<PreviewProps<P>>;
   zIndex: number;
 }
 
@@ -1026,6 +1027,7 @@ const button: Spec<ButtonProps> = {
     color: t.colors.primary.z,
     ...zeroLabel("Button"),
     ...ZERO_BOOLEAN_SINK_PROPS,
+    mode: "fire",
     onClickDelay: 0,
     scale: null,
   }),
@@ -1258,7 +1260,7 @@ const textBox: Spec<TextBoxProps> = {
     ...ZERO_PROPS,
     ...ZERO_BOX_PROPS,
     level: "p",
-    text: "Text Box",
+    value: "Text Box",
     width: 75,
   }),
   Preview: TextBoxPreview,

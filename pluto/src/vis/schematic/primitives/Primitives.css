@@ -115,7 +115,6 @@
 
 .pluto-text-box {
     justify-content: center;
-    pointer-events: all !important;
     padding: 2px;
     width: "fit-content";
     white-space: nowrap;
@@ -198,7 +197,6 @@
 }
 
 .pluto-arrow {
-    pointer-events: all !important;
     &.pluto--top {
         transform: rotate(-90deg);
     }

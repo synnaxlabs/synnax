@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { policy } from "@synnaxlabs/client";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const ALLOW_ALL = "ALLOW_ALL";
 

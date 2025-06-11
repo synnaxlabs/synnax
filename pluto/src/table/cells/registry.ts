@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import {
   type CellProps,
@@ -31,7 +31,7 @@ export interface Spec<Z extends z.ZodObject> {
   key: Variant;
   name: string;
   Form: FC<FormProps>;
-  Cell: FC<CellProps<z.output<Z>>>;
+  Cell: FC<CellProps<z.infer<Z>>>;
   schema: Z;
   defaultProps: (t: Theming.Theme) => z.infer<Z>;
 }

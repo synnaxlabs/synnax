@@ -25,7 +25,7 @@ import {
 import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { baseFormSchema, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
@@ -65,7 +65,7 @@ const schema = baseFormSchema
     path: ["requires"],
   });
 
-type FormValues = z.output<typeof schema>;
+type FormValues = z.infer<typeof schema>;
 
 export const CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
 

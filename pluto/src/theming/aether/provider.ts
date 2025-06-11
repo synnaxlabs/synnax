@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
@@ -37,7 +37,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     const runAsync = status.useErrorHandler(ctx);
     runAsync(async () => {
       await this.loadFonts();
-    });
+    }, "failed to load theme fonts");
   }
 
   private async loadFonts(): Promise<void> {

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type direction, type location } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const Y1 = "y1";
 export const Y2 = "y2";
@@ -18,8 +18,9 @@ export const Y_AXIS_KEYS = [Y1, Y2, Y3, Y4] as const;
 export type YAxisKey = (typeof Y_AXIS_KEYS)[number];
 export const yAxisKeyZ = z.enum(Y_AXIS_KEYS);
 export type YAxisRecord<T> = Record<YAxisKey, T>;
-export const yAxisRecordZ = <T extends any[] | readonly any[]>(valueZ: z.ZodType<T>) =>
-  z.record(yAxisKeyZ, valueZ);
+export const yAxisRecordZ = <T extends unknown[] | readonly any[]>(
+  valueZ: z.ZodType<T>,
+) => z.record(yAxisKeyZ, valueZ);
 export type MultiYAxisRecord<T> = Record<YAxisKey, T>;
 
 export const X1 = "x1";

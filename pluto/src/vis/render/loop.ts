@@ -8,16 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { Mutex } from "async-mutex";
 
+import { type status } from "@/status/aether";
 import { type CanvasVariant } from "@/vis/render/context";
 
 /**
- * An async function that executes the render in the loop. This function can return an
+ * A function that executes the render in the loop. This function can return an
  * optional cleanup that is executed before the next render. This cleanup function will
  * be passed the signature of the previous render request.
  */
-export type Func = () => Cleanup | void;
+export interface Renderer {
+  (): Cleanup | void;
+}
 
 /**
  * A request to render a component in the aether visualization tree. Submit a complete
@@ -47,7 +49,7 @@ export interface Request {
    * cleanup that is executed before the next render. This cleanup function will be
    * passed the signature of the previous render request.
    */
-  render: Func;
+  render: Renderer;
 }
 
 /**
@@ -62,6 +64,7 @@ export type Priority = "high" | "low";
 const PRIORITY_ORDER: Record<Priority, number> = { high: 1, low: 0 };
 
 interface LoopArgs {
+  handleError: status.ErrorHandler;
   afterRender?: () => void;
   instrumentation?: alamos.Instrumentation;
 }
@@ -69,17 +72,8 @@ interface LoopArgs {
 /**
  * Implements the core rendering loop for Synnax's aether components, accepting requests
  * into a queue and rendering them in sync with the browser animation frame.
- *
- * --------------------------------- VERY IMPORTANT ------------------------------
- *
- * This loop intentionally permits race conditions under render request priorities that
- * are not 'high'. This ensures smooth rendering performance on low priority cycles
- * (such as new data), while guarantees proper rendering on high priority cycles
- * (such as the user altering the layout)).
  */
 export class Loop {
-  /** To lock things so renders don't collide */
-  private readonly mutex = new Mutex();
   /** Stores the current requests for rendering. */
   private readonly requests = new Map<string, Request>();
   /** Stores render cleanup functions for clearing canvases and other resources. */
@@ -88,16 +82,18 @@ export class Loop {
   private readonly afterRender?: () => void;
   /** Instrumentation for logging, tracing, metrics, etc. */
   private readonly instrumentation: alamos.Instrumentation;
-  /** The total number of renders */
-  private count = 0;
+  /** A function to add status to the status bar. */
+  private readonly handleError: status.ErrorHandler;
 
   constructor({
     afterRender,
     instrumentation = alamos.Instrumentation.NOOP,
+    handleError,
   }: LoopArgs) {
     this.afterRender = afterRender;
     this.instrumentation = instrumentation;
-    void this.start();
+    this.handleError = handleError;
+    this.start();
   }
 
   /**
@@ -125,14 +121,8 @@ export class Loop {
   private render(): void {
     const { requests } = this;
     if (requests.size === 0) return;
-    const endCycle = this.instrumentation.T.bench("render-cycle");
-    const endCleanup = this.instrumentation.T.bench("render-cycle-cleanup");
     this.runCleanupsSync();
-    endCleanup();
-    const endRender = this.instrumentation.T.bench("render-cycle-render");
     this.renderSync();
-    endRender();
-    endCycle();
     this.requests.clear();
     this.afterRender?.();
   }
@@ -159,18 +149,18 @@ export class Loop {
         // is unique in the queue.
         if (cleanup != null) this.cleanup.set(req.key, cleanup);
       } catch (e) {
-        console.error(e);
+        this.handleError(e, "render loop failed");
       }
     });
   }
 
   /** Starts the rendering loop. */
-  private async start(): Promise<void> {
+  private start(): void {
     const render = () => {
       try {
         this.render();
       } catch (e) {
-        console.error(e);
+        this.handleError(e, "render loop failed");
       }
       requestAnimationFrame(render);
     };

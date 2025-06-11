@@ -28,11 +28,11 @@ import {
   dimensions,
   location,
   type UnknownRecord,
+  uuid,
   xy,
 } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { v4 as uuid } from "uuid";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
@@ -379,7 +379,7 @@ export const create =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Table", location = "mosaic", window, tab, ...rest } = initial;
-    const key = table.keyZ.safeParse(initial.key).data ?? uuid();
+    const key = table.keyZ.safeParse(initial.key).data ?? uuid.create();
     dispatch(internalCreate({ ...ZERO_STATE, ...rest, key }));
     return {
       key,

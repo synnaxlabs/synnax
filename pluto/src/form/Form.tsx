@@ -9,12 +9,12 @@
 
 /* eslint-disable @typescript-eslint/no-unnecessary-type-constraint */
 import {
+  array,
   type compare,
   deep,
   type Destructor,
   shallowCopy,
   type status,
-  toArray,
   zod,
 } from "@synnaxlabs/x";
 import {
@@ -27,24 +27,44 @@ import {
   useMemo,
   useState,
 } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
 import { state } from "@/state";
 import { Status } from "@/status";
 
-/** Props for the @link useField hook */
-export interface UseFieldProps<I, O = I> {
+interface BaseUseFieldProps<I, O = I> {
   path: string;
-  optional?: false;
   onChange?: (value: O, extra: ContextValue & { path: string }) => void;
 }
 
-export interface UseNullableFieldProps<I, O = I>
-  extends Omit<UseFieldProps<I, O>, "optional"> {
-  optional: true;
+/** Props for the @link useField hook */
+export interface UseRequiredFieldProps<I, O = I> extends BaseUseFieldProps<I, O> {
+  optional?: false;
+  defaultValue?: undefined;
 }
+
+export interface UseDefaultFieldProps<I, O = I> extends BaseUseFieldProps<I, O> {
+  optional?: boolean;
+  defaultValue: I;
+}
+
+export interface UseOptionalFieldProps<I, O = I> extends BaseUseFieldProps<I, O> {
+  optional: true;
+  defaultValue?: undefined;
+}
+
+export interface UseExtensionFieldProps<I, O = I> extends BaseUseFieldProps<I, O> {
+  optional?: boolean;
+  defaultValue?: I;
+}
+
+export type UseFieldProps<I, O = I> =
+  | UseRequiredFieldProps<I, O>
+  | UseDefaultFieldProps<I, O>
+  | UseOptionalFieldProps<I, O>
+  | UseExtensionFieldProps<I, O>;
 
 /** Return type for the @link useField hook */
 export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I>
@@ -60,7 +80,10 @@ interface UseField {
     props: UseFieldProps<I, O>,
   ): UseFieldReturn<I, O>;
   <I extends Input.Value, O extends Input.Value = I>(
-    props: UseNullableFieldProps<I, O>,
+    props: UseDefaultFieldProps<I, O>,
+  ): UseFieldReturn<I, O>;
+  <I extends Input.Value, O extends Input.Value = I>(
+    props: UseOptionalFieldProps<I, O>,
   ): UseFieldReturn<I, O> | null;
 }
 
@@ -74,20 +97,29 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   path,
   optional = false,
   onChange,
+  defaultValue,
 }: UseFieldProps<I, O>): UseFieldReturn<I, O> | null => {
   const ctx = useContext();
   const { get, bind, set, setStatus } = ctx;
 
-  const [state, setState] = useState<FieldState<I> | null>(get<I>(path, { optional }));
+  const [state, setState] = useState<FieldState<I> | null>(() => {
+    const state = get<I>(path, { optional: optional || defaultValue != null });
+    if (state != null || defaultValue == null || optional) return state;
+    const s: FieldState<I> = {
+      value: defaultValue,
+      status: { key: "", variant: "success", message: "" },
+      touched: false,
+      required: false,
+    };
+    return s;
+  });
 
   useEffect(() => {
+    const prev = get<I>(path, { optional: optional || defaultValue != null });
+    if (prev == null && defaultValue != null) set(path, defaultValue);
     setState(get<I>(path, { optional }));
-    return bind({
-      path,
-      onChange: setState,
-      listenToChildren: false,
-    });
-  }, [path, onChange, bind, get]);
+    return bind({ path, onChange: setState, listenToChildren: false });
+  }, [path, onChange, bind, get, optional, defaultValue]);
 
   const handleChange = useCallback(
     (value: O) => {
@@ -252,18 +284,18 @@ export const fieldArrayUtils = <V extends unknown = unknown>(
 ): FieldArrayUtils<V> => ({
   add: (value, start) => {
     const copy = shallowCopy(ctx.get<V[]>(path).value);
-    copy.splice(start, 0, ...toArray(value));
+    copy.splice(start, 0, ...array.toArray(value));
     ctx.set(path, copy, { validateChildren: false });
   },
   push: (value, sort) => {
     const copy = shallowCopy(ctx.get<V[]>(path).value);
-    copy.push(...toArray(value));
+    copy.push(...array.toArray(value));
     if (sort != null) copy.sort(sort);
     ctx.set(path, copy, { validateChildren: false });
   },
   remove: (index) => {
     const val = ctx.get<V[]>(path).value;
-    const indices = new Set(toArray(index));
+    const indices = new Set(array.toArray(index));
     ctx.set(
       path,
       val.filter((_, i) => !indices.has(i)),
@@ -271,7 +303,7 @@ export const fieldArrayUtils = <V extends unknown = unknown>(
   },
   keepOnly: (index) => {
     const val = ctx.get<V[]>(path).value;
-    const indices = new Set(toArray(index));
+    const indices = new Set(array.toArray(index));
     ctx.set(
       path,
       val.filter((_, i) => indices.has(i)),
@@ -378,10 +410,10 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   mode: Mode;
   bind: BindFunc;
   set: SetFunc;
-  reset: (values?: z.output<Z>) => void;
+  reset: (values?: z.infer<Z>) => void;
   get: GetFunc;
   remove: RemoveFunc;
-  value: () => z.output<Z>;
+  value: () => z.infer<Z>;
   validate: (path?: string) => boolean;
   validateAsync: (path?: string) => Promise<boolean>;
   has: (path: string) => boolean;
@@ -396,7 +428,7 @@ const Context = createContext<ContextValue>({
   set: () => {},
   reset: () => {},
   remove: () => {},
-  get: <V extends any = unknown>(): FieldState<V> => ({
+  get: <V extends unknown = unknown>(): FieldState<V> => ({
     value: undefined as V,
     status: { key: "", variant: "success", message: "" },
     touched: false,
@@ -425,7 +457,7 @@ const NO_ERROR_STATUS = (path: string): Status.CrudeSpec => ({
 });
 
 interface UseRef<Z extends z.ZodType> {
-  state: z.output<Z>;
+  state: z.infer<Z>;
   statuses: Map<string, Status.CrudeSpec>;
   touched: Set<string>;
   listeners: Map<string, Set<Listener>>;
@@ -434,7 +466,7 @@ interface UseRef<Z extends z.ZodType> {
 
 export interface OnChangeProps<Z extends z.ZodType> {
   /** The values in the form AFTER the change. */
-  values: z.output<Z>;
+  values: z.infer<Z>;
   /** The path that was changed. */
   path: string;
   /** The previous value at the path. */
@@ -444,7 +476,7 @@ export interface OnChangeProps<Z extends z.ZodType> {
 }
 
 export interface UseProps<Z extends z.ZodType> {
-  values: z.output<Z>;
+  values: z.infer<Z>;
   mode?: Mode;
   sync?: boolean;
   onChange?: (props: OnChangeProps<Z>) => void;
@@ -478,7 +510,7 @@ export const use = <Z extends z.ZodType>({
   }));
   const schemaRef = useSyncedRef(schema);
   const onChangeRef = useSyncedRef(onChange);
-  const initialValuesRef = useSyncedRef<z.output<Z>>(initialValues);
+  const initialValuesRef = useSyncedRef<z.infer<Z>>(initialValues);
   const onHasTouchedRef = useSyncedRef(onHasTouched);
   const handleError = Status.useErrorHandler();
 
@@ -488,7 +520,7 @@ export const use = <Z extends z.ZodType>({
   }, []);
 
   const bind: BindFunc = useCallback(
-    <V extends any = unknown>({
+    <V extends unknown = unknown>({
       path,
       onChange: callback,
       listenToChildren = false,
@@ -503,7 +535,7 @@ export const use = <Z extends z.ZodType>({
   );
 
   const get: GetFunc = useCallback(
-    <V extends any = unknown>(
+    <V extends unknown = unknown>(
       path: string,
       { optional }: GetOptions = { optional: false },
     ): FieldState<V> | null => {
@@ -560,7 +592,7 @@ export const use = <Z extends z.ZodType>({
     parentListeners.delete(path);
   }, []);
 
-  const reset = useCallback((values?: z.output<Z>) => {
+  const reset = useCallback((values?: z.infer<Z>) => {
     const { statuses } = ref.current;
     ref.current.state = values ?? deep.copy(initialValuesRef.current);
     updateFieldValues("");
@@ -622,7 +654,7 @@ export const use = <Z extends z.ZodType>({
 
   const processValidationResult = useCallback(
     (
-      result: z.ZodSafeParseResult<z.output<Z>>,
+      result: z.ZodSafeParseResult<z.infer<Z>>,
       validationPath: string = "",
       validateChildren: boolean = true,
     ): boolean => {
@@ -712,7 +744,7 @@ export const use = <Z extends z.ZodType>({
     const equalsInitial = deep.equal(initialValue, value);
     if (equalsInitial) removeTouched(path);
     else addTouched(path);
-    if (path.length === 0) ref.current.state = value as z.output<Z>;
+    if (path.length === 0) ref.current.state = value as z.infer<Z>;
     else deep.set(state, path, value);
     updateFieldValues(path);
     handleError(async () => {
@@ -791,5 +823,5 @@ export const Form = <Z extends z.ZodType>({
   children,
   ...rest
 }: PropsWithChildren<ContextValue<Z>>): ReactElement => (
-  <Context value={rest}>{children}</Context>
+  <Context value={rest as ContextValue}>{children}</Context>
 );

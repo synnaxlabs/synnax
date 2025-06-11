@@ -10,7 +10,7 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { type observe, type primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import {
   type ContextValue,
@@ -41,7 +41,7 @@ interface SyncLocalProps<Z extends z.ZodType> extends OnChangeProps<Z> {
 interface UseSyncedProps<Z extends z.ZodType, O = Z> extends UseProps<Z> {
   name: string;
   key: primitive.Value[];
-  queryFn: (props: QueryFnProps) => Promise<z.output<Z>>;
+  queryFn: (props: QueryFnProps) => Promise<z.infer<Z>>;
   openObservable?: (client: Client) => Promise<observe.ObservableAsyncCloseable<O>>;
   applyObservable?: (props: ApplyObservableProps<Z, O>) => void;
   applyChanges?: (props: SyncLocalProps<Z>) => Promise<void>;

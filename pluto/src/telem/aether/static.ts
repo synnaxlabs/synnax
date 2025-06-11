@@ -17,7 +17,7 @@ import {
   TimeRange,
   typedArrayZ,
 } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type Factory } from "@/telem/aether/factory";
 import {
@@ -79,7 +79,7 @@ class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
     );
   }
 
-  async value(): Promise<[bounds.Bounds, Series[]]> {
+  value(): [bounds.Bounds, Series[]] {
     const b = bounds.max(this.data.map((x) => x.bounds));
     return [b, this.data];
   }

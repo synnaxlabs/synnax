@@ -9,7 +9,7 @@
 
 import { ValidationError } from "@synnaxlabs/client";
 import { type Destructor } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type Factory } from "@/telem/aether/factory";
 import {
@@ -165,8 +165,8 @@ export class SinkPipeline<V>
     });
   }
 
-  set(value: V): void {
-    return this.inlet.set(value);
+  set(...values: V[]): void {
+    return this.inlet.set(...values);
   }
 
   cleanup(): void {

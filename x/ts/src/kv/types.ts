@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export interface Reader<V = unknown> {
   /** @returns the value for a given key, or null if the key is not present. */

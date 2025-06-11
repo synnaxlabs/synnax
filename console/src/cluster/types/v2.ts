@@ -9,7 +9,7 @@
 
 import { synnaxPropsZ } from "@synnaxlabs/client";
 import { deep, migrate } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import * as v1 from "@/cluster/types/v1";
 

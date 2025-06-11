@@ -9,7 +9,7 @@
 
 import { bounds, type scale, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type ScaleLinear, scaleLinear, type ScaleTime, scaleTime } from "d3-scale";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type PreciseTimeScale, preciseTimeScale } from "@/vis/axis/preciseTimeScale";
 
@@ -32,7 +32,7 @@ export const tickFactoryProps = z.object({
 });
 
 export type TickFactoryProps = z.input<typeof tickFactoryProps>;
-type ParsedTickFactoryProps = z.output<typeof tickFactoryProps>;
+type ParsedTickFactoryProps = z.infer<typeof tickFactoryProps>;
 
 export interface TickFactoryRenderArgs {
   /**

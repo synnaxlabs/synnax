@@ -152,11 +152,12 @@ export const Dialog = ({
   } else if (variant === "modal") dialogStyle = { top: `${modalOffset}%` };
 
   if (typeof maxHeight === "number") dialogStyle.maxHeight = maxHeight;
-  if (visible) {
-    dialogStyle.zIndex = zIndex;
-    // @ts-expect-error - css variable
-    dialogStyle[Z_INDEX_VARIABLE] = zIndex;
-  }
+  if (visible)
+    dialogStyle = {
+      ...dialogStyle,
+      zIndex,
+      [Z_INDEX_VARIABLE]: zIndex,
+    } as CSSProperties;
 
   const C = variant === "connected" ? Align.Pack : Align.Space;
 
@@ -203,8 +204,7 @@ export const Dialog = ({
         role="dialog"
         empty
         align="center"
-        // @ts-expect-error - css variable
-        style={{ zIndex, [Z_INDEX_VARIABLE]: zIndex }}
+        style={{ zIndex, [Z_INDEX_VARIABLE]: zIndex } as CSSProperties}
         visible={visible}
       >
         {child}
@@ -228,11 +228,7 @@ export const Dialog = ({
         )}
         y
         reverse={dialogLoc.y === "top"}
-        style={{
-          ...rest.style,
-          // @ts-expect-error - css variable
-          [Z_INDEX_VARIABLE]: zIndex,
-        }}
+        style={{ ...rest.style, [Z_INDEX_VARIABLE]: zIndex } as CSSProperties}
       >
         {children[0]}
         {child}

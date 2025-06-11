@@ -28,6 +28,9 @@ import {
  */
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
+export const useSelectSliceState = (): SliceState =>
+  useMemoSelect((state: StoreState) => selectSliceState(state), []);
+
 /**
  * Selects a layout from the store by key.
  *

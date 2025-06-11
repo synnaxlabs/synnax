@@ -120,9 +120,10 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
     if (error != null) throw error;
     const dataToDecimalScale = new scale.XY(xDataToDecimalScale, yDataToDecimalScale);
     const props: line.LineProps = { region: plot, dataToDecimalScale, exposure };
-    return this.lines
-      .map((el) => el.findByXValue(props, target))
-      .map((v) => ({ ...v, units: this.state.label }));
+    return this.lines.map((el) => ({
+      ...el.findByXValue(props, target),
+      units: this.state.label,
+    }));
   }
 
   private dataBounds(): bounds.Bounds[] {

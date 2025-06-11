@@ -7,11 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Tools, TOOLS_LAYOUT_TYPE } from "@/debug/Tools";
-import { type Layout } from "@/layout";
-
-export * from "@/debug/palette";
-
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [TOOLS_LAYOUT_TYPE]: Tools,
-};
+export * as instance from "@/instance/matcher";

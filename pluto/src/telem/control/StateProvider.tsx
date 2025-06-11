@@ -8,14 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type PropsWithChildren, type ReactElement } from "react";
-import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { control } from "@/telem/control/aether";
 
-export interface StateProviderProps
-  extends z.input<typeof control.stateProviderStateZ>,
-    PropsWithChildren {}
+export interface StateProviderProps extends PropsWithChildren {}
 
 export const StateProvider = ({ children }: StateProviderProps): ReactElement => {
   const [{ path }] = Aether.use({

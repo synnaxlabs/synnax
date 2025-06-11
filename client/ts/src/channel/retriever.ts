@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { debounce } from "@synnaxlabs/x/debounce";
 import { DataType } from "@synnaxlabs/x/telem";
 import { Mutex } from "async-mutex";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import {
   channelZ,
@@ -209,7 +209,7 @@ export class CacheRetriever implements Retriever {
 
 export interface PromiseFns<T> {
   resolve: (value: T) => void;
-  reject: (reason?: any) => void;
+  reject: (reason?: unknown) => void;
 }
 
 // no interval

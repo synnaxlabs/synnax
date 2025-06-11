@@ -24,7 +24,7 @@ import {
   TimeSpan,
   xy,
 } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
@@ -55,7 +55,7 @@ const safelyGetDataValue = (
 };
 
 export type State = z.input<typeof stateZ>;
-export type ParsedState = z.output<typeof stateZ>;
+export type ParsedState = z.infer<typeof stateZ>;
 
 const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
 

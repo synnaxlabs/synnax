@@ -1,0 +1,59 @@
+name: Test - Freighter (C++)
+
+on:
+  pull_request:
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.freighter.cpp.yaml
+      - freighter/cpp/**
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - scripts/check-clang-format.sh
+      - x/cpp/**
+      - x/go/**/*.pb.h
+  push:
+    branches:
+      - main
+      - rc
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
+        exclude:
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'macos-latest' }}
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'windows-latest' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
+          repository-cache: true
+
+      - name: Check Formatting
+        if: matrix.format
+        run: ./scripts/check-clang-format.sh freighter/cpp
+
+      - name: Test
+        run: bazel test --test_output=all //freighter/cpp/... --nocache_test_results

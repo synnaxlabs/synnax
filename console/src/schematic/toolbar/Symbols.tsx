@@ -76,7 +76,7 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
           {(p) => <Input.Text {...p} placeholder="Type to search..." size="small" />}
         </List.Filter>
       </Align.Space>
-      <List.Core<string, Schematic.Spec<any>>
+      <List.Core<string, Schematic.Spec>
         x
         className={CSS(
           CSS.B("schematic-symbols"),
@@ -101,7 +101,7 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
 };
 
 interface SymbolsButtonProps extends PropsWithChildren, Align.SpaceProps {
-  symbolSpec: Schematic.Spec<any>;
+  symbolSpec: Schematic.Spec;
   theme: Theming.Theme;
   startDrag: (key: string) => void;
 }

@@ -16,7 +16,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
@@ -44,7 +44,7 @@ export const coreAxisStateZ = axis.axisStateZ
   })
   .partial({ color: true, font: true, gridColor: true });
 
-export type BaseAxisState = z.output<typeof coreAxisStateZ>;
+export type BaseAxisState = z.infer<typeof coreAxisStateZ>;
 
 const AXIS_SIZE_UPDATE_UPPER_THRESHOLD = 2; // px;
 const AXIS_SIZE_UPDATE_LOWER_THRESHOLD = 7; // px;

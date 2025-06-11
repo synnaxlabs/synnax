@@ -31,7 +31,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, location, xy } from "@synnaxlabs/x";
+import { box, deep, id, location, uuid, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -40,7 +40,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { v4 as uuid } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
@@ -123,7 +122,6 @@ const SymbolRenderer = ({
   position,
   selected,
   layoutKey,
-  draggable,
   dispatch,
 }: SymbolRendererProps): ReactElement | null => {
   const props = useSelectNodeProps(layoutKey, symbolKey);
@@ -150,7 +148,6 @@ const SymbolRenderer = ({
       symbolKey={symbolKey}
       position={position}
       selected={selected}
-      draggable={draggable}
       onChange={handleChange}
       {...rest}
     />
@@ -382,6 +379,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           fitViewOnResize={schematic.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
           visible={visible}
+          dragHandleSelector={`.${Core.DRAG_HANDLE_CLASS}`}
           {...dropProps}
         >
           <Diagram.NodeRenderer>{nodeRenderer}</Diagram.NodeRenderer>
@@ -460,7 +458,7 @@ export const create =
     const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     if (!canEditSchematic && tab?.editable) tab.editable = false;
-    const key = schematic.keyZ.safeParse(initial.key).data ?? uuid();
+    const key = schematic.keyZ.safeParse(initial.key).data ?? uuid.create();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,

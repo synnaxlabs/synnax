@@ -10,7 +10,7 @@
 import "@/status/Notification.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { toArray } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { isValidElement, type ReactElement, useRef } from "react";
 
 import { Align } from "@/align";
@@ -109,7 +109,7 @@ export const Notification = ({
           justify="end"
           className={CSS(CSS.BE("notification", "actions"))}
         >
-          {toArray<ReactElement | Button.ButtonProps>(actions).map((a) => (
+          {array.toArray<ReactElement | Button.ButtonProps>(actions).map((a) => (
             <Action key={a.key} action={a} />
           ))}
         </Align.Space>

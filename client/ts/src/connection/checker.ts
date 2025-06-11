@@ -10,7 +10,7 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { migrate } from "@synnaxlabs/x";
 import { TimeSpan } from "@synnaxlabs/x/telem";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const statusZ = z.enum(["disconnected", "connecting", "connected", "failed"]);
 export type Status = z.infer<typeof statusZ>;

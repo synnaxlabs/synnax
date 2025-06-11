@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { binary, status, type UnknownRecord, unknownRecordZ, zod } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 import { decodeJSONString } from "@/util/decodeJSONString";
@@ -44,7 +44,7 @@ export interface Device<
   Make extends string = string,
   Model extends string = string,
   StateDetails extends {} = UnknownRecord,
-> extends Omit<z.output<typeof deviceZ>, "properties" | "state"> {
+> extends Omit<z.infer<typeof deviceZ>, "properties" | "state"> {
   properties: Properties;
   make: Make;
   model: Model;
