@@ -148,7 +148,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             }}
             path="name"
           />
-          <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
+          <Form.Field<rack.Key> path="rack" label="Connect From" required>
             {(p) => <Rack.SelectSingle {...p} allowNone={false} />}
           </Form.Field>
           <Form.Field<string> path="connection.endpoint">
