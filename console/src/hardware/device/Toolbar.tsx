@@ -95,14 +95,14 @@ export const useState = (key: string): device.State | undefined =>
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-  const group = useQuery<ontology.ID | undefined>({
+  const group = useQuery({
     queryKey: [client?.key, "device-group"],
     queryFn: async () => {
-      if (client == null) return undefined;
+      if (client == null) return null;
       const res = await client?.ontology.retrieveChildren(ontology.ROOT_ID, {
         includeSchema: false,
       });
-      return res?.filter((r) => r.name === "Devices")[0].id;
+      return res.filter((r) => r.name === "Devices")[0].id;
     },
   });
 
