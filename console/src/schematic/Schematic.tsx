@@ -47,6 +47,7 @@ import {
   select,
   selectHasPermission,
   useSelect,
+  useSelectEditable,
   useSelectHasPermission,
   useSelectNodeProps,
   useSelectVersion,
@@ -188,9 +189,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey, dispatch]);
 
+  const isEditable = useSelectEditable(layoutKey);
   const canBeEditable = useSelectHasPermission();
-  if (!canBeEditable && schematic.editable)
-    dispatch(setEditable({ key: layoutKey, editable: false }));
+  useEffect(() => {
+    if (!canBeEditable && isEditable)
+      dispatch(setEditable({ key: layoutKey, editable: false }));
+  }, [canBeEditable, isEditable, layoutKey, dispatch]);
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
