@@ -8,17 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List, Union
+import json
 
 import freighter
 
 _FREIGHTER_EXCEPTION_PREFIX = "sy."
-
-
-@dataclass
-class Field:
-    field: str
-    message: str
 
 
 class ConfigurationError(Exception):
@@ -31,17 +26,6 @@ class ValidationError(Exception):
     """Raised when a validation error occurs."""
 
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "validation"
-
-
-class FieldError(ValidationError):
-    """Raised when a validation error occurs on a specific field."""
-
-    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "validation.field"
-    field: str
-
-    def __init__(self, field: str, message: str):
-        self.field = field
-        super().__init__(f"{field}: {message}")
 
 
 class ControlError(Exception):
@@ -121,8 +105,23 @@ class RouteError(Exception):
         self.path = path
 
 
-def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
+@dataclass
+class PathError(ValidationError):
+    """Raised when a validation error occurs on a specific path."""
 
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "validation.path"
+    path: List[str]
+    error: Exception
+
+    def __init__(self, path: Union[str, List[str]], error: Exception):
+        if isinstance(path, str):
+            path = path.split(".")
+        self.path = path
+        self.error = error
+        super().__init__(f"{'.'.join(path)}: {error}")
+
+
+def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
     if encoded.type is None:
         return None if encoded.data is None else UnexpectedError(encoded.data)
 
@@ -138,13 +137,14 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
         return UnexpectedError(encoded.data)
 
     if encoded.type.startswith(ValidationError.TYPE):
-        if encoded.type.startswith(FieldError.TYPE):
+        if encoded.type.startswith(PathError.TYPE):
             if encoded.data is None:
                 return UnexpectedError(encoded.data)
-            values = encoded.data.split(":")
-            if len(values) != 2:
-                return UnexpectedError(encoded.data)
-            return FieldError(values[0], values[1])
+            try:
+                data = json.loads(encoded.data)
+                return PathError(data["path"], freighter.decode_exception(freighter.ExceptionPayload(**data["error"])))
+            except Exception as e:
+                return UnexpectedError(f"Failed to decode PathError: {e}")
         return ValidationError(encoded.data)
 
     if encoded.type.startswith(QueryError.TYPE):

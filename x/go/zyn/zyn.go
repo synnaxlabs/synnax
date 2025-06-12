@@ -12,6 +12,10 @@
 // serialize, and deserialize data according to those schemas.
 package zyn
 
+import (
+	"golang.org/x/net/context"
+)
+
 // Type represents the type of a schema.
 // It is used to identify the kind of validation and conversion rules to apply.
 type Type string
@@ -55,6 +59,23 @@ const (
 	// Float64T represents a float64 type in the schema.
 	Float64T Type = "double"
 )
+
+type zContext struct {
+	context.Context
+	data   any
+	dest   any
+	errors []error
+}
+
+func (z *zContext) Error() error { return nil }
+
+func (z *zContext) Add(err error) bool {
+	if err == nil {
+		return true
+	}
+	z.errors = append(z.errors, err)
+	return false
+}
 
 // Z is a schema that provides methods for validating and converting data.
 type Z interface {

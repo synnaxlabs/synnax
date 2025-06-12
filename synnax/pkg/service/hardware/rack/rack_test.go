@@ -72,7 +72,7 @@ var _ = Describe("Rack", Ordered, func() {
 			r := &rack.Rack{}
 			err := w.Create(ctx, r)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("Name"))
+			Expect(err.Error()).To(ContainSubstring("name: required"))
 		})
 	})
 	Describe("Retrieve", func() {

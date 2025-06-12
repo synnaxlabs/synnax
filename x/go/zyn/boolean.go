@@ -16,6 +16,8 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -42,39 +44,38 @@ func (b BoolZ) Dump(data any) (any, error) {
 		if b.optional {
 			return nil, nil
 		}
-		return nil, validate.FieldError{Message: "value is required but was nil"}
+		return nil, errors.WithStack(validate.RequiredError)
 	}
 
-	val := reflect.ValueOf(data)
-	if val.Kind() == reflect.Ptr {
-		if val.IsNil() {
+	dataVal := reflect.ValueOf(data)
+	if dataVal.Kind() == reflect.Ptr {
+		if dataVal.IsNil() {
 			if b.optional {
 				return nil, nil
 			}
-			return nil, validate.FieldError{Message: "value is required but was nil"}
+			return nil, errors.WithStack(validate.RequiredError)
 		}
-		val = val.Elem()
+		dataVal = dataVal.Elem()
 	}
 
 	var boolVal bool
-	switch val.Kind() {
+	switch dataVal.Kind() {
 	case reflect.Bool:
-		boolVal = val.Bool()
+		boolVal = dataVal.Bool()
 	case reflect.String:
 		var err error
-		boolVal, err = strconv.ParseBool(val.String())
+		boolVal, err = strconv.ParseBool(dataVal.String())
 		if err != nil {
-			return nil, validate.FieldError{Message: "invalid boolean string: must be 'true', 'false', '1', or '0'"}
+			return nil, invalidBooleanStringError(dataVal.String())
 		}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		boolVal = val.Int() != 0
+		boolVal = dataVal.Int() != 0
 	case reflect.Float32, reflect.Float64:
-		boolVal = val.Float() != 0
+		boolVal = dataVal.Float() != 0
 	default:
-		return nil, validate.FieldError{Message: "invalid type: expected boolean, string, number, or nil"}
+		return nil, invalidBooleanTypeError(dataVal)
 	}
-
 	return boolVal, nil
 }
 
@@ -111,16 +112,15 @@ func (b BoolZ) Parse(data any, dest any) error {
 		var err error
 		boolVal, err = strconv.ParseBool(v)
 		if err != nil {
-			return validate.FieldError{Message: "invalid boolean string: must be 'true', 'false', '1', or '0'"}
+			return invalidBooleanStringError(v)
 		}
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		boolVal = reflect.ValueOf(v).Int() != 0
 	case float32, float64:
 		boolVal = reflect.ValueOf(v).Float() != 0
 	default:
-		return validate.FieldError{Message: "invalid type: expected boolean, string, number, or nil"}
+		return invalidBooleanTypeError(reflect.ValueOf(v))
 	}
-
 	destVal.SetBool(boolVal)
 	return nil
 }
@@ -129,4 +129,12 @@ func (b BoolZ) Parse(data any, dest any) error {
 // This is the entry point for creating boolean validation schemas.
 func Bool() BoolZ {
 	return BoolZ{}
+}
+
+func invalidBooleanStringError(v string) error {
+	return errors.Wrapf(validate.Error, "invalid boolean string '%s': must be 'true', 'false', '1', or '0'", v)
+}
+
+func invalidBooleanTypeError(v reflect.Value) error {
+	return validate.NewInvalidTypeError("boolean, string, number, or nil", types.ValueName(v))
 }

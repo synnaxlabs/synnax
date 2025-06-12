@@ -19,7 +19,7 @@ from synnax.channel.payload import (
     normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
-from synnax.exceptions import Field, ValidationError
+from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
 from synnax.framer.frame import CrudeFrame, Frame
 from synnax.telem import DataType
@@ -143,15 +143,15 @@ class WriteFrameAdapter:
         frame = self._adapt(channels_or_data, series)
         extra = set(frame.channels) - set(self.keys)
         if extra:
-            raise ValidationError(Field("keys", f"frame has extra keys {extra}"))
+            raise PathError("keys", ValidationError(f"frame has extra keys {extra}"))
 
         for i, (col, series) in enumerate(frame.items()):
             ch = self.retriever.retrieve(col)[0]  # type: ignore
             if series.data_type != ch.data_type:
                 if self._strict_data_types:
-                    raise ValidationError(
-                        Field(
-                            str(col),
+                    raise PathError(
+                        str(col),
+                        ValidationError(
                             f"Data type {ch.data_type} for channel {ch} does "
                             + f"not match series data type {series.data_type}.",
                         )

@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Create", Ordered, func() {
@@ -266,10 +265,7 @@ var _ = Describe("Create", Ordered, func() {
 				DataType:   telem.Float64T,
 				Expression: "return 1",
 			}
-			Expect(services[1].Create(ctx, &ch)).To(MatchError(validate.FieldError{
-				Field:   "requires",
-				Message: "calculated channels must require at least one channel",
-			}))
+			Expect(services[1].Create(ctx, &ch)).To(MatchError(ContainSubstring("requires: calculated channels must require at least one channel")))
 		})
 		It("Should return an error if the calculated channel depends on both a virtual and index channel", func() {
 			vCH := channel.Channel{
@@ -290,10 +286,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expression: "return 1",
 				Requires:   []channel.Key{vCH.Key(), idxCH.Key()},
 			}
-			Expect(services[1].Create(ctx, &ch)).To(MatchError(validate.FieldError{
-				Field:   "requires",
-				Message: "cannot use a mix of virtual and non-virtual channels in calculations",
-			}))
+			Expect(services[1].Create(ctx, &ch)).To(MatchError(ContainSubstring("requires: cannot use a mix of virtual and non-virtual channels in calculations")))
 		})
 		It("Should return an error if the calculated channel depends on a channel that does not exist", func() {
 			ch := channel.Channel{
@@ -323,10 +316,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expression: "return 1",
 				Requires:   []channel.Key{idxCH1.Key(), idxCH2.Key()},
 			}
-			Expect(services[1].Create(ctx, &ch)).To(MatchError(validate.FieldError{
-				Field:   "requires",
-				Message: "all required channels must share the same index",
-			}))
+			Expect(services[1].Create(ctx, &ch)).To(MatchError(ContainSubstring("requires: all required channels must share the same index")))
 		})
 
 	})

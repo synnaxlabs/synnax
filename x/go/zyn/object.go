@@ -13,6 +13,8 @@ import (
 	"reflect"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -81,38 +83,29 @@ func (o ObjectZ) Dump(data any) (any, error) {
 		if o.optional {
 			return nil, nil
 		}
-		return nil, validate.FieldError{Message: "value is required but was nil"}
+		return nil, errors.WithStack(validate.RequiredError)
 	}
 
-	// Check if data is already a map[string]any
 	if dataMap, ok := data.(map[string]any); ok {
-		// Validate the map against the schema
 		result := make(map[string]any)
 		for fieldName, schema := range o.fields {
-			// Try both original and snake case field names
-			fieldData, exists := dataMap[fieldName]
-			if !exists {
-				fieldData, exists = dataMap[lo.SnakeCase(fieldName)]
-			}
-
+			fieldData, exists := getFieldOnMap(dataMap, fieldName)
 			if !exists {
 				if schema.Shape().Optional() {
 					continue
 				}
-				return nil, requiredFieldError(fieldName)
+				return nil, validate.PathedError(validate.RequiredError, fieldName)
 			}
 
 			fieldData, err := schema.Dump(fieldData)
 			if err != nil {
-				return nil, addFieldNameToError(fieldName, err)
+				return nil, validate.PathedError(err, fieldName)
 			}
 
-			// Skip nil optional fields
 			if fieldData == nil && schema.Shape().Optional() {
 				continue
 			}
 
-			// Convert field name to snake case for output
 			snakeCaseName := lo.SnakeCase(fieldName)
 			result[snakeCaseName] = fieldData
 		}
@@ -125,13 +118,13 @@ func (o ObjectZ) Dump(data any) (any, error) {
 			if o.optional {
 				return nil, nil
 			}
-			return nil, validate.FieldError{Message: "value is required but was nil"}
+			return nil, errors.WithStack(validate.RequiredError)
 		}
 		val = val.Elem()
 	}
 
 	if val.Kind() != reflect.Struct {
-		return nil, validate.FieldError{Message: "invalid type: expected struct or map[string]any"}
+		return nil, validate.NewInvalidTypeError("struct or map[string]any", types.ValueName(val))
 	}
 
 	result := make(map[string]any)
@@ -141,12 +134,12 @@ func (o ObjectZ) Dump(data any) (any, error) {
 			if schema.Shape().Optional() {
 				continue
 			}
-			return nil, requiredFieldError(fieldName)
+			return nil, validate.PathedError(validate.RequiredError, fieldName)
 		}
 
 		fieldData, err := schema.Dump(field.Interface())
 		if err != nil {
-			return nil, addFieldNameToError(fieldName, err)
+			return nil, validate.PathedError(err, fieldName)
 		}
 
 		// Skip nil optional fields
@@ -181,7 +174,7 @@ func (o ObjectZ) Parse(data any, dest any) error {
 		if o.optional {
 			return nil
 		}
-		return validate.FieldError{Message: "value is required but was nil"}
+		return errors.WithStack(validate.RequiredError)
 	}
 
 	destVal = destVal.Elem()
@@ -191,12 +184,12 @@ func (o ObjectZ) Parse(data any, dest any) error {
 
 	dataVal := reflect.ValueOf(data)
 	if dataVal.Kind() != reflect.Map {
-		return validate.FieldError{Message: "invalid type: expected map[string]any"}
+		return NewInvalidDestinationTypeError("map[string]any", destVal)
 	}
 
 	dataMap, ok := data.(map[string]any)
 	if !ok {
-		return validate.FieldError{Message: "invalid type: expected map[string]any"}
+		return NewInvalidDestinationTypeError("map[string]any", destVal)
 	}
 
 	// Create a map of snake case field names to their original names
@@ -208,27 +201,23 @@ func (o ObjectZ) Parse(data any, dest any) error {
 	for fieldName, fieldSchema := range o.fields {
 		field := fieldByName(destVal, fieldName)
 		if !field.IsValid() {
-			return validate.FieldError{
-				Field:   fieldName,
-				Message: "invalid field: " + fieldName,
-			}
+			return validate.PathedError(
+				errors.Wrap(validate.Error, "invalid field"),
+				fieldName,
+			)
 		}
 
 		// Try both original and snake case field names
-		fieldData, exists := dataMap[fieldName]
-		if !exists {
-			fieldData, exists = dataMap[lo.SnakeCase(fieldName)]
-		}
-
+		fieldData, exists := getFieldOnMap(dataMap, fieldName)
 		if !exists {
 			if fieldSchema.Shape().Optional() {
 				continue
 			}
-			return validate.FieldError{Field: fieldName, Message: "missing required field"}
+			return validate.PathedError(validate.RequiredError, fieldName)
 		}
 
 		if err := fieldSchema.Parse(fieldData, field.Addr().Interface()); err != nil {
-			return validate.FieldError{Field: fieldName, Message: err.Error()}
+			return validate.PathedError(err, fieldName)
 		}
 	}
 
@@ -243,4 +232,12 @@ func Object(fields map[string]Z) ObjectZ {
 		baseZ:  baseZ{typ: ObjectT},
 		fields: fields,
 	}
+}
+
+func getFieldOnMap(data map[string]any, field string) (any, bool) {
+	v, ok := data[lo.PascalCase(field)]
+	if !ok {
+		v, ok = data[lo.SnakeCase(field)]
+	}
+	return v, ok
 }
