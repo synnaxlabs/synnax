@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Form, Text } from "@synnaxlabs/pluto";
+import { Form, Text } from "@synnaxlabs/pluto";
 import { deep, type Keyed } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -31,14 +31,14 @@ interface ChannelTypeProps {
 const ChannelType = ({ type }: ChannelTypeProps) => {
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
   return (
-    <Align.Space direction="x" size="small">
-      <Text.WithIcon
-        level="p"
-        shade={7}
-        startIcon={<Icon style={{ transform: "scale(0.9)" }} />}
-      />
-      <Text.Text level="p">{AI_CHANNEL_TYPE_NAMES[type]}</Text.Text>
-    </Align.Space>
+    <Text.WithIcon
+      level="p"
+      startIcon={
+        <Icon style={{ transform: "scale(0.9)", color: "var(--pluto-gray-l7)" }} />
+      }
+    >
+      {AI_CHANNEL_TYPE_NAMES[type]}
+    </Text.WithIcon>
   );
 };
 
