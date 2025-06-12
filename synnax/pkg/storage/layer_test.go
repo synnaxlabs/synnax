@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("storage", func() {
@@ -33,6 +34,7 @@ var _ = Describe("storage", func() {
 			tempDir, err = os.MkdirTemp("", "synnax-test")
 			Expect(err).ToNot(HaveOccurred())
 			cfg = storage.Config{Dirname: filepath.Join(tempDir, "storage")}
+			ShouldNotLeakGoroutines()
 		})
 		AfterEach(func() { Expect(os.RemoveAll(tempDir)).ToNot(HaveOccurred()) })
 		Describe("Acquiring a lock", func() {
@@ -77,9 +79,9 @@ var _ = Describe("storage", func() {
 				})
 			}
 		})
-		Describe("Membacked", func() {
+		Describe("In-Memory", func() {
 			It("Should open a memory backed version of storage", func() {
-				cfg.MemBacked = config.True()
+				cfg.InMemory = config.True()
 				store, err := storage.Open(ctx, cfg)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(store.Close()).To(Succeed())
@@ -104,7 +106,7 @@ var _ = Describe("storage", func() {
 			Entry("Directory not set",
 				func(cfg storage.Config) storage.Config {
 					cfg.Dirname = ""
-					*cfg.MemBacked = false
+					*cfg.InMemory = false
 					return cfg
 				},
 				"dirname",
@@ -112,7 +114,7 @@ var _ = Describe("storage", func() {
 			Entry("Directory not set, mem-backed",
 				func(cfg storage.Config) storage.Config {
 					cfg.Dirname = ""
-					*cfg.MemBacked = true
+					*cfg.InMemory = true
 					return cfg
 				},
 				"",

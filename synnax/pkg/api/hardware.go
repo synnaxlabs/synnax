@@ -34,7 +34,7 @@ type HardwareService struct {
 func NewHardwareService(p Provider) *HardwareService {
 	return &HardwareService{
 		dbProvider:     p.db,
-		internal:       p.Config.Hardware,
+		internal:       p.Service.Hardware,
 		accessProvider: p.access,
 	}
 }

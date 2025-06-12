@@ -28,7 +28,7 @@ type LabelService struct {
 
 func NewLabelService(p Provider) *LabelService {
 	return &LabelService{
-		internal:       p.Config.Label,
+		internal:       p.Service.Label,
 		dbProvider:     p.db,
 		accessProvider: p.access,
 	}
