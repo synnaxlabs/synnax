@@ -87,8 +87,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     onError: (e) => handleError(e, "Failed to test connection"),
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      if (!methods.validate("connection") || !methods.validate("rack"))
-        throw new Error("Invalid configuration");
+      if (!methods.validate()) return;
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
       );
@@ -108,7 +107,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     onError: (e) => handleError(e, "Failed to connect to OPC UA Server"),
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      if (!methods.validate()) throw new Error("Invalid configuration");
+      if (!methods.validate()) return;
       await testConnectionMutation.mutateAsync();
       if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
