@@ -63,6 +63,7 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
   const {
     entry: { port, cmdChannel, stateChannel, type },
   } = rest;
+  const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
@@ -74,10 +75,7 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
       canTare={false}
       isSnapshot={isSnapshot}
       path={path}
-      icon={{
-        name: AO_CHANNEL_TYPE_NAMES[type],
-        icon: AO_CHANNEL_TYPE_ICONS[type],
-      }}
+      icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
     />
   );
 };
