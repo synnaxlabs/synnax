@@ -36,7 +36,7 @@ var _ = Describe("Errors", func() {
 				pathed := validate.PathedError(base, "field")
 				encoded := errors.Encode(ctx, pathed, false)
 				Expect(encoded.Type).To(Equal("sy.validation.path"))
-				Expect(encoded.Data).To(Equal("{\"path\":[\"field\"],\"encoded\":{\"type\":\"unknown\",\"data\":\"cat\"}}"))
+				Expect(encoded.Data).To(Equal("{\"path\":[\"field\"],\"error\":{\"type\":\"unknown\",\"data\":\"cat\"}}"))
 			})
 
 			It("Should correctly encode and decode nested paths", func() {

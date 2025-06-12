@@ -11,7 +11,7 @@ import { DataType, TimeStamp } from "@synnaxlabs/x/telem";
 import { beforeAll, describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
-import { ExpiredTokenError, NotFoundError, PathError } from "@/errors";
+import { NotFoundError, PathError } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
