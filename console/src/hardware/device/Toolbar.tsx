@@ -99,9 +99,7 @@ const Content = (): ReactElement => {
     queryKey: [client?.key, "device-group"],
     queryFn: async () => {
       if (client == null) return null;
-      const res = await client?.ontology.retrieveChildren(ontology.ROOT_ID, {
-        includeSchema: false,
-      });
+      const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
       return res.filter((r) => r.name === "Devices")[0].id;
     },
   });
