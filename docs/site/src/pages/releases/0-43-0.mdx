@@ -12,26 +12,33 @@ export const components = mdxOverrides;
 <Release
     version="0.43.0"
     date="June 13, 2025"
-    title="Bug Fixes and Stability Improvements"
+    title="Maintenance & Minor Features"
     breakingChanges
 >
 
+<Image
+  client:only="react"
+  id="releases/0-43-0/thumbnail"
+  themed={false}
+  extension="svg"
+/>
+
 Synnax v0.43 is a maintenance release that focuses on bug fixes and stability
-improvements to the Synnax Core and Console UI, along with a few minor features that
-have been requested.
+improvements to the Synnax Core and Console UI, along with a few minor features.
 
 <Divider.Divider x />
 
-### Schematic Button Functionality
+### Schematic Button Modes
 
-The schematic button functionality has been extended to allow for three different modes:
+Buttons on a schematic now have a new _mode_ property that can be set to one of the
+following values:
 
 - **Fire**: A value of true is written to the channel when the button is pressed. This
-  was the default behavior of a button before.
+  is the default behavior, and behaves the same as previous releases.
 - **Momentary**: A value of true is written to the channel when the button is pressed,
   and a value of false is written to the channel when the button is released.
-- **Pulse**: A value of true, immediately followed by a value of false, is written to
-  the channel when the button is pressed.
+- **Pulse**: A value of true is written to the channel and immediately followed by a
+  value of false.
 
 <Divider.Divider x />
 
