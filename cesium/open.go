@@ -120,10 +120,7 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs xfs.FS) error {
 				return err
 			}
 			if idxDB, ok = db.mu.unaryDBs[u.Channel().Index]; !ok {
-				return validate.FieldError{
-					Field:   "index",
-					Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel().Index),
-				}
+				return validate.PathedError(indexChannelNotFoundError(u.Channel().Index), "index")
 			}
 		}
 		u.SetIndex(idxDB.Index())

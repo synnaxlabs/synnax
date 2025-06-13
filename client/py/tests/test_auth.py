@@ -35,7 +35,7 @@ class TestClusterAuth:
         Should raise a ValidationError
         """
         host, port, username, _ = login_info
-        with pytest.raises(sy.FieldError):
+        with pytest.raises(sy.PathError):
             sy.Synnax(
                 host=host,
                 port=port,

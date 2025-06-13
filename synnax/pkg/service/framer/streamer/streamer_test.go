@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -245,10 +244,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				SendOpenAck:      true,
 				DownsampleFactor: -2,
 			})
-			Expect(err).To(HaveOccurredAs(validate.FieldError{
-				Field:   "downsample_factor",
-				Message: "must be greater than or equal to 0",
-			}))
+			Expect(err).To(MatchError(ContainSubstring("downsample_factor: must be greater than or equal to 0")))
 		})
 
 		It("Should correctly combine downsampling with calculations", func() {
