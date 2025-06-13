@@ -20,14 +20,25 @@ import (
 
 const ConstantType = "constant"
 
+type ConstantConfig struct {
+	dataType zyn.DataType
+}
+
+var configZ = zyn.Object(map[string]zyn.Z{
+	"data_type": zyn.PrimitiveTypeZ,
+})
+
+func (c *ConstantConfig) Parse(data any) error { return configZ.Parse(data, c) }
+
 func constant(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err error) {
 	if n.Type != ConstantType {
 		return ns, false, err
 	}
-	fields := zyn.Object(map[string]zyn.Z{
-		"data_type": zyn.Literal(),
-	})
-	res := schema.Resource{Data: n.Data}
+	c := &ConstantConfig{}
+	if err = c.Parse(n.Data); err != nil {
+		return ns, false, err
+	}
+
 	dt, ok := schema.Get[string](res, "data_type")
 	if !ok {
 		return ns, true, errors.WithStack(validate.FieldError{
