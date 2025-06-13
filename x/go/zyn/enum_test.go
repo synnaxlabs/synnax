@@ -97,10 +97,8 @@ var _ = Describe("Enum", func() {
 			Expect(dest).To(Equal("c"))
 		})
 
-		Specify("empty values", func() {
-			enum := zyn.Enum[any]()
-			var dest string
-			Expect(enum.Parse("a", &dest)).To(MatchError(ContainSubstring("invalid enum value")))
+		It("should panic on empty", func() {
+			Expect(func() { zyn.Enum[any]() }).To(Panic())
 		})
 	})
 

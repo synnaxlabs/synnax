@@ -13,6 +13,7 @@
 package zyn
 
 import (
+	"reflect"
 	"slices"
 )
 
@@ -122,12 +123,14 @@ type Shape interface {
 	// Fields is only valid for object schemas, and returns a map of the field
 	// names to the schemas for each field.
 	Fields() map[string]Shape
+	ReflectType() reflect.Type
 }
 
 // baseZ provides the base implementation for all schema types.
 type baseZ struct {
-	optional bool
-	typ      Type
+	optional     bool
+	typ          Type
+	expectedType reflect.Type
 }
 
 // Shape returns the base shape of the schema.
@@ -141,3 +144,5 @@ func (b baseZ) Type() Type { return b.typ }
 
 // Fields returns nil as baseZ is not an object schema.
 func (b baseZ) Fields() map[string]Shape { return nil }
+
+func (b baseZ) ReflectType() reflect.Type { return b.expectedType }

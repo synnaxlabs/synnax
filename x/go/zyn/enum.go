@@ -129,12 +129,15 @@ func (e EnumZ) Parse(data any, dest any) error {
 // Enum creates a new enum schema with the given values.
 // This is the entry point for creating enum validation schemas.
 func Enum[T comparable](values ...T) EnumZ {
+	if len(values) == 0 {
+		panic("enums must have at least one value")
+	}
 	anyValues := make([]any, len(values))
 	for i, v := range values {
 		anyValues[i] = v
 	}
 	return EnumZ{
-		baseZ:  baseZ{typ: EnumT},
+		baseZ:  baseZ{typ: EnumT, expectedType: reflect.TypeOf(values[0])},
 		values: anyValues,
 	}
 }

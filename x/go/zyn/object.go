@@ -26,6 +26,8 @@ type ObjectZ struct {
 	fields map[string]Z
 }
 
+var _ Z = (*ObjectZ)(nil)
+
 // fieldByName finds a field in a struct by its name, supporting both PascalCase and snake_case.
 func fieldByName(v reflect.Value, field string) reflect.Value {
 	snake := lo.SnakeCase(field)
@@ -229,7 +231,7 @@ func (o ObjectZ) Parse(data any, dest any) error {
 // The fields parameter maps field names to their validation schemas.
 func Object(fields map[string]Z) ObjectZ {
 	return ObjectZ{
-		baseZ:  baseZ{typ: ObjectT},
+		baseZ:  baseZ{typ: ObjectT, expectedType: reflect.TypeOf(ObjectT)},
 		fields: fields,
 	}
 }

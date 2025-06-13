@@ -24,7 +24,6 @@ import (
 // StringZ supports validation of regular strings and UUIDs.
 type StringZ struct {
 	baseZ
-	expectedType reflect.Type
 }
 
 var _ Z = (*StringZ)(nil)
@@ -197,7 +196,7 @@ func (s StringZ) Parse(data any, dest any) error {
 
 // String creates a new string schema.
 // This is the entry point for creating string validation schemas.
-func String() StringZ { return StringZ{baseZ: baseZ{typ: StringT}} }
+func String() StringZ { return StringZ{baseZ: baseZ{typ: StringT, expectedType: reflect.TypeOf("")}} }
 
 func invalidUUIDStringError() error {
 	return errors.Wrap(validate.Error, "invalid UUID format: must be a valid UUID string")

@@ -21,8 +21,7 @@ import (
 // NumberZ is a schema for parsing numeric types.
 type NumberZ struct {
 	baseZ
-	expectedType reflect.Type
-	coerce       bool
+	coerce bool
 }
 
 var _ Z = (*NumberZ)(nil)
