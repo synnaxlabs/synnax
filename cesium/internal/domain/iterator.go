@@ -52,8 +52,8 @@ type Iterator struct {
 	position int
 	// idx is the index that the iterator is iterating over.
 	idx *index
-	// currPtr stores the current currPtr of the iterator. This value is only valid if the
-	// iterator is valid.
+	// currPtr stores the current domain that the iterator is pointing to. This value
+	// is only valid if the iterator is valid.
 	currPtr pointer
 	// valid stores whether the iterator is currently valid.
 	valid bool
