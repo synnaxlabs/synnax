@@ -19,12 +19,12 @@
   "dependencies": {
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
-    "tsx": "^4.19.4"
+    "tsx": "^4.20.2"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.0.1",
     "eslint": "^9.28.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.8.3",

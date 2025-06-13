@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -102,7 +101,7 @@ var _ = Describe("Object", func() {
 			})
 
 			var dest TestStruct
-			Expect(schema.Parse("not a map", &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected map[string]any"}))
+			Expect(schema.Parse("not a map", &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 
 		Specify("nil pointer", func() {
@@ -143,10 +142,7 @@ var _ = Describe("Object", func() {
 			})
 
 			var dest TestStruct
-			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).To(MatchError(validate.FieldError{
-				Field:   "Age",
-				Message: "missing required field",
-			}))
+			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).To(MatchError(ContainSubstring("required")))
 		})
 	})
 
@@ -182,7 +178,7 @@ var _ = Describe("Object", func() {
 			})
 
 			var dest TestStruct
-			Expect(schema.Parse(nil, &dest)).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+			Expect(schema.Parse(nil, &dest)).To(MatchError(ContainSubstring("required")))
 		})
 	})
 
@@ -328,10 +324,7 @@ var _ = Describe("Object", func() {
 			}
 
 			_, err := schema.Dump(data)
-			Expect(err).To(MatchError(validate.FieldError{
-				Field:   "age",
-				Message: "field is required",
-			}))
+			Expect(err).To(MatchError(ContainSubstring("required")))
 		})
 
 		Describe("Invalid Inputs", func() {
@@ -341,7 +334,7 @@ var _ = Describe("Object", func() {
 				})
 
 				_, err := schema.Dump(nil)
-				Expect(err).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+				Expect(err).To(MatchError(ContainSubstring("required")))
 			})
 
 			Specify("nil pointer", func() {
@@ -355,7 +348,7 @@ var _ = Describe("Object", func() {
 
 				var data *TestStruct
 				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+				Expect(err).To(MatchError(ContainSubstring("required")))
 			})
 
 			Specify("optional nil value", func() {
@@ -389,7 +382,7 @@ var _ = Describe("Object", func() {
 				})
 
 				_, err := schema.Dump("not a struct")
-				Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected struct or map[string]any"}))
+				Expect(err).To(MatchError(ContainSubstring("expected struct or map[string]any")))
 			})
 
 			Specify("missing required field", func() {
@@ -407,10 +400,7 @@ var _ = Describe("Object", func() {
 				}
 
 				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(validate.FieldError{
-					Field:   "age",
-					Message: "field is required",
-				}))
+				Expect(err).To(MatchError(ContainSubstring("required")))
 			})
 		})
 
@@ -534,10 +524,7 @@ var _ = Describe("Object", func() {
 				}
 
 				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(validate.FieldError{
-					Field:   "age",
-					Message: "invalid type: expected number or convertible to number",
-				}))
+				Expect(err).To(MatchError(ContainSubstring("expected number or convertible to number")))
 			})
 
 			Specify("missing required field in map", func() {
@@ -551,10 +538,7 @@ var _ = Describe("Object", func() {
 				}
 
 				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(validate.FieldError{
-					Field:   "age",
-					Message: "field is required",
-				}))
+				Expect(err).To(MatchError(ContainSubstring("required")))
 			})
 
 			Specify("invalid nested object in map", func() {
@@ -572,10 +556,7 @@ var _ = Describe("Object", func() {
 				}
 
 				_, err := schema.Dump(data)
-				Expect(err).To(MatchError(validate.FieldError{
-					Field:   "address",
-					Message: "invalid type: expected struct or map[string]any",
-				}))
+				Expect(err).To(MatchError(ContainSubstring("expected struct or map[string]any")))
 			})
 		})
 	})
@@ -871,6 +852,41 @@ var _ = Describe("Object", func() {
 				Expect(schema.Parse(data, &res)).To(Succeed())
 				Expect(res).To(Equal(MyStruct{Value: value}))
 			})
+		})
+	})
+
+	Describe("Nested Object Field Errors", func() {
+		It("Should correctly append path segments", func() {
+
+			schema := zyn.Object(map[string]zyn.Z{
+				"first": zyn.Object(map[string]zyn.Z{
+					"second": zyn.Object(map[string]zyn.Z{
+						"third": zyn.Object(map[string]zyn.Z{
+							"value": zyn.Uint64(),
+						}),
+					}),
+				}),
+			})
+			data := map[string]any{
+				"first": map[string]any{
+					"second": map[string]any{
+						"third": map[string]any{
+							"value": 123.2,
+						},
+					},
+				},
+			}
+			type MyStruct struct {
+				First struct {
+					Second struct {
+						Third struct {
+							Value uint64
+						}
+					}
+				}
+			}
+			var v MyStruct
+			Expect(schema.Parse(data, &v)).To(MatchError(ContainSubstring("first.second.third.value")))
 		})
 	})
 })

@@ -55,7 +55,4 @@ with client.open_writer(
         # Read from the serial connection
         value = float(ser.readline().decode("utf-8").rstrip())
         print(value)
-        if not writer.write(
-            {"arduino_time": sy.TimeStamp.now(), "arduino_value": value}
-        ):
-            break
+        writer.write({"arduino_time": sy.TimeStamp.now(), "arduino_value": value})

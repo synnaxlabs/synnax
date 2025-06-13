@@ -206,7 +206,12 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 func (i *Iterator) autoNext(ctx context.Context) bool {
 	i.view.Start = i.view.End
-	endApprox, err := i.idx.Stamp(ctx, i.view.Start, i.IteratorConfig.AutoChunkSize, index.AllowDiscontinuous)
+	endApprox, err := i.idx.Stamp(
+		ctx,
+		i.view.Start,
+		i.IteratorConfig.AutoChunkSize,
+		index.AllowDiscontinuous,
+	)
 	if err != nil {
 		i.err = err
 		return false
@@ -255,6 +260,65 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 	return i.partiallySatisfied()
 }
 
+func (i *Iterator) autoPrev(ctx context.Context) bool {
+	i.view.End = i.view.Start
+	startApprox, err := i.idx.Stamp(
+		ctx,
+		i.view.Start,
+		-i.IteratorConfig.AutoChunkSize,
+		index.AllowDiscontinuous,
+	)
+	if err != nil {
+		i.err = err
+		return false
+	}
+	if startApprox.Lower.Before(i.bounds.Start) {
+		return i.Prev(ctx, i.bounds.Start.Span(i.view.End))
+	}
+	i.view.Start = startApprox.Lower + 1
+	i.reset(i.view.BoundBy(i.bounds))
+	nRemaining := i.IteratorConfig.AutoChunkSize
+	for {
+		if !i.internal.TimeRange().OverlapsWith(i.view) {
+			if !i.internal.Prev() {
+				return false
+			}
+			continue
+		}
+		endApprox, err := i.approximateEnd(ctx)
+		if err != nil {
+			i.err = err
+			return false
+		}
+		endOffset := i.Channel.DataType.Density().Size(endApprox.Upper)
+		if !startApprox.Exact() && !endApprox.StartExact {
+			endOffset = i.Channel.DataType.Density().Size(endApprox.Lower)
+		}
+		bytesToRead := i.Channel.DataType.Density().Size(nRemaining)
+		startOffset := endOffset - bytesToRead
+		if startOffset < 0 {
+			startOffset = 0
+			bytesToRead = endOffset
+		}
+		series, err := i.read(
+			ctx,
+			0,
+			endOffset-bytesToRead,
+			bytesToRead,
+		)
+		if err != nil && !errors.Is(err, io.EOF) {
+			i.err = err
+			return false
+		}
+		nRemaining -= series.Len()
+		i.insert(series)
+		if nRemaining <= 0 || !i.internal.Prev() {
+			break
+		}
+	}
+	return i.partiallySatisfied()
+}
+
 // Prev moves the iterator backward by span. More specifically, if the current view is
 // [start, end), after Next(span) is called, the view becomes [start - span, start).
 // After the view changes, the internal iterator moves backward and accumulates data
@@ -273,6 +337,10 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.atStart() {
 		i.reset(i.bounds.Start.SpanRange(0))
 		return
+	}
+
+	if span == AutoSpan {
+		return i.autoPrev(ctx)
 	}
 
 	i.reset(i.view.Start.SpanRange(-1 * span).BoundBy(i.bounds))
@@ -446,7 +514,7 @@ func (i *Iterator) approximateStart(ctx context.Context) (
 // after the end of the range, the returned value will be the number of samples in the
 // range.
 func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
-	endApprox.Approximation = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
+	endApprox.Approximation = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Size())))
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
 		endApprox, _, err = i.idx.Distance(ctx, target, index.MustBeContinuous)

@@ -152,5 +152,4 @@ with client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
             state["daq_time"] = sy.TimeStamp.now()
 
             # Write the system state to Synnax.
-            if not writer.write(state):
-                break
+            writer.write(state)

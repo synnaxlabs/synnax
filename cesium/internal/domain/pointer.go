@@ -28,7 +28,7 @@ type pointer struct {
 	// offset is the offset of the domain within the file.
 	// 4 bytes
 	offset uint32
-	// length is the length of the domain within the file.
+	// size is the size of the domain within the file.
 	// 4 bytes
-	length uint32
+	size uint32
 }

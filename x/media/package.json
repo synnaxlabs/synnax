@@ -28,8 +28,8 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^24.0.0",
-    "@types/react": "^19.1.7",
+    "@types/node": "^24.0.1",
+    "@types/react": "^19.1.8",
     "@vitejs/plugin-react": "^4.5.2",
     "eslint": "^9.28.0",
     "eslint-config-synnaxlabs": "workspace:*",

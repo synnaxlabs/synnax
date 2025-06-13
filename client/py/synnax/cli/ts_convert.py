@@ -187,8 +187,7 @@ def pure_tsconvert(
                     chunk[input_channel], input_precision, output_precision
                 )
                 chunk[output_channel] = converted
-                if not writer.write(chunk):
-                    break
+                writer.write(chunk)
                 tp = chunk.size / (datetime.now() - t0).total_seconds()
                 progress.update(task, advance=chunk.size, tp=int(tp))
     finally:

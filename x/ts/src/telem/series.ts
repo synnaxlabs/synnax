@@ -1359,7 +1359,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    */
   subAlignmentSpanIterator(start: bigint, span: number): IterableIterator<T> {
     if (start >= this.alignmentBounds.upper) return noopIterableIterator;
-    span = Math.min(span, this.length - Number(start - this.alignment));
+    span = Math.min(span, Number(this.distance(start, this.alignmentBounds.upper)));
     let startIdx = 0;
     for (let i = 0; i < this.series.length; i++) {
       const ser = this.series[i];
@@ -1436,7 +1436,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   }
 
   /**
-   * Calculates the distance between two alignments in the multi-series.
+   * Calculates the number of samples between two alignments in the multi-series.
    * @param start - The starting alignment.
    * @param end - The ending alignment.
    * @returns The distance between the alignments.

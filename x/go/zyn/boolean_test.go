@@ -77,7 +77,7 @@ var _ = Describe("Bool", func() {
 	Describe("Invalid Inputs", func() {
 		Specify("invalid string", func() {
 			var dest bool
-			Expect(zyn.Bool().Parse("invalid", &dest)).To(MatchError(validate.FieldError{Message: "invalid boolean string: must be 'true', 'false', '1', or '0'"}))
+			Expect(zyn.Bool().Parse("invalid", &dest)).To(MatchError(ContainSubstring("invalid boolean string 'invalid': must be 'true', 'false', '1', or '0'")))
 		})
 
 		Specify("nil pointer", func() {
@@ -97,7 +97,7 @@ var _ = Describe("Bool", func() {
 
 		Specify("invalid type", func() {
 			var dest bool
-			Expect(zyn.Bool().Parse(struct{}{}, &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected boolean, string, number, or nil"}))
+			Expect(zyn.Bool().Parse(struct{}{}, &dest)).To(MatchError(ContainSubstring("expected boolean, string, number, or nil")))
 		})
 	})
 
@@ -110,7 +110,7 @@ var _ = Describe("Bool", func() {
 
 		Specify("required field with nil value", func() {
 			var dest bool
-			Expect(zyn.Bool().Parse(nil, &dest)).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+			Expect(zyn.Bool().Parse(nil, &dest)).To(HaveOccurredAs(validate.RequiredError))
 		})
 
 		Specify("optional field with value", func() {
@@ -184,23 +184,23 @@ var _ = Describe("Bool", func() {
 
 		Specify("invalid string", func() {
 			_, err := zyn.Bool().Dump("invalid")
-			Expect(err).To(MatchError(validate.FieldError{Message: "invalid boolean string: must be 'true', 'false', '1', or '0'"}))
+			Expect(err).To(MatchError(ContainSubstring("invalid boolean string 'invalid': must be 'true', 'false', '1', or '0'")))
 		})
 
 		Specify("nil value", func() {
 			_, err := zyn.Bool().Dump(nil)
-			Expect(err).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+			Expect(err).To(HaveOccurredAs(validate.RequiredError))
 		})
 
 		Specify("nil pointer", func() {
 			var b *bool
 			_, err := zyn.Bool().Dump(b)
-			Expect(err).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+			Expect(err).To(HaveOccurredAs(validate.RequiredError))
 		})
 
 		Specify("invalid type", func() {
 			_, err := zyn.Bool().Dump(struct{}{})
-			Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected boolean, string, number, or nil"}))
+			Expect(err).To(MatchError(ContainSubstring("expected boolean, string, number, or nil")))
 		})
 
 		Specify("optional nil value", func() {

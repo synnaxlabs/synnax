@@ -81,7 +81,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					It("Should not allow opening a writer without a subject key", func() {
 						_, _, err := db.OpenWriter(ctx, unary.WriterConfig{Start: 3, End: 10})
-						Expect(err).To(MatchError(ContainSubstring("Subject.Key:field must be set")))
+						Expect(err).To(MatchError(ContainSubstring("subject.key: required")))
 					})
 				})
 			})

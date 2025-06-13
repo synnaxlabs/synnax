@@ -58,17 +58,21 @@ fields:
     </tr>
     <tr>
       <td>Expression</td>
-      <td>
-        The Lua expression that calculates the value to be written to the calculated
-        channel. This expression must end with a `return` statement.
-      </td>
+      {
+        <td>
+          The Lua expression that calculates the value to be written to the calculated
+          channel. This expression must end with a <code>return</code> statement.
+        </td>
+      }
     </tr>
     <tr>
       <td>Requires</td>
-      <td>
-        The existing Synnax channels used in the calculation. A calculated channel
-        **must reference at least one existing channel** in its expression.
-      </td>
+      {
+        <td>
+          The existing Synnax channels used in the calculation. A calculated channel{" "}
+          <b>must reference at least one existing channel</b> in its expression.
+        </td>
+      }
     </tr>
   </tbody>
 </Table>
@@ -211,18 +215,22 @@ end
     <tr>
       <td>Arithmetic</td>
       <td>`+`, `-`, `*`, `/`, `//`, `%`, `^`</td>
-      <td>
-        Addition, subtraction, multiplication, float division, floor division, modulo,
-        exponentiation
-      </td>
+      {
+        <td>
+          Addition, subtraction, multiplication, float division, floor division, modulo,
+          and exponentiation.
+        </td>
+      }
     </tr>
     <tr>
       <td>Relational</td>
       <td style="font-variant-ligatures: none;">`==`, `~=`, `<`, `>`, `<=`, `>=`</td>
-      <td>
-        Equal to, not equal to, less than, greater than, less than or equal to, greater
-        than or equal to
-      </td>
+      {
+        <td>
+          Equal to, not equal to, less than, greater than, less than or equal to, and
+          greater than or equal to.
+        </td>
+      }
     </tr>
     <tr>
       <td>Logical</td>
@@ -237,9 +245,11 @@ end
     <tr>
       <td>Bitwise</td>
       <td>`&`, `|`, `~`, `<<`, `>>`, `~`</td>
-      <td>
-        Bitwise AND, OR, XOR, left shift, right shift, unary bitwise NOT
-      </td>
+      {
+        <td>
+          Bitwise AND, OR, XOR, left shift, right shift, and unary bitwise NOT.
+        </td>
+      }
     </tr>
     <tr>
       <td>Length</td>
@@ -265,10 +275,13 @@ You can also use Lua's built-in `math` library:
     </tr>
     <tr>
       <td>Basic Math</td>
-      <td>
-        `math.abs()`, `math.ceil()`, `math.floor()`, `math.max()`, `math.min()`,
-        `math.fmod()`, `math.modf()`
-      </td>
+      {
+        <td>
+          <code>math.abs()</code>, <code>math.ceil()</code>, <code>math.floor()</code>,
+          <code>math.max()</code>, <code>math.min()</code>, <code>math.fmod()</code>,
+          <code>math.modf()</code>
+        </td>
+      }
     </tr>
     <tr>
       <td>Power/Logarithmic</td>
@@ -276,10 +289,13 @@ You can also use Lua's built-in `math` library:
     </tr>
     <tr>
       <td>Trigonometry</td>
-      <td>
-        `math.sin()`, `math.cos()`, `math.tan()`, `math.asin()`, `math.acos()`,
-        `math.atan()`, `math.atan2()`
-      </td>
+      {
+        <td>
+          <code>math.sin()</code>, <code>math.cos()</code>, <code>math.tan()</code>,
+          <code>math.asin()</code>, <code>math.acos()</code>, <code>math.atan()</code>,
+          <code>math.atan2()</code>
+        </td>
+      }
     </tr>
     <tr>
       <td>Angle Conversion</td>
@@ -304,32 +320,36 @@ You can also use Lua's built-in `math` library:
     <tr>
       <td>If Statement</td>
       <td>
-        `if ... then ... end`
-        <br />
-        `if ... then ... else ... end`
-        <br />
-        `if ... then ... elseif ... then ... else ... end`
+        <p>
+          <code>if...then...end</code>
+        </p>
+        <p>
+          <code>if...then...else...end</code>
+        </p>
+        <p>
+          <code>if...then...elseif...then...else...end</code>
+        </p>
       </td>
       <td>Conditional execution with optional else and elseif branches</td>
     </tr>
     <tr>
       <td>Numeric For</td>
-      <td>`for i=start,end,step do ... end`</td>
+      <td>`for i=start,end,step do...end`</td>
       <td>Loops from start to end, optional step (defaults to 1)</td>
     </tr>
     <tr>
       <td>Generic For</td>
-      <td>`for k,v in pairs(table) do ... end`</td>
+      <td>`for k,v in pairs(table) do...end`</td>
       <td>Iterates over table elements using `pairs()` or `ipairs()`</td>
     </tr>
     <tr>
       <td>While</td>
-      <td>`while condition do ... end`</td>
+      <td>`while condition do...end`</td>
       <td>Loops while `condition` is true</td>
     </tr>
     <tr>
       <td>Repeat</td>
-      <td>`repeat ... until condition`</td>
+      <td>`repeat...until condition`</td>
       <td>Runs at least once, then repeats until `condition` is met</td>
     </tr>
     <tr>

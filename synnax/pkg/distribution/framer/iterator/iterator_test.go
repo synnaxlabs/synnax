@@ -36,6 +36,8 @@ var _ = Describe("Iterator", func() {
 		for i, sF := range scenarios {
 			_sF := sF
 			var s scenario
+
+			Describe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
 			BeforeAll(func() {
 				s = _sF()
 				writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -77,22 +79,22 @@ var _ = Describe("Iterator", func() {
 				Expect(iter.Prev(6 * telem.Second)).To(BeTrue())
 				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(17, 18, 19, 20, 21, 22)))
 
-				Expect(iter.SeekGE(100 * telem.SecondTS)).To(BeFalse())
-				Expect(iter.Valid()).To(BeFalse())
-				Expect(iter.SeekLE(22*telem.SecondTS + 1)).To(BeTrue())
-				Expect(iter.Prev(2 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(21, 22)))
+					Expect(iter.SeekGE(100 * telem.SecondTS)).To(BeFalse())
+					Expect(iter.Valid()).To(BeFalse())
+					Expect(iter.SeekLE(22*telem.SecondTS + 1)).To(BeTrue())
+					Expect(iter.Prev(2 * telem.Second)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(21, 22)))
 
-				Expect(iter.SeekLE(0 * telem.SecondTS)).To(BeFalse())
-				Expect(iter.Valid()).To(BeFalse())
-				Expect(iter.SeekGE(13 * telem.SecondTS)).To(BeTrue())
-				Expect(iter.Next(20 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(13, 14, 15, 16, 17, 18, 19, 20, 21, 22)))
+					Expect(iter.SeekLE(0 * telem.SecondTS)).To(BeFalse())
+					Expect(iter.Valid()).To(BeFalse())
+					Expect(iter.SeekGE(13 * telem.SecondTS)).To(BeTrue())
+					Expect(iter.Next(20 * telem.Second)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(13, 14, 15, 16, 17, 18, 19, 20, 21, 22)))
 
-				Expect(iter.Close()).To(Succeed())
-			})
+					Expect(iter.Close()).To(Succeed())
+				})
 
-			Specify(fmt.Sprintf("Scenario: %v - Auto chunk", i), func() {
+			Specify(fmt.Sprintf("Auto chunk", i), func() {
 				iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 					Keys:      s.keys,
 					Bounds:    telem.TimeRangeMax,
@@ -106,8 +108,31 @@ var _ = Describe("Iterator", func() {
 				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(16, 17, 18)))
 
-				Expect(iter.Close()).To(Succeed())
+					Expect(iter.Close()).To(Succeed())
+				})
+
+				Specify("Reverse Auto Chunk", func() {
+					iter := MustSucceed(s.iteratorService.Open(ctx, iterator.Config{
+						Keys:      s.keys,
+						Bounds:    telem.TimeRangeMax,
+						ChunkSize: 3,
+					}))
+					Expect(iter.SeekLast()).To(BeTrue())
+					Expect(iter.Prev(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(20, 21, 22)))
+					Expect(iter.Prev(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(17, 18, 19)))
+					Expect(iter.Prev(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(14, 15, 16)))
+					Expect(iter.Prev(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(11, 12, 13)))
+					Expect(iter.Prev(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(10)))
+					Expect(iter.Prev(iterator.AutoSpan)).To(BeFalse())
+					Expect(iter.Close()).To(Succeed())
+				})
 			})
+		})
 		}
 	})
 })

@@ -36,12 +36,12 @@
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
     "async-mutex": "^0.5.0",
-    "zod": "^3.25.58"
+    "zod": "^3.25.63"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.0.1",
     "eslint": "^9.28.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "madge": "^8.0.0",

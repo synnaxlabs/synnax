@@ -198,10 +198,10 @@ export const selectToolbar = (state: StoreState): ToolbarState =>
 
 export const useSelectToolbar = (): ToolbarState => useMemoSelect(selectToolbar, []);
 
-export const selectEditable = (state: StoreState, key: string): boolean =>
-  select(state, key).editable;
+export const selectEditable = (state: StoreState, key: string): boolean | undefined =>
+  select(state, key)?.editable;
 
-export const useSelectEditable = (key: string): boolean =>
+export const useSelectEditable = (key: string): boolean | undefined =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
 
 export const selectViewportMode = (state: StoreState): Viewport.Mode =>

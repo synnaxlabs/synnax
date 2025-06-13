@@ -264,7 +264,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, shouldPersist 
 	ptr := pointer{
 		TimeRange: telem.TimeRange{Start: w.Start, End: commitEnd},
 		offset:    uint32(w.internal.Offset()),
-		length:    uint32(length),
+		size:      uint32(length),
 		fileKey:   w.fileKey,
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)

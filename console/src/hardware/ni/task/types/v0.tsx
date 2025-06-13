@@ -9,7 +9,7 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Icon, type IconProps } from "@synnaxlabs/media";
-import { type FC, type JSX } from "react";
+import { type FC } from "react";
 import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
@@ -1042,10 +1042,10 @@ export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   [AO_VOLTAGE_CHAN_TYPE]: "Voltage",
 };
 
-export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, JSX.Element> = {
-  [AO_CURRENT_CHAN_TYPE]: <Icon.Units.Current />,
-  [AO_FUNC_GEN_CHAN_TYPE]: <Icon.Function />,
-  [AO_VOLTAGE_CHAN_TYPE]: <Icon.Units.Voltage />,
+export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, FC<IconProps>> = {
+  [AO_CURRENT_CHAN_TYPE]: Icon.Units.Current,
+  [AO_FUNC_GEN_CHAN_TYPE]: Icon.Function,
+  [AO_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,
 };
 
 export const ZERO_AO_CHANNELS: Record<AOChannelType, AOChannel> = {

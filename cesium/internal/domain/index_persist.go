@@ -98,7 +98,7 @@ func (f *pointerCodec) encode(start int, ptrs []pointer) []byte {
 		byteOrder.PutUint64(b[base+8:base+16], uint64(ptr.End))
 		byteOrder.PutUint16(b[base+16:base+18], ptr.fileKey)
 		byteOrder.PutUint32(b[base+18:base+22], ptr.offset)
-		byteOrder.PutUint32(b[base+22:base+26], ptr.length)
+		byteOrder.PutUint32(b[base+22:base+26], ptr.size)
 	}
 
 	return b
@@ -119,7 +119,7 @@ func (f *pointerCodec) decode(b []byte) []pointer {
 			},
 			fileKey: byteOrder.Uint16(b[base+16 : base+18]),
 			offset:  byteOrder.Uint32(b[base+18 : base+22]),
-			length:  byteOrder.Uint32(b[base+22 : base+26]),
+			size:    byteOrder.Uint32(b[base+22 : base+26]),
 		}
 	}
 	return pointers

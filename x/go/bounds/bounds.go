@@ -33,3 +33,7 @@ func (b Bounds[V]) Contains(v V) bool {
 // String implements fmt.Stringer to return a nicely formatted string representation
 // of the bounds.
 func (b Bounds[V]) String() string { return fmt.Sprintf("Bounds[%v, %v)", b.Lower, b.Upper) }
+
+func (b Bounds[V]) Span() V {
+	return b.Upper - b.Lower
+}

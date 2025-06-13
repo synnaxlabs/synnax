@@ -1408,7 +1408,7 @@ var _ = Describe("Writer Behavior", func() {
 						)))
 						_, err := w.Commit()
 						Expect(err).To(HaveOccurred())
-						Expect(w.Close()).To(MatchError(ContainSubstring("cannot find stamp start")))
+						Expect(w.Close()).To(MatchError(ContainSubstring("does not exist in the index")))
 					})
 				})
 			})

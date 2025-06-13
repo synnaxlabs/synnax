@@ -99,7 +99,4 @@ with client.open_writer(
                 continue
             # Calculate the average of the two sensors
             avg = (sensor_1 + sensor_2) / 2
-            if not writer.write(
-                {"interpolation_time": time, "interpolation_data": avg}
-            ):
-                break
+            writer.write({"interpolation_time": time, "interpolation_data": avg})

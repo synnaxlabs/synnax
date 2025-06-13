@@ -63,12 +63,12 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   name: "Server.Connect",
   icon: "Logo.OPC",
   location: "modal",
-  window: { resizable: false, size: { height: 720, width: 800 }, navTop: true },
+  window: { resizable: false, size: { height: 720, width: 915 }, navTop: true },
 };
 
 const formSchema = z.object({
   name: Common.Device.nameZ,
-  rack: rack.keyZ,
+  rack: rack.keyZ.refine((k) => k > 0, "Must select a location to connect from"),
   connection: connectionConfigZ,
 });
 interface FormSchema extends z.infer<typeof formSchema> {}
@@ -87,7 +87,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     onError: (e) => handleError(e, "Failed to test connection"),
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      if (!methods.validate("connection")) throw new Error("Invalid configuration");
+      if (!methods.validate()) return;
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
       );
@@ -107,7 +107,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     onError: (e) => handleError(e, "Failed to connect to OPC UA Server"),
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      if (!methods.validate()) throw new Error("Invalid configuration");
+      if (!methods.validate()) return;
       await testConnectionMutation.mutateAsync();
       if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
@@ -148,7 +148,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             }}
             path="name"
           />
-          <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
+          <Form.Field<rack.Key> path="rack" label="Connect From" required>
             {(p) => <Rack.SelectSingle {...p} allowNone={false} />}
           </Form.Field>
           <Form.Field<string> path="connection.endpoint">

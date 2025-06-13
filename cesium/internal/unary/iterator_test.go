@@ -167,7 +167,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					})
 				})
 
-				Describe("Requests Exhaustion", func() {
+				Describe("Exhaustion", func() {
 					Specify("Single Time Range", func() {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
@@ -203,7 +203,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Close()).To(Succeed())
 
 					})
-					Describe("Auto Exhaustion", func() {
+					Describe("Auto Span", func() {
 						Specify("Single Domain - Leftover chunk", func() {
 							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
@@ -411,6 +411,97 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(iter.Close()).To(Succeed())
 						})
+
+						Specify("Prev Auto Span - Basic", func() {
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17))).To(Succeed())
+							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8))).To(Succeed())
+							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
+								Bounds:        (5 * telem.SecondTS).SpanRange(30 * telem.Second),
+								AutoChunkSize: 3,
+							}))
+							Expect(iter.SeekLast(ctx)).To(BeTrue())
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(3)))
+							Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](6, 7, 8))
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(3)))
+							Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](3, 4, 5))
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](1, 2))
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeFalse())
+							Expect(iter.Close()).To(Succeed())
+						})
+
+						Specify("Prev Auto Span - Domain Crossing", func() {
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24))).To(Succeed())
+							Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](7, 8, 9, 10, 11))).To(Succeed())
+							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
+								Bounds:        (5 * telem.SecondTS).SpanRange(30 * telem.Second),
+								AutoChunkSize: 3,
+							}))
+							Expect(iter.SeekLast(ctx)).To(BeTrue())
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(3)))
+							Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](9, 10, 11))
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(3)))
+							Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](6))
+							Expect(iter.Value().SeriesAt(1)).To(telem.MatchSeriesDataV[int64](7, 8))
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(3)))
+							Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](3, 4, 5))
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](1, 2))
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeFalse())
+							Expect(iter.Close()).To(Succeed())
+						})
+
+						Specify("Prev Auto Span - Cut-off Domain", func() {
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24))).To(Succeed())
+							Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](7, 8, 9, 10, 11))).To(Succeed())
+							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
+								Bounds:        (12 * telem.SecondTS).SpanRange(15 * telem.Second),
+								AutoChunkSize: 3,
+							}))
+							Expect(iter.SeekLast(ctx)).To(BeTrue())
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(3)))
+							Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](9, 10, 11))
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(3)))
+							Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](6))
+							Expect(iter.Value().SeriesAt(1)).To(telem.MatchSeriesDataV[int64](7, 8))
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(3)))
+							Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](3, 4, 5))
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeFalse())
+							Expect(iter.Close()).To(Succeed())
+						})
+
+						Specify("Prev Auto Span - Partial Domain", func() {
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
+							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
+								Bounds:        (12 * telem.SecondTS).SpanRange(4 * telem.Second),
+								AutoChunkSize: 3,
+							}))
+							Expect(iter.SeekLast(ctx)).To(BeTrue())
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(3)))
+							Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](4, 5, 6))
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(1)))
+							Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](3))
+							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeFalse())
+							Expect(iter.Close()).To(Succeed())
+						})
+
 						Specify("Multi domain - Regression 1", func() {
 							var i telem.TimeStamp
 							for i = 1; i < 6; i++ {

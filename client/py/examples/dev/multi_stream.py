@@ -30,13 +30,12 @@ with client.open_writer(
     for i in range(count):
         time.sleep(0.1)
         print(np.round(i / count * count))
-        if not writer.write(
+        writer.write(
             {
                 idx.key: sy.TimeStamp.now(),
                 data.key: np.sin(i),
             }
-        ):
-            break
+        )
 
 
 time.sleep(1)
@@ -56,12 +55,11 @@ with client.open_writer(
 ) as writer:
     for i in range(50000):
         time.sleep(0.1)
-        if not writer.write(
+        writer.write(
             {
                 idx.key: sy.TimeStamp.now(),
                 data.key: np.sin(i),
                 data_2.key: np.sin(i * 2),
                 data_3.key: np.sin(i * 3),
             }
-        ):
-            break
+        )

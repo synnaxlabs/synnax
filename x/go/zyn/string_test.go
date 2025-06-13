@@ -57,7 +57,7 @@ var _ = Describe("String", func() {
 
 		Specify("invalid type", func() {
 			var dest string
-			Expect(zyn.String().Parse(struct{}{}, &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected string or convertible to string"}))
+			Expect(zyn.String().Parse(struct{}{}, &dest)).To(MatchError(ContainSubstring("expected string or convertible to string")))
 		})
 	})
 
@@ -70,7 +70,7 @@ var _ = Describe("String", func() {
 
 		Specify("required field with nil value", func() {
 			var dest string
-			Expect(zyn.String().Parse(nil, &dest)).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+			Expect(zyn.String().Parse(nil, &dest)).To(HaveOccurredAs(validate.RequiredError))
 		})
 
 		Specify("optional field with value", func() {
@@ -154,13 +154,13 @@ var _ = Describe("String", func() {
 		Describe("Invalid Inputs", func() {
 			Specify("nil value", func() {
 				_, err := zyn.String().Dump(nil)
-				Expect(err).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+				Expect(err).To(HaveOccurredAs(validate.RequiredError))
 			})
 
 			Specify("nil pointer", func() {
 				var s *string
 				_, err := zyn.String().Dump(s)
-				Expect(err).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+				Expect(err).To(HaveOccurredAs(validate.RequiredError))
 			})
 
 			Specify("optional nil value", func() {
@@ -179,7 +179,7 @@ var _ = Describe("String", func() {
 			Specify("complex type", func() {
 				type Complex struct{ x int }
 				_, err := zyn.String().Dump(Complex{42})
-				Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected string or convertible to string"}))
+				Expect(err).To(MatchError(ContainSubstring("expected string or convertible to string")))
 			})
 		})
 	})
@@ -201,17 +201,17 @@ var _ = Describe("String", func() {
 
 			Specify("invalid string UUID", func() {
 				var dest string
-				Expect(zyn.String().UUID().Parse("not-a-uuid", &dest)).To(MatchError(validate.FieldError{Message: "invalid UUID format: must be a valid UUID string"}))
+				Expect(zyn.String().UUID().Parse("not-a-uuid", &dest)).To(MatchError(ContainSubstring("must be a valid UUID string")))
 			})
 
 			Specify("invalid type", func() {
 				var dest string
-				Expect(zyn.String().UUID().Parse(42, &dest)).To(MatchError(validate.FieldError{Message: "invalid UUID type: expected UUID or string"}))
+				Expect(zyn.String().UUID().Parse(42, &dest)).To(MatchError(ContainSubstring("expected UUID or string")))
 			})
 
 			Specify("nil value", func() {
 				var dest string
-				Expect(zyn.String().UUID().Parse(nil, &dest)).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+				Expect(zyn.String().UUID().Parse(nil, &dest)).To(HaveOccurredAs(validate.RequiredError))
 			})
 
 			Specify("optional nil value", func() {
@@ -224,7 +224,7 @@ var _ = Describe("String", func() {
 				type MyUUID uuid.UUID
 				u := uuid.New()
 				var dest string
-				Expect(zyn.String().UUID().Parse(MyUUID(u), &dest)).To(MatchError(validate.FieldError{Message: "invalid UUID type: expected UUID or string"}))
+				Expect(zyn.String().UUID().Parse(MyUUID(u), &dest)).To(MatchError(ContainSubstring("expected UUID or string")))
 			})
 		})
 
@@ -244,17 +244,17 @@ var _ = Describe("String", func() {
 
 			Specify("invalid string UUID", func() {
 				_, err := zyn.String().UUID().Dump("not-a-uuid")
-				Expect(err).To(MatchError(validate.FieldError{Message: "invalid UUID format: must be a valid UUID string"}))
+				Expect(err).To(MatchError(ContainSubstring("must be a valid UUID string")))
 			})
 
 			Specify("invalid type", func() {
 				_, err := zyn.String().UUID().Dump(42)
-				Expect(err).To(MatchError(validate.FieldError{Message: "invalid UUID type: expected UUID or string"}))
+				Expect(err).To(MatchError(ContainSubstring("expected UUID or string")))
 			})
 
 			Specify("nil value", func() {
 				_, err := zyn.String().UUID().Dump(nil)
-				Expect(err).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+				Expect(err).To(HaveOccurredAs(validate.RequiredError))
 			})
 
 			Specify("optional nil value", func() {
@@ -267,7 +267,7 @@ var _ = Describe("String", func() {
 				type MyUUID uuid.UUID
 				u := uuid.New()
 				_, err := zyn.String().UUID().Dump(MyUUID(u))
-				Expect(err).To(MatchError(validate.FieldError{Message: "invalid UUID type: expected UUID or string"}))
+				Expect(err).To(MatchError(ContainSubstring("expected UUID or string")))
 			})
 		})
 	})

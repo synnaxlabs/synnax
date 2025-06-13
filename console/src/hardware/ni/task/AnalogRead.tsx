@@ -86,10 +86,7 @@ const ChannelListItem = ({
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
-      icon={{
-        name: AI_CHANNEL_TYPE_NAMES[type],
-        icon: <Icon style={{ color: "var(--pluto-gray-l9)" }} />,
-      }}
+      icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
     />
   );

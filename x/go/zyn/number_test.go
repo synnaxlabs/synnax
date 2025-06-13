@@ -51,13 +51,13 @@ var _ = Describe("Number", func() {
 
 			Specify("invalid type", func() {
 				var dest float64
-				Expect(zyn.Number().Float64().Parse(12, &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected float64"}))
+				Expect(zyn.Number().Float64().Parse(12, &dest)).To(MatchError(ContainSubstring("expected float64")))
 			})
 
 			Specify("custom type", func() {
 				type MyFloat float64
 				var dest float64
-				Expect(zyn.Number().Float64().Parse(MyFloat(12.5), &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected float64"}))
+				Expect(zyn.Number().Float64().Parse(MyFloat(12.5), &dest)).To(MatchError(ContainSubstring("expected float64")))
 			})
 
 			Specify("coerce int to float64", func() {
@@ -89,13 +89,13 @@ var _ = Describe("Number", func() {
 
 			Specify("invalid type", func() {
 				var dest int
-				Expect(zyn.Number().Int().Parse(12.5, &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected int"}))
+				Expect(zyn.Number().Int().Parse(12.5, &dest)).To(MatchError(ContainSubstring("expected int")))
 			})
 
 			Specify("custom type", func() {
 				type MyInt int
 				var dest int
-				Expect(zyn.Number().Int().Parse(MyInt(12), &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected int"}))
+				Expect(zyn.Number().Int().Parse(MyInt(12), &dest)).To(MatchError(ContainSubstring("expected int")))
 			})
 
 			Specify("coerce float64 to int", func() {
@@ -119,7 +119,7 @@ var _ = Describe("Number", func() {
 
 			Specify("coerce float with decimal to int fails", func() {
 				var dest int
-				Expect(zyn.Number().Int().Coerce().Parse(12.5, &dest)).To(MatchError(validate.FieldError{Message: "cannot convert float with fractional part to integer"}))
+				Expect(zyn.Number().Int().Coerce().Parse(12.5, &dest)).To(MatchError(ContainSubstring("cannot convert float")))
 			})
 		})
 
@@ -132,13 +132,13 @@ var _ = Describe("Number", func() {
 
 			Specify("invalid type", func() {
 				var dest uint64
-				Expect(zyn.Number().Uint64().Parse(12, &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected uint64"}))
+				Expect(zyn.Number().Uint64().Parse(12, &dest)).To(MatchError(ContainSubstring("expected uint64")))
 			})
 
 			Specify("custom type", func() {
 				type MyUint uint64
 				var dest uint64
-				Expect(zyn.Number().Uint64().Parse(MyUint(12), &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected uint64"}))
+				Expect(zyn.Number().Uint64().Parse(MyUint(12), &dest)).To(MatchError(ContainSubstring("expected uint64")))
 			})
 		})
 
@@ -151,13 +151,13 @@ var _ = Describe("Number", func() {
 
 			Specify("invalid type", func() {
 				var dest uint16
-				Expect(zyn.Number().Uint16().Parse(12, &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected uint16"}))
+				Expect(zyn.Number().Uint16().Parse(12, &dest)).To(MatchError(ContainSubstring("expected uint16")))
 			})
 
 			Specify("custom type", func() {
 				type MyUint uint16
 				var dest uint16
-				Expect(zyn.Number().Uint16().Parse(MyUint(12), &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected uint16"}))
+				Expect(zyn.Number().Uint16().Parse(MyUint(12), &dest)).To(MatchError(ContainSubstring("expected uint16")))
 			})
 
 			Specify("coerce uint32 to uint16", func() {
@@ -180,12 +180,12 @@ var _ = Describe("Number", func() {
 
 			Specify("coerce negative int to uint16 fails", func() {
 				var dest uint16
-				Expect(zyn.Number().Uint16().Coerce().Parse(-12, &dest)).To(MatchError(validate.FieldError{Message: "cannot convert negative value to unsigned integer"}))
+				Expect(zyn.Number().Uint16().Coerce().Parse(-12, &dest)).To(MatchError(ContainSubstring("cannot convert negative value")))
 			})
 
 			Specify("coerce large uint32 to uint16 fails", func() {
 				var dest uint16
-				Expect(zyn.Number().Uint16().Coerce().Parse(uint32(1<<32-1), &dest)).To(MatchError(validate.FieldError{Message: "unsigned integer value out of range for destination type"}))
+				Expect(zyn.Number().Uint16().Coerce().Parse(uint32(1<<32-1), &dest)).To(MatchError(ContainSubstring("out of range")))
 			})
 		})
 	})
@@ -224,34 +224,34 @@ var _ = Describe("Number", func() {
 		Describe("Precision", func() {
 			Specify("float64 to int64 with decimal", func() {
 				var dest int64
-				Expect(zyn.Number().Parse(12.5, &dest)).To(MatchError(validate.FieldError{Message: "cannot convert float with fractional part to integer"}))
+				Expect(zyn.Number().Parse(12.5, &dest)).To(MatchError(ContainSubstring("cannot convert float")))
 			})
 
 			Specify("float64 to uint64 with decimal", func() {
 				var dest uint64
-				Expect(zyn.Number().Parse(12.5, &dest)).To(MatchError(validate.FieldError{Message: "cannot convert float with fractional part to unsigned integer"}))
+				Expect(zyn.Number().Parse(12.5, &dest)).To(MatchError(ContainSubstring("cannot convert float")))
 			})
 
 			Specify("float64 to uint64 with negative", func() {
 				var dest uint64
-				Expect(zyn.Number().Parse(float64(-12), &dest)).To(MatchError(validate.FieldError{Message: "cannot convert negative value to unsigned integer"}))
+				Expect(zyn.Number().Parse(float64(-12), &dest)).To(MatchError(ContainSubstring("cannot convert negative value")))
 			})
 		})
 
 		Describe("Overflow", func() {
 			Specify("int64 to int8", func() {
 				var dest int8
-				Expect(zyn.Number().Parse(int64(1<<63-1), &dest)).To(MatchError(validate.FieldError{Message: "integer value out of range for destination type"}))
+				Expect(zyn.Number().Parse(int64(1<<63-1), &dest)).To(MatchError(ContainSubstring("value out of range")))
 			})
 
 			Specify("uint64 to int64", func() {
 				var dest int64
-				Expect(zyn.Number().Parse(uint64(1<<63), &dest)).To(MatchError(validate.FieldError{Message: "unsigned integer value too large for signed integer type"}))
+				Expect(zyn.Number().Parse(uint64(1<<63), &dest)).To(MatchError(ContainSubstring("unsigned integer value too large")))
 			})
 
 			Specify("uint64 to uint8", func() {
 				var dest uint8
-				Expect(zyn.Number().Parse(uint64(1<<64-1), &dest)).To(MatchError(validate.FieldError{Message: "unsigned integer value out of range for destination type"}))
+				Expect(zyn.Number().Parse(uint64(1<<64-1), &dest)).To(MatchError(ContainSubstring("out of range")))
 			})
 		})
 
@@ -282,7 +282,7 @@ var _ = Describe("Number", func() {
 		Describe("Invalid Inputs", func() {
 			Specify("non-numeric type", func() {
 				var dest int
-				Expect(zyn.Number().Parse("not a number", &dest)).To(MatchError(validate.FieldError{Message: "invalid type: expected number or convertible to number"}))
+				Expect(zyn.Number().Parse("not a number", &dest)).To(MatchError(ContainSubstring("expected number or convertible to number")))
 			})
 
 			Specify("nil pointer", func() {
@@ -311,7 +311,7 @@ var _ = Describe("Number", func() {
 
 		Specify("required field with nil value", func() {
 			var dest int
-			Expect(zyn.Number().Parse(nil, &dest)).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+			Expect(zyn.Number().Parse(nil, &dest)).To(HaveOccurredAs(validate.RequiredError))
 		})
 
 		Specify("optional field with value", func() {
@@ -370,9 +370,7 @@ var _ = Describe("Number", func() {
 
 			Specify("invalid type", func() {
 				_, err := zyn.Number().Float64().Dump(12)
-				Expect(err).To(MatchError(validate.FieldError{
-					Message: "invalid type: expected float64, got int",
-				}))
+				Expect(err).To(MatchError(ContainSubstring("expected float64 but received int")))
 			})
 
 			Specify("valid int", func() {
@@ -383,7 +381,7 @@ var _ = Describe("Number", func() {
 
 			Specify("invalid type for int", func() {
 				_, err := zyn.Number().Int().Dump(12.5)
-				Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected int, got float64"}))
+				Expect(err).To(MatchError(ContainSubstring("expected int but received float64")))
 			})
 		})
 
@@ -434,18 +432,18 @@ var _ = Describe("Number", func() {
 		Describe("Invalid Inputs", func() {
 			Specify("non-numeric type", func() {
 				_, err := zyn.Number().Dump("not a number")
-				Expect(err).To(MatchError(validate.FieldError{Message: "invalid type: expected number or convertible to number"}))
+				Expect(err).To(MatchError(ContainSubstring("expected number or convertible to number")))
 			})
 
 			Specify("nil value", func() {
 				_, err := zyn.Number().Dump(nil)
-				Expect(err).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+				Expect(err).To(HaveOccurredAs(validate.RequiredError))
 			})
 
 			Specify("nil pointer", func() {
 				var n *int
 				_, err := zyn.Number().Dump(n)
-				Expect(err).To(MatchError(validate.FieldError{Message: "value is required but was nil"}))
+				Expect(err).To(HaveOccurredAs(validate.RequiredError))
 			})
 
 			Specify("optional nil value", func() {
@@ -491,17 +489,17 @@ var _ = Describe("Number", func() {
 
 		Specify("coerce float with decimal to int fails", func() {
 			_, err := zyn.Number().Int().Coerce().Dump(12.5)
-			Expect(err).To(MatchError(validate.FieldError{Message: "cannot convert float with fractional part to integer"}))
+			Expect(err).To(MatchError(ContainSubstring("cannot convert float")))
 		})
 
 		Specify("coerce negative int to uint fails", func() {
 			_, err := zyn.Number().Uint().Coerce().Dump(-12)
-			Expect(err).To(MatchError(validate.FieldError{Message: "cannot convert negative value to unsigned integer"}))
+			Expect(err).To(MatchError(ContainSubstring("cannot convert negative value")))
 		})
 
 		Specify("coerce large uint64 to uint16 fails", func() {
 			_, err := zyn.Number().Uint16().Coerce().Dump(uint64(1<<64 - 1))
-			Expect(err).To(MatchError(validate.FieldError{Message: "unsigned integer value out of range for destination type"}))
+			Expect(err).To(MatchError(ContainSubstring("out of range for destination type uint16")))
 		})
 	})
 })

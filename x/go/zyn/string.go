@@ -14,6 +14,8 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -59,7 +61,7 @@ func (s StringZ) Dump(data any) (any, error) {
 		if s.optional {
 			return nil, nil
 		}
-		return nil, validate.FieldError{Message: "value is required but was nil"}
+		return nil, errors.WithStack(validate.RequiredError)
 	}
 
 	val := reflect.ValueOf(data)
@@ -68,28 +70,25 @@ func (s StringZ) Dump(data any) (any, error) {
 			if s.optional {
 				return nil, nil
 			}
-			return nil, validate.FieldError{Message: "value is required but was nil"}
+			return nil, errors.WithStack(validate.RequiredError)
 		}
 		val = val.Elem()
 	}
 
-	// If UUID type is expected, validate the input type
 	if s.expectedType != nil && s.expectedType == reflect.TypeOf(uuid.UUID{}) {
 		switch val.Kind() {
 		case reflect.String:
-			// Try to parse as UUID
 			if _, err := uuid.Parse(val.String()); err != nil {
-				return nil, validate.FieldError{Message: "invalid UUID format: must be a valid UUID string"}
+				return nil, errors.Wrap(validate.Error, "invalid UUID format: must be a valid UUID string")
 			}
 			return val.String(), nil
 		case reflect.Array:
-			// Check if it's a UUID type
 			if val.Type() == reflect.TypeOf(uuid.UUID{}) {
 				return val.Interface().(uuid.UUID).String(), nil
 			}
-			return nil, validate.FieldError{Message: "invalid UUID type: expected UUID or string"}
+			fallthrough
 		default:
-			return nil, validate.FieldError{Message: "invalid UUID type: expected UUID or string"}
+			return nil, validate.NewInvalidTypeError("UUID or string", types.ValueName(val))
 		}
 	}
 
@@ -105,8 +104,8 @@ func (s StringZ) Dump(data any) (any, error) {
 	case reflect.Bool:
 		return strconv.FormatBool(val.Bool()), nil
 	default:
-		return nil, validate.FieldError{Message: "invalid type: expected string or convertible to string"}
 	}
+	return nil, invalidStringTypeError(val)
 }
 
 // Parse converts the given data from a string to the destination type.
@@ -126,44 +125,43 @@ func (s StringZ) Parse(data any, dest any) error {
 		return err
 	}
 
-	// If UUID type is expected, validate the input type
+	dataVal := reflect.ValueOf(data)
+
 	if s.expectedType != nil && s.expectedType == reflect.TypeOf(uuid.UUID{}) {
 		switch v := data.(type) {
 		case string:
 			if _, err := uuid.Parse(v); err != nil {
-				return validate.FieldError{Message: "invalid UUID format: must be a valid UUID string"}
+				return invalidUUIDStringError()
 			}
 			data = v
 		case uuid.UUID:
 			data = v.String()
 		default:
-			return validate.FieldError{Message: "invalid UUID type: expected UUID or string"}
+			return newInvalidUUIDTypeError(reflect.ValueOf(dataVal))
 		}
 	}
 
 	data_, ok := data.(string)
 	if !ok {
-		// Try to convert to string
-		val := reflect.ValueOf(data)
-		if val.Kind() == reflect.Ptr {
-			if val.IsNil() {
-				return validate.FieldError{Message: "value is required but was nil"}
+		if dataVal.Kind() == reflect.Ptr {
+			if dataVal.IsNil() {
+				return errors.WithStack(validate.RequiredError)
 			}
-			val = val.Elem()
+			dataVal = dataVal.Elem()
 		}
-		switch val.Kind() {
+		switch dataVal.Kind() {
 		case reflect.String:
-			data_ = val.String()
+			data_ = dataVal.String()
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			data_ = strconv.FormatInt(val.Int(), 10)
+			data_ = strconv.FormatInt(dataVal.Int(), 10)
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			data_ = strconv.FormatUint(val.Uint(), 10)
+			data_ = strconv.FormatUint(dataVal.Uint(), 10)
 		case reflect.Float32, reflect.Float64:
-			data_ = strconv.FormatFloat(val.Float(), 'f', -1, 64)
+			data_ = strconv.FormatFloat(dataVal.Float(), 'f', -1, 64)
 		case reflect.Bool:
-			data_ = strconv.FormatBool(val.Bool())
+			data_ = strconv.FormatBool(dataVal.Bool())
 		default:
-			return validate.FieldError{Message: "invalid type: expected string or convertible to string"}
+			return invalidStringTypeError(dataVal)
 		}
 	}
 
@@ -180,7 +178,7 @@ func (s StringZ) Parse(data any, dest any) error {
 	if s.expectedType != nil && s.expectedType == reflect.TypeOf(uuid.UUID{}) {
 		parsedUUID, err := uuid.Parse(data_)
 		if err != nil {
-			return validate.FieldError{Message: "invalid UUID format: " + err.Error()}
+			return invalidUUIDStringError()
 		}
 		if destVal.Kind() == reflect.String {
 			destVal.SetString(parsedUUID.String())
@@ -190,7 +188,7 @@ func (s StringZ) Parse(data any, dest any) error {
 			destVal.Set(reflect.ValueOf(parsedUUID))
 			return nil
 		}
-		return validate.FieldError{Message: "invalid destination type: expected string or UUID"}
+		return NewInvalidDestinationTypeError(s.expectedType.String(), destVal)
 	}
 
 	destVal.SetString(data_)
@@ -199,6 +197,16 @@ func (s StringZ) Parse(data any, dest any) error {
 
 // String creates a new string schema.
 // This is the entry point for creating string validation schemas.
-func String() StringZ {
-	return StringZ{baseZ: baseZ{typ: StringT}}
+func String() StringZ { return StringZ{baseZ: baseZ{typ: StringT}} }
+
+func invalidUUIDStringError() error {
+	return errors.Wrap(validate.Error, "invalid UUID format: must be a valid UUID string")
+}
+
+func newInvalidUUIDTypeError(value reflect.Value) error {
+	return validate.NewInvalidTypeError("UUID or string", types.ValueName(value))
+}
+
+func invalidStringTypeError(val reflect.Value) error {
+	return validate.NewInvalidTypeError("string or convertible to string", types.ValueName(val))
 }
