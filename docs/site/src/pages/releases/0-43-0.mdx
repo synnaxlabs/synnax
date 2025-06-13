@@ -1,0 +1,59 @@
+---
+title: "Version 0.42 Release Notes"
+---
+
+import Release from "@/components/releases/Release.astro";
+import { Image, Video } from "@/components/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Divider } from "@synnaxlabs/pluto";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.43.0"
+    date="June 13, 2025"
+    title="Bug Fixes and Stability Improvements"
+    breakingChanges
+>
+
+Synnax v0.43 is a maintenance release that focuses on bug fixes and stability
+improvements to the Synnax Core and Console UI, along with a few minor features that
+have been requested.
+
+<Divider.Divider x />
+
+### Schematic Button Functionality
+
+The schematic button functionality has been extended to allow for three different modes:
+
+- **Fire**: A value of true is written to the channel when the button is pressed. This
+  was the default behavior of a button before.
+- **Momentary**: A value of true is written to the channel when the button is pressed,
+  and a value of false is written to the channel when the button is released.
+- **Pulse**: A value of true, immediately followed by a value of false, is written to
+  the channel when the button is pressed.
+
+<Divider.Divider x />
+
+### Automatic Creation of Workspaces
+
+Workspaces are now automatically created when you have switch clusters in the Synnax
+Console.
+
+<Divider.Divider x />
+
+### Control Chip and Label Moving
+
+You can now move control chips and labels around by dragging them when a schematic is in
+edit mode.
+
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
+
+- Centered the appearance of the number in schematic values on low-resolution displays.
+- Improved the appearance of tables on the documentation site.
+- Fixed the appearance of the OPC UA connect server modal.
+- Allowed for placing labels in the center of tanks.
+
+</Release>
