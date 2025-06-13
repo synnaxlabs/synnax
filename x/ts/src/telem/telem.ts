@@ -1945,16 +1945,6 @@ export const convertDataType = (
   return addSamples(value, -offset).valueOf();
 };
 
-/**
- * Adds two numbers. If both of the parameters are `number`s, the result will be a
- * `number`. If both of the parameters are `bigint`s, the result will be a `bigint`. If
- * one of the parameters is a `bigint` and the other is zero, the result will be a
- * `bigint`. Otherwise, the result will be a `number`.
- *
- * @param a - The first number.
- * @param b - The second number.
- * @returns The sum of the two numbers.
- */
 export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
   if (b == 0) return a;
   if (a == 0) return b;
