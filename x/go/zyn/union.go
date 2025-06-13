@@ -17,7 +17,7 @@ import (
 )
 
 // UnionT represents a union type in the schema.
-const UnionT Type = "union"
+const UnionT DataType = "union"
 
 // UnionZ represents a union schema that can accept values of multiple types.
 type UnionZ struct {

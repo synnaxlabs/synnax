@@ -41,7 +41,7 @@ var _ = Describe("Number", func() {
 		Specify("uint64", numberTest[uint64](12))
 	})
 
-	Describe("Type Validation", func() {
+	Describe("DataType Validation", func() {
 		Describe("Float64", func() {
 			Specify("valid float64", func() {
 				var dest float64
@@ -355,7 +355,7 @@ var _ = Describe("Number", func() {
 			})
 		})
 
-		Describe("Type Validation", func() {
+		Describe("DataType Validation", func() {
 			Specify("valid float64", func() {
 				result, err := zyn.Number().Float64().Dump(12.5)
 				Expect(err).ToNot(HaveOccurred())

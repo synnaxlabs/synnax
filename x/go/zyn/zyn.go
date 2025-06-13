@@ -17,56 +17,73 @@ import (
 	"slices"
 )
 
-// Type represents the type of a schema.
+// DataType represents the type of a schema.
 // It is used to identify the kind of validation and conversion rules to apply.
-type Type string
+type DataType string
 
-func (t Type) String() string {
+func (t DataType) String() string {
 	return string(t)
 }
 
 const (
 	// StringT represents a string type in the schema.
-	StringT Type = "string"
+	StringT DataType = "string"
 	// BoolT represents a boolean type in the schema.
-	BoolT Type = "bool"
+	BoolT DataType = "bool"
 	// NumberT represents a generic number type in the schema.
-	NumberT Type = "number"
+	NumberT DataType = "number"
 	// ObjectT represents an object/struct type in the schema.
-	ObjectT Type = "object"
+	ObjectT DataType = "object"
 	// UUIDT represents a UUID type in the schema.
-	UUIDT Type = "uuid"
+	UUIDT DataType = "uuid"
 
 	// IntT represents an int type in the schema.
-	IntT Type = "int"
+	IntT DataType = "int"
 	// Int8T represents an int8 type in the schema.
-	Int8T Type = "int8"
+	Int8T DataType = "int8"
 	// Int16T represents an int16 type in the schema.
-	Int16T Type = "int16"
+	Int16T DataType = "int16"
 	// Int32T represents an int32 type in the schema.
-	Int32T Type = "int32"
+	Int32T DataType = "int32"
 	// Int64T represents an int64 type in the schema.
-	Int64T Type = "int64"
+	Int64T DataType = "int64"
 
 	// UintT represents a uint type in the schema.
-	UintT Type = "uint"
+	UintT DataType = "uint"
 	// Uint8T represents a uint8 type in the schema.
-	Uint8T Type = "uint8"
+	Uint8T DataType = "uint8"
 	// Uint16T represents a uint16 type in the schema.
-	Uint16T Type = "uint16"
+	Uint16T DataType = "uint16"
 	// Uint32T represents a uint32 type in the schema.
-	Uint32T Type = "uint32"
+	Uint32T DataType = "uint32"
 	// Uint64T represents a uint64 type in the schema.
-	Uint64T Type = "uint64"
+	Uint64T DataType = "uint64"
 
 	// Float32T represents a float32 type in the schema.
-	Float32T Type = "float"
+	Float32T DataType = "float"
 	// Float64T represents a float64 type in the schema.
-	Float64T Type = "double"
+	Float64T DataType = "double"
 )
 
 var (
-	IntegerTypes = []Type{
+	StringTypeZ  = Literal(StringT)
+	BoolTypeZ    = Literal(BoolT)
+	NumberTypeZ  = Literal(NumberT)
+	ObjectTypeZ  = Literal(ObjectT)
+	UUIDTypeZ    = Literal(UUIDT)
+	IntTypeZ     = Literal(IntT)
+	Int8TypeZ    = Literal(Int8T)
+	Int16TypeZ   = Literal(Int16T)
+	Int32TypeZ   = Literal(Int32T)
+	Int64TypeZ   = Literal(Int64T)
+	UintTypeZ    = Literal(UintT)
+	Uint8TypeZ   = Literal(Uint8T)
+	Uint16TypeZ  = Literal(Uint16T)
+	Uint32TypeZ  = Literal(Uint32T)
+	Uint64TypeZ  = Literal(Uint64T)
+	Float32TypeZ = Literal(Float32T)
+	Float64TypeZ = Literal(Float64T)
+	IntegerTypes = []DataType{
 		IntT,
 		Int8T,
 		Int16T,
@@ -79,24 +96,24 @@ var (
 		Uint64T,
 	}
 	IntegerTypeZ       = Enum(IntegerTypes...)
-	FloatingPointTypes = []Type{
+	FloatingPointTypes = []DataType{
 		Float32T,
 		Float64T,
 	}
 	FloatingPointTypeZ = Enum(FloatingPointTypes...)
 	NumericTypes       = slices.Concat(
-		[]Type{NumberT},
+		[]DataType{NumberT},
 		IntegerTypes,
 		FloatingPointTypes,
 	)
 	NumericTypeZ   = Enum(NumericTypes...)
 	PrimitiveTypes = slices.Concat(
-		[]Type{StringT, BoolT, UUIDT},
+		[]DataType{StringT, BoolT, UUIDT},
 		IntegerTypes,
 	)
 	PrimitiveTypeZ = Enum(PrimitiveTypes...)
 	Types          = slices.Concat(
-		[]Type{ObjectT},
+		[]DataType{ObjectT},
 		IntegerTypes,
 	)
 	TypesZ = Enum(Types...)
@@ -120,8 +137,8 @@ type Z interface {
 type Shape interface {
 	// Optional is true if the schema can be nil.
 	Optional() bool
-	// Type returns a string representation of the schema's type.
-	Type() Type
+	// DataType returns a string representation of the schema's type.
+	Type() DataType
 	// Fields is only valid for object schemas, and returns a map of the field
 	// names to the schemas for each field.
 	Fields() map[string]Shape
@@ -131,7 +148,7 @@ type Shape interface {
 // baseZ provides the base implementation for all schema types.
 type baseZ struct {
 	optional     bool
-	typ          Type
+	typ          DataType
 	expectedType reflect.Type
 }
 
@@ -141,8 +158,8 @@ func (b baseZ) Shape() Shape { return b }
 // Optional returns whether the schema is optional.
 func (b baseZ) Optional() bool { return b.optional }
 
-// Type returns the type of the schema.
-func (b baseZ) Type() Type { return b.typ }
+// DataType returns the type of the schema.
+func (b baseZ) Type() DataType { return b.typ }
 
 // Fields returns nil as baseZ is not an object schema.
 func (b baseZ) Fields() map[string]Shape { return nil }

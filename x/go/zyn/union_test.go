@@ -42,7 +42,7 @@ var _ = Describe("Union", func() {
 		})
 	})
 
-	Describe("Type Validation", func() {
+	Describe("DataType Validation", func() {
 		Specify("invalid value", func() {
 			var dest string
 			Expect(zyn.Union(zyn.String(), zyn.Int()).Parse(true, &dest)).To(Succeed())

@@ -28,7 +28,7 @@ var _ = Describe("Enum", func() {
 		})
 	})
 
-	Describe("Type Validation", func() {
+	Describe("DataType Validation", func() {
 		Specify("invalid value", func() {
 			var dest string
 			Expect(zyn.Enum("a", "b", "c").Parse("d", &dest)).To(MatchError(ContainSubstring("invalid enum value")))

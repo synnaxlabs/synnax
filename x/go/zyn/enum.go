@@ -17,7 +17,7 @@ import (
 )
 
 // EnumT represents an enum type in the schema.
-const EnumT Type = "enum"
+const EnumT DataType = "enum"
 
 // EnumZ represents an enum schema.
 // It provides methods for validating and converting enumerated values.

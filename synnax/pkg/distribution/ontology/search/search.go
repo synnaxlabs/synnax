@@ -184,7 +184,7 @@ func (s *Index) Search(ctx context.Context, req Request) ([]core.ID, error) {
 	return lo.Filter(ids, func(id core.ID, _ int) bool { return id.Type == req.Type }), span.EndWith(err)
 }
 
-var fieldMappings = map[zyn.Type]func() *mapping.FieldMapping{
+var fieldMappings = map[zyn.DataType]func() *mapping.FieldMapping{
 	zyn.StringT:  bleve.NewTextFieldMapping,
 	zyn.IntT:     bleve.NewNumericFieldMapping,
 	zyn.Float64T: bleve.NewNumericFieldMapping,
