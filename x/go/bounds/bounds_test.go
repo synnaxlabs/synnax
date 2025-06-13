@@ -33,7 +33,7 @@ var _ = Describe("Bounds", func() {
 
 	Describe("Span", func() {
 		It("Should return the distance between the upper and lower value of the bounds", func() {
-			Expect(bounds.Bounds[int]{Lower: 3, Upper: 5}.Span()).To(Equal(5))
+			Expect(bounds.Bounds[int]{Lower: 3, Upper: 5}.Span()).To(Equal(2))
 		})
 	})
 })

@@ -142,7 +142,7 @@ func (i *Domain) Distance(
 	var (
 		// Length of the current domain
 		domainLen = sampleCount(r.Size())
-		// The accumulated totalTraversed as we move through domains
+		// the total number of samples traversed as we move through domains
 		totalTraversed int64 = 0
 		// Distance from the end of the domain to the start approximation.
 		startToFirstEnd = Between(domainLen-startApprox.Upper, domainLen-startApprox.Lower)
