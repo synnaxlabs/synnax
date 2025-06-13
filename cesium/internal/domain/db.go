@@ -63,19 +63,19 @@ type Config struct {
 	// [REQUIRED]
 	FS xfs.FS
 	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
-	// Note while that a file's size may still exceed this currPtr, it is not likely to
+	// Note while that a file's size may still exceed this value, it is not likely to
 	// exceed by much with frequent commits.
 	// [OPTIONAL] Default: 800 MB
 	FileSize telem.Size
 	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
 	// Must be in (0, 1].
-	// Note: Setting this currPtr to 0 will have NO EFFECT as it is the default currPtr.
+	// Note: Setting this value to 0 will have NO EFFECT as it is the default currPtr.
 	// instead, set it to a very small number greater than 0.
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
 	// MaxDescriptors is the maximum number of file descriptors that the DB will use. A
 	// higher currPtr will allow more concurrent reads and writes. It's important to note
-	// that the exact performance impact of changing this currPtr is still relatively
+	// that the exact performance impact of changing this value is still relatively
 	// unknown.
 	// [OPTIONAL] Default: 100
 	MaxDescriptors int

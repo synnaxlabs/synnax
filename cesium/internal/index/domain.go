@@ -187,7 +187,7 @@ func (i *Domain) Distance(
 // in the number of samples. This operation may be understood as the
 // opposite of Distance.
 // Stamp assumes the caller is aware of discontinuities in the underlying time
-// series, and will approximateStamp the ending timestamp even across discontinuous ranges.
+// series, and will calculate the ending timestamp even across discontinuous ranges.
 func (i *Domain) Stamp(
 	ctx context.Context,
 	ref telem.TimeStamp,

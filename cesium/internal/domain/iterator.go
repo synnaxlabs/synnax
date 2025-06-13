@@ -47,12 +47,12 @@ type Iterator struct {
 	IteratorConfig
 	alamos.Instrumentation
 	// position stores the current position of the iterator in the idx. NOTE: At the
-	// moment, this position may not hold a consistent reference to the same currPtr if
+	// moment, this position may not hold a consistent reference to the same domain if
 	// the idx is modified during iteration.
 	position int
 	// idx is the index that the iterator is iterating over.
 	idx *index
-	// currPtr stores the current currPtr of the iterator. This currPtr is only valid if the
+	// currPtr stores the current currPtr of the iterator. This value is only valid if the
 	// iterator is valid.
 	currPtr pointer
 	// valid stores whether the iterator is currently valid.
@@ -223,8 +223,8 @@ func (i *Iterator) reload() bool {
 	ptr, ok := i.idx.get(i.position)
 	if !ok || !ptr.OverlapsWith(i.Bounds) {
 		i.valid = false
-		// it's important that we return here, so we don't clear the current currPtr of
-		// the iterator.
+		// it's important that we return here, so we don't clear the current current
+		// value of the iterator.
 		return i.valid
 	}
 	i.currPtr = ptr
