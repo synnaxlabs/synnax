@@ -26,7 +26,7 @@ import (
 
 // tx is an aspen-managed key-value transaction. It's important to note that aspen
 // does not support atomicity on transactions with lease cardinality greater than
-// one i.e. if a transaction contains operations with different leaseholders, then
+// one i.e., if a transaction contains operations with different leaseholders, then
 // the transaction is not guaranteed to be atomic. See https://github.com/synnaxlabs/synnax/issues/102
 // for more details.
 type tx struct {
