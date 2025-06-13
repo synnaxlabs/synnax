@@ -154,3 +154,5 @@ export const parseRelationship = (str: string): Relationship => {
   const [from, type, to] = str.split("->");
   return { from: new ID(from), type, to: new ID(to) };
 };
+
+export const PARENT_RELATIONSHIP_TYPE = "parent";

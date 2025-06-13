@@ -7,23 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, QueryError, type Synnax as Client } from "@synnaxlabs/client";
+import { group, ontology } from "@synnaxlabs/client";
 import {
   Haul,
   Menu,
-  type state,
+  Ontology,
   Status,
-  Sync,
   Synnax,
   Tree as Core,
   useAsyncEffect,
   useCombinedStateAndRef,
-  useStateRef as useRefAsState,
+  useStateRef,
 } from "@synnaxlabs/pluto";
-import { deep, unique } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
-import { Mutex } from "async-mutex";
-import { memo, type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
 import { useStore } from "react-redux";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -38,141 +35,6 @@ import {
 import { useServices } from "@/ontology/ServicesProvider";
 import { toTreeNode, toTreeNodes } from "@/ontology/toTreeNode";
 import { type RootAction, type RootState } from "@/store";
-
-const updateResources = (
-  resources: ontology.Resource[],
-  additions: ontology.Resource[] = [],
-  removals: ontology.ID[] = [],
-): ontology.Resource[] => {
-  // If multiple additions have the same key, remove duplicates
-  const uniqueAdditions = unique.by(
-    additions,
-    (resource) => resource.id.toString(),
-    false,
-  );
-  const addedIds = new Set(uniqueAdditions.map(({ id }) => id.toString()));
-  const removedIds = new Set(removals.map((id) => id.toString()));
-  return [
-    ...resources.filter(({ id }) => {
-      const idAsStr = id.toString();
-      return !removedIds.has(idAsStr) && !addedIds.has(idAsStr);
-    }),
-    ...uniqueAdditions,
-  ];
-};
-
-const loadInitialTree = async (
-  client: Client,
-  services: Services,
-  setNodes: state.Set<Core.Node[]>,
-  setResources: state.Set<ontology.Resource[]>,
-  root: ontology.ID,
-): Promise<void> => {
-  const fetched = await client.ontology.retrieveChildren(root, {
-    includeSchema: true,
-  });
-  setNodes(toTreeNodes(services, fetched));
-  setResources((p) => updateResources(p, fetched));
-};
-
-const handleResourcesChange = async (
-  changes: ontology.ResourceChange[],
-  services: Services,
-  nodes: Core.Node[],
-  setNodes: state.Set<Core.Node[]>,
-  setResources: state.Set<ontology.Resource[]>,
-  resources: ontology.Resource[],
-  mu: Mutex,
-): Promise<void> =>
-  await mu.runExclusive(() => {
-    const removed = changes
-      .filter(({ variant }) => variant === "delete")
-      .map(({ key }) => key);
-    const updated = changes
-      .filter(({ variant, value }) => variant === "set" && value != null)
-      .map(({ value }) => value) as ontology.Resource[];
-    setResources(updateResources(resources, updated, removed));
-    let nextTree = Core.removeNode({
-      tree: nodes,
-      keys: removed.map((id) => id.toString()),
-    });
-    let changed = false;
-    nextTree = updated.reduce(
-      (nextTree, node) =>
-        Core.updateNode({
-          tree: nextTree,
-          key: node.id.toString(),
-          updater: (n) => {
-            const next = { ...n, ...toTreeNode(services, node) };
-            if (!changed && !deep.equal(next, n)) changed = true;
-            return next;
-          },
-          throwOnMissing: false,
-        }),
-      nextTree,
-    );
-    if (changed) setNodes([...nextTree]);
-  });
-
-const handleRelationshipsChange = async (
-  client: Client,
-  changes: ontology.RelationshipChange[],
-  services: Services,
-  nodes: Core.Node[],
-  setNodes: state.Set<Core.Node[]>,
-  setResources: state.Set<ontology.Resource[]>,
-  resources: ontology.Resource[],
-  root: ontology.ID,
-  mu: Mutex,
-): Promise<void> =>
-  await mu.runExclusive(async () => {
-    // Remove any relationships that were deleted
-    const removed = changes
-      .filter(({ variant, key: { type } }) => variant === "delete" && type === "parent")
-      .map(({ key: { to } }) => to.toString());
-    let nextTree = Core.removeNode({ tree: nodes, keys: removed });
-
-    const allSets = changes
-      .filter(({ variant, key: { type } }) => variant === "set" && type === "parent")
-      .map(({ key }) => key);
-
-    // Find all the parent nodes in the current tree that are visible i.e. they
-    // may need children added.
-    const visibleSetNodes = Core.findNodes({
-      tree: nextTree,
-      keys: allSets.map(({ from }) => from.toString()),
-    }).map(({ key }) => key.toString());
-    visibleSetNodes.push(root.toString());
-
-    // Get all the relationships that relate to those visible nodes.
-    const visibleSets = allSets.filter(({ from }) =>
-      visibleSetNodes.includes(from.toString()),
-    );
-
-    // Retrieve the new resources for the nodes that need to be updated.
-    const updatedResources = await client.ontology.retrieve(
-      visibleSets.map(({ to }) => to),
-    );
-
-    // Update the resources in the tree.
-    setResources(updateResources(resources, updatedResources));
-
-    // Update the tree.
-    nextTree = visibleSets.reduce((nextTree, { from, to }) => {
-      let destination: string | null = from.toString();
-      if (from.toString() === root.toString()) destination = null;
-      return Core.setNode({
-        tree: nextTree,
-        destination,
-        additions: toTreeNodes(
-          services,
-          updatedResources.filter(({ id }) => id.toString() === to.toString()),
-        ),
-      });
-    }, nextTree);
-
-    setNodes([...nextTree]);
-  });
 
 const sortFunc = (a: Core.Node, b: Core.Node) => {
   const aIsGroup = a.key.startsWith(group.ONTOLOGY_TYPE);
@@ -194,116 +56,113 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   const removeLayout = Layout.useRemover();
   const [loading, setLoading] = useState<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
-  const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
+  const [resourcesRef, setResources] = useStateRef<ontology.Resource[]>([]);
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const menuProps = Menu.useContextMenu();
-  const mutexRef = useRef(new Mutex());
 
-  const baseProps: BaseProps = useMemo<BaseProps>(
-    () => ({
-      client: client as Client,
+  const baseProps: BaseProps = useMemo<BaseProps>(() => {
+    if (client == null) throw NULL_CLIENT_ERROR;
+    return {
+      client,
       store,
       placeLayout,
       removeLayout,
       services,
       addStatus,
       handleError,
-    }),
-    [client, store, placeLayout, removeLayout, services, addStatus, handleError],
-  );
-
-  const addListener = Sync.useAddListener();
-
-  // Processes incoming changes to the ontology from the cluster
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    await loadInitialTree(client, services, setNodes, setResources, root);
-    const unsubscribeFromResourcesHandler = addListener({
-      channels: [
-        ontology.RESOURCE_SET_CHANNEL_NAME,
-        ontology.RESOURCE_DELETE_CHANNEL_NAME,
-      ],
-      handler: (frame) => {
-        handleError(async () => {
-          //todo: set/delete abstraction
-          let resourceSets: ontology.ResourceChange[];
-          const sets = frame.get(ontology.RESOURCE_SET_CHANNEL_NAME);
-          if (sets.length === 0) resourceSets = [];
-          else {
-            const ids = Array.from(sets.as("string")).map((id) => new ontology.ID(id));
-            try {
-              const resources = await client.ontology.retrieve(ids);
-              resourceSets = resources.map((res) => ({
-                key: res.id,
-                value: res,
-                variant: "set",
-              }));
-            } catch (e) {
-              if (e instanceof QueryError) resourceSets = [];
-              else throw e;
-            }
-          }
-          const deletes = frame.get(ontology.RESOURCE_DELETE_CHANNEL_NAME);
-          const resourceDeletes: ontology.ResourceChange[] = Array.from(
-            deletes.as("string"),
-          ).map((id) => ({
-            key: new ontology.ID(id),
-            variant: "delete",
-          }));
-          await handleResourcesChange(
-            [...resourceSets, ...resourceDeletes],
-            services,
-            nodesRef.current,
-            setNodes,
-            setResources,
-            resourcesRef.current,
-            mutexRef.current,
-          );
-        }, "Failed to process ontology resource changes");
-      },
-    });
-
-    const unsubscribeFromRelationshipsHandler = addListener({
-      channels: [
-        ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-        ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-      ],
-      handler: (frame) => {
-        //todo: set/delete abstraction
-        const sets = frame.get(ontology.RELATIONSHIP_SET_CHANNEL_NAME);
-        const relationshipSets = Array.from(sets.as("string")).map((rel) => ({
-          variant: "set" as const,
-          key: ontology.parseRelationship(rel),
-          value: undefined,
-        }));
-        const deletes = frame.get(ontology.RELATIONSHIP_DELETE_CHANNEL_NAME);
-        const relationshipDeletes = Array.from(deletes.as("string")).map((rel) => ({
-          variant: "delete" as const,
-          key: ontology.parseRelationship(rel),
-        }));
-        handleError(async () => {
-          await handleRelationshipsChange(
-            client,
-            [...relationshipSets, ...relationshipDeletes],
-            services,
-            nodesRef.current,
-            setNodes,
-            setResources,
-            resourcesRef.current,
-            root,
-            mutexRef.current,
-          );
-        }, "Failed to process ontology relationship changes");
-      },
-    });
-
-    return () => {
-      unsubscribeFromResourcesHandler();
-      unsubscribeFromRelationshipsHandler();
     };
-  }, [client, root]);
+  }, [client, store, placeLayout, removeLayout, services, addStatus, handleError]);
+
+  useAsyncEffect(async () => {
+    if (client == null) {
+      setNodes([]);
+      setResources([]);
+      return;
+    }
+    const children = await client.ontology.retrieveChildren(root);
+    setNodes(toTreeNodes(services, children));
+    setResources(children);
+  }, [client, root, services]);
+
+  const handleResourceSet = useCallback(
+    (id: ontology.ID) => {
+      handleError(async () => {
+        if (client == null) throw NULL_CLIENT_ERROR;
+        const resource = await client.ontology.retrieve(id);
+        setResources((prevResources) => {
+          const existingIndex = prevResources.findIndex(
+            ({ id }) => id.toString() === resource.id.toString(),
+          );
+          if (existingIndex === -1) return prevResources;
+          const nextResources = [...prevResources];
+          nextResources[existingIndex] = resource;
+          return nextResources;
+        });
+        setNodes((prevNodes) => {
+          const existingIndex = prevNodes.findIndex(
+            ({ key }) => key === resource.id.toString(),
+          );
+          if (existingIndex === -1) return prevNodes;
+          const nextNodes = [...prevNodes];
+          nextNodes[existingIndex] = toTreeNode(services, resource);
+          return nextNodes;
+        });
+      });
+    },
+    [client, services, handleError],
+  );
+  Ontology.useResourceSetSynchronizer(handleResourceSet);
+
+  const handleResourceDelete = useCallback((id: ontology.ID) => {
+    setResources((prevResources) =>
+      prevResources.filter(({ id }) => id.toString() !== id.toString()),
+    );
+    setNodes((prevNodes) => prevNodes.filter(({ key }) => key !== id.toString()));
+  }, []);
+  Ontology.useResourceDeleteSynchronizer(handleResourceDelete);
+
+  const handleRelationshipDelete = useCallback((rel: ontology.Relationship) => {
+    if (rel.type !== ontology.PARENT_RELATIONSHIP_TYPE) return;
+    setNodes((prevNodes) =>
+      Core.removeNode({ keys: [rel.to.toString()], tree: prevNodes }),
+    );
+  }, []);
+  Ontology.useRelationshipDeleteSynchronizer(handleRelationshipDelete);
+
+  const handleRelationshipSet = useCallback((rel: ontology.Relationship) => {
+    if (rel.type !== ontology.PARENT_RELATIONSHIP_TYPE) return;
+    const { from, to } = rel;
+    const visibleNode = Core.findNode({
+      tree: nodesRef.current,
+      key: from.toString(),
+    });
+    if (visibleNode == null) return;
+    handleError(async () => {
+      if (client == null) throw NULL_CLIENT_ERROR;
+      const resource = await client.ontology.retrieve(to);
+      setResources((prevResources) => {
+        const existingIndex = prevResources.findIndex(
+          ({ id }) => id.toString() === to.toString(),
+        );
+        if (existingIndex === -1) return [...prevResources, resource];
+        const nextResources = [...prevResources];
+        nextResources[existingIndex] = resource;
+        return nextResources;
+      });
+      setNodes((prevNodes) => {
+        let destination: string | null = from.toString();
+        if (destination === root.toString()) destination = null;
+        return Core.setNode({
+          tree: prevNodes,
+          destination,
+          additions: toTreeNodes(services, [resource]),
+        });
+      });
+    });
+  }, []);
+  Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
 
   const handleExpand = useCallback(
     ({ action, clicked }: Core.HandleExpandProps): void => {
@@ -320,9 +179,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
             // created on the server, an error will be thrown when we try to retrieve
             // the children of the new group.
             return;
-          const resources = await client.ontology.retrieveChildren(id, {
-            includeSchema: false,
-          });
+          const resources = await client.ontology.retrieveChildren(id);
           const converted = toTreeNodes(services, resources);
           const nextTree = Core.updateNodeChildren({
             tree: nodesRef.current,
