@@ -34,6 +34,12 @@ var _ = Describe("Union", func() {
 			Expect(zyn.Union(zyn.Float64(), zyn.Int()).Parse(42, &dest)).To(Succeed())
 			Expect(dest).To(Equal(42))
 		})
+
+		Specify("Should respect exact matches", func() {
+			var dest any
+			Expect(zyn.Union(zyn.Float64(), zyn.Int()).Parse(float64(12), &dest)).To(Succeed())
+			Expect(dest).To(Equal(float64(12)))
+		})
 	})
 
 	Describe("Type Validation", func() {
@@ -77,7 +83,7 @@ var _ = Describe("Union", func() {
 		})
 
 		Specify("valid int value", func() {
-			result, err := zyn.Union(zyn.Int(), zyn.String()).Dump(42)
+			result, err := zyn.Union(zyn.String(), zyn.Int()).Dump(42)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal(42))
 		})

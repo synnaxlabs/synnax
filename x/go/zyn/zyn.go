@@ -102,6 +102,8 @@ var (
 	TypesZ = Enum(Types...)
 )
 
+func Primitive() UnionZ { return Union(Number(), String(), Bool()) }
+
 // Z is a schema that provides methods for validating and converting data.
 type Z interface {
 	// Parse converts the given data from a standardized format to the destination type.

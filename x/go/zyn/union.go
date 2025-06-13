@@ -48,9 +48,14 @@ func (u UnionZ) Dump(data any) (any, error) {
 		err  error
 		dest any
 	)
+	valueType := reflect.TypeOf(data)
 	for _, z := range u.schemas {
+		rt := z.Shape().ReflectType()
 		if dest, err = z.Dump(data); err == nil {
-			break
+			exactMatch := valueType == rt
+			if exactMatch {
+				break
+			}
 		}
 	}
 	return dest, err
@@ -79,17 +84,18 @@ func (u UnionZ) Parse(data any, dest any) error {
 			destElem := reflect.ValueOf(dest).Elem()
 			exactMatch := v.Elem().Type() == destElem.Type()
 			convertible := v.Elem().Type().ConvertibleTo(destElem.Type())
+			err = nil
 			if !convertible || (!exactMatch && valueSet) {
 				continue
 			}
 			destElem.Set(v.Elem().Convert(destElem.Type()))
 			valueSet = true
-			err = nil
 			if exactMatch {
 				break
 			}
+		} else if !valueSet {
+			err = pErr
 		}
-		err = pErr
 	}
 	return err
 }
