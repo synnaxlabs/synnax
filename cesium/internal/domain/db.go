@@ -69,12 +69,12 @@ type Config struct {
 	FileSize telem.Size
 	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
 	// Must be in (0, 1].
-	// Note: Setting this value to 0 will have NO EFFECT as it is the default currPtr.
+	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
 	// MaxDescriptors is the maximum number of file descriptors that the DB will use. A
-	// higher currPtr will allow more concurrent reads and writes. It's important to note
+	// higher value will allow more concurrent reads and writes. It's important to note
 	// that the exact performance impact of changing this value is still relatively
 	// unknown.
 	// [OPTIONAL] Default: 100
