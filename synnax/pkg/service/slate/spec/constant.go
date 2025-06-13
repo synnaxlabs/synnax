@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 const ConstantType = "constant"
@@ -23,9 +24,9 @@ func constant(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err 
 	if n.Type != ConstantType {
 		return ns, false, err
 	}
-	fields := map[string]schema.Field{
-		"data_type": {Type: schema.String},
-	}
+	fields := zyn.Object(map[string]zyn.Z{
+		"data_type": zyn.Literal(),
+	})
 	res := schema.Resource{Data: n.Data}
 	dt, ok := schema.Get[string](res, "data_type")
 	if !ok {

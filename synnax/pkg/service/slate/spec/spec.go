@@ -16,13 +16,13 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 // Node is a node in the slate graph. Nodes can be thought of as functions/expressions
@@ -61,19 +61,19 @@ func (g Graph) FindEdge(match func(item Edge) bool) (Edge, bool) {
 
 type Input struct {
 	Key             string
-	AcceptsDataType func(dt string) bool
+	AcceptsDataType func(dt zyn.DataType) bool
 }
 
 type Output struct {
 	Key      string
-	DataType string
+	DataType zyn.DataType
 }
 
 type NodeSchema struct {
 	Type    string
 	Inputs  []Input
 	Outputs []Output
-	Data    map[string]schema.Field
+	Config  zyn.Z
 }
 
 func (n NodeSchema) GetOutput(key string) (Output, bool) {
@@ -85,8 +85,8 @@ func (n NodeSchema) GetInput(key string) (Input, bool) {
 }
 
 type Value struct {
-	DataType string
-	Value    interface{}
+	DataType zyn.DataType
+	Value    any
 }
 
 func strictlyMatchDataType(expected string) func(input string) bool {
