@@ -19,10 +19,6 @@ export interface TareableChannel {
   channel: channel.Key;
 }
 
-interface TareArgs {
-  keys: channel.Key[];
-}
-
 export type UseTareProps<C extends TareableChannel> =
   | {
       task: clientTask.Payload;
