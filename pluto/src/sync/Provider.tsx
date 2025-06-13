@@ -36,7 +36,8 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
       return;
     }
     try {
-      streamerRef.current = await client.openStreamer(
+      streamerRef.current = await framer.HardenedStreamer.open(
+        async (cfg) => await client.openStreamer(cfg),
         uniqueNamesInMap(handlersRef.current),
       );
     } catch (e) {
