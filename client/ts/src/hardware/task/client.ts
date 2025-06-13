@@ -114,14 +114,15 @@ export class Task<
     timeout: CrudeTimeSpan,
     args?: {},
   ): Promise<State<Details>> {
-    return (await executeCommandSync(
+    const state = await executeCommandSync(
       this.frameClient,
       this.key,
       type,
       timeout,
       this.name,
       args,
-    )) as State<Details>;
+    );
+    return state as State<Details>;
   }
 
   async openStateObserver(): Promise<StateObservable<Details>> {
@@ -413,7 +414,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
       task,
       type,
       timeout,
-      name ?? retrieveName(),
+      name ?? retrieveName,
       args,
     );
   }
@@ -487,7 +488,7 @@ const executeCommandSync = async (
   task: Key,
   type: string,
   timeout: CrudeTimeSpan,
-  tskName: string | Promise<string>,
+  tskName: string | (() => Promise<string>),
   args?: {},
 ): Promise<State> => {
   if (frameClient == null) throw NOT_CREATED_ERROR;
@@ -516,14 +517,14 @@ const executeCommandSync = async (
 
 const formatTimeoutError = async (
   type: string,
-  name: string | Promise<string>,
+  name: string | (() => Promise<string>),
   timeout: TimeSpan,
   key: Key,
 ): Promise<Error> => {
   const formattedType = caseconv.capitalize(type);
   const formattedTimeout = timeout.toString();
   try {
-    const name_ = typeof name === "string" ? name : await name;
+    const name_ = typeof name === "string" ? name : await name();
     return new Error(
       `${formattedType} command to ${name_} timed out after ${formattedTimeout}`,
     );
