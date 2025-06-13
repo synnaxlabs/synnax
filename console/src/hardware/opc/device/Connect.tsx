@@ -51,7 +51,6 @@ import {
   type ScanStateDetails,
   type ScanType,
   TEST_CONNECTION_COMMAND_TYPE,
-  type TestConnectionCommandResponse,
   type TestConnectionCommandState,
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
@@ -102,12 +101,12 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
         ScanStateDetails,
         ScanType
       >;
-      const state = (await task.executeCommandSync(
+      const state = await task.executeCommandSync(
         TEST_CONNECTION_COMMAND_TYPE,
         TimeSpan.seconds(10),
         { connection: methods.get("connection").value },
-      )) as task.State<TestConnectionCommandResponse>;
-      setConnectionState(state);
+      );
+      setConnectionState(state as TestConnectionCommandState);
     },
   });
   const connectMutation = useMutation({

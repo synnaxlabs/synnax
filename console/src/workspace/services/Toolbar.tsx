@@ -46,7 +46,7 @@ const Content = (): ReactElement => {
             ]}
           </Toolbar.Actions>
         </Toolbar.Header>
-        <Ontology.Tree root={group.data ?? undefined} />
+        <Ontology.Tree root={group.data} />
       </Align.Space>
     </Cluster.NoneConnectedBoundary>
   );

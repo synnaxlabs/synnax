@@ -274,7 +274,7 @@ const Content = () => {
         t.executeCommandSync(command, TimeSpan.fromSeconds(10)).catch((e) => {
           const status: task.State = {
             key: "",
-            variant: "success",
+            variant: "error",
             task: t.key,
             details: { message: e.message },
           };

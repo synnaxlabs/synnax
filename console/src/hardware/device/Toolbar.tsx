@@ -64,7 +64,7 @@ const Content = (): ReactElement => {
             <Toolbar.Header>
               <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
             </Toolbar.Header>
-            <Ontology.Tree root={group.data ?? undefined} />
+            <Ontology.Tree root={group.data} />
           </Align.Space>
         </Rack.StateProvider>
       </StateProvider>
