@@ -79,20 +79,20 @@ var _ = Describe("Iterator", func() {
 					Expect(iter.Prev(6 * telem.Second)).To(BeTrue())
 					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(17, 18, 19, 20, 21, 22)))
 
-					Expect(iter.SeekGE(100 * telem.SecondTS)).To(BeFalse())
-					Expect(iter.Valid()).To(BeFalse())
-					Expect(iter.SeekLE(22*telem.SecondTS + 1)).To(BeTrue())
-					Expect(iter.Prev(2 * telem.Second)).To(BeTrue())
-					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(21, 22)))
+				Expect(iter.SeekGE(100 * telem.SecondTS)).To(BeFalse())
+				Expect(iter.Valid()).To(BeFalse())
+				Expect(iter.SeekLE(22*telem.SecondTS + 1)).To(BeTrue())
+				Expect(iter.Prev(2 * telem.Second)).To(BeTrue())
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(21, 22)))
 
-					Expect(iter.SeekLE(0 * telem.SecondTS)).To(BeFalse())
-					Expect(iter.Valid()).To(BeFalse())
-					Expect(iter.SeekGE(13 * telem.SecondTS)).To(BeTrue())
-					Expect(iter.Next(20 * telem.Second)).To(BeTrue())
-					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(13, 14, 15, 16, 17, 18, 19, 20, 21, 22)))
+				Expect(iter.SeekLE(0 * telem.SecondTS)).To(BeFalse())
+				Expect(iter.Valid()).To(BeFalse())
+				Expect(iter.SeekGE(13 * telem.SecondTS)).To(BeTrue())
+				Expect(iter.Next(20 * telem.Second)).To(BeTrue())
+				Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(13, 14, 15, 16, 17, 18, 19, 20, 21, 22)))
 
-					Expect(iter.Close()).To(Succeed())
-				})
+				Expect(iter.Close()).To(Succeed())
+			})
 
 				Specify("Auto chunk", func() {
 					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
@@ -108,8 +108,8 @@ var _ = Describe("Iterator", func() {
 					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(16, 17, 18)))
 
-					Expect(iter.Close()).To(Succeed())
-				})
+				Expect(iter.Close()).To(Succeed())
+			})
 
 				Specify("Reverse Auto Chunk", func() {
 					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
