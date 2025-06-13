@@ -13,12 +13,18 @@
 package zyn
 
 import (
+	"slices"
+
 	"golang.org/x/net/context"
 )
 
 // Type represents the type of a schema.
 // It is used to identify the kind of validation and conversion rules to apply.
 type Type string
+
+func (t Type) String() string {
+	return string(t)
+}
 
 const (
 	// StringT represents a string type in the schema.
@@ -58,6 +64,43 @@ const (
 	Float32T Type = "float"
 	// Float64T represents a float64 type in the schema.
 	Float64T Type = "double"
+)
+
+var (
+	IntegerTypes = []Type{
+		IntT,
+		Int8T,
+		Int16T,
+		Int32T,
+		Int64T,
+		UintT,
+		Uint8T,
+		Uint16T,
+		Uint32T,
+		Uint64T,
+	}
+	IntegerTypeZ       = Enum(IntegerTypes...)
+	FloatingPointTypes = []Type{
+		Float32T,
+		Float64T,
+	}
+	FloatingPointTypeZ = Enum(FloatingPointTypes...)
+	NumericTypes       = slices.Concat(
+		[]Type{NumberT},
+		IntegerTypes,
+		FloatingPointTypes,
+	)
+	NumericTypeZ   = Enum(NumericTypes...)
+	PrimitiveTypes = slices.Concat(
+		[]Type{StringT, BoolT, UUIDT},
+		IntegerTypes,
+	)
+	PrimitiveTypeZ = Enum(PrimitiveTypes...)
+	Types          = slices.Concat(
+		[]Type{ObjectT},
+		IntegerTypes,
+	)
+	TypesZ = Enum(Types...)
 )
 
 type zContext struct {
