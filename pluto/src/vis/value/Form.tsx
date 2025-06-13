@@ -76,7 +76,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const handleRollingAverageChange = (windowSize: number): void =>
     handleChange({ rollingAverage: telem.rollingAverage({ windowSize }) });
 
-  const c = Channel.useName(source.channel as number);
+  const [c] = Channel.useName(source.channel as number);
   useEffect(() => onChange({ ...value, tooltip: [c] }), [c]);
 
   return (

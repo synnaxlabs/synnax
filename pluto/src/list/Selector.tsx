@@ -13,7 +13,7 @@ import {
   memo,
   type PropsWithChildren,
   type ReactElement,
-  useContext,
+  use,
   useMemo,
 } from "react";
 
@@ -45,13 +45,13 @@ const UtilsContext = createContext<SelectUtilsContextValue>({
 });
 
 export const useSelectionContext = <K extends Key = Key>() =>
-  useContext(Context) as SelectContextValue<K>;
+  use(Context) as SelectContextValue<K>;
 
 export const useSelection = <K extends Key = Key>() =>
   useSelectionContext<K>().selected;
 
 export const useSelectionUtils = <K extends Key = Key>() =>
-  useContext(UtilsContext) as unknown as SelectUtilsContextValue<K>;
+  use(UtilsContext) as unknown as SelectUtilsContextValue<K>;
 
 /**
  * Implements selection behavior for a list.

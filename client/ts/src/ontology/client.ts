@@ -17,6 +17,7 @@ import { type framer } from "@/framer";
 import { group } from "@/ontology/group";
 import {
   type CrudeID,
+  getOppositeRelationshipDirection,
   ID,
   type IDPayload,
   idZ,
@@ -249,10 +250,10 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
   }
 }
 
-const RESOURCE_SET_CHANNEL_NAME = "sy_ontology_resource_set";
-const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
-const RELATIONSHIP_SET_CHANNEL_NAME = "sy_ontology_relationship_set";
-const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete";
+export const RESOURCE_SET_CHANNEL_NAME = "sy_ontology_resource_set";
+export const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
+export const RELATIONSHIP_SET_CHANNEL_NAME = "sy_ontology_relationship_set";
+export const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete";
 
 /**
  * A class that tracks changes to the ontology's resources and relationships.
@@ -362,9 +363,6 @@ export class ChangeTracker {
   }
 }
 
-const oppositeDirection = (dir: RelationshipDirection): RelationshipDirection =>
-  dir === "from" ? "to" : "from";
-
 interface DependentTrackerProps {
   target: ID;
   dependents: Resource[];
@@ -438,7 +436,8 @@ export class DependentTracker
         c.variant === "delete" &&
         c.key[this.relDir].toString() === this.target.toString() &&
         (this.resourceType == null ||
-          c.key[oppositeDirection(this.relDir)].type === this.resourceType),
+          c.key[getOppositeRelationshipDirection(this.relDir)].type ===
+            this.resourceType),
     );
     this.dependents = this.dependents.filter(
       (child) =>
@@ -454,7 +453,8 @@ export class DependentTracker
         c.key.type === this.relType &&
         c.key[this.relDir].toString() === this.target.toString() &&
         (this.resourceType == null ||
-          c.key[oppositeDirection(this.relDir)].type === this.resourceType),
+          c.key[getOppositeRelationshipDirection(this.relDir)].type ===
+            this.resourceType),
     );
     if (sets.length === 0) return this.notify(this.dependents);
     this.client

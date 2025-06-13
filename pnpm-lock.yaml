@@ -639,12 +639,18 @@ importers:
       '@synnaxlabs/client':
         specifier: workspace:*
         version: link:../client/ts
+      '@synnaxlabs/freighter':
+        specifier: workspace:*
+        version: link:../freighter/ts
       '@synnaxlabs/media':
         specifier: workspace:*
         version: link:../x/media
       '@synnaxlabs/x':
         specifier: workspace:*
         version: link:../x/ts
+      '@tanstack/react-query':
+        specifier: ^5.72.1
+        version: 5.80.7(react@19.1.0)
       '@tanstack/react-virtual':
         specifier: 3.13.6
         version: 3.13.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)

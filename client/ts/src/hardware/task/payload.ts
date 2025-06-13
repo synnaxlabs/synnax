@@ -30,7 +30,7 @@ export type Key = z.infer<typeof keyZ>;
 export const stateZ = z.object({
   task: keyZ,
   variant: status.variantZ,
-  key: z.string().optional(),
+  key: z.string(),
   details: unknownRecordZ
     .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))

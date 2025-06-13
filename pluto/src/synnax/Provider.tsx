@@ -92,25 +92,25 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     if (state.client != null) state.client.close();
     if (connParams == null) return setState(ZERO_CONTEXT_VALUE);
 
-    const c = new Synnax({
+    const client = new Synnax({
       ...connParams,
       connectivityPollFrequency: TimeSpan.seconds(2),
     });
 
     setState({
-      client: c,
+      client,
       state: {
         clusterKey: "",
         status: "connecting",
         message: "Connecting...",
         clientServerCompatible: false,
-        clientVersion: c.clientVersion,
+        clientVersion: client.clientVersion,
       },
     });
 
-    const connectivity = await c.connectivity.check();
+    const connectivity = await client.connectivity.check();
 
-    setState({ client: c, state: connectivity });
+    setState({ client, state: connectivity });
     addStatus({
       variant: CONNECTION_STATE_VARIANTS[connectivity.status],
       message: connectivity.message ?? connectivity.status.toUpperCase(),
@@ -140,10 +140,10 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
       });
     }
 
-    c.connectivity.onChange(handleChange);
+    client.connectivity.onChange(handleChange);
 
     return () => {
-      c.close();
+      client.close();
       setState(ZERO_CONTEXT_VALUE);
     };
   }, [connParams, handleChange]);

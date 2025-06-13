@@ -8,4 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/label/Select";
+export * from "@/label/synchronizers";
 export * from "@/label/types";
+export * from "@/label/use";
