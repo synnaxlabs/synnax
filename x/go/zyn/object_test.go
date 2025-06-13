@@ -90,6 +90,21 @@ var _ = Describe("Object", func() {
 		})
 	})
 
+	Describe("Validate", func() {
+		It("Should return nil if the value is a valid object", func() {
+			schema := zyn.Object(map[string]zyn.Z{
+				"Name": zyn.String(),
+			})
+			Expect(schema.Validate(map[string]any{"Name": "John"})).To(Succeed())
+		})
+		It("Should return nil if the value is not a valid object", func() {
+			schema := zyn.Object(map[string]zyn.Z{
+				"Name": zyn.String(),
+			})
+			Expect(schema.Validate("not an object")).To(HaveOccurred())
+		})
+	})
+
 	Describe("Invalid Inputs", func() {
 		Specify("non-map data", func() {
 			type TestStruct struct {

@@ -128,7 +128,9 @@ func (b BoolZ) Parse(data any, dest any) error {
 // Bool creates a new boolean schema.
 // This is the entry point for creating boolean validation schemas.
 func Bool() BoolZ {
-	return BoolZ{}
+	z := BoolZ{baseZ: baseZ{dataType: BoolT, expectedType: reflect.TypeOf(true)}}
+	z.wrapper = z
+	return z
 }
 
 func invalidBooleanStringError(v string) error {

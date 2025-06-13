@@ -136,10 +136,12 @@ func Enum[T comparable](values ...T) EnumZ {
 	for i, v := range values {
 		anyValues[i] = v
 	}
-	return EnumZ{
-		baseZ:  baseZ{typ: EnumT, expectedType: reflect.TypeOf(values[0])},
+	e := EnumZ{
+		baseZ:  baseZ{dataType: EnumT, expectedType: reflect.TypeOf(values[0])},
 		values: anyValues,
 	}
+	e.wrapper = e
+	return e
 }
 
 func invalidEnumValueError(value any, allowedValues []any) error {

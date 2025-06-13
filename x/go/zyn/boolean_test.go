@@ -74,6 +74,15 @@ var _ = Describe("Bool", func() {
 		})
 	})
 
+	Describe("Validate", func() {
+		It("Should return nil if the value is a valid boolean", func() {
+			Expect(zyn.Bool().Validate(true)).To(Succeed())
+		})
+		It("Should return nil if the value is not a valid boolean", func() {
+			Expect(zyn.Bool().Validate(struct{}{})).To(HaveOccurred())
+		})
+	})
+
 	Describe("Invalid Inputs", func() {
 		Specify("invalid string", func() {
 			var dest bool

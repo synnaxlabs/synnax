@@ -28,6 +28,15 @@ var _ = Describe("Enum", func() {
 		})
 	})
 
+	Describe("Validate", func() {
+		It("Should return nil if the value is a valid enum", func() {
+			Expect(zyn.Enum("a", "b", "c").Validate("a")).To(Succeed())
+		})
+		It("Should return nil if the value is not a valid enum", func() {
+			Expect(zyn.Enum("a", "b", "c").Validate("d")).To(HaveOccurred())
+		})
+	})
+
 	Describe("DataType Validation", func() {
 		Specify("invalid value", func() {
 			var dest string

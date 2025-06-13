@@ -41,6 +41,15 @@ var _ = Describe("Number", func() {
 		Specify("uint64", numberTest[uint64](12))
 	})
 
+	Describe("Validate", func() {
+		It("Should return nil if the value is a valid number", func() {
+			Expect(zyn.Number().Validate(42)).To(Succeed())
+		})
+		It("Should return nil if the value is not a valid number", func() {
+			Expect(zyn.Number().Validate("not a number")).To(HaveOccurred())
+		})
+	})
+
 	Describe("DataType Validation", func() {
 		Describe("Float64", func() {
 			Specify("valid float64", func() {

@@ -33,6 +33,15 @@ var _ = Describe("String", func() {
 		})
 	})
 
+	Describe("Validate", func() {
+		It("Should return nil if the value is a valid string", func() {
+			Expect(zyn.String().Validate("hello")).To(Succeed())
+		})
+		It("Should return nil if the value is not a valid string", func() {
+			Expect(zyn.String().Validate(struct{}{})).To(HaveOccurred())
+		})
+	})
+
 	Describe("Invalid Inputs", func() {
 		Specify("non-string type", func() {
 			var dest string

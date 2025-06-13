@@ -131,6 +131,7 @@ type Z interface {
 	Dump(data any) (any, error)
 	// Shape returns the base shape of the schema.
 	Shape() Shape
+	Validate(data any) error
 }
 
 // Shape provides information about the structure of a zyn schema.
@@ -148,8 +149,9 @@ type Shape interface {
 // baseZ provides the base implementation for all schema types.
 type baseZ struct {
 	optional     bool
-	typ          DataType
+	dataType     DataType
 	expectedType reflect.Type
+	wrapper      Z
 }
 
 // Shape returns the base shape of the schema.
@@ -159,9 +161,18 @@ func (b baseZ) Shape() Shape { return b }
 func (b baseZ) Optional() bool { return b.optional }
 
 // DataType returns the type of the schema.
-func (b baseZ) Type() DataType { return b.typ }
+func (b baseZ) Type() DataType { return b.dataType }
 
 // Fields returns nil as baseZ is not an object schema.
 func (b baseZ) Fields() map[string]Shape { return nil }
 
 func (b baseZ) ReflectType() reflect.Type { return b.expectedType }
+
+func (b baseZ) Validate(data any) error {
+	if b.expectedType != nil {
+		dest := reflect.New(b.expectedType).Interface()
+		return b.wrapper.Parse(data, dest)
+	}
+	var dest any
+	return b.wrapper.Parse(data, &dest)
+}

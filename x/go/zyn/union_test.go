@@ -42,6 +42,15 @@ var _ = Describe("Union", func() {
 		})
 	})
 
+	Describe("Validate", func() {
+		It("Should return nil if the value is a valid union type", func() {
+			Expect(zyn.Union(zyn.String(), zyn.Int()).Validate("hello")).To(Succeed())
+		})
+		It("Should return nil if the value is not a valid union type", func() {
+			Expect(zyn.Union(zyn.String(), zyn.Int()).Validate(struct{}{})).To(HaveOccurred())
+		})
+	})
+
 	Describe("DataType Validation", func() {
 		Specify("invalid value", func() {
 			var dest string

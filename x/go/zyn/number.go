@@ -26,6 +26,13 @@ type NumberZ struct {
 
 var _ Z = (*NumberZ)(nil)
 
+// Number is a schema that validates numeric values.
+func Number() NumberZ {
+	n := NumberZ{baseZ: baseZ{dataType: NumberT, expectedType: reflect.TypeOf(0)}}
+	n.wrapper = n
+	return n
+}
+
 // Optional marks the number field as optional. Optional fields can be nil or omitted.
 func (n NumberZ) Optional() NumberZ { n.optional = true; return n }
 
@@ -41,7 +48,7 @@ func (n NumberZ) Shape() Shape { return n.baseZ }
 // This enables float64-specific validation and conversion.
 func (n NumberZ) Float64() NumberZ {
 	n.expectedType = reflect.TypeOf(float64(0))
-	n.typ = Float64T
+	n.dataType = Float64T
 	return n
 }
 
@@ -49,7 +56,7 @@ func (n NumberZ) Float64() NumberZ {
 // This enables float32-specific validation and conversion.
 func (n NumberZ) Float32() NumberZ {
 	n.expectedType = reflect.TypeOf(float32(0))
-	n.typ = Float32T
+	n.dataType = Float32T
 	return n
 }
 
@@ -57,7 +64,7 @@ func (n NumberZ) Float32() NumberZ {
 // This enables int-specific validation and conversion.
 func (n NumberZ) Int() NumberZ {
 	n.expectedType = reflect.TypeOf(0)
-	n.typ = IntT
+	n.dataType = IntT
 	return n
 }
 
@@ -65,7 +72,7 @@ func (n NumberZ) Int() NumberZ {
 // This enables int8-specific validation and conversion.
 func (n NumberZ) Int8() NumberZ {
 	n.expectedType = reflect.TypeOf(int8(0))
-	n.typ = Int8T
+	n.dataType = Int8T
 	return n
 }
 
@@ -73,7 +80,7 @@ func (n NumberZ) Int8() NumberZ {
 // This enables int16-specific validation and conversion.
 func (n NumberZ) Int16() NumberZ {
 	n.expectedType = reflect.TypeOf(int16(0))
-	n.typ = Int16T
+	n.dataType = Int16T
 	return n
 }
 
@@ -81,7 +88,7 @@ func (n NumberZ) Int16() NumberZ {
 // This enables int32-specific validation and conversion.
 func (n NumberZ) Int32() NumberZ {
 	n.expectedType = reflect.TypeOf(int32(0))
-	n.typ = Int32T
+	n.dataType = Int32T
 	return n
 }
 
@@ -89,7 +96,7 @@ func (n NumberZ) Int32() NumberZ {
 // This enables int64-specific validation and conversion.
 func (n NumberZ) Int64() NumberZ {
 	n.expectedType = reflect.TypeOf(int64(0))
-	n.typ = Int64T
+	n.dataType = Int64T
 	return n
 }
 
@@ -97,7 +104,7 @@ func (n NumberZ) Int64() NumberZ {
 // This enables uint-specific validation and conversion.
 func (n NumberZ) Uint() NumberZ {
 	n.expectedType = reflect.TypeOf(uint(0))
-	n.typ = UintT
+	n.dataType = UintT
 	return n
 }
 
@@ -105,7 +112,7 @@ func (n NumberZ) Uint() NumberZ {
 // This enables uint8-specific validation and conversion.
 func (n NumberZ) Uint8() NumberZ {
 	n.expectedType = reflect.TypeOf(uint8(0))
-	n.typ = Uint8T
+	n.dataType = Uint8T
 	return n
 }
 
@@ -113,7 +120,7 @@ func (n NumberZ) Uint8() NumberZ {
 // This enables uint16-specific validation and conversion.
 func (n NumberZ) Uint16() NumberZ {
 	n.expectedType = reflect.TypeOf(uint16(0))
-	n.typ = Uint16T
+	n.dataType = Uint16T
 	return n
 }
 
@@ -121,7 +128,7 @@ func (n NumberZ) Uint16() NumberZ {
 // This enables uint32-specific validation and conversion.
 func (n NumberZ) Uint32() NumberZ {
 	n.expectedType = reflect.TypeOf(uint32(0))
-	n.typ = Uint32T
+	n.dataType = Uint32T
 	return n
 }
 
@@ -129,7 +136,7 @@ func (n NumberZ) Uint32() NumberZ {
 // This enables uint64-specific validation and conversion.
 func (n NumberZ) Uint64() NumberZ {
 	n.expectedType = reflect.TypeOf(uint64(0))
-	n.typ = Uint64T
+	n.dataType = Uint64T
 	return n
 }
 
@@ -158,7 +165,7 @@ func (n NumberZ) Dump(data any) (any, error) {
 	}
 
 	// If an expected type is set and coercion is not enabled, validate the input type
-	if n.expectedType != nil && !n.coerce {
+	if n.dataType != NumberT && !n.coerce {
 		if val.Type() != n.expectedType {
 			return nil, validate.NewInvalidTypeError(n.expectedType.String(), types.ValueName(val))
 		}
@@ -185,7 +192,7 @@ func (n NumberZ) Dump(data any) (any, error) {
 		}
 	}
 
-	if n.expectedType != nil {
+	if n.dataType != NumberT {
 		switch n.expectedType.Kind() {
 		case reflect.Float64, reflect.Float32:
 			var floatVal float64
@@ -279,7 +286,7 @@ func (n NumberZ) Dump(data any) (any, error) {
 // For floating-point types, it handles precision conversion.
 func (n NumberZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
-	if err := validateDestinationValue(destVal, string(n.typ)); err != nil {
+	if err := validateDestinationValue(destVal, string(n.dataType)); err != nil {
 		return err
 	}
 	if ok, err := validateNilData(destVal, data, n.baseZ); !ok || err != nil {
@@ -301,7 +308,7 @@ func (n NumberZ) Parse(data any, dest any) error {
 	srcValName := types.ValueName(srcVal)
 	convertibleErr := validate.NewInvalidTypeError("number or convertible to number", srcValName)
 
-	if n.expectedType != nil && !n.coerce {
+	if n.dataType != NumberT && !n.coerce {
 		if srcVal.Type() != n.expectedType {
 			return validate.NewInvalidTypeError(n.expectedType.String(), srcValName)
 		}
@@ -402,9 +409,6 @@ func (n NumberZ) Parse(data any, dest any) error {
 	}
 	return convertibleErr
 }
-
-// Number is a schema that validates numeric values.
-func Number() NumberZ { return NumberZ{baseZ: baseZ{typ: NumberT}} }
 
 // Uint32 is a schema that validates uint32 numbers.
 func Uint32() NumberZ { return Number().Uint32() }

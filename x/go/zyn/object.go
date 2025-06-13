@@ -203,10 +203,11 @@ func (o ObjectZ) Parse(data any, dest any) error {
 	for fieldName, fieldSchema := range o.fields {
 		field := fieldByName(destVal, fieldName)
 		if !field.IsValid() {
-			return validate.PathedError(
-				errors.Wrap(validate.Error, "invalid field"),
-				fieldName,
-			)
+			continue
+			//return validate.PathedError(
+			//	errors.Wrap(validate.Error, "invalid field"),
+			//	fieldName,
+			//)
 		}
 
 		// Try both original and snake case field names
@@ -230,10 +231,12 @@ func (o ObjectZ) Parse(data any, dest any) error {
 // This is the entry point for creating object validation schemas.
 // The fields parameter maps field names to their validation schemas.
 func Object(fields map[string]Z) ObjectZ {
-	return ObjectZ{
-		baseZ:  baseZ{typ: ObjectT, expectedType: reflect.TypeOf(ObjectT)},
+	o := ObjectZ{
+		baseZ:  baseZ{dataType: ObjectT, expectedType: reflect.TypeOf(struct{}{})},
 		fields: fields,
 	}
+	o.wrapper = o
+	return o
 }
 
 func getFieldOnMap(data map[string]any, field string) (any, bool) {

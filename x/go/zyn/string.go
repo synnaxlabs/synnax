@@ -22,8 +22,14 @@ import (
 // StringZ represents a string schema.
 // It provides methods for validating and converting string data.
 // StringZ supports validation of regular strings and UUIDs.
-type StringZ struct {
-	baseZ
+type StringZ struct{ baseZ }
+
+// String creates a new string schema.
+// This is the entry point for creating string validation schemas.
+func String() StringZ {
+	s := StringZ{baseZ: baseZ{dataType: StringT, expectedType: reflect.TypeOf("")}}
+	s.wrapper = s
+	return s
 }
 
 var _ Z = (*StringZ)(nil)
@@ -40,7 +46,7 @@ func (s StringZ) Shape() Shape { return s.baseZ }
 // The field will be validated to ensure it's a valid UUID format.
 func (s StringZ) UUID() StringZ {
 	s.expectedType = reflect.TypeOf(uuid.UUID{})
-	s.typ = UUIDT
+	s.dataType = UUIDT
 	return s
 }
 
@@ -116,7 +122,7 @@ func (s StringZ) Dump(data any) (any, error) {
 //   - boolean values (converted to string)
 func (s StringZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
-	if err := validateDestinationValue(destVal, string(s.typ)); err != nil {
+	if err := validateDestinationValue(destVal, string(s.dataType)); err != nil {
 		return err
 	}
 
@@ -193,10 +199,6 @@ func (s StringZ) Parse(data any, dest any) error {
 	destVal.SetString(data_)
 	return nil
 }
-
-// String creates a new string schema.
-// This is the entry point for creating string validation schemas.
-func String() StringZ { return StringZ{baseZ: baseZ{typ: StringT, expectedType: reflect.TypeOf("")}} }
 
 func invalidUUIDStringError() error {
 	return errors.Wrap(validate.Error, "invalid UUID format: must be a valid UUID string")
