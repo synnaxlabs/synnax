@@ -17,7 +17,7 @@ import {
   TimeStamp,
   xy,
 } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
@@ -48,7 +48,7 @@ interface InternalState {
 }
 
 export interface TooltipProps {
-  findByXDecimal: (position: number) => Promise<FindResult[]>;
+  findByXDecimal: (position: number) => FindResult[];
   region: box.Box;
 }
 
@@ -56,7 +56,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
   static readonly TYPE = "tooltip";
   schema = tooltipStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const theme = theming.use(ctx);
     if (color.isZero(this.state.textColor)) this.state.textColor = theme.colors.text;
     if (color.isZero(this.state.backgroundColor))
@@ -69,21 +69,19 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
     this.internal.render = render.Context.use(ctx);
     this.internal.draw = new Draw2D(this.internal.render.upper2d, theme);
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+    render.request(ctx, "tool");
   }
 
-  async afterDelete(ctx: aether.Context): Promise<void> {
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+  afterDelete(ctx: aether.Context): void {
+    render.request(ctx, "tool");
   }
 
-  async render(props: TooltipProps): Promise<void> {
+  render(props: TooltipProps): void {
     if (this.deleted || this.state.position == null) return;
     const { region } = props;
     const scale_ = scale.XY.scale(box.DECIMAL).scale(region);
     const reverseScale = scale.XY.scale(region).scale(box.DECIMAL);
-    const values = await props.findByXDecimal(
-      reverseScale.x.pos(this.state.position.x),
-    );
+    const values = props.findByXDecimal(reverseScale.x.pos(this.state.position.x));
     const validValues = values.filter((c) => xy.isFinite(c.value));
     const { draw } = this.internal;
 

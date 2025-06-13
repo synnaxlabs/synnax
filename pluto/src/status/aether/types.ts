@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Optional, status, TimeStamp } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type Optional, status, TimeStamp, unknownRecordZ } from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 export const specZ = z.object({
   key: z.string(),
@@ -16,7 +16,7 @@ export const specZ = z.object({
   message: z.string(),
   description: z.string().optional(),
   time: TimeStamp.z,
-  data: z.record(z.unknown()).optional(),
+  data: unknownRecordZ.optional(),
 });
 export interface Spec extends z.infer<typeof specZ> {}
 

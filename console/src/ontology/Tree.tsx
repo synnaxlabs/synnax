@@ -20,7 +20,7 @@ import {
   useCombinedStateAndRef,
   useStateRef as useRefAsState,
 } from "@synnaxlabs/pluto";
-import { deep, type Optional, unique } from "@synnaxlabs/x";
+import { deep, unique } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { Mutex } from "async-mutex";
 import { memo, type ReactElement, useCallback, useMemo, useRef, useState } from "react";
@@ -182,7 +182,7 @@ const sortFunc = (a: Core.Node, b: Core.Node) => {
   return Core.defaultSort(a, b);
 };
 
-export interface InternalProps {
+interface InternalProps {
   root: ontology.ID;
 }
 
@@ -633,7 +633,11 @@ const AdapterItem = memo<AdapterItemProps>(
 );
 AdapterItem.displayName = "AdapterItem";
 
-export interface TreeProps extends Optional<InternalProps, "root"> {}
+export interface TreeProps {
+  root?: ontology.ID | null;
+}
 
-export const Tree = ({ root }: TreeProps): ReactElement | null =>
-  root == null ? null : <Internal root={root} />;
+export const Tree = ({ root }: TreeProps): ReactElement | null => {
+  if (root == null) return null;
+  return <Internal root={root} />;
+};

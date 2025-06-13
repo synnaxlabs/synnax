@@ -15,7 +15,7 @@ import { line } from "@/vis/line/aether";
 
 export interface LineProps
   extends Optional<Omit<line.State, "key">, "strokeWidth">,
-    Aether.CProps {}
+    Aether.ComponentProps {}
 
 export const Line = memo(({ aetherKey, ...rest }: LineProps): ReactElement | null => {
   Aether.useUnidirectional({

@@ -22,11 +22,10 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { v4 as uuid } from "uuid";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -67,12 +66,12 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   name: "Server.Connect",
   icon: "Logo.OPC",
   location: "modal",
-  window: { resizable: false, size: { height: 720, width: 800 }, navTop: true },
+  window: { resizable: false, size: { height: 720, width: 915 }, navTop: true },
 };
 
 const formSchema = z.object({
   name: Common.Device.nameZ,
-  rack: rack.keyZ,
+  rack: rack.keyZ.refine((k) => k > 0, "Must select a location to connect from"),
   connection: connectionConfigZ,
 });
 interface FormSchema extends z.infer<typeof formSchema> {}
@@ -91,7 +90,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     onError: (e) => handleError(e, "Failed to test connection"),
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      if (!methods.validate("connection")) throw new Error("Invalid configuration");
+      if (!methods.validate()) return;
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
       );
@@ -115,14 +114,14 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     onError: (e) => handleError(e, "Failed to connect to OPC UA Server"),
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      if (!methods.validate()) throw new Error("Invalid configuration");
+      if (!methods.validate()) return;
       await testConnectionMutation.mutateAsync();
       if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
       );
-      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid() : layoutKey;
+      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid.create() : layoutKey;
       await client.hardware.devices.create<Properties>({
         key,
         name: methods.get<string>("name").value,
@@ -147,7 +146,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   return (
     <Align.Space align="start" className={CSS.B("opc-connect")} justify="center">
       <Align.Space className={CSS.B("content")} grow size="small">
-        <Form.Form {...methods}>
+        <Form.Form<typeof formSchema> {...methods}>
           <Form.TextField
             inputProps={{
               level: "h2",
@@ -156,7 +155,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             }}
             path="name"
           />
-          <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
+          <Form.Field<rack.Key> path="rack" label="Connect From" required>
             {(p) => <Rack.SelectSingle {...p} allowNone={false} />}
           </Form.Field>
           <Form.Field<string> path="connection.endpoint">

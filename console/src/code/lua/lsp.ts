@@ -46,7 +46,7 @@ const startLuaLSP = async (): Promise<AsyncDestructor> => {
 
   const writer: MessageWriter = {
     write: async (message) => {
-      await child.write(jsonRPC.encodeMessage(message));
+      await child.write(jsonRPC.encodeMessage(jsonRPC.requestZ.parse(message)));
     },
     dispose: () => {},
     onError: (callback) => {

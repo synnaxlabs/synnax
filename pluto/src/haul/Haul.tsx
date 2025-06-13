@@ -14,6 +14,7 @@ import {
   type Key,
   type Optional,
   type UnknownRecord,
+  unknownRecordZ,
   xy,
 } from "@synnaxlabs/x";
 import React, {
@@ -30,7 +31,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type state } from "@/state";
 
@@ -38,7 +39,7 @@ export const itemZ = z.object({
   key: z.string().or(z.number()),
   type: z.string(),
   elementID: z.string().optional(),
-  data: z.record(z.unknown()).optional(),
+  data: unknownRecordZ.optional(),
 });
 
 // Item represents a draggable item.
@@ -200,7 +201,7 @@ export interface UseDragReturn {
     items: Item[],
     onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void,
   ) => void;
-  onDragEnd: (e: DragEvent) => void;
+  onDragEnd: (e: DragEvent | MouseEvent) => void;
 }
 
 export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
@@ -211,7 +212,8 @@ export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
   const { start, end } = ctx;
   return {
     startDrag: useCallback((items, f) => start(source, items, f), [start, source]),
-    onDragEnd: (e: DragEvent) => end(xy.construct({ x: e.screenX, y: e.screenY })),
+    onDragEnd: (e: DragEvent | MouseEvent) =>
+      end(xy.construct({ x: e.screenX, y: e.screenY })),
   };
 };
 

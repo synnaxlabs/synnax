@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import {
   type CellProps,
@@ -27,7 +27,7 @@ const VARIANTS = ["text", "value"] as const;
 export const variantZ = z.enum(VARIANTS);
 export type Variant = z.infer<typeof variantZ>;
 
-export interface Spec<Z extends z.ZodSchema> {
+export interface Spec<Z extends z.ZodObject> {
   key: Variant;
   name: string;
   Form: FC<FormProps>;

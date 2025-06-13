@@ -35,9 +35,11 @@ import { Common } from "@/hardware/common";
 import { createLayout } from "@/hardware/task/layouts";
 import { SELECTOR_LAYOUT } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
+import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
+import { Range } from "@/range";
 
 interface SugaredDetails extends UnknownRecord {
   status: Common.Task.Status;
@@ -144,7 +146,6 @@ const Content = () => {
           cancel: { label: "Cancel" },
           confirm: { label: "Rename", variant: "error" },
         });
-        console.log(confirmed);
         if (!confirmed) return;
       }
       dispatch(Layout.rename({ key, name }));
@@ -247,7 +248,7 @@ const Content = () => {
       setTasks((prev) => prev.filter(({ key }) => !keys.includes(key)));
     },
     onError: (e) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       handleError(e, "Failed to delete tasks");
     },
   }).mutate;
@@ -433,6 +434,8 @@ interface ContextMenuProps {
 const ContextMenu = ({ keys, tasks, onDelete, onStart, onStop }: ContextMenuProps) => {
   const selectedKeys = new Set(keys);
   const selectedTasks = tasks.filter(({ key }) => selectedKeys.has(key));
+  const activeRange = Range.useSelect();
+  const snapshotToActiveRange = useRangeSnapshot();
 
   const canStart = selectedTasks.some(
     ({
@@ -494,9 +497,24 @@ const ContextMenu = ({ keys, tasks, onDelete, onStart, onStop }: ContextMenuProp
       rename: () => Text.edit(`text-${keys[0]}`),
       link: () => handleLink(keys[0]),
       delete: () => onDelete(keys),
+      rangeSnapshot: () =>
+        snapshotToActiveRange(
+          selectedTasks.map(({ name, ontologyID }) => ({ id: ontologyID, name })),
+        ),
     }),
-    [onStart, onStop, handleEdit, handleLink, onDelete, keys],
+    [
+      onStart,
+      onStop,
+      handleEdit,
+      handleLink,
+      onDelete,
+      keys,
+      snapshotToActiveRange,
+      selectedTasks,
+    ],
   );
+  const showSnapshotToActiveRange =
+    activeRange?.persisted === true && selectedTasks.length > 0;
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleChange}>
       {canStart && (
@@ -518,6 +536,12 @@ const ContextMenu = ({ keys, tasks, onDelete, onStart, onStop }: ContextMenuProp
           <PMenu.Divider />
           <Menu.RenameItem />
           <Link.CopyMenuItem />
+          <PMenu.Divider />
+        </>
+      )}
+      {showSnapshotToActiveRange && (
+        <>
+          <Range.SnapshotMenuItem range={activeRange} key="snapshot" />
           <PMenu.Divider />
         </>
       )}

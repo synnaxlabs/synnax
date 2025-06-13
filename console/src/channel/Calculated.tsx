@@ -24,13 +24,17 @@ import {
 import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
-import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
+import { baseFormSchema, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
-import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom";
+import {
+  usePhantomGlobals,
+  type UsePhantomGlobalsReturn,
+  type Variable,
+} from "@/code/phantom";
 import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -43,21 +47,19 @@ const FAILED_TO_UPDATE_AUTOCOMPLETE =
 
 const DEFAULT_ARGS: CalculatedLayoutArgs = { channelKey: undefined };
 
-const schema = createFormValidator(
-  baseFormSchema
-    .extend({
-      expression: z
-        .string()
-        .min(1, "Expression must not be empty")
-        .refine((v) => v.includes("return"), {
-          message: "Expression must contain a return statement",
-        }),
-    })
-    .refine((v) => v.requires?.length > 0, {
-      message: "Expression must use at least one synnax channel",
-      path: ["requires"],
-    }),
-);
+const schema = baseFormSchema
+  .extend({
+    expression: z
+      .string()
+      .min(1, "Expression must not be empty")
+      .refine((v) => v.includes("return"), {
+        message: "Expression must contain a return statement",
+      }),
+  })
+  .refine((v) => v.requires?.length > 0, {
+    message: "Expression must use at least one synnax channel",
+    path: ["requires"],
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -81,7 +83,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
     },
   });
 
-  if (res.isLoading) return <Text.Text level="p">Loading...</Text.Text>;
+  if (res.isPending) return <Text.Text level="p">Loading...</Text.Text>;
   if (res.isError)
     return (
       <Align.Space y grow style={{ height: "100%" }}>
@@ -95,6 +97,21 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
 interface InternalProps extends Pick<Layout.RendererProps, "onClose"> {
   initialValues: FormValues;
 }
+
+const GLOBALS: Variable[] = [
+  {
+    key: "get",
+    name: "get",
+    value: `
+    -- Get a channel's value by its name. This function should be used when
+    -- the channel name cannot be used directly as a variable. For example,
+    -- hyphenated names such as 'my-channel' should be accessed with get("my-channel")
+    -- instead of just my-channel.
+    function get(name)
+    end
+    `,
+  },
+];
 
 const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const client = Synnax.use();
@@ -135,6 +152,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,
     stringifyVar: Lua.stringifyVar,
+    initialVars: GLOBALS,
   });
   useAsyncEffect(async () => {
     if (client == null) return;
@@ -150,7 +168,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
       <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
-        <Form.Form {...methods}>
+        <Form.Form<typeof schema> {...methods}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
               <Input.Text

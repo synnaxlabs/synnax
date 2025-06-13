@@ -7,27 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  BaseTypedError,
-  decodeError,
-  EOF,
-  errorMatcher,
-  errorZ,
-  type Stream,
-  type TypedError,
-  type WebSocketClient,
-} from "@synnaxlabs/freighter";
-import { control } from "@synnaxlabs/x";
+import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
+import { array, control, errors } from "@synnaxlabs/x";
 import {
   type CrudeSeries,
   type CrudeTimeStamp,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x/telem";
-import { toArray } from "@synnaxlabs/x/toArray";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { channel } from "@/channel";
+import { SynnaxError } from "@/errors";
 import { WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
 import { type CrudeFrame, frameZ } from "@/framer/frame";
@@ -63,11 +54,7 @@ const constructWriterMode = (mode: CrudeWriterMode): WriterMode => {
 
 export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
 
-export class WriterClosedError extends BaseTypedError implements TypedError {
-  static readonly TYPE = `writer_closed`;
-  type = WriterClosedError.TYPE;
-  static readonly matches = errorMatcher(WriterClosedError.TYPE);
-
+export class WriterClosedError extends SynnaxError.sub("writer_closed") {
   constructor() {
     super("WriterClosed");
   }
@@ -77,8 +64,8 @@ const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
   controlSubject: control.subjectZ.optional(),
   keys: channel.keyZ.array().optional(),
-  authorities: control.Authority.z.array().optional(),
-  mode: z.nativeEnum(WriterMode).optional(),
+  authorities: control.authorityZ.array().optional(),
+  mode: z.enum(WriterMode).optional(),
   errOnUnauthorized: z.boolean().optional(),
   enableAutoCommit: z.boolean().optional(),
   autoIndexPersistInterval: TimeSpan.z.optional(),
@@ -87,7 +74,7 @@ const netConfigZ = z.object({
 interface Config extends z.infer<typeof netConfigZ> {}
 
 const reqZ = z.object({
-  command: z.nativeEnum(WriterCommand),
+  command: z.enum(WriterCommand),
   config: netConfigZ.optional(),
   frame: frameZ.optional(),
   buffer: z.instanceof(Uint8Array).optional(),
@@ -96,9 +83,9 @@ const reqZ = z.object({
 export interface WriteRequest extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({
-  command: z.nativeEnum(WriterCommand),
+  command: z.enum(WriterCommand),
   end: TimeStamp.z,
-  err: errorZ.optional(),
+  err: errors.payloadZ.optional(),
 });
 
 interface Response extends z.infer<typeof resZ> {}
@@ -186,7 +173,7 @@ export class Writer {
     {
       channels,
       start = TimeStamp.now(),
-      authorities = control.Authority.ABSOLUTE,
+      authorities = control.ABSOLUTE_AUTHORITY,
       controlSubject: subject,
       mode = WriterMode.PersistStream,
       errOnUnauthorized = false,
@@ -206,7 +193,7 @@ export class Writer {
         start: new TimeStamp(start),
         keys: adapter.keys,
         controlSubject: subject,
-        authorities: toArray(authorities),
+        authorities: array.toArray(authorities),
         mode: constructWriterMode(mode),
         errOnUnauthorized,
         enableAutoCommit,
@@ -327,7 +314,7 @@ export class Writer {
       }
       const [res, err] = await this.stream.receive();
       if (err != null) this.closeErr = EOF.matches(err) ? new WriterClosedError() : err;
-      else this.closeErr = decodeError(res?.err);
+      else this.closeErr = errors.decode(res?.err);
     }
   }
 
@@ -337,7 +324,7 @@ export class Writer {
     while (true) {
       const [res, err] = await this.stream.receive();
       if (err != null) await this.closeInternal(err);
-      const resErr = decodeError(res?.err);
+      const resErr = errors.decode(res?.err);
       if (resErr != null) await this.closeInternal(resErr);
       if (res?.command == req.command) return res;
     }

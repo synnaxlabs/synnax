@@ -9,8 +9,8 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Icon, type IconProps } from "@synnaxlabs/media";
-import { type FC, type JSX } from "react";
-import { z } from "zod";
+import { type FC } from "react";
+import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
 
@@ -196,25 +196,26 @@ const tableScaleZ = z
     preScaledUnits: unitsZ,
     scaledUnits: z.string(),
   })
-  .superRefine(({ preScaledVals, scaledVals }, { addIssue }) => {
+  .check(({ value, issues }) => {
+    const { preScaledVals, scaledVals } = value;
     if (preScaledVals.length !== scaledVals.length) {
-      const baseIssue = {
-        code: z.ZodIssueCode.custom,
-        message: "Pre-scaled and scaled values must have the same length",
-      };
-      addIssue({ ...baseIssue, path: ["preScaledVals"] });
-      addIssue({ ...baseIssue, path: ["scaledVals"] });
+      const code = "custom";
+      const message = "Pre-scaled and scaled values must have the same length";
+      issues.push({ path: ["preScaledVals"], code, message, input: value });
+      issues.push({ path: ["scaledVals"], code, message, input: value });
     }
   })
-  .superRefine(({ preScaledVals }, { addIssue }) => {
+  .check(({ value, issues }) => {
+    const { preScaledVals } = value;
     if (preScaledVals.length === 0) return;
     let lastVal = preScaledVals[0];
     for (let i = 1; i < preScaledVals.length; i++) {
       if (preScaledVals[i] <= lastVal)
-        addIssue({
-          code: z.ZodIssueCode.custom,
+        issues.push({
+          code: "custom",
           message: "Pre-scaled values must be monotonically increasing",
           path: ["preScaledVals"],
+          input: value,
         });
       lastVal = preScaledVals[i];
     }
@@ -1041,10 +1042,10 @@ export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   [AO_VOLTAGE_CHAN_TYPE]: "Voltage",
 };
 
-export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, JSX.Element> = {
-  [AO_CURRENT_CHAN_TYPE]: <Icon.Units.Current />,
-  [AO_FUNC_GEN_CHAN_TYPE]: <Icon.Function />,
-  [AO_VOLTAGE_CHAN_TYPE]: <Icon.Units.Voltage />,
+export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, FC<IconProps>> = {
+  [AO_CURRENT_CHAN_TYPE]: Icon.Units.Current,
+  [AO_FUNC_GEN_CHAN_TYPE]: Icon.Function,
+  [AO_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,
 };
 
 export const ZERO_AO_CHANNELS: Record<AOChannelType, AOChannel> = {
@@ -1103,10 +1104,10 @@ const ZERO_BASE_WRITE_CONFIG: BaseWriteConfig = {
   stateRate: 10,
 };
 
-const validateAnalogPorts = (
-  channels: { port: number }[],
-  { addIssue }: z.RefinementCtx,
-) => {
+const validateAnalogPorts = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<{ port: number }[]>) => {
   const portsToIndexMap = new Map<number, number>();
   channels.forEach(({ port }, i) => {
     if (!portsToIndexMap.has(port)) {
@@ -1114,19 +1115,17 @@ const validateAnalogPorts = (
       return;
     }
     const index = portsToIndexMap.get(port) as number;
-    const baseIssue = {
-      code: z.ZodIssueCode.custom,
-      message: `Port ${port} has already been used on another channel`,
-    };
-    addIssue({ ...baseIssue, path: [index, "port"] });
-    addIssue({ ...baseIssue, path: [i, "port"] });
+    const code = "custom";
+    const message = `Port ${port} has already been used on another channel`;
+    issues.push({ code, message, path: [index, "port"], input: channels[index] });
+    issues.push({ code, message, path: [i, "port"], input: channels[i] });
   });
 };
 
-const validateDigitalPortsAndLines = (
-  channels: DigitalChannel[],
-  { addIssue }: z.RefinementCtx,
-) => {
+const validateDigitalPortsAndLines = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<DigitalChannel[]>) => {
   const portLineToIndexMap = new Map<string, number>();
   channels.forEach(({ line, port }, i) => {
     const key = `${port}/${line}`;
@@ -1135,12 +1134,10 @@ const validateDigitalPortsAndLines = (
       return;
     }
     const index = portLineToIndexMap.get(key) as number;
-    const baseIssue = {
-      code: z.ZodIssueCode.custom,
-      message: `Port ${port}, line ${line} has already been used on another channel`,
-    };
-    addIssue({ ...baseIssue, path: [index, "line"] });
-    addIssue({ ...baseIssue, path: [i, "line"] });
+    const code = "custom";
+    const message = `Port ${port}, line ${line} has already been used on another channel`;
+    issues.push({ code, message, path: [index, "line"], input: channels[index] });
+    issues.push({ code, message, path: [i, "line"], input: channels[i] });
   });
 };
 
@@ -1151,11 +1148,11 @@ export interface BaseStateDetails {
 export const baseAnalogReadConfigZ = baseReadConfigZ.extend({
   channels: z
     .array(aiChannelZ)
-    .superRefine(Common.Task.validateReadChannels)
-    .superRefine(validateAnalogPorts),
+    .check(Common.Task.validateReadChannels)
+    .check(validateAnalogPorts),
 });
 
-export const analogReadConfigZ = baseAnalogReadConfigZ.superRefine(
+export const analogReadConfigZ = baseAnalogReadConfigZ.check(
   Common.Task.validateStreamRate,
 );
 export interface AnalogReadConfig extends z.infer<typeof analogReadConfigZ> {}
@@ -1185,8 +1182,8 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
 export const analogWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
     .array(aoChannelZ)
-    .superRefine(Common.Task.validateWriteChannels)
-    .superRefine(validateAnalogPorts),
+    .check(Common.Task.validateWriteChannels)
+    .check(validateAnalogPorts),
 });
 export interface AnalogWriteConfig extends z.infer<typeof analogWriteConfigZ> {}
 const ZERO_ANALOG_WRITE_CONFIG: AnalogWriteConfig = {
@@ -1218,10 +1215,10 @@ export const digitalReadConfigZ = baseReadConfigZ
   .extend({
     channels: z
       .array(diChannelZ)
-      .superRefine(Common.Task.validateReadChannels)
-      .superRefine(validateDigitalPortsAndLines),
+      .check(Common.Task.validateReadChannels)
+      .check(validateDigitalPortsAndLines),
   })
-  .superRefine(Common.Task.validateStreamRate);
+  .check(Common.Task.validateStreamRate);
 export interface DigitalReadConfig extends z.infer<typeof digitalReadConfigZ> {}
 const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
   ...ZERO_BASE_READ_CONFIG,
@@ -1251,8 +1248,8 @@ export interface NewDigitalReadTask
 export const digitalWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
     .array(doChannelZ)
-    .superRefine(Common.Task.validateWriteChannels)
-    .superRefine(validateDigitalPortsAndLines),
+    .check(Common.Task.validateWriteChannels)
+    .check(validateDigitalPortsAndLines),
 });
 export interface DigitalWriteConfig extends z.infer<typeof digitalWriteConfigZ> {}
 const ZERO_DIGITAL_WRITE_CONFIG: DigitalWriteConfig = {

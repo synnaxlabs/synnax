@@ -21,14 +21,12 @@ import { REGISTER_LAYOUT } from "@/user/Register";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-  const group = useQuery<ontology.ID | null>({
+  const group = useQuery({
     queryKey: [client?.key, "user-group"],
     queryFn: async () => {
       if (client == null) return null;
-      const res = await client.ontology.retrieveChildren(ontology.ROOT_ID, {
-        includeSchema: false,
-      });
-      return res.find(({ name }) => name === "Users")?.id ?? null;
+      const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
+      return res.filter((r) => r.name === "Users")[0].id;
     },
   });
   const placeLayout = Layout.usePlacer();

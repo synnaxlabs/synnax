@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import {
   type Channel,
@@ -29,11 +29,9 @@ import {
 describe("Hardware Task Types", () => {
   describe("Channel Validation", () => {
     // Create schemas that use the validation functions, adapting them to work with refine
-    const channelsArrayZ = z.array(channelZ).superRefine(validateChannels);
-    const readChannelsArrayZ = z.array(readChannelZ).superRefine(validateReadChannels);
-    const writeChannelsArrayZ = z
-      .array(writeChannelZ)
-      .superRefine(validateWriteChannels);
+    const channelsArrayZ = z.array(channelZ).check(validateChannels);
+    const readChannelsArrayZ = z.array(readChannelZ).check(validateReadChannels);
+    const writeChannelsArrayZ = z.array(writeChannelZ).check(validateWriteChannels);
 
     describe("validateChannels", () => {
       it("should report errors for duplicate channel keys", () => {
@@ -235,7 +233,7 @@ describe("Hardware Task Types", () => {
         sampleRate: z.number(),
         streamRate: z.number(),
       })
-      .superRefine(validateStreamRate);
+      .check(validateStreamRate);
 
     it("should return success if sample rate >= stream rate", () => {
       const validResult = streamRateConfigZ.safeParse({

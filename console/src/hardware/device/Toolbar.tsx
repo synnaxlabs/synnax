@@ -47,14 +47,12 @@ const StateProvider = (props: PropsWithChildren) => {
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-  const group = useQuery<ontology.ID | null>({
+  const group = useQuery({
     queryKey: [client?.key, "device-group"],
     queryFn: async () => {
       if (client == null) return null;
-      const res = await client?.ontology.retrieveChildren(ontology.ROOT_ID, {
-        includeSchema: false,
-      });
-      return res?.find(({ name }) => name === "Devices")?.id ?? null;
+      const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
+      return res.filter((r) => r.name === "Devices")[0].id;
     },
   });
 

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream } from "@synnaxlabs/freighter";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
-export class StreamProxy<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny> {
+export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
   readonly name: string;
   private readonly stream: Stream<RQ, RS>;
 
@@ -19,7 +19,7 @@ export class StreamProxy<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny> {
     this.name = name;
   }
 
-  async receive(): Promise<z.output<RS>> {
+  async receive(): Promise<z.infer<RS>> {
     const [res, err] = await this.stream.receive();
     if (err != null) throw err;
     return res;

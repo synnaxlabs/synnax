@@ -18,9 +18,10 @@ import {
   TimeSpan,
   xy,
 } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
+import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
@@ -42,8 +43,10 @@ interface InternalState {
   ranges: Map<string, ranger.Range>;
   client: Synnax | null;
   render: render.Context;
+  requestRender: render.Requestor;
   draw: Draw2D;
   tracker: signals.Observable<string, ranger.Range>;
+  runAsync: status.ErrorHandler;
 }
 
 interface AnnotationProps {
@@ -58,47 +61,50 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   schema = providerStateZ;
   fetchedInitial: TimeRange = TimeRange.ZERO;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
-
+    i.requestRender = render.useRequestor(ctx);
+    i.runAsync = status.useErrorHandler(ctx);
     i.ranges ??= new Map();
     const client = synnax.use(ctx);
     if (client == null) return;
     i.client = client;
 
     if (i.tracker != null) return;
-    i.tracker = await i.client.ranges.openTracker();
-    i.tracker.onChange((c) => {
-      c.forEach((r) => {
-        if (r.variant === "delete") i.ranges.delete(r.key);
-        else if (color.isColor(r.value.color)) i.ranges.set(r.key, r.value);
+    i.runAsync(async () => {
+      i.tracker = await client.ranges.openTracker();
+      i.tracker.onChange((c) => {
+        c.forEach((r) => {
+          if (r.variant === "delete") i.ranges.delete(r.key);
+          else if (color.isCrude(r.value.color)) i.ranges.set(r.key, r.value);
+        });
+        i.requestRender("tool");
+        this.setState((s) => ({ ...s, count: i.ranges.size }));
       });
-      render.Controller.requestRender(ctx, render.REASON_TOOL);
-      this.setState((s) => ({ ...s, count: i.ranges.size }));
-    });
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+      i.requestRender("tool");
+    }, "failed to open range tracker");
   }
 
-  private async fetchInitial(timeRange: TimeRange): Promise<void> {
+  private fetchInitial(timeRange: TimeRange): void {
     const { internal: i } = this;
-    if (
-      i.client == null ||
-      this.fetchedInitial.roughlyEquals(timeRange, TimeSpan.minutes(1))
-    )
+    const client = i.client;
+    if (client == null || this.fetchedInitial.equals(timeRange, TimeSpan.minutes(1)))
       return;
     this.fetchedInitial = timeRange;
-    const ranges = await i.client.ranges.retrieve(timeRange);
-    ranges.forEach((r) => {
-      if (color.isCrude(r.color)) i.ranges.set(r.key, r);
-    });
-    this.setState((s) => ({ ...s, count: i.ranges.size }));
+    i.runAsync(async () => {
+      const ranges = await client.ranges.retrieve(timeRange);
+      ranges.forEach((r) => {
+        if (color.isCrude(r.color)) i.ranges.set(r.key, r);
+      });
+      this.setState((s) => ({ ...s, count: i.ranges.size }));
+    }, "failed to fetch initial ranges");
   }
 
-  async render(props: AnnotationProps): Promise<void> {
+  render(props: AnnotationProps): void {
     const { dataToDecimalScale, region, viewport, timeRange } = props;
-    await this.fetchInitial(timeRange);
+    this.fetchInitial(timeRange);
     const { draw, ranges } = this.internal;
     const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     const cursor = this.state.cursor == null ? null : this.state.cursor.x;

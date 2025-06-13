@@ -10,7 +10,7 @@
 import { Drift } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const VERSION = "0.0.0";
 
@@ -137,6 +137,10 @@ export interface State<A = unknown> {
    * unsavedChanges is a flag that indicates whether the layout has unsaved changes.
    */
   unsavedChanges?: boolean;
+  /**
+   * loading is a flag that indicates whether the layout is loading.
+   */
+  loading?: boolean;
 }
 
 const mosaicStateZ = z.object({

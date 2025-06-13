@@ -10,7 +10,7 @@
 import { Align, Button, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Layout } from "@/layout";
@@ -71,7 +71,7 @@ export const Register: Layout.Renderer = ({ onClose }) => {
         style={{ padding: "1rem 3rem" }}
         grow
       >
-        <Form.Form {...methods}>
+        <Form.Form<typeof formSchema> {...methods}>
           <Align.Space y>
             <Align.Space x>
               <Form.Field<string> path="firstName" label="First Name">

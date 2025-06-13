@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, buildQueryString, runtime, type URL } from "@synnaxlabs/x";
-import { z } from "zod";
+import {
+  type binary,
+  buildQueryString,
+  errors,
+  runtime,
+  type URL,
+} from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
-import { decodeError, EOF, type ErrorPayload, errorZ, StreamClosed } from "@/errors";
+import { EOF, StreamClosed } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
@@ -24,12 +30,12 @@ const resolveWebSocketConstructor = (): ((target: string) => WebSocket) => {
 const wsMessageZ = z.object({
   type: z.enum(["data", "close", "open"]),
   payload: z.unknown(),
-  error: z.optional(errorZ),
+  error: z.optional(errors.payloadZ),
 });
 
 export type WebsocketMessage<P = unknown> = {
   type: "data" | "close" | "open";
-  error?: ErrorPayload;
+  error?: errors.Payload;
   payload?: P;
 };
 
@@ -39,7 +45,7 @@ type ReceiveCallbacksQueue = Array<{
 }>;
 
 /** WebSocketStream is an implementation of Stream that is backed by a websocket. */
-class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
+class WebSocketStream<RQ extends z.ZodType, RS extends z.ZodType = RQ>
   implements Stream<RQ, RS>
 {
   private readonly codec: binary.Codec;
@@ -65,13 +71,13 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
     const msg = await this.receiveMsg();
     if (msg.type !== "open") {
       if (msg.error == null) throw new Error("Message error must be defined");
-      return decodeError(msg.error);
+      return errors.decode(msg.error);
     }
     return null;
   }
 
   /** Implements the Stream protocol */
-  send(req: z.input<RQ>): Error | null {
+  send(req: z.input<RQ> | z.infer<RQ>): Error | null {
     if (this.serverClosed != null) return new EOF();
     if (this.sendClosed) throw new StreamClosed();
     this.ws.send(this.codec.encode({ type: "data", payload: req }));
@@ -79,12 +85,13 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   }
 
   /** Implements the Stream protocol */
-  async receive(): Promise<[z.output<RS> | null, Error | null]> {
+  async receive(): Promise<[z.infer<RS>, null] | [null, Error]> {
     if (this.serverClosed != null) return [null, this.serverClosed];
     const msg = await this.receiveMsg();
     if (msg.type === "close") {
       if (msg.error == null) throw new Error("Message error must be defined");
-      this.serverClosed = decodeError(msg.error);
+      this.serverClosed = errors.decode(msg.error);
+      if (this.serverClosed == null) throw new Error("Message error must be defined");
       return [null, this.serverClosed];
     }
     return [this.resSchema.parse(msg.payload), null];
@@ -133,7 +140,10 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   private onClose(ev: CloseEvent): void {
     this.addMessage({
       type: "close",
-      error: { type: isNormalClosure(ev) ? EOF.TYPE : StreamClosed.TYPE, data: "" },
+      error: {
+        type: ev.code === CLOSE_NORMAL ? EOF.TYPE : StreamClosed.TYPE,
+        data: "",
+      },
     });
   }
 }
@@ -141,10 +151,6 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
 export const FREIGHTER_METADATA_PREFIX = "freighterctx";
 
 const CLOSE_NORMAL = 1000;
-const CLOSE_GOING_AWAY = 1001;
-const NORMAL_CLOSURES = [CLOSE_NORMAL, CLOSE_GOING_AWAY];
-
-const isNormalClosure = (ev: CloseEvent): boolean => NORMAL_CLOSURES.includes(ev.code);
 
 /**
  * WebSocketClient is an implementation of StreamClient that is backed by
@@ -176,7 +182,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   }
 
   /** Implements the StreamClient interface. */
-  async stream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+  async stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     reqSchema: RQ,
     resSchema: RS,
@@ -210,7 +216,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     return this.baseUrl.child(target).toString() + qs;
   }
 
-  private async wrapSocket<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
+  private async wrapSocket<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     ws: WebSocket,
     reqSchema: RQ,
     resSchema: RS,

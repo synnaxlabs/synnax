@@ -12,7 +12,7 @@ import "@/vis/log/Log.css";
 import { Icon } from "@synnaxlabs/media";
 import { box, location, type Optional } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { Aether } from "@/aether";
 import { type Align } from "@/align";
@@ -32,7 +32,7 @@ export interface LogProps
       "visible"
     >,
     Omit<Align.SpaceProps, "color">,
-    Aether.CProps {
+    Aether.ComponentProps {
   emptyContent?: ReactElement;
 }
 

@@ -7,15 +7,48 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import z from "zod/v4";
+
 import { binary } from "@/binary";
 
-export interface Message {
-  jsonrpc: string;
-  id?: number;
-  method?: string;
-  params?: unknown;
-  result?: unknown;
-}
+export const requestZ = z.object({
+  jsonrpc: z.literal("2.0"),
+  method: z.string(),
+  // params should be z.union([z.record(z.string(), z.json()),
+  // z.array(z.json())]).optional() but the VSCode JSON RPC implementation uses a looser
+  // definition of params then in the JSON-RPC spec.
+  params: z.any().optional(),
+  id: z.union([z.string(), z.number(), z.null()]).optional(),
+});
+
+export type Request = z.infer<typeof requestZ>;
+
+const baseResponseZ = z.object({
+  jsonrpc: z.literal("2.0"),
+  id: z.union([z.string(), z.number(), z.null()]),
+});
+
+const successResponseZ = baseResponseZ.extend({
+  result: z.json(),
+});
+
+const errorResponseZ = baseResponseZ.extend({
+  error: z.object({
+    code: z.number().int(),
+    // This should be z.string(), but the VSCode JSON RPC implementation uses a looser
+    // definition of error than the JSON-RPC spec.
+    message: z.string().optional(),
+    data: z.json().optional(),
+  }),
+});
+
+export const responseZ = z.union([successResponseZ, errorResponseZ]);
+
+export type Response = z.infer<typeof responseZ>;
+
+export const messageZ = z.union([requestZ, responseZ]);
+
+export type Message = z.infer<typeof messageZ>;
 
 export interface ChunkParser {
   (chunk: Uint8Array | ArrayBuffer | string): void;
@@ -77,7 +110,7 @@ export const streamDecodeChunks = (
         buffer = buffer.slice(expectedLength);
         expectedLength = null;
         const messageStr = decoder.decode(messageBytes);
-        const parsed = binary.JSON_CODEC.decodeString(messageStr);
+        const parsed = binary.JSON_CODEC.decodeString(messageStr, messageZ);
         onMessage(parsed);
       } else break;
     }

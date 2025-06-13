@@ -9,7 +9,7 @@
 
 import { type channel, type MultiSeries } from "@synnaxlabs/client";
 import { useCallback, useEffect } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { useSyncedRef } from "@/hooks";
 import { useAddListener } from "@/sync/Context";
@@ -30,7 +30,7 @@ export const useListener = (
   );
 };
 
-export const useParsedListener = <Z extends z.ZodTypeAny>(
+export const useParsedListener = <Z extends z.ZodType>(
   channel: channel.Name,
   schema: Z,
   onChange: (value: z.infer<Z>) => void,

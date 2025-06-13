@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export type Key = string | number;
 
 export type UnknownRecord = Record<Key, unknown>;
+
+export type UnknownStringRecord = Record<string, unknown>;
 
 export interface Keyed<K extends Key> {
   key: K;
@@ -38,6 +40,6 @@ export const getEntries = <T extends Record<Key, unknown>>(obj: T): Entries<T> =
 
 export const mapValues = <T extends Record<Key, unknown>, U>(
   obj: T,
-  fn: (value: T[keyof T], key: Key) => U,
+  fn: (value: T[keyof T], key: keyof T) => U,
 ): Record<Key, U> =>
-  Object.fromEntries(getEntries(obj).map(([key, value]) => [key, fn(value, key as Key)]));
+  Object.fromEntries(getEntries(obj).map(([key, value]) => [key, fn(value, key)]));

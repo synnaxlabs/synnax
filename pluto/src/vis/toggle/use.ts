@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useCallback, useEffect } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { Aether } from "@/aether";
 import { useMemoDeepEqualProps } from "@/memo";
@@ -20,7 +20,7 @@ export interface UseProps
 }
 
 export interface UseReturn
-  extends Pick<z.output<typeof toggle.toggleStateZ>, "triggered" | "enabled"> {
+  extends Pick<z.infer<typeof toggle.toggleStateZ>, "triggered" | "enabled"> {
   toggle: () => void;
 }
 

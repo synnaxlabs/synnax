@@ -34,7 +34,7 @@ const ChannelType = ({ type }: ChannelTypeProps) => {
     <Text.WithIcon
       level="p"
       startIcon={
-        <Icon style={{ transform: "scale(0.9)", color: "var(--pluto-gray-l9)" }} />
+        <Icon style={{ transform: "scale(0.9)", color: "var(--pluto-gray-l7)" }} />
       }
     >
       {AI_CHANNEL_TYPE_NAMES[type]}

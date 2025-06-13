@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, color, location, type scale } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
@@ -44,15 +44,15 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
   schema = ruleStateZ;
   lastUpdateRef: number | null = null;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     this.internal.renderCtx = render.Context.use(ctx);
     const theme = theming.use(ctx);
     this.internal.draw = new Draw2D(this.internal.renderCtx.upper2d, theme);
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+    render.request(ctx, "tool");
   }
 
-  async afterDelete(ctx: aether.Context): Promise<void> {
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+  afterDelete(ctx: aether.Context): void {
+    render.request(ctx, "tool");
   }
 
   updatePositions({ decimalToDataScale: scale, plot }: RuleProps): number {
@@ -88,7 +88,7 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
     return pixelPos;
   }
 
-  async render(props: RuleProps): Promise<void> {
+  render(props: RuleProps): void {
     if (this.deleted) return;
     const { renderCtx } = this.internal;
     const { location: l, plot: plottingRegion } = props;

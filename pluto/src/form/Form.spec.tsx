@@ -11,7 +11,7 @@ import { deep } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Form } from "@/form";
 import { Input } from "@/input";
@@ -19,20 +19,21 @@ import { Input } from "@/input";
 const basicFormSchema = z
   .object({
     name: z.string(),
+    optionalField: z.string().optional(),
     age: z.number().min(5, "You must be at least 5 years old."),
     nested: z.object({ ssn: z.string(), ein: z.string().optional() }),
     array: z.array(z.object({ name: z.string() })),
   })
-  .superRefine((c, ctx) => {
-    if (c.name === "Billy Bob")
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+  .check((ctx) => {
+    if (ctx.value.name === "Billy Bob")
+      ctx.issues.push({
+        input: ctx.value.name,
+        code: "custom",
         message: "You cannot be named Billy Bob.",
         path: ["name"],
         params: { variant: "warning" },
       });
-  })
-  .sourceType();
+  });
 
 const initialFormValues: z.infer<typeof basicFormSchema> = {
   name: "John Doe",
@@ -42,11 +43,11 @@ const initialFormValues: z.infer<typeof basicFormSchema> = {
 };
 
 const FormContainer = (props: PropsWithChildren): ReactElement => {
-  const methods = Form.use({
+  const methods = Form.use<typeof basicFormSchema>({
     values: deep.copy(initialFormValues),
     schema: basicFormSchema,
   });
-  return <Form.Form {...methods}>{props.children}</Form.Form>;
+  return <Form.Form<typeof basicFormSchema> {...methods}>{props.children}</Form.Form>;
 };
 
 const wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -198,6 +199,25 @@ describe("Form", () => {
         wrapper,
       });
       expect(result.current.required).toBe(true);
+    });
+    it("should set the default value if the field is null", () => {
+      const { result } = renderHook(
+        () => Form.useField<string>({ path: "optionalField", defaultValue: "cat" }),
+        {
+          wrapper,
+        },
+      );
+      expect(result.current.value).toBe("cat");
+    });
+
+    it("should respect the initial value if it is provided", () => {
+      const { result } = renderHook(
+        () => Form.useField<string>({ path: "name", defaultValue: "Federico" }),
+        {
+          wrapper,
+        },
+      );
+      expect(result.current.value).toBe("John Doe");
     });
   });
 

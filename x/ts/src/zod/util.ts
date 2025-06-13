@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { deep } from "@/deep";
 import { type UnknownRecord } from "@/record";
@@ -26,19 +26,21 @@ const sourceTypeGetter = (obj: unknown, key: string): z.ZodAny | null => {
   if (obj == null) return null;
   const v = (obj as Record<string, z.ZodAny>)[key];
   if (v == null && typeof obj === "object" && "sourceType" in obj) {
-    const sourceType = (obj as z.ZodEffects<z.ZodTypeAny>).sourceType();
+    const sourceType = (
+      obj as { sourceType: () => z.ZodObject<z.ZodRawShape> }
+    ).sourceType();
     return (sourceType as unknown as UnknownRecord)[key] as z.ZodAny | null;
   }
   return v;
 };
 
-export const getFieldSchema: deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny> = ((
-  schema: z.ZodTypeAny,
+export const getFieldSchema: deep.TypedGet<z.ZodType, z.ZodType> = ((
+  schema: z.ZodType,
   path: string,
   options?: Omit<deep.GetOptions, "getter">,
-): z.ZodTypeAny | null =>
-  deep.get<z.ZodTypeAny, z.ZodTypeAny>(
-    sourceTypeGetter(schema, "shape") as unknown as z.AnyZodObject,
+): z.ZodType | null =>
+  deep.get<z.ZodType, z.ZodType>(
+    sourceTypeGetter(schema, "shape") as unknown as z.ZodObject<z.ZodRawShape>,
     getFieldSchemaPath(path),
     { ...options, getter: sourceTypeGetter } as deep.GetOptions<boolean | undefined>,
-  )) as deep.TypedGet<z.ZodTypeAny, z.ZodTypeAny>;
+  )) as deep.TypedGet<z.ZodType, z.ZodType>;

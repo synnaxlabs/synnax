@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { caseconv, id } from "@synnaxlabs/x";
+import { array, caseconv, id } from "@synnaxlabs/x";
 import { type UnknownRecord } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
-import { toArray } from "@synnaxlabs/x/toArray";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { framer } from "@/framer";
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
@@ -245,7 +244,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
-      { tasks: toArray(task) },
+      { tasks: array.toArray(task) },
       createReqZ,
       createResZ,
     );
@@ -257,7 +256,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,
-      { keys: toArray(keys) },
+      { keys: array.toArray(keys) },
       deleteReqZ,
       deleteResZ,
     );
@@ -374,21 +373,23 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
 
   sugar(payloads: Payload | Payload[]): Task | Task[] {
     const isSingle = !Array.isArray(payloads);
-    const res = toArray(payloads).map(
-      ({ key, name, type, config, state, internal, snapshot }) =>
-        new Task(
-          key,
-          name,
-          type,
-          config,
-          internal,
-          snapshot,
-          state,
-          this.frameClient,
-          this.ontologyClient,
-          this.rangeClient,
-        ),
-    );
+    const res = array
+      .toArray(payloads)
+      .map(
+        ({ key, name, type, config, state, internal, snapshot }) =>
+          new Task(
+            key,
+            name,
+            type,
+            config,
+            internal,
+            snapshot,
+            state,
+            this.frameClient,
+            this.ontologyClient,
+            this.rangeClient,
+          ),
+      );
     return isSingle ? res[0] : res;
   }
 

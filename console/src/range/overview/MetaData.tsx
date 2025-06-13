@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type change, compare, deep, kv, link } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useMemo } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -53,7 +53,7 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
       placeholder="Value"
       color={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
     >
-      <Button.Icon onClick={() => copyToClipboard(value, "value")}>
+      <Button.Icon onClick={() => copyToClipboard(value, "value")} variant="outlined">
         <Icon.Copy />
       </Button.Icon>
       {isLink && (
@@ -203,7 +203,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
       <Text.Text level="h4" shade={11} weight={450}>
         Metadata
       </Text.Text>
-      <Form.Form {...formCtx}>
+      <Form.Form<typeof metaDataFormSchema> {...formCtx}>
         <List.List<string, kv.Pair> data={sorted}>
           <List.Core>{metaDataItem}</List.Core>
         </List.List>

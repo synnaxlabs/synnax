@@ -9,7 +9,7 @@
 
 import { type channel, framer } from "@synnaxlabs/client";
 import { StreamClosed } from "@synnaxlabs/freighter";
-import { strings, toArray, unique } from "@synnaxlabs/x";
+import { array, strings, unique } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback, useRef } from "react";
 
 import { useAsyncEffect } from "@/hooks";
@@ -72,7 +72,7 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
 
   const addListener: ListenerAdder = useCallback(
     ({ channels, handler }) => {
-      const channelNames = toArray(channels);
+      const channelNames = array.toArray(channels);
       if (channelNames.length === 0)
         throw new Error("No channels provided to Sync.Provider listener");
       handlersRef.current.set(handler, new Set(channelNames));

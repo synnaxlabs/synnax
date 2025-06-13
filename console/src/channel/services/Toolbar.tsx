@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
@@ -21,9 +20,12 @@ import { Ontology } from "@/ontology";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-  const group = useQuery<group.Group | null>({
+  const group = useQuery({
     queryKey: [client?.key, "channel-group"],
-    queryFn: async () => (await client?.channels.retrieveGroup()) ?? null,
+    queryFn: async () => {
+      if (client == null) return null;
+      return await client.channels.retrieveGroup();
+    },
   });
   const placeLayout = Layout.usePlacer();
   return (

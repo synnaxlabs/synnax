@@ -151,6 +151,24 @@ const calculateDragOverPosition = (e: React.DragEvent<HTMLDivElement>): location
   return "right";
 };
 
+interface StartIconProps
+  extends IconProps,
+    Pick<SelectorButtonProps, "icon" | "loading"> {
+  level: Text.Level;
+}
+
+const StartIcon = ({ loading, icon, level = "p" }: StartIconProps) => {
+  if (loading) icon = <Icon.Loading />;
+  return PIcon.resolve(icon as PIcon.Element, {
+    className: CSS.BE(CLS, "icon"),
+    style: {
+      color: CSS.shadeVar(9),
+      height: CSS.levelSizeVar(level),
+      width: CSS.levelSizeVar(level),
+    },
+  });
+};
+
 const SelectorButton = ({
   selected,
   altColor = false,
@@ -166,6 +184,7 @@ const SelectorButton = ({
   size,
   editable = true,
   unsavedChanges = false,
+  loading = false,
   onDrop,
 }: SelectorButtonProps): ReactElement => {
   const handleDragStart: DragEventHandler<HTMLDivElement> = useCallback(
@@ -239,14 +258,7 @@ const SelectorButton = ({
       bordered={false}
       rounded={false}
     >
-      {PIcon.resolve(icon as PIcon.Element, {
-        className: CSS.BE(CLS, "icon"),
-        style: {
-          color: CSS.shadeVar(9),
-          height: CSS.levelSizeVar(level),
-          width: CSS.levelSizeVar(level),
-        },
-      })}
+      <StartIcon loading={loading} icon={icon} level={level} />
       <Name
         name={name}
         tabKey={tabKey}

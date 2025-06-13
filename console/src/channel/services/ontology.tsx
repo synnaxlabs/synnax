@@ -113,7 +113,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
-      if (!(await confirm(resources))) throw errors.CANCELED;
+      if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
@@ -129,7 +129,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       { selection: { resources }, handleError, state: { setNodes } },
       prevNodes,
     ) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
       let message = "Failed to delete channels";
       if (resources.length === 1)
@@ -221,6 +221,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const activeRange = Range.useSelect();
   const groupFromSelection = Group.useCreateFromSelection();
   const setAlias = useSetAlias();
+  const aliases = PChannel.useAliases();
+  const showDeleteAlias = resources.some(
+    ({ id: { key } }) => aliases[Number(key)] != null,
+  );
   const delAlias = useDeleteAlias();
   const del = useDelete();
   const handleRename = useRename();
@@ -252,20 +256,24 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           </PMenu.Item>
         </>
       )}
-      {activeRange != null && activeRange.persisted && (
-        <>
-          <PMenu.Divider />
-          {singleResource && (
-            <PMenu.Item itemKey="alias" startIcon={<Icon.Rename />}>
-              Set Alias Under {activeRange.name}
-            </PMenu.Item>
-          )}
-          <PMenu.Item itemKey="deleteAlias" startIcon={<Icon.Delete />}>
-            Remove Alias Under {activeRange.name}
-          </PMenu.Item>
-          <PMenu.Divider />
-        </>
-      )}
+      {activeRange != null &&
+        activeRange.persisted &&
+        (singleResource || showDeleteAlias) && (
+          <>
+            <PMenu.Divider />
+            {singleResource && (
+              <PMenu.Item itemKey="alias" startIcon={<Icon.Rename />}>
+                Set Alias Under {activeRange.name}
+              </PMenu.Item>
+            )}
+            {showDeleteAlias && (
+              <PMenu.Item itemKey="deleteAlias" startIcon={<Icon.Delete />}>
+                Remove Alias Under {activeRange.name}
+              </PMenu.Item>
+            )}
+            <PMenu.Divider />
+          </>
+        )}
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>

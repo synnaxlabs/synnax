@@ -8,34 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { type aether } from "@/aether/aether";
-export type RequestF = (reason: string) => void;
 
-export const REASON_LAYOUT = "layout";
-export const REASON_DATA = "data";
-export const REASON_TOOL = "tool";
-
-export class Controller {
-  f: RequestF;
-
-  static readonly CONTEXT_KEY = "pluto-vis-renderer";
-
-  private constructor(f: RequestF) {
-    this.f = f;
-  }
-
-  static control(ctx: aether.Context, f: RequestF): void {
-    ctx.set(Controller.CONTEXT_KEY, new Controller(f), false);
-  }
-
-  static useRequest(ctx: aether.Context): RequestF {
-    return ctx.get<Controller>(Controller.CONTEXT_KEY).f;
-  }
-
-  static useOptionalRequest(ctx: aether.Context): RequestF | null {
-    return ctx.getOptional<Controller>(Controller.CONTEXT_KEY)?.f ?? null;
-  }
-
-  static requestRender(ctx: aether.Context, reason: string): void {
-    this.useRequest(ctx)(reason);
-  }
+export interface Requestor {
+  (reason: string): void;
 }
+
+export type RenderReason = "layout" | "data" | "tool";
+
+const CONTEXT_KEY = "pluto-vis-renderer";
+
+export const control = (ctx: aether.Context, f: Requestor): void => {
+  ctx.set(CONTEXT_KEY, f, false);
+};
+
+export const useRequestor = (ctx: aether.Context): Requestor =>
+  ctx.get<Requestor>(CONTEXT_KEY);
+
+export const useOptionalRequestor = (ctx: aether.Context): Requestor | null =>
+  ctx.getOptional<Requestor>(CONTEXT_KEY);
+
+export const request = (ctx: aether.Context, reason: RenderReason): void =>
+  useRequestor(ctx)(reason);

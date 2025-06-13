@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { array } from "@synnaxlabs/x/array";
 import { isObject } from "@synnaxlabs/x/identity";
-import { toArray } from "@synnaxlabs/x/toArray";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type framer } from "@/framer";
 import { type Key, keyZ } from "@/ranger/payload";
@@ -54,7 +54,7 @@ export class KV {
     const res = await sendRequired(
       this.client,
       KV.GET_ENDPOINT,
-      { range: this.rangeKey, keys: toArray(keys) },
+      { range: this.rangeKey, keys: array.toArray(keys) },
       getReqZ,
       getResZ,
     );
@@ -90,7 +90,7 @@ export class KV {
     await sendRequired(
       this.client,
       KV.DELETE_ENDPOINT,
-      { range: this.rangeKey, keys: toArray(key) },
+      { range: this.rangeKey, keys: array.toArray(key) },
       deleteReqZ,
       z.unknown(),
     );

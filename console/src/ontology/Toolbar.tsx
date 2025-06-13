@@ -20,7 +20,7 @@ import { Tree } from "@/ontology/Tree";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-  const group = useQuery<ontology.ID | null>({
+  const group = useQuery({
     queryKey: [client?.key, "user-group"],
     queryFn: async () => {
       if (client == null) return null;
