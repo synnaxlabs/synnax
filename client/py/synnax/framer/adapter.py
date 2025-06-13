@@ -154,7 +154,7 @@ class WriteFrameAdapter:
                         ValidationError(
                             f"Data type {ch.data_type} for channel {ch} does "
                             + f"not match series data type {series.data_type}.",
-                        )
+                        ),
                     )
                 elif not self._suppress_warnings and not (
                     ch.data_type == DataType.TIMESTAMP

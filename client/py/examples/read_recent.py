@@ -17,7 +17,7 @@ data_ch = client.channels.create(
 )
 
 # n_samples = 100
-# start = sy.TimeStamp.now() - 100 * sy.TimeSpan.SECOND   
+# start = sy.TimeStamp.now() - 100 * sy.TimeSpan.SECOND
 # time_data = [start + sy.TimeSpan.SECOND * i for i in range(n_samples)]
 # data_data = [i for i in range(n_samples)]
 
