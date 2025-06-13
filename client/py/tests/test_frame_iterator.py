@@ -45,6 +45,26 @@ class TestIterator:
 
             assert not i.next(sy.framer.AUTO_SPAN)
 
+    def test_auto_chunk_reverse(self, indexed_pair: sy.Channel, client: sy.Synnax):
+        d = seconds_linspace(1, 10)
+        idx_ch, _ = indexed_pair
+        idx_ch.write(sy.TimeSpan.SECOND * 1, d)
+        with client.open_iterator(sy.TimeRange.MAX, idx_ch.key, chunk_size=4) as i:
+            assert i.seek_last()
+            assert i.prev(sy.framer.AUTO_SPAN)
+            l = i.value.get(idx_ch.key).to_numpy().tolist()
+            assert np.array_equal(l, seconds_linspace(7, 4))
+
+            assert i.prev(sy.framer.AUTO_SPAN)
+            l = i.value.get(idx_ch.key).to_numpy().tolist()
+            assert np.array_equal(l, seconds_linspace(3, 4))
+
+            assert i.prev(sy.framer.AUTO_SPAN)
+            l = i.value.get(idx_ch.key).to_numpy().tolist()
+            assert np.array_equal(l, seconds_linspace(1, 2))
+
+            assert not i.prev(sy.framer.AUTO_SPAN)
+
     def test_advanced_iterate(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
     ):

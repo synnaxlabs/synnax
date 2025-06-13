@@ -514,7 +514,7 @@ func (i *Iterator) approximateStart(ctx context.Context) (
 // after the end of the range, the returned value will be the number of samples in the
 // range.
 func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
-	endApprox.Approximation = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
+	endApprox.Approximation = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Size())))
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
 		endApprox, _, err = i.idx.Distance(ctx, target, index.MustBeContinuous)

@@ -47,14 +47,14 @@ type Iterator struct {
 	IteratorConfig
 	alamos.Instrumentation
 	// position stores the current position of the iterator in the idx. NOTE: At the
-	// moment, this position may not hold a consistent reference to the same value if
+	// moment, this position may not hold a consistent reference to the same currPtr if
 	// the idx is modified during iteration.
 	position int
 	// idx is the index that the iterator is iterating over.
 	idx *index
-	// value stores the current value of the iterator. This value is only valid if the
+	// currPtr stores the current currPtr of the iterator. This currPtr is only valid if the
 	// iterator is valid.
-	value pointer
+	currPtr pointer
 	// valid stores whether the iterator is currently valid.
 	valid bool
 	// readerFactory gets a new reader for the given domain pointer.
@@ -92,7 +92,7 @@ func Read(ctx context.Context, db *DB, tr telem.TimeRange) (b []byte, err error)
 		if err != nil {
 			return nil, err
 		}
-		chunk := make([]byte, r.Len())
+		chunk := make([]byte, r.Size())
 		if _, err = r.ReadAt(chunk, 0); err != nil {
 			return nil, errors.Combine(err, r.Close())
 		}
@@ -191,7 +191,7 @@ func (i *Iterator) Valid() bool { return i.valid }
 func (i *Iterator) Position() uint32 { return uint32(i.position) }
 
 // TimeRange returns the time interval occupied by current domain.
-func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
+func (i *Iterator) TimeRange() telem.TimeRange { return i.currPtr.TimeRange }
 
 // OpenReader returns a new Reader that can be used to read telemetry from the current
 // domain. The returned Reader is not safe for concurrent use, but it is safe to have
@@ -201,11 +201,11 @@ func (i *Iterator) OpenReader(ctx context.Context) (*Reader, error) {
 	if i.closed {
 		return nil, errIteratorClosed
 	}
-	return i.readerFactory(ctx, i.value)
+	return i.readerFactory(ctx, i.currPtr)
 }
 
-// Len returns the number of bytes occupied by the telemetry in the current domain.
-func (i *Iterator) Len() int64 { return int64(i.value.length) }
+// Size returns the number of bytes occupied by the telemetry in the current domain.
+func (i *Iterator) Size() telem.Size { return telem.Size(i.currPtr.size) }
 
 // Close closes the iterator.
 func (i *Iterator) Close() error {
@@ -223,10 +223,10 @@ func (i *Iterator) reload() bool {
 	ptr, ok := i.idx.get(i.position)
 	if !ok || !ptr.OverlapsWith(i.Bounds) {
 		i.valid = false
-		// it's important that we return here, so we don't clear the current value of
+		// it's important that we return here, so we don't clear the current currPtr of
 		// the iterator.
 		return i.valid
 	}
-	i.value = ptr
+	i.currPtr = ptr
 	return i.valid
 }
