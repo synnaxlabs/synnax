@@ -34,7 +34,7 @@ const Content = (): ReactElement => {
         <Toolbar.Header>
           <Toolbar.Title icon={<Icon.Resources />}>Resources</Toolbar.Title>
         </Toolbar.Header>
-        <Tree root={group.data ?? undefined} />
+        <Tree root={group.data} />
       </Align.Space>
     </Cluster.NoneConnectedBoundary>
   );
