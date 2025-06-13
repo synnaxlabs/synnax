@@ -47,7 +47,7 @@ type (
 type Config struct {
 	core.Config
 	// Verifier is for verifying. Magic.
-	// [REQUIRED]
+	// [REQUIRED}
 	Verifier string
 	// Ontology is an optional ontology configuration used to override properties on the
 	// internally build ontology configuration.
@@ -116,11 +116,7 @@ func (d Distribution) Close() error {
 
 // Open opens the distribution layer for the node using the provided Config. The caller
 // is responsible for closing the distribution layer when it is no longer in use.
-func Open(ctx context.Context, cfg Config) (Distribution, error) {
-	var (
-		d   Distribution
-		err error
-	)
+func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	d.Core, err = core.Open(ctx, cfg.Config)
 	if err != nil {
 		return d, err
