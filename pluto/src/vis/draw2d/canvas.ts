@@ -600,11 +600,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
   ): void {
     const [useAtlas, fillStyle] = this.checkAtlasFillStyle(options.useAtlas);
     if (useAtlas) {
-      const atlas = this.atlasRegistry.get({
-        font: this.font,
-        textColor: fillStyle,
-        dpr: this.dpr,
-      });
+      const atlas = this.atlasRegistry.get({ font: this.font, textColor: fillStyle });
       atlas.fillText(this, text, x, y);
       return;
     }
@@ -623,11 +619,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
   textDimensions(text: string, options: FillTextOptions = {}): dimensions.Dimensions {
     const [useAtlas, fillStyle] = this.checkAtlasFillStyle(options.useAtlas);
     if (useAtlas) {
-      const atlas = this.atlasRegistry.get({
-        font: this.font,
-        textColor: fillStyle,
-        dpr: this.dpr,
-      });
+      const atlas = this.atlasRegistry.get({ font: this.font, textColor: fillStyle });
       return atlas.measureText(text);
     }
     return dimensionsFromMetrics(this.measureText(text));

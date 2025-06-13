@@ -42,7 +42,7 @@ export const Provider = ({
   initServices: services,
 }: ProviderProps) => {
   const [monaco, setMonaco, monacoRef] = useCombinedStateAndRef<Monaco | null>(null);
-  const destructorRef = useRef<AsyncDestructor | null>(null);
+  const destructorRef = useRef<AsyncDestructor>(null);
   const requestInit = useCallback(() => {
     if (monacoRef.current != null) return;
     initializeMonaco({ extensions, services })

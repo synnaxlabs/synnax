@@ -117,7 +117,7 @@ func (db *DB) Delete(
 		if endOffset, tr.End, err = calculateEndOffset(ctx, end.Start, tr.End); err != nil {
 			return err
 		}
-		endOffset = telem.Size(end.length) - endOffset
+		endOffset = telem.Size(end.size) - endOffset
 	} else {
 		// Non-exact: tr.End is not contained within any domain.
 		if endDomain == -1 {
@@ -162,7 +162,7 @@ func (db *DB) Delete(
 			TimeRange: telem.TimeRange{Start: start.Start, End: tr.Start},
 			fileKey:   start.fileKey,
 			offset:    start.offset,
-			length:    uint32(startOffset), // length from start.Start to tr.Start
+			size:      uint32(startOffset), // size from start.Start to tr.Start
 		})
 	}
 
@@ -170,8 +170,8 @@ func (db *DB) Delete(
 		newPointers = append(newPointers, pointer{
 			TimeRange: telem.TimeRange{Start: tr.End, End: end.End},
 			fileKey:   end.fileKey,
-			offset:    end.offset + end.length - uint32(endOffset),
-			length:    uint32(endOffset), // length from tr.End to end.End
+			offset:    end.offset + end.size - uint32(endOffset),
+			size:      uint32(endOffset), // size from tr.End to end.End
 		})
 	}
 
@@ -292,7 +292,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	for _, ptr := range db.idx.mu.pointers {
 		if ptr.fileKey == key {
 			ptrs = append(ptrs, ptr)
-			tombstoneSize -= int64(ptr.length)
+			tombstoneSize -= int64(ptr.size)
 		}
 	}
 	db.idx.mu.RUnlock()
@@ -316,7 +316,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 
 	// Find all pointers stored in the old file, and write them to the new file.
 	for _, ptr := range ptrs {
-		buf := make([]byte, ptr.length)
+		buf := make([]byte, ptr.size)
 		_, err = r.ReadAt(buf, int64(ptr.offset))
 		if err != nil {
 			return err
@@ -416,7 +416,7 @@ func validateDelete(
 		*endOffset = 0
 	}
 
-	startPtrLen, endPtrLen := telem.Size(idx.mu.pointers[startPosition].length), telem.Size(idx.mu.pointers[endPosition].length)
+	startPtrLen, endPtrLen := telem.Size(idx.mu.pointers[startPosition].size), telem.Size(idx.mu.pointers[endPosition].size)
 	if *startOffset > startPtrLen {
 		*startOffset = startPtrLen
 	}
@@ -438,10 +438,10 @@ func validateDelete(
 
 	if startPosition == endPosition && *startOffset+*endOffset > startPtrLen {
 		return false, errors.Newf(
-			"deletion start offset %d is after end offset %d for length %d",
+			"deletion start offset %d is after end offset %d for size %d",
 			*startOffset,
 			*endOffset,
-			idx.mu.pointers[startPosition].length,
+			idx.mu.pointers[startPosition].size,
 		)
 	}
 
