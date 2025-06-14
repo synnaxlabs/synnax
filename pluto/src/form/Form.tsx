@@ -70,8 +70,8 @@ export type UseFieldProps<I, O = I> =
 export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I>
   extends FieldState<I> {
   onChange: (value: O) => void;
-  setStatus: (status: Status.CrudeSpec) => void;
-  status: Status.CrudeSpec;
+  setStatus: (status: status.New) => void;
+  status: status.New;
   variant?: Input.Variant;
 }
 
@@ -130,7 +130,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   );
 
   const handleSetStatus = useCallback(
-    (status: Status.CrudeSpec) => setStatus(path, status),
+    (status: status.New) => setStatus(path, status),
     [path, setStatus],
   );
 
@@ -356,7 +356,7 @@ export interface Listener<V = unknown> {
 
 export interface FieldState<V = unknown> {
   value: V;
-  status: Status.CrudeSpec;
+  status: status.New;
   touched: boolean;
   required: boolean;
 }
@@ -417,7 +417,7 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   validate: (path?: string) => boolean;
   validateAsync: (path?: string) => Promise<boolean>;
   has: (path: string) => boolean;
-  setStatus: (path: string, status: Status.CrudeSpec) => void;
+  setStatus: (path: string, status: status.New) => void;
   clearStatuses: () => void;
   setCurrentStateAsInitialValues: () => void;
 }
@@ -450,7 +450,7 @@ export const useContext = <Z extends z.ZodType = z.ZodType>(
   return override ?? (internal as unknown as ContextValue<Z>);
 };
 
-const NO_ERROR_STATUS = (path: string): Status.CrudeSpec => ({
+const NO_ERROR_STATUS = (path: string): status.New => ({
   key: path,
   variant: "success",
   message: "",
@@ -458,7 +458,7 @@ const NO_ERROR_STATUS = (path: string): Status.CrudeSpec => ({
 
 interface UseRef<Z extends z.ZodType> {
   state: z.infer<Z>;
-  statuses: Map<string, Status.CrudeSpec>;
+  statuses: Map<string, status.New>;
   touched: Set<string>;
   listeners: Map<string, Set<Listener>>;
   parentListeners: Map<string, Set<Listener>>;
@@ -763,7 +763,7 @@ export const use = <Z extends z.ZodType>({
     [],
   );
 
-  const setStatus = useCallback((path: string, status: Status.CrudeSpec): void => {
+  const setStatus = useCallback((path: string, status: status.New): void => {
     ref.current.statuses.set(path, status);
     addTouched(path);
     updateFieldState(path);

@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp } from "@synnaxlabs/x";
+import { id, status, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
-import { type CrudeSpec, type Spec, specZ } from "@/status/aether/types";
 
-export const aggregatorStateZ = z.object({ statuses: specZ.array() });
+export const aggregatorStateZ = z.object({ statuses: status.statusZ.array() });
 export interface AggregatorState extends z.infer<typeof aggregatorStateZ> {}
 
 const CONTEXT_KEY = "status.aggregator";
 
 interface ContextValue {
   add: Adder;
-  parse: (spec: CrudeSpec) => Spec;
+  parse: (spec: status.New) => status.Status;
 }
 
 export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
@@ -32,11 +31,11 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
     ctx.set(CONTEXT_KEY, { add: this.add.bind(this), parse: this.parse.bind(this) });
   }
 
-  private parse(spec: CrudeSpec): Spec {
+  private parse(spec: status.New): status.Status {
     return { time: TimeStamp.now(), key: id.create(), ...spec };
   }
 
-  private add(spec: CrudeSpec): void {
+  private add(spec: status.New): void {
     this.setState((p) => ({
       ...p,
       statuses: [...p.statuses, this.parse(spec)],
@@ -45,7 +44,7 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
 }
 
 export interface Adder {
-  (spec: CrudeSpec): void;
+  (spec: status.New): void;
 }
 
 export const useAdder = (ctx: aether.Context): Adder =>
@@ -66,7 +65,7 @@ export interface AsyncErrorHandler {
   (func: () => Promise<void>, message?: string): Promise<void>;
 }
 
-export const fromException = (exc: unknown, message?: string): CrudeSpec => {
+export const fromException = (exc: unknown, message?: string): status.New => {
   if (!(exc instanceof Error)) throw exc;
   return {
     variant: "error",

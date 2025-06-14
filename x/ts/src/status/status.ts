@@ -7,10 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Optional, status, TimeStamp, unknownRecordZ } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-export const specZ = z.object({
+import { type Optional } from "@/optional";
+import { unknownRecordZ } from "@/record";
+import { status } from "@/status";
+import { TimeStamp } from "@/telem";
+
+export const variantZ = z.enum([
+  "success",
+  "info",
+  "warning",
+  "error",
+  "loading",
+  "disabled",
+]);
+
+// Represents one of the possible variants of a status message.
+export type Variant = z.infer<typeof variantZ>;
+
+export const statusZ = z.object({
   key: z.string(),
   variant: status.variantZ,
   message: z.string(),
@@ -18,6 +34,7 @@ export const specZ = z.object({
   time: TimeStamp.z,
   data: unknownRecordZ.optional(),
 });
-export interface Spec extends z.infer<typeof specZ> {}
 
-export interface CrudeSpec extends Optional<Spec, "time" | "key"> {}
+export interface Status extends z.infer<typeof statusZ> {}
+
+export interface New extends Optional<Status, "time" | "key"> {}

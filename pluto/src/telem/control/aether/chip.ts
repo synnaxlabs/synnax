@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { control, deep, type Destructor } from "@synnaxlabs/x";
+import { control, deep, type Destructor, status } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
-import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 
 export const chipStateZ = z.object({
   triggered: z.boolean(),
-  status: status.specZ,
+  status: status.statusZ,
   sink: telem.booleanSinkSpecZ.optional().default(telem.noopBooleanSinkSpec),
   source: telem.statusSourceSpecZ.optional().default(telem.noopStatusSourceSpec),
 });

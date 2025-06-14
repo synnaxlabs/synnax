@@ -20,6 +20,7 @@ import {
   control as xControl,
   type CrudeSeries,
   type Destructor,
+  type status as xstatus,
   TimeSpan,
 } from "@synnaxlabs/x";
 import { z } from "zod/v4";
@@ -391,7 +392,7 @@ export class AuthoritySource
     this.valid = true;
   }
 
-  value(): status.Spec {
+  value(): xstatus.Status {
     this.maybeRevalidate();
 
     const time = TimeStamp.now();

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id, type status as xstatus, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -22,7 +22,7 @@ import { Aether } from "@/aether";
 import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
-const StatusesContext = createContext<status.Spec[]>([]);
+const StatusesContext = createContext<xstatus.Status[]>([]);
 
 export interface Adder extends status.Adder {}
 
@@ -70,7 +70,7 @@ export const useErrorHandler = (): ErrorHandler => {
   return useMemo(() => status.createErrorHandler(add), [add]);
 };
 
-export interface NotificationSpec extends status.Spec {
+export interface NotificationSpec extends xstatus.Status {
   count: number;
 }
 

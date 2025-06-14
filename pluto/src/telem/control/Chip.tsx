@@ -9,7 +9,7 @@
 
 import { control as clientControl } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { TimeStamp } from "@synnaxlabs/x";
+import { type status, TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useCallback, useEffect } from "react";
 import { type z } from "zod/v4";
 
@@ -17,7 +17,6 @@ import { Aether } from "@/aether";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useMemoDeepEqualProps } from "@/memo";
-import { type Status } from "@/status";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 
@@ -32,7 +31,7 @@ interface ChipStyle {
   disabled?: boolean;
 }
 
-const tooltipMessage = (status: Status.Spec): ChipStyle => {
+const tooltipMessage = (status: status.Status): ChipStyle => {
   switch (status.variant) {
     case "disabled":
       if (status.data?.valid === true)
