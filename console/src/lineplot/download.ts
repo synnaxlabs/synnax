@@ -8,16 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type framer, type Synnax } from "@synnaxlabs/client";
-import { type Channel, type Status } from "@synnaxlabs/pluto";
+import { type Channel, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { type TimeRange, unique } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
+import { NULL_CLIENT_ERROR } from "@/errors";
+
 export interface DownloadProps {
   timeRange: TimeRange;
-  client: Synnax;
+  client: Synnax | null;
   lines: Channel.LineProps[];
-  handleError: Status.ErrorHandler;
   name?: string;
 }
 
@@ -39,37 +40,43 @@ const frameToCSV = (columns: Map<channel.Key, string>, frame: framer.Frame): str
   return rows.join("\n");
 };
 
-export const download = ({
+export const download = async ({
   lines,
   client,
   timeRange,
-  handleError,
   name = "synnax-data",
-}: DownloadProps): void => {
-  (async () => {
-    let keys = unique.unique(
-      lines
-        .flatMap((l) => [l.channels.y, l.channels.x])
-        .filter((v) => v != null && v != 0),
-    ) as channel.Keys;
-    const channels = await client.channels.retrieve(keys);
-    const indexes = unique.unique(channels.map((c) => c.index));
-    keys = unique.unique([...keys, ...indexes]);
-    const indexChannels = await client.channels.retrieve(indexes);
-    const columns = new Map<channel.Key, string>();
-    channels.forEach((c) => {
-      columns.set(c.key, lines.find((l) => l.channels.y === c.key)?.label ?? c.name);
-    });
-    indexChannels.forEach((c) => {
-      columns.set(c.key, lines.find((l) => l.channels.x === c.key)?.label ?? c.name);
-    });
-    const frame = await client.read(timeRange, keys);
-    const csv = frameToCSV(columns, frame);
-    const savePath = await save({
-      defaultPath: `${name}.csv`,
-    });
-    if (savePath == null) return;
-    const data = new TextEncoder().encode(csv);
-    await writeFile(savePath, data);
-  })().catch(handleError);
+}: DownloadProps): Promise<void> => {
+  if (client == null) throw NULL_CLIENT_ERROR;
+  let keys = unique.unique(
+    lines
+      .flatMap((l) => [l.channels.y, l.channels.x])
+      .filter((v) => v != null && v != 0),
+  ) as channel.Keys;
+  const channels = await client.channels.retrieve(keys);
+  const indexes = unique.unique(channels.map((c) => c.index));
+  keys = unique.unique([...keys, ...indexes]);
+  const indexChannels = await client.channels.retrieve(indexes);
+  const columns = new Map<channel.Key, string>();
+  channels.forEach((c) => {
+    columns.set(c.key, lines.find((l) => l.channels.y === c.key)?.label ?? c.name);
+  });
+  indexChannels.forEach((c) => {
+    columns.set(c.key, lines.find((l) => l.channels.x === c.key)?.label ?? c.name);
+  });
+  const frame = await client.read(timeRange, keys);
+  const csv = frameToCSV(columns, frame);
+  const savePath = await save({ defaultPath: `${name}.csv` });
+  if (savePath == null) return;
+  const data = new TextEncoder().encode(csv);
+  await writeFile(savePath, data);
+};
+
+export const useDownloadAsCSV = (): ((
+  timeRange: TimeRange,
+  lines: Channel.LineProps[],
+) => void) => {
+  const handleError = Status.useErrorHandler();
+  const client = PSynnax.use();
+  return (timeRange: TimeRange, lines: Channel.LineProps[]) =>
+    handleError(() => download({ timeRange, lines, client }), "Failed to download CSV");
 };

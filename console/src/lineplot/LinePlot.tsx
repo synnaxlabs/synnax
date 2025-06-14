@@ -185,12 +185,14 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     Exclude<Channel.LinePlotProps["onRuleChange"], undefined>
   >(
     (rule) => {
-      if (rule.color != null) rule.color = color.hex(rule.color);
       syncDispatch(
         setRule({
           key: layoutKey,
-          // @ts-expect-error rule.color was reassigned to be a string or undefined
-          rule,
+          rule: {
+            ...rule,
+            color: rule.color != null ? color.hex(rule.color) : undefined,
+            axis: rule.axis as AxisKey,
+          },
         }),
       );
     },
