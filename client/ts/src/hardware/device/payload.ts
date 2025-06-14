@@ -16,16 +16,13 @@ import { decodeJSONString } from "@/util/decodeJSONString";
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
-export const stateZ = z.object({
-  key: keyZ,
-  variant: status.variantZ,
-  details: unknownRecordZ.or(z.string().transform(decodeJSONString)),
+export const statusDetailsZ = z.object({
+  rack: rackKeyZ,
 });
 
-export interface State<Details extends {} = UnknownRecord>
-  extends Omit<z.infer<typeof stateZ>, "details"> {
-  details: Details;
-}
+export const stateZ = status.statusZ(statusDetailsZ);
+
+export interface Status extends z.infer<typeof stateZ> {}
 
 export const deviceZ = z.object({
   key: keyZ,
@@ -43,12 +40,11 @@ export interface Device<
   Properties extends UnknownRecord = UnknownRecord,
   Make extends string = string,
   Model extends string = string,
-  StateDetails extends {} = UnknownRecord,
 > extends Omit<z.infer<typeof deviceZ>, "properties" | "state"> {
   properties: Properties;
   make: Make;
   model: Model;
-  state?: State<StateDetails>;
+  state?: Status;
 }
 
 export const newZ = deviceZ.extend({

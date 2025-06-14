@@ -10,7 +10,6 @@
 import { z } from "zod/v4";
 
 import { type Optional } from "@/optional";
-import { unknownRecordZ } from "@/record";
 import { status } from "@/status";
 import { TimeStamp } from "@/telem";
 
@@ -26,15 +25,26 @@ export const variantZ = z.enum([
 // Represents one of the possible variants of a status message.
 export type Variant = z.infer<typeof variantZ>;
 
-export const statusZ = z.object({
-  key: z.string(),
-  variant: status.variantZ,
-  message: z.string(),
-  description: z.string().optional(),
-  time: TimeStamp.z,
-  data: unknownRecordZ.optional(),
-});
+const undefinedOptional = z.undefined().optional();
 
-export interface Status extends z.infer<typeof statusZ> {}
+export const statusZ = <D extends z.ZodType = typeof undefinedOptional>(
+  details: D = undefinedOptional as unknown as D,
+) =>
+  z.object({
+    key: z.string(),
+    variant: status.variantZ,
+    message: z.string(),
+    description: z.string().optional(),
+    time: TimeStamp.z,
+    details,
+  });
 
-export interface New extends Optional<Status, "time" | "key"> {}
+export type Status<D = undefined> = {
+  key: string;
+  variant: Variant;
+  message: string;
+  description?: string;
+  time: TimeStamp;
+} & (D extends undefined ? {} : { details: D });
+
+export type New<D = undefined> = Optional<Status<D>, "time" | "key">;

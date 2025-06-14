@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type task } from "@/hardware/task";
@@ -90,22 +90,21 @@ describe("Task", async () => {
           type: "ni",
         });
         const w = await client.openWriter(["sy_task_state"]);
-        interface StateDetails {
-          dog: string;
-        }
-        const state: task.State<StateDetails> = {
+        const state: task.Status = {
           key: id.create(),
-          task: t.key,
           variant: "success",
+          details: { task: t.key, running: false, data: {} },
+          message: "test",
+          time: TimeStamp.now(),
         };
         await w.write("sy_task_state", [state]);
         await w.close();
         await expect
           .poll(async () => {
             const retrieved = await client.hardware.tasks.retrieve(t.key, {
-              includeState: true,
+              includeStatus: true,
             });
-            return retrieved.state?.variant === state.variant;
+            return retrieved.status?.variant === state.variant;
           })
           .toBeTruthy();
       });

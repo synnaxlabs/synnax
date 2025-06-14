@@ -18,14 +18,6 @@ export const STOP_COMMAND = "stop";
 export type StopCommand = typeof STOP_COMMAND;
 export type StartOrStopCommand = StartCommand | StopCommand;
 
-export const RUNNING_STATUS = "running";
-export type RunningStatus = typeof RUNNING_STATUS;
-export const PAUSED_STATUS = "paused";
-export type PausedStatus = typeof PAUSED_STATUS;
-export const LOADING_STATUS = "loading";
-export type LoadingStatus = typeof LOADING_STATUS;
-export type Status = RunningStatus | PausedStatus | LoadingStatus;
-
 export const channelZ = z.object({ enabled: z.boolean(), key: z.string() });
 export interface Channel extends z.infer<typeof channelZ> {}
 export const ZERO_CHANNEL: Channel = { enabled: true, key: "" };

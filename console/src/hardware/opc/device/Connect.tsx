@@ -48,8 +48,7 @@ import {
 import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
-  type TestConnectionCommandResponse,
-  type TestConnectionCommandState,
+  type TestConnectionStatus,
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -80,7 +79,7 @@ interface InternalProps extends Pick<Layout.RendererProps, "layoutKey" | "onClos
 
 const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalProps) => {
   const client = Synnax.use();
-  const [connectionState, setConnectionState] = useState<TestConnectionCommandState>();
+  const [connectionState, setConnectionState] = useState<TestConnectionStatus>();
   const handleError = Status.useErrorHandler();
   const methods = Form.use({ values: initialValues, schema: formSchema });
   const testConnectionMutation = useMutation({
@@ -95,7 +94,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       if (scanTasks.length === 0)
         throw new UnexpectedError(`No scan task found for driver ${rack.name}`);
       const task = scanTasks[0];
-      const state = await task.executeCommandSync<TestConnectionCommandResponse>(
+      const state = await task.executeCommandSync(
         TEST_CONNECTION_COMMAND_TYPE,
         { connection: methods.get("connection").value },
         TimeSpan.seconds(10),
@@ -210,7 +209,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
             <Status.Text level="p" variant={connectionState.variant}>
-              {connectionState.details?.message}
+              {connectionState.message}
             </Status.Text>
           )}
         </Nav.Bar.Start>

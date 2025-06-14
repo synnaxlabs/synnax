@@ -16,6 +16,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/client";
 import {
+  color,
   compare,
   control as xControl,
   type CrudeSeries,
@@ -359,9 +360,17 @@ export const authoritySourceProps = z.object({
 
 export type AuthoritySourceProps = z.infer<typeof authoritySourceProps>;
 
+export const authoritySourceDetailsZ = z.object({
+  valid: z.boolean(),
+  color: color.colorZ.optional(),
+  authority: z.number(),
+});
+
+export type AuthoritySourceDetails = z.infer<typeof authoritySourceDetailsZ>;
+
 export class AuthoritySource
   extends telem.AbstractSource<typeof authoritySourceProps>
-  implements telem.StatusSource, AetherControllerTelem
+  implements telem.StatusSource<AuthoritySourceDetails>, AetherControllerTelem
 {
   static readonly TYPE = "controlled-status-source";
   private readonly prov: StateProvider;
@@ -392,7 +401,7 @@ export class AuthoritySource
     this.valid = true;
   }
 
-  value(): xstatus.Status {
+  value(): xstatus.Status<AuthoritySourceDetails> {
     this.maybeRevalidate();
 
     const time = TimeStamp.now();
@@ -402,7 +411,7 @@ export class AuthoritySource
         variant: "disabled",
         message: "No Channel",
         time,
-        data: { valid: false, authority: 0 },
+        details: { valid: false, authority: 0 },
       };
 
     const state = this.prov.get(this.props.channel);
@@ -413,7 +422,7 @@ export class AuthoritySource
         variant: "disabled",
         message: "Uncontrolled",
         time,
-        data: { valid: true, color: undefined, authority: 0 },
+        details: { valid: true, color: undefined, authority: 0 },
       };
 
     return {
@@ -421,7 +430,7 @@ export class AuthoritySource
       variant: state.subject.key === this.controller.key ? "success" : "error",
       message: `Controlled by ${state.subject.name}`,
       time,
-      data: { valid: true, color: state.subjectColor, authority: state.authority },
+      details: { valid: true, color: state.subjectColor, authority: state.authority },
     };
   }
 

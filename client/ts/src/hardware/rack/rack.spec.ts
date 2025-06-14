@@ -68,17 +68,17 @@ describe("Rack", () => {
     });
   });
   describe("state", () => {
-    it("should include state when includeState is true", async () => {
+    it("should include state when includeStatus is true", async () => {
       const r = await client.hardware.racks.create({ name: "test" });
       await expect
         .poll(async () => {
           const retrieved = await client.hardware.racks.retrieve(r.key, {
-            includeState: true,
+            includeStatus: true,
           });
           return (
             retrieved.state !== undefined &&
-            retrieved.state.lastReceived instanceof TimeStamp &&
-            retrieved.state.key === r.key
+            retrieved.state.time instanceof TimeStamp &&
+            retrieved.state.details?.rack === r.key
           );
         })
         .toBeTruthy();
@@ -90,13 +90,13 @@ describe("Rack", () => {
       await expect
         .poll(async () => {
           const retrieved = await client.hardware.racks.retrieve([r1.key, r2.key], {
-            includeState: true,
+            includeStatus: true,
           });
           return retrieved.every(
             (rack) =>
               rack.state !== undefined &&
-              rack.state.lastReceived instanceof TimeStamp &&
-              rack.state.key === rack.key,
+              rack.state.time instanceof TimeStamp &&
+              rack.state.details?.rack === rack.key,
           );
         })
         .toBeTruthy();

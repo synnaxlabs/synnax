@@ -30,7 +30,7 @@ import { type Device } from "@/hardware/opc/device/types";
 import {
   SCAN_COMMAND_TYPE,
   SCAN_TYPE,
-  type ScanStateDetails,
+  type scanStatusDataZ,
 } from "@/hardware/opc/task/types";
 
 const ICONS: Record<string, ReactElement> = {
@@ -75,14 +75,16 @@ export const Browser = ({ device }: BrowserProps) => {
       const nodeID = isRoot ? "" : parseNodeID(clicked);
       const { connection } = device.properties;
       setLoading(clicked);
-      const { details } = await scanTask.executeCommandSync<ScanStateDetails>(
+      const { details } = await scanTask.executeCommandSync<typeof scanStatusDataZ>(
         SCAN_COMMAND_TYPE,
         { connection, node_id: nodeID },
         TimeSpan.seconds(10),
       );
       if (details == null) return;
       if (!("channels" in details)) return;
-      const { channels } = details;
+      const {
+        data: { channels },
+      } = details;
       const newNodes = channels.map(
         (node) =>
           ({

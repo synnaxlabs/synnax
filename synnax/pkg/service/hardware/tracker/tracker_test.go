@@ -154,7 +154,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys:  []channel.Key{rackStateCh.Key()},
 			}))
 
-			state := rack.State{
+			state := rack.Status{
 				Key:          rck.Key,
 				Variant:      status.InfoVariant,
 				LastReceived: telem.Now(),
@@ -168,8 +168,8 @@ var _ = Describe("Tracker", Ordered, func() {
 			Eventually(func(g Gomega) {
 				r, ok := tr.GetRack(ctx, rck.Key)
 				g.Expect(ok).To(BeTrue())
-				g.Expect(r.State.Variant).To(Equal(status.InfoVariant))
-				g.Expect(r.State.Message).To(Equal("Rack is alive"))
+				g.Expect(r.Status.Variant).To(Equal(status.InfoVariant))
+				g.Expect(r.Status.Message).To(Equal("Rack is alive"))
 			}).Should(Succeed())
 		})
 
@@ -186,7 +186,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys:  []channel.Key{rackStateCh.Key()},
 			}))
 
-			state := rack.State{
+			state := rack.Status{
 				Key:          rck.Key,
 				Variant:      status.InfoVariant,
 				LastReceived: telem.Now(),
@@ -216,7 +216,7 @@ var _ = Describe("Tracker", Ordered, func() {
 		})
 	})
 
-	Describe("Tracking Task State", func() {
+	Describe("Tracking Task Status", func() {
 		It("Should correctly update the state of a task", func() {
 			rack := &rack.Rack{Name: "rack1"}
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
@@ -228,7 +228,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Start: telem.Now(),
 				Keys:  []channel.Key{taskStateCh.Key()},
 			}))
-			b := MustSucceed((&binary.JSONCodec{}).Encode(ctx, task.State{
+			b := MustSucceed((&binary.JSONCodec{}).Encode(ctx, task.Status{
 				Variant: status.ErrorVariant,
 				Task:    tsk.Key,
 			}))
@@ -262,7 +262,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			}))
 			MustSucceed(w.Write(core.UnaryFrame(
 				taskStateCh.Key(),
-				telem.NewSeriesStaticJSONV(task.State{Variant: status.ErrorVariant, Task: tsk.Key}),
+				telem.NewSeriesStaticJSONV(task.Status{Variant: status.ErrorVariant, Task: tsk.Key}),
 			)))
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
@@ -278,7 +278,7 @@ var _ = Describe("Tracker", Ordered, func() {
 		})
 	})
 
-	Describe("Communicating Through Task State when a Rack Has Died", func() {
+	Describe("Communicating Through Task Status when a Rack Has Died", func() {
 		BeforeEach(func() {
 			cfg.RackStateAliveThreshold = 5 * telem.Millisecond
 		})
@@ -305,7 +305,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			sCancel()
 		})
 	})
-	Describe("Communicating Through Task State when a Rack is Alive", func() {
+	Describe("Communicating Through Task Status when a Rack is Alive", func() {
 		BeforeEach(func() {
 			cfg.RackStateAliveThreshold = 10 * telem.Second
 		})
@@ -320,7 +320,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys:  []channel.Key{rackStateCh.Key()},
 			}))
 
-			state := rack.State{
+			state := rack.Status{
 				Key:          rck.Key,
 				Variant:      status.InfoVariant,
 				LastReceived: telem.Now(),

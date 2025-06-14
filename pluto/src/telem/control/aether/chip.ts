@@ -13,15 +13,22 @@ import { z } from "zod/v4";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 
+export const chipStatusDetailsZ = z.object({
+  authority: control.authorityZ.optional(),
+  valid: z.boolean().optional(),
+});
+
+export type ChipStatusDetails = z.infer<typeof chipStatusDetailsZ>;
+
 export const chipStateZ = z.object({
   triggered: z.boolean(),
-  status: status.statusZ,
+  status: status.statusZ(chipStatusDetailsZ),
   sink: telem.booleanSinkSpecZ.optional().default(telem.noopBooleanSinkSpec),
   source: telem.statusSourceSpecZ.optional().default(telem.noopStatusSourceSpec),
 });
 
 interface InternalState {
-  source: telem.StatusSource;
+  source: telem.StatusSource<ChipStatusDetails>;
   sink: telem.BooleanSink;
   stopListening: Destructor;
 }
@@ -32,18 +39,15 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
   schema = chipStateZ;
 
   afterUpdate(ctx: aether.Context): void {
-    const { sink: sinkProps, source: sourceProps } = this.state;
-    this.internal.source = telem.useSource(ctx, sourceProps, this.internal.source);
-    this.internal.sink = telem.useSink(ctx, sinkProps, this.internal.sink);
+    const { internal: i } = this;
+    const { sink, source } = this.state;
+    i.source = telem.useSource<status.Status<ChipStatusDetails>>(ctx, source, i.source);
+    i.sink = telem.useSink(ctx, sink, i.sink);
     if (this.state.triggered && !this.prevState.triggered)
-      this.internal.sink.set(
-        this.state.status.data?.authority !== control.ABSOLUTE_AUTHORITY,
-      );
+      i.sink.set(this.state.status.details?.authority !== control.ABSOLUTE_AUTHORITY);
     this.updateEnabledState();
-    this.internal.stopListening?.();
-    this.internal.stopListening = this.internal.source.onChange(() =>
-      this.updateEnabledState(),
-    );
+    i.stopListening?.();
+    i.stopListening = i.source.onChange(() => this.updateEnabledState());
   }
 
   private updateEnabledState(): void {

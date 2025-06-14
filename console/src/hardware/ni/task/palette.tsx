@@ -17,9 +17,9 @@ import { DIGITAL_READ_LAYOUT } from "@/hardware/ni/task/DigitalRead";
 import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
 import {
   SCAN_TYPE,
-  type ScanConfig,
-  type ScanStateDetails,
-  type ScanType,
+  type scanConfigZ,
+  type scanStatusDataZ,
+  type scanTypeZ,
 } from "@/hardware/ni/task/types";
 import { type Palette } from "@/palette";
 
@@ -59,16 +59,20 @@ const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
     handleError(async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
       const scanTasks = await client.hardware.tasks.retrieveByType<
-        ScanConfig,
-        ScanStateDetails,
-        ScanType
+        typeof scanTypeZ,
+        typeof scanConfigZ,
+        typeof scanStatusDataZ
       >(SCAN_TYPE);
       if (scanTasks.length === 0)
         throw new UnexpectedError("No NI device scanner found");
       const { config, payload } = scanTasks[0];
       const {
         config: { enabled },
-      } = await client.hardware.tasks.create<ScanConfig, ScanStateDetails, ScanType>({
+      } = await client.hardware.tasks.create<
+        typeof scanTypeZ,
+        typeof scanConfigZ,
+        typeof scanStatusDataZ
+      >({
         ...payload,
         config: { ...config, enabled: !config.enabled },
       });

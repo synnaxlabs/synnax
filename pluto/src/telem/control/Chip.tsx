@@ -18,6 +18,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useMemoDeepEqualProps } from "@/memo";
 import { control } from "@/telem/control/aether";
+import { type ChipStatusDetails } from "@/telem/control/aether/chip";
 import { Text } from "@/text";
 
 export interface ChipProps
@@ -31,10 +32,10 @@ interface ChipStyle {
   disabled?: boolean;
 }
 
-const tooltipMessage = (status: status.Status): ChipStyle => {
+const tooltipMessage = (status: status.Status<ChipStatusDetails>): ChipStyle => {
   switch (status.variant) {
     case "disabled":
-      if (status.data?.valid === true)
+      if (status.details?.valid === true)
         return {
           message: "Uncontrolled. Click to take control.",
           chipColor: "var(--pluto-gray-l12)",
@@ -51,7 +52,7 @@ const tooltipMessage = (status: status.Status): ChipStyle => {
         chipColor: "var(--pluto-error-z)",
       };
     case "success":
-      if (status.data?.authority === clientControl.ABSOLUTE_AUTHORITY)
+      if (status.details?.authority === clientControl.ABSOLUTE_AUTHORITY)
         return {
           message: "You have absolute control. Click to release.",
           chipColor: "var(--pluto-secondary-z)",
@@ -84,6 +85,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
         variant: "disabled",
         message: "No chip connected.",
         time: TimeStamp.now(),
+        details: {},
       },
     },
   });

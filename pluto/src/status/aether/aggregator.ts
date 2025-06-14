@@ -12,7 +12,7 @@ import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 
-export const aggregatorStateZ = z.object({ statuses: status.statusZ.array() });
+export const aggregatorStateZ = z.object({ statuses: status.statusZ().array() });
 export interface AggregatorState extends z.infer<typeof aggregatorStateZ> {}
 
 const CONTEXT_KEY = "status.aggregator";
@@ -43,14 +43,14 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   }
 }
 
-export interface Adder {
-  (spec: status.New): void;
+export interface Adder<D = undefined> {
+  (spec: status.New<D>): void;
 }
 
-export const useAdder = (ctx: aether.Context): Adder =>
+export const useAdder = <D = undefined>(ctx: aether.Context): Adder<D> =>
   ctx.get<ContextValue>(CONTEXT_KEY).add;
 
-export const useOptionalAdder = (ctx: aether.Context): Adder => {
+export const useOptionalAdder = <D = undefined>(ctx: aether.Context): Adder<D> => {
   const agg = ctx.getOptional<ContextValue>(CONTEXT_KEY);
   if (agg != null) return agg.add;
   return () => {};

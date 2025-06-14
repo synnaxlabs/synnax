@@ -24,10 +24,9 @@ import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannel
 import {
   type DIChannel,
   DIGITAL_READ_TYPE,
-  type DigitalReadConfig,
   digitalReadConfigZ,
-  type DigitalReadStateDetails,
-  type DigitalReadType,
+  type digitalReadStatusDataZ,
+  type digitalReadTypeZ,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { type Selector } from "@/selector";
@@ -65,7 +64,11 @@ const NameComponent = ({ entry: { channel, key } }: NameProps<DIChannel>) => (
 const name = componentRenderProp(NameComponent);
 
 const Form: FC<
-  Common.Task.FormProps<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType>
+  Common.Task.FormProps<
+    typeof digitalReadTypeZ,
+    typeof digitalReadConfigZ,
+    typeof digitalReadStatusDataZ
+  >
 > = (props) => (
   <DigitalChannelList<DIChannel>
     {...props}
@@ -76,9 +79,9 @@ const Form: FC<
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  DigitalReadConfig,
-  DigitalReadStateDetails,
-  DigitalReadType
+  typeof digitalReadTypeZ,
+  typeof digitalReadConfigZ,
+  typeof digitalReadStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_DIGITAL_READ_PAYLOAD,
   config: {
@@ -87,7 +90,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   client,
   config,
 ) => {

@@ -24,10 +24,9 @@ import {
   type AIChannel,
   type AIChannelType,
   ANALOG_READ_TYPE,
-  type AnalogReadConfig,
   analogReadConfigZ,
-  type AnalogReadStateDetails,
-  type AnalogReadType,
+  type analogReadStatusDataZ,
+  type analogReadTypeZ,
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -105,7 +104,11 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
 const channelDetails = componentRenderProp(ChannelDetails);
 
 const Form: FC<
-  Common.Task.FormProps<AnalogReadConfig, AnalogReadStateDetails, AnalogReadType>
+  Common.Task.FormProps<
+    typeof analogReadTypeZ,
+    typeof analogReadConfigZ,
+    typeof analogReadStatusDataZ
+  >
 > = ({ task, isRunning, isSnapshot, configured }) => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>({
     task,
@@ -133,9 +136,9 @@ const Form: FC<
 };
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  AnalogReadConfig,
-  AnalogReadStateDetails,
-  AnalogReadType
+  typeof analogReadTypeZ,
+  typeof analogReadConfigZ,
+  typeof analogReadStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_ANALOG_READ_PAYLOAD,
   config: {
@@ -147,7 +150,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
   client,
   config,
 ) => {

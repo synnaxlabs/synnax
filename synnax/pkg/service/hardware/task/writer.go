@@ -32,7 +32,7 @@ func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 		}
 		t.Key = NewKey(t.Rack(), localKey)
 	}
-	t.State = nil
+	t.Status = nil
 	// We don't create ontology resources for internal tasks.
 	if err = gorp.NewCreate[Key, Task]().
 		MergeExisting(func(creating Task, existing Task) (Task, error) {

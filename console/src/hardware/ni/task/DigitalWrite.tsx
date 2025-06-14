@@ -23,10 +23,9 @@ import {
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   DIGITAL_WRITE_TYPE,
-  type DigitalWriteConfig,
   digitalWriteConfigZ,
-  type DigitalWriteStateDetails,
-  type DigitalWriteType,
+  type digitalWriteStatusDataZ,
+  type digitalWriteTypeZ,
   type DOChannel,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -70,7 +69,11 @@ const NameComponent = ({
 const name = componentRenderProp(NameComponent);
 
 const Form: FC<
-  Common.Task.FormProps<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType>
+  Common.Task.FormProps<
+    typeof digitalWriteTypeZ,
+    typeof digitalWriteConfigZ,
+    typeof digitalWriteStatusDataZ
+  >
 > = (props) => (
   <DigitalChannelList
     {...props}
@@ -81,9 +84,9 @@ const Form: FC<
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  DigitalWriteConfig,
-  DigitalWriteStateDetails,
-  DigitalWriteType
+  typeof digitalWriteTypeZ,
+  typeof digitalWriteConfigZ,
+  typeof digitalWriteStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_DIGITAL_WRITE_PAYLOAD,
   config: {
@@ -92,7 +95,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<DigitalWriteConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   client,
   config,
 ) => {

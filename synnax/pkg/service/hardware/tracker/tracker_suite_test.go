@@ -39,5 +39,5 @@ var _ = AfterSuite(func() {
 
 func TestState(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "State Suite")
+	RunSpecs(t, "Status Suite")
 }

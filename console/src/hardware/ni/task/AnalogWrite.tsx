@@ -20,10 +20,9 @@ import { createAOChannel } from "@/hardware/ni/task/createChannel";
 import { SelectAOChannelTypeField } from "@/hardware/ni/task/SelectAOChannelTypeField";
 import {
   ANALOG_WRITE_TYPE,
-  type AnalogWriteConfig,
   analogWriteConfigZ,
-  type AnalogWriteStateDetails,
-  type AnalogWriteType,
+  type analogWriteStatusDataZ,
+  type analogWriteTypeZ,
   AO_CHANNEL_TYPE_ICONS,
   AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
@@ -94,7 +93,11 @@ const channelDetails = componentRenderProp(ChannelDetails);
 const channelListItem = componentRenderProp(ChannelListItem);
 
 const Form: FC<
-  Common.Task.FormProps<AnalogWriteConfig, AnalogWriteStateDetails, AnalogWriteType>
+  Common.Task.FormProps<
+    typeof analogWriteTypeZ,
+    typeof analogWriteConfigZ,
+    typeof analogWriteStatusDataZ
+  >
 > = ({ task, isSnapshot }) => (
   <Common.Task.Layouts.ListAndDetails
     listItem={channelListItem}
@@ -107,9 +110,9 @@ const Form: FC<
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  AnalogWriteConfig,
-  AnalogWriteStateDetails,
-  AnalogWriteType
+  typeof analogWriteTypeZ,
+  typeof analogWriteConfigZ,
+  typeof analogWriteStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_ANALOG_WRITE_PAYLOAD,
   config: {
@@ -118,7 +121,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<AnalogWriteConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
   client,
   config,
 ) => {

@@ -1141,10 +1141,6 @@ const validateDigitalPortsAndLines = ({
   });
 };
 
-export interface BaseStateDetails {
-  running: boolean;
-}
-
 export const baseAnalogReadConfigZ = baseReadConfigZ.extend({
   channels: z
     .array(aiChannelZ)
@@ -1161,17 +1157,23 @@ export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
   channels: [],
 };
 
-export interface AnalogReadStateDetails extends BaseStateDetails {
-  message: string;
-  errors?: { message: string; path: string }[];
-}
-export interface AnalogReadState extends task.State<AnalogReadStateDetails> {}
+export const analogReadStatusDataZ = z.object({
+  errors: z.array(z.object({ message: z.string(), path: z.string() })),
+});
+
+export interface AnalogReadStatusDetails
+  extends task.Status<typeof analogReadStatusDataZ> {}
 
 export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
-export type AnalogReadType = typeof ANALOG_READ_TYPE;
+export const analogReadTypeZ = z.literal(ANALOG_READ_TYPE);
+export type AnalogReadType = z.infer<typeof analogReadTypeZ>;
 
 interface AnalogReadPayload
-  extends task.Payload<AnalogReadConfig, AnalogReadStateDetails, AnalogReadType> {}
+  extends task.Payload<
+    typeof analogReadTypeZ,
+    typeof analogReadConfigZ,
+    typeof analogReadStatusDataZ
+  > {}
 export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   key: "",
   name: "NI Analog Read Task",
@@ -1191,14 +1193,18 @@ const ZERO_ANALOG_WRITE_CONFIG: AnalogWriteConfig = {
   channels: [],
 };
 
-export interface AnalogWriteStateDetails extends BaseStateDetails {}
-export interface AnalogWriteState extends task.State<AnalogWriteStateDetails> {}
+export const analogWriteStatusDataZ = z.unknown();
 
 export const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
-export type AnalogWriteType = typeof ANALOG_WRITE_TYPE;
+export const analogWriteTypeZ = z.literal(ANALOG_WRITE_TYPE);
+export type AnalogWriteType = z.infer<typeof analogWriteTypeZ>;
 
 export interface AnalogWritePayload
-  extends task.Payload<AnalogWriteConfig, AnalogWriteStateDetails, AnalogWriteType> {}
+  extends task.Payload<
+    typeof analogWriteTypeZ,
+    typeof analogWriteConfigZ,
+    typeof analogWriteStatusDataZ
+  > {}
 export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
   key: "",
   name: "NI Analog Write Task",
@@ -1207,9 +1213,13 @@ export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
 };
 
 export interface AnalogWriteTask
-  extends task.Task<AnalogWriteConfig, AnalogWriteStateDetails, AnalogWriteType> {}
+  extends task.Task<
+    typeof analogWriteTypeZ,
+    typeof analogWriteConfigZ,
+    typeof analogWriteStatusDataZ
+  > {}
 export interface NewAnalogWriteTask
-  extends task.New<AnalogWriteConfig, AnalogWriteType> {}
+  extends task.New<typeof analogWriteTypeZ, typeof analogWriteConfigZ> {}
 
 export const digitalReadConfigZ = baseReadConfigZ
   .extend({
@@ -1225,14 +1235,20 @@ const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
   channels: [],
 };
 
-export interface DigitalReadStateDetails extends BaseStateDetails {}
-export interface DigitalReadState extends task.State<DigitalReadStateDetails> {}
+export const digitalReadStatusDataZ = z.unknown();
+export interface DigitalReadStatusDetails
+  extends task.Status<typeof digitalReadStatusDataZ> {}
 
 export const DIGITAL_READ_TYPE = `${PREFIX}_digital_read`;
-export type DigitalReadType = typeof DIGITAL_READ_TYPE;
+export const digitalReadTypeZ = z.literal(DIGITAL_READ_TYPE);
+export type DigitalReadType = z.infer<typeof digitalReadTypeZ>;
 
 export interface DigitalReadPayload
-  extends task.Payload<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType> {}
+  extends task.Payload<
+    typeof digitalReadTypeZ,
+    typeof digitalReadConfigZ,
+    typeof digitalReadStatusDataZ
+  > {}
 export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   key: "",
   name: "NI Digital Read Task",
@@ -1241,9 +1257,13 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
 };
 
 export interface DigitalReadTask
-  extends task.Task<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType> {}
+  extends task.Task<
+    typeof digitalReadTypeZ,
+    typeof digitalReadConfigZ,
+    typeof digitalReadStatusDataZ
+  > {}
 export interface NewDigitalReadTask
-  extends task.New<DigitalReadConfig, DigitalReadType> {}
+  extends task.New<typeof digitalReadTypeZ, typeof digitalReadConfigZ> {}
 
 export const digitalWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
@@ -1257,17 +1277,19 @@ const ZERO_DIGITAL_WRITE_CONFIG: DigitalWriteConfig = {
   channels: [],
 };
 
-export interface DigitalWriteStateDetails extends BaseStateDetails {}
-export interface DigitalWriteState extends task.State<DigitalWriteStateDetails> {}
+export const digitalWriteStatusDataZ = z.unknown();
+export interface DigitalWriteStatusDetails
+  extends task.Status<typeof digitalWriteStatusDataZ> {}
 
 export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
-export type DigitalWriteType = typeof DIGITAL_WRITE_TYPE;
+export const digitalWriteTypeZ = z.literal(DIGITAL_WRITE_TYPE);
+export type DigitalWriteType = z.infer<typeof digitalWriteTypeZ>;
 
 export interface DigitalWritePayload
   extends task.Payload<
-    DigitalWriteConfig,
-    DigitalWriteStateDetails,
-    DigitalWriteType
+    typeof digitalWriteTypeZ,
+    typeof digitalWriteConfigZ,
+    typeof digitalWriteStatusDataZ
   > {}
 export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
   key: "",
@@ -1277,23 +1299,29 @@ export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
 };
 
 export interface DigitalWriteTask
-  extends task.Task<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType> {}
+  extends task.Task<
+    typeof digitalWriteTypeZ,
+    typeof digitalWriteConfigZ,
+    typeof digitalWriteStatusDataZ
+  > {}
 export interface NewDigitalWriteTask
-  extends task.New<DigitalWriteConfig, DigitalWriteType> {}
+  extends task.New<typeof digitalWriteTypeZ, typeof digitalWriteConfigZ> {}
 
-export type ScanConfig = { enabled: boolean };
-
-export interface ScanStateDetails {
-  error?: string;
-  message?: string;
-}
-export interface ScanState extends task.State<ScanStateDetails> {}
+export const scanStatusDataZ = z.unknown();
+export interface ScanStatusDetails extends task.Status<typeof scanStatusDataZ> {}
 
 export const SCAN_TYPE = `${PREFIX}_scanner`;
-export type ScanType = typeof SCAN_TYPE;
+export const scanTypeZ = z.literal(SCAN_TYPE);
+export type ScanType = z.infer<typeof scanTypeZ>;
+
+export const scanConfigZ = z.object({
+  enabled: z.boolean(),
+});
+export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 export interface ScanPayload
-  extends task.Payload<ScanConfig, ScanStateDetails, ScanType> {}
+  extends task.Payload<typeof scanTypeZ, typeof scanConfigZ, typeof scanStatusDataZ> {}
 
-export interface ScanTask extends task.Task<ScanConfig, ScanStateDetails, ScanType> {}
-export interface NewScanTask extends task.New<ScanConfig, ScanType> {}
+export interface ScanTask
+  extends task.Task<typeof scanTypeZ, typeof scanConfigZ, typeof scanStatusDataZ> {}
+export interface NewScanTask extends task.New<typeof scanTypeZ, typeof scanConfigZ> {}

@@ -19,10 +19,9 @@ import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
 import {
   WRITE_TYPE,
   type WriteChannel,
-  type WriteConfig,
   writeConfigZ,
-  type WriteStateDetails,
-  type WriteType,
+  type writeStatusDataZ,
+  type writeTypeZ,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import { type Selector } from "@/selector";
@@ -95,7 +94,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 const contextMenuItems = componentRenderProp(ContextMenuItem);
 
 const TaskForm: FC<
-  Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>
+  Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
 > = ({ isSnapshot }) => (
   <Form
     isSnapshot={isSnapshot}
@@ -109,9 +108,9 @@ const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  WriteConfig,
-  WriteStateDetails,
-  WriteType
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_WRITE_PAYLOAD,
   config: {
@@ -120,7 +119,10 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config) => {
+const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
+  client,
+  config,
+) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
     config.device,
   );

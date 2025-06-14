@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { type UnknownRecord } from "@synnaxlabs/x";
 import { array } from "@synnaxlabs/x/array";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod/v4";
@@ -44,8 +43,10 @@ const retrieveReqZ = z.object({
   hostIsNode: z.boolean().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
-  includeState: z.boolean().optional(),
+  includeStatus: z.boolean().optional(),
 });
+
+type RetrieveRequest = z.infer<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ racks: nullableArrayZ(rackZ) });
 
@@ -57,9 +58,7 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const deleteResZ = z.object({});
 
-export interface RetrieveOptions {
-  includeState?: boolean;
-}
+export interface RetrieveOptions extends Pick<RetrieveRequest, "includeStatus"> {}
 
 export class Client implements AsyncTermSearcher<string, Key, Payload> {
   readonly type = ONTOLOGY_TYPE;
@@ -140,7 +139,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
       RETRIEVE_ENDPOINT,
       {
         [variant]: normalized,
-        includeState: options?.includeState,
+        includeStatus: options?.includeStatus,
       },
       retrieveReqZ,
       retrieveResZ,
@@ -195,15 +194,11 @@ export class Rack {
   }
 
   async createTask<
-    Config extends UnknownRecord,
-    Details extends {} = UnknownRecord,
-    Type extends string = string,
-  >(task: task.New<Config, Type>): Promise<task.Task<Config, Details, Type>> {
-    task.key = (
-      (BigInt(this.key) << 32n) +
-      (BigInt(task.key ?? 0) & 0xffffffffn)
-    ).toString();
-    return await this.tasks.create<Config, Details, Type>(task);
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+  >(task: task.New<Type, Config>): Promise<task.Task<Type, Config>> {
+    task.key = ((BigInt(this.key) << 32n) + BigInt(task.key ?? 0)).toString();
+    return await this.tasks.create<Type, Config>(task);
   }
 
   async deleteTask(task: bigint): Promise<void> {
