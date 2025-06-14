@@ -12,7 +12,6 @@ package reactive
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/service/slate/spec"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
@@ -24,8 +23,10 @@ func newStatusChange(_ context.Context, cfg factoryConfig) (bool, error) {
 	if cfg.node.Type != spec.StatusChangeType {
 		return false, nil
 	}
-	message, _ := schema.Get[string](schema.Resource{Data: cfg.node.Data}, "message")
-	variant, _ := schema.Get[string](schema.Resource{Data: cfg.node.Data}, "variant")
+	c := &spec.StatusChangerConfig{}
+	if err := c.Parse(cfg.node.Config); err != nil {
+		return true, err
+	}
 	sink := &confluence.UnarySink[spec.Value]{
 		Sink: func(ctx context.Context, value spec.Value) error {
 			cfg.OnStatusChange(ctx, status.Variant(variant), map[string]any{

@@ -107,7 +107,7 @@ var schemaMatchers = []SchemaMatcher{
 	telemSource,
 	telemSink,
 	selectStatement,
-	createAnnotation,
+	createStatusChanger,
 	stableFor,
 }
 
