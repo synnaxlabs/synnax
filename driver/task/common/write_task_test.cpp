@@ -104,9 +104,9 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 1);
     auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.key, cmd_key);
-    EXPECT_EQ(start_state.task, task.key);
+    EXPECT_EQ(start_state.details.task, task.key);
     EXPECT_EQ(start_state.variant, status::VARIANT_SUCCESS);
-    EXPECT_EQ(start_state.details["message"], "Task started successfully");
+    EXPECT_EQ(start_state.message, "Task started successfully");
 
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
     ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
@@ -129,9 +129,9 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_EVENTUALLY_EQ(ctx->states.size(), 2);
     auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, stop_cmd_key);
-    EXPECT_EQ(stop_state.task, task.key);
+    EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, status::VARIANT_SUCCESS);
-    EXPECT_EQ(stop_state.details["message"], "Task stopped successfully");
+    EXPECT_EQ(stop_state.message, "Task stopped successfully");
 
     auto write_fr = std::move(writes->at(0));
     ASSERT_EQ(write_fr.size(), 1);

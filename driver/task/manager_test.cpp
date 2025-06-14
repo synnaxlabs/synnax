@@ -33,30 +33,39 @@ public:
         const synnax::Task &task
     ):
         ctx(ctx), task(task) {
-        ctx->set_state(
-            {.task = task.key,
-             .variant = status::VARIANT_SUCCESS,
-             .details = json{{"message", "task configured successfully"}}}
+        ctx->set_status(
+            {.variant = status::VARIANT_SUCCESS,
+             .message = "task configured successfully",
+             .details =
+                 synnax::TaskStatusDetails{
+                     .task = task.key,
+                 }}
         );
     }
 
     std::string name() const override { return "echo"; }
 
     void exec(task::Command &cmd) override {
-        ctx->set_state({
-            .task = task.key,
+        ctx->set_status({
             .key = cmd.key,
             .variant = status::VARIANT_SUCCESS,
-            .details = cmd.args,
+            .details = synnax::TaskStatusDetails{
+                .task = task.key,
+                .running = true,
+                .data = cmd.args,
+            },
         });
     }
 
     void stop(bool will_reconfigure) override {
-        ctx->set_state(
-            {.task = task.key,
-             .variant = status::VARIANT_SUCCESS,
-             .details = json{{"message", "task stopped successfully"}}}
-        );
+        ctx->set_status({
+            .variant = status::VARIANT_SUCCESS,
+            .message = "task stopped successfully",
+            .details = synnax::TaskStatusDetails{
+                .task = task.key,
+                .running = false,
+            },
+        });
     }
 };
 
@@ -134,10 +143,10 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
     ASSERT_EQ(f.size(), 1);
     auto state_str = f.at<std::string>(sy_task_state.key, 0);
     auto parser = xjson::Parser(state_str);
-    auto state = task::State::parse(parser);
-    ASSERT_EQ(state.task, echo_task.key);
-    ASSERT_EQ(state.variant, status::VARIANT_SUCCESS);
-    ASSERT_EQ(state.details["message"], "task configured successfully");
+    auto status = synnax::TaskStatus::parse(parser);
+    ASSERT_EQ(status.details.task, echo_task.key);
+    ASSERT_EQ(status.variant, status::VARIANT_SUCCESS);
+    ASSERT_EQ(status.message, "task configured successfully");
     const auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
 }
@@ -172,10 +181,10 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
     ASSERT_EQ(f2.size(), 1);
     auto state_str = f2.at<std::string>(sy_task_state.key, 0);
     auto parser = xjson::Parser(state_str);
-    auto state = task::State::parse(parser);
-    ASSERT_EQ(state.task, echo_task.key);
+    auto state = synnax::TaskStatus::parse(parser);
+    ASSERT_EQ(state.details.task, echo_task.key);
     ASSERT_EQ(state.variant, status::VARIANT_SUCCESS);
-    ASSERT_EQ(state.details["message"], "task stopped successfully");
+    ASSERT_EQ(state.message, "task stopped successfully");
     auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
 }
@@ -191,10 +200,12 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     );
     ASSERT_FALSE(s_err) << s_err;
     auto [sy_task_cmd, c_err] = client->channels.retrieve("sy_task_cmd");
-    auto [writer, w_err] = client->telem.open_writer(synnax::WriterConfig{
-        .channels = {sy_task_cmd.key},
-        .start = telem::TimeStamp::now(),
-    });
+    auto [writer, w_err] = client->telem.open_writer(
+        synnax::WriterConfig{
+            .channels = {sy_task_cmd.key},
+            .start = telem::TimeStamp::now(),
+        }
+    );
     ASSERT_FALSE(w_err) << w_err;
     auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
     auto t_err = rack.tasks.create(echo_task);
@@ -210,8 +221,9 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
         "test_command",
         json{{"message", "hello world"}}
     );
-    ASSERT_NIL(writer.write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json()))
-    ));
+    ASSERT_NIL(
+        writer.write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())))
+    );
     auto w_close_err = writer.close();
     ASSERT_FALSE(w_close_err) << w_close_err;
 
@@ -221,11 +233,11 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     ASSERT_EQ(f2.size(), 1);
     auto state_str = f2.at<std::string>(sy_task_state.key, 0);
     auto parser = xjson::Parser(state_str);
-    auto [task, key, variant, details] = task::State::parse(parser);
-    ASSERT_EQ(task, echo_task.key);
-    ASSERT_EQ(key, cmd.key);
-    ASSERT_EQ(variant, status::VARIANT_SUCCESS);
-    ASSERT_EQ(details["message"], "hello world");
+    auto status = synnax::TaskStatus::parse(parser);
+    ASSERT_EQ(status.details.task, echo_task.key);
+    ASSERT_EQ(status.key, cmd.key);
+    ASSERT_EQ(status.variant, status::VARIANT_SUCCESS);
+    ASSERT_EQ(status.message, "hello world");
     auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
 }
@@ -303,11 +315,11 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
 
     auto state_str = f2.at<std::string>(sy_task_state.key, 0);
     auto parser = xjson::Parser(state_str);
-    auto state = task::State::parse(parser);
+    auto state = synnax::TaskStatus::parse(parser);
 
-    ASSERT_EQ(state.task, echo_task.key);
+    ASSERT_EQ(state.details.task, echo_task.key);
     ASSERT_EQ(state.variant, status::VARIANT_SUCCESS);
-    ASSERT_EQ(state.details["message"], "task stopped successfully");
+    ASSERT_EQ(state.message, "task stopped successfully");
 
     const auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
@@ -334,8 +346,8 @@ TEST_F(TaskManagerTestFixture, testIgnoresSnapshot) {
         auto json_vs = frame.series->at(0).json_values();
         for (const auto &j: json_vs) {
             auto parser = xjson::Parser(j);
-            auto [task, key, variant, details] = task::State::parse(parser);
-            if (task == snapshot_task.key) {
+            auto status = synnax::TaskStatus::parse(parser);
+            if (status.details.task == snapshot_task.key) {
                 received_state = true;
                 break;
             }

@@ -95,16 +95,14 @@ class Scanner final : public common::Scanner {
                 device_type_str,
                 "" // Properties will be set in Device constructor
             );
-            sy_dev.state = synnax::DeviceState{
+            sy_dev.status = synnax::DeviceStatus{
                 .key = sy_dev.key,
                 .variant = status::VARIANT_SUCCESS,
-                .rack = rack,
-                .details =
-                    json{
-                        {"message", "Device present"},
-                    }
+                .message = "Device present",
+                .details = synnax::DeviceStatusDetails{
+                    .rack = rack,
+                }
             };
-
             devices.push_back(sy_dev);
         }
         return xerrors::NIL;

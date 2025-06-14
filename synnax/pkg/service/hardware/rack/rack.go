@@ -56,7 +56,7 @@ func (k Key) IsZero() bool { return k == 0 }
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 
 type StatusDetails struct {
-	Rack Key
+	Rack Key `json:"rack" msgpack:"rack"`
 }
 
 type Status = status.Status[StatusDetails]

@@ -48,14 +48,13 @@ bool ni::Factory::check_health(
     const synnax::Task &task
 ) const {
     if (this->check_health()) return true;
-    ctx->set_state(
-        {.task = task.key,
-         .variant = status::VARIANT_ERROR,
-         .details = json{{
-             "message",
-             NO_LIBS_MSG,
-         }}}
-    );
+    ctx->set_status({
+        .variant = status::VARIANT_ERROR,
+        .message = NO_LIBS_MSG,
+        .details = synnax::TaskStatusDetails{
+            .task = task.key,
+        },
+    });
     return false;
 }
 

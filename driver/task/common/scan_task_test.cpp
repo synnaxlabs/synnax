@@ -267,19 +267,19 @@ TEST(TestScanTask, TestStatePropagation) {
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
-    dev1.state.key = "device1";
-    dev1.state.variant = status::VARIANT_SUCCESS;
-    dev1.state.rack = 1;
-    dev1.state.details = json::object();
+    dev1.status.key = "device1";
+    dev1.status.variant = status::VARIANT_SUCCESS;
+    dev1.status.rack = 1;
+    dev1.status.details = json::object();
 
     synnax::Device dev2;
     dev2.key = "device2";
     dev2.name = "Device 2";
     dev2.rack = 2;
-    dev2.state.key = "device2";
-    dev2.state.variant = status::VARIANT_WARNING;
-    dev2.state.rack = 2;
-    dev2.state.details = json::object();
+    dev2.status.key = "device2";
+    dev2.status.variant = status::VARIANT_WARNING;
+    dev2.status.rack = 2;
+    dev2.status.details = json::object();
 
     // First scan will find both devices, second scan only dev1
     std::vector<std::vector<synnax::Device>> devices = {{dev1, dev2}, {dev1}};

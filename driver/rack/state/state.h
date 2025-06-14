@@ -42,13 +42,15 @@ public:
     xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         fr.clear();
         this->loop.wait(breaker);
-        const synnax::RackState state{
-            .key = this->rack_key,
+        const synnax::RackStatus status{
             .variant = status::VARIANT_SUCCESS,
-            .message = "Driver is running"
+            .message = "Driver is running",
+            .details = synnax::RackStatusDetails{
+                .rack = this->rack_key,
+            }
         };
         VLOG(1) << "[rack_state] emitting state for rack " << this->rack_key;
-        fr.emplace(key, telem::Series(state.to_json()));
+        fr.emplace(key, telem::Series(status.to_json()));
         return xerrors::NIL;
     }
 };

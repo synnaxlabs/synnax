@@ -9,7 +9,13 @@
 
 #pragma once
 
+/// std
 #include <string>
+
+/// internal
+#include "nlohmann/json.hpp"
+#include "x/cpp/telem/telem.h"
+#include "x/cpp/xjson/xjson.h"
 
 /// @brief utility packages for managing status messages.
 namespace status {
@@ -19,4 +25,36 @@ const std::string VARIANT_WARNING = "warning";
 const std::string VARIANT_INFO = "info";
 const std::string VARIANT_DISABLED = "disabled";
 const std::string VARIANT_LOADING = "loading";
+
+template<typename T>
+struct Status {
+    std::string key;
+    std::string variant;
+    std::string message;
+    std::string description;
+    telem::TimeStamp time = telem::TimeStamp::now();
+    T details;
+
+    static Status parse(xjson::Parser &parser) {
+        return Status{
+            .key = parser.required<std::string>("key"),
+            .variant = parser.required<std::string>("variant"),
+            .message = parser.required<std::string>("message"),
+            .description = parser.required<std::string>("description"),
+            .time = telem::TimeStamp(parser.required<std::int64_t>("time")),
+            .details = T::parse(parser.required<json>("details")),
+        };
+    }
+
+    [[nodiscard]] json to_json() const {
+        json j;
+        j["key"] = key;
+        j["variant"] = variant;
+        j["message"] = message;
+        j["description"] = description;
+        j["time"] = time.nanoseconds();
+        j["details"] = details.to_json();
+        return j;
+    }
+};
 }
