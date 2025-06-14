@@ -2,6 +2,7 @@
   "name": "videos",
   "version": "0.43.0",
   "description": "",
+  "private": true,
   "main": "index.js",
   "scripts": {},
   "keywords": [],
