@@ -21,20 +21,20 @@
     "madge": "madge --circular src"
   },
   "dependencies": {
-    "clsx": "^2.1.1",
-    "react": "^19.1.0",
-    "react-icons": "^5.5.0"
+    "clsx": "catalog:",
+    "react": "catalog:",
+    "react-icons": "catalog:"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "workspace:*",
-    "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^24.0.1",
-    "@types/react": "^19.1.8",
-    "@vitejs/plugin-react": "^4.5.2",
-    "eslint": "^9.28.0",
-    "eslint-config-synnaxlabs": "workspace:*",
-    "madge": "^8.0.0",
-    "vite": "^6.3.5"
+    "@synnaxlabs/tsconfig": "workspace:^",
+    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-synnaxlabs": "workspace:^",
+    "madge": "catalog:",
+    "vite": "catalog:"
   },
   "files": [
     "dist"
