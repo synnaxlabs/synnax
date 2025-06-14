@@ -2,15 +2,17 @@
 
 ## Key Information
 
-- **Version Number**: <!-- MAJOR.MINOR.PATCH -->
+- **Version Number**: <!-- MAJOR.MINOR -->
 
 ## QA Template
 
-- [ ] I have verified that any changes to the `rc.md` template in this diff have been manually added to this pull request.
+- [ ] I have verified that any changes to the `rc.md` template in this diff have been
+      manually added to this pull request.
 
 ## Version Conflicts
 
-I have verified that, when released, the following packages will not conflict with any previously released packages:
+I have verified that, when released, the following packages will not conflict with any
+previously released packages:
 
 - [ ] [`alamos/py`](https://pypi.org/project/alamos/)
 - [ ] [`alamos/ts`](https://www.npmjs.com/package/@synnaxlabs/alamos)
@@ -25,12 +27,17 @@ I have verified that, when released, the following packages will not conflict wi
 - [ ] [`server`](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [`x/ts`](https://www.npmjs.com/package/@synnaxlabs/x)
 
-## User Documentation
+## Documentation
 
 ### Content Changes
 
-I have verified that user-facing documentation for each of the following services has been updated to match any changes in the release candidate:
+I have verified that user-facing documentation for each of the following services has
+been updated to match any changes in the release candidate:
 
+- [ ] `guides/analyst`
+- [ ] `guides/get-started`
+- [ ] `guides/operations`
+- [ ] `guides/sys-admin`
 - [ ] `reference/cluster`
 - [ ] `reference/concepts`
 - [ ] `reference/console`
@@ -47,11 +54,14 @@ I have verified that code examples for each of the following services run correc
 
 - [ ] `client/py`
 - [ ] `client/ts`
-  - [ ] Version number in `examples/node` is up-to-date
+  - [ ] `@synnaxlabs/client` version in `examples/node` is up-to-date
 
 ### Broken Links
 
-- [ ] I have used a broken link checker like [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the live website.
+- [ ] I have used a broken link checker like
+      [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or
+      [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the
+      live website.
 
 ### Release Notes
 
@@ -72,73 +82,56 @@ I can successfully:
   - [ ] Drag and drop a channel onto the line plot toolbar.
   - **Context Menu**
     - [ ] Rename a channel.
-    - [ ] Delete a channel.
-    - [ ] Delete multiple channels.
-    - [ ] Group channels.
+    - [ ] Group multiple channels.
+    - [ ] Edit the calculation of a calculated channel.
     - [ ] Set an alias for a channel under a range.
     - [ ] Clear an alias for a channel under a range.
+    - [ ] Delete a channel.
     - [ ] Copy a link to a channel.
+    - [ ] Hard reload the console.
 - **Search and Command Palette**
   - [ ] Open a channel plot by its name.
   - [ ] Open the "Create Channel" modal.
+  - [ ] Open the "Create Calculated Channel" modal.
+- **Calculated Channels**
+  - [ ] Plot a basic calculated channel.
+  - [ ] Plot a nested calculated channel.
+  - [ ] Intentionally create a channel with an erroneous expression, plot it and make
+        sure the server and console remain stable and the error is logged to the server
+        and the console.
+  - [ ] Plot a calculated channel that uses channels with hyphenated names.
+  - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
+    - [ ] 10 Hz
+    - [ ] 100 Hz
+    - [ ] 1000 Hz
 - [ ] Open a channel plot from a link.
 - [ ] Rename a channel and ensure the change synchronizes properly across:
   - Resources Toolbar
   - Line Plot Visualization Toolbar
   - Log Visualization Toolbar
   - Schematic Visualization Toolbar
+  - Table Visualization Toolbar
   - Task Configuration Dialog
 - [ ] Set an alias for a channel and ensure the change synchronizes properly across:
   - Resources Toolbar
   - Line Plot Visualization Toolbar
   - Log Visualization Toolbar
   - Schematic Visualization Toolbar
+  - Table Visualization Toolbar
   - Task Configuration Dialog
 - [ ] Remove an alias for a channel and ensure the change synchronizes properly across:
   - Resources Toolbar
   - Line Plot Visualization Toolbar
   - Log Visualization Toolbar
   - Schematic Visualization Toolbar
+  - Table Visualization Toolbar
   - Task Configuration Dialog
-
-### Calculated Channels
-
-I can successfully:
-
-- **Create Calculated Channel Modal**
-  - [ ] Create a new channel from command palette.
-- **Resources Toolbar**
-  - [ ] Open a channel plot by double-clicking it.
-  - [ ] Drag and drop a channel onto a line plot.
-  - [ ] Drag and drop a channel onto the line plot toolbar.
-  - **Context Menu**
-    - [ ] Rename a channel.
-    - [ ] Delete a channel.
-    - [ ] Delete multiple channels.
-    - [ ] Group channels.
-    - [ ] Set an alias for a channel under a range.
-    - [ ] Clear an alias for a channel under a range.
-    - [ ] Copy a link to a channel.
-    - [ ] Edit a calculation
-  - **Search and Command Palette**
-  - [ ] Open a channel plot by its name.
-  - [ ] Open the "Create Channel" modal.
-- **Using Calculated Channels**
-  - [ ] Plot a basic calculated channel.
-  - [ ] Plot a nested calculated channel.
-  - [ ] Intentionally create channel with an erroneous expression, plot it amke sure the server/console remains stable. Currently expect error to be logged in server.
-  - [ ] Plot a calculated channel that uses channels with hyphenated names.
-  - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
-    - [ ] 10hz
-    - [ ] 100hz
-    - [ ] 1000hz
 
 ### Clusters
 
 I can successfully:
 
 - **Connect Cluster Modal**
-  - [ ] Test a cluster connection.
   - [ ] Connect to a cluster.
 - **Dropdown**
   - [ ] Add a new cluster.
@@ -152,6 +145,7 @@ I can successfully:
     - [ ] Rename a cluster.
     - [ ] Remove a cluster.
     - [ ] Copy a link to a cluster.
+    - [ ] Hard reload the console.
 - **Search and Command Palette**
   - [ ] Open the "Connect Cluster" modal.
 - [ ] Open a cluster from a link.
@@ -299,7 +293,8 @@ I can successfully:
   - [ ] Cannot switch to edit mode on a schematic.
 - **As a user without admin permissions:**
   - [ ] Cannot open the "Register User" dialog from the command palette.
-  - [ ] Cannot delete users, open the permissions dialog, or change a username from the resources toolbar.
+  - [ ] Cannot delete users, open the permissions dialog, or change a username from the
+        resources toolbar.
 
 ### Ranges
 
@@ -419,31 +414,13 @@ I can successfully:
   - Visualization Toolbar
   - Range Details Overview
 
-### Control Sequences
+### Tables
 
 I can successfully:
 
-- [ ] Create a new control sequence from the mosaic.
-- **Search and Command Palette**
-  - [ ] Create a new control sequence.
-  - [ ] Open an existing control sequence.
-- **Context Menu**
-  - [ ] Rename a control sequence.
-  - [ ] Delete a control sequence.
-- **Sequence Editing**
-  - [ ] Edit a control sequence and see auto-complete suggestions for channels.
-  - [ ] Edit a control sequence and see auto-complete suggestions for the following
-    built-in functions:
-    - [ ] `elapsed_time_within`
-    - [ ] `elapsed_time`
-    - [ ] `iteration`
-    - [ ] `set`
-    - [ ] `set_authority`
-  - [ ] Accept channel auto-complete suggestions and see the correct channel populated
-    in the "read_from" or "write_to" fields.
-  - [ ] Manually configure the `read_from` and `write_to` fields.
-  - [ ] Set the sequence control rate.
-  - [ ] Configure, start, and correctly operate a minimal bang bang control sequence.
+- [ ] Create a new table from the mosaic.
+- [ ] Open a table from a link.
+- [ ] Rename a table and ensure synchronization across:
 
 ### Tasks
 
@@ -495,6 +472,13 @@ I can successfully:
 - [ ] Grant permissions to a user from the resources toolbar.
 - [ ] Change a user's username and log in with the new username.
 
+### Version
+
+I can successfully:
+
+- [ ] View the correct version in the bottom navbar.
+- [ ] Verify that the auto-update functionality works correctly.
+
 ### Workspaces
 
 I can successfully:
@@ -527,14 +511,8 @@ I can successfully:
 - [ ] Rename a workspace and ensure synchronization across:
   - Resources Toolbar
   - Workspace Selector
-- [ ] Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
-
-### Version
-
-I can successfully:
-
-- [ ] View the correct version in the bottom navbar.
-- [ ] Verify that the auto-update functionality works correctly.
+- [ ] Create a workspace in a previous version of Synnax, add visualizations, and open
+      it in the release candidate.
 
 ## Driver
 
@@ -550,6 +528,32 @@ I can successfully:
   - [ ] Multiple tasks using the same channel.
   - [ ] Device disconnection during a running task.
 - [ ] Shut down the server (`Ctrl + C`) without errors from the driver routine.
+
+### Control Sequences
+
+I can successfully:
+
+- [ ] Create a new control sequence from the mosaic.
+- **Search and Command Palette**
+  - [ ] Create a new control sequence.
+  - [ ] Open an existing control sequence.
+- **Context Menu**
+  - [ ] Rename a control sequence.
+  - [ ] Delete a control sequence.
+- **Sequence Editing**
+  - [ ] Edit a control sequence and see auto-complete suggestions for channels.
+  - [ ] Edit a control sequence and see auto-complete suggestions for the following
+        built-in functions:
+    - [ ] `elapsed_time_within`
+    - [ ] `elapsed_time`
+    - [ ] `iteration`
+    - [ ] `set`
+    - [ ] `set_authority`
+  - [ ] Accept channel auto-complete suggestions and see the correct channel populated
+        in the "read_from" or "write_to" fields.
+  - [ ] Manually configure the `read_from` and `write_to` fields.
+  - [ ] Set the sequence control rate.
+  - [ ] Configure, start, and correctly operate a minimal bang bang control sequence.
 
 ### LabJack
 
@@ -569,7 +573,8 @@ I can successfully:
   - [ ] Ensure no lag between sensor input and data written to the server.
   - [ ] Configure and run a read task for a thermocouple.
   - [ ] Run a read task with thermocouples, digital, and analog channels.
-  - [ ] Disconnect a device while reading, reconnect it, and read data after reconfiguration.
+  - [ ] Disconnect a device while reading, reconnect it, and read data after
+        reconfiguration.
   - **Reliable data plotting at the following sample rates:**
     - [ ] 1 Hz
     - [ ] 10 Hz
@@ -582,11 +587,13 @@ I can successfully:
     - [ ] Actuate a valve via a digital input.
     - [ ] Set an analog output to a specific voltage via a setpoint.
   - [ ] Stop, start, and reconfigure the task.
-  - [ ] Disconnect a device while writing, reconnect it, and read data after reconfiguration.
+  - [ ] Disconnect a device while writing, reconnect it, and read data after
+        reconfiguration.
   - **Configure response time based on the specified state rate:**
     - [ ] 1 Hz (should have a visible delay)
     - [ ] 20 Hz (should be nearly immediate)
-- [ ] Configure simultaneous write and read tasks and stop or delete either without affecting the other.
+- [ ] Configure simultaneous write and read tasks and stop or delete either without
+      affecting the other.
 
 ### NI
 
@@ -599,7 +606,8 @@ I can successfully:
 - [ ] Disconnect a physical device while a task is running without causing faults.
 - [ ] Ignore chassis and view devices connected to it.
 - [ ] Run the driver without NI-DAQmx and SysCfg libraries installed.
-- [ ] Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
+- [ ] Receive feedback when trying to create an NI task on a machine lacking the
+      necessary libraries.
 - **Handle invalid device configurations and receive meaningful feedback:**
   - [ ] Invalid ports.
   - [ ] Incorrect task type for devices.
@@ -624,7 +632,8 @@ I can successfully:
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - [ ] Start multiple tasks at different times and view live data.
   - [ ] Enable and disable data saving.
-  - [ ] Enabled auto-start, and ensure that the task automatically starts after configuration.
+  - [ ] Enabled auto-start, and ensure that the task automatically starts after
+        configuration.
   - [ ] Ensure no lag between sensor input and server data recording.
   - [ ] Configure and run an analog read task for the following channels:
     - [ ] Current (NI-9203)
@@ -682,12 +691,14 @@ I can successfully:
     - [ ] Avoid driver crashes when improper array sizes are specified.
   - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
-  - [ ] Maintain driver operation during device disconnection or channel removal while a task is running.
+  - [ ] Maintain driver operation during device disconnection or channel removal while a
+        task is running.
   - [ ] Enable and disable data saving.
   - [ ] Pause a task for an hour and resume without reconfiguration.
 - **Write Task**
   - [ ] Perform control and verify changes on the connected OPC UA server.
   - [ ] Stop, start, and reconfigure tasks.
   - [ ] Enable and disable data saving.
-  - [ ] Leave a write task idle for an hour and perform control without losing connection.
+  - [ ] Leave a write task idle for an hour and perform control without losing
+        connection.
   - [ ] Perform a write operation on an encrypted server.
