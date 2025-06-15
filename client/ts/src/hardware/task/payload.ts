@@ -17,6 +17,7 @@ import {
 import { z } from "zod/v4";
 
 import { type Key as RackKey } from "@/hardware/rack/payload";
+import { decodeJSONString } from "@/util/decodeJSONString";
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
 export const keyZ = z.union([
@@ -58,7 +59,7 @@ export const taskZ = <
     name: z.string(),
     type: typeZ,
     internal: z.boolean().optional(),
-    config: configZ,
+    config: unknownRecordZ.or(z.string().transform(decodeJSONString)),
     status: statusZ(statusDataZ).optional().nullable(),
     snapshot: z.boolean().optional(),
   });

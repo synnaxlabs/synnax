@@ -63,7 +63,7 @@ type StatusDetails struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 }
 
-type Status struct{ status.Status[StatusDetails] }
+type Status status.Status[StatusDetails]
 
 // GorpKey implements gorp.Entry.
 func (s Status) GorpKey() string { return s.Key }

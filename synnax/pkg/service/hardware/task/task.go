@@ -73,9 +73,7 @@ type StatusDetails struct {
 }
 
 // Status represents the state of a task.
-type Status struct {
-	status.Status[StatusDetails]
-}
+type Status status.Status[StatusDetails]
 
 var (
 	_ gorp.Entry[Key]      = Status{}

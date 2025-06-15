@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, status, TimeStamp } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
@@ -19,7 +19,7 @@ const CONTEXT_KEY = "status.aggregator";
 
 interface ContextValue {
   add: Adder;
-  parse: (spec: status.New) => status.Status;
+  create: (spec: status.Crude) => status.Status;
 }
 
 export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
@@ -28,23 +28,22 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
 
   afterUpdate(ctx: aether.Context): void {
     if (ctx.wasSetPreviously(CONTEXT_KEY)) return;
-    ctx.set(CONTEXT_KEY, { add: this.add.bind(this), parse: this.parse.bind(this) });
+    ctx.set(CONTEXT_KEY, {
+      add: this.add.bind(this),
+      create: status.create,
+    });
   }
 
-  private parse(spec: status.New): status.Status {
-    return { time: TimeStamp.now(), key: id.create(), ...spec };
-  }
-
-  private add(spec: status.New): void {
+  private add(spec: status.Crude): void {
     this.setState((p) => ({
       ...p,
-      statuses: [...p.statuses, this.parse(spec)],
+      statuses: [...p.statuses, status.create(spec)],
     }));
   }
 }
 
 export interface Adder<D = undefined> {
-  (spec: status.New<D>): void;
+  (spec: status.Crude<D>): void;
 }
 
 export const useAdder = <D = undefined>(ctx: aether.Context): Adder<D> =>
@@ -65,24 +64,16 @@ export interface AsyncErrorHandler {
   (func: () => Promise<void>, message?: string): Promise<void>;
 }
 
-export const fromException = (exc: unknown, message?: string): status.New => {
-  if (!(exc instanceof Error)) throw exc;
-  return {
-    variant: "error",
-    message: message ?? exc.message,
-    description: message != null ? exc.message : undefined,
-  };
-};
-
 export const createErrorHandler =
   (add: Adder): ErrorHandler =>
   (excOrFunc: unknown | (() => Promise<void>), message?: string): void => {
-    if (typeof excOrFunc !== "function") return add(fromException(excOrFunc, message));
+    if (typeof excOrFunc !== "function")
+      return add(status.fromException(excOrFunc, message));
     void (async () => {
       try {
         await excOrFunc();
       } catch (exc) {
-        add(fromException(exc, message));
+        add(status.fromException(exc, message));
       }
     })();
   };
@@ -93,7 +84,7 @@ export const createAsyncExceptionHandler =
     try {
       await func();
     } catch (exc) {
-      add(fromException(exc, message));
+      add(status.fromException(exc, message));
     }
   };
 
