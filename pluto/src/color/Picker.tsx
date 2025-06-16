@@ -9,7 +9,6 @@
 
 import "@/color/Picker.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { color } from "@synnaxlabs/x";
 import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";
@@ -20,6 +19,7 @@ import { BaseSwatch } from "@/color/BaseSwatch";
 import { useFrequent, useFrequentUpdater } from "@/color/Provider";
 import { CSS } from "@/css";
 import { useDebouncedCallback } from "@/hooks";
+import { Icon } from "@/icon";
 import { type Input } from "@/input";
 import { Text } from "@/text";
 

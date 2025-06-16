@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import { caseconv, location } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
-import { type Icon as PIcon } from "@/icon";
+import { Icon, type Icon as PIcon } from "@/icon";
 import { Select } from "@/select";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
@@ -24,7 +23,7 @@ export type FilteredMode = Exclude<Mode, "cancel">;
 
 interface Entry {
   key: FilteredMode;
-  icon: PIcon.Element;
+  icon: PIcon.ReactElement;
   tooltip: ReactNode;
 }
 

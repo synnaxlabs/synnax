@@ -10,12 +10,12 @@
 import "@/palette/Palette.css";
 
 import { ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   componentRenderProp,
   Dropdown,
+  Icon,
   Input,
   List,
   Status,

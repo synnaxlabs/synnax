@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type label } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import { array, type AsyncTermSearcher, unique } from "@synnaxlabs/x";
 import {
   type DragEvent,
@@ -22,6 +21,7 @@ import {
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
+import { Icon } from "@/icon";
 import { HAUL_TYPE } from "@/label/types";
 import { type List } from "@/list";
 import { Select } from "@/select";
@@ -35,11 +35,7 @@ const rangeCols: Array<List.ColumnSpec<label.Key, label.Label>> = [
     key: "color",
     name: "Color",
     render: ({ entry }) => (
-      <Icon.Circle
-        name="circle"
-        color={entry.color}
-        style={{ height: "2.5rem", width: "2.5rem" }}
-      />
+      <Icon.Circle color={entry.color} style={{ height: "2.5rem", width: "2.5rem" }} />
     ),
   },
   { key: "name", name: "Name" },

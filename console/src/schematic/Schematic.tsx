@@ -14,12 +14,12 @@ import {
 } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
 import {
   Button,
   Control,
   Diagram,
   Haul,
+  Icon,
   type Legend,
   Menu as PMenu,
   Schematic as Core,

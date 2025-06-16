@@ -10,10 +10,10 @@
 import "@/hardware/task/Toolbar.css";
 
 import { task, UnexpectedError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Icon,
   List,
   Menu as PMenu,
   Observe,

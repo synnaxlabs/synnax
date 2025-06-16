@@ -9,7 +9,6 @@
 
 import "@/button/Button.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { color, type status } from "@synnaxlabs/x";
 import { array } from "@synnaxlabs/x/array";
 import { TimeSpan } from "@synnaxlabs/x/telem";
@@ -22,7 +21,7 @@ import {
 
 import { type Align } from "@/align";
 import { CSS } from "@/css";
-import { type Icon as PIcon } from "@/icon";
+import { Icon, type Icon as PIcon } from "@/icon";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
@@ -58,8 +57,8 @@ export type ButtonProps = Omit<
   Tooltip.WrapProps &
   BaseProps & {
     level?: Text.Level;
-    startIcon?: PIcon.Element | PIcon.Element[];
-    endIcon?: PIcon.Element | PIcon.Element[];
+    startIcon?: PIcon.ReactElement | PIcon.ReactElement[];
+    endIcon?: PIcon.ReactElement | PIcon.ReactElement[];
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
     onClickDelay?: number | TimeSpan;

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, type IconProps } from "@synnaxlabs/media";
 import { box, type location, scale, xy } from "@synnaxlabs/x";
 import {
   type DragEventHandler,
@@ -20,7 +19,7 @@ import {
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { Icon as PIcon } from "@/icon";
+import { Icon, Icon as PIcon } from "@/icon";
 import { Menu } from "@/menu";
 import { type Spec } from "@/tabs/types";
 import { useContext } from "@/tabs/useContext";
@@ -125,7 +124,7 @@ export const Selector = ({
   );
 };
 
-interface CloseIconProps extends IconProps {
+interface CloseIconProps extends Icon.IconProps {
   unsavedChanges?: boolean;
 }
 
@@ -152,14 +151,14 @@ const calculateDragOverPosition = (e: React.DragEvent<HTMLDivElement>): location
 };
 
 interface StartIconProps
-  extends IconProps,
+  extends Icon.IconProps,
     Pick<SelectorButtonProps, "icon" | "loading"> {
   level: Text.Level;
 }
 
 const StartIcon = ({ loading, icon, level = "p" }: StartIconProps) => {
   if (loading) icon = <Icon.Loading />;
-  return PIcon.resolve(icon as PIcon.Element, {
+  return PIcon.resolve(icon as PIcon.ReactElement, {
     className: CSS.BE(CLS, "icon"),
     style: {
       color: CSS.shadeVar(9),

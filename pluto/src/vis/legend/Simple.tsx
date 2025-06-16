@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import { type color, type Optional } from "@synnaxlabs/x";
 import { memo, type ReactElement, useState } from "react";
 
@@ -15,6 +14,7 @@ import { Align } from "@/align";
 import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
 

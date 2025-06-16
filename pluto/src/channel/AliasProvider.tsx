@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   createContext,
   type PropsWithChildren,
@@ -20,6 +19,7 @@ import {
 
 import { Button } from "@/button";
 import { useAsyncEffect } from "@/hooks";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";

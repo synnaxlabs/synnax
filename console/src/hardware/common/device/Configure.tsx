@@ -10,8 +10,16 @@
 import "@/hardware/common/device/Configure.css";
 
 import { type device } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Form, Nav, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Form,
+  Icon,
+  Nav,
+  Status,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
 import { deep, strings, type UnknownRecord } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";

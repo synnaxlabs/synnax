@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   componentRenderProp,
   Divider,
   Form,
-  type Icon as PIcon,
+  Icon,
   Select,
 } from "@synnaxlabs/pluto";
 import { type Keyed } from "@synnaxlabs/x";
@@ -36,7 +35,7 @@ import {
 } from "@/hardware/ni/task/types";
 
 interface WaveTypeEntry extends Keyed<WaveType> {
-  icon: PIcon.Element;
+  icon: Icon.ReactElement;
 }
 
 const WAVE_TYPE_DATA: WaveTypeEntry[] = [

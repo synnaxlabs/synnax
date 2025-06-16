@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import { type direction } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button as CoreButton } from "@/button";
-import { type Icon as PIcon } from "@/icon";
+import { Icon, type Icon as PIcon } from "@/icon";
 import { Button, type ButtonOptionProps, type ButtonProps } from "@/select/Button";
 
 interface Entry {
   key: direction.Direction;
-  icon: PIcon.Element;
+  icon: PIcon.ReactElement;
 }
 
 export interface DirectionProps

@@ -8,8 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, ranger, type task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Icon,
+  Status,
+  Synnax,
+  Text,
+  useAsyncEffect,
+} from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { Layout } from "@/layout";

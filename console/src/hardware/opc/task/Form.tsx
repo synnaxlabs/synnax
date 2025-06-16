@@ -10,12 +10,12 @@
 import "@/hardware/opc/task/Form.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Form as PForm,
   Haul,
   Header as PHeader,
+  Icon,
   List,
   type RenderProp,
   Text,

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon as MediaIcon } from "@synnaxlabs/media";
 import clsx from "clsx";
 import { cloneElement, type ReactElement } from "react";
 
 import { type BaseProps } from "@/button/Button";
 import { parseColor } from "@/button/color";
 import { CSS } from "@/css";
+import { Icon as BaseIcon } from "@/icon";
 import { type Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
@@ -60,7 +60,7 @@ export const Icon = Tooltip.wrap(
     triggerIndicator,
     ...rest
   }: IconProps): ReactElement => {
-    if (loading) children = <MediaIcon.Loading />;
+    if (loading) children = <BaseIcon.Loading />;
     const isDisabled = disabled || loading;
     return (
       <button
