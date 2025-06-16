@@ -50,3 +50,11 @@
     --pluto-base-scale: 1.05;
     transform: scale(var(--pluto-base-scale));
 }
+
+.pluto-icon--in-progress {
+    color: var(--pluto-warning-z);
+}
+
+.pluto-icon--completed {
+    color: var(--pluto-primary-z);
+}

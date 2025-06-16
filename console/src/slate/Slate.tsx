@@ -83,7 +83,7 @@ const SymbolRenderer = ({
 
   if (props == null) return null;
 
-  const C = Core.REGISTRY[key];
+  const C = Core.SYMBOLS[key];
 
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
@@ -179,7 +179,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       if (ref.current == null || event == null) return valid;
       const region = box.construct(ref.current);
       valid.forEach(({ key, data }) => {
-        const spec = Core.REGISTRY[key];
+        const spec = Core.SYMBOLS[key];
         if (spec == null) return;
         const pos = xy.truncate(
           calculatePos(

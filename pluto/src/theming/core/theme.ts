@@ -140,7 +140,8 @@ const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
 
 // Warning
 
-const WARNING_HSLA: color.HSLA = [58, 100, 50, 1];
+const LIGHT_WARNING_HSLA: color.HSLA = [48, 83, 53, 1];
+const DARK_WARNING_HSLA: color.HSLA = [58, 100, 50, 1];
 
 // Grayscale
 
@@ -198,11 +199,11 @@ const SYNNAX_BASE: ThemeSpec = {
       p2: color.fromHSLA(setLightness(ERROR_HSLA, 77)),
     },
     warning: {
-      m2: color.fromHSLA(setLightness(WARNING_HSLA, 30)),
-      m1: color.fromHSLA(setLightness(WARNING_HSLA, 40)),
-      z: color.fromHSLA(WARNING_HSLA),
-      p1: color.fromHSLA(setLightness(WARNING_HSLA, 65)),
-      p2: color.fromHSLA(setLightness(WARNING_HSLA, 75)),
+      m2: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 30)),
+      m1: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 40)),
+      z: color.fromHSLA(LIGHT_WARNING_HSLA),
+      p1: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 65)),
+      p2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 75)),
     },
     palettes: { recent: { key: "recent", name: "Recent", swatches: [] } },
     visualization: {
@@ -287,6 +288,13 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
     text: DARK_GRAY_SCALE.l11,
     textInverted: DARK_GRAY_SCALE.l0,
     textOnPrimary: DARK_GRAY_SCALE.l11,
+    warning: {
+      m2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 30)),
+      m1: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 40)),
+      z: color.fromHSLA(DARK_WARNING_HSLA),
+      p1: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 65)),
+      p2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 75)),
+    },
   },
 });
 

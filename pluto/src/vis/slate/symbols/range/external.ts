@@ -19,6 +19,6 @@ const CREATE_RANGE: types.Spec<CreateConfig> = {
   }),
 };
 
-export const REGISTRY: Record<string, types.Spec<any>> = {
+export const SYMBOLS: Record<string, types.Spec<any>> = {
   [CREATE_RANGE.key]: CREATE_RANGE,
 };

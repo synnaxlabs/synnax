@@ -1,6 +1,13 @@
 import { type effect, NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Status, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Icon,
+  Status,
+  Synnax,
+  Text,
+  useAsyncEffect,
+} from "@synnaxlabs/pluto";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useStore } from "react-redux";

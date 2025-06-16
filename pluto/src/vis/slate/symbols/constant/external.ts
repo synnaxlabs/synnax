@@ -2,7 +2,7 @@ import { Constant } from "@/vis/slate/symbols/constant/Constant";
 import { Form } from "@/vis/slate/symbols/constant/Form";
 import { type types } from "@/vis/slate/symbols/types";
 
-export const REGISTRY: Record<string, types.Spec<any>> = {
+export const SYMBOLS: Record<string, types.Spec<any>> = {
   constant: {
     key: "constant",
     name: "Constant",

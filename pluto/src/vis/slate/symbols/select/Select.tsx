@@ -1,8 +1,8 @@
-import { Icon } from "@synnaxlabs/media";
 import { color } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Divider } from "@/divider";
+import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Handle } from "@/vis/slate/handle";
 

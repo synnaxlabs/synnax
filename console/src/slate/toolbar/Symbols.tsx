@@ -12,33 +12,41 @@ import "@/slate/toolbar/Symbols.css";
 import {
   Align,
   CSS as PCSS,
+  Divider,
   Haul,
-  Input,
   List,
   Slate,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { addElement } from "@/slate/slice";
 
-const LIST_DATA = Object.values(Slate.REGISTRY);
-
 export interface SymbolsProps {
+  group: string;
   layoutKey: string;
 }
 
-export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
+export const Group = ({ group, layoutKey }: SymbolsProps): ReactElement => {
   const dispatch = useDispatch();
   const theme = Theming.use();
 
+  const groupRegistry = useMemo(() => Slate.REGISTRY[group], [group]);
+  const symbols = useMemo(() => Object.values(groupRegistry.symbols), [groupRegistry]);
+
   const handleAddElement = useCallback(
     (variant: string) => {
-      const spec = Slate.REGISTRY[variant];
+      const spec = groupRegistry.symbols[variant];
       const initialProps = spec.defaultProps(theme);
       dispatch(
         addElement({
@@ -70,12 +78,7 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
   );
 
   return (
-    <List.List data={LIST_DATA}>
-      <Align.Space style={{ padding: "1rem", borderBottom: "var(--pluto-border)" }}>
-        <List.Filter>
-          {(p) => <Input.Text {...p} placeholder="Type to search..." size="small" />}
-        </List.Filter>
-      </Align.Space>
+    <List.List data={symbols}>
       <List.Core<string, Slate.Spec<any>>
         x
         className={CSS(
@@ -132,6 +135,38 @@ const SymbolsButton = ({
       <Align.Space className="preview-wrapper" align="center" justify="center">
         <Preview {...defaultProps_} scale={0.75} />
       </Align.Space>
+    </Align.Space>
+  );
+};
+
+const GROUP_LIST_DATA = Object.values(Slate.REGISTRY);
+
+export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
+  const [selectedGroup, setSelectedGroup] = useState<string>("basic");
+
+  return (
+    <Align.Space x empty grow style={{ height: "100%" }}>
+      <Align.Space x empty style={{ width: 150 }}>
+        <List.List<string, Slate.Group> data={GROUP_LIST_DATA}>
+          <List.Selector<string, Slate.Group>
+            allowMultiple={false}
+            value={selectedGroup}
+            onChange={setSelectedGroup}
+          >
+            <List.Core<string, Slate.Group> style={{ width: "100%" }}>
+              {({ key, ...rest }) => (
+                <List.ItemFrame key={key} {...rest} style={{ padding: "4px 2rem" }}>
+                  <Text.WithIcon level="p" startIcon={rest.entry.icon} size="medium">
+                    {rest.entry.name}
+                  </Text.WithIcon>
+                </List.ItemFrame>
+              )}
+            </List.Core>
+          </List.Selector>
+        </List.List>
+      </Align.Space>
+      <Divider.Divider y />
+      <Group group={selectedGroup} layoutKey={layoutKey} />
     </Align.Space>
   );
 };

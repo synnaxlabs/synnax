@@ -17,6 +17,7 @@ import {
 const ADD = {
   key: "operator.add",
   name: "Add",
+  group: "operator",
   Form: () => null,
   Symbol: Add,
   Preview: Add,
@@ -27,6 +28,7 @@ const ADD = {
 const SUBTRACT = {
   key: "operator.subtract",
   name: "Subtract",
+  group: "operator",
   Form: () => null,
   Symbol: Subtract,
   Preview: Subtract,
@@ -144,7 +146,7 @@ const NOT = {
   zIndex: 0,
 };
 
-export const REGISTRY = {
+export const SYMBOLS = {
   [ADD.key]: ADD,
   [SUBTRACT.key]: SUBTRACT,
   [MULTIPLY.key]: MULTIPLY,

@@ -4,7 +4,7 @@ import { Schedule } from "@/vis/slate/symbols/time/Schedule";
 import { Form as ScheduleForm } from "@/vis/slate/symbols/time/ScheduleForm";
 import { type types } from "@/vis/slate/symbols/types";
 
-export const REGISTRY: Record<string, types.Spec<any>> = {
+export const SYMBOLS: Record<string, types.Spec<any>> = {
   "time.interval": {
     key: "time.interval",
     name: "Time Interval",

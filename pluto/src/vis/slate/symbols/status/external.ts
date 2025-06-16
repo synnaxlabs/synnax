@@ -15,6 +15,6 @@ export const SPEC: Spec<Config> = {
   Preview: Symbol,
 };
 
-export const REGISTRY = {
+export const SYMBOLS = {
   [SPEC.key]: SPEC,
 };

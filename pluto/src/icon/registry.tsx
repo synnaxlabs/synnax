@@ -147,7 +147,13 @@ import {
   PiWaveSquareBold,
   PiWaveTriangleBold,
 } from "react-icons/pi";
-import { RiSettings3Fill as RiSettingsFill, RiWeightFill } from "react-icons/ri";
+import {
+  RiProgress1Line,
+  RiProgress4Line,
+  RiProgress8Line,
+  RiSettings3Fill as RiSettingsFill,
+  RiWeightFill,
+} from "react-icons/ri";
 import {
   SiGooglenearby,
   SiNpm,
@@ -464,6 +470,9 @@ export const Effect = wrapSVGIcon(BsStars, "effect");
 export const Slate = wrapSVGIcon(PiFlowArrowBold, "slate");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
 export const Notification = wrapSVGIcon(IoNotifications, "notification");
+export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
+export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
+export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -594,6 +603,10 @@ const icons = {
   StarFilled,
   StarOutlined,
   Heart,
+  Effect,
+  Slate,
+  Select,
+  Notification,
 };
 
 export const resolve = ((

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Color,
   Diagram,
   Form,
+  Icon,
   Input,
   Slate,
   Status,
@@ -73,7 +73,7 @@ const IndividualProperties = ({
   nodeKey,
 }: IndividualPropertiesProps): ReactElement | null => {
   const props = useSelectRequiredNodeProps(layoutKey, nodeKey);
-  const C = Slate.REGISTRY[props.key];
+  const C = Slate.SYMBOLS[props.key];
   const dispatch = useDispatch();
 
   const onChange = (key: string, props: any): void => {

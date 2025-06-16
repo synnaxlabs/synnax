@@ -14,6 +14,6 @@ export const SPEC: Spec<Config> = {
   zIndex: 0,
 };
 
-export const REGISTRY = {
+export const SYMBOLS = {
   [SPEC.key]: SPEC,
 };
