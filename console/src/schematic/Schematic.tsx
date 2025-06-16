@@ -44,12 +44,13 @@ import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import {
-  select,
   selectHasPermission,
-  useSelect,
+  selectOptional,
+  selectRequired,
   useSelectEditable,
   useSelectHasPermission,
   useSelectNodeProps,
+  useSelectRequired,
   useSelectVersion,
   useSelectViewportMode,
 } from "@/schematic/selectors";
@@ -94,7 +95,7 @@ const useSyncComponent = (
     async (ws, store, client) => {
       const storeState = store.getState();
       if (!selectHasPermission(storeState)) return;
-      const data = select(storeState, layoutKey);
+      const data = selectOptional(storeState, layoutKey);
       if (data == null) return;
       const layout = Layout.selectRequired(storeState, layoutKey);
       if (data.snapshot) {
@@ -167,11 +168,11 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
-  const schematic = useSelect(layoutKey);
+  const schematic = useSelectRequired(layoutKey);
 
   const dispatch = useSyncComponent(layoutKey);
   const selector = useCallback(
-    (state: RootState) => select(state, layoutKey),
+    (state: RootState) => selectRequired(state, layoutKey),
     [layoutKey],
   );
   const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
