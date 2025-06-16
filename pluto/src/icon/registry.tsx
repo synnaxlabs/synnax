@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/Icon/Icon.css";
+import "@/icon/registry.css";
 
 import { deep } from "@synnaxlabs/x";
 import clsx from "clsx";

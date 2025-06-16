@@ -1,6 +1,5 @@
 ---
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Text } from "@synnaxlabs/pluto";
+import { Align, Icon, Text } from "@synnaxlabs/pluto";
 const { date, version, title, breakingChanges } = Astro.props;
 const id = version.split(".").join("-");
 const firstPart = version.split(".").slice(0, 2).join(".");
