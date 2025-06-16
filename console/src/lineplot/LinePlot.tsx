@@ -59,8 +59,6 @@ import {
   type XAxisKey,
   type YAxisKey,
 } from "@/lineplot/axis";
-import { download } from "@/lineplot/download";
-import { create, LAYOUT_TYPE } from "@/lineplot/layout";
 import { NavControls } from "@/lineplot/NavControls";
 import {
   select,
@@ -94,19 +92,13 @@ import {
   typedLineKeyToString,
   ZERO_STATE,
 } from "@/lineplot/slice";
+import { useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
 import { Range } from "@/range";
-import { type Selector } from "@/selector";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
   key?: string;
 }
-
-export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <PMenu.Menu level="small" iconSpacing="small">
-    <Layout.MenuItems layoutKey={layoutKey} />
-  </PMenu.Menu>
-);
 
 const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload>> =>
   Workspace.useSyncComponent<SyncPayload>(
@@ -146,7 +138,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
-  const handleError = Status.useErrorHandler();
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -343,6 +334,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
     }, []);
 
+    const downloadAsCSV = useDownloadAsCSV();
+
     const handleSelect = (key: string): void => {
       handleError(async () => {
         const tr = await getTimeRange();
@@ -368,13 +361,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             break;
           case "download":
             if (client == null) return;
-            download({
-              timeRange: tr,
-              lines,
-              client,
-              name: `${name}-data`,
-              handleError,
-            });
+            downloadAsCSV(tr, lines);
             break;
         }
       }, `Failed to perform ${CONTEXT_MENU_ERROR_MESSAGES[key]}`);
@@ -418,11 +405,13 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     timeRange: TimeRange;
     name: string;
   }): ReactElement => {
+    const downloadAsCSV = useDownloadAsCSV();
+
     const handleSelect = (itemKey: string) => {
       switch (itemKey) {
         case "download":
           if (client == null) return;
-          download({ client, lines, timeRange, name, handleError });
+          downloadAsCSV(timeRange, lines);
           break;
         case "metadata":
           placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key });
@@ -560,11 +549,4 @@ export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
   });
   if (linePlot == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
-};
-
-export const SELECTABLE: Selector.Selectable = {
-  key: LAYOUT_TYPE,
-  title: "Line Plot",
-  icon: <Icon.LinePlot />,
-  create: async ({ layoutKey }) => create({ key: layoutKey }),
 };

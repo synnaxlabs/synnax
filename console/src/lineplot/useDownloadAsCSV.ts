@@ -15,7 +15,7 @@ import { writeFile } from "@tauri-apps/plugin-fs";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 
-export interface DownloadProps {
+interface DownloadProps {
   timeRange: TimeRange;
   client: Synnax | null;
   lines: Channel.LineProps[];
@@ -40,7 +40,7 @@ const frameToCSV = (columns: Map<channel.Key, string>, frame: framer.Frame): str
   return rows.join("\n");
 };
 
-export const download = async ({
+const download = async ({
   lines,
   client,
   timeRange,
