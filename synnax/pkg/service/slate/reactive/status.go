@@ -12,11 +12,13 @@ package reactive
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/slate/spec"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
 )
 
 func newStatusChange(_ context.Context, cfg factoryConfig) (bool, error) {
@@ -29,8 +31,11 @@ func newStatusChange(_ context.Context, cfg factoryConfig) (bool, error) {
 	}
 	sink := &confluence.UnarySink[spec.Value]{
 		Sink: func(ctx context.Context, value spec.Value) error {
-			cfg.OnStatusChange(ctx, status.Variant(variant), map[string]any{
-				"message": message,
+			cfg.OnStatusChange(ctx, status.Status[any]{
+				Key:     uuid.New().String(),
+				Variant: c.Variant,
+				Message: c.Message,
+				Time:    telem.Now(),
 			})
 			return nil
 		},

@@ -68,7 +68,6 @@ const (
 var (
 	StringTypeZ  = Literal(StringT)
 	BoolTypeZ    = Literal(BoolT)
-	NumberTypeZ  = Literal(NumberT)
 	ObjectTypeZ  = Literal(ObjectT)
 	UUIDTypeZ    = Literal(UUIDT)
 	IntTypeZ     = Literal(IntT)

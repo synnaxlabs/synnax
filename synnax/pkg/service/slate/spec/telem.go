@@ -13,9 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 const (
@@ -23,52 +21,53 @@ const (
 	TelemSourceType = "telem.source"
 )
 
-func telemSource(ctx context.Context, cfg Config, n Node) (ns NodeSchema, ok bool, err error) {
+type TelemConfig struct {
+	Channel channel.Key
+}
+
+func (t *TelemConfig) Parse(data any) error {
+	return telemConfigZ.Parse(data, t)
+}
+
+var telemConfigZ = zyn.Object(map[string]zyn.Z{
+	"channel": zyn.Uint32().Coerce(),
+})
+
+func telemSource(ctx context.Context, cfg Config, n Node) (NodeSchema, bool, error) {
+	var ns NodeSchema
 	if n.Type != TelemSourceType {
-		return ns, false, err
+		return ns, false, nil
 	}
-	chKey, ok := schema.Get[float64](schema.Resource{Data: n.Data}, "channel")
-	if !ok {
-		return ns, true, errors.WithStack(validate.FieldError{
-			Field:   "channel",
-			Message: "invalid channel",
-		})
+	tCfg := &TelemConfig{}
+	if err := tCfg.Parse(cfg); err != nil {
+		return ns, true, err
 	}
 	var ch channel.Channel
-	if err = cfg.Channel.NewRetrieve().
-		WhereKeys(channel.Key(chKey)).
+	if err := cfg.Channel.NewRetrieve().
+		WhereKeys(tCfg.Channel).
 		Entry(&ch).
 		Exec(ctx, nil); err != nil {
-		return ns, ok, err
+		return ns, true, err
 	}
-	ns.Outputs = []Output{
-		{
-			Key:      "value",
-			DataType: string(ch.DataType),
-		},
-	}
+	ns.Outputs = []Output{{Key: "Value", DataType: zyn.DataType(ch.DataType)}}
 	ns.Type = TelemSourceType
 	return ns, true, nil
 }
 
-func telemSink(ctx context.Context, cfg Config, n Node) (ns NodeSchema, ok bool, err error) {
+func telemSink(ctx context.Context, cfg Config, n Node) (NodeSchema, bool, error) {
+	var ns NodeSchema
 	if n.Type != TelemSinkType {
-		return ns, false, err
+		return ns, false, nil
 	}
-	chKey, ok := schema.Get[float64](schema.Resource{Data: n.Data}, "channel")
-	if !ok {
-		return ns, true, errors.WithStack(validate.FieldError{})
+	tCfg := &TelemConfig{}
+	if err := tCfg.Parse(cfg); err != nil {
+		return ns, true, err
 	}
 	var ch channel.Channel
-	if err = cfg.Channel.NewRetrieve().WhereKeys(channel.Key(chKey)).Entry(&ch).Exec(ctx, nil); err != nil {
-		return ns, ok, err
+	if err := cfg.Channel.NewRetrieve().WhereKeys(tCfg.Channel).Entry(&ch).Exec(ctx, nil); err != nil {
+		return ns, true, err
 	}
-	ns.Inputs = []Input{
-		{
-			Key:             "value",
-			AcceptsDataType: strictlyMatchDataType(string(ch.DataType)),
-		},
-	}
+	ns.Inputs = []Input{{Key: "Value", AcceptsDataType: zyn.Literal(ch.DataType)}}
 	ns.Type = TelemSinkType
 	return ns, true, nil
 }

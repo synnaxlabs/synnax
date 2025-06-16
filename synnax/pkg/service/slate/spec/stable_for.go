@@ -12,39 +12,34 @@ package spec
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 const StableForType = "stable_for"
 
-func stableFor(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err error) {
+type StableForConfig struct {
+	Duration telem.TimeSpan
+}
+
+func (s *StableForConfig) Parse(data any) error {
+	return stableForConfigZ.Parse(data, s)
+}
+
+var stableForConfigZ = zyn.Object(map[string]zyn.Z{
+	"duration": zyn.Int64().Coerce(),
+})
+
+func stableFor(_ context.Context, _ Config, n Node) (NodeSchema, bool, error) {
+	var ns NodeSchema
 	if n.Type != StableForType {
-		return ns, false, err
+		return ns, false, nil
 	}
-	_, ok = schema.Get[float64](schema.Resource{Data: n.Data}, "duration")
-	if !ok {
-		return ns, true, errors.WithStack(validate.FieldError{
-			Field:   "duration",
-			Message: "invalid duration",
-		})
+	if err := stableForConfigZ.Validate(n); err != nil {
+		return ns, true, err
 	}
-	ns.Inputs = []Input{
-		{
-			Key:             "input",
-			AcceptsDataType: acceptsNumericDataType,
-		},
-	}
-	ns.Outputs = []Output{
-		{
-			Key:      "output",
-			DataType: "uint8",
-		},
-	}
-	ns.Data = map[string]schema.Field{
-		"duration": {Type: schema.Float64},
-	}
+	ns.Inputs = []Input{{Key: "input", AcceptsDataType: zyn.NumericTypeZ}}
+	ns.Outputs = []Output{{Key: "output", DataType: zyn.BoolT}}
 	ns.Type = StableForType
 	return ns, true, nil
 }

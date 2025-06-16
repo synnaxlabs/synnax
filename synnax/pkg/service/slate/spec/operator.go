@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 const (
@@ -69,23 +70,23 @@ func operator(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err 
 	}
 	if containsSuffix(n.Type, requiresNumericOperators) {
 		ns.Inputs = []Input{
-			{Key: "x", AcceptsDataType: acceptsNumericDataType},
-			{Key: "y", AcceptsDataType: acceptsNumericDataType},
+			{Key: "x", AcceptsDataType: zyn.NumericTypeZ},
+			{Key: "y", AcceptsDataType: zyn.NumericTypeZ},
 		}
 	} else if containsSuffix(n.Type, requiresBooleanOperators) {
 		ns.Inputs = []Input{
-			{Key: "x", AcceptsDataType: strictlyMatchDataType("uint8")},
-			{Key: "y", AcceptsDataType: strictlyMatchDataType("uint8")},
+			{Key: "x", AcceptsDataType: zyn.BoolTypeZ},
+			{Key: "y", AcceptsDataType: zyn.BoolTypeZ},
 		}
 	} else if strings.HasSuffix(n.Type, OperatorNotSuffix) {
-		ns.Inputs = []Input{{Key: "x", AcceptsDataType: strictlyMatchDataType("uint8")}}
+		ns.Inputs = []Input{{Key: "x", AcceptsDataType: zyn.BoolTypeZ}}
 	} else {
 		return ns, false, errors.Wrapf(validate.Error, "operator %s not supported", n.Type)
 	}
 	if containsSuffix(n.Type, numericOutputOperators) {
-		ns.Outputs = []Output{{Key: "value", DataType: "float64"}}
+		ns.Outputs = []Output{{Key: "Value", DataType: zyn.Float64T}}
 	} else {
-		ns.Outputs = []Output{{Key: "value", DataType: "uint8"}}
+		ns.Outputs = []Output{{Key: "Value", DataType: zyn.BoolT}}
 	}
 	ns.Type = n.Type
 	return ns, true, nil

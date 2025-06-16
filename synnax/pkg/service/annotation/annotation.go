@@ -12,13 +12,13 @@ package annotation
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/status"
 )
 
 type Annotation struct {
-	Key     uuid.UUID `json:"key" msgpack:"key"`
-	Variant string    `json:"variant" msgpack:"variant"`
-	Message string    `json:"message" msgpack:"message"`
-	Notify  bool      `json:"notify" msgpack:"notify"`
+	Key     uuid.UUID      `json:"key" msgpack:"key"`
+	Variant status.Variant `json:"variant" msgpack:"variant"`
+	Message string         `json:"message" msgpack:"message"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Annotation{}

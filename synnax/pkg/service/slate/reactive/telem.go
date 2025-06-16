@@ -16,13 +16,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/service/slate/spec"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 type telemSource struct {
@@ -35,11 +35,11 @@ func newTelemSource(_ context.Context, cfg factoryConfig) (bool, error) {
 	if cfg.node.Type != spec.TelemSourceType {
 		return false, nil
 	}
-	chKey, _ := schema.Get[float64](schema.Resource{Data: cfg.node.Data}, "channel")
-	source := &telemSource{
-		channel: channel.Key(chKey),
-		framer:  cfg.Framer,
+	tCfg := &spec.TelemConfig{}
+	if err := tCfg.Parse(cfg.node.Config); err != nil {
+		return true, err
 	}
+	source := &telemSource{channel: tCfg.Channel, framer: cfg.Framer}
 	plumber.SetSource[spec.Value](cfg.pipeline, address.Address(cfg.node.Key), source)
 	return true, nil
 }
@@ -65,10 +65,7 @@ func (n *telemSource) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				s := v.Frame.Get(n.channel)
-				n.Out.Inlet() <- spec.Value{
-					DataType: string(s.DataType()),
-					Value:    s.AtAny(-1),
-				}
+				n.Out.Inlet() <- spec.Value{DataType: zyn.DataType(s.DataType()), Value: s.AtAny(-1)}
 			}
 		}
 	}, o.Signal...)
@@ -118,11 +115,11 @@ func newTelemSink(_ context.Context, cfg factoryConfig) (bool, error) {
 	if cfg.node.Type != spec.TelemSinkType {
 		return false, nil
 	}
-	chKey, _ := schema.Get[float64](schema.Resource{Data: cfg.node.Data}, "channel")
-	source := &telemSink{
-		channel: channel.Key(chKey),
-		framer:  cfg.Framer,
+	tCfg := &spec.TelemConfig{}
+	if err := tCfg.Parse(cfg.node.Config); err != nil {
+		return true, err
 	}
+	source := &telemSink{channel: tCfg.Channel, framer: cfg.Framer}
 	source.Sink = source.sink
 	plumber.SetSink[spec.Value](cfg.pipeline, address.Address(cfg.node.Key), source)
 	return true, nil

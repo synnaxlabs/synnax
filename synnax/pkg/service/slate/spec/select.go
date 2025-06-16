@@ -9,7 +9,11 @@
 
 package spec
 
-import "context"
+import (
+	"context"
+
+	"github.com/synnaxlabs/x/zyn"
+)
 
 const SelectStatementType = "select"
 
@@ -19,19 +23,13 @@ func selectStatement(_ context.Context, _ Config, n Node) (ns NodeSchema, ok boo
 	}
 	ns.Inputs = []Input{
 		{
-			Key:             "value",
-			AcceptsDataType: strictlyMatchDataType("uint8"),
+			Key:             "Value",
+			AcceptsDataType: zyn.Enum(zyn.BoolT, zyn.Uint8T),
 		},
 	}
 	ns.Outputs = []Output{
-		{
-			Key:      "true",
-			DataType: "uint8",
-		},
-		{
-			Key:      "false",
-			DataType: "uint8",
-		},
+		{Key: "true", DataType: zyn.BoolT},
+		{Key: "false", DataType: zyn.BoolT},
 	}
 	ns.Type = SelectStatementType
 	return ns, true, nil

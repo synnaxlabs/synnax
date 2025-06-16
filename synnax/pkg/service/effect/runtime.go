@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/slate/spec"
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
-	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -30,7 +29,6 @@ import (
 
 type entry struct {
 	shutdown io.Closer
-	status   State
 }
 
 func (s *Service) handleChange(
@@ -64,17 +62,18 @@ func (s *Service) handleChange(
 			Annotation: s.cfg.Annotation,
 			OnStatusChange: func(
 				ctx context.Context,
-				variant status.Variant,
-				details map[string]interface{},
+				stat status.Status[any],
 			) {
-				state := State{
-					Key:     e.Key,
-					Variant: variant,
-					Details: xjson.NewStaticString(ctx, details),
+				os := Status{
+					Key:         stat.Key,
+					Variant:     stat.Variant,
+					Message:     stat.Message,
+					Description: stat.Description,
+					Details:     StatusDetails{Effect: e.Key},
 				}
 				if _, err := s.effectStateWriter.Write(core.UnaryFrame(
 					s.effectStateChannelKey,
-					telem.NewSeriesStaticJSONV(state),
+					telem.NewSeriesStaticJSONV(os),
 				)); err != nil {
 					s.cfg.L.Error("effect state writer write error", zap.Error(err))
 				}

@@ -115,11 +115,7 @@ type Config struct {
 	Channel        channel.Service
 	Framer         *framer.Service
 	Annotation     *annotation.Service
-	OnStatusChange func(
-		ctx context.Context,
-		variant status.Variant,
-		details map[string]interface{},
-	)
+	OnStatusChange func(ctx context.Context, status status.Status[any])
 }
 
 func Validate(ctx context.Context, cfg Config, g Graph) (Graph, error) {
@@ -162,7 +158,7 @@ func Validate(ctx context.Context, cfg Config, g Graph) (Graph, error) {
 				"input %s not found for sink node %s", e.Sink.Key, sinkNode,
 			)
 		}
-		if !input.AcceptsDataType(output.DataType) {
+		if input.AcceptsDataType.Validate(output.DataType) != nil {
 			return g, errors.Wrapf(
 				validate.Error,
 				"output %s.%s with data type %s is not acceptable for input %s.%s",
