@@ -27,7 +27,12 @@ import {
   AiOutlineSync,
 } from "react-icons/ai";
 import { BiLinkExternal, BiMath, BiRename } from "react-icons/bi";
-import { BsFillInfoSquareFill, BsLightbulbFill, BsShiftFill } from "react-icons/bs";
+import {
+  BsFillInfoSquareFill,
+  BsLightbulbFill,
+  BsShiftFill,
+  BsStars,
+} from "react-icons/bs";
 import {
   FaAlignCenter,
   FaAlignLeft,
@@ -56,6 +61,7 @@ import { IoMdHeart, IoMdRefresh } from "react-icons/io";
 import {
   IoBookSharp,
   IoCopy,
+  IoNotifications,
   IoNotificationsOff,
   IoShapes,
   IoTime,
@@ -132,6 +138,7 @@ import {
   PiCaretRight,
   PiCaretUpBold,
   PiDownloadSimple,
+  PiFlowArrowBold,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
   PiThermometerSimpleFill,
@@ -155,6 +162,7 @@ import {
   TbArrowDown,
   TbArrowLeft,
   TbArrowRight,
+  TbArrowsSplit,
   TbArrowUp,
   TbCircleLetterAFilled,
   TbCircleLetterVFilled,
@@ -452,6 +460,10 @@ export const Filter = wrapSVGIcon(MdOutlineFilterList, "filter");
 export const StarFilled = wrapSVGIcon(FaStar, "star-filled");
 export const StarOutlined = wrapSVGIcon(FaRegStar, "star-outlined");
 export const Heart = wrapSVGIcon(IoMdHeart, "heart");
+export const Effect = wrapSVGIcon(BsStars, "effect");
+export const Slate = wrapSVGIcon(PiFlowArrowBold, "slate");
+export const Select = wrapSVGIcon(TbArrowsSplit, "select");
+export const Notification = wrapSVGIcon(IoNotifications, "notification");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
