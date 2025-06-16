@@ -13,14 +13,14 @@ import { z } from "zod/v4";
 export const keyZ = z.uint32();
 export type Key = z.infer<typeof keyZ>;
 
-export const stateZ = status.statusZ(z.object({ rack: keyZ }));
+export const statusZ = status.statusZ(z.object({ rack: keyZ }));
 
-export interface State extends z.infer<typeof stateZ> {}
+export interface Status extends z.infer<typeof statusZ> {}
 
 export const rackZ = z.object({
   key: keyZ,
   name: z.string(),
-  state: zod.nullToUndefined(stateZ),
+  status: zod.nullToUndefined(statusZ),
 });
 
 export interface Payload extends z.infer<typeof rackZ> {}

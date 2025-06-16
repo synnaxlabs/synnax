@@ -20,9 +20,9 @@ export const statusDetailsZ = z.object({
   rack: rackKeyZ,
 });
 
-export const stateZ = status.statusZ(statusDetailsZ);
+export const statusZ = status.statusZ(statusDetailsZ);
 
-export interface Status extends z.infer<typeof stateZ> {}
+export interface Status extends z.infer<typeof statusZ> {}
 
 export const deviceZ = z.object({
   key: keyZ,
@@ -33,7 +33,7 @@ export const deviceZ = z.object({
   location: z.string(),
   configured: z.boolean().optional(),
   properties: unknownRecordZ.or(z.string().transform(decodeJSONString)),
-  state: zod.nullToUndefined(stateZ),
+  status: zod.nullToUndefined(statusZ),
 });
 
 export interface Device<
@@ -44,7 +44,7 @@ export interface Device<
   properties: Properties;
   make: Make;
   model: Model;
-  state?: Status;
+  status?: Status;
 }
 
 export const newZ = deviceZ.extend({

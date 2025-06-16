@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { ZodError } from "zod/v4";
 
 import { NotFoundError } from "@/errors";
+import { type rack } from "@/hardware/rack";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -70,36 +71,34 @@ describe("Rack", () => {
   describe("state", () => {
     it("should include state when includeStatus is true", async () => {
       const r = await client.hardware.racks.create({ name: "test" });
+      let state: rack.Status | undefined;
       await expect
         .poll(async () => {
           const retrieved = await client.hardware.racks.retrieve(r.key, {
             includeStatus: true,
           });
-          return (
-            retrieved.state !== undefined &&
-            retrieved.state.time instanceof TimeStamp &&
-            retrieved.state.details?.rack === r.key
-          );
+          state = retrieved.state;
+          return state;
         })
-        .toBeTruthy();
+        .toBeDefined();
+      expect(state?.details?.rack).toBe(r.key);
     });
     it("should include state for multiple racks", async () => {
       const r1 = await client.hardware.racks.create({ name: "test1" });
       const r2 = await client.hardware.racks.create({ name: "test2" });
-
+      let states: (rack.Status | undefined)[] = [];
       await expect
         .poll(async () => {
           const retrieved = await client.hardware.racks.retrieve([r1.key, r2.key], {
             includeStatus: true,
           });
-          return retrieved.every(
-            (rack) =>
-              rack.state !== undefined &&
-              rack.state.time instanceof TimeStamp &&
-              rack.state.details?.rack === rack.key,
-          );
+          states = retrieved.map((r) => r.state);
+          return states.every((s) => s != null);
         })
         .toBeTruthy();
+      expect(states).toHaveLength(2);
+      expect(states[0]?.details?.rack).toBe(r1.key);
+      expect(states[1]?.details?.rack).toBe(r2.key);
     });
   });
 });

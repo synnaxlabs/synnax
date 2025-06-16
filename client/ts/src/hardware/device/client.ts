@@ -21,8 +21,8 @@ import {
   type New,
   newZ,
   ONTOLOGY_TYPE,
-  stateZ,
   type Status,
+  statusZ,
 } from "@/hardware/device/payload";
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 import { ontology } from "@/ontology";
@@ -198,7 +198,7 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
       (frame) => {
         const s = frame.get(STATE_CHANNEL_NAME);
         if (s.length === 0) return [null, false];
-        const states = s.parseJSON(stateZ);
+        const states = s.parseJSON(statusZ);
         return [states as Status[], true];
       },
     );

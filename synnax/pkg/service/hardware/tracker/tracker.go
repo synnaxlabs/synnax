@@ -42,16 +42,16 @@ import (
 	"go.uber.org/zap"
 )
 
-// RackState is the state of a hardware rack. Unfortunately, we can't put this into the
+// RackStatus is the state of a hardware rack. Unfortunately, we can't put this into the
 // rack package because it would create a circular dependency.
-type RackState struct {
+type RackStatus struct {
 	rack.Status
-	// Tasks is the state of the tasks associated with the rack.
-	Tasks map[task.Key]task.Status `json:"tasks" msgpack:"tasks"`
+	// TaskStatuses is the state of the tasks associated with the rack.
+	TaskStatuses map[task.Key]task.Status `json:"taskstatuses" msgpack:"taskstatuses"`
 }
 
 // Alive returns true if the rack is alive.
-func (r RackState) Alive(threshold telem.TimeSpan) bool {
+func (r RackStatus) Alive(threshold telem.TimeSpan) bool {
 	return telem.Since(r.Time) < threshold
 }
 
@@ -63,7 +63,7 @@ type Tracker struct {
 	mu struct {
 		sync.RWMutex
 		// Racks is the map of racks to their corresponding state.
-		Racks map[rack.Key]*RackState
+		Racks map[rack.Key]*RackStatus
 		// Devices is the map of devices to their corresponding state.
 		Devices map[string]device.Status
 	}
@@ -186,13 +186,13 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	t := &Tracker{cfg: cfg}
-	t.mu.Racks = make(map[rack.Key]*RackState, len(racks))
+	t.mu.Racks = make(map[rack.Key]*RackStatus, len(racks))
 	t.mu.Devices = make(map[string]device.Status)
 
 	for _, r := range racks {
-		rck := &RackState{
-			Status: newUnknownRackStatus(r.Key),
-			Tasks:  make(map[task.Key]task.Status),
+		rck := &RackStatus{
+			Status:       newUnknownRackStatus(r.Key),
+			TaskStatuses: make(map[task.Key]task.Status),
 		}
 
 		// Fetch and initialize tasks for this rack
@@ -215,7 +215,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 				Exec(ctx, cfg.DB); err != nil && !errors.Is(err, query.NotFound) {
 				return nil, err
 			}
-			rck.Tasks[tsk.Key] = taskState
+			rck.TaskStatuses[tsk.Key] = taskState
 		}
 
 		t.mu.Racks[r.Key] = rck
@@ -373,18 +373,18 @@ func (t *Tracker) GetTask(_ context.Context, key task.Key) (task.Status, bool) {
 	if !exists {
 		return task.Status{}, false
 	}
-	tsk, exists := r.Tasks[key]
+	tsk, exists := r.TaskStatuses[key]
 	return tsk, exists
 }
 
 // GetRack returns the state of a rack by its key. If the rack is not found, the second
 // return value will be false.
-func (t *Tracker) GetRack(_ context.Context, key rack.Key) (RackState, bool) {
+func (t *Tracker) GetRack(_ context.Context, key rack.Key) (RackStatus, bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	r, exists := t.mu.Racks[key]
 	if !exists {
-		return RackState{}, false
+		return RackStatus{}, false
 	}
 	return *r, true
 }
@@ -411,19 +411,19 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 	for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
 		rackKey := c.Key.Rack()
 		if c.Variant == change.Delete {
-			delete(t.mu.Racks[rackKey].Tasks, c.Key)
+			delete(t.mu.Racks[rackKey].TaskStatuses, c.Key)
 			continue
 		}
 		rackState, rackExists := t.mu.Racks[rackKey]
 		if !rackExists {
-			rackState = &RackState{
-				Status: newUnknownRackStatus(rackKey),
-				Tasks:  make(map[task.Key]task.Status),
+			rackState = &RackStatus{
+				Status:       newUnknownRackStatus(rackKey),
+				TaskStatuses: make(map[task.Key]task.Status),
 			}
 			t.mu.Racks[rackKey] = rackState
 		}
-		if _, taskExists := rackState.Tasks[c.Key]; !taskExists {
-			rackState.Tasks[c.Key] = newUnknownTaskStatus(c.Key)
+		if _, taskExists := rackState.TaskStatuses[c.Key]; !taskExists {
+			rackState.TaskStatuses[c.Key] = newUnknownTaskStatus(c.Key)
 		}
 		alive := rackState.Alive(t.cfg.RackStateAliveThreshold)
 		if !rackExists || !alive {
@@ -465,9 +465,9 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 			continue
 		}
 		if _, rackExists := t.mu.Racks[c.Key]; !rackExists {
-			t.mu.Racks[c.Key] = &RackState{
-				Tasks:  make(map[task.Key]task.Status),
-				Status: newUnknownRackStatus(c.Key),
+			t.mu.Racks[c.Key] = &RackStatus{
+				TaskStatuses: make(map[task.Key]task.Status),
+				Status:       newUnknownRackStatus(c.Key),
 			}
 
 		}
@@ -479,17 +479,17 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 	taskStatuses := make([]task.Status, 0, len(t.mu.Racks))
 	deviceStatuses := make([]device.Status, 0)
 
-	for _, r := range t.mu.Racks {
-		if r.Alive(t.cfg.RackStateAliveThreshold) {
+	for _, rackStatus := range t.mu.Racks {
+		if rackStatus.Alive(t.cfg.RackStateAliveThreshold) {
 			continue
 		}
-		r.Status.Variant = status.WarningVariant
-		r.Status.Message = fmt.Sprintf("Driver %s is not alive", r.Key)
-		rackStatuses = append(rackStatuses, r.Status)
+		rackStatus.Variant = status.WarningVariant
+		rackStatus.Message = fmt.Sprintf("Driver %s is not alive", rackStatus.Key)
+		rackStatuses = append(rackStatuses, rackStatus.Status)
 
 		var rck rack.Rack
 		if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
-			WhereKeys(r.Details.Rack).
+			WhereKeys(rackStatus.Details.Rack).
 			Entry(&rck).
 			Exec(context.Background(), t.cfg.DB); err != nil {
 			t.cfg.L.Warn("failed to retrieve rack", zap.Error(err))
@@ -499,9 +499,9 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 		msg := fmt.Sprintf(
 			"Synnax Driver on %s is not running. Driver was last alive %s ago.",
 			rck.Name,
-			telem.Since(r.Time).Truncate(telem.Second),
+			telem.Since(rackStatus.Time).Truncate(telem.Second),
 		)
-		for _, taskState := range r.Tasks {
+		for _, taskState := range rackStatus.TaskStatuses {
 			taskState.Variant = status.WarningVariant
 			taskState.Message = msg
 			taskState.Details.Running = false
@@ -509,7 +509,7 @@ func (t *Tracker) checkRackState(ctx context.Context) {
 		}
 
 		for _, dev := range t.mu.Devices {
-			if dev.Details.Rack == r.Details.Rack {
+			if dev.Details.Rack == rackStatus.Details.Rack {
 				dev.Variant = status.WarningVariant
 				dev.Message = msg
 				deviceStatuses = append(deviceStatuses, dev)
@@ -575,7 +575,7 @@ func (t *Tracker) handleTaskState(ctx context.Context, changes []change.Change[[
 		if !ok {
 			t.cfg.L.Warn("rack not found for task state update", zap.Uint64("task", uint64(taskState.Details.Task)))
 		} else {
-			r.Tasks[taskState.Details.Task] = taskState
+			r.TaskStatuses[taskState.Details.Task] = taskState
 		}
 		select {
 		case t.saveNotifications <- taskState.Details.Task:
@@ -680,6 +680,7 @@ func newUnknownTaskStatus(key task.Key) task.Status {
 func newUnknownRackStatus(key rack.Key) rack.Status {
 	s := rack.Status{}
 	s.Key = key.String()
+	s.Details.Rack = key
 	s.Time = telem.Now()
 	s.Variant = status.WarningVariant
 	s.Message = "Rack state unknown"

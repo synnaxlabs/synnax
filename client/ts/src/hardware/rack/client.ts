@@ -21,8 +21,8 @@ import {
   ONTOLOGY_TYPE,
   type Payload,
   rackZ,
-  type State,
-  stateZ,
+  type Status,
+  statusZ,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
 import { ontology } from "@/ontology";
@@ -149,13 +149,13 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return single ? sugared[0] : sugared;
   }
 
-  async openStateObserver(): Promise<framer.ObservableStreamer<State[]>> {
-    return new framer.ObservableStreamer<State[]>(
+  async openStateObserver(): Promise<framer.ObservableStreamer<Status[]>> {
+    return new framer.ObservableStreamer<Status[]>(
       await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
       (fr) => {
         const data = fr.get(STATE_CHANNEL_NAME);
         if (data.length === 0) return [[], false];
-        const states = data.parseJSON(stateZ);
+        const states = data.parseJSON(statusZ);
         return [states, true];
       },
     );
@@ -163,7 +163,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
 
   private sugar(payloads: Payload[]): Rack[] {
     return payloads.map(
-      ({ key, name, state }) => new Rack(key, name, this.tasks, state),
+      ({ key, name, status: state }) => new Rack(key, name, this.tasks, state),
     );
   }
 }
@@ -171,10 +171,10 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
 export class Rack {
   key: Key;
   name: string;
-  state?: State;
+  state?: Status;
   private readonly tasks: task.Client;
 
-  constructor(key: Key, name: string, taskClient: task.Client, state?: State) {
+  constructor(key: Key, name: string, taskClient: task.Client, state?: Status) {
     this.key = key;
     this.name = name;
     this.tasks = taskClient;

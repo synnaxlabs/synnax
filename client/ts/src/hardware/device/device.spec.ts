@@ -123,7 +123,7 @@ describe("Device", async () => {
         });
 
         const retrieved = await client.hardware.devices.retrieve(d.key);
-        expect(retrieved.state).toBeUndefined();
+        expect(retrieved.status).toBeUndefined();
       });
 
       it("should include state when includeStatus is true", async () => {
@@ -139,10 +139,10 @@ describe("Device", async () => {
 
         await expect
           .poll(async () => {
-            const { state } = await client.hardware.devices.retrieve(d.key, {
+            const { status: state } = await client.hardware.devices.retrieve(d.key, {
               includeStatus: true,
             });
-            return state !== undefined;
+            return state != null;
           })
           .toBeTruthy();
       });
@@ -175,7 +175,7 @@ describe("Device", async () => {
               { includeStatus: true },
             );
             if (retrievedDevices.length !== 2) return false;
-            return retrievedDevices.every(({ state }) => state !== undefined);
+            return retrievedDevices.every(({ status: state }) => state !== undefined);
           })
           .toBeTruthy();
       });
@@ -198,9 +198,9 @@ describe("Device", async () => {
               includeStatus: true,
             });
             return (
-              retrieved.state !== undefined &&
-              retrieved.state.variant === "info" &&
-              retrieved.state.key === key
+              retrieved.status !== undefined &&
+              retrieved.status.variant === "info" &&
+              retrieved.status.key === key
             );
           })
           .toBeTruthy();
