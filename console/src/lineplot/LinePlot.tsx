@@ -10,7 +10,7 @@
 import "@/lineplot/LinePlot.css";
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -126,10 +126,54 @@ const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {
   download: "Failed to download region as CSV",
 };
 
+interface RangeAnnotationContextMenuProps {
+  lines: Channel.LineProps[];
+  range: ranger.Payload;
+}
+
+const RangeAnnotationContextMenu = ({
+  lines,
+  range,
+}: RangeAnnotationContextMenuProps): ReactElement => {
+  const downloadAsCSV = useDownloadAsCSV();
+  const handleDownloadAsCSV = () =>
+    downloadAsCSV({ timeRange: range.timeRange, lines, name: range.name });
+  const addRangeToNewPlot = Range.useAddToNewPlot();
+  const handleOpenInNewPlot = () => addRangeToNewPlot(range.key);
+  const placeLayout = Layout.usePlacer();
+  const handleViewDetails = () => {
+    placeLayout({ ...Range.OVERVIEW_LAYOUT, name: range.name, key: range.key });
+  };
+  return (
+    <PMenu.Menu level="small">
+      <PMenu.Item
+        itemKey="download"
+        startIcon={<Icon.Download />}
+        onClick={handleDownloadAsCSV}
+      >
+        Download as CSV
+      </PMenu.Item>
+      <PMenu.Item
+        itemKey="line-plot"
+        startIcon={<Icon.LinePlot />}
+        onClick={handleOpenInNewPlot}
+      >
+        Open in New Plot
+      </PMenu.Item>
+      <PMenu.Item
+        itemKey="metadata"
+        startIcon={<Icon.Annotate />}
+        onClick={handleViewDetails}
+      >
+        View Details
+      </PMenu.Item>
+    </PMenu.Menu>
+  );
+};
+
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
-  const placeLayout = Layout.usePlacer();
   const vis = useSelect(layoutKey);
   const prevVis = usePrevious(vis);
   const ranges = useSelectRanges(layoutKey);
@@ -361,7 +405,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             break;
           case "download":
             if (client == null) return;
-            downloadAsCSV(tr, lines);
+            downloadAsCSV({ timeRange: tr, lines, name });
             break;
         }
       }, `Failed to perform ${CONTEXT_MENU_ERROR_MESSAGES[key]}`);
@@ -394,49 +438,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       </PMenu.Menu>
     );
   };
-  const addRangeToNewPlot = Range.useAddToNewPlot();
 
-  const AnnotationMenu = ({
-    key,
-    timeRange,
-    name,
-  }: {
-    key: string;
-    timeRange: TimeRange;
-    name: string;
-  }): ReactElement => {
-    const downloadAsCSV = useDownloadAsCSV();
-
-    const handleSelect = (itemKey: string) => {
-      switch (itemKey) {
-        case "download":
-          if (client == null) return;
-          downloadAsCSV(timeRange, lines);
-          break;
-        case "metadata":
-          placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key });
-          break;
-        case "line-plot":
-          addRangeToNewPlot(key);
-          break;
-        default:
-          break;
-      }
-    };
-
-    return (
-      <PMenu.Menu level="small" key={key} onChange={handleSelect}>
-        <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-          Download as CSV
-        </PMenu.Item>
-        <PMenu.Item itemKey="line-plot" startIcon={<Icon.LinePlot />}>
-          Open in New Plot
-        </PMenu.Item>
-        <PMenu.Item itemKey="metadata" startIcon={<Icon.Annotate />}>
-          View Details
-        </PMenu.Item>
-      </PMenu.Menu>
-    );
+  const rangeAnnotationProvider: Channel.LinePlotProps["rangeAnnotationProvider"] = {
+    menu: (props) => <RangeAnnotationContextMenu lines={propsLines} range={props} />,
   };
 
   return (
@@ -477,7 +481,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           onDoubleClick={handleDoubleClick}
           onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
-          annotationProvider={{ menu: AnnotationMenu }}
+          rangeAnnotationProvider={rangeAnnotationProvider}
         >
           {!focused && <NavControls />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />

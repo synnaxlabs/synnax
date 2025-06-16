@@ -11,7 +11,7 @@ import { type Layout } from "@/layout";
 import { ContextMenu } from "@/lineplot/ContextMenu";
 import { LAYOUT_TYPE } from "@/lineplot/layout";
 import { LinePlot } from "@/lineplot/LinePlot";
-import { SELECTABLE } from "@/lineplot/selectable";
+import { SELECTABLE } from "@/lineplot/Selectable";
 import { type Selector } from "@/selector";
 
 export * from "@/lineplot/export";

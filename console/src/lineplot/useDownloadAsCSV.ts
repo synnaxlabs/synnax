@@ -17,13 +17,13 @@ import { NULL_CLIENT_ERROR } from "@/errors";
 
 interface DownloadProps {
   timeRange: TimeRange;
-  client: Synnax | null;
+  client: Synnax;
   lines: Channel.LineProps[];
-  name?: string;
+  name: string;
 }
 
 const frameToCSV = (columns: Map<channel.Key, string>, frame: framer.Frame): string => {
-  if (frame.series.length === 0) return "";
+  if (frame.series.length === 0) throw new Error("No data selected");
   const count = frame.series[0].length;
   const rows: string[] = [];
   const header: string[] = [];
@@ -46,23 +46,22 @@ const download = async ({
   timeRange,
   name = "synnax-data",
 }: DownloadProps): Promise<void> => {
-  if (client == null) throw NULL_CLIENT_ERROR;
-  let keys = unique.unique(
+  let keys: channel.Keys = unique.unique(
     lines
       .flatMap((l) => [l.channels.y, l.channels.x])
-      .filter((v) => v != null && v != 0),
-  ) as channel.Keys;
+      .filter((v): v is channel.Key => v != null && v != 0 && typeof v === "number"),
+  );
   const channels = await client.channels.retrieve(keys);
   const indexes = unique.unique(channels.map((c) => c.index));
   keys = unique.unique([...keys, ...indexes]);
   const indexChannels = await client.channels.retrieve(indexes);
   const columns = new Map<channel.Key, string>();
-  channels.forEach((c) => {
-    columns.set(c.key, lines.find((l) => l.channels.y === c.key)?.label ?? c.name);
-  });
-  indexChannels.forEach((c) => {
-    columns.set(c.key, lines.find((l) => l.channels.x === c.key)?.label ?? c.name);
-  });
+  channels.forEach((c) =>
+    columns.set(c.key, lines.find((l) => l.channels.y === c.key)?.label ?? c.name),
+  );
+  indexChannels.forEach((c) =>
+    columns.set(c.key, lines.find((l) => l.channels.x === c.key)?.label ?? c.name),
+  );
   const frame = await client.read(timeRange, keys);
   const csv = frameToCSV(columns, frame);
   const savePath = await save({ defaultPath: `${name}.csv` });
@@ -71,12 +70,14 @@ const download = async ({
   await writeFile(savePath, data);
 };
 
-export const useDownloadAsCSV = (): ((
-  timeRange: TimeRange,
-  lines: Channel.LineProps[],
-) => void) => {
+interface DownloadArgs extends Omit<DownloadProps, "client"> {}
+
+export const useDownloadAsCSV = (): ((args: DownloadArgs) => void) => {
   const handleError = Status.useErrorHandler();
   const client = PSynnax.use();
-  return (timeRange: TimeRange, lines: Channel.LineProps[]) =>
-    handleError(() => download({ timeRange, lines, client }), "Failed to download CSV");
+  return ({ timeRange, lines, name }: DownloadArgs) =>
+    handleError(async () => {
+      if (client == null) throw NULL_CLIENT_ERROR;
+      await download({ timeRange, lines, client, name });
+    }, "Failed to download CSV");
 };
