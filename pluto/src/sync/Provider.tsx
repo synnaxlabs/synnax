@@ -30,11 +30,8 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
   const handleError = Status.useErrorHandler();
 
   useAsyncEffect(async () => {
-    if (client == null) {
-      streamerRef.current?.close();
-      streamerRef.current = null;
-      return;
-    }
+    if (client == null) return;
+
     try {
       streamerRef.current = await framer.HardenedStreamer.open(
         async (cfg) => await client.openStreamer(cfg),
@@ -59,7 +56,10 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
         }
       });
     });
-    return async () => await observableStreamer.close();
+    return async () => {
+      await observableStreamer.close();
+      streamerRef.current = null;
+    };
   }, [client, handleError]);
 
   const updateStreamer = useCallback(async () => {
