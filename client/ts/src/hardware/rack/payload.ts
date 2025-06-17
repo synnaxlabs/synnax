@@ -16,7 +16,7 @@ export type Key = z.infer<typeof keyZ>;
 
 export const stateZ = z.object({
   key: keyZ,
-  variant: status.variantZ.or(z.literal("").transform(() => "info")),
+  variant: status.variantZ.or(z.literal("").transform<"info">(() => "info")),
   message: z.string(),
   lastReceived: TimeStamp.z,
 });
