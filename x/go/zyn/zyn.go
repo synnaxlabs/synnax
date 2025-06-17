@@ -115,7 +115,7 @@ var (
 		[]DataType{ObjectT},
 		IntegerTypes,
 	)
-	TypesZ = Enum(Types...)
+	AnyTypeZ = Enum(Types...)
 )
 
 func Primitive() UnionZ { return Union(Number(), String(), Bool()) }

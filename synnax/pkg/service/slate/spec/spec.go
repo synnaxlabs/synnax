@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/annotation"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/status"
@@ -114,6 +115,7 @@ var schemaMatchers = []SchemaMatcher{
 type Config struct {
 	Channel        channel.Service
 	Framer         *framer.Service
+	Ranger         *ranger.Service
 	Annotation     *annotation.Service
 	OnStatusChange func(ctx context.Context, status status.Status[any])
 }

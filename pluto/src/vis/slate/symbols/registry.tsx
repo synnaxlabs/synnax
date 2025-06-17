@@ -35,7 +35,7 @@ export const REGISTRY: Record<string, Group> = {
   basic: {
     key: "basic",
     name: "Basic",
-    icon: <Icon.Add />,
+    icon: <Icon.Schematic />,
     symbols: {
       ...Constant.SYMBOLS,
       ...Status.SYMBOLS,

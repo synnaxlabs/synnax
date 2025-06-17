@@ -23,6 +23,26 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/zyn"
+)
+
+type Stage string
+
+func (s Stage) EarlierThan(other Stage) bool {
+	sIdx := lo.IndexOf(Statuses, s)
+	otherIdx := lo.IndexOf(Statuses, other)
+	return sIdx < otherIdx
+}
+
+const (
+	ToDo       Stage = "to_do"
+	InProgress Stage = "in_progress"
+	Completed  Stage = "completed"
+)
+
+var (
+	Statuses = []Stage{ToDo, InProgress, Completed}
+	StatusZ  = zyn.Enum(ToDo, InProgress, Completed)
 )
 
 // Range (short for time range) is an interesting, user defined regions of time in a
@@ -41,7 +61,17 @@ type Range struct {
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is the color used to represent the range in the UI.
 	Color string `json:"color" msgpack:"color"`
+	// Stage
+	Stage Stage `json:"stage" msgpack:"stage"`
 }
+
+var RangeZ = zyn.Object(map[string]zyn.Z{
+	"key":        zyn.UUID(),
+	"name":       zyn.String(),
+	"time_range": telem.TimeRangeZ,
+	"color":      zyn.String(),
+	"status":     StatusZ,
+})
 
 var _ gorp.Entry[uuid.UUID] = Range{}
 

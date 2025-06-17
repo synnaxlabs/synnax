@@ -220,7 +220,7 @@ var _ = Describe("Tracker", Ordered, func() {
 		})
 	})
 
-	Describe("Tracking Task Status", func() {
+	Describe("Tracking Task Stage", func() {
 		It("Should correctly update the state of a task", func() {
 			rack := &rack.Rack{Name: "rack1"}
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
@@ -289,7 +289,7 @@ var _ = Describe("Tracker", Ordered, func() {
 		})
 	})
 
-	Describe("Communicating Through Task Status when a Rack Has Died", func() {
+	Describe("Communicating Through Task Stage when a Rack Has Died", func() {
 		BeforeEach(func() {
 			cfg.RackStateAliveThreshold = 5 * telem.Millisecond
 		})
@@ -321,7 +321,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(s.Time).To(BeNumerically(">", telem.Now()-10*telem.SecondTS))
 		})
 	})
-	Describe("Communicating Through Task Status when a Rack is Alive", func() {
+	Describe("Communicating Through Task Stage when a Rack is Alive", func() {
 		BeforeEach(func() {
 			cfg.RackStateAliveThreshold = 10 * telem.Second
 		})

@@ -41,7 +41,6 @@ export const Create = ({ range }: CreateProps) => (
         Icon: Icon.Completed,
       },
     ]}
-    sources={[{ key: "output", Icon: Icon.Completed }]}
   >
     <Align.Space direction="x" align="center" size="small">
       {range.color != null && <Color.Swatch value={range.color} size="tiny" />}
