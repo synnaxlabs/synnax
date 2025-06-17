@@ -248,7 +248,7 @@ export const useLifecycle = <S extends z.ZodType<state.State>>({
   const setState = useCallback(
     (state: z.input<S>, transfer: Transferable[] = []) =>
       comms.current?.setState(prettyParse(schema, state), transfer),
-    [],
+    [schema],
   );
 
   // We run the first effect synchronously so that parent components are created
