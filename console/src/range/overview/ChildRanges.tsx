@@ -61,7 +61,7 @@ export interface ChildRangesProps {
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const children = Ranger.useChildRanges(rangeKey);
+  const children = Ranger.useRetrieveChildRanges(rangeKey);
   const childRanges = useMemo(() => children.map(({ payload }) => payload), [children]);
   const placeLayout = Layout.usePlacer();
   return (

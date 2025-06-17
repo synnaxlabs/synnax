@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/ranger/childRangeHooks";
 export * from "@/ranger/Select";
 export * from "@/ranger/SelectLabel";
 export * from "@/ranger/synchronizers";
 export * from "@/ranger/TimeRangeChip";
 export * from "@/ranger/types";
+export * from "@/ranger/useRetrieve";

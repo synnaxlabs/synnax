@@ -39,7 +39,7 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const parent = Ranger.useParentRange(rangeKey);
+  const parent = Ranger.useRetrieveParentRange(rangeKey);
   const placeLayout = Layout.usePlacer();
 
   if (parent == null) return null;

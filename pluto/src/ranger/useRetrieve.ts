@@ -12,7 +12,7 @@ import { ranger } from "@synnaxlabs/client";
 import { Ontology } from "@/ontology";
 import { Synnax } from "@/synnax";
 
-export const useChildRanges = (key: ranger.Key): ranger.Range[] => {
+export const useRetrieveChildRanges = (key: ranger.Key): ranger.Range[] => {
   const children = Ontology.useChildren(ranger.ontologyID(key)).filter(
     ({ id: { type } }) => type === ranger.ONTOLOGY_TYPE,
   );
@@ -21,7 +21,7 @@ export const useChildRanges = (key: ranger.Key): ranger.Range[] => {
   return children.map((child) => client.ranges.sugarOntologyResource(child));
 };
 
-export const useParentRange = (key: ranger.Key): ranger.Range | null => {
+export const useRetrieveParentRange = (key: ranger.Key): ranger.Range | null => {
   const parent = Ontology.useParents(ranger.ontologyID(key)).find(
     ({ id: { type } }) => type === ranger.ONTOLOGY_TYPE,
   );
