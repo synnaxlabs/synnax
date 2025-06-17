@@ -18,7 +18,7 @@ export type Key = z.infer<typeof keyZ>;
 
 export const stateZ = z.object({
   key: keyZ,
-  variant: status.variantZ,
+  variant: status.variantZ.or(z.literal("").transform(() => "info")),
   details: unknownRecordZ.or(z.string().transform(decodeJSONString)),
 });
 
