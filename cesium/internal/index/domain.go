@@ -31,7 +31,15 @@ type Domain struct {
 	Channel core.Channel
 }
 
-var sampleDensity = int64(telem.TimeStampT.Density())
+var sampleDensity = telem.TimeStampT.Density()
+
+func sampleCount(size telem.Size) int64 {
+	return sampleDensity.SampleCount(size)
+}
+
+func byteSize(sampleCount int64) telem.Size {
+	return sampleDensity.Size(sampleCount)
+}
 
 // Distance calculates an approximate distance (arithmetic difference in offset)
 // between the start and end timestamps of the given time range. If continuous is
@@ -72,7 +80,7 @@ func (i *Domain) Distance(
 		return
 	}
 
-	effectiveDomainTR, _ := resolveEffectiveDomainTR(iter)
+	effectiveDomainTR, _ := resolveForwardEffectiveDomainTR(iter)
 	if !iter.SeekFirst(ctx) {
 		// Reset the iterator position after using it to determine effective bound.
 		// A result of false in this case should be impossible, as we already validated
@@ -133,11 +141,11 @@ func (i *Domain) Distance(
 
 	var (
 		// Length of the current domain
-		l = r.Len() / sampleDensity
-		// The accumulated gap as we move through domains
-		gap int64 = 0
+		domainLen = sampleCount(r.Size())
+		// the total number of samples traversed as we move through domains
+		totalTraversed int64 = 0
 		// Distance from the end of the domain to the start approximation.
-		startToFirstEnd = Between(l-startApprox.Upper, l-startApprox.Lower)
+		startToFirstEnd = Between(domainLen-startApprox.Upper, domainLen-startApprox.Lower)
 	)
 
 	for {
@@ -147,10 +155,10 @@ func (i *Domain) Distance(
 				return
 			}
 			approx.Approximation = Between(
-				startToFirstEnd.Lower+gap,
-				startToFirstEnd.Upper+gap,
+				startToFirstEnd.Lower+totalTraversed,
+				startToFirstEnd.Upper+totalTraversed,
 			)
-			alignment = telem.NewAlignment(iter.Position(), uint32(iter.Len()/sampleDensity))
+			alignment = telem.NewAlignment(iter.Position(), uint32(sampleCount(iter.Size())))
 			return
 		}
 		if iter.TimeRange().ContainsStamp(tr.End) {
@@ -166,12 +174,12 @@ func (i *Domain) Distance(
 			approx.EndExact = endApprox.Exact()
 			alignment = telem.NewAlignment(iter.Position(), uint32(endApprox.Lower))
 			approx.Approximation = Between(
-				startToFirstEnd.Lower+gap+endApprox.Lower,
-				startToFirstEnd.Upper+gap+endApprox.Upper,
+				startToFirstEnd.Lower+totalTraversed+endApprox.Lower,
+				startToFirstEnd.Upper+totalTraversed+endApprox.Upper,
 			)
 			return
 		}
-		gap += iter.Len() / sampleDensity
+		totalTraversed += sampleCount(iter.Size())
 	}
 }
 
@@ -188,20 +196,63 @@ func (i *Domain) Stamp(
 ) (approx TimeStampApproximation, err error) {
 	ctx, span := i.T.Bench(ctx, "stamp")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
+	if offset == 0 {
+		approx, err = i.zeroStamp(ctx, ref)
+	} else if offset < 0 {
+		approx, err = i.backwardStamp(ctx, ref, offset, continuous)
+	} else {
+		approx, err = i.forwardStamp(ctx, ref, offset, continuous)
+	}
+	return approx, err
+}
+
+func (i *Domain) zeroStamp(
+	ctx context.Context,
+	ref telem.TimeStamp,
+) (approx TimeStampApproximation, err error) {
+	iter := i.DB.OpenIterator(domain.IterRange(ref.Range(ref + 1)))
+	defer func() { err = errors.Combine(err, iter.Close()) }()
+	if !iter.SeekFirst(ctx) {
+		err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp start timestamp %s", ref)
+		return
+	}
+	var r *domain.Reader
+	r, err = iter.OpenReader(ctx)
+	if err != nil {
+		return
+	}
+	defer func() { err = errors.Combine(err, r.Close()) }()
+	startApprox, err := i.search(ref, r)
+	readStamp := newStampReader()
+	if !startApprox.Exact() {
+		approx.Upper, err = readStamp(r, byteSize(startApprox.Upper))
+		return
+	}
+	s, err := readStamp(r, byteSize(startApprox.Upper))
+	approx = Exactly[telem.TimeStamp](s)
+	return approx, err
+}
+
+func (i *Domain) forwardStamp(
+	ctx context.Context,
+	ref telem.TimeStamp,
+	offset int64,
+	continuous bool,
+) (approx TimeStampApproximation, err error) {
 
 	iter := i.DB.OpenIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 
 	if !iter.SeekFirst(ctx) {
-		err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp start timestamp %s", ref)
+		err = NewErrDiscontinuousStamp(ref)
 		return
 	}
 
-	effectiveDomainBounds, effectiveDomainLen := resolveEffectiveDomainTR(iter)
+	effectiveDomainBounds, effectiveDomainLen := resolveForwardEffectiveDomainTR(iter)
 
 	if !effectiveDomainBounds.ContainsStamp(ref) ||
-		(continuous && offset >= effectiveDomainLen/sampleDensity) {
-		err = NewErrDiscontinuousStamp(offset, effectiveDomainLen/sampleDensity)
+		(continuous && offset >= effectiveDomainLen) {
+		err = NewErrDiscontinuousOffset(offset, effectiveDomainLen)
 		return
 	}
 
@@ -221,20 +272,9 @@ func (i *Domain) Stamp(
 		return
 	}
 
-	readStamp := newStampReader()
-
-	if offset == 0 {
-		if !startApprox.Exact() {
-			approx.Upper, err = readStamp(r, startApprox.Upper*sampleDensity)
-			return
-		}
-		s, err := readStamp(r, startApprox.Upper*sampleDensity)
-		approx = Exactly[telem.TimeStamp](s)
-		return approx, err
-	}
-
 	// endOffset is the upper-bound distance of the desired sample from the start of the
 	// domain.
+	domainLen := sampleCount(iter.Size())
 	endOffset := startApprox.Upper + offset
 
 	// If the upper and lower bounds are exact of the startOffset are exact, then if the
@@ -242,27 +282,27 @@ func (i *Domain) Stamp(
 	// If they are not exact, and the lower bound is the last sample, then the upper
 	// bound must be discontinuous as well.
 	if continuous {
-		if (startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen/sampleDensity) ||
-			(!startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen/sampleDensity-1) {
-			err = NewErrDiscontinuousStamp(startApprox.Upper+offset, effectiveDomainLen/sampleDensity)
+		if (startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen) ||
+			(!startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen-1) {
+			err = NewErrDiscontinuousOffset(startApprox.Upper+offset, effectiveDomainLen)
 			return
 		}
 	}
 
-	gap := iter.Len() / sampleDensity
-	if endOffset >= iter.Len()/sampleDensity {
+	totalTraversed := domainLen
+	if endOffset >= domainLen {
 		for {
 			if !iter.Next() {
-				// exhausted
 				if continuous {
-					err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp end with offset %d", offset)
+					err = NewErrDiscontinuousOffset(endOffset, effectiveDomainLen)
 					return
 				}
 				approx = Between(iter.TimeRange().End, telem.TimeStampMax)
 				return
 			}
-			gap += iter.Len() / sampleDensity
-			if endOffset < gap {
+			domainLen = sampleCount(iter.Size())
+			totalTraversed += domainLen
+			if endOffset < totalTraversed {
 				if err = r.Close(); err != nil {
 					return
 				}
@@ -270,65 +310,203 @@ func (i *Domain) Stamp(
 				if err != nil {
 					return
 				}
-				endOffset -= gap - iter.Len()/sampleDensity
+				endOffset -= totalTraversed - domainLen
 				break
 			}
 		}
 	}
 
-	upperTs, err := readStamp(r, endOffset*sampleDensity)
+	upperTSByteOffset := byteSize(endOffset)
+	lowerTSOffset := endOffset - startApprox.Span()
+	lowerTSByteOffset := byteSize(lowerTSOffset)
+	return i.approximateStamp(
+		ctx,
+		r,
+		iter,
+		endOffset,
+		effectiveDomainLen,
+		upperTSByteOffset,
+		lowerTSByteOffset,
+	)
+}
+
+func (i *Domain) approximateStamp(
+	ctx context.Context,
+	r *domain.Reader,
+	iter *domain.Iterator,
+	endOffset int64,
+	effectiveDomainLen int64,
+	upperTSByteOffset,
+	lowerTSByteOffset telem.Size,
+) (TimeStampApproximation, error) {
+	readStamp := newStampReader()
+	upperTS, err := readStamp(r, upperTSByteOffset)
 	if err != nil {
-		return
+		return TimeStampApproximation{}, err
 	}
-
-	if endOffset-(startApprox.Upper-startApprox.Lower) >= 0 {
-		// normal case
-		lowerTs, err := readStamp(
-			r,
-			(endOffset-(startApprox.Upper-startApprox.Lower))*sampleDensity,
-		)
-		return Between(lowerTs, upperTs), err
+	if lowerTSByteOffset >= 0 {
+		lowerTs, err := readStamp(r, lowerTSByteOffset)
+		return Between(lowerTs, upperTS), err
 	}
-
 	// Edge case: end timestamps are split between two different files, so we must go
 	// back to read the lower bound.
 	if !iter.Prev() {
 		i.L.DPanic("iterator prev failed in stamp")
-		err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp end with offset %d", offset)
-		return
+		return TimeStampApproximation{}, NewErrDiscontinuousOffset(endOffset, effectiveDomainLen)
 	}
 	if err = r.Close(); err != nil {
-		return
+		return TimeStampApproximation{}, err
 	}
 	if r, err = iter.OpenReader(ctx); err != nil {
-		return
+		return TimeStampApproximation{}, err
 	}
-	lowerTs, err := readStamp(
-		r,
-		iter.Len()+(endOffset-(startApprox.Upper-startApprox.Lower))*sampleDensity,
-	)
-	return Between(lowerTs, upperTs), err
+	lowerTS, err := readStamp(r, iter.Size()+lowerTSByteOffset)
+	return Between(lowerTS, upperTS), err
 }
 
-// resolveEffectiveDomainTR returns the TimeRange and length of the underlying domain(s).
-// The effective domain can be many continuous domains as long as they're immediately
-// continuous, i.e. the end of one domain is the start of the other.
-func resolveEffectiveDomainTR(i *domain.Iterator) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
-	effectiveDomainBounds = i.TimeRange()
-	effectiveDomainLen = i.Len()
+// BackwardStamp calculates an approximate starting timestamp for a range given a known distance
+// in the number of samples, working backwards from the reference timestamp. This operation
+// is similar to Stamp but works in the reverse direction.
+func (i *Domain) backwardStamp(
+	ctx context.Context,
+	ref telem.TimeStamp,
+	offset int64,
+	continuous bool,
+) (approx TimeStampApproximation, err error) {
+	ctx, span := i.T.Bench(ctx, "backward_stamp")
+	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
+	absOffset := -offset
 
+	iter := i.DB.OpenIterator(domain.IterRange(telem.TimeStamp(0).Range(ref + 1)))
+	defer func() { err = errors.Combine(err, iter.Close()) }()
+
+	if !iter.SeekLast(ctx) {
+		err = NewErrDiscontinuousStamp(ref)
+		return
+	}
+
+	effectiveDomainBounds, effectiveDomainLen := resolveBackwardEffectiveDomainTR(iter)
+
+	if ref == effectiveDomainBounds.End {
+		ref -= 1
+	}
+
+	if (!effectiveDomainBounds.ContainsStamp(ref)) ||
+		(continuous && absOffset >= effectiveDomainLen) {
+		err = NewErrDiscontinuousOffset(offset, effectiveDomainLen)
+		return
+	}
+
+	if !iter.SeekLast(ctx) {
+		// Reset the iterator position after using it to determine effective bound.
+		i.L.DPanic("iterator seekFirst failed in stamp")
+	}
+
+	r, err := iter.OpenReader(ctx)
+	if err != nil {
+		return
+	}
+	defer func() { err = errors.Combine(err, r.Close()) }()
+
+	startApprox, err := i.search(ref, r)
+	if err != nil {
+		return
+	}
+
+	// endOffset is the lower-bound distance of the desired sample from the end of the
+	// domain.
+	domainLen := sampleCount(iter.Size())
+	endOffset := domainLen - startApprox.Upper - offset
+
+	// If the upper and lower bounds are exact of the startOffset are exact, then if the
+	// lower is out of the file, the stamp is discontinuous.
+	// If they are not exact, and the lower bound is the first sample, then the upper
+	// bound must be discontinuous as well.
+	if continuous && endOffset+startApprox.Span() > effectiveDomainLen {
+		err = NewErrDiscontinuousOffset(endOffset, 0)
+		return
+	}
+
+	totalTraversed := domainLen
+	if endOffset >= domainLen {
+		for {
+			if !iter.Prev() {
+				if continuous {
+					err = NewErrDiscontinuousOffset(endOffset, domainLen)
+					return
+				}
+				approx = Between(telem.TimeStampMin, iter.TimeRange().Start)
+				return
+			}
+			domainLen = sampleCount(iter.Size())
+			totalTraversed += domainLen
+			if endOffset <= totalTraversed {
+				if err = r.Close(); err != nil {
+					return
+				}
+				r, err = iter.OpenReader(ctx)
+				if err != nil {
+					return
+				}
+				endOffset -= totalTraversed - domainLen
+				break
+			}
+		}
+	}
+
+	upperTSByteOffset := iter.Size() - byteSize(endOffset)
+	lowerTSByteOffset := iter.Size() - byteSize(endOffset+startApprox.Span())
+	return i.approximateStamp(
+		ctx,
+		r,
+		iter,
+		endOffset,
+		effectiveDomainLen,
+		upperTSByteOffset,
+		lowerTSByteOffset,
+	)
+}
+
+// resolveForwardEffectiveDomainTR returns the TimeRange and length of the underlying domain(s).
+// The effective domain can be many continuous domains as long as they're immediately
+// continuous, i.e., the end of one domain is the start of the other.
+func resolveForwardEffectiveDomainTR(i *domain.Iterator) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
+	effectiveDomainBounds = i.TimeRange()
+	effectiveDomainLen = sampleCount(i.Size())
 	for {
 		currentDomainEnd := i.TimeRange().End
 		if !i.Next() {
-			return
+			return effectiveDomainBounds, effectiveDomainLen
 		}
 		nextDomainStart := i.TimeRange().Start
 
 		if currentDomainEnd != nextDomainStart {
-			return
+			return effectiveDomainBounds, effectiveDomainLen
 		}
 		effectiveDomainBounds.End = i.TimeRange().End
-		effectiveDomainLen += i.Len()
+		effectiveDomainLen += sampleCount(i.Size())
+	}
+}
+
+// resolveForwardEffectiveDomainTR returns the TimeRange and length of the underlying domain(s).
+// The effective domain can be many continuous domains as long as they're immediately
+// continuous, i.e., the end of one domain is the start of the other.
+func resolveBackwardEffectiveDomainTR(i *domain.Iterator) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
+	effectiveDomainBounds = i.TimeRange()
+	effectiveDomainLen = sampleCount(i.Size())
+
+	for {
+		currentDomainStart := i.TimeRange().Start
+		if !i.Prev() {
+			return effectiveDomainBounds, effectiveDomainLen
+		}
+		previousDomainEnd := i.TimeRange().End
+
+		if currentDomainStart != previousDomainEnd {
+			return effectiveDomainBounds, effectiveDomainLen
+		}
+		effectiveDomainBounds.Start = i.TimeRange().Start
+		effectiveDomainLen += sampleCount(i.Size())
 	}
 }
 
@@ -337,14 +515,14 @@ func resolveEffectiveDomainTR(i *domain.Iterator) (effectiveDomainBounds telem.T
 func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (Approximation[int64], error) {
 	var (
 		start int64 = 0
-		end         = (r.Len() / sampleDensity) - 1
+		end         = sampleCount(r.Size()) - 1
 		read        = newStampReader()
 		midTs telem.TimeStamp
 		err   error
 	)
 	for start <= end {
 		mid := (start + end) / 2
-		if midTs, err = read(r, mid*sampleDensity); err != nil {
+		if midTs, err = read(r, byteSize(mid)); err != nil {
 			return Exactly[int64](0), err
 		}
 		if ts == midTs {
@@ -358,13 +536,12 @@ func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (Approximation[int
 	return Between(end, end+1), nil
 }
 
-func newStampReader() func(r io.ReaderAt, offset int64) (telem.TimeStamp, error) {
+func newStampReader() func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, error) {
 	buf := make([]byte, sampleDensity)
-	return func(r io.ReaderAt, offset int64) (telem.TimeStamp, error) {
-		_, err := r.ReadAt(buf, offset)
+	return func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, error) {
+		_, err := r.ReadAt(buf, int64(offset))
 		return telem.UnmarshalTimeStamp[telem.TimeStamp](buf), err
 	}
-
 }
 
 // Info returns the key and name of the channel of the index. If the database is

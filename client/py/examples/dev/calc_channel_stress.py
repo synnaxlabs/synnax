@@ -162,6 +162,5 @@ with client.open_writer(
             data_to_write[ch.key] = ((j + 1) * 0.1 * i + j) % WRAP_THRESHOLD
 
         # Write the data
-        if not writer.write(data_to_write):
-            break
+        writer.write(data_to_write)
         i += 1

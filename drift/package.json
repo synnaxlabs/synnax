@@ -30,12 +30,12 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-redux": "^9.2.0",
-    "zod": "^3.25.58"
+    "zod": "^3.25.63"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/react": "^19.1.7",
+    "@types/react": "^19.1.8",
     "@vitejs/plugin-react": "^4.5.2",
     "electron": "^36.4.0",
     "eslint": "^9.28.0",
