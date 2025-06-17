@@ -13,5 +13,6 @@ export * from "@/hooks/useClickOutside";
 export * from "@/hooks/useDebouncedCallback";
 export * from "@/hooks/useDelayedState";
 export * from "@/hooks/useFilter";
+export * from "@/hooks/useRequiredContext";
 export * from "@/hooks/useResize";
 export * from "@/hooks/useTransforms";

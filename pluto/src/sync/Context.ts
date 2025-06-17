@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createContext, use } from "react";
+import { createContext } from "react";
 
+import { useRequiredContext } from "@/hooks";
 import { type ListenerAdder } from "@/sync/types";
 
-export const Context = createContext<ListenerAdder>(() => {
-  throw new Error("Sync.useAddListener must be used within a Sync.Provider component");
-});
+export const Context = createContext<ListenerAdder | null>(null);
 
-export const useAddListener = (): ListenerAdder => use(Context);
+export const useAddListener = (): ListenerAdder => useRequiredContext(Context);
