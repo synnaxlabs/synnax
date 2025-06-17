@@ -12,9 +12,9 @@ import { describe, expect, it } from "vitest";
 import { ZodError } from "zod/v4";
 
 import { NotFoundError } from "@/errors";
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/newTestClient";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Rack", () => {
   describe("create", () => {

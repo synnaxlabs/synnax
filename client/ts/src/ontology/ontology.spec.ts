@@ -10,9 +10,9 @@
 import { describe, expect, it, test } from "vitest";
 
 import { ontology } from "@/ontology";
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/newTestClient";
 
-const client = newClient();
+const client = newTestClient();
 
 const randomName = (): string => `group-${Math.random()}`;
 

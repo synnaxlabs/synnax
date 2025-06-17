@@ -18,10 +18,10 @@ import {
   parseStreamerConfig,
   type Streamer,
 } from "@/framer/streamer";
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/newTestClient";
 import { newVirtualChannel } from "@/testutil/channels";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Streamer", () => {
   describe("standard", () => {

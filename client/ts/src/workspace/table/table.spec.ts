@@ -10,9 +10,9 @@
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/newTestClient";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Table", () => {
   describe("create", () => {

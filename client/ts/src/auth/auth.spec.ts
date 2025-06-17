@@ -13,7 +13,7 @@ import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
 import { AuthError, ExpiredTokenError, InvalidTokenError } from "@/errors";
-import { HOST, PORT } from "@/setupspecs";
+import { DEFAULT_PROPS } from "@/testutil/newTestClient";
 import { Transport } from "@/transport";
 
 const DUMMY_CTX: Context = {
@@ -25,20 +25,21 @@ const DUMMY_CTX: Context = {
 
 describe("auth", () => {
   test("valid credentials", async () => {
-    const transport = new Transport(new URL({ host: HOST, port: PORT }));
-    const client = new auth.Client(transport.unary, {
-      username: "synnax",
-      password: "seldon",
-    });
+    const transport = new Transport(
+      new URL({ host: DEFAULT_PROPS.host, port: Number(DEFAULT_PROPS.port) }),
+    );
+    const client = new auth.Client(transport.unary, DEFAULT_PROPS);
     const mw = client.middleware();
     const res = await mw(DUMMY_CTX, async () => [DUMMY_CTX, null]);
     expect(res).toEqual([DUMMY_CTX, null]);
   });
 
   test("invalid credentials", async () => {
-    const transport = new Transport(new URL({ host: HOST, port: PORT }));
+    const transport = new Transport(
+      new URL({ host: DEFAULT_PROPS.host, port: Number(DEFAULT_PROPS.port) }),
+    );
     const client = new auth.Client(transport.unary, {
-      username: "synnax",
+      ...DEFAULT_PROPS,
       password: "wrong",
     });
     const mw = client.middleware();
@@ -50,11 +51,10 @@ describe("auth", () => {
     const ERROR_TYPES = [InvalidTokenError, ExpiredTokenError];
     ERROR_TYPES.forEach((ErrorType) => {
       it(`should re-authenticate and retry the request for ${ErrorType.name}`, async () => {
-        const transport = new Transport(new URL({ host: HOST, port: PORT }));
-        const client = new auth.Client(transport.unary, {
-          username: "synnax",
-          password: "seldon",
-        });
+        const transport = new Transport(
+          new URL({ host: DEFAULT_PROPS.host, port: Number(DEFAULT_PROPS.port) }),
+        );
+        const client = new auth.Client(transport.unary, DEFAULT_PROPS);
         const mw = client.middleware();
         let isFirst = true;
         let tkOne: string | undefined;
@@ -75,11 +75,10 @@ describe("auth", () => {
     });
 
     it("should fail after MAX_RETRIES", async () => {
-      const transport = new Transport(new URL({ host: HOST, port: PORT }));
-      const client = new auth.Client(transport.unary, {
-        username: "synnax",
-        password: "seldon",
-      });
+      const transport = new Transport(
+        new URL({ host: DEFAULT_PROPS.host, port: Number(DEFAULT_PROPS.port) }),
+      );
+      const client = new auth.Client(transport.unary, DEFAULT_PROPS);
       const mw = client.middleware();
       const [, err] = await mw(DUMMY_CTX, async () => [
         DUMMY_CTX,

@@ -13,9 +13,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { type channel } from "@/channel";
 import { WriteAdapter } from "@/framer/adapter";
 import { Frame } from "@/index";
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/newTestClient";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("WriteFrameAdapter", () => {
   let timeCh: channel.Channel;

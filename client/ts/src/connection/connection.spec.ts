@@ -13,16 +13,15 @@ import { z } from "zod/v4";
 
 import { auth } from "@/auth";
 import { connection } from "@/connection";
-import { HOST, PORT } from "@/setupspecs";
+import { DEFAULT_PROPS } from "@/testutil/newTestClient";
 import { Transport } from "@/transport";
 
 describe("connectivity", () => {
   it("should connect to the server", async () => {
-    const transport = new Transport(new URL({ host: HOST, port: PORT }));
-    const client = new auth.Client(transport.unary, {
-      username: "synnax",
-      password: "seldon",
-    });
+    const transport = new Transport(
+      new URL({ host: DEFAULT_PROPS.host, port: Number(DEFAULT_PROPS.port) }),
+    );
+    const client = new auth.Client(transport.unary, DEFAULT_PROPS);
     transport.use(client.middleware());
     const connectivity = new connection.Checker(
       transport.unary,
@@ -35,11 +34,10 @@ describe("connectivity", () => {
   });
   describe("version compatibility", () => {
     it("should pull the server and client versions", async () => {
-      const transport = new Transport(new URL({ host: HOST, port: PORT }));
-      const client = new auth.Client(transport.unary, {
-        username: "synnax",
-        password: "seldon",
-      });
+      const transport = new Transport(
+        new URL({ host: DEFAULT_PROPS.host, port: Number(DEFAULT_PROPS.port) }),
+      );
+      const client = new auth.Client(transport.unary, DEFAULT_PROPS);
       transport.use(client.middleware());
       const connectivity = new connection.Checker(
         transport.unary,
@@ -51,11 +49,10 @@ describe("connectivity", () => {
       expect(state.clientVersion).toBe(__VERSION__);
     });
     it("should adjust state if the server is too old", async () => {
-      const transport = new Transport(new URL({ host: HOST, port: PORT }));
-      const client = new auth.Client(transport.unary, {
-        username: "synnax",
-        password: "seldon",
-      });
+      const transport = new Transport(
+        new URL({ host: DEFAULT_PROPS.host, port: Number(DEFAULT_PROPS.port) }),
+      );
+      const client = new auth.Client(transport.unary, DEFAULT_PROPS);
       transport.use(client.middleware());
       const connectivity = new connection.Checker(
         transport.unary,
@@ -67,11 +64,10 @@ describe("connectivity", () => {
       expect(state.clientVersion).toBe("50000.0.0");
     });
     it("should adjust state if the server is too new", async () => {
-      const transport = new Transport(new URL({ host: HOST, port: PORT }));
-      const client = new auth.Client(transport.unary, {
-        username: "synnax",
-        password: "seldon",
-      });
+      const transport = new Transport(
+        new URL({ host: DEFAULT_PROPS.host, port: Number(DEFAULT_PROPS.port) }),
+      );
+      const client = new auth.Client(transport.unary, DEFAULT_PROPS);
       transport.use(client.middleware());
       const connectivity = new connection.Checker(transport.unary, undefined, "0.0.0");
       const state = await connectivity.check();

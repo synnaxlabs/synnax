@@ -12,14 +12,13 @@ import { describe, expect, test } from "vitest";
 
 import { type policy } from "@/access/policy";
 import { channel } from "@/channel";
-import Synnax from "@/client";
 import { AuthError } from "@/errors";
 import { label } from "@/label";
-import { HOST, newClient, PORT } from "@/setupspecs";
+import { newTestClient } from "@/testutil/newTestClient";
 import { user } from "@/user";
 import { schematic } from "@/workspace/schematic";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Policy", () => {
   describe("create", () => {
@@ -291,12 +290,7 @@ describe("privilege", async () => {
     const username = id.create();
     const user2 = await client.user.create({ username, password: "pwd1" });
     expect(user2).toBeDefined();
-    const client2 = new Synnax({
-      host: HOST,
-      port: PORT,
-      username: user2.username,
-      password: "pwd1",
-    });
+    const client2 = newTestClient({ username: user2.username, password: "pwd1" });
     await expect(
       client2.user.create({ username: id.create(), password: id.create() }),
     ).rejects.toThrow(AuthError);
