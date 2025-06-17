@@ -18,8 +18,8 @@ import {
   parseStreamerConfig,
   type Streamer,
 } from "@/framer/streamer";
-import { newTestClient } from "@/testutil/newTestClient";
 import { newVirtualChannel } from "@/testutil/channels";
+import { newTestClient } from "@/testutil/newTestClient";
 
 const client = newTestClient();
 

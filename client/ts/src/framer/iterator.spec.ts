@@ -11,8 +11,8 @@ import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, test } from "vitest";
 
 import { AUTO_SPAN } from "@/framer/iterator";
-import { newTestClient } from "@/testutil/newTestClient";
 import { newIndexedPair } from "@/testutil/channels";
+import { newTestClient } from "@/testutil/newTestClient";
 import { secondsLinspace } from "@/testutil/telem";
 import { randomSeries } from "@/util/telem";
 
