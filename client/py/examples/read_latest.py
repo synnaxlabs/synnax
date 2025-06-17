@@ -8,9 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 """
-This example demonstrates the basics of reading and writing data from an index and data
-channel in Synnax. We'll write data to an index and data channel in the Synnax cluster,
-and then read the data back from the cluster and plot it.
+This example demonstrates how to read the latest N samples from Synnax channels. We'll:
+1. Create an index channel for timestamps and a data channel for values
+2. Write some sample data to these channels
+3. Read the latest N samples using an iterator
+4. Print the results
+
+This pattern is useful for real-time monitoring applications where you need to access
+the most recent data points.
 """
 
 import matplotlib.pyplot as plt
