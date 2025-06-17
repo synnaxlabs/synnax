@@ -58,3 +58,15 @@
 .pluto-icon--completed {
     color: var(--pluto-primary-z);
 }
+
+.pluto-icon--boolean {
+    fill: currentColor;
+}
+
+.pluto-icon--true {
+    color: var(--pluto-success-z);
+}
+
+.pluto-icon--false {
+    color: var(--pluto-error-z);
+}

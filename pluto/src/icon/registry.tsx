@@ -50,7 +50,7 @@ import {
   FaWind,
   FaWindows,
 } from "react-icons/fa";
-import { FaBridge, FaGaugeHigh, FaGear } from "react-icons/fa6";
+import { FaBridge, FaCheck, FaGaugeHigh, FaGear, FaXmark } from "react-icons/fa6";
 import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
@@ -154,6 +154,7 @@ import {
   RiSettings3Fill as RiSettingsFill,
   RiWeightFill,
 } from "react-icons/ri";
+import { RxComponentBoolean } from "react-icons/rx";
 import {
   SiGooglenearby,
   SiNpm,
@@ -181,7 +182,12 @@ import {
   TbRadarFilled,
   TbVariable,
 } from "react-icons/tb";
-import { VscSplitHorizontal, VscSplitVertical, VscSymbolString } from "react-icons/vsc";
+import {
+  VscSplitHorizontal,
+  VscSplitVertical,
+  VscSymbolConstant,
+  VscSymbolString,
+} from "react-icons/vsc";
 
 import { CSS } from "@/css";
 import {
@@ -473,6 +479,10 @@ export const Notification = wrapSVGIcon(IoNotifications, "notification");
 export const InProgress = wrapSVGIcon(RiProgress4Line, "in-progress");
 export const Completed = wrapSVGIcon(RiProgress8Line, "completed");
 export const ToDo = wrapSVGIcon(RiProgress1Line, "to-do");
+export const Constant = wrapSVGIcon(VscSymbolConstant, "constant");
+export const Boolean = wrapSVGIcon(RxComponentBoolean, "boolean");
+export const True = wrapSVGIcon(FaCheck, "true");
+export const False = wrapSVGIcon(FaXmark, "false");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -607,6 +617,11 @@ const icons = {
   Slate,
   Select,
   Notification,
+  InProgress,
+  Completed,
+  ToDo,
+  Constant,
+  Boolean,
 };
 
 export const resolve = ((

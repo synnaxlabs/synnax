@@ -1,52 +1,50 @@
 import { type FC } from "react";
 
-import { Align } from "@/align";
+import { Icon } from "@/icon";
 import { Text } from "@/text";
-import { Handle } from "@/vis/slate/handle";
+import { Minimal } from "@/vis/slate/symbols/Base";
 
-export const createOperator = (operator: string, single: boolean = false): FC => {
+export const createOperator = (
+  operator: string,
+  single: boolean = false,
+  inputIcon: Icon.IconFC = Icon.Value,
+  outputIcon: Icon.IconFC = Icon.Boolean,
+): FC => {
   const C = () => (
-    <Align.Space
-      x
-      style={{
-        width: "5rem",
-        height: "5rem",
-      }}
-      bordered
-      background={1}
-      borderShade={6}
-      rounded={1}
-      align="center"
-      justify="center"
+    <Minimal
+      sinks={[
+        { key: "x", Icon: inputIcon },
+        ...(single ? [] : [{ key: "y", Icon: inputIcon }]),
+      ]}
+      sources={[{ key: "value", Icon: outputIcon }]}
+      centerSources
+      centerSinks={single}
     >
       <Text.Text
         level="h4"
         weight={500}
         code
         shade={10}
-        style={{ transform: "scale(1.2) translateY(-5%)" }}
+        style={{ transform: "scale(1.2) translateY(-2%)", padding: "1rem" }}
       >
         {operator}
       </Text.Text>
-      <Handle.Sink location="left" id="x" style={{ top: "30%" }} />
-      {!single && <Handle.Sink location="left" id="y" style={{ top: "70%" }} />}
-      <Handle.Source location="right" id="value" style={{ top: "50%" }} />
-    </Align.Space>
+    </Minimal>
   );
   C.displayName = `Operator(${operator})`;
   return C;
 };
 
-export const Add = createOperator("+");
-export const Subtract = createOperator("-");
-export const Multiply = createOperator("*");
-export const Divide = createOperator("/");
-export const GreaterThan = createOperator(">");
-export const LessThan = createOperator("<");
-export const Equal = createOperator("=");
-export const NotEqual = createOperator("≠");
-export const GreaterThanOrEqual = createOperator("≥");
-export const LessThanOrEqual = createOperator("≤");
-export const And = createOperator("&&");
-export const Or = createOperator("||");
-export const Not = createOperator("!", true);
+export const Add = createOperator("+", false, Icon.Value, Icon.Value);
+export const Subtract = createOperator("-", false, Icon.Value, Icon.Value);
+export const Multiply = createOperator("*", false, Icon.Value, Icon.Value);
+export const Divide = createOperator("/", false, Icon.Value, Icon.Value);
+export const GreaterThan = createOperator(">", false, Icon.Value, Icon.Boolean);
+export const LessThan = createOperator("<", false, Icon.Value, Icon.Boolean);
+export const Equal = createOperator("=", false, Icon.Value, Icon.Boolean);
+export const NotEqual = createOperator("≠", false, Icon.Value, Icon.Boolean);
+export const GreaterThanOrEqual = createOperator("≥", false, Icon.Value, Icon.Boolean);
+export const LessThanOrEqual = createOperator("≤", false, Icon.Value, Icon.Boolean);
+export const And = createOperator("&&", false, Icon.Boolean, Icon.Boolean);
+export const Or = createOperator("||", false, Icon.Boolean, Icon.Boolean);
+export const Not = createOperator("!", true, Icon.Boolean, Icon.Boolean);

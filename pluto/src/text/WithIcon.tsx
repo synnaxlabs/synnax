@@ -47,12 +47,13 @@ export const WithIcon = <
   shade,
   weight,
   ellipsis = false,
+  code,
   ...rest
 }: WithIconProps<E, L>): ReactElement => {
   const color = parseColor(crudeColor, shade);
   const startIcons = Children.toArray(startIcon);
   const endIcons = Children.toArray(endIcon);
-  const formatted = formatChildren(level, children, color, shade, weight);
+  const formatted = formatChildren(level, children, color, shade, weight, code);
   return (
     // @ts-expect-error - level type errors
     <Align.Space<E>
@@ -64,7 +65,7 @@ export const WithIcon = <
         className,
       )}
       x
-      size="small"
+      size={level === "small" ? "tiny" : "small"}
       align="center"
       {...rest}
       style={{ ...rest.style, color }}
@@ -84,11 +85,12 @@ export const formatChildren = <L extends text.Level>(
   color?: string,
   shade?: number,
   weight?: text.Weight,
+  code?: boolean,
 ): ReactElement | ReactElement[] => {
   const arr = array.toArray(children);
   const o: ReactElement[] = [];
   let buff: Array<ReactNode> = [];
-  const props = { color, level, shade, weight };
+  const props = { color, level, shade, weight, code };
   arr.forEach((child) => {
     if (child == null) return;
     if (
