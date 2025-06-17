@@ -26,6 +26,8 @@ export const Slate = ({ className, ...props }: SlateProps): ReactElement => (
   <Diagram.Diagram
     className={CSS(className, CSS.B("slate"))}
     fitViewOptions={FIT_VIEW_OPTIONS}
+    snapGrid={[2, 2]}
+    snapToGrid
     {...props}
   />
 );

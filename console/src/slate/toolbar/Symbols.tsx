@@ -88,6 +88,7 @@ export const Group = ({ group, layoutKey }: SymbolsProps): ReactElement => {
         )}
         wrap
         empty
+        grow
       >
         {(p) => (
           <SymbolsButton
@@ -150,6 +151,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         <List.List<string, Slate.Group> data={GROUP_LIST_DATA}>
           <List.Selector<string, Slate.Group>
             allowMultiple={false}
+            allowNone={false}
             value={selectedGroup}
             onChange={setSelectedGroup}
           >

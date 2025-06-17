@@ -173,7 +173,10 @@ export interface DiagramProps
     Omit<ComponentPropsWithoutRef<"div">, "onError">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible">,
     Aether.ComponentProps,
-    Pick<ReactFlowProps, "minZoom" | "maxZoom" | "fitViewOptions"> {
+    Pick<
+      ReactFlowProps,
+      "minZoom" | "maxZoom" | "fitViewOptions" | "snapGrid" | "snapToGrid"
+    > {
   triggers?: CoreViewport.UseTriggers;
   dragHandleSelector?: string;
 }
@@ -269,6 +272,8 @@ const Core = ({
   fitViewOptions = FIT_VIEW_OPTIONS,
   className,
   dragHandleSelector,
+  snapGrid,
+  snapToGrid = false,
   ...rest
 }: DiagramProps): ReactElement => {
   const memoProps = useMemoDeepEqualProps({ visible });
@@ -534,6 +539,8 @@ const Core = ({
             selectionMode={SelectionMode.Partial}
             proOptions={PRO_OPTIONS}
             deleteKeyCode={DELETE_KEY_CODES}
+            snapGrid={snapGrid}
+            snapToGrid={snapToGrid}
             {...rest}
             style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }}
             {...editableProps}

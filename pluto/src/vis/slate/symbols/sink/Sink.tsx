@@ -24,9 +24,9 @@ export const Symbol = ({ channel }: SymbolProps) => {
       Icon={<Icon.Control />}
       color="var(--pluto-error-z-20)"
       textColor="var(--pluto-error-z)"
-      sinks={[{ key: "value", Icon: Icon.Decimal }]}
+      sinks={[{ key: "value", Icon: Icon.Number }]}
     >
-      <Text.Text level="p" weight={500} shade={9}>
+      <Text.Text level="p" weight={500} shade={10}>
         {name}
       </Text.Text>
     </Base>

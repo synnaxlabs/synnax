@@ -7,7 +7,7 @@ import { Minimal } from "@/vis/slate/symbols/Base";
 export const createOperator = (
   operator: string,
   single: boolean = false,
-  inputIcon: Icon.IconFC = Icon.Value,
+  inputIcon: Icon.IconFC = Icon.Number,
   outputIcon: Icon.IconFC = Icon.Boolean,
 ): FC => {
   const C = () => (
@@ -35,16 +35,16 @@ export const createOperator = (
   return C;
 };
 
-export const Add = createOperator("+", false, Icon.Value, Icon.Value);
-export const Subtract = createOperator("-", false, Icon.Value, Icon.Value);
-export const Multiply = createOperator("*", false, Icon.Value, Icon.Value);
-export const Divide = createOperator("/", false, Icon.Value, Icon.Value);
-export const GreaterThan = createOperator(">", false, Icon.Value, Icon.Boolean);
-export const LessThan = createOperator("<", false, Icon.Value, Icon.Boolean);
-export const Equal = createOperator("=", false, Icon.Value, Icon.Boolean);
-export const NotEqual = createOperator("≠", false, Icon.Value, Icon.Boolean);
-export const GreaterThanOrEqual = createOperator("≥", false, Icon.Value, Icon.Boolean);
-export const LessThanOrEqual = createOperator("≤", false, Icon.Value, Icon.Boolean);
+export const Add = createOperator("+", false, Icon.Number, Icon.Number);
+export const Subtract = createOperator("-", false, Icon.Number, Icon.Number);
+export const Multiply = createOperator("*", false, Icon.Number, Icon.Number);
+export const Divide = createOperator("/", false, Icon.Number, Icon.Number);
+export const GreaterThan = createOperator(">", false, Icon.Number, Icon.Boolean);
+export const LessThan = createOperator("<", false, Icon.Number, Icon.Boolean);
+export const Equal = createOperator("=", false, Icon.Number, Icon.Boolean);
+export const NotEqual = createOperator("≠", false, Icon.Number, Icon.Boolean);
+export const GreaterThanOrEqual = createOperator("≥", false, Icon.Number, Icon.Boolean);
+export const LessThanOrEqual = createOperator("≤", false, Icon.Number, Icon.Boolean);
 export const And = createOperator("&&", false, Icon.Boolean, Icon.Boolean);
 export const Or = createOperator("||", false, Icon.Boolean, Icon.Boolean);
 export const Not = createOperator("!", true, Icon.Boolean, Icon.Boolean);

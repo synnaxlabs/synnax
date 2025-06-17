@@ -195,6 +195,7 @@ export const Minimal = ({
         size="small"
         justify="center"
         style={adjustedStyle}
+        align="start"
       >
         {children}
       </Align.Space>
