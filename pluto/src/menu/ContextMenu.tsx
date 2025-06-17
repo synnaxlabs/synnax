@@ -72,10 +72,10 @@ const findTarget = (target: HTMLElement): HTMLElement | null => {
 const findSelected = (target_: HTMLElement): HTMLElement[] => {
   const target = findTarget(target_);
   if (target == null) return [];
-  const selected = Array.from(
+  const selected: HTMLElement[] = Array.from(
     target.parentElement?.querySelectorAll(`.${CONTEXT_SELECTED}`) ?? [],
   );
-  if (selected.includes(target)) return selected as HTMLElement[];
+  if (selected.includes(target)) return selected;
   return [target];
 };
 
