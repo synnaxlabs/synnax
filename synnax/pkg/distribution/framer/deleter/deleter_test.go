@@ -17,13 +17,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -32,24 +30,17 @@ import (
 var _ = Describe("Deleter", Ordered, func() {
 	scenarios := []func() scenario{
 		gatewayOnlyScenario,
-		/*
-			Commented out as multi-node deployment currently does not work.
-		*/
-		//peerOnlyScenario,
-		//mixedScenario,
-		//freeWriterScenario,
 	}
-	for scenarioI, sF := range scenarios {
+	for _, createScenario := range scenarios {
 		var (
-			_sF = sF
-			s   scenario
-			d   deleter.Deleter
-			i   *iterator.Iterator
+			s scenario
+			d deleter.Deleter
+			i *iterator.Iterator
 		)
-		BeforeAll(func() { s = _sF() })
+		BeforeAll(func() { s = createScenario() })
 		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 		Describe("Happy Path", func() {
-			Context(fmt.Sprintf("Scenario: %v - Happy Path", scenarioI), func() {
+			Context(fmt.Sprintf("Scenario: %s - Happy Path", s.name), func() {
 				BeforeEach(func() {
 					writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 						Keys:  s.keys,
@@ -107,7 +98,7 @@ var _ = Describe("Deleter", Ordered, func() {
 				})
 			})
 		})
-		Describe("Channels not found", func() {
+		Describe("Channel not found", func() {
 			Specify("By name", func() {
 				d = s.dist.Framer.NewDeleter()
 				Expect(d.DeleteTimeRangeByName(ctx, "kaka", telem.TimeRangeMin)).To(MatchError(ts.ErrChannelNotfound))
@@ -152,7 +143,7 @@ func gatewayOnlyScenario() scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
-	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(channel channel.Channel, _ int) string { return channel.Name })
 	return scenario{
@@ -162,72 +153,4 @@ func gatewayOnlyScenario() scenario {
 		dist:   dist,
 		closer: builder,
 	}
-}
-
-func peerOnlyScenario() scenario {
-	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 4)
-	dist := builder.Nodes[1]
-	for i, ch := range channels {
-		ch.Leaseholder = cluster.NodeKey(i + 2)
-		channels[i] = ch
-	}
-	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		err := dist.Channels.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
-		g.Expect(err).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
-	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:   "Peer Only",
-		keys:   keys,
-		dist:   dist,
-		closer: builder,
-	}
-}
-
-func mixedScenario() scenario {
-	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 3)
-	dist := builder.Nodes[1]
-	for i, ch := range channels {
-		ch.Leaseholder = cluster.NodeKey(i + 1)
-		channels[i] = ch
-	}
-	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		g.Expect(dist.Channels.NewRetrieve().
-			Entries(&chs).
-			WhereKeys(channel.KeysFromChannels(channels)...).
-			Exec(ctx, nil),
-		).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
-	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Mixed Local and Peer", keys: keys, dist: dist, closer: builder}
-}
-
-func freeWriterScenario() scenario {
-	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 3)
-	dist := builder.Nodes[1]
-	for i, ch := range channels {
-		ch.Leaseholder = cluster.Free
-		ch.Virtual = true
-		channels[i] = ch
-	}
-	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		g.Expect(dist.Channels.NewRetrieve().Entries(&chs).
-			WhereKeys(channel.KeysFromChannels(channels)...).
-			Exec(ctx, nil),
-		).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
-	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Free Channels", keys: keys, dist: dist, closer: builder}
 }

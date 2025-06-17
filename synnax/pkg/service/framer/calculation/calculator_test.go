@@ -48,7 +48,7 @@ var _ = Describe("Calculator", func() {
 		})
 	})
 
-	Context("Multi-Channels Calculation", func() {
+	Context("Multi-Channel Calculation", func() {
 		var (
 			inCh1 = channel.Channel{
 				Leaseholder: 1,
@@ -130,7 +130,7 @@ var _ = Describe("Calculator", func() {
 		})
 	})
 
-	Describe("Channels", func() {
+	Describe("Channel", func() {
 		It("Should return information about the channel being calculated", func() {
 			in := channel.Channel{
 				Name:     "Cat",

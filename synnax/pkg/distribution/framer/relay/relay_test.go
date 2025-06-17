@@ -143,7 +143,7 @@ func gatewayOnlyScenario() scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 1)
 	svc := builder.Nodes[1]
-	Expect(svc.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	return scenario{
 		resCount: 1,
 		name:     "Gateway Only",
@@ -161,11 +161,11 @@ func peerOnlyScenario() scenario {
 		ch.Leaseholder = cluster.NodeKey(i + 2)
 		channels[i] = ch
 	}
-	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.Channels.NewRetrieve().Entries(&chs).WhereKeys(keys...).Exec(ctx, nil)).To(Succeed())
+		g.Expect(dist.Channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).Exec(ctx, nil)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{
@@ -184,11 +184,11 @@ func mixedScenario() scenario {
 		ch.Leaseholder = cluster.NodeKey(i + 1)
 		channels[i] = ch
 	}
-	Expect(node.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(node.Channels.NewRetrieve().Entries(&chs).WhereKeys(keys...).Exec(ctx, nil)).To(Succeed())
+		g.Expect(node.Channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).Exec(ctx, nil)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{
@@ -209,15 +209,15 @@ func freeScenario() scenario {
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.Channels.NewRetrieve().Entries(&chs).WhereKeys(keys...).
+		g.Expect(dist.Channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).
 			Exec(ctx, nil)).To(Succeed())
 	})
 	return scenario{
-		name:     "Free Channels",
+		name:     "Free Channel",
 		resCount: 1,
 		channels: channels,
 		dist:     dist,

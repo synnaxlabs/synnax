@@ -362,7 +362,7 @@ var _ = Describe("Delete", func() {
 				})
 			})
 
-			Describe("Delete Channels", Ordered, func() {
+			Describe("Delete Channel", Ordered, func() {
 				var (
 					index1   = GenerateChannelKey()
 					data1    = GenerateChannelKey()

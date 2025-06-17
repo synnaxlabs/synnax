@@ -152,8 +152,8 @@ type Layer struct {
 	DB *gorp.DB
 	// Cluster provides information about the cluster topology. Nodes, keys, addresses, states, etc.
 	Cluster cluster.Cluster
-	// Channels is for creating, deleting, and retrieving channels across the cluster.
-	Channels channel.Service
+	// Channel is for creating, deleting, and retrieving channels across the cluster.
+	Channel channel.Service
 	// Framer is for reading, writing, and streaming frames of telemetry across the
 	// cluster.
 	Framer *framer.Service
@@ -254,7 +254,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
-	if l.Channels, err = channel.New(ctx, channel.ServiceConfig{
+	if l.Channel, err = channel.New(ctx, channel.ServiceConfig{
 		HostResolver: l.Cluster,
 		ClusterDB:    l.DB,
 		TSChannel:    cfg.Storage.TS,
@@ -272,7 +272,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 
 	if l.Framer, err = framer.Open(framer.Config{
 		Instrumentation: cfg.Instrumentation.Child("framer"),
-		ChannelReader:   l.Channels,
+		ChannelReader:   l.Channel,
 		TS:              cfg.Storage.TS,
 		Transport:       cfg.FrameTransport,
 		HostResolver:    l.Cluster,
@@ -285,7 +285,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}
 
 	if l.Signals, err = signals.New(signals.Config{
-		Channel:         l.Channels,
+		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Instrumentation: cfg.Instrumentation.Child("signals"),
 	}); !ok(nil) {
@@ -319,7 +319,7 @@ func (l *Layer) configureControlUpdates(ctx context.Context) error {
 		DataType:    telem.StringT,
 		Internal:    true,
 	}
-	if err := l.Channels.Create(ctx, &controlCh, channel.RetrieveIfNameExists(true)); err != nil {
+	if err := l.Channel.Create(ctx, &controlCh, channel.RetrieveIfNameExists(true)); err != nil {
 		return err
 	}
 	return l.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), controlCh.Name)

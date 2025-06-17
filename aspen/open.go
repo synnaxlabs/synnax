@@ -59,6 +59,7 @@ func Open(
 	if db.DB, err = kv.Open(ctx, o.kv); !ok(db.DB) {
 		return nil, err
 	}
+
 	return db, err
 }
 

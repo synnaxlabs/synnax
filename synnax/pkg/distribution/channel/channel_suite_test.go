@@ -21,5 +21,5 @@ var ctx = context.Background()
 
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Channels Suite")
+	RunSpecs(t, "Channel Suite")
 }

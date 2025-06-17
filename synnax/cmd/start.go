@@ -135,8 +135,10 @@ func start(cmd *cobra.Command) {
 			embeddedDriver    *embedded.Driver
 			certLoaderConfig  = buildCertLoaderConfig(ins)
 		)
-		cleanup, ok := xservice.NewOpener(ctx, &err, &closer)
-		defer cleanup()
+		cleanup, ok := xservice.NewOpener(ctx, &closer)
+		defer func() {
+			err = errors.Combine(err, cleanup())
+		}()
 
 		if securityProvider, err = security.NewProvider(security.ProviderConfig{
 			LoaderConfig: certLoaderConfig,
@@ -219,10 +221,10 @@ func start(cmd *cobra.Command) {
 			Instrumentation:     ins,
 			StreamWriteDeadline: slowConsumerTimeout,
 		})
-		apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channels)))
+		apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channel)))
 
 		// Configure the GRPC Layer AspenTransport.
-		grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channels)
+		grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channel)
 		apiLayer.BindTo(grpcAPI)
 
 		if rootServer, err = server.Serve(

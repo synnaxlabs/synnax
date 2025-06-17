@@ -116,7 +116,7 @@ func DefaultWriterConfig() WriterConfig {
 // Validate implements config.Config.
 func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.WriterConfig")
-	validate.NotEmptySlice(v, "Channels", c.Channels)
+	validate.NotEmptySlice(v, "Channel", c.Channels)
 	validate.NotNil(v, "ErrOnUnauthorizedOpen", c.ErrOnUnauthorized)
 	validate.NotNil(v, "Sync", c.Sync)
 	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)

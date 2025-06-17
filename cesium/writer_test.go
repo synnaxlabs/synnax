@@ -1268,7 +1268,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(err).To(MatchError(ContainSubstring("same length")))
 				})
 
-				Context("Missing Channels", func() {
+				Context("Missing Channel", func() {
 
 					Specify("Frame With Index Channel but without Data Channel", func() {
 						w := MustSucceed(db.OpenWriter(
@@ -1315,7 +1315,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 				})
 
-				Specify("Frame with Duplicate Channels", func() {
+				Specify("Frame with Duplicate Channel", func() {
 					w := MustSucceed(db.OpenWriter(
 						ctx,
 						cesium.WriterConfig{
@@ -1489,7 +1489,7 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 
-			Describe("Virtual Channels", func() {
+			Describe("Virtual Channel", func() {
 				ShouldNotLeakRoutinesJustBeforeEach()
 				It("Should write to virtual channel", func() {
 					var virtual1 = GenerateChannelKey()

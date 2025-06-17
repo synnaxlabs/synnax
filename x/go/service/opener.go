@@ -45,22 +45,22 @@ import (
 //
 // Here's an example:
 //
-//		func OpenLayer(ctx context.Context) (*Layer, error) {
-//		 	var (
-//				err eror
-//				myLayer = &Layer{closer: xio.MultiCloser{}}
-//			)
-//			cleanup, ok := layer.NewOpener(ctx, &err, &myLayer.closer)
-//			defer cleanup()
-//			// If creating service 2 fails, then service 1 will be shut down correctly.
-//			if myLayer.Service1, err = service1.Open(...); !ok(myLayer.Service1) {
-//				return nil, err
-//			}
-//			// service2 does not have a closer for shutdown, so we can pass nil to ok.
-//			if myLayer.Service2, err = service2.Provision(...); !ok(nil) {
-//				return nil, err
-//			}
-//			return myLayer, nil
+//	func OpenLayer(ctx context.Context) (*Layer, error) {
+//		var (
+//			err error
+//			myLayer = &Layer{closer: xio.MultiCloser{}}
+//		)
+//		cleanup, ok := layer.NewOpener(ctx, &err, &myLayer.closer)
+//		defer cleanup()
+//		// If creating service 2 fails, then service 1 will be shut down correctly.
+//		if myLayer.Service1, err = service1.Open(...); !ok(myLayer.Service1) {
+//			return nil, err
+//		}
+//		// service2 does not have a closer for shutdown, so we can pass nil to ok.
+//		if myLayer.Service2, err = service2.Provision(...); !ok(nil) {
+//			return nil, err
+//		}
+//		return myLayer, nil
 //	 }
 func NewOpener(ctx context.Context, err *error, closer *xio.MultiCloser) (
 	cleanup func(),

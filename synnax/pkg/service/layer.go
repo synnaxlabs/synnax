@@ -205,7 +205,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Group:           cfg.Distribution.Group,
 		HostProvider:    cfg.Distribution.Cluster,
 		Signals:         cfg.Distribution.Signals,
-		Channel:         cfg.Distribution.Channels,
+		Channel:         cfg.Distribution.Channel,
 		Framer:          cfg.Distribution.Framer,
 	}); !ok(l.Hardware) {
 		return nil, err
@@ -215,7 +215,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		framer.Config{
 			Instrumentation: cfg.Instrumentation.Child("framer"),
 			Framer:          cfg.Distribution.Framer,
-			Channel:         cfg.Distribution.Channels,
+			Channel:         cfg.Distribution.Channel,
 		},
 	); !ok(l.Framer) {
 		return nil, err

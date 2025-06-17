@@ -45,8 +45,8 @@ var _ = Describe("Calculation", Ordered, func() {
 		dist = distB.Provision(ctx)
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			Framer:            dist.Framer,
-			Channel:           dist.Channels,
-			ChannelObservable: dist.Channels.NewObservable(),
+			Channel:           dist.Channel,
+			ChannelObservable: dist.Channel.NewObservable(),
 		}))
 	})
 
@@ -60,7 +60,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
-		Expect(dist.Channels.Create(ctx, &baseCH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
 		calculatedCH := channel.Channel{
 			Name:        "calculated",
 			DataType:    telem.Int64T,
@@ -69,7 +69,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base * 2",
 		}
-		Expect(dist.Channels.Create(ctx, &calculatedCH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
@@ -104,7 +104,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
-		Expect(dist.Channels.Create(ctx, &baseCH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
 		calculatedCH := channel.Channel{
 			Name:        "calculated",
 			DataType:    telem.Int64T,
@@ -113,7 +113,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base * fake",
 		}
-		Expect(dist.Channels.Create(ctx, &calculatedCH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
@@ -139,7 +139,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
-		Expect(dist.Channels.Create(ctx, &baseCH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
 		calculatedCH := channel.Channel{
 			Name:        "calculated",
 			DataType:    telem.Int64T,
@@ -148,7 +148,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base / 0",
 		}
-		Expect(dist.Channels.Create(ctx, &calculatedCH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
@@ -178,7 +178,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
-		Expect(dist.Channels.Create(ctx, &baseCH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
 
 		// First calculated channel that doubles the base value
 		calc1CH := channel.Channel{
@@ -189,7 +189,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base * 2",
 		}
-		Expect(dist.Channels.Create(ctx, &calc1CH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &calc1CH)).To(Succeed())
 
 		// Second calculated channel that adds 1 to the first calculated channel
 		calc2CH := channel.Channel{
@@ -200,7 +200,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Requires:    []channel.Key{calc1CH.Key()},
 			Expression:  "return calc1 + 1",
 		}
-		Expect(dist.Channels.Create(ctx, &calc2CH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &calc2CH)).To(Succeed())
 
 		MustSucceed(c.Request(ctx, calc1CH.Key()))
 		MustSucceed(c.Request(ctx, calc2CH.Key()))
@@ -247,7 +247,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
-		Expect(dist.Channels.Create(ctx, &baseCH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
 
 		calculatedCH := channel.Channel{
 			Name:        "calculated",
@@ -257,12 +257,12 @@ var _ = Describe("Calculation", Ordered, func() {
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return fake1 + fake2",
 		}
-		Expect(dist.Channels.Create(ctx, &calculatedCH)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 
 		var stateCH channel.Channel
 		stateCH.Name = "sy_calculation_state"
 		Expect(
-			dist.Channels.Create(
+			dist.Channel.Create(
 				ctx,
 				&stateCH,
 				channel.RetrieveIfNameExists(true),

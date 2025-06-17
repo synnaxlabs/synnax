@@ -41,12 +41,12 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Name:     "SG03",
 			}
 			created := []channel.Channel{ch1, ch2}
-			err := mockCluster.Nodes[1].Channels.NewWriter(nil).CreateMany(ctx, &created)
+			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 
 			var resChannels []channel.Channel
 
-			err = mockCluster.Nodes[1].Channels.
+			err = mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				WhereNodeKey(1).
 				Entries(&resChannels).
@@ -57,7 +57,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var resChannelsTwo []channel.Channel
 
-				err = mockCluster.Nodes[2].Channels.
+				err = mockCluster.Nodes[2].Channel.
 					NewRetrieve().
 					WhereNodeKey(1).
 					Entries(&resChannelsTwo).
@@ -80,11 +80,11 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "SG03",
 				},
 			}
-			err := mockCluster.Nodes[1].Channels.NewWriter(nil).CreateMany(ctx, &created)
+			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 			var resChannels []channel.Channel
 
-			err = mockCluster.Nodes[1].Channels.
+			err = mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				WhereKeys(created[0].Key()).
 				Entries(&resChannels).
@@ -102,11 +102,11 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     n,
 				},
 			}
-			err := mockCluster.Nodes[1].Channels.NewWriter(nil).CreateMany(ctx, &created)
+			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 			var resChannels []channel.Channel
 
-			err = mockCluster.Nodes[1].Channels.
+			err = mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				WhereNames(n).
 				Entries(&resChannels).
@@ -128,11 +128,11 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "SG223",
 				},
 			}
-			err := mockCluster.Nodes[1].Channels.NewWriter(nil).CreateMany(ctx, &created)
+			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 			var resChannels []channel.Channel
 
-			err = mockCluster.Nodes[1].Channels.
+			err = mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				WhereNames("SG22.*").
 				Entries(&resChannels).
@@ -142,13 +142,13 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 		It("Should return a well formatted error if a channel cannot be found by its key", func() {
 			var resChannels []channel.Channel
-			err := mockCluster.Nodes[1].Channels.
+			err := mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				WhereKeys(435).
 				Entries(&resChannels).
 				Exec(ctx, nil)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("Channels with keys [435] not found"))
+			Expect(err.Error()).To(ContainSubstring("Channel with keys [435] not found"))
 
 		})
 		It("Should correctly filter channels by search term", func() {
@@ -164,10 +164,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "SG-----223",
 				},
 			}
-			err := mockCluster.Nodes[1].Channels.NewWriter(nil).CreateMany(ctx, &created)
+			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 			var resChannels []channel.Channel
-			err = mockCluster.Nodes[1].Channels.
+			err = mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				Search("SG-----222").
 				Entries(&resChannels).
@@ -192,10 +192,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "SG03",
 				},
 			}
-			err := mockCluster.Nodes[1].Channels.NewWriter(nil).CreateMany(ctx, &created)
+			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 
-			exists, err := mockCluster.Nodes[1].Channels.
+			exists, err := mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				WhereKeys(created[0].Key()).
 				Exists(ctx, nil)

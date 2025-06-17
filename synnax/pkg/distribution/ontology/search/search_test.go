@@ -64,7 +64,7 @@ var _ = Describe("Search", func() {
 			}, "BTTPC"),
 			Entry("Partial Match Beginning", schema.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
-				Name: "Channels",
+				Name: "Channel",
 			}, "ch"),
 			Entry("Scream Case with Underscore Exact", schema.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
@@ -129,7 +129,7 @@ var _ = Describe("Search", func() {
 			}, "nope"),
 			Entry("Partial No Match", schema.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
-				Name: "Channels",
+				Name: "Channel",
 			}, "nn"),
 		)
 		Describe("Disjunction Fallback", func() {

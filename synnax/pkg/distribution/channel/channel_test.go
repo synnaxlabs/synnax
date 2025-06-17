@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Channels Tests", func() {
+var _ = Describe("Channel Tests", func() {
 	Describe("Key Tests", func() {
 		Describe("Construction", func() {
 			It("Should return the correct leaseholder for the key", func() {

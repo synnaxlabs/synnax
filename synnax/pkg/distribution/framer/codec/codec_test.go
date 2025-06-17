@@ -40,7 +40,7 @@ var _ = Describe("Codec", func() {
 		Expect(fr.Frame).To(telem.MatchFrame(decoded.Frame))
 	},
 		Entry("Empty Frame", channel.Keys{}, []telem.DataType{}, framer.Frame{}),
-		Entry("All Channels Present, In Order",
+		Entry("All Channel Present, In Order",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Int64T, telem.Float32T, telem.Float64T},
 			core.MultiFrame(
@@ -52,7 +52,7 @@ var _ = Describe("Codec", func() {
 				},
 			),
 		),
-		Entry("All Channels Present, Out of Order",
+		Entry("All Channel Present, Out of Order",
 			channel.Keys{3, 1, 2},
 			[]telem.DataType{telem.Float64T, telem.Int64T, telem.Float32T},
 			core.MultiFrame(
@@ -64,7 +64,7 @@ var _ = Describe("Codec", func() {
 				},
 			),
 		),
-		Entry("Some Channels Present, In Order",
+		Entry("Some Channel Present, In Order",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
 			core.MultiFrame(
@@ -75,7 +75,7 @@ var _ = Describe("Codec", func() {
 				},
 			),
 		),
-		Entry("Some Channels Present, Out of Order",
+		Entry("Some Channel Present, Out of Order",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
 			core.MultiFrame(
@@ -188,7 +188,7 @@ var _ = Describe("Codec", func() {
 				},
 			),
 		),
-		Entry("Multiple Series for the Same Channels",
+		Entry("Multiple Series for the Same Channel",
 			channel.Keys{1, 2},
 			[]telem.DataType{telem.Uint8T, telem.Float32T},
 			core.MultiFrame(
@@ -270,8 +270,8 @@ var _ = Describe("Codec", func() {
 		BeforeAll(func() {
 			builder = mock.NewCluster()
 			dist := builder.Provision(ctx)
-			channelSvc = dist.Channels
-			w := dist.Channels.NewWriter(nil)
+			channelSvc = dist.Channel
+			w := dist.Channel.NewWriter(nil)
 			idxCh = channel.Channel{
 				DataType: telem.TimeStampT,
 				Name:     "time",

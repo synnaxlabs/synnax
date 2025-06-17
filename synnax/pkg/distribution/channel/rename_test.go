@@ -32,16 +32,16 @@ var _ = Describe("Rename", Ordered, func() {
 			ch.Virtual = true
 			ch.Name = "SG01"
 			ch.DataType = telem.Float64T
-			err = mockCluster.Nodes[1].Channels.Create(ctx, &ch)
+			err = mockCluster.Nodes[1].Channel.Create(ctx, &ch)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		Context("Node is local", func() {
 			BeforeEach(func() { ch.Leaseholder = 1 })
 			It("Should rename the channel without error", func() {
-				Expect(mockCluster.Nodes[1].Channels.Rename(ctx, ch.Key(), "SG03", false)).To(Succeed())
+				Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "SG03", false)).To(Succeed())
 				Eventually(func(g Gomega) {
 					var resCh channel.Channel
-					g.Expect(mockCluster.Nodes[1].Channels.NewRetrieve().
+					g.Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
 						WhereKeys(ch.Key()).
 						Entry(&resCh).Exec(ctx, nil),
 					).To(Succeed())
@@ -52,10 +52,10 @@ var _ = Describe("Rename", Ordered, func() {
 		Context("Node is remote", func() {
 			BeforeEach(func() { ch.Leaseholder = 2 })
 			It("Should rename the channel without error", func() {
-				Expect(mockCluster.Nodes[2].Channels.Rename(ctx, ch.Key(), "SG03", false)).To(Succeed())
+				Expect(mockCluster.Nodes[2].Channel.Rename(ctx, ch.Key(), "SG03", false)).To(Succeed())
 				Eventually(func(g Gomega) {
 					var resCh channel.Channel
-					g.Expect(mockCluster.Nodes[2].Channels.NewRetrieve().
+					g.Expect(mockCluster.Nodes[2].Channel.NewRetrieve().
 						WhereKeys(ch.Key()).
 						Entry(&resCh).
 						Exec(ctx, nil)).To(Succeed())
@@ -83,9 +83,9 @@ var _ = Describe("Rename", Ordered, func() {
 				Virtual:     true,
 			}
 			channels := []channel.Channel{ch1, ch2, ch3}
-			Expect(mockCluster.Nodes[1].Channels.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			Expect(mockCluster.Nodes[1].Channels.RenameMany(
+			Expect(mockCluster.Nodes[1].Channel.RenameMany(
 				ctx,
 				keys,
 				[]string{"fermat1", "laplace1", "newton1"},
@@ -94,7 +94,7 @@ var _ = Describe("Rename", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				var resChannels []channel.Channel
-				g.Expect(mockCluster.Nodes[1].Channels.NewRetrieve().WhereKeys(keys...).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
+				g.Expect(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(keys...).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 				Expect(channel.KeysFromChannels(resChannels)).To(Equal(keys))
 				g.Expect(resChannels[0].Name).To(Equal("fermat1"))
 				g.Expect(resChannels[1].Name).To(Equal("laplace1"))

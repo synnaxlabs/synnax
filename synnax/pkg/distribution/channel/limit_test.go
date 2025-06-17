@@ -45,7 +45,7 @@ var _ = Describe("Limit", Ordered, func() {
 				Name:        fmt.Sprintf("LimitTest%d", i),
 				Leaseholder: 1,
 			}
-			Expect(dist.Channels.Create(ctx, &ch)).To(Succeed())
+			Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
 		}
 
 		// Try to create one more channel over the limit
@@ -55,7 +55,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		err := dist.Channels.Create(ctx, &overLimitCh)
+		err := dist.Channel.Create(ctx, &overLimitCh)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
 	})
@@ -70,7 +70,7 @@ var _ = Describe("Limit", Ordered, func() {
 				Name:        fmt.Sprintf("LimitTest%d", i),
 				Leaseholder: 1,
 			}
-			Expect(dist.Channels.Create(ctx, &ch)).To(Succeed())
+			Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
 			channels[i] = ch
 		}
 
@@ -81,12 +81,12 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		err := dist.Channels.Create(ctx, &overLimitCh)
+		err := dist.Channel.Create(ctx, &overLimitCh)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
 
 		// Delete one channel
-		writer := dist.Channels.NewWriter(nil)
+		writer := dist.Channel.NewWriter(nil)
 		Expect(writer.Delete(ctx, channels[0].Key(), false)).To(Succeed())
 
 		// Now we should be able to create a new channel
@@ -96,7 +96,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "NewAfterDelete",
 			Leaseholder: 1,
 		}
-		Expect(dist.Channels.Create(ctx, &newCh)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, &newCh)).To(Succeed())
 
 		// Try to create one more channel (should fail again)
 		anotherCh := channel.Channel{
@@ -105,7 +105,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "AnotherOverLimit",
 			Leaseholder: 1,
 		}
-		err = dist.Channels.Create(ctx, &anotherCh)
+		err = dist.Channel.Create(ctx, &anotherCh)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
 	})
@@ -120,7 +120,7 @@ var _ = Describe("Limit", Ordered, func() {
 				Name:        fmt.Sprintf("LimitTest%d", i),
 				Leaseholder: 1,
 			}
-			Expect(dist.Channels.Create(ctx, &ch)).To(Succeed())
+			Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
 			createdChannels[i] = ch
 		}
 
@@ -131,13 +131,13 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		err := dist.Channels.Create(ctx, &overLimitCh)
+		err := dist.Channel.Create(ctx, &overLimitCh)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
 
 		// Retrieve all channels - this should work fine even at the limit
 		var retrievedChannels []channel.Channel
-		retrieve := dist.Channels.NewRetrieve()
+		retrieve := dist.Channel.NewRetrieve()
 		err = retrieve.Entries(&retrievedChannels).WhereNodeKey(1).Exec(ctx, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(retrievedChannels).To(HaveLen(limit + internalChannelCount))

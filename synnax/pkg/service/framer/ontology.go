@@ -17,7 +17,7 @@ import (
 
 const OntologyType ontology.Type = "framer"
 
-// OntologyID returns a unique identifier for a Channels for use within a resource
+// OntologyID returns a unique identifier for a Channel for use within a resource
 // ontology.
 func OntologyID(k channel.Key) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k.String()}

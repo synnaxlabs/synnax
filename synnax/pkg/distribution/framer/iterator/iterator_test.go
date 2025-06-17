@@ -157,7 +157,7 @@ func gatewayOnlyScenario() scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
-	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	return scenario{name: "Gateway Only", keys: keys, dist: dist, close: builder}
 }
@@ -170,10 +170,10 @@ func peerOnlyScenario() scenario {
 		ch.Leaseholder = cluster.NodeKey(i + 2)
 		channels[i] = ch
 	}
-	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := dist.Channels.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
+		err := dist.Channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())

@@ -105,7 +105,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultConfig = ServiceConfig{}
 
-const groupName = "Channels"
+const groupName = "Channel"
 
 func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)

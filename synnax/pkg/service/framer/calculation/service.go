@@ -69,7 +69,7 @@ var (
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "Channels", c.Channel)
+	validate.NotNil(v, "Channel", c.Channel)
 	validate.NotNil(v, "ChannelObservable", c.ChannelObservable)
 	validate.NotNil(v, "StateCodec", c.StateCodec)
 	return v.Error()

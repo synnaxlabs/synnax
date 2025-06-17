@@ -114,7 +114,7 @@ var _ = Describe("Streamer Behavior", func() {
 				})
 			})
 
-			Describe("Virtual Channels", func() {
+			Describe("Virtual Channel", func() {
 				It("Should subscribe to written frames for virtual channels", func() {
 					var basic2 cesium.ChannelKey = 4
 					By("Creating a channel")

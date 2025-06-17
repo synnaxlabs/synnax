@@ -94,7 +94,7 @@ var _ = Describe("Writer", func() {
 				Sync:  config.True(),
 			})
 			Expect(err).To(HaveOccurredAs(query.NotFound))
-			Expect(err.Error()).To(ContainSubstring("Channels"))
+			Expect(err.Error()).To(ContainSubstring("Channel"))
 			Expect(err.Error()).To(ContainSubstring("22"))
 			Expect(err.Error()).ToNot(ContainSubstring("1"))
 		})
@@ -155,7 +155,7 @@ func gatewayOnlyScenario() scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
-	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	return scenario{name: "Gateway Only", keys: keys, dist: dist, closer: builder}
 }
@@ -168,10 +168,10 @@ func peerOnlyScenario() scenario {
 		ch.Leaseholder = cluster.NodeKey(i + 2)
 		channels[i] = ch
 	}
-	Expect(dist.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := dist.Channels.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
+		err := dist.Channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
@@ -187,10 +187,10 @@ func mixedScenario() scenario {
 		ch.Leaseholder = cluster.NodeKey(i + 1)
 		channels[i] = ch
 	}
-	Expect(svc.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.Channels.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
+		err := svc.Channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
@@ -207,10 +207,10 @@ func freeWriterScenario() scenario {
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	Expect(svc.Channels.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.Channels.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
+		err := svc.Channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())

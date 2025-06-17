@@ -39,12 +39,12 @@ var _ = Describe("Cluster", func() {
 				Leaseholder: 1,
 			}
 
-			Expect(coreOne.Channels.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			Expect(coreOne.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Key().Leaseholder()).To(Equal(cluster.NodeKey(1)))
 
 			Eventually(func(g Gomega) {
 				var resCH channel.Channel
-				g.Expect(coreThree.Channels.NewRetrieve().
+				g.Expect(coreThree.Channel.NewRetrieve().
 					WhereKeys(ch.Key()).
 					Entry(&resCH).
 					Exec(ctx, nil)).To(Succeed())
