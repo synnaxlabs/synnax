@@ -20,7 +20,7 @@ import (
 )
 
 // Provider is a dependency injection container containing essential utilities
-// for particular Layer services (if they so require them).
+// for particular API services (if they so require them).
 type Provider struct {
 	Config
 	db       dbProvider
@@ -42,7 +42,7 @@ func NewProvider(cfg Config) Provider {
 	return p
 }
 
-// dbProvider provides exposes the cluster-wide key-value store to Layer services.
+// dbProvider provides exposes the cluster-wide key-value store to API services.
 type dbProvider struct {
 	*gorp.DB
 }

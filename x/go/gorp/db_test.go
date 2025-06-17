@@ -13,17 +13,23 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
+	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("DB", Ordered, func() {
-	var db *gorp.DB
+	var (
+		kv kvx.DB
+		db *gorp.DB
+	)
 	BeforeAll(func() {
-		db = gorp.Wrap(memkv.New())
+		kv = memkv.New()
+		db = gorp.Wrap(kv)
 	})
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
+
 	Describe("WithTx", func() {
 		It("Should commit the transaction if the callback returns nil", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -44,6 +50,7 @@ var _ = Describe("DB", Ordered, func() {
 			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(2).Exec(ctx, db)).To(HaveOccurredAs(query.NotFound))
 		})
 	})
+
 	Describe("OverrideTx", func() {
 		It("Should return the override transaction if it is not nil", func() {
 			tx := db.OpenTx()
@@ -52,6 +59,12 @@ var _ = Describe("DB", Ordered, func() {
 		})
 		It("Should return the base transaction if the override transaction is nil", func() {
 			Expect(gorp.OverrideTx(db, nil)).To(Equal(db))
+		})
+	})
+
+	Describe("KV", func() {
+		It("Should return the underlying key-value store for the DB", func() {
+			Expect(db.KV()).To(BeIdenticalTo(db))
 		})
 	})
 })

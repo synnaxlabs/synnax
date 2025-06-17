@@ -326,7 +326,6 @@ func filterRetrieve[K Key, E Entry[K]](
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		v := iter.Value(ctx)
-		//fmt.Println(string(iter.Key()), string(iter.Key()) == "�Channel�\u0000 \u0000\u0001xCв�\"�\u0001\v�OeasedCounter \u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000", string(iter.Iterator.Value()))
 		if iter.Error() != nil {
 			return iter.Error()
 		}

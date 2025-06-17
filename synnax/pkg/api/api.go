@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package api implements the client interfaces for interacting with the Synnax cluster.
-// The top level package is completely transport agnostic, and provides freighter
+// The top level package is transport agnostic, and provides freighter
 // compatible interfaces for all of its services. sub-packages in this directory wrap
-// the core Layer services to provide transport specific implementations.
+// the core API services to provide transport-specific implementations.
 package api
 
 import (
@@ -28,7 +28,7 @@ import (
 )
 
 // Config is all required configuration parameters and services necessary to instantiate
-// the Layer.
+// the API.
 type Config struct {
 	alamos.Instrumentation
 	Service      *service.Layer
@@ -154,7 +154,7 @@ type Transport struct {
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
 }
 
-// Layer wraps all implemented Layer services into a single container. Protocol-specific Layer
+// Layer wraps all implemented API services into a single container. Protocol-specific Layer
 // implementations should use this struct during instantiation.
 type Layer struct {
 	provider     Provider
@@ -176,7 +176,7 @@ type Layer struct {
 	Access       *AccessService
 }
 
-// BindTo binds the Layer to the provided Transport implementation.
+// BindTo binds the API layer to the provided Transport implementation.
 func (a *Layer) BindTo(t Transport) {
 	var (
 		tk                 = tokenMiddleware(a.provider.auth.token)
@@ -415,7 +415,7 @@ func (a *Layer) BindTo(t Transport) {
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
 }
 
-// New instantiates the server Layer using the provided Config. This should only be called
+// New instantiates the server API layer using the provided Config. This should only be called
 // once.
 func New(configs ...Config) (*Layer, error) {
 	cfg, err := config.New(DefaultConfig, configs...)

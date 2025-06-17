@@ -34,6 +34,7 @@ func (f *Factory) initialize() {
 	}
 }
 
+// Generated returns all generated addresses.
 func (f *Factory) Generated() []Address { return f.generated }
 
 // Next returns the next address in the sequence. This address is guaranteed to be

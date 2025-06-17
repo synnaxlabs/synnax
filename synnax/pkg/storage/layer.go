@@ -141,7 +141,7 @@ func (cfg Config) Report() alamos.Report {
 	return alamos.Report{
 		"dirname":     cfg.Dirname,
 		"permissions": cfg.Perm,
-		"mem_backed":  cfg.InMemory,
+		"in_memory":   cfg.InMemory,
 		"kv_engine":   cfg.KVEngine.String(),
 		"ts_engine":   cfg.TSEngine.String(),
 	}

@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-// UserService is the core authentication service for the Synnax Layer.
+// UserService is the core authentication service for the Synnax API.
 type UserService struct {
 	dbProvider
 	authProvider

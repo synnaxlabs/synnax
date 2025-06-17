@@ -24,8 +24,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Retrieve is used to retrieve information about Channel(s) in delta's distribution
-// layer.
+// Retrieve is used to retrieve information about Channel(s) in the synnax distribution
+// layer
 type Retrieve struct {
 	tx                        gorp.Tx
 	gorp                      gorp.Retrieve[Key, Channel]
