@@ -237,7 +237,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     ASSERT_EQ(status.details.task, echo_task.key);
     ASSERT_EQ(status.key, cmd.key);
     ASSERT_EQ(status.variant, status::VARIANT_SUCCESS);
-    ASSERT_EQ(status.message, "hello world");
+    ASSERT_EQ(status.details.data["message"], "hello world");
     auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
 }

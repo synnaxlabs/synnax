@@ -42,7 +42,7 @@ struct Status {
             .message = parser.required<std::string>("message"),
             .description = parser.required<std::string>("description"),
             .time = telem::TimeStamp(parser.required<std::int64_t>("time")),
-            .details = T::parse(parser.required<json>("details")),
+            .details = T::parse(parser.child("details")),
         };
     }
 
