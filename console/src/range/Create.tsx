@@ -10,12 +10,11 @@
 import "@/range/Create.css";
 
 import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Form,
-  Icon as PIcon,
+  Icon,
   Input,
   Nav,
   Ranger,
@@ -70,11 +69,9 @@ export const createCreateLayout = (
   args: initial,
 });
 
-const parentRangeIcon = (
-  <PIcon.Icon bottomRight={<Icon.Arrow.Up />}>
-    <Icon.Range />
-  </PIcon.Icon>
-);
+export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
+  bottomRight: Icon.Arrow.Up,
+});
 
 export const Create: Layout.Renderer = (props) => {
   const { layoutKey } = props;
@@ -181,7 +178,7 @@ const CreateLayoutForm = ({
                     <Text.WithIcon
                       level="p"
                       shade={11}
-                      startIcon={parentRangeIcon}
+                      startIcon={<ParentRangeIcon />}
                       size="small"
                     >
                       {e.name}
@@ -193,7 +190,7 @@ const CreateLayoutForm = ({
                     <Text.WithIcon
                       level="p"
                       shade={11}
-                      startIcon={parentRangeIcon}
+                      startIcon={<ParentRangeIcon />}
                       size="small"
                     >
                       Parent Range

@@ -9,7 +9,6 @@
 
 import "@/select/Multiple.css";
 
-import { Icon } from "@synnaxlabs/media";
 import {
   array,
   type AsyncTermSearcher,
@@ -35,6 +34,7 @@ import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import {

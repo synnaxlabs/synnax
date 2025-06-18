@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction } from "@reduxjs/toolkit";
-import { Icon } from "@synnaxlabs/media";
+import { Icon } from "@synnaxlabs/pluto";
 
 import { type Palette } from "@/palette";
 import { CLEAR_STATE } from "@/persist/state";

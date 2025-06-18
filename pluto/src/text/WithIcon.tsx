@@ -10,30 +10,23 @@
 import "@/text/WithIcon.css";
 
 import { array } from "@synnaxlabs/x";
-import { Children, type Key, type ReactElement, type ReactNode } from "react";
+import { Children, type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
+import { type Icon } from "@/icon";
 import { type text } from "@/text/core";
 import { type CoreProps, parseColor, Text } from "@/text/Text";
 import { isValidElement } from "@/util/children";
-
-interface IconProps {
-  key?: Key | null;
-  color?: string;
-  style?: React.CSSProperties;
-}
-
-type IconElement = ReactElement<IconProps>;
 
 export type WithIconProps<
   E extends Align.ElementType = "div",
   L extends text.Level = "h1",
 > = Omit<Align.SpaceProps<E>, "children" | "color"> &
   CoreProps<L> & {
-    startIcon?: false | IconElement | IconElement[];
-    endIcon?: false | IconElement | IconElement[];
+    startIcon?: false | Icon.ReactElement | Icon.ReactElement[];
+    endIcon?: false | Icon.ReactElement | Icon.ReactElement[];
     divided?: boolean;
     noWrap?: boolean;
     ellipsis?: boolean;

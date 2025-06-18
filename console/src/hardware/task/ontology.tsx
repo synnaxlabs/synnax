@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Icon, Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 

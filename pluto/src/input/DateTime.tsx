@@ -9,7 +9,6 @@
 
 import "@/input/DateTime.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import compromise from "compromise";
 import compromiseDates, { type DatesMethods } from "compromise-dates";
@@ -19,6 +18,7 @@ import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
+import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
 import { Text as InputText } from "@/input/Text";
 import { type BaseProps } from "@/input/types";

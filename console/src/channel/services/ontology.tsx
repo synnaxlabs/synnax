@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { channel, isCalculated, ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Channel as PChannel,
   type Haul,
+  Icon,
   Menu as PMenu,
   type Schematic as PSchematic,
   telem,

@@ -10,43 +10,30 @@
  */
 
 .pluto-icon {
-    width: fit-content;
-    height: fit-content;
-    position: relative;
+    color: inherit;
+
+    &.pluto-icon--composite {
+        transform: scale(1.15);
+    }
+
+    &
+        *:is(path, circle):is(:not([fill="none"]), [stroke="#000"], ):not(
+            .pluto-sub__bg
+        ) {
+        stroke: inherit !important;
+        fill: inherit !important;
+    }
+
+    & .pluto-sub__bg {
+        transition: var(--pluto-btn-transition);
+        fill: var(--pluto-bg, var(--pluto-gray-l0)) !important;
+    }
 
     .pluto-sub {
         --pluto-scale: scale(calc(var(--pluto-base-scale, 1) * 0.8));
-        z-index: 1;
-        background: var(--pluto-bg);
-        border-radius: 1rem;
-        &.synnax-icon-add * {
-            stroke-width: 4px;
+        &.pluto-icon--add * {
+            stroke-width: 0.5rem;
         }
-    }
-
-    .pluto--bottomLeft {
-        transform: translate(-55%, 35%) var(--pluto-scale);
-        position: absolute;
-        bottom: 0;
-        left: 0;
-    }
-    .pluto--bottomRight {
-        transform: translate(55%, 25%) var(--pluto-scale);
-        position: absolute;
-        bottom: 0;
-        right: 0;
-    }
-    .pluto--topLeft {
-        transform: translate(-55%, -35%) var(--pluto-scale);
-        position: absolute;
-        top: 0;
-        left: 0;
-    }
-    .pluto--topRight {
-        transform: translate(55%, -35%) var(--pluto-scale);
-        position: absolute;
-        top: 0;
-        right: 0;
     }
 }
 
