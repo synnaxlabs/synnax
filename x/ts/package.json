@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/x",
-  "version": "0.43.0",
+  "version": "0.43.1",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/go",
@@ -164,7 +164,7 @@
       "require": "./dist/unique.cjs"
     },
     "./record": {
-      "types": "./dist/src/record.d.ts",
+      "types": "./dist/src/record/index.d.ts",
       "import": "./dist/record.js",
       "require": "./dist/record.cjs"
     },

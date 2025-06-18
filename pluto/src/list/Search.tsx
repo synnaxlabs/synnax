@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type AsyncTermSearcher, type Key, type Keyed } from "@synnaxlabs/x";
+import { type AsyncTermSearcher, type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks";
@@ -21,16 +21,20 @@ import { state } from "@/state";
 import { Status } from "@/status";
 import { type RenderProp } from "@/util/renderProp";
 
-export interface UseSearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends Input.OptionalControl<string> {
+export interface UseSearchProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> extends Input.OptionalControl<string> {
   searcher?: AsyncTermSearcher<string, K, E>;
   debounce?: number;
   pageSize?: number;
   filter?: (items: E[]) => E[];
 }
 
-export interface SearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends UseSearchProps<K, E> {
+export interface SearchProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> extends UseSearchProps<K, E> {
   children?: RenderProp<Input.Control<string>>;
 }
 
@@ -68,11 +72,17 @@ const ErrorEmptyContent = ({ error }: ErrorEmptyContentProps): ReactElement => (
   </Status.Text.Centered>
 );
 
-const defaultFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
+const defaultFilter = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>(
   items: E[],
 ): E[] => items;
 
-export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const useSearch = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   debounce = 250,
   searcher,
   value,
@@ -177,7 +187,10 @@ const searchInput = (props: Input.Control<string>): ReactElement => (
   <InputText placeholder="Search" {...props} />
 );
 
-export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const Search = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   children = searchInput,
   ...rest
 }: SearchProps<K, E>): ReactElement | null => children(useSearch(rest));

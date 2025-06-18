@@ -16,7 +16,7 @@ import {
   Icon,
   Select,
 } from "@synnaxlabs/pluto";
-import { type Keyed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Device } from "@/hardware/ni/device";
@@ -34,7 +34,7 @@ import {
   type WaveType,
 } from "@/hardware/ni/task/types";
 
-interface WaveTypeEntry extends Keyed<WaveType> {
+interface WaveTypeEntry extends record.Keyed<WaveType> {
   icon: Icon.ReactElement;
 }
 

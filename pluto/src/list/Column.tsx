@@ -13,9 +13,8 @@ import {
   type ArrayTransform,
   compare,
   convertRenderV,
-  type Key,
-  type Keyed,
   type Optional,
+  type record,
   type RenderableValue,
 } from "@synnaxlabs/x";
 import {
@@ -38,15 +37,20 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { type RenderProp } from "@/util/renderProp";
 
-interface RenderF<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends RenderProp<{
+interface RenderF<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> extends RenderProp<{
     key: string | number | symbol;
     index: number;
     entry: E;
     style: CSSProperties;
   }> {}
 
-export interface ColumnSpec<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
+export interface ColumnSpec<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> {
   /** The key of the object to render. */
   key: keyof E | string;
   /** A custom render function for each item in the colummn. */
@@ -67,18 +71,23 @@ export interface ColumnSpec<K extends Key = Key, E extends Keyed<K> = Keyed<K>> 
   weight?: Text.Weight;
 }
 
-interface ColumnContextValue<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
+interface ColumnContextValue<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> {
   columns: Array<ColumnSpec<K, E>>;
 }
 
 const Context = createContext<ColumnContextValue | null>(null);
 
-const useColumnContext = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>() =>
-  useRequiredContext(Context) as ColumnContextValue<K, E>;
+const useColumnContext = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>() => useRequiredContext(Context) as ColumnContextValue<K, E>;
 
 type SortState<E> = [keyof E | null, boolean];
 
-export interface ColumnHeaderProps<K extends Key, E extends Keyed<K>>
+export interface ColumnHeaderProps<K extends record.Key, E extends record.Keyed<K>>
   extends PropsWithChildren<{}>,
     Optional<
       Pick<Text.TextProps, "level" | "weight" | "shade">,
@@ -90,7 +99,7 @@ export interface ColumnHeaderProps<K extends Key, E extends Keyed<K>>
 
 const SORT_TRANSFORM = "sort";
 
-const Header = <K extends Key, E extends Keyed<K>>({
+const Header = <K extends record.Key, E extends record.Keyed<K>>({
   hide = false,
   columns: initialColumns,
   children,
@@ -175,7 +184,10 @@ const Header = <K extends Key, E extends Keyed<K>>({
   );
 };
 
-const Item = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+const Item = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   entry,
   onSelect,
   className,
@@ -211,13 +223,16 @@ const Item = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   );
 };
 
-interface ListColumnValueProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
+interface ListColumnValueProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> {
   entry: E;
   index: number;
   col: ColumnSpec<K, E>;
 }
 
-const ListColumnValue = <K extends Key, E extends Keyed<K>>({
+const ListColumnValue = <K extends record.Key, E extends record.Keyed<K>>({
   entry,
   index,
   col: { width, ...col },
@@ -246,7 +261,10 @@ const ListColumnValue = <K extends Key, E extends Keyed<K>>({
   );
 };
 
-const columnWidths = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
+const columnWidths = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>(
   columns: Array<ColumnSpec<K, E>>,
   data: E[],
   font: string,
@@ -264,7 +282,10 @@ const columnWidths = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
   });
 };
 
-const longestEntries = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
+const longestEntries = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>(
   data: E[],
   columns: Array<ColumnSpec<K, E>>,
 ): Record<keyof E, string> => {
@@ -282,7 +303,7 @@ const longestEntries = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
 };
 
 const sortTransform =
-  <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
+  <K extends record.Key = record.Key, E extends record.Keyed<K> = record.Keyed<K>>(
     k: keyof E,
     dir: boolean,
   ): ArrayTransform<E> =>

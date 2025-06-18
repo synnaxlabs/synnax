@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type change, type UnknownRecord, unknownRecordZ } from "@synnaxlabs/x";
+import { type change, record } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import {
@@ -133,10 +133,10 @@ export const resourceZ = z
     id: ID.z,
     name: z.string(),
     schema: schemaZ.optional().nullable(),
-    data: unknownRecordZ.optional().nullable(),
+    data: record.unknownZ.optional().nullable(),
   })
   .transform((resource) => ({ key: resource.id.toString(), ...resource }));
-export interface Resource<T extends UnknownRecord = UnknownRecord>
+export interface Resource<T extends record.Unknown = record.Unknown>
   extends Omit<z.infer<typeof resourceZ>, "data"> {
   data?: T | null;
 }

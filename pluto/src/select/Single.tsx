@@ -9,7 +9,7 @@
 
 import "@/select/Single.css";
 
-import { type AsyncTermSearcher, type Key, type Keyed, primitive } from "@synnaxlabs/x";
+import { type AsyncTermSearcher, primitive, type record } from "@synnaxlabs/x";
 import {
   type FocusEventHandler,
   type ReactElement,
@@ -36,7 +36,7 @@ import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
 import { Triggers } from "@/triggers";
 
-export interface SingleProps<K extends Key, E extends Keyed<K>>
+export interface SingleProps<K extends record.Key, E extends record.Keyed<K>>
   extends Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
     Omit<
       Dropdown.DialogProps,
@@ -78,7 +78,10 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
  * @param props.onChange - The callback to be invoked when the selected value changes.
  * @param props.value - The currently selected value.
  */
-export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const Single = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   onChange,
   value,
   entryRenderKey = "key",
@@ -193,7 +196,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   );
 };
 
-export interface SelectInputProps<K extends Key, E extends Keyed<K>>
+export interface SelectInputProps<K extends record.Key, E extends record.Keyed<K>>
   extends Omit<Input.TextProps, "value" | "onFocus"> {
   entryRenderKey: keyof E | ((e: E) => string | number | ReactNode);
   selected: E | null;
@@ -207,7 +210,7 @@ export interface SelectInputProps<K extends Key, E extends Keyed<K>>
 
 export const DEFAULT_PLACEHOLDER = "Select";
 
-const getRenderValue = <K extends Key, E extends Keyed<K>>(
+const getRenderValue = <K extends record.Key, E extends record.Keyed<K>>(
   entryRenderKey: keyof E | ((e: E) => string | number | ReactNode),
   selected: E | null,
 ): ReactNode => {
@@ -216,7 +219,7 @@ const getRenderValue = <K extends Key, E extends Keyed<K>>(
   return (selected[entryRenderKey] as string | number).toString();
 };
 
-const SingleInput = <K extends Key, E extends Keyed<K>>({
+const SingleInput = <K extends record.Key, E extends record.Keyed<K>>({
   entryRenderKey,
   selected,
   visible,

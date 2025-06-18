@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 
 const PREFIX = "new-device-";
 
@@ -29,7 +29,7 @@ export const useListenForChanges = () => {
             variant: "info",
             key: `${PREFIX}${device.key}`,
             message: `New ${device.model} connected`,
-            data: device as unknown as UnknownRecord,
+            data: device as unknown as record.Unknown,
           });
         });
     });

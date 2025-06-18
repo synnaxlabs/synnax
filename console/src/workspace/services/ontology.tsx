@@ -15,7 +15,7 @@ import {
   workspace as clientWorkspace,
 } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
-import { deep, errors, strings, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, errors, type record,strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -108,7 +108,7 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       const schematic = await client.workspaces.schematic.create(workspace, {
         name: "New Schematic",
         snapshot: false,
-        data: deep.copy(Schematic.ZERO_STATE) as unknown as UnknownRecord,
+        data: deep.copy(Schematic.ZERO_STATE) as unknown as record.Unknown,
       });
       const otg = await client.ontology.retrieve(
         clientSchematic.ontologyID(schematic.key),

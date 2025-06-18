@@ -20,7 +20,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, strings, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, strings, type record } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { z } from "zod/v4";
@@ -39,7 +39,7 @@ export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type"> = {
 };
 
 interface InternalProps<
-  Properties extends UnknownRecord,
+  Properties extends record.Unknown,
   Make extends string,
   Model extends string,
 > extends Pick<Layout.RendererProps, "onClose"> {
@@ -51,7 +51,7 @@ const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ 
 type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
 
 const Internal = <
-  Properties extends UnknownRecord,
+  Properties extends record.Unknown,
   Make extends string,
   Model extends string,
 >({
@@ -179,14 +179,14 @@ const Internal = <
 };
 
 export interface ConfigureProps<
-  Properties extends UnknownRecord,
+  Properties extends record.Unknown,
   Make extends string,
   Model extends string,
 > extends Layout.RendererProps,
     Pick<InternalProps<Properties, Make, Model>, "initialProperties"> {}
 
 export const Configure = <
-  Properties extends UnknownRecord,
+  Properties extends record.Unknown,
   Make extends string,
   Model extends string,
 >({
