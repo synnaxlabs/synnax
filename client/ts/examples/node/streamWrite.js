@@ -74,17 +74,11 @@ try {
     const timestamp = TimeStamp.now();
     const data1 = Math.sin(i / 10);
     const data2 = i % 2;
-    if (
-      !(await writer.write({
-        [timeChannel.key]: timestamp,
-        [dataChannel1.key]: data1,
-        [dataChannel2.key]: data2,
-      }))
-    ) {
-      console.error("Failed to write");
-      break;
-    }
-
+    await writer.write({
+      [timeChannel.key]: timestamp,
+      [dataChannel1.key]: data1,
+      [dataChannel2.key]: data2,
+    });
     if (i % 60 == 0) console.log(`Writing sample ${i} at ${timestamp.toISOString()}`);
   }
 } finally {
