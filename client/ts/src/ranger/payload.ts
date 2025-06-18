@@ -19,12 +19,18 @@ export type Keys = Key[];
 export type Names = Name[];
 export type Params = Key | Name | Keys | Names;
 
+export const stageZ = z.enum(["to_do", "in_progress", "completed"]);
+
+export type Stage = z.infer<typeof stageZ>;
+
 export const payloadZ = z.object({
   key: keyZ,
   name: nameZ,
   timeRange: TimeRange.z,
+  stage: stageZ.optional().default("to_do"),
   color: z.string().optional(),
 });
+
 export interface Payload extends z.infer<typeof payloadZ> {}
 
 export const newZ = payloadZ.partial({ key: true });

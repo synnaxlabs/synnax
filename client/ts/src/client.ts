@@ -13,6 +13,7 @@ import { URL } from "@synnaxlabs/x/url";
 import { z } from "zod/v4";
 
 import { access } from "@/access";
+import { annotation } from "@/annotation";
 import { auth } from "@/auth";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
@@ -72,6 +73,7 @@ export default class Synnax extends framer.Client {
   readonly control: control.Client;
   readonly slates: slate.Client;
   readonly effects: effect.Client;
+  readonly annotations: annotation.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -159,6 +161,7 @@ export default class Synnax extends framer.Client {
     this.hardware = new hardware.Client(tasks, racks, devices);
     this.slates = new slate.Client(this.transport.unary);
     this.effects = new effect.Client(this.transport.unary, this);
+    this.annotations = new annotation.Client(this.transport.unary);
   }
 
   get key(): string {

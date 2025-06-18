@@ -29,8 +29,8 @@ import (
 type Stage string
 
 func (s Stage) EarlierThan(other Stage) bool {
-	sIdx := lo.IndexOf(Statuses, s)
-	otherIdx := lo.IndexOf(Statuses, other)
+	sIdx := lo.IndexOf(Stages, s)
+	otherIdx := lo.IndexOf(Stages, other)
 	return sIdx < otherIdx
 }
 
@@ -41,8 +41,8 @@ const (
 )
 
 var (
-	Statuses = []Stage{ToDo, InProgress, Completed}
-	StatusZ  = zyn.Enum(ToDo, InProgress, Completed)
+	Stages = []Stage{ToDo, InProgress, Completed}
+	StageZ = zyn.Enum(Stages...)
 )
 
 // Range (short for time range) is an interesting, user defined regions of time in a
@@ -70,7 +70,7 @@ var RangeZ = zyn.Object(map[string]zyn.Z{
 	"name":       zyn.String(),
 	"time_range": telem.TimeRangeZ,
 	"color":      zyn.String(),
-	"status":     StatusZ,
+	"status":     StageZ,
 })
 
 var _ gorp.Entry[uuid.UUID] = Range{}
@@ -288,6 +288,6 @@ func (r Range) ListLabels(ctx context.Context) ([]label.Label, error) {
 	return r.label.RetrieveFor(ctx, OntologyID(r.Key), r.tx)
 }
 
-// OntologyID returns the semantic ID for this range in order to look it up from within
+// OntologyID returns the semantic ID for this range to look it up from within
 // the ontology.
 func (r Range) OntologyID() ontology.ID { return OntologyID(r.Key) }

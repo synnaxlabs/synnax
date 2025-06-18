@@ -8,17 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { array, type AsyncTermSearcher, unique } from "@synnaxlabs/x";
+import { array, type AsyncTermSearcher, type KeyedNamed, unique } from "@synnaxlabs/x";
 import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
+import { Icon } from "@/icon";
 import { type List } from "@/list";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
+import { Text } from "@/text";
 
 const rangeCols: Array<List.ColumnSpec<ranger.Key, ranger.Payload>> = [
   { key: "name", name: "Name" },
@@ -223,3 +225,49 @@ export const SelectButton = ({
     />
   );
 };
+
+const STAGE_ICONS: Record<ranger.Stage, Icon.ReactElement> = {
+  to_do: <Icon.ToDo />,
+  in_progress: <Icon.InProgress />,
+  completed: <Icon.Completed />,
+};
+
+interface StageEntry extends KeyedNamed<ranger.Stage> {}
+
+const SELECT_STAGE_COLS: List.ColumnSpec<ranger.Stage, StageEntry>[] = [
+  {
+    key: "name",
+    name: "Stage",
+    render: ({ entry }) => (
+      <Text.WithIcon level="p" startIcon={STAGE_ICONS[entry.key]}>
+        {entry.name}
+      </Text.WithIcon>
+    ),
+  },
+];
+
+const SELECT_STAGE_DATA: StageEntry[] = [
+  { key: "to_do", name: "To Do" },
+  { key: "in_progress", name: "In Progress" },
+  { key: "completed", name: "Completed" },
+];
+
+export const SelectStage = (
+  props: Select.DropdownButtonProps<ranger.Stage, StageEntry>,
+): ReactElement => (
+  <Select.DropdownButton<ranger.Stage, StageEntry>
+    {...props}
+    data={SELECT_STAGE_DATA}
+    columns={SELECT_STAGE_COLS}
+  >
+    {({ selected, ...props }) => (
+      <Select.BaseButton
+        selected={selected}
+        startIcon={STAGE_ICONS[selected?.key as ranger.Stage]}
+        {...props}
+      >
+        {selected?.name}
+      </Select.BaseButton>
+    )}
+  </Select.DropdownButton>
+);

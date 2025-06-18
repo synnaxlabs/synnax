@@ -14,6 +14,7 @@ import {
   ALLOW_ALL_ONTOLOGY_TYPE as ALLOW_ALL_TYPE,
   ONTOLOGY_TYPE as POLICY_TYPE,
 } from "@/access/policy/ontology";
+import { ONTOLOGY_TYPE as ANNOTATION_TYPE } from "@/annotation/payload";
 import { ONTOLOGY_TYPE as CHANNEL_TYPE } from "@/channel/payload";
 import { ONTOLOGY_TYPE as EFFECT_TYPE } from "@/effect/payload";
 import { ONTOLOGY_TYPE as FRAMER_TYPE } from "@/framer/frame";
@@ -67,6 +68,7 @@ export const resourceTypeZ = z.enum([
   TABLE_TYPE,
   EFFECT_TYPE,
   SLATE_TYPE,
+  ANNOTATION_TYPE,
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 

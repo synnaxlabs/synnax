@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -61,7 +60,6 @@ var _schema = ontology.NewSchema(
 	ontologyType,
 	map[string]zyn.Z{
 		"key":     zyn.UUID(),
-		"variant": status.VariantZ,
 		"message": zyn.String(),
 	},
 )

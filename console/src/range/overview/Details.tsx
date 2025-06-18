@@ -211,8 +211,9 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 tooltip={`Copy Python code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 variant="text"
+                onClick={handleCopyPythonCode}
               >
-                <Icon.Python onClick={handleCopyPythonCode} />
+                <Icon.Python color={10} />
               </Button.Icon>
               <Button.Icon
                 variant="text"
@@ -220,7 +221,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
               >
-                <Icon.TypeScript />
+                <Icon.TypeScript color={10} />
               </Button.Icon>
             </Align.Space>
             <Divider.Divider y />
@@ -230,7 +231,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               tooltipLocation="bottom"
               onClick={handleCopyLink}
             >
-              <Icon.Link />
+              <Icon.Link color={10} />
             </Button.Icon>
           </Align.Space>
         </Align.Space>
