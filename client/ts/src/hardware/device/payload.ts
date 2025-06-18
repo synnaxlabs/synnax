@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, status, type UnknownRecord, unknownRecordZ, zod } from "@synnaxlabs/x";
+import { binary, record, status, zod } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
@@ -32,12 +32,12 @@ export const deviceZ = z.object({
   model: z.string(),
   location: z.string(),
   configured: z.boolean().optional(),
-  properties: unknownRecordZ.or(z.string().transform(decodeJSONString)),
+  properties: record.unknownZ.or(z.string().transform(decodeJSONString)),
   status: zod.nullToUndefined(statusZ),
 });
 
 export interface Device<
-  Properties extends UnknownRecord = UnknownRecord,
+  Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
 > extends Omit<z.infer<typeof deviceZ>, "properties" | "state"> {
@@ -51,7 +51,7 @@ export const newZ = deviceZ.extend({
   properties: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
 export interface New<
-  Properties extends UnknownRecord = UnknownRecord,
+  Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
 > extends Omit<z.input<typeof newZ>, "properties"> {

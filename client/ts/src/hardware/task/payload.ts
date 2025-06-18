@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  binary,
-  type observe,
-  status,
-  type UnknownRecord,
-  unknownRecordZ,
-} from "@synnaxlabs/x";
+import { binary, type observe, record, status } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { type Key as RackKey } from "@/hardware/rack/payload";
@@ -59,7 +53,7 @@ export const taskZ = <
     name: z.string(),
     type: typeZ,
     internal: z.boolean().optional(),
-    config: unknownRecordZ.or(z.string().transform(decodeJSONString)),
+    config: configZ.or(z.string().transform(decodeJSONString)),
     status: statusZ(statusDataZ).optional().nullable(),
     snapshot: z.boolean().optional(),
   });
@@ -108,14 +102,14 @@ export const commandZ = z.object({
   task: keyZ,
   type: z.string(),
   key: z.string(),
-  args: unknownRecordZ
+  args: record.unknownZ
     .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))
     .or(z.null())
-    .optional() as z.ZodOptional<z.ZodType<UnknownRecord>>,
+    .optional() as z.ZodOptional<z.ZodType<record.Unknown>>,
 });
 
-export interface Command<Args extends {} = UnknownRecord>
+export interface Command<Args extends {} = record.Unknown>
   extends Omit<z.infer<typeof commandZ>, "args"> {
   args?: Args;
 }
@@ -123,7 +117,7 @@ export interface Command<Args extends {} = UnknownRecord>
 export interface StateObservable<StatusData extends z.ZodType>
   extends observe.ObservableAsyncCloseable<Status<StatusData>> {}
 
-export interface CommandObservable<Args extends {} = UnknownRecord>
+export interface CommandObservable<Args extends {} = record.Unknown>
   extends observe.ObservableAsyncCloseable<Command<Args>> {}
 
 export const ONTOLOGY_TYPE = "task";

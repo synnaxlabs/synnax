@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod/v4";
 
@@ -71,17 +70,17 @@ describe("Rack", () => {
   describe("state", () => {
     it("should include state when includeStatus is true", async () => {
       const r = await client.hardware.racks.create({ name: "test" });
-      let state: rack.Status | undefined;
+      let status: rack.Status | undefined;
       await expect
         .poll(async () => {
           const retrieved = await client.hardware.racks.retrieve(r.key, {
             includeStatus: true,
           });
-          state = retrieved.state;
-          return state;
+          status = retrieved.status;
+          return status;
         })
         .toBeDefined();
-      expect(state?.details?.rack).toBe(r.key);
+      expect(status?.details?.rack).toBe(r.key);
     });
     it("should include state for multiple racks", async () => {
       const r1 = await client.hardware.racks.create({ name: "test1" });
@@ -92,7 +91,7 @@ describe("Rack", () => {
           const retrieved = await client.hardware.racks.retrieve([r1.key, r2.key], {
             includeStatus: true,
           });
-          states = retrieved.map((r) => r.state);
+          states = retrieved.map((r) => r.status);
           return states.every((s) => s != null);
         })
         .toBeTruthy();

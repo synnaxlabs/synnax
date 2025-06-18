@@ -171,14 +171,14 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
 export class Rack {
   key: Key;
   name: string;
-  state?: Status;
+  status?: Status;
   private readonly tasks: task.Client;
 
-  constructor(key: Key, name: string, taskClient: task.Client, state?: Status) {
+  constructor(key: Key, name: string, taskClient: task.Client, status?: Status) {
     this.key = key;
     this.name = name;
     this.tasks = taskClient;
-    this.state = state;
+    this.status = status;
   }
 
   async listTasks(): Promise<task.Task[]> {

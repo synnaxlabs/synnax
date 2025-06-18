@@ -10,7 +10,7 @@
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { id } from "@synnaxlabs/x";
 import { array } from "@synnaxlabs/x/array";
-import { type UnknownRecord } from "@synnaxlabs/x/record";
+import { type record } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
 import { z } from "zod/v4";
@@ -120,7 +120,7 @@ export class Task<
 
   async executeCommandSync<StatusData extends z.ZodTypeAny = z.ZodTypeAny>(
     type: string,
-    args: UnknownRecord,
+    args: record.Unknown,
     timeout: CrudeTimeSpan,
   ): Promise<Status<StatusData>> {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
