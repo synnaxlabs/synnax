@@ -9,14 +9,7 @@
 
 import { channel } from "@synnaxlabs/client";
 import { array, DataType, unique } from "@synnaxlabs/x";
-import {
-  type DragEvent,
-  type FC,
-  type ReactElement,
-  useCallback,
-  useId,
-  useMemo,
-} from "react";
+import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
 import { useActiveRange, useAliases } from "@/channel/AliasProvider";
 import { HAUL_TYPE } from "@/channel/types";
@@ -69,7 +62,7 @@ const useColumns = (
   }, [filter, aliases]);
 };
 
-export const resolveIcon = (ch?: channel.Payload): FC<Icon.IconProps> => {
+export const resolveIcon = (ch?: channel.Payload): Icon.IconFC => {
   if (ch == null) return Icon.Channel;
   if (channel.isCalculated(ch)) return Icon.Calculation;
   if (ch.isIndex) return Icon.Index;

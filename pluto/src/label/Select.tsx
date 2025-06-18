@@ -34,9 +34,7 @@ const rangeCols: Array<List.ColumnSpec<label.Key, label.Label>> = [
   {
     key: "color",
     name: "Color",
-    render: ({ entry }) => (
-      <Icon.Circle color={entry.color} style={{ height: "2.5rem", width: "2.5rem" }} />
-    ),
+    render: ({ entry }) => <Icon.Circle color={entry.color} size="2.5rem" />,
   },
   { key: "name", name: "Name" },
 ];

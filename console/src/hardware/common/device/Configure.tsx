@@ -20,7 +20,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, strings, type record } from "@synnaxlabs/x";
+import { deep, type record, strings } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { z } from "zod/v4";

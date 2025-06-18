@@ -15,7 +15,7 @@ import {
   workspace as clientWorkspace,
 } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
-import { deep, errors, type record,strings } from "@synnaxlabs/x";
+import { deep, errors, type record, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
