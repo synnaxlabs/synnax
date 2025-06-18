@@ -28,6 +28,7 @@ import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { useParent } from "@/range/ContextMenu";
+import { Labels } from "@/range/overview/Labels";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelect } from "@/range/selectors";
 import { add, type StaticRange } from "@/range/slice";
@@ -50,7 +51,7 @@ const ParentRangeButton = ({
       </Text.Text>
       <Button.Button
         variant="text"
-        shade={11}
+        shade={1}
         weight={400}
         startIcon={<Icon.Range />}
         iconSpacing="small"
@@ -173,8 +174,15 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   };
 
   return (
-    <Form.Form<typeof formSchema> {...formCtx}>
-      <Align.Space y size="large">
+    <Align.Space
+      y
+      size="large"
+      style={{ padding: "3rem" }}
+      rounded={2}
+      background={1}
+      bordered
+    >
+      <Form.Form<typeof formSchema> {...formCtx}>
         <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
           <Align.Space y grow>
             <Form.TextField
@@ -182,6 +190,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               showLabel={false}
               inputProps={{
                 variant: "natural",
+                weight: 500,
                 level: "h1",
                 placeholder: "Name",
                 onlyChangeOnBlur: true,
@@ -197,16 +206,13 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             style={{ height: "fit-content" }}
             size="small"
           >
-            <Align.Space x>
+            <Align.Space x size="small">
               <Button.Icon
                 tooltip={`Copy Python code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 variant="text"
               >
-                <Icon.Python
-                  onClick={handleCopyPythonCode}
-                  style={{ color: "var(--pluto-gray-l9)" }}
-                />
+                <Icon.Python onClick={handleCopyPythonCode} />
               </Button.Icon>
               <Button.Icon
                 variant="text"
@@ -214,7 +220,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
               >
-                <Icon.TypeScript style={{ color: "var(--pluto-gray-l9)" }} />
+                <Icon.TypeScript />
               </Button.Icon>
             </Align.Space>
             <Divider.Divider y />
@@ -229,7 +235,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           </Align.Space>
         </Align.Space>
         <Align.Space className={CSS.B("time-range")} x size="medium" align="center">
-          <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
+          <Form.Field<number>
+            path="timeRange.start"
+            padHelpText={false}
+            required={false}
+            label="From"
+          >
             {(p) => (
               <Input.DateTime level="h4" variant="natural" onlyChangeOnBlur {...p} />
             )}
@@ -239,13 +250,19 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             level="h4"
             startIcon={<Icon.Arrow.Right />}
           />
-          <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
+          <Form.Field<number>
+            required={false}
+            padHelpText={false}
+            path="timeRange.end"
+            label="To"
+          >
             {(p) => (
               <Input.DateTime onlyChangeOnBlur level="h4" variant="natural" {...p} />
             )}
           </Form.Field>
         </Align.Space>
-      </Align.Space>
-    </Form.Form>
+        <Labels rangeKey={rangeKey} />
+      </Form.Form>
+    </Align.Space>
   );
 };

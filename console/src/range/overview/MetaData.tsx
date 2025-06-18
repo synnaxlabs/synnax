@@ -199,7 +199,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
   const arr = Form.useFieldArray<kv.Pair>({ path: "pairs", ctx: formCtx });
   const sorted = useMemo(() => arr.value.sort(), [arr.value]);
   return (
-    <Align.Space y>
+    <Align.Space y style={{ padding: "2rem" }} rounded={2} background={1} bordered>
       <Text.Text level="h4" shade={11} weight={450}>
         Metadata
       </Text.Text>
