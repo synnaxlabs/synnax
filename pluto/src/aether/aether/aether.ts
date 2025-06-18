@@ -557,12 +557,14 @@ export class Root extends Composite<typeof aetherRootState> {
   private handle(msg: MainMessage): void {
     try {
       const { path, variant, type } = msg;
-      if (variant === "delete") this._delete(path);
-      else
-        this._updateState(path, msg.state, (parentCtxValues) => {
-          const key = path[path.length - 1];
-          return this.create({ key, type, parentCtxValues });
-        });
+      if (variant === "delete") {
+        this._delete(path);
+        return;
+      }
+      this._updateState(path, msg.state, (parentCtxValues) => {
+        const key = path[path.length - 1];
+        return this.create({ key, type, parentCtxValues });
+      });
     } catch (e) {
       console.error("failed to handle message", { error: e, msg });
     }
