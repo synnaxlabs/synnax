@@ -15,6 +15,7 @@
     "build:vite-plugin": "npx turbo build --filter @synnaxlabs/vite-plugin",
     "build:x": "npx turbo build --filter @synnaxlabs/x",
     "check-types": "npx turbo check-types",
+    "check-types:console": "npx turbo check-types --filter @synnaxlabs/console",
     "watch": "npx turbo watch --parallel",
     "watch:alamos": "npx turbo watch --filter @synnaxlabs/alamos",
     "watch:client": "npx turbo watch --filter @synnaxlabs/client",
