@@ -177,7 +177,7 @@ const MultiElementProperties = ({
             const pos = box.center(box.construct(el));
             const dist = xy.scale(
               xy.translation(box.topLeft(nodeElBox), pos),
-              1 / viewport.zoom,
+              1 / (viewport?.zoom ?? 1),
             );
             const match = el.className.match(/react-flow__handle-(\w+)/);
             if (match == null)
