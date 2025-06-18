@@ -106,7 +106,7 @@ void ScanTask::scan(const task::Command &cmd) const {
     if (!parser.ok())
         return ctx->set_status(
             {.key = cmd.key,
-             .variant = status::VARIANT_ERROR,
+             .variant = status::variant::ERROR,
              .details = synnax::
                  TaskStatusDetails{.task = task.key, .data = parser.error_json()}}
         );
@@ -115,7 +115,7 @@ void ScanTask::scan(const task::Command &cmd) const {
     if (err)
         return ctx->set_status({
             .key = cmd.key,
-            .variant = status::VARIANT_ERROR,
+            .variant = status::variant::ERROR,
             .message = err.message(),
             .details = synnax::TaskStatusDetails{
                 .task = task.key,
@@ -134,7 +134,7 @@ void ScanTask::scan(const task::Command &cmd) const {
     );
     ctx->set_status({
         .key = cmd.key,
-        .variant = status::VARIANT_SUCCESS,
+        .variant = status::variant::SUCCESS,
         .details = synnax::TaskStatusDetails{
             .task = task.key,
             .data = util::DeviceProperties(args.connection, *scan_ctx->channels)
@@ -150,14 +150,14 @@ void ScanTask::test_connection(const task::Command &cmd) const {
     if (!parser.ok())
         return ctx->set_status(
             {.key = cmd.key,
-             .variant = status::VARIANT_ERROR,
+             .variant = status::variant::ERROR,
              .details = synnax::
                  TaskStatusDetails{.task = task.key, .data = parser.error_json()}}
         );
     if (const auto err = connect(args.connection, "[opc.scanner] ").second)
         return ctx->set_status(
             {.key = cmd.key,
-             .variant = status::VARIANT_ERROR,
+             .variant = status::variant::ERROR,
              .message = err.data,
              .details =
                  synnax::TaskStatusDetails{
@@ -166,7 +166,7 @@ void ScanTask::test_connection(const task::Command &cmd) const {
         );
     return ctx->set_status(
         {.key = cmd.key,
-         .variant = status::VARIANT_SUCCESS,
+         .variant = status::variant::SUCCESS,
          .message = "Connection successful",
          .details =
              synnax::TaskStatusDetails{

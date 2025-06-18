@@ -34,7 +34,7 @@ public:
     ):
         ctx(ctx), task(task) {
         ctx->set_status(
-            {.variant = status::VARIANT_SUCCESS,
+            {.variant = status::variant::SUCCESS,
              .message = "task configured successfully",
              .details =
                  synnax::TaskStatusDetails{
@@ -48,7 +48,7 @@ public:
     void exec(task::Command &cmd) override {
         ctx->set_status({
             .key = cmd.key,
-            .variant = status::VARIANT_SUCCESS,
+            .variant = status::variant::SUCCESS,
             .details = synnax::TaskStatusDetails{
                 .task = task.key,
                 .running = true,
@@ -59,7 +59,7 @@ public:
 
     void stop(bool will_reconfigure) override {
         ctx->set_status({
-            .variant = status::VARIANT_SUCCESS,
+            .variant = status::variant::SUCCESS,
             .message = "task stopped successfully",
             .details = synnax::TaskStatusDetails{
                 .task = task.key,
@@ -145,7 +145,7 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
     auto parser = xjson::Parser(state_str);
     auto status = synnax::TaskStatus::parse(parser);
     ASSERT_EQ(status.details.task, echo_task.key);
-    ASSERT_EQ(status.variant, status::VARIANT_SUCCESS);
+    ASSERT_EQ(status.variant, status::variant::SUCCESS);
     ASSERT_EQ(status.message, "task configured successfully");
     const auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
@@ -183,7 +183,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
     auto parser = xjson::Parser(state_str);
     auto state = synnax::TaskStatus::parse(parser);
     ASSERT_EQ(state.details.task, echo_task.key);
-    ASSERT_EQ(state.variant, status::VARIANT_SUCCESS);
+    ASSERT_EQ(state.variant, status::variant::SUCCESS);
     ASSERT_EQ(state.message, "task stopped successfully");
     auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
@@ -236,7 +236,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     auto status = synnax::TaskStatus::parse(parser);
     ASSERT_EQ(status.details.task, echo_task.key);
     ASSERT_EQ(status.key, cmd.key);
-    ASSERT_EQ(status.variant, status::VARIANT_SUCCESS);
+    ASSERT_EQ(status.variant, status::variant::SUCCESS);
     ASSERT_EQ(status.details.data["message"], "hello world");
     auto close_err = streamer.close();
     ASSERT_FALSE(close_err) << close_err;
@@ -318,7 +318,7 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
     auto state = synnax::TaskStatus::parse(parser);
 
     ASSERT_EQ(state.details.task, echo_task.key);
-    ASSERT_EQ(state.variant, status::VARIANT_SUCCESS);
+    ASSERT_EQ(state.variant, status::variant::SUCCESS);
     ASSERT_EQ(state.message, "task stopped successfully");
 
     const auto close_err = streamer.close();

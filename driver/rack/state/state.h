@@ -43,7 +43,7 @@ public:
         fr.clear();
         this->loop.wait(breaker);
         const synnax::RackStatus status{
-            .variant = status::VARIANT_SUCCESS,
+            .variant = status::variant::SUCCESS,
             .message = "Driver is running",
             .details = synnax::RackStatusDetails{
                 .rack = this->rack_key,

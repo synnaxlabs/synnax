@@ -49,7 +49,7 @@ bool ni::Factory::check_health(
 ) const {
     if (this->check_health()) return true;
     ctx->set_status({
-        .variant = status::VARIANT_ERROR,
+        .variant = status::variant::ERROR,
         .message = NO_LIBS_MSG,
         .details = synnax::TaskStatusDetails{
             .task = task.key,

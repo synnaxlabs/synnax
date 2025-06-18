@@ -108,7 +108,7 @@ bool labjack::Factory::check_health(
 ) const {
     if (this->dev_manager != nullptr) return true;
     ctx->set_status(
-        {.variant = status::VARIANT_ERROR,
+        {.variant = status::variant::ERROR,
          .message = NO_LIBS_MSG,
          .details =
              synnax::TaskStatusDetails{

@@ -34,12 +34,12 @@ struct StatusHandler {
     StatusHandler(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task):
         ctx(ctx), task(task) {
         this->status.details.task = task.key;
-        this->status.variant = status::VARIANT_SUCCESS;
+        this->status.variant = status::variant::SUCCESS;
     }
 
     /// @brief resets the state handler to its initial state.
     void reset() {
-        this->status.variant = status::VARIANT_SUCCESS;
+        this->status.variant = status::variant::SUCCESS;
         this->accumulated_err = xerrors::NIL;
     }
 
@@ -48,7 +48,7 @@ struct StatusHandler {
     /// will override any other accumulated errors.
     bool error(const xerrors::Error &err) {
         if (!err) return false;
-        this->status.variant = status::VARIANT_ERROR;
+        this->status.variant = status::variant::ERROR;
         this->accumulated_err = err;
         return true;
     }
@@ -61,7 +61,7 @@ struct StatusHandler {
         this->status.key = "";
         // If there's already an error bound, communicate it instead.
         if (!this->accumulated_err) {
-            this->status.variant = status::VARIANT_WARNING;
+            this->status.variant = status::variant::WARNING;
             this->status.message = warning;
         } else
             this->status.message = this->accumulated_err.data;
@@ -69,8 +69,8 @@ struct StatusHandler {
     }
 
     void clear_warning() {
-        if (this->status.variant != status::VARIANT_WARNING) return;
-        this->status.variant = status::VARIANT_SUCCESS;
+        if (this->status.variant != status::variant::WARNING) return;
+        this->status.variant = status::variant::SUCCESS;
         this->status.message = "Task started successfully";
         this->ctx->set_status(this->status);
     }
@@ -85,7 +85,7 @@ struct StatusHandler {
             this->status.details.running = true;
             this->status.message = "Task started successfully";
         } else {
-            this->status.variant = status::VARIANT_ERROR;
+            this->status.variant = status::variant::ERROR;
             this->status.details.running = false;
             this->status.message = this->accumulated_err.data;
         }
@@ -100,7 +100,7 @@ struct StatusHandler {
         this->status.key = cmd_key;
         this->status.details.running = false;
         if (this->accumulated_err) {
-            this->status.variant = status::VARIANT_ERROR;
+            this->status.variant = status::variant::ERROR;
             this->status.message = this->accumulated_err.data;
         } else
             this->status.message = "Task stopped successfully";
@@ -119,10 +119,10 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     status.details.task = task.key;
     status.details.running = false;
     if (res.error) {
-        status.variant = status::VARIANT_ERROR;
+        status.variant = status::variant::ERROR;
         status.message = res.error.message();
     } else {
-        status.variant = status::VARIANT_SUCCESS;
+        status.variant = status::variant::SUCCESS;
         if (!res.auto_start) {
             status.message = "Task configured successfully";
         }

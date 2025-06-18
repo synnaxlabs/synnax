@@ -159,17 +159,17 @@ public:
 
     void run() override {
         if (const auto err = this->scanner->start()) {
-            this->state.variant = status::VARIANT_ERROR;
+            this->state.variant = status::variant::ERROR;
             this->state.message = err.message();
             this->ctx->set_status(this->state);
             return;
         }
-        this->state.variant = status::VARIANT_SUCCESS;
+        this->state.variant = status::variant::SUCCESS;
         this->state.message = "scan task started";
         this->ctx->set_status(this->state);
         while (this->breaker.running()) {
             if (const auto err = this->scan()) {
-                this->state.variant = status::VARIANT_WARNING;
+                this->state.variant = status::variant::WARNING;
                 this->state.message = err.message();
                 this->ctx->set_status(this->state);
                 LOG(WARNING) << "[scan_task] failed to scan for devices: " << err;
@@ -177,10 +177,10 @@ public:
             this->timer.wait(this->breaker);
         }
         if (const auto err = this->scanner->stop()) {
-            this->state.variant = status::VARIANT_ERROR;
+            this->state.variant = status::variant::ERROR;
             this->state.message = err.message();
         } else {
-            this->state.variant = status::VARIANT_SUCCESS;
+            this->state.variant = status::variant::SUCCESS;
             this->state.message = "scan task stopped";
         }
         this->ctx->set_status(this->state);
@@ -193,7 +193,7 @@ public:
             this->start();
         else if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
-            this->state.variant = status::VARIANT_ERROR;
+            this->state.variant = status::variant::ERROR;
             this->state.message = err.message();
             this->ctx->set_status(this->state);
         }
@@ -250,7 +250,7 @@ public:
             if (present.find(key) != present.end()) continue;
             this->dev_state[key].dev.status = synnax::DeviceStatus{
                 .key = dev.dev.key,
-                .variant = status::VARIANT_WARNING,
+                .variant = status::variant::WARNING,
                 .message = "Device disconnected",
                 .time = dev.last_available,
                 .details = synnax::DeviceStatusDetails{
