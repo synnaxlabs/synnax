@@ -10,8 +10,15 @@
 import "@/hardware/device/ontology.css";
 
 import { device, ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Menu as PMenu, Status, Text, Tooltip, Tree } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Icon,
+  Menu as PMenu,
+  Status,
+  Text,
+  Tooltip,
+  Tree,
+} from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 

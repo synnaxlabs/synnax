@@ -12,10 +12,10 @@ import "@/lineplot/LinePlot.css";
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel, type ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
 import {
   type axis,
   Channel,
+  Icon,
   type Legend,
   LinePlot as Core,
   Menu as PMenu,

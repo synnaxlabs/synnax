@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import { type AsyncTermSearcher, type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
+import { Icon } from "@/icon";
 import { type Input } from "@/input";
 import { Text as InputText } from "@/input/Text";
 import { useDataUtils } from "@/list/Data";

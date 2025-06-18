@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Breadcrumb,
   Form,
-  type Icon as PIcon,
+  Icon,
   Select,
   Status,
   Table,
@@ -144,7 +143,7 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
 };
 
 type CellEntry = record.KeyedNamed<TableCells.Variant> & {
-  icon: PIcon.Element;
+  icon: Icon.ReactElement;
 };
 
 const CELL_TYPE_OPTIONS: CellEntry[] = [

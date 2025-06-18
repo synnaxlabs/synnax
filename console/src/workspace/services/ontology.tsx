@@ -14,8 +14,7 @@ import {
   table as clientTable,
   workspace as clientWorkspace,
 } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
+import { Icon, Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
 import { deep, errors, type record, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
@@ -275,7 +274,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const singleResource = resources.length === 1;
   const canCreateSchematic = Schematic.useSelectHasPermission();
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={handleSelect} level="small" shade={1} iconSpacing="small">
       {singleResource && (
         <>
           <Menu.RenameItem />

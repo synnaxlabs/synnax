@@ -67,9 +67,9 @@ export const CoreItem: FunctionComponent<ItemProps> = (props): ReactElement => {
 export interface ItemIconProps extends Button.IconProps, MenuItemExtraProps {}
 
 export const ItemIcon: FunctionComponent<ItemIconProps> = (props): ReactElement => {
-  const { itemKey, trigger, className, onClick, size, shade, ...rest } = props;
+  const { itemKey, trigger, className, onClick, size, ...rest } = props;
 
-  const { onClick: ctxOnClick, selected, iconSpacing } = useContext();
+  const { onClick: ctxOnClick, selected, iconSpacing, shade } = useContext();
 
   const handleClick: Button.ButtonProps["onClick"] = (e) => {
     ctxOnClick(itemKey);
@@ -85,7 +85,7 @@ export const ItemIcon: FunctionComponent<ItemIconProps> = (props): ReactElement 
       variant="text"
       className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
       size={size ?? iconSpacing}
-      shade={shade}
+      shade={props.shade ?? shade}
     />
   );
 };

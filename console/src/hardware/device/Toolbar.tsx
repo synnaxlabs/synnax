@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device, ontology, type rack } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Align, Icon, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import {
   createContext,

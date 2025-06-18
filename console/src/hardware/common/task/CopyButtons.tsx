@@ -8,15 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Icon, type IconFC } from "@synnaxlabs/media";
-import { Align, Button, Text } from "@synnaxlabs/pluto";
+import { Align, Button, Icon, Text } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface CopyButtonProps {
-  children: IconFC;
+  children: Icon.FC;
   disabled?: boolean;
   onClick: () => void;
   tooltip: string;
