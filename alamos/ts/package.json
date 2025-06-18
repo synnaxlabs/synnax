@@ -25,17 +25,17 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@synnaxlabs/x": "workspace:*"
+    "@synnaxlabs/x": "workspace:^"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "workspace:*",
-    "@synnaxlabs/vite-plugin": "workspace:*",
-    "eslint": "^9.28.0",
-    "eslint-config-synnaxlabs": "workspace:*",
-    "madge": "^8.0.0",
-    "typescript": "^5.8.3",
-    "vite": "^6.3.5",
-    "vitest": "^3.2.3"
+    "@synnaxlabs/tsconfig": "workspace:^",
+    "@synnaxlabs/vite-plugin": "workspace:^",
+    "eslint": "catalog:",
+    "eslint-config-synnaxlabs": "workspace:^",
+    "madge": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
   },
   "main": "dist/index.js",
   "module": "dist/index.js",
