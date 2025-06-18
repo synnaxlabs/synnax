@@ -164,7 +164,7 @@
       "require": "./dist/unique.cjs"
     },
     "./record": {
-      "types": "./dist/src/record.d.ts",
+      "types": "./dist/src/record/index.d.ts",
       "import": "./dist/record.js",
       "require": "./dist/record.cjs"
     },

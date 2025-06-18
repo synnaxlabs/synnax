@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type UnknownRecord } from "@synnaxlabs/x";
+import { array, type record } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod/v4";
 
@@ -83,30 +83,30 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
   }
 
   async retrieve<
-    Properties extends UnknownRecord = UnknownRecord,
+    Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-    StateDetails extends {} = UnknownRecord,
+    StateDetails extends {} = record.Unknown,
   >(
     key: string,
     options?: RetrieveOptions,
   ): Promise<Device<Properties, Make, Model, StateDetails>>;
 
   async retrieve<
-    Properties extends UnknownRecord = UnknownRecord,
+    Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-    StateDetails extends {} = UnknownRecord,
+    StateDetails extends {} = record.Unknown,
   >(
     keys: string[],
     options?: RetrieveOptions,
   ): Promise<Array<Device<Properties, Make, Model, StateDetails>>>;
 
   async retrieve<
-    Properties extends UnknownRecord = UnknownRecord,
+    Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-    StateDetails extends {} = UnknownRecord,
+    StateDetails extends {} = record.Unknown,
   >(
     keys: string | string[],
     options?: RetrieveOptions,
@@ -153,17 +153,17 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
   }
 
   async create<
-    Properties extends UnknownRecord = UnknownRecord,
+    Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
   >(device: New<Properties, Make>): Promise<Device<Properties, Make, Model>>;
   async create<
-    Properties extends UnknownRecord = UnknownRecord,
+    Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
   >(devices: New<Properties, Make>[]): Promise<Device<Properties, Make, Model>[]>;
   async create<
-    Properties extends UnknownRecord = UnknownRecord,
+    Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
   >(
@@ -201,7 +201,7 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     );
   }
 
-  async openStateObserver<Details extends {} = UnknownRecord>(): Promise<
+  async openStateObserver<Details extends {} = record.Unknown>(): Promise<
     framer.ObservableStreamer<State<Details>[]>
   > {
     return new framer.ObservableStreamer<State<Details>[]>(

@@ -21,7 +21,7 @@ import {
   Text,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { deep, type KeyedNamed } from "@synnaxlabs/x";
+import { deep, type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -143,7 +143,7 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
   );
 };
 
-type CellEntry = KeyedNamed<TableCells.Variant> & {
+type CellEntry = record.KeyedNamed<TableCells.Variant> & {
   icon: PIcon.Element;
 };
 

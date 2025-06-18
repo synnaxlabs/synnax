@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnknownRecord } from "@/record";
+import { type Unknown } from "@/record/record";
 
-export const isObject = <T extends UnknownRecord = UnknownRecord>(
-  item?: unknown,
-): item is T => item != null && typeof item === "object" && !Array.isArray(item);
+export const isObject = <T extends Unknown = Unknown>(item?: unknown): item is T =>
+  item != null && typeof item === "object" && !Array.isArray(item);
