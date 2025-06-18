@@ -1430,20 +1430,17 @@ var _ = Describe("Writer Behavior", func() {
 						cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{dtErr},
 							Start:    10 * telem.SecondTS,
+							Sync:     config.True(),
 						}))
-					MustSucceed(w.Write(telem.MultiFrame(
+					authorized, err := w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{dtErr},
 						[]telem.Series{
 							telem.NewSeriesV[uint16](1, 2, 3, 4, 5),
 						},
-					)))
-
-					MustSucceed(w.Write(telem.MultiFrame(
-						[]cesium.ChannelKey{dtErr},
-						[]telem.Series{telem.NewSeriesV[int64](10, 11, 12, 13)},
-					)))
-					_, err := w.Commit()
+					))
+					Expect(authorized).To(BeFalse())
 					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(err).To(MatchError(ContainSubstring("invalid data type")))
 					Expect(w.Close()).To(HaveOccurredAs(validate.Error))
 				})
 			})

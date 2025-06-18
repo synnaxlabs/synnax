@@ -135,10 +135,8 @@ func start(cmd *cobra.Command) {
 			embeddedDriver    *embedded.Driver
 			certLoaderConfig  = buildCertLoaderConfig(ins)
 		)
-		cleanup, ok := xservice.NewOpener(ctx, &closer)
-		defer func() {
-			err = errors.Combine(err, cleanup())
-		}()
+		cleanup, ok := xservice.NewOpener(ctx, &err, &closer)
+		defer cleanup()
 
 		if securityProvider, err = security.NewProvider(security.ProviderConfig{
 			LoaderConfig: certLoaderConfig,

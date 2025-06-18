@@ -64,7 +64,7 @@ var _ = Describe("DB", Ordered, func() {
 
 	Describe("KV", func() {
 		It("Should return the underlying key-value store for the DB", func() {
-			Expect(db.KV()).To(BeIdenticalTo(db))
+			Expect(db.KV()).To(BeIdenticalTo(kv))
 		})
 	})
 })

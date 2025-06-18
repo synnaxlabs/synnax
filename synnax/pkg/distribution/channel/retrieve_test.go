@@ -148,7 +148,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Entries(&resChannels).
 				Exec(ctx, nil)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("Channel with keys [435] not found"))
+			Expect(err.Error()).To(ContainSubstring("Channels with keys [435] not found"))
 
 		})
 		It("Should correctly filter channels by search term", func() {
