@@ -17,7 +17,7 @@ import {
 } from "@reduxjs/toolkit";
 import { Drift, NoopRuntime } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
-import { type deep, type UnknownRecord } from "@synnaxlabs/x";
+import { type deep, type record } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
@@ -134,7 +134,7 @@ export const migrateState = (prev: RootState): RootState => {
 
 interface OpenPersistReturn {
   initialState?: RootState;
-  persistMiddleware: Middleware<UnknownRecord, RootState, Dispatch<RootAction>>;
+  persistMiddleware: Middleware<record.Unknown, RootState, Dispatch<RootAction>>;
 }
 
 const openPersist = async (): Promise<OpenPersistReturn> => {

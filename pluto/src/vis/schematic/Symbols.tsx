@@ -9,14 +9,7 @@
 
 import "@/vis/schematic/Symbols.css";
 
-import {
-  box,
-  type color,
-  direction,
-  location,
-  type UnknownRecord,
-  xy,
-} from "@synnaxlabs/x";
+import { box, type color, direction, location, type record, xy } from "@synnaxlabs/x";
 import { type CSSProperties, type FC, type ReactElement } from "react";
 
 import { Align } from "@/align";
@@ -85,7 +78,7 @@ const labelGridItem = (
   };
 };
 
-export type SymbolProps<P extends object = UnknownRecord> = P & {
+export type SymbolProps<P extends object = record.Unknown> = P & {
   symbolKey: string;
   position: xy.XY;
   aetherKey: string;
@@ -93,7 +86,7 @@ export type SymbolProps<P extends object = UnknownRecord> = P & {
   onChange: (value: Partial<P>) => void;
 };
 
-export type PreviewProps<P extends object = UnknownRecord> = P & {
+export type PreviewProps<P extends object = record.Unknown> = P & {
   scale?: number;
 };
 
@@ -131,7 +124,7 @@ export type ToggleProps<T> = T &
     orientation?: location.Outer;
   };
 
-export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>) => {
+export const createToggle = <P extends object = record.Unknown>(BaseSymbol: FC<P>) => {
   const C = ({
     symbolKey,
     control,
@@ -191,7 +184,7 @@ export const createToggle = <P extends object = UnknownRecord>(BaseSymbol: FC<P>
   return C;
 };
 
-type LabeledProps<P extends object = UnknownRecord> = P & {
+type LabeledProps<P extends object = record.Unknown> = P & {
   label?: LabelExtensionProps;
   orientation?: location.Outer;
 };
@@ -200,7 +193,7 @@ interface LabeledOverrides {
   grid: Partial<Omit<GridProps, "editable">>;
 }
 
-export const createLabeled = <P extends object = UnknownRecord>(
+export const createLabeled = <P extends object = record.Unknown>(
   BaseSymbol: FC<P>,
   overrides?: LabeledOverrides,
 ) => {
@@ -244,12 +237,12 @@ export const createLabeled = <P extends object = UnknownRecord>(
   return C;
 };
 
-type DummyToggleProps<P extends object = UnknownRecord> = LabeledProps<P> & {
+type DummyToggleProps<P extends object = record.Unknown> = LabeledProps<P> & {
   enabled?: boolean;
   clickable?: boolean;
 };
 
-export const createDummyToggle = <P extends object = UnknownRecord>(
+export const createDummyToggle = <P extends object = record.Unknown>(
   Primitive: FC<P>,
 ) => {
   const DummyToggle = ({

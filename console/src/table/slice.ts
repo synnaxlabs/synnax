@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type TableCells } from "@synnaxlabs/pluto";
-import { id, type location, mapValues, type UnknownRecord, xy } from "@synnaxlabs/x";
+import { id, type location, record, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/table/types";
 import { BASE_COL_SIZE, BASE_ROW_SIZE } from "@/table/types";
@@ -21,7 +21,7 @@ export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE: SliceState = latest.ZERO_SLICE_STATE;
 export type CellState<
   T extends TableCells.Variant = TableCells.Variant,
-  P extends object = UnknownRecord,
+  P extends object = record.Unknown,
 > = latest.CellState<T, P>;
 export const ZERO_CELL_STATE: CellState = latest.ZERO_CELL_STATE;
 export type RowLayout = latest.RowLayout;
@@ -234,7 +234,7 @@ export const { actions, reducer } = createSlice({
 
       if (cells.length === 0) {
         if (mode === "replace")
-          table.cells = mapValues(table.cells, (cell) => ({
+          table.cells = record.map(table.cells, (cell) => ({
             ...cell,
             selected: false,
           }));
@@ -247,12 +247,12 @@ export const { actions, reducer } = createSlice({
         const endPos = findCellPosition(table, cells[0]);
         if (startPos == null || endPos == null) return;
         const selected = allCellsInRegion(table, startPos, endPos);
-        table.cells = mapValues(table.cells, (cell) => ({
+        table.cells = record.map(table.cells, (cell) => ({
           ...cell,
           selected: selected.includes(cell.key),
         }));
       } else if (mode === "add")
-        table.cells = mapValues(table.cells, (cell) => ({
+        table.cells = record.map(table.cells, (cell) => ({
           ...cell,
           selected: cell.selected || cells.includes(cell.key),
         }));

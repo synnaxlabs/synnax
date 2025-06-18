@@ -16,8 +16,7 @@ import {
   type color,
   compare,
   convertRenderV,
-  type Key,
-  type Keyed,
+  type record,
   type RenderableValue,
 } from "@synnaxlabs/x";
 import {
@@ -49,8 +48,10 @@ import { DEFAULT_PLACEHOLDER } from "@/select/Single";
 import { Tag } from "@/tag";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
-export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children" | "close">,
+export interface MultipleProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children" | "close">,
     Omit<UseSelectMultipleProps<K, E>, "data">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "placeholder">,
@@ -67,7 +68,7 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
   actions?: Input.ExtensionProps["children"];
 }
 
-export interface MultipleTagProps<K extends Key, E extends Keyed<K>>
+export interface MultipleTagProps<K extends record.Key, E extends record.Keyed<K>>
   extends Tag.TagProps {
   key: K;
   entryKey: K;
@@ -80,7 +81,7 @@ export interface MultipleTagProps<K extends Key, E extends Keyed<K>>
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
 }
 
-export const MultipleTag = <K extends Key, E extends Keyed<K>>({
+export const MultipleTag = <K extends record.Key, E extends record.Keyed<K>>({
   entryKey,
   entryRenderKey,
   entry,
@@ -109,7 +110,9 @@ export const MultipleTag = <K extends Key, E extends Keyed<K>>({
   );
 };
 
-const defaultRenderTag = componentRenderProp(MultipleTag<Key, Keyed<Key>>);
+const defaultRenderTag = componentRenderProp(
+  MultipleTag<record.Key, record.Keyed<record.Key>>,
+);
 
 /**
  * Allows a user to browse, search for, and select multiple values from a list of
@@ -130,7 +133,10 @@ const defaultRenderTag = componentRenderProp(MultipleTag<Key, Keyed<Key>>);
  * @param props.onChange - The callback to be invoked when the selected value changes.
  * @param props.value - The currently selected value.
  */
-export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const Multiple = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   onChange,
   value,
   className,
@@ -294,7 +300,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   );
 };
 
-interface SelectMultipleInputProps<K extends Key, E extends Keyed<K>>
+interface SelectMultipleInputProps<K extends record.Key, E extends record.Keyed<K>>
   extends Omit<Input.TextProps, "onFocus"> {
   loading: boolean;
   selectedKeys: K | K[];
@@ -308,7 +314,7 @@ interface SelectMultipleInputProps<K extends Key, E extends Keyed<K>>
   dropdownVariant: Dropdown.Variant;
 }
 
-const MultipleInput = <K extends Key, E extends Keyed<K>>({
+const MultipleInput = <K extends record.Key, E extends record.Keyed<K>>({
   selectedKeys,
   loading,
   selected,

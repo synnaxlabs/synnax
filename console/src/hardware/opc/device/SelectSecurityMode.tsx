@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/pluto";
-import { type KeyedNamed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 
 import {
   NO_SECURITY_MODE,
@@ -17,7 +17,7 @@ import {
   SIGN_SECURITY_MODE,
 } from "@/hardware/opc/device/types";
 
-interface SecurityModeInfo extends KeyedNamed<SecurityMode> {}
+interface SecurityModeInfo extends record.KeyedNamed<SecurityMode> {}
 
 const SECURITY_MODES: SecurityModeInfo[] = [
   { key: NO_SECURITY_MODE, name: "None" },

@@ -9,7 +9,7 @@
 
 import { type device, NotFoundError } from "@synnaxlabs/client";
 import { Form, Observe, Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod/v4";
 
@@ -36,7 +36,7 @@ interface UseContextValue
  * @template MO - The device model type.
  */
 export const use = <
-  Properties extends UnknownRecord = UnknownRecord,
+  Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
 >() => {

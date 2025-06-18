@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Key, type Keyed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -21,7 +21,10 @@ import { useRequiredContext } from "@/hooks/useRequiredContext";
 import { useTransforms, type UseTransformsReturn } from "@/hooks/useTransforms";
 import { type state } from "@/state";
 
-export interface DataContextValue<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
+export interface DataContextValue<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> {
   transformedData: E[];
   sourceData: E[];
   transformed: boolean;
@@ -29,8 +32,8 @@ export interface DataContextValue<K extends Key = Key, E extends Keyed<K> = Keye
 }
 
 export interface DataUtilsContextValue<
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
 > extends Omit<UseTransformsReturn<E>, "transform"> {
   setSourceData: state.Set<E[]>;
   getSourceData: () => E[];
@@ -59,39 +62,46 @@ const UtilsContext = createContext<DataUtilsContextValue | null>({
   getTransformed: () => false,
 });
 
-export const useDataContext = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>() =>
-  useRequiredContext(Context) as DataContextValue<K, E>;
+export const useDataContext = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>() => useRequiredContext(Context) as DataContextValue<K, E>;
 
-export const useDataUtils = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>() =>
-  useRequiredContext(UtilsContext) as unknown as DataUtilsContextValue<K, E>;
+export const useDataUtils = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>() => useRequiredContext(UtilsContext) as unknown as DataUtilsContextValue<K, E>;
 
 export const useTransformedData = <
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
 >(): E[] => useDataContext<K, E>().transformedData;
 
 export const useSourceData = <
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
 >(): E[] => useDataContext<K, E>().sourceData;
 
 export const useGetTransformedData = <
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
 >(): (() => E[]) => useDataUtils<K, E>().getTransformedData;
 
 export const useSetSourceData = <
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
 >(): state.Set<E[]> => useDataUtils<K, E>().setSourceData;
 
-export interface DataProviderProps<K extends Key, E extends Keyed<K>>
+export interface DataProviderProps<K extends record.Key, E extends record.Keyed<K>>
   extends PropsWithChildren<{}> {
   data?: E[];
   emptyContent?: React.ReactElement;
 }
 
-export const DataProvider = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const DataProvider = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   data: sourceData,
   emptyContent: emptyContentProp,
   children,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Key, type Keyed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
@@ -16,10 +16,10 @@ import { Dropdown } from "@/dropdown";
 import { List as CoreList } from "@/list";
 import { componentRenderProp } from "@/util/renderProp";
 
-export type SelectListProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = Omit<
-  CoreList.SelectorProps<K, E>,
-  "children"
-> &
+export type SelectListProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> = Omit<CoreList.SelectorProps<K, E>, "children"> &
   Pick<Partial<CoreList.ColumnHeaderProps<K, E>>, "columns"> &
   Omit<Dropdown.DialogProps, "onChange" | "children"> &
   Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">> & {
@@ -34,7 +34,7 @@ export type SelectListProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> 
 
 const DEFAULT_COLUMNS: CoreList.ColumnSpec[] = [];
 
-export const Core = <K extends Key, E extends Keyed<K>>({
+export const Core = <K extends record.Key, E extends record.Keyed<K>>({
   data,
   emptyContent,
   value,

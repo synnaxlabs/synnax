@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, type UnknownRecord } from "@synnaxlabs/x";
+import { id, type record } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -200,7 +200,7 @@ describe("Device", async () => {
         await expect
           .poll(async () => {
             const retrieved = await client.hardware.devices.retrieve<
-              UnknownRecord,
+              record.Unknown,
               string,
               string,
               DeviceStateDetails
