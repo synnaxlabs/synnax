@@ -20,7 +20,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { bounds, color, id, type KeyedNamed } from "@synnaxlabs/x";
+import { bounds, color, id, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
@@ -136,7 +136,7 @@ const List = ({
   );
 };
 
-const AXIS_DATA: KeyedNamed<AxisKey>[] = [Y1, Y2].map((key) => ({
+const AXIS_DATA: record.KeyedNamed<AxisKey>[] = [Y1, Y2].map((key) => ({
   name: key.toUpperCase(),
   key: key as AxisKey,
 }));

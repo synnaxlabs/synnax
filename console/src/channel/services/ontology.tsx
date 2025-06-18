@@ -18,7 +18,7 @@ import {
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors, type UnknownRecord } from "@synnaxlabs/x";
+import { errors, type record } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
 import { Channel } from "@/channel";
@@ -92,7 +92,7 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
     {
       type: Schematic.HAUL_TYPE,
       key: "value",
-      data: schematicSymbolProps as UnknownRecord,
+      data: schematicSymbolProps as record.Unknown,
     },
   ];
   if (data?.internal === true) return items;
