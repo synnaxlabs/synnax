@@ -15,7 +15,7 @@ import { Cluster } from "@/cluster";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface CopyButtonProps {
-  children: Icon.IconFC;
+  children: Icon.FC;
   disabled?: boolean;
   onClick: () => void;
   tooltip: string;

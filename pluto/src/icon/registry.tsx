@@ -169,14 +169,15 @@ import {
 } from "react-icons/tb";
 import { VscSplitHorizontal, VscSplitVertical, VscSymbolString } from "react-icons/vsc";
 
+import { CSS } from "@/css";
 import {
   type IconProps,
   type ReactElement,
-  type SVGIconFC,
+  type SVGFC,
   wrapSVGIcon,
 } from "@/icon/Icon";
 
-const LabJack: SVGIconFC = (props) => (
+const LabJack: SVGFC = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="96"
@@ -196,7 +197,7 @@ const LabJack: SVGIconFC = (props) => (
   </svg>
 );
 
-const NI: SVGIconFC = (props) => (
+const NI: SVGFC = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 78 51"
@@ -219,7 +220,7 @@ const NI: SVGIconFC = (props) => (
   </svg>
 );
 
-const OPC: SVGIconFC = ({ className, style, ...rest }) => (
+const OPC: SVGFC = ({ className, style, ...rest }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     version="1.1"
@@ -282,7 +283,7 @@ export const LinePlot = wrapSVGIcon(MdAreaChart, "line-plot");
 export const Expand = wrapSVGIcon(AiOutlineExpand, "expand");
 export const Cluster = wrapSVGIcon(HiSquare3Stack3D, "cluster");
 export const Loading = wrapSVGIcon(AiOutlineLoading, "loading", {
-  className: "media--spin",
+  className: CSS.M("spin"),
 });
 export const Schematic = wrapSVGIcon(IoShapes, "schematic");
 export const Caret = {

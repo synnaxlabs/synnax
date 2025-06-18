@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.media--spin {
+.pluto--spin {
     animation: spin 1s infinite linear;
 }
 

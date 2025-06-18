@@ -24,7 +24,7 @@ import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
-import { Icon, type Icon as PIcon } from "@/icon";
+import { Icon } from "@/icon";
 import { List } from "@/list";
 import {
   type UseSelectMultipleProps,
@@ -221,7 +221,7 @@ export const DefaultItem = memo(
       hasChildren || (children != null && children.length > 0);
 
     // Expand, contract, and loading items.
-    const startIcons: PIcon.ReactElement[] = [];
+    const startIcons: Icon.ReactElement[] = [];
     if (actuallyHasChildren)
       startIcons.push(
         <Caret.Animated
@@ -232,7 +232,7 @@ export const DefaultItem = memo(
         />,
       );
     if (icon != null) startIcons.push(icon);
-    const endIcons: PIcon.ReactElement[] = [];
+    const endIcons: Icon.ReactElement[] = [];
     if (loading)
       endIcons.push(
         <Icon.Loading key="loading-indicator" className={CSS.B("loading-indicator")} />,

@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { Icon, type Icon as PIcon } from "@/icon";
+import { Icon } from "@/icon";
 import { VARIANT_COLORS } from "@/status/colors";
 import { Text as BaseText } from "@/text";
 
@@ -30,7 +30,7 @@ const Core = ({
   className,
   ...rest
 }: TextProps): ReactElement => {
-  let icon: PIcon.ReactElement | undefined;
+  let icon: Icon.ReactElement | undefined;
   if (!hideIcon) icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
   return (
     <BaseText.WithIcon

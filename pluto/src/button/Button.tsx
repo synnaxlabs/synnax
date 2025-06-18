@@ -21,7 +21,7 @@ import {
 
 import { type Align } from "@/align";
 import { CSS } from "@/css";
-import { Icon, type Icon as PIcon } from "@/icon";
+import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
@@ -57,8 +57,8 @@ export type ButtonProps = Omit<
   Tooltip.WrapProps &
   BaseProps & {
     level?: Text.Level;
-    startIcon?: PIcon.ReactElement | PIcon.ReactElement[];
-    endIcon?: PIcon.ReactElement | PIcon.ReactElement[];
+    startIcon?: Icon.ReactElement | Icon.ReactElement[];
+    endIcon?: Icon.ReactElement | Icon.ReactElement[];
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
     onClickDelay?: number | TimeSpan;

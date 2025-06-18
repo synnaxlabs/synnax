@@ -14,13 +14,13 @@ import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { Icon, type Icon as PIcon } from "@/icon";
+import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
 export interface TagProps
   extends Optional<Omit<Text.TextProps, "size" | "wrap">, "level"> {
-  icon?: PIcon.ReactElement;
+  icon?: Icon.ReactElement;
   onClose?: () => void;
   color?: color.Crude;
   size?: ComponentSize;

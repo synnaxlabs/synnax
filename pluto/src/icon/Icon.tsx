@@ -10,13 +10,17 @@
 import "@/icon/Icon.css";
 
 import { color, type location } from "@synnaxlabs/x";
-import { type FC, type ReactElement as BaseReactElement, type Ref } from "react";
+import {
+  type FC as ReactFC,
+  type ReactElement as BaseReactElement,
+  type Ref,
+} from "react";
 import { type IconBaseProps } from "react-icons";
 
 import { CSS } from "@/css";
 import { type Text } from "@/text";
 
-export interface IconProps extends Omit<IconBaseProps, "color"> {
+export interface IconProps extends Omit<IconBaseProps, "color" | "children"> {
   ref?: Ref<SVGSVGElement>;
   color?: color.Crude | Text.Shade;
 }
@@ -37,10 +41,7 @@ const SUB_POSITIONS: Record<location.CornerXYString, { x: number; y: number }> =
   bottomRight: { x: BASE_SIZE - SUB_SIZE, y: BASE_SIZE - SUB_SIZE },
 };
 
-const createSubIcon = (
-  key: location.CornerXYString,
-  Icon: IconFC,
-): ReactElement | null => {
+const createSubIcon = (key: location.CornerXYString, Icon: FC): ReactElement | null => {
   if (Icon == null) return null;
   return (
     <g transform={`translate(${SUB_POSITIONS[key].x}, ${SUB_POSITIONS[key].y})`}>
@@ -55,13 +56,13 @@ const createSubIcon = (
   );
 };
 
-export interface IconFC extends FC<IconProps> {}
+export interface FC extends ReactFC<IconProps> {}
 
 interface WrapIconOpts {
   className?: string;
 }
 
-export interface SVGIconFC extends FC<IconBaseProps> {}
+export interface SVGFC extends ReactFC<IconBaseProps> {}
 
 const parseColor = (c?: color.Crude | Text.Shade): string | undefined => {
   if (typeof c === "number") return `var(--pluto-gray-l${c})`;
@@ -69,12 +70,12 @@ const parseColor = (c?: color.Crude | Text.Shade): string | undefined => {
 };
 
 export const wrapSVGIcon = (
-  Base: SVGIconFC,
+  Base: SVGFC,
   name: string,
   { className }: WrapIconOpts = {},
-): IconFC => {
+): FC => {
   const typeClass = CSS.BM("icon", name);
-  const O: IconFC = ({ className: pClassName, color: c, ...rest }) => {
+  const O: FC = ({ className: pClassName, color: c, ...rest }) => {
     c = parseColor(c);
     return (
       <Base
@@ -90,9 +91,9 @@ export const wrapSVGIcon = (
 };
 
 export const createComposite = (
-  Base: IconFC,
-  { topRight, topLeft, bottomLeft, bottomRight }: Record<string, IconFC>,
-): IconFC => {
+  Base: FC,
+  { topRight, topLeft, bottomLeft, bottomRight }: Record<string, FC>,
+): FC => {
   if (topRight == null && topLeft == null && bottomLeft == null && bottomRight == null)
     return Base;
 

@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Icon as PIcon } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { Icon } from "@synnaxlabs/pluto";
 
-export const ImportIcon = (): ReactElement => (
-  <PIcon.Import>
-    <Icon.Workspace />
-  </PIcon.Import>
-);
+export const ImportIcon = Icon.createComposite(Icon.Workspace, {
+  topRight: Icon.Import,
+});

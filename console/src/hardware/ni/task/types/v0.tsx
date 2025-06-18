@@ -931,7 +931,7 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   [AI_VOLTAGE_CHAN_TYPE]: "Voltage",
 };
 
-export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.IconFC> = {
+export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   [AI_ACCEL_CHAN_TYPE]: Icon.Units.Acceleration,
   [AI_BRIDGE_CHAN_TYPE]: Icon.Bridge,
   [AI_CURRENT_CHAN_TYPE]: Icon.Units.Current,
@@ -1041,7 +1041,7 @@ export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   [AO_VOLTAGE_CHAN_TYPE]: "Voltage",
 };
 
-export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, Icon.IconFC> = {
+export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, Icon.FC> = {
   [AO_CURRENT_CHAN_TYPE]: Icon.Units.Current,
   [AO_FUNC_GEN_CHAN_TYPE]: Icon.Function,
   [AO_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,

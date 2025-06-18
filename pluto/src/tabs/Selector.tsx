@@ -19,7 +19,7 @@ import {
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { Icon, Icon as PIcon } from "@/icon";
+import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { type Spec } from "@/tabs/types";
 import { useContext } from "@/tabs/useContext";
@@ -158,7 +158,7 @@ interface StartIconProps
 
 const StartIcon = ({ loading, icon, level = "p" }: StartIconProps) => {
   if (loading) icon = <Icon.Loading />;
-  return PIcon.resolve(icon as PIcon.ReactElement, {
+  return Icon.resolve(icon as Icon.ReactElement, {
     className: CSS.BE(CLS, "icon"),
     style: {
       color: CSS.shadeVar(9),
