@@ -70,7 +70,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
   const state = useRackState(id.key);
 
-  const heartRef = useRef<HTMLDivElement>(null);
+  const heartRef = useRef<SVGSVGElement>(null);
 
   const variant = state?.variant ?? "disabled";
 
