@@ -55,8 +55,8 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:console-vite
+      - name: Check Types
+        run: pnpm check-types:console
 
       - name: Lint
         if: matrix.lint
