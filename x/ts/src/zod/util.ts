@@ -10,7 +10,7 @@
 import { type z } from "zod/v4";
 
 import { deep } from "@/deep";
-import { type Unknown } from "@/record/record";
+import { type record } from "@/record";
 
 export const getFieldSchemaPath = (path: string): string =>
   deep.transformPath(path, (part, index, parts) => {
@@ -29,7 +29,7 @@ const sourceTypeGetter = (obj: unknown, key: string): z.ZodAny | null => {
     const sourceType = (
       obj as { sourceType: () => z.ZodObject<z.ZodRawShape> }
     ).sourceType();
-    return (sourceType as unknown as Unknown)[key] as z.ZodAny | null;
+    return (sourceType as unknown as record.Unknown)[key] as z.ZodAny | null;
   }
   return v;
 };

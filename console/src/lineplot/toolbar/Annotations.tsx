@@ -235,7 +235,6 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
     const key = id.create();
     const axis = Y1;
     const position = bounds.mean(axes[axis].bounds);
-    console.log(colorVal);
     dispatch(
       setRule({ key: linePlotKey, rule: { key, color: colorVal, axis, position } }),
     );
@@ -273,7 +272,6 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
     setSelectedRuleKeys(newSelectedRuleKey == null ? [] : [newSelectedRuleKey]);
   };
   if (shownRule == null) return <EmptyContent onCreateRule={handleCreateRule} />;
-  console.log(shownRule);
   return (
     <Align.Space x style={{ height: "100%" }} empty>
       <List

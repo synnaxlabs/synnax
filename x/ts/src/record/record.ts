@@ -115,4 +115,4 @@ export const map = <T extends Record<Key, unknown>, U>(
  * ```
  */
 export const purgeUndefined = <T extends Record<Key, unknown>>(obj: T): T =>
-  Object.fromEntries(entries(obj).filter(([_, value]) => value != null)) as T;
+  Object.fromEntries(entries(obj).filter(([_, value]) => value !== undefined)) as T;

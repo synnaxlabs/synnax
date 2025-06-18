@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Unknown } from "@/record/record";
+import { type record } from "@/record";
 
 const snakeToCamelStr = (str: string): string => {
   const c = str.replace(/_[a-z]/g, (m) => m[1].toUpperCase());
@@ -31,8 +31,8 @@ const createConverter = (
     if (Array.isArray(obj)) return obj.map((v) => converter(v, opt)) as V;
     if (!isValidObject(obj)) return obj;
     opt = validateOptions(opt);
-    const res: Unknown = {};
-    const anyObj = obj as Unknown;
+    const res: record.Unknown = {};
+    const anyObj = obj as record.Unknown;
     if ("toJSON" in anyObj && typeof anyObj.toJSON === "function")
       return converter(anyObj.toJSON(), opt);
     Object.keys(anyObj).forEach((key) => {
@@ -52,7 +52,7 @@ const createConverter = (
             } else if (isArrayObject(v)) {
               // array in array
               // workaround by using an object holding array value
-              const temp: Unknown = converter({ key: v }, opt);
+              const temp: record.Unknown = converter({ key: v }, opt);
               ret = temp.key;
             }
             return ret;

@@ -204,7 +204,7 @@ describe("record", () => {
     });
   });
 
-  describe("deleteUndefined", () => {
+  describe("purgeUndefined", () => {
     it("should remove undefined values", () => {
       const obj = { a: 1, b: undefined, c: "test", d: undefined };
       const result = record.purgeUndefined(obj);
@@ -212,22 +212,22 @@ describe("record", () => {
       expect(result).toEqual({ a: 1, c: "test" });
     });
 
-    it("should remove null values", () => {
+    it("should not remove null values", () => {
       const obj = { a: 1, b: null, c: "test", d: null };
       const result = record.purgeUndefined(obj);
 
-      expect(result).toEqual({ a: 1, c: "test" });
+      expect(result).toEqual({ a: 1, b: null, c: "test", d: null });
     });
 
     it("should preserve other falsy values", () => {
       const obj = { a: 0, b: false, c: "", d: undefined, e: null };
       const result = record.purgeUndefined(obj);
 
-      expect(result).toEqual({ a: 0, b: false, c: "" });
+      expect(result).toEqual({ a: 0, b: false, c: "", e: null });
     });
 
-    it("should return empty object when all values are null/undefined", () => {
-      const obj = { a: null, b: undefined, c: null };
+    it("should return empty object when all values are undefined", () => {
+      const obj = { a: undefined, b: undefined, c: undefined };
       const result = record.purgeUndefined(obj);
 
       expect(result).toEqual({});
@@ -247,7 +247,7 @@ describe("record", () => {
       expect(result).toEqual({});
     });
 
-    it("should handle nested objects and arrays", () => {
+    it("should not purge undefined values in nested objects and arrays", () => {
       const obj = {
         a: 1,
         b: undefined,
@@ -261,6 +261,7 @@ describe("record", () => {
         a: 1,
         c: { nested: "value" },
         e: [1, 2, 3],
+        d: null,
       });
     });
 
@@ -292,10 +293,10 @@ describe("record", () => {
 
       // Remove undefined/null
       const cleaned = record.purgeUndefined(mapped);
-      expect(cleaned).toEqual({ a: 2, c: 6 });
+      expect(cleaned).toEqual({ a: 2, c: 6, d: null });
     });
 
-    it("should handle complex nested structures", () => {
+    it("should not purge undefined values in complex nested structures", () => {
       const complex = {
         id: 1,
         name: "test",
@@ -311,6 +312,7 @@ describe("record", () => {
         name: "test",
         config: { enabled: true, timeout: undefined },
         items: [1, 2, 3],
+        tags: null,
       });
     });
   });

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Join } from "@/join";
-import { type Unknown } from "@/record/record";
+import { type record } from "@/record";
 
 type Prev = [
   never,
@@ -53,7 +53,7 @@ export type Key<T, D extends number = 5> = [D] extends [never]
 /** Options for the get function. */
 export interface GetOptions<O extends boolean | undefined = boolean | undefined> {
   optional: O;
-  getter?: (obj: Unknown, key: string) => unknown;
+  getter?: (obj: record.Unknown, key: string) => unknown;
   separator?: string;
 }
 
@@ -69,8 +69,12 @@ export interface GetOptions<O extends boolean | undefined = boolean | undefined>
  * @returns the value at the given path on the object.
  */
 export interface Get {
-  <V = unknown, T = Unknown>(obj: T, path: string, options?: GetOptions<false>): V;
-  <V = unknown, T = Unknown>(
+  <V = record.Unknown, T = record.Unknown>(
+    obj: T,
+    path: string,
+    options?: GetOptions<false>,
+  ): V;
+  <V = record.Unknown, T = record.Unknown>(
     obj: T,
     path: string,
     options?: GetOptions<boolean | undefined>,
@@ -78,7 +82,7 @@ export interface Get {
 }
 
 /** A strongly typed version of the @link Get function. */
-export interface TypedGet<V = unknown, T = Unknown> {
+export interface TypedGet<V = record.Unknown, T = record.Unknown> {
   (obj: T, path: string, options?: GetOptions<false>): V;
   (obj: T, path: string, options?: GetOptions<boolean | undefined>): V | null;
 }
@@ -123,7 +127,7 @@ export const transformPath = (
  * @param opts.getter a custom getter function to use on each part of the path.
  * @returns the value at the given path on the object.
  */
-export const get = (<V = unknown, T = Unknown>(
+export const get = (<V = record.Unknown, T = record.Unknown>(
   obj: T,
   path: string,
   opts: GetOptions = { optional: false, separator: "." },
@@ -131,15 +135,15 @@ export const get = (<V = unknown, T = Unknown>(
   opts.separator ??= ".";
   const { optional, getter = (obj, key) => obj[key] } = opts;
   const parts = path.split(opts.separator);
-  if (parts.length === 1 && parts[0] === "") return obj as unknown as V;
-  let result: Unknown = obj as Unknown;
+  if (parts.length === 1 && parts[0] === "") return obj as record.Unknown as V;
+  let result: record.Unknown = obj as record.Unknown;
   for (const part of parts) {
     const v = getter(result, part);
     if (v == null) {
       if (optional) return null;
       throw new Error(`Path ${path} does not exist. ${part} is null`);
     }
-    result = v as Unknown;
+    result = v as record.Unknown;
   }
   return result as V;
 }) as Get;
@@ -153,11 +157,11 @@ export const get = (<V = unknown, T = Unknown>(
  */
 export const set = <V>(obj: V, path: string, value: unknown): void => {
   const parts = path.split(".");
-  let result: Unknown = obj as Unknown;
+  let result: record.Unknown = obj as record.Unknown;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
     result[part] ??= {};
-    result = result[part] as Unknown;
+    result = result[part] as record.Unknown;
   }
   try {
     result[parts[parts.length - 1]] = value;
@@ -175,11 +179,11 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
  */
 export const remove = <V>(obj: V, path: string): void => {
   const parts = path.split(".");
-  let result: Unknown = obj as Unknown;
+  let result: record.Unknown = obj as record.Unknown;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
     if (result[part] == null) return;
-    result = result[part] as Unknown;
+    result = result[part] as record.Unknown;
   }
   // if its an array, we need to splice it
   if (Array.isArray(result)) {
@@ -209,7 +213,10 @@ export const element = (path: string, index: number): string => {
  * @param path the path to check
  * @returns whether the path exists in the object
  */
-export const has = <V = unknown, T = Unknown>(obj: T, path: string): boolean => {
+export const has = <V = record.Unknown, T = record.Unknown>(
+  obj: T,
+  path: string,
+): boolean => {
   try {
     get<V, T>(obj, path);
     return true;
