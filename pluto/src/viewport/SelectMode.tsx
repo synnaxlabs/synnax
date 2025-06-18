@@ -12,7 +12,7 @@ import { type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
-import { Icon, type Icon as PIcon } from "@/icon";
+import { Icon } from "@/icon";
 import { Select } from "@/select";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
@@ -23,7 +23,7 @@ export type FilteredMode = Exclude<Mode, "cancel">;
 
 interface Entry {
   key: FilteredMode;
-  icon: PIcon.ReactElement;
+  icon: Icon.ReactElement;
   tooltip: ReactNode;
 }
 

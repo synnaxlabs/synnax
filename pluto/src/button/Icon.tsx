@@ -18,14 +18,9 @@ import { type Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 
-interface ChildProps {
-  color?: string;
-  fill?: string;
-}
-
 /** The props for the {@link Icon} component */
 export interface IconProps extends BaseProps, Tooltip.WrapProps {
-  children: ReactElement<ChildProps> | string;
+  children: BaseIcon.ReactElement | string;
   shade?: Text.Shade;
   triggerIndicator?: Triggers.Trigger;
 }

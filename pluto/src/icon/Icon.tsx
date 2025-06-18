@@ -9,14 +9,16 @@
 
 import "@/icon/Icon.css";
 
-import { type location } from "@synnaxlabs/x";
+import { color, type location } from "@synnaxlabs/x";
 import { type FC, type ReactElement as BaseReactElement, type Ref } from "react";
 import { type IconBaseProps } from "react-icons";
 
 import { CSS } from "@/css";
+import { type Text } from "@/text";
 
-export interface IconProps extends IconBaseProps {
+export interface IconProps extends Omit<IconBaseProps, "color"> {
   ref?: Ref<SVGSVGElement>;
+  color?: color.Crude | Text.Shade;
 }
 
 /**
@@ -59,7 +61,12 @@ interface WrapIconOpts {
   className?: string;
 }
 
-export interface SVGIconFC extends FC<IconProps> {}
+export interface SVGIconFC extends FC<IconBaseProps> {}
+
+const parseColor = (c?: color.Crude | Text.Shade): string | undefined => {
+  if (typeof c === "number") return `var(--pluto-gray-l${c})`;
+  return color.cssString(c);
+};
 
 export const wrapSVGIcon = (
   Base: SVGIconFC,
@@ -67,13 +74,17 @@ export const wrapSVGIcon = (
   { className }: WrapIconOpts = {},
 ): IconFC => {
   const typeClass = CSS.BM("icon", name);
-  const O: IconFC = ({ className: pClassName, ...rest }) => (
-    <Base
-      className={CSS(CSS.B("icon"), pClassName, className, typeClass)}
-      aria-label={rest["aria-label"] ?? typeClass}
-      {...rest}
-    />
-  );
+  const O: IconFC = ({ className: pClassName, color: c, ...rest }) => {
+    c = parseColor(c);
+    return (
+      <Base
+        className={CSS(CSS.B("icon"), pClassName, className, typeClass)}
+        aria-label={rest["aria-label"] ?? typeClass}
+        color={c}
+        {...rest}
+      />
+    );
+  };
   O.displayName = Base.displayName || Base.name;
   return O;
 };
@@ -90,19 +101,22 @@ export const createComposite = (
   const bottomLeftEl = createSubIcon("bottomLeft", bottomLeft);
   const bottomRightEl = createSubIcon("bottomRight", bottomRight);
 
-  const Composite = ({ className, ...rest }: IconProps) => (
-    <svg
-      className={CSS(CSS.B("icon"), CSS.BM("icon", "composite"))}
-      viewBox="0 0 24 24"
-      {...rest}
-    >
-      <Base className={className} {...rest} size={20} x={2} y={2} />
-      {topRightEl}
-      {topLeftEl}
-      {bottomLeftEl}
-      {bottomRightEl}
-    </svg>
-  );
+  const Composite = ({ className, color: c, ...rest }: IconProps) => {
+    c = parseColor(c);
+    return (
+      <svg
+        className={CSS(CSS.B("icon"), CSS.BM("icon", "composite"))}
+        viewBox="0 0 24 24"
+        {...rest}
+      >
+        <Base className={className} {...rest} size={20} x={2} y={2} />
+        {topRightEl}
+        {topLeftEl}
+        {bottomLeftEl}
+        {bottomRightEl}
+      </svg>
+    );
+  };
   Composite.displayName = Base.displayName || Base.name;
   return Composite;
 };
