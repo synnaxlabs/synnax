@@ -9,9 +9,8 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { type label, ranger, type Synnax } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
-  Icon as PIcon,
+  Icon,
   Menu as PMenu,
   Status,
   Synnax as PSynnax,
@@ -161,41 +160,32 @@ export const viewDetailsMenuItem = (
   </PMenu.Item>
 );
 
+const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
+  topRight: Icon.Add,
+});
+
 export const addToNewPlotMenuItem = (
-  <PMenu.Item
-    itemKey="addToNewPlot"
-    startIcon={
-      <PIcon.Create>
-        <Icon.LinePlot key="plot" />
-      </PIcon.Create>
-    }
-  >
+  <PMenu.Item itemKey="addToNewPlot" startIcon={<AddToNewPlotIcon key="plot" />}>
     Add to New Plot
   </PMenu.Item>
 );
 
+const AddToActivePlotIcon = Icon.createComposite(Icon.LinePlot, {
+  topRight: Icon.Range,
+});
+
 export const addToActivePlotMenuItem = (
-  <PMenu.Item
-    itemKey="addToActivePlot"
-    startIcon={
-      <PIcon.Icon topRight={<Icon.Range />}>
-        <Icon.LinePlot key="plot" />
-      </PIcon.Icon>
-    }
-  >
+  <PMenu.Item itemKey="addToActivePlot" startIcon={<AddToActivePlotIcon key="plot" />}>
     Add to Active Plot
   </PMenu.Item>
 );
 
+export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
+  topRight: Icon.Add,
+});
+
 export const addChildRangeMenuItem = (
-  <PMenu.Item
-    itemKey="addChildRange"
-    startIcon={
-      <PIcon.Create>
-        <Icon.Range />
-      </PIcon.Create>
-    }
-  >
+  <PMenu.Item itemKey="addChildRange" startIcon={<CreateChildRangeIcon key="plot" />}>
     Create Child Range
   </PMenu.Item>
 );

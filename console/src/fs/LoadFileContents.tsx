@@ -9,8 +9,7 @@
 
 import "@/fs/LoadFileContents.css";
 
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, type Input, Status } from "@synnaxlabs/pluto";
+import { Align, Button, Icon, type Input, Status } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";

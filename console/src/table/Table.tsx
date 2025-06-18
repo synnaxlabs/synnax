@@ -12,10 +12,10 @@ import "@/table/Table.css";
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { table } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Icon,
   Menu as PMenu,
   Table as Core,
   TableCells,

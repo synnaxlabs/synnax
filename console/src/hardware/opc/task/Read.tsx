@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   componentRenderProp,
   Form as PForm,
   type Haul,
+  Icon,
 } from "@synnaxlabs/pluto";
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";

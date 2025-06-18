@@ -9,8 +9,7 @@
 
 import "@/layout/Modals.css";
 
-import { Icon } from "@synnaxlabs/media";
-import { Breadcrumb, Button, Modal as Core, Nav } from "@synnaxlabs/pluto";
+import { Breadcrumb, Button, Icon, Modal as Core, Nav } from "@synnaxlabs/pluto";
 import { type CSSProperties } from "react";
 
 import { Content } from "@/layout/Content";

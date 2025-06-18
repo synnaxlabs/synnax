@@ -24,10 +24,10 @@
         position: absolute;
         top: 2rem;
         right: 2rem;
-        & .synnax-icon {
+        & .pluto-icon {
             color: var(--pluto-success-z) !important;
         }
-        &.pluto--active .synnax-icon {
+        &.pluto--active .pluto-icon {
             color: var(--pluto-error-z) !important;
         }
     }

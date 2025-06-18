@@ -10,8 +10,7 @@
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
+import { Align, Icon, Log as Core, telem, Text, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 

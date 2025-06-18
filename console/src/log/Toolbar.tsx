@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Channel, Input } from "@synnaxlabs/pluto";
+import { Align, Channel, Icon, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
