@@ -10,12 +10,14 @@
 import "@/icon/Icon.css";
 
 import { type location } from "@synnaxlabs/x";
-import { type FC, type ReactElement as BaseReactElement } from "react";
+import { type FC, type ReactElement as BaseReactElement, type Ref } from "react";
 import { type IconBaseProps } from "react-icons";
 
 import { CSS } from "@/css";
 
-export interface IconProps extends IconBaseProps {}
+export interface IconProps extends IconBaseProps {
+  ref?: Ref<SVGSVGElement>;
+}
 
 /**
  * A type representing a React element that renders an icon. This element encapsulates

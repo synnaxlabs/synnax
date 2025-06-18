@@ -396,7 +396,6 @@ export const Dynamic = wrapSVGIcon(TbLivePhoto, "dynamic");
 export const Enable = wrapSVGIcon(MdOutlineMotionPhotosOn, "enable");
 export const Disable = wrapSVGIcon(MdOutlineMotionPhotosOff, "disable");
 export const Variable = wrapSVGIcon(TbVariable, "variable");
-export const Object = wrapSVGIcon(MdDataObject, "object");
 export const Type = wrapSVGIcon(MdTypeSpecimen, "type");
 export const Array = wrapSVGIcon(MdDataArray, "array");
 export const Label = wrapSVGIcon(MdLabel, "label");
@@ -538,7 +537,6 @@ const icons = {
   Enable,
   Disable,
   Variable,
-  Object,
   Type,
   Array,
   Label,
