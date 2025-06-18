@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Action, type Middleware } from "@reduxjs/toolkit";
-import { debounce, deep, TimeSpan, type record } from "@synnaxlabs/x";
+import { debounce, deep, type record, TimeSpan } from "@synnaxlabs/x";
 
 import { isMainWindow } from "@/isMainWindow";
 import { openSugaredKV, type SugaredKV } from "@/persist/kv";

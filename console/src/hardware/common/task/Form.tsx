@@ -17,7 +17,7 @@ import {
   Status,
   Synnax as PSynnax,
 } from "@synnaxlabs/pluto";
-import { TimeSpan, type record } from "@synnaxlabs/x";
+import { type record, TimeSpan } from "@synnaxlabs/x";
 import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
 import { useDispatch } from "react-redux";

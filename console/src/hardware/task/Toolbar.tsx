@@ -22,7 +22,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { errors, strings, TimeSpan, type record } from "@synnaxlabs/x";
+import { errors, type record, strings, TimeSpan } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
