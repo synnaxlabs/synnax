@@ -17,7 +17,7 @@ export interface Node {
   name: string;
   renaming?: boolean;
   forcePosition?: number;
-  icon?: Icon.Element;
+  icon?: Icon.ReactElement;
   allowRename?: boolean;
   hasChildren?: boolean;
   children?: Node[];

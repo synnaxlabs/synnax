@@ -10,12 +10,12 @@
 import "@/cluster/Dropdown.css";
 
 import { Synnax as Client } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Dropdown as Core,
   Header,
+  Icon,
   List as CoreList,
   Menu as PMenu,
   Status,

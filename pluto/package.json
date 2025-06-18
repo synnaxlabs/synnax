@@ -21,7 +21,6 @@
     "@fontsource/inter": "catalog:",
     "@synnaxlabs/alamos": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
-    "@synnaxlabs/media": "workspace:^",
     "@synnaxlabs/x": "workspace:^",
     "@tanstack/react-virtual": "3.13.6",
     "@xyflow/react": "^12.7.0",
@@ -35,6 +34,7 @@
     "proxy-memoize": "catalog:",
     "react": "catalog:",
     "react-color": "^2.19.3",
+    "react-icons": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

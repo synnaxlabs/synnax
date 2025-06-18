@@ -707,9 +707,6 @@ importers:
       '@synnaxlabs/client':
         specifier: workspace:^
         version: link:../client/ts
-      '@synnaxlabs/media':
-        specifier: workspace:^
-        version: link:../x/media
       '@synnaxlabs/x':
         specifier: workspace:^
         version: link:../x/ts
@@ -749,6 +746,9 @@ importers:
       react-color:
         specifier: ^2.19.3
         version: 2.19.3(react@19.1.0)
+      react-icons:
+        specifier: 'catalog:'
+        version: 5.5.0(react@19.1.0)
       zod:
         specifier: 'catalog:'
         version: 3.25.64
@@ -9295,14 +9295,14 @@ snapshots:
       '@remotion/media-parser': 4.0.314
       '@remotion/studio': 4.0.314(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@remotion/studio-shared': 4.0.314(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      css-loader: 5.2.7(webpack@5.96.1)
+      css-loader: 5.2.7(webpack@5.96.1(esbuild@0.25.0))
       esbuild: 0.25.0
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
       react-refresh: 0.9.0
       remotion: 4.0.314(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       source-map: 0.7.3
-      style-loader: 4.0.0(webpack@5.96.1)
+      style-loader: 4.0.0(webpack@5.96.1(esbuild@0.25.0))
       webpack: 5.96.1(esbuild@0.25.0)
     transitivePeerDependencies:
       - '@swc/core'
@@ -10979,7 +10979,7 @@ snapshots:
 
   css-functions-list@3.2.3: {}
 
-  css-loader@5.2.7(webpack@5.96.1):
+  css-loader@5.2.7(webpack@5.96.1(esbuild@0.25.0)):
     dependencies:
       icss-utils: 5.1.0(postcss@8.5.5)
       loader-utils: 2.0.4
@@ -14334,7 +14334,7 @@ snapshots:
     dependencies:
       js-tokens: 9.0.1
 
-  style-loader@4.0.0(webpack@5.96.1):
+  style-loader@4.0.0(webpack@5.96.1(esbuild@0.25.0)):
     dependencies:
       webpack: 5.96.1(esbuild@0.25.0)
 

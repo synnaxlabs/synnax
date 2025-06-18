@@ -27,7 +27,7 @@ describe("Breadcrumb", () => {
       expect(c.getByText("Home")).toBeTruthy();
       expect(c.getByText("Settings")).toBeTruthy();
       expect(c.getByText("Profile")).toBeTruthy();
-      expect(c.getAllByLabelText("synnax-icon-caret-right")).toHaveLength(2);
+      expect(c.getAllByLabelText("pluto-icon--caret-right")).toHaveLength(2);
     });
   });
   describe("URL", () => {
@@ -36,7 +36,7 @@ describe("Breadcrumb", () => {
       expect(c.getByText("Home")).toBeTruthy();
       expect(c.getByText("Settings")).toBeTruthy();
       expect(c.getByText("Profile")).toBeTruthy();
-      expect(c.getAllByLabelText("synnax-icon-caret-right")).toHaveLength(3);
+      expect(c.getAllByLabelText("pluto-icon--caret-right")).toHaveLength(3);
       const home = c.getByText("Home");
       expect(home.getAttribute("href")).toBe("/home");
       const settings = c.getByText("Settings");

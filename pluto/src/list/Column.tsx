@@ -9,7 +9,6 @@
 
 import "@/list/Column.css";
 
-import { Icon } from "@synnaxlabs/media";
 import {
   type ArrayTransform,
   compare,
@@ -30,6 +29,7 @@ import {
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useRequiredContext } from "@/hooks/useRequiredContext";
+import { Icon } from "@/icon";
 import { useDataUtils, useSourceData } from "@/list/Data";
 import { ItemFrame, type ItemFrameProps } from "@/list/Item";
 import { type ItemProps } from "@/list/types";
