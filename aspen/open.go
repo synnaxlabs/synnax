@@ -39,24 +39,26 @@ func Open(
 		o           = newOptions(dirname, addr, peers, opts...)
 		db          = &DB{}
 		err         error
-		cleanup, ok = service.NewOpener(ctx, &err, &db.closer)
+		cleanup, ok = service.NewOpener(ctx, &db.closer)
 	)
-	defer cleanup()
+	defer func() {
+		err = cleanup(err)
+	}()
 	if o.kv.Engine == nil {
-		if o.kv.Engine, err = openKV(o); !ok(o.kv.Engine) {
+		if o.kv.Engine, err = openKV(o); !ok(err, o.kv.Engine) {
 			return nil, err
 		}
 	}
 	o.cluster.Storage = o.kv.Engine
 	var transportCloser io.Closer
-	if transportCloser, err = configureTransport(ctx, o); !ok(transportCloser) {
+	if transportCloser, err = configureTransport(ctx, o); !ok(err, transportCloser) {
 		return nil, err
 	}
-	if db.Cluster, err = cluster.Open(ctx, o.cluster); !ok(db.Cluster) {
+	if db.Cluster, err = cluster.Open(ctx, o.cluster); !ok(err, db.Cluster) {
 		return nil, err
 	}
 	o.kv.Cluster = db.Cluster
-	if db.DB, err = kv.Open(ctx, o.kv); !ok(db.DB) {
+	if db.DB, err = kv.Open(ctx, o.kv); !ok(err, db.DB) {
 		return nil, err
 	}
 

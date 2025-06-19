@@ -128,19 +128,21 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 	l := &Layer{}
-	cleanup, ok := service.NewOpener(ctx, &err, &l.closer)
-	defer cleanup()
+	cleanup, ok := service.NewOpener(ctx, &l.closer)
+	defer func() {
+		err = cleanup(err)
+	}()
 
 	if l.User, err = user.NewService(ctx, user.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
-	}); !ok(nil) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.RBAC, err = rbac.NewService(rbac.Config{
 		DB: cfg.Distribution.DB,
-	}); !ok(nil) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	l.Auth = &auth.KV{DB: cfg.Distribution.DB}
@@ -148,7 +150,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		KeyProvider:      cfg.Security,
 		Expiration:       24 * time.Hour,
 		RefreshThreshold: 1 * time.Hour,
-	}); !ok(nil) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Ranger, err = ranger.OpenService(ctx, ranger.Config{
@@ -156,38 +158,38 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
-	}); !ok(l.Ranger) {
+	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
 	if l.Workspace, err = workspace.NewService(ctx, workspace.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
-	}); !ok(nil) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.NewService(ctx, schematic.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(nil) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.NewService(ctx, lineplot.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(nil) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Log, err = log.NewService(ctx, log.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(nil) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Table, err = table.NewService(ctx, table.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(nil) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Label, err = label.OpenService(ctx, label.Config{
@@ -195,7 +197,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
-	}); !ok(l.Label) {
+	}); !ok(err, l.Label) {
 		return nil, err
 	}
 	if l.Hardware, err = hardware.OpenService(ctx, hardware.Config{
@@ -207,7 +209,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Signals:         cfg.Distribution.Signals,
 		Channel:         cfg.Distribution.Channel,
 		Framer:          cfg.Distribution.Framer,
-	}); !ok(l.Hardware) {
+	}); !ok(err, l.Hardware) {
 		return nil, err
 	}
 	if l.Framer, err = framer.OpenService(
@@ -217,7 +219,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Framer:          cfg.Distribution.Framer,
 			Channel:         cfg.Distribution.Channel,
 		},
-	); !ok(l.Framer) {
+	); !ok(err, l.Framer) {
 		return nil, err
 	}
 	return l, nil

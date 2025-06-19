@@ -180,8 +180,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 	l := &Layer{}
-	cleanup, ok := service.NewOpener(ctx, &err, &l.closer)
-	defer cleanup()
+	cleanup, ok := service.NewOpener(ctx, &l.closer)
+	defer func() {
+		err = cleanup(err)
+	}()
 
 	if *cfg.InMemory {
 		cfg.L.Info("starting with memory-backed storage. no data will be persisted")
@@ -196,7 +198,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	kvFS, tsFS := openFileSystems(cfg)
 
 	// Configure our storage directory with the correct permissions.
-	if err = configureStorageDir(cfg, kvFS); !ok(nil) {
+	if err = configureStorageDir(cfg, kvFS); !ok(err, nil) {
 		return nil, err
 	}
 
@@ -204,17 +206,17 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	// same directory, we return an error to the client. We'll also add it to the
 	// list of closers to release the lock when the storage layer shuts down.
 	var lock io.Closer
-	if lock, err = acquireLock(cfg, kvFS); !ok(lock) {
+	if lock, err = acquireLock(cfg, kvFS); !ok(err, lock) {
 		return nil, err
 	}
 
 	// Open the key-value storage engine.
-	if l.KV, err = openKV(cfg, kvFS); !ok(l.KV) {
+	if l.KV, err = openKV(cfg, kvFS); !ok(err, l.KV) {
 		return nil, err
 	}
 
 	// Open the time-series engine.
-	if l.TS, err = openTS(ctx, cfg, tsFS); !ok(l.TS) {
+	if l.TS, err = openTS(ctx, cfg, tsFS); !ok(err, l.TS) {
 		return nil, err
 	}
 	return l, nil

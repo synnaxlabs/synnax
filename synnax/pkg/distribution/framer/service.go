@@ -137,10 +137,10 @@ func Open(configs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s.deleter, err = deleter.New(deleter.ServiceConfig{
-		HostResolver:  cfg.HostResolver,
-		ChannelReader: cfg.ChannelReader,
-		TSChannel:     cfg.TS,
-		Transport:     cfg.Transport.Deleter(),
+		HostResolver: cfg.HostResolver,
+		Channel:      cfg.ChannelReader,
+		TSChannel:    cfg.TS,
+		Transport:    cfg.Transport.Deleter(),
 	})
 	return s, err
 }

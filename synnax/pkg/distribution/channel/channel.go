@@ -299,7 +299,7 @@ func (c Channel) Storage() ts.Channel {
 	}
 }
 
-// toStorage converts a slice of Channel to their storage layer equivalent.
+// toStorage converts a slice of channels to their storage layer equivalent.
 func toStorage(channels []Channel) []ts.Channel {
 	return lo.Map(channels, func(c Channel, _ int) ts.Channel { return c.Storage() })
 }

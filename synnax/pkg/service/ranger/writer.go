@@ -11,6 +11,7 @@ package ranger
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -21,7 +22,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer is used to create ranges within the KV.
+// Writer is used to create ranges within the DB.
 type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
@@ -29,7 +30,7 @@ type Writer struct {
 	group     group.Group
 }
 
-// Create creates a new range within the KV, assigning it a unique key if it does not
+// Create creates a new range within the DB, assigning it a unique key if it does not
 // already have one. If the Range already has a key and an existing Range already
 // exists with that key, the existing range will be updated.
 func (w Writer) Create(
@@ -89,7 +90,7 @@ func (w Writer) CreateWithParent(
 	return
 }
 
-// CreateMany creates multiple ranges within the KV. If any of the ranges already exist,
+// CreateMany creates multiple ranges within the DB. If any of the ranges already exist,
 // they will be updated.
 func (w Writer) CreateMany(
 	ctx context.Context,
@@ -104,7 +105,7 @@ func (w Writer) CreateMany(
 	return err
 }
 
-// CreateManyWithParent creates multiple ranges within the KV as child ranges of the ontology.Resource
+// CreateManyWithParent creates multiple ranges within the DB as child ranges of the ontology.Resource
 // with the given ID. If any of the ranges already exist, they will be updated. If the range
 // already exists and a parent is provided, the existing parent relationship will be deleted
 // and a new parent relationship will be created. If the range already exists and no parent

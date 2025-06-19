@@ -135,14 +135,16 @@ func start(cmd *cobra.Command) {
 			embeddedDriver    *embedded.Driver
 			certLoaderConfig  = buildCertLoaderConfig(ins)
 		)
-		cleanup, ok := xservice.NewOpener(ctx, &err, &closer)
-		defer cleanup()
+		cleanup, ok := xservice.NewOpener(ctx, &closer)
+		defer func() {
+			err = cleanup(err)
+		}()
 
 		if securityProvider, err = security.NewProvider(security.ProviderConfig{
 			LoaderConfig: certLoaderConfig,
 			Insecure:     config.Bool(insecure),
 			KeySize:      keySize,
-		}); !ok(nil) {
+		}); !ok(err, nil) {
 			return err
 		}
 
@@ -150,7 +152,7 @@ func start(cmd *cobra.Command) {
 			Instrumentation: ins.Child("storage"),
 			InMemory:        config.Bool(memBacked),
 			Dirname:         dataPath,
-		}); !ok(storageLayer) {
+		}); !ok(err, storageLayer) {
 			return err
 		}
 
@@ -175,7 +177,7 @@ func start(cmd *cobra.Command) {
 			ChannelTransport: channelTransport,
 			Verifier:         verifier,
 			Storage:          storageLayer,
-		}); !ok(distributionLayer) {
+		}); !ok(err, distributionLayer) {
 			return err
 		}
 
@@ -183,7 +185,7 @@ func start(cmd *cobra.Command) {
 			Instrumentation: ins.Child("service"),
 			Distribution:    distributionLayer,
 			Security:        securityProvider,
-		}); !ok(serviceLayer) {
+		}); !ok(err, serviceLayer) {
 			return err
 		}
 
@@ -191,7 +193,7 @@ func start(cmd *cobra.Command) {
 			Instrumentation: ins.Child("api"),
 			Service:         serviceLayer,
 			Distribution:    distributionLayer,
-		}); !ok(nil) {
+		}); !ok(err, nil) {
 			return err
 		}
 
@@ -199,7 +201,7 @@ func start(cmd *cobra.Command) {
 			ctx,
 			distributionLayer,
 			serviceLayer,
-		); !ok(nil) {
+		); !ok(err, nil) {
 			return err
 		}
 
@@ -243,7 +245,7 @@ func start(cmd *cobra.Command) {
 					Insecure: config.Bool(insecure),
 				},
 			},
-		); !ok(rootServer) {
+		); !ok(err, rootServer) {
 			return err
 		}
 
@@ -263,7 +265,7 @@ func start(cmd *cobra.Command) {
 				ClientCertFile:  certLoaderConfig.AbsoluteNodeCertPath(),
 				ClientKeyFile:   certLoaderConfig.AbsoluteNodeKeyPath(),
 			},
-		); !ok(embeddedDriver) {
+		); !ok(err, embeddedDriver) {
 			return err
 		}
 

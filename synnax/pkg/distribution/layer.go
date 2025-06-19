@@ -185,8 +185,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 	l := &Layer{}
-	cleanup, ok := service.NewOpener(ctx, &err, &l.closer)
-	defer cleanup()
+	cleanup, ok := service.NewOpener(ctx, &l.closer)
+	defer func() {
+		err = cleanup(err)
+	}()
 
 	aspenOptions := append([]aspen.Option{
 		aspen.WithEngine(cfg.Storage.KV),
@@ -203,7 +205,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		cfg.AdvertiseAddress,
 		cfg.PeerAddresses,
 		aspenOptions...,
-	); !ok(aspenDB) {
+	); !ok(err, aspenDB) {
 		return nil, err
 	}
 	l.Cluster = aspenDB.Cluster
@@ -222,7 +224,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Instrumentation: cfg.Instrumentation.Child("ontology"),
 			DB:              l.DB,
 		},
-	); !ok(l.Ontology) {
+	); !ok(err, l.Ontology) {
 		return nil, err
 	}
 
@@ -232,7 +234,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			DB:       l.DB,
 			Ontology: l.Ontology,
 		},
-	); !ok(l.Group) {
+	); !ok(err, l.Group) {
 		return nil, err
 	}
 
@@ -250,7 +252,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Verifier: cfg.Verifier,
 		DB:       l.DB.KV(),
 		Ins:      cfg.Instrumentation,
-	}); !ok(l.Verification) {
+	}); !ok(err, l.Verification) {
 		return nil, err
 	}
 
@@ -266,7 +268,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			cfg.TestingIntOverflowCheck,
 			l.Verification.IsOverflowed,
 		),
-	}); !ok(nil) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 
@@ -276,11 +278,11 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		TS:              cfg.Storage.TS,
 		Transport:       cfg.FrameTransport,
 		HostResolver:    l.Cluster,
-	}); !ok(l.Framer) {
+	}); !ok(err, l.Framer) {
 		return nil, err
 	}
 
-	if err = l.configureControlUpdates(ctx); !ok(nil) {
+	if err = l.configureControlUpdates(ctx); !ok(err, nil) {
 		return nil, err
 	}
 
@@ -288,7 +290,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Instrumentation: cfg.Instrumentation.Child("signals"),
-	}); !ok(nil) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 
@@ -298,7 +300,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			ctx,
 			l.Signals,
 			l.Ontology,
-		); !ok(ontologyCDCCloser) {
+		); !ok(err, ontologyCDCCloser) {
 			return nil, err
 		}
 	}

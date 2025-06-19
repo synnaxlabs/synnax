@@ -62,27 +62,27 @@ import (
 //		}
 //		return myLayer, nil
 //	 }
-func NewOpener(ctx context.Context, err *error, closer *xio.MultiCloser) (
-	cleanup func(),
-	ok func(c io.Closer) bool,
+func NewOpener(ctx context.Context, closer *xio.MultiCloser) (
+	cleanup func(error) error,
+	ok func(err error, c io.Closer) bool,
 ) {
-	cleanup = func() {
-		if *err == nil {
-			*err = ctx.Err()
+	cleanup = func(err error) error {
+		if err == nil {
+			err = ctx.Err()
 		}
-		if *err != nil {
-			*err = errors.Combine(*err, closer.Close())
+		if err != nil {
+			err = errors.Combine(err, closer.Close())
 		}
+		return err
 	}
-	ok = func(c io.Closer) bool {
-		if *err != nil {
+	ok = func(err error, c io.Closer) bool {
+		if err != nil {
 			return false
 		}
 		if c != nil {
 			*closer = append(*closer, c)
 		}
-		*err = ctx.Err()
-		return *err == nil
+		return ctx.Err() == nil
 	}
 	return cleanup, ok
 }

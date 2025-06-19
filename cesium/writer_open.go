@@ -116,10 +116,10 @@ func DefaultWriterConfig() WriterConfig {
 // Validate implements config.Config.
 func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.WriterConfig")
-	validate.NotEmptySlice(v, "Channel", c.Channels)
-	validate.NotNil(v, "ErrOnUnauthorizedOpen", c.ErrOnUnauthorized)
-	validate.NotNil(v, "Sync", c.Sync)
-	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)
+	validate.NotEmptySlice(v, "channels", c.Channels)
+	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorized)
+	validate.NotNil(v, "sync", c.Sync)
+	validate.NotEmptyString(v, "control_subject.key", c.ControlSubject.Key)
 	v.Ternary(
 		"authorities",
 		len(c.Authorities) != len(c.Channels) && len(c.Authorities) != 1,

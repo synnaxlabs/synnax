@@ -1315,7 +1315,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 				})
 
-				Specify("Frame with Duplicate Channel", func() {
+				Specify("Frame with duplicate channels", func() {
 					w := MustSucceed(db.OpenWriter(
 						ctx,
 						cesium.WriterConfig{

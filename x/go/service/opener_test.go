@@ -25,8 +25,8 @@ var _ = Describe("Opener", Ordered, func() {
 	var (
 		err              error
 		closer           xio.MultiCloser
-		cleanup          func()
-		ok               func(c io.Closer) bool
+		cleanup          func(error) error
+		ok               func(err error, c io.Closer) bool
 		multiCloserCalls int
 		cancel           context.CancelFunc
 	)
@@ -41,14 +41,16 @@ var _ = Describe("Opener", Ordered, func() {
 				return nil
 			}),
 		}
-		cleanup, ok = service.NewOpener(cancelCtx, &err, &closer)
+		cleanup, ok = service.NewOpener(cancelCtx, &closer)
 	})
 	It("Should correctly open a set of services that return without an error", func() {
 		open := func(ctx context.Context) error {
-			defer cleanup()
+			defer func() {
+				err = cleanup(err)
+			}()
 			if err = func() error {
 				return nil
-			}(); ok(nil) {
+			}(); ok(err, nil) {
 				return err
 			}
 			return nil
@@ -58,10 +60,12 @@ var _ = Describe("Opener", Ordered, func() {
 	})
 	It("Should call the closer if an error occurs", func() {
 		open := func(ctx context.Context) error {
-			defer cleanup()
+			defer func() {
+				err = cleanup(err)
+			}()
 			if err = func() error {
 				return errors.New("cat")
-			}(); !ok(nil) {
+			}(); !ok(err, nil) {
 				return err
 			}
 			return nil
@@ -71,7 +75,9 @@ var _ = Describe("Opener", Ordered, func() {
 	})
 	It("Should call the closer if the context is cancelled", func() {
 		open := func(ctx context.Context) error {
-			defer cleanup()
+			defer func() {
+				err = cleanup(err)
+			}()
 			cancel()
 			return err
 		}
@@ -82,10 +88,12 @@ var _ = Describe("Opener", Ordered, func() {
 	It("Should add a new closer to the list of closers", func() {
 		secondaryCloserCalls := 0
 		open := func(ctx context.Context) error {
-			defer cleanup()
+			defer func() {
+				err = cleanup(err)
+			}()
 			if err = func() error {
 				return nil
-			}(); ok(xio.CloserFunc(func() error {
+			}(); ok(err, xio.CloserFunc(func() error {
 				secondaryCloserCalls++
 				return nil
 			})) {
@@ -103,10 +111,12 @@ var _ = Describe("Opener", Ordered, func() {
 		secondaryCloserCalls := 0
 		tertiaryCloserCalls := 0
 		open := func(ctx context.Context) error {
-			defer cleanup()
+			defer func() {
+				err = cleanup(err)
+			}()
 			if err = func() error {
 				return nil
-			}(); !ok(xio.CloserFunc(func() error {
+			}(); !ok(err, xio.CloserFunc(func() error {
 				secondaryCloserCalls++
 				return nil
 			})) {
@@ -114,7 +124,7 @@ var _ = Describe("Opener", Ordered, func() {
 			}
 			if err = func() error {
 				return errors.New("cat")
-			}(); !ok(xio.CloserFunc(func() error {
+			}(); !ok(err, xio.CloserFunc(func() error {
 				tertiaryCloserCalls++
 				return nil
 			})) {
@@ -126,5 +136,30 @@ var _ = Describe("Opener", Ordered, func() {
 		Expect(multiCloserCalls).To(Equal(1))
 		Expect(secondaryCloserCalls).To(Equal(1))
 		Expect(tertiaryCloserCalls).To(Equal(0))
+	})
+
+	It("Should work with errors defined with scopes", func() {
+		open := func(ctx context.Context) error {
+			defer func() {
+				err = cleanup(err)
+			}()
+			if err = func() error {
+				return nil
+			}(); !ok(err, xio.CloserFunc(func() error {
+				return errors.New("closer error")
+			})) {
+				return err
+			}
+			if err := func() error {
+				return errors.New("opener error")
+			}(); !ok(err, xio.CloserFunc(func() error {
+				return nil
+			})) {
+				return err
+			}
+			return nil
+		}
+		Expect(open(ctx)).To(HaveOccurred())
+		Expect(open(ctx)).To(MatchError("opener error"))
 	})
 })
