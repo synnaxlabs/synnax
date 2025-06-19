@@ -6,7 +6,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"--
+          "value": "script-src 'self'; style-src 'self' 'unsafe-inline'; default-src 'self'"
         }
       ]
     }
