@@ -23,7 +23,7 @@ import { shouldExecuteCommand } from "@/hardware/common/task/shouldExecuteComman
 export interface UseStatusReturn<StatusData extends z.ZodType = z.ZodType> {
   status: task.Status<StatusData>;
   triggerError: (message: string) => void;
-  triggerLoading: () => void;
+  triggerLoading: (message: string) => void;
 }
 
 /**
@@ -42,19 +42,25 @@ export interface UseStatusReturn<StatusData extends z.ZodType = z.ZodType> {
 export const useStatus = <StatusData extends z.ZodType = z.ZodType>(
   key: task.Key,
   initialState: task.Status<StatusData>,
+  commandMessages: Record<string, string>,
 ): UseStatusReturn<StatusData> => {
   const [status, setStatus] = useReactState<task.Status<StatusData>>(initialState);
   const client = Synnax.use();
   // const status = state?.details.running ? RUNNING_STATUS : PAUSED_STATUS;
   const keyRef = useSyncedRef(key);
   const statusRef = useSyncedRef(status);
+  const triggerLoading = useCallback(
+    (message: string) =>
+      setStatus((prev) => ({ ...prev, variant: "loading", message })),
+    [],
+  );
   Observe.useListener({
     key: [client?.key],
     open: async () => client?.hardware.tasks.openCommandObserver(),
     onChange: ({ task, type }) => {
       if (task !== keyRef.current || statusRef.current == null) return;
       if (shouldExecuteCommand<StatusData>(statusRef.current, type))
-        setStatus((prev) => ({ ...prev, variant: "loading" }));
+        triggerLoading(commandMessages[type]);
     },
   });
   Observe.useListener({
@@ -65,17 +71,9 @@ export const useStatus = <StatusData extends z.ZodType = z.ZodType>(
       setStatus(status);
     },
   });
-  const triggerLoading = useCallback(
-    () => setStatus((prev) => ({ ...prev, variant: "loading" })),
-    [],
-  );
+
   const triggerError = useCallback(
-    (message: string) =>
-      setStatus((prev) => ({
-        ...prev,
-        message,
-        variant: "error",
-      })),
+    (message: string) => setStatus((prev) => ({ ...prev, message, variant: "error" })),
     [],
   );
   return { status, triggerError, triggerLoading };

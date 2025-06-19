@@ -10,11 +10,9 @@
 import { type task } from "@synnaxlabs/client";
 import { type z } from "zod/v4";
 
-import { START_COMMAND, STOP_COMMAND } from "@/hardware/common/task/types";
-
 export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodType>(
   status: task.Status<StatusData>,
   command: string,
 ): boolean =>
-  (status.details.running && command === STOP_COMMAND) ||
-  (!status.details.running && command === START_COMMAND);
+  (status.details.running && command === "stop") ||
+  (!status.details.running && command === "start");

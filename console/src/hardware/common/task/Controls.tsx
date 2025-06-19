@@ -7,24 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Button, Icon, Status, Text, Triggers } from "@synnaxlabs/pluto";
 import { type task } from "@synnaxlabs/client";
+import { Align, Button, Icon, Status, Text, Triggers } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { type z } from "zod/v4";
 
 import { CSS } from "@/css";
-import {
-  START_COMMAND,
-  type StartOrStopCommand,
-  STOP_COMMAND,
-} from "@/hardware/common/task/types";
+import { type Command } from "@/hardware/common/task/types";
 import { Layout } from "@/layout";
 
 export interface ControlsProps<StatusData extends z.ZodType = z.ZodType>
   extends Align.SpaceProps {
   layoutKey: string;
   status: task.Status<StatusData>;
-  onStartStop: (command: StartOrStopCommand) => void;
+  onStartStop: (command: Command) => void;
   onConfigure: () => void;
   isConfiguring: boolean;
   isSnapshot: boolean;
@@ -68,7 +64,7 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
   const hasTriggers =
     Layout.useSelectActiveMosaicTabKey() === layoutKey && canConfigure;
   const handleStartStop = useCallback(
-    () => onStartStop(running ? STOP_COMMAND : START_COMMAND),
+    () => onStartStop(running ? "stop" : "start"),
     [running, onStartStop],
   );
   return (

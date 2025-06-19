@@ -64,7 +64,7 @@ interface RenameArgs {
 }
 
 interface StartStopArgs {
-  command: Common.Task.StartOrStopCommand;
+  command: Common.Task.Command;
   keys: task.Key[];
 }
 
@@ -256,11 +256,11 @@ const Content = () => {
     onError: (e, { command }) => handleError(e, `Failed to ${command} tasks`),
   }).mutate;
   const handleStart = useCallback(
-    (keys: string[]) => startOrStop({ command: Common.Task.START_COMMAND, keys }),
+    (keys: string[]) => startOrStop({ command: "start", keys }),
     [startOrStop],
   );
   const handleStop = useCallback(
-    (keys: string[]) => startOrStop({ command: Common.Task.STOP_COMMAND, keys }),
+    (keys: string[]) => startOrStop({ command: "stop", keys }),
     [startOrStop],
   );
   const contextMenu = useCallback<NonNullable<PMenu.ContextMenuProps["menu"]>>(
@@ -276,7 +276,7 @@ const Content = () => {
     [handleDelete, handleStart, handleStop, tasks],
   );
   const handleListItemStopStart = useCallback(
-    (command: Common.Task.StartOrStopCommand, key: task.Key) =>
+    (command: Common.Task.Command, key: task.Key) =>
       startOrStop({ command, keys: [key] }),
     [startOrStop],
   );
@@ -325,20 +325,22 @@ export const TOOLBAR_NAV_DRAWER_ITEM: Layout.NavDrawerItem = {
 };
 
 interface TaskListItemProps extends List.ItemProps<task.Key, task.Task> {
-  onStopStart: (command: Common.Task.StartOrStopCommand) => void;
+  onStopStart: (command: Common.Task.Command) => void;
   onRename: (name: string) => void;
 }
 
 const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
   const { key, name, status, type } = rest.entry;
-  const { variant, details } = status ?? {};
+  const details = status?.details;
+  let variant = status?.variant;
   const icon = getIcon(type);
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
+  if (!isRunning && variant === "success") variant = "info";
   const handleClick = useCallback<NonNullable<Button.IconProps["onClick"]>>(
     (e) => {
       e.stopPropagation();
-      const command = isRunning ? Common.Task.STOP_COMMAND : Common.Task.START_COMMAND;
+      const command = isRunning ? "stop" : "start";
       onStopStart(command);
     },
     [isRunning, onStopStart],

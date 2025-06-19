@@ -197,7 +197,10 @@ export class Rack {
     Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
     Config extends z.ZodType = z.ZodType,
   >(task: task.New<Type, Config>): Promise<task.Task<Type, Config>> {
-    task.key = ((BigInt(this.key) << 32n) + BigInt(task.key ?? 0)).toString();
+    task.key = (
+      (BigInt(this.key) << 32n) +
+      (BigInt(task.key ?? 0) & 0xffffffffn)
+    ).toString();
     return await this.tasks.create<Type, Config>(task);
   }
 

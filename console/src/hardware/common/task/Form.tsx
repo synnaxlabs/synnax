@@ -30,7 +30,7 @@ import { CopyButtons } from "@/hardware/common/task/CopyButtons";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import { Rack } from "@/hardware/common/task/Rack";
 import { type TaskProps, wrap, type WrapOptions } from "@/hardware/common/task/Task";
-import { type StartOrStopCommand } from "@/hardware/common/task/types";
+import { type Command } from "@/hardware/common/task/types";
 import { useCreate } from "@/hardware/common/task/useCreate";
 import { useStatus } from "@/hardware/common/task/useStatus";
 import { Layout } from "@/layout";
@@ -57,6 +57,11 @@ export type FormProps<
       | { isSnapshot: true; isRunning: false }
     ))
 );
+
+const COMMAND_MESSAGES: Record<Command, string> = {
+  start: "Starting task",
+  stop: "Stopping task",
+};
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
@@ -94,7 +99,7 @@ export interface UseFormReturn<
 > {
   formProps: FormProps<Type, Config, StatusData>;
   handleConfigure: UseMutateFunction<void, Error, void, unknown>;
-  handleStartOrStop: UseMutateFunction<void, Error, StartOrStopCommand, unknown>;
+  handleStartOrStop: UseMutateFunction<void, Error, Command, unknown>;
   status: task.Status<StatusData>;
   isConfiguring: boolean;
 }
@@ -150,6 +155,7 @@ export const useForm = <
   const { status, triggerError, triggerLoading } = useStatus<StatusData>(
     task_.key,
     initialTask.status ?? (DEFAULT_STATUS as task.Status<StatusData>),
+    COMMAND_MESSAGES,
   );
   const handleError = (e: Error, action: string) => {
     triggerError(e.message);
@@ -197,9 +203,9 @@ export const useForm = <
     onError: (e: Error) => handleError(e, "configure"),
   });
   const { mutate: handleStartOrStop } = useMutation({
-    mutationFn: async (command: StartOrStopCommand) => {
+    mutationFn: async (command: Command) => {
       if (!configured) throw new UnexpectedError("Task has not been configured");
-      triggerLoading();
+      triggerLoading(COMMAND_MESSAGES[command]);
       const sugaredTask = client?.hardware.tasks.sugar({
         ...initialTask,
         key: task_.key,

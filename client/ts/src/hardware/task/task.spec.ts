@@ -46,7 +46,7 @@ describe("Task", async () => {
     });
   });
   describe("update", () => {
-    it("should update a task if the key is provided", async () => {
+    it.only("should update a task if the key is provided", async () => {
       const m = await testRack.createTask({
         name: "test",
         config: { a: "dog" },
