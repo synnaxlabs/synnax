@@ -15,7 +15,7 @@
 
 /// @brief it should correctly convert a status to its JSON representation.
 TEST(StatusTest, TestToJSON) {
-    status::Status stat{
+    status::Status<> stat{
         .key = "dog",
         .variant = status::variant::SUCCESS,
         .message = "the dog is happy",
