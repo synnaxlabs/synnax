@@ -24,7 +24,7 @@ Section "MainSection" SEC01
     # Create the batch file alias
     FileOpen $0 "$INSTDIR\synnax.bat" w
     FileWrite $0 "@echo off$\r$\n"
-    FileWrite $0 'synnax-server.exe %*'
+    FileWrite $0 "synnax-server.exe %*$\r$\n"
     FileClose $0
     
     CreateDirectory "$SMPROGRAMS\Synnax"
@@ -34,12 +34,12 @@ Section "MainSection" SEC01
     # Add to PATH (only if it doesn't already exist)
     DetailPrint "Adding to PATH..."
     FileOpen $0 "$INSTDIR\add-path.ps1" w
-    FileWrite $0 '$currentPath = [Environment]::GetEnvironmentVariable("Path", "User");$\r$\n'
-    FileWrite $0 'if (-not ($currentPath -split ";" -contains "$INSTDIR")) {$\r$\n'
-    FileWrite $0 '    [Environment]::SetEnvironmentVariable("Path", "$INSTDIR;" + $currentPath, "User")$\r$\n'
+    FileWrite $0 '$$currentPath = [Environment]::GetEnvironmentVariable(\\"Path\\", \\"User\\")$\r$\n'
+    FileWrite $0 'if (-not ($$currentPath -split \\";\\" -contains "$INSTDIR")) {$\r$\n'
+    FileWrite $0 '    [Environment]::SetEnvironmentVariable(\\"Path\\", "$INSTDIR;" + $$currentPath, \\"User\\")$\r$\n'
     FileWrite $0 '}'
     FileClose $0
-    nsExec::ExecToLog 'powershell -NoProfile -File "$INSTDIR\add-path.ps1"'
+    nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\add-path.ps1"'
     Delete "$INSTDIR\add-path.ps1"
     
     WriteUninstaller "$INSTDIR\uninstall.exe"
@@ -48,9 +48,11 @@ SectionEnd
 Section "Uninstall"
     DetailPrint "Removing from PATH..."
     FileOpen $0 "$INSTDIR\remove-path.ps1" w
-    FileWrite $0 '[Environment]::SetEnvironmentVariable("Path", ($([Environment]::GetEnvironmentVariable("Path", "User")) -replace [regex]::Escape("$INSTDIR;")), "User")'
+    FileWrite $0 '$$path = [Environment]::GetEnvironmentVariable(\\"Path\\", \\"User\\")$\r$\n'
+    FileWrite $0 '$$newPath = ($$path -split \\";\\" | Where-Object { $_ -ne "$INSTDIR" }) -join \\";\\"$\r$\n'
+    FileWrite $0 '[Environment]::SetEnvironmentVariable(\\"Path\\", $$newPath, \\"User\\")$\r$\n'
     FileClose $0
-    nsExec::ExecToLog 'powershell -NoProfile -File "$INSTDIR\remove-path.ps1"'
+    nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\remove-path.ps1"'
     Delete "$INSTDIR\remove-path.ps1"
     
     Delete "$INSTDIR\synnax-server.exe"
