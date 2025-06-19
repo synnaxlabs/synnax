@@ -53,7 +53,7 @@ export const taskZ = <
     name: z.string(),
     type: typeZ,
     internal: z.boolean().optional(),
-    config: configZ.or(z.string().transform(decodeJSONString)),
+    config: z.string().transform(decodeJSONString).or(configZ),
     status: statusZ(statusDataZ).optional().nullable(),
     snapshot: z.boolean().optional(),
   });
