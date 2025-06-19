@@ -9,7 +9,7 @@
 
 import { type UnknownAction } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
-import { type AsyncDestructor, Theming, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Theming, useAsyncEffect } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch } from "react";
 import { useDispatch } from "react-redux";
@@ -46,9 +46,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 const matchThemeChange = (theme: string | null): keyof typeof Theming.SYNNAX_THEMES =>
   theme === "dark" ? "synnaxDark" : "synnaxLight";
 
-const synchronizeWithOS = async (
-  dispatch: Dispatch<UnknownAction>,
-): Promise<AsyncDestructor> =>
+const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>) =>
   await getCurrentWindow().onThemeChanged(({ payload }) =>
     dispatch(setActiveTheme(matchThemeChange(payload))),
   );

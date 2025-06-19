@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type label, ranger, type Synnax as Client } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { Icon, Label, Menu as PMenu, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { array, errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";

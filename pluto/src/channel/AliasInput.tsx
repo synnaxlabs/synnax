@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import { type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
 import { useAlias, useAliasSetter, useName } from "@/channel/AliasContext";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Status } from "@/status";
 import { Text } from "@/text";

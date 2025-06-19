@@ -42,7 +42,7 @@ describe("sync", () => {
       { retrieveIfNameExists: true },
     );
     const writer = await client.openWriter(test_channel_name);
-    const { result, rerender, unmount } = renderHook(useSync, {
+    const { result } = renderHook(useSync, {
       wrapper: (props) => <TestProvider {...props} />,
     });
 
