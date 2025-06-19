@@ -99,9 +99,10 @@ class Scanner final : public common::Scanner {
                 .key = sy_dev.key,
                 .variant = status::variant::SUCCESS,
                 .message = "Device present",
-                .details = synnax::DeviceStatusDetails{
-                    .rack = rack,
-                }
+                .details =
+                    synnax::DeviceStatusDetails{
+                        .rack = rack,
+                    }
             };
             devices.push_back(sy_dev);
         }

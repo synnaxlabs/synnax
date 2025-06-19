@@ -123,9 +123,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         status.message = res.error.message();
     } else {
         status.variant = status::variant::SUCCESS;
-        if (!res.auto_start) {
-            status.message = "Task configured successfully";
-        }
+        if (!res.auto_start) { status.message = "Task configured successfully"; }
     }
     if (res.auto_start) {
         task::Command start_cmd(task.key, START_CMD_TYPE, {});

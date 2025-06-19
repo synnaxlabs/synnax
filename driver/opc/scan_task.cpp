@@ -117,9 +117,10 @@ void ScanTask::scan(const task::Command &cmd) const {
             .key = cmd.key,
             .variant = status::variant::ERROR,
             .message = err.message(),
-            .details = synnax::TaskStatusDetails{
-                .task = task.key,
-            },
+            .details =
+                synnax::TaskStatusDetails{
+                    .task = task.key,
+                },
         });
 
     const auto scan_ctx = new ScanContext{
@@ -135,11 +136,12 @@ void ScanTask::scan(const task::Command &cmd) const {
     ctx->set_status({
         .key = cmd.key,
         .variant = status::variant::SUCCESS,
-        .details = synnax::TaskStatusDetails{
-            .task = task.key,
-            .data = util::DeviceProperties(args.connection, *scan_ctx->channels)
-                        .to_json(),
-        },
+        .details =
+            synnax::TaskStatusDetails{
+                .task = task.key,
+                .data = util::DeviceProperties(args.connection, *scan_ctx->channels)
+                            .to_json(),
+            },
     });
     delete scan_ctx;
 }

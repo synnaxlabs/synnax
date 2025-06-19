@@ -22,8 +22,8 @@
 
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
-#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/status/status.h"
+#include "x/cpp/xjson/xjson.h"
 
 namespace synnax {
 /// @brief Type alias for the transport used to create a rack.

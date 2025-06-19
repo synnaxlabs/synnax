@@ -53,8 +53,8 @@ template<typename Details = DefaultDetails>
 struct Status {
     /// @brief a unique key for the status message.
     std::string key;
-    /// @brief the variant of the status message. This should be one of the status::variant::*
-    /// constants.
+    /// @brief the variant of the status message. This should be one of the
+    /// status::variant::* constants.
     std::string variant;
     /// @brief a short, descriptive message about the status.
     std::string message;

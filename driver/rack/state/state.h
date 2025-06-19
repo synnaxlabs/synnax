@@ -45,9 +45,10 @@ public:
         const synnax::RackStatus status{
             .variant = status::variant::SUCCESS,
             .message = "Driver is running",
-            .details = synnax::RackStatusDetails{
-                .rack = this->rack_key,
-            }
+            .details =
+                synnax::RackStatusDetails{
+                    .rack = this->rack_key,
+                }
         };
         VLOG(1) << "[rack_state] emitting state for rack " << this->rack_key;
         fr.emplace(key, telem::Series(status.to_json()));

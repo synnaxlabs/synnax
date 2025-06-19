@@ -425,10 +425,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     auto warning_state = ctx->states[1];
     EXPECT_EQ(warning_state.key, "");
     EXPECT_EQ(warning_state.variant, status::variant::WARNING);
-    EXPECT_EQ(
-        warning_state.message,
-        driver::TEMPORARY_HARDWARE_ERROR.message()
-    );
+    EXPECT_EQ(warning_state.message, driver::TEMPORARY_HARDWARE_ERROR.message());
 
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 3);
     auto recovered_state = ctx->states[2];
