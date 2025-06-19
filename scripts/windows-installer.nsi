@@ -10,56 +10,60 @@ Unicode True
 
 Name "Synnax"
 OutFile "synnax-setup-v${VERSION}.exe"
-RequestExecutionLevel user
-InstallDir "$APPDATA\synnax"
+RequestExecutionLevel admin
+InstallDir "$PROGRAMFILES64\\Synnax"
 ShowInstDetails show
 
 Section "MainSection" SEC01
+    DetailPrint "Resolved INSTALL DIR: $INSTDIR"
+
     CreateDirectory "$INSTDIR"
     DetailPrint "Installing to: $INSTDIR"
-    Delete "$INSTDIR\synnax-server.exe"
-    Delete "$INSTDIR\synnax.bat"
+
+    Delete "$INSTDIR\\synnax-server.exe"
+    Delete "$INSTDIR\\synnax.bat"
 
     SetOutPath "$INSTDIR"
     File /oname=synnax-server.exe "synnax-server.exe"
 
     # Create batch file alias
-    FileOpen $0 "$INSTDIR\synnax.bat" w
+    FileOpen $0 "$INSTDIR\\synnax.bat" w
     FileWrite $0 "@echo off$\r$\n"
     FileWrite $0 "synnax-server.exe %*$\r$\n"
     FileClose $0
 
-    # Create shortcuts
-    CreateDirectory "$SMPROGRAMS\Synnax"
-    CreateShortcut "$SMPROGRAMS\Synnax\Synnax.lnk" "$INSTDIR\synnax-server.exe"
-    CreateShortcut "$DESKTOP\Synnax.lnk" "$INSTDIR\synnax-server.exe"
+    # Create Start Menu and Desktop shortcuts
+    CreateDirectory "$SMPROGRAMS\\Synnax"
+    CreateShortcut "$SMPROGRAMS\\Synnax\\Synnax.lnk" "$INSTDIR\\synnax-server.exe"
+    CreateShortcut "$DESKTOP\\Synnax.lnk" "$INSTDIR\\synnax-server.exe"
 
-    # Add to user PATH using EnVar
-    DetailPrint "Adding $INSTDIR to user PATH..."
+    # Add to system PATH using EnVar (requires EnVar.dll in x86-unicode folder)
+    DetailPrint "Adding $INSTDIR to system PATH..."
+    EnVar::SetHKLM
     EnVar::AddValue "PATH" "$INSTDIR"
     Pop $0
-    DetailPrint "EnVar::AddValue returned: $0"
+    DetailPrint "EnVar::AddValue (system PATH) returned: $0"
 
-    # Broadcast environment change to notify Explorer and new processes
+    # Notify running processes of environment change
     System::Call 'user32::SendMessageTimeoutA(i 0xffff, i ${WM_SETTINGCHANGE}, i 0, t "Environment", i 0, i 5000, *i .r0)'
 
-    WriteUninstaller "$INSTDIR\uninstall.exe"
+    WriteUninstaller "$INSTDIR\\uninstall.exe"
 SectionEnd
 
 Section "Uninstall"
-    DetailPrint "Removing $INSTDIR from user PATH..."
+    DetailPrint "Removing $INSTDIR from system PATH..."
+    EnVar::SetHKLM
     EnVar::DeleteValue "PATH" "$INSTDIR"
     Pop $0
-    DetailPrint "EnVar::DeleteValue returned: $0"
+    DetailPrint "EnVar::DeleteValue (system PATH) returned: $0"
 
-    # Broadcast environment change
     System::Call 'user32::SendMessageTimeoutA(i 0xffff, i ${WM_SETTINGCHANGE}, i 0, t "Environment", i 0, i 5000, *i .r0)'
 
-    Delete "$INSTDIR\synnax-server.exe"
-    Delete "$INSTDIR\synnax.bat"
-    Delete "$INSTDIR\uninstall.exe"
-    Delete "$DESKTOP\Synnax.lnk"
-    Delete "$SMPROGRAMS\Synnax\Synnax.lnk"
-    RMDir "$SMPROGRAMS\Synnax"
+    Delete "$INSTDIR\\synnax-server.exe"
+    Delete "$INSTDIR\\synnax.bat"
+    Delete "$INSTDIR\\uninstall.exe"
+    Delete "$DESKTOP\\Synnax.lnk"
+    Delete "$SMPROGRAMS\\Synnax\\Synnax.lnk"
+    RMDir "$SMPROGRAMS\\Synnax"
     RMDir "$INSTDIR"
 SectionEnd
