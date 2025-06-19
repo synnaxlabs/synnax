@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { flushTaskQueue } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -139,7 +148,7 @@ describe("useAsyncEffect", () => {
     expect(state).toBe(0);
   });
 
-  it.only("should have an error if the effect throws an error", async () => {
+  it("should have an error if the effect throws an error", async () => {
     const onError = vi.fn();
     const effect = vi.fn(async () => {
       throw new Error("test");
