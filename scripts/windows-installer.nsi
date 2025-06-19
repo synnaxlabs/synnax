@@ -1,5 +1,6 @@
-!include "MUI2.nsh"
+Unicode True
 
+!include "MUI2.nsh"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -11,50 +12,49 @@ Name "Synnax"
 OutFile "synnax-setup-v${VERSION}.exe"
 RequestExecutionLevel user
 InstallDir "$APPDATA\synnax"
+ShowInstDetails show
 
 Section "MainSection" SEC01
     CreateDirectory "$INSTDIR"
     DetailPrint "Installing to: $INSTDIR"
     Delete "$INSTDIR\synnax-server.exe"
     Delete "$INSTDIR\synnax.bat"
-    
+
     SetOutPath "$INSTDIR"
     File /oname=synnax-server.exe "synnax-server.exe"
-    
-    # Create the batch file alias
+
+    # Create batch file alias
     FileOpen $0 "$INSTDIR\synnax.bat" w
     FileWrite $0 "@echo off$\r$\n"
     FileWrite $0 "synnax-server.exe %*$\r$\n"
     FileClose $0
-    
+
+    # Create shortcuts
     CreateDirectory "$SMPROGRAMS\Synnax"
     CreateShortcut "$SMPROGRAMS\Synnax\Synnax.lnk" "$INSTDIR\synnax-server.exe"
     CreateShortcut "$DESKTOP\Synnax.lnk" "$INSTDIR\synnax-server.exe"
-    
-    # Add to PATH (only if it doesn't already exist)
-    DetailPrint "Adding to PATH..."
-    FileOpen $0 "$INSTDIR\add-path.ps1" w
-    FileWrite $0 '$$currentPath = [Environment]::GetEnvironmentVariable(\\"Path\\", \\"User\\")$\r$\n'
-    FileWrite $0 'if (-not ($$currentPath -split \\";\\" -contains "$INSTDIR")) {$\r$\n'
-    FileWrite $0 '    [Environment]::SetEnvironmentVariable(\\"Path\\", "$INSTDIR;" + $$currentPath, \\"User\\")$\r$\n'
-    FileWrite $0 '}'
-    FileClose $0
-    nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\add-path.ps1"'
-    Delete "$INSTDIR\add-path.ps1"
-    
+
+    # Add to user PATH using EnVar
+    DetailPrint "Adding $INSTDIR to user PATH..."
+    EnVar::AddValue "PATH" "$INSTDIR"
+    Pop $0
+    DetailPrint "EnVar::AddValue returned: $0"
+
+    # Broadcast environment change to notify Explorer and new processes
+    System::Call 'user32::SendMessageTimeoutA(i 0xffff, i ${WM_SETTINGCHANGE}, i 0, t "Environment", i 0, i 5000, *i .r0)'
+
     WriteUninstaller "$INSTDIR\uninstall.exe"
 SectionEnd
 
 Section "Uninstall"
-    DetailPrint "Removing from PATH..."
-    FileOpen $0 "$INSTDIR\remove-path.ps1" w
-    FileWrite $0 '$$path = [Environment]::GetEnvironmentVariable(\\"Path\\", \\"User\\")$\r$\n'
-    FileWrite $0 '$$newPath = ($$path -split \\";\\" | Where-Object { $_ -ne "$INSTDIR" }) -join \\";\\"$\r$\n'
-    FileWrite $0 '[Environment]::SetEnvironmentVariable(\\"Path\\", $$newPath, \\"User\\")$\r$\n'
-    FileClose $0
-    nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\remove-path.ps1"'
-    Delete "$INSTDIR\remove-path.ps1"
-    
+    DetailPrint "Removing $INSTDIR from user PATH..."
+    EnVar::DeleteValue "PATH" "$INSTDIR"
+    Pop $0
+    DetailPrint "EnVar::DeleteValue returned: $0"
+
+    # Broadcast environment change
+    System::Call 'user32::SendMessageTimeoutA(i 0xffff, i ${WM_SETTINGCHANGE}, i 0, t "Environment", i 0, i 5000, *i .r0)'
+
     Delete "$INSTDIR\synnax-server.exe"
     Delete "$INSTDIR\synnax.bat"
     Delete "$INSTDIR\uninstall.exe"
