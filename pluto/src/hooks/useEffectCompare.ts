@@ -11,13 +11,6 @@ import { type DependencyList, type EffectCallback, useEffect } from "react";
 
 import { useMemoCompare } from "@/memo";
 
-/* An async version of React.Destructor */
-
-export type AsyncDestructor = (() => Promise<void>) | (() => void) | void;
-
-/** An async version of React.EffectCallback */
-export type AsyncEffectCallback = () => Promise<AsyncDestructor>;
-
 export const useEffectCompare = <D extends DependencyList>(
   cbk: EffectCallback,
   areEqual: (prevDeps: D, nextDeps: D) => boolean,

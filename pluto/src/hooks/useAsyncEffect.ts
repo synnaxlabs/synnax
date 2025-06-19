@@ -1,7 +1,9 @@
-import { flushTaskQueue } from "@synnaxlabs/x";
+import { type AsyncDestructor, type Destructor, flushTaskQueue } from "@synnaxlabs/x";
 import { type DependencyList, useEffect } from "react";
 
-type AsyncEffectCallback = (signal: AbortSignal) => Promise<void | (() => void)>;
+export type AsyncEffectCallback = (
+  signal: AbortSignal,
+) => Promise<void | Destructor | AsyncDestructor>;
 
 export const useAsyncEffect = (
   effect: AsyncEffectCallback,

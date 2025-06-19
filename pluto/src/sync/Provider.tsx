@@ -10,11 +10,17 @@
 import { type channel, framer } from "@synnaxlabs/client";
 import { StreamClosed } from "@synnaxlabs/freighter";
 import { array, strings, unique } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback, useRef } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
 
 import { useAsyncEffect } from "@/hooks";
 import { Status } from "@/status";
-import { Context } from "@/sync/Context";
+import { Context, TestContext } from "@/sync/Context";
 import { type FrameHandler, type ListenerAdder } from "@/sync/types";
 import { Synnax } from "@/synnax";
 
@@ -27,6 +33,7 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
   const client = Synnax.use();
   const handlersRef = useRef(new Map<FrameHandler, Set<channel.Name>>());
   const streamerRef = useRef<framer.Streamer>(null);
+  const [isStreamerOpen, setIsStreamerOpen] = useState(false);
   const handleError = Status.useErrorHandler();
 
   useAsyncEffect(async () => {
@@ -37,6 +44,7 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
         async (cfg) => await client.openStreamer(cfg),
         uniqueNamesInMap(handlersRef.current),
       );
+      setIsStreamerOpen(true);
     } catch (e) {
       handleError(e, "Failed to open streamer in Sync.Provider");
       return;
@@ -57,6 +65,7 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
       });
     });
     return async () => {
+      setIsStreamerOpen(false);
       await observableStreamer.close();
       streamerRef.current = null;
     };
@@ -92,5 +101,11 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
     [handleError, updateStreamer],
   );
 
-  return <Context {...props} value={addListener} />;
+  return (
+    <Context {...props} value={addListener}>
+      <TestContext.Provider value={isStreamerOpen}>
+        {props.children}
+      </TestContext.Provider>
+    </Context>
+  );
 };

@@ -13,6 +13,7 @@ import {
   type RefCallback,
   type RefObject,
   useCallback,
+  useEffect,
   useRef,
   useState as reactUseState,
 } from "react";
@@ -47,7 +48,9 @@ export const useStateRef = <T extends state.State>(
  */
 export const useSyncedRef = <T>(value: T): RefObject<T> => {
   const ref = useRef<T>(value);
-  ref.current = value;
+  useEffect(() => {
+    ref.current = value;
+  }, [value]);
   return ref;
 };
 
@@ -92,15 +95,12 @@ export const useCombinedStateAndRef = <T extends primitive.Value | object>(
     return s;
   });
 
-  const setStateAndRef: state.Set<T> = useCallback(
-    (nextState): void => {
-      setS((p) => {
-        ref.current = state.executeSetter<T>(nextState, p);
-        return ref.current;
-      });
-    },
-    [setS],
-  );
+  const setStateAndRef: state.Set<T> = useCallback((nextState): void => {
+    setS((p) => {
+      ref.current = state.executeSetter<T>(nextState, p);
+      return ref.current;
+    });
+  }, []);
 
   return [s, setStateAndRef, ref as React.RefObject<T>];
 };
