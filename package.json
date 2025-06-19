@@ -61,8 +61,7 @@
   },
   "devDependencies": {
     "prettier": "catalog:",
-    "turbo": "^2.5.4",
-    "vitest": "catalog:"
+    "turbo": "^2.5.4"
   },
   "engines": {
     "node": ">=20"

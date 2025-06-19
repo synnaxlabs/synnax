@@ -9,6 +9,7 @@
 
 export * from "@/hooks/effect";
 export * from "@/hooks/ref";
+export * from "@/hooks/useAsyncEffect";
 export * from "@/hooks/useClickOutside";
 export * from "@/hooks/useDebouncedCallback";
 export * from "@/hooks/useDelayedState";
