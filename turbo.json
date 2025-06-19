@@ -14,7 +14,7 @@
     "dev": { "cache": false, "dependsOn": ["^build"] },
     "watch": { "cache": false },
     "fix": { "cache": false },
-    "test": { "dependsOn": ["^build"], "cache": false },
+    "test": { "dependsOn": ["^build"] },
     "devtools": { "cache": false }
   }
 }
