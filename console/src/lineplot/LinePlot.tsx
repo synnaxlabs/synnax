@@ -12,10 +12,10 @@ import "@/lineplot/LinePlot.css";
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel, type ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
 import {
   type axis,
   Channel,
+  Icon,
   type Legend,
   LinePlot as Core,
   Menu as PMenu,
@@ -30,9 +30,9 @@ import {
   box,
   color,
   DataType,
-  getEntries,
   location,
   primitive,
+  record,
   scale,
   TimeRange,
   unique,
@@ -226,7 +226,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           rule: {
             ...rule,
             color: rule.color != null ? color.hex(rule.color) : undefined,
-            axis: rule.axis as AxisKey,
+            axis: rule.axis != null ? (rule.axis as AxisKey) : undefined,
           },
         }),
       );
@@ -493,7 +493,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 };
 
 const buildAxes = (vis: State): Channel.AxisProps[] =>
-  getEntries<AxesState["axes"]>(vis.axes.axes)
+  record
+    .entries<AxesState["axes"]>(vis.axes.axes)
     .filter(([key]) => shouldDisplayAxis(key, vis))
     .map(
       ([key, axis]): Channel.AxisProps => ({

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form, Text } from "@synnaxlabs/pluto";
-import { deep, type Keyed } from "@synnaxlabs/x";
+import { deep, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import {
@@ -20,7 +20,7 @@ import {
   ZERO_AI_CHANNELS,
 } from "@/hardware/ni/task/types";
 
-export interface Entry extends Keyed<AIChannelType> {
+export interface Entry extends record.Keyed<AIChannelType> {
   name: ReactElement;
 }
 

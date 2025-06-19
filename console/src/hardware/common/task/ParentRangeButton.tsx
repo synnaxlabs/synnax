@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ranger, task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Ontology, Text } from "@synnaxlabs/pluto";
+import { Align, Button, Icon, Ontology, Text } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";

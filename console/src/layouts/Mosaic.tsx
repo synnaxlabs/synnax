@@ -10,13 +10,14 @@
 import "@/layouts/Mosaic.css";
 
 import { ontology } from "@synnaxlabs/client";
-import { Icon, Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/media";
 import {
   Align,
   Breadcrumb,
   Button,
   componentRenderProp,
   Eraser,
+  Icon,
   Menu as PMenu,
   Modal,
   Mosaic as Core,

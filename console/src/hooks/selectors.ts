@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Key, type Keyed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { memoize } from "proxy-memoize";
 import { useCallback } from "react";
 import { useSelector } from "react-redux";
@@ -27,7 +27,7 @@ export const useMemoSelect = <S extends object, R>(
   deps: unknown[],
 ): R => useSelector(useCallback(memoize(selector), deps));
 
-export const selectByKeys = <K extends Key, S extends Keyed<K>>(
+export const selectByKeys = <K extends record.Key, S extends record.Keyed<K>>(
   state: S[] | Record<K, S>,
   keys?: K[],
 ): S[] => {
@@ -36,7 +36,7 @@ export const selectByKeys = <K extends Key, S extends Keyed<K>>(
   return state.filter((s) => keys.includes(s.key));
 };
 
-export const selectByKey = <K extends Key, S extends Keyed<K>>(
+export const selectByKey = <K extends record.Key, S extends record.Keyed<K>>(
   state: Record<string, S>,
   key?: string | null,
   defaultKey?: string | null,

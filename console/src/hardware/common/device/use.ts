@@ -16,7 +16,7 @@ import {
   useAsyncEffect,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod/v4";
 
@@ -43,10 +43,10 @@ interface UseContextValue
  * @template MO - The device model type.
  */
 export const use = <
-  Properties extends UnknownRecord = UnknownRecord,
+  Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
-  StateDetails extends {} = UnknownRecord,
+  StateDetails extends {} = record.Unknown,
 >(): device.Device<Properties, Make, Model, StateDetails> | undefined => {
   const ctx = Form.useContext<UseContextValue>();
   const client = Synnax.use();

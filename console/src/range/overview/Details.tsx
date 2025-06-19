@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Divider,
   Form,
+  Icon,
   Input,
   Ranger,
   Text,

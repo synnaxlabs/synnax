@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type UnknownRecord } from "@synnaxlabs/x";
+import { array, type record } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod/v4";
 
@@ -93,7 +93,7 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
     );
   }
 
-  async setLayout(key: Key, layout: UnknownRecord): Promise<void> {
+  async setLayout(key: Key, layout: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
       SET_LAYOUT_ENDPOINT,

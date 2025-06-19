@@ -8,22 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { Icon, type IconProps } from "@synnaxlabs/media";
 import { array, DataType, unique } from "@synnaxlabs/x";
-import {
-  type DragEvent,
-  type FC,
-  type ReactElement,
-  useCallback,
-  useId,
-  useMemo,
-} from "react";
+import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
 import { useActiveRange, useAliases } from "@/channel/AliasContext";
 import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
+import { Icon } from "@/icon";
 import { type List } from "@/list";
 import { useMemoDeepEqualProps } from "@/memo";
 import { Select } from "@/select";
@@ -69,7 +62,7 @@ const useColumns = (
   }, [filter, aliases]);
 };
 
-export const resolveIcon = (ch?: channel.Payload): FC<IconProps> => {
+export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
   if (ch == null) return Icon.Channel;
   if (channel.isCalculated(ch)) return Icon.Calculation;
   if (ch.isIndex) return Icon.Index;

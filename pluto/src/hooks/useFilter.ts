@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type ArrayTransform,
-  type Key,
-  type Keyed,
-  type TermSearcher,
-} from "@synnaxlabs/x";
+import { type ArrayTransform, type record, type TermSearcher } from "@synnaxlabs/x";
 import Fuse, { type IFuseOptions } from "fuse.js";
 
 import { proxyMemo } from "@/memo";
 
 /** Props for the {@link createFilterTransform} function. */
-export interface CreateFilterTransformProps<K extends Key, E extends Keyed<K>> {
+export interface CreateFilterTransformProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> {
   term: string;
   searcher?: TermSearcher<string, K, E> | ((data: E[]) => TermSearcher<string, K, E>);
 }
@@ -29,7 +27,9 @@ const defaultOpts: IFuseOptions<unknown> = {
 
 export const fuseFilter =
   (opts?: IFuseOptions<unknown>) =>
-  <K extends Key, E extends Keyed<K>>(data: E[]): TermSearcher<string, K, E> => {
+  <K extends record.Key, E extends record.Keyed<K>>(
+    data: E[],
+  ): TermSearcher<string, K, E> => {
     const fuse = new Fuse(data, {
       keys: Object.keys(data[0]),
       ...defaultOpts,
@@ -59,7 +59,7 @@ const defaultFilter = fuseFilter();
  * @param opts - The options to pass to the Fuse.js search. See the Fuse.js
  * documentation for more information on these options.
  */
-export const createFilterTransform = <K extends Key, E extends Keyed<K>>({
+export const createFilterTransform = <K extends record.Key, E extends record.Keyed<K>>({
   term,
   searcher = defaultFilter<K, E>,
 }: CreateFilterTransformProps<K, E>): ArrayTransform<E> =>

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, type Key, type Keyed } from "@synnaxlabs/x";
+import { caseconv, deep, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -157,14 +157,13 @@ export type SwitchFieldProps = BuiltFieldProps<boolean, boolean, Input.SwitchPro
 export const buildSwitchField = fieldBuilder(Input.Switch);
 export const SwitchField = buildSwitchField({});
 
-export type SelectSingleFieldProps<K extends Key, E extends Keyed<K>> = BuiltFieldProps<
-  K,
-  K,
-  Select.SingleProps<K, E>
->;
+export type SelectSingleFieldProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> = BuiltFieldProps<K, K, Select.SingleProps<K, E>>;
 export const buildSelectSingleField = fieldBuilder(Select.Single) as <
-  K extends Key,
-  E extends Keyed<K>,
+  K extends record.Key,
+  E extends record.Keyed<K>,
 >({
   fieldProps,
   inputProps,
@@ -172,14 +171,13 @@ export const buildSelectSingleField = fieldBuilder(Select.Single) as <
   BuiltFieldProps<K, K, Select.SingleProps<K, E>>
 >;
 
-export type SelectMultiFieldProps<K extends Key, E extends Keyed<K>> = BuiltFieldProps<
-  K,
-  K,
-  Select.MultipleProps<K, E>
->;
+export type SelectMultiFieldProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> = BuiltFieldProps<K, K, Select.MultipleProps<K, E>>;
 export const buildSelectMultiField = fieldBuilder(Select.Multiple) as <
-  K extends Key,
-  E extends Keyed<K>,
+  K extends record.Key,
+  E extends record.Keyed<K>,
 >({
   fieldProps,
   inputProps,
@@ -188,12 +186,12 @@ export const buildSelectMultiField = fieldBuilder(Select.Multiple) as <
 >;
 
 export type DropdownButtonFieldProps<
-  K extends Key,
-  E extends Keyed<K>,
+  K extends record.Key,
+  E extends record.Keyed<K>,
 > = BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>;
 export const buildDropdownButtonSelectField = fieldBuilder(Select.DropdownButton) as <
-  K extends Key,
-  E extends Keyed<K>,
+  K extends record.Key,
+  E extends record.Keyed<K>,
 >({
   fieldProps,
   inputProps,
@@ -201,14 +199,13 @@ export const buildDropdownButtonSelectField = fieldBuilder(Select.DropdownButton
   BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>
 >;
 
-export type ButtonSelectFieldProps<K extends Key, E extends Keyed<K>> = BuiltFieldProps<
-  K,
-  K,
-  Select.ButtonProps<K, E>
->;
+export type ButtonSelectFieldProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> = BuiltFieldProps<K, K, Select.ButtonProps<K, E>>;
 export const buildButtonSelectField = fieldBuilder(Select.Button) as <
-  K extends Key,
-  E extends Keyed<K>,
+  K extends record.Key,
+  E extends record.Keyed<K>,
 >({
   fieldProps,
   inputProps,

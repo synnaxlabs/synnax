@@ -12,25 +12,17 @@ import "@/table/Table.css";
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { table } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Icon,
   Menu as PMenu,
   Table as Core,
   TableCells,
   Triggers,
   usePrevious,
 } from "@synnaxlabs/pluto";
-import {
-  box,
-  clamp,
-  dimensions,
-  location,
-  type UnknownRecord,
-  uuid,
-  xy,
-} from "@synnaxlabs/x";
+import { box, clamp, dimensions, location, type record, uuid, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
@@ -434,7 +426,7 @@ const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps): ReactElement
     if (ctrlKey || metaKey) mode = "add";
     dispatch(selectCells({ key: tableKey, mode, cells: [cellKey] }));
   };
-  const handleChange = (props: UnknownRecord) =>
+  const handleChange = (props: record.Unknown) =>
     dispatch(setCellProps({ key: tableKey, cellKey, props }));
   const C = TableCells.CELLS[state.variant];
   return (

@@ -9,7 +9,7 @@
 
 import { type rack, type task } from "@synnaxlabs/client";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -17,8 +17,8 @@ import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 
 export const useCreate = <
-  Config extends UnknownRecord,
-  Details extends {} = UnknownRecord,
+  Config extends record.Unknown,
+  Details extends {} = record.Unknown,
   Type extends string = string,
 >(
   layoutKey: string,

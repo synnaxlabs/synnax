@@ -10,12 +10,11 @@
 import "@/hardware/opc/device/Browser.css";
 
 import { type task, UnexpectedError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Header,
-  Icon as PIcon,
+  Icon,
   Status,
   Synnax,
   TimeSpan,
@@ -50,6 +49,10 @@ export const HAUL_TYPE = "opc";
 export interface BrowserProps {
   device: Device;
 }
+
+const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
+  bottomRight: Icon.Array,
+});
 
 export const Browser = ({ device }: BrowserProps) => {
   const client = Synnax.use();
@@ -95,13 +98,7 @@ export const Browser = ({ device }: BrowserProps) => {
           ({
             key: nodeKey(node.nodeId, nodeID),
             name: node.name,
-            icon: node.isArray ? (
-              <PIcon.Icon bottomRight={<Icon.Array />}>
-                <Icon.Variable />
-              </PIcon.Icon>
-            ) : (
-              ICONS[node.nodeClass]
-            ),
+            icon: node.isArray ? <ArrayVariableIcon /> : ICONS[node.nodeClass],
             hasChildren: true,
             haulItems: [{ key: node.nodeId, type: HAUL_TYPE, data: node }],
           }) as unknown as Tree.Node,

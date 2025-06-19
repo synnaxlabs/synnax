@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   componentRenderProp,
+  Icon,
   List,
   Ranger,
   Text,

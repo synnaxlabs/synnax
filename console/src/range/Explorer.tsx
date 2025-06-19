@@ -10,11 +10,10 @@
 import "@/range/Explorer.css";
 
 import { ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Haul,
-  Icon as PIcon,
+  Icon,
   Input,
   List,
   Menu as PMenu,
@@ -87,6 +86,8 @@ const ExplorerListItem = ({
       );
     else dispatch(remove({ keys: [entry.key] }));
   };
+
+  const StarIcon = selected ? Icon.StarFilled : Icon.StarOutlined;
 
   return (
     <List.ItemFrame
@@ -167,7 +168,7 @@ const ExplorerListItem = ({
           ))}
         </Align.Stack>
         <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
-        <PIcon.Icon
+        <StarIcon
           className={CSS(
             CSS.B("range-explorer-item-star"),
             selected && CSS.M("selected"),
@@ -176,9 +177,7 @@ const ExplorerListItem = ({
             e.stopPropagation();
             handleStar();
           }}
-        >
-          {selected ? <Icon.StarFilled /> : <Icon.StarOutlined />}
-        </PIcon.Icon>
+        />
       </Align.Space>
     </List.ItemFrame>
   );

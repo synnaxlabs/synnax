@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, id } from "@synnaxlabs/x";
-import { type UnknownRecord } from "@synnaxlabs/x/record";
+import { id } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
+import { type record } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
 import { z } from "zod/v4";
@@ -51,8 +52,8 @@ const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Clie
 };
 
 export class Task<
-  Config extends UnknownRecord = UnknownRecord,
-  Details extends {} = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
+  Details extends {} = record.Unknown,
   Type extends string = string,
 > {
   readonly key: Key;
@@ -223,20 +224,20 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
   }
 
   async create<
-    Config extends UnknownRecord = UnknownRecord,
-    Details extends {} = UnknownRecord,
+    Config extends record.Unknown = record.Unknown,
+    Details extends {} = record.Unknown,
     Type extends string = string,
   >(task: New<Config, Type>): Promise<Task<Config, Details, Type>>;
 
   async create<
-    Config extends UnknownRecord = UnknownRecord,
-    Details extends {} = UnknownRecord,
+    Config extends record.Unknown = record.Unknown,
+    Details extends {} = record.Unknown,
     Type extends string = string,
   >(tasks: New<Config, Type>[]): Promise<Task<Config, Details, Type>[]>;
 
   async create<
-    Config extends UnknownRecord = UnknownRecord,
-    Details extends {} = UnknownRecord,
+    Config extends record.Unknown = record.Unknown,
+    Details extends {} = record.Unknown,
     Type extends string = string,
   >(
     task: New<Config, Type> | Array<New<Config, Type>>,
@@ -276,26 +277,26 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
   }
 
   async retrieve<
-    Config extends UnknownRecord = UnknownRecord,
-    Details extends {} = UnknownRecord,
+    Config extends record.Unknown = record.Unknown,
+    Details extends {} = record.Unknown,
     Type extends string = string,
   >(rack: number, options?: RetrieveOptions): Promise<Task<Config, Details, Type>[]>;
 
   async retrieve<
-    Config extends UnknownRecord = UnknownRecord,
-    Details extends {} = UnknownRecord,
+    Config extends record.Unknown = record.Unknown,
+    Details extends {} = record.Unknown,
     Type extends string = string,
   >(keys: string[], options?: RetrieveOptions): Promise<Task<Config, Details, Type>[]>;
 
   async retrieve<
-    Config extends UnknownRecord = UnknownRecord,
-    Details extends {} = UnknownRecord,
+    Config extends record.Unknown = record.Unknown,
+    Details extends {} = record.Unknown,
     Type extends string = string,
   >(key: string, options?: RetrieveOptions): Promise<Task<Config, Details, Type>>;
 
   async retrieve<
-    Config extends UnknownRecord = UnknownRecord,
-    Details extends {} = UnknownRecord,
+    Config extends record.Unknown = record.Unknown,
+    Details extends {} = record.Unknown,
     Type extends string = string,
   >(
     rack: number | string | string[],
@@ -326,8 +327,8 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
   }
 
   async retrieveByName<
-    Config extends UnknownRecord = UnknownRecord,
-    Details extends {} = UnknownRecord,
+    Config extends record.Unknown = record.Unknown,
+    Details extends {} = record.Unknown,
     Type extends string = string,
   >(name: string, rack?: number): Promise<Task<Config, Details, Type>> {
     const tasks = await this.execRetrieve({ names: [name], rack });
@@ -336,8 +337,8 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
   }
 
   async retrieveByType<
-    Config extends UnknownRecord = UnknownRecord,
-    Details extends {} = UnknownRecord,
+    Config extends record.Unknown = record.Unknown,
+    Details extends {} = record.Unknown,
     Type extends string = string,
   >(type: Type, rack?: number): Promise<Task<Config, Details, Type>[]> {
     const tasks = await this.execRetrieve({ types: [type], rack });
@@ -361,14 +362,14 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
   }
 
   sugar<
-    Config extends UnknownRecord = UnknownRecord,
-    Details extends {} = UnknownRecord,
+    Config extends record.Unknown = record.Unknown,
+    Details extends {} = record.Unknown,
     Type extends string = string,
   >(payload: Payload<Config, Details, Type>): Task<Config, Details, Type>;
 
   sugar<
-    Config extends UnknownRecord = UnknownRecord,
-    Details extends {} = UnknownRecord,
+    Config extends record.Unknown = record.Unknown,
+    Details extends {} = record.Unknown,
     Type extends string = string,
   >(payloads: Payload<Config, Details, Type>[]): Task<Config, Details, Type>[];
 
