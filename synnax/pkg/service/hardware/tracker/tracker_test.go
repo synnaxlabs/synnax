@@ -230,6 +230,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			b := MustSucceed((&binary.JSONCodec{}).Encode(ctx, task.Status{
 				Variant: status.ErrorVariant,
 				Message: "Task is in error",
+				Time:    telem.Now(),
 				Details: task.StatusDetails{Task: tsk.Key},
 			}))
 			MustSucceed(w.Write(core.UnaryFrame(
@@ -244,6 +245,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				t, ok := tr.GetTask(ctx, tsk.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(t.Variant).To(Equal(status.ErrorVariant))
+				g.Expect(t.Time).To(BeNumerically(">", telem.Now()-10*telem.SecondTS))
 			}).Should(Succeed())
 		})
 	})
@@ -307,6 +309,11 @@ var _ = Describe("Tracker", Ordered, func() {
 			requests.Close()
 			Eventually(responses.Outlet()).Should(BeClosed())
 			sCancel()
+			s, ok := tr.GetTask(ctx, taskKey)
+			Expect(ok).To(BeTrue())
+			Expect(s.Variant).To(Equal(status.WarningVariant))
+			Expect(s.Message).To(ContainSubstring("Synnax Driver on rack1 is not running."))
+			Expect(s.Time).To(BeNumerically(">", telem.Now()-10*telem.SecondTS))
 		})
 	})
 	Describe("Communicating Through Task Status when a Rack is Alive", func() {

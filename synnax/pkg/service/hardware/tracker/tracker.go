@@ -240,7 +240,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 		t.mu.Devices[dev.Key] = deviceState
 	}
 
-	if err :=
+	if err =
 		cfg.Channels.DeleteByName(ctx, "sy_rack_heartbeat", true); err != nil {
 		return nil, err
 	}
@@ -427,11 +427,12 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 		}
 		alive := rackState.Alive(t.cfg.RackStateAliveThreshold)
 		if !rackExists || !alive {
-			s := task.Status{}
-			s.Message = "rack is not alive"
-			s.Details.Task = c.Key
-			s.Details.Running = false
-			s.Variant = status.WarningVariant
+			s := task.Status{
+				Time:    telem.Now(),
+				Message: "rack is not alive",
+				Variant: status.WarningVariant,
+				Details: task.StatusDetails{Task: c.Key, Running: true},
+			}
 			if rackExists {
 				var rck rack.Rack
 				if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
@@ -450,7 +451,6 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 				Command: writer.Write,
 				Frame:   core.UnaryFrame(t.taskStateChannelKey, telem.NewSeriesStaticJSONV(s)),
 			}
-
 		}
 	}
 }
@@ -671,6 +671,7 @@ func (t *Tracker) saveDeviceState(ctx context.Context, deviceKey string) error {
 func newUnknownTaskStatus(key task.Key) task.Status {
 	s := task.Status{}
 	s.Key = key.String()
+	s.Time = telem.Now()
 	s.Details.Task = key
 	s.Variant = status.WarningVariant
 	s.Message = "Task state unknown"
@@ -690,6 +691,7 @@ func newUnknownRackStatus(key rack.Key) rack.Status {
 func newUnknownDeviceStatus(devKey string, rackKey rack.Key) device.Status {
 	s := device.Status{}
 	s.Key = devKey
+	s.Time = telem.Now()
 	s.Variant = status.WarningVariant
 	s.Message = "Device state unknown"
 	s.Details.Rack = rackKey
