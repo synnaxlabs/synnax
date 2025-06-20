@@ -294,17 +294,17 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto first_state = ctx->states[0];
     EXPECT_EQ(first_state.key, "start_cmd");
-    EXPECT_EQ(first_state.task, task.key);
-    EXPECT_EQ(first_state.variant, status::VARIANT_SUCCESS);
-    EXPECT_EQ(first_state.details["message"], "Task started successfully");
+    EXPECT_EQ(first_state.details.task, task.key);
+    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
     rt->stop("stop_cmd", true);
     ASSERT_EQ(ctx->states.size(), 2);
     const auto second_state = ctx->states[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
-    EXPECT_EQ(second_state.task, task.key);
-    EXPECT_EQ(second_state.variant, status::VARIANT_SUCCESS);
-    EXPECT_EQ(second_state.details["message"], "Task stopped successfully");
+    EXPECT_EQ(second_state.details.task, task.key);
+    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.message, "Task stopped successfully");
     ASSERT_GE(mock_factory->writes->size(), 1);
     auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
@@ -327,9 +327,9 @@ TEST_F(AnalogReadTest, testErrorOnStart) {
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto state = ctx->states[0];
     EXPECT_EQ(state.key, "start_cmd");
-    EXPECT_EQ(state.task, task.key);
-    EXPECT_EQ(state.variant, status::VARIANT_ERROR);
-    EXPECT_EQ(state.details["message"], "Failed to start hardware");
+    EXPECT_EQ(state.details.task, task.key);
+    EXPECT_EQ(state.variant, status::variant::ERROR);
+    EXPECT_EQ(state.message, "Failed to start hardware");
     rt->stop(false);
 }
 
@@ -345,14 +345,14 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto start_state = ctx->states[0];
-    EXPECT_EQ(start_state.variant, status::VARIANT_SUCCESS);
+    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     const auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, "stop_cmd");
-    EXPECT_EQ(stop_state.task, task.key);
-    EXPECT_EQ(stop_state.variant, status::VARIANT_ERROR);
-    EXPECT_EQ(stop_state.details["message"], "Failed to stop hardware");
+    EXPECT_EQ(stop_state.details.task, task.key);
+    EXPECT_EQ(stop_state.variant, status::variant::ERROR);
+    EXPECT_EQ(stop_state.message, "Failed to stop hardware");
 }
 
 /// @brief it should communicate an error when the hardware fails to read.
@@ -370,17 +370,17 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto start_state = ctx->states[0];
-    EXPECT_EQ(start_state.variant, status::VARIANT_SUCCESS);
+    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     const auto read_err_state = ctx->states[1];
-    EXPECT_EQ(read_err_state.variant, status::VARIANT_ERROR);
-    EXPECT_EQ(read_err_state.details["message"], "Failed to read hardware");
+    EXPECT_EQ(read_err_state.variant, status::variant::ERROR);
+    EXPECT_EQ(read_err_state.message, "Failed to read hardware");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 3);
     const auto stop_state = ctx->states[2];
-    EXPECT_EQ(stop_state.variant, status::VARIANT_ERROR);
-    EXPECT_EQ(stop_state.details["message"], "Failed to read hardware");
+    EXPECT_EQ(stop_state.variant, status::variant::ERROR);
+    EXPECT_EQ(stop_state.message, "Failed to read hardware");
 }
 
 /// @brief it should correctly coerce read data types to the channel data type.
@@ -399,13 +399,13 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto start_state = ctx->states[0];
-    EXPECT_EQ(start_state.variant, status::VARIANT_SUCCESS);
+    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     const auto stop_state = ctx->states[1];
-    EXPECT_EQ(stop_state.variant, status::VARIANT_SUCCESS);
+    EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
 
     ASSERT_GE(mock_factory->writes->size(), 1);
 
@@ -437,9 +437,9 @@ TEST_F(AnalogReadTest, testDoubleStart) {
     EXPECT_EQ(ctx->states.size(), 2);
     for (auto &state: ctx->states) {
         EXPECT_EQ(state.key, "start_cmd");
-        EXPECT_EQ(state.task, task.key);
-        EXPECT_EQ(state.variant, status::VARIANT_SUCCESS);
-        EXPECT_EQ(state.details["message"], "Task started successfully");
+        EXPECT_EQ(state.details.task, task.key);
+        EXPECT_EQ(state.variant, status::variant::SUCCESS);
+        EXPECT_EQ(state.message, "Task started successfully");
     }
     rt->stop("stop_cmd", true);
 }
@@ -460,14 +460,14 @@ TEST_F(AnalogReadTest, testDoubleStop) {
     // Should only have two state messages (start + stop)
     const auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, "stop_cmd1");
-    EXPECT_EQ(stop_state.task, task.key);
-    EXPECT_EQ(stop_state.variant, status::VARIANT_SUCCESS);
-    EXPECT_EQ(stop_state.details["message"], "Task stopped successfully");
+    EXPECT_EQ(stop_state.details.task, task.key);
+    EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.message, "Task stopped successfully");
     const auto stop_state_2 = ctx->states[2];
     EXPECT_EQ(stop_state_2.key, "stop_cmd2");
-    EXPECT_EQ(stop_state_2.task, task.key);
-    EXPECT_EQ(stop_state_2.variant, status::VARIANT_SUCCESS);
-    EXPECT_EQ(stop_state_2.details["message"], "Task stopped successfully");
+    EXPECT_EQ(stop_state_2.details.task, task.key);
+    EXPECT_EQ(stop_state_2.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state_2.message, "Task stopped successfully");
 }
 
 class DigitalReadTest : public ::testing::Test {
@@ -567,18 +567,18 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto first_state = ctx->states[0];
     EXPECT_EQ(first_state.key, "start_cmd");
-    EXPECT_EQ(first_state.task, task.key);
-    EXPECT_EQ(first_state.variant, status::VARIANT_SUCCESS);
-    EXPECT_EQ(first_state.details["message"], "Task started successfully");
+    EXPECT_EQ(first_state.details.task, task.key);
+    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
 
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     const auto second_state = ctx->states[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
-    EXPECT_EQ(second_state.task, task.key);
-    EXPECT_EQ(second_state.variant, status::VARIANT_SUCCESS);
-    EXPECT_EQ(second_state.details["message"], "Task stopped successfully");
+    EXPECT_EQ(second_state.details.task, task.key);
+    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.message, "Task stopped successfully");
 
     ASSERT_GE(mock_factory->writes->size(), 1);
     auto &fr = mock_factory->writes->at(0);

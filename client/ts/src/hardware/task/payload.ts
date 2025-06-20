@@ -21,53 +21,82 @@ export const keyZ = z.union([
 ]);
 export type Key = z.infer<typeof keyZ>;
 
-export const stateZ = z.object({
-  task: keyZ,
-  variant: status.variantZ.or(z.literal("").transform<status.Variant>(() => "info")),
-  key: z.string().optional(),
-  details: record.unknownZ
-    .or(z.string().transform(parseWithoutKeyConversion))
-    .or(z.array(z.unknown()))
-    .or(z.null()) as z.ZodType<record.Unknown | undefined>,
-});
+const statusDetailsZ = <StatusData extends z.ZodType>(data: StatusData) =>
+  z.object({
+    task: keyZ,
+    running: z.boolean(),
+    data,
+  });
 
-export interface State<Details extends {} = record.Unknown>
-  extends Omit<z.infer<typeof stateZ>, "details"> {
-  details?: Details;
-}
+export type StatusDetails<StatusData extends z.ZodType> = z.infer<
+  ReturnType<typeof statusDetailsZ<StatusData>>
+>;
 
-export const taskZ = z.object({
-  key: keyZ,
-  name: z.string(),
-  type: z.string(),
-  internal: z.boolean().optional(),
-  config: record.unknownZ.or(z.string().transform(decodeJSONString)),
-  state: stateZ.optional().nullable(),
-  snapshot: z.boolean().optional(),
-});
+export const statusZ = <StatusData extends z.ZodType>(data: StatusData) =>
+  status.statusZ(statusDetailsZ(data));
 
-export interface Payload<
-  Config extends record.Unknown = record.Unknown,
-  Details extends {} = record.Unknown,
-  Type extends string = string,
-> extends Omit<z.infer<typeof taskZ>, "config" | "type" | "state"> {
-  type: Type;
-  config: Config;
-  state?: State<Details> | null;
-}
+export type Status<StatusData extends z.ZodType = z.ZodUnknown> = z.infer<
+  ReturnType<typeof statusZ<StatusData>>
+>;
 
-export const newZ = taskZ.omit({ key: true }).extend({
-  key: keyZ.transform((k) => k.toString()).optional(),
-  config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
-});
+export const taskZ = <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodUnknown,
+>(
+  typeZ: Type = z.string() as unknown as Type,
+  configZ: Config = z.unknown() as unknown as Config,
+  statusDataZ: StatusData = z.unknown() as unknown as StatusData,
+) =>
+  z.object({
+    key: keyZ,
+    name: z.string(),
+    type: typeZ,
+    internal: z.boolean().optional(),
+    config: z.string().transform(decodeJSONString).or(configZ),
+    status: statusZ(statusDataZ).optional().nullable(),
+    snapshot: z.boolean().optional(),
+  });
 
-export interface New<
-  Config extends record.Unknown = record.Unknown,
-  Type extends string = string,
-> extends Omit<z.input<typeof newZ>, "config" | "state"> {
-  type: Type;
-  config: Config;
-}
+export type Payload<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+> = {
+  key: Key;
+  name: string;
+  type: z.infer<Type>;
+  config: z.infer<Config>;
+  status?: Status<StatusData>;
+  snapshot?: boolean;
+  internal?: boolean;
+};
+
+export const newZ = <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodUnknown,
+>(
+  typeZ: Type = z.string() as unknown as Type,
+  configZ: Config = z.unknown() as unknown as Config,
+  statusDataZ: StatusData = z.unknown() as unknown as StatusData,
+) =>
+  taskZ(typeZ, configZ, statusDataZ)
+    .omit({ key: true })
+    .extend({
+      key: keyZ.transform((k) => k.toString()).optional(),
+      config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
+    });
+
+export type New<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+> = {
+  key?: Key;
+  name: string;
+  type: z.infer<Type>;
+  config: z.infer<Config>;
+};
 
 export const commandZ = z.object({
   task: keyZ,
@@ -85,8 +114,8 @@ export interface Command<Args extends {} = record.Unknown>
   args?: Args;
 }
 
-export interface StateObservable<Details extends {} = record.Unknown>
-  extends observe.ObservableAsyncCloseable<State<Details>> {}
+export interface StateObservable<StatusData extends z.ZodType>
+  extends observe.ObservableAsyncCloseable<Status<StatusData>> {}
 
 export interface CommandObservable<Args extends {} = record.Unknown>
   extends observe.ObservableAsyncCloseable<Command<Args>> {}

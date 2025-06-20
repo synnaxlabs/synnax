@@ -54,12 +54,14 @@ class TestTaskClient:
                     w.write(
                         "sy_task_state",
                         [
-                            {
-                                "key": cmd["key"],
-                                "task": cmd["task"],
-                                "variant": SUCCESS_VARIANT,
-                                "details": {"message": "Command executed."},
-                            }
+                            sy.TaskStatus(
+                                key=cmd["key"],
+                                variant=SUCCESS_VARIANT,
+                                message="Command executed.",
+                                details=sy.TaskStatusDetails(
+                                    task=int(cmd["task"]),
+                                ),
+                            ).model_dump(),
                         ],
                     )
 
@@ -83,11 +85,11 @@ class TestTaskClient:
                     w.write(
                         "sy_task_state",
                         [
-                            {
-                                "task": int(key),
-                                "variant": SUCCESS_VARIANT,
-                                "details": {"message": "Task configured."},
-                            }
+                            sy.TaskStatus(
+                                variant=SUCCESS_VARIANT,
+                                message="Task configured.",
+                                details=sy.TaskStatusDetails(task=int(key)),
+                            ).model_dump(),
                         ],
                     )
 
@@ -111,11 +113,11 @@ class TestTaskClient:
                     w.write(
                         "sy_task_state",
                         [
-                            {
-                                "task": int(key),
-                                "variant": ERROR_VARIANT,
-                                "details": {"message": "Invalid Configuration."},
-                            }
+                            sy.TaskStatus(
+                                variant=ERROR_VARIANT,
+                                message="Invalid Configuration.",
+                                details=sy.TaskStatusDetails(task=int(key))
+                            ).model_dump(),
                         ],
                     )
 

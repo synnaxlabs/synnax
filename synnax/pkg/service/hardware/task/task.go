@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
-	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/types"
 )
@@ -42,13 +41,13 @@ func (k *Key) UnmarshalJSON(b []byte) error {
 }
 
 type Task struct {
-	Key      Key    `json:"key" msgpack:"key"`
-	Name     string `json:"name" msgpack:"name"`
-	Type     string `json:"type" msgpack:"type"`
-	Config   string `json:"config" msgpack:"config"`
-	State    *State `json:"state" msgpack:"state"`
-	Internal bool   `json:"internal" msgpack:"internal"`
-	Snapshot bool   `json:"snapshot" msgpack:"snapshot"`
+	Key      Key     `json:"key" msgpack:"key"`
+	Name     string  `json:"name" msgpack:"name"`
+	Type     string  `json:"type" msgpack:"type"`
+	Config   string  `json:"config" msgpack:"config"`
+	Status   *Status `json:"status" msgpack:"status"`
+	Internal bool    `json:"internal" msgpack:"internal"`
+	Snapshot bool    `json:"snapshot" msgpack:"snapshot"`
 }
 
 var _ gorp.Entry[Key] = Task{}
@@ -66,31 +65,27 @@ func (t Task) String() string {
 	return t.Key.String()
 }
 
-// State represents the state of a task.
-type State struct {
-	// Key is used to uniquely identify the state update, and is usually used to tie
-	// back a command with its corresponding state value.
-	Key string `json:"key" msgpack:"key"`
+type StatusDetails struct {
 	// Task is the key of the task that the state update is for.
-	Task Key `json:"task" msgpack:"task"`
-	// Variant is the status of the task.
-	Variant status.Variant `json:"variant" msgpack:"variant"`
-	// Details is an arbitrary string that provides additional information about the
-	// state.
-	Details xjson.String `json:"details" msgpack:"details"`
+	Task    Key            `json:"task" msgpack:"task"`
+	Running bool           `json:"running" msgpack:"running"`
+	Data    map[string]any `json:"data" msgpack:"data"`
 }
 
+// Status represents the state of a task.
+type Status status.Status[StatusDetails]
+
 var (
-	_ gorp.Entry[Key]      = State{}
-	_ types.CustomTypeName = (*State)(nil)
+	_ gorp.Entry[Key]      = Status{}
+	_ types.CustomTypeName = (*Status)(nil)
 )
 
 // GorpKey implements the gorp.Entry interface.
-func (s State) GorpKey() Key { return s.Task }
+func (s Status) GorpKey() Key { return s.Details.Task }
 
 // SetOptions implements the gorp.Entry interface.
-func (s State) SetOptions() []any { return []any{s.Task.Rack().Node()} }
+func (s Status) SetOptions() []any { return []any{s.Details.Task.Rack().Node()} }
 
-// CustomTypeName implements types.CustomTypeName to ensure that State struct does
+// CustomTypeName implements types.CustomTypeName to ensure that Status struct does
 // not conflict with any other types in gorp.
-func (s State) CustomTypeName() string { return "TaskState" }
+func (s Status) CustomTypeName() string { return "TaskState" }

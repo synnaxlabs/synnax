@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, MultiSeries, observe, TimeStamp } from "@synnaxlabs/x";
+import {
+  bounds,
+  color,
+  MultiSeries,
+  observe,
+  type status,
+  TimeStamp,
+} from "@synnaxlabs/x";
 
-import { type status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
 import {
   type BooleanSink,
@@ -108,7 +114,7 @@ export const noopStringSourceSpec: StringSourceSpec = {
 class StatusSource extends Noop implements StatusSource {
   static readonly TYPE = "noop-status-source";
 
-  value(): status.Spec {
+  value(): status.Status {
     return {
       key: "noop",
       variant: "disabled",

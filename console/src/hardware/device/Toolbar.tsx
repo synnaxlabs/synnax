@@ -22,7 +22,7 @@ import { Toolbar } from "@/components";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
-export interface StateContextValue extends Record<string, device.State> {}
+export interface StateContextValue extends Record<string, device.Status> {}
 
 const StateContext = createContext<StateContextValue>({});
 
@@ -32,9 +32,11 @@ const StateProvider = ({ children }: { children: ReactElement }) => {
 
   useAsyncEffect(async () => {
     if (client == null) return;
-    const devs = await client.hardware.devices.retrieve([], { includeState: true });
+    const devs = await client.hardware.devices.retrieve([], { includeStatus: true });
     const initialStates: StateContextValue = Object.fromEntries(
-      devs.filter((d) => d.state != null).map((d) => [d.key, d.state as device.State]),
+      devs
+        .filter((d) => d.status != null)
+        .map((d) => [d.key, d.status as device.Status]),
     );
     setStates(initialStates);
     const observer = await client.hardware.devices.openStateObserver();
@@ -53,7 +55,7 @@ const StateProvider = ({ children }: { children: ReactElement }) => {
   return <StateContext.Provider value={states}>{children}</StateContext.Provider>;
 };
 
-interface RackStateContextValue extends Record<string, rack.State> {}
+interface RackStateContextValue extends Record<string, rack.Status> {}
 
 const RackStateContext = createContext<RackStateContextValue>({});
 
@@ -63,9 +65,11 @@ const RackStateProvider = ({ children }: { children: ReactElement }) => {
 
   useAsyncEffect(async () => {
     if (client == null) return;
-    const racks = await client.hardware.racks.retrieve([], { includeState: true });
+    const racks = await client.hardware.racks.retrieve([], { includeStatus: true });
     const initialStates: RackStateContextValue = Object.fromEntries(
-      racks.filter((r) => r.state != null).map((r) => [r.key, r.state as rack.State]),
+      racks
+        .filter((r) => r.status != null)
+        .map((r) => [r.key, r.status as rack.Status]),
     );
     setStates(initialStates);
     const observer = await client.hardware.racks.openStateObserver();
@@ -86,10 +90,10 @@ const RackStateProvider = ({ children }: { children: ReactElement }) => {
   );
 };
 
-export const useRackState = (key: string): rack.State | undefined =>
+export const useRackState = (key: string): rack.Status | undefined =>
   useContext(RackStateContext)[key];
 
-export const useState = (key: string): device.State | undefined =>
+export const useState = (key: string): device.Status | undefined =>
   useContext(StateContext)[key];
 
 const Content = (): ReactElement => {

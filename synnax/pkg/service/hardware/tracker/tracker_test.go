@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/tracker"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
-	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -154,11 +153,11 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys:  []channel.Key{rackStateCh.Key()},
 			}))
 
-			state := rack.State{
-				Key:          rck.Key,
-				Variant:      status.InfoVariant,
-				LastReceived: telem.Now(),
-				Message:      "Rack is alive",
+			state := rack.Status{
+				Variant: status.InfoVariant,
+				Time:    telem.Now(),
+				Message: "Rack is alive",
+				Details: rack.StatusDetails{Rack: rck.Key},
 			}
 
 			MustSucceed(w.Write(core.UnaryFrame(rackStateCh.Key(), telem.NewSeriesStaticJSONV(state))))
@@ -168,8 +167,8 @@ var _ = Describe("Tracker", Ordered, func() {
 			Eventually(func(g Gomega) {
 				r, ok := tr.GetRack(ctx, rck.Key)
 				g.Expect(ok).To(BeTrue())
-				g.Expect(r.State.Variant).To(Equal(status.InfoVariant))
-				g.Expect(r.State.Message).To(Equal("Rack is alive"))
+				g.Expect(r.Status.Variant).To(Equal(status.InfoVariant))
+				g.Expect(r.Status.Message).To(Equal("Rack is alive"))
 			}).Should(Succeed())
 		})
 
@@ -186,11 +185,11 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys:  []channel.Key{rackStateCh.Key()},
 			}))
 
-			state := rack.State{
-				Key:          rck.Key,
-				Variant:      status.InfoVariant,
-				LastReceived: telem.Now(),
-				Message:      "Rack is alive",
+			state := rack.Status{
+				Variant: status.InfoVariant,
+				Time:    telem.Now(),
+				Message: "Rack is alive",
+				Details: rack.StatusDetails{Rack: rck.Key},
 			}
 
 			MustSucceed(w.Write(core.UnaryFrame(rackStateCh.Key(), telem.NewSeriesStaticJSONV(state))))
@@ -216,7 +215,7 @@ var _ = Describe("Tracker", Ordered, func() {
 		})
 	})
 
-	Describe("Tracking Task State", func() {
+	Describe("Tracking Task Status", func() {
 		It("Should correctly update the state of a task", func() {
 			rack := &rack.Rack{Name: "rack1"}
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
@@ -228,9 +227,11 @@ var _ = Describe("Tracker", Ordered, func() {
 				Start: telem.Now(),
 				Keys:  []channel.Key{taskStateCh.Key()},
 			}))
-			b := MustSucceed((&binary.JSONCodec{}).Encode(ctx, task.State{
+			b := MustSucceed((&binary.JSONCodec{}).Encode(ctx, task.Status{
 				Variant: status.ErrorVariant,
-				Task:    tsk.Key,
+				Message: "Task is in error",
+				Time:    telem.Now(),
+				Details: task.StatusDetails{Task: tsk.Key},
 			}))
 			MustSucceed(w.Write(core.UnaryFrame(
 				taskStateCh.Key(),
@@ -244,6 +245,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				t, ok := tr.GetTask(ctx, tsk.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(t.Variant).To(Equal(status.ErrorVariant))
+				g.Expect(t.Time).To(BeNumerically(">", telem.Now()-10*telem.SecondTS))
 			}).Should(Succeed())
 		})
 	})
@@ -262,7 +264,11 @@ var _ = Describe("Tracker", Ordered, func() {
 			}))
 			MustSucceed(w.Write(core.UnaryFrame(
 				taskStateCh.Key(),
-				telem.NewSeriesStaticJSONV(task.State{Variant: status.ErrorVariant, Task: tsk.Key}),
+				telem.NewSeriesStaticJSONV(task.Status{
+					Variant: status.ErrorVariant,
+					Message: "Task is in error",
+					Details: task.StatusDetails{Task: tsk.Key},
+				}),
 			)))
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
@@ -278,7 +284,7 @@ var _ = Describe("Tracker", Ordered, func() {
 		})
 	})
 
-	Describe("Communicating Through Task State when a Rack Has Died", func() {
+	Describe("Communicating Through Task Status when a Rack Has Died", func() {
 		BeforeEach(func() {
 			cfg.RackStateAliveThreshold = 5 * telem.Millisecond
 		})
@@ -303,9 +309,14 @@ var _ = Describe("Tracker", Ordered, func() {
 			requests.Close()
 			Eventually(responses.Outlet()).Should(BeClosed())
 			sCancel()
+			s, ok := tr.GetTask(ctx, taskKey)
+			Expect(ok).To(BeTrue())
+			Expect(s.Variant).To(Equal(status.WarningVariant))
+			Expect(s.Message).To(ContainSubstring("Synnax Driver on rack1 is not running."))
+			Expect(s.Time).To(BeNumerically(">", telem.Now()-10*telem.SecondTS))
 		})
 	})
-	Describe("Communicating Through Task State when a Rack is Alive", func() {
+	Describe("Communicating Through Task Status when a Rack is Alive", func() {
 		BeforeEach(func() {
 			cfg.RackStateAliveThreshold = 10 * telem.Second
 		})
@@ -320,11 +331,11 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys:  []channel.Key{rackStateCh.Key()},
 			}))
 
-			state := rack.State{
-				Key:          rck.Key,
-				Variant:      status.InfoVariant,
-				LastReceived: telem.Now(),
-				Message:      "Rack is alive",
+			state := rack.Status{
+				Variant: status.InfoVariant,
+				Time:    telem.Now(),
+				Message: "Rack is alive",
+				Details: rack.StatusDetails{Rack: rck.Key},
 			}
 
 			MustSucceed(w.Write(core.UnaryFrame(
@@ -372,7 +383,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				state, ok := tr.GetDevice(ctx, dev.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(state.Key).To(Equal(dev.Key))
-				g.Expect(state.Rack).To(Equal(rck.Key))
+				g.Expect(state.Details.Rack).To(Equal(rck.Key))
 				g.Expect(state.Variant).To(Equal(status.InfoVariant))
 			}).Should(Succeed())
 		})
@@ -422,14 +433,11 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys:  []channel.Key{deviceStateCh.Key()},
 			}))
 
-			state := device.State{
+			state := device.Status{
 				Key:     dev.Key,
-				Rack:    rck.Key,
 				Variant: status.WarningVariant,
-				Details: xjson.NewStaticString(ctx, map[string]any{
-					"message":     "Device is warming up",
-					"temperature": 45.5,
-				}),
+				Message: "Device is warming up",
+				Details: device.StatusDetails{Rack: rck.Key},
 			}
 
 			MustSucceed(w.Write(core.UnaryFrame(
@@ -443,8 +451,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				devState, ok := tr.GetDevice(ctx, dev.Key)
 				g.Expect(ok).To(BeTrue())
 				g.Expect(devState.Variant).To(Equal(status.WarningVariant))
-				g.Expect(string(devState.Details)).To(ContainSubstring("Device is warming up"))
-				g.Expect(string(devState.Details)).To(ContainSubstring("45.5"))
+				g.Expect(devState.Message).To(ContainSubstring("Device is warming up"))
 			}).Should(Succeed())
 		})
 
@@ -468,11 +475,11 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys:  []channel.Key{deviceStateCh.Key()},
 			}))
 
-			state := device.State{
+			state := device.Status{
 				Key:     dev.Key,
-				Rack:    rck.Key,
 				Variant: status.ErrorVariant,
-				Details: xjson.NewStaticString(ctx, "Device error state"),
+				Message: "Device error state",
+				Details: device.StatusDetails{Rack: rck.Key},
 			}
 
 			MustSucceed(w.Write(core.UnaryFrame(
@@ -519,11 +526,11 @@ var _ = Describe("Tracker", Ordered, func() {
 				Keys:  []channel.Key{deviceStateCh.Key()},
 			}))
 
-			state := device.State{
+			state := device.Status{
 				Key:     dev.Key,
-				Rack:    rack2.Key,
 				Variant: status.WarningVariant,
-				Details: xjson.NewStaticString(ctx, "Update from wrong rack"),
+				Message: "Update from wrong rack",
+				Details: device.StatusDetails{Rack: rack2.Key},
 			}
 
 			MustSucceed(w.Write(core.UnaryFrame(
@@ -536,7 +543,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Consistently(func(g Gomega) {
 				devState, ok := tr.GetDevice(ctx, dev.Key)
 				g.Expect(ok).To(BeTrue())
-				g.Expect(devState.Rack).To(Equal(rack1.Key))             // Should still be rack1
+				g.Expect(devState.Details.Rack).To(Equal(rack1.Key))     // Should still be rack1
 				g.Expect(devState.Variant).To(Equal(status.InfoVariant)) // Should remain unchanged
 			}).Should(Succeed())
 		})

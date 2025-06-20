@@ -22,6 +22,7 @@
 
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
+#include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
 
 namespace synnax {
@@ -313,45 +314,49 @@ private:
     friend class HardwareClient;
 };
 
-/// @brief utility struct storing the current state of a device.
-struct DeviceState {
-    /// @brief the key of the device.
-    std::string key;
-    /// @brief the status variant of the device's current state.
-    std::string variant;
-    /// @brief the device rack.
+struct DeviceStatusDetails {
     RackKey rack = 0;
-    /// @brief additional json details about the device's current state.
-    json details;
+
+    static DeviceStatusDetails parse(xjson::Parser parser) {
+        return DeviceStatusDetails{
+            .rack = parser.required<RackKey>("rack"),
+        };
+    }
 
     [[nodiscard]] json to_json() const {
         json j;
-        j["key"] = this->key;
-        j["variant"] = this->variant;
-        j["details"] = this->details;
         j["rack"] = this->rack;
         return j;
     }
 };
 
+using RackStatusDetails = DeviceStatusDetails;
 
-/// @brief utility struct storing the current state of a rack.
-struct RackState {
-    /// @brief the key of the rack.
-    synnax::RackKey key;
-    /// @brief the status variant of the rack's current state.
-    std::string variant;
-    /// @brief a message describing the current state of the rack.
-    std::string message;
+struct TaskStatusDetails {
+    TaskKey task;
+    bool running;
+    json data;
 
-    [[nodiscard]] json to_json() const {
-        return json{
-            {"key", this->key},
-            {"variant", this->variant},
-            {"message", this->message},
+    static TaskStatusDetails parse(xjson::Parser parser) {
+        return TaskStatusDetails{
+            .task = parser.required<TaskKey>("task"),
+            .running = parser.required<bool>("running"),
+            .data = parser.required<json>("data"),
         };
     }
+
+    [[nodiscard]] json to_json() const {
+        json j;
+        j["task"] = this->task;
+        j["running"] = this->running;
+        j["data"] = this->data;
+        return j;
+    }
 };
+
+using DeviceStatus = status::Status<DeviceStatusDetails>;
+using RackStatus = status::Status<DeviceStatusDetails>;
+using TaskStatus = status::Status<TaskStatusDetails>;
 
 /// @brief A Device represents a physical hardware device connected to a rack.
 struct Device {
@@ -372,7 +377,7 @@ struct Device {
     /// @brief whether the device has been configured.
     bool configured = false;
     /// @brief The state of the device.
-    DeviceState state;
+    DeviceStatus status;
 
     /// @brief Constructs a new device with the given properties.
     /// @param key The unique identifier for the device.

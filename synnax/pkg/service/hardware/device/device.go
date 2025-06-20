@@ -13,7 +13,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/gorp"
-	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -35,9 +34,9 @@ type Device struct {
 	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties
 	Properties string `json:"properties" msgpack:"properties"`
-	// State is the state of the device. This field is not stored directly with the
+	// Status is the state of the device. This field is not stored directly with the
 	// device inside of gorp, and is not guaranteed to be valid.
-	State *State `json:"state" msgpack:"state"`
+	Status *Status `json:"status" msgpack:"status"`
 }
 
 var _ gorp.Entry[string] = Device{}
@@ -60,21 +59,14 @@ func (d Device) Validate() error {
 	return v.Error()
 }
 
-// State represents the state of a device.
-type State struct {
-	// Key is the key of the device.
-	Key string `json:"key" msgpack:"key"`
-	// Rack is the rack that the device is in.
+type StatusDetails struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
-	// Variant is the status variant representing the general state of the device.
-	Variant status.Variant `json:"variant" msgpack:"variant"`
-	// Details are JSON-stringified details about the device's state. These are
-	// arbitrary, and vary based on the device vendor.
-	Details xjson.String `json:"details" msgpack:"details"`
 }
 
+type Status status.Status[StatusDetails]
+
 // GorpKey implements gorp.Entry.
-func (s State) GorpKey() string { return s.Key }
+func (s Status) GorpKey() string { return s.Key }
 
 // SetOptions implements gorp.Entry.
-func (s State) SetOptions() []any { return []any{s.Rack.Node()} }
+func (s Status) SetOptions() []any { return []any{s.Details.Rack.Node()} }
