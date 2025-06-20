@@ -22,14 +22,12 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv/kvmock"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/errors"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("txn", func() {
-	var (
-		builder *kvmock.Builder
-	)
+	var builder *kvmock.Builder
 
 	BeforeEach(func() {
 		builder = kvmock.NewBuilder(
@@ -242,10 +240,10 @@ var _ = Describe("txn", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv).ToNot(BeNil())
 			var (
-				op kvx.Change
+				op xkv.Change
 				ok bool
 			)
-			kv.OnChange(func(ctx context.Context, r kvx.TxReader) {
+			kv.OnChange(func(ctx context.Context, r xkv.TxReader) {
 				op, ok = r.Next(ctx)
 			})
 			Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())

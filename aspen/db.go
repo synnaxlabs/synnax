@@ -10,17 +10,13 @@
 package aspen
 
 import (
-	"context"
-	"io"
-
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/aspen/transport"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/errors"
-	errors2 "github.com/synnaxlabs/x/errors"
-	kvx "github.com/synnaxlabs/x/kv"
+	xio "github.com/synnaxlabs/x/io"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	storex "github.com/synnaxlabs/x/store"
 )
@@ -85,17 +81,11 @@ var NodeNotfound = cluster.NodeNotFound
 
 type DB struct {
 	Cluster *cluster.Cluster
-	kvx.DB
-	transportCloser io.Closer
+	xkv.DB
+	closer xio.MultiCloser
 }
 
-// Close implements kvx.DB, shutting down the key-value store, cluster and transport.
+// Close implements xkv.DB, shutting down the key-value store, cluster and transport.
 // Close is not safe to call concurrently with any other DB method. All DB methods
 // called after Close will panic.
-func (db *DB) Close() error {
-	c := errors2.NewCatcher(errors2.WithAggregation())
-	c.Exec(db.transportCloser.Close)
-	c.Exec(db.Cluster.Close)
-	c.Exec(db.DB.Close)
-	return errors.Skip(c.Error(), context.Canceled)
-}
+func (db *DB) Close() error { return db.closer.Close() }

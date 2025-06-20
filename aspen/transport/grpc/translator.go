@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
 )
 
@@ -129,7 +129,7 @@ func translateOpForward(msg kv.Operation) (tMsg *aspenv1.Operation) {
 
 func translateOpBackward(msg *aspenv1.Operation) (tMsg kv.Operation) {
 	return kv.Operation{
-		Change: kvx.Change{
+		Change: xkv.Change{
 			Key:     msg.Key,
 			Value:   msg.Value,
 			Variant: change.Variant(msg.Variant),

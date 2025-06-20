@@ -40,7 +40,7 @@ func NewUserService(p Provider) *UserService {
 		dbProvider:     p.db,
 		authProvider:   p.auth,
 		accessProvider: p.access,
-		internal:       p.Config.User,
+		internal:       p.Service.User,
 	}
 }
 
