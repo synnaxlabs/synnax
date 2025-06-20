@@ -11,15 +11,16 @@ package label
 
 import (
 	"context"
+	"io"
+
 	"github.com/google/uuid"
+	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"io"
 )
 
 // Config is the configuration for the label service. Config is provided to the
@@ -35,7 +36,7 @@ type Config struct {
 	Ontology *ontology.Ontology
 	// Group is used to create and manage a root group for holding all labels.
 	// [REQUIRED]
-	Group *group.Service
+	Group *group2.Service
 	// Signals is the signal service used to propagate changes to labels.
 	// [OPTIONAL]
 	Signals *signals.Provider
@@ -72,7 +73,7 @@ func (c Config) Override(other Config) Config {
 type Service struct {
 	Config
 	signals io.Closer
-	group   group.Group
+	group   group2.Group
 }
 
 // OpenService opens a new label service using the provided configuration. If error

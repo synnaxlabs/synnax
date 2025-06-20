@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -25,15 +25,15 @@ import (
 var _ = Describe("Group", Ordered, func() {
 	var (
 		db  *gorp.DB
-		svc *group.Service
+		svc *group2.Service
 		otg *ontology.Ontology
-		w   group.Writer
+		w   group2.Writer
 	)
 
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		svc = MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+		svc = MustSucceed(group2.OpenService(ctx, group2.Config{DB: db, Ontology: otg}))
 		w = svc.NewWriter(nil)
 	})
 
@@ -62,7 +62,7 @@ var _ = Describe("Group", Ordered, func() {
 			parent, err := w.Create(ctx, "parent", ontology.RootID)
 			Expect(err).ToNot(HaveOccurred())
 
-			child, err := w.Create(ctx, "child", group.OntologyID(parent.Key))
+			child, err := w.Create(ctx, "child", group2.OntologyID(parent.Key))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(child.Name).To(Equal("child"))
 		})
@@ -74,7 +74,7 @@ var _ = Describe("Group", Ordered, func() {
 			created, err := w.Create(ctx, "retrieve-test", ontology.RootID)
 			Expect(err).ToNot(HaveOccurred())
 
-			var g group.Group
+			var g group2.Group
 			err = svc.NewRetrieve().WhereKeys(created.Key).Entry(&g).Exec(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(g).To(Equal(created))
@@ -87,7 +87,7 @@ var _ = Describe("Group", Ordered, func() {
 			g2, err := w.Create(ctx, "multi2", ontology.RootID)
 			Expect(err).ToNot(HaveOccurred())
 
-			var ret []group.Group
+			var ret []group2.Group
 			err = svc.NewRetrieve().WhereKeys(g1.Key, g2.Key).Entries(&ret).Exec(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ret).To(ConsistOf(g1, g2))
@@ -97,7 +97,7 @@ var _ = Describe("Group", Ordered, func() {
 			created, err := w.Create(ctx, "name-test", ontology.RootID)
 			Expect(err).ToNot(HaveOccurred())
 
-			var g group.Group
+			var g group2.Group
 			err = svc.NewRetrieve().WhereNames(created.Name).Entry(&g).Exec(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(g).To(Equal(created))
@@ -112,7 +112,7 @@ var _ = Describe("Group", Ordered, func() {
 			newName := "renamed"
 			Expect(w.Rename(ctx, created.Key, newName)).To(Succeed())
 
-			var g group.Group
+			var g group2.Group
 			err = svc.NewRetrieve().WhereKeys(created.Key).Entry(&g).Exec(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(g.Name).To(Equal(newName))
@@ -124,7 +124,7 @@ var _ = Describe("Group", Ordered, func() {
 			parent, err := w.Create(ctx, "parent-to-keep", ontology.RootID)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = w.Create(ctx, "child-blocking-delete", group.OntologyID(parent.Key))
+			_, err = w.Create(ctx, "child-blocking-delete", group2.OntologyID(parent.Key))
 			Expect(err).ToNot(HaveOccurred())
 
 			err = w.Delete(ctx, parent.Key)
@@ -138,7 +138,7 @@ var _ = Describe("Group", Ordered, func() {
 
 			Expect(w.Delete(ctx, created.Key)).To(Succeed())
 
-			var g group.Group
+			var g group2.Group
 			err = svc.NewRetrieve().WhereKeys(created.Key).Entry(&g).Exec(ctx, nil)
 			Expect(err).To(HaveOccurred())
 		})
@@ -147,13 +147,13 @@ var _ = Describe("Group", Ordered, func() {
 			parent, err := w.Create(ctx, "parent-for-deletion", ontology.RootID)
 			Expect(err).ToNot(HaveOccurred())
 
-			child, err := w.Create(ctx, "child-for-deletion", group.OntologyID(parent.Key))
+			child, err := w.Create(ctx, "child-for-deletion", group2.OntologyID(parent.Key))
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(w.Delete(ctx, child.Key)).To(Succeed())
 			Expect(w.Delete(ctx, parent.Key)).To(Succeed())
 
-			var g group.Group
+			var g group2.Group
 			err = svc.NewRetrieve().WhereKeys(parent.Key, child.Key).Entry(&g).Exec(ctx, nil)
 			Expect(err).To(HaveOccurred())
 		})

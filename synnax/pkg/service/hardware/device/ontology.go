@@ -48,29 +48,28 @@ func KeysFromOntologyIDs(ids []ontology.ID) []string {
 	return keys
 }
 
-var _schema = ontology.NewSchema(
-	OntologyType,
-	map[string]zyn.Z{
-		"key":        zyn.String(),
-		"name":       zyn.String(),
-		"make":       zyn.String(),
-		"model":      zyn.String(),
-		"configured": zyn.Bool(),
-		"location":   zyn.String(),
-		"rack":       zyn.Uint32().Coerce(),
-	},
-)
+var Z = zyn.Object(map[string]zyn.Z{
+	"key":        zyn.String(),
+	"name":       zyn.String(),
+	"make":       zyn.String(),
+	"model":      zyn.String(),
+	"configured": zyn.Bool(),
+	"location":   zyn.String(),
+	"rack":       zyn.Uint32().Coerce(),
+})
 
-func newResource(r Device) core.Resource {
-	return core.NewResource(_schema, OntologyID(r.Key), r.Name, r)
+func newResource(r Device) ontology.Resource {
+	return core.NewResource(Z, OntologyID(r.Key), r.Name, r)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
 type change = changex.Change[string, Device]
 
+func (s *Service) Type() ontology.Type { return OntologyType }
+
 // Schema implements ontology.Service.
-func (s *Service) Schema() *core.Schema { return _schema }
+func (s *Service) Schema() zyn.Z { return Z }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
@@ -79,8 +78,8 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 	return newResource(r), err
 }
 
-func translateChange(c change) core.Change {
-	return core.Change{
+func translateChange(c change) ontology.Change {
+	return ontology.Change{
 		Variant: c.Variant,
 		Key:     OntologyID(c.Key),
 		Value:   newResource(c.Value),
@@ -88,17 +87,17 @@ func translateChange(c change) core.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[core.Change])) observe.Disconnect {
+func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[ontology.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[string, Device]) {
-		f(ctx, iter.NexterTranslator[change, core.Change]{Wrap: reader, Translate: translateChange})
+		f(ctx, iter.NexterTranslator[change, ontology.Change]{Wrap: reader, Translate: translateChange})
 	}
 	return gorp.Observe[string, Device](s.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter() (iter.NexterCloser[core.Resource], error) {
+func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	n, err := gorp.WrapReader[string, Device](s.DB).OpenNexter()
-	return iter.NexterCloserTranslator[Device, core.Resource]{
+	return iter.NexterCloserTranslator[Device, ontology.Resource]{
 		Wrap:      n,
 		Translate: newResource,
 	}, err

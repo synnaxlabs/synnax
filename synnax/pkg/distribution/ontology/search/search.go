@@ -110,8 +110,12 @@ func (t *Tx) Delete(id core.ID) { t.batch.Delete(id.String()) }
 
 func (t *Tx) Close() { t.idx = nil; t.batch = nil }
 
-func (s *Index) Register(ctx context.Context, sch *core.Schema) {
-	s.L.Debug("registering schema", zap.String("type", string(sch.Type)))
+func (s *Index) Register(
+	ctx context.Context,
+	t core.Type,
+	sch zyn.Z,
+) {
+	s.L.Debug("registering schema", zap.Stringer("type", t))
 	_, span := s.T.Prod(ctx, "register")
 	defer span.End()
 	textFieldMapping := bleve.NewTextFieldMapping()
@@ -119,11 +123,11 @@ func (s *Index) Register(ctx context.Context, sch *core.Schema) {
 	dm := bleve.NewDocumentMapping()
 	dm.AddFieldMappingsAt("name", textFieldMapping)
 	for k, fld := range sch.Shape().Fields() {
-		if fMapping, ok := fieldMappings[fld.Type()]; ok {
+		if fMapping, ok := fieldMappings[fld.DataType()]; ok {
 			dm.AddFieldMappingsAt(k, fMapping())
 		}
 	}
-	s.mapping.AddDocumentMapping(string(sch.Type), dm)
+	s.mapping.AddDocumentMapping(t.String(), dm)
 }
 
 type Request struct {

@@ -12,6 +12,7 @@ package core
 import (
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -19,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// Type is the type of an [Resource]/[Schema]. This type should be unique for each
+// Type is the type of a specific ontology Resource. This type should be unique for each
 // [Schema] in the cluster. in the cluster. in the cluster. in the cluster.
 type Type string
 
@@ -28,21 +29,6 @@ const ZeroType = Type("")
 
 // String implements fmt.Stringer.
 func (t Type) String() string { return string(t) }
-
-// Schema represents a dynamically defined schema for an arbitrary entity. This can be
-// though of as a dynamically defined struct that allows entities of different types
-// to be assembled into composite data structures (such as an ontology).
-type Schema struct {
-	// Type is the type of the entity. This type should be unique across all schemas
-	// in the cluster.
-	Type Type `json:"type" msgpack:"type"`
-	// Fields is a map of field names to field types.
-	zyn.Z
-}
-
-func NewSchema(t Type, fields map[string]zyn.Z) *Schema {
-	return &Schema{Type: t, Z: zyn.Object(fields)}
-}
 
 // ID is a unique identifier for a Resource. An example:
 //
@@ -109,24 +95,16 @@ func ParseIDs(s []string) ([]ID, error) {
 // Resource represents an instance matching a [Schema] (think class and object in OOP).
 type Resource struct {
 	ID ID `json:"id" msgpack:"id"`
-	// Schema is the schema that this entity matches.
-	Schema *Schema `json:"schema" msgpack:"schema"`
 	// Name is a human-readable name for the entity.
 	Name string `json:"name" msgpack:"name"`
 	// Data is the data for the entity. Data must match [Schema.Fields].
 	Data any `json:"data" msgpack:"data"`
+	// schema is the schema that this entity matches.
+	schema zyn.Z
 }
 
 func (r Resource) Parse(dest any) error {
-	return r.Schema.Parse(r.Data, dest)
-}
-
-func ResourceIDs(resources []Resource) []ID {
-	ids := make([]ID, 0, len(resources))
-	for _, r := range resources {
-		ids = append(ids, r.ID)
-	}
-	return ids
+	return r.schema.Parse(r.Data, dest)
 }
 
 type Change = change.Change[ID, Resource]
@@ -144,16 +122,13 @@ func (r Resource) GorpKey() ID { return r.ID }
 func (r Resource) SetOptions() []any { return nil }
 
 // NewResource creates a new entity with the given schema and name and an empty set of
-// field data.
-func NewResource(schema *Schema, id ID, name string, data any) Resource {
-	dumped, err := schema.Dump(data)
-	if err != nil {
-		panic(err)
-	}
+// field data. NewResource panics if the provided data value does not fit the ontology
+// schema.
+func NewResource(schema zyn.Z, id ID, name string, data any) Resource {
 	return Resource{
-		Schema: schema,
+		schema: schema,
 		ID:     id,
 		Name:   name,
-		Data:   dumped,
+		Data:   lo.Must(schema.Dump(data)),
 	}
 }

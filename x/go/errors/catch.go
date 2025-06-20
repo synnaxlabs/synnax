@@ -31,10 +31,6 @@ func (c *Catcher) Exec(ca func() error) {
 	}
 }
 
-func (c *Catcher) Add(err error) {
-	c.errors = append(c.errors, err)
-}
-
 // Reset resets the Catcher so it becomes error free.
 func (c *Catcher) Reset() { c.errors = []error{} }
 

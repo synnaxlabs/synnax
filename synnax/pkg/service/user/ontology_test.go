@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -43,7 +43,7 @@ var _ = Describe("Ontology", Ordered, func() {
 	Describe("Schema", func() {
 		It("Should return the ontology schema", func() {
 			schema := svc.Schema().Shape()
-			Expect(schema.Type()).To(Equal(zyn.ObjectT))
+			Expect(schema.DataType()).To(Equal(zyn.ObjectT))
 			fields := schema.Fields()
 			Expect(fields).To(HaveKey("key"))
 			Expect(fields).To(HaveKey("username"))

@@ -14,9 +14,8 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
+	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/gorp"
@@ -26,7 +25,7 @@ type OntologyService struct {
 	dbProvider
 	OntologyProvider
 	accessProvider
-	group *group.Service
+	group *group2.Service
 }
 
 func NewOntologyService(p Provider) *OntologyService {
@@ -83,14 +82,13 @@ func (o *OntologyService) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	q = q.IncludeSchema(req.IncludeSchema).ExcludeFieldData(req.ExcludeFieldData)
 	if err = q.Entries(&res.Resources).Exec(ctx, nil); err != nil {
 		return OntologyRetrieveResponse{}, err
 	}
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: core.ResourceIDs(res.Resources),
+		Objects: ontology.ResourceIDs(res.Resources),
 	}); err != nil {
 		return OntologyRetrieveResponse{}, err
 	}
@@ -104,7 +102,7 @@ type (
 		Parent ontology.ID `json:"parent" msgpack:"parent"`
 	}
 	OntologyCreateGroupResponse struct {
-		Group group.Group `json:"group" msgpack:"group"`
+		Group group2.Group `json:"group" msgpack:"group"`
 	}
 )
 
@@ -115,7 +113,7 @@ func (o *OntologyService) CreateGroup(
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
+		Objects: []ontology.ID{group2.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
 	}
@@ -141,7 +139,7 @@ func (o *OntologyService) DeleteGroup(
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
-		Objects: group.OntologyIDs(req.Keys),
+		Objects: group2.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
@@ -163,7 +161,7 @@ func (o *OntologyService) RenameGroup(
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
+		Objects: []ontology.ID{group2.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
 	}
@@ -247,10 +245,10 @@ func (o *OntologyService) MoveChildren(
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.Ontology.NewWriter(tx)
 		for _, child := range req.Children {
-			if err := w.DeleteRelationship(ctx, req.From, ontology.ParentOf, child); err != nil {
+			if err = w.DeleteRelationship(ctx, req.From, ontology.ParentOf, child); err != nil {
 				return err
 			}
-			if err := w.DefineRelationship(ctx, req.To, ontology.ParentOf, child); err != nil {
+			if err = w.DefineRelationship(ctx, req.To, ontology.ParentOf, child); err != nil {
 				return err
 			}
 		}

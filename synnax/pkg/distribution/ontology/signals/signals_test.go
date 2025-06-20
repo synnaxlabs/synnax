@@ -33,7 +33,7 @@ import (
 )
 
 type changeService struct {
-	observe.Observer[iter.Nexter[core.Change]]
+	observe.Observer[iter.Nexter[ontology.Change]]
 }
 
 const changeType ontology.Type = "change"
@@ -44,11 +44,10 @@ func newChangeID(key string) ontology.ID {
 
 var _ ontology.Service = (*changeService)(nil)
 
-func (s *changeService) Schema() *ontology.Schema {
-	return ontology.NewSchema(
-		changeType,
-		map[string]zyn.Z{"key": zyn.String()},
-	)
+func (s *changeService) Type() ontology.Type { return changeType }
+
+func (s *changeService) Schema() zyn.Z {
+	return zyn.Object(map[string]zyn.Z{"key": zyn.String()})
 }
 
 func (s *changeService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
@@ -64,7 +63,7 @@ func (s *changeService) RetrieveResource(
 		s.Schema(),
 		newChangeID(key),
 		"",
-		map[string]interface{}{"key": key},
+		map[string]any{"key": key},
 	), nil
 }
 
@@ -78,7 +77,7 @@ var _ = Describe("Signals", Ordered, func() {
 	BeforeAll(func() {
 		builder = mock.NewBuilder()
 		dist = builder.New(ctx)
-		svc = &changeService{Observer: observe.New[iter.Nexter[core.Change]]()}
+		svc = &changeService{Observer: observe.New[iter.Nexter[ontology.Change]]()}
 		dist.Ontology.RegisterService(ctx, svc)
 	})
 	AfterAll(func() {
@@ -105,12 +104,17 @@ var _ = Describe("Signals", Ordered, func() {
 			time.Sleep(5 * time.Millisecond)
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
-			svc.NotifyGenerator(ctx, func() iter.Nexter[core.Change] {
-				return iter.All([]core.Change{
+			svc.NotifyGenerator(ctx, func() iter.Nexter[ontology.Change] {
+				return iter.All([]ontology.Change{
 					{
 						Variant: change.Set,
 						Key:     newChangeID(key),
-						Value:   core.NewResource(svc.Schema(), newChangeID(key), "empty", map[string]interface{}{"key": key}),
+						Value: core.NewResource(
+							svc.Schema(),
+							newChangeID(key),
+							"empty",
+							map[string]any{"key": key},
+						),
 					},
 				})
 			})
@@ -138,8 +142,8 @@ var _ = Describe("Signals", Ordered, func() {
 			time.Sleep(5 * time.Millisecond)
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
-			svc.NotifyGenerator(ctx, func() iter.Nexter[core.Change] {
-				return iter.All([]core.Change{
+			svc.NotifyGenerator(ctx, func() iter.Nexter[ontology.Change] {
+				return iter.All([]ontology.Change{
 					{
 						Variant: change.Delete,
 						Key:     newChangeID(key),

@@ -178,7 +178,6 @@ func (r Range) Parent(ctx context.Context) (Range, error) {
 		TraverseTo(ontology.Parents).
 		WhereTypes(OntologyType).
 		ExcludeFieldData(true).
-		IncludeSchema(false).
 		Entries(&resources).Exec(ctx, r.tx); err != nil {
 		return Range{}, err
 	}

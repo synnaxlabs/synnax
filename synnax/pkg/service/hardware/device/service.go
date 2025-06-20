@@ -11,21 +11,22 @@ package device
 
 import (
 	"context"
+	"io"
+
+	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"io"
 )
 
 // Config is the configuration for creating a Service.
 type Config struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
-	Group    *group.Service
+	Group    *group2.Service
 	Signals  *signals.Provider
 }
 
@@ -55,7 +56,7 @@ func (c Config) Validate() error {
 type Service struct {
 	Config
 	shutdownSignals io.Closer
-	group           group.Group
+	group           group2.Group
 }
 
 const groupName = "Devices"
@@ -111,7 +112,7 @@ func (s *Service) Close() error {
 	return nil
 }
 
-func (s *Service) RootGroup() group.Group { return s.group }
+func (s *Service) RootGroup() group2.Group { return s.group }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{

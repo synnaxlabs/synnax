@@ -139,7 +139,7 @@ type Shape interface {
 	// Optional is true if the schema can be nil.
 	Optional() bool
 	// DataType returns a string representation of the schema's type.
-	Type() DataType
+	DataType() DataType
 	// Fields is only valid for object schemas, and returns a map of the field
 	// names to the schemas for each field.
 	Fields() map[string]Shape
@@ -160,8 +160,8 @@ func (b baseZ) Shape() Shape { return b }
 // Optional returns whether the schema is optional.
 func (b baseZ) Optional() bool { return b.optional }
 
-// DataType returns the type of the schema.
-func (b baseZ) Type() DataType { return b.dataType }
+// Type returns the type of the schema.
+func (b baseZ) DataType() DataType { return b.dataType }
 
 // Fields returns nil as baseZ is not an object schema.
 func (b baseZ) Fields() map[string]Shape { return nil }

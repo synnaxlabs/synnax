@@ -33,7 +33,7 @@ func TestOntology(t *testing.T) {
 }
 
 type sampleService struct {
-	observe.Noop[iter.Nexter[core.Change]]
+	observe.Noop[iter.Nexter[ontology.Change]]
 }
 
 var _ ontology.Service = (*sampleService)(nil)
@@ -48,20 +48,21 @@ func newSampleType(key string) ontology.ID {
 	return ontology.ID{Key: key, Type: sampleType}
 }
 
-func (s *sampleService) Schema() *ontology.Schema {
-	return ontology.NewSchema(
-		sampleType,
-		map[string]zyn.Z{"key": zyn.String()},
-	)
-}
+var SampleZ = zyn.Object(map[string]zyn.Z{
+	"key": zyn.String(),
+})
 
-func (s *sampleService) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
+func (s *sampleService) Type() ontology.Type { return sampleType }
+
+func (s *sampleService) Schema() zyn.Z { return SampleZ }
+
+func (s *sampleService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
 	return core.NewResource(s.Schema(), newSampleType(key), "empty", Sample{Key: key}), nil
 }
 
 func (s *sampleService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	return iter.NexterNopCloser(iter.All([]ontology.Resource{
-		lo.Must(s.RetrieveResource(context.TODO(), "", nil)),
+		lo.Must(s.RetrieveResource(ctx, "", nil)),
 	})), nil
 }
 

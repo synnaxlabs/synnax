@@ -33,25 +33,15 @@ func OntologyIDs(keys []uuid.UUID) []core.ID {
 	return lo.Map(keys, func(k uuid.UUID, _ int) core.ID { return OntologyID(k) })
 }
 
-var _schema = ontology.NewSchema(
-	ontologyType,
-	map[string]zyn.Z{
-		"key":  zyn.UUID(),
-		"name": zyn.String(),
-	},
-)
-
-func newResource(g Group) core.Resource {
-	return core.NewResource(_schema, OntologyID(g.Key), g.Name, g)
+func newResource(g Group) ontology.Resource {
+	return core.NewResource(Z, OntologyID(g.Key), g.Name, g)
 }
 
 type change = changex.Change[uuid.UUID, Group]
 
-var _ ontology.Service = (*Service)(nil)
+func (s *Service) Type() ontology.Type { return ontologyType }
 
-func (s *Service) Schema() *ontology.Schema {
-	return _schema
-}
+func (s *Service) Schema() zyn.Z { return Z }
 
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (r ontology.Resource, err error) {
 	k, err := uuid.Parse(key)
@@ -63,24 +53,24 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 	return newResource(g), err
 }
 
-func translateChange(c change) core.Change {
-	return core.Change{
+func translateChange(c change) ontology.Change {
+	return ontology.Change{
 		Variant: c.Variant,
 		Key:     OntologyID(c.Key),
 		Value:   newResource(c.Value),
 	}
 }
 
-func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[core.Change])) observe.Disconnect {
+func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[ontology.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Group]) {
-		f(ctx, iter.NexterTranslator[change, core.Change]{Wrap: reader, Translate: translateChange})
+		f(ctx, iter.NexterTranslator[change, ontology.Change]{Wrap: reader, Translate: translateChange})
 	}
 	return gorp.Observe[uuid.UUID, Group](s.DB).OnChange(handleChange)
 }
 
-func (s *Service) OpenNexter() (iter.NexterCloser[core.Resource], error) {
+func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	n, err := gorp.WrapReader[uuid.UUID, Group](s.DB).OpenNexter()
-	return iter.NexterCloserTranslator[Group, core.Resource]{
+	return iter.NexterCloserTranslator[Group, ontology.Resource]{
 		Wrap:      n,
 		Translate: newResource,
 	}, err

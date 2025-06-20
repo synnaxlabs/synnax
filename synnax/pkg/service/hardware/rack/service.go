@@ -12,10 +12,13 @@ package rack
 import (
 	"context"
 	"fmt"
+	"io"
+	"sync"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -25,8 +28,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"io"
-	"sync"
 )
 
 // Config is the configuration for creating a Service.
@@ -41,7 +42,7 @@ type Config struct {
 	Ontology *ontology.Ontology
 	// Group is used to create rack related groups of ontology resources.
 	// [REQUIRED]
-	Group *group.Service
+	Group *group2.Service
 	// HostProvider is used to assign keys to racks.
 	// [REQUIRED]
 	HostProvider core.HostProvider
@@ -85,7 +86,7 @@ type Service struct {
 	EmbeddedKey     Key
 	localKeyCounter *kv.AtomicInt64Counter
 	shutdownSignals io.Closer
-	group           group.Group
+	group           group2.Group
 	keyMu           *sync.Mutex
 }
 

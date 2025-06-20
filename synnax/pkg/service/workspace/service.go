@@ -11,9 +11,10 @@ package workspace
 
 import (
 	"context"
+
 	"github.com/google/uuid"
+	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -24,7 +25,7 @@ import (
 type Config struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
-	Group    *group.Service
+	Group    *group2.Service
 }
 
 var (
@@ -51,7 +52,7 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
-	group group.Group
+	group group2.Group
 }
 
 const groupName = "Workspaces"

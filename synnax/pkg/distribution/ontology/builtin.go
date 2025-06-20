@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 // BuiltInType is a resource type that is built into the ontology.
@@ -31,15 +32,15 @@ var (
 )
 
 type builtinService struct {
-	observe.Noop[iter.Nexter[core.Change]]
+	observe.Noop[iter.Nexter[Change]]
 }
 
 var _ Service = (*builtinService)(nil)
 
-var builtinSchema = core.NewSchema(BuiltInType, nil)
+func (b *builtinService) Type() core.Type { return BuiltInType }
 
 // Schema implements Service.
-func (b *builtinService) Schema() *Schema { return builtinSchema }
+func (b *builtinService) Schema() zyn.Z { return zyn.Object(nil) }
 
 // RetrieveResource implements Service.
 func (b *builtinService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (Resource, error) {
