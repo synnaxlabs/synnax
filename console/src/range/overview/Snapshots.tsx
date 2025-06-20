@@ -14,11 +14,10 @@ import {
   type Synnax as Client,
   type task,
 } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   componentRenderProp,
-  type Icon as PIcon,
+  Icon,
   List,
   Status,
   Synnax,
@@ -38,7 +37,7 @@ interface SnapshotCtx {
 }
 
 interface SnapshotService {
-  icon: PIcon.Element;
+  icon: Icon.ReactElement;
   onClick: (res: ontology.Resource, ctx: SnapshotCtx) => Promise<void>;
 }
 

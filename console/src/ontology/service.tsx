@@ -105,7 +105,7 @@ export interface PaletteListItem
 
 export interface Service {
   type: ontology.ResourceType;
-  icon: Icon.Element | ((resource: ontology.Resource) => Icon.Element);
+  icon: Icon.ReactElement | ((resource: ontology.Resource) => Icon.ReactElement);
   hasChildren: boolean;
   onSelect?: HandleSelect;
   canDrop: Haul.CanDrop;

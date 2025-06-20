@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type label } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import { type ReactElement } from "react";
 
+import { Icon } from "@/icon";
 import { type List } from "@/list";
 import { Select } from "@/select";
 import { Synnax } from "@/synnax";

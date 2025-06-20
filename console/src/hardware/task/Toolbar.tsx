@@ -10,10 +10,10 @@
 import "@/hardware/task/Toolbar.css";
 
 import { task, UnexpectedError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Icon,
   List,
   Menu as PMenu,
   Observe,
@@ -22,7 +22,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { errors, strings, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
+import { errors, type record, strings, TimeSpan } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -41,7 +41,7 @@ import { Link } from "@/link";
 import { Modals } from "@/modals";
 import { Range } from "@/range";
 
-interface SugaredDetails extends UnknownRecord {
+interface SugaredDetails extends record.Unknown {
   status: Common.Task.Status;
 }
 

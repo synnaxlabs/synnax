@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Align, Divider, Form as PForm, Select } from "@synnaxlabs/pluto";
-import { deep, type Keyed, type KeyedNamed } from "@synnaxlabs/x";
+import { deep, type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Device } from "@/hardware/labjack/device";
@@ -49,7 +49,7 @@ const MaxVoltageField = PForm.buildNumericField({
 
 const SelectScaleTypeField = PForm.buildDropdownButtonSelectField<
   ScaleType,
-  KeyedNamed<ScaleType>
+  record.KeyedNamed<ScaleType>
 >({
   fieldKey: "type",
   fieldProps: {
@@ -104,7 +104,7 @@ const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
 
 const ThermocoupleTypeField = PForm.buildDropdownButtonSelectField<
   ThermocoupleType,
-  KeyedNamed<ThermocoupleType>
+  record.KeyedNamed<ThermocoupleType>
 >({
   fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple Type" },
@@ -128,7 +128,7 @@ const ThermocoupleTypeField = PForm.buildDropdownButtonSelectField<
 
 const TemperatureUnitsField = PForm.buildDropdownButtonSelectField<
   TemperatureUnits,
-  KeyedNamed<TemperatureUnits>
+  record.KeyedNamed<TemperatureUnits>
 >({
   fieldKey: "units",
   fieldProps: { label: "Temperature Units" },
@@ -143,7 +143,7 @@ const TemperatureUnitsField = PForm.buildDropdownButtonSelectField<
   },
 });
 
-interface CJCSourceEntry extends Keyed<string> {}
+interface CJCSourceEntry extends record.Keyed<string> {}
 
 interface SelectCJCSourceFieldProps extends Select.SingleProps<string, CJCSourceEntry> {
   model: Device.Model;

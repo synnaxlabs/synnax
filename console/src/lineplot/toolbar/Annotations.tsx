@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Color,
   Divider,
+  Icon,
   Input,
   List as PList,
   Menu as PMenu,
@@ -20,7 +20,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { bounds, color, id, type KeyedNamed } from "@synnaxlabs/x";
+import { bounds, color, id, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
@@ -136,7 +136,7 @@ const List = ({
   );
 };
 
-const AXIS_DATA: KeyedNamed<AxisKey>[] = [Y1, Y2].map((key) => ({
+const AXIS_DATA: record.KeyedNamed<AxisKey>[] = [Y1, Y2].map((key) => ({
   name: key.toUpperCase(),
   key: key as AxisKey,
 }));

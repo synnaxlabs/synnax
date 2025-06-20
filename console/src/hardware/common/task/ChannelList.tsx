@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { Align, Form, List, Menu as PMenu, type RenderProp } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Form,
+  Icon,
+  List,
+  Menu as PMenu,
+  type RenderProp,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Menu } from "@/components";
