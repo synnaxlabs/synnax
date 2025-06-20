@@ -11,7 +11,7 @@ import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { ValidationError } from "@/errors";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 
 const client = newTestClient();
 

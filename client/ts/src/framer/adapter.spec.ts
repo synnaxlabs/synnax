@@ -13,7 +13,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { type channel } from "@/channel";
 import { WriteAdapter } from "@/framer/adapter";
 import { Frame } from "@/index";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 
 const client = newTestClient();
 

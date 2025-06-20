@@ -13,7 +13,7 @@ import { describe, expect, it, test } from "vitest";
 import { UnauthorizedError, ValidationError } from "@/errors";
 import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
 import { newIndexedPair } from "@/testutil/channels";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 import { secondsLinspace } from "@/testutil/telem";
 import { randomSeries } from "@/util/telem";
 

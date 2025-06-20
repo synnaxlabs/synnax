@@ -13,7 +13,7 @@ import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
 import { AuthError, ExpiredTokenError, InvalidTokenError } from "@/errors";
-import { TEST_CLIENT_PROPS } from "@/testutil/newTestClient";
+import { TEST_CLIENT_PROPS } from "@/testutil/client";
 import { Transport } from "@/transport";
 
 const DUMMY_CTX: Context = {

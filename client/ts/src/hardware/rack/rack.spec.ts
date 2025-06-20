@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { ZodError } from "zod/v4";
 
 import { NotFoundError } from "@/errors";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 
 const client = newTestClient();
 

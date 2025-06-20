@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
 import { NotFoundError } from "@/errors";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 
 const client = newTestClient();
 

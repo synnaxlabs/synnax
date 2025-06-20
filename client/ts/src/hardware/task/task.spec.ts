@@ -11,7 +11,7 @@ import { id, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { task } from "@/hardware/task";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 
 const client = newTestClient();
 

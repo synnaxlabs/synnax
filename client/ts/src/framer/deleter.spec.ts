@@ -12,7 +12,7 @@ import { describe, expect, test } from "vitest";
 
 import { NotFoundError, UnauthorizedError } from "@/errors";
 import { newIndexedPair } from "@/testutil/channels";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 import { secondsLinspace } from "@/testutil/telem";
 import { randomSeries } from "@/util/telem";
 

@@ -19,7 +19,7 @@ import {
   type Streamer,
 } from "@/framer/streamer";
 import { newVirtualChannel } from "@/testutil/channels";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 
 const client = newTestClient();
 

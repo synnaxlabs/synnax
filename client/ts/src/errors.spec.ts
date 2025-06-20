@@ -24,7 +24,7 @@ import {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 
 describe("error", () => {
   describe("type matching", () => {

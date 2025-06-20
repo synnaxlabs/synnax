@@ -10,7 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 
 const client = newTestClient();
 

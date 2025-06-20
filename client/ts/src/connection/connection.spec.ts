@@ -13,7 +13,7 @@ import { z } from "zod/v4";
 
 import { auth } from "@/auth";
 import { connection } from "@/connection";
-import { TEST_CLIENT_PROPS } from "@/testutil/newTestClient";
+import { TEST_CLIENT_PROPS } from "@/testutil/client";
 import { Transport } from "@/transport";
 
 describe("connectivity", () => {

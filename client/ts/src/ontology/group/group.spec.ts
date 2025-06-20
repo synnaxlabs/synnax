@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 
 const client = newTestClient();
 

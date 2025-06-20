@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { label } from "@/label";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 
 const client = newTestClient();
 

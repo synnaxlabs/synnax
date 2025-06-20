@@ -14,7 +14,7 @@ import { type policy } from "@/access/policy";
 import { channel } from "@/channel";
 import { AuthError } from "@/errors";
 import { label } from "@/label";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 import { user } from "@/user";
 import { schematic } from "@/workspace/schematic";
 

@@ -10,7 +10,7 @@
 import { describe, expect, it, test } from "vitest";
 
 import { ontology } from "@/ontology";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 
 const client = newTestClient();
 

@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
-import { newTestClient } from "@/testutil/newTestClient";
+import { newTestClient } from "@/testutil/client";
 import { type user } from "@/user";
 
 interface SortType {
