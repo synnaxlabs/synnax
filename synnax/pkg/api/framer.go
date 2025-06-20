@@ -64,8 +64,8 @@ type FrameService struct {
 func NewFrameService(p Provider) *FrameService {
 	return &FrameService{
 		Instrumentation: p.Instrumentation,
-		Internal:        p.Config.Framer,
-		Channel:         p.Config.Channel,
+		Internal:        p.Service.Framer,
+		Channel:         p.Distribution.Channel,
 		authProvider:    p.auth,
 		dbProvider:      p.db,
 		accessProvider:  p.access,

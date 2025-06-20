@@ -11,7 +11,8 @@ package deleter
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -25,20 +26,20 @@ type Service struct {
 }
 
 type ServiceConfig struct {
-	HostResolver  core.HostResolver
-	ChannelReader channel.Readable
-	TSChannel     *ts.DB
-	Transport     Transport
+	HostResolver cluster.HostResolver
+	Channel      channel.Readable
+	TSChannel    *ts.DB
+	Transport    Transport
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (c ServiceConfig) Validate() error {
-	v := validate.New("distribution.framer.Deleter")
-	validate.NotNil(v, "HostProvider", c.HostResolver)
-	validate.NotNil(v, "TSChannel", c.TSChannel)
-	validate.NotNil(v, "Transport", c.Transport)
-	validate.NotNil(v, "Channels", c.ChannelReader)
+	v := validate.New("distribution.framer.deleter")
+	validate.NotNil(v, "host_resolver", c.HostResolver)
+	validate.NotNil(v, "ts_channel", c.TSChannel)
+	validate.NotNil(v, "aspen_transport", c.Transport)
+	validate.NotNil(v, "channel", c.Channel)
 	return v.Error()
 }
 
@@ -46,7 +47,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
 	c.Transport = override.Nil(c.Transport, other.Transport)
-	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 
@@ -63,12 +64,12 @@ func New(configs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{
 		proxy:         proxy,
-		channelReader: cfg.ChannelReader,
+		channelReader: cfg.Channel,
 	}
-	s.Deleter = s.NewDeleter()
+	s.Deleter = s.New()
 	return s, nil
 }
 
-func (s *Service) NewDeleter() Deleter {
+func (s *Service) New() Deleter {
 	return Deleter{proxy: s.proxy, channelReader: s.channelReader}
 }

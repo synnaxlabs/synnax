@@ -29,7 +29,7 @@ type LinePlotService struct {
 func NewLinePlotService(p Provider) *LinePlotService {
 	return &LinePlotService{
 		dbProvider:     p.db,
-		internal:       p.Config.LinePlot,
+		internal:       p.Service.LinePlot,
 		accessProvider: p.access,
 	}
 }

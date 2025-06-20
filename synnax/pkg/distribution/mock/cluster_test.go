@@ -12,26 +12,25 @@ package mock_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Builder", func() {
+var _ = Describe("Cluster", func() {
+	ShouldNotLeakGoroutinesBeforeEach()
 	Describe("Name", func() {
 		It("Should open a three node memory backed distribution layer", func() {
+			mockCluster := mock.NewCluster()
+			coreOne := mockCluster.Provision(ctx)
+			coreTwo := mockCluster.Provision(ctx)
+			coreThree := mockCluster.Provision(ctx)
 
-			builder := mock.NewBuilder()
-
-			coreOne := builder.New(ctx)
-			coreTwo := builder.New(ctx)
-			coreThree := builder.New(ctx)
-
-			Expect(coreOne.Cluster.HostKey()).To(Equal(core.NodeKey(1)))
-			Expect(coreTwo.Cluster.HostKey()).To(Equal(core.NodeKey(2)))
-			Expect(coreThree.Cluster.HostKey()).To(Equal(core.NodeKey(3)))
+			Expect(coreOne.Cluster.HostKey()).To(Equal(cluster.NodeKey(1)))
+			Expect(coreTwo.Cluster.HostKey()).To(Equal(cluster.NodeKey(2)))
+			Expect(coreThree.Cluster.HostKey()).To(Equal(cluster.NodeKey(3)))
 
 			ch := channel.Channel{
 				Name:        "SG_01",
@@ -41,7 +40,7 @@ var _ = Describe("Builder", func() {
 			}
 
 			Expect(coreOne.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-			Expect(ch.Key().Leaseholder()).To(Equal(distribution.NodeKey(1)))
+			Expect(ch.Key().Leaseholder()).To(Equal(cluster.NodeKey(1)))
 
 			Eventually(func(g Gomega) {
 				var resCH channel.Channel
@@ -53,8 +52,7 @@ var _ = Describe("Builder", func() {
 				g.Expect(resCH.Key()).To(Equal(ch.Key()))
 			}, "200ms").Should(Succeed())
 
-			Expect(builder.Close()).To(Succeed())
-			Expect(builder.Cleanup()).To(Succeed())
+			Expect(mockCluster.Close()).To(Succeed())
 		})
 	})
 

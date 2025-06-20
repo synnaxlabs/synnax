@@ -28,6 +28,7 @@ import (
 
 type Config struct {
 	DB            kv.DB
+	Verifier      string
 	Ins           alamos.Instrumentation
 	WarningTime   time.Duration
 	CheckInterval time.Duration
@@ -59,6 +60,7 @@ func (c Config) Override(other Config) Config {
 	c.Ins = override.Zero(c.Ins, other.Ins)
 	c.WarningTime = override.If(c.WarningTime, other.WarningTime,
 		other.WarningTime.Nanoseconds() != 0)
+	c.Verifier = override.String(other.Verifier, c.Verifier)
 	return c
 }
 
@@ -68,7 +70,7 @@ type Service struct {
 	key      string
 }
 
-func OpenService(ctx context.Context, toOpen string, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -87,7 +89,7 @@ func OpenService(ctx context.Context, toOpen string, cfgs ...Config) (*Service, 
 		)
 	}
 
-	if toOpen == "" {
+	if cfg.Verifier == "" {
 		if err := service.loadCache(ctx); err != nil {
 			service.Ins.L.Info(useFree)
 			return service, nil
@@ -97,14 +99,14 @@ func OpenService(ctx context.Context, toOpen string, cfgs ...Config) (*Service, 
 		return service, nil
 	}
 
-	err = service.create(ctx, toOpen)
+	err = service.create(ctx, cfg.Verifier)
 	if err != nil {
 		return service, err
 	}
 
 	startLogMonitor()
 	service.Ins.L.Info(decode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA==") +
-		strconv.Itoa(int(getNumChan(toOpen))) + decode("IGNoYW5uZWxz"))
+		strconv.Itoa(int(getNumChan(cfg.Verifier))) + decode("IGNoYW5uZWxz"))
 	return service, err
 }
 
