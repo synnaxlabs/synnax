@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -25,7 +25,7 @@ import (
 type Config struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
-	Group    *group2.Service
+	Group    *group.Service
 }
 
 var (
@@ -52,7 +52,7 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
-	group group2.Group
+	group group.Group
 }
 
 const groupName = "Workspaces"

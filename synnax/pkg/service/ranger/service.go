@@ -15,7 +15,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
@@ -34,7 +34,7 @@ type Config struct {
 	Ontology *ontology.Ontology
 	// Group is used to create the top level "Ranges" group that will be the default
 	// parent of all ranges.
-	Group *group2.Service
+	Group *group.Service
 	// Signals is used to publish signals on channels when ranges are created, updated,
 	// deleted, along with changes to aliases and key-value pairs.
 	Signals *signals.Provider
@@ -69,7 +69,7 @@ func (c Config) Override(other Config) Config {
 // metadata on a range.
 type Service struct {
 	Config
-	group           group2.Group
+	group           group.Group
 	shutdownSignals io.Closer
 	mu              sync.Mutex
 }

@@ -14,7 +14,7 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"go.uber.org/zap"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -35,7 +35,7 @@ type Config struct {
 	// DB is the gorp database that tasks will be stored in.
 	DB           *gorp.DB
 	Ontology     *ontology.Ontology
-	Group        *group2.Service
+	Group        *group.Service
 	Rack         *rack.Service
 	Signals      *signals.Provider
 	HostProvider core.HostProvider
@@ -73,7 +73,7 @@ func (c Config) Validate() error {
 type Service struct {
 	cfg             Config
 	shutdownSignals io.Closer
-	group           group2.Group
+	group           group.Group
 }
 
 const groupName = "Tasks"

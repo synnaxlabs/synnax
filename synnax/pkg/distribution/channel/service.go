@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
@@ -28,7 +28,7 @@ type Service interface {
 	Readable
 	Writeable
 	ontology.Service
-	Group() group2.Group
+	Group() group.Group
 }
 
 type Writeable interface {
@@ -53,7 +53,7 @@ type service struct {
 	Writer
 	proxy *leaseProxy
 	otg   *ontology.Ontology
-	group group2.Group
+	group group.Group
 }
 
 var _ Service = (*service)(nil)
@@ -64,7 +64,7 @@ type ServiceConfig struct {
 	TSChannel        *ts.DB
 	Transport        Transport
 	Ontology         *ontology.Ontology
-	Group            *group2.Service
+	Group            *group.Service
 	IntOverflowCheck func(ctx context.Context, count types.Uint20) error
 }
 
@@ -100,7 +100,7 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	var g group2.Group
+	var g group.Group
 	if cfg.Group != nil {
 		if g, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID); err != nil {
 			return nil, err
@@ -127,7 +127,7 @@ func (s *service) NewWriter(tx gorp.Tx) Writer {
 	return writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
 }
 
-func (s *service) Group() group2.Group { return s.group }
+func (s *service) Group() group.Group { return s.group }
 
 func (s *service) NewRetrieve() Retrieve {
 	return Retrieve{

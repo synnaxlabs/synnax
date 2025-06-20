@@ -15,7 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -34,7 +34,7 @@ type leaseProxy struct {
 	keyRouter             proxy.BatchFactory[Key]
 	leasedCounter         *counter
 	freeCounter           *counter
-	group                 group2.Group
+	group                 group.Group
 	externalNonVirtualSet *set.Integer[Key]
 }
 
@@ -46,7 +46,7 @@ const (
 func newLeaseProxy(
 	ctx context.Context,
 	cfg ServiceConfig,
-	group group2.Group,
+	group group.Group,
 ) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
 	c, err := openCounter(ctx, cfg.ClusterDB, leasedCounterKey)
@@ -399,7 +399,7 @@ func (lp *leaseProxy) maybeSetResources(
 	}
 	return w.DefineFromOneToManyRelationships(
 		ctx,
-		group2.OntologyID(lp.group.Key),
+		group.OntologyID(lp.group.Key),
 		ontology.ParentOf,
 		externalIds,
 	)

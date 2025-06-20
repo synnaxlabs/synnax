@@ -13,7 +13,7 @@ import (
 	"context"
 	"io"
 
-	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
@@ -26,7 +26,7 @@ import (
 type Config struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
-	Group    *group2.Service
+	Group    *group.Service
 	Signals  *signals.Provider
 }
 
@@ -56,7 +56,7 @@ func (c Config) Validate() error {
 type Service struct {
 	Config
 	shutdownSignals io.Closer
-	group           group2.Group
+	group           group.Group
 }
 
 const groupName = "Devices"
@@ -112,7 +112,7 @@ func (s *Service) Close() error {
 	return nil
 }
 
-func (s *Service) RootGroup() group2.Group { return s.group }
+func (s *Service) RootGroup() group.Group { return s.group }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{

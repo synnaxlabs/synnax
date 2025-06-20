@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	group2 "github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -30,7 +30,7 @@ type Config struct {
 	Ontology *ontology.Ontology
 	// Group is used to create the top level "Users" group that will be the default
 	// parent of all users.
-	Group *group2.Service
+	Group *group.Service
 }
 
 var (
@@ -59,7 +59,7 @@ func (c Config) Validate() error {
 type Service struct {
 	// Config is the configuration for the service.
 	Config
-	group group2.Group
+	group group.Group
 }
 
 const groupName = "Users"
