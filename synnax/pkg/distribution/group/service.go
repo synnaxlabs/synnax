@@ -144,7 +144,6 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 		if err := w.otg.NewRetrieve().
 			WhereIDs(OntologyID(key)).
 			TraverseTo(ontology.Children).
-			IncludeSchema(false).
 			ExcludeFieldData(true).
 			Entries(&children).
 			Exec(ctx, w.tx); err != nil {

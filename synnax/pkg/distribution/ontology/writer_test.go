@@ -19,14 +19,14 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("set", func() {
+var _ = Describe("Writer", func() {
 	var (
 		w  ontology.Writer
 		id ontology.ID
 	)
 	BeforeEach(func() {
 		w = otg.NewWriter(tx)
-		id = newEmptyID("foo")
+		id = newSampleType("foo")
 	})
 	Describe("Resources", func() {
 		Describe("Defining a Resource", func() {
@@ -36,7 +36,7 @@ var _ = Describe("set", func() {
 			})
 		})
 		It("Should define many resources by their names", func() {
-			ids := []ontology.ID{id, newEmptyID("bar")}
+			ids := []ontology.ID{id, newSampleType("bar")}
 			Expect(w.DefineManyResources(ctx, ids)).To(Succeed())
 			Expect(w.NewRetrieve().WhereIDs(ids...).Exec(ctx, tx)).To(Succeed())
 		})
@@ -60,8 +60,8 @@ var _ = Describe("set", func() {
 	Describe("Relationships", func() {
 		var idOne, idTwo ontology.ID
 		BeforeEach(func() {
-			idOne = newEmptyID("foo")
-			idTwo = newEmptyID("bar")
+			idOne = newSampleType("foo")
+			idTwo = newSampleType("bar")
 			Expect(w.DefineResource(ctx, idOne)).To(Succeed())
 			Expect(w.DefineResource(ctx, idTwo)).To(Succeed())
 		})
@@ -92,7 +92,7 @@ var _ = Describe("set", func() {
 						ctx,
 						idOne,
 						ontology.ParentOf,
-						newEmptyID("42"),
+						newSampleType("42"),
 					)
 					Expect(err).To(HaveOccurred())
 					Expect(errors.Is(err, query.NotFound)).To(BeTrue())
@@ -142,7 +142,7 @@ var _ = Describe("set", func() {
 					ctx,
 					idOne,
 					ontology.ParentOf,
-					[]ontology.ID{newEmptyID("42")},
+					[]ontology.ID{newSampleType("42")},
 				)).To(HaveOccurredAs(query.NotFound))
 			})
 			It("Should return an error if a cyclic relationship is created", func() {

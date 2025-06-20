@@ -11,6 +11,8 @@ package hardware
 
 import (
 	"context"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/x/validate"
 
 	"github.com/synnaxlabs/alamos"
@@ -18,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"

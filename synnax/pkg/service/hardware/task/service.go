@@ -11,14 +11,15 @@ package task
 
 import (
 	"context"
-	"github.com/synnaxlabs/alamos"
-	"go.uber.org/zap"
 	"io"
+
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"go.uber.org/zap"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/config"

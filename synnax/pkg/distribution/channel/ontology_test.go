@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/telem"
@@ -56,9 +56,9 @@ var _ = Describe("Ontology", Ordered, func() {
 	Describe("OnChange", func() {
 		Context("Create", func() {
 			It("Should correctly propagate a create change", func() {
-				changes := make(chan []schema.Change, 5)
-				dc := services[1].OnChange(func(ctx context.Context, nexter iter.Nexter[schema.Change]) {
-					changesSlice := make([]schema.Change, 0)
+				changes := make(chan []ontology.Change, 5)
+				dc := services[1].OnChange(func(ctx context.Context, nexter iter.Nexter[ontology.Change]) {
+					changesSlice := make([]ontology.Change, 0)
 					for {
 						v, ok := nexter.Next(ctx)
 						if !ok {

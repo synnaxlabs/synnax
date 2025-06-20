@@ -15,8 +15,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
@@ -223,17 +223,14 @@ func (lp *leaseProxy) validateFreeVirtual(
 ) error {
 	for _, ch := range *channels {
 		if len(ch.Name) == 0 {
-			return validate.FieldError{
-				Field:   "name",
-				Message: "name cannot be empty",
-			}
+			return validate.PathedError(validate.RequiredError, "name")
 		}
 		if ch.IsCalculated() {
 			if len(ch.Requires) == 0 {
-				return validate.FieldError{
-					Field:   "requires",
-					Message: "calculated channels must require at least one channel",
-				}
+				return validate.PathedError(
+					errors.Wrap(validate.RequiredError, "calculated channels must require at least one channel"),
+					"requires",
+				)
 			}
 			var required []Channel
 			if err := gorp.NewRetrieve[Key, Channel]().WhereKeys(ch.Requires...).Entries(&required).Exec(ctx, tx); err != nil {
@@ -242,16 +239,16 @@ func (lp *leaseProxy) validateFreeVirtual(
 			idx := required[0].LocalIndex
 			for _, r := range required {
 				if (r.Virtual && idx != 0) || (!r.Virtual && idx == 0) {
-					return validate.FieldError{
-						Field:   "requires",
-						Message: "cannot use a mix of virtual and non-virtual channels in calculations",
-					}
+					return validate.PathedError(
+						errors.Wrap(validate.Error, "cannot use a mix of virtual and non-virtual channels in calculations"),
+						"requires",
+					)
 				}
 				if r.LocalIndex != idx {
-					return validate.FieldError{
-						Field:   "requires",
-						Message: "all required channels must share the same index",
-					}
+					return validate.PathedError(
+						errors.Wrap(validate.Error, "all required channels must share the same index"),
+						"requires",
+					)
 				}
 			}
 		}

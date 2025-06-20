@@ -14,11 +14,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 const ontologyType ontology.Type = "user"
@@ -59,32 +60,29 @@ func KeyFromOntologyID(id ontology.ID) (uuid.UUID, error) {
 
 var OntologyTypeID = ontology.ID{Type: ontologyType, Key: ""}
 
-var _schema = &ontology.Schema{
-	Type: ontologyType,
-	Fields: map[string]schema.Field{
-		"key":        {Type: schema.String},
-		"username":   {Type: schema.String},
-		"first_name": {Type: schema.String},
-		"last_name":  {Type: schema.String},
-		"root_user":  {Type: schema.Bool},
-	},
-}
+var Z = zyn.Object(map[string]zyn.Z{
+	"key":        zyn.UUID(),
+	"username":   zyn.String(),
+	"first_name": zyn.String(),
+	"last_name":  zyn.String(),
+	"root_user":  zyn.Bool(),
+})
 
-var _ ontology.Service = (*Service)(nil)
+func (s *Service) Type() ontology.Type { return ontologyType }
 
 // Schema implements ontology.Service.
-func (s *Service) Schema() *schema.Schema { return _schema }
+func (s *Service) Schema() zyn.Z { return Z }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	uuidKey, err := uuid.Parse(key)
 	if err != nil {
-		return schema.Resource{}, err
+		return ontology.Resource{}, err
 	}
 	var u User
 	err = s.NewRetrieve().Entry(&u).WhereKeys(uuidKey).Exec(ctx, tx)
 	if err != nil {
-		return schema.Resource{}, err
+		return ontology.Resource{}, err
 	}
 	return newResource(u), err
 }
@@ -92,17 +90,17 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 type change = changex.Change[uuid.UUID, User]
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) observe.Disconnect {
+func (s *Service) OnChange(f func(context.Context, iter.Nexter[ontology.Change])) observe.Disconnect {
 	var (
-		translate = func(ch change) schema.Change {
-			return schema.Change{
+		translate = func(ch change) ontology.Change {
+			return ontology.Change{
 				Variant: ch.Variant,
 				Key:     OntologyID(ch.Key),
 				Value:   newResource(ch.Value),
 			}
 		}
 		onChange = func(ctx context.Context, reader gorp.TxReader[uuid.UUID, User]) {
-			f(ctx, iter.NexterTranslator[change, schema.Change]{
+			f(ctx, iter.NexterTranslator[change, ontology.Change]{
 				Wrap:      reader,
 				Translate: translate,
 			})
@@ -112,20 +110,14 @@ func (s *Service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) 
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
+func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	n, err := gorp.WrapReader[uuid.UUID, User](s.DB).OpenNexter()
-	return iter.NexterCloserTranslator[User, schema.Resource]{
+	return iter.NexterCloserTranslator[User, ontology.Resource]{
 		Wrap:      n,
 		Translate: newResource,
 	}, err
 }
 
-func newResource(u User) schema.Resource {
-	e := schema.NewResource(_schema, OntologyID(u.Key), u.Username)
-	schema.Set(e, "key", u.Key.String())
-	schema.Set(e, "username", u.Username)
-	schema.Set(e, "first_name", u.FirstName)
-	schema.Set(e, "last_name", u.LastName)
-	schema.Set(e, "root_user", u.RootUser)
-	return e
+func newResource(u User) ontology.Resource {
+	return core.NewResource(Z, OntologyID(u.Key), u.Username, u)
 }

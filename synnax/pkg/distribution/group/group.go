@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 // Group is a simple grouping of resources within the cluster's ontology.
@@ -23,6 +24,11 @@ type Group struct {
 	// Name is the name for the group.
 	Name string `json:"name" msgpack:"name"`
 }
+
+var Z = zyn.Object(map[string]zyn.Z{
+	"key":  zyn.UUID(),
+	"name": zyn.String(),
+})
 
 var _ gorp.Entry[uuid.UUID] = Group{}
 
