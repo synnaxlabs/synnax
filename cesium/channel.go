@@ -141,7 +141,7 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 			"creating channel",
 			zap.Uint32("key", ch.Key),
 			zap.Uint32("index", ch.Index),
-			zap.String("datatype", string(ch.DataType)),
+			zap.String("data_type", string(ch.DataType)),
 			zap.Bool("isIndex", ch.IsIndex),
 			zap.Error(err),
 		)

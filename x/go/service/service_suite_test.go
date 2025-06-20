@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package mock_test
+package service_test
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 
 var ctx = context.Background()
 
-func TestMock(t *testing.T) {
+func TestService(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Mock Suite")
+	RunSpecs(t, "Service Suite")
 }

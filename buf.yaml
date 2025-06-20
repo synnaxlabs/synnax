@@ -13,6 +13,7 @@ build:
     - "bazel-testlogs"
     - "bazel-synnax"
     - "freighter/cpp"
+    - "freighter/py"
     - "vendor"
 breaking:
   use:

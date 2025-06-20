@@ -1,5 +1,6 @@
-!include "MUI2.nsh"
+Unicode True
 
+!include "MUI2.nsh"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -9,55 +10,60 @@
 
 Name "Synnax"
 OutFile "synnax-setup-v${VERSION}.exe"
-RequestExecutionLevel user
-InstallDir "$APPDATA\synnax"
+RequestExecutionLevel admin
+InstallDir "$PROGRAMFILES64\\Synnax"
+ShowInstDetails show
 
 Section "MainSection" SEC01
+    DetailPrint "Resolved INSTALL DIR: $INSTDIR"
+
     CreateDirectory "$INSTDIR"
     DetailPrint "Installing to: $INSTDIR"
-    Delete "$INSTDIR\synnax-server.exe"
-    Delete "$INSTDIR\synnax.bat"
-    
+
+    Delete "$INSTDIR\\synnax-server.exe"
+    Delete "$INSTDIR\\synnax.bat"
+
     SetOutPath "$INSTDIR"
     File /oname=synnax-server.exe "synnax-server.exe"
-    
-    # Create the batch file alias
-    FileOpen $0 "$INSTDIR\synnax.bat" w
+
+    # Create batch file alias
+    FileOpen $0 "$INSTDIR\\synnax.bat" w
     FileWrite $0 "@echo off$\r$\n"
-    FileWrite $0 'synnax-server.exe %*'
+    FileWrite $0 "synnax-server.exe %*$\r$\n"
     FileClose $0
-    
-    CreateDirectory "$SMPROGRAMS\Synnax"
-    CreateShortcut "$SMPROGRAMS\Synnax\Synnax.lnk" "$INSTDIR\synnax-server.exe"
-    CreateShortcut "$DESKTOP\Synnax.lnk" "$INSTDIR\synnax-server.exe"
-    
-    # Add to PATH (only if it doesn't already exist)
-    DetailPrint "Adding to PATH..."
-    FileOpen $0 "$INSTDIR\add-path.ps1" w
-    FileWrite $0 '$currentPath = [Environment]::GetEnvironmentVariable("Path", "User");$\r$\n'
-    FileWrite $0 'if (-not ($currentPath -split ";" -contains "$INSTDIR")) {$\r$\n'
-    FileWrite $0 '    [Environment]::SetEnvironmentVariable("Path", "$INSTDIR;" + $currentPath, "User")$\r$\n'
-    FileWrite $0 '}'
-    FileClose $0
-    nsExec::ExecToLog 'powershell -NoProfile -File "$INSTDIR\add-path.ps1"'
-    Delete "$INSTDIR\add-path.ps1"
-    
-    WriteUninstaller "$INSTDIR\uninstall.exe"
+
+    # Create Start Menu and Desktop shortcuts
+    CreateDirectory "$SMPROGRAMS\\Synnax"
+    CreateShortcut "$SMPROGRAMS\\Synnax\\Synnax.lnk" "$INSTDIR\\synnax-server.exe"
+    CreateShortcut "$DESKTOP\\Synnax.lnk" "$INSTDIR\\synnax-server.exe"
+
+    # Add to system PATH using EnVar (requires EnVar.dll in x86-unicode folder)
+    DetailPrint "Adding $INSTDIR to system PATH..."
+    EnVar::SetHKLM
+    EnVar::AddValue "PATH" "$INSTDIR"
+    Pop $0
+    DetailPrint "EnVar::AddValue (system PATH) returned: $0"
+
+    # Notify running processes of environment change
+    System::Call 'user32::SendMessageTimeoutA(i 0xffff, i ${WM_SETTINGCHANGE}, i 0, t "Environment", i 0, i 5000, *i .r0)'
+
+    WriteUninstaller "$INSTDIR\\uninstall.exe"
 SectionEnd
 
 Section "Uninstall"
-    DetailPrint "Removing from PATH..."
-    FileOpen $0 "$INSTDIR\remove-path.ps1" w
-    FileWrite $0 '[Environment]::SetEnvironmentVariable("Path", ($([Environment]::GetEnvironmentVariable("Path", "User")) -replace [regex]::Escape("$INSTDIR;")), "User")'
-    FileClose $0
-    nsExec::ExecToLog 'powershell -NoProfile -File "$INSTDIR\remove-path.ps1"'
-    Delete "$INSTDIR\remove-path.ps1"
-    
-    Delete "$INSTDIR\synnax-server.exe"
-    Delete "$INSTDIR\synnax.bat"
-    Delete "$INSTDIR\uninstall.exe"
-    Delete "$DESKTOP\Synnax.lnk"
-    Delete "$SMPROGRAMS\Synnax\Synnax.lnk"
-    RMDir "$SMPROGRAMS\Synnax"
+    DetailPrint "Removing $INSTDIR from system PATH..."
+    EnVar::SetHKLM
+    EnVar::DeleteValue "PATH" "$INSTDIR"
+    Pop $0
+    DetailPrint "EnVar::DeleteValue (system PATH) returned: $0"
+
+    System::Call 'user32::SendMessageTimeoutA(i 0xffff, i ${WM_SETTINGCHANGE}, i 0, t "Environment", i 0, i 5000, *i .r0)'
+
+    Delete "$INSTDIR\\synnax-server.exe"
+    Delete "$INSTDIR\\synnax.bat"
+    Delete "$INSTDIR\\uninstall.exe"
+    Delete "$DESKTOP\\Synnax.lnk"
+    Delete "$SMPROGRAMS\\Synnax\\Synnax.lnk"
+    RMDir "$SMPROGRAMS\\Synnax"
     RMDir "$INSTDIR"
 SectionEnd
