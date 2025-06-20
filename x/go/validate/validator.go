@@ -27,10 +27,6 @@ func New(scope string) *Validator {
 	return &Validator{scope: scope, Catcher: *errors.NewCatcher()}
 }
 
-func (v *Validator) extendField(field string) string {
-	return fmt.Sprintf("%s.%s", v.scope, field)
-}
-
 // Ternary adds the error with the given message to the validator if the condition
 // is true.
 func (v *Validator) Ternary(path string, cond bool, msg string) bool {

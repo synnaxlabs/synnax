@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -59,7 +58,6 @@ func OntologyIDsFromAnnotations(annotations []Annotation) []ontology.ID {
 
 var Z = zyn.Object(map[string]zyn.Z{
 	"key":     zyn.UUID(),
-	"variant": status.VariantZ,
 	"message": zyn.String(),
 })
 

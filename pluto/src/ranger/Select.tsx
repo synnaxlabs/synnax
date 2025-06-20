@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { array, type AsyncTermSearcher, type KeyedNamed, unique } from "@synnaxlabs/x";
+import { array, type AsyncTermSearcher, type record, unique } from "@synnaxlabs/x";
 import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -232,7 +232,7 @@ const STAGE_ICONS: Record<ranger.Stage, Icon.ReactElement> = {
   completed: <Icon.Completed />,
 };
 
-interface StageEntry extends KeyedNamed<ranger.Stage> {}
+interface StageEntry extends record.KeyedNamed<ranger.Stage> {}
 
 const SELECT_STAGE_COLS: List.ColumnSpec<ranger.Stage, StageEntry>[] = [
   {

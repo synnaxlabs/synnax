@@ -31,15 +31,15 @@ var _ = Describe("Matchers", func() {
 			Expect(diff).To(Equal(message))
 		},
 			Entry(
-				"Mismatched Data",
+				"Mismatched Config",
 				telem.NewSeriesV[uint8](1, 2, 3),
 				telem.NewSeriesV[uint8](1, 2, 4),
 				`Series did not match:
-Data:
+Config:
 	Expected: [1 2 3]
 	Actual: [1 2 4]`,
 			),
-			Entry("Mismatched Data Types",
+			Entry("Mismatched Config Types",
 				telem.NewSeriesV[uint8](1, 2, 3),
 				telem.NewSeriesV[uint64](1, 2, 4),
 				`Series did not match:
@@ -100,7 +100,7 @@ TimeRange:
 			matched := MustSucceed(matcher.Match(s2))
 			Expect(matched).To(BeFalse())
 			diff := matcher.FailureMessage(s2)
-			Expect(diff).To(ContainSubstring("Data:"))
+			Expect(diff).To(ContainSubstring("Config:"))
 		})
 
 		It("Should return false when the data types do not match", func() {
@@ -111,7 +111,7 @@ TimeRange:
 			Expect(matched).To(BeFalse())
 			diff := matcher.FailureMessage(s2)
 			Expect(diff).To(ContainSubstring("DataType:"))
-			Expect(diff).ToNot(ContainSubstring("Data:"))
+			Expect(diff).ToNot(ContainSubstring("Config:"))
 		})
 	})
 
@@ -151,7 +151,7 @@ TimeRange:
 			matcher := telem.MatchFrame(f1)
 			matched := MustSucceed(matcher.Match(f2))
 			Expect(matched).To(BeFalse())
-			Expect(matcher.FailureMessage(f2)).To(ContainSubstring("Data:"))
+			Expect(matcher.FailureMessage(f2)).To(ContainSubstring("Config:"))
 		})
 
 		It("Should return false if keys do not match", func() {
@@ -184,7 +184,7 @@ TimeRange:
 			Expect(s2).To(telem.MatchWrittenSeries(s1))
 		})
 
-		It("Should still check DataType and Data", func() {
+		It("Should still check DataType and Config", func() {
 			s1 := telem.NewSeriesV[int64](1, 2, 3)
 			s2 := telem.NewSeriesV[uint64](1, 2, 3)
 			s3 := telem.NewSeriesV[int64](1, 2, 4)

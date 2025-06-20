@@ -30,7 +30,7 @@ func newStableFor(_ context.Context, cfg factoryConfig) (bool, error) {
 	if cfg.node.Type != spec.StableForType {
 		return false, nil
 	}
-	duration := cfg.node.Data["duration"].(float64)
+	duration := cfg.node.Config["duration"].(float64)
 	dur := telem.TimeSpan(duration)
 	s := &stableFor{}
 	s.Transform = func(ctx context.Context, i spec.Value) (o spec.Value, shouldSend bool, err error) {

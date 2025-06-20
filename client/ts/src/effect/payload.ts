@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, unknownRecordZ } from "@synnaxlabs/x";
+import { record, status } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { ontology } from "@/ontology";
@@ -29,7 +29,7 @@ export interface Effect extends z.infer<typeof effectZ> {}
 export const stateZ = z.object({
   key: keyZ,
   variant: status.variantZ,
-  details: unknownRecordZ.or(z.string().transform(decodeJSONString)),
+  details: record.unknownZ.or(z.string().transform(decodeJSONString)),
 });
 
 export interface State extends z.infer<typeof stateZ> {}

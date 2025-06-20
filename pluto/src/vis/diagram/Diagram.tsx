@@ -10,7 +10,7 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { box, color, location, xy } from "@synnaxlabs/x";
+import { box, color, location, type record, xy } from "@synnaxlabs/x";
 import {
   addEdge as rfAddEdge,
   applyEdgeChanges as rfApplyEdgeChanges,
@@ -186,7 +186,7 @@ interface ContextValue {
   visible: boolean;
   onEditableChange: (v: boolean) => void;
   registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => void;
-  registerEdgeRenderer: (renderer: RenderProp<EdgeProps<UnknownRecord>>) => void;
+  registerEdgeRenderer: (renderer: RenderProp<EdgeProps<record.Unknown>>) => void;
   registerConnectionLineComponent: (component: ConnectionLineComponent<RFNode>) => void;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
@@ -211,7 +211,7 @@ export interface NodeRendererProps {
   children: RenderProp<SymbolProps>;
 }
 
-export interface EdgeProps<D extends UnknownRecord> extends RFEdgeProps<RFEdge<D>> {
+export interface EdgeProps<D extends record.Unknown> extends RFEdgeProps<RFEdge<D>> {
   onDataChange: (data: D) => void;
 }
 
@@ -224,19 +224,19 @@ export const NodeRenderer = memo(
 );
 NodeRenderer.displayName = "NodeRenderer";
 
-export interface EdgeRendererProps<D extends UnknownRecord> {
+export interface EdgeRendererProps<D extends record.Unknown> {
   connectionLineComponent: ConnectionLineComponent<RFNode>;
   children: RenderProp<EdgeProps<D>>;
 }
 
 const CoreEdgeRenderer = memo(
-  <D extends UnknownRecord>({
+  <D extends record.Unknown>({
     children,
     connectionLineComponent,
   }: EdgeRendererProps<D>): ReactElement | null => {
     const { registerEdgeRenderer, registerConnectionLineComponent } = useContext();
     useEffect(
-      () => registerEdgeRenderer(children as RenderProp<EdgeProps<UnknownRecord>>),
+      () => registerEdgeRenderer(children as RenderProp<EdgeProps<record.Unknown>>),
       [registerEdgeRenderer, children],
     );
     useEffect(
@@ -247,7 +247,7 @@ const CoreEdgeRenderer = memo(
   },
 );
 CoreEdgeRenderer.displayName = "EdgeRenderer";
-export const EdgeRenderer = CoreEdgeRenderer as <D extends UnknownRecord>(
+export const EdgeRenderer = CoreEdgeRenderer as <D extends record.Unknown>(
   props: EdgeRendererProps<D>,
 ) => ReactElement | null;
 
@@ -338,7 +338,7 @@ const Core = ({
     () => () => null,
   );
   const [edgeRenderer, setEdgeRenderer] = useState<RenderProp<
-    EdgeProps<UnknownRecord>
+    EdgeProps<record.Unknown>
   > | null>(null);
   const [connectionLineComponent, setConnectionLineComponent] = useState<
     ConnectionLineComponent<RFNode> | undefined
@@ -350,7 +350,8 @@ const Core = ({
   );
 
   const registerEdgeRenderer = useCallback(
-    (renderer: RenderProp<EdgeProps<UnknownRecord>>) => setEdgeRenderer(() => renderer),
+    (renderer: RenderProp<EdgeProps<record.Unknown>>) =>
+      setEdgeRenderer(() => renderer),
     [setEdgeRenderer],
   );
 
@@ -375,7 +376,7 @@ const Core = ({
   );
 
   const handleDataChange = useCallback(
-    (id: string, data: UnknownRecord) => {
+    (id: string, data: record.Unknown) => {
       const next = [...edgesRef.current];
       const index = next.findIndex((e) => e.key === id);
       if (index === -1) return;
@@ -389,7 +390,7 @@ const Core = ({
   const edgeTypes = useMemo(() => {
     if (edgeRenderer == null) return undefined;
     return {
-      default: (props: RFEdgeProps<RFEdge<UnknownRecord>>) =>
+      default: (props: RFEdgeProps<RFEdge<record.Unknown>>) =>
         edgeRenderer({
           ...props,
           onDataChange: (data) => handleDataChange(props.id, data),
@@ -398,7 +399,7 @@ const Core = ({
   }, [edgeRenderer, handleDataChange]);
 
   const edgesRef = useRef(edges);
-  const edges_ = useMemo<RFEdge<UnknownRecord>[]>(() => {
+  const edges_ = useMemo<RFEdge<record.Unknown>[]>(() => {
     edgesRef.current = edges;
     return translateEdgesForward(edges);
   }, [edges]);
@@ -418,7 +419,7 @@ const Core = ({
   );
 
   const handleEdgesChange = useCallback(
-    (changes: RFEdgeChange<RFEdge<UnknownRecord>>[]) =>
+    (changes: RFEdgeChange<RFEdge<record.Unknown>>[]) =>
       onEdgesChange(
         edgeConverter(
           edgesRef.current,
@@ -430,7 +431,7 @@ const Core = ({
   );
 
   const handleEdgeUpdate = useCallback(
-    (oldEdge: RFEdge<UnknownRecord>, newConnection: RFConnection) =>
+    (oldEdge: RFEdge<record.Unknown>, newConnection: RFConnection) =>
       onEdgesChange(
         edgeConverter(
           edgesRef.current,
@@ -450,8 +451,6 @@ const Core = ({
   );
 
   const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
-
-  const adjustable = Triggers.useHeld({ triggers: [["Q"]], loose: true });
 
   const triggerRef = useRef<HTMLElement>(null);
   Triggers.use({
@@ -507,7 +506,7 @@ const Core = ({
     <Context value={ctxValue}>
       <Aether.Composite path={path}>
         {visible && (
-          <ReactFlow<RFNode, RFEdge<UnknownRecord>>
+          <ReactFlow<RFNode, RFEdge<record.Unknown>>
             {...triggerProps}
             className={CSS(
               className,

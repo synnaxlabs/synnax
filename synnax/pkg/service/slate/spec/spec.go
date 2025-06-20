@@ -33,7 +33,7 @@ type Node struct {
 	Key string `json:"key" msgpack:"key"`
 	// Type is the type of the node.
 	Type   string                 `json:"type" msgpack:"type"`
-	Data   map[string]interface{} `json:"data" msgpack:"data"`
+	Config map[string]interface{} `json:"config" msgpack:"config"`
 	Schema *NodeSchema            `json:"schema" msgpack:"schema"`
 }
 
@@ -62,7 +62,7 @@ func (g Graph) FindEdge(match func(item Edge) bool) (Edge, bool) {
 
 type Input struct {
 	Key             string
-	AcceptsDataType func(dt zyn.DataType) bool
+	AcceptsDataType zyn.Z
 }
 
 type Output struct {

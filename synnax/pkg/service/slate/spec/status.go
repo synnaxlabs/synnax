@@ -9,7 +9,12 @@
 
 package spec
 
-import "context"
+import (
+	"context"
+
+	"github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/zyn"
+)
 
 const StatusChangeType = "status.change"
 

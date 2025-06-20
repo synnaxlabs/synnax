@@ -7,8 +7,8 @@ import { Minimal } from "@/vis/slate/symbols/Base";
 export const createOperator = (
   operator: string,
   single: boolean = false,
-  inputIcon: Icon.IconFC = Icon.Number,
-  outputIcon: Icon.IconFC = Icon.Boolean,
+  inputIcon: Icon.FC = Icon.Number,
+  outputIcon: Icon.FC = Icon.Boolean,
 ): FC => {
   const C = () => (
     <Minimal

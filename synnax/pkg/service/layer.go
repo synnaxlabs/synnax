@@ -113,7 +113,7 @@ type Layer struct {
 	Hardware *hardware.Service
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
-	Framer *framer.Service
+	Framer     *framer.Service
 	Effect     *effect.Service
 	Slate      *slate.Service
 	Annotation *annotation.Service
@@ -231,33 +231,33 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Slate, err = slate.OpenService(
 		ctx,
 		slate.ServiceConfig{
-			DB:       l.DB,
+			DB:       cfg.Distribution.DB,
 			Ontology: cfg.Distribution.Ontology,
 		},
-	); !ok(l.Slate) {
+	); !ok(err, l.Slate) {
 		return nil, err
 	}
 	if l.Annotation, err = annotation.OpenService(
 		ctx,
 		annotation.ServiceConfig{
-			DB:       l.DB,
+			DB:       cfg.Distribution.DB,
 			Ontology: cfg.Distribution.Ontology,
 			Signals:  cfg.Distribution.Signals,
 		},
-	); !ok(l.Annotation) {
+	); !ok(err, l.Annotation) {
 		return nil, err
 	}
 	if l.Effect, err = effect.OpenService(
 		ctx,
 		effect.ServiceConfig{
-			DB:              l.DB,
+			DB:              cfg.Distribution.DB,
 			Ontology:        cfg.Distribution.Ontology,
 			Framer:          cfg.Distribution.Framer,
 			Slate:           l.Slate,
 			Channel:         cfg.Distribution.Channel,
 			Annotation:      l.Annotation,
 			Instrumentation: cfg.Instrumentation.Child("effect"),
-		}); !ok(l.Effect) {
+		}); !ok(err, l.Effect) {
 		return nil, err
 	}
 

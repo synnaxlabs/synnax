@@ -9,7 +9,7 @@
 
 import "@/vis/schematic/edge/Edge.css";
 
-import { box, color, direction, location, type UnknownRecord, xy } from "@synnaxlabs/x";
+import { box, color, direction, location, type record, xy } from "@synnaxlabs/x";
 import {
   type ConnectionLineComponentProps,
   type Position,
@@ -37,7 +37,7 @@ interface CurrentlyDragging {
   index: number;
 }
 
-export interface EdgeData extends UnknownRecord {
+export interface EdgeData extends record.Unknown {
   segments: connector.Segment[];
   variant?: PathType;
   color?: color.Crude;

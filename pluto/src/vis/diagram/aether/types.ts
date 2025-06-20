@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, record, xy } from "@synnaxlabs/x";
+import { type color, record, xy } from "@synnaxlabs/x";
 import type * as rf from "@xyflow/react";
-import { z } from "zod/v4";
 import { MarkerType } from "@xyflow/react";
+import { z } from "zod/v4";
 
 /**
  * The current viewport state of the diagram.
@@ -54,7 +54,7 @@ export const edgeZ = z.object({
   target: z.string(),
 
   id: z.string(),
-  data: unknownRecordZ.optional(),
+  data: record.unknownZ.optional(),
 
   /**
    * Whether the edge is currently selected.
@@ -125,7 +125,7 @@ export const translateNodesForward = (
   }));
 
 /** Translates edges from their pluto representation to their react-flow representation. */
-export const translateEdgesForward = (edges: Edge[]): Array<rf.Edge<UnknownRecord>> =>
+export const translateEdgesForward = (edges: Edge[]): Array<rf.Edge<record.Unknown>> =>
   edges.map(({ data, ...edge }) => ({
     ...edge,
     id: edge.key,
@@ -139,7 +139,7 @@ export const translateNodesBackward = (nodes: rf.Node[]): Node[] =>
 
 /** Translates edges from their react-flow representation to their pluto representation */
 export const translateEdgesBackward = (
-  edges: Array<rf.Edge<UnknownRecord>>,
+  edges: Array<rf.Edge<record.Unknown>>,
   defaultColor: color.Crude,
 ): Edge[] =>
   edges.map((edge) => {
@@ -174,6 +174,6 @@ export const nodeConverter = (
 
 export const edgeConverter = (
   edges: Edge[],
-  f: (edges: rf.Edge<UnknownRecord>[]) => rf.Edge<UnknownRecord>[],
+  f: (edges: rf.Edge<record.Unknown>[]) => rf.Edge<record.Unknown>[],
   color: color.Crude,
 ): Edge[] => translateEdgesBackward(f(translateEdgesForward(edges)), color);

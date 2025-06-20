@@ -23,7 +23,7 @@ type SeriesMatcherOption func(*seriesMatcher)
 
 // ExcludeSeriesFields returns an option that configures the series matcher to exclude
 // specific fields from comparison. Valid fields are "DataType", "TimeRange",
-// "Alignment", and "Data".
+// "Alignment", and "Config".
 func ExcludeSeriesFields(fields ...string) SeriesMatcherOption {
 	return func(m *seriesMatcher) {
 		m.excludedFields = make(map[string]bool)
@@ -42,7 +42,7 @@ type seriesMatcher struct {
 // Two series are considered equal if they have the same:
 // - DataType (unless excluded)
 // - TimeRange (unless excluded)
-// - Data contents (unless excluded)
+// - Config contents (unless excluded)
 // - Alignment (unless excluded)
 func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatcher {
 	m := &seriesMatcher{
@@ -97,7 +97,7 @@ func (m *seriesMatcher) Match(actual any) (success bool, err error) {
 	if !m.excludedFields["Alignment"] && actualSeries.Alignment != m.expected.Alignment {
 		return false, nil
 	}
-	if !m.excludedFields["Data"] && !bytes.Equal(actualSeries.Data, m.expected.Data) {
+	if !m.excludedFields["Config"] && !bytes.Equal(actualSeries.Data, m.expected.Data) {
 		return false, nil
 	}
 	return true, nil
@@ -133,9 +133,9 @@ func (m *seriesMatcher) FailureMessage(actual any) string {
 			actualSeries.Alignment,
 		))
 	}
-	if dataTypesEqual && !m.excludedFields["Data"] && !bytes.Equal(actualSeries.Data, m.expected.Data) {
+	if dataTypesEqual && !m.excludedFields["Config"] && !bytes.Equal(actualSeries.Data, m.expected.Data) {
 		differences = append(differences, fmt.Sprintf(
-			"Data:\n\tExpected: %v\n\tActual: %v",
+			"Config:\n\tExpected: %v\n\tActual: %v",
 			m.expected.DataString(),
 			actualSeries.DataString(),
 		))

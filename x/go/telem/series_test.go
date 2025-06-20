@@ -421,7 +421,7 @@ var _ = Describe("Series", func() {
 			})
 		})
 
-		Context("Different Data Types", func() {
+		Context("Different Config Types", func() {
 			It("Should handle uint8 values", func() {
 				s := telem.NewSeriesV[uint8](1, 2, 3)
 				Expect(s.String()).To(ContainSubstring("DataType: uint8"))
@@ -437,7 +437,7 @@ var _ = Describe("Series", func() {
 	})
 
 	Describe("Downsample", func() {
-		Context("Fixed Length Data Types", func() {
+		Context("Fixed Length Config Types", func() {
 			It("Should correctly downsample a series with a factor of 2", func() {
 				original := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8)
 				downsampled := original.Downsample(2)
@@ -490,7 +490,7 @@ var _ = Describe("Series", func() {
 			})
 		})
 
-		Context("Variable Length Data Types", func() {
+		Context("Variable Length Config Types", func() {
 			It("Should correctly down sample a string series", func() {
 				original := telem.NewSeriesStringsV("a", "b", "c", "d", "e", "f")
 				downsampled := original.Downsample(2)
@@ -700,7 +700,7 @@ var _ = Describe("Series", func() {
 			})
 		})
 
-		Describe("Data", func() {
+		Describe("Config", func() {
 			It("Should return the aggregate data of the multi-series as a single byte array", func() {
 				s1 := telem.NewSeriesV[uint8](1, 2, 3)
 				s2 := telem.NewSeriesV[uint8](4, 5, 6)

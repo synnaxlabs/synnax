@@ -323,3 +323,35 @@ func UnmarshalAnyF(dt DataType) func(b []byte) (res any) {
 	}
 	panic("unsupported data type")
 }
+
+func marshalAny[T types.Numeric](f func(b []byte, v T)) func(b []byte, v any) {
+	return func(b []byte, v any) { f(b, v.(T)) }
+}
+
+func MarshalAnyF(dt DataType) func(b []byte, v any) {
+	switch dt {
+	case Float64T:
+		return marshalAny[float64](MarshalFloat64)
+	case Float32T:
+		return marshalAny[float32](MarshalFloat64)
+	case Int64T:
+		return marshalAny[int64](MarshalInt64)
+	case Int32T:
+		return marshalAny[int32](MarshalInt32)
+	case Int16T:
+		return marshalAny[int16](MarshalInt16)
+	case Int8T:
+		return marshalAny[int8](MarshalInt8)
+	case Uint64T:
+		return marshalAny[uint64](MarshalUint64)
+	case Uint32T:
+		return marshalAny[uint32](MarshalUint32)
+	case Uint16T:
+		return marshalAny[uint16](MarshalUint16)
+	case Uint8T:
+		return marshalAny[uint8](MarshalUint8)
+	case TimeStampT:
+		return marshalAny[TimeStamp](MarshalTimeStamp)
+	}
+	panic("unsupported data type")
+}

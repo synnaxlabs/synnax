@@ -8,7 +8,7 @@ import { Handle } from "@/vis/slate/handle";
 
 interface HandleSpec {
   key: string;
-  Icon: Icon.IconFC;
+  Icon: Icon.FC;
 }
 
 export interface BaseProps extends MinimalProps {

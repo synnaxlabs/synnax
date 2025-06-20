@@ -1,9 +1,9 @@
-import { type UnknownRecord, type xy } from "@synnaxlabs/x";
+import { type record, type xy } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { type Theming } from "@/theming";
 
-export type SymbolProps<P extends object = UnknownRecord> = P & {
+export type SymbolProps<P extends object = record.Unknown> = P & {
   symbolKey: string;
   position: xy.XY;
   aetherKey: string;

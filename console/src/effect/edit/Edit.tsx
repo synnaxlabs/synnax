@@ -82,7 +82,7 @@ const EffectState = ({ effect }: { effect: effect.Effect }) => {
     });
     return () => observer.close();
   }, [client]);
-  return <Status.Text variant={state?.variant}>{state?.details?.message}</Status.Text>;
+  return <Status.Text variant={state?.variant}>{state?.message}</Status.Text>;
 };
 
 export const Edit: Layout.Renderer = ({ layoutKey }) => {

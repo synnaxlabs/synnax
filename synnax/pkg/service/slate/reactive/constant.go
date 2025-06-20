@@ -28,11 +28,10 @@ func newConstant(_ context.Context, cfg factoryConfig) (bool, error) {
 	if cfg.node.Type != spec.ConstantType {
 		return false, nil
 	}
-	value := cfg.node.Data["value"]
+	value := cfg.node.Config["value"]
 	c := &constant{
 		value: spec.Value{
-			DataType: string(cfg.node.Schema.Data["value"].Type),
-			Value:    value,
+			Value: value,
 		},
 	}
 	plumber.SetSource[spec.Value](cfg.pipeline, address.Address(cfg.node.Key), c)
