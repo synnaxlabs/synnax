@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Icon, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
-import { useQuery } from "@tanstack/react-query";
+import { Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 
@@ -18,15 +17,8 @@ interface RackProps {
 }
 
 export const Rack = ({ taskKey }: RackProps) => {
-  const client = Synnax.use();
   const rackKey = task.getRackKey(taskKey);
-  const rack = useQuery({
-    queryKey: ["rack", rackKey, client?.key],
-    queryFn: async () => {
-      if (rackKey === 0 || client == null) return null;
-      return await client.hardware.racks.retrieve(rackKey);
-    },
-  }).data;
+  const rack = PRack.use(rackKey);
   if (rack == null) return null;
   return (
     <Tooltip.Dialog>
@@ -39,9 +31,7 @@ export const Rack = ({ taskKey }: RackProps) => {
         level="small"
         shade={9}
         weight={350}
-        style={{
-          paddingRight: "0.5rem",
-        }}
+        style={{ paddingRight: "0.5rem" }}
         ellipsis
       >
         {rack?.name}

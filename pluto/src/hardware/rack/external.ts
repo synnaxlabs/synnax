@@ -9,4 +9,5 @@
 
 export * from "@/hardware/rack/Select";
 export * from "@/hardware/rack/synchronizers";
+export * from "@/hardware/rack/use";
 export * from "@/hardware/rack/useState";
