@@ -56,25 +56,23 @@ func OntologyIDsFromEffects(effects []Effect) []ontology.ID {
 	})
 }
 
-var _schema = ontology.NewSchema(
-
-	ontologyType,
-	map[string]zyn.Z{
-		"key":  zyn.String(),
-		"type": zyn.String(),
-	},
-)
+var Z = zyn.Object(map[string]zyn.Z{
+	"key":  zyn.String(),
+	"type": zyn.String(),
+})
 
 func newResource(c Effect) core.Resource {
-	return core.NewResource(_schema, OntologyID(c.Key), c.Name, c)
+	return core.NewResource(Z, OntologyID(c.Key), c.Name, c)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
 type change = changex.Change[uuid.UUID, Effect]
 
+func (s *Service) Type() ontology.Type { return ontologyType }
+
 // Schema implements ontology.Service.
-func (s *Service) Schema() *core.Schema { return _schema }
+func (s *Service) Schema() zyn.Z { return Z }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (core.Resource, error) {

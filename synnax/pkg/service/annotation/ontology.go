@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -56,24 +57,25 @@ func OntologyIDsFromAnnotations(annotations []Annotation) []ontology.ID {
 	})
 }
 
-var _schema = ontology.NewSchema(
-	ontologyType,
-	map[string]zyn.Z{
-		"key":     zyn.UUID(),
-		"message": zyn.String(),
-	},
-)
+var Z = zyn.Object(map[string]zyn.Z{
+	"key":     zyn.UUID(),
+	"variant": status.VariantZ,
+	"message": zyn.String(),
+})
 
 func newResource(c Annotation) core.Resource {
-	return core.NewResource(_schema, OntologyID(c.Key), c.Message, c)
+	return core.NewResource(Z, OntologyID(c.Key), c.Message, c)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
 type change = changex.Change[uuid.UUID, Annotation]
 
+// Type implements ontology.Service.
+func (s *Service) Type() ontology.Type { return ontologyType }
+
 // Schema implements ontology.Service.
-func (s *Service) Schema() *core.Schema { return _schema }
+func (s *Service) Schema() zyn.Z { return Z }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (core.Resource, error) {
