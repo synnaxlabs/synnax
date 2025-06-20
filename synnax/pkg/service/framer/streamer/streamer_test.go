@@ -72,6 +72,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
+			time.Sleep(5 * time.Millisecond)
 			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
 			var res streamer.Response
