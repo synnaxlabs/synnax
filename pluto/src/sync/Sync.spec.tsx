@@ -1,11 +1,31 @@
 import { newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, useEffect, useRef, useState } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/status";
 import { Sync } from "@/sync";
 import { SynnaxProvider, useConnectToClient } from "@/testutil/Synnax";
+
+let shouldMockStreamer = false;
+
+vi.mock("@synnaxlabs/client", async () => {
+  const actual = await vi.importActual<any>("@synnaxlabs/client");
+  return {
+    ...actual,
+    framer: {
+      ...actual.framer,
+      HardenedStreamer: {
+        ...actual.framer.HardenedStreamer,
+        open: vi.fn((...args) => {
+          if (shouldMockStreamer) throw new Error("opening streamer error");
+
+          return actual.framer.HardenedStreamer.open(...args);
+        }),
+      },
+    },
+  };
+});
 
 const TestProvider = (props: PropsWithChildren) => (
   <SynnaxProvider>
@@ -14,6 +34,11 @@ const TestProvider = (props: PropsWithChildren) => (
 );
 
 describe("sync", () => {
+  beforeEach(() => {
+    vi.doUnmock("@synnaxlabs/client");
+    shouldMockStreamer = false;
+  });
+
   it("should add a basic listener", async () => {
     const test_channel_name = "sync_test_channel";
     const useSync = () => {
@@ -42,9 +67,7 @@ describe("sync", () => {
       { retrieveIfNameExists: true },
     );
     const writer = await client.openWriter(test_channel_name);
-    const { result } = renderHook(useSync, {
-      wrapper: (props) => <TestProvider {...props} />,
-    });
+    const { result } = renderHook(useSync, { wrapper: TestProvider });
 
     await act(async () => result.current.connectToClient(true));
     await waitFor(async () => expect(result.current.isStreamerOpen).toBe(true));
@@ -101,9 +124,7 @@ describe("sync", () => {
       { retrieveIfNameExists: true },
     );
     const writer = await client.openWriter([error_channel_name, success_channel_name]);
-    const { result } = renderHook(useBothListeners, {
-      wrapper: (props) => <TestProvider {...props} />,
-    });
+    const { result } = renderHook(useBothListeners, { wrapper: TestProvider });
     await waitFor(async () => expect(result.current.isStreamerOpen).toBe(true));
     await act(async () => writer.write({ [success_channel_name]: "write number 1" }));
     await waitFor(async () =>
@@ -123,5 +144,34 @@ describe("sync", () => {
         "write number 2",
       ]),
     );
+  });
+
+  it("should handle when the streamer throws an error", async () => {
+    // Enable the mock for this test
+    shouldMockStreamer = true;
+
+    const use = () => {
+      const connectToClient = useConnectToClient();
+      useEffect(() => connectToClient(true), [connectToClient]);
+      const addListener = Sync.useAddListener();
+      useEffect(
+        () =>
+          addListener({
+            channels: "sync_test_channel",
+            handler: () => {},
+          }),
+        [],
+      );
+      return Status.useNotifications().statuses;
+    };
+    const { result } = renderHook(use, { wrapper: TestProvider });
+    await waitFor(async () => {
+      expect(
+        result.current.some(
+          (s) =>
+            s.description?.includes("opening streamer error") && s.variant === "error",
+        ),
+      ).toBe(true);
+    });
   });
 });

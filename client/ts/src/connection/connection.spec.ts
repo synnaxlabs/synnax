@@ -13,18 +13,18 @@ import { z } from "zod/v4";
 
 import { auth } from "@/auth";
 import { connection } from "@/connection";
-import { TEST_CLIENT_CONNECTION_PROPS } from "@/testutil/newTestClient";
+import { TEST_CLIENT_PROPS } from "@/testutil/newTestClient";
 import { Transport } from "@/transport";
 
 describe("connectivity", () => {
   it("should connect to the server", async () => {
     const transport = new Transport(
       new URL({
-        host: TEST_CLIENT_CONNECTION_PROPS.host,
-        port: Number(TEST_CLIENT_CONNECTION_PROPS.port),
+        host: TEST_CLIENT_PROPS.host,
+        port: Number(TEST_CLIENT_PROPS.port),
       }),
     );
-    const client = new auth.Client(transport.unary, TEST_CLIENT_CONNECTION_PROPS);
+    const client = new auth.Client(transport.unary, TEST_CLIENT_PROPS);
     transport.use(client.middleware());
     const connectivity = new connection.Checker(
       transport.unary,
@@ -39,11 +39,11 @@ describe("connectivity", () => {
     it("should pull the server and client versions", async () => {
       const transport = new Transport(
         new URL({
-          host: TEST_CLIENT_CONNECTION_PROPS.host,
-          port: Number(TEST_CLIENT_CONNECTION_PROPS.port),
+          host: TEST_CLIENT_PROPS.host,
+          port: Number(TEST_CLIENT_PROPS.port),
         }),
       );
-      const client = new auth.Client(transport.unary, TEST_CLIENT_CONNECTION_PROPS);
+      const client = new auth.Client(transport.unary, TEST_CLIENT_PROPS);
       transport.use(client.middleware());
       const connectivity = new connection.Checker(
         transport.unary,
@@ -57,11 +57,11 @@ describe("connectivity", () => {
     it("should adjust state if the server is too old", async () => {
       const transport = new Transport(
         new URL({
-          host: TEST_CLIENT_CONNECTION_PROPS.host,
-          port: Number(TEST_CLIENT_CONNECTION_PROPS.port),
+          host: TEST_CLIENT_PROPS.host,
+          port: Number(TEST_CLIENT_PROPS.port),
         }),
       );
-      const client = new auth.Client(transport.unary, TEST_CLIENT_CONNECTION_PROPS);
+      const client = new auth.Client(transport.unary, TEST_CLIENT_PROPS);
       transport.use(client.middleware());
       const connectivity = new connection.Checker(
         transport.unary,
@@ -75,11 +75,11 @@ describe("connectivity", () => {
     it("should adjust state if the server is too new", async () => {
       const transport = new Transport(
         new URL({
-          host: TEST_CLIENT_CONNECTION_PROPS.host,
-          port: Number(TEST_CLIENT_CONNECTION_PROPS.port),
+          host: TEST_CLIENT_PROPS.host,
+          port: Number(TEST_CLIENT_PROPS.port),
         }),
       );
-      const client = new auth.Client(transport.unary, TEST_CLIENT_CONNECTION_PROPS);
+      const client = new auth.Client(transport.unary, TEST_CLIENT_PROPS);
       transport.use(client.middleware());
       const connectivity = new connection.Checker(transport.unary, undefined, "0.0.0");
       const state = await connectivity.check();

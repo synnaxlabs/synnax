@@ -9,7 +9,7 @@
 
 import Synnax, { type SynnaxProps } from "@/client";
 
-export const TEST_CLIENT_CONNECTION_PROPS: SynnaxProps = {
+export const TEST_CLIENT_PROPS: SynnaxProps = {
   host: "localhost",
   port: 9090,
   username: "synnax",
@@ -17,4 +17,4 @@ export const TEST_CLIENT_CONNECTION_PROPS: SynnaxProps = {
 };
 
 export const newTestClient = (props?: Partial<SynnaxProps>): Synnax =>
-  new Synnax({ ...TEST_CLIENT_CONNECTION_PROPS, ...props });
+  new Synnax({ ...TEST_CLIENT_PROPS, ...props });

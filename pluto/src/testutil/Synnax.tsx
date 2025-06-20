@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TEST_CLIENT_CONNECTION_PROPS } from "@synnaxlabs/client";
+import { TEST_CLIENT_PROPS } from "@synnaxlabs/client";
 import {
   createContext,
   type PropsWithChildren,
@@ -45,7 +45,7 @@ export const SynnaxProvider = (props: PropsWithChildren): ReactElement => {
         <Status.Aggregator>
           <Synnax.Provider
             {...props}
-            connParams={isConnected ? TEST_CLIENT_CONNECTION_PROPS : undefined}
+            connParams={isConnected ? TEST_CLIENT_PROPS : undefined}
           />
         </Status.Aggregator>
       </AetherProvider>
