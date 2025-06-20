@@ -33,8 +33,15 @@ const Context = createContext<ClientConnector>(() => () => {});
 
 export const useConnectToClient = () => use(Context);
 
-export const SynnaxProvider = (props: PropsWithChildren): ReactElement => {
-  const [isConnected, setIsConnected] = useState(false);
+export interface ProviderProps extends PropsWithChildren {
+  defaultConnected?: boolean;
+}
+
+export const SynnaxProvider = ({
+  defaultConnected = true,
+  ...props
+}: ProviderProps): ReactElement => {
+  const [isConnected, setIsConnected] = useState(defaultConnected);
   const handleConnect: ClientConnector = useCallback(
     (connected: boolean) => setIsConnected(connected),
     [],

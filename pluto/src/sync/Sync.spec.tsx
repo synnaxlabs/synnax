@@ -37,7 +37,7 @@ vi.mock("@synnaxlabs/client", async () => {
 });
 
 const TestProvider = (props: PropsWithChildren) => (
-  <SynnaxProvider>
+  <SynnaxProvider defaultConnected={false}>
     <Sync.Provider {...props} />
   </SynnaxProvider>
 );
