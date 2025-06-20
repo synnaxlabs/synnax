@@ -33,7 +33,7 @@ func NewOntologyService(p Provider) *OntologyService {
 		OntologyProvider: p.ontology,
 		accessProvider:   p.access,
 		dbProvider:       p.db,
-		group:            p.Group,
+		group:            p.Distribution.Group,
 	}
 }
 

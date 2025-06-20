@@ -169,7 +169,7 @@ func (d *Driver) start(ctx context.Context) error {
 
 const stopKeyword = "STOP\n"
 
-func (d *Driver) Stop() error {
+func (d *Driver) Close() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.shutdown != nil && d.cmd != nil && d.cmd.Process != nil {

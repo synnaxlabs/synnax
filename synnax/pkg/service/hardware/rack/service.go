@@ -16,7 +16,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -45,7 +45,7 @@ type Config struct {
 	Group *group.Service
 	// HostProvider is used to assign keys to racks.
 	// [REQUIRED]
-	HostProvider core.HostProvider
+	HostProvider cluster.HostProvider
 	// Signals is used to propagate rack changes through the Synnax signals' channel
 	// communication mechanism.
 	// [OPTIONAL]

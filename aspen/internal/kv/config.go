@@ -49,14 +49,14 @@ type Config struct {
 	// RecoveryTransportServer is used to receive recovery requests from nodes.
 	// [Required]
 	RecoveryTransportServer RecoveryTransportServer
-	// Engine is the underlying key-value engine that DB writes its NewStreamer to.
+	// Engine is the underlying key-value engine that DB writes its key-value pairs to.
 	// [Required]
 	Engine kvx.DB
 	// GossipInterval is how often a node initiates gossip with a peer.
 	// [Not Required]
 	GossipInterval time.Duration
-	// Recovery threshold for the SIR gossip protocol i.e. how many times the node must send a redundant operation
-	// for it to stop propagating it.
+	// Recovery threshold for the SIR gossip protocol, i.e., how many times the node
+	// must send a redundant operation for it to stop propagating it.
 	// [Not Required]
 	RecoveryThreshold int
 }

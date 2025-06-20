@@ -34,7 +34,7 @@ func (r intRange[T]) size() T {
 type Integer[T constraints.Integer] []intRange[T]
 
 // NewInteger creates a new Integer set and inserts the provided nums.
-func NewInteger[T constraints.Integer](nums ...T) *Integer[T] {
+func NewInteger[T constraints.Integer](nums []T) *Integer[T] {
 	s := &Integer[T]{}
 	s.Insert(nums...)
 	return s

@@ -103,9 +103,9 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 	}
 }
 
-// MemBacked sets aspen to use a memory-backed KV engine. This option is ignored if a
+// InMemory sets aspen to use a memory-backed KV engine. This option is ignored if a
 // custom KV engine is set (using WithEngine).
-func MemBacked() Option {
+func InMemory() Option {
 	return func(o *options) {
 		o.dirname = ""
 		o.fs = vfs.NewMem()

@@ -14,6 +14,7 @@ import (
 
 	"encoding/json"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/config"
@@ -21,9 +22,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/confluence"
@@ -37,12 +37,12 @@ var sleepInterval = 25 * time.Millisecond
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c    *calculation.Service
-		dist distribution.Distribution
+		dist mock.Node
 	)
 
 	BeforeAll(func() {
-		distB := mock.NewBuilder()
-		dist = distB.New(ctx)
+		distB := mock.NewCluster()
+		dist = distB.Provision(ctx)
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,
@@ -65,7 +65,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: dcore.Free,
+			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base * 2",
 		}
@@ -109,7 +109,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: dcore.Free,
+			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base * fake",
 		}
@@ -144,7 +144,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: dcore.Free,
+			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base / 0",
 		}
@@ -185,7 +185,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calc1",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: dcore.Free,
+			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base * 2",
 		}
@@ -196,7 +196,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calc2",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: dcore.Free,
+			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{calc1CH.Key()},
 			Expression:  "return calc1 + 1",
 		}
@@ -253,7 +253,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: dcore.Free,
+			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return fake1 + fake2",
 		}

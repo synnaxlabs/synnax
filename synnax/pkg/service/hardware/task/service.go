@@ -14,11 +14,12 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"go.uber.org/zap"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
@@ -38,7 +39,7 @@ type Config struct {
 	Group        *group.Service
 	Rack         *rack.Service
 	Signals      *signals.Provider
-	HostProvider core.HostProvider
+	HostProvider cluster.HostProvider
 	Channel      channel.Writeable
 }
 

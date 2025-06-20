@@ -133,7 +133,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	db_.config.L.Debug("opening cluster DB", db_.config.Report().ZapFields()...)
+	db_.config.L.Debug("opening cluster KV", db_.config.Report().ZapFields()...)
 
 	st := newStore()
 
@@ -256,9 +256,4 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	return db_, runRecovery(ctx, cfg)
 }
 
-func (d *DB) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
-	c.Exec(d.shutdown.Close)
-	c.Exec(d.DB.Close)
-	return c.Error()
-}
+func (d *DB) Close() error { return d.shutdown.Close() }

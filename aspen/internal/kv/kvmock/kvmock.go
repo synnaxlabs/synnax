@@ -77,6 +77,7 @@ func (b *Builder) Close() error {
 			return err
 		}
 	}
+
 	for _, n := range b.ClusterAPIs {
 		if err := n.Close(); err != nil {
 			return err
