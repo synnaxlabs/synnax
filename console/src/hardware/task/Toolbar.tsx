@@ -172,17 +172,21 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
-  useAsyncEffect(async () => {
-    if (client == null) {
-      setTasks([]);
-      return;
-    }
-    const allTasks = await client.hardware.tasks.list({ includeState: true });
-    const shownTasks = allTasks.filter(
-      ({ internal, snapshot }) => !internal && !snapshot,
-    );
-    setTasks(shownTasks.map(sugarTask));
-  }, [client?.key]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) {
+        setTasks([]);
+        return;
+      }
+      const allTasks = await client.hardware.tasks.list({ includeState: true });
+      if (signal.aborted) return;
+      const shownTasks = allTasks.filter(
+        ({ internal, snapshot }) => !internal && !snapshot,
+      );
+      setTasks(shownTasks.map(sugarTask));
+    },
+    [client?.key],
+  );
   const handleStateUpdate = useCallback((state: task.State) => {
     setTasks((prevTasks) => {
       const tsk = prevTasks.find((t) => t.key === state.task);

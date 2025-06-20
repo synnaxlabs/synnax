@@ -35,17 +35,21 @@ const useDependentTracker = (
   const [dependents, setDependents] = useState<ontology.Resource[]>([]);
   const client = Synnax.use();
   const key = new ontology.ID(id).toString();
-  useAsyncEffect(async () => {
-    if (client == null) {
-      setDependents([]);
-      return;
-    }
-    const dependents =
-      await client.ontology[`retrieve${direction === "to" ? "Children" : "Parents"}`](
-        key,
-      );
-    setDependents(dependents);
-  }, [key, direction, client]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) {
+        setDependents([]);
+        return;
+      }
+      const dependents =
+        await client.ontology[`retrieve${direction === "to" ? "Children" : "Parents"}`](
+          key,
+        );
+      if (signal.aborted) return;
+      setDependents(dependents);
+    },
+    [key, direction, client],
+  );
   const handleError = Status.useErrorHandler();
 
   const handleRelationshipSet = useCallback(

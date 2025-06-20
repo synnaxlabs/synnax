@@ -75,16 +75,20 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     };
   }, [client, store, placeLayout, removeLayout, services, addStatus, handleError]);
 
-  useAsyncEffect(async () => {
-    if (client == null) {
-      setNodes([]);
-      setResources([]);
-      return;
-    }
-    const children = await client.ontology.retrieveChildren(root);
-    setNodes(toTreeNodes(services, children));
-    setResources(children);
-  }, [client, root, services]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) {
+        setNodes([]);
+        setResources([]);
+        return;
+      }
+      const children = await client.ontology.retrieveChildren(root);
+      if (signal.aborted) return;
+      setNodes(toTreeNodes(services, children));
+      setResources(children);
+    },
+    [client, root, services],
+  );
 
   const handleResourceSet = useCallback(
     (id: ontology.ID) => {

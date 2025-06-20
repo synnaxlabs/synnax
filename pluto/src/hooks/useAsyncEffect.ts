@@ -14,10 +14,49 @@ export type AsyncEffectCallback = (
   signal: AbortSignal,
 ) => Promise<void | Destructor | AsyncDestructor>;
 
+/**
+ * A React hook that runs an asynchronous effect with proper cleanup handling.
+ *
+ * This hook is similar to React's `useEffect` but designed for async operations.
+ * It provides an AbortSignal for cancellation and handles both synchronous and
+ * asynchronous cleanup functions.
+ *
+ * @param effect - The async effect function to run. Receives an AbortSignal for cancellation.
+ * @param deps - Optional dependency array. The effect will re-run when dependencies change.
+ *
+ * @example
+ * ```ts
+ * useAsyncEffect(async (signal) => {
+ *   const response = await fetch('/api/data', { signal });
+ *   const data = await response.json();
+ *   if (signal.aborted) return;
+ *   setData(data);
+ *
+ *   return async () => {
+ *     // Async cleanup
+ *     await cleanup();
+ *   };
+ * }, []);
+ * ```
+ *
+ * @example
+ * ```ts
+ * useAsyncEffect(async (signal) => {
+ *   const subscription = observable.subscribe(data => {
+ *     if (signal.aborted) return;
+ *     setData(data);
+ *   });
+ *
+ *   return () => {
+ *     // Sync cleanup
+ *     subscription.unsubscribe();
+ *   };
+ * }, [observable]);
+ * ```
+ */
 export const useAsyncEffect = (
   effect: AsyncEffectCallback,
   deps?: DependencyList,
-  onError: (error: unknown) => void = console.error,
 ): void => {
   useEffect(() => {
     const controller = new AbortController();
@@ -29,10 +68,10 @@ export const useAsyncEffect = (
       const maybeCleanup = await effect(signal);
       return maybeCleanup;
     };
-    const cleanupPromise = effectFn().catch(onError);
+    const cleanupPromise = effectFn().catch(console.error);
     return () => {
       controller.abort();
-      cleanupPromise.then((cleanupFn) => cleanupFn?.()).catch(onError);
+      cleanupPromise.then((cleanupFn) => cleanupFn?.()).catch(console.error);
     };
   }, deps);
 };

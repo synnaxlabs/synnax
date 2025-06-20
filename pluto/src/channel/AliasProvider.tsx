@@ -33,15 +33,20 @@ export const AliasProvider = ({
 }: AliasProviderProps): ReactElement => {
   const client = Synnax.use();
   const [aliases, setAliases] = useState<Aliases>(EMPTY_ALIASES);
-  useAsyncEffect(async () => {
-    if (client == null || activeRange == null) {
-      setAliases(EMPTY_ALIASES);
-      return;
-    }
-    const rng = await client.ranges.retrieve(activeRange);
-    const newAliases = await rng.listAliases();
-    setAliases(newAliases);
-  }, [client, activeRange]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null || activeRange == null) {
+        setAliases(EMPTY_ALIASES);
+        return;
+      }
+      const rng = await client.ranges.retrieve(activeRange);
+      if (signal.aborted) return;
+      const newAliases = await rng.listAliases();
+      if (signal.aborted) return;
+      setAliases(newAliases);
+    },
+    [client, activeRange],
+  );
 
   const handleAliasSet = useCallback(
     ({ alias, channel, range }: ranger.Alias) =>

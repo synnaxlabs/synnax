@@ -67,10 +67,14 @@ export const useName = (
   const currentAlias = useAlias(key);
   const { getName, setAlias } = useContext();
   const [name, setName] = useState<string | undefined>(defaultName);
-  useAsyncEffect(async () => {
-    const n = await getName(key);
-    setName(n);
-  }, [key, getName]);
+  useAsyncEffect(
+    async (signal) => {
+      const n = await getName(key);
+      if (signal.aborted) return;
+      setName(n);
+    },
+    [key, getName],
+  );
   const renameMutation = useMutation({
     onMutate: (newName) => {
       setName(newName);

@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useAsyncEffect } from "@synnaxlabs/pluto";
 import type * as monaco from "monaco-editor";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { useMonaco } from "@/code/Provider";
 
@@ -50,7 +49,7 @@ export const usePhantomGlobals = ({
     modelRef.current?.setValue(vars);
   }, []);
 
-  useAsyncEffect(async () => {
+  useEffect(() => {
     if (modelRef.current != null || monaco == null) return;
     modelRef.current = monaco.editor.createModel("", language);
     syncVars();

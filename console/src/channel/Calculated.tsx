@@ -154,16 +154,20 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     stringifyVar: Lua.stringifyVar,
     initialVars: GLOBALS,
   });
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const channels = methods.get<channel.Key[]>("requires").value;
-    try {
-      const chs = await client.channels.retrieve(channels);
-      chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
-    } catch (e) {
-      handleError(e, FAILED_TO_UPDATE_AUTOCOMPLETE);
-    }
-  }, [methods, globals, client]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) return;
+      const channels = methods.get<channel.Key[]>("requires").value;
+      try {
+        const chs = await client.channels.retrieve(channels);
+        if (signal.aborted) return;
+        chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
+      } catch (e) {
+        handleError(e, FAILED_TO_UPDATE_AUTOCOMPLETE);
+      }
+    },
+    [methods, globals, client],
+  );
 
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>

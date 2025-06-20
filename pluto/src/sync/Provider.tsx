@@ -36,40 +36,48 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
   const [isStreamerOpen, setIsStreamerOpen] = useState(false);
   const handleError = Status.useErrorHandler();
 
-  useAsyncEffect(async () => {
-    if (client == null) return;
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) return;
 
-    try {
-      streamerRef.current = await framer.HardenedStreamer.open(
-        async (cfg) => await client.openStreamer(cfg),
-        uniqueNamesInMap(handlersRef.current),
-      );
-      setIsStreamerOpen(true);
-    } catch (e) {
-      handleError(e, "Failed to open streamer in Sync.Provider");
-      return;
-    }
-    const observableStreamer = new framer.ObservableStreamer(streamerRef.current);
-    observableStreamer.onChange((frame) => {
-      const namesInFrame = new Set([...frame.uniqueNames]);
-      handlersRef.current.forEach((channels, handler) => {
-        if (namesInFrame.isDisjointFrom(channels)) return;
-        try {
-          handler(frame);
-        } catch (e) {
-          handleError(
-            e,
-            `Error calling Sync Frame Handler on channel(s): ${strings.naturalLanguageJoin([...channels])}`,
-          );
+      try {
+        const hardenedStreamer = await framer.HardenedStreamer.open(
+          async (cfg) => await client.openStreamer(cfg),
+          uniqueNamesInMap(handlersRef.current),
+        );
+        if (signal.aborted) {
+          hardenedStreamer.close();
+          return;
         }
+        setIsStreamerOpen(true);
+        streamerRef.current = hardenedStreamer;
+      } catch (e) {
+        handleError(e, "Failed to open streamer in Sync.Provider");
+        return;
+      }
+      const observableStreamer = new framer.ObservableStreamer(streamerRef.current);
+      observableStreamer.onChange((frame) => {
+        const namesInFrame = new Set([...frame.uniqueNames]);
+        handlersRef.current.forEach((channels, handler) => {
+          if (namesInFrame.isDisjointFrom(channels)) return;
+          try {
+            handler(frame);
+          } catch (e) {
+            handleError(
+              e,
+              `Error calling Sync Frame Handler on channel(s): ${strings.naturalLanguageJoin([...channels])}`,
+            );
+          }
+        });
       });
-    });
-    return async () => {
-      setIsStreamerOpen(false);
-      await observableStreamer.close();
-      streamerRef.current = null;
-    };
-  }, [client, handleError]);
+      return async () => {
+        setIsStreamerOpen(false);
+        await observableStreamer.close();
+        streamerRef.current = null;
+      };
+    },
+    [client, handleError],
+  );
 
   const updateStreamer = useCallback(async () => {
     try {

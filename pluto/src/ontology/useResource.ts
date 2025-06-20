@@ -22,11 +22,15 @@ import { Synnax } from "@/synnax";
 export const useResource = (id: ontology.ID): ontology.Resource | null => {
   const client = Synnax.use();
   const [resource, setResource] = useState<ontology.Resource | null>(null);
-  useAsyncEffect(async () => {
-    if (client == null) throw NULL_CLIENT_ERROR;
-    const retrieved = await client.ontology.retrieve(id);
-    setResource(retrieved);
-  }, [client, id]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) throw NULL_CLIENT_ERROR;
+      const retrieved = await client.ontology.retrieve(id);
+      if (signal.aborted) return;
+      setResource(retrieved);
+    },
+    [client, id],
+  );
   const handleError = Status.useErrorHandler();
   const handleResourceSet = (id: ontology.ID) => {
     if (!id.equals(id)) return;

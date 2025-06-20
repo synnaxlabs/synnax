@@ -29,12 +29,16 @@ export const useThemeProvider = (): Theming.ProviderProps => {
   const theme = useSelectTheme();
   const dispatch = useDispatch();
 
-  useAsyncEffect(async () => {
-    if (RUNTIME !== "tauri") return;
-    if (getCurrentWindow().label !== Drift.MAIN_WINDOW) return;
-    await setInitialTheme(dispatch);
-    return await synchronizeWithOS(dispatch);
-  }, []);
+  useAsyncEffect(
+    async (signal) => {
+      if (RUNTIME !== "tauri") return;
+      if (getCurrentWindow().label !== Drift.MAIN_WINDOW) return;
+      await setInitialTheme(dispatch);
+      if (signal.aborted) return;
+      return await synchronizeWithOS(dispatch);
+    },
+    [dispatch],
+  );
 
   return {
     theme: Theming.themeZ.parse(theme),

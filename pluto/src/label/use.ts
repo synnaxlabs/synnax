@@ -21,14 +21,18 @@ export const use = (id: ontology.CrudeID): label.Label[] => {
   const client = Synnax.use();
   const [labels, setLabels] = useState<label.Label[]>([]);
   const idStr = new ontology.ID(id).toString();
-  useAsyncEffect(async () => {
-    if (client == null) {
-      setLabels([]);
-      return;
-    }
-    const labels = await client.labels.retrieveFor(idStr);
-    setLabels(labels);
-  }, [client, idStr]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) {
+        setLabels([]);
+        return;
+      }
+      const labels = await client.labels.retrieveFor(idStr);
+      if (signal.aborted) return;
+      setLabels(labels);
+    },
+    [client, idStr],
+  );
 
   const handleRelationshipDelete = useCallback(
     (relationship: ontology.Relationship) => {

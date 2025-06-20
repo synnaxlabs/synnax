@@ -64,25 +64,29 @@ export const use = <
     },
     [handleError],
   );
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const deviceKey = ctx.value().config.device;
-    if (deviceKey === "") {
-      setDev(undefined);
-      return;
-    }
-    try {
-      const d = await client.hardware.devices.retrieve<
-        Properties,
-        Make,
-        Model,
-        StateDetails
-      >(deviceKey);
-      setDev(d);
-    } catch (e) {
-      handleExc(e);
-    }
-  }, [ctx.value, client?.key]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) return;
+      const deviceKey = ctx.value().config.device;
+      if (deviceKey === "") {
+        setDev(undefined);
+        return;
+      }
+      try {
+        const d = await client.hardware.devices.retrieve<
+          Properties,
+          Make,
+          Model,
+          StateDetails
+        >(deviceKey);
+        if (signal.aborted) return;
+        setDev(d);
+      } catch (e) {
+        handleExc(e);
+      }
+    },
+    [ctx.value, client?.key],
+  );
   Form.useFieldListener<string, UseContextValue>({
     ctx,
     path: "config.device",

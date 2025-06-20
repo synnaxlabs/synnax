@@ -11,7 +11,7 @@ import { type rack } from "@synnaxlabs/client";
 import { useState as useState_ } from "react";
 
 import { useStateSynchronizer } from "@/hardware/rack/synchronizers";
-import { useAsyncEffect } from "@/hooks/useAsyncEffect";
+import { useAsyncEffect } from "@/hooks";
 import { Synnax } from "@/synnax";
 
 export const useState = (key: rack.Key): rack.State | undefined => {

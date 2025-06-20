@@ -166,24 +166,29 @@ export const Multiple = <
 
   // This hook makes sure we have the selected entries fetched to render their tags
   // properly.
-  useAsyncEffect(async () => {
-    setLoading(true);
-    if (selectValueIsZero(value)) setSelected([]);
-    const inSelected = selected.map((v) => v.key);
-    const nextValue = array.toArray(value);
-    if (compare.unorderedPrimitiveArrays(inSelected, nextValue) === compare.EQUAL)
-      return;
-    let nextSelected: E[] = [];
-    if (searchMode)
-      // Wrap this in a try-except clause just in case the searcher throws an error.
-      try {
-        nextSelected = await searcher.retrieve(nextValue);
-      } finally {
-        setLoading(false);
-      }
-    else if (data != null) nextSelected = data.filter((v) => nextValue.includes(v.key));
-    setSelected(nextSelected);
-  }, [searcher, searchMode, value, data]);
+  useAsyncEffect(
+    async (signal) => {
+      setLoading(true);
+      if (selectValueIsZero(value)) setSelected([]);
+      const inSelected = selected.map((v) => v.key);
+      const nextValue = array.toArray(value);
+      if (compare.unorderedPrimitiveArrays(inSelected, nextValue) === compare.EQUAL)
+        return;
+      let nextSelected: E[] = [];
+      if (searchMode)
+        // Wrap this in a try-except clause just in case the searcher throws an error.
+        try {
+          nextSelected = await searcher.retrieve(nextValue);
+        } finally {
+          setLoading(false);
+        }
+      else if (data != null)
+        nextSelected = data.filter((v) => nextValue.includes(v.key));
+      if (signal.aborted) return;
+      setSelected(nextSelected);
+    },
+    [searcher, searchMode, value, data],
+  );
 
   const handleChange = useCallback(
     (v: K | K[] | null, extra: UseSelectOnChangeExtra<K, E>) => {
