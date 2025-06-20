@@ -15,8 +15,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -32,21 +32,21 @@ type ChannelKey = channel.Key
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
 // use purely as a data container.
 type Channel struct {
-	Key         channel.Key          `json:"key" msgpack:"key"`
-	Name        string               `json:"name" msgpack:"name"`
-	Leaseholder distribution.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
-	DataType    telem.DataType       `json:"data_type" msgpack:"data_type"`
-	Density     telem.Density        `json:"density" msgpack:"density"`
-	IsIndex     bool                 `json:"is_index" msgpack:"is_index"`
-	Index       channel.Key          `json:"index" msgpack:"index"`
-	Alias       string               `json:"alias" msgpack:"alias"`
-	Virtual     bool                 `json:"virtual" msgpack:"virtual"`
-	Internal    bool                 `json:"internal" msgpack:"internal"`
-	Requires    channel.Keys         `json:"requires" msgpack:"requires"`
-	Expression  string               `json:"expression" msgpack:"expression"`
+	Key         channel.Key     `json:"key" msgpack:"key"`
+	Name        string          `json:"name" msgpack:"name"`
+	Leaseholder cluster.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
+	DataType    telem.DataType  `json:"data_type" msgpack:"data_type"`
+	Density     telem.Density   `json:"density" msgpack:"density"`
+	IsIndex     bool            `json:"is_index" msgpack:"is_index"`
+	Index       channel.Key     `json:"index" msgpack:"index"`
+	Alias       string          `json:"alias" msgpack:"alias"`
+	Virtual     bool            `json:"virtual" msgpack:"virtual"`
+	Internal    bool            `json:"internal" msgpack:"internal"`
+	Requires    channel.Keys    `json:"requires" msgpack:"requires"`
+	Expression  string          `json:"expression" msgpack:"expression"`
 }
 
-// ChannelService is the central API for all things Channel related.
+// ChannelService is the central service for all things Channel related.
 type ChannelService struct {
 	dbProvider
 	accessProvider
@@ -57,8 +57,8 @@ type ChannelService struct {
 func NewChannelService(p Provider) *ChannelService {
 	return &ChannelService{
 		accessProvider: p.access,
-		internal:       p.Config.Channel,
-		ranger:         p.Config.Ranger,
+		internal:       p.Distribution.Channel,
+		ranger:         p.Service.Ranger,
 		dbProvider:     p.db,
 	}
 }
@@ -107,7 +107,7 @@ func (s *ChannelService) Create(
 // from the cluster.
 type ChannelRetrieveRequest struct {
 	// Optional parameter that queries a Channel by its node Name.
-	NodeKey distribution.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
 	// Optional parameter that queries a Channel by its key.
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Optional parameter that queries a Channel by its name.
@@ -256,8 +256,8 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 	return translated
 }
 
-// translateChannelsBackward translates a slice of a API channel structs to a slice of
-// the internal channel structs.
+// translateChannelsBackward translates a slice of api channel structs to a slice of
+// internal channel structs.
 func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {

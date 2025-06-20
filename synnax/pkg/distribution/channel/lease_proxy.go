@@ -12,9 +12,10 @@ package channel
 import (
 	"context"
 	"go/types"
+	"sync"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
@@ -29,13 +30,16 @@ import (
 
 type leaseProxy struct {
 	ServiceConfig
-	createRouter          proxy.BatchFactory[Channel]
-	renameRouter          proxy.BatchFactory[renameBatchEntry]
-	keyRouter             proxy.BatchFactory[Key]
-	leasedCounter         *counter
-	freeCounter           *counter
-	group                 group.Group
-	externalNonVirtualSet *set.Integer[Key]
+	createRouter  proxy.BatchFactory[Channel]
+	renameRouter  proxy.BatchFactory[renameBatchEntry]
+	keyRouter     proxy.BatchFactory[Key]
+	leasedCounter *counter
+	freeCounter   *counter
+	group         group.Group
+	mu            struct {
+		sync.RWMutex
+		externalNonVirtualSet *set.Integer[Key]
+	}
 }
 
 const (
@@ -54,27 +58,27 @@ func newLeaseProxy(
 		return nil, err
 	}
 	keyRouter := proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()}
-	externalNonVirtualChannels := make([]Channel, 0)
+	var externalNonVirtualChannels []Channel
 	if err := gorp.
 		NewRetrieve[Key, Channel]().
-		Where(func(c *Channel) bool { return !c.Internal && !c.Virtual }).
+		Where(func(c *Channel) bool {
+			return !c.Internal && !c.Virtual
+		}).
 		Entries(&externalNonVirtualChannels).
 		Exec(ctx, cfg.ClusterDB); err != nil {
 		return nil, err
 	}
-	externalNonVirtualKeys := KeysFromChannels(externalNonVirtualChannels)
-	externalNonVirtualSet := set.NewInteger[Key](externalNonVirtualKeys...)
 
 	p := &leaseProxy{
-		ServiceConfig:         cfg,
-		createRouter:          proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
-		keyRouter:             keyRouter,
-		renameRouter:          proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
-		leasedCounter:         c,
-		group:                 group,
-		externalNonVirtualSet: externalNonVirtualSet,
+		ServiceConfig: cfg,
+		createRouter:  proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
+		keyRouter:     keyRouter,
+		renameRouter:  proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
+		leasedCounter: c,
+		group:         group,
 	}
-	if cfg.HostResolver.HostKey() == core.Bootstrapper {
+	p.mu.externalNonVirtualSet = set.NewInteger[Key](KeysFromChannels(externalNonVirtualChannels))
+	if cfg.HostResolver.HostKey() == cluster.Bootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
 		c, err := openCounter(ctx, cfg.ClusterDB, freeCounterKey)
 		if err != nil {
@@ -122,7 +126,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 			channels[i].Leaseholder = lp.HostResolver.HostKey()
 		}
 		if ch.Expression != "" {
-			channels[i].Leaseholder = core.Free
+			channels[i].Leaseholder = cluster.Free
 			channels[i].Virtual = true
 		} else if ch.LocalKey != 0 {
 			channels[i].LocalKey = 0
@@ -139,7 +143,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 	if len(batch.Free) > 0 {
 		if !lp.HostResolver.HostKey().IsBootstrapper() {
-			remoteChannels, err := lp.createRemote(ctx, core.Bootstrapper, batch.Free, opts)
+			remoteChannels, err := lp.createRemote(ctx, cluster.Bootstrapper, batch.Free, opts)
 			if err != nil {
 				return err
 			}
@@ -359,26 +363,25 @@ func (lp *leaseProxy) createGateway(
 			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
 		}
 	}
-	newExternalNonVirtualSet := lp.externalNonVirtualSet.Copy()
-	newExternalNonVirtualSet.Insert(externalCreatedKeys...)
-	if err := lp.IntOverflowCheck(
-		ctx,
-		xtypes.Uint20(newExternalNonVirtualSet.Size()),
-	); err != nil {
+	lp.mu.Lock()
+	count := lp.mu.externalNonVirtualSet.Size()
+	if err = lp.IntOverflowCheck(ctx, xtypes.Uint20(int(count)+len(externalCreatedKeys))); err != nil {
+		lp.mu.Unlock()
 		return err
 	}
+	lp.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
+	lp.mu.Unlock()
 
 	storageChannels := toStorage(toCreate)
-	if err := lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
+	if err = lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
 		return err
 	}
-	if err := gorp.
+	if err = gorp.
 		NewCreate[Key, Channel]().
 		Entries(&toCreate).
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	lp.externalNonVirtualSet = &newExternalNonVirtualSet
 	return nil
 }
 
@@ -407,7 +410,7 @@ func (lp *leaseProxy) maybeSetResources(
 
 func (lp *leaseProxy) createRemote(
 	ctx context.Context,
-	target core.NodeKey,
+	target cluster.NodeKey,
 	channels []Channel,
 	opts CreateOptions,
 ) ([]Channel, error) {
@@ -484,7 +487,9 @@ func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) 
 	if err := lp.maybeDeleteResources(ctx, tx, keys); err != nil {
 		return err
 	}
-	lp.externalNonVirtualSet.Remove(keys...)
+	lp.mu.Lock()
+	lp.mu.externalNonVirtualSet.Remove(keys...)
+	lp.mu.Unlock()
 	// It's very important that this goes last, as it's the only operation that can fail
 	// without an atomic guarantee.
 	return lp.TSChannel.DeleteChannels(keys.Storage())
@@ -503,7 +508,7 @@ func (lp *leaseProxy) maybeDeleteResources(
 	return w.DeleteManyResources(ctx, ids)
 }
 
-func (lp *leaseProxy) deleteRemote(ctx context.Context, target core.NodeKey, keys Keys) error {
+func (lp *leaseProxy) deleteRemote(ctx context.Context, target cluster.NodeKey, keys Keys) error {
 	addr, err := lp.HostResolver.Resolve(target)
 	if err != nil {
 		return err
@@ -519,7 +524,7 @@ type renameBatchEntry struct {
 
 var _ proxy.Entry = renameBatchEntry{}
 
-func (r renameBatchEntry) Lease() core.NodeKey { return r.key.Lease() }
+func (r renameBatchEntry) Lease() cluster.NodeKey { return r.key.Lease() }
 
 func unzipRenameBatch(entries []renameBatchEntry) ([]Key, []string) {
 	return lo.UnzipBy2(entries, func(e renameBatchEntry) (Key, string) {
@@ -565,7 +570,7 @@ func (lp *leaseProxy) rename(
 	return nil
 }
 
-func (lp *leaseProxy) renameRemote(ctx context.Context, target core.NodeKey, keys Keys, names []string) error {
+func (lp *leaseProxy) renameRemote(ctx context.Context, target cluster.NodeKey, keys Keys, names []string) error {
 	addr, err := lp.HostResolver.Resolve(target)
 	if err != nil {
 		return err

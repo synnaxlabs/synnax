@@ -53,9 +53,9 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("label")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Ontology", c.Ontology)
-	validate.NotNil(v, "Group", c.Group)
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
 	return v.Error()
 }
 

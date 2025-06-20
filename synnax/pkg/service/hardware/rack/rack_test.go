@@ -12,9 +12,9 @@ package rack_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/gorp"
@@ -51,7 +51,7 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("Key", func() {
 		It("Should correctly construct and deconstruct key from its components", func() {
 			k := rack.NewKey(1, 2)
-			Expect(k.Node()).To(Equal(core.NodeKey(1)))
+			Expect(k.Node()).To(Equal(cluster.NodeKey(1)))
 			Expect(k.LocalKey()).To(Equal(uint16(2)))
 		})
 	})
@@ -60,7 +60,7 @@ var _ = Describe("Rack", Ordered, func() {
 			r := &rack.Rack{Name: "rack1"}
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(!r.Key.IsZero()).To(BeTrue())
-			Expect(r.Key.Node()).To(Equal(core.NodeKey(1)))
+			Expect(r.Key.Node()).To(Equal(cluster.NodeKey(1)))
 			Expect(r.Key.LocalKey()).To(Equal(uint16(2)))
 		})
 		It("Should correctly increment the local key counter", func() {

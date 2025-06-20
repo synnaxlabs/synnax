@@ -12,13 +12,11 @@ package hardware
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/x/validate"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
@@ -29,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Config is the configuration for opening hte hardware service.
@@ -44,7 +43,7 @@ type Config struct {
 	// [REQUIRED]
 	Group *group.Service
 	// HostProvider is used to add cluster topology information to hardware resources.
-	HostProvider core.HostProvider
+	HostProvider cluster.HostProvider
 	// Signals is used to propagate changes to meta-data throughout the cluster.
 	Signals *signals.Provider
 	// Channel is used to create channels necessary for hardware communication.

@@ -10,14 +10,15 @@
 package writer_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/config"
@@ -39,9 +40,9 @@ var _ = Describe("Writer", func() {
 			_sF := sF
 			var s scenario
 			BeforeAll(func() { s = _sF() })
-			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
+			AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
-				writer := MustSucceed(s.service.Open(context.TODO(), writer.Config{
+				writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  config.True(),
@@ -71,9 +72,9 @@ var _ = Describe("Writer", func() {
 	Describe("Open Errors", Ordered, func() {
 		var s scenario
 		BeforeAll(func() { s = gatewayOnlyScenario() })
-		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
+		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 		It("Should return an error if no keys are provided", func() {
-			_, err := s.service.Open(ctx, writer.Config{
+			_, err := s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  []channel.Key{},
 				Start: 10 * telem.SecondTS,
 				Sync:  config.True(),
@@ -81,7 +82,7 @@ var _ = Describe("Writer", func() {
 			Expect(err).To(MatchError(ContainSubstring("keys: must be non-empty")))
 		})
 		It("Should return an error if the channel can't be found", func() {
-			_, err := s.service.Open(ctx, writer.Config{
+			_, err := s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys: []channel.Key{
 					channel.NewKey(0, 22),
 					s.keys[0],
@@ -98,9 +99,9 @@ var _ = Describe("Writer", func() {
 	Describe("Frame Errors", Ordered, func() {
 		var s scenario
 		BeforeAll(func() { s = peerOnlyScenario() })
-		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
+		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 		It("Should return an error if a key is provided that is not in the list of keys provided to the writer", func() {
-			writer := MustSucceed(s.service.Open(context.TODO(), writer.Config{
+			writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
 				Sync:  config.True(),
@@ -121,11 +122,10 @@ var _ = Describe("Writer", func() {
 })
 
 type scenario struct {
-	name    string
-	keys    channel.Keys
-	service *writer.Service
-	channel channel.Service
-	close   io.Closer
+	name   string
+	keys   channel.Keys
+	dist   mock.Node
+	closer io.Closer
 }
 
 func newChannelSet() []channel.Channel {
@@ -150,91 +150,67 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(1)
-	svc := services[1]
-	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	builder := mock.ProvisionCluster(ctx, 1)
+	dist := builder.Nodes[1]
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:    "gatewayOnly",
-		keys:    keys,
-		service: svc.writer,
-		close:   builder,
-		channel: svc.channel,
-	}
+	return scenario{name: "Gateway Only", keys: keys, dist: dist, closer: builder}
 }
 
 func peerOnlyScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(4)
-	svc := services[1]
+	builder := mock.ProvisionCluster(ctx, 4)
+	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = dcore.NodeKey(i + 2)
+		ch.Leaseholder = cluster.NodeKey(i + 2)
 		channels[i] = ch
 	}
-	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
+		err := dist.Channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:    "peerOnly",
-		keys:    keys,
-		service: svc.writer,
-		close:   builder,
-		channel: svc.channel,
-	}
+	return scenario{name: "Peer Only", keys: keys, dist: dist, closer: builder}
 }
 
 func mixedScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(3)
-	svc := services[1]
+	builder := mock.ProvisionCluster(ctx, 3)
+	svc := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = dcore.NodeKey(i + 1)
+		ch.Leaseholder = cluster.NodeKey(i + 1)
 		channels[i] = ch
 	}
-	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
+		err := svc.Channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:    "mixed",
-		keys:    keys,
-		service: svc.writer,
-		close:   builder,
-		channel: svc.channel,
-	}
+	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: svc, closer: builder}
 }
 
 func freeWriterScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(3)
-	svc := services[1]
+	builder := mock.ProvisionCluster(ctx, 3)
+	svc := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = dcore.Free
+		ch.Leaseholder = cluster.Free
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
+		err := svc.Channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:    "freeWriter",
-		keys:    keys,
-		service: svc.writer,
-		close:   builder,
-		channel: svc.channel,
-	}
+	return scenario{name: "Free Writes", keys: keys, dist: svc, closer: builder}
 }
