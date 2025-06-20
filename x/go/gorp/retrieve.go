@@ -326,6 +326,9 @@ func filterRetrieve[K Key, E Entry[K]](
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		v := iter.Value(ctx)
+		if iter.Error() != nil {
+			return iter.Error()
+		}
 		if f.exec(v) {
 			validCount += 1
 			if (validCount > offset) && (!limitOk || validCount <= limit+offset) {

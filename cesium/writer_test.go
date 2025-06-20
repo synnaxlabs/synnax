@@ -204,7 +204,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 				})
 
-				Context("Index and Data", func() {
+				Context("Index and Config", func() {
 					It("Should write properly", func() {
 						var (
 							index1 = GenerateChannelKey()
@@ -1268,9 +1268,9 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(err).To(MatchError(ContainSubstring("same length")))
 				})
 
-				Context("Missing Channels", func() {
+				Context("Missing Channel", func() {
 
-					Specify("Frame With Index Channel but without Data Channel", func() {
+					Specify("Frame With Index Channel but without Config Channel", func() {
 						w := MustSucceed(db.OpenWriter(
 							ctx,
 							cesium.WriterConfig{
@@ -1292,7 +1292,7 @@ var _ = Describe("Writer Behavior", func() {
 								"frame must have exactly one series for each data channel associated with index [uneven 1]<%d>, but is missing a series for channel [uneven 2]<%d>", idx, data))))
 					})
 
-					Specify("Frame With Data Channel but without Index", func() {
+					Specify("Frame With Config Channel but without Index", func() {
 						w := MustSucceed(db.OpenWriter(
 							ctx,
 							cesium.WriterConfig{
@@ -1315,7 +1315,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 				})
 
-				Specify("Frame with Duplicate Channels", func() {
+				Specify("Frame with duplicate channels", func() {
 					w := MustSucceed(db.OpenWriter(
 						ctx,
 						cesium.WriterConfig{
@@ -1413,9 +1413,9 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 
-			Describe("Data Type Errors", func() {
+			Describe("Config Type Errors", func() {
 				ShouldNotLeakRoutinesJustBeforeEach()
-				Specify("Invalid Data Type for series", func() {
+				Specify("Invalid Config Type for series", func() {
 					var dtErr = GenerateChannelKey()
 					Expect(db.CreateChannel(
 						ctx,
@@ -1430,20 +1430,17 @@ var _ = Describe("Writer Behavior", func() {
 						cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{dtErr},
 							Start:    10 * telem.SecondTS,
+							Sync:     config.True(),
 						}))
-					MustSucceed(w.Write(telem.MultiFrame(
+					authorized, err := w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{dtErr},
 						[]telem.Series{
 							telem.NewSeriesV[uint16](1, 2, 3, 4, 5),
 						},
-					)))
-
-					MustSucceed(w.Write(telem.MultiFrame(
-						[]cesium.ChannelKey{dtErr},
-						[]telem.Series{telem.NewSeriesV[int64](10, 11, 12, 13)},
-					)))
-					_, err := w.Commit()
+					))
+					Expect(authorized).To(BeFalse())
 					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(err).To(MatchError(ContainSubstring("invalid data type")))
 					Expect(w.Close()).To(HaveOccurredAs(validate.Error))
 				})
 			})
@@ -1489,7 +1486,7 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 
-			Describe("Virtual Channels", func() {
+			Describe("Virtual Channel", func() {
 				ShouldNotLeakRoutinesJustBeforeEach()
 				It("Should write to virtual channel", func() {
 					var virtual1 = GenerateChannelKey()
@@ -1523,9 +1520,9 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{Name: "Index 1", Key: index1, DataType: telem.TimeStampT, IsIndex: true},
-						cesium.Channel{Name: "Data 1", Key: data1, DataType: telem.Int64T, Index: index1},
-						cesium.Channel{Name: "Data 2", Key: data2, DataType: telem.Uint8T, Index: index1},
-						cesium.Channel{Name: "Data 3", Key: data3, DataType: telem.Float32T, Index: index1},
+						cesium.Channel{Name: "Config 1", Key: data1, DataType: telem.Int64T, Index: index1},
+						cesium.Channel{Name: "Config 2", Key: data2, DataType: telem.Uint8T, Index: index1},
+						cesium.Channel{Name: "Config 3", Key: data3, DataType: telem.Float32T, Index: index1},
 					)).To(Succeed())
 
 					now := telem.Now()

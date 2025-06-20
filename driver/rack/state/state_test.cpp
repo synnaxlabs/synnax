@@ -42,10 +42,10 @@ TEST(stateTests, testNominal) {
         ASSERT_FALSE(msg_err) << msg_err.message();
         ASSERT_EQ(frm.size(), 1);
         frm.series->at(0).at(-1, j);
-        if (j["key"] == rack.key) break;
+        if (j["details"]["rack"] == rack.key) break;
     }
-    EXPECT_EQ(j["key"], rack.key);
-    EXPECT_EQ(j["variant"], status::VARIANT_SUCCESS);
+    EXPECT_EQ(j["details"]["rack"], rack.key);
+    EXPECT_EQ(j["variant"], status::variant::SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
     const auto err = streamer.close();
     ASSERT_FALSE(err) << err.message();

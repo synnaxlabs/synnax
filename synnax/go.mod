@@ -42,6 +42,7 @@ replace github.com/synnaxlabs/computron => ../computron
 
 require (
 	github.com/DataDog/zstd v1.5.7 // indirect
+	github.com/Oudwins/zog v0.21.1 // indirect
 	github.com/RoaringBitmap/roaring/v2 v2.4.5 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

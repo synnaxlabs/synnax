@@ -9,7 +9,6 @@
 
 import { type device, type rack, task } from "@synnaxlabs/client";
 import { Align, Eraser, Status, Synnax, Text, useSyncedRef } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
 import { type FC } from "react";
 import { useStore } from "react-redux";
@@ -35,46 +34,43 @@ export const LAYOUT: Omit<Layout, "type"> = {
 };
 
 export type TaskProps<
-  Config extends record.Unknown = record.Unknown,
-  Details extends {} = record.Unknown,
-  Type extends string = string,
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
 > = {
   layoutKey: string;
   rackKey?: rack.Key;
-  task: task.Payload<Config, Details, Type>;
+  task: task.Payload<Type, Config, StatusData>;
 };
-
-export interface ConfigSchema<Config extends record.Unknown = record.Unknown>
-  extends z.ZodType<Config> {}
 
 export interface GetInitialPayloadArgs {
   deviceKey?: device.Key;
 }
 
 export interface GetInitialPayload<
-  Config extends record.Unknown = record.Unknown,
-  Details extends {} = record.Unknown,
-  Type extends string = string,
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
 > {
-  (args: GetInitialPayloadArgs): task.Payload<Config, Details, Type>;
+  (args: GetInitialPayloadArgs): task.Payload<Type, Config, StatusData>;
 }
 
 export interface WrapOptions<
-  Config extends record.Unknown = record.Unknown,
-  Details extends {} = record.Unknown,
-  Type extends string = string,
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
 > {
-  configSchema: ConfigSchema<Config>;
-  getInitialPayload: GetInitialPayload<Config, Details, Type>;
+  configSchema: Config;
+  getInitialPayload: GetInitialPayload<Type, Config, StatusData>;
 }
 
 export const wrap = <
-  Config extends record.Unknown = record.Unknown,
-  Details extends {} = record.Unknown,
-  Type extends string = string,
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
 >(
-  Wrapped: FC<TaskProps<Config, Details, Type>>,
-  options: WrapOptions<Config, Details, Type>,
+  Wrapped: FC<TaskProps<Type, Config, StatusData>>,
+  options: WrapOptions<Type, Config, StatusData>,
 ): Layout.Renderer => {
   const { configSchema, getInitialPayload } = options;
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
@@ -86,7 +82,7 @@ export const wrap = <
     const taskKeyRef = useSyncedRef(taskKey);
     const client = Synnax.use();
     const { data, error, isError, isPending } = useQuery<
-      TaskProps<Config, Details, Type>
+      TaskProps<Type, Config, StatusData>
     >({
       queryFn: async () => {
         if (taskKeyRef.current == null)
@@ -97,9 +93,9 @@ export const wrap = <
             rackKey,
           };
         if (client == null) throw NULL_CLIENT_ERROR;
-        const tsk = await client.hardware.tasks.retrieve<Config, Details, Type>(
+        const tsk = await client.hardware.tasks.retrieve<Type, Config, StatusData>(
           taskKeyRef.current,
-          { includeState: true },
+          { includeStatus: true },
         );
         try {
           tsk.config = configSchema.parse(tsk.config);

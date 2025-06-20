@@ -26,7 +26,7 @@ import (
 
 // tx is an aspen-managed key-value transaction. It's important to note that aspen
 // does not support atomicity on transactions with lease cardinality greater than
-// one i.e. if a transaction contains operations with different leaseholders, then
+// one i.e., if a transaction contains operations with different leaseholders, then
 // the transaction is not guaranteed to be atomic. See https://github.com/synnaxlabs/synnax/issues/102
 // for more details.
 type tx struct {
@@ -105,12 +105,12 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 		op := dig.Operation()
 		if op.Variant == change.Set {
 			v, closer, err := b.Tx.Get(ctx, dig.Key)
-			if err != nil {
-				return nil, err
-			}
 			if errors.Is(err, kvx.NotFound) {
 				zap.S().Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
 				continue
+			}
+			if err != nil {
+				return nil, err
 			}
 			op.Value = binary.MakeCopy(v)
 			if err = closer.Close(); err != nil {

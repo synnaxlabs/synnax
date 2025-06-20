@@ -17,9 +17,10 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -40,18 +41,18 @@ type Config struct {
 	// to both send telemetry streams from the host node to peer nodes, and to stream
 	// telemetry from peer nodes to the host node.
 	//
-	// Remote nodes are one of the three available data sources for the relay. Data
+	// Remote nodes are one of the three available data sources for the relay. Config
 	// for channels whose leaseholder is not the host node will be streamed from remote
 	// nodes.
 	// [REQUIRED]
 	Transport Transport
 	// HostResolver is used to retrieve information about the host node.
 	// [REQUIRED]
-	HostResolver core.HostResolver
+	HostResolver cluster.HostResolver
 	// TS is the underlying time-series database engine that serves as one of the three
 	// main data sources for the relay.
 	//
-	// This is the second of the three available data sources for the relay. Data for
+	// This is the second of the three available data sources for the relay. Config for
 	// channels whose leaseholder is the host node will be streamed from the time-series
 	// engine's streaming mechanism.
 	// [REQUIRED]
@@ -110,14 +111,14 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("relay")
-	validate.NotNil(v, "Transport", c.Transport)
-	validate.NotNil(v, "HostProvider", c.HostResolver)
-	validate.NotNil(v, "TS", c.TS)
-	validate.NotNil(v, "FreeWrites", c.FreeWrites)
-	validate.NotNil(v, "Channels", c.ChannelReader)
-	validate.Positive(v, "SlowConsumerTimeout", c.SlowConsumerTimeout)
-	validate.Positive(v, "ResponseBufferSize", c.ResponseBufferSize)
-	validate.Positive(v, "DemandBufferSize", c.DemandBufferSize)
+	validate.NotNil(v, "transport", c.Transport)
+	validate.NotNil(v, "host_provider", c.HostResolver)
+	validate.NotNil(v, "ts", c.TS)
+	validate.NotNil(v, "free_writers", c.FreeWrites)
+	validate.NotNil(v, "channels", c.ChannelReader)
+	validate.Positive(v, "slow_consumer_timeout", c.SlowConsumerTimeout)
+	validate.Positive(v, "response_buffer_size", c.ResponseBufferSize)
+	validate.Positive(v, "demand_buffer_size", c.DemandBufferSize)
 	return v.Error()
 }
 

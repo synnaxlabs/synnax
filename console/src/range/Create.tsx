@@ -41,6 +41,7 @@ const formSchema = z.object({
   timeRange: z.object({ start: z.number(), end: z.number() }),
   labels: z.string().array(),
   parent: z.string().optional(),
+  stage: ranger.stageZ,
 });
 
 export type FormProps = z.infer<typeof formSchema>;
@@ -57,7 +58,7 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
   icon: "Range",
   window: {
     resizable: false,
-    size: { height: 370, width: 700 },
+    size: { height: 440, width: 700 },
     navTop: true,
   },
 };
@@ -82,6 +83,7 @@ export const Create: Layout.Renderer = (props) => {
     labels: [],
     timeRange: { start: now, end: now },
     parent: "",
+    stage: "completed",
     ...args,
   };
 
@@ -157,12 +159,17 @@ const CreateLayoutForm = ({
               />
             )}
           </Form.Field>
+          <Form.Field<ranger.Stage> path="stage" required={false}>
+            {(p) => (
+              <Ranger.SelectStage {...p} variant="outlined" style={{ width: 150 }} />
+            )}
+          </Form.Field>
           <Align.Space x size="large">
-            <Form.Field<number> path="timeRange.start" label="From">
+            <Form.Field<number> path="timeRange.start" label="From" required={false}>
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
             <Text.WithIcon level="h4" startIcon={<Icon.Arrow.Right />} />
-            <Form.Field<number> path="timeRange.end" label="To">
+            <Form.Field<number> path="timeRange.end" label="To" required={false}>
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
           </Align.Space>

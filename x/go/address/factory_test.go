@@ -48,6 +48,15 @@ var _ = Describe("Factory", func() {
 		})
 	})
 
+	Describe("Generated", func() {
+		It("Should return a slice of all generated addresses", func() {
+			f := address.NewLocalFactory(8080)
+			addr1 := f.Next()
+			addr2 := f.Next()
+			Expect(f.Generated()).To(ConsistOf(addr1, addr2))
+		})
+	})
+
 	Describe("NextN", func() {
 		It("Should generate the requested number of addresses", func() {
 			f := address.NewLocalFactory(8080)

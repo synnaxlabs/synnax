@@ -13,20 +13,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+
 	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Rename", Ordered, func() {
-	var (
-		services map[core.NodeKey]channel.Service
-		builder  *mock.CoreBuilder
-	)
-	BeforeAll(func() { builder, services, _ = provisionServices() })
+	var mockCluster *mock.Cluster
+	BeforeAll(func() { mockCluster = mock.ProvisionCluster(ctx, 3) })
 	AfterAll(func() {
-		Expect(builder.Close()).To(Succeed())
-		Expect(builder.Cleanup()).To(Succeed())
+		Expect(mockCluster.Close()).To(Succeed())
 	})
 	Context("Single channel", func() {
 		var ch channel.Channel
@@ -35,16 +32,16 @@ var _ = Describe("Rename", Ordered, func() {
 			ch.Virtual = true
 			ch.Name = "SG01"
 			ch.DataType = telem.Float64T
-			err = services[1].Create(ctx, &ch)
+			err = mockCluster.Nodes[1].Channel.Create(ctx, &ch)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		Context("Node is local", func() {
 			BeforeEach(func() { ch.Leaseholder = 1 })
 			It("Should rename the channel without error", func() {
-				Expect(services[1].Rename(ctx, ch.Key(), "SG03", false)).To(Succeed())
+				Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "SG03", false)).To(Succeed())
 				Eventually(func(g Gomega) {
 					var resCh channel.Channel
-					g.Expect(services[1].NewRetrieve().
+					g.Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
 						WhereKeys(ch.Key()).
 						Entry(&resCh).Exec(ctx, nil),
 					).To(Succeed())
@@ -55,10 +52,10 @@ var _ = Describe("Rename", Ordered, func() {
 		Context("Node is remote", func() {
 			BeforeEach(func() { ch.Leaseholder = 2 })
 			It("Should rename the channel without error", func() {
-				Expect(services[2].Rename(ctx, ch.Key(), "SG03", false)).To(Succeed())
+				Expect(mockCluster.Nodes[2].Channel.Rename(ctx, ch.Key(), "SG03", false)).To(Succeed())
 				Eventually(func(g Gomega) {
 					var resCh channel.Channel
-					g.Expect(services[2].NewRetrieve().
+					g.Expect(mockCluster.Nodes[2].Channel.NewRetrieve().
 						WhereKeys(ch.Key()).
 						Entry(&resCh).
 						Exec(ctx, nil)).To(Succeed())
@@ -82,13 +79,13 @@ var _ = Describe("Rename", Ordered, func() {
 			ch3 := channel.Channel{
 				Name:        "newton",
 				DataType:    telem.StringT,
-				Leaseholder: core.Free,
+				Leaseholder: cluster.Free,
 				Virtual:     true,
 			}
 			channels := []channel.Channel{ch1, ch2, ch3}
-			Expect(services[1].CreateMany(ctx, &channels)).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			Expect(services[1].RenameMany(
+			Expect(mockCluster.Nodes[1].Channel.RenameMany(
 				ctx,
 				keys,
 				[]string{"fermat1", "laplace1", "newton1"},
@@ -97,7 +94,7 @@ var _ = Describe("Rename", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				var resChannels []channel.Channel
-				g.Expect(services[1].NewRetrieve().WhereKeys(keys...).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
+				g.Expect(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(keys...).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 				Expect(channel.KeysFromChannels(resChannels)).To(Equal(keys))
 				g.Expect(resChannels[0].Name).To(Equal("fermat1"))
 				g.Expect(resChannels[1].Name).To(Equal("laplace1"))

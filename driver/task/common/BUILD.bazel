@@ -6,7 +6,7 @@ cc_library(
         "read_task.h",
         "sample_clock.h",
         "scan_task.h",
-        "state.h",
+        "status.h",
         "write_task.h",
     ],
     visibility = ["//visibility:public"],
@@ -27,7 +27,7 @@ cc_test(
         "read_task_test.cpp",
         "sample_clock_test.cpp",
         "scan_task_test.cpp",
-        "state_test.cpp",
+        "status_test.cpp",
         "write_task_test.cpp",
     ],
     deps = [

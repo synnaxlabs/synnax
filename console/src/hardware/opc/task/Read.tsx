@@ -17,6 +17,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
+import { type z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -24,10 +25,9 @@ import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
 import {
   READ_TYPE,
   type ReadChannel,
-  type ReadConfig,
   readConfigZ,
-  type ReadStateDetails,
-  type ReadType,
+  type readStatusDataZ,
+  type readTypeZ,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import { type Selector } from "@/selector";
@@ -131,9 +131,9 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }
   id: Common.Task.getChannelNameID(key),
 });
 
-const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = ({
-  isSnapshot,
-}) => (
+const TaskForm: FC<
+  Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
+> = ({ isSnapshot }) => (
   <Form
     isSnapshot={isSnapshot}
     convertHaulItemToChannel={convertHaulItemToChannel}
@@ -145,9 +145,9 @@ const TaskForm: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  ReadConfig,
-  ReadStateDetails,
-  ReadType
+  typeof readTypeZ,
+  typeof readConfigZ,
+  typeof readStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_READ_PAYLOAD,
   config: {
@@ -158,7 +158,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
 
 interface DetermineIndexChannelArgs {
   client: Synnax;
-  config: ReadConfig;
+  config: z.infer<typeof readConfigZ>;
   device: Device.Device;
   taskName: string;
 }
@@ -223,7 +223,7 @@ const determineIndexChannel = async ({
   return idx.key;
 };
 
-const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,
   config,
   name,

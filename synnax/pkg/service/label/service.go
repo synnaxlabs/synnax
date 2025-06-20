@@ -11,15 +11,16 @@ package label
 
 import (
 	"context"
+	"io"
+
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"io"
 )
 
 // Config is the configuration for the label service. Config is provided to the
@@ -52,9 +53,9 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("label")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Ontology", c.Ontology)
-	validate.NotNil(v, "Group", c.Group)
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
 	return v.Error()
 }
 

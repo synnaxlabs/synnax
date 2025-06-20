@@ -22,11 +22,9 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Channel", Ordered, func() {
@@ -48,41 +46,38 @@ var _ = Describe("Channel", Ordered, func() {
 			})
 
 			Describe("Create", func() {
-				DescribeTable("Validation", func(expected error, channels ...cesium.Channel) {
-					Expect(db.CreateChannel(ctx, channels...)).To(HaveOccurredAs(expected))
+				DescribeTable("Validation", func(substring string, channels ...cesium.Channel) {
+					Expect(db.CreateChannel(ctx, channels...)).To(MatchError(ContainSubstring(substring)))
 				},
 					Entry("ChannelKey has no datatype",
-						validate.FieldError{Field: "data_type", Message: "field must be set"},
+						"data_type: required",
 						cesium.Channel{Name: "cat", Key: 9990, IsIndex: true},
 						cesium.Channel{Name: "dog", Key: 9991, Index: 9990},
 					),
 					Entry("ChannelKey key already exists",
-						errors.Wrap(validate.Error, "cannot create channel [Isaac]<9992> because it already exists"),
+						"cannot create channel [Isaac]<9992> because it already exists",
 						cesium.Channel{Name: "Bob", Key: 9992, DataType: telem.TimeStampT, IsIndex: true},
 						cesium.Channel{Key: 9992, Name: "Isaac", DataType: telem.TimeStampT, IsIndex: true},
 					),
 					Entry("ChannelKey IsIndex - Non Int64 Series Variant",
-						validate.FieldError{Field: "data_type", Message: "index channel must be of type timestamp"},
+						"data_type: index channel must be of type timestamp",
 						cesium.Channel{Name: "Richard", Key: 9993, IsIndex: true, DataType: telem.Float32T},
 					),
 					Entry("ChannelKey IsIndex - LocalIndex non-zero",
-						validate.FieldError{Field: "index", Message: "index channel cannot be indexed by another channel"},
+						"index: index channel cannot be indexed by another channel",
 						cesium.Channel{Name: "Feynman", Key: 9995, IsIndex: true, DataType: telem.TimeStampT},
 						cesium.Channel{Name: "Cavendish", Key: 9996, IsIndex: true, Index: 9995, DataType: telem.TimeStampT},
 					),
 					Entry("ChannelKey has index - LocalIndex does not exist",
-						validate.FieldError{Field: "index", Message: "index channel <9994> does not exist"},
+						"index: index channel with key 9994 does not exist",
 						cesium.Channel{Name: "Laplatz", Key: 9997, Index: 9994, DataType: telem.Float64T},
 					),
 					Entry("ChannelKey has no index",
-						validate.FieldError{Field: "index", Message: "non-indexed channel must have an index"},
+						"index: non-indexed channel must have an index",
 						cesium.Channel{Name: "Steinbeck", Key: 9998, DataType: telem.Float32T},
 					),
 					Entry("ChannelKey has index - provided index key is not an indexed channel",
-						validate.FieldError{
-							Field:   "index",
-							Message: "channel [Sarah]<9981> is not an index",
-						},
+						"index: channel [Sarah]<9981> is not an index",
 						cesium.Channel{Name: "Hemingway", Key: 9980, DataType: telem.TimeStampT, IsIndex: true},
 						cesium.Channel{Name: "Sarah", Key: 9981, DataType: telem.Float64T, Index: 9980},
 						cesium.Channel{Name: "Kathy", Key: 9982, Index: 9981, DataType: telem.Float32T},

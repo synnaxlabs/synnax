@@ -45,7 +45,7 @@ var _ = Describe("Open", func() {
 					db, err := cesium.Open(ctx, "", cesium.WithFS(s), cesium.WithInstrumentation(PanicLogger()))
 					Expect(db).To(BeNil())
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("field must be set"))
+					Expect(err.Error()).To(ContainSubstring("required"))
 				})
 
 				It("Should not error when db gets created with proper numeric folders", func() {

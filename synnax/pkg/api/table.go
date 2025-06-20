@@ -29,7 +29,7 @@ type TableService struct {
 func NewTableService(p Provider) *TableService {
 	return &TableService{
 		dbProvider:     p.db,
-		internal:       p.Config.Table,
+		internal:       p.Service.Table,
 		accessProvider: p.access,
 	}
 }

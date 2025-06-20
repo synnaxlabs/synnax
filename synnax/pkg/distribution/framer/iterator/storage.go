@@ -12,13 +12,13 @@ package iterator
 import (
 	"context"
 
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
 func newStorageResponseTranslator(
-	host dcore.NodeKey,
+	host cluster.NodeKey,
 ) func(ctx context.Context, in ts.IteratorResponse) (Response, bool, error) {
 	return func(ctx context.Context, res ts.IteratorResponse) (Response, bool, error) {
 		return Response{

@@ -16,7 +16,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
@@ -32,10 +31,10 @@ func Publish(
 	prov *signals.Provider,
 	otg *ontology.Ontology,
 ) (io.Closer, error) {
-	resourceObserver := observe.Translator[iter.Nexter[schema.Change], []change.Change[[]byte, struct{}]]{
+	resourceObserver := observe.Translator[iter.Nexter[ontology.Change], []change.Change[[]byte, struct{}]]{
 		Observable: otg.ResourceObserver,
-		Translate: func(nexter iter.Nexter[schema.Change]) []change.Change[[]byte, struct{}] {
-			return iter.MapToSlice(ctx, nexter, func(ch schema.Change) change.Change[[]byte, struct{}] {
+		Translate: func(nexter iter.Nexter[ontology.Change]) []change.Change[[]byte, struct{}] {
+			return iter.MapToSlice(ctx, nexter, func(ch ontology.Change) change.Change[[]byte, struct{}] {
 				return change.Change[[]byte, struct{}]{
 					Key:     EncodeID(ch.Key),
 					Variant: ch.Variant,
@@ -83,7 +82,7 @@ func EncodeIDs(ids []ontology.ID) []byte {
 }
 
 func DecodeRelationships(ser []byte) ([]ontology.Relationship, error) {
-	// ser.Data is a byte slice containing the encoded relationships, we need to decode them
+	// ser.Config is a byte slice containing the encoded relationships, we need to decode them
 	// by looking for the newline separator.
 	var (
 		relationships []ontology.Relationship
@@ -107,7 +106,7 @@ func DecodeRelationships(ser []byte) ([]ontology.Relationship, error) {
 }
 
 func DecodeIDs(ser []byte) ([]ontology.ID, error) {
-	// ser.Data is a byte slice containing the encoded IDs, we need to decode them
+	// ser.Config is a byte slice containing the encoded IDs, we need to decode them
 	// by looking for the newline separator.
 	var (
 		ids []ontology.ID
@@ -115,7 +114,7 @@ func DecodeIDs(ser []byte) ([]ontology.ID, error) {
 	)
 	for _, b := range ser {
 		if b == '\n' {
-			id, err := schema.ParseID(buf.String())
+			id, err := ontology.ParseID(buf.String())
 			if err != nil {
 				return nil, err
 			}

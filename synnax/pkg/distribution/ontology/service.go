@@ -13,10 +13,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
 )
 
@@ -25,15 +25,16 @@ import (
 // between entities, it is a service's responsibility to provide the entities themselves
 // when the ontology requests them.
 type Service interface {
+	Type() Type
 	// Schema returns the schema of the entities returned by this service.
-	Schema() *Schema
+	Schema() zyn.Z
 	// RetrieveResource returns the resource with the give key (Name.Name). If the resource
 	// does not exist, returns a query.NotFound error.
 	RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (Resource, error)
 	// Observable is used by the ontology to subscribe to changes in the entities.
 	// This functionality is primarily used for search indexing. If the service's entities
 	// are static, use observe.Noop.
-	observe.Observable[iter.Nexter[schema.Change]]
+	observe.Observable[iter.Nexter[Change]]
 	// OpenNexter opens a Nexter type iterator that allows the caller to iterate over
 	// all resources held by the Service.
 	OpenNexter() (iter.NexterCloser[Resource], error)
@@ -42,9 +43,9 @@ type Service interface {
 type serviceRegistrar map[Type]Service
 
 func (s serviceRegistrar) register(svc Service) {
-	t := svc.Schema().Type
+	t := svc.Type()
 	if _, ok := s[t]; ok {
-		zap.S().DPanic("service already registered", zap.String("type", t.String()))
+		zap.S().DPanic("service already registered", zap.Stringer("type", t))
 		return
 	}
 	s[t] = svc

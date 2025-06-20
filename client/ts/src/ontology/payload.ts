@@ -14,7 +14,9 @@ import {
   ALLOW_ALL_ONTOLOGY_TYPE as ALLOW_ALL_TYPE,
   ONTOLOGY_TYPE as POLICY_TYPE,
 } from "@/access/policy/ontology";
+import { ONTOLOGY_TYPE as ANNOTATION_TYPE } from "@/annotation/payload";
 import { ONTOLOGY_TYPE as CHANNEL_TYPE } from "@/channel/payload";
+import { ONTOLOGY_TYPE as EFFECT_TYPE } from "@/effect/payload";
 import { ONTOLOGY_TYPE as FRAMER_TYPE } from "@/framer/frame";
 import { ONTOLOGY_TYPE as DEVICE_TYPE } from "@/hardware/device/payload";
 import { ONTOLOGY_TYPE as RACK_TYPE } from "@/hardware/rack/payload";
@@ -25,13 +27,13 @@ import {
   ALIAS_ONTOLOGY_TYPE as RANGE_ALIAS_TYPE,
   ONTOLOGY_TYPE as RANGE_TYPE,
 } from "@/ranger/payload";
+import { ONTOLOGY_TYPE as SLATE_TYPE } from "@/slate/payload";
 import { ONTOLOGY_TYPE as USER_TYPE } from "@/user/payload";
 import { ONTOLOGY_TYPE as LINE_PLOT_TYPE } from "@/workspace/lineplot/payload";
 import { ONTOLOGY_TYPE as LOG_TYPE } from "@/workspace/log/payload";
 import { ONTOLOGY_TYPE as WORKSPACE_TYPE } from "@/workspace/payload";
 import { ONTOLOGY_TYPE as SCHEMATIC_TYPE } from "@/workspace/schematic/payload";
 import { ONTOLOGY_TYPE as TABLE_TYPE } from "@/workspace/table/payload";
-
 export type ResourceChange = change.Change<ID, Resource>;
 export interface ResourceSet extends change.Set<ID, Resource> {}
 export interface ResourceDelete extends change.Delete<ID, Resource> {}
@@ -64,6 +66,9 @@ export const resourceTypeZ = z.enum([
   TASK_TYPE,
   POLICY_TYPE,
   TABLE_TYPE,
+  EFFECT_TYPE,
+  SLATE_TYPE,
+  ANNOTATION_TYPE,
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 
@@ -119,20 +124,10 @@ export class ID {
 
 export const ROOT_ID = new ID({ type: BUILTIN_TYPE, key: "root" });
 
-export const schemaFieldZ = z.object({ type: z.number() });
-export interface SchemaField extends z.infer<typeof schemaFieldZ> {}
-
-export const schemaZ = z.object({
-  type: resourceTypeZ,
-  fields: z.record(z.string(), schemaFieldZ),
-});
-export interface Schema extends z.infer<typeof schemaZ> {}
-
 export const resourceZ = z
   .object({
     id: ID.z,
     name: z.string(),
-    schema: schemaZ.optional().nullable(),
     data: record.unknownZ.optional().nullable(),
   })
   .transform((resource) => ({ key: resource.id.toString(), ...resource }));

@@ -95,9 +95,7 @@ const loadInitialTree = async (
   setResources: state.Set<ontology.Resource[]>,
   root: ontology.ID,
 ): Promise<void> => {
-  const fetched = await client.ontology.retrieveChildren(root, {
-    includeSchema: true,
-  });
+  const fetched = await client.ontology.retrieveChildren(root);
   setNodes(toTreeNodes(services, fetched));
   setResources((p) => updateResources(p, fetched));
 };
@@ -291,9 +289,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
             // created on the server, an error will be thrown when we try to retrieve
             // the children of the new group.
             return;
-          const resources = await client.ontology.retrieveChildren(id, {
-            includeSchema: false,
-          });
+          const resources = await client.ontology.retrieveChildren(id);
           const converted = toTreeNodes(services, resources);
           const nextTree = Core.updateNodeChildren({
             tree: nodesRef.current,

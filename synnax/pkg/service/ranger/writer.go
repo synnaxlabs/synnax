@@ -11,10 +11,11 @@ package ranger
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -57,6 +58,9 @@ func (w Writer) CreateWithParent(
 	}
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
+	}
+	if r.Stage == "" {
+		r.Stage = ToDo
 	}
 	if err = w.validate(*r); err != nil {
 		return
@@ -140,7 +144,7 @@ func (w Writer) Rename(
 }
 
 // Delete deletes the range with the given key. Delete will also delete all children
-// of the range. Delete is idempotent.
+// of the range. Delete is idemp.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	// Query the ontology to find all children of the range and delete them as well
 	var children []ontology.Resource

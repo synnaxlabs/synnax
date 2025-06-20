@@ -26,7 +26,7 @@ func NewMemBuilder(defaultOpts ...aspen.Option) *Builder {
 	return &Builder{
 		DefaultOptions: append([]aspen.Option{
 			aspen.WithTransport(mock.NewNetwork().NewTransport()),
-			aspen.MemBacked(),
+			aspen.InMemory(),
 			aspen.WithPropagationConfig(propConfig),
 		}, defaultOpts...),
 		Nodes:     make(map[aspen.NodeKey]NodeInfo),

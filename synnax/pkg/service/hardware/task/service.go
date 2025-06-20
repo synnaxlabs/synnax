@@ -11,14 +11,16 @@ package task
 
 import (
 	"context"
-	"github.com/synnaxlabs/alamos"
-	"go.uber.org/zap"
 	"io"
 
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"go.uber.org/zap"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/config"
@@ -37,7 +39,7 @@ type Config struct {
 	Group        *group.Service
 	Rack         *rack.Service
 	Signals      *signals.Provider
-	HostProvider core.HostProvider
+	HostProvider cluster.HostProvider
 	Channel      channel.Writeable
 }
 
@@ -75,7 +77,7 @@ type Service struct {
 	group           group.Group
 }
 
-const groupName = "Tasks"
+const groupName = "TaskStatuses"
 
 func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)

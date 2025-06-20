@@ -16,7 +16,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -54,7 +55,7 @@ type ServiceConfig struct {
 	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
 	// StateCodec is the encoder/decoder used to communicate calculation state
 	// changes.
-	// [OPTIONAL]
+	// [OPTIONAL] - defaults to a JSON codec.
 	StateCodec binary.Codec
 }
 
@@ -67,10 +68,10 @@ var (
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
-	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "Channel", c.Channel)
-	validate.NotNil(v, "ChannelObservable", c.ChannelObservable)
-	validate.NotNil(v, "StateCodec", c.StateCodec)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "channelObservable", c.ChannelObservable)
+	validate.NotNil(v, "state_codec", c.StateCodec)
 	return v.Error()
 }
 
@@ -126,7 +127,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Name:        "sy_calculation_state",
 		DataType:    telem.JSONT,
 		Virtual:     true,
-		Leaseholder: dcore.Free,
+		Leaseholder: cluster.Free,
 		Internal:    true,
 	}
 

@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, notation, scale, status as xstatus } from "@synnaxlabs/x";
+import { bounds, color, notation, scale, status } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { type status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
 import {
   type BooleanSink,
@@ -133,11 +132,11 @@ export const mean = (props: z.input<typeof meanProps>): BooleanSourceSpec => ({
 });
 
 export const booleanStatusProps = z.object({
-  trueVariant: xstatus.variantZ.optional().default("success"),
+  trueVariant: status.variantZ.optional().default("success"),
 });
 
 export class BooleanStatus extends UnarySourceTransformer<
-  status.Spec,
+  status.Status,
   boolean,
   typeof booleanStatusProps
 > {
@@ -145,7 +144,7 @@ export class BooleanStatus extends UnarySourceTransformer<
   static readonly propsZ = booleanStatusProps;
   schema = BooleanStatus.propsZ;
 
-  protected transform(value: status.Spec): boolean {
+  protected transform(value: status.Status): boolean {
     return value.variant === this.props.trueVariant;
   }
 }
