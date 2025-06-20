@@ -149,12 +149,12 @@ describe("useAsyncEffect", () => {
   });
 
   it("should have an error if the effect throws an error", async () => {
-    const onError = vi.fn();
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const effect = vi.fn(async () => {
       throw new Error("test");
     });
-    renderHook(() => useAsyncEffect(effect, undefined, onError));
+    renderHook(() => useAsyncEffect(effect, undefined));
     await flushTaskQueue();
-    expect(onError).toHaveBeenCalledWith(new Error("test"));
+    expect(consoleSpy).toHaveBeenCalledWith(new Error("test"));
   });
 });
