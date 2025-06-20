@@ -128,7 +128,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   Ontology.useResourceDeleteSynchronizer(handleResourceDelete);
 
   const handleRelationshipDelete = useCallback((rel: ontology.Relationship) => {
-    if (rel.type !== ontology.PARENT_RELATIONSHIP_TYPE) return;
+    if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
     setNodes((prevNodes) =>
       Core.removeNode({ keys: [rel.to.toString()], tree: prevNodes }),
     );
@@ -136,7 +136,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   Ontology.useRelationshipDeleteSynchronizer(handleRelationshipDelete);
 
   const handleRelationshipSet = useCallback((rel: ontology.Relationship) => {
-    if (rel.type !== ontology.PARENT_RELATIONSHIP_TYPE) return;
+    if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
     const { from, to } = rel;
     const visibleNode = Core.findNode({
       tree: nodesRef.current,

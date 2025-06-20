@@ -29,9 +29,9 @@ interface ClientConnector {
   (connected: boolean): void;
 }
 
-const TestContext = createContext<ClientConnector>(() => () => {});
+const Context = createContext<ClientConnector>(() => () => {});
 
-export const useConnectToClient = () => use(TestContext);
+export const useConnectToClient = () => use(Context);
 
 export const SynnaxProvider = (props: PropsWithChildren): ReactElement => {
   const [isConnected, setIsConnected] = useState(false);
@@ -40,7 +40,7 @@ export const SynnaxProvider = (props: PropsWithChildren): ReactElement => {
     [],
   );
   return (
-    <TestContext value={handleConnect}>
+    <Context value={handleConnect}>
       <AetherProvider>
         <Status.Aggregator>
           <Synnax.Provider
@@ -49,6 +49,6 @@ export const SynnaxProvider = (props: PropsWithChildren): ReactElement => {
           />
         </Status.Aggregator>
       </AetherProvider>
-    </TestContext>
+    </Context>
   );
 };

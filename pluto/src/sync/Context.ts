@@ -12,10 +12,11 @@ import { createContext, use } from "react";
 import { useRequiredContext } from "@/hooks";
 import { type ListenerAdder } from "@/sync/types";
 
-export const Context = createContext<ListenerAdder | null>(null);
+export const AddListenerContext = createContext<ListenerAdder | null>(null);
 
-export const TestContext = createContext(false);
+export const IsStreamerOpenContext = createContext(false);
 
-export const useAddListener = (): ListenerAdder => useRequiredContext(Context);
+export const useAddListener = (): ListenerAdder =>
+  useRequiredContext(AddListenerContext);
 
-export const useStreamerIsOpen = (): boolean => use(TestContext);
+export const useIsStreamerOpen = (): boolean => use(IsStreamerOpenContext);

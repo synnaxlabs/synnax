@@ -20,7 +20,7 @@ import {
 
 import { useAsyncEffect } from "@/hooks";
 import { Status } from "@/status";
-import { Context, TestContext } from "@/sync/Context";
+import { AddListenerContext, IsStreamerOpenContext } from "@/sync/Context";
 import { type FrameHandler, type ListenerAdder } from "@/sync/types";
 import { Synnax } from "@/synnax";
 
@@ -72,8 +72,8 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
       });
       return async () => {
         setIsStreamerOpen(false);
-        await observableStreamer.close();
         streamerRef.current = null;
+        await observableStreamer.close();
       };
     },
     [client, handleError],
@@ -110,10 +110,10 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
   );
 
   return (
-    <Context {...props} value={addListener}>
-      <TestContext.Provider value={isStreamerOpen}>
+    <AddListenerContext {...props} value={addListener}>
+      <IsStreamerOpenContext.Provider value={isStreamerOpen}>
         {props.children}
-      </TestContext.Provider>
-    </Context>
+      </IsStreamerOpenContext.Provider>
+    </AddListenerContext>
   );
 };
