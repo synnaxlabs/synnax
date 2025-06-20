@@ -11,7 +11,7 @@ import { flushTaskQueue } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { useAsyncEffect } from "./useAsyncEffect";
+import { useAsyncEffect } from "@/hooks/useAsyncEffect";
 
 describe("useAsyncEffect", () => {
   it("should call the effect function", async () => {

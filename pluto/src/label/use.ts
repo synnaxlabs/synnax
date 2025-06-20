@@ -43,7 +43,7 @@ export const use = (id: ontology.CrudeID): label.Label[] => {
 
   const handleError = Status.useErrorHandler();
 
-  const handleLabelSet = useCallback(
+  const handleRelationshipSet = useCallback(
     (relationship: ontology.Relationship) => {
       if (relationship.type !== "labeled_by" || !relationship.from.equals(idStr))
         return;
@@ -60,7 +60,7 @@ export const use = (id: ontology.CrudeID): label.Label[] => {
     },
     [client, idStr, labels],
   );
-  Ontology.useRelationshipSetSynchronizer(handleLabelSet);
+  Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
 
   const handleDeleteLabels = useCallback(
     (key: label.Key) => {

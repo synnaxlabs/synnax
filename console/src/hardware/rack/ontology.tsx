@@ -10,14 +10,21 @@
 import "@/hardware/rack/ontology.css";
 
 import { ontology, rack } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Status, Text, Tooltip, Tree } from "@synnaxlabs/pluto";
+import {
+  Icon,
+  Menu as PMenu,
+  Rack,
+  Status,
+  Text,
+  Tooltip,
+  Tree,
+} from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
-import { useState } from "@/hardware/rack/StateContext";
 import { Sequence } from "@/hardware/task/sequence";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
@@ -68,7 +75,7 @@ const handleRename: Ontology.HandleTreeRename = {
 
 const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
-  const state = useState(id.key);
+  const state = Rack.useState(Number(id.key));
 
   const heartRef = useRef<SVGSVGElement>(null);
 

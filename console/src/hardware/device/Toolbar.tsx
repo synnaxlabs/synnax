@@ -7,42 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, ontology } from "@synnaxlabs/client";
-import { Align, Device, Icon, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { ontology } from "@synnaxlabs/client";
+import { Align, Icon, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useState,
-} from "react";
+import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { Toolbar } from "@/components";
-import { StateContext, type States } from "@/hardware/device/StateContext";
-import { Rack } from "@/hardware/rack";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
-
-const StateProvider = (props: PropsWithChildren) => {
-  const client = Synnax.use();
-  const [states, setStates] = useState<States>({});
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const devices = await client.hardware.devices.retrieve([], { includeState: true });
-    const initialStates: States = Object.fromEntries(
-      devices
-        .filter(({ state }) => state != null)
-        .map(({ key, state }) => [key, state as device.State]),
-    );
-    setStates(initialStates);
-  }, [client]);
-  const handleStateUpdate = useCallback((state: device.State) => {
-    setStates((prevStates) => ({ ...prevStates, [state.key]: state }));
-  }, []);
-  Device.useStateSynchronizer(handleStateUpdate);
-  return <StateContext {...props} value={states} />;
-};
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
@@ -54,19 +27,14 @@ const Content = (): ReactElement => {
       return res.filter((r) => r.name === "Devices")[0].id;
     },
   });
-
   return (
     <Cluster.NoneConnectedBoundary>
-      <StateProvider>
-        <Rack.StateProvider>
-          <Align.Space empty style={{ height: "100%" }}>
-            <Toolbar.Header>
-              <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
-            </Toolbar.Header>
-            <Ontology.Tree root={group.data} />
-          </Align.Space>
-        </Rack.StateProvider>
-      </StateProvider>
+      <Align.Space empty style={{ height: "100%" }}>
+        <Toolbar.Header>
+          <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
+        </Toolbar.Header>
+        <Ontology.Tree root={group.data} />
+      </Align.Space>
     </Cluster.NoneConnectedBoundary>
   );
 };
