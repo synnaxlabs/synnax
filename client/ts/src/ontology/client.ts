@@ -17,10 +17,10 @@ import { type framer } from "@/framer";
 import { group } from "@/ontology/group";
 import {
   type CrudeID,
-  getOppositeRelationshipDirection,
   ID,
   type IDPayload,
   idZ,
+  oppositeRelationshipDirection,
   PARENT_OF_RELATIONSHIP_TYPE,
   parseRelationship,
   type RelationshipChange,
@@ -437,8 +437,7 @@ export class DependentTracker
         c.variant === "delete" &&
         c.key[this.relDir].toString() === this.target.toString() &&
         (this.resourceType == null ||
-          c.key[getOppositeRelationshipDirection(this.relDir)].type ===
-            this.resourceType),
+          c.key[oppositeRelationshipDirection(this.relDir)].type === this.resourceType),
     );
     this.dependents = this.dependents.filter(
       (child) =>
@@ -454,8 +453,7 @@ export class DependentTracker
         c.key.type === this.relType &&
         c.key[this.relDir].toString() === this.target.toString() &&
         (this.resourceType == null ||
-          c.key[getOppositeRelationshipDirection(this.relDir)].type ===
-            this.resourceType),
+          c.key[oppositeRelationshipDirection(this.relDir)].type === this.resourceType),
     );
     if (sets.length === 0) return this.notify(this.dependents);
     this.client

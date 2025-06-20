@@ -143,7 +143,7 @@ export interface Resource<T extends record.Unknown = record.Unknown>
 
 export type RelationshipDirection = "to" | "from";
 
-export const getOppositeRelationshipDirection = (
+export const oppositeRelationshipDirection = (
   direction: RelationshipDirection,
 ): RelationshipDirection => (direction === "to" ? "from" : "to");
 
