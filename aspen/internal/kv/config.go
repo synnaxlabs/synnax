@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -51,7 +51,7 @@ type Config struct {
 	RecoveryTransportServer RecoveryTransportServer
 	// Engine is the underlying key-value engine that DB writes its key-value pairs to.
 	// [Required]
-	Engine kvx.DB
+	Engine xkv.DB
 	// GossipInterval is how often a node initiates gossip with a peer.
 	// [Not Required]
 	GossipInterval time.Duration

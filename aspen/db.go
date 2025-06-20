@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/aspen/transport"
 	"github.com/synnaxlabs/x/address"
 	xio "github.com/synnaxlabs/x/io"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	storex "github.com/synnaxlabs/x/store"
 )
@@ -81,11 +81,11 @@ var NodeNotfound = cluster.NodeNotFound
 
 type DB struct {
 	Cluster *cluster.Cluster
-	kvx.DB
+	xkv.DB
 	closer xio.MultiCloser
 }
 
-// Close implements kvx.DB, shutting down the key-value store, cluster and transport.
+// Close implements xkv.DB, shutting down the key-value store, cluster and transport.
 // Close is not safe to call concurrently with any other DB method. All DB methods
 // called after Close will panic.
 func (db *DB) Close() error { return db.closer.Close() }

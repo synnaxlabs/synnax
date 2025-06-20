@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/freighter/falamos"
 	"github.com/synnaxlabs/x/address"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/signal"
@@ -94,7 +94,7 @@ func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
 	return transportShutdown, nil
 }
 
-func openKV(o *options) (kvx.DB, error) {
+func openKV(o *options) (xkv.DB, error) {
 	pebbleDB, err := pebble.Open(o.dirname, &pebble.Options{FS: o.fs})
 	if err != nil {
 		return nil, err

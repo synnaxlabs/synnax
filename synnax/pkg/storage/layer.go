@@ -131,7 +131,7 @@ func (cfg Config) Validate() error {
 	v := validate.New("storage")
 	v.Ternaryf("dirname", !*cfg.InMemory && cfg.Dirname == "", "dirname must be set")
 	v.Ternaryf("kv_engine", !lo.Contains(kvEngines, cfg.KVEngine), "invalid key-value engine %s", cfg.KVEngine)
-	v.Ternaryf("ts_engne", !lo.Contains(tsEngines, cfg.TSEngine), "invalid time-series engine %s", cfg.TSEngine)
+	v.Ternaryf("ts_engine", !lo.Contains(tsEngines, cfg.TSEngine), "invalid time-series engine %s", cfg.TSEngine)
 	v.Ternary("permissions", cfg.Perm == 0, "insufficient permission bits on directory")
 	return v.Error()
 }
