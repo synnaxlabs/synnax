@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Device, Status } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import { type record, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 const PREFIX = "new-device-";
@@ -33,5 +33,7 @@ export const useListenForChanges = () => {
 
 export const getKeyFromStatus = ({
   key,
-}: Status.NotificationSpec): device.Key | null =>
-  key.startsWith(PREFIX) ? key.slice(PREFIX.length) : null;
+}: Status.NotificationSpec): device.Key | null => {
+  if (!key.startsWith(PREFIX)) return null;
+  return strings.trimPrefix(key, PREFIX);
+};
