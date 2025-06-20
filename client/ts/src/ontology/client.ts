@@ -21,6 +21,7 @@ import {
   ID,
   type IDPayload,
   idZ,
+  PARENT_OF_RELATIONSHIP_TYPE,
   parseRelationship,
   type RelationshipChange,
   type RelationshipDirection,
@@ -392,7 +393,7 @@ export class DependentTracker
     {
       target,
       dependents,
-      relationshipType = "parent",
+      relationshipType = PARENT_OF_RELATIONSHIP_TYPE,
       relationshipDirection = "from",
       resourceType,
     }: DependentTrackerProps,

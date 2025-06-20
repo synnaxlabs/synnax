@@ -25,7 +25,7 @@ const matchRelationshipAndID = (
   direction: ontology.RelationshipDirection,
   key: string,
 ) =>
-  relationship.type === "parent" &&
+  relationship.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
   relationship[ontology.getOppositeRelationshipDirection(direction)].equals(key);
 
 const useDependentTracker = (

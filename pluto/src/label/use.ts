@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, ontology } from "@synnaxlabs/client";
+import { label, ontology } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -36,7 +36,10 @@ export const use = (id: ontology.CrudeID): label.Label[] => {
 
   const handleRelationshipDelete = useCallback(
     (relationship: ontology.Relationship) => {
-      if (relationship.type == "labeled_by" && relationship.from.equals(idStr))
+      if (
+        relationship.type == label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
+        relationship.from.equals(idStr)
+      )
         setLabels((prevLabels) =>
           prevLabels.filter((l) => l.key !== relationship.to.key),
         );
@@ -49,7 +52,10 @@ export const use = (id: ontology.CrudeID): label.Label[] => {
 
   const handleRelationshipSet = useCallback(
     (relationship: ontology.Relationship) => {
-      if (relationship.type !== "labeled_by" || !relationship.from.equals(idStr))
+      if (
+        relationship.type !== label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE ||
+        !relationship.from.equals(idStr)
+      )
         return;
       const { key } = relationship.to;
       if (labels.some((l) => l.key === key)) return;

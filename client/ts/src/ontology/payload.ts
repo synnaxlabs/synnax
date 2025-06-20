@@ -155,4 +155,4 @@ export const parseRelationship = (str: string): Relationship => {
   return { from: new ID(from), type, to: new ID(to) };
 };
 
-export const PARENT_RELATIONSHIP_TYPE = "parent";
+export const PARENT_OF_RELATIONSHIP_TYPE = "parent";
