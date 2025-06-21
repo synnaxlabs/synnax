@@ -13,7 +13,6 @@ import {
   array,
   type AsyncTermSearcher,
   type color,
-  compare,
   convertRenderV,
   type record,
   type RenderableValue,
@@ -170,10 +169,7 @@ export const Multiple = <
     async (signal) => {
       setLoading(true);
       if (selectValueIsZero(value)) setSelected([]);
-      const inSelected = selected.map((v) => v.key);
       const nextValue = array.toArray(value);
-      if (compare.unorderedPrimitiveArrays(inSelected, nextValue) === compare.EQUAL)
-        return;
       let nextSelected: E[] = [];
       if (searchMode)
         // Wrap this in a try-except clause just in case the searcher throws an error.
