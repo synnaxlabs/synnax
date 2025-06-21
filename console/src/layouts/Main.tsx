@@ -35,6 +35,7 @@ import { Link } from "@/link";
 import { LogServices } from "@/log/services";
 import { Notifications } from "@/notifications";
 import { Permissions } from "@/permissions";
+import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
@@ -68,6 +69,7 @@ const SideEffect = (): null => {
   Cluster.useSyncClusterKey();
   Hardware.Device.useListenForChanges();
   Channel.useListenForCalculationState();
+  Range.useListenForChanges();
   Workspace.useSyncLayout();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
