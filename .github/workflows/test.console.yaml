@@ -17,7 +17,6 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - turbo.json
-      - vitest.workspace.ts
       - x/media/**
       - x/ts/**
   workflow_dispatch:

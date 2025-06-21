@@ -87,3 +87,23 @@ export const createShortIdentifiers = (name: string): string[] => {
 
   return filteredIdentifiers;
 };
+
+/**
+ * Removes a prefix from a string if it exists.
+ *
+ * @param str - The string to remove the prefix from.
+ * @param prefix - The prefix to remove.
+ * @returns The string with the prefix removed if it was present, otherwise the original string.
+ *
+ * @example
+ * ```typescript
+ * trimPrefix("hello world", "hello "); // "world"
+ * trimPrefix("hello world", "goodbye "); // "hello world"
+ * trimPrefix("hello world", ""); // "hello world"
+ * trimPrefix("hello world", "hello world"); // ""
+ * ```
+ */
+export const trimPrefix = (str: string, prefix: string): string => {
+  if (str.startsWith(prefix)) return str.slice(prefix.length);
+  return str;
+};

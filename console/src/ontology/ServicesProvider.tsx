@@ -11,11 +11,9 @@ import { createContext, type PropsWithChildren, type ReactElement, use } from "r
 
 import { type Services } from "@/ontology/service";
 
-export interface ServicesContextValue extends Services {}
+const Context = createContext<Services | null>(null);
 
-const Context = createContext<ServicesContextValue | null>(null);
-
-export const useServices = (): ServicesContextValue => {
+export const useServices = (): Services => {
   const services = use(Context);
   if (services == null)
     throw new Error("useServices must be used within a ServicesProvider");
@@ -28,7 +26,5 @@ export interface ServicesProviderProps extends PropsWithChildren {
 
 export const ServicesProvider = ({
   services,
-  children,
-}: ServicesProviderProps): ReactElement => (
-  <Context value={services}>{children}</Context>
-);
+  ...rest
+}: ServicesProviderProps): ReactElement => <Context value={services} {...rest} />;
