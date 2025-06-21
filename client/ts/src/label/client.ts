@@ -12,14 +12,20 @@ import { observe } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 
 import { type framer } from "@/framer";
-import { type Key, type Label, labelZ, ONTOLOGY_TYPE } from "@/label/payload";
+import {
+  type Key,
+  type Label,
+  LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+  labelZ,
+  ONTOLOGY_TYPE,
+} from "@/label/payload";
 import { Retriever } from "@/label/retriever";
 import { type New, type SetOptions, Writer } from "@/label/writer";
 import { ontology } from "@/ontology";
 import { signals } from "@/signals";
 
-const SET_CHANNEL_NAME = "sy_label_set";
-const DELETE_CHANNEL_NAME = "sy_label_delete";
+export const SET_CHANNEL_NAME = "sy_label_set";
+export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
 export class Client implements AsyncTermSearcher<string, Key, Label> {
   readonly type: string = "label";
@@ -107,7 +113,7 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
     const base = await this.ontology.openDependentTracker({
       target: new ontology.ID(id),
       dependents: initial,
-      relationshipType: "labeled_by",
+      relationshipType: LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
     });
     base.onChange((resources: ontology.Resource[]) =>
       wrapper.notify(

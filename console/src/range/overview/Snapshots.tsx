@@ -10,21 +10,21 @@
 import {
   type ontology,
   ranger,
-  type schematic,
+  schematic,
   type Synnax as Client,
-  type task,
+  task,
 } from "@synnaxlabs/client";
 import {
   Align,
   componentRenderProp,
   Icon,
   List,
+  Ontology,
   Status,
   Synnax,
   Text,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { type FC, useState } from "react";
+import { type FC } from "react";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/hardware/task/layouts";
@@ -42,7 +42,7 @@ interface SnapshotService {
 }
 
 const SNAPSHOTS: Record<schematic.OntologyType | task.OntologyType, SnapshotService> = {
-  schematic: {
+  [schematic.ONTOLOGY_TYPE]: {
     icon: <Icon.Schematic />,
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
       if (client == null) throw NULL_CLIENT_ERROR;
@@ -52,7 +52,7 @@ const SNAPSHOTS: Record<schematic.OntologyType | task.OntologyType, SnapshotServ
       );
     },
   },
-  task: {
+  [task.ONTOLOGY_TYPE]: {
     icon: <Icon.Task />,
     onClick: async ({ id: { key } }, { client, placeLayout }) =>
       retrieveAndPlaceTaskLayout(client, key, placeLayout),
@@ -98,27 +98,9 @@ export interface SnapshotsProps {
 }
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const client = Synnax.use();
-  const [snapshots, setSnapshots] = useState<ontology.Resource[]>([]);
-
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const otgID = ranger.ontologyID(rangeKey);
-    const children = await client.ontology.retrieveChildren(otgID);
-    const relevant = children.filter((child) => child.data?.snapshot === true);
-    setSnapshots(relevant);
-    const tracker = await client.ontology.openDependentTracker({
-      target: otgID,
-      dependents: relevant,
-      relationshipDirection: "from",
-    });
-    tracker.onChange((snapshots) => {
-      const relevant = snapshots.filter((child) => child.data?.snapshot === true);
-      setSnapshots(relevant);
-    });
-    return async () => await tracker.close();
-  }, [client, rangeKey]);
-
+  const snapshots = Ontology.useChildren(ranger.ontologyID(rangeKey)).filter(
+    ({ data }) => data?.snapshot === true,
+  );
   return (
     <Align.Space y>
       <Text.Text level="h4" shade={10} weight={500}>

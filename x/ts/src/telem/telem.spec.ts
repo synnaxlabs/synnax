@@ -359,6 +359,32 @@ describe("TimeStamp", () => {
       expect(remainder.equals(expectedRemainder)).toBeTruthy();
     });
   });
+
+  describe("sort", () => {
+    interface Spec {
+      a: TimeStamp;
+      b: TimeStamp;
+      expected: number;
+    }
+    const TESTS: Spec[] = [
+      {
+        a: TimeStamp.seconds(3),
+        b: TimeStamp.seconds(2),
+        expected: TimeSpan.seconds(1).nanoseconds,
+      },
+      {
+        a: TimeStamp.seconds(2),
+        b: TimeStamp.seconds(3),
+        expected: TimeSpan.seconds(-1).nanoseconds,
+      },
+      { a: TimeStamp.seconds(2), b: TimeStamp.seconds(2), expected: 0 },
+    ];
+    TESTS.forEach(({ a, b, expected }) => {
+      test(`TimeStamp.sort(${a.toString()}, ${b.toString()}) = ${expected}`, () => {
+        expect(TimeStamp.sort(a, b)).toEqual(expected);
+      });
+    });
+  });
 });
 
 describe("TimeSpan", () => {
@@ -624,6 +650,27 @@ describe("TimeRange", () => {
     expect(trString).toEqual("1970-01-03T00:20:00.283Z - 1970-01-05T00:20:00.283Z");
   });
 
+  describe("sort", () => {
+    interface Spec {
+      a: TimeRange;
+      b: TimeRange;
+      expected: number;
+    }
+    const TESTS: Spec[] = [
+      { a: new TimeRange(1, 2), b: new TimeRange(2, 3), expected: -1 },
+      { a: new TimeRange(2, 3), b: new TimeRange(1, 2), expected: 1 },
+      { a: new TimeRange(1, 2), b: new TimeRange(1, 2), expected: 0 },
+      { a: new TimeRange(2, 0), b: new TimeRange(1, 1), expected: 1 },
+      { a: new TimeRange(2, 2), b: new TimeRange(3, 0), expected: -1 },
+      { a: new TimeRange(2, 8), b: new TimeRange(2, 9), expected: -1 },
+      { a: new TimeRange(2, 9), b: new TimeRange(2, 8), expected: 1 },
+    ];
+    TESTS.forEach(({ a, b, expected }) => {
+      test(`TimeRange.sort(${a.toString()}, ${b.toString()}) = ${expected}`, () => {
+        expect(TimeRange.sort(a, b)).toEqual(expected);
+      });
+    });
+  });
   describe("numericBounds", () => {
     it("should return correct numeric bounds for a valid time range", () => {
       const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4));

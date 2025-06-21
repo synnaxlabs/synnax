@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
+import { rack, type task, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -47,8 +47,10 @@ import {
 } from "@/hardware/opc/device/types";
 import {
   SCAN_TYPE,
+  type ScanConfig,
+  type ScanStateDetails,
+  type ScanType,
   TEST_CONNECTION_COMMAND_TYPE,
-  type TestConnectionCommandResponse,
   type TestConnectionCommandState,
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
@@ -94,13 +96,17 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       const scanTasks = await rack.retrieveTaskByType(SCAN_TYPE);
       if (scanTasks.length === 0)
         throw new UnexpectedError(`No scan task found for driver ${rack.name}`);
-      const task = scanTasks[0];
-      const state = await task.executeCommandSync<TestConnectionCommandResponse>(
+      const task = scanTasks[0] as unknown as task.Task<
+        ScanConfig,
+        ScanStateDetails,
+        ScanType
+      >;
+      const state = await task.executeCommandSync(
         TEST_CONNECTION_COMMAND_TYPE,
-        { connection: methods.get("connection").value },
         TimeSpan.seconds(10),
+        { connection: methods.get("connection").value },
       );
-      setConnectionState(state);
+      setConnectionState(state as TestConnectionCommandState);
     },
   });
   const connectMutation = useMutation({

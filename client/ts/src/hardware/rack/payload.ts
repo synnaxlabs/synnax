@@ -18,7 +18,7 @@ export const stateZ = z.object({
   key: keyZ,
   variant: status.variantZ.or(z.literal("").transform<status.Variant>(() => "info")),
   message: z.string(),
-  lastReceived: TimeStamp.z,
+  lastReceived: TimeStamp.z.optional(),
 });
 
 export interface State extends z.infer<typeof stateZ> {}

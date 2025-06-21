@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { id } from "@synnaxlabs/x";
+import { caseconv, id } from "@synnaxlabs/x";
 import { array } from "@synnaxlabs/x/array";
 import { type record } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
@@ -38,17 +38,17 @@ import { signals } from "@/signals";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
-const STATE_CHANNEL_NAME = "sy_task_state";
-const COMMAND_CHANNEL_NAME = "sy_task_cmd";
-const SET_CHANNEL_NAME = "sy_task_set";
-const DELETE_CHANNEL_NAME = "sy_task_delete";
+export const STATE_CHANNEL_NAME = "sy_task_state";
+export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
+export const SET_CHANNEL_NAME = "sy_task_set";
+export const DELETE_CHANNEL_NAME = "sy_task_delete";
 
 const NOT_CREATED_ERROR = new Error("Task not created");
 
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
-  const task = await ontologyClient.retrieveParents(taskKey);
-  if (task.length === 0) return null;
-  return task[0];
+  const parents = await ontologyClient.retrieveParents(taskKey);
+  if (parents.length === 0) return null;
+  return parents[0];
 };
 
 export class Task<
@@ -106,43 +106,27 @@ export class Task<
     return ontologyID(this.key);
   }
 
-  async executeCommand<Args>(type: string, args?: Args): Promise<string> {
-    if (this.frameClient == null) throw NOT_CREATED_ERROR;
-    const writer = await this.frameClient.openWriter(COMMAND_CHANNEL_NAME);
-    const key = id.create();
-    await writer.write(COMMAND_CHANNEL_NAME, [{ task: this.key, type, key, args }]);
-    await writer.close();
-    return key;
+  async executeCommand(type: string, args?: {}): Promise<string> {
+    return await executeCommand(this.frameClient, this.key, type, args);
   }
 
-  async executeCommandSync<Details extends {} = record.Unknown>(
+  async executeCommandSync(
     type: string,
-    args: record.Unknown,
     timeout: CrudeTimeSpan,
+    args?: {},
   ): Promise<State<Details>> {
-    if (this.frameClient == null) throw NOT_CREATED_ERROR;
-    const streamer = await this.frameClient.openStreamer(STATE_CHANNEL_NAME);
-    const cmdKey = await this.executeCommand(type, args);
-    let res: State<Details>;
-    const to = new Promise((resolve) =>
-      setTimeout(() => resolve(false), new TimeSpan(timeout).milliseconds),
+    const state = await executeCommandSync(
+      this.frameClient,
+      this.key,
+      type,
+      timeout,
+      this.name,
+      args,
     );
-    while (true) {
-      const frame = (await Promise.any([streamer.read(), to])) as framer.Frame | false;
-      if (frame === false) throw new Error("Command timed out");
-      const parsed = stateZ.safeParse(frame.at(-1).sy_task_state);
-      if (parsed.success) {
-        res = parsed.data as State<Details>;
-        if (res.key === cmdKey) break;
-      } else throw parsed.error;
-    }
-    streamer.close();
-    return res;
+    return state as State<Details>;
   }
 
-  async openStateObserver<Details extends {} = record.Unknown>(): Promise<
-    StateObservable<Details>
-  > {
+  async openStateObserver(): Promise<StateObservable<Details>> {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
     return new framer.ObservableStreamer<State<Details>>(
       await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
@@ -161,11 +145,9 @@ export class Task<
     );
   }
 
-  async openCommandObserver<Args extends {} = record.Unknown>(): Promise<
-    CommandObservable<Args>
-  > {
+  async openCommandObserver(): Promise<CommandObservable> {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
-    return new framer.ObservableStreamer<Command<Args>>(
+    return new framer.ObservableStreamer<Command>(
       await this.frameClient.openStreamer(COMMAND_CHANNEL_NAME),
       (frame) => {
         const s = frame.get(COMMAND_CHANNEL_NAME);
@@ -177,7 +159,7 @@ export class Task<
         }
         const cmd = parse.data;
         if (cmd.task !== this.key) return [null, false];
-        return [cmd as Command<Args>, true];
+        return [cmd, true];
       },
     );
   }
@@ -413,6 +395,31 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return isSingle ? res[0] : res;
   }
 
+  async executeCommand(task: Key, type: string, args?: {}): Promise<string> {
+    return await executeCommand(this.frameClient, task, type, args);
+  }
+
+  async executeCommandSync(
+    task: Key,
+    type: string,
+    timeout: CrudeTimeSpan,
+    args?: {},
+    name?: string,
+  ): Promise<State> {
+    const retrieveName = async () => {
+      const t = await this.retrieve(task);
+      return t.name;
+    };
+    return await executeCommandSync(
+      this.frameClient,
+      task,
+      type,
+      timeout,
+      name ?? retrieveName,
+      args,
+    );
+  }
+
   async openTracker(): Promise<signals.Observable<string, string>> {
     return await signals.openObservable<string, string>(
       this.frameClient,
@@ -462,3 +469,70 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
 
 export const ontologyID = (key: Key): ontology.ID =>
   new ontology.ID({ type: ONTOLOGY_TYPE, key });
+
+const executeCommand = async (
+  frameClient: framer.Client | null,
+  task: Key,
+  type: string,
+  args?: {},
+): Promise<string> => {
+  if (frameClient == null) throw NOT_CREATED_ERROR;
+  const key = id.create();
+  const w = await frameClient.openWriter(COMMAND_CHANNEL_NAME);
+  await w.write(COMMAND_CHANNEL_NAME, [{ args, key, task, type }]);
+  await w.close();
+  return key;
+};
+
+const executeCommandSync = async (
+  frameClient: framer.Client | null,
+  task: Key,
+  type: string,
+  timeout: CrudeTimeSpan,
+  tskName: string | (() => Promise<string>),
+  args?: {},
+): Promise<State> => {
+  if (frameClient == null) throw NOT_CREATED_ERROR;
+  const streamer = await frameClient.openStreamer(STATE_CHANNEL_NAME);
+  const cmdKey = await executeCommand(frameClient, task, type, args);
+  const parsedTimeout = new TimeSpan(timeout);
+
+  let timeoutID: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutID = setTimeout(() => {
+      void (async () =>
+        reject(await formatTimeoutError(type, tskName, parsedTimeout, task)))();
+    }, parsedTimeout.milliseconds);
+  });
+  try {
+    while (true) {
+      const frame = await Promise.race([streamer.read(), timeoutPromise]);
+      const state = stateZ.parse(frame.at(-1)[STATE_CHANNEL_NAME]);
+      if (state.key === cmdKey) return state;
+    }
+  } finally {
+    clearTimeout(timeoutID);
+    streamer.close();
+  }
+};
+
+const formatTimeoutError = async (
+  type: string,
+  name: string | (() => Promise<string>),
+  timeout: TimeSpan,
+  key: Key,
+): Promise<Error> => {
+  const formattedType = caseconv.capitalize(type);
+  const formattedTimeout = timeout.toString();
+  try {
+    const name_ = typeof name === "string" ? name : await name();
+    return new Error(
+      `${formattedType} command to ${name_} timed out after ${formattedTimeout}`,
+    );
+  } catch (e) {
+    console.error("Failed to retrieve task name for timeout error:", e);
+    return new Error(
+      `${formattedType} command to task with key ${key} timed out after ${formattedTimeout}`,
+    );
+  }
+};

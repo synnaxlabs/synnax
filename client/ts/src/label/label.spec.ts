@@ -10,9 +10,9 @@
 import { describe, expect, it } from "vitest";
 
 import { label } from "@/label";
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Label", () => {
   describe("create", () => {
