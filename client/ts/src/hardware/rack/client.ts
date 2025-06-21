@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { type record } from "@synnaxlabs/x";
 import { array } from "@synnaxlabs/x/array";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod/v4";
@@ -22,8 +21,8 @@ import {
   ONTOLOGY_TYPE,
   type Payload,
   rackZ,
-  type State,
-  stateZ,
+  type Status,
+  statusZ,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
 import { ontology } from "@/ontology";
@@ -44,8 +43,10 @@ const retrieveReqZ = z.object({
   hostIsNode: z.boolean().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
-  includeState: z.boolean().optional(),
+  includeStatus: z.boolean().optional(),
 });
+
+type RetrieveRequest = z.infer<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ racks: nullableArrayZ(rackZ) });
 
@@ -57,9 +58,7 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const deleteResZ = z.object({});
 
-export interface RetrieveOptions {
-  includeState?: boolean;
-}
+export interface RetrieveOptions extends Pick<RetrieveRequest, "includeStatus"> {}
 
 export class Client implements AsyncTermSearcher<string, Key, Payload> {
   readonly type = ONTOLOGY_TYPE;
@@ -140,7 +139,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
       RETRIEVE_ENDPOINT,
       {
         [variant]: normalized,
-        includeState: options?.includeState,
+        includeStatus: options?.includeStatus,
       },
       retrieveReqZ,
       retrieveResZ,
@@ -150,13 +149,13 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return single ? sugared[0] : sugared;
   }
 
-  async openStateObserver(): Promise<framer.ObservableStreamer<State[]>> {
-    return new framer.ObservableStreamer<State[]>(
+  async openStateObserver(): Promise<framer.ObservableStreamer<Status[]>> {
+    return new framer.ObservableStreamer<Status[]>(
       await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
       (fr) => {
         const data = fr.get(STATE_CHANNEL_NAME);
         if (data.length === 0) return [[], false];
-        const states = data.parseJSON(stateZ);
+        const states = data.parseJSON(statusZ);
         return [states, true];
       },
     );
@@ -164,7 +163,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
 
   private sugar(payloads: Payload[]): Rack[] {
     return payloads.map(
-      ({ key, name, state }) => new Rack(key, name, this.tasks, state),
+      ({ key, name, status: state }) => new Rack(key, name, this.tasks, state),
     );
   }
 }
@@ -172,14 +171,14 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
 export class Rack {
   key: Key;
   name: string;
-  state?: State;
+  status?: Status;
   private readonly tasks: task.Client;
 
-  constructor(key: Key, name: string, taskClient: task.Client, state?: State) {
+  constructor(key: Key, name: string, taskClient: task.Client, status?: Status) {
     this.key = key;
     this.name = name;
     this.tasks = taskClient;
-    this.state = state;
+    this.status = status;
   }
 
   async listTasks(): Promise<task.Task[]> {
@@ -195,15 +194,14 @@ export class Rack {
   }
 
   async createTask<
-    Config extends record.Unknown,
-    Details extends {} = record.Unknown,
-    Type extends string = string,
-  >(task: task.New<Config, Type>): Promise<task.Task<Config, Details, Type>> {
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+  >(task: task.New<Type, Config>): Promise<task.Task<Type, Config>> {
     task.key = (
       (BigInt(this.key) << 32n) +
       (BigInt(task.key ?? 0) & 0xffffffffn)
     ).toString();
-    return await this.tasks.create<Config, Details, Type>(task);
+    return await this.tasks.create<Type, Config>(task);
   }
 
   async deleteTask(task: bigint): Promise<void> {

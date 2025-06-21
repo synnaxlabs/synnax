@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id, type status as xstatus, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -22,9 +22,9 @@ import { Aether } from "@/aether";
 import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
-const StatusesContext = createContext<status.Spec[]>([]);
+const StatusesContext = createContext<xstatus.Status[]>([]);
 
-export interface Adder extends status.Adder {}
+export interface Adder<D = undefined> extends status.Adder<D> {}
 
 const AdderContext = createContext<Adder>(() => {});
 
@@ -61,7 +61,9 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
   );
 };
 
-export const useAdder = () => use(AdderContext);
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-constraint
+export const useAdder = <D extends unknown = undefined>() =>
+  use(AdderContext) as Adder<D>;
 
 export interface ErrorHandler extends status.ErrorHandler {}
 
@@ -70,12 +72,10 @@ export const useErrorHandler = (): ErrorHandler => {
   return useMemo(() => status.createErrorHandler(add), [add]);
 };
 
-export interface NotificationSpec extends status.Spec {
-  count: number;
-}
+export type NotificationSpec<D = undefined> = xstatus.Status<D> & { count: number };
 
-export interface UseNotificationsReturn {
-  statuses: NotificationSpec[];
+export interface UseNotificationsReturn<D = undefined> {
+  statuses: NotificationSpec<D>[];
   silence: (key: string) => void;
 }
 

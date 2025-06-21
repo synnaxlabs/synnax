@@ -11,6 +11,8 @@ import { customAlphabet } from "nanoid/non-secure";
 
 const ALPHANUMERIC = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
+export const LENGTH = 11;
+
 const createInternal = customAlphabet(ALPHANUMERIC, 11);
 
 /**

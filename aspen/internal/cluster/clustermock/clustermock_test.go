@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-var _ = Describe("Clustermock", func() {
+var _ = Describe("Cluster Mock", func() {
 	Describe("Builder", func() {
 		It("Should provision a set of cluster ClusterAPIs correctly", func() {
 			cfg := cluster.Config{Gossip: gossip.Config{Interval: 50 * time.Millisecond}}

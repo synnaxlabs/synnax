@@ -21,7 +21,7 @@ export * from "@/hardware/common/task/TareButton";
 export * from "@/hardware/common/task/Task";
 export * from "@/hardware/common/task/types";
 export * from "@/hardware/common/task/useCreate";
-export * from "@/hardware/common/task/useState";
+export * from "@/hardware/common/task/useStatus";
 export * from "@/hardware/common/task/useTare";
 export * from "@/hardware/common/task/WriteChannelContextMenuItems";
 export * from "@/hardware/common/task/WriteChannelNames";

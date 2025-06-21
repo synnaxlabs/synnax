@@ -14,7 +14,7 @@
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/common.h"
 #include "driver/task/common/sample_clock.h"
-#include "driver/task/common/state.h"
+#include "driver/task/common/status.h"
 #include "driver/task/task.h"
 #include "driver/transform/transform.h"
 
@@ -106,7 +106,7 @@ class ReadTask final : public task::Task {
     /// @brief tare middleware used for taring values.
     transform::Tare tare;
     /// @brief handles communicating the task state back to the cluster.
-    StateHandler state;
+    StatusHandler state;
 
     /// @brief a wrapped source that gracefully handles shutdown when a hardware
     /// read fails or the pipeline fails to write to Synnax.

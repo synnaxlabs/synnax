@@ -9,13 +9,12 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
 
 const PREFIX = "new-device-";
 
 export const useListenForChanges = () => {
   const client = Synnax.use();
-  const addStatus = Status.useAdder();
+  const addStatus = Status.useAdder<device.Device>();
   const handleError = Status.useErrorHandler();
   useAsyncEffect(async () => {
     if (client == null) return;
@@ -29,7 +28,7 @@ export const useListenForChanges = () => {
             variant: "info",
             key: `${PREFIX}${device.key}`,
             message: `New ${device.model} connected`,
-            data: device as unknown as record.Unknown,
+            details: device,
           });
         });
     });

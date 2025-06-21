@@ -72,7 +72,7 @@ struct Device : synnax::Device {
                 {"resource_name", this->resource_name}
             })
         );
-        dev.state = this->state;
+        dev.status = this->status;
         return dev;
     }
 };

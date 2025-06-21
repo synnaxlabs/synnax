@@ -104,18 +104,24 @@ void ScanTask::scan(const task::Command &cmd) const {
     xjson::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     if (!parser.ok())
-        return ctx->set_state(
-            {.task = task.key, .key = cmd.key, .details = parser.error_json()}
+        return ctx->set_status(
+            {.key = cmd.key,
+             .variant = status::variant::ERROR,
+             .details = synnax::
+                 TaskStatusDetails{.task = task.key, .data = parser.error_json()}}
         );
 
     auto [ua_client, err] = connect(args.connection, "[opc.scanner] ");
     if (err)
-        return ctx->set_state(
-            {.task = task.key,
-             .key = cmd.key,
-             .variant = status::VARIANT_ERROR,
-             .details = {{"message", err.message()}}}
-        );
+        return ctx->set_status({
+            .key = cmd.key,
+            .variant = status::variant::ERROR,
+            .message = err.message(),
+            .details =
+                synnax::TaskStatusDetails{
+                    .task = task.key,
+                },
+        });
 
     const auto scan_ctx = new ScanContext{
         ua_client,
@@ -127,12 +133,15 @@ void ScanTask::scan(const task::Command &cmd) const {
         node_iter,
         scan_ctx
     );
-    ctx->set_state({
-        .task = task.key,
+    ctx->set_status({
         .key = cmd.key,
-        .variant = status::VARIANT_SUCCESS,
-        .details = util::DeviceProperties(args.connection, *scan_ctx->channels)
-                       .to_json(),
+        .variant = status::variant::SUCCESS,
+        .details =
+            synnax::TaskStatusDetails{
+                .task = task.key,
+                .data = util::DeviceProperties(args.connection, *scan_ctx->channels)
+                            .to_json(),
+            },
     });
     delete scan_ctx;
 }
@@ -141,21 +150,30 @@ void ScanTask::test_connection(const task::Command &cmd) const {
     xjson::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     if (!parser.ok())
-        return ctx->set_state(
-            {.task = task.key, .key = cmd.key, .details = parser.error_json()}
+        return ctx->set_status(
+            {.key = cmd.key,
+             .variant = status::variant::ERROR,
+             .details = synnax::
+                 TaskStatusDetails{.task = task.key, .data = parser.error_json()}}
         );
     if (const auto err = connect(args.connection, "[opc.scanner] ").second)
-        return ctx->set_state(
-            {.task = task.key,
-             .key = cmd.key,
-             .variant = status::VARIANT_ERROR,
-             .details = {{"message", err.data}}}
+        return ctx->set_status(
+            {.key = cmd.key,
+             .variant = status::variant::ERROR,
+             .message = err.data,
+             .details =
+                 synnax::TaskStatusDetails{
+                     .task = task.key,
+                 }}
         );
-    return ctx->set_state({
-        .task = task.key,
-        .key = cmd.key,
-        .variant = status::VARIANT_SUCCESS,
-        .details = {{"message", "Connection successful"}},
-    });
+    return ctx->set_status(
+        {.key = cmd.key,
+         .variant = status::variant::SUCCESS,
+         .message = "Connection successful",
+         .details =
+             synnax::TaskStatusDetails{
+                 .task = task.key,
+             }}
+    );
 }
 }

@@ -267,19 +267,17 @@ TEST(TestScanTask, TestStatePropagation) {
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
-    dev1.state.key = "device1";
-    dev1.state.variant = status::VARIANT_SUCCESS;
-    dev1.state.rack = 1;
-    dev1.state.details = json::object();
+    dev1.status.key = "device1";
+    dev1.status.variant = status::variant::SUCCESS;
+    dev1.status.details.rack = 1;
 
     synnax::Device dev2;
     dev2.key = "device2";
     dev2.name = "Device 2";
     dev2.rack = 2;
-    dev2.state.key = "device2";
-    dev2.state.variant = status::VARIANT_WARNING;
-    dev2.state.rack = 2;
-    dev2.state.details = json::object();
+    dev2.status.key = "device2";
+    dev2.status.variant = status::variant::WARNING;
+    dev2.status.details.rack = 2;
 
     // First scan will find both devices, second scan only dev1
     std::vector<std::vector<synnax::Device>> devices = {{dev1, dev2}, {dev1}};
@@ -327,11 +325,11 @@ TEST(TestScanTask, TestStatePropagation) {
     for (auto i = 0; i < first_states.size(); i++) {
         first_states.at(0, state);
         if (state["key"] == "device1") {
-            ASSERT_EQ(state["variant"], status::VARIANT_SUCCESS);
-            ASSERT_EQ(state["rack"], 1);
+            ASSERT_EQ(state["variant"], status::variant::SUCCESS);
+            ASSERT_EQ(state["details"]["rack"], 1);
         } else if (state["key"] == "device2") {
-            ASSERT_EQ(state["variant"], status::VARIANT_WARNING);
-            ASSERT_EQ(state["rack"], 2);
+            ASSERT_EQ(state["variant"], status::variant::WARNING);
+            ASSERT_EQ(state["details"]["rack"], 2);
         } else
             FAIL() << "Unexpected device key: " << state["key"];
     }
@@ -345,12 +343,12 @@ TEST(TestScanTask, TestStatePropagation) {
     for (auto i = 0; i < second_states.size(); i++) {
         second_states.at(0, state);
         if (state["key"] == "device1") {
-            ASSERT_EQ(state["variant"], status::VARIANT_SUCCESS);
-            ASSERT_EQ(state["rack"], 1);
+            ASSERT_EQ(state["variant"], status::variant::SUCCESS);
+            ASSERT_EQ(state["details"]["rack"], 1);
         } else if (state["key"] == "device2") {
-            ASSERT_EQ(state["variant"], status::VARIANT_WARNING);
-            ASSERT_EQ(state["rack"], 2);
-            ASSERT_EQ(state["details"]["message"], "Device disconnected");
+            ASSERT_EQ(state["variant"], status::variant::WARNING);
+            ASSERT_EQ(state["details"]["rack"], 2);
+            ASSERT_EQ(state["message"], "Device disconnected");
         } else
             FAIL() << "Unexpected device key: " << state["key"];
     }

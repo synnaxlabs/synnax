@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  PAUSED_STATUS,
-  RUNNING_STATUS,
-  START_COMMAND,
-  type Status,
-  STOP_COMMAND,
-} from "@/hardware/common/task/types";
+import { type task } from "@synnaxlabs/client";
+import { type z } from "zod/v4";
 
-export const shouldExecuteCommand = (status: Status, command: string): boolean =>
-  (status === RUNNING_STATUS && command === STOP_COMMAND) ||
-  (status === PAUSED_STATUS && command === START_COMMAND);
+export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodType>(
+  status: task.Status<StatusData>,
+  command: string,
+): boolean =>
+  (status.details.running && command === "stop") ||
+  (!status.details.running && command === "start");

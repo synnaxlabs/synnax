@@ -128,7 +128,7 @@ class Task final : public task::Task {
     /// @brief the compiled sequence that will be executed within the task.
     std::unique_ptr<sequence::Sequence> seq;
     /// @brief the current task state.
-    task::State state;
+    synnax::TaskStatus status;
 
 public:
     /// @brief static helper function used to configure the sequence.

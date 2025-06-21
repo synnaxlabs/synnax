@@ -57,6 +57,13 @@ export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant
 
 export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
 
+export interface StatusDetails {
+  type: string;
+  oldServer: boolean;
+  nodeVersion?: string;
+  clientVersion: string;
+}
+
 const createErrorDescription = (
   oldServer: boolean,
   clientVersion: string,
@@ -74,7 +81,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     state: { props: connParams ?? null, state: null },
   });
 
-  const addStatus = Status.useAdder();
+  const addStatus = Status.useAdder<StatusDetails | null>();
 
   const handleChange = useCallback(
     (state: connection.State) => {
@@ -82,6 +89,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
         addStatus({
           variant: CONNECTION_STATE_VARIANTS[state.status],
           message: state.message ?? caseconv.capitalize(state.status),
+          details: null,
         });
       setState((prev) => ({ ...prev, state }));
     },
@@ -114,6 +122,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     addStatus({
       variant: CONNECTION_STATE_VARIANTS[connectivity.status],
       message: connectivity.message ?? connectivity.status.toUpperCase(),
+      details: null,
     });
 
     if (connectivity.status === "connected" && !connectivity.clientServerCompatible) {
@@ -131,7 +140,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
         variant: "warning",
         message: "Incompatible cluster version",
         description,
-        data: {
+        details: {
           type: SERVER_VERSION_MISMATCH,
           oldServer,
           nodeVersion: connectivity.nodeVersion,

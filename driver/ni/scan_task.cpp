@@ -82,15 +82,12 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         dev.resource_name = dev.resource_name.substr(1, dev.resource_name.size() - 2);
     if (is_simulated) dev.key = dev.resource_name;
 
-    dev.state = synnax::DeviceState{
+    dev.status = synnax::DeviceStatus{
         .key = dev.key,
-        .variant = status::VARIANT_SUCCESS,
-        .rack = dev.rack,
-        .details =
-            json{
-                {"message", "Device present"},
-                {"last_updated", telem::TimeStamp::now().nanoseconds()},
-            }
+        .variant = status::variant::SUCCESS,
+        .message = "Device present",
+        .time = telem::TimeStamp::now(),
+        .details = synnax::DeviceStatusDetails{.rack = dev.rack}
     };
 
     auto err = xerrors::NIL;
