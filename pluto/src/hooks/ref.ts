@@ -13,7 +13,6 @@ import {
   type RefCallback,
   type RefObject,
   useCallback,
-  useEffect,
   useRef,
   useState as reactUseState,
 } from "react";
