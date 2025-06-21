@@ -102,7 +102,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	obs.OnChange(s.handleChange)
 
 	effectStateCh := channel.Channel{
-		Name:     "sy_effect_state",
+		Name:     "sy_effect_status",
 		DataType: telem.JSONT,
 		Virtual:  true,
 		Internal: true,

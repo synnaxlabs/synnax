@@ -75,7 +75,7 @@ func (s *Service) handleChange(
 					s.effectStateChannelKey,
 					telem.NewSeriesStaticJSONV(os),
 				)); err != nil {
-					s.cfg.L.Error("effect state writer write error", zap.Error(err))
+					s.cfg.L.Error("effect status writer error", zap.Error(err))
 				}
 			},
 		}

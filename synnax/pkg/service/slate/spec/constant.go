@@ -24,7 +24,7 @@ type ConstantConfig struct {
 
 var configZ = zyn.Object(map[string]zyn.Z{
 	"data_type": zyn.PrimitiveTypeZ,
-	"Value":     zyn.Primitive(),
+	"value":     zyn.Primitive(),
 })
 
 func (c *ConstantConfig) Parse(data any) error { return configZ.Parse(data, c) }

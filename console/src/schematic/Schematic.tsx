@@ -31,6 +31,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
+import { Sync } from "@synnaxlabs/pluto/dist/src/icon/registry.js";
 import { box, deep, id, location, uuid, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,

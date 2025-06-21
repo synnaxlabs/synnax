@@ -16,12 +16,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -90,16 +88,6 @@ type Value struct {
 	Value    any
 }
 
-func strictlyMatchDataType(expected string) func(input string) bool {
-	return func(input string) bool {
-		return expected == input
-	}
-}
-
-func acceptsNumericDataType(input string) bool {
-	return !telem.DataType(input).IsVariable()
-}
-
 type SchemaMatcher = func(context.Context, Config, Node) (NodeSchema, bool, error)
 
 var schemaMatchers = []SchemaMatcher{
@@ -116,7 +104,6 @@ type Config struct {
 	Channel        channel.Service
 	Framer         *framer.Service
 	Ranger         *ranger.Service
-	Annotation     *annotation.Service
 	OnStatusChange func(ctx context.Context, status status.Status[any])
 }
 

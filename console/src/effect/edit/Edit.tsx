@@ -55,7 +55,7 @@ const Loaded = ({ effect }: LoadedProps): ReactElement => {
         >
           <EffectState effect={effect} />
           <Button.Button startIcon={<Icon.Play />} onClick={() => publishMut.mutate()}>
-            Publish
+            Deploy
           </Button.Button>
         </Align.Space>
       </Align.Space>
@@ -91,7 +91,6 @@ export const Edit: Layout.Renderer = ({ layoutKey }) => {
   const res = useQuery({
     queryKey: ["effect", layoutKey],
     queryFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
       if (effect != null) return effect;
       try {
         const effect = await client.effects.retrieve(layoutKey);
