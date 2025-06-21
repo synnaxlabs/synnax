@@ -12,7 +12,6 @@ package ontology
 import (
 	"strings"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
@@ -62,11 +61,11 @@ func ParseRelationship(key []byte) (r Relationship, err error) {
 	if len(split) != 3 {
 		return r, errors.Wrapf(validate.Error, "invalid relationship key: %s", key)
 	}
-	r.From, err = schema.ParseID(split[0])
+	r.From, err = ParseID(split[0])
 	if err != nil {
 		return r, err
 	}
 	r.Type = RelationshipType(split[1])
-	r.To, err = schema.ParseID(split[2])
+	r.To, err = ParseID(split[2])
 	return r, err
 }

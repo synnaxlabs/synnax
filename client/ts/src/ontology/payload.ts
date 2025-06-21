@@ -119,20 +119,10 @@ export class ID {
 
 export const ROOT_ID = new ID({ type: BUILTIN_TYPE, key: "root" });
 
-export const schemaFieldZ = z.object({ type: z.number() });
-export interface SchemaField extends z.infer<typeof schemaFieldZ> {}
-
-export const schemaZ = z.object({
-  type: resourceTypeZ,
-  fields: z.record(z.string(), schemaFieldZ),
-});
-export interface Schema extends z.infer<typeof schemaZ> {}
-
 export const resourceZ = z
   .object({
     id: ID.z,
     name: z.string(),
-    schema: schemaZ.optional().nullable(),
     data: record.unknownZ.optional().nullable(),
   })
   .transform((resource) => ({ key: resource.id.toString(), ...resource }));

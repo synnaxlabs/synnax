@@ -11,10 +11,11 @@ package rack
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
-	"github.com/synnaxlabs/x/gorp"
 	"sync"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 // Writer is used to create, update, and delete racks within a Synnax cluster.
