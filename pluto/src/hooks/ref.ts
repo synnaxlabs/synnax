@@ -48,9 +48,7 @@ export const useStateRef = <T extends state.State>(
  */
 export const useSyncedRef = <T>(value: T): RefObject<T> => {
   const ref = useRef<T>(value);
-  useEffect(() => {
-    ref.current = value;
-  }, [value]);
+  ref.current = value;
   return ref;
 };
 

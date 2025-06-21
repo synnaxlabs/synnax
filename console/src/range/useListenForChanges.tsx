@@ -17,8 +17,8 @@ import { updateIfExists } from "@/range/slice";
 export const useListenForChanges = (): void => {
   const dispatch = useDispatch();
   const handleRangeSet = useCallback(
-    (range: ranger.Payload): void => {
-      dispatch(updateIfExists(range));
+    ({ timeRange: { numeric }, ...rest }: ranger.Payload): void => {
+      dispatch(updateIfExists({ ...rest, timeRange: numeric }));
     },
     [dispatch],
   );

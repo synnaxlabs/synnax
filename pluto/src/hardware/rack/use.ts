@@ -32,7 +32,6 @@ export const use = (key: rack.Key): rack.Rack | undefined => {
   const handleStateChange = useCallback(
     (state: rack.State) => {
       if (rack == null || client == null) return;
-      console.log("state change", state);
       setRack(client.hardware.racks.sugar({ ...rack.payload, state }));
     },
     [rack, client],
