@@ -10,6 +10,8 @@
 package cluster
 
 import (
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
@@ -19,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"time"
 )
 
 const FlushOnEvery = -1 * time.Second
@@ -68,11 +69,11 @@ func (cfg Config) Override(other Config) Config {
 
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
-	v := validate.New("Cluster")
-	validate.NotEmptyString(v, "HostAddress", cfg.HostAddress)
-	validate.NotNil(v, "Codec", cfg.Codec)
-	validate.NonZero(v, "StorageFlushInterval", cfg.StorageFlushInterval)
-	validate.NotEmptySlice(v, "LocalKey", cfg.StorageKey)
+	v := validate.New("aspen.cluster")
+	validate.NotEmptyString(v, "host_address", cfg.HostAddress)
+	validate.NotNil(v, "codec", cfg.Codec)
+	validate.NonZero(v, "storage_flush_interval", cfg.StorageFlushInterval)
+	validate.NotEmptySlice(v, "local_key", cfg.StorageKey)
 	return v.Error()
 }
 
@@ -97,9 +98,7 @@ var (
 		StorageFlushInterval: 1 * time.Second,
 		// This used to be implemented by a gob codec, but we want to switch to msgpack.
 		// Instead, we will use a fallback codec that tries msgpack to decode first, then gob.
-		Codec: &binary.DecodeFallbackCodec{
-			Codecs: []binary.Codec{&binary.MsgPackCodec{}, &binary.GobCodec{}},
-		},
+		Codec: binary.NewDecodeFallbackCodec(&binary.MsgPackCodec{}, &binary.GobCodec{}),
 	}
 	FastConfig = DefaultConfig.Override(Config{
 		Pledge: pledge_.FastConfig,

@@ -9,9 +9,16 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { ontology, ranger, type Synnax } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { type Haul, List, Menu as PMenu, Ranger, Text, Tree } from "@synnaxlabs/pluto";
-import { type CrudeTimeRange, errors, strings, toArray } from "@synnaxlabs/x";
+import {
+  type Haul,
+  Icon,
+  List,
+  Menu as PMenu,
+  Ranger,
+  Text,
+  Tree,
+} from "@synnaxlabs/pluto";
+import { array, type CrudeTimeRange, errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
 
@@ -78,7 +85,7 @@ const fetchIfNotInState = async (
   client: Synnax,
   keys: string | string[],
 ): Promise<void> => {
-  const keyList = toArray(keys);
+  const keyList = array.toArray(keys);
   const missing = keyList.filter((key) => select(store.getState(), key) == null);
   if (missing.length === 0) return;
   const ranges = await client.ranges.retrieve(missing);
@@ -167,7 +174,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       store,
       removeLayout,
     }) => {
-      if (!(await confirm(resources))) throw errors.CANCELED;
+      if (!(await confirm(resources))) throw new errors.Canceled();
       const prevNodes = Tree.deepCopy(nodes);
       const minDepth = Math.min(...selectedNodes.map((n) => n.depth));
       const nodesOfMinDepth = selectedNodes.filter((n) => n.depth === minDepth);
@@ -194,7 +201,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       { handleError, selection: { resources }, state: { setNodes }, store },
       prevNodes,
     ) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) {
         setNodes(prevNodes);
         const ranges = fromClientRange(

@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray, type UnknownRecord } from "@synnaxlabs/x";
-import { z } from "zod";
+import { array, type record } from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 import { ontology } from "@/ontology";
 import { nullableArrayZ } from "@/util/zod";
@@ -57,7 +57,7 @@ export class Client {
     const res = await sendRequired(
       this.client,
       CREATE_ENDPOINT,
-      { workspace, linePlots: toArray(linePlots) },
+      { workspace, linePlots: array.toArray(linePlots) },
       createReqZ,
       createResZ,
     );
@@ -74,7 +74,7 @@ export class Client {
     );
   }
 
-  async setData(key: Key, data: UnknownRecord): Promise<void> {
+  async setData(key: Key, data: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
       SET_DATA_ENDPOINT,
@@ -91,7 +91,7 @@ export class Client {
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: toArray(keys) },
+      { keys: array.toArray(keys) },
       retrieveReqZ,
       retrieveResZ,
     );
@@ -104,7 +104,7 @@ export class Client {
     await sendRequired(
       this.client,
       DELETE_ENDPOINT,
-      { keys: toArray(keys) },
+      { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
     );

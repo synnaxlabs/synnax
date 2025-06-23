@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { task } from "@synnaxlabs/client";
+import { Icon, Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -18,6 +17,7 @@ import { Menu } from "@/components";
 import { Group } from "@/group";
 import { type LayoutArgs } from "@/hardware/common/task/Task";
 import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layouts";
+import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
@@ -43,7 +43,7 @@ const useDelete = () => {
   return useMutation({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
       const prevNodes = Tree.deepCopy(nodes);
-      if (!(await confirm(resources))) throw errors.CANCELED;
+      if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
@@ -65,28 +65,11 @@ const useDelete = () => {
       let message = "Failed to delete tasks";
       if (resources.length === 1)
         message = `Failed to delete task ${resources[0].name}`;
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       handleError(e, message);
     },
   }).mutate;
 };
-
-const useRangeSnapshot = () =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps>({
-    mutationFn: async ({ store, client, selection: { resources, parentID } }) => {
-      const activeRange = Range.selectActiveKey(store.getState());
-      if (activeRange === null || parentID == null) return;
-      const tasks = await Promise.all(
-        resources.map(({ id, name }) =>
-          client.hardware.tasks.copy(id.key, `${name} (Snapshot)`, true),
-        ),
-      );
-      const otgIDs = tasks.map((t) => t.ontologyID);
-      const rangeID = ranger.ontologyID(activeRange);
-      await client.ontology.moveChildren(parentID, rangeID, ...otgIDs);
-    },
-    onError: (e: Error, { handleError }) => handleError(e, "Failed to create snapshot"),
-  }).mutate;
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client, addStatus, handleError } = props;
@@ -112,7 +95,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     rename: () => Tree.startRenaming(nodes[0].key),
     link: () =>
       handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
-    rangeSnapshot: () => snap(props),
+    rangeSnapshot: () => snap(props.selection.resources),
     group: () => group(props),
   };
   const singleResource = resources.length === 1;

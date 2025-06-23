@@ -1,6 +1,6 @@
 [project]
 name = "synnax"
-version = "0.42.0"
+version = "0.44.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -17,26 +17,26 @@ Repository = "https://github.com/synnaxlabs/synnax"
 
 [tool.poetry.dependencies]
 alamos = { path = "../../alamos/py", develop = true }
-click = "^8.1.8"
+click = "^8.2.1"
 keyring = "^25.6.0"
 nptdms = "^1.10.0"
-numpy = "^2.2.4"
-pandas = "^2.2.3"
-pydantic = "^2.10.6"
-rich = "^13.9.4"
+numpy = "^2.3.0"
+pandas = "^2.3.0"
+pydantic = "^2.11.5"
+rich = "^14.0.0"
 synnax-freighter = { path = "../../freighter/py", develop = true }
-urllib3 = "^2.3.0"
+urllib3 = "^2.4.0"
 
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
 isort = "^6.0.1"
-matplotlib = "^3.10.1"
-mypy = "^1.15.0"
-poetry = "^2.1.1"
-pytest = "^8.3.5"
-pytest-asyncio = "^0.26.0"
-scipy = "^1.15.2"
+matplotlib = "^3.10.3"
+mypy = "^1.16.0"
+poetry = "^2.1.3"
+pytest = "^8.4.0"
+pytest-asyncio = "^1.0.0"
+scipy = "^1.15.3"
 vermin = "^1.6.0"
 
 
@@ -64,6 +64,7 @@ markers = [
     "control: mark test as a control test",
     "device: mark test as a device test",
     "framer: mark test as a framer test",
+    "frame_codec: mark test as a frame codec test",
     "iterator: mark test as a reader test",
     "internal: mark test as an internal test",
     "io: mark test as an io test",
@@ -80,7 +81,10 @@ markers = [
     "telem: mark test as a telem test",
     "timing: mark test as a timing test",
     "tsconvert: mark test as a tsconvert test",
-    "writer: mark test as a writer test",
+    "writer: mark test as a frame writer test",
+    "streamer: mark test as a frame streamer test",
+    "calculations: mark test as a calculated channels test",
+    "delete: mark test as a data deletion test",
     "focus: marker to temporarily focus a test",
 ]
 

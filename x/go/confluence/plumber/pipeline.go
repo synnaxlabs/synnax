@@ -10,11 +10,12 @@
 package plumber
 
 import (
+	"go/types"
+
 	"github.com/synnaxlabs/x/address"
 	cfs "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
-	"go/types"
 )
 
 type Segment[I, O cfs.Value] struct {
@@ -27,11 +28,17 @@ type Segment[I, O cfs.Value] struct {
 
 func (s *Segment[I, O]) constructEndpointRoutes() {
 	for _, addr := range s.RouteInletsTo {
-		sink, _ := GetSink[I](s.Pipeline, addr)
+		sink, err := GetSink[I](s.Pipeline, addr)
+		if err != nil {
+			panic(err)
+		}
 		sink.InFrom(s.In)
 	}
 	for _, addr := range s.RouteOutletsFrom {
-		source, _ := GetSource[O](s.Pipeline, addr)
+		source, err := GetSource[O](s.Pipeline, addr)
+		if err != nil {
+			panic(err)
+		}
 		source.OutTo(s.Out)
 	}
 }
@@ -108,8 +115,8 @@ func SetSegment[I, O cfs.Value](
 	segment cfs.Segment[I, O],
 	opts ...cfs.Option,
 ) {
-	SetSink[I](p, addr, segment)
-	SetSource[O](p, addr, segment, opts...)
+	SetSink(p, addr, segment, opts...)
+	SetSource(p, addr, segment, opts...)
 }
 
 func SetSink[V cfs.Value](
@@ -164,7 +171,7 @@ func notFound(addr address.Address) error {
 	)
 }
 
-func wrongType[I, O cfs.Value](addr address.Address, actual interface{}) error {
+func wrongType[I, O cfs.Value](addr address.Address, actual any) error {
 	return errors.Newf(
 		`[plumber] - Expected entity (segment, source, sink)  at address %s to have
 				inlet type %T and outlet type %T, but got entity of type %T`,

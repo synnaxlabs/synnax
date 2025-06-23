@@ -16,7 +16,7 @@ import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
 import SynnaxVersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Platform } from "@/components/platform";
-import { Server } from "@/components/server";
+import WindowsDownloadButton from "@/components/server/WindowsDownloadButton.astro";
 
 export const components = mdxOverrides;
 
@@ -182,7 +182,7 @@ Install the Synnax cluster on Windows by downloading and running the latest inst
 <br />
 <br />
 <Align.Space direction="y" justify="center" align="center">
-  <Server.WindowsDownloadButton client:load />
+  <WindowsDownloadButton />
   <small>
     Releases for other operating systems and older versions can be found on the
     <a href="https://github.com/synnaxlabs/synnax/releases"> releases page</a>.

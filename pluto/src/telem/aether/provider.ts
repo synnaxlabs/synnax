@@ -9,10 +9,11 @@
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { type Synnax } from "@synnaxlabs/client";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
+import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { Context, setContext } from "@/telem/aether/context";
 import { createFactory } from "@/telem/aether/factory";
@@ -32,20 +33,28 @@ export class BaseProvider extends aether.Composite<
   static readonly TYPE = "telem.Provider";
   static readonly stateZ = providerStateZ;
   schema = BaseProvider.stateZ;
-  prevClient: Synnax | null = null;
+  prevCore: Synnax | null = null;
+  client: client.Client | null = null;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
+    const { internal: i } = this;
     const core = synnax.use(ctx);
-    const I = alamos.useInstrumentation(ctx, "telem");
-    this.internal.instrumentation = I.child("provider");
-    const shouldSwap = core !== this.prevClient;
+    const runAsync = status.useErrorHandler(ctx);
+    i.instrumentation = alamos.useInstrumentation(ctx, "telem").child("provider");
+    const shouldSwap = core !== this.prevCore;
     if (!shouldSwap) return;
-    this.prevClient = core;
-    const c =
+    this.prevCore = core;
+    if (this.client != null)
+      runAsync(async () => {
+        if (this.client == null) throw new Error("no client to close");
+        await this.client.close();
+      }, "failed to close client");
+
+    this.client =
       core == null
         ? new client.NoopClient()
-        : new client.Core({ core, instrumentation: I });
-    const f = createFactory(c);
+        : new client.Core({ core, instrumentation: i.instrumentation });
+    const f = createFactory(this.client);
     const value = new Context(f);
     setContext(ctx, value);
   }

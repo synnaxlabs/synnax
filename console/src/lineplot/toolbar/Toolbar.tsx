@@ -10,8 +10,7 @@
 import "@/lineplot/toolbar/Toolbar.css";
 
 import { linePlot } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Tabs } from "@synnaxlabs/pluto";
+import { Align, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -90,7 +89,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <Core.Title icon={<Icon.LinePlot />}>{name}</Core.Title>
           <Align.Space x align="center" empty>
             <Align.Space x empty style={{ height: "100%", width: 66 }}>
-              <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
+              <Export.ToolbarButton onExport={() => handleExport(state.key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={linePlot.ontologyID(state.key)}

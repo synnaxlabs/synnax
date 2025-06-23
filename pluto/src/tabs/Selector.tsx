@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, type IconProps } from "@synnaxlabs/media";
 import { box, type location, scale, xy } from "@synnaxlabs/x";
 import {
   type DragEventHandler,
@@ -20,7 +19,7 @@ import {
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { Icon as PIcon } from "@/icon";
+import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { type Spec } from "@/tabs/types";
 import { useContext } from "@/tabs/useContext";
@@ -125,7 +124,7 @@ export const Selector = ({
   );
 };
 
-interface CloseIconProps extends IconProps {
+interface CloseIconProps extends Icon.IconProps {
   unsavedChanges?: boolean;
 }
 
@@ -151,6 +150,24 @@ const calculateDragOverPosition = (e: React.DragEvent<HTMLDivElement>): location
   return "right";
 };
 
+interface StartIconProps
+  extends Icon.IconProps,
+    Pick<SelectorButtonProps, "icon" | "loading"> {
+  level: Text.Level;
+}
+
+const StartIcon = ({ loading, icon, level = "p" }: StartIconProps) => {
+  if (loading) icon = <Icon.Loading />;
+  return Icon.resolve(icon as Icon.ReactElement, {
+    className: CSS.BE(CLS, "icon"),
+    style: {
+      color: CSS.shadeVar(9),
+      height: CSS.levelSizeVar(level),
+      width: CSS.levelSizeVar(level),
+    },
+  });
+};
+
 const SelectorButton = ({
   selected,
   altColor = false,
@@ -166,6 +183,7 @@ const SelectorButton = ({
   size,
   editable = true,
   unsavedChanges = false,
+  loading = false,
   onDrop,
 }: SelectorButtonProps): ReactElement => {
   const handleDragStart: DragEventHandler<HTMLDivElement> = useCallback(
@@ -239,14 +257,7 @@ const SelectorButton = ({
       bordered={false}
       rounded={false}
     >
-      {PIcon.resolve(icon as PIcon.Element, {
-        className: CSS.BE(CLS, "icon"),
-        style: {
-          color: CSS.shadeVar(9),
-          height: CSS.levelSizeVar(level),
-          width: CSS.levelSizeVar(level),
-        },
-      })}
+      <StartIcon loading={loading} icon={icon} level={level} />
       <Name
         name={name}
         tabKey={tabKey}

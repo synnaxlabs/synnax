@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export { aether } from "@/aether/aether";
-export { color } from "@/color/core";
 export { pluto } from "@/pluto/aether";
 export { synnax } from "@/synnax/aether";
 export { telem } from "@/telem/aether";

@@ -11,48 +11,38 @@ package telem
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
+
+	"github.com/synnaxlabs/x/types"
 )
 
 // DataType is a string that represents a data type.
 type DataType string
 
 // Density returns the density of the given data type. If the data type has no known
-// density, DensityUnknown is returned.
-func (d DataType) Density() Density { return dataTypeDensities[d] }
-
-func (d DataType) IsVariable() bool {
-	return d == BytesT || d == StringT || d == JSONT
-}
-
-func NewDataType[T any](v T) DataType {
-	t := reflect.TypeOf(v)
-	dt, ok := dataTypes[strings.ToLower(t.Name())]
-	if !ok {
-		panic(fmt.Sprintf("unknown data type %s", t.Name()))
+// density, UnknownDensity is returned.
+func (dt DataType) Density() Density {
+	switch dt {
+	case TimeStampT, Float64T, Uint64T, Int64T:
+		return Bit64
+	case Float32T, Int32T, Uint32T:
+		return Bit32
+	case Int16T, Uint16T:
+		return Bit16
+	case Int8T, Uint8T:
+		return Bit8
+	case UUIDT:
+		return Bit128
+	default:
+		return UnknownDensity
 	}
-	return dt
 }
 
-var (
-	UnknownT   DataType = ""
-	TimeStampT          = DataType("timestamp")
-	UUIDT               = DataType("uuid")
-	Float64T   DataType = "float64"
-	Float32T   DataType = "float32"
-	Int64T     DataType = "int64"
-	Int32T     DataType = "int32"
-	Int16T     DataType = "int16"
-	Int8T      DataType = "int8"
-	Uint64T    DataType = "uint64"
-	Uint32T    DataType = "uint32"
-	Uint16T    DataType = "uint16"
-	Uint8T     DataType = "uint8"
-	BytesT     DataType = "bytes"
-	StringT    DataType = "string"
-	JSONT      DataType = "json"
-)
+// IsVariable returns true if the data type has a variable density i.e. is a string,
+// JSON, or bytes.
+func (dt DataType) IsVariable() bool {
+	return dt == BytesT || dt == StringT || dt == JSONT
+}
 
 var dataTypes = map[string]DataType{
 	"timestamp": TimeStampT,
@@ -72,21 +62,48 @@ var dataTypes = map[string]DataType{
 	"json":      JSONT,
 }
 
-var dataTypeDensities = map[DataType]Density{
-	TimeStampT: Bit64,
-	UUIDT:      Bit128,
-	Float64T:   Bit64,
-	Float32T:   Bit32,
-	Int32T:     Bit32,
-	Int16T:     Bit16,
-	Int8T:      Bit8,
-	Uint64T:    Bit64,
-	Uint32T:    Bit32,
-	Uint16T:    Bit16,
-	Uint8T:     Bit8,
-	Int64T:     Bit64,
-	BytesT:     DensityUnknown,
-	StringT:    DensityUnknown,
-	JSONT:      DensityUnknown,
-	UnknownT:   DensityUnknown,
+// InferDataType infers the data type of the given generic type argument. Panics
+// if the data type cannot be inferred.
+func InferDataType[T any]() DataType {
+	name := strings.ToLower(types.Name[T]())
+	if dt, ok := dataTypes[name]; ok {
+		return dt
+	}
+	panic(fmt.Sprintf("unknown data type %s", name))
 }
+
+const (
+	// UnknownT is an unknown data type.
+	UnknownT DataType = ""
+	// TimeStampT is a data type for a 64-bit nanosecond integer since the
+	// epoch in UTC.
+	TimeStampT = DataType("timestamp")
+	// UUIDT is a data type for a UUID V4.
+	UUIDT = DataType("uuid")
+	// Float64T is a data type for a 64-bit IEE754 floating point number.
+	Float64T DataType = "float64"
+	// Float32T is a data type for a 32-bit IEE754 floating point number.
+	Float32T DataType = "float32"
+	// Int64T is a data type for a 64-bit integer.
+	Int64T DataType = "int64"
+	// Int32T is a data type for a 32-bit integer.
+	Int32T DataType = "int32"
+	// Int16T is a data type for a 16-bit integer.
+	Int16T DataType = "int16"
+	// Int8T is a data type for an 8-bit integer.
+	Int8T DataType = "int8"
+	// Uint64T is a data type for a 64-bit unsigned integer.
+	Uint64T DataType = "uint64"
+	// Uint32T is a data type for a 32-bit unsigned integer.
+	Uint32T DataType = "uint32"
+	// Uint16T is a data type for a 16-bit unsigned integer.
+	Uint16T DataType = "uint16"
+	// Uint8T is a data type for an 8-bit unsigned integer, i.e., a single byte.
+	Uint8T DataType = "uint8"
+	// BytesT is a variable density data type for an arbitrary byte array
+	BytesT DataType = "bytes"
+	// StringT is a variable density data type for a UTF-8 encoded string.
+	StringT DataType = "string"
+	// JSONT is a variable density data type for a JSON structure.
+	JSONT DataType = "json"
+)

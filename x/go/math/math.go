@@ -10,6 +10,15 @@
 // Package math provides extended math functionality.
 package math
 
+import "github.com/synnaxlabs/x/types"
+
+const (
+	// MaxUint20 is the maximum value of a 20-bit unsigned integer.
+	MaxUint20 types.Uint20 = 2<<19 - 1
+	// MaxUint12 is the maximum value of a 12-bit unsigned integer.
+	MaxUint12 types.Uint12 = 2<<11 - 1
+)
+
 // IntPow efficiently returns the result of the operation base^exponent for two
 // numbers. IntPow panics if exponent is negative. This implementation uses
 // exponentiation by squaring. See

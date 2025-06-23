@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { Breadcrumb, componentRenderProp } from "@synnaxlabs/pluto";
+import { Breadcrumb, componentRenderProp, Icon } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
@@ -153,7 +152,7 @@ const SearchDialogContent = ({ close, visible }: SearchDialogContentProps) => {
     });
     const json = await res.json();
     setResults(
-      json.hits.map((hit: any) => ({
+      json.hits.map((hit: unknown) => ({
         key: hit.objectID,
         title: hit._snippetResult?.title?.value ?? hit.title,
         description: hit.description,

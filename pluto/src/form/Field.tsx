@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, type Key, type Keyed } from "@synnaxlabs/x";
+import { caseconv, deep, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -17,7 +17,6 @@ import {
   useContext,
   useField,
   type UseFieldProps,
-  type UseNullableFieldProps,
 } from "@/form/Form";
 import { Input } from "@/input";
 import { Select } from "@/select";
@@ -31,7 +30,7 @@ interface FieldChild<I extends Input.Value, O extends Input.Value>
 export type FieldProps<
   I extends Input.Value = string | number,
   O extends Input.Value = I,
-> = (UseFieldProps<I, O> | UseNullableFieldProps<I, O>) &
+> = UseFieldProps<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
     children?: RenderProp<FieldChild<I, O>>;
     padHelpText?: boolean;
@@ -58,12 +57,14 @@ export const Field = <
   optional,
   onChange,
   className,
+  defaultValue,
   ...rest
 }: FieldProps<I, O>): ReactElement | null => {
   const field = useField<I, O>({
     path,
-    optional: (optional as true) ?? (hideIfNull as true),
+    optional: optional ?? hideIfNull,
     onChange,
+    defaultValue,
   });
   const ctx = useContext();
   if (field == null) return null;
@@ -126,11 +127,15 @@ export const fieldBuilder =
       inputProps,
       path,
       fieldKey = baseFieldKey,
+      optional,
+      defaultValue,
       ...rest
     }: BuiltFieldProps<I, O, P>) => (
       <Field<I, O>
         {...fieldProps}
         {...rest}
+        defaultValue={defaultValue}
+        optional={optional}
         path={fieldKey ? `${path}.${fieldKey}` : path}
       >
         {(cp) => <Component {...cp} {...baseInputProps} {...(inputProps as P)} />}
@@ -152,14 +157,13 @@ export type SwitchFieldProps = BuiltFieldProps<boolean, boolean, Input.SwitchPro
 export const buildSwitchField = fieldBuilder(Input.Switch);
 export const SwitchField = buildSwitchField({});
 
-export type SelectSingleFieldProps<K extends Key, E extends Keyed<K>> = BuiltFieldProps<
-  K,
-  K,
-  Select.SingleProps<K, E>
->;
+export type SelectSingleFieldProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> = BuiltFieldProps<K, K, Select.SingleProps<K, E>>;
 export const buildSelectSingleField = fieldBuilder(Select.Single) as <
-  K extends Key,
-  E extends Keyed<K>,
+  K extends record.Key,
+  E extends record.Keyed<K>,
 >({
   fieldProps,
   inputProps,
@@ -167,14 +171,13 @@ export const buildSelectSingleField = fieldBuilder(Select.Single) as <
   BuiltFieldProps<K, K, Select.SingleProps<K, E>>
 >;
 
-export type SelectMultiFieldProps<K extends Key, E extends Keyed<K>> = BuiltFieldProps<
-  K,
-  K,
-  Select.MultipleProps<K, E>
->;
+export type SelectMultiFieldProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> = BuiltFieldProps<K, K, Select.MultipleProps<K, E>>;
 export const buildSelectMultiField = fieldBuilder(Select.Multiple) as <
-  K extends Key,
-  E extends Keyed<K>,
+  K extends record.Key,
+  E extends record.Keyed<K>,
 >({
   fieldProps,
   inputProps,
@@ -183,12 +186,12 @@ export const buildSelectMultiField = fieldBuilder(Select.Multiple) as <
 >;
 
 export type DropdownButtonFieldProps<
-  K extends Key,
-  E extends Keyed<K>,
+  K extends record.Key,
+  E extends record.Keyed<K>,
 > = BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>;
 export const buildDropdownButtonSelectField = fieldBuilder(Select.DropdownButton) as <
-  K extends Key,
-  E extends Keyed<K>,
+  K extends record.Key,
+  E extends record.Keyed<K>,
 >({
   fieldProps,
   inputProps,
@@ -196,14 +199,13 @@ export const buildDropdownButtonSelectField = fieldBuilder(Select.DropdownButton
   BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>
 >;
 
-export type ButtonSelectFieldProps<K extends Key, E extends Keyed<K>> = BuiltFieldProps<
-  K,
-  K,
-  Select.ButtonProps<K, E>
->;
+export type ButtonSelectFieldProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> = BuiltFieldProps<K, K, Select.ButtonProps<K, E>>;
 export const buildButtonSelectField = fieldBuilder(Select.Button) as <
-  K extends Key,
-  E extends Keyed<K>,
+  K extends record.Key,
+  E extends record.Keyed<K>,
 >({
   fieldProps,
   inputProps,

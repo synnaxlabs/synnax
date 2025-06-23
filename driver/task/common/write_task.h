@@ -26,7 +26,7 @@ struct BaseWriteTaskConfig : BaseTaskConfig {
     const std::string device_key;
 
     BaseWriteTaskConfig(BaseWriteTaskConfig &&other) noexcept:
-        BaseTaskConfig(std::move(other)), device_key(std::move(other.device_key)) {}
+        BaseTaskConfig(std::move(other)), device_key(other.device_key) {}
 
     BaseWriteTaskConfig(const BaseWriteTaskConfig &) = delete;
 
@@ -36,9 +36,6 @@ struct BaseWriteTaskConfig : BaseTaskConfig {
         BaseTaskConfig(cfg), device_key(cfg.required<std::string>("device")) {}
 };
 class Sink : public pipeline::Sink, public pipeline::Source {
-    /// @brief a timer that is used to control the rate at which the state is
-    /// propagated.
-    loop::Timer state_timer;
     /// @brief the vector of channels to stream for commands.
     const std::vector<synnax::ChannelKey> cmd_channels;
     /// @brief the vector of channels to write state updates for.
@@ -49,17 +46,22 @@ class Sink : public pipeline::Sink, public pipeline::Source {
     bool data_saving;
 
 public:
+    /// @brief the rate at which to communicate state values down the channel.
+    telem::Rate state_rate;
     /// @brief used to lock concurrent access to the channel state.
     std::mutex chan_state_lock;
+    /// @brief used to signal the state source to send values whenever a command
+    /// has been executed.
+    std::condition_variable chan_state_cv;
     /// @brief the current state of all the outputs. This is shared between
     /// the command sink and state source.
     std::unordered_map<synnax::ChannelKey, telem::SampleValue> chan_state;
 
     explicit Sink(std::vector<synnax::ChannelKey> cmd_channels):
-        state_timer(telem::Rate(0)),
         cmd_channels(std::move(cmd_channels)),
         state_indexes({}),
-        data_saving(false) {}
+        data_saving(false),
+        state_rate(0) {}
 
     Sink(
         const telem::Rate state_rate,
@@ -68,10 +70,10 @@ public:
         std::vector<synnax::ChannelKey> cmd_channels,
         const bool data_saving
     ):
-        state_timer(state_rate),
         cmd_channels(std::move(cmd_channels)),
         state_indexes(std::move(state_indexes)),
-        data_saving(data_saving) {
+        data_saving(data_saving),
+        state_rate(state_rate) {
         auto idx = 0;
         for (const auto &ch: state_channels) {
             this->chan_state[ch.key] = ch.data_type.cast(0);
@@ -103,6 +105,7 @@ public:
 
     void set_state(const synnax::Frame &frame) {
         std::lock_guard lock{this->chan_state_lock};
+        this->chan_state_cv.notify_all();
         for (const auto &[cmd_key, s]: frame) {
             const auto it = this->state_channels.find(cmd_key);
             if (it == this->state_channels.end()) continue;
@@ -112,8 +115,8 @@ public:
     }
 
     xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
-        this->state_timer.wait(breaker);
-        std::lock_guard lock{this->chan_state_lock};
+        std::unique_lock lock(chan_state_lock);
+        this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono());
         fr.clear();
         fr.reserve(this->chan_state.size());
         for (const auto &[key, value]: this->chan_state)
@@ -134,10 +137,10 @@ class WriteTask final : public task::Task {
         WriteTask &p;
         /// @brief the underlying wrapped sink that actually executes commands on
         /// the hardware.
-        std::unique_ptr<common::Sink> wrapped;
+        std::unique_ptr<common::Sink> internal;
 
         WrappedSink(WriteTask &p, std::unique_ptr<common::Sink> sink):
-            p(p), wrapped(std::move(sink)) {}
+            p(p), internal(std::move(sink)) {}
 
         /// @brief implements pipeline::Sink, and pipeline:Source
         void stopped_with_err(const xerrors::Error &err) override {
@@ -146,17 +149,23 @@ class WriteTask final : public task::Task {
         }
 
         xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
-            return this->wrapped->read(breaker, fr);
+            return this->internal->read(breaker, fr);
         }
 
         xerrors::Error write(const synnax::Frame &frame) override {
             if (frame.empty()) return xerrors::NIL;
-            auto err = this->wrapped->write(frame);
+            auto err = this->internal->write(frame);
             if (!err)
                 this->p.state.clear_warning();
             else if (err.matches(driver::TEMPORARY_HARDWARE_ERROR))
                 this->p.state.send_warning(err);
             return err;
+        }
+
+        [[nodiscard]] synnax::WriterConfig writer_config() const {
+            auto cfg = this->internal->writer_config();
+            if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
+            return cfg;
         }
     };
 
@@ -186,13 +195,13 @@ public:
         sink(std::make_shared<WrappedSink>(*this, std::move(sink))),
         cmd_write_pipe(
             streamer_factory,
-            this->sink->wrapped->streamer_config(),
+            this->sink->internal->streamer_config(),
             this->sink,
             breaker_cfg
         ),
         state_write_pipe(
             writer_factory,
-            this->sink->wrapped->writer_config(),
+            this->sink->writer_config(),
             this->sink,
             breaker_cfg
         ) {}
@@ -200,13 +209,13 @@ public:
     /// @brief primary constructor that uses the task context's Synnax client for
     /// cluster communication.
     explicit WriteTask(
-        synnax::Task task,
+        const synnax::Task &task,
         const std::shared_ptr<task::Context> &ctx,
         const breaker::Config &breaker_cfg,
         std::unique_ptr<Sink> sink
     ):
         WriteTask(
-            std::move(task),
+            task,
             ctx,
             breaker_cfg,
             std::move(sink),
@@ -236,7 +245,7 @@ public:
         const auto write_pipe_stopped = this->cmd_write_pipe.stop();
         const auto state_pipe_stopped = this->state_write_pipe.stop();
         const auto stopped = write_pipe_stopped && state_pipe_stopped;
-        if (stopped) this->state.error(this->sink->wrapped->stop());
+        if (stopped) this->state.error(this->sink->internal->stop());
         if (propagate_state) this->state.send_stop(cmd_key);
         return stopped;
     }
@@ -246,10 +255,10 @@ public:
     /// Will be used internally to communicate the task state.
     bool start(const std::string &cmd_key) {
         this->stop("", false);
-        const auto sink_started = !this->state.error(this->sink->wrapped->start());
+        const auto sink_started = !this->state.error(this->sink->internal->start());
         if (sink_started) {
             this->cmd_write_pipe.start();
-            if (!this->sink->wrapped->writer_config().channels.empty())
+            if (!this->sink->internal->writer_config().channels.empty())
                 this->state_write_pipe.start();
         }
         this->state.send_start(cmd_key);

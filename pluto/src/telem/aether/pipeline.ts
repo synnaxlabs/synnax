@@ -9,7 +9,7 @@
 
 import { ValidationError } from "@synnaxlabs/client";
 import { type Destructor } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type Factory } from "@/telem/aether/factory";
 import {
@@ -37,7 +37,7 @@ export type Connection = z.infer<typeof connectionZ>;
 export const sourcePipelinePropsZ = z.object({
   connections: z.array(connectionZ),
   outlet: z.string(),
-  segments: z.record(sourceSpecZ),
+  segments: z.record(z.string(), sourceSpecZ),
 });
 
 export type SourcePipelineProps = z.infer<typeof sourcePipelinePropsZ>;
@@ -98,18 +98,16 @@ export class SourcePipeline<V>
     });
   }
 
-  async value(): Promise<V> {
-    return await this.outlet.value();
+  value(): V {
+    return this.outlet.value();
   }
 
   onChange(handler: () => void): Destructor {
     return this.outlet.onChange(handler);
   }
 
-  async cleanup(): Promise<void> {
-    await Promise.all(
-      Object.values(this.sources).map(async (source) => await source.cleanup?.()),
-    );
+  cleanup(): void {
+    Object.values(this.sources).forEach((source) => source.cleanup?.());
   }
 }
 
@@ -126,7 +124,7 @@ export const sourcePipeline = <V extends string>(
 export const sinkPipelinePropsZ = z.object({
   connections: z.array(connectionZ),
   inlet: z.string(),
-  segments: z.record(sinkSpecZ),
+  segments: z.record(z.string(), sinkSpecZ),
 });
 
 export type SinkPipelineProps = z.infer<typeof sinkPipelinePropsZ>;
@@ -167,14 +165,12 @@ export class SinkPipeline<V>
     });
   }
 
-  async set(value: V): Promise<void> {
-    return await this.inlet.set(value);
+  set(...values: V[]): void {
+    return this.inlet.set(...values);
   }
 
-  async cleanup(): Promise<void> {
-    await Promise.all(
-      Object.values(this.sinks).map(async (sink) => await sink.cleanup?.()),
-    );
+  cleanup(): void {
+    Object.values(this.sinks).forEach((sink) => sink.cleanup?.());
   }
 }
 

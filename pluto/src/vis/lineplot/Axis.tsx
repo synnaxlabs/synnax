@@ -17,7 +17,7 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -38,7 +38,7 @@ export interface AxisProps
   extends PropsWithChildren,
     Omit<z.input<typeof lineplot.xAxisStateZ>, "position" | "size">,
     Omit<Align.SpaceProps, "color">,
-    Aether.CProps {
+    Aether.ComponentProps {
   label?: string;
   labelLevel?: Text.Level;
   labelDirection?: direction.Direction;
@@ -66,6 +66,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     className,
     tickSpacing,
     autoBounds,
+    axisKey,
     autoBoundUpdateInterval,
     onAutoBoundsChange,
     style,
@@ -79,6 +80,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
       showGrid,
       type,
       bounds,
+      axisKey,
       label,
       labelDirection,
       tickSpacing,

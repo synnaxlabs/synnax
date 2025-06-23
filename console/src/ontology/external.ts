@@ -12,4 +12,5 @@ export * from "@/ontology/hooks";
 export * from "@/ontology/service";
 export * from "@/ontology/ServicesProvider";
 export * from "@/ontology/Toolbar";
+export * from "@/ontology/toTreeNode";
 export * from "@/ontology/Tree";

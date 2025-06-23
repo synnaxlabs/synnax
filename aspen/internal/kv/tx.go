@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"go.uber.org/zap"
 )
 
@@ -34,29 +34,29 @@ type tx struct {
 	// Tx is the underlying key-value transaction. This transaction is not actually
 	// applied, and simply serves as a cache for the operations that are applied.
 	// It also serves all read operations.
-	kvx.Tx
+	xkv.Tx
 	digests []Digest
 	lease   *leaseAllocator
 	apply   func(reqs []TxRequest) error
 }
 
-var _ kvx.Tx = (*tx)(nil)
+var _ xkv.Tx = (*tx)(nil)
 
-// Set implements kvx.Tx.
-func (b *tx) Set(ctx context.Context, key, value []byte, options ...interface{}) error {
+// Set implements xkv.Tx.
+func (b *tx) Set(ctx context.Context, key, value []byte, options ...any) error {
 	lease, err := validateLeaseOption(options)
 	if err != nil {
 		return err
 	}
 	return b.applyOp(ctx, Operation{
-		Change:      kvx.Change{Key: key, Value: value, Variant: change.Set},
+		Change:      xkv.Change{Key: key, Value: value, Variant: change.Set},
 		Leaseholder: lease,
 	})
 }
 
-// Delete implements kvx.Tx.
-func (b *tx) Delete(ctx context.Context, key []byte, _ ...interface{}) error {
-	op := Operation{Change: kvx.Change{Key: key, Variant: change.Delete}}
+// Delete implements xkv.Tx.
+func (b *tx) Delete(ctx context.Context, key []byte, _ ...any) error {
+	op := Operation{Change: xkv.Change{Key: key, Variant: change.Delete}}
 	return b.applyOp(ctx, op)
 }
 
@@ -67,7 +67,7 @@ func (b *tx) Close() error {
 }
 
 // Commit implements kv.Tx.
-func (b *tx) Commit(ctx context.Context, _ ...interface{}) error {
+func (b *tx) Commit(ctx context.Context, _ ...any) error {
 	if ctx == nil {
 		b.L.DPanic("aspen encountered a nil context when committing transaction")
 	}
@@ -105,12 +105,12 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 		op := dig.Operation()
 		if op.Variant == change.Set {
 			v, closer, err := b.Tx.Get(ctx, dig.Key)
-			if err != nil {
-				return nil, err
-			}
-			if errors.Is(err, kvx.NotFound) {
+			if errors.Is(err, xkv.NotFound) {
 				zap.S().Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
 				continue
+			}
+			if err != nil {
+				return nil, err
 			}
 			op.Value = binary.MakeCopy(v)
 			if err = closer.Close(); err != nil {
@@ -161,7 +161,7 @@ func (tr TxRequest) logFields() []zap.Field {
 	}
 }
 
-func (tr TxRequest) commitTo(db kvx.Atomic) (err error) {
+func (tr TxRequest) commitTo(db xkv.Atomic) (err error) {
 	b := db.OpenTx()
 	defer func() {
 		tr.Operations = nil
@@ -194,13 +194,13 @@ func (tr TxRequest) done(err error) {
 	}
 }
 
-func (tr TxRequest) reader() kvx.TxReader { return &txReader{ops: tr.Operations} }
+func (tr TxRequest) reader() xkv.TxReader { return &txReader{ops: tr.Operations} }
 
 func (tr TxRequest) digests() []Digest {
 	return lo.Map(tr.Operations, func(o Operation, _ int) Digest { return o.Digest() })
 }
 
-func validateLeaseOption(maybeLease []interface{}) (node.Key, error) {
+func validateLeaseOption(maybeLease []any) (node.Key, error) {
 	lease := DefaultLeaseholder
 	if len(maybeLease) == 1 {
 		l, ok := maybeLease[0].(node.Key)
@@ -246,15 +246,15 @@ type txReader struct {
 	ops  []Operation
 }
 
-var _ kvx.TxReader = (*txReader)(nil)
+var _ xkv.TxReader = (*txReader)(nil)
 
-// Count implements kvx.TxReader.
+// Count implements xkv.TxReader.
 func (r *txReader) Count() int { return len(r.ops) }
 
-// Next implements kvx.TxReader.
-func (r *txReader) Next(_ context.Context) (kvx.Change, bool) {
+// Next implements xkv.TxReader.
+func (r *txReader) Next(_ context.Context) (xkv.Change, bool) {
 	if r.curr >= len(r.ops) {
-		return kvx.Change{}, false
+		return xkv.Change{}, false
 	}
 	op := r.ops[r.curr]
 	r.curr++

@@ -8,22 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { Icon, type IconProps } from "@synnaxlabs/media";
-import { DataType, nullToArr, toArray, unique } from "@synnaxlabs/x";
-import {
-  type DragEvent,
-  type FC,
-  type ReactElement,
-  useCallback,
-  useId,
-  useMemo,
-} from "react";
+import { array, DataType, unique } from "@synnaxlabs/x";
+import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
-import { useActiveRange, useAliases } from "@/channel/AliasProvider";
+import { useActiveRange, useAliases } from "@/channel/AliasContext";
 import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
+import { Icon } from "@/icon";
 import { type List } from "@/list";
 import { useMemoDeepEqualProps } from "@/memo";
 import { Select } from "@/select";
@@ -69,7 +62,7 @@ const useColumns = (
   }, [filter, aliases]);
 };
 
-export const resolveIcon = (ch?: channel.Payload): FC<IconProps> => {
+export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
   if (ch == null) return Icon.Channel;
   if (channel.isCalculated(ch)) return Icon.Calculation;
   if (ch.isIndex) return Icon.Index;
@@ -105,7 +98,7 @@ export const SelectMultiple = ({
   const searcher = useMemo(
     () =>
       client?.channels.newSearcherWithOptions({
-        rangeKey: activeRange,
+        rangeKey: activeRange ?? undefined,
         internal: false,
         ...memoSearchOptions,
       }),
@@ -124,13 +117,13 @@ export const SelectMultiple = ({
     ...dropProps
   } = Haul.useDragAndDrop({
     type: "Channel.SelectMultiple",
-    canDrop: useCallback((hauled) => canDrop(hauled, toArray(value)), [value]),
+    canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
     onDrop: useCallback(
       ({ items }) => {
         const dropped = Haul.filterByType(HAUL_TYPE, items);
         if (dropped.length === 0) return [];
         const v = unique.unique([
-          ...toArray(value),
+          ...array.toArray(value),
           ...(dropped.map((c) => c.key) as channel.Keys),
         ]);
         onChange(v, {
@@ -148,7 +141,7 @@ export const SelectMultiple = ({
   const handleSuccessfulDrop = useCallback(
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
       onChange(
-        toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
+        array.toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
         {
           clickedIndex: null,
           clicked: null,
@@ -172,7 +165,10 @@ export const SelectMultiple = ({
 
   return (
     <Select.Multiple
-      className={CSS(className, CSS.dropRegion(canDrop(dragging, toArray(value))))}
+      className={CSS(
+        className,
+        CSS.dropRegion(canDrop(dragging, array.toArray(value))),
+      )}
       value={value}
       onTagDragStart={onDragStart}
       onTagDragEnd={endDrag}
@@ -211,7 +207,7 @@ export const SelectSingle = ({
   const searcher = useMemo(() => {
     if (data != null && data.length > 0) return undefined;
     return client?.channels.newSearcherWithOptions({
-      rangeKey: activeRange,
+      rangeKey: activeRange ?? undefined,
       internal: false,
       ...memoSearchOptions,
     });
@@ -236,7 +232,7 @@ export const SelectSingle = ({
     ...dragProps
   } = Haul.useDragAndDrop({
     type: "Channel.SelectSingle",
-    canDrop: useCallback((hauled) => canDrop(hauled, nullToArr(value)), [value]),
+    canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
     onDrop: useCallback(
       ({ items }) => {
         const ch = Haul.filterByType(HAUL_TYPE, items);
@@ -266,7 +262,10 @@ export const SelectSingle = ({
   return (
     <Select.Single
       data={data}
-      className={CSS(className, CSS.dropRegion(canDrop(dragging, nullToArr(value))))}
+      className={CSS(
+        className,
+        CSS.dropRegion(canDrop(dragging, array.toArray(value))),
+      )}
       value={value}
       onDragStart={onDragStart}
       onDragEnd={endDrag}

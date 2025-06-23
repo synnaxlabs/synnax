@@ -10,20 +10,19 @@
 import "@/label/Edit.css";
 
 import { label } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Color,
   componentRenderProp,
   Form,
+  Icon,
   Input,
   List,
   Text,
 } from "@synnaxlabs/pluto";
-import { type change } from "@synnaxlabs/x";
-import { v4 as uuid } from "uuid";
-import { z } from "zod";
+import { type change, color, uuid } from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -53,7 +52,7 @@ const LabelListItem = (props: List.ItemProps<string, label.Label>) => {
           showLabel={false}
         >
           {({ onChange, variant: _, ...p }) => (
-            <Color.Swatch onChange={(color) => onChange(color.hex)} {...p} />
+            <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
           )}
         </Form.Field>
         <Form.TextField
@@ -115,7 +114,7 @@ export const Edit: Layout.Renderer = () => {
       const idx = Number(path.split(".")[1]);
       const label = values.labels[idx];
       if (label == null) return;
-      await client.labels.create({ ...label, color: Color.toHex(label.color) });
+      await client.labels.create({ ...label, color: color.hex(label.color) });
     },
   });
 
@@ -124,7 +123,7 @@ export const Edit: Layout.Renderer = () => {
 
   return (
     <Align.Space y style={{ padding: "2rem" }} grow>
-      <Form.Form {...methods}>
+      <Form.Form<typeof formSchema> {...methods}>
         <List.List
           data={arr.value}
           emptyContent={
@@ -148,11 +147,11 @@ export const Edit: Layout.Renderer = () => {
             <Button.Button
               onClick={() => {
                 const newColors = theme?.colors.visualization.palettes.default ?? [];
-                const color = newColors[arr.value.length % newColors.length].hex;
+                const v = color.hex(newColors[arr.value.length % newColors.length]);
                 arr.push({
-                  key: uuid(),
+                  key: uuid.create(),
                   name: "New Label",
-                  color,
+                  color: v,
                 });
               }}
               startIcon={<Icon.Add />}

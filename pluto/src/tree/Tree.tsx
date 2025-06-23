@@ -9,7 +9,6 @@
 
 import "@/tree/Tree.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { type Optional, unique } from "@synnaxlabs/x";
 import {
   type FC,
@@ -25,7 +24,7 @@ import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
-import { type Icon as PIcon } from "@/icon";
+import { Icon } from "@/icon";
 import { List } from "@/list";
 import {
   type UseSelectMultipleProps,
@@ -198,6 +197,7 @@ export const DefaultItem = memo(
     children: childrenProp,
     index,
     sourceIndex,
+    className,
     hovered,
     ...rest
   }: ItemProps): ReactElement => {
@@ -221,7 +221,7 @@ export const DefaultItem = memo(
       hasChildren || (children != null && children.length > 0);
 
     // Expand, contract, and loading items.
-    const startIcons: PIcon.Element[] = [];
+    const startIcons: Icon.ReactElement[] = [];
     if (actuallyHasChildren)
       startIcons.push(
         <Caret.Animated
@@ -232,7 +232,7 @@ export const DefaultItem = memo(
         />,
       );
     if (icon != null) startIcons.push(icon);
-    const endIcons: PIcon.Element[] = [];
+    const endIcons: Icon.ReactElement[] = [];
     if (loading)
       endIcons.push(
         <Icon.Loading key="loading-indicator" className={CSS.B("loading-indicator")} />,
@@ -295,6 +295,7 @@ export const DefaultItem = memo(
         CSS.selected(selected),
         actuallyHasChildren && CSS.M("has-children"),
         CSS.BM("depth", depth.toString()),
+        className,
       ),
       onDragLeave: () => setDraggingOver(false),
       onDragStart: handleDragStart,
@@ -304,8 +305,7 @@ export const DefaultItem = memo(
         position: translate != null ? "absolute" : "relative",
         transform: `translateY(${translate}px)`,
         [offsetKey]: `${offset}rem`,
-        // @ts-expect-error - CSS variable
-        "--pluto-tree-indicator-offset": `${offset - 1.5}rem`,
+        [CSS.var("tree-indicator-offset")]: `${offset - 1.5}rem`,
       },
       startIcon: startIcons,
       iconSpacing: "small",
@@ -319,7 +319,7 @@ export const DefaultItem = memo(
     const Base = href != null ? Button.Link : Button.Button;
 
     return (
-      <Base className={CSS.BE("list", "item")} {...baseProps} align="center" {...rest}>
+      <Base {...baseProps} align="center" {...rest}>
         {childrenProp != null ? (
           childrenProp({
             key,

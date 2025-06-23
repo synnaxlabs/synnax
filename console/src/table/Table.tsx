@@ -12,27 +12,19 @@ import "@/table/Table.css";
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { table } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Icon,
   Menu as PMenu,
   Table as Core,
   TableCells,
   Triggers,
   usePrevious,
 } from "@synnaxlabs/pluto";
-import {
-  box,
-  clamp,
-  dimensions,
-  location,
-  type UnknownRecord,
-  xy,
-} from "@synnaxlabs/x";
+import { box, clamp, dimensions, location, type record, uuid, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { v4 as uuid } from "uuid";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
@@ -379,7 +371,7 @@ export const create =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Table", location = "mosaic", window, tab, ...rest } = initial;
-    const key = table.keyZ.safeParse(initial.key).data ?? uuid();
+    const key = table.keyZ.safeParse(initial.key).data ?? uuid.create();
     dispatch(internalCreate({ ...ZERO_STATE, ...rest, key }));
     return {
       key,
@@ -434,7 +426,7 @@ const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps): ReactElement
     if (ctrlKey || metaKey) mode = "add";
     dispatch(selectCells({ key: tableKey, mode, cells: [cellKey] }));
   };
-  const handleChange = (props: UnknownRecord) =>
+  const handleChange = (props: record.Unknown) =>
     dispatch(setCellProps({ key: tableKey, cellKey, props }));
   const C = TableCells.CELLS[state.variant];
   return (

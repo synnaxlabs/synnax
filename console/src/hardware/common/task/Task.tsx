@@ -9,11 +9,11 @@
 
 import { type device, type rack, task } from "@synnaxlabs/client";
 import { Align, Eraser, Status, Synnax, Text, useSyncedRef } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
 import { type FC } from "react";
 import { useStore } from "react-redux";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
@@ -35,8 +35,8 @@ export const LAYOUT: Omit<Layout, "type"> = {
 };
 
 export type TaskProps<
-  Config extends UnknownRecord = UnknownRecord,
-  Details extends {} = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
+  Details extends {} = record.Unknown,
   Type extends string = string,
 > = {
   layoutKey: string;
@@ -44,24 +44,24 @@ export type TaskProps<
   task: task.Payload<Config, Details, Type>;
 };
 
-export interface ConfigSchema<Config extends UnknownRecord = UnknownRecord>
-  extends z.ZodType<Config, z.ZodTypeDef, unknown> {}
+export interface ConfigSchema<Config extends record.Unknown = record.Unknown>
+  extends z.ZodType<Config> {}
 
 export interface GetInitialPayloadArgs {
   deviceKey?: device.Key;
 }
 
 export interface GetInitialPayload<
-  Config extends UnknownRecord = UnknownRecord,
-  Details extends {} = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
+  Details extends {} = record.Unknown,
   Type extends string = string,
 > {
   (args: GetInitialPayloadArgs): task.Payload<Config, Details, Type>;
 }
 
 export interface WrapOptions<
-  Config extends UnknownRecord = UnknownRecord,
-  Details extends {} = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
+  Details extends {} = record.Unknown,
   Type extends string = string,
 > {
   configSchema: ConfigSchema<Config>;
@@ -69,8 +69,8 @@ export interface WrapOptions<
 }
 
 export const wrap = <
-  Config extends UnknownRecord = UnknownRecord,
-  Details extends {} = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
+  Details extends {} = record.Unknown,
   Type extends string = string,
 >(
   Wrapped: FC<TaskProps<Config, Details, Type>>,
@@ -101,7 +101,12 @@ export const wrap = <
           taskKeyRef.current,
           { includeState: true },
         );
-        tsk.config = configSchema.parse(tsk.config);
+        try {
+          tsk.config = configSchema.parse(tsk.config);
+        } catch (e) {
+          console.error(`Failed to parse config for ${tsk.name}`, tsk.config, e);
+          throw e;
+        }
         return {
           configured: true,
           task: tsk,

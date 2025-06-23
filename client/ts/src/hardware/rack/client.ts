@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-import { toArray } from "@synnaxlabs/x/toArray";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { framer } from "@/framer";
 import {
@@ -34,7 +34,7 @@ const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_ENDPOINT = "/hardware/rack/create";
 const DELETE_ENDPOINT = "/hardware/rack/delete";
 
-const STATE_CHANNEL_NAME = "sy_rack_state";
+export const STATE_CHANNEL_NAME = "sy_rack_state";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -81,7 +81,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       DELETE_ENDPOINT,
-      { keys: toArray(keys) },
+      { keys: array.toArray(keys) },
       deleteReqZ,
       deleteResZ,
     );
@@ -94,7 +94,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
-      { racks: toArray(rack) },
+      { racks: array.toArray(rack) },
       createReqZ,
       createResZ,
     );
@@ -162,10 +162,15 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     );
   }
 
-  private sugar(payloads: Payload[]): Rack[] {
-    return payloads.map(
-      ({ key, name, state }) => new Rack(key, name, this.tasks, state),
-    );
+  sugar(payload: Payload): Rack;
+  sugar(payloads: Payload[]): Rack[];
+  sugar(payloads: Payload | Payload[]): Rack | Rack[] {
+    const isSingle = !Array.isArray(payloads);
+    const sugared = array
+      .toArray(payloads)
+      .map(({ key, name, state }) => new Rack(key, name, this.tasks, state));
+    if (isSingle) return sugared[0];
+    return sugared;
   }
 }
 
@@ -195,8 +200,8 @@ export class Rack {
   }
 
   async createTask<
-    Config extends UnknownRecord,
-    Details extends {} = UnknownRecord,
+    Config extends record.Unknown,
+    Details extends {} = record.Unknown,
     Type extends string = string,
   >(task: task.New<Config, Type>): Promise<task.Task<Config, Details, Type>> {
     task.key = (
@@ -208,6 +213,10 @@ export class Rack {
 
   async deleteTask(task: bigint): Promise<void> {
     await this.tasks.delete([task]);
+  }
+
+  get payload(): Payload {
+    return { key: this.key, name: this.name, state: this.state };
   }
 }
 

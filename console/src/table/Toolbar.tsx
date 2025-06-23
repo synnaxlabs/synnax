@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Breadcrumb,
   Form,
-  type Icon as PIcon,
+  Icon,
   Select,
   Status,
   Table,
@@ -21,7 +20,7 @@ import {
   Text,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { deep, type KeyedNamed } from "@synnaxlabs/x";
+import { deep, type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -91,7 +90,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           )}
         </Align.Space>
         <Align.Space x style={{ width: 66 }} empty>
-          <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
+          <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={table.ontologyID(layoutKey)}
@@ -143,8 +142,8 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
   );
 };
 
-type CellEntry = KeyedNamed<TableCells.Variant> & {
-  icon: PIcon.Element;
+type CellEntry = record.KeyedNamed<TableCells.Variant> & {
+  icon: Icon.ReactElement;
 };
 
 const CELL_TYPE_OPTIONS: CellEntry[] = [

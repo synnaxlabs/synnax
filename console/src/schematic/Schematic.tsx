@@ -14,12 +14,12 @@ import {
 } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
 import {
   Button,
   Control,
   Diagram,
   Haul,
+  Icon,
   type Legend,
   Menu as PMenu,
   Schematic as Core,
@@ -30,7 +30,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, id, location, xy } from "@synnaxlabs/x";
+import { box, deep, id, location, uuid, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -39,17 +39,18 @@ import {
   useRef,
   useState,
 } from "react";
-import { v4 as uuid } from "uuid";
 
 import { useLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import {
-  select,
   selectHasPermission,
-  useSelect,
+  selectOptional,
+  selectRequired,
+  useSelectEditable,
   useSelectHasPermission,
   useSelectNodeProps,
+  useSelectRequired,
   useSelectVersion,
   useSelectViewportMode,
 } from "@/schematic/selectors";
@@ -94,7 +95,7 @@ const useSyncComponent = (
     async (ws, store, client) => {
       const storeState = store.getState();
       if (!selectHasPermission(storeState)) return;
-      const data = select(storeState, layoutKey);
+      const data = selectOptional(storeState, layoutKey);
       if (data == null) return;
       const layout = Layout.selectRequired(storeState, layoutKey);
       if (data.snapshot) {
@@ -122,7 +123,6 @@ const SymbolRenderer = ({
   position,
   selected,
   layoutKey,
-  draggable,
   dispatch,
 }: SymbolRendererProps): ReactElement | null => {
   const props = useSelectNodeProps(layoutKey, symbolKey);
@@ -153,7 +153,6 @@ const SymbolRenderer = ({
       symbolKey={symbolKey}
       position={position}
       selected={selected}
-      draggable={draggable}
       onChange={handleChange}
       {...rest}
     />
@@ -169,11 +168,11 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
-  const schematic = useSelect(layoutKey);
+  const schematic = useSelectRequired(layoutKey);
 
   const dispatch = useSyncComponent(layoutKey);
   const selector = useCallback(
-    (state: RootState) => select(state, layoutKey),
+    (state: RootState) => selectRequired(state, layoutKey),
     [layoutKey],
   );
   const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
@@ -191,9 +190,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey, dispatch]);
 
+  const isEditable = useSelectEditable(layoutKey);
   const canBeEditable = useSelectHasPermission();
-  if (!canBeEditable && schematic.editable)
-    dispatch(setEditable({ key: layoutKey, editable: false }));
+  useEffect(() => {
+    if (!canBeEditable && isEditable)
+      dispatch(setEditable({ key: layoutKey, editable: false }));
+  }, [canBeEditable, isEditable, layoutKey, dispatch]);
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -382,6 +384,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           fitViewOnResize={schematic.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
           visible={visible}
+          dragHandleSelector={`.${Core.DRAG_HANDLE_CLASS}`}
           {...dropProps}
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
@@ -455,7 +458,7 @@ export const create =
     const canEditSchematic = selectHasPermission(store.getState());
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     if (!canEditSchematic && tab?.editable) tab.editable = false;
-    const key = schematic.keyZ.safeParse(initial.key).data ?? uuid();
+    const key = schematic.keyZ.safeParse(initial.key).data ?? uuid.create();
     dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return {
       key,

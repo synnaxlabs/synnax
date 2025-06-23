@@ -1,6 +1,6 @@
 {
   "name": "stylelint-config-synnaxlabs",
-  "version": "0.0.1",
+  "version": "0.43.0",
   "description": "Synnax Style Lint Configuration",
   "main": "index.js",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/configs/stylelint",
@@ -12,11 +12,11 @@
     "fix": "eslint --cache --fix"
   },
   "dependencies": {
-    "stylelint": "^16.15.0",
-    "stylelint-config-standard": "^37.0.0"
+    "stylelint": "^16.20.0",
+    "stylelint-config-standard": "^38.0.0"
   },
   "devDependencies": {
-    "eslint": "^9.24.0",
-    "eslint-config-synnaxlabs": "workspace:*"
+    "eslint": "catalog:",
+    "eslint-config-synnaxlabs": "workspace:^"
   }
 }

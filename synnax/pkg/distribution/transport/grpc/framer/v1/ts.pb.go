@@ -114,7 +114,7 @@ type IteratorResponse struct {
 	Variant       int32                  `protobuf:"varint,1,opt,name=variant,proto3" json:"variant,omitempty"`
 	Command       int32                  `protobuf:"varint,2,opt,name=command,proto3" json:"command,omitempty"`
 	Frame         *Frame                 `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
-	NodeKey       int32                  `protobuf:"varint,43,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
+	NodeKey       int32                  `protobuf:"varint,4,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
 	Ack           bool                   `protobuf:"varint,5,opt,name=ack,proto3" json:"ack,omitempty"`
 	SeqNum        int32                  `protobuf:"varint,6,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
 	Error         *errors.PBPayload      `protobuf:"bytes,7,opt,name=error,proto3" json:"error,omitempty"`
@@ -512,11 +512,10 @@ func (x *WriterConfig) GetAutoIndexPersistInterval() int64 {
 type WriterResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
-	Ack           bool                   `protobuf:"varint,2,opt,name=ack,proto3" json:"ack,omitempty"`
-	SeqNum        int32                  `protobuf:"varint,3,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
-	NodeKey       int32                  `protobuf:"varint,4,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
-	Error         *errors.PBPayload      `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
-	TimeStamp     int64                  `protobuf:"varint,6,opt,name=time_stamp,json=timeStamp,proto3" json:"time_stamp,omitempty"`
+	SeqNum        int32                  `protobuf:"varint,2,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
+	NodeKey       int32                  `protobuf:"varint,3,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
+	End           int64                  `protobuf:"varint,4,opt,name=end,proto3" json:"end,omitempty"`
+	Authorized    bool                   `protobuf:"varint,5,opt,name=authorized,proto3" json:"authorized,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -558,13 +557,6 @@ func (x *WriterResponse) GetCommand() int32 {
 	return 0
 }
 
-func (x *WriterResponse) GetAck() bool {
-	if x != nil {
-		return x.Ack
-	}
-	return false
-}
-
 func (x *WriterResponse) GetSeqNum() int32 {
 	if x != nil {
 		return x.SeqNum
@@ -579,18 +571,18 @@ func (x *WriterResponse) GetNodeKey() int32 {
 	return 0
 }
 
-func (x *WriterResponse) GetError() *errors.PBPayload {
+func (x *WriterResponse) GetEnd() int64 {
 	if x != nil {
-		return x.Error
-	}
-	return nil
-}
-
-func (x *WriterResponse) GetTimeStamp() int64 {
-	if x != nil {
-		return x.TimeStamp
+		return x.End
 	}
 	return 0
+}
+
+func (x *WriterResponse) GetAuthorized() bool {
+	if x != nil {
+		return x.Authorized
+	}
+	return false
 }
 
 type DeleteRequest struct {
@@ -657,7 +649,7 @@ var File_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto protoreflect.
 
 const file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc = "" +
 	"\n" +
-	"9synnax/pkg/distribution/transport/grpc/framer/v1/ts.proto\x12\x05ts.v1\x1a\x18x/go/errors/errors.proto\x1a\x16x/go/telem/telem.proto\x1a\x1ax/go/control/control.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xb4\x01\n" +
+	"9synnax/pkg/distribution/transport/grpc/framer/v1/ts.proto\x12\x05ts.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1ax/go/control/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x16x/go/telem/telem.proto\"\xb4\x01\n" +
 	"\x0fIteratorRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x14\n" +
 	"\x05stamp\x18\x02 \x01(\x03R\x05stamp\x12\x12\n" +
@@ -670,7 +662,7 @@ const file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc = "
 	"\avariant\x18\x01 \x01(\x05R\avariant\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\x05R\acommand\x12\"\n" +
 	"\x05frame\x18\x03 \x01(\v2\f.ts.v1.FrameR\x05frame\x12\x19\n" +
-	"\bnode_key\x18+ \x01(\x05R\anodeKey\x12\x10\n" +
+	"\bnode_key\x18\x04 \x01(\x05R\anodeKey\x12\x10\n" +
 	"\x03ack\x18\x05 \x01(\bR\x03ack\x12\x17\n" +
 	"\aseq_num\x18\x06 \x01(\x05R\x06seqNum\x12'\n" +
 	"\x05error\x18\a \x01(\v2\x11.errors.PBPayloadR\x05error\"\"\n" +
@@ -694,15 +686,15 @@ const file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc = "
 	"\x13err_on_unauthorized\x18\x05 \x01(\bR\x11errOnUnauthorized\x12\x12\n" +
 	"\x04mode\x18\x06 \x01(\rR\x04mode\x12,\n" +
 	"\x12enable_auto_commit\x18\a \x01(\bR\x10enableAutoCommit\x12=\n" +
-	"\x1bauto_index_persist_interval\x18\b \x01(\x03R\x18autoIndexPersistInterval\"\xb8\x01\n" +
+	"\x1bauto_index_persist_interval\x18\b \x01(\x03R\x18autoIndexPersistInterval\"\x90\x01\n" +
 	"\x0eWriterResponse\x12\x18\n" +
-	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x10\n" +
-	"\x03ack\x18\x02 \x01(\bR\x03ack\x12\x17\n" +
-	"\aseq_num\x18\x03 \x01(\x05R\x06seqNum\x12\x19\n" +
-	"\bnode_key\x18\x04 \x01(\x05R\anodeKey\x12'\n" +
-	"\x05error\x18\x05 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x1d\n" +
+	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x17\n" +
+	"\aseq_num\x18\x02 \x01(\x05R\x06seqNum\x12\x19\n" +
+	"\bnode_key\x18\x03 \x01(\x05R\anodeKey\x12\x10\n" +
+	"\x03end\x18\x04 \x01(\x03R\x03end\x12\x1e\n" +
 	"\n" +
-	"time_stamp\x18\x06 \x01(\x03R\ttimeStamp\"e\n" +
+	"authorized\x18\x05 \x01(\bR\n" +
+	"authorized\"e\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12*\n" +
@@ -756,21 +748,20 @@ var file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_depIdxs = []i
 	6,  // 6: ts.v1.WriterRequest.config:type_name -> ts.v1.WriterConfig
 	4,  // 7: ts.v1.WriterRequest.frame:type_name -> ts.v1.Frame
 	12, // 8: ts.v1.WriterConfig.control_subject:type_name -> control.ControlSubject
-	10, // 9: ts.v1.WriterResponse.error:type_name -> errors.PBPayload
-	9,  // 10: ts.v1.DeleteRequest.bounds:type_name -> telem.PBTimeRange
-	0,  // 11: ts.v1.IteratorService.Iterate:input_type -> ts.v1.IteratorRequest
-	2,  // 12: ts.v1.RelayService.Relay:input_type -> ts.v1.RelayRequest
-	5,  // 13: ts.v1.WriterService.Write:input_type -> ts.v1.WriterRequest
-	8,  // 14: ts.v1.DeleteService.Exec:input_type -> ts.v1.DeleteRequest
-	1,  // 15: ts.v1.IteratorService.Iterate:output_type -> ts.v1.IteratorResponse
-	3,  // 16: ts.v1.RelayService.Relay:output_type -> ts.v1.RelayResponse
-	7,  // 17: ts.v1.WriterService.Write:output_type -> ts.v1.WriterResponse
-	13, // 18: ts.v1.DeleteService.Exec:output_type -> google.protobuf.Empty
-	15, // [15:19] is the sub-list for method output_type
-	11, // [11:15] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	9,  // 9: ts.v1.DeleteRequest.bounds:type_name -> telem.PBTimeRange
+	0,  // 10: ts.v1.IteratorService.Iterate:input_type -> ts.v1.IteratorRequest
+	2,  // 11: ts.v1.RelayService.Relay:input_type -> ts.v1.RelayRequest
+	5,  // 12: ts.v1.WriterService.Write:input_type -> ts.v1.WriterRequest
+	8,  // 13: ts.v1.DeleteService.Exec:input_type -> ts.v1.DeleteRequest
+	1,  // 14: ts.v1.IteratorService.Iterate:output_type -> ts.v1.IteratorResponse
+	3,  // 15: ts.v1.RelayService.Relay:output_type -> ts.v1.RelayResponse
+	7,  // 16: ts.v1.WriterService.Write:output_type -> ts.v1.WriterResponse
+	13, // 17: ts.v1.DeleteService.Exec:output_type -> google.protobuf.Empty
+	14, // [14:18] is the sub-list for method output_type
+	10, // [10:14] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_init() }

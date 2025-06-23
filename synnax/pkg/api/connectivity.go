@@ -11,11 +11,12 @@ package api
 
 import (
 	"context"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/x/telem"
 	"go/types"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/version"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // ConnectivityService is a simple service that allows a client to check their connection
@@ -32,7 +33,7 @@ func NewConnectivityService(p Provider) *ConnectivityService {
 type ClusterInfo struct {
 	ClusterKey  string          `json:"cluster_key" msgpack:"cluster_key"`
 	NodeVersion string          `json:"node_version" msgpack:"node_version"`
-	NodeKey     dcore.NodeKey   `json:"node_key" msgpack:"node_key"`
+	NodeKey     cluster.NodeKey `json:"node_key" msgpack:"node_key"`
 	NodeTime    telem.TimeStamp `json:"node_time" msgpack:"node_time"`
 }
 

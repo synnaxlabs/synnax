@@ -13,7 +13,7 @@ import {
   type SynnaxProps,
   TimeSpan,
 } from "@synnaxlabs/client";
-import { caseconv, migrate } from "@synnaxlabs/x";
+import { caseconv, migrate, type status } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -27,11 +27,20 @@ import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
 import { Status } from "@/status";
 import { synnax } from "@/synnax/aether";
 
-const Context = createContext<synnax.ContextValue>(synnax.ZERO_CONTEXT_VALUE);
+export interface ContextValue extends synnax.ContextValue {
+  state: connection.State;
+}
+
+const ZERO_CONTEXT_VALUE: ContextValue = {
+  ...synnax.ZERO_CONTEXT_VALUE,
+  state: Synnax.connectivity.DEFAULT,
+};
+
+const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
 
 const useContext = () => reactUse(Context);
 
-export const use = () => useContext().synnax;
+export const use = () => useContext().client;
 
 export const useConnectionState = () => useContext().state;
 
@@ -39,9 +48,9 @@ export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxProps;
 }
 
-const CONNECTION_STATE_VARIANT: Record<connection.Status, Status.Variant> = {
+export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
   connected: "success",
-  connecting: "info",
+  connecting: "loading",
   disconnected: "info",
   failed: "error",
 };
@@ -56,14 +65,13 @@ const createErrorDescription = (
   `Cluster version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
 
 export const Provider = ({ children, connParams }: ProviderProps): ReactElement => {
-  const [state, setState, ref] = useCombinedStateAndRef<synnax.ContextValue>(
-    synnax.ZERO_CONTEXT_VALUE,
-  );
+  const [state, setState, ref] =
+    useCombinedStateAndRef<ContextValue>(ZERO_CONTEXT_VALUE);
 
-  const [{ path }, , setAetherState] = Aether.use({
+  const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
     schema: synnax.Provider.stateZ,
-    initialState: { props: connParams ?? null, state: null },
+    state: { props: connParams ?? null, state: null },
   });
 
   const addStatus = Status.useAdder();
@@ -72,7 +80,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     (state: connection.State) => {
       if (ref.current.state.status !== state.status)
         addStatus({
-          variant: CONNECTION_STATE_VARIANT[state.status],
+          variant: CONNECTION_STATE_VARIANTS[state.status],
           message: state.message ?? caseconv.capitalize(state.status),
         });
       setState((prev) => ({ ...prev, state }));
@@ -80,68 +88,69 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     [addStatus],
   );
 
-  useAsyncEffect(async () => {
-    if (state.synnax != null) state.synnax.close();
-    if (connParams == null) return setState(synnax.ZERO_CONTEXT_VALUE);
+  useAsyncEffect(
+    async (signal) => {
+      if (state.client != null) state.client.close();
+      if (connParams == null) return setState(ZERO_CONTEXT_VALUE);
 
-    const c = new Synnax({
-      ...connParams,
-      connectivityPollFrequency: TimeSpan.seconds(5),
-    });
+      const client = new Synnax({
+        ...connParams,
+        connectivityPollFrequency: TimeSpan.seconds(2),
+      });
 
-    setState({
-      synnax: c,
-      state: {
-        clusterKey: "",
-        status: "connecting",
-        message: "Connecting...",
-        clientServerCompatible: false,
-        clientVersion: c.clientVersion,
-      },
-    });
-
-    const connectivity = await c.connectivity.check();
-
-    setState({ synnax: c, state: connectivity });
-    addStatus({
-      variant: CONNECTION_STATE_VARIANT[connectivity.status],
-      message: connectivity.message ?? connectivity.status.toUpperCase(),
-    });
-
-    if (connectivity.status === "connected" && !connectivity.clientServerCompatible) {
-      const oldServer =
-        connectivity.nodeVersion == null ||
-        migrate.semVerOlder(connectivity.nodeVersion, connectivity.clientVersion);
-
-      const description = createErrorDescription(
-        oldServer,
-        connectivity.clientVersion,
-        connectivity.nodeVersion,
-      );
-
-      addStatus({
-        variant: "warning",
-        message: "Incompatible cluster version",
-        description,
-        data: {
-          type: SERVER_VERSION_MISMATCH,
-          oldServer,
-          nodeVersion: connectivity.nodeVersion,
-          clientVersion: connectivity.clientVersion,
+      setState({
+        client,
+        state: {
+          clusterKey: "",
+          status: "connecting",
+          message: "Connecting...",
+          clientServerCompatible: false,
+          clientVersion: client.clientVersion,
         },
       });
-    }
 
-    c.connectivity.onChange(handleChange);
+      const connectivity = await client.connectivity.check();
+      if (signal.aborted) return;
 
-    setAetherState({ props: connParams, state: connectivity });
+      setState({ client, state: connectivity });
+      addStatus({
+        variant: CONNECTION_STATE_VARIANTS[connectivity.status],
+        message: connectivity.message ?? connectivity.status.toUpperCase(),
+      });
 
-    return () => {
-      c.close();
-      setState(synnax.ZERO_CONTEXT_VALUE);
-      setAetherState({ props: null, state: null });
-    };
-  }, [connParams, handleChange]);
+      if (connectivity.status === "connected" && !connectivity.clientServerCompatible) {
+        const oldServer =
+          connectivity.nodeVersion == null ||
+          migrate.semVerOlder(connectivity.nodeVersion, connectivity.clientVersion);
+
+        const description = createErrorDescription(
+          oldServer,
+          connectivity.clientVersion,
+          connectivity.nodeVersion,
+        );
+
+        addStatus({
+          variant: "warning",
+          message: "Incompatible cluster version",
+          description,
+          data: {
+            type: SERVER_VERSION_MISMATCH,
+            oldServer,
+            nodeVersion: connectivity.nodeVersion,
+            clientVersion: connectivity.clientVersion,
+          },
+        });
+      }
+
+      client.connectivity.onChange(handleChange);
+
+      return () => {
+        client.close();
+        setState(ZERO_CONTEXT_VALUE);
+      };
+    },
+    [connParams, handleChange],
+  );
 
   return (
     <Context value={state}>

@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, rack, task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Channel,
   Form,
+  Icon,
   type Input,
   Rack,
   Status,
@@ -27,7 +27,7 @@ import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom"
 import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { Common } from "@/hardware/common";
 import { Controls } from "@/hardware/common/task/Controls";
-import { useForm } from "@/hardware/common/task/Form";
+import { type FormSchema, useForm } from "@/hardware/common/task/Form";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
   type Config,
@@ -106,7 +106,7 @@ const Editor = ({ value, onChange, globals }: EditorProps) => {
 };
 
 const schema = configZ.extend({
-  rack: rack.keyZ.min(1, "Location is required"),
+  rack: rack.keyZ.refine((v) => v > 0, "Location is required"),
 });
 
 const Internal = ({
@@ -140,7 +140,7 @@ const Internal = ({
 
   return (
     <Align.Space style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
-      <Form.Form {...methods}>
+      <Form.Form<FormSchema<Config>> {...methods}>
         <Form.Field<string>
           path="config.script"
           showLabel={false}

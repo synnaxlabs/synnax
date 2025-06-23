@@ -11,13 +11,14 @@ package iterator
 
 import (
 	"context"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
 func newStorageResponseTranslator(
-	host dcore.NodeKey,
+	host cluster.NodeKey,
 ) func(ctx context.Context, in ts.IteratorResponse) (Response, bool, error) {
 	return func(ctx context.Context, res ts.IteratorResponse) (Response, bool, error) {
 		return Response{
@@ -32,13 +33,20 @@ func newStorageResponseTranslator(
 	}
 }
 
-func newStorageRequestTranslator() func(ctx context.Context, in Request) (ts.IteratorRequest, bool, error) {
+func newStorageRequestTranslator(generateSeqNums bool) func(ctx context.Context, in Request) (ts.IteratorRequest, bool, error) {
+	seqNum := 0
 	return func(ctx context.Context, req Request) (ts.IteratorRequest, bool, error) {
-		return ts.IteratorRequest{
+		oReq := ts.IteratorRequest{
 			Command: ts.IteratorCommand(req.Command),
 			Span:    req.Span,
 			Stamp:   req.Stamp,
 			Bounds:  req.Bounds,
-		}, true, nil
+			SeqNum:  req.SeqNum,
+		}
+		if generateSeqNums {
+			seqNum++
+			oReq.SeqNum = seqNum
+		}
+		return oReq, true, nil
 	}
 }

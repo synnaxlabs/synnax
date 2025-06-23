@@ -9,13 +9,14 @@
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { box, xy } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { grid } from "@/vis/grid";
 import { type FindResult } from "@/vis/line/aether/line";
+import { type AxesBounds, BoundQuerier } from "@/vis/lineplot/aether/BoundQuerier";
 import { XAxis } from "@/vis/lineplot/aether/XAxis";
 import { YAxis } from "@/vis/lineplot/aether/YAxis";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
@@ -26,24 +27,27 @@ export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().optional().default(false),
-  grid: z.record(grid.regionZ),
+  grid: z.record(z.string(), grid.regionZ),
   visible: z.boolean().optional().default(true),
   clearOverScan: xy.crudeZ.optional().default(xy.ZERO),
 });
 
 interface InternalState {
   instrumentation: Instrumentation;
-  aggregate: status.Adder;
+  handleError: status.ErrorHandler;
   renderCtx: render.Context;
 }
 
-type Children = XAxis | tooltip.Tooltip | measure.Measure;
+type Children = XAxis | tooltip.Tooltip | measure.Measure | BoundQuerier;
 
 const calculateExposure = (viewport: box.Box, region: box.Box): number => {
   const vpArea = box.width(viewport) * Math.sqrt(box.height(viewport));
   const regArea = box.width(region) * Math.sqrt(box.height(region));
   return vpArea / regArea;
 };
+
+const RENDER_CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"] as const;
+const TOOL_RENDER_CANVASES: render.CanvasVariant[] = ["upper2d"];
 
 export class LinePlot extends aether.Composite<
   typeof linePlotStateZ,
@@ -54,37 +58,39 @@ export class LinePlot extends aether.Composite<
 
   schema = linePlotStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
-    this.internal.aggregate = status.useAdder(ctx);
+    this.internal.handleError = status.useErrorHandler(ctx);
     this.internal.renderCtx = render.Context.use(ctx);
-    render.Controller.control(ctx, (r) => this.requestRender("low", r));
-    this.requestRender("high", render.REASON_LAYOUT);
+    render.control(ctx, (r) => {
+      if (!this.state.visible) return;
+      this.requestRender("low", r);
+    });
+    if (!this.state.visible && !this.prevState.visible) return;
+    this.requestRender("high", "layout");
   }
 
-  async afterDelete(ctx: aether.Context): Promise<void> {
+  afterDelete(ctx: aether.Context): void {
     this.internal.renderCtx = render.Context.use(ctx);
-    this.requestRender("high", render.REASON_LAYOUT);
+    this.requestRender("high", "layout");
   }
 
-  async findByXDecimal(x: number): Promise<FindResult[]> {
+  findByXDecimal(x: number): FindResult[] {
     const props = {
       ...this.state,
       plot: this.calculatePlot(),
       exposure: this.exposure,
     };
-    const p = this.axes.flatMap(async (xAxis) => await xAxis.findByXDecimal(props, x));
-    return (await Promise.all(p)).flat();
+    return this.axes.flatMap((xAxis) => xAxis.findByXDecimal(props, x)).flat();
   }
 
-  async findByXValue(x: number): Promise<FindResult[]> {
+  findByXValue(x: number): FindResult[] {
     const props = {
       ...this.state,
       plot: this.calculatePlot(),
       exposure: this.exposure,
     };
-    const p = this.axes.flatMap(async (a) => await a.findByXValue(props, x));
-    return (await Promise.all(p)).flat();
+    return this.axes.flatMap((a) => a.findByXValue(props, x)).flat();
   }
 
   private get axes(): readonly XAxis[] {
@@ -99,57 +105,71 @@ export class LinePlot extends aether.Composite<
     return this.childrenOfType<measure.Measure>(measure.Measure.TYPE);
   }
 
+  private get bounds(): readonly BoundQuerier[] {
+    return this.childrenOfType<BoundQuerier>(BoundQuerier.TYPE);
+  }
+
   private get exposure(): number {
     return calculateExposure(this.state.viewport, this.state.container);
   }
 
-  private async renderAxes(
-    plot: box.Box,
-    canvases: render.CanvasVariant[],
-  ): Promise<void> {
+  private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): void {
     const p = { ...this.state, plot, canvases, exposure: this.exposure };
-    await Promise.all(this.axes.map(async (xAxis) => await xAxis.render(p)));
+    this.axes.forEach((xAxis) => xAxis.render(p));
   }
 
-  private async renderTooltips(
-    region: box.Box,
-    canvases: render.CanvasVariant[],
-  ): Promise<void> {
+  private renderTooltips(region: box.Box, canvases: render.CanvasVariant[]): void {
     const p = { findByXDecimal: this.findByXDecimal.bind(this), region, canvases };
-    await Promise.all(this.tooltips.map(async (t) => await t.render(p)));
+    this.tooltips.forEach((t) => t.render(p));
   }
 
-  private async renderMeasures(region: box.Box): Promise<void> {
+  private renderBounds(): void {
+    this.bounds.forEach((b) =>
+      b.render({
+        getBounds: () => {
+          const bounds: AxesBounds = {};
+          this.axes.forEach((v) => {
+            const axisKey = v.state.axisKey ?? v.key;
+            bounds[axisKey] = v.bounds(this.state.hold);
+            v.yAxes.forEach((y) => {
+              const yAxisKey = y.state.axisKey ?? y.key;
+              bounds[yAxisKey] = y.bounds(this.state.hold);
+            });
+          });
+          return bounds;
+        },
+      }),
+    );
+  }
+
+  private renderMeasures(region: box.Box): void {
     const p: measure.MeasureProps = {
       findByXDecimal: this.findByXDecimal.bind(this),
       findByXValue: this.findByXValue.bind(this),
       region,
     };
-    await Promise.all(this.measures.map(async (m) => await m.render(p)));
+    this.measures.forEach((m) => m.render(p));
   }
 
   private calculatePlot(): box.Box {
     return grid.visualizationBox(this.state.grid, this.state.container);
   }
 
-  private async render(
-    canvases: render.CanvasVariant[],
-  ): Promise<render.Cleanup | undefined> {
-    const { renderCtx } = this.internal;
-    const { instrumentation } = this.internal;
+  private render(canvases: render.CanvasVariant[]): render.Cleanup | undefined {
+    const { instrumentation: ins, renderCtx, handleError } = this.internal;
     if (this.deleted) {
-      instrumentation.L.debug("deleted, skipping render", { key: this.key });
+      ins.L.debug("deleted, skipping render", { key: this.key });
       return;
     }
     if (!this.state.visible) {
-      instrumentation.L.debug("not visible, skipping render", { key: this.key });
-      return async ({ canvases }) =>
+      ins.L.debug("not visible, skipping render", { key: this.key });
+      return ({ canvases }) =>
         renderCtx.erase(this.state.container, this.state.clearOverScan, ...canvases);
     }
 
     const plot = this.calculatePlot();
 
-    instrumentation.L.debug("rendering", {
+    ins.L.debug("rendering", {
       key: this.key,
       viewport: this.state.viewport,
       container: this.state.container,
@@ -159,6 +179,7 @@ export class LinePlot extends aether.Composite<
     });
 
     const os = xy.construct(this.state.clearOverScan);
+
     const removeCanvasScissor = renderCtx.scissor(
       this.state.container,
       os,
@@ -171,40 +192,32 @@ export class LinePlot extends aether.Composite<
     );
 
     try {
-      await this.renderAxes(plot, canvases);
-      await this.renderTooltips(plot, canvases);
-      await this.renderMeasures(plot);
-      renderCtx.gl.finish();
-      renderCtx.gl.flush();
-      renderCtx.gl.finish();
+      this.renderAxes(plot, canvases);
+      this.renderTooltips(plot, canvases);
+      this.renderMeasures(plot);
+      this.renderBounds();
     } catch (e) {
-      const err = e as Error;
-      // TODO: Remove this temp fix after we resolve actual error.
-      if (err.message.toLowerCase().includes("bigint")) return;
-      this.internal.aggregate({
-        key: `${this.type}-${this.key}`,
-        variant: "error",
-        message: (e as Error).message,
-      });
+      handleError(e, "failed to render line plot");
     } finally {
       removeCanvasScissor();
       removeGLScissor();
     }
-    instrumentation.L.debug("rendered", { key: this.key });
+    ins.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
-    return async ({ canvases }) =>
+
+    return ({ canvases }) =>
       renderCtx.erase(eraseRegion, this.state.clearOverScan, ...canvases);
   }
 
   requestRender(priority: render.Priority, reason: string): void {
     const { renderCtx: ctx } = this.internal;
-    let canvases: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"];
+    let canvases = RENDER_CANVASES;
     // Optimization for tooltips, measures and other utilities. In this case, we only
     // need to render the upper2d canvas.
-    if (reason === render.REASON_TOOL) canvases = ["upper2d"];
-    void ctx.loop.set({
+    if (reason === "tool") canvases = TOOL_RENDER_CANVASES;
+    ctx.loop.set({
       key: `${this.type}-${this.key}`,
-      render: async () => await this.render(canvases),
+      render: () => this.render(canvases),
       priority,
       canvases,
     });
@@ -215,4 +228,5 @@ export const REGISTRY: aether.ComponentRegistry = {
   [LinePlot.TYPE]: LinePlot,
   [XAxis.TYPE]: XAxis,
   [YAxis.TYPE]: YAxis,
+  [BoundQuerier.TYPE]: BoundQuerier,
 };

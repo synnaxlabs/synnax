@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type device, type task } from "@synnaxlabs/client";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
 import * as v0 from "@/hardware/ni/task/types/v0";
 
 type PortToIndexMap = Map<number, number>;
 
-const validateAnalogPorts = (
-  channels: { port: number; device: device.Key }[],
-  { addIssue }: z.RefinementCtx,
-) => {
+const validateAnalogPorts = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<{ port: number; device: device.Key }[]>) => {
   const deviceToPortMap = new Map<device.Key, PortToIndexMap>();
   channels.forEach(({ device, port }, i) => {
     if (!deviceToPortMap.has(device)) deviceToPortMap.set(device, new Map());
@@ -28,12 +28,10 @@ const validateAnalogPorts = (
       return;
     }
     const index = portToIndexMap.get(port) as number;
-    const baseIssue = {
-      code: z.ZodIssueCode.custom,
-      message: `Port ${port} has already been used on another channel on the same device`,
-    };
-    addIssue({ ...baseIssue, path: [index, "port"] });
-    addIssue({ ...baseIssue, path: [i, "port"] });
+    const code = "custom";
+    const message = `Port ${port} has already been used on another channel on the same device`;
+    issues.push({ path: [index, "port"], code, message, input: channels });
+    issues.push({ path: [i, "port"], code, message, input: channels });
   });
 };
 
@@ -252,10 +250,10 @@ const baseAnalogReadConfigZ = v0.baseAnalogReadConfigZ
   .extend({
     channels: z
       .array(aiChannelZ)
-      .superRefine(Common.Task.validateReadChannels)
-      .superRefine(validateAnalogPorts),
+      .check(Common.Task.validateReadChannels)
+      .check(validateAnalogPorts),
   })
-  .superRefine(Common.Task.validateStreamRate);
+  .check(Common.Task.validateStreamRate);
 export interface AnalogReadConfig extends z.infer<typeof baseAnalogReadConfigZ> {}
 export const analogReadConfigZ = z.union([
   v0.analogReadConfigZ.transform<AnalogReadConfig>(({ channels, device, ...rest }) => ({

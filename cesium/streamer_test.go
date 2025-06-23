@@ -10,10 +10,11 @@
 package cesium_test
 
 import (
+	"runtime"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
@@ -21,9 +22,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"runtime"
-
-	"github.com/synnaxlabs/cesium"
 )
 
 var _ = Describe("Streamer Behavior", func() {
@@ -39,7 +37,7 @@ var _ = Describe("Streamer Behavior", func() {
 			BeforeAll(func() {
 				fs, cleanUp = makeFS()
 				db = openDBOnFS(fs)
-				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
+				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "cesium_control")).To(Succeed())
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
@@ -52,7 +50,7 @@ var _ = Describe("Streamer Behavior", func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: basic1, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+						cesium.Channel{Key: basic1, Name: "Planck", DataType: telem.TimeStampT, IsIndex: true},
 					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic1},
@@ -66,30 +64,29 @@ var _ = Describe("Streamer Behavior", func() {
 					defer cancel()
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
-					d := telem.NewSeriesV[int64](1, 2, 3)
-					Expect(w.Write(cesium.NewFrame(
+					d := telem.NewSeriesSecondsTSV(10, 11, 12)
+					MustSucceed(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{basic1},
 						[]telem.Series{d},
-					))).To(BeTrue())
+					)))
 
 					f := <-o.Outlet()
-					Expect(f.Frame.Keys).To(HaveLen(1))
-					Expect(f.Frame.Series).To(HaveLen(1))
-					d.Alignment = telem.LeadingAlignment(1, 0)
-					Expect(f.Frame.Series[0]).To(Equal(d))
+					Expect(f.Frame.Count()).To(Equal(1))
+					d.Alignment = core.LeadingAlignment(1, 0)
+					Expect(f.Frame.SeriesAt(0)).To(Equal(d))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
 				})
 			})
 
-			Describe("Writer is in WriterPersistOnly mode", func() {
+			Describe("Writer is in PersistOnly mode", func() {
 				It("Should not receive any frames", func() {
 					var basic2 cesium.ChannelKey = 3
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: basic2, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+						cesium.Channel{Key: basic2, Name: "Bohr", DataType: telem.TimeStampT, IsIndex: true},
 					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic2},
@@ -104,11 +101,11 @@ var _ = Describe("Streamer Behavior", func() {
 					defer cancel()
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
-					d := telem.NewSeriesV[int64](1, 2, 3)
-					Expect(w.Write(cesium.NewFrame(
+					d := telem.NewSeriesSecondsTSV(10, 11, 12)
+					MustSucceed(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{d},
-					))).To(BeTrue())
+					)))
 
 					Consistently(o.Outlet()).ShouldNot(Receive())
 					i.Close()
@@ -123,7 +120,7 @@ var _ = Describe("Streamer Behavior", func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: basic2, DataType: telem.Int64T, Virtual: true},
+						cesium.Channel{Key: basic2, Name: "Heisenberg", DataType: telem.Int64T, Virtual: true},
 					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic2},
@@ -138,16 +135,15 @@ var _ = Describe("Streamer Behavior", func() {
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 					written := telem.NewSeriesV[int64](1, 2, 3)
-					Expect(w.Write(cesium.NewFrame(
+					MustSucceed(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{written},
-					))).To(BeTrue())
+					)))
 					var f cesium.StreamerResponse
 					Eventually(o.Outlet()).Should(Receive(&f))
-					Expect(f.Frame.Keys).To(HaveLen(1))
-					Expect(f.Frame.Series).To(HaveLen(1))
-					written.Alignment = telem.LeadingAlignment(1, 0)
-					Expect(f.Frame.Series[0]).To(Equal(written))
+					Expect(f.Frame.Count()).To(Equal(1))
+					written.Alignment = core.LeadingAlignment(1, 0)
+					Expect(f.Frame.SeriesAt(0)).To(Equal(written))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
@@ -156,21 +152,21 @@ var _ = Describe("Streamer Behavior", func() {
 
 			Describe("Control Updates", func() {
 				It("Should forward control updates to the streamer", func() {
-					var (
-						basic3 cesium.ChannelKey = 6
-					)
+					var basic3 cesium.ChannelKey = 6
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: basic3, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+						cesium.Channel{Key: basic3, Name: "Schrodinger", DataType: telem.TimeStampT, IsIndex: true},
 					)).To(Succeed())
 					streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
-						Channels: []cesium.ChannelKey{controlKey},
+						Channels:    []cesium.ChannelKey{controlKey},
+						SendOpenAck: true,
 					}))
 					i, o := confluence.Attach(streamer, 1)
 					sCtx, cancel := signal.WithCancel(ctx)
 					defer cancel()
 					streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 					// Do a best effort schedule for the streamer to boot up
+					Eventually(o.Outlet()).Should(Receive())
 					runtime.Gosched()
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{basic3},
@@ -178,17 +174,23 @@ var _ = Describe("Streamer Behavior", func() {
 						Start:          10 * telem.SecondTS,
 					}))
 					var r cesium.StreamerResponse
-					Eventually(o.Outlet()).Should(Receive(&r))
-					Expect(r.Frame.Keys).To(HaveLen(1))
-					u := MustSucceed(cesium.DecodeControlUpdate(ctx, r.Frame.Series[0]))
-					t, ok := lo.Find(u.Transfers, func(t controller.Transfer) bool {
-						return t.To.Resource == basic3
-					})
-					Expect(ok).To(BeTrue())
-					Expect(t.To.Subject.Name).To(Equal("Writer"))
+					// Move this into an eventual closure, as we may be getting latent
+					// control updates from other tests, so we just assert on updates
+					// until we get one that matches.
+					Eventually(func(g Gomega) {
+						g.Eventually(o.Outlet()).Should(Receive(&r))
+						g.Expect(r.Frame.Count()).To(Equal(1))
+						u, err := cesium.DecodeControlUpdate(ctx, r.Frame.SeriesAt(0))
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(u.Transfers).To(HaveLen(1))
+						first := u.Transfers[0]
+						g.Expect(first.Occurred()).To(BeTrue())
+						g.Expect(first.IsAcquire()).To(BeTrue())
+					}).Should(Succeed())
+
 					Expect(w.Close()).To(Succeed())
 					Eventually(o.Outlet()).Should(Receive(&r))
-					Expect(r.Frame.Keys).To(HaveLen(1))
+					Expect(r.Frame.Count()).To(Equal(1))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
 				})
@@ -199,10 +201,15 @@ var _ = Describe("Streamer Behavior", func() {
 					sub := MustSucceed(fs.Sub("closed-fs"))
 					key := cesium.ChannelKey(1)
 					subDB := openDBOnFS(sub)
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Einstein",
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})

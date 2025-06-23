@@ -10,15 +10,13 @@
 import { type label, ranger } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/pluto";
 import { compare, unique } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Label } from "@/label";
 
-const labelFormSchema = z.object({
-  labels: z.array(z.string()),
-});
+const labelFormSchema = z.object({ labels: z.array(z.string()) });
 
-interface LabelsProps {
+export interface LabelsProps {
   rangeKey: string;
 }
 
@@ -52,7 +50,7 @@ export const Labels = ({ rangeKey }: LabelsProps) => {
   });
 
   return (
-    <Form.Form {...formCtx}>
+    <Form.Form<typeof labelFormSchema> {...formCtx}>
       <Form.Field<string[]> required={false} path="labels">
         {({ variant: _, ...p }) => (
           <Label.SelectMultiple

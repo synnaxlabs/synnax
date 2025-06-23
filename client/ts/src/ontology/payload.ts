@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type change, type UnknownRecord } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type change, record } from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 import {
   ALLOW_ALL_ONTOLOGY_TYPE as ALLOW_ALL_TYPE,
@@ -106,8 +106,8 @@ export class ID {
     return this.key === "";
   }
 
-  matchesType(type: ResourceType): boolean {
-    return this.type === type && this.isType();
+  equals(other: CrudeID): boolean {
+    return this.toString() === new ID(other).toString();
   }
 
   get payload(): IDPayload {
@@ -124,7 +124,7 @@ export interface SchemaField extends z.infer<typeof schemaFieldZ> {}
 
 export const schemaZ = z.object({
   type: resourceTypeZ,
-  fields: z.record(schemaFieldZ),
+  fields: z.record(z.string(), schemaFieldZ),
 });
 export interface Schema extends z.infer<typeof schemaZ> {}
 
@@ -133,19 +133,19 @@ export const resourceZ = z
     id: ID.z,
     name: z.string(),
     schema: schemaZ.optional().nullable(),
-    data: z.record(z.unknown()).optional().nullable(),
+    data: record.unknownZ.optional().nullable(),
   })
   .transform((resource) => ({ key: resource.id.toString(), ...resource }));
-export interface Resource<T extends UnknownRecord = UnknownRecord>
-  extends Omit<z.output<typeof resourceZ>, "data"> {
+export interface Resource<T extends record.Unknown = record.Unknown>
+  extends Omit<z.infer<typeof resourceZ>, "data"> {
   data?: T | null;
 }
 
-export const TO_RELATIONSHIP_DIRECTION = "to";
-export const FROM_RELATIONSHIP_DIRECTION = "from";
-export type RelationshipDirection =
-  | typeof TO_RELATIONSHIP_DIRECTION
-  | typeof FROM_RELATIONSHIP_DIRECTION;
+export type RelationshipDirection = "to" | "from";
+
+export const oppositeRelationshipDirection = (
+  direction: RelationshipDirection,
+): RelationshipDirection => (direction === "to" ? "from" : "to");
 
 export const relationshipSchemaZ = z.object({ from: ID.z, type: z.string(), to: ID.z });
 export interface Relationship extends z.infer<typeof relationshipSchemaZ> {}
@@ -154,3 +154,5 @@ export const parseRelationship = (str: string): Relationship => {
   const [from, type, to] = str.split("->");
   return { from: new ID(from), type, to: new ID(to) };
 };
+
+export const PARENT_OF_RELATIONSHIP_TYPE = "parent";

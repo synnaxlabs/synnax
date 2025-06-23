@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
-import { id, primitiveIsZero, strings, unique } from "@synnaxlabs/x";
+import { Align, componentRenderProp, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -86,10 +85,7 @@ const ChannelListItem = ({
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
-      icon={{
-        name: AI_CHANNEL_TYPE_NAMES[type],
-        icon: <Icon style={{ color: "var(--pluto-gray-l9)" }} />,
-      }}
+      icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
     />
   );
@@ -170,7 +166,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
     dev.properties = Device.enrich(dev.model, dev.properties);
     rackKey = dev.rack;
     let modified = false;
-    let shouldCreateIndex = primitiveIsZero(dev.properties.analogInput.index);
+    let shouldCreateIndex = primitive.isZero(dev.properties.analogInput.index);
     if (!shouldCreateIndex)
       try {
         await client.channels.retrieve(dev.properties.analogInput.index);
@@ -193,7 +189,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
       if (channel.device !== dev.key) continue;
       // check if the channel is in properties
       const exKey = dev.properties.analogInput.channels[channel.port.toString()];
-      if (primitiveIsZero(exKey)) toCreate.push(channel);
+      if (primitive.isZero(exKey)) toCreate.push(channel);
       else
         try {
           await client.channels.retrieve(exKey.toString());

@@ -9,11 +9,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { QueryError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Group", () => {
   describe("create", () => {
@@ -40,7 +40,7 @@ describe("Group", () => {
       await client.ontology.groups.delete(g.key);
       await expect(
         async () => await client.ontology.retrieve(g.ontologyID),
-      ).rejects.toThrow(QueryError);
+      ).rejects.toThrowError(NotFoundError);
     });
   });
 });

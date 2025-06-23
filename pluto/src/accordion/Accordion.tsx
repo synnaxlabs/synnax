@@ -9,13 +9,13 @@
 
 import "@/accordion/Accordion.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { box, type direction } from "@synnaxlabs/x/spatial";
 import { type ReactElement, type RefObject } from "react";
 
 import { type Button } from "@/button";
 import { CSS } from "@/css";
 import { Header } from "@/header";
+import { Icon } from "@/icon";
 import { Resize } from "@/resize";
 
 /** The props for a single entry in the {@link Accordion} component. */

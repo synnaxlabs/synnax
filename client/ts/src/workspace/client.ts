@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray, type UnknownRecord } from "@synnaxlabs/x";
+import { array, type record } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { ontology } from "@/ontology";
 import { type Key as UserKey, keyZ as userKeyZ } from "@/user/payload";
@@ -76,7 +76,7 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
     const res = await sendRequired(
       this.client,
       CREATE_ENDPOINT,
-      { workspaces: toArray(workspaces) },
+      { workspaces: array.toArray(workspaces) },
       createReqZ,
       createResZ,
     );
@@ -93,7 +93,7 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
     );
   }
 
-  async setLayout(key: Key, layout: UnknownRecord): Promise<void> {
+  async setLayout(key: Key, layout: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
       SET_LAYOUT_ENDPOINT,
@@ -110,7 +110,7 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: toArray(keys) },
+      { keys: array.toArray(keys) },
       retrieveReqZ,
       retrieveResZ,
     );
@@ -156,7 +156,7 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
     await sendRequired(
       this.client,
       DELETE_ENDPOINT,
-      { keys: toArray(keys) },
+      { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
     );

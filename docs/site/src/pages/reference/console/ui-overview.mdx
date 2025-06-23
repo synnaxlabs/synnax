@@ -9,8 +9,7 @@ next: "Channels"
 nextURL: "/reference/console/channels"
 ---
 
-import { Icon } from "@synnaxlabs/media";
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Icon } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
 import Table from "@/components/Table.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -59,24 +58,30 @@ workspaces.
     </tr>
     <tr>
       <td>[Tasks](/reference/device-drivers)</td>
-      <td>
-        The current data acquisition and controls tasks running on devices connected to
-        the cluster.
-      </td>
+      {
+        <td>
+          The current data acquisition and controls tasks running on devices connected
+          to the cluster.
+        </td>
+      }
     </tr>
     <tr>
       <td>[Users](/reference/console/users)</td>
-      <td>
-        A list of all users registered in the cluster. The workspaces created by the
-        users can be found underneath their name.
-      </td>
+      {
+        <td>
+          A list of all users registered in the cluster. The workspaces created by the
+          users can be found underneath their name.
+        </td>
+      }
     </tr>
     <tr>
       <td>[Workspaces](/reference/console/workspaces)</td>
-      <td>
-        All created workspaces in the cluster. This tree includes workspaces created by
-        all users.
-      </td>
+      {
+        <td>
+          All created workspaces in the cluster. This tree includes workspaces created
+          by all users.
+        </td>
+      }
     </tr>
   </tbody>
 </Table>

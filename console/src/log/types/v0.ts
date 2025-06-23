@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 const VERSION = "0.0.0";
 
@@ -30,7 +30,7 @@ export const ZERO_STATE: State = {
 
 export const sliceStateZ = z.object({
   version: z.literal(VERSION),
-  logs: z.record(stateZ),
+  logs: z.record(z.string(), stateZ),
 });
 
 export type SliceState = z.infer<typeof sliceStateZ>;

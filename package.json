@@ -1,5 +1,5 @@
 {
-  "version": "0.42.0",
+  "version": "0.44.0",
   "private": true,
   "scripts": {
     "build": "npx turbo build",
@@ -14,6 +14,8 @@
     "build:pluto": "npx turbo build --filter @synnaxlabs/pluto",
     "build:vite-plugin": "npx turbo build --filter @synnaxlabs/vite-plugin",
     "build:x": "npx turbo build --filter @synnaxlabs/x",
+    "check-types": "npx turbo check-types",
+    "check-types:console": "npx turbo check-types --filter @synnaxlabs/console",
     "watch": "npx turbo watch --parallel",
     "watch:alamos": "npx turbo watch --filter @synnaxlabs/alamos",
     "watch:client": "npx turbo watch --filter @synnaxlabs/client",
@@ -58,34 +60,12 @@
     "devtools": "npx turbo devtools --filter @synnaxlabs/console"
   },
   "devDependencies": {
-    "prettier": "^3.5.3",
-    "turbo": "^2.4.4",
-    "vitest": "^3.1.1"
+    "prettier": "catalog:",
+    "turbo": "^2.5.4"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
-  "pnpm": {
-    "overrides": {
-      "@reduxjs/toolkit": "^2.6.1",
-      "@tanstack/react-virtual": "^3.13.6",
-      "@tauri-apps/api": "^2.4.1",
-      "@types/react": "^19.1.0",
-      "@types/react-dom": "^19.1.1",
-      "@vitejs/plugin-react": "^4.3.4",
-      "eslint": "^9.24.0",
-      "node-fetch": "^2.7.0",
-      "prettier": "^3.5.3",
-      "proxy-memoize": "2.0.3",
-      "react": "^19.1.0",
-      "react-dom": "^19.1.0",
-      "react-redux": "^9.2.0",
-      "typescript": "^5.8.3",
-      "vite": "^6.2.5",
-      "vitest": "^3.1.1",
-      "zod": "^3.24.2"
-    }
-  },
-  "packageManager": "pnpm@10.7.1",
+  "packageManager": "pnpm@10.12.1",
   "name": "synnax"
 }

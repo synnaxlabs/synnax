@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Color,
   Divider,
+  Icon,
   Input,
   List as PList,
   Menu as PMenu,
@@ -20,7 +20,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { bounds, id, type KeyedNamed } from "@synnaxlabs/x";
+import { bounds, color, id, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
@@ -136,7 +136,7 @@ const List = ({
   );
 };
 
-const AXIS_DATA: KeyedNamed<AxisKey>[] = [Y1, Y2].map((key) => ({
+const AXIS_DATA: record.KeyedNamed<AxisKey>[] = [Y1, Y2].map((key) => ({
   name: key.toUpperCase(),
   key: key as AxisKey,
 }));
@@ -146,7 +146,7 @@ interface RuleContentProps {
   onChangeLabel: (label: string) => void;
   onChangeUnits: (units: string) => void;
   onChangePosition: (position: number) => void;
-  onChangeColor: (color: Color.Color) => void;
+  onChangeColor: (color: color.Color) => void;
   onChangeAxis: (axis: AxisKey) => void;
   onChangeLineWidth: (lineWidth: number) => void;
   onChangeLineDash: (lineDash: number) => void;
@@ -229,11 +229,15 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
   const shownRule = rules.find((rule) => rule.key === shownRuleKey);
   const handleCreateRule = (): void => {
     const visColors = theme?.colors.visualization.palettes.default ?? [];
-    const color = visColors[rules.length % visColors.length]?.hex;
+    const colorVal = color.hex(
+      visColors[rules.length % visColors.length] ?? color.ZERO,
+    );
     const key = id.create();
     const axis = Y1;
     const position = bounds.mean(axes[axis].bounds);
-    dispatch(setRule({ key: linePlotKey, rule: { key, color, axis, position } }));
+    dispatch(
+      setRule({ key: linePlotKey, rule: { key, color: colorVal, axis, position } }),
+    );
     setSelectedRuleKeys([key]);
   };
   const handleChangeLabel = (label: string, key: string = shownRuleKey): void => {
@@ -245,9 +249,9 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
   const handleChangePosition = (position: number): void => {
     dispatch(setRule({ key: linePlotKey, rule: { key: shownRuleKey, position } }));
   };
-  const handleChangeColor = (color: Color.Color): void => {
+  const handleChangeColor = (v: color.Color): void => {
     dispatch(
-      setRule({ key: linePlotKey, rule: { key: shownRuleKey, color: color.hex } }),
+      setRule({ key: linePlotKey, rule: { key: shownRuleKey, color: color.hex(v) } }),
     );
   };
   const handleChangeAxis = (axis: AxisKey): void => {

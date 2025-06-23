@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NIL as ZERO_UUID } from "uuid";
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Workspace", () => {
   describe("create", () => {
@@ -22,7 +22,7 @@ describe("Workspace", () => {
         layout: { one: 1 },
       });
       expect(ws.name).toEqual("Schematic");
-      expect(ws.key).not.toEqual(ZERO_UUID);
+      expect(ws.key).not.toEqual(uuid.ZERO);
       expect(ws.layout.one).toEqual(1);
     });
   });

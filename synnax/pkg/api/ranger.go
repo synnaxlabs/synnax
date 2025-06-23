@@ -11,13 +11,14 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -39,7 +40,7 @@ func NewRangeService(p Provider) *RangeService {
 	return &RangeService{
 		dbProvider:     p.db,
 		accessProvider: p.access,
-		internal:       p.Config.Ranger,
+		internal:       p.Service.Ranger,
 	}
 }
 

@@ -5,6 +5,7 @@
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",
+  "private": true,
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
@@ -40,7 +41,7 @@
     "react-redux": "^9.2.0",
     "tauri-plugin-store-api": "github:tauri-apps/tauri-plugin-store#v1",
     "uuid": "^9.0.1",
-    "zod": "^3.24.2"
+    "zod": "^4.0.0-beta"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^2.0.0",

@@ -9,8 +9,10 @@
 
 import { use } from "react";
 
-export const useRequiredContext = <T>(context: React.Context<T | null>): T => {
+export const useRequiredContext = <T>(
+  context: React.Context<T | null>,
+): NonNullable<T> => {
   const value = use(context);
-  if (value === null) throw new Error(`useRequiredContext: context value is null`);
+  if (value == null) throw new Error(`useRequiredContext: context value is null`);
   return value;
 };

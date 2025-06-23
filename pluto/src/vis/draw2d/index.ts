@@ -8,18 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import {
+  array,
   box,
+  color,
   type Destructor,
   type dimensions,
   direction,
   location,
-  toArray,
   xy,
 } from "@synnaxlabs/x";
 
-import { color } from "@/color/core";
 import { type text } from "@/text/core";
-import { dimensions as textDimensions } from "@/text/dimensions";
+import { dimensions as textDimensions } from "@/text/core/dimensions";
 import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
 import { type SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
@@ -134,7 +134,7 @@ export class Draw2D {
 
   line({ stroke, lineWidth, lineDash, start, end }: Draw2DLineProps): void {
     const ctx = this.canvas;
-    ctx.strokeStyle = stroke.hex;
+    ctx.strokeStyle = color.hex(stroke);
     ctx.lineWidth = lineWidth;
     ctx.setLineDash([lineDash]);
     ctx.beginPath();
@@ -145,7 +145,7 @@ export class Draw2D {
 
   circle({ fill, radius, position }: Draw2DCircleProps): void {
     const ctx = this.canvas;
-    ctx.fillStyle = fill.hex;
+    ctx.fillStyle = color.hex(fill);
     ctx.beginPath();
     ctx.arc(...xy.couple(position), radius, 0, 2 * Math.PI);
     ctx.fill();
@@ -156,14 +156,23 @@ export class Draw2D {
   resolveColor(c: ColorSpec): color.Color;
 
   resolveColor(c: ColorSpec | undefined, fallback?: ColorSpec): color.Color {
-    if (c == null) return this.resolveColor(fallback as ColorSpec);
+    if (c == null) {
+      if (fallback == null) return this.theme.colors.text;
+      return this.resolveColor(fallback);
+    }
     if (typeof c === "function") return c(this.theme);
-    return new color.Color(c);
+    return color.construct(c);
   }
 
-  border({ region, color, width, radius, location }: Draw2DBorderProps): void {
+  border({
+    region,
+    color: colorVal,
+    width,
+    radius,
+    location,
+  }: Draw2DBorderProps): void {
     const ctx = this.canvas;
-    ctx.strokeStyle = this.resolveColor(color, this.theme.colors.border).hex;
+    ctx.strokeStyle = color.hex(this.resolveColor(colorVal, this.theme.colors.border));
     ctx.lineWidth = width ?? this.theme.sizes.border.width;
     radius ??= this.theme.sizes.border.radius;
     if (location == null || location === true)
@@ -180,7 +189,7 @@ export class Draw2D {
         ctx.stroke();
       }
     else
-      toArray(location).forEach((loc) => {
+      array.toArray(location).forEach((loc) => {
         const [start, end] = box.edgePoints(region, loc);
         ctx.beginPath();
         ctx.moveTo(...xy.couple(start));
@@ -201,8 +210,12 @@ export class Draw2D {
     borderRadius ??= this.theme.sizes.border.radius;
     borderWidth ??= 1;
     const ctx = this.canvas;
-    ctx.fillStyle = this.resolveColor(backgroundColor, this.theme.colors.gray.l1).hex;
-    ctx.strokeStyle = this.resolveColor(borderColor, this.theme.colors.border).hex;
+    ctx.fillStyle = color.hex(
+      this.resolveColor(backgroundColor, this.theme.colors.gray.l1),
+    );
+    ctx.strokeStyle = color.hex(
+      this.resolveColor(borderColor, this.theme.colors.border),
+    );
     ctx.setLineDash([]);
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -264,7 +277,7 @@ export class Draw2D {
       (position: xy.XY) => {
         const font = fontString(this.theme, { level });
         this.canvas.font = font;
-        this.canvas.fillStyle = this.theme.colors.text.hex;
+        this.canvas.fillStyle = color.hex(this.theme.colors.text);
         this.canvas.textBaseline = "top";
         text.forEach((v, i) => {
           this.canvas.fillText(v, position.x, position.y + offset * i);
@@ -324,12 +337,13 @@ export class Draw2D {
     code,
     justify = "left",
     align = "top",
-    color,
+    color: colorVal,
   }: DrawTextProps): void {
     this.canvas.font = fontString(this.theme, { level, weight, code });
-    if (color != null) this.canvas.fillStyle = this.resolveColor(color).hex;
-    else if (shade == null) this.canvas.fillStyle = this.theme.colors.text.hex;
-    else this.canvas.fillStyle = this.theme.colors.gray[`l${shade}`].hex;
+    if (colorVal != null)
+      this.canvas.fillStyle = color.hex(this.resolveColor(colorVal));
+    else if (shade == null) this.canvas.fillStyle = color.hex(this.theme.colors.text);
+    else this.canvas.fillStyle = color.hex(this.theme.colors.gray[`l${shade}`]);
     this.canvas.textAlign = justify;
     this.canvas.textBaseline = align;
     let removeScissor: Destructor | undefined;

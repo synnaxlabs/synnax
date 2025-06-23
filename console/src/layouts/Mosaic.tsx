@@ -10,13 +10,14 @@
 import "@/layouts/Mosaic.css";
 
 import { ontology } from "@synnaxlabs/client";
-import { Icon, Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/media";
 import {
   Align,
   Breadcrumb,
   Button,
   componentRenderProp,
   Eraser,
+  Icon,
   Menu as PMenu,
   Modal,
   Mosaic as Core,
@@ -30,7 +31,7 @@ import {
   Triggers,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { type location } from "@synnaxlabs/x";
+import { type location, TimeSpan } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -43,7 +44,7 @@ import { Controls } from "@/layout/Controls";
 import { Nav } from "@/layouts/nav";
 import { createSelectorLayout } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
-import { SERVICES } from "@/services";
+import { Ontology } from "@/ontology";
 import { type RootState, type RootStore } from "@/store";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
@@ -151,6 +152,8 @@ interface MosaicProps {
   mosaic: Core.Node;
 }
 
+const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
+
 export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();
   return windowKey == null || mosaic == null ? null : (
@@ -177,6 +180,8 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [dispatch, windowKey],
   );
 
+  const services = Ontology.useServices();
+
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
@@ -188,7 +193,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         if (res.success) {
           const id = new ontology.ID(res.data);
           if (client == null) return;
-          SERVICES[id.type].onMosaicDrop?.({
+          services[id.type].onMosaicDrop?.({
             client,
             store: store as RootStore,
             id,
@@ -226,9 +231,10 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     (key, size) => {
       dispatch(Layout.resizeMosaicTab({ key, size, windowKey }));
     },
-    100,
+    RESIZE_DEBOUNCE,
     [dispatch, windowKey],
   );
+
   const handleFileDrop = useCallback(
     (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
       const items = Array.from(event.dataTransfer.items);

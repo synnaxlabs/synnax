@@ -14,7 +14,7 @@ import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Line as Core } from "@/vis/line";
 import { useContext } from "@/vis/lineplot/LinePlot";
 
-export interface LineProps extends Core.LineProps, Aether.CProps {}
+export interface LineProps extends Core.LineProps, Aether.ComponentProps {}
 
 export const Line = ({
   aetherKey,

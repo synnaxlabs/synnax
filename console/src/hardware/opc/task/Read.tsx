@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   componentRenderProp,
   Form as PForm,
   type Haul,
+  Icon,
 } from "@synnaxlabs/pluto";
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
@@ -109,15 +109,20 @@ const Properties = (): ReactElement => {
 };
 
 const convertHaulItemToChannel = ({ data }: Haul.Item): ReadChannel => {
-  const nodeId = data?.nodeId as string;
+  if (typeof data?.name !== "string") throw new Error("Invalid name");
+  const nodeName = data?.name;
+  if (typeof data?.nodeId !== "string")
+    throw new Error(`Invalid nodeId for ${nodeName}`);
+  const nodeId = data?.nodeId;
+  const dataType = typeof data?.dataType === "string" ? data.dataType : "float32";
   return {
     key: nodeId,
-    nodeName: data?.name as string,
+    nodeName,
     nodeId,
     channel: 0,
     enabled: true,
     useAsIndex: false,
-    dataType: (data?.dataType as string) ?? "float32",
+    dataType,
   };
 };
 

@@ -15,6 +15,7 @@ import {
   SpanStatusCode,
   type Tracer as OtelTracer,
 } from "@opentelemetry/api";
+import { type Destructor } from "@synnaxlabs/x";
 
 import {
   type Environment,
@@ -35,22 +36,25 @@ export type SpanF = (span: Span) => unknown;
  */
 export class Tracer {
   private meta: Meta = Meta.NOOP;
-  private readonly tracer: OtelTracer;
+  private readonly otelTracer?: OtelTracer;
   private readonly filter: EnvironmentFilter;
 
   constructor(
     tracer?: OtelTracer,
     filter: EnvironmentFilter = envThresholdFilter("debug"),
   ) {
-    this.tracer = tracer as OtelTracer;
+    this.otelTracer = tracer;
     this.filter = filter;
   }
 
   child(meta: Meta): Tracer {
-    const t = new Tracer(this.tracer, this.filter);
+    const t = new Tracer(this.otelTracer, this.filter);
     t.meta = meta;
     return t;
   }
+
+  debug(key: string): Destructor;
+  debug<F extends SpanF>(key: string, f: F): ReturnType<F>;
 
   /**
    * Starts a new span in the debug environment. If a span already exists in the
@@ -61,9 +65,12 @@ export class Tracer {
    * @returns A span that tracks program execution. If the Tracer's environment
    * rejects the 'debug' environment or the Tracer is noop, a NoopSpan is returned.
    */
-  debug<F extends SpanF>(key: string, f: F): ReturnType<F> {
+  debug<F extends SpanF>(key: string, f?: F): ReturnType<F> | Destructor {
     return this.trace(key, "debug", f);
   }
+
+  bench(key: string): Destructor;
+  bench<F extends SpanF>(key: string, f: F): ReturnType<F>;
 
   /**
    * Starts a new span in the bench environment. If a span already exists in the
@@ -74,9 +81,12 @@ export class Tracer {
    * @returns A span that tracks program execution. If the Tracer's environment
    * rejects the 'bench' environment or the Tracer is noop, a NoopSpan is returned.
    */
-  bench<F extends SpanF>(key: string, f: F): ReturnType<F> {
+  bench<F extends SpanF>(key: string, f?: F): ReturnType<F> | Destructor {
     return this.trace(key, "bench", f);
   }
+
+  prod(key: string): Destructor;
+  prod<F extends SpanF>(key: string, f: F): ReturnType<F>;
 
   /**
    * Starts a new span in the prod environment. If a span already exists in the
@@ -87,9 +97,17 @@ export class Tracer {
    * @returns A span that tracks program execution. If the Tracer's environment
    * rejects the 'prod' environment or the Tracer is noop, a NoopSpan is returned.
    */
-  prod<F extends SpanF>(key: string, f: F): ReturnType<F> {
+  prod<F extends SpanF>(key: string, f?: F): ReturnType<F> | Destructor {
     return this.trace(key, "prod", f);
   }
+
+  trace(key: string, env: Environment): Destructor;
+  trace<F extends SpanF>(key: string, env: Environment, f: F): ReturnType<F>;
+  trace<F extends SpanF>(
+    key: string,
+    env: Environment,
+    f?: F,
+  ): ReturnType<F> | Destructor;
 
   /**
    * Stars a new span with the given key and environment. If a span already
@@ -101,21 +119,31 @@ export class Tracer {
    * @returns A span that tracks program execution. If the Tracer's environment
    * rejects the provided span or the Tracer is noop, a NoopSpan is returned.
    */
-  trace<F extends SpanF>(key: string, env: Environment, f: F): ReturnType<F> {
-    if (this.meta.noop || !this.filter(env))
-      return f(new NoopSpan(key)) as ReturnType<F>;
-    return this.tracer.startActiveSpan(key, (otelSpan) => {
+  trace<F extends SpanF>(
+    key: string,
+    env: Environment,
+    f?: F,
+  ): ReturnType<F> | Destructor {
+    const skip = this.meta.noop || !this.filter(env) || this.otelTracer == null;
+    if (f == null) {
+      if (skip) return () => {};
+      const span = new _Span(key, this.otelTracer.startSpan(key));
+      span.start();
+      return () => span.end();
+    }
+
+    if (skip) return f(new NoopSpan(key)) as ReturnType<F>;
+    return this.otelTracer.startActiveSpan(key, (otelSpan) => {
       const span = new _Span(key, otelSpan);
       const result = f(span);
-      otelSpan.end();
       return result as ReturnType<F>;
     });
   }
 
   /**
-   * Injects metadata about the current trace into the provided carrier. This
-   * metadata can be paresed on teh other side of a network or IPC request to
-   * allow the trace to proapgate across services.
+   * Injects metadata about the current trace into the provided carrier. This metadata
+   * can be parsed on the other side of a network or IPC request to allow the trace to
+   * propagate across services.
    *
    * @param carrier - The carrier to inject the metadata into.
    */
@@ -171,6 +199,25 @@ export class _Span implements Span {
     if (error == null) return;
     this.otel.recordException(error);
     this.otel.setStatus({ code: SpanStatusCode.ERROR });
+  }
+
+  start(): void {
+    performance.mark(`alamos.trace.start.${this.key}`);
+  }
+
+  end(): void {
+    try {
+      performance.mark(`alamos.trace.end.${this.key}`);
+      const duration = performance.measure(
+        `alamos.trace.duration.${this.key}`,
+        `alamos.trace.start.${this.key}`,
+        `alamos.trace.end.${this.key}`,
+      );
+      this.set("duration", duration.duration);
+      this.otel.end();
+    } catch (e) {
+      console.error(e);
+    }
   }
 }
 

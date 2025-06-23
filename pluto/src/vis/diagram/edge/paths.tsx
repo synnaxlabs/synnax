@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type direction, type KeyedNamed, xy } from "@synnaxlabs/x";
+import { color, type direction, type record, xy } from "@synnaxlabs/x";
 import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
 import { type FC, type ReactElement } from "react";
 
-import { Color } from "@/color";
 import { Select } from "@/select";
 
 export const offsetPath = (path: xy.XY[], miters: xy.XY[]): xy.XY[] =>
@@ -19,46 +18,54 @@ export const offsetPath = (path: xy.XY[], miters: xy.XY[]): xy.XY[] =>
 
 interface PathProps extends Omit<BaseEdgeProps, "path" | "color" | "points"> {
   points: xy.XY[];
-  color?: Color.Crude;
+  color?: color.Crude;
 }
 
-const Pipe = ({ points, color, ...rest }: PathProps): ReactElement => (
+const Pipe = ({ points, color: pathColor, ...rest }: PathProps): ReactElement => (
   <BaseEdge
     path={calcPath(points)}
     style={{
-      stroke: Color.cssString(color),
+      stroke: color.cssString(pathColor),
     }}
     {...rest}
   />
 );
 
-const ElectricSignalPipe = ({ points, color, ...rest }: PathProps): ReactElement => (
+const ElectricSignalPipe = ({
+  points,
+  color: pathColor,
+  ...rest
+}: PathProps): ReactElement => (
   <BaseEdge
     path={calcPath(points)}
     style={{
-      stroke: Color.cssString(color),
+      stroke: color.cssString(pathColor),
       strokeDasharray: "12,4",
     }}
     {...rest}
   />
 );
 
-const SecondaryPipe = ({ points, color, ...rest }: PathProps): ReactElement => (
+const SecondaryPipe = ({
+  points,
+  color: pathColor,
+  ...rest
+}: PathProps): ReactElement => (
   <BaseEdge
     path={calcPath(points)}
     style={{
-      stroke: Color.cssString(color),
+      stroke: color.cssString(pathColor),
       strokeDasharray: "12,4,4",
     }}
     {...rest}
   />
 );
 
-const JackedPipe = ({ points, color, ...rest }: PathProps): ReactElement => {
+const JackedPipe = ({ points, color: pathColor, ...rest }: PathProps): ReactElement => {
   const miters = xy.calculateMiters(points, 6);
   const abovePath = points.map((p, i) => xy.translate(p, miters[i]));
   const belowPath = points.map((p, i) => xy.translate(p, xy.scale(miters[i], -1)));
-  const stroke = Color.cssString(color);
+  const stroke = color.cssString(pathColor);
   const opacity = 0.7;
   return (
     <>
@@ -107,13 +114,13 @@ const computeSymbolPositions = (points: xy.XY[], interval: number): SymbolProps[
 };
 
 interface SymbolProps {
-  color?: Color.Crude;
+  color?: color.Crude;
   position: xy.XY;
   direction: direction.Direction;
 }
 
 const HydraulicLSymbol = ({
-  color,
+  color: colorVal,
   position,
   direction,
 }: SymbolProps): ReactElement => {
@@ -125,7 +132,7 @@ const HydraulicLSymbol = ({
   return (
     <path
       d={pathData}
-      stroke={Color.cssString(color)}
+      stroke={color.cssString(colorVal)}
       fill="none"
       strokeWidth={2}
       transform={`translate(${position.x},${position.y}) rotate(${rotationAngle})`}
@@ -135,7 +142,7 @@ const HydraulicLSymbol = ({
 };
 
 const ContinuousPneumaticSignalSymbol = ({
-  color,
+  color: colorVal,
   position,
   direction,
 }: SymbolProps): ReactElement => {
@@ -153,7 +160,7 @@ const ContinuousPneumaticSignalSymbol = ({
     <>
       <path
         d={pathData}
-        stroke={Color.cssString(color)}
+        stroke={color.cssString(colorVal)}
         fill="none"
         strokeWidth={2}
         transform={`translate(${position.x},${position.y}) rotate(${rotate})`}
@@ -161,7 +168,7 @@ const ContinuousPneumaticSignalSymbol = ({
       />
       <path
         d={pathData}
-        stroke={Color.cssString(color)}
+        stroke={color.cssString(colorVal)}
         fill="none"
         strokeWidth={2}
         transform={`translate(${pointTwo.x},${pointTwo.y}) rotate(${rotate})`}
@@ -171,26 +178,26 @@ const ContinuousPneumaticSignalSymbol = ({
   );
 };
 
-const DataLinkSymbol = ({ color, position }: SymbolProps): ReactElement => (
+const DataLinkSymbol = ({ color: colorVal, position }: SymbolProps): ReactElement => (
   <circle
     cx={position.x}
     cy={position.y}
     r={3}
     fill="var(--pluto-gray-l0)"
-    stroke={Color.cssString(color)}
+    stroke={color.cssString(colorVal)}
     strokeWidth={2}
   />
 );
 
 const createSymbolLine = (C: FC<SymbolProps>) => {
-  const O = ({ points, color, ...rest }: PathProps): ReactElement => {
+  const O = ({ points, color: colorVal, ...rest }: PathProps): ReactElement => {
     const path = calcPath(points);
     const positions = computeSymbolPositions(points, 40); // Adjust the interval as needed
     return (
       <>
-        <BaseEdge path={path} {...rest} style={{ stroke: Color.cssString(color) }} />
+        <BaseEdge path={path} {...rest} style={{ stroke: color.cssString(colorVal) }} />
         {positions.map(({ position, direction }, index) => (
-          <C key={index} position={position} direction={direction} color={color} />
+          <C key={index} position={position} direction={direction} color={colorVal} />
         ))}
       </>
     );
@@ -245,7 +252,7 @@ export const PATHS: Record<PathType, FC<PathProps>> = {
 
 export const DefaultPath = Pipe;
 
-export const PATH_TYPES: KeyedNamed<PathType>[] = [
+export const PATH_TYPES: record.KeyedNamed<PathType>[] = [
   { key: "pipe", name: "Pipe" },
   { key: "electric", name: "Electric Signal" },
   { key: "secondary", name: "Secondary" },
@@ -256,7 +263,10 @@ export const PATH_TYPES: KeyedNamed<PathType>[] = [
 ];
 
 export interface SelectPathTypeProps
-  extends Omit<Select.DropdownButtonProps<PathType, KeyedNamed<PathType>>, "data"> {}
+  extends Omit<
+    Select.DropdownButtonProps<PathType, record.KeyedNamed<PathType>>,
+    "data"
+  > {}
 
 export const SelectPathType = (props: SelectPathTypeProps): ReactElement => (
   <Select.DropdownButton

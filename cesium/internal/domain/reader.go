@@ -10,6 +10,8 @@
 package domain
 
 import (
+	"context"
+
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -21,8 +23,14 @@ type Reader struct {
 	xio.ReaderAtCloser
 }
 
-// Len returns the number of bytes in the entire domain.
-func (r *Reader) Len() int64 { return int64(r.ptr.length) }
+func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
+	internal, err := db.fc.acquireReader(ctx, ptr.fileKey)
+	if err != nil {
+		return nil, err
+	}
+	reader := xio.NewSectionReaderAtCloser(internal, int64(ptr.offset), int64(ptr.size))
+	return &Reader{ptr: ptr, ReaderAtCloser: reader}, nil
+}
 
-// Domain returns the time interval occupied by the domain.
-func (r *Reader) Domain() telem.TimeRange { return r.ptr.TimeRange }
+// Size returns the number of bytes in the entire domain.
+func (r *Reader) Size() telem.Size { return telem.Size(r.ptr.size) }

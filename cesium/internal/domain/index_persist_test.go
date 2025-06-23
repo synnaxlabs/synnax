@@ -30,7 +30,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 				fs, cleanUp = makeFS()
 				db = MustSucceed(domain.Open(domain.Config{
 					FS:              fs,
-					FileSize:        5 * telem.ByteSize,
+					FileSize:        5 * telem.Byte,
 					GCThreshold:     0,
 					Instrumentation: PanicLogger(),
 				}))
@@ -49,14 +49,24 @@ var _ = Describe("Index Persist", Ordered, func() {
 					Expect(domain.Write(ctx, db, (40 * telem.SecondTS).Range(42*telem.SecondTS+1), []byte{40, 41, 42})).To(Succeed())
 
 					By("Deleting some data")
-					Expect(db.Delete(ctx, createCalcOffset(2), createCalcOffset(5), (12 * telem.SecondTS).Range(15*telem.SecondTS), telem.Density(1))).To(Succeed())
-					Expect(db.Delete(ctx, createCalcOffset(1), createCalcOffset(2), (27 * telem.SecondTS).Range(30*telem.SecondTS), telem.Density(1))).To(Succeed())
+					Expect(db.Delete(
+						ctx,
+						(12 * telem.SecondTS).Range(15*telem.SecondTS),
+						fixedOffset(2),
+						fixedOffset(5),
+					)).To(Succeed())
+					Expect(db.Delete(
+						ctx,
+						(27 * telem.SecondTS).Range(30*telem.SecondTS),
+						fixedOffset(1),
+						fixedOffset(2),
+					)).To(Succeed())
 
 					By("Re-opening the database")
 					Expect(db.Close()).To(Succeed())
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
-						FileSize:        5 * telem.ByteSize,
+						FileSize:        5 * telem.Byte,
 						GCThreshold:     0,
 						Instrumentation: PanicLogger(),
 					}))

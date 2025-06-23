@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NIL as ZERO_UUID } from "uuid";
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Table", () => {
   describe("create", () => {
@@ -23,7 +23,7 @@ describe("Table", () => {
         data: { one: 1 },
       });
       expect(table.name).toEqual("Table");
-      expect(table.key).not.toEqual(ZERO_UUID);
+      expect(table.key).not.toEqual(uuid.ZERO);
       expect(table.data.one).toEqual(1);
     });
   });

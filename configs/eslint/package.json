@@ -1,6 +1,6 @@
 {
   "name": "eslint-config-synnaxlabs",
-  "version": "0.0.1",
+  "version": "0.43.0",
   "type": "module",
   "main": "index.js",
   "license": "MIT",
@@ -12,14 +12,14 @@
     "access": "public"
   },
   "dependencies": {
-    "@eslint/compat": "^1.2.7",
-    "@eslint/js": "^9.22.0",
-    "eslint-plugin-react": "^7.37.4",
+    "@eslint/compat": "catalog:",
+    "@eslint/js": "^9.29.0",
+    "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-simple-import-sort": "^12.1.1",
-    "globals": "^16.0.0",
-    "typescript-eslint": "^8.26.1"
+    "globals": "^16.2.0",
+    "typescript-eslint": "^8.34.0"
   },
   "devDependencies": {
-    "eslint": "^9.24.0"
+    "eslint": "catalog:"
   }
 }

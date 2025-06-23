@@ -9,19 +9,19 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import {
-  Color,
   type Control,
   type Diagram,
   type Theming,
   type Viewport,
 } from "@synnaxlabs/pluto";
-import { box, id, scale, xy } from "@synnaxlabs/x";
+import { box, color, id, scale, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/types";
 import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
+export type EdgeProps = latest.EdgeProps;
 export type State = latest.State;
 export type StateWithName = State & { name: string };
 export type LegendState = latest.LegendState;
@@ -69,7 +69,7 @@ export interface AddElementPayload {
 export interface SetElementPropsPayload {
   layoutKey: string;
   key: string;
-  props: NodeProps;
+  props: Partial<NodeProps> | Partial<EdgeProps>;
 }
 
 export interface FixThemeContrastPayload {
@@ -295,7 +295,7 @@ export const { actions, reducer } = createSlice({
       const { layoutKey, key, props } = payload;
       const schematic = state.schematics[layoutKey];
       if (key in schematic.props)
-        schematic.props[key] = { ...schematic.props[key], ...props };
+        schematic.props[key] = { ...schematic.props[key], ...props } as NodeProps;
       else {
         const edge = schematic.edges.findIndex((edge) => edge.key === key);
         if (edge !== -1) schematic.edges[edge] = { ...schematic.edges[edge], ...props };
@@ -414,10 +414,10 @@ export const { actions, reducer } = createSlice({
     },
     fixThemeContrast: (state, { payload }: PayloadAction<FixThemeContrastPayload>) => {
       const { theme } = payload;
-      const bgColor = new Color.Color(theme.colors.gray.l0);
-      const shouldChange = (crude: Color.Crude): boolean => {
-        const c = new Color.Color(crude);
-        return c.grayness > 0.85 && c.contrast(bgColor) < 1.3;
+      const bgColor = color.construct(theme.colors.gray.l0);
+      const shouldChange = (crude: color.Crude): boolean => {
+        const c = color.construct(crude);
+        return color.grayness(c) > 0.85 && color.contrast(c, bgColor) < 1.3;
       };
       Object.values(state.schematics).forEach((schematic) => {
         const { nodes, edges, props } = schematic;

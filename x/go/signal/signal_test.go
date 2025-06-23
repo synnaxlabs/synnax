@@ -224,6 +224,37 @@ var _ = Describe("Signal", func() {
 
 	})
 
+	Describe("RecvUnderContext", func() {
+
+		It("Should receive a value from the channel", func() {
+			v := make(chan int, 1)
+			v <- 1
+			val, err := signal.RecvUnderContext(context.Background(), v)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(val).To(Equal(1))
+		})
+
+		It("Should return context error if context is cancelled before receive", func() {
+			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
+			v := make(chan int)
+			cancel()
+			val, err := signal.RecvUnderContext(ctx, v)
+			Expect(err).To(HaveOccurredAs(context.Canceled))
+			Expect(val).To(Equal(0))
+		})
+
+		It("Should receive value even if context is cancelled after value is available", func() {
+			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
+			v := make(chan int, 1)
+			v <- 1
+			val, err := signal.RecvUnderContext(ctx, v)
+			cancel()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(val).To(Equal(1))
+		})
+
+	})
+
 	Describe("Panic recovery", func() {
 
 		// We cannot test with a test case that a goroutine indeed panics when it is
@@ -337,7 +368,7 @@ var _ = Describe("Signal", func() {
 			}()
 
 			Eventually(done).Should(BeClosed())
-			Expect(time.Now().Sub(start)).To(BeNumerically("~", 511*time.Millisecond, 150*time.Millisecond))
+			Expect(time.Since(start)).To(BeNumerically("~", 511*time.Millisecond, 150*time.Millisecond))
 		})
 
 	})
@@ -377,6 +408,44 @@ var _ = Describe("Signal", func() {
 
 			Expect(ctx.Wait()).To(Succeed())
 			Expect(counter).To(Equal(1))
+		})
+	})
+
+	Describe("Shutdown Closers", func() {
+		It("NewHardShutdown should cancel context and wait for routines, skipping context.Canceled error", func() {
+			ctx, cancel := signal.Isolated()
+			done := make(chan struct{})
+			ctx.Go(func(ctx context.Context) error {
+				<-ctx.Done()
+				close(done)
+				return ctx.Err()
+			})
+			closer := signal.NewHardShutdown(ctx, cancel)
+			err := closer.Close()
+			Expect(err).To(BeNil()) // context.Canceled should be skipped
+			Eventually(done).Should(BeClosed())
+			Eventually(ctx.Stopped()).Should(BeClosed())
+		})
+
+		It("NewGracefulShutdown should wait for routines and then cancel context", func() {
+			ctx, cancel := signal.Isolated()
+			release := make(chan struct{})
+			exit := make(chan struct{})
+			ctx.Go(func(ctx context.Context) error {
+				select {
+				case <-release:
+					close(exit)
+					return nil
+				case <-ctx.Done():
+				}
+				return ctx.Err()
+			})
+			closer := signal.NewGracefulShutdown(ctx, cancel)
+			close(release)
+			err := closer.Close()
+			Eventually(exit).Should(BeClosed())
+			Expect(err).To(BeNil())
+			Eventually(ctx.Stopped()).Should(BeClosed())
 		})
 	})
 

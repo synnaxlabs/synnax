@@ -7,38 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { color } from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
-import { color } from "@/color/core";
 import { text } from "@/text/core";
 
 const grayScaleZ = z.object({
   // Main background surface
-  l0: color.Color.z,
+  l0: color.colorZ,
   // Large surfaces to contrast against background
-  l1: color.Color.z,
+  l1: color.colorZ,
   // Small surfaces to contrast against background
-  l2: color.Color.z,
+  l2: color.colorZ,
   // Hover on small surfaces
-  l3: color.Color.z,
+  l3: color.colorZ,
   // Border strength 1
-  l4: color.Color.z,
+  l4: color.colorZ,
   // Border strength 2
   // Border strength 1 hover
-  l5: color.Color.z,
+  l5: color.colorZ,
   // Border strength 2 hover
   // Border strength 1 active
-  l6: color.Color.z,
+  l6: color.colorZ,
   // Border strength 2 active
-  l7: color.Color.z,
+  l7: color.colorZ,
   // Text strength 1
-  l8: color.Color.z,
+  l8: color.colorZ,
   // Text strength 2
-  l9: color.Color.z,
+  l9: color.colorZ,
   // Text strength 3
-  l10: color.Color.z,
+  l10: color.colorZ,
   // Text strength 4
-  l11: color.Color.z,
+  l11: color.colorZ,
 });
 
 type GrayScale = z.input<typeof grayScaleZ>;
@@ -53,23 +53,23 @@ const setLightness = (color: color.HSLA, lightness: number): color.HSLA => [
 ];
 
 const strictScaleZ = z.object({
-  m2: color.Color.z,
-  m1: color.Color.z,
-  z: color.Color.z,
-  p1: color.Color.z,
-  p2: color.Color.z,
+  m2: color.colorZ,
+  m1: color.colorZ,
+  z: color.colorZ,
+  p1: color.colorZ,
+  p2: color.colorZ,
 });
 
 const scaleZ = strictScaleZ.or(
-  color.Color.z.transform((c) => {
-    const hsla = c.hsla;
+  color.colorZ.transform((c) => {
+    const hsla = color.hsla(c);
     return {
-      m2: new color.Color(color.fromHSLA(setLightness(hsla, 40))),
-      m1: new color.Color(color.fromHSLA(setLightness(hsla, 45))),
+      m2: color.fromHSLA(setLightness(hsla, 40)),
+      m1: color.fromHSLA(setLightness(hsla, 45)),
       z: c,
-      p1: new color.Color(color.fromHSLA(setLightness(hsla, 55))),
-      p2: new color.Color(color.fromHSLA(setLightness(hsla, 65))),
-    } as const as z.output<typeof strictScaleZ>;
+      p1: color.fromHSLA(setLightness(hsla, 55)),
+      p2: color.fromHSLA(setLightness(hsla, 65)),
+    } as const as z.infer<typeof strictScaleZ>;
   }),
 );
 
@@ -78,22 +78,22 @@ export const themeZ = z
     name: z.string(),
     key: z.string(),
     colors: z.object({
-      border: color.Color.z,
+      border: color.colorZ,
       primary: scaleZ,
       gray: grayScaleZ,
       error: scaleZ,
       secondary: scaleZ,
       warning: scaleZ,
-      palettes: z.record(color.paletteZ),
+      palettes: z.record(z.string(), color.paletteZ),
       visualization: z
-        .object({ palettes: z.record(z.array(color.Color.z)) })
+        .object({ palettes: z.record(z.string(), z.array(color.colorZ)) })
         .optional()
         .default({ palettes: {} }),
-      white: color.Color.z,
-      black: color.Color.z,
-      text: color.Color.z,
-      textInverted: color.Color.z,
-      textOnPrimary: color.Color.z.optional().default(color.ZERO),
+      white: color.colorZ,
+      black: color.colorZ,
+      text: color.colorZ,
+      textInverted: color.colorZ,
+      textOnPrimary: color.colorZ.optional().default(color.ZERO),
       logo: z.string(),
     }),
     sizes: z.object({
@@ -118,8 +118,9 @@ export const themeZ = z
     }),
   })
   .transform((theme) => {
-    if (theme.colors.textOnPrimary == null || theme.colors.textOnPrimary.isZero)
-      theme.colors.textOnPrimary = theme.colors.primary.z.pickByContrast(
+    if (theme.colors.textOnPrimary == null || color.isZero(theme.colors.textOnPrimary))
+      theme.colors.textOnPrimary = color.pickByContrast(
+        theme.colors.primary.z,
         theme.colors.text,
         theme.colors.textInverted,
       );
@@ -127,7 +128,7 @@ export const themeZ = z
   });
 
 export type ThemeSpec = z.input<typeof themeZ>;
-export type Theme = z.output<typeof themeZ>;
+export type Theme = z.infer<typeof themeZ>;
 
 const fontFamily = "'Inter Variable', sans-serif";
 const codeFontFamily = "'Geist Mono', monospace";

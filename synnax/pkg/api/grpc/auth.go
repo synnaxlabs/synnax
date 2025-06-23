@@ -11,7 +11,8 @@ package grpc
 
 import (
 	"context"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/x/telem"
 
 	"github.com/google/uuid"
@@ -98,7 +99,7 @@ func (l loginResponseTranslator) Backward(
 		ClusterInfo: api.ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
 			NodeVersion: r.ClusterInfo.NodeVersion,
-			NodeKey:     dcore.NodeKey(r.ClusterInfo.NodeKey),
+			NodeKey:     cluster.NodeKey(r.ClusterInfo.NodeKey),
 			NodeTime:    telem.TimeStamp(r.ClusterInfo.NodeTime),
 		},
 	}, err

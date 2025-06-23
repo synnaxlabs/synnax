@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, direction, location, xy } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const regionZ = z.object({
   key: z.string(),
@@ -17,7 +17,7 @@ export const regionZ = z.object({
   loc: location.outer,
 });
 
-export const gridZ = z.record(regionZ);
+export const gridZ = z.record(z.string(), regionZ);
 
 /**
  * An entry for a particular region in the grid, defined by a size, order, and location.

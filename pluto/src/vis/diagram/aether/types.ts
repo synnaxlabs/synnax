@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { xy } from "@synnaxlabs/x";
+import { color, record, xy } from "@synnaxlabs/x";
 import type * as rf from "@xyflow/react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
-import { color } from "@/color/core";
 import { connector } from "@/vis/diagram/edge/connector";
 
 /**
@@ -120,29 +119,19 @@ export type Edge = z.infer<typeof edgeZ>;
  * The properties for a node within a diagram.
  */
 export const nodeZ = z.object({
-  /**
-   * A unique key for identifying the node within the diagram.
-   */
+  /** A unique key for identifying the node within the diagram. */
   key: z.string(),
-
-  /**
-   * The XY coordinate of the top left corner of the node. Unscaled by the
-   * viewport.
-   */
+  /** The XY coordinate of the top left corner of the node. Unscaled by the viewport. */
   position: xy.xy,
-
-  /**
-   * Whether the node is currently selected.
-   */
+  /** Whether the node is currently selected. */
   selected: z.boolean().optional(),
-
-  /**
-   * An optional z-index for the node.
-   */
+  /** An optional z-index for the node. */
   zIndex: z.number().optional(),
-
+  /** The type of the node. */
   type: z.string().optional(),
-  data: z.record(z.unknown()).optional(),
+  /** The data associated with the node. */
+  data: record.unknownZ.optional(),
+  /** The measured dimensions of the node. */
   measured: z
     .object({ width: z.number().optional(), height: z.number().optional() })
     .optional(),
@@ -156,7 +145,10 @@ export type Node = z.infer<typeof nodeZ>;
 /**
  * Translates nodes from their pluto representation to their react-flow representation.
  */
-export const translateNodesForward = (nodes: Node[]): rf.Node[] =>
+export const translateNodesForward = (
+  nodes: Node[],
+  dragHandleSelector?: string,
+): rf.Node[] =>
   nodes.map((node) => ({
     id: node.key,
     type: "custom",
@@ -165,6 +157,7 @@ export const translateNodesForward = (nodes: Node[]): rf.Node[] =>
     position: { ...node.position },
     selected: node.selected,
     data: {},
+    dragHandle: dragHandleSelector,
   }));
 
 /** Translates edges from their pluto representation to their react-flow representation. */

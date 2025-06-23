@@ -15,7 +15,8 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
@@ -38,8 +39,8 @@ type Key uint32
 type LocalKey types.Uint20
 
 // NewKey generates a new Key from the provided components.
-func NewKey(nodeKey core.NodeKey, localKey LocalKey) (key Key) {
-	// Node key is first 12 bits,
+func NewKey(nodeKey cluster.NodeKey, localKey LocalKey) (key Key) {
+	// Node key is the first 12 bits,
 	k1 := uint32(nodeKey) << 20
 	// Local key is the last 20 bits
 	k2 := uint32(localKey)
@@ -61,11 +62,11 @@ func ParseKey(s string) (Key, error) {
 
 // Leaseholder returns the id of the node embedded in the key. This node is the leaseholder
 // node for the Channel.
-func (c Key) Leaseholder() core.NodeKey { return core.NodeKey(c >> 20) }
+func (c Key) Leaseholder() cluster.NodeKey { return cluster.NodeKey(c >> 20) }
 
 // Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
 // virtual channel.
-func (c Key) Free() bool { return c.Leaseholder() == core.Free }
+func (c Key) Free() bool { return c.Leaseholder() == cluster.Free }
 
 // StorageKey returns the storage layer representation of the channel key.
 func (c Key) StorageKey() ts.ChannelKey { return ts.ChannelKey(c) }
@@ -75,7 +76,7 @@ func (c Key) LocalKey() LocalKey { return LocalKey(c & 0xFFFFF) }
 
 // Lease implements the proxy.Entry interface, which routes Channel operations to the
 // correct node in the cluster.
-func (c Key) Lease() core.NodeKey { return c.Leaseholder() }
+func (c Key) Lease() cluster.NodeKey { return c.Leaseholder() }
 
 // String implements fmt.Stringer.
 func (c Key) String() string { return strconv.Itoa(int(c)) }
@@ -121,7 +122,7 @@ func (k Keys) Storage() []ts.ChannelKey { return k.Uint32() }
 func (k Keys) Uint32() []uint32 { return unsafe.ReinterpretSlice[Key, uint32](k) }
 
 // UniqueLeaseholders returns a slice of all UNIQUE leaseholders for the given Keys.
-func (k Keys) UniqueLeaseholders() (keys []core.NodeKey) {
+func (k Keys) UniqueLeaseholders() (keys []cluster.NodeKey) {
 	for _, key := range k {
 		keys = append(keys, key.Leaseholder())
 	}
@@ -139,12 +140,7 @@ func (k Keys) Strings() []string {
 
 // Contains returns true if the slice contains the given key, false otherwise.
 func (k Keys) Contains(key Key) bool {
-	for _, ko := range k {
-		if ko == key {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(k, key)
 }
 
 // Unique removes duplicate keys from the slice and returns the result.
@@ -175,16 +171,13 @@ type Channel struct {
 	// unique.
 	Name string `json:"name" msgpack:"name"`
 	// Leaseholder is the leaseholder node for the channel.
-	Leaseholder core.NodeKey `json:"node_id" msgpack:"node_id"`
+	Leaseholder cluster.NodeKey `json:"node_id" msgpack:"node_id"`
 	// DataType is the data type for the channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is set to true if the channel is an index channel. LocalIndex channels must
 	// be int64 values written in ascending order. LocalIndex channels are most commonly
 	// unix nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
-	// Rate sets the rate at which the channels values are written. This is used to
-	// determine the timestamp of each sample.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// LocalKey is a unique identifier for the channel with relation to its leaseholder.
 	// When creating a channel, a unique key will be generated.
 	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
@@ -227,7 +220,6 @@ func (c Channel) Equals(other Channel, exclude ...string) bool {
 		{"Leaseholder", c.Leaseholder == other.Leaseholder},
 		{"DataType", c.DataType == other.DataType},
 		{"IsIndex", c.IsIndex == other.IsIndex},
-		{"Rate", c.Rate == other.Rate},
 		{"LocalKey", c.LocalKey == other.LocalKey},
 		{"LocalIndex", c.LocalIndex == other.LocalIndex},
 		{"Virtual", c.Virtual == other.Virtual},
@@ -279,19 +271,19 @@ func (c Channel) GorpKey() Key { return c.Key() }
 // SetOptions implements the gorp.Entry interface. Returns a set of options that
 // tell an aspen.DB to properly lease the Channel to the node it will be recording data
 // from.
-func (c Channel) SetOptions() []interface{} {
+func (c Channel) SetOptions() []any {
 	if c.Free() {
-		return []interface{}{core.Bootstrapper}
+		return []any{cluster.Bootstrapper}
 	}
-	return []interface{}{c.Lease()}
+	return []any{c.Lease()}
 }
 
 // Lease implements the proxy.UnaryServer interface.
-func (c Channel) Lease() core.NodeKey { return c.Leaseholder }
+func (c Channel) Lease() cluster.NodeKey { return c.Leaseholder }
 
 // Free returns true if the channel is leased to a particular node i.e. it is not
 // a non-leased virtual channel.
-func (c Channel) Free() bool { return c.Leaseholder == core.Free }
+func (c Channel) Free() bool { return c.Leaseholder == cluster.Free }
 
 // Storage returns the storage layer representation of the channel for creation
 // in the storage ts.DB.
@@ -301,14 +293,13 @@ func (c Channel) Storage() ts.Channel {
 		Name:        c.Name,
 		IsIndex:     c.IsIndex,
 		DataType:    c.DataType,
-		Rate:        c.Rate,
 		Index:       ts.ChannelKey(c.Index()),
 		Virtual:     c.Virtual,
 		Concurrency: c.Concurrency,
 	}
 }
 
-// toStorage converts a slice of Channels to their storage layer equivalent.
+// toStorage converts a slice of channels to their storage layer equivalent.
 func toStorage(channels []Channel) []ts.Channel {
 	return lo.Map(channels, func(c Channel, _ int) ts.Channel { return c.Storage() })
 }

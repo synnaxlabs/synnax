@@ -15,17 +15,31 @@ import (
 	"github.com/onsi/gomega/gleak"
 )
 
+// ShouldNotLeakGoroutines should be placed in a BeforeSuite, BeforeAll, BeforeEach,
+// or JustBeforeEach block of a Ginkgo based test suite. It asserts that all goroutines
+// forked from the point the block was just called to the point of block cleanup are
+// correctly shut down and not leaked.
 func ShouldNotLeakGoroutines() {
 	grs := gleak.Goroutines()
 	DeferCleanup(func() {
-		Expect(gleak.Goroutines()).ShouldNot(gleak.HaveLeaked(grs))
+		Eventually(gleak.Goroutines).ShouldNot(gleak.HaveLeaked(grs))
 	})
 }
 
-func ShouldNotLeakGoroutinesDuringEach() {
+// ShouldNotLeakGoroutinesBeforeEach asserts that no goroutines are leaked during
+// each spec contained within the same block that this function is called
+// inside. This function differs from ShouldNotLeakRoutinesJustBeforeEach
+// in that it takes into account goroutines forked in BeforeEach blocks contained
+// within the same container spec.
+func ShouldNotLeakGoroutinesBeforeEach() {
 	BeforeEach(func() { ShouldNotLeakGoroutines() })
 }
 
+// ShouldNotLeakRoutinesJustBeforeEach asserts that no goroutines are leaked
+// during each spec contained within the same block that this function
+// is called in. It differs from ShouldNotLeakGoroutinesBeforeEach in that it runs
+// after all BeforeEach blocks have run, meaning that goroutines forked in
+// BeforeEach blocks are ignored.
 func ShouldNotLeakRoutinesJustBeforeEach() {
 	JustBeforeEach(func() { ShouldNotLeakGoroutines() })
 }

@@ -8,26 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Divider,
   Form,
+  Icon,
   Input,
+  Ranger,
   Text,
   usePrevious,
 } from "@synnaxlabs/pluto";
 import { type change, deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
-import { useParent } from "@/range/ContextMenu";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelect } from "@/range/selectors";
 import { add, type StaticRange } from "@/range/slice";
@@ -39,7 +39,7 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const parent = useParent(rangeKey);
+  const parent = Ranger.useRetrieveParentRange(rangeKey);
   const placeLayout = Layout.usePlacer();
 
   if (parent == null) return null;
@@ -173,7 +173,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   };
 
   return (
-    <Form.Form {...formCtx}>
+    <Form.Form<typeof formSchema> {...formCtx}>
       <Align.Space y size="large">
         <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
           <Align.Space y grow>

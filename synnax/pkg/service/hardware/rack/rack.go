@@ -12,7 +12,7 @@ package rack
 import (
 	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/status"
@@ -37,12 +37,12 @@ import (
 type Key uint32
 
 // NewKey instantiates a new rack key from its node and local key components.
-func NewKey(node core.NodeKey, localKey uint16) Key {
+func NewKey(node cluster.NodeKey, localKey uint16) Key {
 	return Key(uint32(node)<<16 | uint32(localKey))
 }
 
 // Node returns the node that the rack is leased to.
-func (k Key) Node() core.NodeKey { return core.NodeKey(k >> 16) }
+func (k Key) Node() cluster.NodeKey { return cluster.NodeKey(k >> 16) }
 
 // LocalKey returns unique key for the rack on its leaseholder node.
 func (k Key) LocalKey() uint16 { return uint16(uint32(k) & 0xFFFF) }
@@ -86,7 +86,7 @@ type Rack struct {
 	// external rack.
 	Embedded bool `json:"embedded" msgpack:"embedded"`
 	// State is the current state of the rack.
-	State State `json:"state" msgpack:"state"`
+	State *State `json:"state" msgpack:"state"`
 }
 
 var _ gorp.Entry[Key] = Rack{}
@@ -95,7 +95,7 @@ var _ gorp.Entry[Key] = Rack{}
 func (r Rack) GorpKey() Key { return r.Key }
 
 // SetOptions implements gorp.Entry.
-func (r Rack) SetOptions() []interface{} { return []interface{}{r.Key.Node()} }
+func (r Rack) SetOptions() []any { return []any{r.Key.Node()} }
 
 // Validate implements config.Config.
 func (r Rack) Validate() error {

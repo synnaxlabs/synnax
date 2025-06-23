@@ -9,7 +9,14 @@
 
 import "@/vis/schematic/primitives/Primitives.css";
 
-import { dimensions, direction, type location, xy } from "@synnaxlabs/x";
+import {
+  color,
+  dimensions,
+  direction,
+  type location,
+  type Optional,
+  xy,
+} from "@synnaxlabs/x";
 import {
   Handle as RFHandle,
   type HandleProps as RFHandleProps,
@@ -30,7 +37,6 @@ import {
 
 import { type Align } from "@/align";
 import { Button as CoreButton } from "@/button";
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Text } from "@/text";
@@ -207,7 +213,7 @@ interface ToggleProps
   extends Omit<ComponentPropsWithoutRef<"button">, "color" | "value"> {
   triggered?: boolean;
   enabled?: boolean;
-  color?: Color.Crude;
+  color?: color.Crude;
 }
 
 interface ToggleValveButtonProps extends ToggleProps, OrientableProps {}
@@ -217,7 +223,7 @@ const Toggle = ({
   enabled = false,
   triggered = false,
   orientation = "left",
-  color,
+  color: colorVal,
   ...rest
 }: ToggleValveButtonProps): ReactElement => (
   <button
@@ -229,7 +235,7 @@ const Toggle = ({
       triggered && CSS.M("triggered"),
       className,
     )}
-    color={Color.cssString(color)}
+    color={color.cssString(colorVal)}
     {...rest}
   />
 );
@@ -243,7 +249,7 @@ const Div = ({ className, ...rest }: DivProps): ReactElement => (
 );
 
 interface SVGBasedPrimitiveProps extends OrientableProps {
-  color?: Color.Crude;
+  color?: color.Crude;
   scale?: number;
 }
 
@@ -263,24 +269,29 @@ const InternalSVG = ({
   orientation = "left",
   children,
   className,
-  color,
+  color: colorVal,
   style = {},
   scale = 1,
   ...rest
 }: InternalSVGProps): ReactElement => {
   const dir = direction.construct(orientation);
   dims = dir === "y" ? dimensions.swap(dims) : dims;
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   const theme = Theming.use();
-  if (color != null) {
-    // @ts-expect-error - css variables
-    style[CSS.var("symbol-color")] = new Color.Color(color).rgbString;
-    // @ts-expect-error - css variables
-    style[CSS.var("symbol-color-contrast")] = new Color.Color(color).pickByContrast(
-      theme.colors.gray.l0,
-      theme.colors.gray.l11,
-    ).rgbString;
-  }
+  let pStyle = {
+    ...style,
+    aspectRatio: `${dims.width} / ${dims.height}`,
+    width: dimensions.scale(dims, scale * BASE_SCALE).width,
+  };
+  if (colorVal != null)
+    pStyle = {
+      ...pStyle,
+      [CSS.var("symbol-color")]: color.rgbString(colorVal),
+      [CSS.var("symbol-color-contrast")]: color.rgbString(
+        color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
+      ),
+    };
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -289,11 +300,7 @@ const InternalSVG = ({
       fill={colorStr}
       stroke={colorStr}
       {...rest}
-      style={{
-        aspectRatio: `${dims.width} / ${dims.height}`,
-        width: dimensions.scale(dims, scale * BASE_SCALE).width,
-        ...style,
-      }}
+      style={pStyle}
     >
       <g>{children}</g>
     </svg>
@@ -306,10 +313,10 @@ export const FourWayValve = ({
   className,
   orientation = "left",
   scale,
-  color,
+  color: colorVal,
   ...rest
 }: FourWayValveProps): ReactElement => {
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   return (
     <Toggle
       {...rest}
@@ -322,7 +329,11 @@ export const FourWayValve = ({
         <Handle location="top" orientation="left" left={50} top={7.2916} id="3" />
         <Handle location="bottom" orientation="left" left={50} top={92.6084} id="4" />
       </HandleBoundary>
-      <InternalSVG dimensions={{ width: 108, height: 96 }} color={color} scale={scale}>
+      <InternalSVG
+        dimensions={{ width: 108, height: 96 }}
+        color={colorVal}
+        scale={scale}
+      >
         <Path
           d="M3.02937 72.7038C2.50936 73.1041 2.50936 73.8883 3.02937 74.2886L7.14001 77.453C7.79757 77.9592 8.75 77.4904 8.75 76.6606V70.3318C8.75 69.502 7.79757 69.0332 7.14001 69.5394L3.02937 72.7038Z"
           fill={colorStr}
@@ -331,13 +342,13 @@ export const FourWayValve = ({
         <Path d="M54.2 48L35.4035 85.1455C34.3937 87.141 35.8439 89.5 38.0803 89.5H70.3197C72.5562 89.5 74.0063 87.141 72.9965 85.1455L54.2 48ZM54.2 48L35.4035 10.8545C34.3937 8.85901 35.8439 6.5 38.0803 6.5H70.3197C72.5562 6.5 74.0063 8.85901 72.9965 10.8545L54.2 48Z" />
         <Path
           d="M8.70001 73.5C24.7 73.5 28.7 86.8333 28.7 93.5"
-          stroke-linecap="round"
+          strokeLinecap="round"
         />
         <Path
           d="M105.371 23.2962C105.891 22.8959 105.891 22.1117 105.371 21.7114L101.26 18.547C100.602 18.0408 99.65 18.5096 99.65 19.3394V25.6682C99.65 26.498 100.602 26.9668 101.26 26.4606L105.371 23.2962Z"
           fill={colorStr}
         />
-        <Path d="M99.7 22.5C83.7 22.5 79.7 9.16667 79.7 2.5" stroke-linecap="round" />
+        <Path d="M99.7 22.5C83.7 22.5 79.7 9.16667 79.7 2.5" strokeLinecap="round" />
       </InternalSVG>
     </Toggle>
   );
@@ -573,11 +584,11 @@ export interface ISOCheckValveProps extends DivProps, SVGBasedPrimitiveProps {}
 export const ISOCheckValve = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   ...rest
 }: ISOCheckValveProps): ReactElement => {
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   return (
     <Div {...rest} orientation={orientation}>
       <HandleBoundary orientation={orientation}>
@@ -598,7 +609,7 @@ export const ISOCheckValve = ({
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 84, height: 42 }}
-        color={color}
+        color={colorVal}
         orientation={orientation}
         scale={scale}
       >
@@ -617,11 +628,11 @@ export interface CheckValveWithArrowProps extends DivProps, SVGBasedPrimitivePro
 export const CheckValveWithArrow = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   ...rest
 }: CheckValveWithArrowProps): ReactElement => {
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   return (
     <Div
       orientation={orientation}
@@ -646,7 +657,7 @@ export const CheckValveWithArrow = ({
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 93, height: 57 }}
-        color={color}
+        color={colorVal}
         orientation={orientation}
         scale={scale}
       >
@@ -654,7 +665,7 @@ export const CheckValveWithArrow = ({
           d="M67.4706 5.20759C67.9906 5.6079 67.9906 6.3921 67.4706 6.79241L63.36 9.95678C62.7024 10.463 61.75 9.99421 61.75 9.16437V2.83563C61.75 2.00579 62.7024 1.53702 63.36 2.04322L67.4706 5.20759Z"
           fill={colorStr}
         />
-        <Path d="M62.5 6H32.5" stroke-linecap="round" />
+        <Path d="M62.5 6H32.5" strokeLinecap="round" />
         <Circle cx="7.5" cy="13.5" r="6" fill={colorStr} />
         <Path d="M49 34.5L11.8545 15.7035C9.85901 14.6937 7.5 16.1438 7.5 18.3803V50.6197C7.5 52.8562 9.85901 54.3063 11.8545 53.2965L49 34.5ZM49 34.5L86.1455 15.7035C88.141 14.6937 90.5 16.1438 90.5 18.3803V50.6197C90.5 52.8562 88.141 54.3063 86.1455 53.2965L49 34.5Z" />
       </InternalSVG>
@@ -831,7 +842,7 @@ export const GateValve = ({
 export interface ButterflyValveOneProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const ButterflyValveOne = ({
-  color,
+  color: colorVal,
   className,
   orientation = "left",
   scale,
@@ -856,13 +867,13 @@ export const ButterflyValveOne = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 87, height: 42 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
       <Path d="M43.5 21L6.35453 2.20349C4.35901 1.19372 2 2.64384 2 4.88029V37.1197C2 39.3562 4.35901 40.8063 6.35453 39.7965L43.5 21ZM43.5 21L80.6455 2.20349C82.641 1.19372 85 2.64384 85 4.8803V37.1197C85 39.3562 82.641 40.8063 80.6455 39.7965L43.5 21Z" />
       <Path d="M43.5 2V40" />
-      <Circle cx="43.5" cy="21" r="10" fill={Color.cssString(color)} />
+      <Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
     </InternalSVG>
   </Toggle>
 );
@@ -870,7 +881,7 @@ export const ButterflyValveOne = ({
 export interface ButterflyValveTwoProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const ButterflyValveTwo = ({
-  color,
+  color: colorVal,
   className,
   orientation = "left",
   scale,
@@ -895,11 +906,11 @@ export const ButterflyValveTwo = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 87, height: 42 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="43.5" cy="21" r="10" fill={Color.cssString(color)} />
+      <Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
       <Rect x="2" y="2" width="83" height="38" rx="1" />
       <Path d="M2.29001 2.29004L84.7069 39.676" />
     </InternalSVG>
@@ -909,7 +920,7 @@ export const ButterflyValveTwo = ({
 export interface BreatherValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const BreatherValve = ({
-  color,
+  color: colorVal,
   className,
   orientation = "left",
   scale,
@@ -934,12 +945,12 @@ export const BreatherValve = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 99, height: 57 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="91" cy="49.5" r="6" fill={Color.cssString(color)} />
-      <Circle cx="8" cy="7.5" r="6" fill={Color.cssString(color)} />
+      <Circle cx="91" cy="49.5" r="6" fill={color.cssString(colorVal)} />
+      <Circle cx="8" cy="7.5" r="6" fill={color.cssString(colorVal)} />
       <Path d="M49.5 28.5L12.3545 9.70349C10.359 8.69372 8 10.1438 8 12.3803V44.6197C8 46.8562 10.359 48.3063 12.3545 47.2965L49.5 28.5ZM49.5 28.5L86.6455 9.70349C88.641 8.69372 91 10.1438 91 12.3803V44.6197C91 46.8562 88.641 48.3063 86.6455 47.2965L49.5 28.5Z" />
     </InternalSVG>
   </Toggle>
@@ -1002,12 +1013,12 @@ export interface BurstDiscProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const BurstDisc = ({
   className,
-  color,
+  color: colorVal,
   orientation = "left",
   scale,
   ...rest
 }: BurstDiscProps): ReactElement => {
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   return (
     <Div {...rest} className={CSS(CSS.B("symbol"), className)}>
       <HandleBoundary orientation={orientation}>
@@ -1015,7 +1026,7 @@ export const BurstDisc = ({
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 40, height: 48 }}
-        color={color}
+        color={colorVal}
         orientation={orientation}
         scale={scale}
       >
@@ -1184,13 +1195,13 @@ export const OrificePlate = ({
     </HandleBoundary>
     <InternalSVG
       color={color}
-      dimensions={{ width: 72, height: 35 }}
+      dimensions={{ width: 72, height: 36 }}
       orientation={orientation}
       scale={scale}
     >
       <Rect x="2.5" y="2" width="67" height="31" rx="2" />
-      <Path d="M24.5 2V7.5V13" stroke-linecap="round" />
-      <Path d="M24.5 33V22" stroke-linecap="round" />
+      <Path d="M24.5 2V7.5V13" strokeLinecap="round" />
+      <Path d="M24.5 33V22" strokeLinecap="round" />
     </InternalSVG>
   </Div>
 );
@@ -1278,10 +1289,10 @@ export const DEFAULT_BORDER_RADIUS = { x: 50, y: 10 };
 export interface TankProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   borderRadius?: BorderRadius;
-  color?: Color.Crude;
+  color?: color.Crude;
   onResize?: (dimensions: dimensions.Dimensions) => void;
   boxBorderRadius?: number;
-  backgroundColor?: Color.Crude;
+  backgroundColor?: color.Crude;
   strokeWidth?: number;
 }
 
@@ -1290,7 +1301,7 @@ export const Tank = ({
   dimensions = DEFAULT_DIMENSIONS,
   borderRadius = DEFAULT_BORDER_RADIUS,
   boxBorderRadius,
-  color,
+  color: colorVal,
   backgroundColor,
   strokeWidth = 2,
   ...rest
@@ -1320,8 +1331,8 @@ export const Tank = ({
       style={{
         ...dimensions,
         borderRadius: boxBorderRadius ?? cssBorderRadius(detailedRadius),
-        borderColor: Color.cssString(color ?? t.colors.gray.l11),
-        backgroundColor: Color.cssString(backgroundColor),
+        borderColor: color.cssString(colorVal ?? t.colors.gray.l11),
+        backgroundColor: color.cssString(backgroundColor),
         borderWidth: strokeWidth,
       }}
       {...rest}
@@ -1390,8 +1401,8 @@ export interface PolygonProps extends DivProps {
   sideLength: number;
   rotation?: number;
   cornerRounding?: number;
-  color?: Color.Crude;
-  backgroundColor?: Color.Crude;
+  color?: color.Crude;
+  backgroundColor?: color.Crude;
   strokeWidth?: number;
 }
 
@@ -1463,7 +1474,7 @@ export const Polygon = ({
   numSides,
   sideLength,
   rotation = 0,
-  color,
+  color: colorVal,
   backgroundColor,
   className,
   cornerRounding,
@@ -1489,8 +1500,8 @@ export const Polygon = ({
       <InternalSVG dimensions={{ width: size, height: size }}>
         <Path
           d={path}
-          fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
-          stroke={Color.cssString(color ?? theme.colors.gray.l9)}
+          fill={color.cssString(backgroundColor ?? theme.colors.gray.l1)}
+          stroke={color.cssString(colorVal ?? theme.colors.gray.l9)}
           strokeWidth={strokeWidth ?? 2}
         />
       </InternalSVG>
@@ -1500,27 +1511,26 @@ export const Polygon = ({
 
 export interface CircleShapeProps extends DivProps {
   radius: number;
-  color?: Color.Crude;
-  backgroundColor?: Color.Crude;
+  color?: color.Crude;
+  backgroundColor?: color.Crude;
   strokeWidth?: number;
 }
 
 export const CircleShape = ({
   radius,
-  color,
+  color: colorVal,
   backgroundColor,
   className,
   strokeWidth,
   ...rest
 }: CircleShapeProps): ReactElement => {
-  const theme = Theming.use();
   const padding = (strokeWidth ?? 2) + 1;
   const diameter = radius * 2;
   const width = diameter + 2 * padding;
   const height = diameter + 2 * padding;
   return (
     <Div className={CSS(className, CSS.B("circle-shape"))} {...rest}>
-      <HandleBoundary orientation="left" refreshDeps={[radius]}>
+      <HandleBoundary orientation="left" refreshDeps={radius}>
         <Handle
           location="top"
           orientation="left"
@@ -1555,9 +1565,9 @@ export const CircleShape = ({
           cx={width / 2}
           cy={height / 2}
           r={radius}
-          stroke={Color.cssString(color ?? theme.colors.gray.l9)}
+          stroke={color.cssString(colorVal)}
           strokeWidth={strokeWidth ?? 2}
-          fill={Color.cssString(backgroundColor ?? theme.colors.gray.l1)}
+          fill={color.cssString(backgroundColor)}
         />
       </InternalSVG>
     </Div>
@@ -1638,8 +1648,8 @@ export const RegulatorManual = ({
       color={color}
       scale={scale}
     >
-      <Path d="M43.5 20L43.5 2" stroke-linecap="round" />
-      <Path d="M19.5 2L67.5 2" stroke-linecap="round" />
+      <Path d="M43.5 20L43.5 2" strokeLinecap="round" />
+      <Path d="M19.5 2L67.5 2" strokeLinecap="round" />
       <Path d="M43.5 63L6.35453 44.2035C4.35901 43.1937 2 44.6438 2 46.8803V79.1197C2 81.3562 4.35901 82.8063 6.35453 81.7965L43.5 63ZM43.5 63L80.6455 44.2035C82.641 43.1937 85 44.6438 85 46.8803V79.1197C85 81.3562 82.641 82.8063 80.6455 81.7965L43.5 63Z" />
       <Path d="M60.5 40C62.1569 40 63.5231 38.6494 63.2755 37.0111C62.641 32.8129 60.681 28.8968 57.6421 25.8579C53.8914 22.1071 48.8043 20 43.5 20C38.1957 20 33.1086 22.1071 29.3579 25.8579C26.319 28.8968 24.359 32.8129 23.7245 37.0111C23.4769 38.6494 24.8431 40 26.5 40L43.5 40H60.5Z" />
       <Path d="M60.5 40C62.1569 40 63.5231 38.6494 63.2755 37.0111C62.641 32.8129 60.681 28.8968 57.6421 25.8579C53.8914 22.1071 48.8043 20 43.5 20C38.1957 20 33.1086 22.1071 29.3579 25.8579C26.319 28.8968 24.359 32.8129 23.7245 37.0111C23.4769 38.6494 24.8431 40 26.5 40L43.5 40H60.5Z" />
@@ -1686,7 +1696,7 @@ export interface NeedleValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 export const NeedleValve = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   enabled = false,
   ...rest
@@ -1716,12 +1726,12 @@ export const NeedleValve = ({
     <InternalSVG
       dimensions={{ width: 87, height: 42 }}
       orientation={orientation}
-      color={color}
+      color={colorVal}
       scale={scale}
     >
       <Path
         d="M43.0152 21.5391L38.237 2.62245C38.1573 2.30658 38.396 2 38.7218 2L48.2782 2C48.604 2 48.8427 2.30658 48.763 2.62245L43.9848 21.5391C43.8576 22.0425 43.1424 22.0425 43.0152 21.5391Z"
-        fill={Color.cssString(color)}
+        fill={color.cssString(colorVal)}
       />
       <Path d="M43.5 21.5L6.35453 2.70349C4.35901 1.69372 2 3.14384 2 5.38029V37.6197C2 39.8562 4.35901 41.3063 6.35453 40.2965L43.5 21.5ZM43.5 21.5L80.6455 2.70349C82.641 1.69372 85 3.14384 85 5.3803V37.6197C85 39.8562 82.641 41.3063 80.6455 40.2965L43.5 21.5Z" />
     </InternalSVG>
@@ -1778,7 +1788,7 @@ export const AngledReliefValve = ({
 
 export interface ValueProps extends DivProps {
   dimensions?: dimensions.Dimensions;
-  color?: Color.Crude;
+  color?: color.Crude;
   units?: string;
   unitsLevel?: Text.Level;
   inlineSize?: number;
@@ -1786,7 +1796,7 @@ export interface ValueProps extends DivProps {
 
 export const Value = ({
   className,
-  color,
+  color: colorVal,
   dimensions,
   orientation = "left",
   units = "psi",
@@ -1795,16 +1805,13 @@ export const Value = ({
   inlineSize = 80,
   ...rest
 }: ValueProps): ReactElement => {
-  const borderColor = Color.cssString(color);
+  const borderColor = color.cssString(colorVal);
   const theme = Theming.use();
   const textColor: string | undefined =
-    color == null
+    colorVal == null
       ? "var(--pluto-gray-l0)"
-      : Color.cssString(
-          new Color.Color(color).pickByContrast(
-            theme.colors.gray.l0,
-            theme.colors.gray.l11,
-          ),
+      : color.cssString(
+          color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
         );
   return (
     <Div
@@ -1859,15 +1866,19 @@ export const Switch = ({
 );
 
 export interface ButtonProps
-  extends Omit<DivProps, "onClick">,
+  extends Omit<DivProps, "onClick" | "onMouseDown" | "onMouseUp">,
     Pick<CoreButton.ButtonProps, "color" | "size" | "level" | "onClickDelay"> {
   label?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
-  color?: Color.Crude;
+  onMouseDown?: MouseEventHandler<HTMLButtonElement>;
+  onMouseUp?: MouseEventHandler<HTMLButtonElement>;
+  color?: color.Crude;
 }
 
 export const Button = ({
   onClick,
+  onMouseDown,
+  onMouseUp,
   orientation = "left",
   label = "",
   color,
@@ -1878,6 +1889,8 @@ export const Button = ({
   <Div orientation={orientation}>
     <CoreButton.Button
       onClick={onClick}
+      onMouseDown={onMouseDown}
+      onMouseUp={onMouseUp}
       color={color}
       size={size}
       level={level}
@@ -1894,9 +1907,13 @@ export const Button = ({
   </Div>
 );
 
-export interface TextBoxProps extends DivProps, Pick<Text.TextProps, "level"> {
-  text?: string;
-  color?: Color.Crude;
+export interface TextBoxProps
+  extends Omit<DivProps, "onChange">,
+    Optional<
+      Pick<Text.EditableProps<Text.Level>, "level" | "value" | "onChange">,
+      "onChange"
+    > {
+  color?: color.Crude;
   width?: number;
   align?: Align.Alignment;
   autoFit?: boolean;
@@ -1905,12 +1922,14 @@ export interface TextBoxProps extends DivProps, Pick<Text.TextProps, "level"> {
 export const TextBox = ({
   className,
   orientation = "left",
-  text = "",
   width,
-  color = "var(--pluto-gray-l11)",
+  color: colorVal,
   level,
   autoFit,
   align = "center",
+  value,
+  onChange,
+  ...rest
 }: TextBoxProps): ReactElement => {
   const divStyle: CSSProperties = {
     textAlign: align as CSSProperties["textAlign"],
@@ -1924,10 +1943,14 @@ export const TextBox = ({
       style={divStyle}
       orientation={orientation}
       className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
+      {...rest}
     >
-      <Text.Text color={Color.cssString(color)} level={level}>
-        {text}
-      </Text.Text>
+      <Text.MaybeEditable
+        color={color.cssString(colorVal)}
+        level={level}
+        value={value}
+        onChange={onChange}
+      />
     </Div>
   );
 };
@@ -1937,7 +1960,7 @@ export interface SetpointProps
     Input.Control<number>,
     Pick<Input.NumericProps, "size"> {
   dimensions?: dimensions.Dimensions;
-  color?: Color.Crude;
+  color?: color.Crude;
   units?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   disabled?: boolean;
@@ -2520,18 +2543,15 @@ export const ElectricRegulatorMotorized = ({
       <Line x1="43" y1="80.5" x2="43" y2="56" />
       <Path d="M43 38V35.5C43 33.8431 44.3431 32.5 46 32.5H79C80.6569 32.5 82 33.8431 82 35.5V51.9281C82 52.9126 81.517 53.8344 80.7076 54.3947L43 80.5" />
       <Rect x="21" y="38" width="44" height="18" rx="2" />
-      <Path d="M43 38V26" stroke-linecap="round" />
+      <Path d="M43 38V26" strokeLinecap="round" />
       <Circle cx="43" cy="14" r="12" />
     </InternalSVG>
   </Div>
 );
 
-export interface AgitatorProps extends ToggleProps, SVGBasedPrimitiveProps {
-  height?: number;
-}
+export interface AgitatorProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const Agitator = ({
-  height = 86,
   orientation = "left",
   color,
   scale,
@@ -2539,16 +2559,10 @@ export const Agitator = ({
 }: AgitatorProps): ReactElement => (
   <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={100 / height}
-        id="4"
-      />
+      <Handle location="top" orientation={orientation} left={50} top={1} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height }}
+      dimensions={{ width: 88, height: 86 }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -2562,7 +2576,6 @@ export const Agitator = ({
 export interface PropellerAgitatorProps extends AgitatorProps {}
 
 export const PropellerAgitator = ({
-  height = 86,
   orientation = "left",
   color,
   scale,
@@ -2570,16 +2583,10 @@ export const PropellerAgitator = ({
 }: PropellerAgitatorProps): ReactElement => (
   <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="top"
-        orientation={orientation}
-        left={50.5814}
-        top={200 / height}
-        id="4"
-      />
+      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height }}
+      dimensions={{ width: 87, height: 87 }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -2593,7 +2600,6 @@ export const PropellerAgitator = ({
 export interface FlatBladeAgitatorProps extends AgitatorProps {}
 
 export const FlatBladeAgitator = ({
-  height = 86,
   orientation = "left",
   color,
   scale,
@@ -2601,16 +2607,10 @@ export const FlatBladeAgitator = ({
 }: FlatBladeAgitatorProps): ReactElement => (
   <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={100 / height}
-        id="4"
-      />
+      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height }}
+      dimensions={{ width: 87, height: 87 }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -2624,7 +2624,6 @@ export const FlatBladeAgitator = ({
 export interface PaddleAgitatorProps extends AgitatorProps {}
 
 export const PaddleAgitator = ({
-  height = 86,
   className,
   orientation = "left",
   color,
@@ -2633,16 +2632,10 @@ export const PaddleAgitator = ({
 }: PaddleAgitatorProps): ReactElement => (
   <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={100 / height}
-        id="4"
-      />
+      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height }}
+      dimensions={{ width: 87, height: 87 }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -2681,7 +2674,6 @@ export interface CrossBeamAgitatorProps extends AgitatorProps {}
 
 export const CrossBeamAgitator = ({
   className,
-  height = 86,
   orientation = "left",
   color,
   scale,
@@ -2689,16 +2681,10 @@ export const CrossBeamAgitator = ({
 }: CrossBeamAgitatorProps): ReactElement => (
   <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={100 / height}
-        id="4"
-      />
+      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height }}
+      dimensions={{ width: 87, height: 87 }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -2717,7 +2703,6 @@ export interface HelicalAgitatorProps extends AgitatorProps {}
 
 export const HelicalAgitator = ({
   className,
-  height = 86,
   orientation = "left",
   color,
   scale,
@@ -2725,16 +2710,10 @@ export const HelicalAgitator = ({
 }: HelicalAgitatorProps): ReactElement => (
   <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
     <HandleBoundary orientation={orientation}>
-      <Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={100 / height}
-        id="4"
-      />
+      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 86, height }}
+      dimensions={{ width: 87, height: 87 }}
       color={color}
       orientation={orientation}
       scale={scale}
@@ -2751,7 +2730,7 @@ export const HelicalAgitator = ({
 export interface OffPageReferenceProps extends DivProps {
   label?: string;
   level?: Text.TextProps["level"];
-  color?: Color.Crude;
+  color?: color.Crude;
   onLabelChange?: (label: string) => void;
 }
 
@@ -2760,7 +2739,7 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
   className,
   orientation = "right",
   label = "text",
-  color = "black",
+  color: colorVal,
   level = "p",
   onLabelChange,
   ...rest
@@ -2778,7 +2757,7 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
       {...rest}
     >
       <div className="wrapper">
-        <div className="outline" style={{ backgroundColor: Color.cssString(color) }}>
+        <div className="outline" style={{ backgroundColor: color.cssString(colorVal) }}>
           <div className="bg">
             <Text.MaybeEditable
               value={label}
@@ -2906,22 +2885,10 @@ export const FlowStraightener = ({
 }: FlowStraightenerProps): ReactElement => (
   <Div className={CSS(CSS.B("flow-straightener"), className)} {...rest}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={96.875}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={96.875}
-        id="4"
-      />
+      <Handle location="left" orientation={orientation} left={3} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={97} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={93} id="4" />
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 72, height: 36 }}
@@ -2930,8 +2897,8 @@ export const FlowStraightener = ({
       scale={scale}
     >
       <Rect x="2.5" y="2.5" width="67" height="31" rx="2" />
-      <Path d="M10.5 26.5H60.5" stroke-linecap="round" />
-      <Path d="M10.5 9.5H60.5" stroke-linecap="round" />
+      <Path d="M10.5 26.5H60.5" strokeLinecap="round" />
+      <Path d="M10.5 9.5H60.5" strokeLinecap="round" />
     </InternalSVG>
   </Div>
 );
@@ -2968,8 +2935,8 @@ export const HeaterElement = ({
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M2.5 34.0005H14.5" stroke-linecap="round" />
-      <Path d="M2.5 2.00049L14.5 2.00049" stroke-linecap="round" />
+      <Path d="M2.5 34.0005H14.5" strokeLinecap="round" />
+      <Path d="M2.5 2.00049L14.5 2.00049" strokeLinecap="round" />
       <Path d="M14.3793 10.0013C14.9046 10.0013 15.4248 10.1048 15.9101 10.3058C16.3954 10.5068 16.8363 10.8015 17.2078 11.1729C17.5792 11.5443 17.8738 11.9853 18.0749 12.4706C18.2759 12.9559 18.3793 13.4761 18.3793 14.0013C18.3793 14.5266 18.2759 15.0468 18.0749 15.5321C17.8738 16.0174 17.5792 16.4583 17.2078 16.8298C16.8363 17.2012 16.3954 17.4958 15.9101 17.6969C15.4248 17.8979 14.9046 18.0013 14.3793 18.0013" />
       <Path d="M14.5 2.00049C15.0253 2.00049 15.5454 2.10395 16.0307 2.30497C16.516 2.50599 16.957 2.80063 17.3284 3.17206C17.6999 3.5435 17.9945 3.98445 18.1955 4.46975C18.3965 4.95506 18.5 5.4752 18.5 6.00049C18.5 6.52578 18.3965 7.04592 18.1955 7.53122C17.9945 8.01652 17.6999 8.45748 17.3284 8.82892C16.957 9.20035 16.516 9.49499 16.0307 9.69601C15.5454 9.89703 15.0253 10.0005 14.5 10.0005" />
       <Path d="M14.5 18.0005C15.0253 18.0005 15.5454 18.104 16.0307 18.305C16.516 18.506 16.957 18.8006 17.3284 19.1721C17.6999 19.5435 17.9945 19.9845 18.1955 20.4698C18.3965 20.9551 18.5 21.4752 18.5 22.0005C18.5 22.5258 18.3965 23.0459 18.1955 23.5312C17.9945 24.0165 17.6999 24.4575 17.3284 24.8289C16.957 25.2003 16.516 25.495 16.0307 25.696C15.5454 25.897 15.0253 26.0005 14.5 26.0005" />
@@ -2981,10 +2948,10 @@ export const HeaterElement = ({
 export interface CylinderProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   borderRadius?: BorderRadius;
-  color?: Color.Crude;
+  color?: color.Crude;
   onResize?: (dimensions: dimensions.Dimensions) => void;
   boxBorderRadius?: number;
-  backgroundColor?: Color.Crude;
+  backgroundColor?: color.Crude;
 }
 
 export const Cylinder = ({
@@ -2992,7 +2959,7 @@ export const Cylinder = ({
   dimensions = DEFAULT_DIMENSIONS,
   borderRadius = DEFAULT_BORDER_RADIUS,
   boxBorderRadius,
-  color,
+  color: colorVal,
   backgroundColor,
   ...rest
 }: CylinderProps): ReactElement => {
@@ -3009,9 +2976,9 @@ export const Cylinder = ({
       dimensions.width,
     ],
   );
-  const boardColor = Color.cssString(color ?? t.colors.gray.l11);
+  const boardColor = color.cssString(colorVal ?? t.colors.gray.l11);
   const bgColor =
-    backgroundColor == null ? undefined : Color.cssString(backgroundColor);
+    backgroundColor == null ? undefined : color.cssString(backgroundColor);
   const widthScale = dimensions.width / 66;
   const heightScale = dimensions.height / 180;
   const transform = `scale(${widthScale},${heightScale})`;
@@ -3067,12 +3034,12 @@ export interface SpringLoadedReliefValveProps
 export const SpringLoadedReliefValve = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   enabled = false,
   ...rest
 }: SpringLoadedReliefValveProps): ReactElement => {
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   return (
     <Toggle
       {...rest}
@@ -3098,7 +3065,7 @@ export const SpringLoadedReliefValve = ({
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 89, height: 76 }}
-        color={color}
+        color={colorVal}
         orientation={orientation}
         scale={scale}
       >
@@ -3134,12 +3101,12 @@ export interface AngledSpringLoadedReliefValveProps
 export const AngledSpringLoadedReliefValve = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   enabled = false,
   ...rest
 }: AngledSpringLoadedReliefValveProps): ReactElement => {
-  const colorStr = Color.cssString(color);
+  const colorStr = color.cssString(colorVal);
   return (
     <Toggle
       {...rest}
@@ -3165,7 +3132,7 @@ export const AngledSpringLoadedReliefValve = ({
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 66, height: 101 }}
-        color={color}
+        color={colorVal}
         orientation={orientation}
         scale={scale}
       >
@@ -3188,7 +3155,7 @@ export interface TJunctionProps extends DivProps, SVGBasedPrimitiveProps {}
 export const TJunction = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   ...rest
 }: TJunctionProps): ReactElement => (
@@ -3218,13 +3185,13 @@ export const TJunction = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 39, height: 21 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
       <Path
         d="M1.5 5.5V3.5C1.5 2.39543 2.39543 1.5 3.5 1.5H35.5C36.6046 1.5 37.5 2.39543 37.5 3.5V5.5C37.5 6.60457 36.6046 7.5 35.5 7.5H24.5C23.3954 7.5 22.5 8.39543 22.5 9.5V17.5C22.5 18.6046 21.6046 19.5 20.5 19.5H18.5C17.3954 19.5 16.5 18.6046 16.5 17.5V9.5C16.5 8.39543 15.6046 7.5 14.5 7.5H3.5C2.39543 7.5 1.5 6.60457 1.5 5.5Z"
-        fill={Color.cssString(color)}
+        fill={color.cssString(colorVal)}
         stroke="none"
       />
     </InternalSVG>
@@ -3236,7 +3203,7 @@ export interface CrossJunctionProps extends DivProps, SVGBasedPrimitiveProps {}
 export const CrossJunction = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   scale,
   ...rest
 }: CrossJunctionProps): ReactElement => (
@@ -3267,13 +3234,13 @@ export const CrossJunction = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 39, height: 39 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
       <Path
         d="M22.5 35.5C22.5 36.6046 21.6046 37.5 20.5 37.5H18.5C17.3954 37.5 16.5 36.6046 16.5 35.5V24.5C16.5 23.3954 15.6046 22.5 14.5 22.5H3.5C2.39543 22.5 1.5 21.6046 1.5 20.5V18.5C1.5 17.3954 2.39543 16.5 3.5 16.5H14.5C15.6046 16.5 16.5 15.6046 16.5 14.5V3.5C16.5 2.39543 17.3954 1.5 18.5 1.5H20.5C21.6046 1.5 22.5 2.39543 22.5 3.5V14.5C22.5 15.6046 23.3954 16.5 24.5 16.5H35.5C36.6046 16.5 37.5 17.3954 37.5 18.5V20.5C37.5 21.6046 36.6046 22.5 35.5 22.5H24.5C23.3954 22.5 22.5 23.3954 22.5 24.5V35.5Z"
-        fill={Color.cssString(color)}
+        fill={color.cssString(colorVal)}
         stroke="none"
       />
     </InternalSVG>
@@ -3284,14 +3251,14 @@ export interface FlowmeterGeneralProps extends DivProps, SVGBasedPrimitiveProps 
 
 interface FlowLabelProps {
   position?: xy.XY;
-  color: Color.Crude;
+  color?: color.Crude;
 }
 
-const FlowmeterLabel = ({ position, color }: FlowLabelProps) => (
+const FlowmeterLabel = ({ position, color: colorVal }: FlowLabelProps) => (
   <text
     x={position?.x ?? 57}
     y={position?.y ?? 27}
-    style={{ fill: Color.cssString(color), fontWeight: 450 }}
+    style={{ fill: color.cssString(colorVal), fontWeight: 450 }}
     stroke="none"
   >
     F
@@ -3302,37 +3269,25 @@ export const FlowmeterGeneral = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: FlowmeterGeneralProps) => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-general"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
-      color={color}
+      dimensions={{ width: 71, height: 36 }}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
       <Rect x="2" y="2" width="67" height="31" rx="2" />
-      <FlowmeterLabel position={{ x: 56, y: 25 }} color={color} />
+      <FlowmeterLabel position={{ x: 56, y: 25 }} color={colorVal} />
     </InternalSVG>
   </Div>
 );
@@ -3345,32 +3300,20 @@ export const FlowmeterElectromagnetic = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: FlowmeterElectromagneticProps) => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Electromagnetic"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
-      color={color}
+      dimensions={{ width: 71, height: 36 }}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
@@ -3389,7 +3332,7 @@ export const FlowmeterElectromagnetic = ({
         d="M39.5 17.5C39.5 16.9747 39.6035 16.4546 39.8045 15.9693C40.0055 15.484 40.3001 15.043 40.6716 14.6716C41.043 14.3001 41.484 14.0055 41.9693 13.8045C42.4546 13.6035 42.9747 13.5 43.5 13.5C44.0253 13.5 44.5454 13.6035 45.0307 13.8045C45.516 14.0055 45.957 14.3001 46.3284 14.6716C46.6999 15.043 46.9945 15.484 47.1955 15.9693C47.3965 16.4546 47.5 16.9747 47.5 17.5"
         strokeWidth="2"
       />
-      <FlowmeterLabel position={{ x: 58, y: 29 }} color={color} />
+      <FlowmeterLabel position={{ x: 58, y: 29 }} color={colorVal} />
     </InternalSVG>
   </Div>
 );
@@ -3400,32 +3343,20 @@ export const FlowmeterVariableArea = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: FlowmeterVariableAreaProps) => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-VariableArea"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
-      color={color}
+      dimensions={{ width: 71, height: 36 }}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
@@ -3434,7 +3365,7 @@ export const FlowmeterVariableArea = ({
       <Path d="M23 13V22" />
       <Path d="M23 13L46 10" />
       <Path d="M23 22L46 25" />
-      <FlowmeterLabel color={color} />
+      <FlowmeterLabel color={colorVal} />
     </InternalSVG>
   </Div>
 );
@@ -3445,32 +3376,20 @@ export const FlowmeterCoriolis = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: FlowmeterCoriolisProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Coriolis"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
-      color={color}
+      dimensions={{ width: 71, height: 36 }}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
@@ -3483,7 +3402,7 @@ export const FlowmeterCoriolis = ({
       <Path d="M26.75 14.1024L37.788 21.0265" strokeLinecap="round" />
       <Path d="M43.5 17.6024L37.8427 21.0017" strokeLinecap="round" />
       <Path d="M43.5 17.6024H69" strokeLinecap="round" />
-      <FlowmeterLabel position={{ x: 58, y: 29 }} color={color} />
+      <FlowmeterLabel position={{ x: 58, y: 29 }} color={colorVal} />
     </InternalSVG>
   </Div>
 );
@@ -3494,32 +3413,20 @@ export const FlowmeterNozzle = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: FlowmeterNozzleProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Nozzle"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
-      color={color}
+      dimensions={{ width: 71, height: 36 }}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
@@ -3528,7 +3435,7 @@ export const FlowmeterNozzle = ({
       <Path d="M24 12H34" strokeLinecap="round" />
       <Path d="M24 23H29H34" strokeLinecap="round" />
       <Path d="M24 33V23" strokeLinecap="round" />
-      <FlowmeterLabel color={color} />
+      <FlowmeterLabel color={colorVal} />
     </InternalSVG>
   </Div>
 );
@@ -3539,13 +3446,13 @@ export const FlowmeterVenturi = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: FlowmeterVenturiProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Venturi"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
       <Handle
         location="right"
         orientation={orientation}
@@ -3563,8 +3470,8 @@ export const FlowmeterVenturi = ({
       />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
-      color={color}
+      dimensions={{ width: 71, height: 36 }}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
@@ -3573,7 +3480,7 @@ export const FlowmeterVenturi = ({
       <Path d="M8 2L26.5329 12.7" strokeLinecap="round" />
       <Path d="M56 33L26.5876 22.2948" strokeLinecap="round" />
       <Path d="M56 2L26.5876 12.7052" strokeLinecap="round" />
-      <FlowmeterLabel position={{ x: 56, y: 29 }} color={color} />
+      <FlowmeterLabel position={{ x: 56, y: 29 }} color={colorVal} />
     </InternalSVG>
   </Div>
 );
@@ -3584,20 +3491,14 @@ export const FlowmeterRingPiston = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: FlowmeterRingPistonProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-RingPiston"), className)}>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
       <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
       <Handle
         location="bottom"
@@ -3608,15 +3509,15 @@ export const FlowmeterRingPiston = ({
       />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
-      color={color}
+      dimensions={{ width: 71, height: 36 }}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
       <Rect x="2" y="2" width="67" height="31" rx="2" />
       <Circle cx="36.5" cy="17.5" r="10.5" strokeWidth="2" />
       <Circle cx="36.5" cy="21.5" r="6.5" strokeWidth="2" />
-      <FlowmeterLabel position={{ x: 56, y: 29 }} color={color} />
+      <FlowmeterLabel position={{ x: 56, y: 29 }} color={colorVal} />
     </InternalSVG>
   </Div>
 );
@@ -3629,32 +3530,20 @@ export const FlowmeterPositiveDisplacement = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: FlowmeterPositiveDisplacementProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-PositiveDisplacement"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
-      color={color}
+      dimensions={{ width: 72, height: 36 }}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
@@ -3667,7 +3556,7 @@ export const FlowmeterPositiveDisplacement = ({
         d="M41 22C41 24.4853 38.9853 26.5 36.5 26.5C34.0147 26.5 32 24.4853 32 22C32 19.5147 34.0147 17.5 36.5 17.5C38.9853 17.5 41 19.5147 41 22Z"
         strokeWidth="2"
       />
-      <FlowmeterLabel color={color} />
+      <FlowmeterLabel color={colorVal} />
     </InternalSVG>
   </Div>
 );
@@ -3678,32 +3567,20 @@ export const FlowmeterTurbine = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: FlowmeterTurbineProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Turbine"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
-      color={color}
+      dimensions={{ width: 71, height: 36 }}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
@@ -3721,7 +3598,7 @@ export const FlowmeterTurbine = ({
         d="M38.5 26C38.5 26.7956 38.1839 27.5587 37.6213 28.1213C37.0587 28.6839 36.2956 29 35.5 29C34.7044 29 33.9413 28.6839 33.3787 28.1213C32.8161 27.5587 32.5 26.7956 32.5 26"
         strokeWidth="2"
       />
-      <FlowmeterLabel color={color} />
+      <FlowmeterLabel color={colorVal} />
     </InternalSVG>
   </Div>
 );
@@ -3732,32 +3609,20 @@ export const FlowmeterPulse = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: FlowmeterPulseProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Pulse"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
-      color={color}
+      dimensions={{ width: 71, height: 36 }}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
@@ -3767,7 +3632,7 @@ export const FlowmeterPulse = ({
       <Path d="M39 21.5H47" strokeLinecap="round" />
       <Path d="M39 13.5V21.5" strokeLinecap="round" />
       <Path d="M31 13.5V21.5" strokeLinecap="round" />
-      <FlowmeterLabel color={color} />
+      <FlowmeterLabel color={colorVal} />
     </InternalSVG>
   </Div>
 );
@@ -3778,24 +3643,20 @@ export const FlowmeterFloatSensor = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: FlowmeterFloatSensorProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-FloatSensor"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
-      color={color}
+      dimensions={{ width: 71, height: 36 }}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
@@ -3804,7 +3665,7 @@ export const FlowmeterFloatSensor = ({
       <Path d="M31 27H40" strokeLinecap="round" />
       <Path d="M31 27L25.046 8.11641" strokeLinecap="round" />
       <Path d="M40 27L45.954 8.11641" strokeLinecap="round" />
-      <FlowmeterLabel color={color} />
+      <FlowmeterLabel color={colorVal} />
     </InternalSVG>
   </Div>
 );
@@ -3815,39 +3676,27 @@ export const FlowmeterOrifice = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: FlowmeterOrificeProps): ReactElement => (
   <Div {...rest} className={CSS(CSS.B("flowmeter-Orifice"), className)}>
     <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.6667} top={50} id="1" />
-      <Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle location="top" orientation={orientation} left={50} top={5.714} id="3" />
-      <Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
+      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
     </HandleBoundary>
     <InternalSVG
-      dimensions={{ width: 71, height: 35 }}
-      color={color}
+      dimensions={{ width: 72, height: 36 }}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
       <Rect x="2.5" y="2" width="67" height="31" rx="2" />
-      <Path d="M24.5 2V7.5V13" stroke-linecap="round" />
-      <Path d="M24.5 33V22" stroke-linecap="round" />
-      <FlowmeterLabel color={color} />
+      <Path d="M24.5 2V7.5V13" strokeLinecap="round" />
+      <Path d="M24.5 33V22" strokeLinecap="round" />
+      <FlowmeterLabel color={colorVal} />
     </InternalSVG>
   </Div>
 );
@@ -3858,7 +3707,7 @@ export const HeatExchangerGeneral = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: HeatExchangerGeneralProps): ReactElement => (
@@ -3883,7 +3732,7 @@ export const HeatExchangerGeneral = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 66, height: 66 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
@@ -3899,7 +3748,7 @@ export const HeatExchangerM = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: HeatExchangerMProps): ReactElement => (
@@ -3919,7 +3768,7 @@ export const HeatExchangerM = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 66, height: 66 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
@@ -3937,7 +3786,7 @@ export const HeatExchangerStraightTube = ({
   id,
   className,
   orientation = "right",
-  color = "black",
+  color: colorVal,
   scale = 1,
   ...rest
 }: HeatExchangerStraightTubeProps): ReactElement => (
@@ -3970,7 +3819,7 @@ export const HeatExchangerStraightTube = ({
     </HandleBoundary>
     <InternalSVG
       dimensions={{ width: 199, height: 48 }}
-      color={color}
+      color={colorVal}
       orientation={orientation}
       scale={scale}
     >
@@ -4568,14 +4417,14 @@ export const Nozzle = ({
       scale={scale}
     >
       <Rect x="12" y="1.6667" width="40" height="40" rx="2" />
-      <Path d="M1.3333 124H62.6667" stroke-linecap="round" />
+      <Path d="M1.3333 124H62.6667" strokeLinecap="round" />
       <Path
         d="M50.1883 41.6667C41.7748 41.6667 35.0143 46.3333 42.6923 59.3333C59.3476 87.5333 63.6327 119 62.855 124"
-        stroke-linecap="round"
+        strokeLinecap="round"
       />
       <Path
         d="M14 41.6667C22.4135 41.6667 29.174 46.3333 21.496 59.3333C4.84066 87.5333 0.555555 119 1.33333 124"
-        stroke-linecap="round"
+        strokeLinecap="round"
       />
     </InternalSVG>
   </Div>

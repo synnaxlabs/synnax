@@ -10,12 +10,12 @@
 import "@/channel/LinePlot.css";
 
 import { type channel } from "@synnaxlabs/client";
+import { type color } from "@synnaxlabs/x";
 import { box, location as loc, type xy } from "@synnaxlabs/x/spatial";
 import { type TimeRange, type TimeSpan } from "@synnaxlabs/x/telem";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { HAUL_TYPE } from "@/channel/types";
-import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { usePrevious } from "@/hooks";
@@ -29,7 +29,7 @@ import { Measure } from "@/vis/measure";
 import { Rule } from "@/vis/rule";
 
 /** Props for an axis in {@link LinePlot} */
-export interface AxisProps extends Core.AxisProps {
+export interface AxisProps extends Omit<Core.AxisProps, "axisKey"> {
   /** A unique identifier for the axis */
   key: string;
 }
@@ -38,7 +38,7 @@ export interface BaseLineProps {
   key: string;
   axes: { x: string; y: string };
   channels: { y: channel.KeyOrName; x?: channel.KeyOrName };
-  color: Color.Crude;
+  color: color.Crude;
   strokeWidth?: number;
   label?: string;
   downsample?: number;
@@ -59,7 +59,7 @@ export type LineProps = StaticLineProps | DynamicLineProps;
 export interface RuleProps {
   key: string;
   position: number;
-  color: Color.Crude;
+  color: color.Crude;
   axis: string;
   label: string;
   lineWidth?: number;
@@ -98,7 +98,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
   // Annotation
-  annotationProvider?: Range.ProviderProps;
+  rangeAnnotationProvider?: Range.ProviderProps;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
@@ -132,7 +132,7 @@ export const LinePlot = ({
   legendVariant,
   onViewportChange,
   viewportTriggers,
-  annotationProvider,
+  rangeAnnotationProvider: annotationProvider,
   onSelectRule,
   children,
   ...rest
@@ -141,11 +141,12 @@ export const LinePlot = ({
   const ref = useRef<Viewport.UseRefValue | null>(null);
   const prevLinesLength = usePrevious(lines.length);
   const prevHold = usePrevious(rest.hold);
-  if (
+  const shouldResetViewport =
     (prevLinesLength === 0 && lines.length !== 0) ||
-    (prevHold === true && rest.hold === false)
-  )
-    ref.current?.reset();
+    (prevHold === true && rest.hold === false);
+  useEffect(() => {
+    if (shouldResetViewport) ref.current?.reset();
+  }, [shouldResetViewport]);
   return (
     <Core.LinePlot {...rest}>
       {xAxes.map((a, i) => {
@@ -246,6 +247,7 @@ const XAxis = ({
       {...axis}
       {...dropProps}
       location={location as loc.Y}
+      axisKey={key}
       showGrid={showGrid ?? index === 0}
       className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
@@ -331,6 +333,7 @@ const YAxis = ({
       {...props}
       {...dropProps}
       location={loc as loc.X}
+      axisKey={key}
       className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
     >

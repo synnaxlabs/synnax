@@ -12,8 +12,9 @@ package task_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
@@ -62,7 +63,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 	Describe("Task", func() {
 		It("Should construct and deconstruct a key from its components", func() {
-			rk := rack.NewKey(core.NodeKey(1), 1)
+			rk := rack.NewKey(cluster.NodeKey(1), 1)
 			k := task.NewKey(rk, 2)
 			Expect(k.Rack()).To(Equal(rk))
 			Expect(k.LocalKey()).To(Equal(uint32(2)))
@@ -107,7 +108,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
 			Expect(m.Name).To(Equal("Test Task"))
-			t, err := w.Copy(ctx, m.Key, "New Task", false)
+			t, err := w.Copy(ctx, m.Key, "Copied Task", false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 2)))
 		})
@@ -120,7 +121,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
 			Expect(m.Name).To(Equal("Test Task"))
-			t, err := w.Copy(ctx, m.Key, "New Task", true)
+			t, err := w.Copy(ctx, m.Key, "Snapshotted Task", true)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 2)))
 			Expect(t.Snapshot).To(BeTrue())

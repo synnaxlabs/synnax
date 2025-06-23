@@ -16,8 +16,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Streamer = confluence.Segment[Request, Response]
@@ -30,19 +33,58 @@ type streamer struct {
 	cfg     StreamerConfig
 }
 
+// StreamerConfig is the configuration for creating a new streamer.
 type StreamerConfig struct {
-	Keys        channel.Keys
-	SendOpenAck bool
+	// Keys are the list of channels to read from. This slice may be empty, in
+	// which case no data will be streamed until a new configuration is provided
+	// as a request to the streamer.
+	// [OPTIONAL]
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// SendOpenAck sets whether to send an acknowledgement when the streamer has
+	// successfully connected to the relay and is ready to start streaming data.
+	// [OPTIONAL] - defaults to false
+	SendOpenAck *bool `json:"send_open_ack" msgpack:"send_open_ack"`
 }
 
-func (r *Relay) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
-	err := r.cfg.ChannelReader.NewRetrieve().WhereKeys(cfg.Keys...).Exec(ctx, nil)
+var (
+	_ config.Config[StreamerConfig] = StreamerConfig{}
+	// DefaultStreamerConfig is the default configuration for opening a new streamer.
+	// This configuration is valid and will create a streamer that does
+	// not stream from any channels.
+	DefaultStreamerConfig = StreamerConfig{SendOpenAck: config.False()}
+)
+
+// Override implements config.Config.
+func (c StreamerConfig) Override(other StreamerConfig) StreamerConfig {
+	c.Keys = override.Slice(c.Keys, other.Keys)
+	c.SendOpenAck = override.Nil(c.SendOpenAck, other.SendOpenAck)
+	return c
+}
+
+// Validate implements config.Config.
+func (c StreamerConfig) Validate() error {
+	v := validate.New("streamer_config")
+	validate.NotNil(v, "send_open_ack", c.SendOpenAck)
+	return v.Error()
+}
+
+// NewStreamer opens a new Streamer for consuming real-time telemetry frames from the
+// relay. Each subsequent StreamerConfig overrides the parameters specified in the
+// previous config. See the StreamerConfig struct for information on required fields.
+func (r *Relay) NewStreamer(ctx context.Context, cfgs ...StreamerConfig) (Streamer, error) {
+	cfg, err := config.New(DefaultStreamerConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	if err = r.cfg.ChannelReader.NewRetrieve().WhereKeys(cfg.Keys...).Exec(ctx, nil); err != nil {
+		return nil, err
+	}
 	return &streamer{
 		cfg:     cfg,
 		addr:    address.Rand(),
 		demands: r.demands,
 		relay:   r,
-	}, err
+	}, nil
 }
 
 // Flow implements confluence.Flow.
@@ -62,7 +104,7 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
-		responses, disconnect := r.relay.connectToDelta(defaultBuffer)
+		responses, disconnect := r.relay.connectToDelta(1)
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
 			// we do this before updating our demands, otherwise we may deadlock.
@@ -74,7 +116,7 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			// we explicitly close it here.
 			r.demands.Close()
 		}()
-		if r.cfg.SendOpenAck {
+		if *r.cfg.SendOpenAck {
 			if err := signal.SendUnderContext(ctx, r.Out.Inlet(), Response{}); err != nil {
 				return err
 			}
@@ -94,14 +136,11 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					return err
 				}
 			case f := <-responses.Outlet():
-				filtered := f.Frame.FilterKeys(r.cfg.Keys)
-				// Don't send if the frame is empty.
-				if len(filtered.Keys) == 0 {
-					continue
-				}
-				res := Response{Error: f.Error, Frame: f.Frame.FilterKeys(r.cfg.Keys)}
-				if err := signal.SendUnderContext(ctx, r.Out.Inlet(), res); err != nil {
-					return err
+				if filtered := f.Frame.FilterKeys(r.cfg.Keys); !filtered.Empty() {
+					res := Response{Frame: f.Frame.FilterKeys(r.cfg.Keys)}
+					if err := signal.SendUnderContext(ctx, r.Out.Inlet(), res); err != nil {
+						return err
+					}
 				}
 			}
 		}

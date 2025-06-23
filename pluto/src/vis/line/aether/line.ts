@@ -13,20 +13,22 @@ import {
   bounds,
   type box,
   clamp,
+  color,
   DataType,
   type Destructor,
   type direction,
+  type MultiSeries,
   type scale,
   type Series,
   type SeriesDigest,
   TimeSpan,
   xy,
 } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { color } from "@/color/core";
+import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
@@ -37,19 +39,23 @@ export const stateZ = z.object({
   x: telem.seriesSourceSpecZ,
   y: telem.seriesSourceSpecZ,
   label: z.string().optional(),
-  color: color.Color.z,
+  color: color.colorZ,
   strokeWidth: z.number().default(1),
   downsample: z.number().min(1).max(50).optional().default(1),
   visible: z.boolean().optional().default(true),
 });
 
-const safelyGetDataValue = (series: number, index: number, data: Series[]): number => {
-  if (series === -1 || index === -1 || series >= data.length) return NaN;
-  return Number(data[series].at(index));
+const safelyGetDataValue = (
+  series: number,
+  index: number,
+  data: MultiSeries,
+): number => {
+  if (series === -1 || index === -1 || series >= data.series.length) return NaN;
+  return Number(data.series[series].at(index));
 };
 
 export type State = z.input<typeof stateZ>;
-export type ParsedState = z.output<typeof stateZ>;
+export type ParsedState = z.infer<typeof stateZ>;
 
 const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
 
@@ -258,57 +264,55 @@ export class Context {
 
 interface InternalState {
   instrumentation: Instrumentation;
-  ctx: Context;
+  lineCtx: Context;
   xTelem: telem.SeriesSource;
   stopListeningXTelem?: Destructor;
   yTelem: telem.SeriesSource;
   stopListeningYTelem?: Destructor;
-  requestRender: render.RequestF;
+  requestRender: render.Requestor;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   static readonly TYPE = "line";
   schema: typeof stateZ = stateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
-    if (this.deleted) return;
+  afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    i.xTelem = await telem.useSource(ctx, this.state.x, i.xTelem);
-    i.yTelem = await telem.useSource(ctx, this.state.y, i.yTelem);
+    const createOptions: telem.CreateOptions = {
+      onStatusChange: status.useAdder(ctx),
+    };
+    i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem, createOptions);
+    i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem, createOptions);
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
-    i.ctx = Context.use(ctx);
-    i.requestRender = render.Controller.useRequest(ctx);
+    i.lineCtx = Context.use(ctx);
+    i.requestRender = render.useRequestor(ctx);
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
-    i.stopListeningXTelem = i.xTelem.onChange(() =>
-      i.requestRender(render.REASON_DATA),
-    );
-    i.stopListeningYTelem = i.yTelem.onChange(() =>
-      i.requestRender(render.REASON_DATA),
-    );
-    i.requestRender(render.REASON_LAYOUT);
+    i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
+    i.stopListeningYTelem = i.yTelem.onChange(() => i.requestRender("data"));
+    i.requestRender("layout");
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     const { internal: i } = this;
-    await i.xTelem.cleanup?.();
-    await i.yTelem.cleanup?.();
-    i.requestRender(render.REASON_LAYOUT);
+    i.xTelem.cleanup?.();
+    i.yTelem.cleanup?.();
+    i.requestRender("layout");
   }
 
-  async xBounds(): Promise<bounds.Bounds> {
-    return (await this.internal.xTelem.value())[0];
+  xBounds(): bounds.Bounds {
+    return this.internal.xTelem.value()[0];
   }
 
-  async yBounds(): Promise<bounds.Bounds> {
-    return (await this.internal.yTelem.value())[0];
+  yBounds(): bounds.Bounds {
+    return this.internal.yTelem.value()[0];
   }
 
-  async findByXValue(props: LineProps, target: number): Promise<FindResult> {
+  findByXValue(props: LineProps, target: number): FindResult {
     const { xTelem, yTelem } = this.internal;
-    const [, xData] = await xTelem.value();
+    const [, xData] = xTelem.value();
     let [index, series] = [-1, -1];
-    xData.find((x, i) => {
+    xData.series.find((x, i) => {
       const v = x.binarySearch(target);
       // The returned value gives us the insert position, so anything that is not
       // a valid index is not a valid value.
@@ -330,10 +334,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
     if (index === -1 || series === -1 || !this.state.visible) return result;
 
-    const xSeries = xData[series];
+    const xSeries = xData.series[series];
     result.value.x = safelyGetDataValue(series, index, xData);
-    const [, yData] = await yTelem.value();
-    const ySeries = yData.find((ys) =>
+    const [, yData] = yTelem.value();
+    const ySeries = yData.series.find((ys) =>
       bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
     );
     if (ySeries == null) return result;
@@ -350,17 +354,17 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     return result;
   }
 
-  async render(props: LineProps): Promise<void> {
+  render(props: LineProps): void {
     if (this.deleted || !this.state.visible) return;
     const { downsample } = this.state;
-    const { xTelem, yTelem, ctx } = this.internal;
+    const { xTelem, yTelem, lineCtx: ctx } = this.internal;
 
     const { dataToDecimalScale, exposure } = props;
-    const [[, xData], [, yData]] = await Promise.all([xTelem.value(), yTelem.value()]);
-    xData.forEach((x) => x.updateGLBuffer(ctx.gl));
-    yData.forEach((y) => y.updateGLBuffer(ctx.gl));
+    const [[, xData], [, yData]] = [xTelem.value(), yTelem.value()];
+    xData.updateGLBuffer(ctx.gl);
+    yData.updateGLBuffer(ctx.gl);
     if (xData.length === 0 || yData.length === 0) return;
-    const prog = ctx.getProgram(yData[0].dataType);
+    const prog = ctx.getProgram(yData.dataType);
     const ops = buildDrawOperations(
       xData,
       yData,
@@ -381,7 +385,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     ops.forEach((op) => {
       const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
       prog.bindScale(scaleTransform, regionTransform);
-      prog.draw(op, instances, xData[0].dataType, yData[0].dataType);
+      prog.draw(op, instances, xData.dataType, yData.dataType);
     });
     clearProg();
   }
@@ -436,16 +440,16 @@ interface DrawOperationDigest extends Omit<DrawOperation, "x" | "y"> {
 }
 
 export const buildDrawOperations = (
-  xSeries: Series[],
-  ySeries: Series[],
+  xSeries: MultiSeries,
+  ySeries: MultiSeries,
   exposure: number,
   userSpecifiedDownSampling: number,
   overlapThreshold: TimeSpan,
 ): DrawOperation[] => {
-  if (xSeries.length === 0 || ySeries.length === 0) return [];
+  if (xSeries.series.length === 0 || ySeries.series.length === 0) return [];
   const ops: DrawOperation[] = [];
-  xSeries.forEach((x) =>
-    ySeries.forEach((y) => {
+  xSeries.series.forEach((x) =>
+    ySeries.series.forEach((y) => {
       if (!seriesOverlap(x, y, overlapThreshold)) return;
       let xOffset = 0;
       let yOffset = 0;
@@ -470,12 +474,6 @@ const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
   ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));
 
 const seriesOverlap = (x: Series, ys: Series, overlapThreshold: TimeSpan): boolean => {
-  // This is just a runtime check that both series' have time ranges defined.
-  const haveTimeRanges = x._timeRange != null && ys._timeRange != null;
-  if (!haveTimeRanges)
-    throw new UnexpectedError(
-      `Encountered series without time range in buildDrawOperations. X series present: ${x._timeRange != null}, Y series present: ${ys._timeRange != null}`,
-    );
   // If the time ranges of the x and y series overlap, we meet the first condition
   // for drawing them together. Dynamic buffering can sometimes lead to very slight,
   // unintended overlaps, so we only consider them overlapping if they overlap by a

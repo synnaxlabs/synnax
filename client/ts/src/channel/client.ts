@@ -8,18 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { array } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import {
   type CrudeDensity,
   type CrudeTimeStamp,
   DataType,
   type MultiSeries,
-  Rate,
   type TimeRange,
   type TypedArray,
 } from "@synnaxlabs/x/telem";
-import { toArray } from "@synnaxlabs/x/toArray";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import {
   channelZ,
@@ -72,11 +71,6 @@ export class Channel {
    */
   readonly name: Name;
   /**
-   * The rate at which the channel samples telemetry. This only applies to fixed rate
-   * channels, and will be 0 if the channel is indexed.
-   */
-  readonly rate: Rate;
-  /**
    * The data type of the channel.
    */
   readonly dataType: DataType;
@@ -121,7 +115,6 @@ export class Channel {
 
   constructor({
     dataType,
-    rate,
     name,
     leaseholder = 0,
     key = 0,
@@ -136,7 +129,6 @@ export class Channel {
   }: New & { frameClient?: framer.Client; density?: CrudeDensity }) {
     this.key = key;
     this.name = name;
-    this.rate = new Rate(rate ?? 0);
     this.dataType = new DataType(dataType);
     this.leaseholder = leaseholder;
     this.index = index;
@@ -164,7 +156,6 @@ export class Channel {
     return channelZ.parse({
       key: this.key,
       name: this.name,
-      rate: this.rate.valueOf(),
       dataType: this.dataType.valueOf(),
       leaseholder: this.leaseholder,
       index: this.index,
@@ -208,6 +199,8 @@ export class Channel {
     return await this.framer.write(start, this.key, data);
   }
 }
+
+export const CALCULATION_STATE_CHANNEL_NAME = "sy_calculation_state";
 
 const RETRIEVE_GROUP_ENDPOINT = "/channel/retrieve-group";
 
@@ -307,7 +300,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   ): Promise<Channel | Channel[]> {
     const { retrieveIfNameExists = false } = options;
     const single = !Array.isArray(channels);
-    let toCreate = toArray(channels);
+    let toCreate = array.toArray(channels);
     let created: Channel[] = [];
     if (retrieveIfNameExists) {
       const res = await this.retriever.retrieve(toCreate.map((c) => c.name));
@@ -392,7 +385,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   async rename(key: Key, name: string): Promise<void>;
   async rename(keys: Key[], names: string[]): Promise<void>;
   async rename(keys: Key | Key[], names: string | string[]): Promise<void> {
-    return await this.writer.rename(toArray(keys), toArray(names));
+    return await this.writer.rename(array.toArray(keys), array.toArray(names));
   }
 
   newSearcherWithOptions(

@@ -9,7 +9,7 @@
 
 import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { Aether } from "@/aether";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
@@ -17,7 +17,7 @@ import { tooltip } from "@/vis/lineplot/tooltip/aether";
 
 export interface TooltipProps
   extends Omit<z.input<typeof tooltip.tooltipStateZ>, "position">,
-    Aether.CProps {}
+    Aether.ComponentProps {}
 
 export const Tooltip = ({ aetherKey, ...rest }: TooltipProps): ReactElement | null => {
   const cKey = useUniqueKey(aetherKey);

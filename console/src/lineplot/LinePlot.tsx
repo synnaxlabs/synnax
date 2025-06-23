@@ -10,14 +10,14 @@
 import "@/lineplot/LinePlot.css";
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/media";
 import {
   type axis,
   Channel,
-  Color,
+  Icon,
   type Legend,
+  LinePlot as Core,
   Menu as PMenu,
   Status,
   Synnax,
@@ -28,16 +28,24 @@ import {
 } from "@synnaxlabs/pluto";
 import {
   box,
+  color,
   DataType,
-  getEntries,
   location,
-  primitiveIsZero,
+  primitive,
+  record,
   scale,
   TimeRange,
   unique,
 } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
@@ -51,13 +59,10 @@ import {
   type XAxisKey,
   type YAxisKey,
 } from "@/lineplot/axis";
-import { download } from "@/lineplot/download";
-import { create, LAYOUT_TYPE } from "@/lineplot/layout";
 import { NavControls } from "@/lineplot/NavControls";
 import {
   select,
   useSelect,
-  useSelectAxisBounds,
   useSelectControlState,
   useSelectRanges,
   useSelectSelection,
@@ -87,19 +92,13 @@ import {
   typedLineKeyToString,
   ZERO_STATE,
 } from "@/lineplot/slice";
+import { useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
 import { Range } from "@/range";
-import { type Selector } from "@/selector";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
   key?: string;
 }
-
-export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <PMenu.Menu level="small" iconSpacing="small">
-    <Layout.MenuItems layoutKey={layoutKey} />
-  </PMenu.Menu>
-);
 
 const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload>> =>
   Workspace.useSyncComponent<SyncPayload>(
@@ -119,10 +118,62 @@ const useSyncComponent = (layoutKey: string): Dispatch<PayloadAction<SyncPayload
     },
   );
 
+const CONTEXT_MENU_ERROR_MESSAGES: Record<string, string> = {
+  iso: "Failed to copy ISO time range",
+  python: "Failed to copy Python time range",
+  typescript: "Failed to copy TypeScript time range",
+  range: "Failed to create range from selection",
+  download: "Failed to download region as CSV",
+};
+
+interface RangeAnnotationContextMenuProps {
+  lines: Channel.LineProps[];
+  range: ranger.Payload;
+}
+
+const RangeAnnotationContextMenu = ({
+  lines,
+  range,
+}: RangeAnnotationContextMenuProps): ReactElement => {
+  const downloadAsCSV = useDownloadAsCSV();
+  const handleDownloadAsCSV = () =>
+    downloadAsCSV({ timeRange: range.timeRange, lines, name: range.name });
+  const addRangeToNewPlot = Range.useAddToNewPlot();
+  const handleOpenInNewPlot = () => addRangeToNewPlot(range.key);
+  const placeLayout = Layout.usePlacer();
+  const handleViewDetails = () => {
+    placeLayout({ ...Range.OVERVIEW_LAYOUT, name: range.name, key: range.key });
+  };
+  return (
+    <PMenu.Menu level="small">
+      <PMenu.Item
+        itemKey="download"
+        startIcon={<Icon.Download />}
+        onClick={handleDownloadAsCSV}
+      >
+        Download as CSV
+      </PMenu.Item>
+      <PMenu.Item
+        itemKey="line-plot"
+        startIcon={<Icon.LinePlot />}
+        onClick={handleOpenInNewPlot}
+      >
+        Open in New Plot
+      </PMenu.Item>
+      <PMenu.Item
+        itemKey="metadata"
+        startIcon={<Icon.Annotate />}
+        onClick={handleViewDetails}
+      >
+        View Details
+      </PMenu.Item>
+    </PMenu.Menu>
+  );
+};
+
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
-  const placeLayout = Layout.usePlacer();
   const vis = useSelect(layoutKey);
   const prevVis = usePrevious(vis);
   const ranges = useSelectRanges(layoutKey);
@@ -131,25 +182,28 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
-  const handleError = Status.useErrorHandler();
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [syncDispatch, name, prevName]);
 
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const toFetch = lines.filter((line) => line.label == null);
-    if (toFetch.length === 0) return;
-    const fetched = await client.channels.retrieve(
-      unique.unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
-    );
-    const update = toFetch.map((l) => ({
-      key: l.key,
-      label: fetched.find((f) => f.key === l.channels.y)?.name,
-    }));
-    syncDispatch(setLine({ key: layoutKey, line: update }));
-  }, [layoutKey, client, lines]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) return;
+      const toFetch = lines.filter((line) => line.label == null);
+      if (toFetch.length === 0) return;
+      const fetched = await client.channels.retrieve(
+        unique.unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
+      );
+      if (signal.aborted) return;
+      const update = toFetch.map((l) => ({
+        key: l.key,
+        label: fetched.find((f) => f.key === l.channels.y)?.name,
+      }));
+      syncDispatch(setLine({ key: layoutKey, line: update }));
+    },
+    [layoutKey, client, lines],
+  );
 
   const handleTitleChange = (name: string): void => {
     syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -160,7 +214,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   >(
     (d): void => {
       const newLine = { ...d } as const as LineState;
-      if (d.color != null) newLine.color = Color.toHex(d.color);
+      if (d.color != null) newLine.color = color.hex(d.color);
       syncDispatch(setLine({ key: layoutKey, line: [newLine] }));
     },
     [syncDispatch, layoutKey],
@@ -170,12 +224,14 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     Exclude<Channel.LinePlotProps["onRuleChange"], undefined>
   >(
     (rule) => {
-      if (rule.color != null) rule.color = Color.toHex(rule.color);
       syncDispatch(
         setRule({
           key: layoutKey,
-          // @ts-expect-error rule.color was reassigned to be a string or undefined
-          rule,
+          rule: {
+            ...rule,
+            color: rule.color != null ? color.hex(rule.color) : undefined,
+            axis: rule.axis != null ? (rule.axis as AxisKey) : undefined,
+          },
         }),
       );
     },
@@ -206,7 +262,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       const prevKey = prevVis?.channels[axis.key as XAxisKey];
       if (client == null || key === prevKey) return;
       let newType: axis.TickType = "time";
-      if (!primitiveIsZero(key)) {
+      if (!primitive.isZero(key)) {
         const ch = await client.channels.retrieve(key);
         if (!ch.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
       }
@@ -312,49 +368,51 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     layoutKey: string;
   }
 
+  const boundsQuerierRef = useRef<Core.GetBoundsFn>(null);
+
   const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
     const { box: selection } = useSelectSelection(layoutKey);
-    const bounds = useSelectAxisBounds(layoutKey, "x1");
-    const s = scale.Scale.scale<number>(1).scale(bounds);
     const placeLayout = Layout.usePlacer();
+    const handleError = Status.useErrorHandler();
 
-    const timeRange = new TimeRange(
-      s.pos(box.left(selection)),
-      s.pos(box.right(selection)),
-    );
+    const getTimeRange = useCallback(async () => {
+      const bounds = await boundsQuerierRef.current?.();
+      if (bounds == null) return null;
+      const s = scale.Scale.scale<number>(1).scale(bounds.x1);
+      return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
+    }, []);
+
+    const downloadAsCSV = useDownloadAsCSV();
 
     const handleSelect = (key: string): void => {
-      switch (key) {
-        case "iso":
-          void navigator.clipboard.writeText(
-            `${timeRange.start.fString("ISO")} - ${timeRange.end.fString("ISO")}`,
-          );
-          break;
-        case "python":
-          void navigator.clipboard.writeText(
-            `sy.TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
-          );
-          break;
-        case "typescript":
-          void navigator.clipboard.writeText(
-            `new TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
-          );
-          break;
-        case "range":
-          placeLayout(
-            Range.createCreateLayout({
-              timeRange: {
-                start: Number(timeRange.start.valueOf()),
-                end: Number(timeRange.end.valueOf()),
-              },
-            }),
-          );
-          break;
-        case "download":
-          if (client == null) return;
-          download({ timeRange, lines, client, name: `${name}-data`, handleError });
-          break;
-      }
+      handleError(async () => {
+        const tr = await getTimeRange();
+        if (tr == null) return;
+        switch (key) {
+          case "iso":
+            await navigator.clipboard.writeText(
+              `${tr.start.fString("ISO")} - ${tr.end.fString("ISO")}`,
+            );
+            break;
+          case "python":
+            await navigator.clipboard.writeText(
+              `sy.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
+            );
+            break;
+          case "typescript":
+            await navigator.clipboard.writeText(
+              `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`,
+            );
+            break;
+          case "range":
+            placeLayout(Range.createCreateLayout({ timeRange: tr.numeric }));
+            break;
+          case "download":
+            if (client == null) return;
+            downloadAsCSV({ timeRange: tr, lines, name });
+            break;
+        }
+      }, `Failed to perform ${CONTEXT_MENU_ERROR_MESSAGES[key]}`);
     };
 
     return (
@@ -376,7 +434,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-              Download as CSV
+              Download Region as CSV
             </PMenu.Item>
           </>
         )}
@@ -384,47 +442,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       </PMenu.Menu>
     );
   };
-  const addRangeToNewPlot = Range.useAddToNewPlot();
 
-  const AnnotationMenu = ({
-    key,
-    timeRange,
-    name,
-  }: {
-    key: string;
-    timeRange: TimeRange;
-    name: string;
-  }): ReactElement => {
-    const handleSelect = (itemKey: string) => {
-      switch (itemKey) {
-        case "download":
-          if (client == null) return;
-          download({ client, lines, timeRange, name, handleError });
-          break;
-        case "metadata":
-          placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key });
-          break;
-        case "line-plot":
-          addRangeToNewPlot(key);
-          break;
-        default:
-          break;
-      }
-    };
-
-    return (
-      <PMenu.Menu level="small" key={key} onChange={handleSelect}>
-        <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
-          Download as CSV
-        </PMenu.Item>
-        <PMenu.Item itemKey="line-plot" startIcon={<Icon.LinePlot />}>
-          Open in New Plot
-        </PMenu.Item>
-        <PMenu.Item itemKey="metadata" startIcon={<Icon.Annotate />}>
-          View Details
-        </PMenu.Item>
-      </PMenu.Menu>
-    );
+  const rangeAnnotationProvider: Channel.LinePlotProps["rangeAnnotationProvider"] = {
+    menu: (props) => <RangeAnnotationContextMenu lines={propsLines} range={props} />,
   };
 
   return (
@@ -465,9 +485,10 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           onDoubleClick={handleDoubleClick}
           onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
-          annotationProvider={{ menu: AnnotationMenu }}
+          rangeAnnotationProvider={rangeAnnotationProvider}
         >
           {!focused && <NavControls />}
+          <Core.BoundsQuerier ref={boundsQuerierRef} />
         </Channel.LinePlot>
       </PMenu.ContextMenu>
       {focused && <NavControls />}
@@ -476,7 +497,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 };
 
 const buildAxes = (vis: State): Channel.AxisProps[] =>
-  getEntries<AxesState["axes"]>(vis.axes.axes)
+  record
+    .entries<AxesState["axes"]>(vis.axes.axes)
     .filter(([key]) => shouldDisplayAxis(key, vis))
     .map(
       ([key, axis]): Channel.AxisProps => ({
@@ -536,11 +558,4 @@ export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
   });
   if (linePlot == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
-};
-
-export const SELECTABLE: Selector.Selectable = {
-  key: LAYOUT_TYPE,
-  title: "Line Plot",
-  icon: <Icon.LinePlot />,
-  create: async ({ layoutKey }) => create({ key: layoutKey }),
 };

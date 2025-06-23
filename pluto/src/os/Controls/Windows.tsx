@@ -9,12 +9,12 @@
 
 import "@/os/Controls/Windows.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
 import { type InternalControlsProps } from "@/os/Controls/types";
 
 export const Windows = ({

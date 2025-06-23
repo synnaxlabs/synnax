@@ -1,0 +1,28 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-device-ontology-item {
+    .console-name-location {
+        width: 0;
+        .console-name {
+            text-overflow: ellipsis;
+            overflow: hidden;
+            flex-shrink: 1;
+        }
+        .console-location {
+            line-height: 100%;
+            margin-top: 0.25rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-shrink: 10;
+        }
+    }
+}

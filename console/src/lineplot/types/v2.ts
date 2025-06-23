@@ -9,7 +9,7 @@
 
 import { axis } from "@synnaxlabs/pluto";
 import { bounds, migrate } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { X_AXIS_KEYS, type XAxisKey } from "@/lineplot/axis";
 import * as v0 from "@/lineplot/types/v0";
@@ -84,7 +84,7 @@ export const sliceStateZ = v1.sliceStateZ
   })
   .extend({
     version: z.literal("2.0.0"),
-    plots: z.record(stateZ),
+    plots: z.record(z.string(), stateZ),
   });
 
 export type SliceState = z.infer<typeof sliceStateZ>;

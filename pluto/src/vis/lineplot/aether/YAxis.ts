@@ -41,17 +41,21 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
   static readonly TYPE = "YAxis";
   schema = coreAxisStateZ;
 
-  async xBounds(): Promise<bounds.Bounds> {
+  xBounds(): bounds.Bounds {
     return bounds.max(
-      (await Promise.all(this.lines.map(async (el) => await el.xBounds()))).filter(
-        (b) => bounds.isFinite(b),
-      ),
+      this.lines.map((el) => el.xBounds()).filter((b) => bounds.isFinite(b)),
     );
   }
 
-  async render(props: YAxisProps): Promise<void> {
+  bounds(hold: boolean): bounds.Bounds {
+    const [bound, err] = this.iBounds(hold, this.dataBounds.bind(this));
+    if (err != null) throw err;
+    return bound;
+  }
+
+  render(props: YAxisProps): void {
     if (this.deleted) return;
-    const [dataToDecimalScale, error] = await this.dataToDecimalScale(
+    const [dataToDecimalScale, error] = this.dataToDecimalScale(
       props.hold,
       this.dataBounds.bind(this),
       props.viewport,
@@ -59,29 +63,30 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
     // We need to invert scale because the y-axis is inverted in decimal space.
     const decimalToDataScale = dataToDecimalScale.invert().reverse();
     this.renderAxis(props, decimalToDataScale);
-    await this.renderLines(props, dataToDecimalScale);
-    await this.renderRules(props, decimalToDataScale);
+    this.renderLines(props, dataToDecimalScale);
+    this.renderRules(props, decimalToDataScale);
+
     // Throw the error we encounter here so that the user still has a visible axis.
     if (error != null) throw error;
   }
 
-  private async renderLines(
+  private renderLines(
     { xDataToDecimalScale: xScale, plot, canvases, exposure }: YAxisProps,
     yScale: scale.Scale,
-  ): Promise<void> {
+  ): void {
     if (!canvases.includes("gl") || invalidArea(plot)) return;
     const props: line.LineProps = {
       region: plot,
       dataToDecimalScale: new scale.XY(xScale, yScale),
       exposure,
     };
-    await Promise.all(this.lines.map(async (el) => await el.render(props)));
+    this.lines.forEach((el) => el.render(props));
   }
 
-  private async renderRules(
+  private renderRules(
     { container, plot, canvases }: YAxisProps,
     decimalToDataScale: scale.Scale,
-  ): Promise<void> {
+  ): void {
     if (!canvases.includes("upper2d")) return;
     const { location } = this.state;
     const { render } = this.internal;
@@ -93,11 +98,11 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
     );
     const clearScissor = render.scissor(scissor, xy.ZERO, ["upper2d"]);
     const props = { container, plot, decimalToDataScale, location };
-    await Promise.all(this.rules.map(async (el) => await el.render(props)));
+    this.rules.map((el) => el.render(props));
     clearScissor();
   }
 
-  async findByXValue(
+  findByXValue(
     {
       xDataToDecimalScale,
       plot,
@@ -106,8 +111,8 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
       exposure,
     }: Omit<YAxisProps, "canvases">,
     target: number,
-  ): Promise<line.FindResult[]> {
-    const [yDataToDecimalScale, error] = await this.dataToDecimalScale(
+  ): line.FindResult[] {
+    const [yDataToDecimalScale, error] = this.dataToDecimalScale(
       hold,
       this.dataBounds.bind(this),
       viewport,
@@ -115,15 +120,14 @@ export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
     if (error != null) throw error;
     const dataToDecimalScale = new scale.XY(xDataToDecimalScale, yDataToDecimalScale);
     const props: line.LineProps = { region: plot, dataToDecimalScale, exposure };
-    return (
-      await Promise.all(
-        this.lines.map(async (el) => await el.findByXValue(props, target)),
-      )
-    ).map((v) => ({ ...v, units: this.state.label }));
+    return this.lines.map((el) => ({
+      ...el.findByXValue(props, target),
+      units: this.state.label,
+    }));
   }
 
-  private async dataBounds(): Promise<bounds.Bounds[]> {
-    return await Promise.all(this.lines.map(async (el) => await el.yBounds()));
+  private dataBounds(): bounds.Bounds[] {
+    return this.lines.map((el) => el.yBounds());
   }
 
   private get lines(): readonly line.Line[] {

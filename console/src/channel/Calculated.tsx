@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, framer } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -15,7 +15,6 @@ import {
   Form,
   Input,
   Nav,
-  Observe,
   Select,
   Status,
   Synnax,
@@ -25,12 +24,17 @@ import {
 import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
-import { baseFormSchema, createFormValidator, ZERO_CHANNEL } from "@/channel/Create";
+import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
+import { baseFormSchema, ZERO_CHANNEL } from "@/channel/Create";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
-import { usePhantomGlobals, type UsePhantomGlobalsReturn } from "@/code/phantom";
+import {
+  usePhantomGlobals,
+  type UsePhantomGlobalsReturn,
+  type Variable,
+} from "@/code/phantom";
 import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -41,109 +45,28 @@ import { Triggers } from "@/triggers";
 const FAILED_TO_UPDATE_AUTOCOMPLETE =
   "Failed to update calculated channel auto-complete";
 
-export interface CalculatedLayoutArgs {
-  channelKey?: number;
-}
-
 const DEFAULT_ARGS: CalculatedLayoutArgs = { channelKey: undefined };
 
-const schema = createFormValidator(
-  baseFormSchema
-    .extend({
-      expression: z
-        .string()
-        .min(1, "Expression must not be empty")
-        .refine((v) => v.includes("return"), {
-          message: "Expression must contain a return statement",
-        }),
-    })
-    .refine((v) => v.requires?.length > 0, {
-      message: "Expression must use at least one synnax channel",
-      path: ["requires"],
-    }),
-);
+const schema = baseFormSchema
+  .extend({
+    expression: z
+      .string()
+      .min(1, "Expression must not be empty")
+      .refine((v) => v.includes("return"), {
+        message: "Expression must contain a return statement",
+      }),
+  })
+  .refine((v) => v.requires?.length > 0, {
+    message: "Expression must use at least one synnax channel",
+    path: ["requires"],
+  });
 
 type FormValues = z.infer<typeof schema>;
 
-export const CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
-
-export interface CalculatedLayout extends Layout.BaseState<CalculatedLayoutArgs> {}
-
-export const CALCULATED_LAYOUT: CalculatedLayout = {
-  beta: true,
-  name: "Channel.Create.Calculated",
-  icon: "Channel",
-  location: "modal",
-  tab: { closable: true, editable: false },
-  window: {
-    resizable: false,
-    size: { height: 600, width: 1000 },
-    navTop: true,
-    showTitle: true,
-  },
-  type: CALCULATED_LAYOUT_TYPE,
-  key: CALCULATED_LAYOUT_TYPE,
-};
-
-export interface CreateCalculatedLayoutArgs {
-  key: channel.Key;
-  name: channel.Name;
-}
-
-export const createCalculatedLayout = ({
-  key,
-  name,
-}: CreateCalculatedLayoutArgs): CalculatedLayout => ({
-  ...CALCULATED_LAYOUT,
-  args: { channelKey: key },
-  name: `${name}.Edit`,
-});
-
 const ZERO_FORM_VALUES: FormValues = {
   ...ZERO_CHANNEL,
-  virtual: true, // Set to true by default
+  virtual: true,
   expression: "return 0",
-};
-
-const calculationStateZ = z.object({
-  key: channel.keyZ,
-  variant: z.enum(["error", "success", "info"]),
-  message: z.string(),
-});
-
-const CALCULATION_STATE_CHANNEL = "sy_calculation_state";
-
-export const useListenForCalculationState = (): void => {
-  const client = Synnax.use();
-  const addStatus = Status.useAdder();
-  const handleError = Status.useErrorHandler();
-  Observe.useListener({
-    key: [client?.key, addStatus, handleError],
-    open: async () => {
-      if (client == null) return;
-      const s = await client.openStreamer({ channels: [CALCULATION_STATE_CHANNEL] });
-      return new framer.ObservableStreamer(s);
-    },
-    onChange: (frame) => {
-      const state = frame.get(CALCULATION_STATE_CHANNEL).parseJSON(calculationStateZ);
-      state.forEach(({ key, variant, message }) => {
-        client?.channels
-          .retrieve(key)
-          .then((ch) => {
-            if (variant !== "error") {
-              addStatus({ variant, message });
-              return;
-            }
-            addStatus({
-              variant,
-              message: `Calculation for ${ch.name} failed`,
-              description: message,
-            });
-          })
-          .catch((e) => handleError(e, "Calculated channel failed"));
-      });
-    },
-  });
 };
 
 export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
@@ -160,7 +83,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
     },
   });
 
-  if (res.isLoading) return <Text.Text level="p">Loading...</Text.Text>;
+  if (res.isPending) return <Text.Text level="p">Loading...</Text.Text>;
   if (res.isError)
     return (
       <Align.Space y grow style={{ height: "100%" }}>
@@ -174,6 +97,21 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }) => {
 interface InternalProps extends Pick<Layout.RendererProps, "onClose"> {
   initialValues: FormValues;
 }
+
+const GLOBALS: Variable[] = [
+  {
+    key: "get",
+    name: "get",
+    value: `
+    -- Get a channel's value by its name. This function should be used when
+    -- the channel name cannot be used directly as a variable. For example,
+    -- hyphenated names such as 'my-channel' should be accessed with get("my-channel")
+    -- instead of just my-channel.
+    function get(name)
+    end
+    `,
+  },
+];
 
 const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const client = Synnax.use();
@@ -214,22 +152,27 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,
     stringifyVar: Lua.stringifyVar,
+    initialVars: GLOBALS,
   });
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const channels = methods.get<channel.Key[]>("requires").value;
-    try {
-      const chs = await client.channels.retrieve(channels);
-      chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
-    } catch (e) {
-      handleError(e, FAILED_TO_UPDATE_AUTOCOMPLETE);
-    }
-  }, [methods, globals, client]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) return;
+      const channels = methods.get<channel.Key[]>("requires").value;
+      try {
+        const chs = await client.channels.retrieve(channels);
+        if (signal.aborted) return;
+        chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
+      } catch (e) {
+        handleError(e, FAILED_TO_UPDATE_AUTOCOMPLETE);
+      }
+    },
+    [methods, globals, client],
+  );
 
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
       <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
-        <Form.Form {...methods}>
+        <Form.Form<typeof schema> {...methods}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
               <Input.Text
@@ -322,7 +265,7 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
   );
 };
 
-export interface EditorProps extends Code.EditorProps {
+interface EditorProps extends Code.EditorProps {
   globals?: UsePhantomGlobalsReturn;
 }
 

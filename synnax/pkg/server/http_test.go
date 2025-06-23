@@ -11,21 +11,21 @@ package server_test
 
 import (
 	"context"
+	"net/http"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
-	"net/http"
-	"sync"
 )
 
 type integerServer struct {
 }
 
 func (b integerServer) BindTo(router *fhttp.Router) {
-	g := fhttp.UnaryServer[int, int](router, false, "/basic")
+	g := fhttp.UnaryServer[int, int](router, "/basic")
 	g.BindHandler(func(ctx context.Context, req int) (int, error) {
 		req++
 		return req, nil
@@ -36,7 +36,7 @@ var _ = Describe("HTTP", func() {
 	It("Should serve http requests", func() {
 		r := fhttp.NewRouter()
 		integerServer{}.BindTo(r)
-		b := MustSucceed(server.New(server.Config{
+		b := MustSucceed(server.Serve(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
 				Insecure: config.Bool(true),
@@ -48,16 +48,8 @@ var _ = Describe("HTTP", func() {
 				},
 			},
 		}))
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer GinkgoRecover()
-			Expect(b.Serve()).To(Succeed())
-			wg.Done()
-		}()
 		_, err := http.Get("http://localhost:26260/basic")
 		Expect(err).To(Succeed())
-		b.Stop()
-		wg.Wait()
+		Expect(b.Close()).To(Succeed())
 	})
 })

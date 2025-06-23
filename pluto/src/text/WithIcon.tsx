@@ -9,31 +9,24 @@
 
 import "@/text/WithIcon.css";
 
-import { toArray } from "@synnaxlabs/x";
-import { Children, type Key, type ReactElement, type ReactNode } from "react";
+import { array } from "@synnaxlabs/x";
+import { Children, type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
+import { type Icon } from "@/icon";
 import { type text } from "@/text/core";
-import { type CoreProps, evalColor, Text } from "@/text/Text";
+import { type CoreProps, parseColor, Text } from "@/text/Text";
 import { isValidElement } from "@/util/children";
-
-interface IconProps {
-  key?: Key | null;
-  color?: string;
-  style?: React.CSSProperties;
-}
-
-type IconElement = ReactElement<IconProps>;
 
 export type WithIconProps<
   E extends Align.ElementType = "div",
   L extends text.Level = "h1",
 > = Omit<Align.SpaceProps<E>, "children" | "color"> &
   CoreProps<L> & {
-    startIcon?: false | IconElement | IconElement[];
-    endIcon?: false | IconElement | IconElement[];
+    startIcon?: false | Icon.ReactElement | Icon.ReactElement[];
+    endIcon?: false | Icon.ReactElement | Icon.ReactElement[];
     divided?: boolean;
     noWrap?: boolean;
     ellipsis?: boolean;
@@ -56,7 +49,7 @@ export const WithIcon = <
   ellipsis = false,
   ...rest
 }: WithIconProps<E, L>): ReactElement => {
-  const color = evalColor(crudeColor, shade);
+  const color = parseColor(crudeColor, shade);
   const startIcons = Children.toArray(startIcon);
   const endIcons = Children.toArray(endIcon);
   const formatted = formatChildren(level, children, color, shade, weight);
@@ -92,7 +85,7 @@ export const formatChildren = <L extends text.Level>(
   shade?: number,
   weight?: text.Weight,
 ): ReactElement | ReactElement[] => {
-  const arr = toArray(children);
+  const arr = array.toArray(children);
   const o: ReactElement[] = [];
   let buff: Array<ReactNode> = [];
   const props = { color, level, shade, weight };
