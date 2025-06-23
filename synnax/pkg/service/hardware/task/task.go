@@ -10,6 +10,7 @@
 package task
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -40,6 +41,8 @@ func (k *Key) UnmarshalJSON(b []byte) error {
 	*k = Key(n)
 	return err
 }
+
+var _ json.Unmarshaler = (*Key)(nil)
 
 type Task struct {
 	Key      Key    `json:"key" msgpack:"key"`

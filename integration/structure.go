@@ -38,6 +38,8 @@ type TestNode struct {
 	Params NodeParams `json:"params"`
 }
 
+var _ json.Unmarshaler = (*TestNode)(nil)
+
 func (tn *TestNode) UnmarshalJSON(data []byte) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
