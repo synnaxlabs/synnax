@@ -10,11 +10,10 @@
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod/v4";
 
-import { NotFoundError } from "@/errors";
 import { type rack } from "@/hardware/rack";
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Rack", () => {
   describe("create", () => {
@@ -59,12 +58,6 @@ describe("Rack", () => {
       const r = await client.hardware.racks.create({ name: "test" });
       const tasks = await r.listTasks();
       expect(tasks).toHaveLength(0);
-    });
-    it("should throw an error if a task cannot be found by name", async () => {
-      const r = await client.hardware.racks.create({ name: "test" });
-      await expect(
-        async () => await r.retrieveTaskByName("nonexistent"),
-      ).rejects.toThrow(NotFoundError);
     });
   });
   describe("state", () => {

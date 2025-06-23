@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type task } from "@/hardware/task";
-import { newClient } from "@/setupspecs";
+import { task } from "@/hardware/task";
+import { newTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Task", async () => {
   const testRack = await client.hardware.racks.create({ name: "test" });
@@ -57,7 +57,7 @@ describe("Task", async () => {
         name: "updated",
       });
       expect(updated.name).toBe("updated");
-      const retrieved = await client.hardware.tasks.retrieve(m.key);
+      const retrieved = await client.hardware.tasks.retrieve({ key: m.key });
       expect(retrieved.name).toBe("updated");
     });
   });
@@ -68,7 +68,7 @@ describe("Task", async () => {
         config: { a: "dog" },
         type: "ni",
       });
-      const retrieved = await client.hardware.tasks.retrieve(m.key);
+      const retrieved = await client.hardware.tasks.retrieve({ key: m.key });
       expect(retrieved.key).toBe(m.key);
       expect(retrieved.name).toBe("test");
       expect(retrieved.config).toStrictEqual({ a: "dog" });
@@ -78,7 +78,7 @@ describe("Task", async () => {
       it("should retrieve a task by its name", async () => {
         const name = `test-${Date.now()}-${Math.random()}`;
         const m = await testRack.createTask({ name, config: { a: "dog" }, type: "ni" });
-        const retrieved = await client.hardware.tasks.retrieveByName(name);
+        const retrieved = await client.hardware.tasks.retrieve({ name });
         expect(retrieved.key).toBe(m.key);
       });
     });
@@ -97,11 +97,12 @@ describe("Task", async () => {
           message: "test",
           time: TimeStamp.now(),
         };
-        await w.write("sy_task_state", [state]);
+        await w.write(task.STATE_CHANNEL_NAME, [state]);
         await w.close();
         await expect
           .poll(async () => {
-            const retrieved = await client.hardware.tasks.retrieve(t.key, {
+            const retrieved = await client.hardware.tasks.retrieve({
+              key: t.key,
               includeStatus: true,
             });
             return retrieved.status?.variant === state.variant;
@@ -129,6 +130,62 @@ describe("Task", async () => {
       await testRack.createTask({ name: "test", config: { a: "dog" }, type: "ni" });
       const tasks = await client.hardware.tasks.list();
       expect(tasks.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("executeCommand", () => {
+    it("should execute a command on a task", async () => {
+      const type = "testCmd";
+      const args = { a: "dog" };
+      const t = await testRack.createTask({
+        name: "test",
+        config: { a: "dog" },
+        type: "ni",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      const key = await client.hardware.tasks.executeCommand(t.key, type, args);
+      await expect
+        .poll<Promise<task.Command>>(async () => {
+          const fr = await streamer.read();
+          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+          return task.commandZ.parse(sample);
+        })
+        .toMatchObject({ key, task: t.key, type, args });
+      streamer.close();
+    });
+    it("should timeout on a synchronously executed command", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: {},
+        type: "ni",
+      });
+      await expect(t.executeCommandSync("test", 0)).rejects.toThrow("timed out");
+    });
+    it("should execute synchronously if timeout is large enough", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: {},
+        type: "ni",
+      });
+      const commandObs = await t.openCommandObserver();
+      const w = await client.openWriter([task.STATE_CHANNEL_NAME]);
+      commandObs.onChange((cmd) => {
+        void (async () => {
+          const state: task.Status = {
+            key: cmd.key,
+            variant: "success",
+            details: { task: cmd.task, running: false, data: {} },
+            message: "test",
+            time: TimeStamp.now(),
+          };
+          await w.write(task.STATE_CHANNEL_NAME, [state]);
+        })();
+      });
+      const state = await t.executeCommandSync("test", TimeSpan.fromSeconds(1));
+      expect(state.variant).toBe("success");
+      expect(state.details).toMatchObject({ beacons: "lit" });
+      await w.close();
+      await commandObs.close();
     });
   });
 });

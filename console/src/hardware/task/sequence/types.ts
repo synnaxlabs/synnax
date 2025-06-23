@@ -35,10 +35,10 @@ export const ZERO_CONFIG: Config = {
   globals: {},
 };
 
-export const stateDetailsZ = z.unknown();
+export const statusDetailsZ = z.unknown();
 
-export type Task = task.Task<typeof typeZ, typeof configZ, typeof stateDetailsZ>;
-export type Payload = task.Payload<typeof typeZ, typeof configZ, typeof stateDetailsZ>;
+export type Task = task.Task<typeof typeZ, typeof configZ, typeof statusDetailsZ>;
+export type Payload = task.Payload<typeof typeZ, typeof configZ, typeof statusDetailsZ>;
 
 export const ZERO_PAYLOAD: Payload = {
   key: "",

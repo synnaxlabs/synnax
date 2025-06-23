@@ -16,9 +16,9 @@ import {
   Icon,
   List,
   Menu as PMenu,
-  Observe,
   Status,
   Synnax,
+  Task,
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
@@ -130,59 +130,38 @@ const Content = () => {
     );
     setTasks(shownTasks);
   }, [client?.key]);
-  Observe.useListener({
-    key: [client?.key],
-    open: async () => client?.hardware.tasks.openStateObserver(),
-    onChange: (state) => {
-      const key = state.details.task;
-      setTasks((prev) => {
-        const tsk = prev.find((t) => t.key === key);
-        if (tsk == null) return prev;
-        tsk.status = state;
-        return [...prev];
-      });
-    },
-  });
-  Observe.useListener({
-    key: [client?.key],
-    open: async () => client?.hardware.tasks.openTracker(),
-    onChange: (update) => {
-      if (client == null) return;
-      const removed = new Set(
-        update.filter(({ variant }) => variant === "delete").map(({ key }) => key),
-      );
-      const addedOrUpdated = update
-        .filter(({ variant }) => variant === "set")
-        .map(({ key }) => key);
+  const handleStatusChange = useCallback((status: task.Status) => {
+    setTasks((prev) => {
+      const tsk = prev.find((t) => t.key === status.details.task);
+      if (tsk == null) return prev;
+      tsk.status = status;
+      return [...prev];
+    });
+  }, []);
+  Task.useStateSynchronizer(handleStatusChange);
+  const handleSet = useCallback(
+    (key: task.Key) => {
       handleError(async () => {
-        const changedTasks = await client.hardware.tasks.retrieve(addedOrUpdated, {
-          includeStatus: true,
-        });
-        const shownChangedTasks = changedTasks.filter(
-          ({ internal, snapshot }) => !internal && !snapshot,
-        );
-        const changedTasksMap = new Map<task.Key, task.Task>();
-        shownChangedTasks.forEach((task) => {
-          changedTasksMap.set(task.key, task);
-        });
+        if (client == null) throw NULL_CLIENT_ERROR;
+        const tk = await client.hardware.tasks.retrieve({ key, includeStatus: true });
         setTasks((prev) => {
-          const next = prev
-            .filter(({ key }) => !removed.has(key))
-            .map((t) => changedTasksMap.get(t.key) ?? t);
-          const existingKeys = new Set(next.map(({ key }) => key));
-          return [
-            ...next,
-            ...shownChangedTasks.filter(({ key }) => !existingKeys.has(key)),
-          ];
+          const existing = prev.find((t) => t.key === tk.key);
+          if (existing == null) return [...prev, tk];
+          return prev.map((t) => (t.key === tk.key ? tk : t));
         });
-        setSelected((prev) => prev.filter((k) => !removed.has(k)));
-      }, "Failed to update task toolbar");
+      }, "Failed to update task toolbar from sy_task_set channel");
     },
-  });
-  Observe.useListener({
-    key: [client?.key],
-    open: async () => client?.hardware.tasks.openCommandObserver(),
-    onChange: ({ type, task }) => {
+    [client?.key],
+  );
+  const handleDeletedTasks = useCallback((key: task.Key) => {
+    setTasks((prevTasks) => prevTasks.filter((t) => t.key !== key));
+    setSelected((prev) => prev.filter((k) => k !== key));
+  }, []);
+  Task.useSetSynchronizer(handleSet);
+  Task.useDeleteSynchronizer(handleDeletedTasks);
+
+  const handleCommandUpdate = useCallback(
+    ({ task, type }: task.Command) => {
       const status = tasks.find(({ key }) => key === task)?.status;
       if (status == null) return;
       if (Common.Task.shouldExecuteCommand(status, type))
@@ -193,7 +172,9 @@ const Content = () => {
           }),
         );
     },
-  });
+    [tasks],
+  );
+  Task.useCommandSynchronizer(handleCommandUpdate);
   const handleDelete = useMutation({
     mutationFn: async (keys: string[]) => {
       setSelected([]);
@@ -242,7 +223,7 @@ const Content = () => {
       );
       const tasksToExecute = tasks.filter(({ key }) => filteredKeys.has(key));
       tasksToExecute.forEach((t) => {
-        t.executeCommandSync(command, {}, TimeSpan.fromSeconds(10)).catch((e) => {
+        t.executeCommandSync(command, TimeSpan.fromSeconds(10), {}).catch((e) => {
           setTasks(
             updateTaskStatus(t.key, (prev) => ({
               ...prev,

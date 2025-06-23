@@ -23,9 +23,10 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
 import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
 import {
+  READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
-  readConfigZ,
+  type readConfigZ,
   type readStatusDataZ,
   type readTypeZ,
   ZERO_READ_PAYLOAD,
@@ -282,7 +283,7 @@ export const Read = Common.Task.wrapForm({
   type: READ_TYPE,
   Properties,
   Form: TaskForm,
-  configSchema: readConfigZ,
+  schemas: READ_SCHEMAS,
   getInitialPayload,
   onConfigure,
 });

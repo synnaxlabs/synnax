@@ -60,7 +60,7 @@ export interface WrapOptions<
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodTypeAny = z.ZodTypeAny,
 > {
-  configSchema: Config;
+  schemas: task.Schemas<Type, Config, StatusData>;
   getInitialPayload: GetInitialPayload<Type, Config, StatusData>;
 }
 
@@ -72,7 +72,7 @@ export const wrap = <
   Wrapped: FC<TaskProps<Type, Config, StatusData>>,
   options: WrapOptions<Type, Config, StatusData>,
 ): Layout.Renderer => {
-  const { configSchema, getInitialPayload } = options;
+  const { schemas, getInitialPayload } = options;
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = useStore<RootState>();
     const { deviceKey, taskKey, rackKey } = Layout.selectArgs<LayoutArgs>(
@@ -93,16 +93,11 @@ export const wrap = <
             rackKey,
           };
         if (client == null) throw NULL_CLIENT_ERROR;
-        const tsk = await client.hardware.tasks.retrieve<Type, Config, StatusData>(
-          taskKeyRef.current,
-          { includeStatus: true },
-        );
-        try {
-          tsk.config = configSchema.parse(tsk.config);
-        } catch (e) {
-          console.error(`Failed to parse config for ${tsk.name}`, tsk.config, e);
-          throw e;
-        }
+        const tsk = await client.hardware.tasks.retrieve<Type, Config, StatusData>({
+          key: taskKeyRef.current,
+          includeStatus: true,
+          schemas,
+        });
         return {
           configured: true,
           task: tsk,

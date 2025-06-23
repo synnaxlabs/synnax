@@ -31,9 +31,9 @@ import { type FormSchema, useForm } from "@/hardware/common/task/Form";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
   configZ,
-  type stateDetailsZ,
+  statusDetailsZ,
   TYPE,
-  type typeZ,
+  typeZ,
   ZERO_PAYLOAD,
 } from "@/hardware/task/sequence/types";
 import { type Modals } from "@/modals";
@@ -112,7 +112,7 @@ const Internal = ({
   task: base,
   layoutKey,
   rackKey,
-}: Common.Task.TaskProps<typeof typeZ, typeof configZ, typeof stateDetailsZ>) => {
+}: Common.Task.TaskProps<typeof typeZ, typeof configZ, typeof statusDetailsZ>) => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const { formProps, handleConfigure, handleStartOrStop, status, isConfiguring } =
@@ -125,7 +125,11 @@ const Internal = ({
         },
       },
       layoutKey,
-      configSchema: schema,
+      schemas: {
+        typeSchema: typeZ,
+        configSchema: schema,
+        statusDataSchema: statusDetailsZ,
+      },
       type: TYPE,
       onConfigure: async (_, config) => [config, config.rack],
     });
@@ -261,5 +265,9 @@ const Internal = ({
 
 export const Sequence = Common.Task.wrap(Internal, {
   getInitialPayload: () => ZERO_PAYLOAD,
-  configSchema: configZ,
+  schemas: {
+    typeSchema: typeZ,
+    configSchema: configZ,
+    statusDataSchema: statusDetailsZ,
+  },
 });

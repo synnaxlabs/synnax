@@ -32,7 +32,7 @@ import { EXTRACTORS } from "@/extractors";
 import { INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import {
   type Command,
   CommandListItem,
@@ -49,14 +49,12 @@ type Entry = Command | ontology.Resource;
 export interface PaletteProps {
   commands: Command[];
   commandSymbol: string;
-  services: Ontology.Services;
   triggerConfig: TriggerConfig;
 }
 
 export const Palette = ({
   commands,
   commandSymbol,
-  services,
   triggerConfig,
 }: PaletteProps): ReactElement => {
   const { close, open, visible } = Dropdown.use();
@@ -117,7 +115,6 @@ export const Palette = ({
           <PaletteDialog
             value={value}
             onChange={setValue}
-            services={services}
             commandSymbol={commandSymbol}
             close={close}
           />
@@ -133,14 +130,12 @@ export interface PaletteDialogProps
   extends Input.Control<string>,
     Pick<Dropdown.DialogProps, "close"> {
   commandSymbol: string;
-  services: Ontology.Services;
 }
 
 const PaletteDialog = ({
   close,
   commandSymbol,
   onChange,
-  services,
   value,
 }: PaletteDialogProps): ReactElement => {
   const addStatus = Status.useAdder();
@@ -169,6 +164,8 @@ const PaletteDialog = ({
     }),
     [addStatus, client, confirm, handleError, placeLayout, rename, store],
   );
+
+  const services = Ontology.useServices();
 
   const handleSelect = useCallback(
     (key: Key, { entries }: List.UseSelectOnChangeExtra<Key, Entry>) => {

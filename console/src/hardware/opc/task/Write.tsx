@@ -16,9 +16,10 @@ import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
 import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
 import {
+  WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteChannel,
-  writeConfigZ,
+  type writeConfigZ,
   type writeStatusDataZ,
   type writeTypeZ,
   ZERO_WRITE_PAYLOAD,
@@ -176,7 +177,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
 export const Write = Common.Task.wrapForm({
   Properties,
   Form: TaskForm,
-  configSchema: writeConfigZ,
+  schemas: WRITE_SCHEMAS,
   type: WRITE_TYPE,
   getInitialPayload,
   onConfigure,

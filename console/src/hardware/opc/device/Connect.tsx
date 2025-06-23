@@ -46,6 +46,7 @@ import {
   ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
 import {
+  SCAN_SCHEMAS,
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
   type TestConnectionStatus,
@@ -90,14 +91,18 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
       );
-      const scanTasks = await rack.retrieveTaskByType(SCAN_TYPE);
+      const scanTasks = await client.hardware.tasks.retrieve({
+        type: SCAN_TYPE,
+        rack: rack.key,
+        schemas: SCAN_SCHEMAS,
+      });
       if (scanTasks.length === 0)
         throw new UnexpectedError(`No scan task found for driver ${rack.name}`);
       const task = scanTasks[0];
       const state = await task.executeCommandSync(
         TEST_CONNECTION_COMMAND_TYPE,
-        { connection: methods.get("connection").value },
         TimeSpan.seconds(10),
+        { connection: methods.get("connection").value },
       );
       setConnectionState(state);
     },

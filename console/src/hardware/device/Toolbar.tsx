@@ -7,94 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, ontology, type rack } from "@synnaxlabs/client";
-import { Align, Icon, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { ontology } from "@synnaxlabs/client";
+import { Align, Icon, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
-import {
-  createContext,
-  type ReactElement,
-  useContext,
-  useState as reactUseState,
-} from "react";
+import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { Toolbar } from "@/components";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
-
-export interface StateContextValue extends Record<string, device.Status> {}
-
-const StateContext = createContext<StateContextValue>({});
-
-const StateProvider = ({ children }: { children: ReactElement }) => {
-  const client = Synnax.use();
-  const [states, setStates] = reactUseState<StateContextValue>({});
-
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const devs = await client.hardware.devices.retrieve([], { includeStatus: true });
-    const initialStates: StateContextValue = Object.fromEntries(
-      devs
-        .filter((d) => d.status != null)
-        .map((d) => [d.key, d.status as device.Status]),
-    );
-    setStates(initialStates);
-    const observer = await client.hardware.devices.openStateObserver();
-    const disconnect = observer.onChange((states) => {
-      setStates((prevStates) => {
-        const nextStates = Object.fromEntries(states.map((s) => [s.key, s]));
-        return { ...prevStates, ...nextStates };
-      });
-    });
-    return async () => {
-      disconnect();
-      await observer.close();
-    };
-  }, []);
-
-  return <StateContext.Provider value={states}>{children}</StateContext.Provider>;
-};
-
-interface RackStateContextValue extends Record<string, rack.Status> {}
-
-const RackStateContext = createContext<RackStateContextValue>({});
-
-const RackStateProvider = ({ children }: { children: ReactElement }) => {
-  const client = Synnax.use();
-  const [states, setStates] = reactUseState<RackStateContextValue>({});
-
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const racks = await client.hardware.racks.retrieve([], { includeStatus: true });
-    const initialStates: RackStateContextValue = Object.fromEntries(
-      racks
-        .filter((r) => r.status != null)
-        .map((r) => [r.key, r.status as rack.Status]),
-    );
-    setStates(initialStates);
-    const observer = await client.hardware.racks.openStateObserver();
-    const disconnect = observer.onChange((states) => {
-      setStates((prevStates) => {
-        const nextStates = Object.fromEntries(states.map((s) => [s.key, s]));
-        return { ...prevStates, ...nextStates };
-      });
-    });
-    return async () => {
-      disconnect();
-      await observer.close();
-    };
-  }, []);
-
-  return (
-    <RackStateContext.Provider value={states}>{children}</RackStateContext.Provider>
-  );
-};
-
-export const useRackState = (key: string): rack.Status | undefined =>
-  useContext(RackStateContext)[key];
-
-export const useState = (key: string): device.Status | undefined =>
-  useContext(StateContext)[key];
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
@@ -106,19 +27,14 @@ const Content = (): ReactElement => {
       return res.filter((r) => r.name === "Devices")[0].id;
     },
   });
-
   return (
     <Cluster.NoneConnectedBoundary>
-      <StateProvider>
-        <RackStateProvider>
-          <Align.Space empty style={{ height: "100%" }}>
-            <Toolbar.Header>
-              <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
-            </Toolbar.Header>
-            <Ontology.Tree root={group.data} />
-          </Align.Space>
-        </RackStateProvider>
-      </StateProvider>
+      <Align.Space empty style={{ height: "100%" }}>
+        <Toolbar.Header>
+          <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
+        </Toolbar.Header>
+        <Ontology.Tree root={group.data} />
+      </Align.Space>
     </Cluster.NoneConnectedBoundary>
   );
 };

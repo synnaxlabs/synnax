@@ -87,10 +87,7 @@ export interface UseFormArgs<
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodTypeAny = z.ZodTypeAny,
 > extends TaskProps<Type, Config, StatusData>,
-    Pick<
-      WrapFormArgs<Type, Config, StatusData>,
-      "configSchema" | "onConfigure" | "type"
-    > {}
+    Pick<WrapFormArgs<Type, Config, StatusData>, "schemas" | "onConfigure" | "type"> {}
 
 export interface UseFormReturn<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -121,11 +118,11 @@ export const useForm = <
 >({
   task: initialTask,
   layoutKey,
-  configSchema,
   onConfigure,
   type,
+  schemas,
 }: UseFormArgs<Type, Config, StatusData>): UseFormReturn<Type, Config, StatusData> => {
-  const schema = z.object({ name: nameZ, config: configSchema });
+  const schema = z.object({ name: nameZ, config: schemas.configSchema });
   const client = PSynnax.use();
   const handleError_ = Status.useErrorHandler();
   const dispatch = useDispatch();
@@ -145,7 +142,7 @@ export const useForm = <
     }) as z.output<FormSchema<Config>>,
     onHasTouched: handleUnsavedChanges,
   });
-  const create = useCreate<Type, Config>(layoutKey);
+  const create = useCreate<Type, Config, StatusData>(layoutKey, schemas);
   const name = Layout.useSelectName(layoutKey);
   useEffect(() => {
     if (name != null) methods.set("name", name);
@@ -210,7 +207,7 @@ export const useForm = <
         ...initialTask,
         key: task_.key,
       });
-      await sugaredTask?.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
+      await sugaredTask?.executeCommandSync(command, TimeSpan.fromSeconds(10));
     },
     onError: handleError,
   });
@@ -234,20 +231,14 @@ export const wrapForm = <
 >({
   Properties,
   Form,
-  configSchema,
+  schemas,
   type,
   getInitialPayload,
   onConfigure,
 }: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
   const Wrapper = ({ layoutKey, ...rest }: TaskProps<Type, Config, StatusData>) => {
     const { formProps, handleConfigure, handleStartOrStop, status, isConfiguring } =
-      useForm({
-        ...rest,
-        layoutKey,
-        configSchema,
-        type,
-        onConfigure,
-      });
+      useForm({ ...rest, layoutKey, schemas, type, onConfigure });
     const { isSnapshot, methods, configured, task } = formProps;
     return (
       <Align.Space
@@ -303,5 +294,5 @@ export const wrapForm = <
     );
   };
   Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;
-  return wrap(Wrapper, { getInitialPayload, configSchema });
+  return wrap(Wrapper, { getInitialPayload, schemas });
 };

@@ -18,8 +18,9 @@ import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
 import { createAOChannel } from "@/hardware/ni/task/createChannel";
 import { SelectAOChannelTypeField } from "@/hardware/ni/task/SelectAOChannelTypeField";
 import {
+  ANALOG_WRITE_SCHEMAS,
   ANALOG_WRITE_TYPE,
-  analogWriteConfigZ,
+  type analogWriteConfigZ,
   type analogWriteStatusDataZ,
   type analogWriteTypeZ,
   AO_CHANNEL_TYPE_ICONS,
@@ -221,7 +222,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
 export const AnalogWrite = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: analogWriteConfigZ,
+  schemas: ANALOG_WRITE_SCHEMAS,
   type: ANALOG_WRITE_TYPE,
   getInitialPayload,
   onConfigure,

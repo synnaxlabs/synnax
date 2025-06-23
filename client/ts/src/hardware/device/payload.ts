@@ -40,7 +40,7 @@ export interface Device<
   Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
-> extends Omit<z.infer<typeof deviceZ>, "properties" | "state"> {
+> extends Omit<z.infer<typeof deviceZ>, "properties" | "status"> {
   properties: Properties;
   make: Make;
   model: Model;

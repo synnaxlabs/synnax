@@ -22,8 +22,9 @@ import {
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   type DIChannel,
+  DIGITAL_READ_SCHEMAS,
   DIGITAL_READ_TYPE,
-  digitalReadConfigZ,
+  type digitalReadConfigZ,
   type digitalReadStatusDataZ,
   type digitalReadTypeZ,
   ZERO_DIGITAL_READ_PAYLOAD,
@@ -154,7 +155,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
 export const DigitalRead = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: digitalReadConfigZ,
+  schemas: DIGITAL_READ_SCHEMAS,
   getInitialPayload,
   onConfigure,
   type: DIGITAL_READ_TYPE,

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type task } from "@synnaxlabs/client";
+
 import * as v0 from "@/hardware/ni/task/types/v0";
 import * as v1 from "@/hardware/ni/task/types/v1";
 
@@ -79,6 +81,15 @@ export const ZERO_ANALOG_READ_PAYLOAD = v1.ZERO_ANALOG_READ_PAYLOAD;
 export interface AnalogReadPayload extends v1.AnalogReadPayload {}
 export interface AnalogReadTask extends v1.AnalogReadTask {}
 export interface NewAnalogReadTask extends v1.NewAnalogReadTask {}
+export const ANALOG_READ_SCHEMAS: task.Schemas<
+  typeof analogReadTypeZ,
+  typeof analogReadConfigZ,
+  typeof analogReadStatusDataZ
+> = {
+  typeSchema: analogReadTypeZ,
+  configSchema: analogReadConfigZ,
+  statusDataSchema: analogReadStatusDataZ,
+};
 
 export const analogWriteTypeZ = v0.analogWriteTypeZ;
 export const analogWriteConfigZ = v0.analogWriteConfigZ;
@@ -90,6 +101,15 @@ export const ZERO_ANALOG_WRITE_PAYLOAD = v0.ZERO_ANALOG_WRITE_PAYLOAD;
 export interface AnalogWritePayload extends v0.AnalogWritePayload {}
 export interface AnalogWriteTask extends v0.AnalogWriteTask {}
 export interface NewAnalogWriteTask extends v0.NewAnalogWriteTask {}
+export const ANALOG_WRITE_SCHEMAS: task.Schemas<
+  typeof analogWriteTypeZ,
+  typeof analogWriteConfigZ,
+  typeof analogWriteStatusDataZ
+> = {
+  typeSchema: analogWriteTypeZ,
+  configSchema: analogWriteConfigZ,
+  statusDataSchema: analogWriteStatusDataZ,
+};
 
 export const digitalReadTypeZ = v0.digitalReadTypeZ;
 export const digitalReadConfigZ = v0.digitalReadConfigZ;
@@ -101,6 +121,15 @@ export const ZERO_DIGITAL_READ_PAYLOAD = v0.ZERO_DIGITAL_READ_PAYLOAD;
 export interface DigitalReadPayload extends v0.DigitalReadPayload {}
 export interface DigitalReadTask extends v0.DigitalReadTask {}
 export interface NewDigitalReadTask extends v0.NewDigitalReadTask {}
+export const DIGITAL_READ_SCHEMAS: task.Schemas<
+  typeof digitalReadTypeZ,
+  typeof digitalReadConfigZ,
+  typeof digitalReadStatusDataZ
+> = {
+  typeSchema: digitalReadTypeZ,
+  configSchema: digitalReadConfigZ,
+  statusDataSchema: digitalReadStatusDataZ,
+};
 
 export const digitalWriteTypeZ = v0.digitalWriteTypeZ;
 export const digitalWriteConfigZ = v0.digitalWriteConfigZ;
@@ -112,6 +141,15 @@ export const ZERO_DIGITAL_WRITE_PAYLOAD = v0.ZERO_DIGITAL_WRITE_PAYLOAD;
 export interface DigitalWritePayload extends v0.DigitalWritePayload {}
 export interface DigitalWriteTask extends v0.DigitalWriteTask {}
 export interface NewDigitalWriteTask extends v0.NewDigitalWriteTask {}
+export const DIGITAL_WRITE_SCHEMAS: task.Schemas<
+  typeof digitalWriteTypeZ,
+  typeof digitalWriteConfigZ,
+  typeof digitalWriteStatusDataZ
+> = {
+  typeSchema: digitalWriteTypeZ,
+  configSchema: digitalWriteConfigZ,
+  statusDataSchema: digitalWriteStatusDataZ,
+};
 
 export const scanTypeZ = v0.scanTypeZ;
 export const scanConfigZ = v0.scanConfigZ;
@@ -122,3 +160,12 @@ export type ScanType = v0.ScanType;
 export interface ScanPayload extends v0.ScanPayload {}
 export interface ScanTask extends v0.ScanTask {}
 export interface NewScanTask extends v0.NewScanTask {}
+export const SCAN_SCHEMAS: task.Schemas<
+  typeof scanTypeZ,
+  typeof scanConfigZ,
+  typeof scanStatusDataZ
+> = {
+  typeSchema: scanTypeZ,
+  configSchema: scanConfigZ,
+  statusDataSchema: scanStatusDataZ,
+};

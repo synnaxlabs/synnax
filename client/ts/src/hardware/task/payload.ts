@@ -32,8 +32,9 @@ export type StatusDetails<StatusData extends z.ZodType> = z.infer<
   ReturnType<typeof statusDetailsZ<StatusData>>
 >;
 
-export const statusZ = <StatusData extends z.ZodType>(data: StatusData) =>
-  status.statusZ(statusDetailsZ(data));
+export const statusZ = <StatusData extends z.ZodType>(
+  data: StatusData = z.unknown() as unknown as StatusData,
+) => status.statusZ(statusDetailsZ(data));
 
 export type Status<StatusData extends z.ZodType = z.ZodUnknown> = z.infer<
   ReturnType<typeof statusZ<StatusData>>
@@ -44,19 +45,31 @@ export const taskZ = <
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodUnknown,
 >(
-  typeZ: Type = z.string() as unknown as Type,
-  configZ: Config = z.unknown() as unknown as Config,
-  statusDataZ: StatusData = z.unknown() as unknown as StatusData,
+  schemas: Schemas<Type, Config, StatusData> = {
+    typeSchema: z.string() as unknown as Type,
+    configSchema: z.unknown() as unknown as Config,
+    statusDataSchema: z.unknown() as unknown as StatusData,
+  },
 ) =>
   z.object({
     key: keyZ,
     name: z.string(),
-    type: typeZ,
+    type: schemas.typeSchema,
     internal: z.boolean().optional(),
-    config: z.string().transform(decodeJSONString).or(configZ),
-    status: statusZ(statusDataZ).optional().nullable(),
+    config: z.string().transform(decodeJSONString).or(schemas.configSchema),
+    status: statusZ(schemas.statusDataSchema).optional().nullable(),
     snapshot: z.boolean().optional(),
   });
+
+export interface Schemas<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+> {
+  typeSchema: Type;
+  configSchema: Config;
+  statusDataSchema: StatusData;
+}
 
 export type Payload<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -77,11 +90,9 @@ export const newZ = <
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodUnknown,
 >(
-  typeZ: Type = z.string() as unknown as Type,
-  configZ: Config = z.unknown() as unknown as Config,
-  statusDataZ: StatusData = z.unknown() as unknown as StatusData,
+  schemas?: Schemas<Type, Config, StatusData>,
 ) =>
-  taskZ(typeZ, configZ, statusDataZ)
+  taskZ(schemas)
     .omit({ key: true })
     .extend({
       key: keyZ.transform((k) => k.toString()).optional(),

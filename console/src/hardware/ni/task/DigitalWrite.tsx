@@ -21,8 +21,9 @@ import {
 } from "@/hardware/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
+  DIGITAL_WRITE_SCHEMAS,
   DIGITAL_WRITE_TYPE,
-  digitalWriteConfigZ,
+  type digitalWriteConfigZ,
   type digitalWriteStatusDataZ,
   type digitalWriteTypeZ,
   type DOChannel,
@@ -199,7 +200,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
 export const DigitalWrite = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: digitalWriteConfigZ,
+  schemas: DIGITAL_WRITE_SCHEMAS,
   getInitialPayload,
   onConfigure,
   type: DIGITAL_WRITE_TYPE,

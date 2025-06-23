@@ -28,8 +28,11 @@ import { CSS } from "@/css";
 import { type Device } from "@/hardware/opc/device/types";
 import {
   SCAN_COMMAND_TYPE,
+  SCAN_SCHEMAS,
   SCAN_TYPE,
+  type scanConfigZ,
   type scanStatusDataZ,
+  type scanTypeZ,
 } from "@/hardware/opc/task/types";
 
 const ICONS: Record<string, ReactElement> = {
@@ -59,10 +62,18 @@ export const Browser = ({ device }: BrowserProps) => {
     queryKey: [client?.key],
     queryFn: async () => {
       if (client == null) return null;
-      const rck = await client.hardware.racks.retrieve(device.rack);
-      const scanTasks = await rck.retrieveTaskByType(SCAN_TYPE);
-      if (scanTasks.length > 0) return scanTasks[0];
-      throw new UnexpectedError(`No scan task found for driver ${rck.name}`);
+      const scanTasks = await client.hardware.tasks.retrieve<
+        typeof scanTypeZ,
+        typeof scanConfigZ,
+        typeof scanStatusDataZ
+      >({
+        type: SCAN_TYPE,
+        rack: device.rack,
+        schemas: SCAN_SCHEMAS,
+      });
+      if (scanTasks.length === 0)
+        throw new UnexpectedError(`No scan task found for device ${device.name}`);
+      return scanTasks[0];
     },
   });
   const [loading, setLoading] = useState<string>();
@@ -78,10 +89,10 @@ export const Browser = ({ device }: BrowserProps) => {
       const nodeID = isRoot ? "" : parseNodeID(clicked);
       const { connection } = device.properties;
       setLoading(clicked);
-      const { details } = await scanTask.executeCommandSync<typeof scanStatusDataZ>(
+      const { details } = await scanTask.executeCommandSync(
         SCAN_COMMAND_TYPE,
-        { connection, node_id: nodeID },
         TimeSpan.seconds(10),
+        { connection, node_id: nodeID },
       );
       if (details == null) return;
       if (!("channels" in details)) return;

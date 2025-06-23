@@ -187,19 +187,23 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [syncDispatch, name, prevName]);
 
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const toFetch = lines.filter((line) => line.label == null);
-    if (toFetch.length === 0) return;
-    const fetched = await client.channels.retrieve(
-      unique.unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
-    );
-    const update = toFetch.map((l) => ({
-      key: l.key,
-      label: fetched.find((f) => f.key === l.channels.y)?.name,
-    }));
-    syncDispatch(setLine({ key: layoutKey, line: update }));
-  }, [layoutKey, client, lines]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) return;
+      const toFetch = lines.filter((line) => line.label == null);
+      if (toFetch.length === 0) return;
+      const fetched = await client.channels.retrieve(
+        unique.unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
+      );
+      if (signal.aborted) return;
+      const update = toFetch.map((l) => ({
+        key: l.key,
+        label: fetched.find((f) => f.key === l.channels.y)?.name,
+      }));
+      syncDispatch(setLine({ key: layoutKey, line: update }));
+    },
+    [layoutKey, client, lines],
+  );
 
   const handleTitleChange = (name: string): void => {
     syncDispatch(Layout.rename({ key: layoutKey, name }));
