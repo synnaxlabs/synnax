@@ -150,7 +150,7 @@ func (s *service) NewRetrieve() Retrieve {
 	}
 }
 
-func (s *service) validateChannels(ctx context.Context, channels []Channel) (res []Channel, err error) {
+func (s *service) validateChannels(channels []Channel) (res []Channel, err error) {
 	res = make([]Channel, 0, len(channels))
 	s.proxy.mu.RLock()
 	defer s.proxy.mu.RUnlock()

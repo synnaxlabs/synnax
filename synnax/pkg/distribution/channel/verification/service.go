@@ -11,13 +11,14 @@ package verification
 
 import (
 	"context"
-	"errors"
 	"io"
 	"strconv"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/base64"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
@@ -26,7 +27,14 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	retrieveKey = "bGljZW5zZUtleQ=="
+	freeCount   = 50
+)
+
+// Config is the configuration for a verification service
 type Config struct {
+	// DB is used to persist
 	DB            kv.DB
 	Verifier      string
 	Ins           alamos.Instrumentation
@@ -36,25 +44,35 @@ type Config struct {
 
 var (
 	DefaultConfig = Config{
-		WarningTime:   7 * 24 * time.Hour,
-		CheckInterval: 24 * time.Hour,
+		WarningTime: 7 * 24 * time.Hour, CheckInterval: 24 * time.Hour,
 	}
-	errStale = errors.New(decode("dXNpbmcgYW4gZXhwaXJlZCBwcm9kdWN0IGxpY2Vuc2Uga2V5LCB1c2UgaXMgbGltaXRlZCB0byB0aGUgZmlyc3Qg") +
-		strconv.Itoa(freeCount) + decode("IGNoYW5uZWxz"))
-	errFree = errors.New(decode("dXNpbmcgbW9yZSB0aGFuIA==") + strconv.Itoa(freeCount) +
-		decode("IGNoYW5uZWxzIHdpdGhvdXQgYSBwcm9kdWN0IGxpY2Vuc2Uga2V5"))
-	useFree = decode("dXNpbmcgdGhlIGZyZWUgdmVyc2lvbiBvZiBTeW5uYXgsIG9ubHkg") +
-		strconv.Itoa(freeCount) + decode("IGNoYW5uZWxzIGFyZSBhbGxvd2Vk")
+	freeCountStr   = strconv.Itoa(freeCount)
+	limitErrPrefix = base64.MustDecode("dXNpbmcgbW9yZSB0aGFuIA==")
+	errStale       = errors.New(
+		limitErrPrefix +
+			freeCountStr +
+			base64.MustDecode("IGNoYW5uZWxzIHdpdGggYW4gZXhwaXJlZCBsaWNlbnNlIGtleQ=="),
+	) // using more than 50 channels with an expired license key
+	errFree = errors.New(
+		limitErrPrefix + freeCountStr +
+			base64.MustDecode("IHdpdGhvdXQgYSBsaWNlbnNlIGtleQ=="),
+	) // using more than 50 channels without a license key
+	useFree = base64.MustDecode("dXNpbmcgU3lubmF4IHdpdGhvdXQgYSBsaWNlbnNlIGtleSwgdXNhZ2UgaXMgbGltaXRlZCB0byA=") +
+		freeCountStr + base64.MustDecode("IGNoYW5uZWxzIGFyZSBhbGxvd2Vk") // using Synnax without a license key, usage is limited to
+	usingDBStr = base64.MustDecode("dXNpbmcgdGhlIGxhc3QgbGljZW5zZSBrZXkgc3RvcmVkIGluIHRoZSBkYXRhYmFzZSwgdXNhZ2UgaXMgbGltaXRlZCB0byA=") // using the last license key stored in the database, usage is limited to
+	chStr      = base64.MustDecode("IGNoYW5uZWxz")                                                                                     //  channels
 )
 
+// Validate implements config.Config
 func (c Config) Validate() error {
 	v := validate.New("key")
 	validate.NotNil(v, "DB", c.DB)
-	validate.NonZero(v, decode("V2FybmluZ1RpbWU="), c.WarningTime)
-	validate.NonZero(v, decode("Q2hlY2tJbnRlcnZhbA=="), c.CheckInterval)
+	validate.NonZero(v, "WarningTime", c.WarningTime)
+	validate.NonZero(v, "CheckInterval", c.CheckInterval)
 	return v.Error()
 }
 
+// Override implements config.Config
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ins = override.Zero(c.Ins, other.Ins)
@@ -66,8 +84,8 @@ func (c Config) Override(other Config) Config {
 
 type Service struct {
 	Config
-	shutdown io.Closer
-	key      string
+	shutdown    io.Closer
+	licenseInfo info
 }
 
 func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
@@ -89,109 +107,127 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		)
 	}
 
-	if cfg.Verifier == "" {
-		if err := service.loadCache(ctx); err != nil {
+	// TODO: check if you are opening with a stale key
+				return nil, err
+			}
 			service.Ins.L.Info(useFree)
 			return service, nil
 		}
-		service.Ins.L.Info(decode("dXNpbmcgdGhlIGxhc3QgbGljZW5zZSBrZXkgc3RvcmVkIGluIHRoZSBkYXRhYmFzZQ=="))
-		startLogMonitor()
+		service.Ins.L.Info(usingDBStr + strconv.Itoa(int(service.licenseInfo.numCh)) + chStr)
 		return service, nil
 	}
 
+<<<<<<< Updated upstream
 	err = service.create(ctx, cfg.Verifier)
 	if err != nil {
 		return service, err
-	}
-
+=======
+	service.Ins.L.Info(
+		base64.MustDecode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA==") +
+	)
 	startLogMonitor()
+<<<<<<< Updated upstream
 	service.Ins.L.Info(decode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQsIGxpbWl0IGlzIA==") +
 		strconv.Itoa(int(getNumChan(cfg.Verifier))) + decode("IGNoYW5uZWxz"))
 	return service, err
+=======
+	return service, nil
+>>>>>>> Stashed changes
 }
 
+// Close implements io.Closer
 func (s *Service) Close() error {
 	return s.shutdown.Close()
 }
 
-func (s *Service) IsOverflowed(ctx context.Context, inUse types.Uint20) error {
-	key := s.key
-	if key == "" {
+func (s *Service) IsOverflowed(inUse types.Uint20) error {
+	if s.licenseInfo.numCh == 0 {
 		if inUse > freeCount {
 			return errFree
 		}
 		return nil
 	}
-	staleTime, err := whenStale(key)
-	if err != nil {
-		return err
-	}
-	if staleTime.Before(time.Now()) {
+	if s.licenseInfo.exprTime.Before(time.Now()) {
 		if inUse > freeCount {
 			return errStale
 		}
 		return nil
 	}
-	if channelsAllowed := getNumChan(key); inUse > channelsAllowed {
-		return errTooMany(int(channelsAllowed))
+	if inUse > s.licenseInfo.numCh {
+		return errTooMany(int(s.licenseInfo.numCh))
 	}
 	return nil
 }
-
-const retrieveKey = "bGljZW5zZUtleQ=="
 
 func (s *Service) loadCache(ctx context.Context) error {
 	key, closer, err := s.DB.Get(ctx, []byte(retrieveKey))
 	if err != nil {
 		return err
 	}
-	s.key = string(key)
-	return closer.Close()
-}
-
-func (s *Service) create(ctx context.Context, toCreate string) error {
-	err := validateInput(toCreate)
+	if err = closer.Close(); err != nil {
+		return err
+	}
+	keyStr := string(key)
+	licenseInf, err := parseLicenseKey(keyStr)
 	if err != nil {
 		return err
 	}
-	if err := s.DB.Set(ctx, []byte(retrieveKey), []byte(toCreate)); err != nil {
+	s.licenseInfo = licenseInf
+	return nil
+}
+
+func (s *Service) create(ctx context.Context, toCreate string) error {
+	licenseInf, err := parseLicenseKey(toCreate)
+	if err != nil {
 		return err
 	}
-	s.key = toCreate
+	if err = s.DB.Set(ctx, []byte(retrieveKey), []byte(toCreate)); err != nil {
+		return err
+	}
+	s.licenseInfo = licenseInf
 	return nil
 }
 
 func (s *Service) logTheDog(ctx context.Context) error {
-	if s.key == "" {
+	if s.licenseInfo.exprTime.IsZero() {
 		return nil
 	}
-	staleTime, err := whenStale(s.key)
-	if err != nil {
-		return err
-	}
 	ticker := time.NewTicker(s.CheckInterval)
-	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			if staleTime.Before(time.Now()) {
-				s.Ins.L.Error(decode("TGljZW5zZSBrZXkgZXhwaXJlZC4gQWNjZXNzIGhhcyBiZWVuIGxpbWl0ZWQu"),
-					zap.String("ZXhwaXJlZEF0", staleTime.String()))
-			} else if timeLeft := time.Until(staleTime); timeLeft <= s.WarningTime {
-				s.Ins.L.Warn(decode("TGljZW5zZSBrZXkgd2lsbCBleHBpcmUgc29vbi4gQWNjZXNzIHdpbGwgYmUgbGltaXRlZC4="),
-					zap.String(decode("ZXhwaXJlc0lu"), timeLeft.String()))
+			if s.licenseInfo.exprTime.Before(time.Now()) {
+				s.Ins.L.Error(
+					base64.MustDecode(
+						"TGljZW5zZSBrZXkgZXhwaXJlZC4gQWNjZXNzIGhhcyBiZWVuIGxpbWl0ZWQu",
+					),
+					zap.String("ZXhwaXJlZEF0", s.licenseInfo.exprTime.String()),
+				)
+			} else if timeLeft := time.Until(s.licenseInfo.exprTime); timeLeft <= s.WarningTime {
+				s.Ins.L.Warn(
+					base64.MustDecode(
+						"TGljZW5zZSBrZXkgd2lsbCBleHBpcmUgc29vbi4gQWNjZXNzIHdpbGwgYmUgbGltaXRlZC4=",
+					),
+					zap.String(
+						base64.MustDecode("ZXhwaXJlc0lu"), timeLeft.String(),
+					),
+				)
 			} else {
-				s.Ins.L.Info(decode("TGljZW5zZSBrZXkgaXMgbm90IGV4cGlyZWQu"),
-					zap.String(decode("ZXhwaXJlc0lu"), timeLeft.String()))
+				s.Ins.L.Info(
+					base64.MustDecode("TGljZW5zZSBrZXkgaXMgbm90IGV4cGlyZWQu"),
+					zap.String(
+						base64.MustDecode("ZXhwaXJlc0lu"), timeLeft.String(),
+					),
+				)
 			}
 		}
 	}
 }
 
 func errTooMany(count int) error {
-	msg := decode("dHJ5aW5nIHRvIHVzZSBtb3JlIHRoYW4gdGhlIGxpbWl0IG9mIA==") +
-		strconv.Itoa(count) + decode("IGNoYW5uZWxzIGFsbG93ZWQ=")
+	msg := base64.MustDecode("dHJ5aW5nIHRvIHVzZSBtb3JlIHRoYW4gdGhlIGxpbWl0IG9mIA==") +
+		strconv.Itoa(count) + base64.MustDecode("IGNoYW5uZWxzIGFsbG93ZWQ=")
 	return errors.New(msg)
 }

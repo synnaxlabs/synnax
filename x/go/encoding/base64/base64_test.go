@@ -12,7 +12,7 @@ package base64_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/crypto/base64"
+	"github.com/synnaxlabs/x/encoding/base64"
 )
 
 var _ = Describe(
@@ -35,7 +35,7 @@ var _ = Describe(
 					},
 				)
 				Context(
-					"invalid base64", func() {
+					"invalid base64a", func() {
 						DescribeTable(
 							"it should panic when it can't decode",
 							func(encoded string) {

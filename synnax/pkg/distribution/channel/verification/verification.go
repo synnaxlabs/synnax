@@ -10,144 +10,115 @@
 package verification
 
 import (
-	"encoding/base64"
-	"errors"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/synnaxlabs/x/crypto"
 	"github.com/synnaxlabs/x/date"
+	"github.com/synnaxlabs/x/encoding/base64"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
 )
 
-var errInvalidInput error
+type info struct {
+	numCh    types.Uint20
+	exprTime time.Time
+}
 
 const (
-	freeCount   = 50
-	yearCipher  = 89
-	monthCipher = 43
-	dayCipher   = 77
+	yearCipher    = 89
+	monthCipher   = 43
+	dayCipher     = 77
+	channelCipher = 64317284
 )
 
-func checkFormat(input string) error {
-	inputLength := 26
-	numDashes := 2
-	numParts := 3
-	firstPartLength := 6
-	secondPartLength := 8
-	thirdPartLength := 10
-	errFormat := errors.New(decode("cHJvZHVjdCBsaWNlbnNlIGtleSBpcyBpbiBhbiBpbnZhbGlkIGZvcm1hdA=="))
-	if len(input) != inputLength {
-		return errFormat
+var (
+	errInvalid  = errors.New(base64.MustDecode("aW52YWxpZCBsaWNlbnNlIGtleQ=="))
+	formatRegex = regexp.MustCompile(`^\d{6}-\d{8}-\d{10}$`)
+)
+
+func parseLicenseKey(licenseKey string) (info, error) {
+	if !formatRegex.MatchString(licenseKey) {
+		return info{}, errInvalid
 	}
-	dashCount := strings.Count(input, "-")
-	if dashCount != numDashes {
-		return errFormat
-	}
-	parts := strings.Split(input, "-")
-	if (len(parts) != numParts) || (len(parts[0]) != firstPartLength) ||
-		(len(parts[1]) != secondPartLength) || (len(parts[2]) != thirdPartLength) {
-		return errFormat
-	}
-	_, err := strconv.Atoi(parts[0])
+	parts := strings.Split(licenseKey, "-")
+	expirationTime, err := decodeDate(parts[0])
 	if err != nil {
-		return errFormat
+		return info{}, err
 	}
-	_, err = strconv.Atoi(parts[1])
+	numChannels, err := getChannelCount(parts[1])
 	if err != nil {
-		return errFormat
+		return info{}, err
 	}
-	_, err = strconv.Atoi(parts[2])
-	if err != nil {
-		return errFormat
+	if err = validateChecksum(parts[2]); err != nil {
+		return info{}, err
 	}
-	return nil
+	return info{numCh: numChannels, exprTime: expirationTime}, nil
 }
 
-func validateInput(input string) error {
-	err := checkFormat(input)
-	if err != nil {
-		return err
+func decodeDate(datePart string) (time.Time, error) {
+	var err error
+	var year, month, day int
+	if year, err = strconv.Atoi(datePart[:2]); err != nil {
+		return time.Time{}, err
 	}
-	parts := strings.Split(input, "-")
-	year, _ := strconv.Atoi(parts[0][0:2])
-	month, _ := strconv.Atoi(parts[0][2:4])
-	day, _ := strconv.Atoi(parts[0][4:6])
-	year, err = crypto.Cipher(year, yearCipher, 2)
-	if err != nil {
-		return errInvalidInput
+	if month, err = strconv.Atoi(datePart[2:4]); err != nil {
+		return time.Time{}, err
+	}
+	if day, err = strconv.Atoi(datePart[4:6]); err != nil {
+		return time.Time{}, err
+	}
+	if year, err = crypto.Cipher(year, yearCipher, 2); err != nil {
+		return time.Time{}, err
+	}
+	if month, err = crypto.Cipher(month, monthCipher, 2); err != nil {
+		return time.Time{}, err
+	}
+	if day, err = crypto.Cipher(day, dayCipher, 2); err != nil {
+		return time.Time{}, err
 	}
 	year += 2000
-	month, err = crypto.Cipher(month, monthCipher, 2)
-	if err != nil {
-		return errInvalidInput
-	}
-	day, err = crypto.Cipher(day, dayCipher, 2)
-	if err != nil {
-		return errInvalidInput
-	}
 	if !date.DateExists(year, month, day) {
-		return errInvalidInput
+		return time.Time{}, errInvalid
 	}
-	return inputCheckFunc(input)
+	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC), nil
 }
 
-func errFormat(input string) error {
-	return errors.New(input + decode("ICBpcyBhbiBpbnZhbGlkIGxpY2Vuc2Uga2V5LCBwcm9wZXIgZm9ybWF0IGlzICMjIyMjIy0jIyMjIyMjIy0jIyMjIyMjIyMj"))
-}
-
-func whenStale(input string) (time.Time, error) {
-	parts := strings.Split(input, "-")
-	if len(parts) != 3 {
-		return time.Time{}, errFormat(input)
+func getChannelCount(channelPart string) (types.Uint20, error) {
+	numChannels, err := strconv.Atoi(channelPart)
+	if err != nil {
+		return 0, err
 	}
-	if len(parts[0]) != 6 {
-		return time.Time{}, errFormat(input)
+	numChannels, err = crypto.Cipher(numChannels, channelCipher, 8)
+	if err != nil {
+		return 0, err
 	}
-	year, _ := strconv.Atoi(parts[0][0:2])
-	month, _ := strconv.Atoi(parts[0][2:4])
-	day, _ := strconv.Atoi(parts[0][4:6])
-	year, _ = crypto.Cipher(year, yearCipher, 2)
-	year += 2000
-	month, _ = crypto.Cipher(month, monthCipher, 2)
-	day, _ = crypto.Cipher(day, dayCipher, 2)
-	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local), nil
+	return types.Uint20(numChannels), nil
 }
 
-func getNumChan(input string) types.Uint20 {
-	channelCipher := 64317284
-	parts := strings.Split(input, "-")
-	numChannels, _ := strconv.Atoi(parts[1])
-	numChannels, _ = crypto.Cipher(numChannels, channelCipher, 8)
-	return types.Uint20(numChannels)
-}
-
-func inputCheckFunc(input string) error {
-	code := strings.Split(input, "-")[2]
+func validateChecksum(code string) error {
 	var digits [10]int
-	for i := range 10 {
-		digits[i], _ = strconv.Atoi(string(code[i]))
+	for i := range digits {
+		d, err := strconv.Atoi(string(code[i]))
+		if err != nil {
+			return errInvalid
+		}
+		digits[i] = d
 	}
-	firstFive, _ := strconv.Atoi(code[0:5])
+	firstFive, err := strconv.Atoi(code[:5])
+	if err != nil {
+		return errInvalid
+	}
 	sum := digits[5] + digits[6] + digits[7] + digits[8]
-	if digits[1] != 4 {
-		return errInvalidInput
-	} else if firstFive%9 != 0 {
-		return errInvalidInput
-	} else if sum%7 != 0 {
-		return errInvalidInput
-	} else if digits[9] > 6 || digits[9] < 3 {
-		return errInvalidInput
+	switch {
+	case digits[1] != 4,
+		firstFive%9 != 0,
+		sum%7 != 0,
+		digits[9] < 3,
+		digits[9] > 6:
+		return errInvalid
 	}
 	return nil
-}
-
-func init() {
-	errInvalidInput = errors.New(decode("aW52YWxpZCBwcm9kdWN0IGxpY2Vuc2Uga2V5"))
-}
-
-func decode(str string) string {
-	msg, _ := base64.StdEncoding.DecodeString(str)
-	return string(msg)
 }

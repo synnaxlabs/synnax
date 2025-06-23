@@ -12,7 +12,7 @@ package base64
 
 import "encoding/base64"
 
-// MustDecode tries to decode the base64 encoded string. If decoding fails,
+// MustDecode tries to decode the base64a encoded string. If decoding fails,
 // MustDecode will panic to simplify safe initialization of global variables.
 func MustDecode(str string) string {
 	msg, err := base64.StdEncoding.DecodeString(str)
