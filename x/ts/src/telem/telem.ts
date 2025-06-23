@@ -11,6 +11,7 @@ import { z } from "zod/v4";
 
 import { math } from "@/math";
 import { primitive } from "@/primitive";
+import { type Stringer } from "@/primitive/primitive";
 import { type bounds } from "@/spatial";
 
 /** Time zone specification when working with time stamps. */
@@ -93,7 +94,7 @@ export class TimeStamp
       super(TimeStamp.parseDateTimeString(value, tzInfo).valueOf());
     else if (Array.isArray(value)) super(TimeStamp.parseDate(value));
     else {
-      let offset: bigint = BigInt(0);
+      let offset = 0n;
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
       if (typeof value === "number")
@@ -265,7 +266,7 @@ export class TimeStamp
    * @returns True if the TimeStamp represents the unix epoch, false otherwise.
    */
   get isZero(): boolean {
-    return this.valueOf() === BigInt(0);
+    return this.valueOf() === 0n;
   }
 
   /**
@@ -646,7 +647,6 @@ export class TimeStamp
   static readonly z = z.union([
     z.object({ value: z.bigint() }).transform((v) => new TimeStamp(v.value)),
     z.string().transform((n) => new TimeStamp(BigInt(n))),
-    z.instanceof(Number).transform((n) => new TimeStamp(n)),
     z.number().transform((n) => new TimeStamp(n)),
     z.instanceof(TimeStamp),
   ]);
@@ -855,7 +855,7 @@ export class TimeSpan
    * @returns True if the TimeSpan represents a zero duration, false otherwise.
    */
   get isZero(): boolean {
-    return this.valueOf() === BigInt(0);
+    return this.valueOf() === 0n;
   }
 
   /**
@@ -989,24 +989,21 @@ export class TimeSpan
   static readonly z = z.union([
     z.object({ value: z.bigint() }).transform((v) => new TimeSpan(v.value)),
     z.string().transform((n) => new TimeSpan(BigInt(n))),
-    z.instanceof(Number).transform((n) => new TimeSpan(n)),
     z.number().transform((n) => new TimeSpan(n)),
     z.instanceof(TimeSpan),
   ]);
 }
 
 /** Rate represents a data rate in Hz. */
-export class Rate
-  extends primitive.ValueExtension<number>
-  implements primitive.Stringer
-{
+export class Rate implements Stringer {
+  readonly value: number;
   constructor(value: CrudeRate) {
-    super(value.valueOf());
+    this.value = Number(value);
   }
 
   /** @returns a pretty string representation of the rate in the format "X Hz". */
   toString(): string {
-    return `${this.valueOf()} Hz`;
+    return `${this.value} Hz`;
   }
 
   /** @returns The number of seconds in the Rate. */
@@ -1020,7 +1017,7 @@ export class Rate
    * @returns A TimeSpan representing the period of the Rate.
    */
   get period(): TimeSpan {
-    return TimeSpan.seconds(1 / this.valueOf());
+    return TimeSpan.seconds(1 / this.value);
   }
 
   /**
@@ -1030,7 +1027,7 @@ export class Rate
    * @returns The number of samples in the given TimeSpan at this rate.
    */
   sampleCount(duration: CrudeTimeSpan): number {
-    return new TimeSpan(duration).seconds * this.valueOf();
+    return new TimeSpan(duration).seconds * this.value;
   }
 
   /**
@@ -1051,7 +1048,7 @@ export class Rate
    * @returns A TimeSpan that corresponds to the given number of samples.
    */
   span(sampleCount: number): TimeSpan {
-    return TimeSpan.seconds(sampleCount / this.valueOf());
+    return TimeSpan.seconds(sampleCount / this.value);
   }
 
   /**
@@ -1075,6 +1072,10 @@ export class Rate
     return new Rate(value);
   }
 
+  valueOf(): number {
+    return this.value;
+  }
+
   /**
    * Creates a Rate representing the given number of kHz.
    *
@@ -1088,16 +1089,13 @@ export class Rate
   /** A zod schema for validating and transforming rates */
   static readonly z = z.union([
     z.number().transform((n) => new Rate(n)),
-    z.instanceof(Number).transform((n) => new Rate(n)),
     z.instanceof(Rate),
   ]);
 }
 
 /** Density represents the number of bytes in a value. */
-export class Density
-  extends primitive.ValueExtension<number>
-  implements primitive.Stringer
-{
+export class Density implements Stringer {
+  readonly value: number;
   /**
    * Creates a Density representing the given number of bytes per value.
    *
@@ -1106,7 +1104,11 @@ export class Density
    * @returns A Density representing the given number of bytes per value.
    */
   constructor(value: CrudeDensity) {
-    super(value.valueOf());
+    this.value = Number(value);
+  }
+
+  valueOf(): number {
+    return this.value;
   }
 
   /**
@@ -1116,7 +1118,7 @@ export class Density
    * @returns The number of values in the given Size.
    */
   length(size: Size): number {
-    return size.valueOf() / this.valueOf();
+    return size.valueOf() / this.value;
   }
 
   /**
@@ -1126,7 +1128,7 @@ export class Density
    * @returns A Size representing the given number of values.
    */
   size(sampleCount: number): Size {
-    return new Size(sampleCount * this.valueOf());
+    return new Size(sampleCount * this.value);
   }
 
   /** Unknown/Invalid Density. */
@@ -1145,7 +1147,6 @@ export class Density
   /** A zod schema for validating and transforming densities */
   static readonly z = z.union([
     z.number().transform((n) => new Density(n)),
-    z.instanceof(Number).transform((n) => new Density(n)),
     z.instanceof(Density),
   ]);
 }
@@ -1683,18 +1684,22 @@ export class DataType
   ]);
 }
 
-/** The size of an element in bytes. */
-export class Size
-  extends primitive.ValueExtension<number>
-  implements primitive.Stringer
-{
+/**
+ * The Size of an element in bytes.
+ */
+export class Size implements Stringer {
+  readonly value: number;
   constructor(value: CrudeSize) {
-    super(value.valueOf());
+    this.value = Number(value);
+  }
+
+  valueOf(): number {
+    return this.value;
   }
 
   /** @returns true if the Size is larger than the other size. */
   largerThan(other: CrudeSize): boolean {
-    return this.valueOf() > other.valueOf();
+    return this.value > other.valueOf();
   }
 
   /** @returns true if the Size is smaller than the other size. */
@@ -1845,31 +1850,22 @@ export class Size
 
 export type CrudeTimeStamp =
   | bigint
-  | BigInt
   | TimeStamp
   | TimeSpan
   | number
   | Date
   | string
-  | DateComponents
-  | Number;
+  | DateComponents;
 export type TimeStampT = number;
-export type CrudeTimeSpan =
-  | bigint
-  | BigInt
-  | TimeSpan
-  | TimeStamp
-  | number
-  | Number
-  | Rate;
+export type CrudeTimeSpan = bigint | TimeSpan | TimeStamp | number | Rate;
 export type TimeSpanT = number;
-export type CrudeRate = Rate | number | Number;
+export type CrudeRate = Rate | number;
 export type RateT = number;
-export type CrudeDensity = Density | number | Number;
+export type CrudeDensity = Density | number;
 export type DensityT = number;
 export type CrudeDataType = DataType | string | TypedArray;
 export type DataTypeT = string;
-export type CrudeSize = Size | number | Number;
+export type CrudeSize = Size | number;
 export type SizeT = number;
 export interface CrudeTimeRange {
   start: CrudeTimeStamp;
@@ -1938,11 +1934,11 @@ export const convertDataType = (
   target: DataType,
   value: math.Numeric,
   offset: math.Numeric = 0,
-): math.PrimitiveNumeric => {
+): math.Numeric => {
   if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
   if (!source.usesBigInt && target.usesBigInt)
     return BigInt(value.valueOf()) - BigInt(offset.valueOf());
-  return addSamples(value, -offset).valueOf();
+  return addSamples(value, -offset);
 };
 
 export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
