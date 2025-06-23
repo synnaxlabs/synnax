@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Align, Icon, List, Text, Tooltip } from "@synnaxlabs/pluto";
-import { type Key, type Keyed } from "@synnaxlabs/x";
-import { type JSX } from "react";
+import { Align, List, Text, Tooltip } from "@synnaxlabs/pluto";
+import { type record } from "@synnaxlabs/x";
+import { cloneElement, type JSX } from "react";
 
 import { ChannelName, type ChannelNameProps } from "@/hardware/common/task/ChannelName";
 import { EnableDisableButton } from "@/hardware/common/task/EnableDisableButton";
@@ -23,8 +23,10 @@ export interface ListAndDetailsIconProps {
   name: string;
 }
 
-export interface ListAndDetailsChannelItemProps<K extends Key, E extends Keyed<K>>
-  extends List.ItemProps<K, E> {
+export interface ListAndDetailsChannelItemProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> extends List.ItemProps<K, E> {
   port: string | number;
   portMaxChars: number;
   icon?: ListAndDetailsIconProps;
@@ -50,7 +52,7 @@ const getChannelNameProps = (hasIcon: boolean): Omit<ChannelNameProps, "channel"
   noWrap: true,
 });
 
-export const ListAndDetailsChannelItem = <K extends string, E extends Keyed<K>>({
+export const ListAndDetailsChannelItem = <K extends string, E extends record.Keyed<K>>({
   port,
   portMaxChars,
   canTare,
@@ -86,15 +88,13 @@ export const ListAndDetailsChannelItem = <K extends string, E extends Keyed<K>>(
         {hasIcon && (
           <Tooltip.Dialog>
             {icon.name}
-            <Icon.Icon
-              style={{
+            {cloneElement(icon.icon, {
+              style: {
                 height: "var(--pluto-p-size)",
                 fontSize: "var(--pluto-p-size)",
                 color: "var(--pluto-gray-l8)",
-              }}
-            >
-              {icon.icon}
-            </Icon.Icon>
+              },
+            })}
           </Tooltip.Dialog>
         )}
         {hasStateChannel ? (

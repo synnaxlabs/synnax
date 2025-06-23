@@ -66,14 +66,18 @@ export const SelectSingle = ({
     },
     [originalFilter, rackMap],
   );
-  useAsyncEffect(async () => {
-    if (client == null) {
-      setRackMap(new Map());
-      return;
-    }
-    const racks = await client.hardware.racks.retrieve([]);
-    setRackMap(new Map(racks.map(({ key, name }) => [key, name])));
-  }, [client?.key]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) {
+        setRackMap(new Map());
+        return;
+      }
+      const racks = await client.hardware.racks.retrieve([]);
+      if (signal.aborted) return;
+      setRackMap(new Map(racks.map(({ key, name }) => [key, name])));
+    },
+    [client?.key],
+  );
   return (
     <Select.Single<device.Key, Entry>
       columns={COLUMNS}

@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/client",
-  "version": "0.43.0",
+  "version": "0.44.0",
   "description": "The Synnax Client Library",
   "keywords": [
     "synnax",
@@ -33,21 +33,21 @@
     "madge": "madge --circular src"
   },
   "dependencies": {
-    "@synnaxlabs/freighter": "workspace:*",
-    "@synnaxlabs/x": "workspace:*",
-    "async-mutex": "^0.5.0",
-    "zod": "^3.25.63"
+    "@synnaxlabs/freighter": "workspace:^",
+    "@synnaxlabs/x": "workspace:^",
+    "async-mutex": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "workspace:*",
-    "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^24.0.1",
-    "eslint": "^9.28.0",
-    "eslint-config-synnaxlabs": "workspace:*",
-    "madge": "^8.0.0",
-    "typescript": "^5.8.3",
-    "vite": "^6.3.5",
-    "vitest": "^3.2.3"
+    "@synnaxlabs/tsconfig": "workspace:^",
+    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-synnaxlabs": "workspace:^",
+    "madge": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
   },
   "type": "module",
   "types": "dist/index.d.ts",

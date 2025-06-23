@@ -92,15 +92,12 @@ export const useCombinedStateAndRef = <T extends primitive.Value | object>(
     return s;
   });
 
-  const setStateAndRef: state.Set<T> = useCallback(
-    (nextState): void => {
-      setS((p) => {
-        ref.current = state.executeSetter<T>(nextState, p);
-        return ref.current;
-      });
-    },
-    [setS],
-  );
+  const setStateAndRef: state.Set<T> = useCallback((nextState): void => {
+    setS((p) => {
+      ref.current = state.executeSetter<T>(nextState, p);
+      return ref.current;
+    });
+  }, []);
 
   return [s, setStateAndRef, ref as React.RefObject<T>];
 };

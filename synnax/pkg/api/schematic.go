@@ -29,7 +29,7 @@ type SchematicService struct {
 func NewSchematicService(p Provider) *SchematicService {
 	return &SchematicService{
 		dbProvider:     p.db,
-		internal:       p.Config.Schematic,
+		internal:       p.Service.Schematic,
 		accessProvider: p.access,
 	}
 }

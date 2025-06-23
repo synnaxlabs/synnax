@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type direction, type KeyedNamed, xy } from "@synnaxlabs/x";
+import { color, type direction, type record, xy } from "@synnaxlabs/x";
 import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
 import { type FC, type ReactElement } from "react";
 
@@ -252,7 +252,7 @@ export const PATHS: Record<PathType, FC<PathProps>> = {
 
 export const DefaultPath = Pipe;
 
-export const PATH_TYPES: KeyedNamed<PathType>[] = [
+export const PATH_TYPES: record.KeyedNamed<PathType>[] = [
   { key: "pipe", name: "Pipe" },
   { key: "electric", name: "Electric Signal" },
   { key: "secondary", name: "Secondary" },
@@ -263,7 +263,10 @@ export const PATH_TYPES: KeyedNamed<PathType>[] = [
 ];
 
 export interface SelectPathTypeProps
-  extends Omit<Select.DropdownButtonProps<PathType, KeyedNamed<PathType>>, "data"> {}
+  extends Omit<
+    Select.DropdownButtonProps<PathType, record.KeyedNamed<PathType>>,
+    "data"
+  > {}
 
 export const SelectPathType = (props: SelectPathTypeProps): ReactElement => (
   <Select.DropdownButton

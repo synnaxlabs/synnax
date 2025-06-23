@@ -9,12 +9,12 @@
 
 import "@/caret/Animated.css";
 
-import { Icon, type IconProps } from "@synnaxlabs/media";
 import { type location } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
 
-export interface AnimatedProps extends IconProps {
+export interface AnimatedProps extends Icon.IconProps {
   enabledLoc: location.Location;
   disabledLoc: location.Location;
   enabled: boolean;

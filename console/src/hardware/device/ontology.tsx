@@ -10,8 +10,16 @@
 import "@/hardware/device/ontology.css";
 
 import { device, ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Menu as PMenu, Status, Text, Tooltip, Tree } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Device,
+  Icon,
+  Menu as PMenu,
+  Status,
+  Text,
+  Tooltip,
+  Tree,
+} from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -27,7 +35,6 @@ import {
   hasIdentifier,
   makeZ,
 } from "@/hardware/device/make";
-import { useState } from "@/hardware/device/Toolbar";
 import { useRename } from "@/modals/Rename";
 import { Ontology } from "@/ontology";
 
@@ -175,7 +182,7 @@ const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.mak
 
 const Item: Tree.Item = ({ entry, className, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
-  const devState = useState(id.key);
+  const devState = Device.useState(id.key);
   const variant = devState?.variant;
   let message = "Device State Unknown";
   if (

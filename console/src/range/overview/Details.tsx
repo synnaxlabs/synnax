@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Divider,
   Form,
+  Icon,
   Input,
+  Ranger,
   Text,
   usePrevious,
 } from "@synnaxlabs/pluto";
@@ -27,7 +28,6 @@ import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
-import { useParent } from "@/range/ContextMenu";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelect } from "@/range/selectors";
 import { add, type StaticRange } from "@/range/slice";
@@ -39,7 +39,7 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const parent = useParent(rangeKey);
+  const parent = Ranger.useRetrieveParentRange(rangeKey);
   const placeLayout = Layout.usePlacer();
 
   if (parent == null) return null;

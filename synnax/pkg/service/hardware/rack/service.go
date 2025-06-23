@@ -12,8 +12,13 @@ package rack
 import (
 	"context"
 	"fmt"
+
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
+	"io"
+	"sync"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -25,8 +30,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"io"
-	"sync"
 )
 
 // Config is the configuration for creating a Service.
@@ -44,7 +47,7 @@ type Config struct {
 	Group *group.Service
 	// HostProvider is used to assign keys to racks.
 	// [REQUIRED]
-	HostProvider core.HostProvider
+	HostProvider cluster.HostProvider
 	// Signals is used to propagate rack changes through the Synnax signals' channel
 	// communication mechanism.
 	// [OPTIONAL]

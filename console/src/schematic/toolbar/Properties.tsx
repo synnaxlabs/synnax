@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Color,
   Diagram,
   Form,
+  Icon,
   Input,
   Schematic,
   Status,
@@ -177,7 +177,7 @@ const MultiElementProperties = ({
             const pos = box.center(box.construct(el));
             const dist = xy.scale(
               xy.translation(box.topLeft(nodeElBox), pos),
-              1 / viewport.zoom,
+              1 / (viewport?.zoom ?? 1),
             );
             const match = el.className.match(/react-flow__handle-(\w+)/);
             if (match == null)

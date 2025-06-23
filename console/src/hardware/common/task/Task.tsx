@@ -9,7 +9,7 @@
 
 import { type device, type rack, task } from "@synnaxlabs/client";
 import { Align, Eraser, Status, Synnax, Text, useSyncedRef } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { useQuery } from "@tanstack/react-query";
 import { type FC } from "react";
 import { useStore } from "react-redux";
@@ -35,8 +35,8 @@ export const LAYOUT: Omit<Layout, "type"> = {
 };
 
 export type TaskProps<
-  Config extends UnknownRecord = UnknownRecord,
-  Details extends {} = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
+  Details extends {} = record.Unknown,
   Type extends string = string,
 > = {
   layoutKey: string;
@@ -44,7 +44,7 @@ export type TaskProps<
   task: task.Payload<Config, Details, Type>;
 };
 
-export interface ConfigSchema<Config extends UnknownRecord = UnknownRecord>
+export interface ConfigSchema<Config extends record.Unknown = record.Unknown>
   extends z.ZodType<Config> {}
 
 export interface GetInitialPayloadArgs {
@@ -52,16 +52,16 @@ export interface GetInitialPayloadArgs {
 }
 
 export interface GetInitialPayload<
-  Config extends UnknownRecord = UnknownRecord,
-  Details extends {} = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
+  Details extends {} = record.Unknown,
   Type extends string = string,
 > {
   (args: GetInitialPayloadArgs): task.Payload<Config, Details, Type>;
 }
 
 export interface WrapOptions<
-  Config extends UnknownRecord = UnknownRecord,
-  Details extends {} = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
+  Details extends {} = record.Unknown,
   Type extends string = string,
 > {
   configSchema: ConfigSchema<Config>;
@@ -69,8 +69,8 @@ export interface WrapOptions<
 }
 
 export const wrap = <
-  Config extends UnknownRecord = UnknownRecord,
-  Details extends {} = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
+  Details extends {} = record.Unknown,
   Type extends string = string,
 >(
   Wrapped: FC<TaskProps<Config, Details, Type>>,

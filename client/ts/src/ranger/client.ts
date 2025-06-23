@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { type CrudeTimeRange, observe, sortTimeRange, TimeRange } from "@synnaxlabs/x";
-import { array } from "@synnaxlabs/x/array";
+import { array, type CrudeTimeRange, observe, TimeRange } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type Series } from "@synnaxlabs/x/telem";
 import { z } from "zod/v4";
@@ -38,6 +37,9 @@ import {
 import { type CreateOptions, type Writer } from "@/ranger/writer";
 import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
+
+export const SET_CHANNEL_NAME = "sy_range_set";
+export const DELETE_CHANNEL_NAME = "sy_range_delete";
 
 export class Range {
   key: string;
@@ -183,10 +185,11 @@ export class Range {
     wrapper.setCloser(async () => await base.close());
     return wrapper;
   }
-}
 
-export const sort = (a: Range, b: Range): -1 | 0 | 1 =>
-  sortTimeRange(a.timeRange, b.timeRange);
+  static sort(a: Range, b: Range): number {
+    return TimeRange.sort(a.timeRange, b.timeRange);
+  }
+}
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -297,6 +300,10 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     return await this.retrieve(first.id.key);
   }
 
+  sugarOntologyResource(resource: ontology.Resource): Range {
+    return this.sugarOne(convertOntologyResourceToPayload(resource));
+  }
+
   sugarOne(payload: Payload): Range {
     return new Range(
       payload.name,
@@ -320,8 +327,8 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   async openTracker(): Promise<signals.Observable<string, Range>> {
     return await signals.openObservable<string, Range>(
       this.frameClient,
-      "sy_range_set",
-      "sy_range_delete",
+      SET_CHANNEL_NAME,
+      DELETE_CHANNEL_NAME,
       (variant, data) => {
         if (variant === "delete")
           return data.toUUIDs().map((k) => ({ variant, key: k, value: undefined }));
@@ -350,3 +357,17 @@ export const ontologyID = (key: Key): ontology.ID =>
 
 export const aliasOntologyID = (key: Key): ontology.ID =>
   new ontology.ID({ type: ALIAS_ONTOLOGY_TYPE, key });
+
+export const convertOntologyResourceToPayload = ({
+  data,
+  id: { key },
+  name,
+}: ontology.Resource): Payload => {
+  const timeRange = TimeRange.z.parse(data?.timeRange);
+  return {
+    key,
+    name,
+    timeRange,
+    color: typeof data?.color === "string" ? data.color : undefined,
+  };
+};

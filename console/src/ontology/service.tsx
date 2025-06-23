@@ -92,12 +92,8 @@ export interface HandleTreeRename {
   rollback?: (props: HandleTreeRenameProps, prevName: string) => void;
 }
 
-export interface NodeAdapterProps extends BaseProps {
-  node: Tree.FlattenedNode;
-}
-
 export interface AllowRename {
-  (res: ontology.Resource): boolean;
+  (resource: ontology.Resource): boolean;
 }
 
 export interface PaletteListItem
@@ -105,7 +101,7 @@ export interface PaletteListItem
 
 export interface Service {
   type: ontology.ResourceType;
-  icon: Icon.Element | ((resource: ontology.Resource) => Icon.Element);
+  icon: Icon.ReactElement | ((resource: ontology.Resource) => Icon.ReactElement);
   hasChildren: boolean;
   onSelect?: HandleSelect;
   canDrop: Haul.CanDrop;
