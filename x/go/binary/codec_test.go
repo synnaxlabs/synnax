@@ -11,6 +11,7 @@ package binary_test
 
 import (
 	"bytes"
+	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,13 +25,13 @@ type toEncode struct {
 
 var _ = Describe("Codec", func() {
 	DescribeTable("Encode + Decode", func(codec binary.Codec) {
-		b, err := codec.Encode(nil, toEncode{1})
+		b, err := codec.Encode(context.TODO(), toEncode{1})
 		Expect(err).ToNot(HaveOccurred())
 		var d toEncode
 		Expect(codec.Decode(ctx, b, &d)).To(Succeed())
 		Expect(d.Value).To(Equal(1))
 		var d2 toEncode
-		Expect(codec.DecodeStream(nil, bytes.NewReader(b), &d2)).To(Succeed())
+		Expect(codec.DecodeStream(context.TODO(), bytes.NewReader(b), &d2)).To(Succeed())
 		Expect(d2.Value).To(Equal(1))
 	},
 		Entry("Gob", &binary.GobCodec{}),
