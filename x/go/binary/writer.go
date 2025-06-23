@@ -9,9 +9,7 @@
 
 package binary
 
-import (
-	"encoding/binary"
-)
+import "encoding/binary"
 
 // Writer makes it easy to writer various primitive data types to binary using a given
 // byte order.
