@@ -140,7 +140,7 @@ func (f Frame[K]) SeriesSlice() []Series {
 // It is not safe to modify the contents of the returned slice.
 func (f Frame[K]) RawSeries() []Series { return f.series }
 
-// RawKeys returns the raw slice of keys in teh frame. This includes any keys that have
+// RawKeys returns the raw slice of keys in the frame. This includes any keys that have
 // been filtered out by FilterKeys. To check whether an index in this slice has been
 // filtered out, use ShouldExcludeRaw.
 //
@@ -409,7 +409,7 @@ func (f Frame[K]) Get(key K) MultiSeries {
 	return MultiSeries{Series: series}
 }
 
-// Append adds a new key-series pair to the end of teh frame, returning the updated
+// Append adds a new key-series pair to the end of the frame, returning the updated
 // frame.
 func (f Frame[K]) Append(key K, series Series) Frame[K] {
 	f.keys = append(f.keys, key)

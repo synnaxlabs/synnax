@@ -138,7 +138,7 @@ export interface WriterConfig {
  *
  * 2. To write a frame, the caller can use the write method and follow the validation
  * rules described in its method's documentation. This process is asynchronous, meaning
- * that write calls may return before teh frame has been written to the cluster. This
+ * that write calls may return before the frame has been written to the cluster. This
  * also means that the writer can accumulate an error after write is called. If the writer
  * accumulates an error, all subsequent write and commit calls will return False. The
  * caller can check for errors by calling the error method, which returns the accumulated
