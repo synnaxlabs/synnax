@@ -7,15 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
-
-import { Query } from "@/query";
-
-export const useCalculationStateSynchronizer = (
-  onChange: (state: channel.CalculationState) => void,
-): void =>
-  Query.useParsedListener(
-    channel.CALCULATION_STATE_CHANNEL_NAME,
-    channel.calculationStateZ,
-    onChange,
-  );
+export * as Query from "@/query/external";

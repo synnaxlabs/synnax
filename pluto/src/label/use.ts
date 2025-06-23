@@ -8,89 +8,47 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology } from "@synnaxlabs/client";
-import { useCallback, useState } from "react";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
-import { useAsyncEffect } from "@/hooks";
-import { useDeleteSynchronizer, useSetSynchronizer } from "@/label/synchronizers";
-import { Ontology } from "@/ontology";
-import { Status } from "@/status";
-import { Synnax } from "@/synnax";
+import { Query } from "@/query";
 
-export const use = (id: ontology.CrudeID): label.Label[] => {
-  const client = Synnax.use();
-  const [labels, setLabels] = useState<label.Label[]>([]);
-  const idStr = new ontology.ID(id).toString();
-  useAsyncEffect(
-    async (signal) => {
-      if (client == null) {
-        setLabels([]);
-        return;
-      }
-      const labels = await client.labels.retrieveFor(idStr);
-      if (signal.aborted) return;
-      setLabels(labels);
+const matchLabelRelationship = (rel: ontology.Relationship, id: ontology.CrudeID) =>
+  rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE && rel.from.equals(id);
+
+export const useLabelsOf = Query.create<ontology.CrudeID, label.Label[]>({
+  name: "Labels",
+  queryFn: async ({ client, params: id }) => await client.labels.retrieveFor(id),
+  listeners: [
+    {
+      channel: label.SET_CHANNEL_NAME,
+      onChange: Query.parsedHandler(label.labelZ, async ({ changed, onChange }) =>
+        onChange((prev) => [...prev.filter((l) => l.key !== changed.key), changed]),
+      ),
     },
-    [client, idStr],
-  );
-
-  const handleRelationshipDelete = useCallback(
-    (relationship: ontology.Relationship) => {
-      if (
-        relationship.type == label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
-        relationship.from.equals(idStr)
-      )
-        setLabels((prevLabels) =>
-          prevLabels.filter((l) => l.key !== relationship.to.key),
-        );
+    {
+      channel: label.DELETE_CHANNEL_NAME,
+      onChange: Query.stringHandler(async ({ changed, onChange }) =>
+        onChange((prev) => prev.filter((l) => l.key !== changed)),
+      ),
     },
-    [labels, idStr],
-  );
-  Ontology.useRelationshipDeleteSynchronizer(handleRelationshipDelete);
-
-  const handleError = Status.useErrorHandler();
-
-  const handleRelationshipSet = useCallback(
-    (relationship: ontology.Relationship) => {
-      if (
-        relationship.type !== label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE ||
-        !relationship.from.equals(idStr)
-      )
-        return;
-      const { key } = relationship.to;
-      if (labels.some((l) => l.key === key)) return;
-      handleError(async () => {
-        if (client == null) throw NULL_CLIENT_ERROR;
-        const label = await client.labels.retrieve(key);
-        setLabels((prevLabels) => {
-          if (prevLabels.some((l) => l.key === key)) return prevLabels;
-          return [...prevLabels, label];
-        });
-      }, `Failed to process new label for ${idStr}`);
+    {
+      channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
+      onChange: Query.stringHandler(
+        async ({ client, changed, onChange, params: id }) => {
+          const rel = ontology.parseRelationship(changed);
+          if (!matchLabelRelationship(rel, id)) return;
+          const { key } = rel.to;
+          const l = await client.labels.retrieve(key);
+          onChange((prev) => [...prev.filter((l) => l.key !== key), l]);
+        },
+      ),
     },
-    [client, idStr, labels],
-  );
-  Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
-
-  const handleDeleteLabels = useCallback(
-    (key: label.Key) => {
-      if (labels.some((l) => l.key === key))
-        setLabels((prevLabels) => prevLabels.filter((l) => l.key !== key));
+    {
+      channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
+      onChange: Query.stringHandler(async ({ changed, onChange, params: id }) => {
+        const rel = ontology.parseRelationship(changed);
+        if (!matchLabelRelationship(rel, id)) return;
+        onChange((prev) => prev.filter((l) => l.key !== rel.to.key));
+      }),
     },
-    [labels],
-  );
-  useDeleteSynchronizer(handleDeleteLabels);
-
-  const handleSetLabels = useCallback(
-    (label: label.Label) => {
-      if (!labels.some((l) => l.key === label.key)) return;
-      setLabels((prevLabels) =>
-        prevLabels.map((l) => (l.key === label.key ? label : l)),
-      );
-    },
-    [labels],
-  );
-  useSetSynchronizer(handleSetLabels);
-
-  return labels;
-};
+  ],
+});

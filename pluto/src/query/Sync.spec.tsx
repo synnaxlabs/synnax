@@ -13,7 +13,7 @@ import { type PropsWithChildren, useEffect, useRef, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/status";
-import { Sync } from "@/sync";
+import { Query } from "@/query";
 import { SynnaxProvider, useConnectToClient } from "@/testutil/Synnax";
 
 let shouldMockStreamer = false;
@@ -38,7 +38,7 @@ vi.mock("@synnaxlabs/client", async () => {
 
 const TestProvider = (props: PropsWithChildren) => (
   <SynnaxProvider defaultConnected={false}>
-    <Sync.Provider {...props} />
+    <Query.Provider {...props} />
   </SynnaxProvider>
 );
 
@@ -52,8 +52,8 @@ describe("sync", () => {
     const test_channel_name = "sync_test_channel";
     const useSync = () => {
       const [data, setData] = useState<string[]>([]);
-      const isStreamerOpen = Sync.useStreamerIsOpen();
-      const addListener = Sync.useAddListener();
+      const isStreamerOpen = Query.useStreamerIsOpen();
+      const addListener = Query.useAddListener();
       const connectToClient = useConnectToClient();
       useEffect(
         () =>
@@ -94,7 +94,7 @@ describe("sync", () => {
 
     const useErrorListener = () => {
       const timesReceivedRef = useRef(0);
-      const addListener = Sync.useAddListener();
+      const addListener = Query.useAddListener();
       useEffect(() =>
         addListener({
           channels: error_channel_name,
@@ -108,7 +108,7 @@ describe("sync", () => {
 
     const useSuccessListener = () => {
       const [data, setData] = useState<string[]>([]);
-      Sync.useStringListener(
+      Query.useStringListener(
         success_channel_name,
         (s) => s,
         (data) => setData((prev) => [...prev, data]),
@@ -121,7 +121,7 @@ describe("sync", () => {
       useErrorListener();
       const statuses = Status.useNotifications().statuses;
       const successFrames = useSuccessListener();
-      const isStreamerOpen = Sync.useStreamerIsOpen();
+      const isStreamerOpen = Query.useStreamerIsOpen();
       return { successFrames, isStreamerOpen, statuses };
     };
     const client = newTestClient();
@@ -162,7 +162,7 @@ describe("sync", () => {
     const use = () => {
       const connectToClient = useConnectToClient();
       useEffect(() => connectToClient(true), [connectToClient]);
-      const addListener = Sync.useAddListener();
+      const addListener = Query.useAddListener();
       useEffect(
         () =>
           addListener({

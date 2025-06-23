@@ -7,15 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { workspace } from "@synnaxlabs/client";
 
 import { Query } from "@/query";
 
-export const useCalculationStateSynchronizer = (
-  onChange: (state: channel.CalculationState) => void,
-): void =>
-  Query.useParsedListener(
-    channel.CALCULATION_STATE_CHANNEL_NAME,
-    channel.calculationStateZ,
-    onChange,
-  );
+export const useSetSynchronizer = (onSet: (ws: workspace.Workspace) => void): void =>
+  Query.useParsedListener(workspace.SET_CHANNEL_NAME, workspace.workspaceZ, onSet);
+
+export const useDeleteSynchronizer = (onDelete: (ws: workspace.Key) => void): void =>
+  Query.useParsedListener(workspace.DELETE_CHANNEL_NAME, workspace.keyZ, onDelete);

@@ -161,7 +161,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
-	if l.Workspace, err = workspace.NewService(ctx, workspace.Config{
+	if l.Workspace, err = workspace.OpenService(ctx, workspace.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
@@ -171,7 +171,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Schematic, err = schematic.NewService(ctx, schematic.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.NewService(ctx, lineplot.Config{

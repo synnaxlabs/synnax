@@ -16,7 +16,7 @@ import { Color } from "@/color";
 import { Haul } from "@/haul";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Status } from "@/status";
-import { Sync } from "@/sync";
+import { Query } from "@/query";
 import { Synnax } from "@/synnax";
 import { Telem } from "@/telem";
 import { Control } from "@/telem/control";
@@ -64,7 +64,7 @@ export const Provider = ({
             <Alamos.Provider {...alamos}>
               <Status.Aggregator>
                 <Synnax.Provider connParams={connParams}>
-                  <Sync.Provider>
+                  <Query.Provider>
                     <Channel.AliasProvider {...channelAlias}>
                       <Color.Provider {...color}>
                         <Theming.Provider {...theming}>
@@ -74,7 +74,7 @@ export const Provider = ({
                         </Theming.Provider>
                       </Color.Provider>
                     </Channel.AliasProvider>
-                  </Sync.Provider>
+                  </Query.Provider>
                 </Synnax.Provider>
               </Status.Aggregator>
             </Alamos.Provider>

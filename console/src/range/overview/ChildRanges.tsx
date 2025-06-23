@@ -17,7 +17,7 @@ import {
   Ranger,
   Text,
 } from "@synnaxlabs/pluto";
-import { type FC, useMemo } from "react";
+import { type FC } from "react";
 
 import { Layout } from "@/layout";
 import { createCreateLayout } from "@/range/Create";
@@ -61,8 +61,9 @@ export interface ChildRangesProps {
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const children = Ranger.useRetrieveChildRanges(rangeKey);
-  const childRanges = useMemo(() => children.map(({ payload }) => payload), [children]);
+  const res = Ranger.useChildren(rangeKey);
+  let childRanges: ranger.Payload[] = [];
+  if (res.status === "success") childRanges = res.data.map(({ payload }) => payload);
   const placeLayout = Layout.usePlacer();
   return (
     <Align.Space y>

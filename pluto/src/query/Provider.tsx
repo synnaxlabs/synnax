@@ -20,8 +20,8 @@ import {
 
 import { useAsyncEffect } from "@/hooks";
 import { Status } from "@/status";
-import { AddListenerContext, IsStreamerOpenContext } from "@/sync/Context";
-import { type FrameHandler, type ListenerAdder } from "@/sync/types";
+import { AddListenerContext, IsStreamerOpenContext } from "@/query/Context";
+import { type FrameHandler, type ListenerAdder } from "@/query/types";
 import { Synnax } from "@/synnax";
 
 export interface ProviderProps extends PropsWithChildren {}

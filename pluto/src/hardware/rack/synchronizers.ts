@@ -9,8 +9,8 @@
 
 import { rack } from "@synnaxlabs/client";
 
-import { Sync } from "@/sync";
+import { Query } from "@/query";
 
 export const useStateSynchronizer = (
   onStateChange: (state: rack.State) => void,
-): void => Sync.useParsedListener(rack.STATE_CHANNEL_NAME, rack.stateZ, onStateChange);
+): void => Query.useParsedListener(rack.STATE_CHANNEL_NAME, rack.stateZ, onStateChange);

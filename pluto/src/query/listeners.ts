@@ -12,18 +12,27 @@ import { useCallback, useEffect } from "react";
 import { type z } from "zod/v4";
 
 import { useSyncedRef } from "@/hooks";
-import { useAddListener } from "@/sync/Context";
-import { type ListenerHandler, type Params } from "@/sync/query";
+import { useAddListener } from "@/query/Context";
+import { type ListenerHandler, type Params } from "@/query/query";
+import { type state } from "@/state";
 
 export const parsedHandler =
-  <P extends Params, Z extends z.ZodType, Value>(
+  <P extends Params, Z extends z.ZodType, Value extends state.State>(
     schema: Z,
     onChange: ListenerHandler<P, z.infer<Z>, Value>,
   ): ListenerHandler<P, MultiSeries, Value> =>
-  (ctx) => {
-    ctx.changed
-      .parseJSON(schema)
-      .forEach((value) => onChange({ ...ctx, changed: value }));
+  async (args) => {
+    const parsed = args.changed.parseJSON(schema);
+    for (const value of parsed) await onChange({ ...args, changed: value });
+  };
+
+export const stringHandler =
+  <P extends Params, Value extends state.State>(
+    onChange: ListenerHandler<P, string, Value>,
+  ): ListenerHandler<P, MultiSeries, Value> =>
+  async (args) => {
+    for (const value of args.changed.toStrings())
+      await onChange({ ...args, changed: value });
   };
 
 export const useListener = (

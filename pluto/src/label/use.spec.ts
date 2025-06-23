@@ -24,7 +24,7 @@ describe("Label.use", () => {
     const id = rng.ontologyID;
     const label1 = await client.labels.create({ name: "test label", color: "#FFFFFF" });
     await client.labels.label(id, [label1.key]);
-    const { result } = renderHook(() => Label.use(id), {
+    const { result } = renderHook(() => Label.useLabelsOf(id), {
       wrapper: SyncProvider,
     });
     await waitFor(() => expect(result.current).toEqual([label1]));

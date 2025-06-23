@@ -53,6 +53,9 @@ const retrieveResZ = z.object({ workspaces: nullableArrayZ(workspaceZ) });
 const createResZ = z.object({ workspaces: remoteZ.array() });
 const emptyResZ = z.object({});
 
+export const SET_CHANNEL_NAME = "sy_workspace_set";
+export const DELETE_CHANNEL_NAME = "sy_workspace_delete";
+
 export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   readonly type = ONTOLOGY_TYPE;
   readonly schematic: schematic.Client;

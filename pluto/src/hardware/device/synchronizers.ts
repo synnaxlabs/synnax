@@ -9,15 +9,15 @@
 
 import { device } from "@synnaxlabs/client";
 
-import { Sync } from "@/sync";
+import { Query } from "@/query";
 
 export const useSetSynchronizer = (onSet: (device: device.Device) => void): void =>
-  Sync.useParsedListener(device.SET_CHANNEL_NAME, device.deviceZ, onSet);
+  Query.useParsedListener(device.SET_CHANNEL_NAME, device.deviceZ, onSet);
 
 export const useDeleteSynchronizer = (onDelete: (key: device.Key) => void): void =>
-  Sync.useParsedListener(device.DELETE_CHANNEL_NAME, device.keyZ, onDelete);
+  Query.useParsedListener(device.DELETE_CHANNEL_NAME, device.keyZ, onDelete);
 
 export const useStateSynchronizer = (
   onStateChange: (state: device.State) => void,
 ): void =>
-  Sync.useParsedListener(device.STATE_CHANNEL_NAME, device.stateZ, onStateChange);
+  Query.useParsedListener(device.STATE_CHANNEL_NAME, device.stateZ, onStateChange);

@@ -8,14 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type device, type rack, task } from "@synnaxlabs/client";
-import { Align, Eraser, Status, Synnax, Text, useSyncedRef } from "@synnaxlabs/pluto";
+import { Task } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useQuery } from "@tanstack/react-query";
 import { type FC } from "react";
 import { useStore } from "react-redux";
 import { type z } from "zod/v4";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 
@@ -83,56 +81,25 @@ export const wrap = <
       store.getState(),
       layoutKey,
     );
-    const taskKeyRef = useSyncedRef(taskKey);
-    const client = Synnax.use();
-    const { data, error, isError, isPending } = useQuery<
-      TaskProps<Config, Details, Type>
-    >({
-      queryFn: async () => {
-        if (taskKeyRef.current == null)
-          return {
-            configured: false,
-            task: getInitialPayload({ deviceKey }),
-            layoutKey,
-            rackKey,
-          };
-        if (client == null) throw NULL_CLIENT_ERROR;
-        const tsk = await client.hardware.tasks.retrieve<Config, Details, Type>(
-          taskKeyRef.current,
-          { includeState: true },
-        );
-        try {
-          tsk.config = configSchema.parse(tsk.config);
-        } catch (e) {
-          console.error(`Failed to parse config for ${tsk.name}`, tsk.config, e);
-          throw e;
-        }
-        return {
-          configured: true,
-          task: tsk,
-          layoutKey,
-          rackKey: task.getRackKey(tsk.key),
-        };
-      },
-      queryKey: [deviceKey, client?.key, layoutKey],
-    });
-    const content = isPending ? (
-      <Status.Text.Centered level="h4" variant="loading">
-        Fetching task from server
-      </Status.Text.Centered>
-    ) : isError ? (
-      <Align.Space align="center" grow justify="center">
-        <Text.Text color={Status.VARIANT_COLORS.error} level="h2">
-          Failed to load data for task with key {taskKey}
-        </Text.Text>
-        <Text.Text color={Status.VARIANT_COLORS.error} level="p">
-          {error.message}
-        </Text.Text>
-      </Align.Space>
-    ) : (
-      <Wrapped {...data} />
-    );
-    return <Eraser.Eraser>{content}</Eraser.Eraser>;
+    const res = Task.use(taskKey);
+    if (res.status !== "success") return res.Status;
+    const data: TaskProps<Config, Details, Type> = {
+      task: getInitialPayload({ deviceKey }),
+      layoutKey,
+      rackKey,
+    };
+    if (res.data != null) {
+      const tsk = res.data;
+      try {
+        data.task.config = configSchema.parse(tsk.config);
+      } catch (e) {
+        console.error(`Failed to parse config for ${tsk.name}`, tsk.config, e);
+        throw e;
+      }
+      data.task = tsk as unknown as task.Payload<Config, Details, Type>;
+      data.rackKey = task.getRackKey(tsk.key);
+    }
+    return <Wrapped {...data} />;
   };
   Wrapper.displayName = `TaskWrapper(${Wrapped.displayName ?? Wrapped.name})`;
   return Wrapper;
