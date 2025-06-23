@@ -13,6 +13,18 @@ import { type z } from "zod/v4";
 
 import { useSyncedRef } from "@/hooks";
 import { useAddListener } from "@/sync/Context";
+import { type ListenerHandler, type Params } from "@/sync/query";
+
+export const parsedHandler =
+  <P extends Params, Z extends z.ZodType, Value>(
+    schema: Z,
+    onChange: ListenerHandler<P, z.infer<Z>, Value>,
+  ): ListenerHandler<P, MultiSeries, Value> =>
+  (ctx) => {
+    ctx.changed
+      .parseJSON(schema)
+      .forEach((value) => onChange({ ...ctx, changed: value }));
+  };
 
 export const useListener = (
   channel: channel.Name,

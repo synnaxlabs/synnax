@@ -10,4 +10,5 @@
 export { useAddListener, useIsStreamerOpen as useStreamerIsOpen } from "@/sync/Context";
 export * from "@/sync/listeners";
 export * from "@/sync/Provider";
+export * from "@/sync/query";
 export * from "@/sync/types";
