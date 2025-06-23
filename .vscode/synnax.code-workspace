@@ -58,6 +58,7 @@
       "immer",
       "lineplot",
       "Migratable",
+      "msgpack",
       "msgpackr",
       "mult",
       "NavDrawer",
@@ -79,6 +80,10 @@
       "telem",
       "Telem",
       "testutil",
+      "unencodable",
+      "vmihailenco",
+      "Wrapf",
+      "xbinary",
       "zodutil"
     ],
     "rewrap.autoWrap.enabled": true,
