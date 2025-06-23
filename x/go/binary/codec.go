@@ -16,7 +16,6 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -91,54 +90,6 @@ func (enc *PassThroughCodec) DecodeStream(ctx context.Context, r io.Reader, valu
 // EncodeStream implements the Encoder interface.
 func (enc *PassThroughCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	return enc.Codec.EncodeStream(ctx, w, value)
-}
-
-// TracingCodec wraps a Codec and traces the encoding and decoding operations.
-type TracingCodec struct {
-	alamos.Instrumentation
-	Level alamos.Environment
-	Codec
-}
-
-// Encode implements the Encoder interface.
-func (enc *TracingCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	ctx, span := enc.T.Trace(ctx, "encode", enc.Level)
-	b, err := enc.Codec.Encode(ctx, value)
-	if err != nil {
-		return nil, sugarEncodingErr(value, err)
-	}
-	return b, span.EndWith(err)
-}
-
-// Decode implements the Decoder interface.
-func (enc *TracingCodec) Decode(ctx context.Context, data []byte, value any) error {
-	ctx, span := enc.T.Trace(ctx, "decode", enc.Level)
-	err := enc.Codec.Decode(ctx, data, value)
-	if err != nil {
-		return sugarDecodingErr(data, value, err)
-	}
-	return span.EndWith(err)
-}
-
-// DecodeStream implements the Decoder interface.
-func (enc *TracingCodec) DecodeStream(ctx context.Context, r io.Reader, value any) error {
-	ctx, span := enc.T.Trace(ctx, "decode_stream", enc.Level)
-	err := enc.Codec.DecodeStream(ctx, r, value)
-	if err != nil {
-		data, _ := io.ReadAll(r)
-		err = sugarDecodingErr(data, value, err)
-	}
-	return span.EndWith(err)
-}
-
-// EncodeStream implements the Encoder interface.
-func (enc *TracingCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	ctx, span := enc.T.Trace(ctx, "encode_stream", enc.Level)
-	err := enc.Codec.EncodeStream(ctx, w, value)
-	if err != nil {
-		err = sugarEncodingErr(value, err)
-	}
-	return span.EndWith(err)
 }
 
 // MarshalStringInt64 marshals the int64 value to a UTF-8 string.
