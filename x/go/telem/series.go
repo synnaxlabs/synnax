@@ -191,7 +191,7 @@ func truncateAndFormatSlice[T any](slice []T) string {
 	return stringer.TruncateAndFormatSlice(slice, maxDisplayValues)
 }
 
-// DataString returns a string representation of the data in a seris.
+// DataString returns a string representation of the data in a series.
 func (s Series) DataString() string {
 	if s.Len() == 0 {
 		return "[]"
