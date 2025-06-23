@@ -212,7 +212,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 			if err = gorp.NewRetrieve[task.Key, task.Status]().
 				WhereKeys(tsk.Key).
 				Entry(&taskState).
-				Exec(ctx, cfg.DB); err != nil && !errors.Is(err, query.NotFound) {
+				Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.DecodeError) {
 				return nil, err
 			}
 			rck.TaskStatuses[tsk.Key] = taskState
@@ -234,7 +234,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 		if err = gorp.NewRetrieve[string, device.Status]().
 			WhereKeys(dev.Key).
 			Entry(&deviceState).
-			Exec(ctx, cfg.DB); err != nil && !errors.Is(err, query.NotFound) {
+			Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.DecodeError) {
 			return nil, err
 		}
 		t.mu.Devices[dev.Key] = deviceState
