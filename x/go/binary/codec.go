@@ -12,7 +12,6 @@ package binary
 import (
 	"bytes"
 	"context"
-	"encoding/gob"
 	"encoding/json"
 	"io"
 	"reflect"
@@ -67,53 +66,9 @@ type Decoder interface {
 }
 
 var (
-	_ Codec = (*GobCodec)(nil)
 	_ Codec = (*JSONCodec)(nil)
 	_ Codec = (*MsgPackCodec)(nil)
 )
-
-// GobCodec is a gob implementation of the Codec interface.
-type GobCodec struct{}
-
-// Encode implements the Encoder interface.
-func (e *GobCodec) Encode(_ context.Context, value any) ([]byte, error) {
-	var (
-		buff bytes.Buffer
-		err  = gob.NewEncoder(&buff).Encode(value)
-		b    = buff.Bytes()
-	)
-	if err != nil {
-		return nil, sugarEncodingErr(value, err)
-	}
-	return b, nil
-}
-
-// EncodeStream implements the Encoder interface.
-func (e *GobCodec) EncodeStream(_ context.Context, w io.Writer, value any) error {
-	err := gob.NewEncoder(w).Encode(value)
-	if err != nil {
-		return sugarEncodingErr(value, err)
-	}
-	return nil
-}
-
-// Decode implements the Decoder interface.
-func (e *GobCodec) Decode(ctx context.Context, data []byte, value any) error {
-	err := e.DecodeStream(ctx, bytes.NewReader(data), value)
-	if err != nil {
-		return sugarDecodingErr(data, value, err)
-	}
-	return nil
-}
-
-// DecodeStream implements the Decoder interface.
-func (e *GobCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
-	if err := gob.NewDecoder(r).Decode(value); err != nil {
-		data, _ := io.ReadAll(r)
-		return sugarDecodingErr(data, value, err)
-	}
-	return nil
-}
 
 // JSONCodec is a JSON implementation of Codec.
 type JSONCodec struct {
