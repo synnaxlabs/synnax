@@ -15,6 +15,8 @@ import (
 	"io"
 )
 
+var _ Codec = (*PassThroughCodec)(nil)
+
 // PassThroughCodec wraps a Codec and checks for values that are already encoded
 // ([]byte) and returns them as is.
 type PassThroughCodec struct{ Codec }
