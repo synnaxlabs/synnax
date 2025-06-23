@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, type UnknownRecord } from "@synnaxlabs/x";
+import { deep, type record } from "@synnaxlabs/x";
 
 import data from "@/hardware/ni/device/enriched.json";
 import { type Properties, ZERO_PROPERTIES } from "@/hardware/ni/device/types";
@@ -23,7 +23,7 @@ interface PickedEnrichedProperties
   > {}
 
 export const enrich = (model: string, properties: Properties): Properties => {
-  const enriched = (data as UnknownRecord)[model] as {
+  const enriched = (data as record.Unknown)[model] as {
     estimatedPinout: PickedEnrichedProperties;
   };
   return { ...deep.copy(ZERO_PROPERTIES), ...enriched?.estimatedPinout, ...properties };

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Action, type Middleware } from "@reduxjs/toolkit";
-import { debounce, deep, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
+import { debounce, deep, type record, TimeSpan } from "@synnaxlabs/x";
 
 import { isMainWindow } from "@/isMainWindow";
 import { openSugaredKV, type SugaredKV } from "@/persist/kv";
@@ -182,7 +182,7 @@ const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 export const middleware = <S extends RequiredState>(
   engine: Engine<S>,
   debounceInterval: TimeSpan = PERSIST_DEBOUNCE,
-): Middleware<UnknownRecord> => {
+): Middleware<record.Unknown> => {
   const debouncedPersist = debounce(
     engine.persist.bind(engine),
     debounceInterval.milliseconds,

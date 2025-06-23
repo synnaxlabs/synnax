@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 
 import { Meta } from "@/meta";
 
@@ -20,7 +20,7 @@ export interface LogLevelFilterProps {
   level: LogLevel;
 }
 
-type KV = UnknownRecord | (() => UnknownRecord);
+type KV = record.Unknown | (() => record.Unknown);
 
 /**
  * LogLevelFilter is a function that returns true if the log at the given
@@ -105,4 +105,4 @@ export class Logger {
   static readonly NOOP = new Logger();
 }
 
-const parseKV = (kv: KV): UnknownRecord => (typeof kv === "function" ? kv() : kv);
+const parseKV = (kv: KV): record.Unknown => (typeof kv === "function" ? kv() : kv);

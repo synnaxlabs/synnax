@@ -9,15 +9,12 @@
 
 import "@/select/Multiple.css";
 
-import { Icon } from "@synnaxlabs/media";
 import {
   array,
   type AsyncTermSearcher,
   type color,
-  compare,
   convertRenderV,
-  type Key,
-  type Keyed,
+  type record,
   type RenderableValue,
 } from "@synnaxlabs/x";
 import {
@@ -36,6 +33,7 @@ import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import {
@@ -49,8 +47,10 @@ import { DEFAULT_PLACEHOLDER } from "@/select/Single";
 import { Tag } from "@/tag";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
-export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children" | "close">,
+export interface MultipleProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children" | "close">,
     Omit<UseSelectMultipleProps<K, E>, "data">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "placeholder">,
@@ -67,7 +67,7 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
   actions?: Input.ExtensionProps["children"];
 }
 
-export interface MultipleTagProps<K extends Key, E extends Keyed<K>>
+export interface MultipleTagProps<K extends record.Key, E extends record.Keyed<K>>
   extends Tag.TagProps {
   key: K;
   entryKey: K;
@@ -80,7 +80,7 @@ export interface MultipleTagProps<K extends Key, E extends Keyed<K>>
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
 }
 
-export const MultipleTag = <K extends Key, E extends Keyed<K>>({
+export const MultipleTag = <K extends record.Key, E extends record.Keyed<K>>({
   entryKey,
   entryRenderKey,
   entry,
@@ -109,7 +109,9 @@ export const MultipleTag = <K extends Key, E extends Keyed<K>>({
   );
 };
 
-const defaultRenderTag = componentRenderProp(MultipleTag<Key, Keyed<Key>>);
+const defaultRenderTag = componentRenderProp(
+  MultipleTag<record.Key, record.Keyed<record.Key>>,
+);
 
 /**
  * Allows a user to browse, search for, and select multiple values from a list of
@@ -130,7 +132,10 @@ const defaultRenderTag = componentRenderProp(MultipleTag<Key, Keyed<Key>>);
  * @param props.onChange - The callback to be invoked when the selected value changes.
  * @param props.value - The currently selected value.
  */
-export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const Multiple = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   onChange,
   value,
   className,
@@ -160,24 +165,26 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   // This hook makes sure we have the selected entries fetched to render their tags
   // properly.
-  useAsyncEffect(async () => {
-    setLoading(true);
-    if (selectValueIsZero(value)) setSelected([]);
-    const inSelected = selected.map((v) => v.key);
-    const nextValue = array.toArray(value);
-    if (compare.unorderedPrimitiveArrays(inSelected, nextValue) === compare.EQUAL)
-      return;
-    let nextSelected: E[] = [];
-    if (searchMode)
-      // Wrap this in a try-except clause just in case the searcher throws an error.
-      try {
-        nextSelected = await searcher.retrieve(nextValue);
-      } finally {
-        setLoading(false);
-      }
-    else if (data != null) nextSelected = data.filter((v) => nextValue.includes(v.key));
-    setSelected(nextSelected);
-  }, [searcher, searchMode, value, data]);
+  useAsyncEffect(
+    async (signal) => {
+      setLoading(true);
+      if (selectValueIsZero(value)) setSelected([]);
+      const nextValue = array.toArray(value);
+      let nextSelected: E[] = [];
+      if (searchMode)
+        // Wrap this in a try-except clause just in case the searcher throws an error.
+        try {
+          nextSelected = await searcher.retrieve(nextValue);
+        } finally {
+          setLoading(false);
+        }
+      else if (data != null)
+        nextSelected = data.filter((v) => nextValue.includes(v.key));
+      if (signal.aborted) return;
+      setSelected(nextSelected);
+    },
+    [searcher, searchMode, value, data],
+  );
 
   const handleChange = useCallback(
     (v: K | K[] | null, extra: UseSelectOnChangeExtra<K, E>) => {
@@ -294,7 +301,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   );
 };
 
-interface SelectMultipleInputProps<K extends Key, E extends Keyed<K>>
+interface SelectMultipleInputProps<K extends record.Key, E extends record.Keyed<K>>
   extends Omit<Input.TextProps, "onFocus"> {
   loading: boolean;
   selectedKeys: K | K[];
@@ -308,7 +315,7 @@ interface SelectMultipleInputProps<K extends Key, E extends Keyed<K>>
   dropdownVariant: Dropdown.Variant;
 }
 
-const MultipleInput = <K extends Key, E extends Keyed<K>>({
+const MultipleInput = <K extends record.Key, E extends record.Keyed<K>>({
   selectedKeys,
   loading,
   selected,

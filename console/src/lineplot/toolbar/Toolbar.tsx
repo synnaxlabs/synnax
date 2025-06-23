@@ -10,8 +10,7 @@
 import "@/lineplot/toolbar/Toolbar.css";
 
 import { linePlot } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Tabs } from "@synnaxlabs/pluto";
+import { Align, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

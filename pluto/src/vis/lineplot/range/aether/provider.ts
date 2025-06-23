@@ -49,7 +49,7 @@ interface InternalState {
   runAsync: status.ErrorHandler;
 }
 
-interface AnnotationProps {
+interface ProviderProps {
   dataToDecimalScale: scale.Scale;
   viewport: box.Box;
   region: box.Box;
@@ -69,6 +69,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.runAsync = status.useErrorHandler(ctx);
     i.ranges ??= new Map();
     const client = synnax.use(ctx);
+    i.requestRender("tool");
     if (client == null) return;
     i.client = client;
 
@@ -89,11 +90,12 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
   private fetchInitial(timeRange: TimeRange): void {
     const { internal: i } = this;
-    const client = i.client;
+    const { client, runAsync } = i;
     if (client == null || this.fetchedInitial.equals(timeRange, TimeSpan.minutes(1)))
       return;
+
     this.fetchedInitial = timeRange;
-    i.runAsync(async () => {
+    runAsync(async () => {
       const ranges = await client.ranges.retrieve(timeRange);
       ranges.forEach((r) => {
         if (color.isCrude(r.color)) i.ranges.set(r.key, r);
@@ -102,7 +104,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     }, "failed to fetch initial ranges");
   }
 
-  render(props: AnnotationProps): void {
+  render(props: ProviderProps): void {
     const { dataToDecimalScale, region, viewport, timeRange } = props;
     this.fetchInitial(timeRange);
     const { draw, ranges } = this.internal;

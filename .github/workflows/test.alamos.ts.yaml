@@ -12,7 +12,6 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - turbo.json
-      - vitest.workspace.ts
       - x/ts/**
   push:
     branches:

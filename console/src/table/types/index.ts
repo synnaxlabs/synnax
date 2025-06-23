@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type TableCells } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 
 import * as v0 from "@/table/types/v0";
 
@@ -18,7 +18,7 @@ export type State = v0.State;
 export type SliceState = v0.SliceState;
 export type CellState<
   V extends TableCells.Variant = TableCells.Variant,
-  P extends object = UnknownRecord,
+  P extends object = record.Unknown,
 > = v0.CellState<V, P>;
 export type RowLayout = v0.RowLayout;
 export type CellLayout = v0.CellLayout;

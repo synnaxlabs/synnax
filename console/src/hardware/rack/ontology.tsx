@@ -10,10 +10,10 @@
 import "@/hardware/rack/ontology.css";
 
 import { ontology, rack } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
-  Icon as PIcon,
+  Icon,
   Menu as PMenu,
+  Rack,
   Status,
   Text,
   Tooltip,
@@ -25,12 +25,15 @@ import { useEffect, useRef } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
-import { useRackState } from "@/hardware/device/Toolbar";
 import { Sequence } from "@/hardware/task/sequence";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
+
+const CreateSequenceIcon = Icon.createComposite(Icon.Control, {
+  topRight: Icon.Add,
+});
 
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = Ontology.useConfirmDelete({ type: "Rack" });
@@ -72,7 +75,7 @@ const handleRename: Ontology.HandleTreeRename = {
 
 const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
-  const state = useRackState(id.key);
+  const state = Rack.useState(Number(id.key));
 
   const heartRef = useRef<SVGSVGElement>(null);
 
@@ -151,14 +154,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       {isSingle && (
         <>
           <Menu.RenameItem />
-          <PMenu.Item
-            itemKey="createSequence"
-            startIcon={
-              <PIcon.Create>
-                <Icon.Control />
-              </PIcon.Create>
-            }
-          >
+          <PMenu.Item itemKey="createSequence" startIcon={<CreateSequenceIcon />}>
             Create Control Sequence
           </PMenu.Item>
           <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>

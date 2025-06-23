@@ -17,7 +17,7 @@ import {
   Status,
   Synnax as PSynnax,
 } from "@synnaxlabs/pluto";
-import { TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
+import { type record, TimeSpan } from "@synnaxlabs/x";
 import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
 import { useDispatch } from "react-redux";
@@ -45,13 +45,13 @@ import {
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
 
-export type FormSchema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
+export type FormSchema<Config extends record.Unknown = record.Unknown> = z.ZodObject<{
   name: z.ZodString;
   config: ConfigSchema<Config>;
 }>;
 
 export type FormProps<
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
 > = { methods: PForm.ContextValue<FormSchema<Config>> } & (
@@ -67,12 +67,12 @@ export type FormProps<
     ))
 );
 
-export interface OnConfigure<Config extends UnknownRecord = UnknownRecord> {
+export interface OnConfigure<Config extends record.Unknown = record.Unknown> {
   (client: Synnax, config: Config, name: string): Promise<[Config, rack.Key]>;
 }
 
 export interface WrapFormArgs<
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
 > extends WrapOptions<Config, Details, Type> {
@@ -83,7 +83,7 @@ export interface WrapFormArgs<
 }
 
 export interface UseFormArgs<
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
 > extends TaskProps<Config, Details, Type>,
@@ -93,7 +93,7 @@ export interface UseFormArgs<
     > {}
 
 export interface UseFormReturn<
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
 > {
@@ -107,7 +107,7 @@ export interface UseFormReturn<
 const nameZ = z.string().min(1, "Name is required");
 
 export const useForm = <
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
 >({
@@ -194,7 +194,7 @@ export const useForm = <
         ...initialTask,
         key: task_.key,
       });
-      await sugaredTask?.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
+      await sugaredTask?.executeCommandSync(command, TimeSpan.fromSeconds(10));
     },
     onError: handleError,
   });
@@ -211,7 +211,7 @@ export const useForm = <
 };
 
 export const wrapForm = <
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
 >({

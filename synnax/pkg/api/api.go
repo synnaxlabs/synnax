@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package api implements the client interfaces for interacting with the Synnax cluster.
-// The top level package is completely transport agnostic, and provides freighter
+// The top level package is transport agnostic, and provides freighter
 // compatible interfaces for all of its services. sub-packages in this directory wrap
-// the core API services to provide transport specific implementations.
+// the core API services to provide transport-specific implementations.
 package api
 
 import (
@@ -20,25 +20,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/falamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -48,26 +31,8 @@ import (
 // the API.
 type Config struct {
 	alamos.Instrumentation
-	RBAC          *rbac.Service
-	Channel       channel.Service
-	Ranger        *ranger.Service
-	Framer        *framer.Service
-	Ontology      *ontology.Ontology
-	Group         *group.Service
-	Storage       *storage.Storage
-	User          *user.Service
-	Workspace     *workspace.Service
-	Schematic     *schematic.Service
-	LinePlot      *lineplot.Service
-	Log           *log.Service
-	Table         *table.Service
-	Token         *token.Service
-	Label         *label.Service
-	Hardware      *hardware.Service
-	Authenticator auth.Authenticator
-	Enforcer      access.Enforcer
-	Cluster       dcore.Cluster
-	Insecure      *bool
+	Service      *service.Layer
+	Distribution *distribution.Layer
 }
 
 var (
@@ -78,52 +43,16 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("api")
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "ranger", c.Ranger)
-	validate.NotNil(v, "framer", c.Framer)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "storage", c.Storage)
-	validate.NotNil(v, "user", c.User)
-	validate.NotNil(v, "workspace", c.Workspace)
-	validate.NotNil(v, "token", c.Token)
-	validate.NotNil(v, "authenticator", c.Authenticator)
-	validate.NotNil(v, "access", c.RBAC)
-	validate.NotNil(v, "cluster", c.Cluster)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "schematic", c.Schematic)
-	validate.NotNil(v, "lineplot", c.LinePlot)
-	validate.NotNil(v, "hardware", c.Hardware)
-	validate.NotNil(v, "insecure", c.Insecure)
-	validate.NotNil(v, "label", c.Label)
-	validate.NotNil(v, "log", c.Log)
-	validate.NotNil(v, "table", c.Table)
+	validate.NotNil(v, "service", c.Service)
+	validate.NotNil(v, "dist", c.Distribution)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Ranger = override.Nil(c.Ranger, other.Ranger)
-	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Storage = override.Nil(c.Storage, other.Storage)
-	c.User = override.Nil(c.User, other.User)
-	c.Workspace = override.Nil(c.Workspace, other.Workspace)
-	c.Token = override.Nil(c.Token, other.Token)
-	c.Authenticator = override.Nil(c.Authenticator, other.Authenticator)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
-	c.Cluster = override.Nil(c.Cluster, other.Cluster)
-	c.Insecure = override.Nil(c.Insecure, other.Insecure)
-	c.Group = override.Nil(c.Group, other.Group)
-	c.Insecure = override.Nil(c.Insecure, other.Insecure)
-	c.Schematic = override.Nil(c.Schematic, other.Schematic)
-	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
-	c.Log = override.Nil(c.Log, other.Log)
-	c.Label = override.Nil(c.Label, other.Label)
-	c.Enforcer = override.Nil(c.Enforcer, other.Enforcer)
-	c.Hardware = override.Nil(c.Hardware, other.Hardware)
-	c.Table = override.Nil(c.Table, other.Table)
+	c.Service = override.Nil(c.Service, other.Service)
+	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	return c
 }
 
@@ -225,9 +154,9 @@ type Transport struct {
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
 }
 
-// API wraps all implemented API services into a single container. Protocol-specific API
+// Layer wraps all implemented API services into a single container. Protocol-specific Layer
 // implementations should use this struct during instantiation.
-type API struct {
+type Layer struct {
 	provider     Provider
 	config       Config
 	Auth         *AuthService
@@ -247,8 +176,8 @@ type API struct {
 	Access       *AccessService
 }
 
-// BindTo binds the API to the provided Transport implementation.
-func (a *API) BindTo(t Transport) {
+// BindTo binds the API layer to the provided Transport implementation.
+func (a *Layer) BindTo(t Transport) {
 	var (
 		tk                 = tokenMiddleware(a.provider.auth.token)
 		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
@@ -486,14 +415,14 @@ func (a *API) BindTo(t Transport) {
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
 }
 
-// New instantiates the server API using the provided Config. This should only be called
+// New instantiates the server API layer using the provided Config. This should only be called
 // once.
-func New(configs ...Config) (API, error) {
+func New(configs ...Config) (*Layer, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
-		return API{}, err
+		return nil, err
 	}
-	api := API{config: cfg, provider: NewProvider(cfg)}
+	api := &Layer{config: cfg, provider: NewProvider(cfg)}
 	api.Auth = NewAuthService(api.provider)
 	api.User = NewUserService(api.provider)
 	api.Access = NewAccessService(api.provider)

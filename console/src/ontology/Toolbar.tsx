@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Synnax } from "@synnaxlabs/pluto";
+import { Align, Icon, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 

@@ -9,15 +9,15 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createMatcher, type Discriminated } from "./matcher";
+import { instance } from "@/instance";
 
 describe("createMatcher", () => {
-  class TestClass implements Discriminated {
+  class TestClass implements instance.Discriminated {
     discriminator = "test";
     constructor(public value: string) {}
   }
 
-  const isTestClass = createMatcher("test", TestClass);
+  const isTestClass = instance.createMatcher("test", TestClass);
 
   it("should return true for instances of the class", () => {
     const instance = new TestClass("value");
@@ -54,18 +54,18 @@ describe("createMatcher", () => {
   });
 
   it("should work with multiple class instances", () => {
-    class ClassA implements Discriminated {
+    class ClassA implements instance.Discriminated {
       discriminator = "a";
       constructor(public value: string) {}
     }
 
-    class ClassB implements Discriminated {
+    class ClassB implements instance.Discriminated {
       discriminator = "b";
       constructor(public value: string) {}
     }
 
-    const isClassA = createMatcher("a", ClassA);
-    const isClassB = createMatcher("b", ClassB);
+    const isClassA = instance.createMatcher("a", ClassA);
+    const isClassB = instance.createMatcher("b", ClassB);
 
     const instanceA = new ClassA("value");
     const instanceB = new ClassB("value");

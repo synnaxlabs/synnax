@@ -19,10 +19,6 @@ export interface TareableChannel {
   channel: channel.Key;
 }
 
-interface TareArgs {
-  keys: channel.Key[];
-}
-
 export type UseTareProps<C extends TareableChannel> =
   | {
       task: clientTask.Payload;
@@ -56,7 +52,7 @@ export const useTare = <C extends TareableChannel>({
     mutationFn: async (keys: channel.Key[]) => {
       if (client == null) throw NULL_CLIENT_ERROR;
       if (!configured) throw new Error("Task has not been configured");
-      await task.executeCommand<TareArgs>("tare", { keys });
+      await task.executeCommand("tare", { keys });
     },
   }).mutate;
   const getTareableChannels = useCallback(

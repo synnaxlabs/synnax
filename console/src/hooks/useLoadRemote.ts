@@ -46,13 +46,17 @@ export const useLoadRemote = <V extends migrate.Migratable>({
   });
   const versionPresent = version != null;
   const notOutdated = versionPresent && !migrate.semVerOlder(version, targetVersion);
-  useAsyncEffect(async () => {
-    // If the layout data already exists and is not outdated, don't fetch.
-    if (notOutdated) return;
-    const res = await get.mutateAsync();
-    if (res == null) return;
-    dispatch(actionCreator(res));
-  }, [get.mutate, notOutdated, layoutKey, targetVersion]);
+  useAsyncEffect(
+    async (signal) => {
+      // If the layout data already exists and is not outdated, don't fetch.
+      if (notOutdated) return;
+      const res = await get.mutateAsync();
+      if (signal.aborted) return;
+      if (res == null) return;
+      dispatch(actionCreator(res));
+    },
+    [get.mutate, notOutdated, layoutKey, targetVersion],
+  );
   // If the layout data is null or outdated, return null.
   if (version == null || migrate.semVerOlder(version, targetVersion)) return null;
   return version != null;

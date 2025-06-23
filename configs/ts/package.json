@@ -1,10 +1,10 @@
 {
   "name": "@synnaxlabs/tsconfig",
-  "version": "0.0.2",
+  "version": "0.43.0",
   "publishConfig": {
     "access": "public"
   },
   "devDependencies": {
-    "typescript": "^5.8.3"
+    "typescript": "catalog:"
   }
 }

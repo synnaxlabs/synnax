@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import {
   Children,
   isValidElement as reactIsValidElement,
@@ -33,4 +33,4 @@ export const isValidElement = <
 ): child is ReactElement<P, T> =>
   // The hydrate props check lets us avoid considering Astro slots as valid react
   // elements.
-  reactIsValidElement(child) && !("hydrate" in (child.props as UnknownRecord));
+  reactIsValidElement(child) && !("hydrate" in (child.props as record.Unknown));

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Divider,
   Form,
   Header,
+  Icon,
   type RenderProp,
 } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";

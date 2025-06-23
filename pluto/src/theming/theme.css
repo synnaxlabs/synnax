@@ -37,7 +37,8 @@
     --pluto-height-huge: 8rem;
     --pluto-height-tiny: 3rem;
     --pluto-btn-transition:
-        background 0.15s ease-in-out, border-color 0.15s ease-in-out;
+        background 0.15s ease-in-out, border-color 0.15s ease-in-out,
+        fill 0.15s ease-in-out;
     --pluto-dialog-animation: fade-in-zoom 0.15s ease-in-out;
 }
 

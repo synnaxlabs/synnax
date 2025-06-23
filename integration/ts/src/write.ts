@@ -153,7 +153,7 @@ class WriteTest {
     const s = `
 -- TypeScript Write (${this.tc.identifier}) --
 Samples written: ${formatNumber(samples)}
-Time taken: ${time}
+Time taken: ${time.toString()}
 Calculated Samples per Second: ${formatNumber(samplesPerSecond)}
 Configuration:
 \tNumber of writers: ${this.tc.numWriters}
@@ -161,7 +161,7 @@ Configuration:
 \tNumber of domains: ${formatNumber(this.tc.domains)}
 \tSamples per domain: ${formatNumber(this.tc.samplesPerDomain)}
 \tAuto commit: ${this.tc.autoCommit}
-\tIndex persist interval: ${this.tc.indexPersistInterval}
+\tIndex persist interval: ${this.tc.indexPersistInterval.toString()}
 \tWriter mode: ${framer.WriterMode[this.tc.writerMode]}
 
 Expected error: ${this.tc.expectedError}; Actual error: ${actualError}\n${errorAssertion ? "PASS!!" : "FAIL!!!!"}

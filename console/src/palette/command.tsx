@@ -54,7 +54,7 @@ export interface CommandSelectionContext {
 export interface Command {
   key: string;
   name: ReactElement | string;
-  icon?: Icon.Element;
+  icon?: Icon.ReactElement;
   visible?: (state: RootState) => boolean;
   onSelect: (ctx: CommandSelectionContext) => void;
   endContent?: ReactElement[];

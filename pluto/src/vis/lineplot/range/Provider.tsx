@@ -40,25 +40,14 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
   const menuProps = Menu.useContextMenu();
   const visibleRef = useSyncedRef(menuProps.visible);
 
-  const handleMouseEnter: React.MouseEventHandler<HTMLDivElement> = useCallback(
-    (e) => {
-      // add an event listener for the movement until it leaves
-      const handleMouseMove = (e: MouseEvent) => {
-        setState((state) => ({ ...state, cursor: { x: e.clientX, y: e.clientY } }));
-      };
-      const target = e.currentTarget;
-      target.addEventListener("mousemove", handleMouseMove);
-      target.addEventListener(
-        "mouseleave",
-        () => {
-          target.removeEventListener("mousemove", handleMouseMove);
-          if (!visibleRef.current) setState((state) => ({ ...state, cursor: null }));
-        },
-        { once: true },
-      );
-    },
+  const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = useCallback(
+    (e) => setState((state) => ({ ...state, cursor: { x: e.clientX, y: e.clientY } })),
     [setState],
   );
+
+  const handleMouseLeave: React.MouseEventHandler<HTMLDivElement> = useCallback(() => {
+    if (!visibleRef.current) setState((state) => ({ ...state, cursor: null }));
+  }, [setState, visibleRef]);
 
   return (
     <Menu.ContextMenu
@@ -91,7 +80,8 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
             setHold(true);
           }
         }}
-        onMouseEnter={handleMouseEnter}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
       />
     </Menu.ContextMenu>
   );

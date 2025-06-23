@@ -164,22 +164,22 @@
             & svg {
                 fill: var(--pluto-gray-l8);
             }
-            .synnax-icon-circle {
+            .pluto-icon--circle {
                 top: 30%;
                 left: 30%;
                 width: 40%;
                 height: 40%;
             }
-            &:has(.synnax-icon-circle) {
+            &:has(.pluto-icon--circle) {
                 opacity: 1;
-                .synnax-icon-close {
+                .pluto-icon--close {
                     display: none;
                 }
                 &:hover {
-                    .synnax-icon-circle {
+                    .pluto-icon--circle {
                         display: none;
                     }
-                    .synnax-icon-close {
+                    .pluto-icon--close {
                         display: block;
                     }
                 }

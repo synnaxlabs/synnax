@@ -10,7 +10,6 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { box, color, location, xy } from "@synnaxlabs/x";
 import {
   addEdge as rfAddEdge,
@@ -56,6 +55,7 @@ import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
+import { Icon } from "@/icon";
 import { useMemoCompare, useMemoDeepEqualProps } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";

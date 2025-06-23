@@ -9,13 +9,13 @@
 
 import "@/status/Notification.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { array } from "@synnaxlabs/x";
 import { isValidElement, type ReactElement, useRef } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
 import { type NotificationSpec } from "@/status/Aggregator";
 import { Indicator } from "@/status/Indicator";
 import { Text } from "@/text";

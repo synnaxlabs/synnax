@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/confluence"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
@@ -154,7 +154,7 @@ func (r *gossipRecoveryTransform) transform(
 ) (out TxRequest, ok bool, err error) {
 	out.Context = in.Context
 	for _, op := range in.Operations {
-		key := string(lo.Must(kvx.CompositeKey(op.Key, op.Version)))
+		key := string(lo.Must(xkv.CompositeKey(op.Key, op.Version)))
 		if r.repetitions[key] > r.RecoveryThreshold {
 			op.state = recovered
 			out.Operations = append(out.Operations, op)

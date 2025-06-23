@@ -18,7 +18,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	distribution "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -117,7 +117,7 @@ type Config struct {
 	// HostProvider returns information about the cluster host.
 	//
 	// [REQUIRED]
-	HostProvider distribution.HostProvider
+	HostProvider cluster.HostProvider
 	// DB is used to persist and retrieve information about rack and task state.
 	//
 	// [REQUIRED]

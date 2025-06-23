@@ -10,13 +10,13 @@
 import "@/label/Edit.css";
 
 import { label } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Color,
   componentRenderProp,
   Form,
+  Icon,
   Input,
   List,
   Text,

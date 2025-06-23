@@ -32,7 +32,7 @@ export class MonospacedAtlas {
   // A map of characters to their index in the atlas.
   private readonly charMap: Map<string, number>;
   // The default characters to include in the atlas.
-  private static readonly DEFAULT_CHARS = "0123456789.:-umsNa∞ᴇ";
+  private static readonly DEFAULT_CHARS = "0123456789.:-µmsNa∞ᴇ";
 
   constructor(props: AtlasProps) {
     const { font, characters = MonospacedAtlas.DEFAULT_CHARS, textColor } = props;

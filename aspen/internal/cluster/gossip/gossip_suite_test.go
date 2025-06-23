@@ -17,11 +17,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var (
-	ctx = context.Background()
-)
+var ctx = context.Background()
 
 func TestGossip(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GoGossip Suite")
+	RunSpecs(t, "Gossip Suite")
 }

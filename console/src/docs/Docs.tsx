@@ -9,8 +9,8 @@
 
 import "@/docs/Docs.css";
 
-import { Icon, Logo } from "@synnaxlabs/media";
-import { Button, Text, Theming, Triggers } from "@synnaxlabs/pluto";
+import { Logo } from "@synnaxlabs/media";
+import { Button, Icon, Text, Theming, Triggers } from "@synnaxlabs/pluto";
 import { buildQueryString, URL } from "@synnaxlabs/x";
 import { memo, type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";

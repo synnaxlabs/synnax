@@ -35,6 +35,9 @@ func sugarEncodingErr(value any, err error) error {
 
 // sugarDecodingErr adds additional context to decoding errors.
 func sugarDecodingErr(data []byte, value any, err error) error {
+	if err == nil {
+		return err
+	}
 	val := reflect.ValueOf(value)
 	return errors.Wrapf(err, "failed to decode into value: kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
 }

@@ -11,12 +11,12 @@ import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, test } from "vitest";
 
 import { AUTO_SPAN } from "@/framer/iterator";
-import { newClient } from "@/setupspecs";
 import { newIndexedPair } from "@/testutil/channels";
+import { newTestClient } from "@/testutil/client";
 import { secondsLinspace } from "@/testutil/telem";
 import { randomSeries } from "@/util/telem";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Iterator", () => {
   test("happy path", async () => {

@@ -10,7 +10,6 @@
 package relay_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"time"
@@ -19,14 +18,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -37,8 +36,7 @@ type scenario struct {
 	resCount int
 	name     string
 	channels []channel.Channel
-	relay    *relay.Relay
-	writer   *writer.Service
+	dist     mock.Node
 	close    io.Closer
 }
 
@@ -58,7 +56,7 @@ var _ = Describe("Relay", func() {
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
 				keys := channel.KeysFromChannels(s.channels)
-				reader := MustSucceed(s.relay.NewStreamer(context.TODO(), relay.StreamerConfig{
+				reader := MustSucceed(s.dist.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
 					Keys: keys,
 				}))
 				sCtx, _ := signal.Isolated()
@@ -66,7 +64,7 @@ var _ = Describe("Relay", func() {
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				// We need to give a few milliseconds for the reader to boot up.
 				time.Sleep(10 * time.Millisecond)
-				w := MustSucceed(s.writer.Open(ctx, writer.Config{
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
 					Start: 10 * telem.SecondTS,
 				}))
@@ -108,12 +106,12 @@ var _ = Describe("Relay", func() {
 	})
 	Describe("Errors", func() {
 		It("Should raise an error if a channel is not found", func() {
-			builder, services := provision(1)
+			builder := mock.ProvisionCluster(ctx, 1)
 			defer func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
-			svc := services[1]
-			_, err := svc.relay.NewStreamer(context.TODO(), relay.StreamerConfig{
+			svc := builder.Nodes[1]
+			_, err := svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
 			Expect(err).To(HaveOccurredAs(query.NotFound))
@@ -143,118 +141,86 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(1)
-	svc := services[1]
-	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	builder := mock.ProvisionCluster(ctx, 1)
+	svc := builder.Nodes[1]
+	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	return scenario{
 		resCount: 1,
-		name:     "gateway-only",
+		name:     "Gateway Only",
 		channels: channels,
-		relay:    svc.relay,
-		writer:   svc.writer,
-		close: xio.CloserFunc(func() error {
-			e := errors.NewCatcher(errors.WithAggregation())
-			e.Exec(builder.Close)
-			for _, svc := range services {
-				e.Exec(svc.relay.Close)
-			}
-			return e.Error()
-		}),
+		dist:     svc,
+		close:    svc,
 	}
 }
 
 func peerOnlyScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(4)
-	svc := services[1]
+	builder := mock.ProvisionCluster(ctx, 4)
+	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = dcore.NodeKey(i + 2)
+		ch.Leaseholder = cluster.NodeKey(i + 2)
 		channels[i] = ch
 	}
-	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(svc.channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).Exec(ctx, nil)).To(Succeed())
+		g.Expect(dist.Channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).Exec(ctx, nil)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{
 		resCount: 3,
-		name:     "peer-only",
+		name:     "Peer Only",
 		channels: channels,
-		relay:    svc.relay,
-		writer:   svc.writer,
-		close: xio.CloserFunc(func() error {
-			e := errors.NewCatcher(errors.WithAggregation())
-			e.Exec(builder.Close)
-			for _, svc := range services {
-				e.Exec(svc.relay.Close)
-			}
-			return e.Error()
-		}),
+		dist:     dist,
+		close:    dist,
 	}
 }
 func mixedScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(3)
-	svc := services[1]
+	cluster_ := mock.ProvisionCluster(ctx, 3)
+	node := cluster_.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = dcore.NodeKey(i + 1)
+		ch.Leaseholder = cluster.NodeKey(i + 1)
 		channels[i] = ch
 	}
-	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(svc.channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).Exec(ctx, nil)).To(Succeed())
+		g.Expect(node.Channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).Exec(ctx, nil)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{
 		resCount: 3,
-		name:     "mixed",
+		name:     "Mixed Gateway and Peer",
 		channels: channels,
-		relay:    svc.relay,
-		writer:   svc.writer,
-		close: xio.CloserFunc(func() error {
-			e := errors.NewCatcher(errors.WithAggregation())
-			e.Exec(builder.Close)
-			for _, svc := range services {
-				e.Exec(svc.relay.Close)
-			}
-			return e.Error()
-		}),
+		dist:     node,
+		close:    cluster_,
 	}
 }
 
 func freeScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(1)
-	svc := services[1]
+	builder := mock.ProvisionCluster(ctx, 1)
+	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = dcore.Free
+		ch.Leaseholder = cluster.Free
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(svc.channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).
+		g.Expect(dist.Channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).
 			Exec(ctx, nil)).To(Succeed())
 	})
 	return scenario{
+		name:     "Free Channel",
 		resCount: 1,
-		name:     "free",
 		channels: channels,
-		relay:    svc.relay,
-		writer:   svc.writer,
-		close: xio.CloserFunc(func() error {
-			e := errors.NewCatcher(errors.WithAggregation())
-			e.Exec(builder.Close)
-			for _, svc := range services {
-				e.Exec(svc.relay.Close)
-			}
-			return e.Error()
-		}),
+		dist:     dist,
+		close:    builder,
 	}
 }

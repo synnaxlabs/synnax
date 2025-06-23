@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/pluto";
-import { type KeyedNamed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 
 import {
   AES128_SHA256_RSAOAEP_SECURITY_POLICY,
@@ -20,7 +20,7 @@ import {
   type SecurityPolicy,
 } from "@/hardware/opc/device/types";
 
-interface SecurityPolicyInfo extends KeyedNamed<SecurityPolicy> {}
+interface SecurityPolicyInfo extends record.KeyedNamed<SecurityPolicy> {}
 
 const SECURITY_POLICIES: SecurityPolicyInfo[] = [
   { key: NO_SECURITY_POLICY, name: "None" },

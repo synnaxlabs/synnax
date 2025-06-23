@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -64,20 +63,19 @@ func (s *changeService) RetrieveResource(ctx context.Context, key string, tx gor
 
 var _ = Describe("Signals", Ordered, func() {
 	var (
-		builder *mock.Builder
+		builder *mock.Cluster
 		ctx     = context.Background()
-		dist    distribution.Distribution
+		dist    mock.Node
 		svc     *changeService
 	)
 	BeforeAll(func() {
-		builder = mock.NewBuilder()
-		dist = builder.New(ctx)
+		builder = mock.NewCluster()
+		dist = builder.Provision(ctx)
 		svc = &changeService{Observer: observe.New[iter.Nexter[schema.Change]]()}
 		dist.Ontology.RegisterService(ctx, svc)
 	})
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
-		Expect(builder.Cleanup()).To(Succeed())
 	})
 	Describe("DecodeIDs", func() {
 		It("Should decode a series of IDs", func() {

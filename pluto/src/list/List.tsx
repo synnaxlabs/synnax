@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, type Key, type Keyed } from "@synnaxlabs/x";
+import { compare, type record } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { DataProvider } from "@/list/Data";
@@ -15,8 +15,10 @@ import { InfiniteProvider } from "@/list/Infinite";
 import { useMemoCompare } from "@/memo";
 import { Text } from "@/text";
 
-export interface ListProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends PropsWithChildren<unknown> {
+export interface ListProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> extends PropsWithChildren<unknown> {
   data?: E[];
   emptyContent?: ReactElement;
   omit?: K[];
@@ -34,7 +36,10 @@ export interface ListProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
  * @param props.children - Sub-components of the List component to add additional functionality.
  *
  */
-export const List = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const List = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   children,
   data,
   emptyContent,

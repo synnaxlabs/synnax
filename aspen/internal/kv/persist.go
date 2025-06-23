@@ -12,15 +12,15 @@ package kv
 import (
 	"context"
 	"github.com/synnaxlabs/x/confluence"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 )
 
 type persist struct {
-	db kvx.Atomic
+	db xkv.Atomic
 	confluence.LinearTransform[TxRequest, TxRequest]
 }
 
-func newPersist(bw kvx.Atomic) segment {
+func newPersist(bw xkv.Atomic) segment {
 	ps := &persist{db: bw}
 	ps.Transform = ps.persist
 	return ps

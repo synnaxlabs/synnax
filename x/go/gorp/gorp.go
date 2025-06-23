@@ -62,6 +62,9 @@ func (db *DB) OverrideTx(override Tx) Tx { return OverrideTx(db, override) }
 // explicitly defined.
 func (db *DB) Close() error { return db.DB.Close() }
 
+// KV returns the underlying key-value storage backing the DB.
+func (db *DB) KV() kv.DB { return db.DB }
+
 // OverrideTx returns the override transaction if it is not nil. Otherwise,
 // it returns the base transaction.
 func OverrideTx(base, override Tx) Tx { return lo.Ternary(override != nil, override, base) }

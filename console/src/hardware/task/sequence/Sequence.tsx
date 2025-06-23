@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, rack, task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Channel,
   Form,
+  Icon,
   type Input,
   Rack,
   Status,

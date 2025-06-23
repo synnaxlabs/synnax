@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/pluto";
-import { type KeyedNamed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 
 import {
   AO_CHANNEL_TYPE,
@@ -16,7 +16,7 @@ import {
   type OutputChannelType,
 } from "@/hardware/labjack/task/types";
 
-export interface OutputChannelTypeEntry extends KeyedNamed<OutputChannelType> {}
+export interface OutputChannelTypeEntry extends record.KeyedNamed<OutputChannelType> {}
 
 const OUTPUT_CHANNEL_TYPES: OutputChannelTypeEntry[] = [
   { key: AO_CHANNEL_TYPE, name: "Analog" },

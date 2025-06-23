@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type TableCells } from "@synnaxlabs/pluto";
-import { type UnknownRecord, type xy } from "@synnaxlabs/x";
+import { type record, type xy } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
 import {
@@ -35,7 +35,7 @@ export const useSelect = (key: string): State =>
 
 export const selectCell = <
   V extends TableCells.Variant = TableCells.Variant,
-  P extends object = UnknownRecord,
+  P extends object = record.Unknown,
 >(
   state: StoreState,
   key: string,
@@ -44,7 +44,7 @@ export const selectCell = <
 
 export const useSelectCell = <
   V extends TableCells.Variant = TableCells.Variant,
-  P extends object = UnknownRecord,
+  P extends object = record.Unknown,
 >(
   key: string,
   cellKey: string,
@@ -77,7 +77,7 @@ export const useSelectLayout = (key: string) =>
 
 const selectSelectedCells = <
   V extends TableCells.Variant = TableCells.Variant,
-  P extends object = UnknownRecord,
+  P extends object = record.Unknown,
 >(
   state: StoreState,
   key: string,
@@ -92,7 +92,7 @@ const selectSelectedCells = <
 
 export const useSelectSelectedCells = <
   V extends TableCells.Variant = TableCells.Variant,
-  P extends object = UnknownRecord,
+  P extends object = record.Unknown,
 >(
   key: string,
 ): CellState<V, P>[] =>

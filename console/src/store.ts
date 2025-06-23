@@ -17,7 +17,7 @@ import {
 } from "@reduxjs/toolkit";
 import { Drift, NoopRuntime } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
-import { type deep, type UnknownRecord } from "@synnaxlabs/x";
+import { type deep, type record } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
@@ -70,32 +70,33 @@ const reducer = combineReducers({
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
-  [Drift.SLICE_NAME]: Drift.SliceState;
   [Cluster.SLICE_NAME]: Cluster.SliceState;
-  [Layout.SLICE_NAME]: Layout.SliceState;
-  [Range.SLICE_NAME]: Range.SliceState;
-  [Version.SLICE_NAME]: Version.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
-  [Schematic.SLICE_NAME]: Schematic.SliceState;
+  [Drift.SLICE_NAME]: Drift.SliceState;
+  [Layout.SLICE_NAME]: Layout.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
-  [Workspace.SLICE_NAME]: Workspace.SliceState;
-  [Permissions.SLICE_NAME]: Permissions.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
+  [Permissions.SLICE_NAME]: Permissions.SliceState;
+  [Range.SLICE_NAME]: Range.SliceState;
+  [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
+  [Version.SLICE_NAME]: Version.SliceState;
+  [Workspace.SLICE_NAME]: Workspace.SliceState;
 }
 
 export type RootAction =
+  | Cluster.Action
+  | Docs.Action
   | Drift.Action
   | Layout.Action
-  | Range.Action
-  | Docs.Action
-  | Cluster.Action
   | LinePlot.Action
-  | Schematic.Action
+  | Log.Action
   | Permissions.Action
+  | Range.Action
+  | Schematic.Action
+  | Table.Action
   | Version.Action
-  | Workspace.Action
-  | Log.Action;
+  | Workspace.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
@@ -134,7 +135,7 @@ export const migrateState = (prev: RootState): RootState => {
 
 interface OpenPersistReturn {
   initialState?: RootState;
-  persistMiddleware: Middleware<UnknownRecord, RootState, Dispatch<RootAction>>;
+  persistMiddleware: Middleware<record.Unknown, RootState, Dispatch<RootAction>>;
 }
 
 const openPersist = async (): Promise<OpenPersistReturn> => {

@@ -23,6 +23,7 @@ export * from "@/range/selectors";
 export * from "@/range/slice";
 export * from "@/range/slice";
 export * from "@/range/Toolbar";
+export * from "@/range/useListenForChanges";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CREATE_LAYOUT_TYPE]: Create,

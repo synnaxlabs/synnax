@@ -9,7 +9,7 @@
 
 import "@/select/Button.css";
 
-import { type Key, type Keyed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import {
   type ReactElement,
   type ReactNode,
@@ -34,8 +34,10 @@ import { Core } from "@/select/List";
 import { type ComponentSize } from "@/util/component";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
-export interface ButtonOptionProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends Pick<
+export interface ButtonOptionProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> extends Pick<
     CoreButton.ButtonProps,
     "onClick" | "size" | "tooltipLocation" | "tooltipDelay"
   > {
@@ -46,10 +48,10 @@ export interface ButtonOptionProps<K extends Key = Key, E extends Keyed<K> = Key
   tooltip?: E[keyof E];
 }
 
-export type ButtonProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = Omit<
-  UseSelectProps<K, E>,
-  "data"
-> &
+export type ButtonProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> = Omit<UseSelectProps<K, E>, "data"> &
   Omit<Align.PackProps, "children" | "onChange" | "size"> &
   Pick<CoreButton.ButtonProps, "tooltipLocation" | "tooltipDelay"> & {
     data?: E[];
@@ -62,7 +64,10 @@ export type ButtonProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = Om
     tooltipKey?: keyof E;
   };
 
-export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const Button = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   children = defaultSelectButtonOption,
   value,
   onChange,
@@ -124,7 +129,10 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   );
 };
 
-const defaultSelectButtonOption = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+const defaultSelectButtonOption = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   key,
   onClick,
   selected,
@@ -147,15 +155,17 @@ const defaultSelectButtonOption = <K extends Key = Key, E extends Keyed<K> = Key
   </CoreButton.Button>
 );
 
-export interface DropdownButtonButtonProps<K extends Key, E extends Keyed<K>>
-  extends CoreButton.ButtonProps {
+export interface DropdownButtonButtonProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> extends CoreButton.ButtonProps {
   selected: E | null;
   renderKey: keyof E;
   toggle: () => void;
   visible: boolean;
 }
 
-export interface DropdownButtonProps<K extends Key, E extends Keyed<K>>
+export interface DropdownButtonProps<K extends record.Key, E extends record.Keyed<K>>
   extends Omit<
       Dropdown.DialogProps,
       "onChange" | "visible" | "children" | "close" | "variant"
@@ -197,7 +207,10 @@ export const BaseButton = ({
 export const defaultButton: RenderProp<DropdownButtonButtonProps<any, any>> =
   componentRenderProp(BaseButton);
 
-export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const DropdownButton = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   data,
   value,
   columns = [],

@@ -21,11 +21,15 @@ export const Recent = (): ReactElement | null => {
   const [data, setData] = useState<workspace.Workspace[]>([]);
   const key = client?.auth?.user?.key;
 
-  useAsyncEffect(async () => {
-    const workspaces =
-      key != null ? await client?.workspaces.retrieveByAuthor(key) : [];
-    setData(workspaces ?? []);
-  }, [client]);
+  useAsyncEffect(
+    async (signal) => {
+      const workspaces =
+        key != null ? await client?.workspaces.retrieveByAuthor(key) : [];
+      if (signal.aborted) return;
+      setData(workspaces ?? []);
+    },
+    [client],
+  );
 
   const handleError = Status.useErrorHandler();
 

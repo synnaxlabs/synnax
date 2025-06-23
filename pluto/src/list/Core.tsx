@@ -9,7 +9,7 @@
 
 import "@/list/Core.css";
 
-import { bounds, type Key, type Keyed } from "@synnaxlabs/x";
+import { bounds, type record } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   type ComponentPropsWithoutRef,
@@ -29,8 +29,10 @@ import { useInfiniteContext } from "@/list/Infinite";
 import { useSelection, useSelectionContext, useSelectionUtils } from "@/list/Selector";
 import { type ItemRenderProp } from "@/list/types";
 
-export interface VirtualCoreProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
+export interface VirtualCoreProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   itemHeight: number;
   children: ItemRenderProp<K, E>;
   overscan?: number;
@@ -54,7 +56,10 @@ const scrollToRelevantChild = (
   });
 };
 
-const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+const VirtualCore = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   itemHeight,
   children,
   overscan = 0,
@@ -149,7 +154,10 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   );
 };
 
-export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const Core = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   itemHeight = 50,
   className,
   children,

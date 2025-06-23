@@ -9,7 +9,7 @@
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
-import { Icon } from "@synnaxlabs/media";
+import { Icon } from "@synnaxlabs/pluto";
 import { renderHook } from "@testing-library/react";
 import { act, type PropsWithChildren } from "react";
 import { Provider, useStore } from "react-redux";

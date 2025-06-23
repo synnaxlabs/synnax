@@ -24,7 +24,7 @@ export interface SelectableCreateArgs {
 export interface Selectable {
   key: string;
   title: string;
-  icon: Icon.Element;
+  icon: Icon.ReactElement;
   create: (props: SelectableCreateArgs) => Promise<Layout.PlacerArgs | null>;
 }
 

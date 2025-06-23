@@ -29,7 +29,7 @@ var _ = Describe("Open", func() {
 			"localhost:22646",
 			[]address.Address{},
 			aspen.Bootstrap(),
-			aspen.MemBacked(),
+			aspen.InMemory(),
 			aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -38,7 +38,7 @@ var _ = Describe("Open", func() {
 			"",
 			"localhost:22647",
 			[]address.Address{"localhost:22646"},
-			aspen.MemBacked(),
+			aspen.InMemory(),
 			aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 		)
 

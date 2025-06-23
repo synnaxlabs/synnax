@@ -9,8 +9,7 @@
 
 import "@/input/DateTime.css";
 
-import { Icon } from "@synnaxlabs/media";
-import { type KeyedNamed, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import compromise from "compromise";
 import compromiseDates, { type DatesMethods } from "compromise-dates";
 import { type FC, type ReactElement, useState } from "react";
@@ -19,6 +18,7 @@ import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
+import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
 import { Text as InputText } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
@@ -373,7 +373,9 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
   );
 };
 
-const TimeListItem = (props: List.ItemProps<string, KeyedNamed>): ReactElement => {
+const TimeListItem = (
+  props: List.ItemProps<string, record.KeyedNamed>,
+): ReactElement => {
   const { entry } = props;
   return (
     <List.ItemFrame {...props} style={{ padding: "0.5rem", paddingLeft: "2rem" }}>
@@ -395,14 +397,14 @@ export const createTimeList = (count: number): FC<TimeListProps> => {
     name: i.toString(),
   }));
   const TimeList = ({ value, onChange }: TimeListProps): ReactElement => (
-    <List.List<string, KeyedNamed> data={data}>
-      <List.Selector<string, KeyedNamed>
+    <List.List<string, record.KeyedNamed> data={data}>
+      <List.Selector<string, record.KeyedNamed>
         value={value.toString()}
         onChange={(next: string) => onChange(Number(next))}
         allowMultiple={false}
         allowNone={false}
       >
-        <List.Core<string, KeyedNamed> className={CSS.B("time-list")}>
+        <List.Core<string, record.KeyedNamed> className={CSS.B("time-list")}>
           {timeListItem}
         </List.Core>
       </List.Selector>

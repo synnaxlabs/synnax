@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 )
 
@@ -29,7 +29,7 @@ type Builder struct {
 	FeedbackNet *fmock.Network[kv.FeedbackMessage, types.Nil]
 	LeaseNet    *fmock.Network[kv.TxRequest, types.Nil]
 	RecoveryNet *fmock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
-	KVs         map[node.Key]kvx.DB
+	KVs         map[node.Key]xkv.DB
 }
 
 func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
@@ -40,7 +40,7 @@ func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 		FeedbackNet: fmock.NewNetwork[kv.FeedbackMessage, types.Nil](),
 		LeaseNet:    fmock.NewNetwork[kv.TxRequest, types.Nil](),
 		RecoveryNet: fmock.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
-		KVs:         make(map[node.Key]kvx.DB),
+		KVs:         make(map[node.Key]xkv.DB),
 	}
 }
 
@@ -77,6 +77,7 @@ func (b *Builder) Close() error {
 			return err
 		}
 	}
+
 	for _, n := range b.ClusterAPIs {
 		if err := n.Close(); err != nil {
 			return err

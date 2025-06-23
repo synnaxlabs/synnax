@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Breadcrumb, Status, Tabs, Text } from "@synnaxlabs/pluto";
+import { Align, Breadcrumb, Icon, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

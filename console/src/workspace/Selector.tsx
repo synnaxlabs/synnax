@@ -10,13 +10,13 @@
 import "@/workspace/Selector.css";
 
 import { type workspace } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Caret,
   componentRenderProp,
   Dropdown,
+  Icon,
   Input,
   List,
   Status,

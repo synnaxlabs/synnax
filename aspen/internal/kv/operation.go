@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
 )
 
@@ -32,7 +32,7 @@ const (
 var codec = binary.NewDecodeFallbackCodec(&binary.MsgPackCodec{}, &binary.GobCodec{})
 
 type Operation struct {
-	kvx.Change
+	xkv.Change
 	Version     version.Counter
 	Leaseholder node.Key
 	state       gossipState
@@ -47,7 +47,7 @@ func (o Operation) Digest() Digest {
 	}
 }
 
-func (o Operation) apply(ctx context.Context, b kvx.Writer) error {
+func (o Operation) apply(ctx context.Context, b xkv.Writer) error {
 	if o.Variant == change.Delete {
 		return b.Delete(ctx, o.Key)
 	}
@@ -61,7 +61,7 @@ type Digest struct {
 	Leaseholder node.Key
 }
 
-func (d Digest) apply(ctx context.Context, w kvx.Writer) error {
+func (d Digest) apply(ctx context.Context, w xkv.Writer) error {
 	key, err := digestKey(d.Key)
 	if err != nil {
 		return err
@@ -91,7 +91,7 @@ type (
 
 func (d Digest) Operation() Operation {
 	return Operation{
-		Change:      kvx.Change{Key: d.Key, Variant: d.Variant},
+		Change:      xkv.Change{Key: d.Key, Variant: d.Variant},
 		Version:     d.Version,
 		Leaseholder: d.Leaseholder,
 	}
@@ -100,5 +100,5 @@ func (d Digest) Operation() Operation {
 const digestPrefix = "--dig/"
 
 func digestKey(key []byte) (opKey []byte, err error) {
-	return kvx.CompositeKey(digestPrefix, key)
+	return xkv.CompositeKey(digestPrefix, key)
 }

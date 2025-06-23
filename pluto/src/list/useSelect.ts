@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type Key, type Keyed, type Optional, unique } from "@synnaxlabs/x";
+import { array, type Optional, type record, unique } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks/ref";
@@ -18,8 +18,8 @@ import { Triggers } from "@/triggers";
  * of the {@link useSelect} hook.
  */
 export interface UseSelectOnChangeExtra<
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
 > {
   clickedIndex: number | null;
   /** The key of the entry that was last clicked. */
@@ -28,13 +28,15 @@ export interface UseSelectOnChangeExtra<
   entries: E[];
 }
 
-interface BaseProps<K extends Key, E extends Keyed<K>> {
+interface BaseProps<K extends record.Key, E extends record.Keyed<K>> {
   data?: E[] | (() => E[]);
   replaceOnSingle?: boolean;
 }
 
-export interface UseSelectSingleAllowNoneProps<K extends Key, E extends Keyed<K>>
-  extends BaseProps<K, E> {
+export interface UseSelectSingleAllowNoneProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> extends BaseProps<K, E> {
   allowMultiple: false;
   allowNone?: true;
   autoSelectOnNone?: boolean;
@@ -42,8 +44,10 @@ export interface UseSelectSingleAllowNoneProps<K extends Key, E extends Keyed<K>
   onChange: (next: K | null, extra: UseSelectOnChangeExtra<K, E>) => void;
 }
 
-export interface UseSelectSingleDisallowNoneProps<K extends Key, E extends Keyed<K>>
-  extends BaseProps<K, E> {
+export interface UseSelectSingleDisallowNoneProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> extends BaseProps<K, E> {
   allowMultiple: false;
   allowNone: false | undefined;
   autoSelectOnNone?: boolean;
@@ -51,16 +55,16 @@ export interface UseSelectSingleDisallowNoneProps<K extends Key, E extends Keyed
   onChange: (next: K, extra: UseSelectOnChangeExtra<K, any>) => void;
 }
 
-type UseSelectSingleInternalProps<K extends Key, E extends Keyed<K>> =
+type UseSelectSingleInternalProps<K extends record.Key, E extends record.Keyed<K>> =
   | UseSelectSingleAllowNoneProps<K, E>
   | UseSelectSingleDisallowNoneProps<K, E>;
 
-export type UseSelectSingleProps<K extends Key, E extends Keyed<K>> = Optional<
-  UseSelectSingleInternalProps<K, E>,
-  "allowNone"
->;
+export type UseSelectSingleProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> = Optional<UseSelectSingleInternalProps<K, E>, "allowNone">;
 
-export interface UseSelectMultipleProps<K extends Key, E extends Keyed<K>>
+export interface UseSelectMultipleProps<K extends record.Key, E extends record.Keyed<K>>
   extends BaseProps<K, E> {
   allowMultiple?: true;
   allowNone?: boolean;
@@ -70,11 +74,12 @@ export interface UseSelectMultipleProps<K extends Key, E extends Keyed<K>>
 }
 
 /** Props for the {@link useSelect} hook. */
-export type UseSelectProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> =
-  | UseSelectSingleProps<K, E>
-  | UseSelectMultipleProps<K, E>;
+export type UseSelectProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> = UseSelectSingleProps<K, E> | UseSelectMultipleProps<K, E>;
 
-export type FlexUseSelectProps<K extends Key, E extends Keyed<K>> = {
+export type FlexUseSelectProps<K extends record.Key, E extends record.Keyed<K>> = {
   data?: E[] | (() => E[]);
   value: K | K[] | null;
   allowMultiple?: boolean;
@@ -85,12 +90,12 @@ export type FlexUseSelectProps<K extends Key, E extends Keyed<K>> = {
 };
 
 /** Return value for the {@link useSelect} hook. */
-export interface UseSelectMultipleReturn<K extends Key = Key> {
+export interface UseSelectMultipleReturn<K extends record.Key = record.Key> {
   onSelect: (key: K) => void;
   clear: () => void;
 }
 
-export const selectValueIsZero = <K extends Key>(
+export const selectValueIsZero = <K extends record.Key>(
   value: K | K[] | null,
 ): value is null | K[] => {
   if (value == null) return true;
@@ -127,7 +132,7 @@ const DEFAULT_PROPS_VALUE: any[] = [];
  * probably be passed to the `onClick` corresponding to each record.
  * @returns clear - A callback that can be used to clear the selection.
  */
-export const useSelect = <K extends Key, E extends Keyed<K>>({
+export const useSelect = <K extends record.Key, E extends record.Keyed<K>>({
   data: propsData = DEFAULT_PROPS_DATA,
   value: propsValue = DEFAULT_PROPS_VALUE,
   allowMultiple,

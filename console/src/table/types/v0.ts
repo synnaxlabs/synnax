@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TableCells, Theming } from "@synnaxlabs/pluto";
-import { id, type UnknownRecord, xy } from "@synnaxlabs/x";
+import { id, type record, xy } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 const VERSION = "0.0.0";
@@ -35,7 +35,7 @@ const cellStateZ = z.object({
 
 export interface CellState<
   V extends TableCells.Variant = TableCells.Variant,
-  P extends object = UnknownRecord,
+  P extends object = record.Unknown,
 > extends z.infer<typeof cellStateZ> {
   variant: V;
   props: P;

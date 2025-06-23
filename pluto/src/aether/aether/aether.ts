@@ -11,10 +11,10 @@ import { alamos } from "@synnaxlabs/alamos";
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import {
   type errors,
+  type record,
   type Sender,
   type SenderHandler,
   shallowCopy,
-  type UnknownRecord,
 } from "@synnaxlabs/x";
 import { deep } from "@synnaxlabs/x/deep";
 import { z } from "zod/v4";
@@ -267,7 +267,7 @@ export abstract class Leaf<
       const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
       if (this._state != null)
         this.instrumentation.L.debug("updating state", () => ({
-          diff: deep.difference(this.state as UnknownRecord, state_ as UnknownRecord),
+          diff: deep.difference(this.state as record.Unknown, state_ as record.Unknown),
         }));
       else this.instrumentation.L.debug("setting initial state", { state });
       this._prevState = this._state ?? state_;
@@ -557,12 +557,14 @@ export class Root extends Composite<typeof aetherRootState> {
   private handle(msg: MainMessage): void {
     try {
       const { path, variant, type } = msg;
-      if (variant === "delete") this._delete(path);
-      else
-        this._updateState(path, msg.state, (parentCtxValues) => {
-          const key = path[path.length - 1];
-          return this.create({ key, type, parentCtxValues });
-        });
+      if (variant === "delete") {
+        this._delete(path);
+        return;
+      }
+      this._updateState(path, msg.state, (parentCtxValues) => {
+        const key = path[path.length - 1];
+        return this.create({ key, type, parentCtxValues });
+      });
     } catch (e) {
       console.error("failed to handle message", { error: e, msg });
     }

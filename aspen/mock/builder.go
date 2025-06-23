@@ -11,12 +11,13 @@ package mock
 
 import (
 	"context"
-	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/errors"
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/synnaxlabs/aspen"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type Builder struct {
@@ -55,13 +56,13 @@ func (b *Builder) addressFactory() *address.Factory {
 	return b._addressFactory
 }
 
-func (b *Builder) New(opts ...aspen.Option) (*aspen.DB, error) {
+func (b *Builder) New(ctx context.Context, opts ...aspen.Option) (*aspen.DB, error) {
 	dir := filepath.Join(b.Dir(), strconv.Itoa(len(b.peerAddresses)))
 	if len(b.Nodes) == 0 {
 		opts = append(opts, aspen.Bootstrap())
 	}
 	addr := b.addressFactory().Next()
-	db, err := aspen.Open(context.TODO(), dir, addr, b.peerAddresses, append(b.DefaultOptions, opts...)...)
+	db, err := aspen.Open(ctx, dir, addr, b.peerAddresses, append(b.DefaultOptions, opts...)...)
 	if err != nil {
 		return nil, err
 	}

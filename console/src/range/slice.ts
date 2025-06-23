@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { type ranger } from "@synnaxlabs/client";
+import { type NumericTimeRange } from "@synnaxlabs/x";
 
 import * as latest from "@/range/types";
 
@@ -38,6 +40,10 @@ interface RenamePayload {
   name: string;
 }
 
+interface UpdateIfExistsPayload extends Omit<ranger.Payload, "timeRange"> {
+  timeRange: NumericTimeRange;
+}
+
 type SetActivePayload = string | null;
 
 type PA<P> = PayloadAction<P>;
@@ -65,9 +71,18 @@ export const { actions, reducer } = createSlice({
       if (range == null) return;
       range.name = name;
     },
+    updateIfExists: (
+      state,
+      { payload: { key, name, timeRange } }: PA<UpdateIfExistsPayload>,
+    ) => {
+      const range = state.ranges[key];
+      if (range == null || range.variant === "dynamic") return;
+      range.name = name;
+      range.timeRange = timeRange;
+    },
   },
 });
-export const { add, remove, rename, setActive } = actions;
+export const { add, remove, rename, setActive, updateIfExists } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];

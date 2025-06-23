@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { user } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Divider, Form, Nav, Status, Text } from "@synnaxlabs/pluto";
+import { Align, Divider, Form, Icon, Nav, Status, Text } from "@synnaxlabs/pluto";
 import { useEffect, useState } from "react";
 
 import { NULL_CLIENT_ERROR } from "@/errors";

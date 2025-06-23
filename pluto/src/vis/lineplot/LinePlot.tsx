@@ -67,8 +67,7 @@ export const useContext = (component: string) => {
 };
 
 export const useViewport = (handle: Viewport.UseHandler): void => {
-  const ctx = useContext("Viewport");
-  const { addViewportHandler } = ctx;
+  const { addViewportHandler } = useContext("Viewport");
   useEffect(() => addViewportHandler(handle), [addViewportHandler, handle]);
 };
 

@@ -29,7 +29,7 @@ import {
 
 export interface NavMenuItem {
   key: string;
-  icon: Icon.Element;
+  icon: Icon.ReactElement;
   tooltip: string;
   trigger: Triggers.Trigger;
 }

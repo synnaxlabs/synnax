@@ -10,7 +10,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
 import { type Viewport } from "@synnaxlabs/pluto";
-import { array, deep, unique } from "@synnaxlabs/x";
+import { array, deep, record, unique } from "@synnaxlabs/x";
 
 import {
   type AxisKey,
@@ -316,7 +316,8 @@ export const { actions, reducer } = createSlice({
       const { key: layoutKey, rule } = payload;
       const plot = state.plots[layoutKey];
       const idx = plot.rules.findIndex((r) => r.key === rule.key);
-      if (idx >= 0) plot.rules[idx] = { ...plot.rules[idx], ...rule };
+      if (idx >= 0)
+        plot.rules[idx] = { ...plot.rules[idx], ...record.purgeUndefined(rule) };
       else
         plot.rules.push({
           ...latest.ZERO_RULE_STATE,

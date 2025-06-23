@@ -12,7 +12,8 @@ package iterator
 import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
@@ -74,7 +75,7 @@ type Response struct {
 	// Frame is only relevant for DataResponse. It is the data returned by the Iterator.
 	Frame core.Frame `json:"frame" msgpack:"frame"`
 	// NodeKey is the node Name where the remote Iterator lives.
-	NodeKey dcore.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
 	// Ack is only relevant for variant AckResponse. Is true if the Iterator successfully
 	// executed the request.
 	Ack bool `json:"ack" msgpack:"ack"`

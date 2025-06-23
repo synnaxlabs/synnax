@@ -9,19 +9,18 @@
 
 import "@/tag/Tag.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { color, type Optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { type Icon as PIcon } from "@/icon";
+import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
 export interface TagProps
   extends Optional<Omit<Text.TextProps, "size" | "wrap">, "level"> {
-  icon?: PIcon.Element;
+  icon?: Icon.ReactElement;
   onClose?: () => void;
   color?: color.Crude;
   size?: ComponentSize;
@@ -39,7 +38,7 @@ export const Tag = ({
   ...rest
 }: TagProps): ReactElement => {
   const cssColor = color.cssString(pColor);
-  if (icon == null && pColor != null) icon = <Icon.Circle fill={cssColor} />;
+  if (icon == null && pColor != null) icon = <Icon.Circle color={cssColor} />;
   const closeIcon =
     onClose == null ? undefined : (
       <Button.Icon

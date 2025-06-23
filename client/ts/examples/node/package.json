@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "private": true,
   "scripts": {
     "main": "node index.js"
   },
@@ -11,6 +12,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@synnaxlabs/client": "^0.38.0"
+    "@synnaxlabs/client": "^0.43.0"
   }
 }

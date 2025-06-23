@@ -33,7 +33,6 @@ on:
       - scripts/check-clang-format.sh
       - synnax/**
       - turbo.json
-      - vitest.workspace.ts
       - x/cpp/**
       - x/go/**
       - x/ts/**
@@ -100,7 +99,6 @@ jobs:
               - pnpm-lock.yaml
               - pnpm-workspace.yaml
               - turbo.json
-              - vitest.workspace.ts
               - x/ts/**
 
   server:

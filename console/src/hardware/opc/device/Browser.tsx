@@ -9,13 +9,12 @@
 
 import "@/hardware/opc/device/Browser.css";
 
-import { UnexpectedError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
+import { type task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Button,
   Header,
-  Icon as PIcon,
+  Icon,
   Status,
   Synnax,
   TimeSpan,
@@ -30,7 +29,9 @@ import { type Device } from "@/hardware/opc/device/types";
 import {
   SCAN_COMMAND_TYPE,
   SCAN_TYPE,
+  type ScanConfig,
   type ScanStateDetails,
+  type ScanType,
 } from "@/hardware/opc/task/types";
 
 const ICONS: Record<string, ReactElement> = {
@@ -49,6 +50,10 @@ export interface BrowserProps {
   device: Device;
 }
 
+const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
+  bottomRight: Icon.Array,
+});
+
 export const Browser = ({ device }: BrowserProps) => {
   const client = Synnax.use();
   const [nodes, setNodes] = useState<Tree.Node[]>([]);
@@ -58,7 +63,12 @@ export const Browser = ({ device }: BrowserProps) => {
       if (client == null) return null;
       const rck = await client.hardware.racks.retrieve(device.rack);
       const scanTasks = await rck.retrieveTaskByType(SCAN_TYPE);
-      if (scanTasks.length > 0) return scanTasks[0];
+      if (scanTasks.length > 0)
+        return scanTasks[0] as unknown as task.Task<
+          ScanConfig,
+          ScanStateDetails,
+          ScanType
+        >;
       throw new UnexpectedError(`No scan task found for driver ${rck.name}`);
     },
   });
@@ -75,10 +85,10 @@ export const Browser = ({ device }: BrowserProps) => {
       const nodeID = isRoot ? "" : parseNodeID(clicked);
       const { connection } = device.properties;
       setLoading(clicked);
-      const { details } = await scanTask.executeCommandSync<ScanStateDetails>(
+      const { details } = await scanTask.executeCommandSync(
         SCAN_COMMAND_TYPE,
-        { connection, node_id: nodeID },
         TimeSpan.seconds(10),
+        { connection, node_id: nodeID },
       );
       if (details == null) return;
       if (!("channels" in details)) return;
@@ -88,13 +98,7 @@ export const Browser = ({ device }: BrowserProps) => {
           ({
             key: nodeKey(node.nodeId, nodeID),
             name: node.name,
-            icon: node.isArray ? (
-              <PIcon.Icon bottomRight={<Icon.Array />}>
-                <Icon.Variable />
-              </PIcon.Icon>
-            ) : (
-              ICONS[node.nodeClass]
-            ),
+            icon: node.isArray ? <ArrayVariableIcon /> : ICONS[node.nodeClass],
             hasChildren: true,
             haulItems: [{ key: node.nodeId, type: HAUL_TYPE, data: node }],
           }) as unknown as Tree.Node,

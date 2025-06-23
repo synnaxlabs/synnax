@@ -9,14 +9,7 @@
 
 import "@/haul/Haul.css";
 
-import {
-  type Destructor,
-  type Key,
-  type Optional,
-  type UnknownRecord,
-  unknownRecordZ,
-  xy,
-} from "@synnaxlabs/x";
+import { type Destructor, type Optional, record, xy } from "@synnaxlabs/x";
 import React, {
   createContext,
   type DragEvent,
@@ -39,15 +32,15 @@ export const itemZ = z.object({
   key: z.string().or(z.number()),
   type: z.string(),
   elementID: z.string().optional(),
-  data: unknownRecordZ.optional(),
+  data: record.unknownZ.optional(),
 });
 
 // Item represents a draggable item.
 export interface Item {
-  key: Key;
+  key: record.Key;
   type: string;
   elementID?: string;
-  data?: UnknownRecord;
+  data?: record.Unknown;
 }
 
 export const draggingStateZ = z.object({ source: itemZ, items: z.array(itemZ) });

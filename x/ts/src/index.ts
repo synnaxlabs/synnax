@@ -20,6 +20,7 @@ export * from "@/debounce/debounce";
 export * from "@/deep";
 export * from "@/destructor";
 export * from "@/errors";
+export * from "@/flush";
 export * from "@/id";
 export * from "@/identity";
 export * from "@/instance";

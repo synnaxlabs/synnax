@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Key, type Keyed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -24,7 +24,8 @@ import { useDataContext, useGetTransformedData } from "@/list/Data";
 import { useSelectionUtils } from "@/list/Selector";
 import { Triggers } from "@/triggers";
 
-export interface HoverProps<K extends Key = Key> extends PropsWithChildren<{}> {
+export interface HoverProps<K extends record.Key = record.Key>
+  extends PropsWithChildren<{}> {
   disabled?: boolean;
   initialHover?: number;
   onEnter?: (key: K) => void;
@@ -47,7 +48,10 @@ const Context = createContext<HoverContextValue>({
 
 export const useHoverContext = () => use(Context);
 
-export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const Hover = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   children,
   initialHover = -1,
   disabled = false,

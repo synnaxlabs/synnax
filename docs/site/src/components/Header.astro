@@ -1,8 +1,8 @@
 ---
 import { Align } from "@synnaxlabs/pluto/align";
-import { Icon, Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/media";
 import Search from "@/components/search/Search.astro";
-import { Button, Text } from "@synnaxlabs/pluto";
+import { Icon, Button, Text } from "@synnaxlabs/pluto";
 import { PageNavMobile } from "@/components/PageNav/PageNav";
 const url = Astro.url.pathname;
 ---
@@ -88,7 +88,7 @@ const url = Astro.url.pathname;
                     color: var(--pluto-gray-l8);
                     font-weight: 400;
                 }
-                & .synnax-icon {
+                & .pluto-icon {
                     color: var(--pluto-gray-l9);
                     transform: scale(115%) translateY(-5%);
                 }

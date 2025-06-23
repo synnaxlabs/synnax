@@ -10,12 +10,12 @@
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
-import { select } from "@/schematic/selectors";
+import { selectOptional } from "@/schematic/selectors";
 import { type State } from "@/schematic/slice";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
   const storeState = store.getState();
-  let state = select(storeState, key);
+  let state = selectOptional(storeState, key);
   let name = Layout.select(storeState, key)?.name;
   if (state == null || name == null) {
     if (client == null) throw NULL_CLIENT_ERROR;

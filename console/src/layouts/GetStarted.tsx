@@ -10,8 +10,8 @@
 import "@/layouts/GetStarted.css";
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon, Logo } from "@synnaxlabs/media";
-import { Align, Button, Eraser, Synnax, Text } from "@synnaxlabs/pluto";
+import { Logo } from "@synnaxlabs/media";
+import { Align, Button, Eraser, Icon, Synnax, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

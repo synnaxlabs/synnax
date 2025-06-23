@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, color, deep, type KeyedNamed, scale } from "@synnaxlabs/x";
+import { type bounds, color, deep, type record, scale } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Align } from "@/align";
@@ -175,7 +175,7 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
   </Align.Space>
 );
 
-type VariantEntry = KeyedNamed<Variant>;
+type VariantEntry = record.KeyedNamed<Variant>;
 
 const VARIANT_DATA: VariantEntry[] = [
   { key: "text", name: "Text" },

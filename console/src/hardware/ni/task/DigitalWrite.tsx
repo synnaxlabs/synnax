@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, componentRenderProp } from "@synnaxlabs/pluto";
+import { Align, componentRenderProp, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 

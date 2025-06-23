@@ -10,11 +10,11 @@
 import "@/range/Toolbar.css";
 
 import { ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   componentRenderProp,
   Haul,
+  Icon,
   List as CoreList,
   Menu as PMenu,
   Ranger,

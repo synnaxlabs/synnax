@@ -156,8 +156,7 @@ export class LinePlot extends aether.Composite<
   }
 
   private render(canvases: render.CanvasVariant[]): render.Cleanup | undefined {
-    const { internal: i } = this;
-    const { instrumentation: ins } = i;
+    const { instrumentation: ins, renderCtx, handleError } = this.internal;
     if (this.deleted) {
       ins.L.debug("deleted, skipping render", { key: this.key });
       return;
@@ -165,7 +164,7 @@ export class LinePlot extends aether.Composite<
     if (!this.state.visible) {
       ins.L.debug("not visible, skipping render", { key: this.key });
       return ({ canvases }) =>
-        i.renderCtx.erase(this.state.container, this.state.clearOverScan, ...canvases);
+        renderCtx.erase(this.state.container, this.state.clearOverScan, ...canvases);
     }
 
     const plot = this.calculatePlot();
@@ -181,12 +180,12 @@ export class LinePlot extends aether.Composite<
 
     const os = xy.construct(this.state.clearOverScan);
 
-    const removeCanvasScissor = i.renderCtx.scissor(
+    const removeCanvasScissor = renderCtx.scissor(
       this.state.container,
       os,
       canvases.filter((c) => c !== "gl"),
     );
-    const removeGLScissor = i.renderCtx.scissor(
+    const removeGLScissor = renderCtx.scissor(
       plot,
       xy.ZERO,
       canvases.filter((c) => c === "gl"),
@@ -198,7 +197,7 @@ export class LinePlot extends aether.Composite<
       this.renderMeasures(plot);
       this.renderBounds();
     } catch (e) {
-      i.handleError(e, "failed to render line plot");
+      handleError(e, "failed to render line plot");
     } finally {
       removeCanvasScissor();
       removeGLScissor();
@@ -207,7 +206,7 @@ export class LinePlot extends aether.Composite<
     const eraseRegion = box.copy(this.state.container);
 
     return ({ canvases }) =>
-      i.renderCtx.erase(eraseRegion, this.state.clearOverScan, ...canvases);
+      renderCtx.erase(eraseRegion, this.state.clearOverScan, ...canvases);
   }
 
   requestRender(priority: render.Priority, reason: string): void {

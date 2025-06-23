@@ -61,9 +61,9 @@ export const useDeep = (
   };
 
   // Handles the case where the app is opened from a link
-  useAsyncEffect(async () => {
+  useAsyncEffect(async (signal) => {
     const urls = await getCurrent();
-    if (urls == null) return;
+    if (urls == null || signal.aborted) return;
     await urlHandler(urls);
   }, []);
 

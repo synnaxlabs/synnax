@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Key, type Keyed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { createFilterTransform } from "@/hooks";
@@ -28,7 +28,10 @@ export interface FilterProps extends UseFilterProps {
   children?: RenderProp<Input.Control<string>>;
 }
 
-export const useFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const useFilter = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   debounce = 250,
   value,
   onChange,
@@ -67,11 +70,17 @@ export const useFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
  * @param opts - Custom options for the search functionality. See the {@link fuse.IFuseOptions}
  * interface for more details.
  */
-export const Filter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const Filter = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   children = (props) => <InputText placeholder="Filter" {...props} />,
   ...rest
 }: FilterProps): ReactElement | null => children(useFilter<K, E>(rest));
 
-export interface Searcher<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
+export interface Searcher<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> {
   search: (term: string) => E[];
 }
