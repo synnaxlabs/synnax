@@ -117,7 +117,7 @@ func Serve(cfgs ...Config) (*Server, error) {
 	return s, s.start()
 }
 
-func (s *Server) start() (err error) {
+func (s *Server) start() error {
 	s.L.Info("starting server", zap.Int("port", s.ListenAddress.Port()))
 	s.L.Debug("config", s.Report().ZapFields()...)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))

@@ -10,10 +10,10 @@
 package server
 
 import (
-	"github.com/synnaxlabs/alamos"
 	"net"
 
 	"github.com/cockroachdb/cmux"
+	"github.com/synnaxlabs/alamos"
 )
 
 // BranchContext is the context for operating a Branch.

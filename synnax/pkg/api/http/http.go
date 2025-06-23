@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/x/httputil"
 )
 
-func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Transport) {
+func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transport {
+	t := api.Transport{}
+
 	// AUTH
 	t.AuthLogin = fhttp.UnaryServer[api.AuthLoginRequest, api.AuthLoginResponse](router, "/api/v1/auth/login")
 	t.AuthChangePassword = fhttp.UnaryServer[api.AuthChangePasswordRequest, types.Nil](router, "/api/v1/auth/change-password")

@@ -10,15 +10,16 @@
 package latency
 
 import (
-	"github.com/synnaxlabs/freighter"
 	"time"
+
+	"github.com/synnaxlabs/freighter"
 )
 
 func Middleware(delay time.Duration) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
 		next freighter.Next,
-	) (oMD freighter.Context, err error) {
+	) (freighter.Context, error) {
 		time.Sleep(delay)
 		return next(ctx)
 	})
