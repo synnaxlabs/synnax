@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type MultiSeries, type Synnax } from "@synnaxlabs/client";
-import { array, type primitive, record, type status } from "@synnaxlabs/x";
+import { array, type primitive, type status } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { type z } from "zod/v4";
 
@@ -184,15 +184,17 @@ export type UseFormReturn<Z extends z.ZodType> = {
   error: null;
   statusContent: ReactElement;
   form: Form.UseReturn<Z>;
+  save: () => void;
 };
 
 interface UseFormArgs<K extends primitive.Value, Z extends z.ZodObject> {
   key?: K;
   initialValues: z.infer<Z>;
+  autoSave?: boolean;
 }
 
 export interface FormHook<K extends primitive.Value, Z extends z.ZodObject> {
-  ({ key, initialValues }: UseFormArgs<K, Z>): UseFormReturn<Z>;
+  ({ key, initialValues, autoSave }: UseFormArgs<K, Z>): UseFormReturn<Z>;
 }
 
 export const createForm =
@@ -203,7 +205,7 @@ export const createForm =
     listeners,
   }: CreateFormArgs<K, Z>): FormHook<K, Z> =>
   ({ key, initialValues }: UseFormArgs<K, Z>): UseFormReturn<Z> => {
-    const [status, setStatus] = useState<Omit<UseFormReturn<Z>, "form">>({
+    const [status, setStatus] = useState<Omit<UseFormReturn<Z>, "form" | "save">>({
       status: "loading",
       message: `Loading ${name}`,
       error: null,
@@ -242,7 +244,7 @@ export const createForm =
                   async () =>
                     await onChange({
                       client,
-                      params: key,
+                      params: key ?? (undefined as K),
                       changed: frame.get(channel),
                       onChange: (value) => {
                         form.set("", value);
@@ -269,7 +271,7 @@ export const createForm =
         }
         return () => {};
       },
-      [memoKey, client],
+      [client],
     );
     return {
       status: status.status,
@@ -277,5 +279,6 @@ export const createForm =
       message: status.message,
       statusContent: status.statusContent,
       form,
+      save: () => {},
     };
   };

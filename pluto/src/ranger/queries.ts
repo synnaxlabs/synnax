@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
+import { label, ranger } from "@synnaxlabs/client";
+import { z } from "zod/v4";
 
 import { Ontology } from "@/ontology";
 import { Query } from "@/query";
@@ -73,24 +74,29 @@ export const use = Query.create<ranger.Key, ranger.Range>({
   listeners: [SET_LISTENER_CONFIG],
 });
 
-export const useForm = Query.createForm<ranger.Key, typeof ranger.payloadZ>({
+export const rangeFormSchema = z.object({
+  ...ranger.payloadZ.omit({ timeRange: true }).shape,
+  labels: z.array(label.keyZ),
+  parent: z.string().optional(),
+  timeRange: z.object({
+    start: z.number(),
+    end: z.number(),
+  }),
+});
+
+export const useForm = Query.createForm<ranger.Key, typeof rangeFormSchema>({
   name: "Range",
-  schema: ranger.payloadZ,
+  schema: rangeFormSchema,
   queryFn: async ({ client, params: key }) => {
     if (key == null) return null;
-    return await client.ranges.retrieve(key);
+    const range = await client.ranges.retrieve(key);
+    const v: z.infer<typeof rangeFormSchema> = {
+      ...range.payload,
+      timeRange: range.timeRange.numeric,
+      labels: (await range.labels()).map((l) => l.key),
+    };
+    return v;
   },
   mutationFn: async ({ client, values }) => await client.ranges.create(values),
-  listeners: [
-    {
-      channel: ranger.SET_CHANNEL_NAME,
-      onChange: parsedHandler(
-        ranger.payloadZ,
-        async ({ changed, params: key, onChange }) => {
-          if (changed.key !== key) return;
-          onChange(changed);
-        },
-      ),
-    },
-  ],
+  listeners: [],
 });

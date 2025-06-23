@@ -15,11 +15,11 @@ import {
   Form,
   Icon,
   Input,
+  Label,
   Ranger,
   Text,
   usePrevious,
 } from "@synnaxlabs/pluto";
-import { TimeRange } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
 
 import { Cluster } from "@/cluster";
@@ -68,18 +68,19 @@ export interface DetailsProps {
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const layoutName = Layout.useSelect(rangeKey)?.name;
   const prevLayoutName = usePrevious(layoutName);
-  const { form: formCtx } = Ranger.useForm({
-    params: rangeKey,
+  const { form } = Ranger.useForm({
+    key: rangeKey,
     initialValues: {
       key: rangeKey,
       name: "",
-      timeRange: new TimeRange({ start: 0n, end: 0n }),
+      timeRange: { start: 0, end: 0 },
+      labels: [],
     },
   });
-  const name = Form.useFieldValue<string, string, typeof ranger.payloadZ>(
+  const name = Form.useFieldValue<string, string, typeof Ranger.rangeFormSchema>(
     "name",
     false,
-    formCtx,
+    form,
   );
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleCopyLink = () => {
@@ -88,7 +89,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
 
   useEffect(() => {
     if (prevLayoutName == layoutName || prevLayoutName == null) return;
-    formCtx.set("name", layoutName);
+    form.set("name", layoutName);
   }, [layoutName]);
 
   const copy = useCopyToClipboard();
@@ -103,7 +104,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   };
 
   const handleCopyTypeScriptCode = () => {
-    const name = formCtx.get<string>("name").value;
+    const name = form.get<string>("name").value;
     copy(
       `
       // Retrieve ${name}
@@ -114,7 +115,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   };
 
   return (
-    <Form.Form<typeof ranger.payloadZ> {...formCtx}>
+    <Form.Form<typeof Ranger.rangeFormSchema> {...form}>
       <Align.Space y size="large">
         <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
           <Align.Space y grow>
@@ -183,6 +184,18 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
             {(p) => (
               <Input.DateTime onlyChangeOnBlur level="h4" variant="natural" {...p} />
+            )}
+          </Form.Field>
+          <Form.Field<string[]> required={false} path="labels">
+            {({ variant: _, ...p }) => (
+              <Label.SelectMultiple
+                entryRenderKey="name"
+                dropdownVariant="floating"
+                zIndex={100}
+                location="bottom"
+                style={{ width: "fit-content" }}
+                {...p}
+              />
             )}
           </Form.Field>
         </Align.Space>

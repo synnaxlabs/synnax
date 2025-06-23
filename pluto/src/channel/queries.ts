@@ -19,3 +19,14 @@ export const useCalculationStateSynchronizer = (
     channel.calculationStateZ,
     onChange,
   );
+
+export const useForm = Query.createForm<channel.Key, typeof channel.channelZ>({
+  name: "Channel",
+  schema: channel.channelZ,
+  queryFn: async ({ client, params: key }) => {
+    if (key == null) return null;
+    return await client.channels.retrieve(key);
+  },
+  mutationFn: async ({ client, values }) => await client.channels.create(values),
+  listeners: [],
+});

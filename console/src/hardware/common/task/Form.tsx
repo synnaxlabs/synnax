@@ -17,7 +17,7 @@ import {
   Status,
   Synnax as PSynnax,
 } from "@synnaxlabs/pluto";
-import { type record, TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
 import { useDispatch } from "react-redux";
@@ -29,98 +29,102 @@ import { Controls } from "@/hardware/common/task/Controls";
 import { CopyButtons } from "@/hardware/common/task/CopyButtons";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import { Rack } from "@/hardware/common/task/Rack";
-import {
-  type ConfigSchema,
-  type TaskProps,
-  wrap,
-  type WrapOptions,
-} from "@/hardware/common/task/Task";
-import { RUNNING_STATUS, type StartOrStopCommand } from "@/hardware/common/task/types";
+import { type TaskProps, wrap, type WrapOptions } from "@/hardware/common/task/Task";
+import { type Command } from "@/hardware/common/task/types";
 import { useCreate } from "@/hardware/common/task/useCreate";
-import {
-  type State,
-  type StateDetails,
-  useState,
-} from "@/hardware/common/task/useState";
+import { useStatus } from "@/hardware/common/task/useStatus";
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
 
-export type FormSchema<Config extends record.Unknown = record.Unknown> = z.ZodObject<{
+export type FormSchema<Config extends z.ZodType = z.ZodType> = z.ZodObject<{
   name: z.ZodString;
-  config: ConfigSchema<Config>;
+  config: Config;
 }>;
 
 export type FormProps<
-  Config extends record.Unknown = record.Unknown,
-  Details extends StateDetails = StateDetails,
-  Type extends string = string,
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
 > = { methods: PForm.ContextValue<FormSchema<Config>> } & (
   | {
       configured: false;
-      task: task.Payload<Config, Details, Type>;
+      task: task.Payload<Type, Config, StatusData>;
       isSnapshot: false;
       isRunning: false;
     }
-  | ({ configured: true; task: task.Task<Config, Details, Type> } & (
+  | ({ configured: true; task: task.Task<Type, Config, StatusData> } & (
       | { isSnapshot: false; isRunning: boolean }
       | { isSnapshot: true; isRunning: false }
     ))
 );
 
-export interface OnConfigure<Config extends record.Unknown = record.Unknown> {
-  (client: Synnax, config: Config, name: string): Promise<[Config, rack.Key]>;
+const COMMAND_MESSAGES: Record<Command, string> = {
+  start: "Starting task",
+  stop: "Stopping task",
+};
+
+export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
+  (
+    client: Synnax,
+    config: z.output<Config>,
+    name: string,
+  ): Promise<[z.output<Config>, rack.Key]>;
 }
 
 export interface WrapFormArgs<
-  Config extends record.Unknown = record.Unknown,
-  Details extends StateDetails = StateDetails,
-  Type extends string = string,
-> extends WrapOptions<Config, Details, Type> {
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+> extends WrapOptions<Type, Config, StatusData> {
   Properties: FC<{}>;
-  Form: FC<FormProps<Config, Details, Type>>;
-  type: Type;
+  Form: FC<FormProps<Type, Config, StatusData>>;
+  type: z.output<Type>;
   onConfigure: OnConfigure<Config>;
 }
 
 export interface UseFormArgs<
-  Config extends record.Unknown = record.Unknown,
-  Details extends StateDetails = StateDetails,
-  Type extends string = string,
-> extends TaskProps<Config, Details, Type>,
-    Pick<
-      WrapFormArgs<Config, Details, Type>,
-      "configSchema" | "onConfigure" | "type"
-    > {}
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+> extends TaskProps<Type, Config, StatusData>,
+    Pick<WrapFormArgs<Type, Config, StatusData>, "schemas" | "onConfigure" | "type"> {}
 
 export interface UseFormReturn<
-  Config extends record.Unknown = record.Unknown,
-  Details extends StateDetails = StateDetails,
-  Type extends string = string,
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
 > {
-  formProps: FormProps<Config, Details, Type>;
+  formProps: FormProps<Type, Config, StatusData>;
   handleConfigure: UseMutateFunction<void, Error, void, unknown>;
-  handleStartOrStop: UseMutateFunction<void, Error, StartOrStopCommand, unknown>;
-  state: State;
+  handleStartOrStop: UseMutateFunction<void, Error, Command, unknown>;
+  status: task.Status<StatusData>;
   isConfiguring: boolean;
 }
 
 const nameZ = z.string().min(1, "Name is required");
 
+const DEFAULT_STATUS: task.Status<z.ZodTypeAny> = {
+  key: "",
+  variant: "disabled",
+  message: "Task is not configured",
+  time: TimeStamp.now(),
+  details: { running: false, task: "", data: {} },
+};
+
 export const useForm = <
-  Config extends record.Unknown = record.Unknown,
-  Details extends StateDetails = StateDetails,
-  Type extends string = string,
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
 >({
   task: initialTask,
   layoutKey,
-  configSchema,
   onConfigure,
   type,
-}: UseFormArgs<Config, Details, Type>): UseFormReturn<Config, Details, Type> => {
-  const schema = z.object({ name: nameZ, config: configSchema });
+  schemas,
+}: UseFormArgs<Type, Config, StatusData>): UseFormReturn<Type, Config, StatusData> => {
+  const schema = z.object({ name: nameZ, config: schemas.configSchema });
   const client = PSynnax.use();
   const handleError_ = Status.useErrorHandler();
-  const values = { name: initialTask.name, config: initialTask.config };
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
     (hasUnsavedChanges: boolean) => {
@@ -132,23 +136,27 @@ export const useForm = <
   );
   const methods = PForm.use<FormSchema<Config>>({
     schema,
-    values,
+    values: schema.parse({
+      name: initialTask.name,
+      config: initialTask.config,
+    }) as z.output<FormSchema<Config>>,
     onHasTouched: handleUnsavedChanges,
   });
-  const create = useCreate<Config, Details, Type>(layoutKey);
+  const create = useCreate<Type, Config, StatusData>(layoutKey, schemas);
   const name = Layout.useSelectName(layoutKey);
   useEffect(() => {
     if (name != null) methods.set("name", name);
   }, [name]);
   const [task_, setTask_] = useReactState(initialTask);
   const configured = task_.key.length > 0;
-  const { state, triggerError, triggerLoading } = useState(
+  const { status, triggerError, triggerLoading } = useStatus<StatusData>(
     task_.key,
-    initialTask.state ?? undefined,
+    initialTask.status ?? (DEFAULT_STATUS as task.Status<StatusData>),
+    COMMAND_MESSAGES,
   );
   const handleError = (e: Error, action: string) => {
     triggerError(e.message);
-    handleError_(e, `Failed to ${action} ${values.name}`);
+    handleError_(e, `Failed to ${action} ${methods.get<string>("name").value}`);
   };
 
   const confirm = useConfirm();
@@ -158,9 +166,13 @@ export const useForm = <
       if (client == null) throw NULL_CLIENT_ERROR;
       if (initialTask.snapshot) return;
       if (!(await methods.validateAsync())) return;
-      const { config, name } = methods.value();
+      const { name, config } = methods.value();
       if (config == null) throw new Error("Config is required");
-      const [newConfig, rackKey] = await onConfigure(client, config, name);
+      const [newConfig, rackKey] = await onConfigure(
+        client,
+        config as z.output<Config>,
+        name,
+      );
       if (task_.key != "" && rackKey != task.getRackKey(task_.key)) {
         const confirmed = await confirm({
           message: "Device has been moved to different driver.",
@@ -176,10 +188,11 @@ export const useForm = <
       methods.setCurrentStateAsInitialValues();
       methods.set("config", newConfig);
       // current work around for Pluto form issues (Issue: SY-1465)
-      if ("channels" in newConfig) methods.set("config.channels", newConfig.channels);
+      if ("channels" in (newConfig as { channels: any }))
+        methods.set("config.channels", (newConfig as { channels: any }).channels);
       dispatch(Layout.rename({ key: layoutKey, name }));
       const t = await create(
-        { key: task_.key, name, type, config: newConfig },
+        { key: task_.key, name, type, config: newConfig as z.output<Config> },
         rackKey,
       );
       setTask_(t);
@@ -187,9 +200,9 @@ export const useForm = <
     onError: (e: Error) => handleError(e, "configure"),
   });
   const { mutate: handleStartOrStop } = useMutation({
-    mutationFn: async (command: StartOrStopCommand) => {
+    mutationFn: async (command: Command) => {
       if (!configured) throw new UnexpectedError("Task has not been configured");
-      triggerLoading();
+      triggerLoading(COMMAND_MESSAGES[command]);
       const sugaredTask = client?.hardware.tasks.sugar({
         ...initialTask,
         key: task_.key,
@@ -199,38 +212,33 @@ export const useForm = <
     onError: handleError,
   });
   const isSnapshot = configured ? (initialTask.snapshot ?? false) : false;
-  const isRunning = configured && !isSnapshot ? state.status === RUNNING_STATUS : false;
+  const isRunning =
+    configured && !isSnapshot ? (status?.details.running ?? false) : false;
   const formProps = {
     methods,
     configured,
     task: task_,
     isSnapshot,
     isRunning,
-  } as FormProps<Config, Details, Type>;
-  return { formProps, handleConfigure, handleStartOrStop, state, isConfiguring };
+  } as FormProps<Type, Config, StatusData>;
+  return { formProps, handleConfigure, handleStartOrStop, status, isConfiguring };
 };
 
 export const wrapForm = <
-  Config extends record.Unknown = record.Unknown,
-  Details extends StateDetails = StateDetails,
-  Type extends string = string,
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
 >({
   Properties,
   Form,
-  configSchema,
+  schemas,
   type,
   getInitialPayload,
   onConfigure,
-}: WrapFormArgs<Config, Details, Type>): Layout.Renderer => {
-  const Wrapper = ({ layoutKey, ...rest }: TaskProps<Config, Details, Type>) => {
-    const { formProps, handleConfigure, handleStartOrStop, state, isConfiguring } =
-      useForm({
-        ...rest,
-        layoutKey,
-        configSchema,
-        type,
-        onConfigure,
-      });
+}: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
+  const Wrapper = ({ layoutKey, ...rest }: TaskProps<Type, Config, StatusData>) => {
+    const { formProps, handleConfigure, handleStartOrStop, status, isConfiguring } =
+      useForm({ ...rest, layoutKey, schemas, type, onConfigure });
     const { isSnapshot, methods, configured, task } = formProps;
     return (
       <Align.Space
@@ -274,7 +282,7 @@ export const wrapForm = <
           </PForm.Form>
           <Controls
             layoutKey={layoutKey}
-            state={state}
+            status={status}
             isConfiguring={isConfiguring}
             onStartStop={handleStartOrStop}
             onConfigure={handleConfigure}
@@ -286,5 +294,5 @@ export const wrapForm = <
     );
   };
   Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;
-  return wrap(Wrapper, { getInitialPayload, configSchema });
+  return wrap(Wrapper, { getInitialPayload, schemas });
 };

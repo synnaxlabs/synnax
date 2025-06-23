@@ -46,13 +46,11 @@ export const use = <
   Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
-  StateDetails extends {} = record.Unknown,
->(): device.Device<Properties, Make, Model, StateDetails> | undefined => {
+>(): device.Device<Properties, Make, Model> | undefined => {
   const ctx = Form.useContext<UseContextValue>();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const [dev, setDev] =
-    useState<device.Device<Properties, Make, Model, StateDetails>>();
+  const [dev, setDev] = useState<device.Device<Properties, Make, Model>>();
   const deviceNameRef = useSyncedRef(dev?.name);
   const handleExc = useCallback(
     (e: unknown) => {
@@ -73,12 +71,9 @@ export const use = <
         return;
       }
       try {
-        const d = await client.hardware.devices.retrieve<
-          Properties,
-          Make,
-          Model,
-          StateDetails
-        >(deviceKey);
+        const d = await client.hardware.devices.retrieve<Properties, Make, Model>(
+          deviceKey,
+        );
         if (signal.aborted) return;
         setDev(d);
       } catch (e) {
@@ -94,7 +89,7 @@ export const use = <
       (fs) => {
         if (!fs.touched || fs.status.variant !== "success" || client == null) return;
         client.hardware.devices
-          .retrieve<Properties, Make, Model, StateDetails>(fs.value)
+          .retrieve<Properties, Make, Model>(fs.value)
           .then(setDev)
           .catch(handleExc);
       },
@@ -103,8 +98,7 @@ export const use = <
   });
   const handleSet = useCallback(
     (d: device.Device) => {
-      if (d.key === dev?.key)
-        setDev(d as device.Device<Properties, Make, Model, StateDetails>);
+      if (d.key === dev?.key) setDev(d as device.Device<Properties, Make, Model>);
     },
     [dev?.key],
   );

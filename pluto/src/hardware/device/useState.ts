@@ -14,17 +14,17 @@ import { useStateSynchronizer } from "@/hardware/device/synchronizers";
 import { useAsyncEffect } from "@/hooks";
 import { Synnax } from "@/synnax";
 
-export const useState = (key: device.Key): device.State | undefined => {
+export const useState = (key: device.Key): device.Status | undefined => {
   const client = Synnax.use();
-  const [state, setState] = useState_<device.State | undefined>(undefined);
+  const [state, setState] = useState_<device.Status | undefined>(undefined);
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
-      const { state } = await client.hardware.devices.retrieve(key, {
-        includeState: true,
+      const { status } = await client.hardware.devices.retrieve(key, {
+        includeStatus: true,
       });
       if (signal.aborted) return;
-      setState(state);
+      setState(status);
     },
     [client],
   );

@@ -18,6 +18,6 @@ export const useDeleteSynchronizer = (onDelete: (key: device.Key) => void): void
   Query.useParsedListener(device.DELETE_CHANNEL_NAME, device.keyZ, onDelete);
 
 export const useStateSynchronizer = (
-  onStateChange: (state: device.State) => void,
+  onStateChange: (state: device.Status) => void,
 ): void =>
-  Query.useParsedListener(device.STATE_CHANNEL_NAME, device.stateZ, onStateChange);
+  Query.useParsedListener(device.STATE_CHANNEL_NAME, device.statusZ, onStateChange);

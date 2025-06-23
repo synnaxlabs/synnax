@@ -30,11 +30,10 @@ import { Controls } from "@/hardware/common/task/Controls";
 import { type FormSchema, useForm } from "@/hardware/common/task/Form";
 import { GLOBALS } from "@/hardware/task/sequence/globals";
 import {
-  type Config,
   configZ,
-  type StateDetails,
+  statusDetailsZ,
   TYPE,
-  type Type,
+  typeZ,
   ZERO_PAYLOAD,
 } from "@/hardware/task/sequence/types";
 import { type Modals } from "@/modals";
@@ -113,10 +112,10 @@ const Internal = ({
   task: base,
   layoutKey,
   rackKey,
-}: Common.Task.TaskProps<Config, StateDetails, Type>) => {
-  const client = Synnax.use();
+}: Common.Task.TaskProps<typeof typeZ, typeof configZ, typeof statusDetailsZ>) => {
   const handleError = Status.useErrorHandler();
-  const { formProps, handleConfigure, handleStartOrStop, state, isConfiguring } =
+  const client = Synnax.use();
+  const { formProps, handleConfigure, handleStartOrStop, status, isConfiguring } =
     useForm({
       task: {
         ...base,
@@ -126,7 +125,11 @@ const Internal = ({
         },
       },
       layoutKey,
-      configSchema: schema,
+      schemas: {
+        typeSchema: typeZ,
+        configSchema: schema,
+        statusDataSchema: statusDetailsZ,
+      },
       type: TYPE,
       onConfigure: async (_, config) => [config, config.rack],
     });
@@ -140,7 +143,7 @@ const Internal = ({
 
   return (
     <Align.Space style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
-      <Form.Form<FormSchema<Config>> {...methods}>
+      <Form.Form<FormSchema<typeof configZ>> {...methods}>
         <Form.Field<string>
           path="config.script"
           showLabel={false}
@@ -242,7 +245,7 @@ const Internal = ({
           </Align.Space>
           <Controls
             layoutKey={layoutKey}
-            state={state}
+            status={status}
             isConfiguring={isConfiguring}
             onStartStop={handleStartOrStop}
             onConfigure={handleConfigure}
@@ -262,5 +265,9 @@ const Internal = ({
 
 export const Sequence = Common.Task.wrap(Internal, {
   getInitialPayload: () => ZERO_PAYLOAD,
-  configSchema: configZ,
+  schemas: {
+    typeSchema: typeZ,
+    configSchema: configZ,
+    statusDataSchema: statusDetailsZ,
+  },
 });

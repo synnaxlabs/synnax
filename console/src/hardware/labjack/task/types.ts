@@ -264,17 +264,18 @@ const ZERO_READ_CONFIG: ReadConfig = {
   streamRate: 5,
 };
 
-export interface ReadStateDetails extends BaseStateDetails {
-  message: string;
-  errors?: { message: string; path: string }[];
-}
-export interface ReadState extends task.State<ReadStateDetails> {}
+export const readStatusDataZ = z.object({
+  errors: z.array(z.object({ message: z.string(), path: z.string() })),
+});
+
+export interface ReadStatus extends task.Status<typeof readStatusDataZ> {}
 
 export const READ_TYPE = `${PREFIX}_read`;
+export const readTypeZ = z.literal(READ_TYPE);
 export type ReadType = typeof READ_TYPE;
 
 export interface ReadPayload
-  extends task.Payload<ReadConfig, ReadStateDetails, ReadType> {}
+  extends task.Payload<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
 export const ZERO_READ_PAYLOAD: ReadPayload = {
   key: "",
   name: "LabJack Read Task",
@@ -282,8 +283,19 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
   type: READ_TYPE,
 };
 
-export interface ReadTask extends task.Task<ReadConfig, ReadStateDetails, ReadType> {}
-export interface NewReadTask extends task.New<ReadConfig, ReadType> {}
+export interface ReadTask
+  extends task.Task<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
+export interface NewReadTask extends task.New<typeof readTypeZ, typeof readConfigZ> {}
+
+export const READ_SCHEMAS: task.Schemas<
+  typeof readTypeZ,
+  typeof readConfigZ,
+  typeof readStatusDataZ
+> = {
+  typeSchema: readTypeZ,
+  configSchema: readConfigZ,
+  statusDataSchema: readStatusDataZ,
+};
 
 export const writeConfigZ = Common.Task.baseConfigZ.extend({
   channels: z
@@ -307,14 +319,19 @@ const ZERO_WRITE_CONFIG: WriteConfig = {
   stateRate: 10,
 };
 
-export interface WriteStateDetails extends BaseStateDetails {}
-export interface WriteState extends task.State<WriteStateDetails> {}
+export const writeStatusDataZ = z.object({});
+export interface WriteStatus extends task.Status<typeof writeStatusDataZ> {}
 
 export const WRITE_TYPE = `${PREFIX}_write`;
+export const writeTypeZ = z.literal(WRITE_TYPE);
 export type WriteType = typeof WRITE_TYPE;
 
 export interface WritePayload
-  extends task.Payload<WriteConfig, WriteStateDetails, WriteType> {}
+  extends task.Payload<
+    typeof writeTypeZ,
+    typeof writeConfigZ,
+    typeof writeStatusDataZ
+  > {}
 export const ZERO_WRITE_PAYLOAD: WritePayload = {
   key: "",
   name: "LabJack Write Task",
@@ -323,5 +340,16 @@ export const ZERO_WRITE_PAYLOAD: WritePayload = {
 };
 
 export interface WriteTask
-  extends task.Task<WriteConfig, WriteStateDetails, WriteType> {}
-export interface NewWriteTask extends task.New<WriteConfig, WriteType> {}
+  extends task.Task<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ> {}
+export interface NewWriteTask
+  extends task.New<typeof writeTypeZ, typeof writeConfigZ> {}
+
+export const WRITE_SCHEMAS: task.Schemas<
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
+> = {
+  typeSchema: writeTypeZ,
+  configSchema: writeConfigZ,
+  statusDataSchema: writeStatusDataZ,
+};

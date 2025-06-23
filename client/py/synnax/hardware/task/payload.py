@@ -7,11 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
-
 from freighter import Payload
 
-from synnax.status import INFO_VARIANT, Variant
+from synnax.status import Status
+
+
+class TaskStatusDetails(Payload):
+    task: int = 0
+    running: bool = False
+    data: dict | None = None
+
+
+TaskStatus = Status[TaskStatusDetails]
 
 
 class TaskPayload(Payload):
@@ -20,21 +27,4 @@ class TaskPayload(Payload):
     type: str = ""
     config: str = ""
     snapshot: bool = False
-
-
-class TaskState(Payload):
-    task: int = 0
-    variant: Variant = INFO_VARIANT
-    key: str = ""
-    details: dict
-
-    def __init__(
-        self,
-        task: int = 0,
-        variant: Variant = INFO_VARIANT,
-        key: str = "",
-        details: dict | str = "",
-    ):
-        if isinstance(details, str):
-            details = json.loads(details)
-        super().__init__(task=task, variant=variant, key=key, details=details)
+    status: TaskStatus | None = None
