@@ -387,22 +387,26 @@ export class Client {
     Task<Type, Config, StatusData> | Task<Type, Config, StatusData>[]
   > {
     const req: RetrieveRequest = { ...options };
-    let isMultiple = false;
-    if (key != null) req.keys = [key];
-    if (keys != null) {
-      req.keys = keys;
-      isMultiple = true;
+    let isMultiple = true;
+    if (key != null) {
+      req.keys = [key];
+      isMultiple = false;
     }
-    if (name != null) req.names = [name];
+    if (keys != null) req.keys = keys;
+    if (name != null) {
+      req.names = [name];
+      isMultiple = false;
+    }
     if (type != null) {
       req.types = [type];
-      isMultiple = true;
+      isMultiple = false;
     }
     const tasks = await this.execRetrieve<Type, Config, StatusData>(req);
     const sugared = this.sugar<Type, Config, StatusData>(
       tasks,
       schemas as Schemas<Type, Config, StatusData>,
     );
+    console.log("sugared", sugared);
     return isMultiple ? sugared : sugared[0];
   }
 

@@ -174,7 +174,7 @@ describe("Task", async () => {
           const state: task.Status = {
             key: cmd.key,
             variant: "success",
-            details: { task: cmd.task, running: false, data: {} },
+            details: { task: cmd.task, running: false, data: { beacons: "lit" } },
             message: "test",
             time: TimeStamp.now(),
           };
@@ -183,7 +183,10 @@ describe("Task", async () => {
       });
       const state = await t.executeCommandSync("test", TimeSpan.fromSeconds(1));
       expect(state.variant).toBe("success");
-      expect(state.details).toMatchObject({ beacons: "lit" });
+      expect(state.details).toMatchObject({
+        data: { beacons: "lit" },
+        running: false,
+      });
       await w.close();
       await commandObs.close();
     });
