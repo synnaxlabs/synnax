@@ -9,7 +9,7 @@
 
 import { access, policy, schematic, user } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 const consolePolicyZ = z.enum(["admin", "schematic"]);
 export type ConsolePolicy = z.infer<typeof consolePolicyZ>;

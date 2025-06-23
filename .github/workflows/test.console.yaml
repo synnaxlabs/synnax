@@ -1,51 +1,29 @@
 name: Test - Console
 
 on:
-  push:
-    branches:
-      - main
-      - rc
   pull_request:
-    branches:
-      - main
-      - rc
+    paths:
+      - .github/workflows/test.console.yaml
+      - alamos/ts/**
+      - client/ts/**
+      - configs/eslint/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - drift/**
+      - freighter/ts/**
+      - package.json
+      - pluto/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - x/media/**
+      - x/ts/**
   workflow_dispatch:
 
 jobs:
-  changes:
-    name: Changes
-    runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.filter.outputs.changed }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Diff Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.ref }}
-          filters: |
-            changed:
-              - .github/workflows/test.console.yaml
-              - alamos/ts/**
-              - client/ts/**
-              - configs/eslint/**
-              - configs/stylelint/**
-              - configs/ts/**
-              - configs/vite/**
-              - console/**
-              - drift/**
-              - freighter/ts/**
-              - pluto/**
-              - x/media/**
-              - x/ts/**
-
   test:
     name: Test (${{ matrix.os }})
-    needs: changes
-    if: needs.changes.outputs.changed == 'true'
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
@@ -53,8 +31,12 @@ jobs:
           - os: ubuntu-latest
             lint: true
         exclude:
-          - os: ${{ github.ref != 'refs/heads/main' && 'macos-latest' }}
-          - os: ${{ github.ref != 'refs/heads/main' && 'windows-latest' }}
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'macos-latest' }}
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -72,8 +54,8 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:console-vite
+      - name: Check Types
+        run: pnpm check-types:console
 
       - name: Lint
         if: matrix.lint

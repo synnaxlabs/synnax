@@ -11,9 +11,11 @@ package writer
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
@@ -41,7 +43,7 @@ func (rs *peerSwitchSender) _switch(
 	r Request,
 	oReqs map[address.Address]Request,
 ) error {
-	if r.Command == Data {
+	if r.Command == Write {
 		for nodeKey, frame := range r.Frame.SplitByLeaseholder() {
 			addr, ok := rs.addresses[nodeKey]
 			if !ok {
@@ -61,7 +63,7 @@ func (rs *peerSwitchSender) _switch(
 
 type peerGatewayFreeSwitch struct {
 	confluence.BatchSwitch[Request, Request]
-	host core.NodeKey
+	host cluster.NodeKey
 	has  struct {
 		peer    bool
 		gateway bool
@@ -70,7 +72,7 @@ type peerGatewayFreeSwitch struct {
 }
 
 func newPeerGatewayFreeSwitch(
-	host core.NodeKey,
+	host cluster.NodeKey,
 	hasPeer bool,
 	hasGateway bool,
 	hasFree bool,

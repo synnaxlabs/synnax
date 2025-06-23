@@ -8,26 +8,40 @@
 // included in the file licenses/APL.txt.
 
 import { direction } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Tabs } from "@/tabs";
 
-const baseNodeZ = z.object({
+/**
+ * Base interface for a mosaic node in the tree. Used to make sure that
+ * zod type inference works correctly with recursive types.
+ */
+interface BaseNode {
+  key: number;
+  tabs?: Tabs.Tab[];
+  selected?: string;
+  direction?: direction.Direction;
+  size?: number;
+  first?: BaseNode;
+  last?: BaseNode;
+}
+
+/**
+ * Zod schema for a mosaic node. Used to validate the data for a node in the Mosaic
+ * binary tree. See the `Node` interface for more information.
+ */
+export const nodeZ: z.ZodType<BaseNode> = z.object({
   key: z.number(),
   tabs: z.array(Tabs.tabZ).optional(),
   selected: z.string().optional(),
   direction: direction.direction.optional(),
   size: z.number().optional(),
-});
-
-type BaseNode = z.infer<typeof baseNodeZ> & {
-  first?: BaseNode;
-  last?: BaseNode;
-};
-
-export const nodeZ: z.ZodType<BaseNode> = baseNodeZ.extend({
-  first: z.lazy(() => nodeZ).optional(),
-  last: z.lazy(() => nodeZ).optional(),
+  get first() {
+    return nodeZ.optional();
+  },
+  get last() {
+    return nodeZ.optional();
+  },
 });
 
 /**

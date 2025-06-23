@@ -8,20 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   componentRenderProp,
   Divider,
   Form,
+  Icon,
   Input,
   List,
   Text,
 } from "@synnaxlabs/pluto";
 import { type change, compare, deep, kv, link } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useMemo } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -53,7 +53,7 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
       placeholder="Value"
       color={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
     >
-      <Button.Icon onClick={() => copyToClipboard(value, "value")}>
+      <Button.Icon onClick={() => copyToClipboard(value, "value")} variant="outlined">
         <Icon.Copy />
       </Button.Icon>
       {isLink && (
@@ -184,9 +184,9 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
         if (values.pairs.length >= tPrev.length) return;
         // a key was removed, take the difference and delete the key
         const newKeys = values.pairs.map((v) => v.key);
-        const diff = tPrev.filter((p) => !newKeys.includes(p.key));
-        if (diff.length === 0) return;
-        await kv.delete(diff[0].key);
+        const diff = tPrev.find((p) => !newKeys.includes(p.key));
+        if (diff == null) return;
+        await kv.delete(diff.key);
         return;
       }
       const split = path.split(".").slice(0, -1).join(".");
@@ -203,7 +203,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
       <Text.Text level="h4" shade={11} weight={450}>
         Metadata
       </Text.Text>
-      <Form.Form {...formCtx}>
+      <Form.Form<typeof metaDataFormSchema> {...formCtx}>
         <List.List<string, kv.Pair> data={sorted}>
           <List.Core>{metaDataItem}</List.Core>
         </List.List>

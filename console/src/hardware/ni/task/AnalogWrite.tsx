@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
-import { primitiveIsZero } from "@synnaxlabs/x";
+import { Align, componentRenderProp, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -63,6 +62,7 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
   const {
     entry: { port, cmdChannel, stateChannel, type },
   } = rest;
+  const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
@@ -74,10 +74,7 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
       canTare={false}
       isSnapshot={isSnapshot}
       path={path}
-      icon={{
-        name: AO_CHANNEL_TYPE_NAMES[type],
-        icon: AO_CHANNEL_TYPE_ICONS[type],
-      }}
+      icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
     />
   );
 };
@@ -130,7 +127,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogWriteConfig> = async (
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
-  let shouldCreateStateIndex = primitiveIsZero(dev.properties.analogOutput.stateIndex);
+  let shouldCreateStateIndex = primitive.isZero(dev.properties.analogOutput.stateIndex);
   if (!shouldCreateStateIndex)
     try {
       await client.channels.retrieve(dev.properties.analogOutput.stateIndex);

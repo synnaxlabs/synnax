@@ -10,6 +10,8 @@
 package ts
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/config"
@@ -37,7 +39,6 @@ type (
 	IteratorRequest  = cesium.IteratorRequest
 	IteratorResponse = cesium.IteratorResponse
 	IteratorCommand  = cesium.IteratorCommand
-	Streamer         = cesium.Streamer
 	StreamerConfig   = cesium.StreamerConfig
 	StreamerRequest  = cesium.StreamerRequest
 	StreamerResponse = cesium.StreamerResponse
@@ -54,9 +55,12 @@ type Config struct {
 	alamos.Instrumentation
 	// Dirname is the directory in which the DB will store its files. DB should have
 	// exclusive access to this directory, and sharing with another process/component
-	// may result in data corruption. Defaults to an empty string.
+	// may result in data corruption.
+	//
+	// [OPTIONAL] - Defaults to an empty string.
 	Dirname string
 	// FS is the file system interface that the DB will use to read and write data.
+	//
 	// [REQUIRED]
 	FS xfs.FS
 }
@@ -85,12 +89,13 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-func Open(configs ...Config) (*DB, error) {
+func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
 	return cesium.Open(
+		ctx,
 		cfg.Dirname,
 		cesium.WithFS(cfg.FS),
 		cesium.WithInstrumentation(cfg.Instrumentation),

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { observe, strings, toArray } from "@synnaxlabs/x";
+import { array, observe, strings } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
@@ -20,6 +20,8 @@ import {
   ID,
   type IDPayload,
   idZ,
+  oppositeRelationshipDirection,
+  PARENT_OF_RELATIONSHIP_TYPE,
   parseRelationship,
   type RelationshipChange,
   type RelationshipDirection,
@@ -51,7 +53,7 @@ export interface RetrieveOptions
 const retrieveResZ = z.object({ resources: resourceZ.array() });
 
 export const parseIDs = (ids: CrudeID | CrudeID[] | string | string[]): IDPayload[] =>
-  toArray(ids).map((id) => new ID(id).payload);
+  array.toArray(ids).map((id) => new ID(id).payload);
 
 /** The core client class for executing queries against a Synnax cluster ontology */
 export class Client implements AsyncTermSearcher<string, string, Resource> {
@@ -120,7 +122,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     if (resources.length === 0)
       throw new QueryError(
         `No resource found with ID ${strings.naturalLanguageJoin(
-          toArray(ids).map((id) => new ID(id).toString()),
+          array.toArray(ids).map((id) => new ID(id).toString()),
         )}`,
       );
     return resources[0];
@@ -249,10 +251,10 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
   }
 }
 
-const RESOURCE_SET_CHANNEL_NAME = "sy_ontology_resource_set";
-const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
-const RELATIONSHIP_SET_CHANNEL_NAME = "sy_ontology_relationship_set";
-const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete";
+export const RESOURCE_SET_CHANNEL_NAME = "sy_ontology_resource_set";
+export const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
+export const RELATIONSHIP_SET_CHANNEL_NAME = "sy_ontology_relationship_set";
+export const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete";
 
 /**
  * A class that tracks changes to the ontology's resources and relationships.
@@ -362,9 +364,6 @@ export class ChangeTracker {
   }
 }
 
-const oppositeDirection = (dir: RelationshipDirection): RelationshipDirection =>
-  dir === "from" ? "to" : "from";
-
 interface DependentTrackerProps {
   target: ID;
   dependents: Resource[];
@@ -394,7 +393,7 @@ export class DependentTracker
     {
       target,
       dependents,
-      relationshipType = "parent",
+      relationshipType = PARENT_OF_RELATIONSHIP_TYPE,
       relationshipDirection = "from",
       resourceType,
     }: DependentTrackerProps,
@@ -438,7 +437,7 @@ export class DependentTracker
         c.variant === "delete" &&
         c.key[this.relDir].toString() === this.target.toString() &&
         (this.resourceType == null ||
-          c.key[oppositeDirection(this.relDir)].type === this.resourceType),
+          c.key[oppositeRelationshipDirection(this.relDir)].type === this.resourceType),
     );
     this.dependents = this.dependents.filter(
       (child) =>
@@ -454,7 +453,7 @@ export class DependentTracker
         c.key.type === this.relType &&
         c.key[this.relDir].toString() === this.target.toString() &&
         (this.resourceType == null ||
-          c.key[oppositeDirection(this.relDir)].type === this.resourceType),
+          c.key[oppositeRelationshipDirection(this.relDir)].type === this.resourceType),
     );
     if (sets.length === 0) return this.notify(this.dependents);
     this.client

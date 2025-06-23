@@ -19,7 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/grpc"
@@ -139,7 +140,7 @@ func (t channelRetrieveRequestTranslator) Backward(
 	msg *gapi.ChannelRetrieveRequest,
 ) (api.ChannelRetrieveRequest, error) {
 	return api.ChannelRetrieveRequest{
-		NodeKey: core.NodeKey(msg.NodeKey),
+		NodeKey: cluster.NodeKey(msg.NodeKey),
 		Names:   msg.Names,
 		Search:  msg.Search,
 		Keys:    unsafe.ReinterpretSlice[uint32, channel.Key](msg.Keys),
@@ -188,7 +189,6 @@ func translateChannelForward(
 		Key:         uint32(msg.Key),
 		Name:        msg.Name,
 		Leaseholder: uint32(msg.Leaseholder),
-		Rate:        float32(msg.Rate),
 		DataType:    string(msg.DataType),
 		Density:     int64(msg.Density),
 		IsIndex:     msg.IsIndex,
@@ -204,8 +204,7 @@ func translateChannelBackward(
 	return api.Channel{
 		Key:         channel.Key(msg.Key),
 		Name:        msg.Name,
-		Leaseholder: core.NodeKey(msg.Leaseholder),
-		Rate:        telem.Rate(msg.Rate),
+		Leaseholder: cluster.NodeKey(msg.Leaseholder),
 		DataType:    telem.DataType(msg.DataType),
 		Density:     telem.Density(msg.Density),
 		IsIndex:     msg.IsIndex,

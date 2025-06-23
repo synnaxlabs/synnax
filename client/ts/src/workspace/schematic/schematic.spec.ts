@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NIL as ZERO_UUID } from "uuid";
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { ValidationError } from "@/errors";
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Schematic", () => {
   describe("create", () => {
@@ -27,7 +27,7 @@ describe("Schematic", () => {
         data: { one: 1 },
       });
       expect(schematic.name).toEqual("Schematic");
-      expect(schematic.key).not.toEqual(ZERO_UUID);
+      expect(schematic.key).not.toEqual(uuid.ZERO);
       expect(schematic.data.one).toEqual(1);
     });
   });
@@ -93,7 +93,7 @@ describe("Schematic", () => {
         false,
       );
       expect(schematic2.name).toEqual("Schematic2");
-      expect(schematic2.key).not.toEqual(ZERO_UUID);
+      expect(schematic2.key).not.toEqual(uuid.ZERO);
       expect(schematic2.data.one).toEqual(1);
     });
     describe("snapshot", () => {

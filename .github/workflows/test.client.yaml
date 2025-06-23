@@ -1,26 +1,52 @@
 name: Test - Client
 
 on:
+  pull_request:
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.client.yaml
+      - alamos/go/**
+      - alamos/py/**
+      - alamos/ts/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - client/py/**
+      - client/ts/**
+      - configs/eslint/**
+      - configs/ts/**
+      - configs/vite/**
+      - freighter/cpp/**
+      - freighter/go/**
+      - freighter/py/**
+      - freighter/ts/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts/check-clang-format.sh
+      - synnax/**
+      - turbo.json
+      - x/cpp/**
+      - x/go/**
+      - x/ts/**
   push:
     branches:
       - main
       - rc
-  pull_request:
-    branches:
-      - main
-      - rc
   workflow_dispatch:
-
-permissions:
-  contents: write
-  packages: write
 
 jobs:
   changes:
     name: Changes
     runs-on: ubuntu-latest
     outputs:
-      server: ${{ steps.filter.outputs.server }}
       cpp: ${{ steps.filter.outputs.cpp }}
       py: ${{ steps.filter.outputs.py }}
       ts: ${{ steps.filter.outputs.ts }}
@@ -36,41 +62,50 @@ jobs:
           filters: |
             shared: &shared
               - .github/workflows/test.client.yaml
-            server: &server
-              - *shared
               - alamos/go/**
               - aspen/**
               - cesium/**
               - freighter/go/**
+              - go.work
+              - go.work.sum
               - synnax/**
               - x/go/**
             cpp:
               - *shared
-              - *server
+              - .bazeliskrc
+              - .bazelrc
+              - .clang-format
+              - .clang-format-ignore
               - client/cpp/**
               - freighter/cpp/**
+              - MODULE.bazel
+              - MODULE.bazel.lock
+              - scripts/check-clang-format.sh
+              - x/cpp/**
             py:
               - *shared
-              - *server
               - alamos/py/**
               - client/py/**
               - freighter/py/**
             ts:
               - *shared
-              - *server
               - alamos/ts/**
               - client/ts/**
               - configs/eslint/**
               - configs/ts/**
               - configs/vite/**
               - freighter/ts/**
+              - package.json
+              - pnpm-lock.yaml
+              - pnpm-workspace.yaml
+              - turbo.json
               - x/ts/**
 
   server:
-    name: Server
-    needs: changes
+    name: Build - Server
     runs-on: ubuntu-latest
-    if: needs.changes.outputs.cpp == 'true' || needs.changes.outputs.py == 'true' || needs.changes.outputs.ts == 'true'
+    permissions:
+      packages: write
     env:
       GITHUB_SHA: ${{ github.sha }}
     steps:
@@ -95,7 +130,7 @@ jobs:
         run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
   cpp:
-    name: C++
+    name: Test - C++
     needs: [changes, server]
     if: needs.changes.outputs.cpp == 'true'
     runs-on: ubuntu-latest
@@ -117,21 +152,24 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
+        uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
       - name: Check Formatting
-        run: bash scripts/check-clang-format.sh client/cpp
+        run: ./scripts/check-clang-format.sh client/cpp
 
       - name: Test
         run: bazel test --test_output=all //client/cpp/... --nocache_test_results
 
   py:
-    name: Python
+    name: Test - Python
     needs: [changes, server]
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
@@ -179,7 +217,7 @@ jobs:
         working-directory: client/py
 
   ts:
-    name: TypeScript
+    name: Test - TypeScript
     needs: [changes, server]
     if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
@@ -187,7 +225,6 @@ jobs:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
         env:
-          SYNNAX_LISTEN: localhost:9090
           SYNNAX_VERBOSE: true
           SYNNAX_INSECURE: true
           SYNNAX_MEM: true

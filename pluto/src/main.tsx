@@ -14,13 +14,23 @@ import { type ReactElement } from "react";
 import ReactDOM from "react-dom/client";
 
 import { Align } from "@/align";
+import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
 import { Pluto } from "@/pluto";
+
+const Composite = Icon.createComposite(Icon.LinePlot, {
+  topRight: Icon.Add,
+});
 
 const Main = (): ReactElement => (
   <Pluto.Provider>
     <div style={{ padding: "2rem" }}>
-      <Align.Space x className={CSS.B("stack")} />
+      <Align.Space x className={CSS.B("stack")}>
+        <Button.Icon>
+          <Composite />
+        </Button.Icon>
+      </Align.Space>
     </div>
   </Pluto.Provider>
 );

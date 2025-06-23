@@ -9,15 +9,15 @@
 
 import "@/status/Notification.css";
 
-import { Icon } from "@synnaxlabs/media";
-import { toArray } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { isValidElement, type ReactElement, useRef } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
 import { type NotificationSpec } from "@/status/Aggregator";
-import { Circle } from "@/status/Circle";
+import { Indicator } from "@/status/Indicator";
 import { Text } from "@/text";
 
 interface ActionProps {
@@ -54,7 +54,7 @@ export const Notification = ({
     >
       <Align.Space x justify="spaceBetween" grow style={{ width: "100%" }}>
         <Align.Space x align="center" size="small">
-          <Circle style={{ height: "2.25rem", width: "2.5rem" }} variant={variant} />
+          <Indicator style={{ height: "2.25rem", width: "2.5rem" }} variant={variant} />
           <Text.Text level="small" shade={11}>
             {`x${count}`}
           </Text.Text>
@@ -109,7 +109,7 @@ export const Notification = ({
           justify="end"
           className={CSS(CSS.BE("notification", "actions"))}
         >
-          {toArray<ReactElement | Button.ButtonProps>(actions).map((a) => (
+          {array.toArray<ReactElement | Button.ButtonProps>(actions).map((a) => (
             <Action key={a.key} action={a} />
           ))}
         </Align.Space>

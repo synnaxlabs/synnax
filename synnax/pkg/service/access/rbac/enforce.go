@@ -19,7 +19,7 @@ var _ access.Enforcer = (*Service)(nil)
 // Enforce implements the access.Enforcer interface.
 func (s *Service) Enforce(ctx context.Context, req access.Request) error {
 	var policies []Policy
-	if err := s.NewRetriever().Entries(&policies).WhereSubjects(req.Subject).Exec(ctx, s.DB); err != nil {
+	if err := s.NewRetrieve().Entries(&policies).WhereSubjects(req.Subject).Exec(ctx, s.DB); err != nil {
 		return err
 	}
 	if allowRequest(req, policies) {

@@ -11,6 +11,9 @@ package aspen_test
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -19,12 +22,10 @@ import (
 	"github.com/synnaxlabs/x/address"
 	xnet "github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
-	"sync"
-	"time"
 )
 
 var _ = Describe("Membership", Serial, Ordered, func() {
-	Describe("Bootstrap cluster", func() {
+	Describe("Bootstrap Cluster", func() {
 
 		It("Should correctly bootstrap a cluster", func() {
 			db, err := aspen.Open(
@@ -33,7 +34,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				"localhost:22546",
 				[]aspen.Address{},
 				aspen.Bootstrap(),
-				aspen.MemBacked(),
+				aspen.InMemory(),
 			)
 
 			By("Opening without error")
@@ -58,7 +59,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				"",
 				addr1,
 				[]aspen.Address{"localhost:22547"},
-				aspen.MemBacked(),
+				aspen.InMemory(),
 				aspen.Bootstrap(),
 			)
 			defer func() { Expect(db.Close()).To(Succeed()) }()
@@ -85,7 +86,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					"",
 					addr1,
 					[]aspen.Address{addr2},
-					aspen.MemBacked(),
+					aspen.InMemory(),
 				)
 				defer func() { Expect(db.Close()).To(Succeed()) }()
 
@@ -100,7 +101,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				"",
 				addr2,
 				[]aspen.Address{},
-				aspen.MemBacked(),
+				aspen.InMemory(),
 				aspen.Bootstrap(),
 			)
 
@@ -128,11 +129,11 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				ids       = make([]aspen.NodeKey, numNodes)
 				dbs       = make([]*aspen.DB, numNodes)
 			)
-			for i := 0; i < numNodes; i++ {
+			for i := range numNodes {
 				go func(i int) {
 					defer GinkgoRecover()
 					defer wg.Done()
-					opts := []aspen.Option{aspen.MemBacked()}
+					opts := []aspen.Option{aspen.InMemory()}
 					if i == 0 {
 						opts = append(opts, aspen.Bootstrap())
 					}
@@ -183,8 +184,8 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					}()
 
 					By("Forking the databases")
-					for i := 0; i < 3; i++ {
-						_, err := builder.New()
+					for range 3 {
+						_, err := builder.New(ctx)
 						Expect(err).ToNot(HaveOccurred())
 					}
 

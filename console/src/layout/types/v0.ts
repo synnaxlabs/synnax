@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Color, Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
+import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const VERSION = "0.0.0";
 
@@ -137,12 +137,11 @@ export interface State<A = unknown> {
    * unsavedChanges is a flag that indicates whether the layout has unsaved changes.
    */
   unsavedChanges?: boolean;
+  /**
+   * loading is a flag that indicates whether the layout is loading.
+   */
+  loading?: boolean;
 }
-
-const themeZ = Theming.themeZ.transform(
-  // Need to remove the Color classes from the theme so that we can store it in Redux properly
-  Color.transformColorsToHex,
-);
 
 const mosaicStateZ = z.object({
   activeTab: z.string().nullable(),
@@ -199,7 +198,7 @@ export const MAIN_LAYOUT: State = {
 export const sliceStateZ = z.object({
   version: z.literal(VERSION),
   activeTheme: z.string(),
-  themes: z.record(z.string(), themeZ),
+  themes: z.record(z.string(), Theming.themeZ),
   layouts: z.record(z.string(), stateZ),
   hauling: Haul.draggingStateZ,
   mosaics: z.record(z.string(), mosaicStateZ),

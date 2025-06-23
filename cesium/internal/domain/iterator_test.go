@@ -127,6 +127,111 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				)
 			})
 
+			Describe("SeekGE + SeekLE", Ordered, func() {
+				BeforeEach(func() {
+					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3})).To(Succeed())
+					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{4, 5, 6})).To(Succeed())
+					Expect(domain.Write(ctx, db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{7, 8, 9})).To(Succeed())
+				})
+
+				DescribeTable("SeekGE",
+					func(
+						ts telem.TimeStamp,
+						expectedResult bool,
+						expectedRange telem.TimeRange,
+					) {
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekGE(ctx, ts)).To(Equal(expectedResult))
+						if expectedResult {
+							Expect(i.TimeRange()).To(Equal(expectedRange))
+						}
+						Expect(i.Close()).To(Succeed())
+					},
+					Entry("Exact match at first domain start",
+						10*telem.SecondTS,
+						true,
+						(10*telem.SecondTS).SpanRange(10*telem.Second),
+					),
+					Entry("Within first domain",
+						15*telem.SecondTS,
+						true,
+						(10*telem.SecondTS).SpanRange(10*telem.Second),
+					),
+					Entry("Between first and second domain",
+						25*telem.SecondTS,
+						true,
+						(30*telem.SecondTS).SpanRange(10*telem.Second),
+					),
+					Entry("Exact match at last domain end",
+						60*telem.SecondTS,
+						false,
+						telem.TimeRangeZero,
+					),
+					Entry("Before first domain",
+						5*telem.SecondTS,
+						true,
+						(10*telem.SecondTS).SpanRange(10*telem.Second),
+					),
+					Entry("After last domain",
+						70*telem.SecondTS,
+						false,
+						telem.TimeRangeZero,
+					),
+				)
+
+				DescribeTable("SeekLE",
+					func(
+						ts telem.TimeStamp,
+						expectedResult bool,
+						expectedRange telem.TimeRange,
+					) {
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekLE(ctx, ts)).To(Equal(expectedResult))
+						if expectedResult {
+							Expect(i.TimeRange()).To(Equal(expectedRange))
+						}
+						Expect(i.Close()).To(Succeed())
+					},
+					Entry("Exact match at first domain start",
+						10*telem.SecondTS,
+						true,
+						(10*telem.SecondTS).SpanRange(10*telem.Second),
+					),
+					Entry("Within first domain",
+						15*telem.SecondTS,
+						true,
+						(10*telem.SecondTS).SpanRange(10*telem.Second),
+					),
+					Entry("Between first and second domain",
+						25*telem.SecondTS,
+						true,
+						(10*telem.SecondTS).SpanRange(10*telem.Second),
+					),
+					Entry("Exact match at last domain end",
+						60*telem.SecondTS,
+						true,
+						(50*telem.SecondTS).SpanRange(10*telem.Second),
+					),
+					Entry("Before first domain",
+						5*telem.SecondTS,
+						false,
+						telem.TimeRangeZero,
+					),
+					Entry("After last domain",
+						70*telem.SecondTS,
+						true,
+						(50*telem.SecondTS).SpanRange(10*telem.Second),
+					),
+				)
+
+				It("Should handle closed iterator correctly", func() {
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.Close()).To(Succeed())
+					Expect(i.SeekGE(ctx, 10*telem.SecondTS)).To(BeFalse())
+					Expect(i.SeekLE(ctx, 10*telem.SecondTS)).To(BeFalse())
+				})
+			})
+
 			Describe("Exhaustion", func() {
 				BeforeEach(func() {
 					Expect(domain.Write(ctx, db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
@@ -141,16 +246,16 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						})
 						Expect(iter.SeekFirst(ctx)).To(BeTrue())
 						Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
-						Expect(iter.Len()).To(Equal(int64(6)))
+						Expect(iter.Size()).To(Equal(telem.Byte * 6))
 						Expect(iter.Position()).To(Equal(uint32(0)))
 						Expect(iter.Next()).To(BeTrue())
 						Expect(iter.TimeRange()).To(Equal((30 * telem.SecondTS).SpanRange(10 * telem.Second)))
 						Expect(iter.Next()).To(BeTrue())
 						Expect(iter.Position()).To(Equal(uint32(2)))
-						Expect(iter.Len()).To(Equal(int64(6)))
+						Expect(iter.Size()).To(Equal(telem.Byte * 6))
 						Expect(iter.TimeRange()).To(Equal((50 * telem.SecondTS).SpanRange(10 * telem.Second)))
 						Expect(iter.Next()).To(BeFalse())
-						Expect(iter.Len()).To(Equal(int64(6)))
+						Expect(iter.Size()).To(Equal(telem.Byte * 6))
 						Expect(iter.Position()).To(Equal(uint32(2)))
 						Expect(iter.Close()).To(Succeed())
 					})
@@ -163,16 +268,55 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.SeekLast(ctx)).To(BeTrue())
 						Expect(iter.TimeRange()).To(Equal((50 * telem.SecondTS).SpanRange(10 * telem.Second)))
 						Expect(iter.Prev()).To(BeTrue())
-						Expect(iter.Len()).To(Equal(int64(6)))
+						Expect(iter.Size()).To(Equal(telem.Byte * 6))
 						Expect(iter.TimeRange()).To(Equal((30 * telem.SecondTS).SpanRange(10 * telem.Second)))
 						Expect(iter.Prev()).To(BeTrue())
-						Expect(iter.Len()).To(Equal(int64(6)))
+						Expect(iter.Size()).To(Equal(telem.Byte * 6))
 						Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
 						Expect(iter.Prev()).To(BeFalse())
-						Expect(iter.Len()).To(Equal(int64(6)))
+						Expect(iter.Size()).To(Equal(telem.Byte * 6))
 						Expect(iter.Position()).To(Equal(uint32(0)))
 						Expect(iter.Close()).To(Succeed())
 					})
+				})
+			})
+
+			Describe("Reader", func() {
+				BeforeEach(func() {
+					Expect(domain.Write(ctx, db, (50 * telem.SecondTS).SpanRange(10*telem.Second), []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
+					Expect(domain.Write(ctx, db, (60 * telem.SecondTS).SpanRange(10*telem.Second), []byte{6, 7, 8, 9, 10, 11})).To(Succeed())
+				})
+				It("Should return a reader that can be used to read telemetry from the current domain", func() {
+					i := db.OpenIterator(domain.IteratorConfig{
+						Bounds: (50 * telem.SecondTS).SpanRange(21 * telem.Second),
+					})
+					Expect(i.SeekFirst(ctx)).To(BeTrue())
+					Expect(i.TimeRange()).To(Equal((50 * telem.SecondTS).SpanRange(10 * telem.Second)))
+					r := MustSucceed(i.OpenReader(ctx))
+					Expect(r.Size()).To(Equal(telem.Byte * 6))
+					b := make([]byte, 6)
+					n, err := r.ReadAt(b, 0)
+					Expect(err).To(Succeed())
+					Expect(n).To(Equal(6))
+					Expect(b).To(Equal([]byte{1, 2, 3, 4, 5, 6}))
+					Expect(r.Close()).To(Succeed())
+
+					Expect(i.Next()).To(BeTrue())
+					Expect(i.TimeRange()).To(Equal((60 * telem.SecondTS).SpanRange(10 * telem.Second)))
+					r = MustSucceed(i.OpenReader(ctx))
+					b = make([]byte, 3)
+					n, err = r.ReadAt(b, 0)
+					Expect(r.Size()).To(Equal(telem.Byte * 6))
+					Expect(err).To(Succeed())
+					Expect(n).To(Equal(3))
+					Expect(b).To(Equal([]byte{6, 7, 8}))
+					n, err = r.ReadAt(b, 3)
+					Expect(err).To(Succeed())
+					Expect(n).To(Equal(3))
+					Expect(b).To(Equal([]byte{9, 10, 11}))
+					Expect(r.Close()).To(Succeed())
+					Expect(i.Next()).To(BeFalse())
+					Expect(i.Close()).To(Succeed())
 				})
 			})
 
@@ -180,10 +324,15 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				It("Should not allow operations on a closed iterator", func() {
 					var (
 						i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
-						e = core.EntityClosed("domain.iterator")
+						e = core.NewErrResourceClosed("domain.iterator")
 					)
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
+					Expect(i.SeekLE(ctx, 0)).To(BeFalse())
+					Expect(i.SeekLast(ctx)).To(BeFalse())
+					Expect(i.SeekGE(ctx, 0)).To(BeFalse())
+					Expect(i.Next()).To(BeFalse())
+					Expect(i.Prev()).To(BeFalse())
 					Expect(i.Valid()).To(BeFalse())
 					_, err := i.OpenReader(ctx)
 					Expect(err).To(HaveOccurredAs(e))

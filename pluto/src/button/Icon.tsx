@@ -7,25 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon as MediaIcon } from "@synnaxlabs/media";
 import clsx from "clsx";
 import { cloneElement, type ReactElement } from "react";
 
 import { type BaseProps } from "@/button/Button";
-import { color } from "@/button/color";
+import { parseColor } from "@/button/color";
 import { CSS } from "@/css";
+import { Icon as BaseIcon } from "@/icon";
 import { type Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 
-interface ChildProps {
-  color?: string;
-  fill?: string;
-}
-
 /** The props for the {@link Icon} component */
 export interface IconProps extends BaseProps, Tooltip.WrapProps {
-  children: ReactElement<ChildProps> | string;
+  children: BaseIcon.ReactElement | string;
   shade?: Text.Shade;
   triggerIndicator?: Triggers.Trigger;
 }
@@ -60,7 +55,7 @@ export const Icon = Tooltip.wrap(
     triggerIndicator,
     ...rest
   }: IconProps): ReactElement => {
-    if (loading) children = <MediaIcon.Loading />;
+    if (loading) children = <BaseIcon.Loading />;
     const isDisabled = disabled || loading;
     return (
       <button
@@ -92,7 +87,7 @@ export const Icon = Tooltip.wrap(
         {typeof children === "string"
           ? children
           : cloneElement(children, {
-              color: color(variant, isDisabled, propColor),
+              color: parseColor(variant, isDisabled, propColor),
               fill: "currentColor",
               ...children.props,
             })}

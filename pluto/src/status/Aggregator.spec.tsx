@@ -133,6 +133,8 @@ describe("Aggregator", () => {
           message: "Test",
           description: "Test 1",
         });
+      });
+      act(() => {
         result.current.add({
           variant: "success",
           message: "Test",

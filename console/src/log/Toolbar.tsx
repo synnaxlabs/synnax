@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Channel, Input } from "@synnaxlabs/pluto";
+import { Align, Channel, Icon, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
@@ -38,7 +37,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       <Core.Header>
         <Core.Title icon={<Icon.Log />}>{name}</Core.Title>
         <Align.Space x style={{ width: 66 }} empty>
-          <Export.ToolbarButton onExport={() => void handleExport(state.key)} />
+          <Export.ToolbarButton onExport={() => handleExport(state.key)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={log.ontologyID(state.key)}

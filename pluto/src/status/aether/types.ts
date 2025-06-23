@@ -7,28 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Optional, TimeStamp } from "@synnaxlabs/x";
-import { z } from "zod";
-
-export const VARIANTS = [
-  "success",
-  "error",
-  "warning",
-  "info",
-  "loading",
-  "disabled",
-  "secondary",
-] as const;
-export const variantZ = z.enum(VARIANTS);
-export type Variant = z.infer<typeof variantZ>;
+import { type Optional, record, status, TimeStamp } from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 export const specZ = z.object({
   key: z.string(),
-  variant: variantZ,
+  variant: status.variantZ,
   message: z.string(),
   description: z.string().optional(),
   time: TimeStamp.z,
-  data: z.record(z.unknown()).optional(),
+  data: record.unknownZ.optional(),
 });
 export interface Spec extends z.infer<typeof specZ> {}
 

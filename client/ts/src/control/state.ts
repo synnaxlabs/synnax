@@ -10,13 +10,15 @@
 import { control } from "@synnaxlabs/x";
 import { binary } from "@synnaxlabs/x/binary";
 import { type observe } from "@synnaxlabs/x/observe";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { type channel } from "@/channel";
+import { keyZ } from "@/channel/payload";
 import { framer } from "@/framer";
 
-export interface Authority extends control.Authority {}
-export const Authority = control.Authority;
+export type Authority = control.Authority;
+export const ABSOLUTE_AUTHORITY = control.ABSOLUTE_AUTHORITY;
+export const ZERO_AUTHORITY = control.ZERO_AUTHORITY;
 export type Transfer = control.Transfer<channel.Key>;
 export interface State extends control.State<channel.Key> {}
 export interface Subject extends control.Subject {}
@@ -33,9 +35,11 @@ export const transferString = (t: Transfer): string => {
   } (${t.to.authority.toString()})`;
 };
 
-interface Update {
-  transfers: control.Transfer<channel.Key>[];
-}
+const updateZ = z.object({
+  transfers: z.array(control.transferZ(keyZ)),
+});
+
+export interface Update extends z.infer<typeof updateZ> {}
 
 export class StateTracker
   extends framer.ObservableStreamer<Transfer[]>
@@ -46,7 +50,7 @@ export class StateTracker
 
   constructor(streamer: framer.Streamer) {
     super(streamer, (frame) => {
-      const update: Update = this.codec.decode(frame.series[0].buffer);
+      const update: Update = this.codec.decode(frame.series[0].buffer, updateZ);
       this.merge(update);
       return [update.transfers, true];
     });

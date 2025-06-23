@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Status, Text, Triggers } from "@synnaxlabs/pluto";
+import { Align, Button, Icon, Status, Text, Triggers } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
@@ -49,7 +48,7 @@ export const Controls = ({
       This task is a snapshot and cannot be modified or started.
     </Status.Text.Centered>
   ) : message != null ? (
-    <Status.Text variant={variant ?? "info"}>{message}</Status.Text>
+    <Status.Text variant={variant}>{message}</Status.Text>
   ) : isConfiguring ? (
     <Status.Text.Centered variant="loading">Configuring...</Status.Text.Centered>
   ) : !hasBeenConfigured ? (

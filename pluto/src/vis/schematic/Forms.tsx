@@ -10,8 +10,7 @@
 import "@/vis/schematic/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { type bounds, type direction, type location, type xy } from "@synnaxlabs/x";
+import { type bounds, color, type direction, location, type xy } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback, useEffect } from "react";
 
 import { Align } from "@/align";
@@ -20,6 +19,7 @@ import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Form } from "@/form";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
@@ -63,11 +63,13 @@ interface SymbolOrientation {
 interface ShowOrientationProps {
   hideOuter?: boolean;
   hideInner?: boolean;
+  showOuterCenter?: boolean;
 }
 
 const OrientationControl = ({
   hideOuter,
   hideInner,
+  showOuterCenter,
   ...rest
 }: Form.FieldProps<SymbolOrientation> & ShowOrientationProps): ReactElement | null => {
   if (hideInner && hideOuter) return null;
@@ -81,6 +83,7 @@ const OrientationControl = ({
           }}
           hideInner={hideInner}
           hideOuter={hideOuter}
+          showOuterCenter={showOuterCenter}
           onChange={(v) =>
             onChange({
               ...value,
@@ -143,12 +146,12 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
   </Align.Space>
 );
 
-const ColorControl: Form.FieldT<Color.Crude> = (props): ReactElement => (
+const ColorControl: Form.FieldT<color.Crude> = (props): ReactElement => (
   <Form.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>
     {({ value, onChange, variant: _, ...rest }) => (
       <Color.Swatch
-        value={value ?? Color.ZERO.setAlpha(1).rgba255}
-        onChange={(v) => onChange(v.rgba255)}
+        value={value ?? color.setAlpha(color.ZERO, 1)}
+        onChange={onChange}
         {...rest}
         bordered
       />
@@ -423,7 +426,7 @@ export const TankForm = ({
         </Form.Field>
       </Align.Space>
     </Align.Space>
-    <OrientationControl path="" hideInner />
+    <OrientationControl path="" hideInner showOuterCenter label="Label Location" />
   </FormWrapper>
 );
 
@@ -623,7 +626,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({ ...value, source: t });
   };
 
-  const c = Channel.useName(source.channel as number);
+  const [c] = Channel.useName(source.channel as number);
 
   useEffect(() => onChange({ ...value }), [c]);
 
@@ -678,6 +681,29 @@ type ButtonTelemFormT = Omit<CoreButton.UseProps, "aetherKey"> & {
   control: ControlStateProps;
 };
 
+const SelectButtonMode = Form.buildButtonSelectField({
+  fieldProps: { label: "Mode" },
+  inputProps: {
+    entryRenderKey: "name",
+    tooltipKey: "tooltip",
+    tooltipLocation: location.TOP_RIGHT,
+    data: [
+      { key: "fire", name: "Fire", tooltip: "Output true when clicked" },
+      {
+        key: "momentary",
+        name: "Momentary",
+        tooltip: "Output true on press, false on release",
+      },
+      {
+        key: "pulse",
+        name: "Pulse",
+        tooltip: "Output true and then immediately output false on click",
+      },
+    ],
+    allowNone: false,
+  },
+});
+
 export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<ButtonTelemFormT>({ path });
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
@@ -715,22 +741,27 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <FormWrapper x>
-      <Input.Item label="Output Channel" grow>
-        <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
-      </Input.Item>
-      <Form.NumericField
-        label="Activation Delay"
-        path="onClickDelay"
-        inputProps={{ endContent: "ms" }}
-        hideIfNull
-      />
-      <Form.SwitchField
-        path="control.show"
-        label="Show Control Chip"
-        hideIfNull
-        optional
-      />
+    <FormWrapper y empty>
+      <Align.Space x>
+        <Input.Item label="Output Channel" grow padHelpText={false}>
+          <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
+        </Input.Item>
+        <Form.NumericField
+          label="Activation Delay"
+          path="onClickDelay"
+          inputProps={{ endContent: "ms" }}
+          hideIfNull
+          padHelpText={false}
+        />
+        <Form.SwitchField
+          path="control.show"
+          label="Show Control Chip"
+          hideIfNull
+          optional
+          padHelpText={false}
+        />
+      </Align.Space>
+      <SelectButtonMode path="mode" optional defaultValue="fire" />
     </FormWrapper>
   );
 };
@@ -852,7 +883,7 @@ export const TextBoxForm = (): ReactElement => {
     <FormWrapper x align="stretch" grow>
       <Align.Space y grow>
         <Align.Space x align="stretch">
-          <Form.Field<string> path="text" label="Text" padHelpText={false} grow>
+          <Form.Field<string> path="value" label="Text" padHelpText={false} grow>
             {(p) => <Input.Text {...p} />}
           </Form.Field>
           <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>

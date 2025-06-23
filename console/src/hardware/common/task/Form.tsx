@@ -17,11 +17,11 @@ import {
   Status,
   Synnax as PSynnax,
 } from "@synnaxlabs/pluto";
-import { TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
-import { useMutation } from "@tanstack/react-query";
+import { type record, TimeSpan } from "@synnaxlabs/x";
+import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -45,16 +45,16 @@ import {
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
 
-export type Schema<Config extends UnknownRecord = UnknownRecord> = z.ZodObject<{
+export type FormSchema<Config extends record.Unknown = record.Unknown> = z.ZodObject<{
   name: z.ZodString;
   config: ConfigSchema<Config>;
 }>;
 
 export type FormProps<
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
-> = { methods: PForm.ContextValue<Schema<Config>> } & (
+> = { methods: PForm.ContextValue<FormSchema<Config>> } & (
   | {
       configured: false;
       task: task.Payload<Config, Details, Type>;
@@ -67,12 +67,12 @@ export type FormProps<
     ))
 );
 
-export interface OnConfigure<Config extends UnknownRecord = UnknownRecord> {
+export interface OnConfigure<Config extends record.Unknown = record.Unknown> {
   (client: Synnax, config: Config, name: string): Promise<[Config, rack.Key]>;
 }
 
 export interface WrapFormArgs<
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
 > extends WrapOptions<Config, Details, Type> {
@@ -83,7 +83,7 @@ export interface WrapFormArgs<
 }
 
 export interface UseFormArgs<
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
 > extends TaskProps<Config, Details, Type>,
@@ -93,13 +93,13 @@ export interface UseFormArgs<
     > {}
 
 export interface UseFormReturn<
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
 > {
   formProps: FormProps<Config, Details, Type>;
-  handleConfigure: (config: Config, name: string) => Promise<void>;
-  handleStartOrStop: (command: StartOrStopCommand) => Promise<void>;
+  handleConfigure: UseMutateFunction<void, Error, void, unknown>;
+  handleStartOrStop: UseMutateFunction<void, Error, StartOrStopCommand, unknown>;
   state: State;
   isConfiguring: boolean;
 }
@@ -107,7 +107,7 @@ export interface UseFormReturn<
 const nameZ = z.string().min(1, "Name is required");
 
 export const useForm = <
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
 >({
@@ -116,7 +116,7 @@ export const useForm = <
   configSchema,
   onConfigure,
   type,
-}: UseFormArgs<Config, Details, Type>) => {
+}: UseFormArgs<Config, Details, Type>): UseFormReturn<Config, Details, Type> => {
   const schema = z.object({ name: nameZ, config: configSchema });
   const client = PSynnax.use();
   const handleError_ = Status.useErrorHandler();
@@ -130,7 +130,7 @@ export const useForm = <
     },
     [dispatch, layoutKey],
   );
-  const methods = PForm.use<Schema<Config>>({
+  const methods = PForm.use<FormSchema<Config>>({
     schema,
     values,
     onHasTouched: handleUnsavedChanges,
@@ -194,7 +194,7 @@ export const useForm = <
         ...initialTask,
         key: task_.key,
       });
-      await sugaredTask?.executeCommandSync(command, {}, TimeSpan.fromSeconds(10));
+      await sugaredTask?.executeCommandSync(command, TimeSpan.fromSeconds(10));
     },
     onError: handleError,
   });
@@ -211,7 +211,7 @@ export const useForm = <
 };
 
 export const wrapForm = <
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Details extends StateDetails = StateDetails,
   Type extends string = string,
 >({
@@ -240,7 +240,10 @@ export const wrapForm = <
         empty
       >
         <Align.Space grow>
-          <PForm.Form {...methods} mode={isSnapshot ? "preview" : "normal"}>
+          <PForm.Form<FormSchema<Config>>
+            {...methods}
+            mode={isSnapshot ? "preview" : "normal"}
+          >
             <Align.Space x justify="spaceBetween">
               <PForm.Field<string> path="name">
                 {(p) => <Input.Text variant="natural" level="h2" {...p} />}

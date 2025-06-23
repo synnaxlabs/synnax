@@ -11,10 +11,11 @@ package domain
 
 import (
 	"encoding/binary"
-	"github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/telem"
 	"os"
 	"sync"
+
+	"github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/telem"
 )
 
 const indexFile = "index" + extension
@@ -70,10 +71,10 @@ func openPointerPersist(fs fs.FS) (*pointerPersist, error) {
 
 func (p *pointerPersist) load() ([]pointer, error) {
 	info, err := p.Stat()
-	size := info.Size()
 	if err != nil {
 		return nil, err
 	}
+	size := info.Size()
 
 	b := make([]byte, size)
 	if len(b) != 0 {
@@ -81,7 +82,6 @@ func (p *pointerPersist) load() ([]pointer, error) {
 			return nil, err
 		}
 	}
-
 	return p.decode(b), nil
 }
 
@@ -98,7 +98,7 @@ func (f *pointerCodec) encode(start int, ptrs []pointer) []byte {
 		byteOrder.PutUint64(b[base+8:base+16], uint64(ptr.End))
 		byteOrder.PutUint16(b[base+16:base+18], ptr.fileKey)
 		byteOrder.PutUint32(b[base+18:base+22], ptr.offset)
-		byteOrder.PutUint32(b[base+22:base+26], ptr.length)
+		byteOrder.PutUint32(b[base+22:base+26], ptr.size)
 	}
 
 	return b
@@ -110,7 +110,7 @@ func (f *pointerCodec) decode(b []byte) []pointer {
 	}
 
 	pointers := make([]pointer, len(b)/pointerByteSize)
-	for i := 0; i < len(b)/pointerByteSize; i++ {
+	for i := range len(b) / pointerByteSize {
 		base := i * pointerByteSize
 		pointers[i] = pointer{
 			TimeRange: telem.TimeRange{
@@ -119,7 +119,7 @@ func (f *pointerCodec) decode(b []byte) []pointer {
 			},
 			fileKey: byteOrder.Uint16(b[base+16 : base+18]),
 			offset:  byteOrder.Uint32(b[base+18 : base+22]),
-			length:  byteOrder.Uint32(b[base+22 : base+26]),
+			size:    byteOrder.Uint32(b[base+22 : base+26]),
 		}
 	}
 	return pointers

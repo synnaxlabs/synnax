@@ -9,13 +9,12 @@
 
 import "@/fs/LoadFileContents.css";
 
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, type Input, Status } from "@synnaxlabs/pluto";
+import { Align, Button, Icon, type Input, Status } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { type ReactElement, useEffect, useState } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 import { CSS } from "@/css";
 
@@ -70,15 +69,15 @@ export const InputFilePath = ({
   );
 };
 
-export interface InputFileContentsProps<P extends z.ZodTypeAny = z.ZodString>
+export interface InputFileContentsProps<P extends z.ZodType = z.ZodString>
   extends Omit<InputFilePathProps, "value" | "onChange"> {
-  onChange: (value: z.output<P>, path: string) => void;
+  onChange: (value: z.infer<P>, path: string) => void;
   initialPath?: string;
   schema?: P;
   decoder?: binary.Codec;
 }
 
-export const InputFileContents = <P extends z.ZodTypeAny = z.ZodString>({
+export const InputFileContents = <P extends z.ZodType = z.ZodString>({
   onChange,
   decoder = binary.TEXT_CODEC,
   initialPath,

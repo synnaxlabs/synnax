@@ -11,17 +11,20 @@ import { type CrudeSeries, Series } from "@synnaxlabs/x/telem";
 
 import { channel } from "@/channel";
 import { ValidationError } from "@/errors";
-import { type Crude, Frame } from "@/framer/frame";
+import { Codec } from "@/framer/codec";
+import { type CrudeFrame, Frame } from "@/framer/frame";
 
 export class ReadAdapter {
   private adapter: Map<channel.Key, channel.Name> | null;
   retriever: channel.Retriever;
   keys: channel.Key[];
+  codec: Codec;
 
   private constructor(retriever: channel.Retriever) {
     this.retriever = retriever;
     this.adapter = null;
     this.keys = [];
+    this.codec = new Codec();
   }
 
   static async open(
@@ -35,12 +38,16 @@ export class ReadAdapter {
 
   async update(channels: channel.Params): Promise<void> {
     const { variant, normalized } = channel.analyzeParams(channels);
+    const fetched = await this.retriever.retrieve(normalized);
+    this.codec.update(
+      fetched.map((c) => c.key),
+      fetched.map((c) => c.dataType),
+    );
     if (variant === "keys") {
       this.adapter = null;
       this.keys = normalized as channel.Key[];
       return;
     }
-    const fetched = await this.retriever.retrieve(normalized);
     const a = new Map<channel.Key, channel.Name>();
     this.adapter = a;
     normalized.forEach((name) => {
@@ -69,11 +76,13 @@ export class WriteAdapter {
   private adapter: Map<channel.Name, channel.Key> | null;
   retriever: channel.Retriever;
   keys: channel.Key[];
+  codec: Codec;
 
   private constructor(retriever: channel.Retriever) {
     this.retriever = retriever;
     this.adapter = null;
     this.keys = [];
+    this.codec = new Codec();
   }
 
   static async open(
@@ -99,11 +108,17 @@ export class WriteAdapter {
       results.map((c) => [c.name, c.key]),
     );
     this.keys = results.map((c) => c.key);
+    this.codec.update(
+      this.keys,
+      results.map((c) => c.dataType),
+    );
   }
 
-  private async fetchChannel(ch: channel.Key | channel.Name): Promise<channel.Payload> {
+  private async fetchChannel(
+    ch: channel.Key | channel.Name | channel.Payload,
+  ): Promise<channel.Payload> {
     const res = await this.retriever.retrieve(ch);
-    if (res.length === 0) throw new Error(`Channel ${ch} not found`);
+    if (res.length === 0) throw new Error(`Channel ${JSON.stringify(ch)} not found`);
     return res[0];
   }
 
@@ -113,8 +128,12 @@ export class WriteAdapter {
     return res.key;
   }
 
+  encode(frame: Frame): Uint8Array {
+    return this.codec.encode(frame.toPayload());
+  }
+
   async adapt(
-    columnsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
+    columnsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<Frame> {
     if (typeof columnsOrData === "string" || typeof columnsOrData === "number") {

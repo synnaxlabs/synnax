@@ -10,12 +10,11 @@
 import "@/range/Create.css";
 
 import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
   Form,
-  Icon as PIcon,
+  Icon,
   Input,
   Nav,
   Ranger,
@@ -23,12 +22,11 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, primitiveIsZero } from "@synnaxlabs/x";
+import { deep, primitive, uuid } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { v4 as uuidv4 } from "uuid";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { Label } from "@/label";
@@ -71,11 +69,9 @@ export const createCreateLayout = (
   args: initial,
 });
 
-const parentRangeIcon = (
-  <PIcon.Icon bottomRight={<Icon.Arrow.Up />}>
-    <Icon.Range />
-  </PIcon.Icon>
-);
+export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
+  bottomRight: Icon.Arrow.Up,
+});
 
 export const Create: Layout.Renderer = (props) => {
   const { layoutKey } = props;
@@ -114,8 +110,8 @@ const CreateLayoutForm = ({
       const { timeRange: tr, parent } = values;
       const timeRange = new TimeRange(tr);
       const name = values.name.trim();
-      const key = initialValues.key ?? uuidv4();
-      const parentID = primitiveIsZero(parent)
+      const key = initialValues.key ?? uuid.create();
+      const parentID = primitive.isZero(parent)
         ? undefined
         : ranger.ontologyID(parent as string);
       const otgID = ranger.ontologyID(key);
@@ -149,7 +145,7 @@ const CreateLayoutForm = ({
         style={{ padding: "1rem 3rem" }}
         grow
       >
-        <Form.Form {...methods}>
+        <Form.Form<typeof formSchema> {...methods}>
           <Form.Field<string> path="name">
             {(p) => (
               <Input.Text
@@ -182,7 +178,7 @@ const CreateLayoutForm = ({
                     <Text.WithIcon
                       level="p"
                       shade={11}
-                      startIcon={parentRangeIcon}
+                      startIcon={<ParentRangeIcon />}
                       size="small"
                     >
                       {e.name}
@@ -194,7 +190,7 @@ const CreateLayoutForm = ({
                     <Text.WithIcon
                       level="p"
                       shade={11}
-                      startIcon={parentRangeIcon}
+                      startIcon={<ParentRangeIcon />}
                       size="small"
                     >
                       Parent Range

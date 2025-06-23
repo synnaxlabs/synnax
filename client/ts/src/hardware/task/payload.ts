@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, type observe, type UnknownRecord } from "@synnaxlabs/x";
-import { z } from "zod";
+import { binary, type observe, record, status } from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 import { type Key as RackKey } from "@/hardware/rack/payload";
 import { decodeJSONString } from "@/util/decodeJSONString";
@@ -21,20 +21,17 @@ export const keyZ = z.union([
 ]);
 export type Key = z.infer<typeof keyZ>;
 
-export const statusZ = z.enum(["info", "success", "error", "warning"]);
-export type Status = z.infer<typeof statusZ>;
-
 export const stateZ = z.object({
   task: keyZ,
-  variant: statusZ,
-  key: z.string().optional(),
-  details: z
-    .record(z.unknown())
+  variant: status.variantZ.or(z.literal("").transform<status.Variant>(() => "info")),
+  key: z.string(),
+  details: record.unknownZ
     .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))
-    .or(z.null()) as z.ZodType<UnknownRecord | undefined>,
+    .or(z.null()) as z.ZodType<record.Unknown | undefined>,
 });
-export interface State<Details extends {} = UnknownRecord>
+
+export interface State<Details extends {} = record.Unknown>
   extends Omit<z.infer<typeof stateZ>, "details"> {
   details?: Details;
 }
@@ -44,15 +41,16 @@ export const taskZ = z.object({
   name: z.string(),
   type: z.string(),
   internal: z.boolean().optional(),
-  config: z.record(z.unknown()).or(z.string().transform(decodeJSONString)),
+  config: record.unknownZ.or(z.string().transform(decodeJSONString)),
   state: stateZ.optional().nullable(),
   snapshot: z.boolean().optional(),
 });
+
 export interface Payload<
-  Config extends UnknownRecord = UnknownRecord,
-  Details extends {} = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
+  Details extends {} = record.Unknown,
   Type extends string = string,
-> extends Omit<z.output<typeof taskZ>, "config" | "type" | "state"> {
+> extends Omit<z.infer<typeof taskZ>, "config" | "type" | "state"> {
   type: Type;
   config: Config;
   state?: State<Details> | null;
@@ -62,8 +60,9 @@ export const newZ = taskZ.omit({ key: true }).extend({
   key: keyZ.transform((k) => k.toString()).optional(),
   config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
+
 export interface New<
-  Config extends UnknownRecord = UnknownRecord,
+  Config extends record.Unknown = record.Unknown,
   Type extends string = string,
 > extends Omit<z.input<typeof newZ>, "config" | "state"> {
   type: Type;
@@ -74,22 +73,22 @@ export const commandZ = z.object({
   task: keyZ,
   type: z.string(),
   key: z.string(),
-  args: z
-    .record(z.unknown())
+  args: record.unknownZ
     .or(z.string().transform(parseWithoutKeyConversion))
     .or(z.array(z.unknown()))
     .or(z.null())
-    .optional() as z.ZodOptional<z.ZodType<UnknownRecord>>,
+    .optional() as z.ZodOptional<z.ZodType<record.Unknown>>,
 });
-export interface Command<Args extends {} = UnknownRecord>
+
+export interface Command<Args extends {} = record.Unknown>
   extends Omit<z.infer<typeof commandZ>, "args"> {
   args?: Args;
 }
 
-export interface StateObservable<Details extends {} = UnknownRecord>
+export interface StateObservable<Details extends {} = record.Unknown>
   extends observe.ObservableAsyncCloseable<State<Details>> {}
 
-export interface CommandObservable<Args extends {} = UnknownRecord>
+export interface CommandObservable<Args extends {} = record.Unknown>
   extends observe.ObservableAsyncCloseable<Command<Args>> {}
 
 export const ONTOLOGY_TYPE = "task";

@@ -9,12 +9,7 @@
 
 import "@/select/Single.css";
 
-import {
-  type AsyncTermSearcher,
-  type Key,
-  type Keyed,
-  primitiveIsZero,
-} from "@synnaxlabs/x";
+import { type AsyncTermSearcher, primitive, type record } from "@synnaxlabs/x";
 import {
   type FocusEventHandler,
   type ReactElement,
@@ -41,7 +36,7 @@ import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
 import { Triggers } from "@/triggers";
 
-export interface SingleProps<K extends Key, E extends Keyed<K>>
+export interface SingleProps<K extends record.Key, E extends record.Keyed<K>>
   extends Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
     Omit<
       Dropdown.DialogProps,
@@ -83,7 +78,10 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
  * @param props.onChange - The callback to be invoked when the selected value changes.
  * @param props.value - The currently selected value.
  */
-export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const Single = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   onChange,
   value,
   entryRenderKey = "key",
@@ -111,21 +109,28 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   // This hook runs to make sure we have the selected entry populated when the value
   // changes externally.
-  useAsyncEffect(async () => {
-    if (selectValueIsZero(value)) return setSelected(null);
-    if (selected?.key === value) return;
-    let nextSelected: E | null = null;
-    if (searchMode)
-      // Wrap this in a try-except clause just in case the searcher throws an error.
-      try {
-        [nextSelected] = await searcher.retrieve([value]);
-      } finally {
-        // It might be undefined, so coalesce it to null.
-        nextSelected ??= null;
+  useAsyncEffect(
+    async (signal) => {
+      if (selectValueIsZero(value)) {
+        setSelected(null);
+        return;
       }
-    else if (data != null) nextSelected = data.find((e) => e.key === value) ?? null;
-    setSelected(nextSelected);
-  }, [searcher, value, data]);
+      if (selected?.key === value) return;
+      let nextSelected: E | null = null;
+      if (searchMode)
+        // Wrap this in a try-except clause just in case the searcher throws an error.
+        try {
+          [nextSelected] = await searcher.retrieve([value]);
+        } finally {
+          // It might be undefined, so coalesce it to null.
+          nextSelected ??= null;
+        }
+      else if (data != null) nextSelected = data.find((e) => e.key === value) ?? null;
+      if (signal.aborted) return;
+      setSelected(nextSelected);
+    },
+    [searcher, value, data],
+  );
 
   const handleChange = useCallback(
     (v: K | K[] | null, e: UseSelectOnChangeExtra<K, E>): void => {
@@ -198,7 +203,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   );
 };
 
-export interface SelectInputProps<K extends Key, E extends Keyed<K>>
+export interface SelectInputProps<K extends record.Key, E extends record.Keyed<K>>
   extends Omit<Input.TextProps, "value" | "onFocus"> {
   entryRenderKey: keyof E | ((e: E) => string | number | ReactNode);
   selected: E | null;
@@ -212,7 +217,7 @@ export interface SelectInputProps<K extends Key, E extends Keyed<K>>
 
 export const DEFAULT_PLACEHOLDER = "Select";
 
-const getRenderValue = <K extends Key, E extends Keyed<K>>(
+const getRenderValue = <K extends record.Key, E extends record.Keyed<K>>(
   entryRenderKey: keyof E | ((e: E) => string | number | ReactNode),
   selected: E | null,
 ): ReactNode => {
@@ -221,7 +226,7 @@ const getRenderValue = <K extends Key, E extends Keyed<K>>(
   return (selected[entryRenderKey] as string | number).toString();
 };
 
-const SingleInput = <K extends Key, E extends Keyed<K>>({
+const SingleInput = <K extends record.Key, E extends record.Keyed<K>>({
   entryRenderKey,
   selected,
   visible,
@@ -248,7 +253,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   // Runs to set the value of the input to the item selected from the list.
   useEffect(() => {
     if (visible) return;
-    if (primitiveIsZero(selected?.key)) return setInternalValue("");
+    if (primitive.isZero(selected?.key)) return setInternalValue("");
     if (selected == null) return;
     setInternalValue(getRenderValue(entryRenderKey, selected) as string);
   }, [selected, visible, entryRenderKey]);

@@ -17,7 +17,7 @@ from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from synnax import UnexpectedError
 from synnax.exceptions import ConfigurationError
@@ -25,6 +25,7 @@ from synnax.framer import Client as FrameClient
 from synnax.hardware.rack import Client as RackClient
 from synnax.hardware.rack import Rack
 from synnax.hardware.task.payload import TaskPayload, TaskState
+from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
 
@@ -204,7 +205,7 @@ class StarterStopperMixin:
 
 class JSONConfigMixin(MetaTask):
     _internal: Task
-    config: Any
+    config: BaseModel
 
     @property
     def name(self) -> str:
@@ -322,9 +323,9 @@ class Client:
                 if int(state["task"]) != task.key:
                     continue
                 variant = state["variant"]
-                if variant == "success":
+                if variant == SUCCESS_VARIANT:
                     break
-                if variant == "error":
+                if variant == ERROR_VARIANT:
                     raise ConfigurationError(state["details"]["message"])
         return task
 

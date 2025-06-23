@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm, List } from "@synnaxlabs/pluto";
-import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
+import { Align, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
+import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -222,7 +221,7 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   Common.Device.checkConfigured(dev);
   let modified = false;
-  let shouldCreateStateIndex = primitiveIsZero(dev.properties.writeStateIndex);
+  let shouldCreateStateIndex = primitive.isZero(dev.properties.writeStateIndex);
   if (!shouldCreateStateIndex)
     try {
       await client.channels.retrieve(dev.properties.writeStateIndex);

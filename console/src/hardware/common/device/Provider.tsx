@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Align, Text } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { use } from "@/hardware/common/device/use";
@@ -22,7 +22,7 @@ const DEFAULT_NONE_SELECTED_CONTENT = (
 );
 
 export interface ProviderChildProps<
-  Properties extends UnknownRecord = UnknownRecord,
+  Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
 > {
@@ -30,7 +30,7 @@ export interface ProviderChildProps<
 }
 
 export interface ProviderProps<
-  Properties extends UnknownRecord = UnknownRecord,
+  Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
 > {
@@ -41,7 +41,7 @@ export interface ProviderProps<
 }
 
 export const Provider = <
-  Properties extends UnknownRecord = UnknownRecord,
+  Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
 >({

@@ -114,7 +114,7 @@ var _ gorp.Entry[ID] = Resource{}
 func (r Resource) GorpKey() ID { return r.ID }
 
 // SetOptions implements gorp.Entry.
-func (r Resource) SetOptions() []interface{} { return nil }
+func (r Resource) SetOptions() []any { return nil }
 
 // Get is a strongly-typed getter for a [Resource] field value. Returns true if the
 // value was found, false otherwise. Panics if the value is not of the asserted type (

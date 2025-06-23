@@ -15,6 +15,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { type ClusterHandler, type Handler, PREFIX } from "@/link/types";
+import { RUNTIME } from "@/runtime";
 import { type RootState } from "@/store";
 
 const BASE_LINK = `${PREFIX}<cluster-key>`;
@@ -27,6 +28,9 @@ export const useDeep = (
   clusterHandler: ClusterHandler,
   handlers: Record<string, Handler>,
 ): void => {
+  // While early returns are usually bad in hooks, this is fine because IS_TAURI is a
+  // constant and so the hook will be the exact same for a given runtime.
+  if (RUNTIME !== "tauri") return;
   const handleError = Status.useErrorHandler();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
@@ -57,15 +61,12 @@ export const useDeep = (
   };
 
   // Handles the case where the app is opened from a link
-  useAsyncEffect(async () => {
+  useAsyncEffect(async (signal) => {
     const urls = await getCurrent();
-    if (urls == null) return;
+    if (urls == null || signal.aborted) return;
     await urlHandler(urls);
   }, []);
 
   // Handles the case where the app is open and a link gets called
-  useAsyncEffect(async () => {
-    const unlisten = await onOpenUrl((urls) => void urlHandler(urls));
-    return unlisten;
-  }, []);
+  useAsyncEffect(async () => await onOpenUrl((urls) => void urlHandler(urls)), []);
 };

@@ -18,7 +18,7 @@ import {
   useCallback,
   useRef,
 } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -114,9 +114,17 @@ export interface ContainerProps
   extends Omit<Align.SpaceProps, "onChange">,
     Partial<OptionalControl<StickyXY>> {
   dragEnabled?: boolean;
+  initial?: StickyXY;
 }
 
 const TOP_LEFT_DECIMAL = box.reRoot(box.DECIMAL, location.TOP_LEFT);
+
+const DEFAULT_INITIAL: StickyXY = {
+  x: 0.1,
+  y: 0.1,
+  root: location.TOP_LEFT,
+  units: { x: "decimal", y: "decimal" },
+};
 
 export const Container = memo(
   ({
@@ -125,17 +133,13 @@ export const Container = memo(
     onChange,
     style,
     draggable = true,
+    initial = DEFAULT_INITIAL,
     ...rest
   }: ContainerProps): ReactElement | null => {
     const [position, setPosition] = state.usePurePassthrough<StickyXY>({
       value,
       onChange,
-      initial: {
-        x: 0.1,
-        y: 0.1,
-        root: location.TOP_LEFT,
-        units: { x: "decimal", y: "decimal" },
-      },
+      initial,
     });
 
     const positionRef = useRef<StickyXY>(position);
@@ -195,10 +199,10 @@ export const Container = memo(
         draggable={draggable}
         borderShade={5}
         ref={ref}
-        {...rest}
         onDrag={preventDefault}
         onDragEnd={preventDefault}
         background={1}
+        {...rest}
       />
     );
   },

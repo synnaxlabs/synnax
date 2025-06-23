@@ -9,7 +9,7 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type change } from "@synnaxlabs/x/change";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { channel } from "@/channel";
 import { type framer } from "@/framer";
@@ -129,17 +129,28 @@ export class Aliaser {
   }
 }
 
-export interface Alias {
-  range: Key;
-  channel: channel.Key;
-  alias: string;
-}
+export const aliasZ = z.object({
+  alias: z.string(),
+  channel: channel.keyZ,
+  range: keyZ,
+});
+export interface Alias extends z.infer<typeof aliasZ> {}
 
 export type AliasChange = change.Change<string, Alias>;
 
-const aliasZ = z.object({ range: keyZ, channel: channel.keyZ, alias: z.string() });
+const SEPARATOR = "---";
 
-const separator = "---";
+export interface DecodedDeleteAliasChange {
+  range: Key;
+  channel: channel.Key;
+}
+
+export const decodeDeleteAliasChange = (
+  deletedAlias: string,
+): DecodedDeleteAliasChange => {
+  const [range, channel] = deletedAlias.split(SEPARATOR);
+  return { range, channel: Number(channel) };
+};
 
 const decodeAliasChanges =
   (rangeKey: Key): signals.Decoder<string, Alias> =>
@@ -147,7 +158,7 @@ const decodeAliasChanges =
     if (variant === "delete")
       return data
         .toStrings()
-        .filter((k) => k.split(separator)[0] === rangeKey)
+        .filter((k) => decodeDeleteAliasChange(k).range === rangeKey)
         .map((alias) => ({
           variant,
           key: alias,

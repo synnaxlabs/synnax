@@ -15,8 +15,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
@@ -105,10 +107,11 @@ func (writerResponseTranslator) Backward(
 	res *framerv1.WriterResponse,
 ) (writer.Response, error) {
 	return writer.Response{
-		Command: writer.Command(res.Command),
-		SeqNum:  int(res.SeqNum),
-		Ack:     res.Ack,
-		Error:   fgrpc.DecodeError(ctx, res.Error),
+		Command:    writer.Command(res.Command),
+		SeqNum:     int(res.SeqNum),
+		NodeKey:    cluster.NodeKey(res.NodeKey),
+		Authorized: res.Authorized,
+		End:        telem.TimeStamp(res.End),
 	}, nil
 }
 
@@ -118,10 +121,11 @@ func (writerResponseTranslator) Forward(
 	res writer.Response,
 ) (*framerv1.WriterResponse, error) {
 	return &framerv1.WriterResponse{
-		Command: int32(res.Command),
-		SeqNum:  int32(res.SeqNum),
-		Ack:     res.Ack,
-		Error:   fgrpc.EncodeError(ctx, res.Error, true),
+		Command:    int32(res.Command),
+		SeqNum:     int32(res.SeqNum),
+		NodeKey:    int32(res.NodeKey),
+		End:        int64(res.End),
+		Authorized: res.Authorized,
 	}, nil
 }
 
@@ -166,7 +170,7 @@ func (iteratorResponseTranslator) Backward(
 ) (iterator.Response, error) {
 	return iterator.Response{
 		Variant: iterator.ResponseVariant(res.Variant),
-		NodeKey: dcore.NodeKey(res.NodeKey),
+		NodeKey: cluster.NodeKey(res.NodeKey),
 		Ack:     res.Ack,
 		SeqNum:  int(res.SeqNum),
 		Command: iterator.Command(res.Command),
@@ -213,32 +217,26 @@ func (w relayResponseTranslator) Backward(
 	ctx context.Context,
 	res *framerv1.RelayResponse,
 ) (relay.Response, error) {
-	return relay.Response{
-		Frame: translateFrameForward(res.Frame),
-		Error: fgrpc.DecodeError(ctx, res.Error),
-	}, nil
+	return relay.Response{Frame: translateFrameForward(res.Frame)}, nil
 }
 
 func (w relayResponseTranslator) Forward(
 	ctx context.Context,
 	res relay.Response,
 ) (*framerv1.RelayResponse, error) {
-	return &framerv1.RelayResponse{
-		Frame: translateFrameBackward(res.Frame),
-		Error: fgrpc.EncodeError(ctx, res.Error, true),
-	}, nil
+	return &framerv1.RelayResponse{Frame: translateFrameBackward(res.Frame)}, nil
 }
 
 func translateFrameForward(frame *framerv1.Frame) framer.Frame {
 	keys := channel.KeysFromUint32(frame.Keys)
 	series := telem.TranslateManySeriesBackward(frame.Series)
-	return framer.Frame{Keys: keys, Series: series}
+	return core.MultiFrame(keys, series)
 }
 
 func translateFrameBackward(frame framer.Frame) *framerv1.Frame {
 	return &framerv1.Frame{
-		Keys:   frame.Keys.Uint32(),
-		Series: telem.TranslateManySeriesForward(frame.Series),
+		Keys:   channel.Keys(frame.KeysSlice()).Uint32(),
+		Series: telem.TranslateManySeriesForward(frame.SeriesSlice()),
 	}
 }
 

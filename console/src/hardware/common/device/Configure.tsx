@@ -10,12 +10,20 @@
 import "@/hardware/common/device/Configure.css";
 
 import { type device } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Form, Nav, Status, Synnax, Text } from "@synnaxlabs/pluto";
-import { deep, strings, type UnknownRecord } from "@synnaxlabs/x";
+import {
+  Align,
+  Button,
+  Form,
+  Icon,
+  Nav,
+  Status,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
+import { deep, type record, strings } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -31,7 +39,7 @@ export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type"> = {
 };
 
 interface InternalProps<
-  Properties extends UnknownRecord,
+  Properties extends record.Unknown,
   Make extends string,
   Model extends string,
 > extends Pick<Layout.RendererProps, "onClose"> {
@@ -43,7 +51,7 @@ const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ 
 type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
 
 const Internal = <
-  Properties extends UnknownRecord,
+  Properties extends record.Unknown,
   Make extends string,
   Model extends string,
 >({
@@ -93,7 +101,7 @@ const Internal = <
   });
   return (
     <Align.Space align="stretch" className={CSS.B("configure")} empty>
-      <Form.Form {...methods}>
+      <Form.Form<typeof configurablePropertiesZ> {...methods}>
         <Align.Space
           align="stretch"
           justify="center"
@@ -171,14 +179,14 @@ const Internal = <
 };
 
 export interface ConfigureProps<
-  Properties extends UnknownRecord,
+  Properties extends record.Unknown,
   Make extends string,
   Model extends string,
 > extends Layout.RendererProps,
     Pick<InternalProps<Properties, Make, Model>, "initialProperties"> {}
 
 export const Configure = <
-  Properties extends UnknownRecord,
+  Properties extends record.Unknown,
   Make extends string,
   Model extends string,
 >({

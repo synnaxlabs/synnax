@@ -10,10 +10,10 @@
 import "@/hardware/rack/ontology.css";
 
 import { ontology, rack } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
-  Icon as PIcon,
+  Icon,
   Menu as PMenu,
+  Rack,
   Status,
   Text,
   Tooltip,
@@ -25,18 +25,21 @@ import { useEffect, useRef } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
-import { useRackState } from "@/hardware/device/Toolbar";
 import { Sequence } from "@/hardware/task/sequence";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 
+const CreateSequenceIcon = Icon.createComposite(Icon.Control, {
+  topRight: Icon.Add,
+});
+
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = Ontology.useConfirmDelete({ type: "Rack" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
-      if (!(await confirm(resources))) throw errors.CANCELED;
+      if (!(await confirm(resources))) throw new errors.Canceled();
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
         ...Tree.removeNode({
@@ -50,7 +53,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       await client.hardware.racks.delete(resources.map(({ id }) => Number(id.key))),
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       handleError(e, "Failed to delete racks");
     },
   }).mutate;
@@ -72,11 +75,11 @@ const handleRename: Ontology.HandleTreeRename = {
 
 const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
-  const state = useRackState(id.key);
+  const state = Rack.useState(Number(id.key));
 
   const heartRef = useRef<SVGSVGElement>(null);
 
-  const variant = (state?.variant ?? "disabled") as Status.Variant;
+  const variant = state?.variant ?? "disabled";
 
   useEffect(() => {
     if (variant !== "success") return;
@@ -151,14 +154,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       {isSingle && (
         <>
           <Menu.RenameItem />
-          <PMenu.Item
-            itemKey="createSequence"
-            startIcon={
-              <PIcon.Create>
-                <Icon.Control />
-              </PIcon.Create>
-            }
-          >
+          <PMenu.Item itemKey="createSequence" startIcon={<CreateSequenceIcon />}>
             Create Control Sequence
           </PMenu.Item>
           <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>

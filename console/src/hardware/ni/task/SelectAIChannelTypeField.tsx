@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form, Text } from "@synnaxlabs/pluto";
-import { deep, type Keyed } from "@synnaxlabs/x";
+import { deep, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import {
@@ -20,7 +20,7 @@ import {
   ZERO_AI_CHANNELS,
 } from "@/hardware/ni/task/types";
 
-export interface Entry extends Keyed<AIChannelType> {
+export interface Entry extends record.Keyed<AIChannelType> {
   name: ReactElement;
 }
 
@@ -34,7 +34,7 @@ const ChannelType = ({ type }: ChannelTypeProps) => {
     <Text.WithIcon
       level="p"
       startIcon={
-        <Icon style={{ transform: "scale(0.9)", color: "var(--pluto-gray-l9)" }} />
+        <Icon style={{ transform: "scale(0.9)", color: "var(--pluto-gray-l7)" }} />
       }
     >
       {AI_CHANNEL_TYPE_NAMES[type]}

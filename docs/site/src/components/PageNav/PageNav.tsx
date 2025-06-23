@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Logo } from "@synnaxlabs/media";
-import { Align } from "@synnaxlabs/pluto";
+import { Logo } from "@synnaxlabs/media";
+import { Align, Icon } from "@synnaxlabs/pluto";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { Tree } from "@synnaxlabs/pluto/tree";
@@ -89,7 +89,13 @@ export const PageNavMobile = ({ currentPage }: TOCProps): ReactElement => {
       <Button.Icon onClick={toggle} size="large" variant="outlined">
         <Icon.Menu />
       </Button.Icon>
-      <Align.Space borderShade={5} bordered rounded className="page-nav-mobile-content">
+      <Align.Space
+        borderShade={5}
+        background={0}
+        bordered
+        rounded
+        className="page-nav-mobile-content"
+      >
         <Align.Space
           style={{
             width: "100%",

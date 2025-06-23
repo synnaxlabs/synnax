@@ -12,17 +12,20 @@ package iterator_test
 import (
 	"context"
 	"fmt"
+	"io"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"io"
 )
 
 var _ = Describe("Iterator", func() {
@@ -34,139 +37,146 @@ var _ = Describe("Iterator", func() {
 		for i, sF := range scenarios {
 			_sF := sF
 			var s scenario
-			BeforeAll(func() {
-				s = _sF()
-				writer := MustSucceed(s.writerService.New(context.TODO(), writer.Config{
-					Keys:  s.keys,
-					Start: 10 * telem.SecondTS,
-				}))
-				Expect(writer.Write(core.Frame{
-					Keys: s.keys,
-					Series: []telem.Series{
-						telem.NewSeriesV[int64](10, 11, 12),
-					}},
-				)).To(BeTrue())
-				Expect(writer.Write(core.Frame{
-					Keys: s.keys,
-					Series: []telem.Series{
-						telem.NewSeriesV[int64](13, 14, 15, 16, 17),
-					}},
-				)).To(BeTrue())
-				Expect(writer.Write(core.Frame{
-					Keys: s.keys,
-					Series: []telem.Series{
-						telem.NewSeriesV[int64](18, 19, 20, 21, 22),
-					},
-				})).To(BeTrue())
-				Expect(writer.Commit()).To(BeTrue())
-				Expect(writer.Error()).To(Succeed())
-				Expect(writer.Close()).To(Succeed())
-			})
-			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
-			Specify(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
-				iter := MustSucceed(s.iteratorService.New(context.TODO(), iterator.Config{
-					Keys:   s.keys,
-					Bounds: telem.TimeRangeMax,
-				}))
-				Expect(iter.SeekFirst()).To(BeTrue())
-				Expect(iter.Next(4 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{10, 11, 12, 13}))
-				Expect(iter.SeekLast()).To(BeTrue())
-				Expect(iter.Prev(6 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{17, 18, 19, 20, 21, 22}))
+			Describe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
+				BeforeAll(func() {
+					s = _sF()
+					writer := MustSucceed(s.dist.Framer.OpenWriter(context.TODO(), writer.Config{
+						Keys:  s.keys,
+						Start: 10 * telem.SecondTS,
+						Sync:  config.True(),
+					}))
+					MustSucceed(writer.Write(core.MultiFrame(
+						s.keys,
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(10, 11, 12),
+						},
+					)))
+					MustSucceed(writer.Write(core.MultiFrame(
+						s.keys,
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(13, 14, 15, 16, 17),
+						},
+					)))
+					MustSucceed(writer.Write(core.MultiFrame(
+						s.keys,
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(18, 19, 20, 21, 22),
+						},
+					)))
+					MustSucceed(writer.Commit())
+					Expect(writer.Close()).To(Succeed())
+				})
+				AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
+				Specify(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
+					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+						Keys:   s.keys,
+						Bounds: telem.TimeRangeMax,
+					}))
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(4 * telem.Second)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
+					Expect(iter.SeekLast()).To(BeTrue())
+					Expect(iter.Prev(6 * telem.Second)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(17, 18, 19, 20, 21, 22)))
 
-				Expect(iter.SeekGE(100 * telem.SecondTS)).To(BeFalse())
-				Expect(iter.Valid()).To(BeFalse())
-				Expect(iter.SeekLE(22*telem.SecondTS + 1)).To(BeTrue())
-				Expect(iter.Prev(2 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{21, 22}))
+					Expect(iter.SeekGE(100 * telem.SecondTS)).To(BeFalse())
+					Expect(iter.Valid()).To(BeFalse())
+					Expect(iter.SeekLE(22*telem.SecondTS + 1)).To(BeTrue())
+					Expect(iter.Prev(2 * telem.Second)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(21, 22)))
 
-				Expect(iter.SeekLE(0 * telem.SecondTS)).To(BeFalse())
-				Expect(iter.Valid()).To(BeFalse())
-				Expect(iter.SeekGE(13 * telem.SecondTS)).To(BeTrue())
-				Expect(iter.Next(20 * telem.Second)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{13, 14, 15, 16, 17, 18, 19, 20, 21, 22}))
+					Expect(iter.SeekLE(0 * telem.SecondTS)).To(BeFalse())
+					Expect(iter.Valid()).To(BeFalse())
+					Expect(iter.SeekGE(13 * telem.SecondTS)).To(BeTrue())
+					Expect(iter.Next(20 * telem.Second)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(13, 14, 15, 16, 17, 18, 19, 20, 21, 22)))
 
-				Expect(iter.Close()).To(Succeed())
-			})
+					Expect(iter.Close()).To(Succeed())
+				})
 
-			Specify(fmt.Sprintf("Scenario: %v - Auto chunk", i), func() {
-				iter := MustSucceed(s.iteratorService.New(context.TODO(), iterator.Config{
-					Keys:      s.keys,
-					Bounds:    telem.TimeRangeMax,
-					ChunkSize: 3,
-				}))
-				Expect(iter.SeekFirst()).To(BeTrue())
-				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{10, 11, 12}))
-				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{13, 14, 15}))
-				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-				Expect(iter.Value().Series[0].Data).To(EqualUnmarshal([]int64{16, 17, 18}))
+				Specify("Auto chunk", func() {
+					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+						Keys:      s.keys,
+						Bounds:    telem.TimeRangeMax,
+						ChunkSize: 3,
+					}))
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(10, 11, 12)))
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(13, 14, 15)))
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(16, 17, 18)))
 
-				Expect(iter.Close()).To(Succeed())
+					Expect(iter.Close()).To(Succeed())
+				})
+
+				Specify("Reverse Auto Chunk", func() {
+					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+						Keys:      s.keys,
+						Bounds:    telem.TimeRangeMax,
+						ChunkSize: 3,
+					}))
+					Expect(iter.SeekLast()).To(BeTrue())
+					Expect(iter.Prev(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(20, 21, 22)))
+					Expect(iter.Prev(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(17, 18, 19)))
+					Expect(iter.Prev(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(14, 15, 16)))
+					Expect(iter.Prev(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(11, 12, 13)))
+					Expect(iter.Prev(iterator.AutoSpan)).To(BeTrue())
+					Expect(iter.Value().SeriesAt(0)).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(10)))
+					Expect(iter.Prev(iterator.AutoSpan)).To(BeFalse())
+					Expect(iter.Close()).To(Succeed())
+				})
 			})
 		}
 	})
 })
 
 type scenario struct {
-	name            string
-	keys            channel.Keys
-	writerService   *writer.Service
-	iteratorService *iterator.Service
-	channel         channel.Service
-	close           io.Closer
+	name  string
+	keys  channel.Keys
+	dist  mock.Node
+	close io.Closer
 }
 
 func newChannelSet() []channel.Channel {
 	return []channel.Channel{
 		{
 			Name:     "test1",
-			Rate:     1 * telem.Hz,
-			DataType: telem.Int64T,
+			IsIndex:  true,
+			DataType: telem.TimeStampT,
 		},
 	}
 }
 
 func gatewayOnlyScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(1)
-	svc := services[1]
-	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	builder := mock.ProvisionCluster(ctx, 1)
+	dist := builder.Nodes[1]
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:            "gatewayOnly",
-		keys:            keys,
-		writerService:   svc.writer,
-		iteratorService: svc.iter,
-		close:           builder,
-		channel:         svc.channel,
-	}
+	return scenario{name: "Gateway Only", keys: keys, dist: dist, close: builder}
 }
 
 func peerOnlyScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(4)
-	svc := services[1]
+	builder := mock.ProvisionCluster(ctx, 4)
+	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = dcore.NodeKey(i + 2)
+		ch.Leaseholder = cluster.NodeKey(i + 2)
 		channels[i] = ch
 	}
-	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
+		err := dist.Channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:            "peerOnly",
-		keys:            keys,
-		writerService:   svc.writer,
-		iteratorService: svc.iter,
-		close:           builder,
-		channel:         svc.channel,
-	}
+	return scenario{name: "Peer Only", keys: keys, dist: dist, close: builder}
 }

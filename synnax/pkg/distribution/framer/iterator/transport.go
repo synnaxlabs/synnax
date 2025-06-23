@@ -12,7 +12,8 @@ package iterator
 import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
@@ -49,6 +50,10 @@ type Request struct {
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// ChunkSize should only be set when opening the Iterator.
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
+	// SeqNum is the sequence number of the request (starting at 1). This is used to
+	// match responses to requests. Each request should increment the sequence number
+	// by 1.
+	SeqNum int
 }
 
 //go:generate stringer -type=ResponseVariant
@@ -70,7 +75,7 @@ type Response struct {
 	// Frame is only relevant for DataResponse. It is the data returned by the Iterator.
 	Frame core.Frame `json:"frame" msgpack:"frame"`
 	// NodeKey is the node Name where the remote Iterator lives.
-	NodeKey dcore.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
 	// Ack is only relevant for variant AckResponse. Is true if the Iterator successfully
 	// executed the request.
 	Ack bool `json:"ack" msgpack:"ack"`

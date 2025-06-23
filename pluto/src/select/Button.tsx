@@ -9,7 +9,7 @@
 
 import "@/select/Button.css";
 
-import { type Key, type Keyed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import {
   type ReactElement,
   type ReactNode,
@@ -34,19 +34,26 @@ import { Core } from "@/select/List";
 import { type ComponentSize } from "@/util/component";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
-export interface ButtonOptionProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends Pick<CoreButton.ButtonProps, "onClick" | "size"> {
+export interface ButtonOptionProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> extends Pick<
+    CoreButton.ButtonProps,
+    "onClick" | "size" | "tooltipLocation" | "tooltipDelay"
+  > {
   key: K;
   selected: boolean;
   entry: E;
   title: E[keyof E];
+  tooltip?: E[keyof E];
 }
 
-export type ButtonProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = Omit<
-  UseSelectProps<K, E>,
-  "data"
-> &
-  Omit<Align.PackProps, "children" | "onChange" | "size"> & {
+export type ButtonProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> = Omit<UseSelectProps<K, E>, "data"> &
+  Omit<Align.PackProps, "children" | "onChange" | "size"> &
+  Pick<CoreButton.ButtonProps, "tooltipLocation" | "tooltipDelay"> & {
     data?: E[];
     children?: RenderProp<ButtonOptionProps<K, E>>;
     entryRenderKey?: keyof E;
@@ -54,13 +61,18 @@ export type ButtonProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = Om
     actions?: Align.PackProps["children"];
     pack?: boolean;
     variant?: Input.Variant;
+    tooltipKey?: keyof E;
   };
 
-export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const Button = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   children = defaultSelectButtonOption,
   value,
   onChange,
   entryRenderKey = "key",
+  tooltipKey,
   allowNone = false,
   allowMultiple = false,
   data,
@@ -70,6 +82,8 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   actions,
   pack = true,
   variant,
+  tooltipLocation,
+  tooltipDelay,
   ...rest
 }: ButtonProps<K, E>): ReactElement => {
   const { onSelect } = useSelect<K, E>({
@@ -94,6 +108,9 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       selected: e.key === value,
       entry: e,
       title: e[entryRenderKey],
+      tooltip: tooltipKey ? e[tooltipKey] : undefined,
+      tooltipLocation,
+      tooltipDelay,
     }),
   );
 
@@ -112,32 +129,43 @@ export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   );
 };
 
-const defaultSelectButtonOption = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+const defaultSelectButtonOption = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   key,
   onClick,
   selected,
   title,
   size,
+  tooltip,
+  tooltipLocation,
+  tooltipDelay,
 }: ButtonOptionProps<K, E>): ReactElement => (
   <CoreButton.Button
     key={key}
     onClick={onClick}
     variant={selected ? "filled" : "outlined"}
     size={size}
+    tooltip={tooltip as ReactNode}
+    tooltipLocation={tooltipLocation}
+    tooltipDelay={tooltipDelay}
   >
     {title as ReactNode}
   </CoreButton.Button>
 );
 
-export interface DropdownButtonButtonProps<K extends Key, E extends Keyed<K>>
-  extends CoreButton.ButtonProps {
+export interface DropdownButtonButtonProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> extends CoreButton.ButtonProps {
   selected: E | null;
   renderKey: keyof E;
   toggle: () => void;
   visible: boolean;
 }
 
-export interface DropdownButtonProps<K extends Key, E extends Keyed<K>>
+export interface DropdownButtonProps<K extends record.Key, E extends record.Keyed<K>>
   extends Omit<
       Dropdown.DialogProps,
       "onChange" | "visible" | "children" | "close" | "variant"
@@ -179,7 +207,10 @@ export const BaseButton = ({
 export const defaultButton: RenderProp<DropdownButtonButtonProps<any, any>> =
   componentRenderProp(BaseButton);
 
-export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+export const DropdownButton = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   data,
   value,
   columns = [],

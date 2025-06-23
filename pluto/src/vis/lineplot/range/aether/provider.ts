@@ -8,11 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { ranger, type signals, type Synnax } from "@synnaxlabs/client";
-import { bounds, box, clamp, type scale, TimeRange, TimeSpan, xy } from "@synnaxlabs/x";
-import { z } from "zod";
+import {
+  bounds,
+  box,
+  clamp,
+  color,
+  type scale,
+  TimeRange,
+  TimeSpan,
+  xy,
+} from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
-import { color } from "@/color/core";
+import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
@@ -24,8 +33,6 @@ export const selectedStateZ = ranger.payloadZ.extend({
 
 export type SelectedState = z.infer<typeof selectedStateZ>;
 
-const hasColor = (c?: string): boolean => color.Color.z.safeParse(c).success;
-
 export const providerStateZ = z.object({
   cursor: xy.xy.or(z.null()),
   hovered: selectedStateZ.or(z.null()),
@@ -36,11 +43,13 @@ interface InternalState {
   ranges: Map<string, ranger.Range>;
   client: Synnax | null;
   render: render.Context;
+  requestRender: render.Requestor;
   draw: Draw2D;
   tracker: signals.Observable<string, ranger.Range>;
+  runAsync: status.ErrorHandler;
 }
 
-interface AnnotationProps {
+interface ProviderProps {
   dataToDecimalScale: scale.Scale;
   viewport: box.Box;
   region: box.Box;
@@ -52,47 +61,52 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   schema = providerStateZ;
   fetchedInitial: TimeRange = TimeRange.ZERO;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
-
+    i.requestRender = render.useRequestor(ctx);
+    i.runAsync = status.useErrorHandler(ctx);
     i.ranges ??= new Map();
     const client = synnax.use(ctx);
+    i.requestRender("tool");
     if (client == null) return;
     i.client = client;
 
     if (i.tracker != null) return;
-    i.tracker = await i.client.ranges.openTracker();
-    i.tracker.onChange((c) => {
-      c.forEach((r) => {
-        if (r.variant === "delete") i.ranges.delete(r.key);
-        else if (hasColor(r.value.color)) i.ranges.set(r.key, r.value);
+    i.runAsync(async () => {
+      i.tracker = await client.ranges.openTracker();
+      i.tracker.onChange((c) => {
+        c.forEach((r) => {
+          if (r.variant === "delete") i.ranges.delete(r.key);
+          else if (color.isCrude(r.value.color)) i.ranges.set(r.key, r.value);
+        });
+        i.requestRender("tool");
+        this.setState((s) => ({ ...s, count: i.ranges.size }));
       });
-      render.Controller.requestRender(ctx, render.REASON_TOOL);
-      this.setState((s) => ({ ...s, count: i.ranges.size }));
-    });
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+      i.requestRender("tool");
+    }, "failed to open range tracker");
   }
 
-  private async fetchInitial(timeRange: TimeRange): Promise<void> {
+  private fetchInitial(timeRange: TimeRange): void {
     const { internal: i } = this;
-    if (
-      i.client == null ||
-      this.fetchedInitial.roughlyEquals(timeRange, TimeSpan.minutes(1))
-    )
+    const { client, runAsync } = i;
+    if (client == null || this.fetchedInitial.equals(timeRange, TimeSpan.minutes(1)))
       return;
+
     this.fetchedInitial = timeRange;
-    const ranges = await i.client.ranges.retrieve(timeRange);
-    ranges.forEach((r) => {
-      if (hasColor(r.color)) i.ranges.set(r.key, r);
-    });
-    this.setState((s) => ({ ...s, count: i.ranges.size }));
+    runAsync(async () => {
+      const ranges = await client.ranges.retrieve(timeRange);
+      ranges.forEach((r) => {
+        if (color.isCrude(r.color)) i.ranges.set(r.key, r);
+      });
+      this.setState((s) => ({ ...s, count: i.ranges.size }));
+    }, "failed to fetch initial ranges");
   }
 
-  async render(props: AnnotationProps): Promise<void> {
+  render(props: ProviderProps): void {
     const { dataToDecimalScale, region, viewport, timeRange } = props;
-    await this.fetchInitial(timeRange);
+    this.fetchInitial(timeRange);
     const { draw, ranges } = this.internal;
     const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     const cursor = this.state.cursor == null ? null : this.state.cursor.x;
@@ -104,7 +118,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       ),
     );
     ranges.forEach((r) => {
-      const cRes = color.Color.z.safeParse(r.color);
+      const cRes = color.colorZ.safeParse(r.color);
       if (!cRes.success) return;
       const c = cRes.data;
       let startPos = regionScale.pos(Number(r.timeRange.start.valueOf()));
@@ -134,7 +148,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
           { x: startPos, y: box.top(region) - 1 },
           { x: endPos, y: box.bottom(region) - 1 },
         ),
-        backgroundColor: c.setAlpha(0.2),
+        backgroundColor: color.setAlpha(c, 0.2),
         bordered: false,
       });
       const titleRegion = box.construct(
@@ -145,12 +159,12 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         region: titleRegion,
         backgroundColor:
           box.width(titleRegion) < 20
-            ? c.setAlpha(0.4)
+            ? color.setAlpha(c, 0.4)
             : (t) => (hovered ? t.colors.gray.l2 : t.colors.gray.l0),
         bordered: true,
         borderWidth: 1,
         borderRadius: 2,
-        borderColor: c.setAlpha(0.8),
+        borderColor: color.setAlpha(c, 0.8),
       });
       draw.text({
         text: r.name,

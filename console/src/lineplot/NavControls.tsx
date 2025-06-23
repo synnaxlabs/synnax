@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
-  type Icon as PIcon,
+  Icon,
   Select,
   Text,
   Triggers,
@@ -113,7 +112,7 @@ export const NavControls = (): ReactElement => {
       </Button.ToggleIcon>
       <Select.Button<
         ClickMode,
-        { key: ClickMode; icon: PIcon.Element; tooltip: ReactNode }
+        { key: ClickMode; icon: Icon.ReactElement; tooltip: ReactNode }
       >
         value={control.clickMode}
         onChange={handleClickModeChange}

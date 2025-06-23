@@ -7,17 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, URL } from "@synnaxlabs/x";
+import { binary, errors, URL } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
-import { z } from "zod";
+import { z } from "zod/v4";
 
-import {
-  BaseTypedError,
-  EOF,
-  type ErrorPayload,
-  registerError,
-  type TypedError,
-} from "@/errors";
+import { EOF } from "@/errors";
 import { type Context } from "@/middleware";
 import { WebSocketClient } from "@/websocket";
 
@@ -33,29 +27,27 @@ const MessageSchema = z.object({
 
 const client = new WebSocketClient(url, new binary.JSONCodec());
 
-class MyCustomError extends BaseTypedError {
+class MyCustomError extends errors.createTyped("integration.error") {
   code: number;
-  type = "integration.error";
-
   constructor(message: string, code: number) {
     super(message);
     this.code = code;
   }
 }
 
-const encodeTestError = (err: TypedError): ErrorPayload => {
+const encodeTestError = (err: errors.Typed): errors.Payload => {
   if (!(err instanceof MyCustomError)) throw new Error("Unexpected error type");
 
   return { type: "integration.error", data: `${err.code},${err.message}` };
 };
 
-const decodeTestError = (encoded: ErrorPayload): TypedError | null => {
+const decodeTestError = (encoded: errors.Payload): errors.Typed | null => {
   if (encoded.type !== "integration.error") return null;
   const [code, message] = encoded.data.split(",");
   return new MyCustomError(message, parseInt(code));
 };
 
-registerError({
+errors.register({
   encode: encodeTestError,
   decode: decodeTestError,
 });
@@ -72,7 +64,7 @@ describe("websocket", () => {
     }
     stream.closeSend();
     const [response, error] = await stream.receive();
-    expect(error).toEqual(new EOF());
+    expect(EOF.matches(error)).toBeTruthy();
     expect(response).toBeNull();
   });
 
@@ -88,7 +80,7 @@ describe("websocket", () => {
     expect(response?.id).toEqual(0);
     expect(response?.message).toEqual("Close Acknowledged");
     const [, recvError] = await stream.receive();
-    expect(recvError).toEqual(new EOF());
+    expect(EOF.matches(recvError)).toBeTruthy();
   });
 
   test("receive error", async () => {
@@ -99,7 +91,7 @@ describe("websocket", () => {
     );
     stream.send({ id: 0, message: "hello" });
     const [response, error] = await stream.receive();
-    expect(error).toEqual(new MyCustomError("unexpected error", 1));
+    expect(MyCustomError.matches(error)).toBeTruthy();
     expect(response).toBeNull();
   });
 

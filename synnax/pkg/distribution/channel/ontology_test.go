@@ -16,8 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/iter"
@@ -26,22 +25,21 @@ import (
 )
 
 var _ = Describe("Ontology", Ordered, func() {
-	var (
-		services map[core.NodeKey]channel.Service
-		builder  *mock.CoreBuilder
-	)
-	BeforeAll(func() { builder, services, _ = provisionServices() })
+	var mockCluster *mock.Cluster
+	BeforeAll(func() { mockCluster = mock.ProvisionCluster(ctx, 1) })
 	AfterAll(func() {
-		Expect(builder.Close()).To(Succeed())
-		Expect(builder.Cleanup()).To(Succeed())
+		Expect(mockCluster.Close()).To(Succeed())
 	})
 	Describe("OpenNexter", func() {
 		It("Should correctly iterate over all channels", func() {
-			Expect(services[1].Create(ctx, &channel.Channel{Name: "SG01", DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
-			Expect(services[1].Create(ctx, &channel.Channel{Name: "SG02", DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
-			Expect(services[1].Create(ctx, &channel.Channel{Name: "SG03", DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
-			n := testutil.MustSucceed(services[1].OpenNexter())
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: "SG02", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: "SG03", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			n := testutil.MustSucceed(mockCluster.Nodes[1].Channel.OpenNexter())
 			v, ok := n.Next(ctx)
+			Expect(ok).To(BeTrue())
+			Expect(v.Name).To(Equal("sy_node_1_control"))
+			v, ok = n.Next(ctx)
 			Expect(ok).To(BeTrue())
 			Expect(v.Name).To(Equal("SG01"))
 			v, ok = n.Next(ctx)
@@ -56,33 +54,36 @@ var _ = Describe("Ontology", Ordered, func() {
 	Describe("OnChange", func() {
 		Context("Create", func() {
 			It("Should correctly propagate a create change", func() {
-				var (
-					v        schema.Change
-					ok       bool
-					secondOk = true
-				)
-				services[1].OnChange(func(ctx context.Context, nexter iter.Nexter[schema.Change]) {
-					v_, ok_ := nexter.Next(ctx)
-					if ok_ {
-						ok = ok_
-						v = v_
+				changes := make(chan []schema.Change, 5)
+				dc := mockCluster.Nodes[1].Channel.OnChange(func(ctx context.Context, nexter iter.Nexter[schema.Change]) {
+					changesSlice := make([]schema.Change, 0)
+					for {
+						v, ok := nexter.Next(ctx)
+						if !ok {
+							break
+						}
+						changesSlice = append(changesSlice, v)
 					}
-					_, secondOk = nexter.Next(ctx)
+					changes <- changesSlice
 				})
-				ch := &channel.Channel{Name: "SG01", DataType: telem.Int64T, Rate: 1 * telem.Hz}
-				Expect(services[1].Create(ctx, ch))
-				Eventually(func() bool { return ok }, 1*time.Second).Should(BeTrue())
-				Expect(v.Variant).To(Equal(change.Set))
-				Expect(v.Key.Key).To(Equal(ch.Key().String()))
-				Expect(secondOk).To(BeFalse())
+				defer dc()
+				ch := &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true}
+				Expect(mockCluster.Nodes[1].Channel.Create(ctx, ch))
+				Eventually(func(g Gomega) {
+					c := <-changes
+					g.Expect(c).To(HaveLen(1))
+					v := c[0]
+					g.Expect(v.Variant).To(Equal(change.Set))
+					g.Expect(v.Key.Key).To(Equal(ch.Key().String()))
+				}, 1*time.Second).Should(Succeed())
 			})
 		})
 	})
 	Describe("RetrieveResource", func() {
 		It("Should correctly retrieve a resource", func() {
-			ch := &channel.Channel{Name: "SG01", DataType: telem.Int64T, Rate: 1 * telem.Hz}
-			Expect(services[1].Create(ctx, ch))
-			r, err := services[1].RetrieveResource(ctx, ch.Key().String(), nil)
+			ch := &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, ch))
+			r, err := mockCluster.Nodes[1].Channel.RetrieveResource(ctx, ch.Key().String(), nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(r).ToNot(BeNil())
 			Expect(r.Name).To(Equal(ch.Name))

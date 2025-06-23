@@ -9,7 +9,7 @@
 
 import { channel } from "@synnaxlabs/client";
 import { control, type Destructor } from "@synnaxlabs/x";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
 import { StateProvider, sugaredStateZ } from "@/telem/control/aether/state";
@@ -28,7 +28,7 @@ export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
   static readonly TYPE = "Legend";
   schema = legendStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.stateProv = StateProvider.use(ctx);
 
@@ -44,10 +44,10 @@ export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
     });
   }
 
-  async afterDelete(): Promise<void> {
+  afterDelete(): void {
     const { internal: i } = this;
     i.disconnectStateProv?.();
   }
 
-  async render(): Promise<void> {}
+  render(): void {}
 }

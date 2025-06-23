@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { linePlot, ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Icon, Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -27,7 +26,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "LinePlot" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ selection, removeLayout, state: { nodes, setNodes } }) => {
-      if (!(await confirm(selection.resources))) throw errors.CANCELED;
+      if (!(await confirm(selection.resources))) throw new errors.Canceled();
       const ids = selection.resources.map((res) => new ontology.ID(res.key));
       const keys = ids.map((id) => id.key);
       removeLayout(...keys);
@@ -46,7 +45,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     },
     onError: (err, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      if (errors.CANCELED.matches(err)) return;
+      if (errors.Canceled.matches(err)) return;
       handleError(err, "Failed to delete line plot");
     },
   }).mutate;

@@ -162,40 +162,10 @@ func NonZeroable(v *Validator, field string, value override.Zeroable) bool {
 	return v.Ternary(field, value.IsZero(), "must be non-zero")
 }
 
-func NonNegative[T types.Numeric](v *Validator, field string, value T) bool {
-	return v.Ternary(field, value < 0, "field must be non-negative")
-}
-
 func NotEmptySlice[T any](v *Validator, field string, value []T) bool {
 	return v.Ternary(field, len(value) == 0, "must be non-empty")
 }
 
 func NotEmptyString[T ~string](v *Validator, field string, value T) bool {
 	return v.Ternary(field, value == "", "field must be set")
-}
-
-func MapDoesNotContainF[K comparable, V any](
-	v *Validator,
-	value K,
-	m map[K]V,
-	format string,
-	args ...any,
-) bool {
-	return v.Funcf(func() bool {
-		_, ok := m[value]
-		return ok
-	}, format, args...)
-}
-
-func MapContainsf[K comparable, V any](
-	v *Validator,
-	value K,
-	m map[K]V,
-	format string,
-	args ...any,
-) bool {
-	return v.Funcf(func() bool {
-		_, ok := m[value]
-		return !ok
-	}, format, args...)
 }

@@ -19,14 +19,14 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 )
 
 type DB struct {
-	kvx.DB
-	kvx.Observable
+	xkv.DB
+	xkv.Observable
 	config     Config
 	leaseAlloc *leaseAllocator
 	source     struct {
@@ -36,12 +36,12 @@ type DB struct {
 	shutdown io.Closer
 }
 
-var _ kvx.DB = (*DB)(nil)
+var _ xkv.DB = (*DB)(nil)
 
 func (d *DB) Set(
 	ctx context.Context,
 	key, value []byte,
-	maybeLease ...interface{},
+	maybeLease ...any,
 ) (err error) {
 	b := d.OpenTx()
 	defer func() { err = errors.Combine(err, b.Close()) }()
@@ -55,7 +55,7 @@ func (d *DB) Set(
 func (d *DB) Delete(
 	ctx context.Context,
 	key []byte,
-	maybeLease ...interface{},
+	maybeLease ...any,
 ) (err error) {
 	b := d.OpenTx()
 	defer func() { err = errors.Combine(err, b.Close()) }()
@@ -66,7 +66,7 @@ func (d *DB) Delete(
 	return
 }
 
-func (d *DB) OpenTx() kvx.Tx {
+func (d *DB) OpenTx() xkv.Tx {
 	return &tx{
 		Instrumentation: d.config.Instrumentation,
 		apply:           d.apply,
@@ -75,7 +75,7 @@ func (d *DB) OpenTx() kvx.Tx {
 	}
 }
 
-func (d *DB) OnChange(f func(ctx context.Context, reader kvx.TxReader)) observe.Disconnect {
+func (d *DB) OnChange(f func(ctx context.Context, reader xkv.TxReader)) observe.Disconnect {
 	return d.Observable.OnChange(f)
 }
 
@@ -96,21 +96,21 @@ func (d *DB) Report() alamos.Report {
 }
 
 const (
-	versionFilterAddr     = "versionFilter"
-	versionAssignerAddr   = "versionAssigner"
+	versionFilterAddr     = "version_filter"
+	versionAssignerAddr   = "version_assigner"
 	persistAddr           = "persist"
-	persistDeltaAddr      = "persistDelta"
-	storeEmitterAddr      = "storeEmitter"
-	storeSinkAddr         = "storeSink"
+	persistDeltaAddr      = "persist_delta"
+	storeEmitterAddr      = "store_emitter"
+	storeSinkAddr         = "store_sink"
 	observableAddr        = "observable"
-	operationSenderAddr   = "opSender"
-	operationReceiverAddr = "opReceiver"
-	feedbackSenderAddr    = "feedbackSender"
-	feedbackReceiverAddr  = "feedbackReceiver"
-	recoveryTransformAddr = "recoveryTransform"
-	leaseSenderAddr       = "leaseSender"
-	leaseReceiverAddr     = "leaseReceiver"
-	leaseProxyAddr        = "leaseProxy"
+	operationSenderAddr   = "op_sender"
+	operationReceiverAddr = "op_receiver"
+	feedbackSenderAddr    = "feedback_sender"
+	feedbackReceiverAddr  = "feedback_receiver"
+	recoveryTransformAddr = "recovery_transform"
+	leaseSenderAddr       = "lease_sender"
+	leaseReceiverAddr     = "lease_receiver"
+	leaseProxyAddr        = "lease_proxy"
 	executorAddr          = "executor"
 )
 
@@ -133,7 +133,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	db_.config.L.Debug("opening cluster DB", db_.config.Report().ZapFields()...)
+	db_.config.L.Debug("opening cluster KV", db_.config.Report().ZapFields()...)
 
 	st := newStore()
 
@@ -178,9 +178,9 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	// We use a generator observable to generate a unique transaction reader for
 	// each handler in the observable chain. This is necessary because the transaction
 	// reader can be exhausted.
-	observable := confluence.NewGeneratorTransformObservable[TxRequest, kvx.TxReader](
-		func(ctx context.Context, tx TxRequest) (func() kvx.TxReader, bool, error) {
-			return func() kvx.TxReader { return tx.reader() }, true, nil
+	observable := confluence.NewGeneratorTransformObservable[TxRequest, xkv.TxReader](
+		func(ctx context.Context, tx TxRequest) (func() xkv.TxReader, bool, error) {
+			return func() xkv.TxReader { return tx.reader() }, true, nil
 		})
 	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
 	db_.Observable = observable
@@ -256,9 +256,4 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	return db_, runRecovery(ctx, cfg)
 }
 
-func (d *DB) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
-	c.Exec(d.shutdown.Close)
-	c.Exec(d.DB.Close)
-	return c.Error()
-}
+func (d *DB) Close() error { return d.shutdown.Close() }

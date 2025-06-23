@@ -14,7 +14,7 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	access "github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
@@ -34,7 +34,7 @@ type HardwareService struct {
 func NewHardwareService(p Provider) *HardwareService {
 	return &HardwareService{
 		dbProvider:     p.db,
-		internal:       p.Config.Hardware,
+		internal:       p.Service.Hardware,
 		accessProvider: p.access,
 	}
 }
@@ -132,7 +132,7 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	if req.IncludeState {
 		for i := range resRacks {
 			if s, ok := svc.internal.State.GetRack(ctx, resRacks[i].Key); ok {
-				resRacks[i].State = s.State
+				resRacks[i].State = &s.State
 			}
 		}
 	}
@@ -454,7 +454,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	if req.IncludeState {
 		for i := range res.Devices {
 			if s, ok := svc.internal.State.GetDevice(ctx, res.Devices[i].Key); ok {
-				res.Devices[i].State = s
+				res.Devices[i].State = &s
 			}
 		}
 	}

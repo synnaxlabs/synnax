@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { z } from "zod/v4";
 
-export const nullableArrayZ = <Z extends z.ZodTypeAny>(item: Z) =>
+export const nullableArrayZ = <Z extends z.ZodType>(item: Z) =>
   z.union([
-    z.union([z.null(), z.undefined()]).transform(() => [] as z.output<Z>[]),
+    z.union([z.null(), z.undefined()]).transform<z.infer<Z>[]>(() => []),
     item.array(),
   ]);

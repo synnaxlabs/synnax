@@ -8,10 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type device, NotFoundError } from "@synnaxlabs/client";
-import { Form, Observe, Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import {
+  Device,
+  Form,
+  Status,
+  Synnax,
+  useAsyncEffect,
+  useSyncedRef,
+} from "@synnaxlabs/pluto";
+import { type record } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
-import { type z } from "zod";
+import { type z } from "zod/v4";
 
 interface UseContextValue
   extends z.ZodObject<{
@@ -19,8 +26,8 @@ interface UseContextValue
   }> {}
 
 /**
- * @description A hook that retrieves and subscribes to updates for a device. Must be
- * used within a Form context that has a schema matching the following structure:
+ * A hook that retrieves and subscribes to updates for a device. Must be used within a
+ * Form context that has a schema matching the following structure:
  *
  * ```typescript
  * {
@@ -36,40 +43,50 @@ interface UseContextValue
  * @template MO - The device model type.
  */
 export const use = <
-  Properties extends UnknownRecord = UnknownRecord,
+  Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
->() => {
+  StateDetails extends {} = record.Unknown,
+>(): device.Device<Properties, Make, Model, StateDetails> | undefined => {
   const ctx = Form.useContext<UseContextValue>();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const [device, setDevice] = useState<device.Device<Properties, Make, Model>>();
+  const [dev, setDev] =
+    useState<device.Device<Properties, Make, Model, StateDetails>>();
+  const deviceNameRef = useSyncedRef(dev?.name);
   const handleExc = useCallback(
     (e: unknown) => {
       if (NotFoundError.matches(e)) {
-        setDevice(undefined);
+        setDev(undefined);
         return;
       }
-      handleError(e, `Failed to retrieve ${device?.name ?? "device"}`);
+      handleError(e, `Failed to retrieve ${deviceNameRef.current ?? "device"}`);
     },
-    [handleError, device?.name, setDevice],
+    [handleError],
   );
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const deviceKey = ctx.value().config.device;
-    if (deviceKey === "") {
-      setDevice(undefined);
-      return;
-    }
-    try {
-      const device = await client.hardware.devices.retrieve<Properties, Make, Model>(
-        deviceKey,
-      );
-      setDevice(device);
-    } catch (e) {
-      handleExc(e);
-    }
-  }, [ctx.value, client?.key]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) return;
+      const deviceKey = ctx.value().config.device;
+      if (deviceKey === "") {
+        setDev(undefined);
+        return;
+      }
+      try {
+        const d = await client.hardware.devices.retrieve<
+          Properties,
+          Make,
+          Model,
+          StateDetails
+        >(deviceKey);
+        if (signal.aborted) return;
+        setDev(d);
+      } catch (e) {
+        handleExc(e);
+      }
+    },
+    [ctx.value, client?.key],
+  );
   Form.useFieldListener<string, UseContextValue>({
     ctx,
     path: "config.device",
@@ -77,24 +94,27 @@ export const use = <
       (fs) => {
         if (!fs.touched || fs.status.variant !== "success" || client == null) return;
         client.hardware.devices
-          .retrieve<Properties, Make, Model>(fs.value)
-          .then(setDevice)
+          .retrieve<Properties, Make, Model, StateDetails>(fs.value)
+          .then(setDev)
           .catch(handleExc);
       },
-      [client?.key, setDevice, handleExc],
+      [client?.key, setDev, handleExc],
     ),
   });
-  Observe.useListener({
-    key: [client?.key, setDevice, device?.key],
-    open: async () => await client?.hardware.devices.openDeviceTracker(),
-    onChange: (changes) => {
-      for (const change of changes) {
-        if (change.key !== device?.key) continue;
-        if (change.variant === "set")
-          setDevice(change.value as device.Device<Properties, Make, Model>);
-        else setDevice(undefined);
-      }
+  const handleSet = useCallback(
+    (d: device.Device) => {
+      if (d.key === dev?.key)
+        setDev(d as device.Device<Properties, Make, Model, StateDetails>);
     },
-  });
-  return device;
+    [dev?.key],
+  );
+  const handleDelete = useCallback(
+    (key: device.Key) => {
+      if (key === dev?.key) setDev(undefined);
+    },
+    [dev?.key],
+  );
+  Device.useSetSynchronizer(handleSet);
+  Device.useDeleteSynchronizer(handleDelete);
+  return dev;
 };

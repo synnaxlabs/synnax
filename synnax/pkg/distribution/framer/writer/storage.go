@@ -11,7 +11,8 @@ package writer
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
@@ -21,19 +22,20 @@ func newRequestTranslator() func(ctx context.Context, in Request) (ts.WriterRequ
 			Command: ts.WriterCommand(in.Command),
 			Frame:   in.Frame.ToStorage(),
 			Config:  in.Config.toStorage(),
+			SeqNum:  in.SeqNum,
 		}, true, nil
 	}
 }
 
-func newResponseTranslator(host core.NodeKey) func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
+func newResponseTranslator(host cluster.NodeKey) func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
 	return func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
 		return Response{
-			Command: Command(in.Command),
-			Ack:     in.Ack,
-			Error:   in.Err,
-			SeqNum:  in.SeqNum,
-			NodeKey: host,
-			End:     in.End,
+			Command:    Command(in.Command),
+			SeqNum:     in.SeqNum,
+			NodeKey:    host,
+			End:        in.End,
+			Authorized: in.Authorized,
+			Err:        in.Err,
 		}, true, nil
 	}
 }

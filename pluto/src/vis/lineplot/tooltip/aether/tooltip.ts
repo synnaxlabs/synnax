@@ -7,11 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, location, math, scale, TimeStamp, xy } from "@synnaxlabs/x";
-import { z } from "zod";
+import {
+  bounds,
+  box,
+  color,
+  location,
+  math,
+  scale,
+  TimeStamp,
+  xy,
+} from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
-import { color } from "@/color/core";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { type FindResult } from "@/vis/line/aether/line";
@@ -24,10 +32,10 @@ const TOOLTIP_PADDING: xy.XY = xy.construct(6);
 
 export const tooltipStateZ = z.object({
   position: xy.xy.or(z.null()),
-  textColor: color.Color.z.optional().default(color.ZERO),
-  backgroundColor: color.Color.z.optional().default(color.ZERO),
-  borderColor: color.Color.z.optional().default(color.ZERO),
-  ruleColor: color.Color.z.optional().default(color.ZERO),
+  textColor: color.colorZ.optional().default(color.ZERO),
+  backgroundColor: color.colorZ.optional().default(color.ZERO),
+  borderColor: color.colorZ.optional().default(color.ZERO),
+  ruleColor: color.colorZ.optional().default(color.ZERO),
   ruleStrokeWidth: z.number().optional().default(1),
   ruleStrokeDash: z.number().default(0),
 });
@@ -40,7 +48,7 @@ interface InternalState {
 }
 
 export interface TooltipProps {
-  findByXDecimal: (position: number) => Promise<FindResult[]>;
+  findByXDecimal: (position: number) => FindResult[];
   region: box.Box;
 }
 
@@ -48,33 +56,32 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
   static readonly TYPE = "tooltip";
   schema = tooltipStateZ;
 
-  async afterUpdate(ctx: aether.Context): Promise<void> {
+  afterUpdate(ctx: aether.Context): void {
     const theme = theming.use(ctx);
-    if (this.state.textColor.isZero) this.state.textColor = theme.colors.text;
-    if (this.state.backgroundColor.isZero)
+    if (color.isZero(this.state.textColor)) this.state.textColor = theme.colors.text;
+    if (color.isZero(this.state.backgroundColor))
       this.state.backgroundColor = theme.colors.gray.l1;
-    if (this.state.borderColor.isZero) this.state.borderColor = theme.colors.border;
-    if (this.state.ruleColor.isZero) this.state.ruleColor = theme.colors.gray.l7;
+    if (color.isZero(this.state.borderColor))
+      this.state.borderColor = theme.colors.border;
+    if (color.isZero(this.state.ruleColor)) this.state.ruleColor = theme.colors.gray.l7;
     this.internal.dotColor = theme.colors.text;
     this.internal.dotColorContrast = theme.colors.textInverted;
 
     this.internal.render = render.Context.use(ctx);
     this.internal.draw = new Draw2D(this.internal.render.upper2d, theme);
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+    render.request(ctx, "tool");
   }
 
-  async afterDelete(ctx: aether.Context): Promise<void> {
-    render.Controller.requestRender(ctx, render.REASON_TOOL);
+  afterDelete(ctx: aether.Context): void {
+    render.request(ctx, "tool");
   }
 
-  async render(props: TooltipProps): Promise<void> {
+  render(props: TooltipProps): void {
     if (this.deleted || this.state.position == null) return;
     const { region } = props;
     const scale_ = scale.XY.scale(box.DECIMAL).scale(region);
     const reverseScale = scale.XY.scale(region).scale(box.DECIMAL);
-    const values = await props.findByXDecimal(
-      reverseScale.x.pos(this.state.position.x),
-    );
+    const values = props.findByXDecimal(reverseScale.x.pos(this.state.position.x));
     const validValues = values.filter((c) => xy.isFinite(c.value));
     const { draw } = this.internal;
 
@@ -98,10 +105,11 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
     validValues.forEach((r) => {
       const position = scale_.pos(r.position);
-      draw.circle({ fill: r.color.setAlpha(0.5), radius: 8, position });
-      draw.circle({ fill: r.color.setAlpha(0.8), radius: 5, position });
+      draw.circle({ fill: color.setAlpha(r.color, 0.5), radius: 8, position });
+      draw.circle({ fill: color.setAlpha(r.color, 0.8), radius: 5, position });
       draw.circle({
-        fill: r.color.pickByContrast(
+        fill: color.pickByContrast(
+          r.color,
           this.internal.dotColor,
           this.internal.dotColorContrast,
         ),

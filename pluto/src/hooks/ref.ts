@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Primitive } from "@synnaxlabs/x";
+import { type primitive } from "@synnaxlabs/x";
 import {
   type Ref,
   type RefCallback,
@@ -82,7 +82,7 @@ export const useCombinedRefs = <T>(
     [],
   );
 
-export const useCombinedStateAndRef = <T extends Primitive | object>(
+export const useCombinedStateAndRef = <T extends primitive.Value | object>(
   initialState: state.Initial<T>,
 ): [T, state.Set<T>, React.RefObject<T>] => {
   const ref = useRef<T | null>(null);
@@ -92,15 +92,12 @@ export const useCombinedStateAndRef = <T extends Primitive | object>(
     return s;
   });
 
-  const setStateAndRef: state.Set<T> = useCallback(
-    (nextState): void => {
-      setS((p) => {
-        ref.current = state.executeSetter<T>(nextState, p);
-        return ref.current;
-      });
-    },
-    [setS],
-  );
+  const setStateAndRef: state.Set<T> = useCallback((nextState): void => {
+    setS((p) => {
+      ref.current = state.executeSetter<T>(nextState, p);
+      return ref.current;
+    });
+  }, []);
 
   return [s, setStateAndRef, ref as React.RefObject<T>];
 };

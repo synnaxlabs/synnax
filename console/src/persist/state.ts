@@ -8,14 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Action, type Middleware } from "@reduxjs/toolkit";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { debounce, deep, TimeSpan, type UnknownRecord } from "@synnaxlabs/x";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { debounce, deep, type record, TimeSpan } from "@synnaxlabs/x";
 
-import { openTauriKV, type SugaredKV } from "@/persist/kv";
+import { isMainWindow } from "@/isMainWindow";
+import { openSugaredKV, type SugaredKV } from "@/persist/kv";
 import { type Version } from "@/version";
 
-export const PERSISTED_STATE_KEY = "console-persisted-state";
+const PERSISTED_STATE_KEY = "console-persisted-state";
 export const DB_VERSION_KEY = "console-version";
 
 // Note that these are relative paths related to the tauri standard app data directory.
@@ -31,15 +30,17 @@ interface StateVersionValue {
 export interface RequiredState extends Version.StoreState {}
 
 export interface KVOpener {
-  (base: string): Promise<SugaredKV>;
+  (base: string): SugaredKV;
 }
 
-const openAndMigrateKV = async (openKV: KVOpener = openTauriKV): Promise<SugaredKV> => {
+const openAndMigrateKV = async (
+  openKV: KVOpener = openSugaredKV,
+): Promise<SugaredKV> => {
   // Open V2 store and check its length. If it's greater than 0, return it. Otherwise,
   // open V1 store and return it.
-  const v2Store = await openKV(V2_STORE_PATH);
+  const v2Store = openKV(V2_STORE_PATH);
   if ((await v2Store.length()) > 0) return v2Store;
-  const v1Store = await openKV(V1_STORE_PATH);
+  const v1Store = openKV(V1_STORE_PATH);
   // If it's empty, we can just return the V2 store.
   if ((await v1Store.length()) === 0) return v2Store;
   // Otherwise, we need to migrate the V1 store to V2. Get the DB version key and use it
@@ -80,8 +81,7 @@ const nextVersion = (currentVersion: number): number =>
  * Clear the entire store and reload the page.
  */
 export const hardClearAndReload = () => {
-  const appWindow = getCurrentWindow();
-  if (appWindow == null || appWindow.label !== MAIN_WINDOW) return;
+  if (!isMainWindow()) return;
   openAndMigrateKV()
     .then(async (db) => await db.clear())
     .finally(() => window.location.reload())
@@ -182,7 +182,7 @@ const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 export const middleware = <S extends RequiredState>(
   engine: Engine<S>,
   debounceInterval: TimeSpan = PERSIST_DEBOUNCE,
-): Middleware<UnknownRecord> => {
+): Middleware<record.Unknown> => {
   const debouncedPersist = debounce(
     engine.persist.bind(engine),
     debounceInterval.milliseconds,

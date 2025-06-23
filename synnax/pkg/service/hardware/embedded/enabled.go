@@ -28,7 +28,6 @@ import (
 	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -38,6 +37,7 @@ const (
 	noColorFlag         = "--no-color"
 	configFlag          = "--config"
 	debugFlag           = "--debug"
+	startedMessage      = "started successfully"
 )
 
 func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
@@ -45,11 +45,13 @@ func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &Driver{cfg: cfg}
-	return d, d.start()
+	d := &Driver{cfg: cfg, started: make(chan struct{})}
+	ctx, cancel := context.WithTimeout(ctx, cfg.StartTimeout)
+	defer cancel()
+	return d, d.start(ctx)
 }
 
-func (d *Driver) start() error {
+func (d *Driver) start(ctx context.Context) error {
 	if !*d.cfg.Enabled {
 		d.cfg.L.Info("embedded driver disabled")
 		return nil
@@ -126,7 +128,7 @@ func (d *Driver) start() error {
 		defer cancel()
 
 		internalSCtx.Go(func(ctx context.Context) error {
-			pipeOutputToLogger(stdoutPipe, d.cfg.L)
+			pipeOutputToLogger(stdoutPipe, d.cfg.L, d.started)
 			return nil
 		},
 			signal.WithKey("stdoutPipe"),
@@ -134,7 +136,7 @@ func (d *Driver) start() error {
 			signal.WithRetryOnPanic(),
 		)
 		internalSCtx.Go(func(ctx context.Context) error {
-			pipeOutputToLogger(stderrPipe, d.cfg.L)
+			pipeOutputToLogger(stderrPipe, d.cfg.L, d.started)
 			return nil
 		},
 			signal.WithKey("stderrPipe"),
@@ -161,12 +163,13 @@ func (d *Driver) start() error {
 		return err
 	}
 	sCtx.Go(mf)
-	return nil
+	_, err = signal.RecvUnderContext(ctx, d.started)
+	return err
 }
 
 const stopKeyword = "STOP\n"
 
-func (d *Driver) Stop() error {
+func (d *Driver) Close() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.shutdown != nil && d.cmd != nil && d.cmd.Process != nil {
@@ -179,13 +182,12 @@ func (d *Driver) Stop() error {
 	return nil
 }
 
-func pipeOutputToLogger(reader io.ReadCloser, logger *alamos.Logger) {
-	existingCfg := logger.Config
+func pipeOutputToLogger(
+	reader io.ReadCloser,
+	logger *alamos.Logger,
+	started chan<- struct{},
+) {
 	var caller string
-	existingCfg.ZapConfig.EncoderConfig.EncodeCaller = func(_ zapcore.EntryCaller, encoder zapcore.PrimitiveArrayEncoder) {
-		encoder.AppendString(caller)
-	}
-	logger, _ = logger.WithConfig(existingCfg)
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		// Find the first "]" and remove everything before it
@@ -213,15 +215,19 @@ func pipeOutputToLogger(reader io.ReadCloser, logger *alamos.Logger) {
 				message = message[1:]
 			}
 		}
+		if started != nil && message == startedMessage {
+			close(started)
+		}
+		callerField := zap.String("caller", caller)
 		switch level {
 		case "D":
-			dl.Debug(message)
+			dl.Debug(message, callerField)
 		case "E", "F":
-			dl.Error(message)
+			dl.Error(message, callerField)
 		case "W":
-			dl.Warn(message)
+			dl.Warn(message, callerField)
 		default:
-			dl.Info(message)
+			dl.Info(message, callerField)
 		}
 	}
 	if err := scanner.Err(); err != nil {

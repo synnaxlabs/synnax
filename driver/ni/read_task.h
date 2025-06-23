@@ -56,7 +56,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         software_timed(other.software_timed),
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
-        skew_warn_on_count(std::move(other.skew_warn_on_count)) {}
+        skew_warn_on_count(other.skew_warn_on_count) {}
 
     /// @brief delete copy constructor and copy assignment to prevent accidental
     /// copies.
@@ -192,7 +192,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             .channels = keys,
             .mode = synnax::data_saving_writer_mode(this->data_saving),
             .enable_auto_commit = true,
-            .enable_proto_frame_caching = true
         };
     }
 

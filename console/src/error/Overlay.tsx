@@ -33,6 +33,7 @@ import { useDispatch } from "react-redux";
 import { CSS } from "@/css";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
+import { RUNTIME } from "@/runtime";
 
 export interface OverlayProps extends PropsWithChildren {}
 
@@ -86,24 +87,30 @@ const FallBackRenderContent = ({
     } catch (e) {
       console.error(e);
     }
-    void getCurrentWindow().show();
+    if (RUNTIME === "tauri") void getCurrentWindow().show();
   }, []);
   return (
     <Align.Space y className={CSS.B("error-overlay")}>
-      <Nav.Bar location="top" size="6.5rem" className="console-main-nav-top" bordered>
+      <Nav.Bar
+        location="top"
+        size="6.5rem"
+        className="console-main-nav-top"
+        bordered
+        data-tauri-drag-region
+      >
         <Nav.Bar.Start className="console-main-nav-top__start">
           <OS.Controls
             className="console-controls--macos"
             visibleIfOS="macOS"
             forceOS={os}
             onClose={() => {
-              void getCurrentWindow().close();
+              if (RUNTIME === "tauri") void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              void getCurrentWindow().minimize();
+              if (RUNTIME === "tauri") void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              void getCurrentWindow().maximize();
+              if (RUNTIME === "tauri") void getCurrentWindow().maximize();
             }}
           />
           {os === "Windows" && (
@@ -117,13 +124,13 @@ const FallBackRenderContent = ({
             forceOS={os}
             shade={0}
             onClose={() => {
-              void getCurrentWindow().close();
+              if (RUNTIME === "tauri") void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              void getCurrentWindow().minimize();
+              if (RUNTIME === "tauri") void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              void getCurrentWindow().maximize();
+              if (RUNTIME === "tauri") void getCurrentWindow().maximize();
             }}
           />
         </Nav.Bar.End>
@@ -135,7 +142,7 @@ const FallBackRenderContent = ({
           <Align.Space y align="start" className={CSS.B("details")}>
             <Text.Text level="h1">Something went wrong</Text.Text>
             <Status.Text variant="error" hideIcon level="h3">
-              {messageTranslation[error.message] ?? error.message}
+              {error.name} - {messageTranslation[error.message] ?? error.message}
             </Status.Text>
             <Text.Text className={CSS.B("stack")} level="p">
               {error.stack}
@@ -160,10 +167,10 @@ const FallBackRenderContent = ({
 const fallbackRenderWithStore = componentRenderProp(FallbackRenderWithStore);
 const fallbackRenderWithoutStore = componentRenderProp(FallbackRenderWithoutStore);
 
-export const OverlayWithStore = ({ children }: OverlayProps): ReactElement => (
-  <ErrorBoundary fallbackRender={fallbackRenderWithStore}>{children}</ErrorBoundary>
+export const OverlayWithStore = (props: OverlayProps): ReactElement => (
+  <ErrorBoundary {...props} fallbackRender={fallbackRenderWithStore} />
 );
 
-export const OverlayWithoutStore = ({ children }: OverlayProps): ReactElement => (
-  <ErrorBoundary fallbackRender={fallbackRenderWithoutStore}>{children}</ErrorBoundary>
+export const OverlayWithoutStore = (props: OverlayProps): ReactElement => (
+  <ErrorBoundary {...props} fallbackRender={fallbackRenderWithoutStore} />
 );

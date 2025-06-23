@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Tree } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { group, ontology } from "@synnaxlabs/client";
+import { Icon, Tree } from "@synnaxlabs/pluto";
+import { errors, uuid } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-import { createNewID } from "@/group/createNewID";
 import { getResourcesToGroup } from "@/group/getResourcesToGroup";
 import { type Ontology } from "@/ontology";
 
@@ -62,7 +60,7 @@ export const useCreateFromSelection = (): CreateFromSelection => {
     mutationFn: async ({ client, selection, newID }: CreateArgs) => {
       if (selection.parentID == null) return;
       const [groupName, renamed] = await Tree.asyncRename(newID.toString());
-      if (!renamed) throw errors.CANCELED;
+      if (!renamed) throw new errors.Canceled();
       const resourcesToGroup = getResourcesToGroup(selection);
       const parentID = new ontology.ID(selection.parentID.toString());
       await client.ontology.groups.create(parentID, groupName, newID.key);
@@ -70,9 +68,12 @@ export const useCreateFromSelection = (): CreateFromSelection => {
     },
     onError: async (e, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      if (errors.CANCELED.matches(e.message)) return;
+      if (errors.Canceled.matches(e.message)) return;
       handleError(e, "Failed to group resources");
     },
   }).mutate;
-  return useCallback((props) => create({ ...props, newID: createNewID() }), [create]);
+  return useCallback(
+    (props) => create({ ...props, newID: group.ontologyID(uuid.create()) }),
+    [create],
+  );
 };

@@ -27,7 +27,7 @@ type AccessService struct {
 
 func NewAccessService(p Provider) *AccessService {
 	return &AccessService{
-		internal:   p.RBAC,
+		internal:   p.Service.RBAC,
 		dbProvider: p.db,
 	}
 }
@@ -99,7 +99,7 @@ func (s *AccessService) RetrievePolicy(
 		hasSubjects = len(req.Subjects) > 0
 		hasKeys     = len(req.Keys) > 0
 	)
-	q := s.internal.NewRetriever()
+	q := s.internal.NewRetrieve()
 	if hasSubjects {
 		q = q.WhereSubjects(req.Subjects...)
 	}

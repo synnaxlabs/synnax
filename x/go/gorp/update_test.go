@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/testutil"
@@ -22,14 +22,14 @@ import (
 var _ = Describe("update", Ordered, func() {
 	var (
 		db      *gorp.DB
-		kv      kvx.DB
+		kv      xkv.DB
 		entries []entry
 		tx      gorp.Tx
 	)
 	BeforeAll(func() {
 		kv = memkv.New()
 		db = gorp.Wrap(kv)
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			entries = append(entries, entry{ID: i, Data: "data"})
 		}
 	})

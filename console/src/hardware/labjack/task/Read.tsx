@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm } from "@synnaxlabs/pluto";
-import { deep, id, primitiveIsZero } from "@synnaxlabs/x";
+import { Align, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -299,7 +298,7 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) 
     const type = convertChannelTypeToPortType(c.type);
     const existing = dev.properties[type].channels[c.port];
     // check if the channel is in properties
-    if (primitiveIsZero(existing)) toCreate.push(c);
+    if (primitive.isZero(existing)) toCreate.push(c);
     else
       try {
         await client.channels.retrieve(existing.toString());

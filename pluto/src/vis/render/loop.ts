@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Rate, TimeSpan } from "@synnaxlabs/x";
-import { Mutex } from "async-mutex";
+import { alamos } from "@synnaxlabs/alamos";
 
+import { type status } from "@/status/aether";
 import { type CanvasVariant } from "@/vis/render/context";
 
 /**
- * An async function that executes the render in the loop. This function can return an
+ * A function that executes the render in the loop. This function can return an
  * optional cleanup that is executed before the next render. This cleanup function will
  * be passed the signature of the previous render request.
  */
-export type Func = () => Promise<Cleanup | void>;
+export interface Renderer {
+  (): Cleanup | void;
+}
 
 /**
  * A request to render a component in the aether visualization tree. Submit a complete
@@ -47,7 +49,7 @@ export interface Request {
    * cleanup that is executed before the next render. This cleanup function will be
    * passed the signature of the previous render request.
    */
-  render: Func;
+  render: Renderer;
 }
 
 /**
@@ -55,37 +57,43 @@ export interface Request {
  * functions should clear canvases and other resources that need to be freed from
  * the previous render.
  */
-export type Cleanup = (req: Request) => Promise<void>;
+export type Cleanup = (req: Request) => void;
 
 export type Priority = "high" | "low";
 
 const PRIORITY_ORDER: Record<Priority, number> = { high: 1, low: 0 };
 
-const TARGET_LOOP_RATE = Rate.hz(45);
+interface LoopArgs {
+  handleError: status.ErrorHandler;
+  afterRender?: () => void;
+  instrumentation?: alamos.Instrumentation;
+}
 
 /**
  * Implements the core rendering loop for Synnax's aether components, accepting requests
  * into a queue and rendering them in sync with the browser animation frame.
- *
- * --------------------------------- VERY IMPORTANT ------------------------------
- *
- * This loop intentionally permits race conditions under render request priorities that
- * are not 'high'. This ensures smooth rendering performance on low priority cycles
- * (such as new data), while guarantees proper rendering on high priority cycles
- * (such as the user altering the layout)).
  */
 export class Loop {
-  /** To lock things so renders don't collide */
-  private readonly mutex = new Mutex();
   /** Stores the current requests for rendering. */
   private readonly requests = new Map<string, Request>();
   /** Stores render cleanup functions for clearing canvases and other resources. */
   private readonly cleanup = new Map<string, Cleanup>();
+  /** A callback to run after each render call. */
   private readonly afterRender?: () => void;
+  /** Instrumentation for logging, tracing, metrics, etc. */
+  private readonly instrumentation: alamos.Instrumentation;
+  /** A function to add status to the status bar. */
+  private readonly handleError: status.ErrorHandler;
 
-  constructor(afterRender?: () => void) {
-    void this.start();
+  constructor({
+    afterRender,
+    instrumentation = alamos.Instrumentation.NOOP,
+    handleError,
+  }: LoopArgs) {
     this.afterRender = afterRender;
+    this.instrumentation = instrumentation;
+    this.handleError = handleError;
+    this.start();
   }
 
   /**
@@ -98,9 +106,7 @@ export class Loop {
    *
    * @param req - The request to set.
    */
-  async set(req: Request): Promise<void> {
-    let releaser: (() => void) | undefined;
-    if (req.priority === "high") releaser = await this.mutex.acquire();
+  set(req: Request): void {
     const existing = this.requests.get(req.key);
     if (existing == null) this.requests.set(req.key, req);
     else {
@@ -109,68 +115,55 @@ export class Loop {
       const canvasesOK = req.canvases.length >= existing.canvases.length;
       if (priorityOK && canvasesOK) this.requests.set(req.key, req);
     }
-    releaser?.();
   }
 
   /** Execute the render. */
-  private async render(): Promise<void> {
-    await this.mutex.runExclusive(async () => {
-      const start = performance.now();
-      const { requests } = this;
-      if (requests.size === 0) return;
-      await this.runCleanupsSync();
-      await this.renderSync();
-
-      const end = performance.now();
-      const span = TimeSpan.milliseconds(end - start);
-      if (span.greaterThan(TARGET_LOOP_RATE.period))
-        console.warn(
-          `Render loop for ${this.requests.size} took longer than ${TARGET_LOOP_RATE.period.toString()} to execute: ${span.milliseconds}`,
-        );
-      this.requests.clear();
-      this.afterRender?.();
-    });
+  private render(): void {
+    const { requests } = this;
+    if (requests.size === 0) return;
+    this.runCleanupsSync();
+    this.renderSync();
+    this.requests.clear();
+    this.afterRender?.();
   }
 
-  private async runCleanupsSync(): Promise<void> {
+  private runCleanupsSync(): void {
     const { cleanup, requests } = this;
-    for (const [k, f] of cleanup.entries()) {
+    cleanup.forEach((f, k) => {
       /** Execute all of our cleanup functions BEFORE we re-render. */
       const req = requests.get(k);
       if (req != null) {
-        await f(req);
+        f(req);
         cleanup.delete(k);
       }
-    }
+    });
   }
 
-  private async renderSync() {
+  private renderSync() {
     /** Render components. */
     const { requests } = this;
-    for (const req of requests.values())
+    requests.forEach((req) => {
       try {
-        const cleanup = await req.render();
+        const cleanup = req.render();
         // We're safe to set the cleanup function here because we know that req.key
         // is unique in the queue.
         if (cleanup != null) this.cleanup.set(req.key, cleanup);
       } catch (e) {
-        console.error(e);
+        this.handleError(e, "render loop failed");
       }
+    });
   }
 
   /** Starts the rendering loop. */
-  private async start(): Promise<void> {
-    do {
+  private start(): void {
+    const render = () => {
       try {
-        await this.render();
+        this.render();
       } catch (e) {
-        console.error(e);
+        this.handleError(e, "render loop failed");
       }
-      await this.sleep();
-    } while (true);
-  }
-
-  private async sleep(): Promise<number> {
-    return await new Promise(requestAnimationFrame);
+      requestAnimationFrame(render);
+    };
+    requestAnimationFrame(render);
   }
 }

@@ -8,19 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type label, ranger, type Synnax } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import {
-  Icon as PIcon,
-  Menu as PMenu,
-  Status,
-  Synnax as PSynnax,
-  Text,
-  useAsyncEffect,
-} from "@synnaxlabs/pluto";
-import { errors, toArray } from "@synnaxlabs/x";
+import { ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { Icon, Label, Menu as PMenu, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { array, errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -33,34 +25,12 @@ import {
 } from "@/lineplot/layout";
 import { setRanges as setLinePlotRanges } from "@/lineplot/slice";
 import { Link } from "@/link";
-import { Modals } from "@/modals";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/external";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, type Range, remove, setActive, type StoreState } from "@/range/slice";
 import { type RootState } from "@/store";
-
-export const useParent = (rangeKey: string) => {
-  const client = PSynnax.use();
-  const handleError = Status.useErrorHandler();
-  const [parent, setParent] = useState<ranger.Range | null>();
-  useAsyncEffect(async () => {
-    try {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      const rng = await client.ranges.retrieve(rangeKey);
-      const childRanges = await rng.retrieveParent();
-      setParent(childRanges);
-      const tracker = await rng.openParentRangeTracker();
-      if (tracker == null) return;
-      tracker.onChange((ranges) => setParent(ranges));
-      return async () => await tracker.close();
-    } catch (e) {
-      handleError(e, "Failed to retrieve child ranges");
-      return undefined;
-    }
-  }, [rangeKey, client?.key]);
-  return parent;
-};
 
 export interface SnapshotMenuItemProps {
   range?: Range | null;
@@ -76,7 +46,7 @@ export const SnapshotMenuItem = ({
   ) : null;
 
 export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
-  toArray(ranges).map((range) => ({
+  array.toArray(ranges).map((range) => ({
     variant: "static",
     key: range.key,
     name: range.name,
@@ -86,7 +56,7 @@ export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] 
 
 export const fetchIfNotInState = async (
   store: Store<StoreState>,
-  client: Synnax,
+  client: Client,
   key: string,
 ): Promise<Range> => {
   const existing = select(store.getState(), key);
@@ -100,7 +70,7 @@ export const fetchIfNotInState = async (
 
 export const useAddToNewPlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
   return useMutation<void, Error, string>({
@@ -117,7 +87,7 @@ export const useAddToNewPlot = (): ((key: string) => void) => {
 
 const useAddToActivePlot = (): ((key: string) => void) => {
   const store = useStore<RootState>();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   return useMutation<void, Error, string>({
     mutationFn: async (key: string) => {
@@ -161,65 +131,40 @@ export const viewDetailsMenuItem = (
   </PMenu.Item>
 );
 
+const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
+  topRight: Icon.Add,
+});
+
 export const addToNewPlotMenuItem = (
-  <PMenu.Item
-    itemKey="addToNewPlot"
-    startIcon={
-      <PIcon.Create>
-        <Icon.LinePlot key="plot" />
-      </PIcon.Create>
-    }
-  >
+  <PMenu.Item itemKey="addToNewPlot" startIcon={<AddToNewPlotIcon key="plot" />}>
     Add to New Plot
   </PMenu.Item>
 );
 
+const AddToActivePlotIcon = Icon.createComposite(Icon.LinePlot, {
+  topRight: Icon.Range,
+});
+
 export const addToActivePlotMenuItem = (
-  <PMenu.Item
-    itemKey="addToActivePlot"
-    startIcon={
-      <PIcon.Icon topRight={<Icon.Range />}>
-        <Icon.LinePlot key="plot" />
-      </PIcon.Icon>
-    }
-  >
+  <PMenu.Item itemKey="addToActivePlot" startIcon={<AddToActivePlotIcon key="plot" />}>
     Add to Active Plot
   </PMenu.Item>
 );
 
+export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
+  topRight: Icon.Add,
+});
+
 export const addChildRangeMenuItem = (
-  <PMenu.Item
-    itemKey="addChildRange"
-    startIcon={
-      <PIcon.Create>
-        <Icon.Range />
-      </PIcon.Create>
-    }
-  >
+  <PMenu.Item itemKey="addChildRange" startIcon={<CreateChildRangeIcon key="plot" />}>
     Create Child Range
   </PMenu.Item>
 );
 
-export const useLabels = (key: string) => {
-  const client = PSynnax.use();
-  const [labels, setLabels] = useState<label.Label[]>([]);
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const labels = await client.labels.retrieveFor(ranger.ontologyID(key));
-    setLabels(labels ?? []);
-    const labelObs = await client.labels.trackLabelsOf(ranger.ontologyID(key));
-    labelObs?.onChange((changes) => {
-      setLabels(changes);
-    });
-    return async () => {
-      await labelObs?.close();
-    };
-  }, [key]);
-  return labels;
-};
+export const useLabels = (key: string) => Label.use(ranger.ontologyID(key));
 
 export const useViewDetails = (): ((key: string) => void) => {
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const placeLayout = Layout.usePlacer();
   return useMutation<void, Error, string>({
@@ -232,36 +177,31 @@ export const useViewDetails = (): ((key: string) => void) => {
   }).mutate;
 };
 
-export const useDelete = (name?: string) => {
+export const useDelete = () => {
   const dispatch = useDispatch();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const remover = Layout.useRemover();
   const ranges = useSelectMultiple();
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
   };
   const handleError = Status.useErrorHandler();
-  const confirm = Modals.useConfirm();
+  const confirm = useConfirmDelete({
+    type: "Range",
+    description: "Deleting this range will also delete all child ranges.",
+  });
 
   return useMutation<void, Error, string, Range | undefined>({
     onMutate: async (key: string) => {
       const rng = ranges.find((r) => r.key === key);
-      if (
-        !(await confirm({
-          message: `Are you sure you want to delete ${name ?? rng?.name}?`,
-          description: "This action cannot be undone.",
-          cancel: { label: "Cancel" },
-          confirm: { label: "Delete", variant: "error" },
-        }))
-      )
-        throw errors.CANCELED;
+      if (rng == null || !(await confirm(rng))) throw new errors.Canceled();
       handleRemove([key]);
       remover(key);
       return rng;
     },
     mutationFn: async (key: string) => await client?.ranges.delete(key),
     onError: (e, _, range) => {
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       handleError(e, "Failed to delete range");
       dispatch(add({ ranges: [range as Range] }));
     },
@@ -270,7 +210,7 @@ export const useDelete = (name?: string) => {
 
 export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   const dispatch = useDispatch();
-  const client = PSynnax.use();
+  const client = Synnax.use();
   const ranges = useSelectMultiple();
   const handleCreate = (key?: string): void => {
     placeLayout(createCreateLayout({ key }));

@@ -9,9 +9,9 @@
 
 import "@/button/Button.css";
 
-import { Icon } from "@synnaxlabs/media";
+import { color, type status } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
 import { TimeSpan } from "@synnaxlabs/x/telem";
-import { toArray } from "@synnaxlabs/x/toArray";
 import {
   type ComponentPropsWithRef,
   type ReactElement,
@@ -20,10 +20,8 @@ import {
 } from "react";
 
 import { type Align } from "@/align";
-import { color as Color } from "@/color/core";
 import { CSS } from "@/css";
-import { type Icon as PIcon } from "@/icon";
-import { type status } from "@/status/aether";
+import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
@@ -47,7 +45,7 @@ export interface BaseProps extends Omit<ComponentPropsWithRef<"button">, "color"
   loading?: boolean;
   triggers?: Triggers.Trigger | Triggers.Trigger[];
   status?: status.Variant;
-  color?: Color.Crude;
+  color?: color.Crude;
   textShade?: Text.Shade;
 }
 
@@ -59,8 +57,8 @@ export type ButtonProps = Omit<
   Tooltip.WrapProps &
   BaseProps & {
     level?: Text.Level;
-    startIcon?: PIcon.Element | PIcon.Element[];
-    endIcon?: PIcon.Element | PIcon.Element[];
+    startIcon?: Icon.ReactElement | Icon.ReactElement[];
+    endIcon?: Icon.ReactElement | Icon.ReactElement[];
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
     onClickDelay?: number | TimeSpan;
@@ -104,7 +102,7 @@ export const Button = Tooltip.wrap(
     startIcon = [],
     onClickDelay = 0,
     onClick,
-    color,
+    color: colorVal,
     status,
     style,
     onMouseDown,
@@ -115,7 +113,8 @@ export const Button = Tooltip.wrap(
   }: ButtonProps): ReactElement => {
     if (variant == "outlined" && shade == null) shade = 0;
     const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-    if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
+    if (loading)
+      startIcon = [...array.toArray(startIcon), <Icon.Loading key="loader" />];
     const isDisabled = disabled || loading;
     iconSpacing ??= size === "small" ? "small" : "medium";
     // We implement the shadow variant to maintain compatibility with the input
@@ -156,24 +155,26 @@ export const Button = Tooltip.wrap(
       ),
     });
 
-    const pStyle = { ...style };
-    const res = Color.Color.z.safeParse(color);
+    let pStyle = style;
+    const res = color.colorZ.safeParse(colorVal);
     const hasCustomColor =
       res.success && (variant === "filled" || variant === "outlined");
     if (hasCustomColor) {
       const theme = Theming.use();
-      // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-color")] = res.data.rgbString;
-      // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-text-color")] = res.data.pickByContrast(
-        theme.colors.text,
-        theme.colors.textInverted,
-      ).rgbCSS;
+      pStyle = {
+        ...pStyle,
+        [CSS.var("btn-color")]: color.rgbString(res.data),
+        [CSS.var("btn-text-color")]: color.rgbCSS(
+          color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
+        ),
+      };
     }
 
     if (!parsedDelay.isZero)
-      // @ts-expect-error - css variable
-      pStyle[CSS.var("btn-delay")] = `${parsedDelay.seconds.toString()}s`;
+      pStyle = {
+        ...pStyle,
+        [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
+      };
 
     if (size == null && level != null) size = Text.LevelComponentSizes[level];
     else if (size != null && level == null) level = Text.ComponentSizeLevels[size];
@@ -203,7 +204,7 @@ export const Button = Tooltip.wrap(
         noWrap
         style={pStyle}
         startIcon={startIcon}
-        color={color}
+        color={colorVal}
         {...rest}
         shade={textShade}
       >

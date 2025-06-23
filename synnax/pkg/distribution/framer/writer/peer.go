@@ -11,19 +11,21 @@ package writer
 
 import (
 	"context"
+	"strconv"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
-	"strconv"
 )
 
 func (s *Service) openManyPeers(
 	ctx context.Context,
 	cfg Config,
-	targets map[core.NodeKey][]keyAuthority,
+	targets map[cluster.NodeKey][]keyAuthority,
 ) (confluence.Sink[Request], []*freightfluence.Receiver[Response], []address.Address, error) {
 	var (
 		receivers         = make([]*freightfluence.Receiver[Response], 0, len(targets))

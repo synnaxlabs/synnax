@@ -14,9 +14,8 @@ import {
   table as clientTable,
   workspace as clientWorkspace,
 } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
-import { deep, errors, strings, type UnknownRecord } from "@synnaxlabs/x";
+import { Icon, Menu as PMenu, Synnax, Tree } from "@synnaxlabs/pluto";
+import { deep, errors, type record, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -48,7 +47,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "Workspace" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
-      if (!(await confirm(resources))) throw errors.CANCELED;
+      if (!(await confirm(resources))) throw new errors.Canceled();
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
         ...Tree.removeNode({
@@ -70,7 +69,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     },
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       handleError(e, "Failed to delete workspace");
     },
   }).mutate;
@@ -109,7 +108,7 @@ const useCreateSchematic = (): ((props: Ontology.TreeContextMenuProps) => void) 
       const schematic = await client.workspaces.schematic.create(workspace, {
         name: "New Schematic",
         snapshot: false,
-        data: deep.copy(Schematic.ZERO_STATE) as unknown as UnknownRecord,
+        data: deep.copy(Schematic.ZERO_STATE) as unknown as record.Unknown,
       });
       const otg = await client.ontology.retrieve(
         clientSchematic.ontologyID(schematic.key),
@@ -254,6 +253,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const importSchematic = SchematicServices.useImport(selection.resources[0].id.key);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport(EXTRACTORS);
+  const importLog = LogServices.useImport(selection.resources[0].id.key);
+  const importTable = TableServices.useImport(selection.resources[0].id.key);
   const handleSelect = {
     delete: () => handleDelete(props),
     rename: () => Tree.startRenaming(resources[0].id.toString()),
@@ -262,6 +263,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     createPlot: () => createPlot(props),
     createTable: () => createTable(props),
     importPlot: () => importPlot(),
+    importLog: () => importLog(),
+    importTable: () => importTable(),
     createSchematic: () => createSchematic(props),
     importSchematic: () => importSchematic(),
     export: () => handleExport(resources[0].id.key),
@@ -271,7 +274,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const singleResource = resources.length === 1;
   const canCreateSchematic = Schematic.useSelectHasPermission();
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={handleSelect} level="small" shade={1} iconSpacing="small">
       {singleResource && (
         <>
           <Menu.RenameItem />

@@ -27,17 +27,14 @@ xerrors::Error plugins::SynnaxFrameSink::open() {
 
 xerrors::Error plugins::SynnaxFrameSink::write(const synnax::Frame &frame) {
     if (frame.empty()) return xerrors::NIL;
-    if (const bool ok = this->writer->write(frame); !ok) return this->writer->error();
-    return xerrors::NIL;
+    return this->writer->write(frame);
 }
 
 xerrors::Error plugins::SynnaxFrameSink::set_authority(
     const std::vector<synnax::ChannelKey> &keys,
     const std::vector<telem::Authority> &authorities
 ) {
-    if (const bool ok = this->writer->set_authority(keys, authorities); !ok)
-        return this->writer->error();
-    return xerrors::NIL;
+    return this->writer->set_authority(keys, authorities);
 }
 
 xerrors::Error plugins::SynnaxFrameSink::close() {

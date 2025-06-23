@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax, table } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Icon, Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -28,7 +27,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "Table" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ selection, removeLayout, state: { nodes, setNodes } }) => {
-      if (!(await confirm(selection.resources))) throw errors.CANCELED;
+      if (!(await confirm(selection.resources))) throw new errors.Canceled();
       const ids = selection.resources.map((res) => new ontology.ID(res.key));
       const keys = ids.map((id) => id.key);
       removeLayout(...keys);
@@ -47,7 +46,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
     },
     onError: (e, { state: { setNodes }, handleError }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
-      if (errors.CANCELED.matches(e)) return;
+      if (errors.Canceled.matches(e)) return;
       handleError(e, "Failed to delete table");
     },
   }).mutate;

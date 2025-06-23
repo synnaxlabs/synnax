@@ -100,7 +100,7 @@ func DeferErr(f func() error, opts ...RoutineOption) RoutineOption {
 func WithKey(key string) RoutineOption { return func(r *routineOptions) { r.key = key } }
 
 // WithKeyf attaches a formatted string to identify the routine.
-func WithKeyf(format string, args ...interface{}) RoutineOption {
+func WithKeyf(format string, args ...any) RoutineOption {
 	return func(r *routineOptions) {
 		r.key = fmt.Sprintf(format, args...)
 	}
@@ -254,7 +254,7 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	defer r.ctx.mu.Unlock()
 
 	if r.key == "" {
-		r.key = "anonymous-" + strconv.Itoa(len(r.ctx.mu.routines))
+		r.key = "anonymous_" + strconv.Itoa(len(r.ctx.mu.routines))
 	}
 
 	if r.useBreaker {
@@ -283,9 +283,8 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 // runPostlude decides the state of the goroutine upon exiting and combines err with
 // any errors from deferred functions.
 func (r *routine) runPostlude(err error) error {
-	r.ctx.L.Debug("stopping routine", r.zapFields()...)
-
 	r.ctx.mu.Lock()
+	r.ctx.L.Debug("stopping routine", r.zapFields()...)
 	r.state.state = Stopping
 	r.ctx.mu.Unlock()
 
@@ -365,6 +364,7 @@ func (r *routine) zapFields() []zap.Field {
 	opts := []zap.Field{
 		zap.String("key", r.path()),
 		zap.Stringer("state", r.state.state),
+		zap.Strings("running", r.ctx.unsafeRunningKeys()),
 		zap.Error(r.state.err),
 	}
 	deferralKeys := make([]string, len(r.deferrals))

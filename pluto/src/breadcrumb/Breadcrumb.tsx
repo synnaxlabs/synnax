@@ -9,19 +9,18 @@
 
 import "@/breadcrumb/Breadcrumb.css";
 
-import { Icon } from "@synnaxlabs/media";
-import { caseconv, type Optional, toArray } from "@synnaxlabs/x";
+import { array, caseconv, type Optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { Icon as PIcon } from "@/icon";
+import { Icon } from "@/icon";
 import { Text } from "@/text";
 
 export interface Segment {
   label: string;
   shade?: Text.Shade;
-  icon?: string | PIcon.Element;
+  icon?: string | Icon.ReactElement;
   weight?: Text.Weight;
   level?: Text.Level;
   href?: string;
@@ -40,7 +39,7 @@ export type BreadcrumbProps<
   L extends Text.Level = Text.Level,
 > = Optional<Omit<Text.WithIconProps<E, L>, "children">, "level"> & {
   /** Icon to display in the breadcrumb. */
-  icon?: string | PIcon.Element;
+  icon?: string | Icon.ReactElement;
   /** The breadcrumb items, either a single string or an array of strings. */
   children: Segments;
   url?: string | string[];
@@ -54,7 +53,8 @@ const normalizeSegments = (
   segments: string | Segment | (string | Segment)[],
   separator: string,
 ): Segment[] => {
-  const arr = toArray(segments)
+  const arr = array
+    .toArray(segments)
     .map((segment) => {
       if (typeof segment === "string")
         return segment.split(separator).map((label) => ({ label }));
@@ -96,7 +96,7 @@ const getContent = ({
         />,
       ];
       if (icon != null) {
-        const iconComponent = PIcon.resolve(icon);
+        const iconComponent = Icon.resolve(icon);
         if (iconComponent != null) base.push(iconComponent);
       }
       const baseProps: Omit<Text.TextProps, "ref"> = {
@@ -152,7 +152,7 @@ export const Breadcrumb = <
       x
       {...rest}
     >
-      {PIcon.resolve(icon)}
+      {Icon.resolve(icon)}
       {...content}
     </Text.WithIcon>
   );

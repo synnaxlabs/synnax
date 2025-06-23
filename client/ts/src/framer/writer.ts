@@ -7,33 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  decodeError,
-  errorZ,
-  type Stream,
-  type StreamClient,
-} from "@synnaxlabs/freighter";
-import { control } from "@synnaxlabs/x";
+import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
+import { array, control, errors } from "@synnaxlabs/x";
 import {
   type CrudeSeries,
   type CrudeTimeStamp,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x/telem";
-import { toArray } from "@synnaxlabs/x/toArray";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { channel } from "@/channel";
+import { SynnaxError } from "@/errors";
 import { WriteAdapter } from "@/framer/adapter";
-import { type Crude, frameZ } from "@/framer/frame";
-import { StreamProxy } from "@/framer/streamProxy";
+import { WSWriterCodec } from "@/framer/codec";
+import { type CrudeFrame, frameZ } from "@/framer/frame";
 
-enum Command {
+export enum WriterCommand {
   Open = 0,
   Write = 1,
   Commit = 2,
-  Error = 3,
-  SetAuthority = 4,
+  SetAuthority = 3,
 }
 
 export enum WriterMode {
@@ -60,12 +54,18 @@ const constructWriterMode = (mode: CrudeWriterMode): WriterMode => {
 
 export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
 
+export class WriterClosedError extends SynnaxError.sub("writer_closed") {
+  constructor() {
+    super("WriterClosed");
+  }
+}
+
 const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
   controlSubject: control.subjectZ.optional(),
   keys: channel.keyZ.array().optional(),
-  authorities: control.Authority.z.array().optional(),
-  mode: z.nativeEnum(WriterMode).optional(),
+  authorities: control.authorityZ.array().optional(),
+  mode: z.enum(WriterMode).optional(),
   errOnUnauthorized: z.boolean().optional(),
   enableAutoCommit: z.boolean().optional(),
   autoIndexPersistInterval: TimeSpan.z.optional(),
@@ -74,17 +74,18 @@ const netConfigZ = z.object({
 interface Config extends z.infer<typeof netConfigZ> {}
 
 const reqZ = z.object({
-  command: z.nativeEnum(Command),
+  command: z.enum(WriterCommand),
   config: netConfigZ.optional(),
   frame: frameZ.optional(),
+  buffer: z.instanceof(Uint8Array).optional(),
 });
 
-interface Request extends z.infer<typeof reqZ> {}
+export interface WriteRequest extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({
-  ack: z.boolean(),
-  command: z.nativeEnum(Command),
-  error: errorZ.optional().nullable(),
+  command: z.enum(WriterCommand),
+  end: TimeStamp.z,
+  err: errors.payloadZ.optional(),
 });
 
 interface Response extends z.infer<typeof resZ> {}
@@ -114,6 +115,7 @@ export interface WriterConfig {
   // persisted. To persist every commit to guarantee minimal loss of data, set
   // auto_index_persist_interval to AlwaysAutoIndexPersist.
   autoIndexPersistInterval?: TimeSpan;
+  useExperimentalCodec?: boolean;
 }
 
 /**
@@ -156,39 +158,42 @@ export interface WriterConfig {
  */
 export class Writer {
   private static readonly ENDPOINT = "/frame/write";
-  private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
+  private readonly stream: Stream<typeof reqZ, typeof resZ>;
   private readonly adapter: WriteAdapter;
-  private errAccumulated: boolean = false;
+  private closeErr: Error | null = null;
 
   private constructor(stream: Stream<typeof reqZ, typeof resZ>, adapter: WriteAdapter) {
-    this.stream = new StreamProxy("Writer", stream);
+    this.stream = stream;
     this.adapter = adapter;
   }
 
   static async _open(
     retriever: channel.Retriever,
-    client: StreamClient,
+    client: WebSocketClient,
     {
       channels,
       start = TimeStamp.now(),
-      authorities = control.Authority.ABSOLUTE,
+      authorities = control.ABSOLUTE_AUTHORITY,
       controlSubject: subject,
       mode = WriterMode.PersistStream,
       errOnUnauthorized = false,
       enableAutoCommit = false,
       autoIndexPersistInterval = TimeSpan.SECOND,
+      useExperimentalCodec = true,
     }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await WriteAdapter.open(retriever, channels);
+    if (useExperimentalCodec)
+      client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({
-      command: Command.Open,
+      command: WriterCommand.Open,
       config: {
         start: new TimeStamp(start),
         keys: adapter.keys,
         controlSubject: subject,
-        authorities: toArray(authorities),
+        authorities: array.toArray(authorities),
         mode: constructWriterMode(mode),
         errOnUnauthorized,
         enableAutoCommit,
@@ -198,21 +203,18 @@ export class Writer {
     return writer;
   }
 
-  private async checkForAccumulatedError(): Promise<boolean> {
-    if (!this.errAccumulated && this.stream.received()) {
-      this.errAccumulated = true;
-      while (this.stream.received()) await this.stream.receive();
-    }
-    return this.errAccumulated;
-  }
-
-  async write(channel: channel.KeyOrName, data: CrudeSeries): Promise<boolean>;
-  async write(channel: channel.KeysOrNames, data: CrudeSeries[]): Promise<boolean>;
-  async write(frame: Crude | Record<channel.KeyOrName, CrudeSeries>): Promise<boolean>;
+  async write(channel: channel.KeyOrName, data: CrudeSeries): Promise<void>;
+  async write(channel: channel.KeysOrNames, data: CrudeSeries[]): Promise<void>;
   async write(
-    channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
+    frame: CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
+  ): Promise<void>;
+  async write(
+    channelsOrData:
+      | channel.Params
+      | Record<channel.KeyOrName, CrudeSeries>
+      | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
-  ): Promise<boolean>;
+  ): Promise<void>;
 
   /**
    * Writes the given frame to the database.
@@ -229,31 +231,34 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    */
   async write(
-    channelsOrData: channel.Params | Record<channel.KeyOrName, CrudeSeries> | Crude,
+    channelsOrData:
+      | channel.Params
+      | Record<channel.KeyOrName, CrudeSeries>
+      | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
-  ): Promise<boolean> {
-    if (await this.checkForAccumulatedError()) return false;
+  ): Promise<void> {
+    if (this.closeErr != null) throw this.closeErr;
+    if (this.stream.received()) return await this.close();
     const frame = await this.adapter.adapt(channelsOrData, series);
-    this.stream.send({ command: Command.Write, frame: frame.toPayload() });
-    return true;
+    this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
   }
 
-  async setAuthority(value: number): Promise<boolean>;
+  async setAuthority(value: number): Promise<void>;
 
   async setAuthority(
     key: channel.KeyOrName,
     authority: control.Authority,
-  ): Promise<boolean>;
+  ): Promise<void>;
 
   async setAuthority(
     value: Record<channel.KeyOrName, control.Authority>,
-  ): Promise<boolean>;
+  ): Promise<void>;
 
   async setAuthority(
     value: Record<channel.KeyOrName, control.Authority> | channel.KeyOrName | number,
     authority?: control.Authority,
-  ): Promise<boolean> {
-    if (await this.checkForAccumulatedError()) return false;
+  ): Promise<void> {
+    if (this.closeErr != null) throw this.closeErr;
     let config: Config;
     if (typeof value === "number" && authority == null)
       config = { keys: [], authorities: [value] };
@@ -268,8 +273,7 @@ export class Writer {
         authorities: Object.values(oValue),
       };
     }
-    const response = await this.execute({ command: Command.SetAuthority, config });
-    return response.ack;
+    await this.execute({ command: WriterCommand.SetAuthority, config });
   }
 
   /**
@@ -280,19 +284,14 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    * After the caller acknowledges the error, they can attempt to commit again.
    */
-  async commit(): Promise<boolean> {
-    if (await this.checkForAccumulatedError()) return false;
-    const res = await this.execute({ command: Command.Commit });
-    return res.ack;
-  }
-
-  /**
-   * @returns  The accumulated error, if any. This method will clear the writer's error
-   * state, allowing the writer to be used again.
-   */
-  async error(): Promise<Error | null> {
-    const res = await this.execute({ command: Command.Error });
-    return res.error != null ? decodeError(res.error) : null;
+  async commit(): Promise<TimeStamp> {
+    if (this.closeErr != null) throw this.closeErr;
+    if (this.stream.received()) {
+      await this.closeInternal(null);
+      return TimeStamp.ZERO;
+    }
+    const res = await this.execute({ command: WriterCommand.Commit });
+    return res.end;
   }
 
   /**
@@ -301,19 +300,33 @@ export class Writer {
    * in a 'finally' block.
    */
   async close(): Promise<void> {
-    await this.stream.closeAndAck();
+    await this.closeInternal(null);
   }
 
-  async execute(req: Request): Promise<Response> {
-    this.stream.send(req);
+  private async closeInternal(err: Error | null): Promise<null> {
+    if (this.closeErr != null) throw this.closeErr;
+    this.closeErr = err;
+    this.stream.closeSend();
     while (true) {
-      const res = await this.stream.receive();
-      if (res.command === req.command) return res;
-      console.warn("writer received unexpected response", res);
+      if (this.closeErr != null) {
+        if (WriterClosedError.matches(this.closeErr)) return null;
+        throw this.closeErr;
+      }
+      const [res, err] = await this.stream.receive();
+      if (err != null) this.closeErr = EOF.matches(err) ? new WriterClosedError() : err;
+      else this.closeErr = errors.decode(res?.err);
     }
   }
 
-  private get errorAccumulated(): boolean {
-    return this.stream.received();
+  private async execute(req: WriteRequest): Promise<Response> {
+    const err = this.stream.send(req);
+    if (err != null) await this.closeInternal(err);
+    while (true) {
+      const [res, err] = await this.stream.receive();
+      if (err != null) await this.closeInternal(err);
+      const resErr = errors.decode(res?.err);
+      if (resErr != null) await this.closeInternal(resErr);
+      if (res?.command == req.command) return res;
+    }
   }
 }

@@ -30,7 +30,7 @@ var _ gorp.Entry[uuid.UUID] = Group{}
 func (c Group) GorpKey() uuid.UUID { return c.Key }
 
 // SetOptions implements gorp.Entry.
-func (c Group) SetOptions() []interface{} { return nil }
+func (c Group) SetOptions() []any { return nil }
 
 // OntologyID returns the ontology.ID for the group.
 func (c Group) OntologyID() ontology.ID { return OntologyID(c.Key) }
