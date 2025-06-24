@@ -231,7 +231,6 @@ const ChannelsForm = ({
     ),
     [device.model],
   );
-  console.log(task.config);
   return (
     <Common.Task.Layouts.ListAndDetails<InputChannel>
       listItem={listItem}

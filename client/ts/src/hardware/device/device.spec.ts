@@ -126,7 +126,7 @@ describe("Device", async () => {
         expect(retrieved.status).toBeUndefined();
       });
 
-      it("should include state when includeStatus is true", async () => {
+      it("should include status when includeStatus is true", async () => {
         const d = await client.hardware.devices.create({
           key: id.create(),
           rack: testRack.key,

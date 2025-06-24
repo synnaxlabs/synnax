@@ -406,7 +406,6 @@ export class Client {
       tasks,
       schemas as Schemas<Type, Config, StatusData>,
     );
-    console.log("sugared", sugared);
     return isMultiple ? sugared : sugared[0];
   }
 
