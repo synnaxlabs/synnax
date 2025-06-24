@@ -25,8 +25,8 @@ import (
 
 const newLineChar = '\n'
 
-// Series is a strongly typed array of telemetry samples backed by an underlying
-// binary buffer.
+// Series is a strongly typed array of telemetry samples backed by an underlying binary
+// buffer.
 type Series struct {
 	// TimeRange represents the time range occupied by the series' data.
 	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
@@ -34,9 +34,9 @@ type Series struct {
 	DataType DataType `json:"data_type" msgpack:"data_type"`
 	// Data is the underlying binary buffer.
 	Data []byte `json:"data" msgpack:"data"`
-	// Alignment defines the location of the series relative to other
-	// series in a logical group. This is typically used for defining the position of
-	// the series within a channel's data, but can be used for arbitrary purposes.
+	// Alignment defines the location of the series relative to other series in a
+	// logical group. This is typically used for defining the position of the series
+	// within a channel's data, but can be used for arbitrary purposes.
 	Alignment Alignment `json:"alignment" msgpack:"alignment"`
 	// cachedLength tracks the length of a series with a variable data type.
 	cachedLength *int64
@@ -243,13 +243,13 @@ func (s Series) DataString() string {
 
 // AlignmentBounds is a set of lower and upper bounds for the alignment of a
 // multi-sample data structure (such as a Series or MultiSeries). The lower bound
-// represents the alignment of the first sample, while the upper bound represents
-// the alignment of the last sample + 1. The lower bound is inclusive, while the
-// upper bound is exclusive.
+// represents the alignment of the first sample, while the upper bound represents the
+// alignment of the last sample + 1. The lower bound is inclusive, while the upper bound
+// is exclusive.
 type AlignmentBounds = bounds.Bounds[Alignment]
 
-// AlignmentBoundsZero is a set of alignment bounds whose lower and upper bound
-// are both zero.
+// AlignmentBoundsZero is a set of alignment bounds whose lower and upper bound are both
+// zero.
 var AlignmentBoundsZero = AlignmentBounds{}
 
 // MultiSeries is a collection of ordered Series that share the same data type.
@@ -259,9 +259,9 @@ func sortSeriesByAlignment(s1, s2 Series) int {
 	return int(s1.Alignment - s2.Alignment)
 }
 
-// NewMultiSeries constructs a new MultiSeries from the given set of Series.
-// The series are sorted by their alignment, and the data type of the series must
-// be the same. If the data types are different, a panic will occur.
+// NewMultiSeries constructs a new MultiSeries from the given set of Series. The series
+// are sorted by their alignment, and the data type of the series must be the same. If
+// the data types are different, a panic will occur.
 func NewMultiSeries(series []Series) MultiSeries {
 	if len(series) == 0 {
 		return MultiSeries{}
@@ -294,10 +294,10 @@ func MultiSeriesAtAlignment[T types.Numeric](
 // same. If the data types are different, a panic will occur.
 func NewMultiSeriesV(series ...Series) MultiSeries { return NewMultiSeries(series) }
 
-// AlignmentBounds returns the alignment bounds of the MultiSeries. The lower
-// bound is the alignment of the first sample in the series, and the upper bound is the
-// alignment of the last sample in the series + 1, i.e., the lower value is inclusive, and
-// the upper value is exclusive.
+// AlignmentBounds returns the alignment bounds of the MultiSeries. The lower bound is
+// the alignment of the first sample in the series, and the upper bound is the alignment
+// of the last sample in the series + 1, i.e., the lower value is inclusive, and the
+// upper value is exclusive.
 func (m MultiSeries) AlignmentBounds() AlignmentBounds {
 	if len(m.Series) == 0 {
 		return AlignmentBoundsZero
@@ -331,9 +331,9 @@ func (m MultiSeries) Append(series Series) MultiSeries {
 	return m
 }
 
-// FilterGreaterThanOrEqualTo returns a new MultiSeries with all series that have an upper alignment
-// bound greater than the given alignment. This is useful for filtering out series that
-// are not relevant to the given alignment.
+// FilterGreaterThanOrEqualTo returns a new MultiSeries with all series that have an
+// upper alignment bound greater than the given alignment. This is useful for filtering
+// out series that are not relevant to the given alignment.
 func (m MultiSeries) FilterGreaterThanOrEqualTo(a Alignment) MultiSeries {
 	if len(m.Series) == 0 {
 		return m
