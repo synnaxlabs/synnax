@@ -49,7 +49,7 @@ type Config struct {
 	// Signals is used to propagate changes to meta-data throughout the cluster.
 	Signals *signals.Provider
 	// Channel is used to create channels necessary for hardware communication.
-	Channel channel.Writeable
+	Channel channel.ReadWriteable
 	// Framer is used for writing hardware telemetry data.
 	Framer *framer.Service
 }

@@ -260,7 +260,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 
 		var stateCH channel.Channel
-		stateCH.Name = "sy_calculation_state"
+		stateCH.Name = "sy_calculation_status"
 		Expect(
 			dist.Channel.Create(
 				ctx,
@@ -307,7 +307,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.SeriesAt(0).DataType).To(Equal(telem.JSONT))
 
-		var state calculation.State
+		var state calculation.Status
 		data := res.Frame.SeriesAt(0).Data
 		Expect(json.Unmarshal(data[:len(data)-1], &state)).To(Succeed()) // -1 to remove newline
 

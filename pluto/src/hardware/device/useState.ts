@@ -10,7 +10,7 @@
 import { type device } from "@synnaxlabs/client";
 import { useState as useState_ } from "react";
 
-import { useStateSynchronizer } from "@/hardware/device/synchronizers";
+import { useStatusSynchronizer } from "@/hardware/device/synchronizers";
 import { useAsyncEffect } from "@/hooks";
 import { Synnax } from "@/synnax";
 
@@ -28,6 +28,6 @@ export const useState = (key: device.Key): device.Status | undefined => {
     },
     [client],
   );
-  useStateSynchronizer(setState);
+  useStatusSynchronizer(setState);
   return state;
 };

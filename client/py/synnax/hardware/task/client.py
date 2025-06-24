@@ -57,7 +57,7 @@ _CREATE_ENDPOINT = "/hardware/task/create"
 _DELETE_ENDPOINT = "/hardware/task/delete"
 _RETRIEVE_ENDPOINT = "/hardware/task/retrieve"
 
-_TASK_STATE_CHANNEL = "sy_task_state"
+_TASK_STATE_CHANNEL = "sy_task_status"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
 

@@ -17,14 +17,14 @@ export const useCommandSynchronizer = (
 ): void =>
   Sync.useParsedListener(task.COMMAND_CHANNEL_NAME, task.commandZ, onCommandUpdate);
 
-export const useStateSynchronizer = <StatusData extends z.ZodTypeAny>(
-  onStateUpdate: (status: task.Status<StatusData>) => void,
+export const useStatusSynchronizer = <StatusData extends z.ZodTypeAny>(
+  onStatusUpdate: (status: task.Status<StatusData>) => void,
   statusDataZ: StatusData = z.unknown() as unknown as StatusData,
 ): void =>
   Sync.useParsedListener(
-    task.STATE_CHANNEL_NAME,
+    task.STATUS_CHANNEL_NAME,
     task.statusZ(statusDataZ),
-    onStateUpdate,
+    onStatusUpdate,
   );
 
 export const useSetSynchronizer = (onSet: (key: task.Key) => void): void =>

@@ -33,7 +33,7 @@ const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_ENDPOINT = "/hardware/rack/create";
 const DELETE_ENDPOINT = "/hardware/rack/delete";
 
-export const STATE_CHANNEL_NAME = "sy_rack_state";
+export const STATUS_CHANNEL_NAME = "sy_rack_status";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -149,14 +149,12 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return single ? sugared[0] : sugared;
   }
 
-  async openStateObserver(): Promise<framer.ObservableStreamer<Status[]>> {
+  async openStatusObserver(): Promise<framer.ObservableStreamer<Status[]>> {
     return new framer.ObservableStreamer<Status[]>(
-      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
       (fr) => {
-        const data = fr.get(STATE_CHANNEL_NAME);
-        if (data.length === 0) return [[], false];
-        const states = data.parseJSON(statusZ);
-        return [states, true];
+        const data = fr.get(STATUS_CHANNEL_NAME);
+        return [data.parseJSON(statusZ), data.length > 0];
       },
     );
   }

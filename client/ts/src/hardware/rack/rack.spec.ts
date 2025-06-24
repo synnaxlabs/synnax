@@ -60,8 +60,8 @@ describe("Rack", () => {
       expect(tasks).toHaveLength(0);
     });
   });
-  describe("state", () => {
-    it("should include status when includeStatus is true", async () => {
+  describe("status", () => {
+    it("should include the rack's status when includeStatus is true", async () => {
       const r = await client.hardware.racks.create({ name: "test" });
       let status: rack.Status | undefined;
       await expect
@@ -75,7 +75,7 @@ describe("Rack", () => {
         .toBeDefined();
       expect(status?.details?.rack).toBe(r.key);
     });
-    it("should include state for multiple racks", async () => {
+    it("should include the status for multiple racks", async () => {
       const r1 = await client.hardware.racks.create({ name: "test1" });
       const r2 = await client.hardware.racks.create({ name: "test2" });
       let statuses: (rack.Status | undefined)[] = [];

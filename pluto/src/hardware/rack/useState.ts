@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type rack } from "@synnaxlabs/client";
-import { useState as useState_ } from "react";
+import { useState } from "react";
 
-import { useStateSynchronizer } from "@/hardware/rack/synchronizers";
+import { useStatusSynchronizer } from "@/hardware/rack/synchronizers";
 import { useAsyncEffect } from "@/hooks";
 import { Synnax } from "@/synnax";
 
-export const useState = (key: rack.Key): rack.Status | undefined => {
+export const useStatus = (key: rack.Key): rack.Status | undefined => {
   const client = Synnax.use();
-  const [state, setState] = useState_<rack.Status | undefined>(undefined);
+  const [status, setStatus] = useState<rack.Status | undefined>(undefined);
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
@@ -24,10 +24,10 @@ export const useState = (key: rack.Key): rack.Status | undefined => {
         includeStatus: true,
       });
       if (signal.aborted) return;
-      setState(status);
+      setStatus(status);
     },
     [client],
   );
-  useStateSynchronizer(setState);
-  return state;
+  useStatusSynchronizer(setStatus);
+  return status;
 };

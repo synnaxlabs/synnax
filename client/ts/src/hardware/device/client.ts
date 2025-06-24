@@ -32,7 +32,7 @@ import { nullableArrayZ } from "@/util/zod";
 
 export const SET_CHANNEL_NAME = "sy_device_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
-export const STATE_CHANNEL_NAME = "sy_device_state";
+export const STATUS_CHANNEL_NAME = "sy_device_status";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 const CREATE_ENDPOINT = "/hardware/device/create";
@@ -192,14 +192,12 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     );
   }
 
-  async openStateObserver(): Promise<framer.ObservableStreamer<Status[]>> {
+  async openStatusObserver(): Promise<framer.ObservableStreamer<Status[]>> {
     return new framer.ObservableStreamer<Status[]>(
-      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
       (frame) => {
-        const s = frame.get(STATE_CHANNEL_NAME);
-        if (s.length === 0) return [null, false];
-        const states = s.parseJSON(statusZ);
-        return [states as Status[], true];
+        const s = frame.get(STATUS_CHANNEL_NAME);
+        return [s.parseJSON(statusZ), s.length > 0];
       },
     );
   }

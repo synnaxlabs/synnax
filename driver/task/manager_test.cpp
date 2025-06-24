@@ -126,13 +126,13 @@ protected:
 
 /// @brief it should correctly configure an echo task.
 TEST_F(TaskManagerTestFixture, testEchoTask) {
-    auto [sy_task_state, ch_err] = client->channels.retrieve(
+    auto [sy_task_status, ch_err] = client->channels.retrieve(
         synnax::TASK_STATE_CHAN_NAME
     );
     ASSERT_FALSE(ch_err) << ch_err;
 
     auto [streamer, s_err] = client->telem.open_streamer(
-        synnax::StreamerConfig{.channels = {sy_task_state.key}}
+        synnax::StreamerConfig{.channels = {sy_task_status.key}}
     );
     ASSERT_FALSE(s_err) << s_err;
 
@@ -143,7 +143,7 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
     auto [f, r_err] = streamer.read();
     ASSERT_FALSE(r_err) << r_err;
     ASSERT_EQ(f.size(), 1);
-    auto state_str = f.at<std::string>(sy_task_state.key, 0);
+    auto state_str = f.at<std::string>(sy_task_status.key, 0);
     auto parser = xjson::Parser(state_str);
     auto status = synnax::TaskStatus::parse(parser);
     ASSERT_EQ(status.details.task, echo_task.key);
@@ -155,13 +155,13 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
 
 /// @brief it should stop and remove the task.
 TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
-    auto [sy_task_state, ch_err] = client->channels.retrieve(
+    auto [sy_task_status, ch_err] = client->channels.retrieve(
         synnax::TASK_STATE_CHAN_NAME
     );
     ASSERT_FALSE(ch_err) << ch_err;
 
     auto [streamer, s_err] = client->telem.open_streamer(
-        synnax::StreamerConfig{.channels = {sy_task_state.key}}
+        synnax::StreamerConfig{.channels = {sy_task_status.key}}
     );
     ASSERT_FALSE(s_err) << s_err;
 
@@ -181,7 +181,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
     auto [f2, r_err2] = streamer.read();
     ASSERT_FALSE(r_err2) << r_err2;
     ASSERT_EQ(f2.size(), 1);
-    auto state_str = f2.at<std::string>(sy_task_state.key, 0);
+    auto state_str = f2.at<std::string>(sy_task_status.key, 0);
     auto parser = xjson::Parser(state_str);
     auto state = synnax::TaskStatus::parse(parser);
     ASSERT_EQ(state.details.task, echo_task.key);
@@ -193,12 +193,12 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
 
 /// @brief it should execute an echo command on the task.
 TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
-    auto [sy_task_state, ch_err] = client->channels.retrieve(
+    auto [sy_task_status, ch_err] = client->channels.retrieve(
         synnax::TASK_STATE_CHAN_NAME
     );
     ASSERT_FALSE(ch_err) << ch_err;
     auto [streamer, s_err] = client->telem.open_streamer(
-        synnax::StreamerConfig{.channels = {sy_task_state.key}}
+        synnax::StreamerConfig{.channels = {sy_task_status.key}}
     );
     ASSERT_FALSE(s_err) << s_err;
     auto [sy_task_cmd, c_err] = client->channels.retrieve("sy_task_cmd");
@@ -230,7 +230,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     auto [f2, r_err2] = streamer.read();
     ASSERT_FALSE(r_err2) << r_err2;
     ASSERT_EQ(f2.size(), 1);
-    auto state_str = f2.at<std::string>(sy_task_state.key, 0);
+    auto state_str = f2.at<std::string>(sy_task_status.key, 0);
     auto parser = xjson::Parser(state_str);
     auto status = synnax::TaskStatus::parse(parser);
     ASSERT_EQ(status.details.task, echo_task.key);
@@ -243,13 +243,13 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
 
 /// @brief should ignore tasks for a different rack.
 TEST_F(TaskManagerTestFixture, testIgnoreDifferentRackTask) {
-    auto [sy_task_state, ch_err] = client->channels.retrieve(
+    auto [sy_task_status, ch_err] = client->channels.retrieve(
         synnax::TASK_STATE_CHAN_NAME
     );
     ASSERT_FALSE(ch_err) << ch_err;
 
     auto [streamer, s_err] = client->telem.open_streamer(
-        synnax::StreamerConfig{.channels = {sy_task_state.key}}
+        synnax::StreamerConfig{.channels = {sy_task_status.key}}
     );
     ASSERT_FALSE(s_err) << s_err;
 
@@ -285,13 +285,13 @@ TEST_F(TaskManagerTestFixture, testIgnoreDifferentRackTask) {
 
 /// @brief it should stop all tasks when the manager is shut down.
 TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
-    auto [sy_task_state, ch_err] = client->channels.retrieve(
+    auto [sy_task_status, ch_err] = client->channels.retrieve(
         synnax::TASK_STATE_CHAN_NAME
     );
     ASSERT_FALSE(ch_err) << ch_err;
 
     auto [streamer, s_err] = client->telem.open_streamer(
-        synnax::StreamerConfig{.channels = {sy_task_state.key}}
+        synnax::StreamerConfig{.channels = {sy_task_status.key}}
     );
     ASSERT_FALSE(s_err) << s_err;
 
@@ -312,7 +312,7 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
     ASSERT_FALSE(r_err2) << r_err2;
     ASSERT_EQ(f2.size(), 1);
 
-    auto state_str = f2.at<std::string>(sy_task_state.key, 0);
+    auto state_str = f2.at<std::string>(sy_task_status.key, 0);
     auto parser = xjson::Parser(state_str);
     auto state = synnax::TaskStatus::parse(parser);
 
@@ -326,12 +326,12 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
 
 /// @brief it should ignore snapshot tasks during configuration.
 TEST_F(TaskManagerTestFixture, testIgnoresSnapshot) {
-    auto [sy_task_state, ch_err] = client->channels.retrieve(
+    auto [sy_task_status, ch_err] = client->channels.retrieve(
         synnax::TASK_STATE_CHAN_NAME
     );
     ASSERT_FALSE(ch_err) << ch_err;
     auto [streamer, s_err] = client->telem.open_streamer(
-        synnax::StreamerConfig{.channels = {sy_task_state.key}}
+        synnax::StreamerConfig{.channels = {sy_task_status.key}}
     );
     ASSERT_FALSE(s_err) << s_err;
     auto snapshot_task = synnax::Task(rack.key, "snapshot_task", "echo", "");

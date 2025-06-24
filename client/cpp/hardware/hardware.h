@@ -75,11 +75,11 @@ using RackKey = std::uint32_t;
 using TaskKey = std::uint64_t;
 
 /// @brief the name of the channel used to propagate device state.
-const std::string DEVICE_STATE_CHAN_NAME = "sy_device_state";
+const std::string DEVICE_STATE_CHAN_NAME = "sy_device_status";
 /// @brief the name of the channel used to propagate task state.
-const std::string TASK_STATE_CHAN_NAME = "sy_task_state";
+const std::string TASK_STATE_CHAN_NAME = "sy_task_status";
 /// @brief the name of the channel used to propagate rack state.
-const std::string RACK_STATE_CHAN_NAME = "sy_rack_state";
+const std::string RACK_STATE_CHAN_NAME = "sy_rack_status";
 
 /// @brief Creates a task key from a rack key and a local task key.
 /// @param rack The rack key.

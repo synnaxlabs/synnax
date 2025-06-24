@@ -36,7 +36,7 @@ import { type ranger } from "@/ranger";
 import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
 
-export const STATE_CHANNEL_NAME = "sy_task_state";
+export const STATUS_CHANNEL_NAME = "sy_task_status";
 export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
@@ -135,9 +135,9 @@ export class Task<
   async openStateObserver(): Promise<StateObservable<StatusData>> {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
     return new framer.ObservableStreamer<Status<StatusData>>(
-      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
       (frame) => {
-        const s = frame.get(STATE_CHANNEL_NAME);
+        const s = frame.get(STATUS_CHANNEL_NAME);
         if (s.length === 0) return [null, false];
         const parse = statusZ(this.schemas.statusDataSchema).safeParse(s.at(-1));
         if (!parse.success) {
@@ -543,9 +543,9 @@ export class Client {
     stateSchema: z.ZodType<StatusData> = z.unknown() as unknown as z.ZodType<StatusData>,
   ): Promise<StateObservable<StatusData>> {
     return new framer.ObservableStreamer<Status<StatusData>>(
-      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
       (frame) => {
-        const s = frame.get(STATE_CHANNEL_NAME);
+        const s = frame.get(STATUS_CHANNEL_NAME);
         if (s.length === 0) return [null, false];
         const parse = statusZ(stateSchema).safeParse(s.at(-1));
         if (!parse.success) {
@@ -601,7 +601,7 @@ const executeCommandSync = async <StatusData extends z.ZodTypeAny = z.ZodTypeAny
   args?: {},
 ): Promise<Status<StatusData>> => {
   if (frameClient == null) throw NOT_CREATED_ERROR;
-  const streamer = await frameClient.openStreamer(STATE_CHANNEL_NAME);
+  const streamer = await frameClient.openStreamer(STATUS_CHANNEL_NAME);
   const cmdKey = await executeCommand(frameClient, task, type, args);
   const parsedTimeout = new TimeSpan(timeout);
 
@@ -615,7 +615,7 @@ const executeCommandSync = async <StatusData extends z.ZodTypeAny = z.ZodTypeAny
   try {
     while (true) {
       const frame = await Promise.race([streamer.read(), timeoutPromise]);
-      const state = statusZ(statusDataZ).parse(frame.at(-1)[STATE_CHANNEL_NAME]);
+      const state = statusZ(statusDataZ).parse(frame.at(-1)[STATUS_CHANNEL_NAME]);
       if (state.key === cmdKey) return state;
     }
   } finally {

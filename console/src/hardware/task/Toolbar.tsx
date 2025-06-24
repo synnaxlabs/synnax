@@ -138,7 +138,7 @@ const Content = () => {
       return [...prev];
     });
   }, []);
-  Task.useStateSynchronizer(handleStatusChange);
+  Task.useStatusSynchronizer(handleStatusChange);
   const handleSet = useCallback(
     (key: task.Key) => {
       handleError(async () => {

@@ -139,10 +139,10 @@ describe("Device", async () => {
 
         await expect
           .poll(async () => {
-            const { status: state } = await client.hardware.devices.retrieve(d.key, {
+            const { status } = await client.hardware.devices.retrieve(d.key, {
               includeStatus: true,
             });
-            return state != null;
+            return status != null;
           })
           .toBeTruthy();
       });
@@ -175,7 +175,7 @@ describe("Device", async () => {
               { includeStatus: true },
             );
             if (retrievedDevices.length !== 2) return false;
-            return retrievedDevices.every(({ status: state }) => state !== undefined);
+            return retrievedDevices.every(({ status }) => status !== undefined);
           })
           .toBeTruthy();
       });

@@ -17,7 +17,7 @@ export const useSetSynchronizer = (onSet: (device: device.Device) => void): void
 export const useDeleteSynchronizer = (onDelete: (key: device.Key) => void): void =>
   Sync.useParsedListener(device.DELETE_CHANNEL_NAME, device.keyZ, onDelete);
 
-export const useStateSynchronizer = (
-  onStateChange: (state: device.Status) => void,
+export const useStatusSynchronizer = (
+  onStatusChange: (status: device.Status) => void,
 ): void =>
-  Sync.useParsedListener(device.STATE_CHANNEL_NAME, device.statusZ, onStateChange);
+  Sync.useParsedListener(device.STATUS_CHANNEL_NAME, device.statusZ, onStatusChange);

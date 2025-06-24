@@ -112,7 +112,7 @@ type Config struct {
 	// Channels is used to create channels for the tracker service.
 	//
 	// [REQUIRED]
-	Channels channel.Writeable
+	Channels channel.ReadWriteable
 	// HostProvider returns information about the cluster host.
 	//
 	// [REQUIRED]
@@ -165,10 +165,20 @@ func (c Config) Validate() error {
 }
 
 const (
-	deviceStateChannelName = "sy_device_state"
-	rackStateChannelName   = "sy_rack_state"
-	taskStateChannelName   = "sy_task_state"
+	legacyDeviceStateChannelName = "sy_device_state"
+	legacyRackStateChannelName   = "sy_rack_state"
+	legacyTaskStateChannelName   = "sy_task_state"
+	DeviceStatusChannelName      = "sy_device_status"
+	RackStatusChannelName        = "sy_rack_status"
+	TaskStatusChannelName        = "sy_task_status"
+	TaskCmdChannelName           = "sy_task_cmd"
 )
+
+var legacyChannelNames = map[string]string{
+	legacyDeviceStateChannelName: DeviceStatusChannelName,
+	legacyRackStateChannelName:   RackStatusChannelName,
+	legacyTaskStateChannelName:   TaskStatusChannelName,
+}
 
 // Open opens a new hardware state tracker with the provided configuration. The Tracker
 // must be closed after use.
@@ -246,40 +256,51 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	}
 	channels := []channel.Channel{
 		{
-			Name:        taskStateChannelName,
+			Name:        TaskStatusChannelName,
 			DataType:    telem.JSONT,
 			Leaseholder: cfg.HostProvider.HostKey(),
 			Virtual:     true,
 			Internal:    true,
 		},
 		{
-			Name:        rackStateChannelName,
+			Name:        RackStatusChannelName,
 			DataType:    telem.JSONT,
 			Leaseholder: cfg.HostProvider.HostKey(),
 			Virtual:     true,
 			Internal:    true,
 		},
 		{
-			Name:        "sy_task_cmd",
+			Name:        TaskCmdChannelName,
 			DataType:    telem.JSONT,
 			Leaseholder: cfg.HostProvider.HostKey(),
 			Virtual:     true,
 			Internal:    true,
 		},
 		{
-			Name:        deviceStateChannelName,
+			Name:        DeviceStatusChannelName,
 			DataType:    telem.JSONT,
 			Leaseholder: cfg.HostProvider.HostKey(),
 			Virtual:     true,
 			Internal:    true,
 		},
 	}
-	if err = cfg.Channels.CreateMany(
+	tx := cfg.DB.OpenTx()
+	defer func() {
+		err = errors.Combine(err, tx.Close())
+	}()
+	w := cfg.Channels.NewWriter(tx)
+	if err = w.MapRename(ctx, legacyChannelNames, true); err != nil {
+		return nil, err
+	}
+	if err = w.CreateMany(
 		ctx,
 		&channels,
 		channel.OverwriteIfNameExistsAndDifferentProperties(),
 		channel.RetrieveIfNameExists(true),
 	); err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	t.taskStateChannelKey = channels[0].Key()
@@ -292,14 +313,14 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	dcRackObs := rackObs.OnChange(t.handleRackChanges)
 	dcDeviceObs := deviceObs.OnChange(t.handleDeviceChanges)
 	rackStateObs, closeRackStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
-		SetChannelName: rackStateChannelName,
+		SetChannelName: RackStatusChannelName,
 	})
 	if err != nil {
 		return nil, err
 	}
 	dcRackStateObs := rackStateObs.OnChange(t.handleRackState)
 	taskStateObs, closeTaskStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
-		SetChannelName: taskStateChannelName,
+		SetChannelName: TaskStatusChannelName,
 	})
 	if err != nil {
 		return nil, err
@@ -328,7 +349,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	t.deviceSaveNotifications = make(chan string, 10)
 	signal.GoRange(sCtx, t.deviceSaveNotifications, t.saveDeviceState, signal.WithKey("save_device_state"))
 	deviceStateObs, closeDeviceStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
-		SetChannelName: deviceStateChannelName,
+		SetChannelName: DeviceStatusChannelName,
 	})
 	if err != nil {
 		return nil, err
