@@ -72,7 +72,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
     xerrors::Error propagate_state(telem::Series &states) override {
         if (this->state_writer == nullptr) {
             const auto [state_channel, ch_err] = this->client->channels.retrieve(
-                synnax::DEVICE_STATE_CHAN_NAME
+                synnax::DEVICE_STATUS_CHANNEL_NAME
             );
             if (ch_err) return ch_err;
             this->state_channel = state_channel;
