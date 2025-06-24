@@ -62,7 +62,7 @@ export class Task<
   config: z.infer<Config>;
   status?: Status<StatusData>;
 
-  readonly schemas?: Schemas<Type, Config, StatusData>;
+  readonly schemas: Schemas<Type, Config, StatusData>;
   private readonly frameClient_?: framer.Client;
   private readonly ontologyClient_?: ontology.Client;
   private readonly rangeClient_?: ranger.Client;
@@ -101,7 +101,11 @@ export class Task<
     this.name = name;
     this.type = type;
     this.config = config;
-    this.schemas = schemas;
+    this.schemas = schemas ?? {
+      typeSchema: z.string() as unknown as Type,
+      configSchema: z.unknown() as unknown as Config,
+      statusDataSchema: z.unknown() as unknown as StatusData,
+    };
     this.internal = internal;
     this.snapshot = snapshot;
     this.status = status;
@@ -152,7 +156,9 @@ export class Task<
       (frame) => {
         const s = frame.get(STATUS_CHANNEL_NAME);
         if (s.length === 0) return [null, false];
-        const parse = statusZ(this.schemas?.statusDataSchema).safeParse(s.at(-1));
+        const parse = statusZ<StatusData>(this.schemas?.statusDataSchema).safeParse(
+          s.at(-1),
+        );
         if (!parse.success) {
           console.error(parse.error);
           return [null, false];
@@ -604,7 +610,7 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>(
   type: string,
   timeout: CrudeTimeSpan,
   tskName: string | (() => Promise<string>),
-  statusDataZ?: StatusData,
+  statusDataZ: StatusData,
   args?: {},
 ): Promise<Status<StatusData>> => {
   if (frameClient == null) throw NOT_CREATED_ERROR;

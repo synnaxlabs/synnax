@@ -200,7 +200,7 @@ describe("Device", async () => {
             return (
               retrieved.status !== undefined &&
               retrieved.status.variant === "info" &&
-              retrieved.status.key === key
+              retrieved.status.details.device === key
             );
           })
           .toBeTruthy();

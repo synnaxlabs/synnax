@@ -442,7 +442,10 @@ var _ = Describe("Tracker", Ordered, func() {
 				Key:     dev.Key,
 				Variant: status.WarningVariant,
 				Message: "Device is warming up",
-				Details: device.StatusDetails{Rack: rck.Key},
+				Details: device.StatusDetails{
+					Rack:   rck.Key,
+					Device: dev.Key,
+				},
 			}
 
 			MustSucceed(w.Write(core.UnaryFrame(
@@ -484,7 +487,10 @@ var _ = Describe("Tracker", Ordered, func() {
 				Key:     dev.Key,
 				Variant: status.ErrorVariant,
 				Message: "Device error state",
-				Details: device.StatusDetails{Rack: rck.Key},
+				Details: device.StatusDetails{
+					Rack:   rck.Key,
+					Device: dev.Key,
+				},
 			}
 
 			MustSucceed(w.Write(core.UnaryFrame(
@@ -540,7 +546,10 @@ var _ = Describe("Tracker", Ordered, func() {
 				Key:     dev.Key,
 				Variant: status.WarningVariant,
 				Message: "Update from wrong rack",
-				Details: device.StatusDetails{Rack: rack2.Key},
+				Details: device.StatusDetails{
+					Rack:   rack2.Key,
+					Device: dev.Key,
+				},
 			}
 
 			MustSucceed(w.Write(core.UnaryFrame(

@@ -60,7 +60,8 @@ func (d Device) Validate() error {
 }
 
 type StatusDetails struct {
-	Rack rack.Key `json:"rack" msgpack:"rack"`
+	Rack   rack.Key `json:"rack" msgpack:"rack"`
+	Device string   `json:"device" msgpack:"device"`
 }
 
 type Status status.Status[StatusDetails]
@@ -70,3 +71,7 @@ func (s Status) GorpKey() string { return s.Key }
 
 // SetOptions implements gorp.Entry.
 func (s Status) SetOptions() []any { return []any{s.Details.Rack.Node()} }
+
+// CustomTypeName implements types.CustomTypeName to ensure that Status struct does
+// not conflict with any other types in gorp.
+func (s Status) CustomTypeName() string { return "DeviceStatus" }

@@ -21,16 +21,11 @@ export const keyZ = z.union([
 ]);
 export type Key = z.infer<typeof keyZ>;
 
-const statusDetailsZ = <StatusData extends z.ZodType>(data: StatusData) =>
-  z.object({
-    task: keyZ,
-    running: z.boolean(),
-    data,
-  });
+export const statusDetailsZ = <D extends z.ZodType>(data: D) =>
+  z.object({ task: keyZ, running: z.boolean(), data });
 
-export const statusZ = <StatusData extends z.ZodType>(
-  data: StatusData = z.unknown() as unknown as StatusData,
-) => status.statusZ(statusDetailsZ(data));
+export const statusZ = <D extends z.ZodType>(data: D) =>
+  status.statusZ(statusDetailsZ(data));
 
 export type Status<StatusData extends z.ZodType = z.ZodUnknown> = z.infer<
   ReturnType<typeof statusZ<StatusData>>

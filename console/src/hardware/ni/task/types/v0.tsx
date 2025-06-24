@@ -1160,8 +1160,7 @@ export const analogReadStatusDataZ = z.object({
   errors: z.array(z.object({ message: z.string(), path: z.string() })),
 });
 
-export interface AnalogReadStatusDetails
-  extends task.Status<typeof analogReadStatusDataZ> {}
+export type AnalogReadStatusDetails = task.Status<typeof analogReadStatusDataZ>;
 
 export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
 export const analogReadTypeZ = z.literal(ANALOG_READ_TYPE);
@@ -1235,8 +1234,7 @@ const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
 };
 
 export const digitalReadStatusDataZ = z.unknown();
-export interface DigitalReadStatusDetails
-  extends task.Status<typeof digitalReadStatusDataZ> {}
+export type DigitalReadStatusDetails = task.Status<typeof digitalReadStatusDataZ>;
 
 export const DIGITAL_READ_TYPE = `${PREFIX}_digital_read`;
 export const digitalReadTypeZ = z.literal(DIGITAL_READ_TYPE);
@@ -1277,8 +1275,7 @@ const ZERO_DIGITAL_WRITE_CONFIG: DigitalWriteConfig = {
 };
 
 export const digitalWriteStatusDataZ = z.unknown();
-export interface DigitalWriteStatusDetails
-  extends task.Status<typeof digitalWriteStatusDataZ> {}
+export type DigitalWriteStatusDetails = task.Status<typeof digitalWriteStatusDataZ>;
 
 export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
 export const digitalWriteTypeZ = z.literal(DIGITAL_WRITE_TYPE);
@@ -1307,7 +1304,7 @@ export interface NewDigitalWriteTask
   extends task.New<typeof digitalWriteTypeZ, typeof digitalWriteConfigZ> {}
 
 export const scanStatusDataZ = z.unknown();
-export interface ScanStatusDetails extends task.Status<typeof scanStatusDataZ> {}
+export type ScanStatusDetails = task.Status<typeof scanStatusDataZ>;
 
 export const SCAN_TYPE = `${PREFIX}_scanner`;
 export const scanTypeZ = z.literal(SCAN_TYPE);

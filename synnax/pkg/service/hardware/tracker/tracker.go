@@ -624,7 +624,8 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 			continue
 		}
 
-		existingState, exists := t.mu.Devices[incomingState.Key]
+		devKey := incomingState.Details.Device
+		existingState, exists := t.mu.Devices[devKey]
 		if exists && existingState.Details.Rack != incomingState.Details.Rack {
 			var racks []rack.Rack
 			if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
@@ -645,10 +646,10 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 			return
 		}
 
-		t.mu.Devices[incomingState.Key] = incomingState
+		t.mu.Devices[devKey] = incomingState
 
 		select {
-		case t.deviceSaveNotifications <- incomingState.Key:
+		case t.deviceSaveNotifications <- devKey:
 		default:
 		}
 	}
@@ -666,6 +667,7 @@ func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[strin
 		existing, hasState := t.mu.Devices[c.Key]
 		existing.Key = c.Value.Key
 		existing.Details.Rack = c.Value.Rack
+		existing.Details.Device = c.Key
 		if !hasState {
 			existing.Variant = status.InfoVariant
 		}
@@ -712,5 +714,6 @@ func newUnknownDeviceStatus(devKey string, rackKey rack.Key) device.Status {
 	s.Variant = status.WarningVariant
 	s.Message = "Device state unknown"
 	s.Details.Rack = rackKey
+	s.Details.Device = devKey
 	return s
 }

@@ -24,7 +24,7 @@ import { status } from "@/status/aether";
 
 const StatusesContext = createContext<xstatus.Status[]>([]);
 
-export interface Adder<D = undefined> extends status.Adder<D> {}
+export interface Adder extends status.Adder {}
 
 const AdderContext = createContext<Adder>(() => {});
 
@@ -61,9 +61,7 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-constraint
-export const useAdder = <D extends unknown = undefined>() =>
-  use(AdderContext) as Adder<D>;
+export const useAdder = () => use(AdderContext);
 
 export interface ErrorHandler extends status.ErrorHandler {}
 

@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack } from "@synnaxlabs/client";
-import { useState } from "react";
+import { type device } from "@synnaxlabs/client";
+import { useCallback, useState as useState_ } from "react";
 
-import { useStatusSynchronizer } from "@/hardware/rack/synchronizers";
+import { useStatusSynchronizer } from "@/hardware/device/synchronizers";
 import { useAsyncEffect } from "@/hooks";
 import { Synnax } from "@/synnax";
 
-export const useStatus = (key: rack.Key): rack.Status | undefined => {
+export const useStatus = (key: device.Key): device.Status | undefined => {
   const client = Synnax.use();
-  const [status, setStatus] = useState<rack.Status | undefined>(undefined);
+  const [status, setStatus] = useState_<device.Status | undefined>(undefined);
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
-      const { status } = await client.hardware.racks.retrieve(key, {
+      const { status } = await client.hardware.devices.retrieve(key, {
         includeStatus: true,
       });
       if (signal.aborted) return;
@@ -28,6 +28,14 @@ export const useStatus = (key: rack.Key): rack.Status | undefined => {
     },
     [client],
   );
-  useStatusSynchronizer(setStatus);
+  const handleStatusChange = useCallback(
+    (status: device.Status) => {
+      if (status.details.device !== key) return;
+      setStatus(status);
+    },
+    [key],
+  );
+
+  useStatusSynchronizer(handleStatusChange);
   return status;
 };

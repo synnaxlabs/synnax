@@ -77,7 +77,7 @@ type Service struct {
 	group           group.Group
 }
 
-const groupName = "TaskStatuses"
+const groupName = "Tasks"
 
 func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)

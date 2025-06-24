@@ -119,17 +119,19 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
-  useAsyncEffect(async () => {
-    if (client == null) {
-      setTasks([]);
-      return;
-    }
-    const allTasks = await client.hardware.tasks.list({ includeStatus: true });
-    const shownTasks = allTasks.filter(
-      ({ internal, snapshot }) => !internal && !snapshot,
-    );
-    setTasks(shownTasks);
-  }, [client?.key]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) {
+        setTasks([]);
+        return;
+      }
+      const all = await client.hardware.tasks.list({ includeStatus: true });
+      if (signal.aborted) return;
+      const shown = all.filter(({ internal, snapshot }) => !internal && !snapshot);
+      setTasks(shown);
+    },
+    [client?.key],
+  );
   const handleStatusChange = useCallback((status: task.Status) => {
     setTasks((prev) => {
       const tsk = prev.find((t) => t.key === status.details.task);

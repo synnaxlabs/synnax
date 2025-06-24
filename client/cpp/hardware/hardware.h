@@ -318,6 +318,30 @@ private:
 struct DeviceStatusDetails {
     /// @brief the rack that this device is connected to.
     RackKey rack = 0;
+    /// @brief the device that this status is for.
+    std::string device;
+
+    /// @brief parses the device status details from a JSON parser.
+    static DeviceStatusDetails parse(xjson::Parser parser) {
+        return DeviceStatusDetails{
+            .rack = parser.required<RackKey>("rack"),
+            .device = parser.required<std::string>("device"),
+        };
+    }
+
+    /// @brief converts the device status details to JSON.
+    [[nodiscard]] json to_json() const {
+        json j;
+        j["rack"] = this->rack;
+        j["device"] = this->device;
+        return j;
+    }
+};
+
+/// @brief specific status details for devices.
+struct RackStatusDetails {
+    /// @brief the rack that this device is connected to.
+    RackKey rack = 0;
 
     /// @brief parses the device status details from a JSON parser.
     static DeviceStatusDetails parse(xjson::Parser parser) {
@@ -333,9 +357,6 @@ struct DeviceStatusDetails {
         return j;
     }
 };
-
-/// @brief specific status details for racks, which are the same as devices.
-using RackStatusDetails = DeviceStatusDetails;
 
 /// @brief specific status details for tasks.
 struct TaskStatusDetails {

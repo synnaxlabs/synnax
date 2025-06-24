@@ -164,6 +164,7 @@ void ScanTask::test_connection(const task::Command &cmd) const {
              .details =
                  synnax::TaskStatusDetails{
                      .task = task.key,
+                     .running = true
                  }}
         );
     return ctx->set_status(
@@ -173,6 +174,7 @@ void ScanTask::test_connection(const task::Command &cmd) const {
          .details =
              synnax::TaskStatusDetails{
                  .task = task.key,
+                 .running = true
              }}
     );
 }
