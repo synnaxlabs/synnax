@@ -66,9 +66,9 @@ const COMMAND_MESSAGES: Record<Command, string> = {
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
     client: Synnax,
-    config: z.output<Config>,
+    config: z.infer<Config>,
     name: string,
-  ): Promise<[z.output<Config>, rack.Key]>;
+  ): Promise<[z.infer<Config>, rack.Key]>;
 }
 
 export interface WrapFormArgs<
@@ -78,7 +78,7 @@ export interface WrapFormArgs<
 > extends WrapOptions<Type, Config, StatusData> {
   Properties: FC<{}>;
   Form: FC<FormProps<Type, Config, StatusData>>;
-  type: z.output<Type>;
+  type: z.infer<Type>;
   onConfigure: OnConfigure<Config>;
 }
 
@@ -139,7 +139,7 @@ export const useForm = <
     values: schema.parse({
       name: initialTask.name,
       config: initialTask.config,
-    }) as z.output<FormSchema<Config>>,
+    }) as z.infer<FormSchema<Config>>,
     onHasTouched: handleUnsavedChanges,
   });
   const create = useCreate<Type, Config, StatusData>(layoutKey, schemas);
@@ -170,7 +170,7 @@ export const useForm = <
       if (config == null) throw new Error("Config is required");
       const [newConfig, rackKey] = await onConfigure(
         client,
-        config as z.output<Config>,
+        config as z.infer<Config>,
         name,
       );
       if (task_.key != "" && rackKey != task.getRackKey(task_.key)) {
@@ -192,7 +192,7 @@ export const useForm = <
         methods.set("config.channels", (newConfig as { channels: any }).channels);
       dispatch(Layout.rename({ key: layoutKey, name }));
       const t = await create(
-        { key: task_.key, name, type, config: newConfig as z.output<Config> },
+        { key: task_.key, name, type, config: newConfig as z.infer<Config> },
         rackKey,
       );
       setTask_(t);
