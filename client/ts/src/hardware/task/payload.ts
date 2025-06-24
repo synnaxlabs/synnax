@@ -60,7 +60,7 @@ export const taskZ = <
 export interface Schemas<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > {
   typeSchema: Type;
   configSchema: Config;
@@ -70,7 +70,7 @@ export interface Schemas<
 export type Payload<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > = {
   key: Key;
   name: string;

@@ -52,7 +52,7 @@ const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Clie
 export class Task<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > {
   readonly key: Key;
   name: string;
@@ -204,7 +204,7 @@ const retrieveReqZ = z.object({
 const retrieveResZ = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 >(
   schemas?: Schemas<Type, Config, StatusData>,
 ) =>
@@ -228,14 +228,14 @@ const COPY_ENDPOINT = "/hardware/task/copy";
 const createReqZ = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 >(
   schemas?: Schemas<Type, Config, StatusData>,
 ) => z.object({ tasks: newZ(schemas).array() });
 const createResZ = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 >(
   schemas?: Schemas<Type, Config, StatusData>,
 ) => z.object({ tasks: taskZ(schemas).array() });
@@ -245,7 +245,7 @@ const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() }
 const copyResZ = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 >(
   schemas?: Schemas<Type, Config, StatusData>,
 ) => z.object({ task: taskZ(schemas) });
@@ -276,7 +276,7 @@ export class Client {
   async create<
     Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
     Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+    StatusData extends z.ZodType = z.ZodType,
   >(
     task: New<Type, Config>,
     schemas: Schemas<Type, Config, StatusData>,
@@ -284,7 +284,7 @@ export class Client {
   async create<
     Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
     Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+    StatusData extends z.ZodType = z.ZodType,
   >(
     tasks: New<Type, Config>[],
     schemas: Schemas<Type, Config, StatusData>,
@@ -293,7 +293,7 @@ export class Client {
   async create<
     Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
     Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+    StatusData extends z.ZodType = z.ZodType,
   >(
     task: New<Type, Config> | Array<New<Type, Config>>,
     schemas?: Schemas<Type, Config, StatusData>,
@@ -340,7 +340,7 @@ export class Client {
   async retrieve<
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,
-    StatusData extends z.ZodTypeAny,
+    StatusData extends z.ZodType,
   >({
     key,
   }: { key: string } & RetrieveOptions & {
@@ -352,7 +352,7 @@ export class Client {
   async retrieve<
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,
-    StatusData extends z.ZodTypeAny,
+    StatusData extends z.ZodType,
   >({
     name,
   }: { name: string } & RetrieveOptions & {
@@ -364,7 +364,7 @@ export class Client {
   async retrieve<
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,
-    StatusData extends z.ZodTypeAny,
+    StatusData extends z.ZodType,
   >({
     type,
   }: { type: string } & RetrieveOptions & {
@@ -380,7 +380,7 @@ export class Client {
   async retrieve<
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,
-    StatusData extends z.ZodTypeAny,
+    StatusData extends z.ZodType,
   >({
     key,
     keys,
@@ -440,7 +440,7 @@ export class Client {
   private async execRetrieve<
     Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
     Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+    StatusData extends z.ZodType = z.ZodType,
   >({
     schemas,
     ...req
@@ -460,7 +460,7 @@ export class Client {
   sugar<
     Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
     Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+    StatusData extends z.ZodType = z.ZodType,
   >(
     payloads: Payload<Type, Config, StatusData>[],
     schemas?: Schemas<Type, Config, StatusData>,
@@ -469,7 +469,7 @@ export class Client {
   sugar<
     Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
     Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+    StatusData extends z.ZodType = z.ZodType,
   >(
     payload: Payload<Type, Config, StatusData>,
     schemas?: Schemas<Type, Config, StatusData>,
@@ -478,7 +478,7 @@ export class Client {
   sugar<
     Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
     Config extends z.ZodType = z.ZodType,
-    StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+    StatusData extends z.ZodType = z.ZodType,
   >(
     payloads: Payload<Type, Config, StatusData> | Payload<Type, Config, StatusData>[],
     schemas?: Schemas<Type, Config, StatusData>,
@@ -509,7 +509,7 @@ export class Client {
     return await executeCommand(this.frameClient, task, type, args);
   }
 
-  async executeCommandSync<StatusData extends z.ZodTypeAny = z.ZodTypeAny>(
+  async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
     task: Key,
     type: string,
     timeout: CrudeTimeSpan,
@@ -546,7 +546,7 @@ export class Client {
     );
   }
 
-  async openStateObserver<StatusData extends z.ZodTypeAny = z.ZodTypeAny>(
+  async openStateObserver<StatusData extends z.ZodType = z.ZodType>(
     stateSchema: z.ZodType<StatusData> = z.unknown() as unknown as z.ZodType<StatusData>,
   ): Promise<StateObservable<StatusData>> {
     return new framer.ObservableStreamer<Status<StatusData>>(
@@ -598,7 +598,7 @@ const executeCommand = async (
   return key;
 };
 
-const executeCommandSync = async <StatusData extends z.ZodTypeAny = z.ZodTypeAny>(
+const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>(
   frameClient: framer.Client | null,
   task: Key,
   type: string,

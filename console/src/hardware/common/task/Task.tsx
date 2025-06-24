@@ -36,7 +36,7 @@ export const LAYOUT: Omit<Layout, "type"> = {
 export type TaskProps<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > = {
   layoutKey: string;
   rackKey?: rack.Key;
@@ -50,7 +50,7 @@ export interface GetInitialPayloadArgs {
 export interface GetInitialPayload<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > {
   (args: GetInitialPayloadArgs): task.Payload<Type, Config, StatusData>;
 }
@@ -58,7 +58,7 @@ export interface GetInitialPayload<
 export interface WrapOptions<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > {
   schemas: task.Schemas<Type, Config, StatusData>;
   getInitialPayload: GetInitialPayload<Type, Config, StatusData>;
@@ -67,7 +67,7 @@ export interface WrapOptions<
 export const wrap = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 >(
   Wrapped: FC<TaskProps<Type, Config, StatusData>>,
   options: WrapOptions<Type, Config, StatusData>,

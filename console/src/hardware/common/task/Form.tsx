@@ -44,7 +44,7 @@ export type FormSchema<Config extends z.ZodType = z.ZodType> = z.ZodObject<{
 export type FormProps<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > = { methods: PForm.ContextValue<FormSchema<Config>> } & (
   | {
       configured: false;
@@ -74,7 +74,7 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
 export interface WrapFormArgs<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > extends WrapOptions<Type, Config, StatusData> {
   Properties: FC<{}>;
   Form: FC<FormProps<Type, Config, StatusData>>;
@@ -85,14 +85,14 @@ export interface WrapFormArgs<
 export interface UseFormArgs<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > extends TaskProps<Type, Config, StatusData>,
     Pick<WrapFormArgs<Type, Config, StatusData>, "schemas" | "onConfigure" | "type"> {}
 
 export interface UseFormReturn<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > {
   formProps: FormProps<Type, Config, StatusData>;
   handleConfigure: UseMutateFunction<void, Error, void, unknown>;
@@ -103,7 +103,7 @@ export interface UseFormReturn<
 
 const nameZ = z.string().min(1, "Name is required");
 
-const DEFAULT_STATUS: task.Status<z.ZodTypeAny> = {
+const DEFAULT_STATUS: task.Status<z.ZodType> = {
   key: "",
   variant: "disabled",
   message: "Task is not configured",
@@ -114,7 +114,7 @@ const DEFAULT_STATUS: task.Status<z.ZodTypeAny> = {
 export const useForm = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 >({
   task: initialTask,
   layoutKey,
@@ -227,7 +227,7 @@ export const useForm = <
 export const wrapForm = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 >({
   Properties,
   Form,
