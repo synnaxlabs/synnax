@@ -86,7 +86,8 @@ public:
     /// @brief configures the heartbeat task.
     static std::unique_ptr<task::Task>
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
-        auto [ch, err] = ctx->client->channels.retrieve(synnax::RACK_STATUS_CHANNEL_NAME);
+        auto [ch, err] = ctx->client->channels.retrieve(synnax::RACK_STATUS_CHANNEL_NAME
+        );
         if (err) {
             LOG(WARNING) << "[rack_state] failed to retrieve rack state channel: "
                          << err;

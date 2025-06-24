@@ -161,21 +161,13 @@ void ScanTask::test_connection(const task::Command &cmd) const {
             {.key = cmd.key,
              .variant = status::variant::ERR,
              .message = err.data,
-             .details =
-                 synnax::TaskStatusDetails{
-                     .task = task.key,
-                     .running = true
-                 }}
+             .details = synnax::TaskStatusDetails{.task = task.key, .running = true}}
         );
     return ctx->set_status(
         {.key = cmd.key,
          .variant = status::variant::SUCCESS,
          .message = "Connection successful",
-         .details =
-             synnax::TaskStatusDetails{
-                 .task = task.key,
-                 .running = true
-             }}
+         .details = synnax::TaskStatusDetails{.task = task.key, .running = true}}
     );
 }
 }
