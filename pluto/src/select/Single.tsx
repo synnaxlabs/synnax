@@ -109,21 +109,28 @@ export const Single = <
 
   // This hook runs to make sure we have the selected entry populated when the value
   // changes externally.
-  useAsyncEffect(async () => {
-    if (selectValueIsZero(value)) return setSelected(null);
-    if (selected?.key === value) return;
-    let nextSelected: E | null = null;
-    if (searchMode)
-      // Wrap this in a try-except clause just in case the searcher throws an error.
-      try {
-        [nextSelected] = await searcher.retrieve([value]);
-      } finally {
-        // It might be undefined, so coalesce it to null.
-        nextSelected ??= null;
+  useAsyncEffect(
+    async (signal) => {
+      if (selectValueIsZero(value)) {
+        setSelected(null);
+        return;
       }
-    else if (data != null) nextSelected = data.find((e) => e.key === value) ?? null;
-    setSelected(nextSelected);
-  }, [searcher, value, data]);
+      if (selected?.key === value) return;
+      let nextSelected: E | null = null;
+      if (searchMode)
+        // Wrap this in a try-except clause just in case the searcher throws an error.
+        try {
+          [nextSelected] = await searcher.retrieve([value]);
+        } finally {
+          // It might be undefined, so coalesce it to null.
+          nextSelected ??= null;
+        }
+      else if (data != null) nextSelected = data.find((e) => e.key === value) ?? null;
+      if (signal.aborted) return;
+      setSelected(nextSelected);
+    },
+    [searcher, value, data],
+  );
 
   const handleChange = useCallback(
     (v: K | K[] | null, e: UseSelectOnChangeExtra<K, E>): void => {

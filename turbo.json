@@ -11,10 +11,10 @@
     "lint": {},
     "check-types": { "dependsOn": ["^build"] },
     "dev-vite": { "cache": false },
-    "dev": { "cache": false },
+    "dev": { "cache": false, "dependsOn": ["^build"] },
     "watch": { "cache": false },
     "fix": { "cache": false },
-    "test": { "dependsOn": ["^build"], "cache": false },
+    "test": { "dependsOn": ["^build"] },
     "devtools": { "cache": false }
   }
 }
