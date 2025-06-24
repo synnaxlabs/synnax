@@ -28,10 +28,6 @@ const statusDetailsZ = <StatusData extends z.ZodType>(data: StatusData) =>
     data,
   });
 
-export type StatusDetails<StatusData extends z.ZodType> = z.infer<
-  ReturnType<typeof statusDetailsZ<StatusData>>
->;
-
 export const statusZ = <StatusData extends z.ZodType>(
   data: StatusData = z.unknown() as unknown as StatusData,
 ) => status.statusZ(statusDetailsZ(data));

@@ -17,7 +17,7 @@ export const useCommandSynchronizer = (
 ): void =>
   Sync.useParsedListener(task.COMMAND_CHANNEL_NAME, task.commandZ, onCommandUpdate);
 
-export const useStatusSynchronizer = <StatusData extends z.ZodTypeAny>(
+export const useStatusSynchronizer = <StatusData extends z.ZodType>(
   onStatusUpdate: (status: task.Status<StatusData>) => void,
   statusDataZ: StatusData = z.unknown() as unknown as StatusData,
 ): void =>

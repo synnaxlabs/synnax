@@ -89,7 +89,7 @@ describe("Task", async () => {
           config: { a: "dog" },
           type: "ni",
         });
-        const w = await client.openWriter(["sy_task_status"]);
+        const w = await client.openWriter([task.STATUS_CHANNEL_NAME]);
         const communicatedStatus: task.Status = {
           key: id.create(),
           variant: "success",
