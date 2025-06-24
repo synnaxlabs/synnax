@@ -120,16 +120,14 @@ export const commandZ = z.object({
     .optional() as z.ZodOptional<z.ZodType<record.Unknown>>,
 });
 
-export interface Command<Args extends {} = record.Unknown>
-  extends Omit<z.infer<typeof commandZ>, "args"> {
-  args?: Args;
+export interface Command extends Omit<z.infer<typeof commandZ>, "args"> {
+  args?: record.Unknown;
 }
 
 export interface StateObservable<StatusData extends z.ZodType>
   extends observe.ObservableAsyncCloseable<Status<StatusData>> {}
 
-export interface CommandObservable<Args extends {} = record.Unknown>
-  extends observe.ObservableAsyncCloseable<Command<Args>> {}
+export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
 
 export const ONTOLOGY_TYPE = "task";
 export type OntologyType = typeof ONTOLOGY_TYPE;
