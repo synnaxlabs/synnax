@@ -282,7 +282,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				},
 			),
 		)
-		// Set up a streamer to watch for state changes
+		// Set up a streamer to watch for status changes
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
 				ctx,
@@ -307,12 +307,13 @@ var _ = Describe("Calculation", Ordered, func() {
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.SeriesAt(0).DataType).To(Equal(telem.JSONT))
 
-		var state calculation.Status
+		var s calculation.Status
 		data := res.Frame.SeriesAt(0).Data
-		Expect(json.Unmarshal(data[:len(data)-1], &state)).To(Succeed()) // -1 to remove newline
+		Expect(json.Unmarshal(data[:len(data)-1], &s)).To(Succeed()) // -1 to remove newline
 
-		Expect(state.Key).To(Equal(calculatedCH.Key()))
-		Expect(state.Variant).To(Equal(status.ErrorVariant))
-		Expect(state.Message).To(ContainSubstring("cannot perform add operation between nil and nil"))
+		Expect(s.Key).To(Equal(calculatedCH.Key().String()))
+		Expect(s.Variant).To(Equal(status.ErrorVariant))
+		Expect(s.Message).To(ContainSubstring("Failed to start calculation for"))
+		Expect(s.Description).To(ContainSubstring("cannot perform add operation between nil and nil"))
 	})
 })

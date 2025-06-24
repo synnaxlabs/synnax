@@ -389,7 +389,7 @@ func (t *streamCalculationTransform) transform(
 			t.onStateChange(ctx, Status{
 				Key:         c.ch.Key().String(),
 				Variant:     status.ErrorVariant,
-				Message:     "Calculation Failed",
+				Message:     fmt.Sprintf("Failed to start calculation for %s", c.ch),
 				Description: err.Error(),
 			})
 		} else if s.Len() > 0 {
