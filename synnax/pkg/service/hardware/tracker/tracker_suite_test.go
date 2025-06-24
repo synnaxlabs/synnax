@@ -35,7 +35,7 @@ var _ = AfterSuite(func() {
 	Expect(mockCluster.Close()).To(Succeed())
 })
 
-func TestState(t *testing.T) {
+func TestTracker(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Status Suite")
+	RunSpecs(t, "Tracker Suite")
 }
