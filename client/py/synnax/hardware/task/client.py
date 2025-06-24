@@ -24,7 +24,7 @@ from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
 from synnax.hardware.rack import Client as RackClient
 from synnax.hardware.rack import Rack
-from synnax.hardware.task.payload import TaskPayload, TaskStatus, TaskStatusDetails
+from synnax.hardware.task.payload import TaskPayload, TaskStatus
 from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
