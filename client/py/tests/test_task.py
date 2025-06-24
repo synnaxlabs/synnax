@@ -116,7 +116,7 @@ class TestTaskClient:
                             sy.TaskStatus(
                                 variant=ERROR_VARIANT,
                                 message="Invalid Configuration.",
-                                details=sy.TaskStatusDetails(task=int(key))
+                                details=sy.TaskStatusDetails(task=int(key)),
                             ).model_dump(),
                         ],
                     )

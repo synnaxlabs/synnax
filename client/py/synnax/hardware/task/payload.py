@@ -13,15 +13,25 @@ from synnax.status import Status
 
 
 class TaskStatusDetails(Payload):
+    """
+    Details about the status of a task.
+    """
+
     task: int = 0
+    """The key of the task."""
     running: bool = False
+    """Whether the task is running."""
     data: dict | None = None
+    """Arbitrary data about the task."""
 
 
 TaskStatus = Status[TaskStatusDetails]
+"""The status of a task."""
 
 
 class TaskPayload(Payload):
+    """A primitive task payload."""
+
     key: int = 0
     name: str = ""
     type: str = ""

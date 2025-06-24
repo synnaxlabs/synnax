@@ -12,8 +12,8 @@ from synnax.status.status import (
     INFO_VARIANT,
     SUCCESS_VARIANT,
     WARNING_VARIANT,
-    Variant,
     Status,
+    Variant,
 )
 
 __all__ = [

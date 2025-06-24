@@ -314,15 +314,19 @@ private:
     friend class HardwareClient;
 };
 
+/// @brief specific status details for devices.
 struct DeviceStatusDetails {
+    /// @brief the rack that this device is connected to.
     RackKey rack = 0;
 
+    /// @brief parses the device status details from a JSON parser.
     static DeviceStatusDetails parse(xjson::Parser parser) {
         return DeviceStatusDetails{
             .rack = parser.required<RackKey>("rack"),
         };
     }
 
+    /// @brief converts the device status details to JSON.
     [[nodiscard]] json to_json() const {
         json j;
         j["rack"] = this->rack;
@@ -330,13 +334,19 @@ struct DeviceStatusDetails {
     }
 };
 
+/// @brief specific status details for racks, which are the same as devices.
 using RackStatusDetails = DeviceStatusDetails;
 
+/// @brief specific status details for tasks.
 struct TaskStatusDetails {
+    /// @brief The key of the task that this status is for.
     TaskKey task;
+    /// @brief whether the task is currently running.
     bool running;
+    /// @brief additional data associated with the task.
     json data;
 
+    /// @brief parses the task status details from a JSON parser.
     static TaskStatusDetails parse(xjson::Parser parser) {
         return TaskStatusDetails{
             .task = parser.required<TaskKey>("task"),
@@ -345,6 +355,7 @@ struct TaskStatusDetails {
         };
     }
 
+    /// @brief converts the task status details to JSON.
     [[nodiscard]] json to_json() const {
         json j;
         j["task"] = this->task;
@@ -354,8 +365,11 @@ struct TaskStatusDetails {
     }
 };
 
+/// @brief status information about a device.
 using DeviceStatus = status::Status<DeviceStatusDetails>;
+/// @brief status information for a device.
 using RackStatus = status::Status<DeviceStatusDetails>;
+/// @brief status information for a task.
 using TaskStatus = status::Status<TaskStatusDetails>;
 
 /// @brief A Device represents a physical hardware device connected to a rack.
