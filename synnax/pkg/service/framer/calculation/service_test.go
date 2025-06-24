@@ -88,7 +88,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				},
 			),
 		)
-		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		time.Sleep(sleepInterval)
 		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
@@ -125,7 +125,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Keys:        []channel.Key{calculatedCH.Key()},
 			SendOpenAck: config.True(),
 		}))
-		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
@@ -160,7 +160,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Keys:        []channel.Key{calculatedCH.Key()},
 			SendOpenAck: config.True(),
 		}))
-		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 		MustSucceed(w.Write(core.UnaryFrame(
@@ -223,7 +223,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				},
 			),
 		)
-		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 
@@ -259,12 +259,12 @@ var _ = Describe("Calculation", Ordered, func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 
-		var stateCH channel.Channel
-		stateCH.Name = "sy_calculation_status"
+		var statusCh channel.Channel
+		statusCh.Name = calculation.StatusChannelName
 		Expect(
 			dist.Channel.Create(
 				ctx,
-				&stateCH,
+				&statusCh,
 				channel.RetrieveIfNameExists(true),
 			),
 		).To(Succeed())
@@ -287,12 +287,12 @@ var _ = Describe("Calculation", Ordered, func() {
 			dist.Framer.NewStreamer(
 				ctx,
 				framer.StreamerConfig{
-					Keys:        []channel.Key{stateCH.Key()},
+					Keys:        []channel.Key{statusCh.Key()},
 					SendOpenAck: config.True(),
 				},
 			),
 		)
-		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())

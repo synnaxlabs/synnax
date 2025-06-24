@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -113,10 +112,7 @@ type Service struct {
 	w                            *framer.Writer
 }
 
-const (
-	legacyCalculationStateChannelName = "sy_calculation_state"
-	calculationStatusChannelName      = "sy_calculation_status"
-)
+const StatusChannelName = "sy_calculation_status"
 
 // OpenService opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
@@ -127,7 +123,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 
 	calculationStateCh := channel.Channel{
-		Name:        calculationStatusChannelName,
+		Name:        StatusChannelName,
 		DataType:    telem.JSONT,
 		Virtual:     true,
 		Leaseholder: cluster.Free,
@@ -135,7 +131,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 
 	if err = cfg.Channel.MapRename(ctx, map[string]string{
-		legacyCalculationStateChannelName: calculationStatusChannelName,
+		"sy_calculation_state": StatusChannelName,
 	}, true); err != nil {
 		return nil, err
 	}
@@ -318,7 +314,7 @@ func (s *Service) startCalculation(
 			return nil, err
 		}
 		sc := newCalculationTransform([]*Calculator{c}, s.setStatus)
-		plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](
+		plumber.SetSegment(
 			p,
 			"Calculator",
 			sc,
@@ -332,7 +328,7 @@ func (s *Service) startCalculation(
 				zap.Stringer("channel", ch),
 			)
 		})
-		plumber.SetSink[framer.WriterResponse](p, "obs", o)
+		plumber.SetSink(p, "obs", o)
 		plumber.MustConnect[framer.StreamerResponse](p, "streamer", "Calculator", defaultPipelineBufferSize)
 		plumber.MustConnect[framer.WriterRequest](p, "Calculator", "writer", defaultPipelineBufferSize)
 		plumber.MustConnect[framer.WriterResponse](p, "writer", "obs", defaultPipelineBufferSize)

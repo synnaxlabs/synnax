@@ -165,19 +165,15 @@ func (c Config) Validate() error {
 }
 
 const (
-	legacyDeviceStateChannelName = "sy_device_state"
-	legacyRackStateChannelName   = "sy_rack_state"
-	legacyTaskStateChannelName   = "sy_task_state"
-	DeviceStatusChannelName      = "sy_device_status"
-	RackStatusChannelName        = "sy_rack_status"
-	TaskStatusChannelName        = "sy_task_status"
-	TaskCmdChannelName           = "sy_task_cmd"
+	DeviceStatusChannelName = "sy_device_status"
+	RackStatusChannelName   = "sy_rack_status"
+	TaskStatusChannelName   = "sy_task_status"
 )
 
 var legacyChannelNames = map[string]string{
-	legacyDeviceStateChannelName: DeviceStatusChannelName,
-	legacyRackStateChannelName:   RackStatusChannelName,
-	legacyTaskStateChannelName:   TaskStatusChannelName,
+	"sy_device_state": DeviceStatusChannelName,
+	"sy_rack_state":   RackStatusChannelName,
+	"sy_task_state":   TaskStatusChannelName,
 }
 
 // Open opens a new hardware state tracker with the provided configuration. The Tracker
@@ -270,7 +266,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 			Internal:    true,
 		},
 		{
-			Name:        TaskCmdChannelName,
+			Name:        "sy_task_cmd",
 			DataType:    telem.JSONT,
 			Leaseholder: cfg.HostProvider.HostKey(),
 			Virtual:     true,
@@ -495,7 +491,7 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 	}
 }
 
-func (t *Tracker) checkRackState(ctx context.Context) {
+func (t *Tracker) checkRackState(_ context.Context) {
 	rackStatuses := make([]rack.Status, 0, len(t.mu.Racks))
 	taskStatuses := make([]task.Status, 0, len(t.mu.Racks))
 	deviceStatuses := make([]device.Status, 0)

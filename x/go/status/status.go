@@ -9,9 +9,7 @@
 
 package status
 
-import (
-	"github.com/synnaxlabs/x/telem"
-)
+import "github.com/synnaxlabs/x/telem"
 
 // Variant is a general classification mechanism for statuses.
 type Variant string
