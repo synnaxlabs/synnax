@@ -106,7 +106,7 @@ void ScanTask::scan(const task::Command &cmd) const {
     if (!parser.ok())
         return ctx->set_status(
             {.key = cmd.key,
-             .variant = status::variant::ERROR,
+             .variant = status::variant::ERR,
              .details = synnax::
                  TaskStatusDetails{.task = task.key, .data = parser.error_json()}}
         );
@@ -115,7 +115,7 @@ void ScanTask::scan(const task::Command &cmd) const {
     if (err)
         return ctx->set_status({
             .key = cmd.key,
-            .variant = status::variant::ERROR,
+            .variant = status::variant::ERR,
             .message = err.message(),
             .details =
                 synnax::TaskStatusDetails{
@@ -152,14 +152,14 @@ void ScanTask::test_connection(const task::Command &cmd) const {
     if (!parser.ok())
         return ctx->set_status(
             {.key = cmd.key,
-             .variant = status::variant::ERROR,
+             .variant = status::variant::ERR,
              .details = synnax::
                  TaskStatusDetails{.task = task.key, .data = parser.error_json()}}
         );
     if (const auto err = connect(args.connection, "[opc.scanner] ").second)
         return ctx->set_status(
             {.key = cmd.key,
-             .variant = status::variant::ERROR,
+             .variant = status::variant::ERR,
              .message = err.data,
              .details =
                  synnax::TaskStatusDetails{

@@ -23,7 +23,8 @@ namespace variant {
 /// @brief a successful operation.
 const std::string SUCCESS = "success";
 /// @brief an operation that encountered an error.
-const std::string ERROR = "error";
+/// Named ERR instead of ERROR to avoid confusion with the C++ `error` keyword.
+const std::string ERR = "error";
 /// @brief an operation that encountered a warning.
 const std::string WARNING = "warning";
 /// @brief general informational message.

@@ -328,7 +328,7 @@ TEST_F(AnalogReadTest, testErrorOnStart) {
     const auto state = ctx->states[0];
     EXPECT_EQ(state.key, "start_cmd");
     EXPECT_EQ(state.details.task, task.key);
-    EXPECT_EQ(state.variant, status::variant::ERROR);
+    EXPECT_EQ(state.variant, status::variant::ERR);
     EXPECT_EQ(state.message, "Failed to start hardware");
     rt->stop(false);
 }
@@ -351,7 +351,7 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
     const auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, status::variant::ERROR);
+    EXPECT_EQ(stop_state.variant, status::variant::ERR);
     EXPECT_EQ(stop_state.message, "Failed to stop hardware");
 }
 
@@ -374,12 +374,12 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
 
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     const auto read_err_state = ctx->states[1];
-    EXPECT_EQ(read_err_state.variant, status::variant::ERROR);
+    EXPECT_EQ(read_err_state.variant, status::variant::ERR);
     EXPECT_EQ(read_err_state.message, "Failed to read hardware");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 3);
     const auto stop_state = ctx->states[2];
-    EXPECT_EQ(stop_state.variant, status::variant::ERROR);
+    EXPECT_EQ(stop_state.variant, status::variant::ERR);
     EXPECT_EQ(stop_state.message, "Failed to read hardware");
 }
 

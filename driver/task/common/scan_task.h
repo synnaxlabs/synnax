@@ -157,7 +157,7 @@ public:
 
     void run() override {
         if (const auto err = this->scanner->start()) {
-            this->state.variant = status::variant::ERROR;
+            this->state.variant = status::variant::ERR;
             this->state.message = err.message();
             this->ctx->set_status(this->state);
             return;
@@ -175,7 +175,7 @@ public:
             this->timer.wait(this->breaker);
         }
         if (const auto err = this->scanner->stop()) {
-            this->state.variant = status::variant::ERROR;
+            this->state.variant = status::variant::ERR;
             this->state.message = err.message();
         } else {
             this->state.variant = status::variant::SUCCESS;
@@ -191,7 +191,7 @@ public:
             this->start();
         else if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
-            this->state.variant = status::variant::ERROR;
+            this->state.variant = status::variant::ERR;
             this->state.message = err.message();
             this->ctx->set_status(this->state);
         }
