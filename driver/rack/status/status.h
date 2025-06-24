@@ -20,8 +20,8 @@
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/status/status.h"
 
-namespace rack::state {
-const std::string INTEGRATION_NAME = "rack_state";
+namespace rack::status {
+const std::string INTEGRATION_NAME = "rack_status";
 const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
 const std::string TASK_NAME = "Rack State";
 const std::string TASK_TYPE = TASK_NAME;
@@ -43,7 +43,7 @@ public:
         fr.clear();
         this->loop.wait(breaker);
         const synnax::RackStatus status{
-            .variant = status::variant::SUCCESS,
+            .variant = ::status::variant::SUCCESS,
             .message = "Driver is running",
             .details =
                 synnax::RackStatusDetails{

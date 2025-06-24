@@ -389,7 +389,7 @@ struct TaskStatusDetails {
 /// @brief status information about a device.
 using DeviceStatus = status::Status<DeviceStatusDetails>;
 /// @brief status information for a device.
-using RackStatus = status::Status<DeviceStatusDetails>;
+using RackStatus = status::Status<RackStatusDetails>;
 /// @brief status information for a task.
 using TaskStatus = status::Status<TaskStatusDetails>;
 
