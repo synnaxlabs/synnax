@@ -15,6 +15,7 @@ import (
 	"encoding/base64"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -668,5 +669,9 @@ func getClientGRPCTransportCredentials(sec security.Provider, insecure bool) cre
 }
 
 func resolveOpsDir() (string, error) {
-	return os.UserCacheDir()
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(cacheDir, "synnax", "core"), nil
 }
