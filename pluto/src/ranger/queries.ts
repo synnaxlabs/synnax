@@ -78,10 +78,7 @@ export const rangeFormSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).shape,
   labels: z.array(label.keyZ),
   parent: z.string().optional(),
-  timeRange: z.object({
-    start: z.number(),
-    end: z.number(),
-  }),
+  timeRange: z.object({ start: z.number(), end: z.number() }),
 });
 
 export const useForm = Query.createForm<ranger.Key, typeof rangeFormSchema>({
@@ -90,13 +87,16 @@ export const useForm = Query.createForm<ranger.Key, typeof rangeFormSchema>({
   queryFn: async ({ client, params: key }) => {
     if (key == null) return null;
     const range = await client.ranges.retrieve(key);
-    const v: z.infer<typeof rangeFormSchema> = {
+    return {
       ...range.payload,
       timeRange: range.timeRange.numeric,
       labels: (await range.labels()).map((l) => l.key),
     };
-    return v;
   },
-  mutationFn: async ({ client, values }) => await client.ranges.create(values),
+  mutationFn: async ({ client, values }) => {
+    const rng = await client.ranges.create(values);
+    await client.labels.label(rng.key, values.labels, { replace: true });
+    return rng;
+  },
   listeners: [],
 });

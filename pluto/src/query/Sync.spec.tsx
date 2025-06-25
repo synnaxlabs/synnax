@@ -12,8 +12,8 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, useEffect, useRef, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Status } from "@/status";
 import { Query } from "@/query";
+import { Status } from "@/status";
 import { SynnaxProvider, useConnectToClient } from "@/testutil/Synnax";
 
 let shouldMockStreamer = false;

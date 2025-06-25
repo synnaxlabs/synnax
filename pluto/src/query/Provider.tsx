@@ -10,18 +10,12 @@
 import { type channel, framer } from "@synnaxlabs/client";
 import { StreamClosed } from "@synnaxlabs/freighter";
 import { array, strings, unique } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useRef,
-  useState,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useCallback, useRef } from "react";
 
 import { useAsyncEffect } from "@/hooks";
-import { Status } from "@/status";
-import { AddListenerContext, IsStreamerOpenContext } from "@/query/Context";
+import { AddListenerContext } from "@/query/Context";
 import { type FrameHandler, type ListenerAdder } from "@/query/types";
+import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 export interface ProviderProps extends PropsWithChildren {}
@@ -33,7 +27,6 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
   const client = Synnax.use();
   const handlersRef = useRef(new Map<FrameHandler, Set<channel.Name>>());
   const streamerRef = useRef<framer.Streamer>(null);
-  const [isStreamerOpen, setIsStreamerOpen] = useState(false);
   const handleError = Status.useErrorHandler();
 
   useAsyncEffect(
@@ -49,7 +42,6 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
           hardenedStreamer.close();
           return;
         }
-        setIsStreamerOpen(true);
         streamerRef.current = hardenedStreamer;
       } catch (e) {
         handleError(e, "Failed to open streamer in Sync.Provider");
@@ -71,7 +63,6 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
         });
       });
       return async () => {
-        setIsStreamerOpen(false);
         streamerRef.current = null;
         await observableStreamer.close();
       };
@@ -111,9 +102,7 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
 
   return (
     <AddListenerContext {...props} value={addListener}>
-      <IsStreamerOpenContext.Provider value={isStreamerOpen}>
-        {props.children}
-      </IsStreamerOpenContext.Provider>
+      {props.children}
     </AddListenerContext>
   );
 };

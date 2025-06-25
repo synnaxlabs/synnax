@@ -22,28 +22,26 @@ import { Synnax as PSynnax } from "@/synnax";
 
 export type Params = primitive.Value | primitive.Value[];
 
-export type UseReturn<V> =
+export type UseReturn<V> = {
+  message: string;
+  statusContent: ReactElement;
+} & (
   | {
       status: "loading";
-      message: string;
       data: null;
       error: null;
-      statusContent: ReactElement;
     }
   | {
       status: "success";
-      message: string;
       data: V;
       error: null;
-      statusContent: ReactElement;
     }
   | {
       status: "error";
       data: null;
-      message: string;
       error: unknown;
-      statusContent: ReactElement;
-    };
+    }
+);
 
 export interface ListenerArgs<P extends Params, Changed, Value extends state.State> {
   client: Synnax;
