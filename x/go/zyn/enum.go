@@ -26,7 +26,7 @@ type EnumZ struct {
 	values []any
 }
 
-var _ Z = (*EnumZ)(nil)
+var _ Schema = (*EnumZ)(nil)
 
 // Optional marks the enum field as optional.
 // Optional fields can be nil or omitted.

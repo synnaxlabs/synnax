@@ -26,7 +26,7 @@ type TimeRange struct {
 }
 
 // TimeRangeZ is a zyn schema for parsing a time range.
-var TimeRangeZ = zyn.Object(map[string]zyn.Z{
+var TimeRangeZ = zyn.Object(map[string]zyn.Schema{
 	"start": zyn.Int64().Coerce(),
 	"end":   zyn.Int64().Coerce(),
 })

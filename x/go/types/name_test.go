@@ -119,6 +119,16 @@ var _ = Describe("Name", func() {
 			Expect(types.ValueName(reflect.ValueOf(func() {}))).To(Equal("func"))
 		})
 
+		It("Should handle send directional channels", func() {
+			v := make(chan<- string)
+			Expect(types.ValueName(reflect.ValueOf(v))).To(Equal("chan<- string"))
+		})
+
+		It("Should handle receive directional channels", func() {
+			v := make(<-chan string)
+			Expect(types.ValueName(reflect.ValueOf(v))).To(Equal("<-chan string"))
+		})
+
 		It("Should handle interface types", func() {
 			var i testInterface = impl{}
 			Expect(types.ValueName(reflect.ValueOf(i))).To(Equal("types_test.impl"))
@@ -134,6 +144,13 @@ var _ = Describe("Name", func() {
 			Expect(types.ValueName(reflect.ValueOf(map[string][]int(nil)))).To(Equal("map[string][]int (nil)"))
 			Expect(types.ValueName(reflect.ValueOf([][]string{}))).To(Equal("[][]string"))
 			Expect(types.ValueName(reflect.ValueOf(make(chan []string)))).To(Equal("chan []string"))
+		})
+	})
+
+	Context("PackageName", func() {
+		It("Should extract package name from custom types", func() {
+			Expect(types.PackageName(reflect.TypeOf(namedType{}))).To(Equal("types_test"))
+			Expect(types.PackageName(reflect.TypeOf(customNamed{}))).To(Equal("types_test"))
 		})
 	})
 })

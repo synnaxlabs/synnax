@@ -121,8 +121,8 @@ var (
 
 func Primitive() UnionZ { return Union(Number(), String(), Bool()) }
 
-// Z is a schema that provides methods for validating and converting data.
-type Z interface {
+// Schema is a schema that provides methods for validating and converting data.
+type Schema interface {
 	// Parse converts the given data from a standardized format to the destination type.
 	// It validates the data and returns an error if the data is invalid.
 	Parse(data any, dest any) error
@@ -151,7 +151,7 @@ type baseZ struct {
 	optional     bool
 	dataType     DataType
 	expectedType reflect.Type
-	wrapper      Z
+	wrapper      Schema
 }
 
 // Shape returns the base shape of the schema.
@@ -160,7 +160,7 @@ func (b baseZ) Shape() Shape { return b }
 // Optional returns whether the schema is optional.
 func (b baseZ) Optional() bool { return b.optional }
 
-// Type returns the type of the schema.
+// DataType returns the type of the schema.
 func (b baseZ) DataType() DataType { return b.dataType }
 
 // Fields returns nil as baseZ is not an object schema.

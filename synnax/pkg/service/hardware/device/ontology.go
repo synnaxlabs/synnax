@@ -48,7 +48,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) []string {
 	return keys
 }
 
-var Z = zyn.Object(map[string]zyn.Z{
+var Z = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.String(),
 	"name":       zyn.String(),
 	"make":       zyn.String(),
@@ -69,7 +69,7 @@ type change = changex.Change[string, Device]
 func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Z { return Z }
+func (s *Service) Schema() zyn.Schema { return Z }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {

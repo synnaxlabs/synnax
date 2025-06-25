@@ -23,10 +23,10 @@ import (
 // ObjectZ supports validation of structs and maps with defined field schemas.
 type ObjectZ struct {
 	baseZ
-	fields map[string]Z
+	fields map[string]Schema
 }
 
-var _ Z = (*ObjectZ)(nil)
+var _ Schema = (*ObjectZ)(nil)
 
 // fieldByName finds a field in a struct by its name, supporting both PascalCase and snake_case.
 func fieldByName(v reflect.Value, field string) reflect.Value {
@@ -64,9 +64,9 @@ func (o objectShape) Fields() map[string]Shape {
 // Field adds a field to the object schema.
 // The field name can be in PascalCase or snake_case.
 // The shape parameter defines the validation rules for the field.
-func (o ObjectZ) Field(name string, shape Z) ObjectZ {
+func (o ObjectZ) Field(name string, shape Schema) ObjectZ {
 	if o.fields == nil {
-		o.fields = make(map[string]Z)
+		o.fields = make(map[string]Schema)
 	}
 	o.fields[name] = shape
 	return o
@@ -230,7 +230,7 @@ func (o ObjectZ) Parse(data any, dest any) error {
 // Object creates a new object schema with the given fields.
 // This is the entry point for creating object validation schemas.
 // The fields parameter maps field names to their validation schemas.
-func Object(fields map[string]Z) ObjectZ {
+func Object(fields map[string]Schema) ObjectZ {
 	o := ObjectZ{
 		baseZ:  baseZ{dataType: ObjectT, expectedType: reflect.TypeOf(struct{}{})},
 		fields: fields,

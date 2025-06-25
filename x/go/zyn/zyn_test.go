@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package zyn_test
 
 import (
@@ -7,12 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/zyn"
 )
-
-func dataTypeLiteralTest(literal zyn.Z, dt zyn.DataType) func() {
-	return func() {
-
-	}
-}
 
 var _ = Describe("Zyn", func() {
 	Describe("DataType Enums", func() {
@@ -86,7 +89,7 @@ var _ = Describe("Zyn", func() {
 		})
 	})
 
-	DescribeTable("DataType Literals", func(literal zyn.Z, dataType zyn.DataType) {
+	DescribeTable("DataType Literals", func(literal zyn.Schema, dataType zyn.DataType) {
 		var dest zyn.DataType
 		Expect(literal.Parse(dataType, &dest)).Should(Succeed())
 		Expect(dest).To(Equal(dataType))

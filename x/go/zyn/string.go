@@ -32,7 +32,7 @@ func String() StringZ {
 	return s
 }
 
-var _ Z = (*StringZ)(nil)
+var _ Schema = (*StringZ)(nil)
 
 // Optional marks the string field as optional.
 // Optional fields can be nil or omitted.

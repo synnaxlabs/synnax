@@ -62,7 +62,7 @@ func OntologyIDsFromRanges(ranges []Range) (ids []ontology.ID) {
 	})
 }
 
-var Z = zyn.Object(map[string]zyn.Z{
+var Z = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.UUID(),
 	"name":       zyn.String(),
 	"time_range": telem.TimeRangeZ,
@@ -79,7 +79,7 @@ type change = changex.Change[uuid.UUID, Range]
 func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Z { return Z }
+func (s *Service) Schema() zyn.Schema { return Z }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {

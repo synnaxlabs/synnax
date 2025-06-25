@@ -25,7 +25,7 @@ type Group struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-var Z = zyn.Object(map[string]zyn.Z{
+var Z = zyn.Object(map[string]zyn.Schema{
 	"key":  zyn.UUID(),
 	"name": zyn.String(),
 })

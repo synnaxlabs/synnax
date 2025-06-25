@@ -24,7 +24,7 @@ type NumberZ struct {
 	coerce bool
 }
 
-var _ Z = (*NumberZ)(nil)
+var _ Schema = (*NumberZ)(nil)
 
 // Number is a schema that validates numeric values.
 func Number() NumberZ {

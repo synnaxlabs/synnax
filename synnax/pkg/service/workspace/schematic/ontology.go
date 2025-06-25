@@ -56,7 +56,7 @@ func OntologyIDsFromSchematics(schematics []Schematic) []ontology.ID {
 	})
 }
 
-var Z = zyn.Object(map[string]zyn.Z{
+var Z = zyn.Object(map[string]zyn.Schema{
 	"key":      zyn.UUID(),
 	"name":     zyn.String(),
 	"snapshot": zyn.Bool(),
@@ -71,7 +71,7 @@ type change = changex.Change[uuid.UUID, Schematic]
 func (s *Service) Type() ontology.Type { return ontologyType }
 
 // Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Z { return Z }
+func (s *Service) Schema() zyn.Schema { return Z }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {

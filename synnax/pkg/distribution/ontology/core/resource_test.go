@@ -142,7 +142,7 @@ var _ = Describe("Resource", func() {
 				type myStruct struct {
 					Cat string
 				}
-				var Z = zyn.Object(map[string]zyn.Z{
+				var Z = zyn.Object(map[string]zyn.Schema{
 					"cat": zyn.String(),
 				})
 				r := ontology.NewResource(

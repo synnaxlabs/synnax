@@ -22,19 +22,19 @@ const UnionT DataType = "union"
 // UnionZ represents a union schema that can accept values of multiple types.
 type UnionZ struct {
 	baseZ
-	schemas []Z
+	schemas []Schema
 }
 
 // Union creates a new union schema that can accept values of multiple types.
 // This is the entry point for creating union validation schemas.
-func Union(schemas ...Z) UnionZ {
+func Union(schemas ...Schema) UnionZ {
 	var v any
 	u := UnionZ{baseZ: baseZ{dataType: UnionT, expectedType: reflect.TypeOf(v)}, schemas: schemas}
 	u.wrapper = u
 	return u
 }
 
-var _ Z = (*UnionZ)(nil)
+var _ Schema = (*UnionZ)(nil)
 
 // Optional marks the union field as optional.
 // Optional fields can be nil or omitted.

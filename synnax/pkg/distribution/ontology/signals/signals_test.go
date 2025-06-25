@@ -45,8 +45,8 @@ var _ ontology.Service = (*changeService)(nil)
 
 func (s *changeService) Type() ontology.Type { return changeType }
 
-func (s *changeService) Schema() zyn.Z {
-	return zyn.Object(map[string]zyn.Z{"key": zyn.String()})
+func (s *changeService) Schema() zyn.Schema {
+	return zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 }
 
 func (s *changeService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {

@@ -100,7 +100,7 @@ type Resource struct {
 	// Data is the data for the entity. Data must match [Schema.Fields].
 	Data any `json:"data" msgpack:"data"`
 	// schema is the schema that this entity matches.
-	schema zyn.Z
+	schema zyn.Schema
 }
 
 func (r Resource) Parse(dest any) error {
@@ -124,7 +124,7 @@ func (r Resource) SetOptions() []any { return nil }
 // NewResource creates a new entity with the given schema and name and an empty set of
 // field data. NewResource panics if the provided data value does not fit the ontology
 // schema.
-func NewResource(schema zyn.Z, id ID, name string, data any) Resource {
+func NewResource(schema zyn.Schema, id ID, name string, data any) Resource {
 	return Resource{
 		schema: schema,
 		ID:     id,

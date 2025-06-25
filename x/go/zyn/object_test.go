@@ -37,7 +37,7 @@ var _ = Describe("Object", func() {
 				Score float64
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name":  zyn.String(),
 				"Age":   zyn.Number(),
 				"Score": zyn.Number(),
@@ -66,9 +66,9 @@ var _ = Describe("Object", func() {
 				Address Address
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name": zyn.String(),
-				"Address": zyn.Object(map[string]zyn.Z{
+				"Address": zyn.Object(map[string]zyn.Schema{
 					"Street": zyn.String(),
 					"City":   zyn.String(),
 				}),
@@ -92,13 +92,13 @@ var _ = Describe("Object", func() {
 
 	Describe("Validate", func() {
 		It("Should return nil if the value is a valid object", func() {
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name": zyn.String(),
 			})
 			Expect(schema.Validate(map[string]any{"Name": "John"})).To(Succeed())
 		})
 		It("Should return nil if the value is not a valid object", func() {
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name": zyn.String(),
 			})
 			Expect(schema.Validate("not an object")).To(HaveOccurred())
@@ -111,7 +111,7 @@ var _ = Describe("Object", func() {
 				Name string
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name": zyn.String(),
 			})
 
@@ -124,7 +124,7 @@ var _ = Describe("Object", func() {
 				Name string
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name": zyn.String(),
 			})
 
@@ -137,7 +137,7 @@ var _ = Describe("Object", func() {
 				Name string
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name": zyn.String(),
 			})
 
@@ -151,7 +151,7 @@ var _ = Describe("Object", func() {
 				Age  int
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name": zyn.String(),
 				"Age":  zyn.Number(),
 			})
@@ -168,7 +168,7 @@ var _ = Describe("Object", func() {
 				Email *string
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name":  zyn.String(),
 				"Email": zyn.String().Optional(),
 			})
@@ -188,7 +188,7 @@ var _ = Describe("Object", func() {
 				Name string
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name": zyn.String(),
 			})
 
@@ -205,7 +205,7 @@ var _ = Describe("Object", func() {
 				Score float64
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name":  zyn.String(),
 				"Age":   zyn.Number(),
 				"Score": zyn.Number(),
@@ -236,9 +236,9 @@ var _ = Describe("Object", func() {
 				Address Address
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name": zyn.String(),
-				"Address": zyn.Object(map[string]zyn.Z{
+				"Address": zyn.Object(map[string]zyn.Schema{
 					"Street": zyn.String(),
 					"City":   zyn.String(),
 				}),
@@ -269,7 +269,7 @@ var _ = Describe("Object", func() {
 				Email *string
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name":  zyn.String(),
 				"Email": zyn.String().Optional(),
 			})
@@ -293,7 +293,7 @@ var _ = Describe("Object", func() {
 				Score float64
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name":  zyn.String(),
 				"Age":   zyn.Number(),
 				"Score": zyn.Number(),
@@ -325,7 +325,7 @@ var _ = Describe("Object", func() {
 		})
 
 		Specify("invalid map[string]any", func() {
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"Name":  zyn.String(),
 				"Age":   zyn.Number(),
 				"Score": zyn.Number(),
@@ -344,7 +344,7 @@ var _ = Describe("Object", func() {
 
 		Describe("Invalid Inputs", func() {
 			Specify("nil value", func() {
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name": zyn.String(),
 				})
 
@@ -357,7 +357,7 @@ var _ = Describe("Object", func() {
 					Name string
 				}
 
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name": zyn.String(),
 				})
 
@@ -367,7 +367,7 @@ var _ = Describe("Object", func() {
 			})
 
 			Specify("optional nil value", func() {
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name": zyn.String(),
 				}).Optional()
 
@@ -381,7 +381,7 @@ var _ = Describe("Object", func() {
 					Name string
 				}
 
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name": zyn.String(),
 				}).Optional()
 
@@ -392,7 +392,7 @@ var _ = Describe("Object", func() {
 			})
 
 			Specify("non-struct value", func() {
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name": zyn.String(),
 				})
 
@@ -405,7 +405,7 @@ var _ = Describe("Object", func() {
 					Name string
 				}
 
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name": zyn.String(),
 					"Age":  zyn.Number(),
 				})
@@ -421,7 +421,7 @@ var _ = Describe("Object", func() {
 
 		Describe("Map Input", func() {
 			Specify("valid map with snake case keys", func() {
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name":  zyn.String(),
 					"Age":   zyn.Number(),
 					"Score": zyn.Number(),
@@ -443,7 +443,7 @@ var _ = Describe("Object", func() {
 			})
 
 			Specify("valid map with mixed case keys", func() {
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name":  zyn.String(),
 					"Age":   zyn.Number(),
 					"Score": zyn.Number(),
@@ -465,9 +465,9 @@ var _ = Describe("Object", func() {
 			})
 
 			Specify("nested object map", func() {
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name": zyn.String(),
-					"Address": zyn.Object(map[string]zyn.Z{
+					"Address": zyn.Object(map[string]zyn.Schema{
 						"Street": zyn.String(),
 						"City":   zyn.String(),
 					}),
@@ -493,7 +493,7 @@ var _ = Describe("Object", func() {
 			})
 
 			Specify("optional fields in map", func() {
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name":  zyn.String(),
 					"Email": zyn.String().Optional(),
 				})
@@ -510,7 +510,7 @@ var _ = Describe("Object", func() {
 			})
 
 			Specify("nil optional field in map", func() {
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name":  zyn.String(),
 					"Email": zyn.String().Optional(),
 				})
@@ -528,7 +528,7 @@ var _ = Describe("Object", func() {
 			})
 
 			Specify("invalid field type in map", func() {
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name": zyn.String(),
 					"Age":  zyn.Number(),
 				})
@@ -543,7 +543,7 @@ var _ = Describe("Object", func() {
 			})
 
 			Specify("missing required field in map", func() {
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name": zyn.String(),
 					"Age":  zyn.Number(),
 				})
@@ -557,9 +557,9 @@ var _ = Describe("Object", func() {
 			})
 
 			Specify("invalid nested object in map", func() {
-				schema := zyn.Object(map[string]zyn.Z{
+				schema := zyn.Object(map[string]zyn.Schema{
 					"Name": zyn.String(),
-					"Address": zyn.Object(map[string]zyn.Z{
+					"Address": zyn.Object(map[string]zyn.Schema{
 						"Street": zyn.String(),
 						"City":   zyn.String(),
 					}),
@@ -585,7 +585,7 @@ var _ = Describe("Object", func() {
 				Score     float64
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"FirstName": zyn.String(),
 				"LastName":  zyn.String(),
 				"Age":       zyn.Number(),
@@ -617,7 +617,7 @@ var _ = Describe("Object", func() {
 				Score     float64
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"FirstName": zyn.String(),
 				"LastName":  zyn.String(),
 				"Age":       zyn.Number(),
@@ -647,7 +647,7 @@ var _ = Describe("Object", func() {
 				Score     float64
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"FirstName": zyn.String(),
 				"LastName":  zyn.String(),
 				"Age":       zyn.Number(),
@@ -680,10 +680,10 @@ var _ = Describe("Object", func() {
 				Address   Address
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"FirstName": zyn.String(),
 				"LastName":  zyn.String(),
-				"Address": zyn.Object(map[string]zyn.Z{
+				"Address": zyn.Object(map[string]zyn.Schema{
 					"StreetName": zyn.String(),
 					"CityName":   zyn.String(),
 				}),
@@ -728,7 +728,7 @@ var _ = Describe("Object", func() {
 				Score     float64
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"first_name": zyn.String(),
 				"last_name":  zyn.String(),
 				"age":        zyn.Number(),
@@ -768,7 +768,7 @@ var _ = Describe("Object", func() {
 				Score     float64
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"FirstName": zyn.String(),
 				"last_name": zyn.String(),
 				"Age":       zyn.Number(),
@@ -811,10 +811,10 @@ var _ = Describe("Object", func() {
 				Address   Address
 			}
 
-			schema := zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
 				"first_name": zyn.String(),
 				"last_name":  zyn.String(),
-				"address": zyn.Object(map[string]zyn.Z{
+				"address": zyn.Object(map[string]zyn.Schema{
 					"street_name": zyn.String(),
 					"city_name":   zyn.String(),
 				}),
@@ -856,7 +856,7 @@ var _ = Describe("Object", func() {
 				type MyStruct struct {
 					Value uuid.UUID
 				}
-				var schema = zyn.Object(map[string]zyn.Z{
+				var schema = zyn.Object(map[string]zyn.Schema{
 					"value": zyn.UUID(),
 				})
 				value := uuid.New()
@@ -873,10 +873,10 @@ var _ = Describe("Object", func() {
 	Describe("Nested Object Field Errors", func() {
 		It("Should correctly append path segments", func() {
 
-			schema := zyn.Object(map[string]zyn.Z{
-				"first": zyn.Object(map[string]zyn.Z{
-					"second": zyn.Object(map[string]zyn.Z{
-						"third": zyn.Object(map[string]zyn.Z{
+			schema := zyn.Object(map[string]zyn.Schema{
+				"first": zyn.Object(map[string]zyn.Schema{
+					"second": zyn.Object(map[string]zyn.Schema{
+						"third": zyn.Object(map[string]zyn.Schema{
 							"value": zyn.Uint64(),
 						}),
 					}),
