@@ -18,8 +18,7 @@ xerrors::Error
 rack::Config::load_config_file(xargs::Parser &args, breaker::Breaker &breaker) {
     std::string config_path = args.optional("--config", "");
     if (config_path.empty()) {
-        if (breaker.retry_count() == 0)
-            LOG(INFO) << "no config file specified";
+        if (breaker.retry_count() == 0) LOG(INFO) << "no config file specified";
         return xerrors::NIL;
     }
     if (breaker.retry_count() == 0)

@@ -16,8 +16,8 @@ int exec_svc_cmd(
     const std::string &past_tense = ""
 ) {
     if (const auto err = cmd()) {
-        LOG(ERROR) << "" << xlog::RED() << "Failed to " << action << ": "
-                   << err << xlog::RESET();
+        LOG(ERROR) << "" << xlog::RED() << "Failed to " << action << ": " << err
+                   << xlog::RESET();
         return 1;
     }
     if (!past_tense.empty()) {

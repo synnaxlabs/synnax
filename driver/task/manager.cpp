@@ -73,8 +73,7 @@ xerrors::Error task::Manager::configure_initial_tasks() {
         if (handled && driver_task != nullptr)
             this->tasks[task.key] = std::move(driver_task);
         else if (handled && driver_task == nullptr)
-            LOG(WARNING) << "unexpected nullptr returned by factory for "
-                         << task;
+            LOG(WARNING) << "unexpected nullptr returned by factory for " << task;
     }
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);
@@ -100,8 +99,7 @@ void task::Manager::stop() {
 
 bool task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
     if (synnax::rack_key_from_task_key(task_key) != this->rack.key) {
-        VLOG(1) << "received task for foreign rack: " << task_key
-                << ", skipping";
+        VLOG(1) << "received task for foreign rack: " << task_key << ", skipping";
         return true;
     }
     return false;
@@ -179,21 +177,19 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
         auto parser = xjson::Parser(cmd_str);
         auto cmd = task::Command(parser);
         if (!parser.ok()) {
-            LOG(WARNING) << "failed to parse command: "
-                         << parser.error_json().dump();
+            LOG(WARNING) << "failed to parse command: " << parser.error_json().dump();
             continue;
         }
 
         if (this->skip_foreign_rack(cmd.task)) continue;
         auto it = this->tasks.find(cmd.task);
         if (it == this->tasks.end()) {
-            LOG(WARNING) << "could not find task to execute command: "
-                         << cmd.task;
+            LOG(WARNING) << "could not find task to execute command: " << cmd.task;
             continue;
         }
         const std::unique_ptr<Task> &tsk = it->second;
-        LOG(INFO) << "processing " << cmd.type << " command for task "
-                  << tsk->name() << " (" << cmd.task << ")";
+        LOG(INFO) << "processing " << cmd.type << " command for task " << tsk->name()
+                  << " (" << cmd.task << ")";
         tsk->exec(cmd);
     }
 }
@@ -216,7 +212,6 @@ void task::Manager::process_task_delete(const telem::Series &series) {
             it->second->stop(false);
             this->tasks.erase(it);
         } else
-            LOG(WARNING) << "could not find task for " << task_key
-                         << " to delete";
+            LOG(WARNING) << "could not find task for " << task_key << " to delete";
     }
 }
