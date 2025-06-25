@@ -8,26 +8,34 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { useState as useState_ } from "react";
+import { useCallback, useState as useState_ } from "react";
 
-import { useStateSynchronizer } from "@/hardware/device/synchronizers";
+import { useStatusSynchronizer } from "@/hardware/device/synchronizers";
 import { useAsyncEffect } from "@/hooks";
 import { Synnax } from "@/synnax";
 
-export const useState = (key: device.Key): device.State | undefined => {
+export const useStatus = (key: device.Key): device.Status | undefined => {
   const client = Synnax.use();
-  const [state, setState] = useState_<device.State | undefined>(undefined);
+  const [status, setStatus] = useState_<device.Status | undefined>(undefined);
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
-      const { state } = await client.hardware.devices.retrieve(key, {
-        includeState: true,
+      const { status } = await client.hardware.devices.retrieve(key, {
+        includeStatus: true,
       });
       if (signal.aborted) return;
-      setState(state);
+      setStatus(status);
     },
     [client],
   );
-  useStateSynchronizer(setState);
-  return state;
+  const handleStatusChange = useCallback(
+    (status: device.Status) => {
+      if (status.details.device !== key) return;
+      setStatus(status);
+    },
+    [key],
+  );
+
+  useStatusSynchronizer(handleStatusChange);
+  return status;
 };

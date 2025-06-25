@@ -16,7 +16,7 @@
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
-#include "driver/task/common/state.h"
+#include "driver/task/common/status.h"
 #include "driver/task/task.h"
 
 namespace common {
@@ -170,7 +170,7 @@ class WriteTask final : public task::Task {
     };
 
     /// @brief used to manage and communicate the task's state.
-    StateHandler state;
+    StatusHandler state;
     /// @brief the hardware interface for writing data
     std::shared_ptr<WrappedSink> sink;
     /// @brief the pipeline used to receive commands from Synnax and write them to
