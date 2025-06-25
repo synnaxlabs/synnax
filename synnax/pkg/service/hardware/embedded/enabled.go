@@ -17,6 +17,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -25,7 +26,7 @@ import (
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	xos "github.com/synnaxlabs/x/os"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
@@ -39,6 +40,13 @@ const (
 	debugFlag           = "--debug"
 	startedMessage      = "started successfully"
 )
+
+const (
+	configFileName     = "config.json"
+	extractedDriverDir = "driver"
+)
+
+var configCodec = &binary.JSONCodec{}
 
 func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
@@ -70,30 +78,30 @@ func (d *Driver) start(ctx context.Context) error {
 	var mf func(ctx context.Context) error
 	mf = func(ctx context.Context) error {
 		d.mu.Lock()
-		codec := &binary.JSONCodec{}
-		b, err := codec.Encode(ctx, d.cfg.format())
+		b, err := configCodec.Encode(ctx, d.cfg.format())
 		if err != nil {
 			return err
 		}
-		cfgFileName, err := xos.WriteTemp("", "synnax-driver-config*.json", b)
+		opsDir := filepath.Join(d.cfg.ParentDirname, extractedDriverDir)
+		if err = os.MkdirAll(opsDir, xfs.OS_USER_RWX); err != nil {
+			return err
+		}
+		cfgFileName := filepath.Join(opsDir, configFileName)
+		if err = os.WriteFile(cfgFileName, b, xfs.OS_USER_RW); err != nil {
+			return err
+		}
+		data, err := executable.ReadFile(filepath.Join(embeddedDriverDir, driverName))
 		if err != nil {
 			return err
 		}
-		data, err := executable.ReadFile("assets/" + driverName)
-		if err != nil {
-			return err
-		}
-		driverFileName, err := xos.WriteTemp("", driverName, data)
-		if err != nil {
+		driverFileName := filepath.Join(opsDir, driverName)
+		if err = os.WriteFile(driverFileName, data, xfs.OS_USER_RWX); err != nil {
 			return err
 		}
 		defer func() {
 			err = errors.Combine(err, os.Remove(cfgFileName))
 			err = errors.Combine(err, os.Remove(driverFileName))
 		}()
-		if err := os.Chmod(driverFileName, 0755); err != nil {
-			return err
-		}
 		flags := []string{
 			startCmdName,
 			startStandaloneFlag,
@@ -193,9 +201,9 @@ func pipeOutputToLogger(
 		// Find the first "]" and remove everything before it
 		// This is to remove the timestamp from the log output
 		b := scanner.Bytes()
-		dl := logger
+		namedLogger := logger
 		if len(b) == 0 {
-			dl.Warn("received empty log line from driver")
+			namedLogger.Warn("received empty log line from driver")
 			continue
 		}
 		level := string(b[0])
@@ -209,25 +217,30 @@ func pipeOutputToLogger(
 			if len(first) >= 2 {
 				first = first[2:]
 			}
-			dl = logger.Named(first)
+			namedLogger = logger.Named(first)
 			message = split[2]
 			if len(message) > 1 {
 				message = message[1:]
 			}
+		} else if len(split) == 2 {
+			callerSplit := strings.Split(split[0], " ")
+			caller = callerSplit[len(callerSplit)-1]
+			message = split[1]
 		}
+		message = strings.TrimSpace(message)
 		if started != nil && message == startedMessage {
 			close(started)
 		}
 		callerField := zap.String("caller", caller)
 		switch level {
 		case "D":
-			dl.Debug(message, callerField)
+			namedLogger.Debug(message, callerField)
 		case "E", "F":
-			dl.Error(message, callerField)
+			namedLogger.Error(message, callerField)
 		case "W":
-			dl.Warn(message, callerField)
+			namedLogger.Warn(message, callerField)
 		default:
-			dl.Info(message, callerField)
+			namedLogger.Info(message, callerField)
 		}
 	}
 	if err := scanner.Err(); err != nil {

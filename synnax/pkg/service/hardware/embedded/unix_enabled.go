@@ -21,7 +21,10 @@ import (
 var executable embed.FS
 
 // driverPath is the path to the driver executable
-const driverName = "driver"
+const (
+	embeddedDriverDir = "assets"
+	driverName        = "driver"
+)
 
 func configureSysProcAttr(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}

@@ -136,6 +136,11 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
+		opsDir, err := resolveOpsDir()
+		if err != nil {
+			return errors.Wrapf(err, "failed to resolve ops directory")
+		}
+
 		// An array to hold the grpcServerTransports we use for cluster internal communication.
 		grpcServerTransports := &[]fgrpc.BindableTransport{}
 		grpcClientPool := configureClientGRPC(secProvider, insecure)
@@ -359,6 +364,7 @@ func start(cmd *cobra.Command) {
 				hardwareSvc.Rack.EmbeddedKey,
 				dist.Cluster.Key(),
 				insecure,
+				opsDir,
 			),
 		)
 		if err != nil {
@@ -461,6 +467,7 @@ func buildEmbeddedDriverConfig(
 	rackKey rack.Key,
 	clusterKey uuid.UUID,
 	insecure bool,
+	opsDir string,
 ) embedded.Config {
 	cfg := embedded.Config{
 		Enabled: config.Bool(!viper.GetBool(noDriverFlag)),
@@ -475,6 +482,7 @@ func buildEmbeddedDriverConfig(
 		Username:        viper.GetString(usernameFlag),
 		Password:        viper.GetString(passwordFlag),
 		Debug:           config.Bool(viper.GetBool(debugFlag)),
+		ParentDirname:   opsDir,
 	}
 	if insecure {
 		return cfg
@@ -657,4 +665,8 @@ func configureClientGRPC(
 
 func getClientGRPCTransportCredentials(sec security.Provider, insecure bool) credentials.TransportCredentials {
 	return lo.Ternary(insecure, insecureGRPC.NewCredentials(), credentials.NewTLS(sec.TLS()))
+}
+
+func resolveOpsDir() (string, error) {
+	return os.UserCacheDir()
 }

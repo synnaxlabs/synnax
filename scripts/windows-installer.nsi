@@ -11,7 +11,7 @@ Unicode True
 Name "Synnax"
 OutFile "synnax-setup-v${VERSION}.exe"
 RequestExecutionLevel admin
-InstallDir "$PROGRAMFILES64\\Synnax"
+InstallDir "$PROGRAMFILES64\\Synnax\\Core"
 ShowInstDetails show
 
 Section "MainSection" SEC01
