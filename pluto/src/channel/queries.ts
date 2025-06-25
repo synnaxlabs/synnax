@@ -11,13 +11,13 @@ import { channel } from "@synnaxlabs/client";
 
 import { Query } from "@/query";
 
-export const useCalculationStateSynchronizer = (
-  onChange: (state: channel.CalculationState) => void,
+export const useCalculationStatusSynchronizer = (
+  onStatusChange: (status: channel.CalculationStatus) => void,
 ): void =>
-  Query.useParsedListener(
-    channel.CALCULATION_STATE_CHANNEL_NAME,
-    channel.calculationStateZ,
-    onChange,
+  Sync.useParsedListener(
+    channel.CALCULATION_STATUS_CHANNEL_NAME,
+    channel.calculationStatusZ,
+    onStatusChange,
   );
 
 export const useForm = Query.createForm<channel.Key, typeof channel.channelZ>({

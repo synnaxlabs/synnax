@@ -80,7 +80,7 @@ public:
 };
 
 /// @brief name of the channel used in Synnax to communicate state updates.
-const std::string TASK_STATE_CHANNEL = "sy_task_state";
+const std::string TASK_STATE_CHANNEL = "sy_task_status";
 
 /// @brief an interface for a standard context that is provided to every task in the
 /// driver. This context provides access to the Synnax client and allows tasks to

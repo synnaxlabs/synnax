@@ -88,4 +88,4 @@ func (s Status) SetOptions() []any { return []any{s.Details.Task.Rack().Node()} 
 
 // CustomTypeName implements types.CustomTypeName to ensure that Status struct does
 // not conflict with any other types in gorp.
-func (s Status) CustomTypeName() string { return "TaskState" }
+func (s Status) CustomTypeName() string { return "TaskStatus" }

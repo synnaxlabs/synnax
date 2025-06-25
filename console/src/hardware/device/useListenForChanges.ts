@@ -15,11 +15,11 @@ import { useCallback } from "react";
 const PREFIX = "new-device-";
 
 export const useListenForChanges = () => {
-  const addStatus = Status.useAdder<device.Device>();
+  const addStatus = Status.useAdder();
   const handleSet = useCallback(
     (dev: device.Device) => {
       if (dev.configured) return;
-      addStatus({
+      addStatus<device.Device>({
         variant: "info",
         key: `${PREFIX}${dev.key}`,
         message: `New ${dev.model} connected`,

@@ -42,14 +42,14 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   }
 }
 
-export interface Adder<D = undefined> {
-  (spec: status.Crude<D>): void;
+export interface Adder {
+  <D = undefined>(spec: status.Crude<D>): void;
 }
 
-export const useAdder = <D = undefined>(ctx: aether.Context): Adder<D> =>
+export const useAdder = (ctx: aether.Context): Adder =>
   ctx.get<ContextValue>(CONTEXT_KEY).add;
 
-export const useOptionalAdder = <D = undefined>(ctx: aether.Context): Adder<D> => {
+export const useOptionalAdder = (ctx: aether.Context): Adder => {
   const agg = ctx.getOptional<ContextValue>(CONTEXT_KEY);
   if (agg != null) return agg.add;
   return () => {};

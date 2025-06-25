@@ -10,7 +10,7 @@
 import { type rack } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
-import { useStateSynchronizer } from "@/hardware/rack/synchronizers";
+import { useStatusSynchronizer } from "@/hardware/rack/synchronizers";
 import { useAsyncEffect } from "@/hooks";
 import { Synnax } from "@/synnax";
 
@@ -29,13 +29,13 @@ export const use = (key: rack.Key): rack.Rack | undefined => {
     },
     [client, key],
   );
-  const handleStateChange = useCallback(
+  const handleStatusChange = useCallback(
     (status: rack.Status) => {
       if (rack == null || client == null) return;
       setRack(client.hardware.racks.sugar({ ...rack.payload, status }));
     },
     [rack, client],
   );
-  useStateSynchronizer(handleStateChange);
+  useStatusSynchronizer(handleStatusChange);
   return rack;
 };

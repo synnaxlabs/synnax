@@ -268,7 +268,7 @@ export const readStatusDataZ = z.object({
   errors: z.array(z.object({ message: z.string(), path: z.string() })),
 });
 
-export interface ReadStatus extends task.Status<typeof readStatusDataZ> {}
+export type ReadStatus = task.Status<typeof readStatusDataZ>;
 
 export const READ_TYPE = `${PREFIX}_read`;
 export const readTypeZ = z.literal(READ_TYPE);
@@ -320,7 +320,7 @@ const ZERO_WRITE_CONFIG: WriteConfig = {
 };
 
 export const writeStatusDataZ = z.object({});
-export interface WriteStatus extends task.Status<typeof writeStatusDataZ> {}
+export type WriteStatus = task.Status<typeof writeStatusDataZ>;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 export const writeTypeZ = z.literal(WRITE_TYPE);

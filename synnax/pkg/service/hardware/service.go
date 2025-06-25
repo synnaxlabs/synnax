@@ -32,7 +32,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 )
 
-// Config is the configuration for opening hte hardware service.
+// Config is the configuration for opening the hardware service.
 type Config struct {
 	alamos.Instrumentation
 	// DB is the gorp database that all meta-data structures will be stored in.
@@ -49,7 +49,7 @@ type Config struct {
 	// Signals is used to propagate changes to meta-data throughout the cluster.
 	Signals *signals.Provider
 	// Channel is used to create channels necessary for hardware communication.
-	Channel channel.Writeable
+	Channel channel.ReadWriteable
 	// Framer is used for writing hardware telemetry data.
 	Framer *framer.Service
 }

@@ -72,7 +72,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
     xerrors::Error propagate_state(telem::Series &states) override {
         if (this->state_writer == nullptr) {
             const auto [state_channel, ch_err] = this->client->channels.retrieve(
-                synnax::DEVICE_STATE_CHAN_NAME
+                synnax::DEVICE_STATUS_CHANNEL_NAME
             );
             if (ch_err) return ch_err;
             this->state_channel = state_channel;
@@ -157,7 +157,7 @@ public:
 
     void run() override {
         if (const auto err = this->scanner->start()) {
-            this->state.variant = status::variant::ERROR;
+            this->state.variant = status::variant::ERR;
             this->state.message = err.message();
             this->ctx->set_status(this->state);
             return;
@@ -175,7 +175,7 @@ public:
             this->timer.wait(this->breaker);
         }
         if (const auto err = this->scanner->stop()) {
-            this->state.variant = status::variant::ERROR;
+            this->state.variant = status::variant::ERR;
             this->state.message = err.message();
         } else {
             this->state.variant = status::variant::SUCCESS;
@@ -191,7 +191,7 @@ public:
             this->start();
         else if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
-            this->state.variant = status::variant::ERROR;
+            this->state.variant = status::variant::ERR;
             this->state.message = err.message();
             this->ctx->set_status(this->state);
         }
@@ -254,6 +254,7 @@ public:
                 .details =
                     synnax::DeviceStatusDetails{
                         .rack = dev.dev.rack,
+                        .device = dev.dev.key,
                     },
             };
             std::vector keys{dev.dev.key};

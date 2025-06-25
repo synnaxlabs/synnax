@@ -108,7 +108,7 @@ const ZERO_READ_CONFIG: ReadConfig = {
 };
 
 export const readStatusDataZ = z.object({});
-export interface ReadStatus extends task.Status<typeof readStatusDataZ> {}
+export type ReadStatus = task.Status<typeof readStatusDataZ>;
 
 export const READ_TYPE = `${PREFIX}_read`;
 export const readTypeZ = z.literal(READ_TYPE);
@@ -163,9 +163,9 @@ export type ScanCommandResponse = z.infer<typeof scanCommandResponseZ>;
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 export const scanStatusDataZ = scanCommandResponseZ;
-export interface ScanStatus extends task.Status<typeof scanCommandResponseZ> {}
+export type ScanStatus = task.Status<typeof scanCommandResponseZ>;
 
-export interface TestConnectionStatus extends task.Status {}
+export type TestConnectionStatus = task.Status;
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 export const scanTypeZ = z.literal(SCAN_TYPE);
@@ -217,7 +217,7 @@ export const ZERO_WRITE_CONFIG: WriteConfig = {
 };
 
 export const writeStatusDataZ = z.object({});
-export interface WriteStatus extends task.Status<typeof writeStatusDataZ> {}
+export type WriteStatus = task.Status<typeof writeStatusDataZ>;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 export const writeTypeZ = z.literal(WRITE_TYPE);

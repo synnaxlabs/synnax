@@ -11,6 +11,7 @@ import { rack } from "@synnaxlabs/client";
 
 import { Query } from "@/query";
 
-export const useStateSynchronizer = (
-  onStateChange: (state: rack.Status) => void,
-): void => Query.useParsedListener(rack.STATE_CHANNEL_NAME, rack.statusZ, onStateChange);
+export const useStatusSynchronizer = (
+  onStatusChange: (status: rack.Status) => void,
+): void =>
+  Query.useParsedListener(rack.STATUS_CHANNEL_NAME, rack.statusZ, onStatusChange);

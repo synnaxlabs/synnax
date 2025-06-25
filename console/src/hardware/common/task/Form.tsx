@@ -44,7 +44,7 @@ export type FormSchema<Config extends z.ZodType = z.ZodType> = z.ZodObject<{
 export type FormProps<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > = { methods: PForm.ContextValue<FormSchema<Config>> } & (
   | {
       configured: false;
@@ -66,33 +66,33 @@ const COMMAND_MESSAGES: Record<Command, string> = {
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
     client: Synnax,
-    config: z.output<Config>,
+    config: z.infer<Config>,
     name: string,
-  ): Promise<[z.output<Config>, rack.Key]>;
+  ): Promise<[z.infer<Config>, rack.Key]>;
 }
 
 export interface WrapFormArgs<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > extends WrapOptions<Type, Config, StatusData> {
   Properties: FC<{}>;
   Form: FC<FormProps<Type, Config, StatusData>>;
-  type: z.output<Type>;
+  type: z.infer<Type>;
   onConfigure: OnConfigure<Config>;
 }
 
 export interface UseFormArgs<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > extends TaskProps<Type, Config, StatusData>,
     Pick<WrapFormArgs<Type, Config, StatusData>, "schemas" | "onConfigure" | "type"> {}
 
 export interface UseFormReturn<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > {
   formProps: FormProps<Type, Config, StatusData>;
   handleConfigure: UseMutateFunction<void, Error, void, unknown>;
@@ -103,7 +103,7 @@ export interface UseFormReturn<
 
 const nameZ = z.string().min(1, "Name is required");
 
-const DEFAULT_STATUS: task.Status<z.ZodTypeAny> = {
+const DEFAULT_STATUS: task.Status<z.ZodType> = {
   key: "",
   variant: "disabled",
   message: "Task is not configured",
@@ -114,7 +114,7 @@ const DEFAULT_STATUS: task.Status<z.ZodTypeAny> = {
 export const useForm = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 >({
   task: initialTask,
   layoutKey,
@@ -139,7 +139,7 @@ export const useForm = <
     values: schema.parse({
       name: initialTask.name,
       config: initialTask.config,
-    }) as z.output<FormSchema<Config>>,
+    }) as z.infer<FormSchema<Config>>,
     onHasTouched: handleUnsavedChanges,
   });
   const create = useCreate<Type, Config, StatusData>(layoutKey, schemas);
@@ -170,7 +170,7 @@ export const useForm = <
       if (config == null) throw new Error("Config is required");
       const [newConfig, rackKey] = await onConfigure(
         client,
-        config as z.output<Config>,
+        config as z.infer<Config>,
         name,
       );
       if (task_.key != "" && rackKey != task.getRackKey(task_.key)) {
@@ -192,7 +192,7 @@ export const useForm = <
         methods.set("config.channels", (newConfig as { channels: any }).channels);
       dispatch(Layout.rename({ key: layoutKey, name }));
       const t = await create(
-        { key: task_.key, name, type, config: newConfig as z.output<Config> },
+        { key: task_.key, name, type, config: newConfig as z.infer<Config> },
         rackKey,
       );
       setTask_(t);
@@ -227,7 +227,7 @@ export const useForm = <
 export const wrapForm = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 >({
   Properties,
   Form,
@@ -284,7 +284,7 @@ export const wrapForm = <
             layoutKey={layoutKey}
             status={status}
             isConfiguring={isConfiguring}
-            onStartStop={handleStartOrStop}
+            onCommand={handleStartOrStop}
             onConfigure={handleConfigure}
             isSnapshot={isSnapshot}
             hasBeenConfigured={configured}

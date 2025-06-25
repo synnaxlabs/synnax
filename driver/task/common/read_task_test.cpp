@@ -116,7 +116,7 @@ TEST(TestCommonReadTask, testErrorOnStart) {
     auto start_state = ctx->states[0];
     EXPECT_EQ(start_state.key, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
-    EXPECT_EQ(start_state.variant, status::variant::ERROR);
+    EXPECT_EQ(start_state.variant, status::variant::ERR);
     EXPECT_EQ(start_state.message, "start error");
 }
 
@@ -155,7 +155,7 @@ TEST(TestCommonReadTask, testErrorOnStop) {
     auto stop_state = ctx->states[1];
     EXPECT_EQ(stop_state.key, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, t.key);
-    EXPECT_EQ(stop_state.variant, status::variant::ERROR);
+    EXPECT_EQ(stop_state.variant, status::variant::ERR);
     EXPECT_EQ(stop_state.message, "stop error");
 }
 
@@ -256,7 +256,7 @@ TEST(TestCommonReadTask, testReadError) {
     auto run_err = ctx->states[1];
     ASSERT_EQ(run_err.key, "");
     ASSERT_EQ(run_err.details.task, t.key);
-    ASSERT_EQ(run_err.variant, status::variant::ERROR);
+    ASSERT_EQ(run_err.variant, status::variant::ERR);
     ASSERT_EQ(run_err.message, "read error");
 
     ASSERT_FALSE(read_task.stop("stop_cmd", true));
@@ -264,7 +264,7 @@ TEST(TestCommonReadTask, testReadError) {
     auto stop_state = ctx->states[2];
     EXPECT_EQ(stop_state.key, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, t.key);
-    EXPECT_EQ(stop_state.variant, status::variant::ERROR);
+    EXPECT_EQ(stop_state.variant, status::variant::ERR);
     EXPECT_EQ(stop_state.message, "read error");
 }
 
@@ -299,7 +299,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     auto start_state1 = ctx->states[0];
     EXPECT_EQ(start_state1.key, start_cmd_key1);
     EXPECT_EQ(start_state1.details.task, t.key);
-    EXPECT_EQ(start_state1.variant, status::variant::ERROR);
+    EXPECT_EQ(start_state1.variant, status::variant::ERR);
     EXPECT_EQ(start_state1.message, "first start error");
 
     // Second start attempt - should succeed
@@ -371,7 +371,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     auto stop_state1 = ctx->states[1];
     EXPECT_EQ(stop_state1.key, stop_cmd_key1);
     EXPECT_EQ(stop_state1.details.task, t.key);
-    EXPECT_EQ(stop_state1.variant, status::variant::ERROR);
+    EXPECT_EQ(stop_state1.variant, status::variant::ERR);
     EXPECT_EQ(stop_state1.message, "first stop error");
 
     // Start the task again

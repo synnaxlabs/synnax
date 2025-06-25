@@ -47,12 +47,12 @@ class TestTaskClient:
     def test_execute_command_sync(self, client: sy.Synnax):
         def driver(ev: threading.Event):
             with client.open_streamer("sy_task_cmd") as s:
-                with client.open_writer(sy.TimeStamp.now(), "sy_task_state") as w:
+                with client.open_writer(sy.TimeStamp.now(), "sy_task_status") as w:
                     ev.set()
                     f = s.read(timeout=1)
                     cmd = f["sy_task_cmd"][0]
                     w.write(
-                        "sy_task_state",
+                        "sy_task_status",
                         [
                             sy.TaskStatus(
                                 key=cmd["key"],
@@ -78,12 +78,12 @@ class TestTaskClient:
 
         def driver(ev: threading.Event):
             with client.open_streamer("sy_task_set") as s:
-                with client.open_writer(sy.TimeStamp.now(), "sy_task_state") as w:
+                with client.open_writer(sy.TimeStamp.now(), "sy_task_status") as w:
                     ev.set()
                     f = s.read(timeout=2)
                     key = f["sy_task_set"][0]
                     w.write(
-                        "sy_task_state",
+                        "sy_task_status",
                         [
                             sy.TaskStatus(
                                 variant=SUCCESS_VARIANT,
@@ -106,17 +106,17 @@ class TestTaskClient:
 
         def driver(ev: threading.Event):
             with client.open_streamer("sy_task_set") as s:
-                with client.open_writer(sy.TimeStamp.now(), "sy_task_state") as w:
+                with client.open_writer(sy.TimeStamp.now(), "sy_task_status") as w:
                     ev.set()
                     f = s.read(timeout=1)
                     key = f["sy_task_set"][0]
                     w.write(
-                        "sy_task_state",
+                        "sy_task_status",
                         [
                             sy.TaskStatus(
                                 variant=ERROR_VARIANT,
                                 message="Invalid Configuration.",
-                                details=sy.TaskStatusDetails(task=int(key))
+                                details=sy.TaskStatusDetails(task=int(key)),
                             ).model_dump(),
                         ],
                     )

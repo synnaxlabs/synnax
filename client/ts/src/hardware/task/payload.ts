@@ -21,20 +21,11 @@ export const keyZ = z.union([
 ]);
 export type Key = z.infer<typeof keyZ>;
 
-const statusDetailsZ = <StatusData extends z.ZodType>(data: StatusData) =>
-  z.object({
-    task: keyZ,
-    running: z.boolean(),
-    data,
-  });
+export const statusDetailsZ = <D extends z.ZodType>(data: D) =>
+  z.object({ task: keyZ, running: z.boolean(), data });
 
-export type StatusDetails<StatusData extends z.ZodType> = z.infer<
-  ReturnType<typeof statusDetailsZ<StatusData>>
->;
-
-export const statusZ = <StatusData extends z.ZodType>(
-  data: StatusData = z.unknown() as unknown as StatusData,
-) => status.statusZ(statusDetailsZ(data));
+export const statusZ = <D extends z.ZodType>(data: D) =>
+  status.statusZ(statusDetailsZ(data));
 
 export type Status<StatusData extends z.ZodType = z.ZodUnknown> = z.infer<
   ReturnType<typeof statusZ<StatusData>>
@@ -64,7 +55,7 @@ export const taskZ = <
 export interface Schemas<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > {
   typeSchema: Type;
   configSchema: Config;
@@ -74,7 +65,7 @@ export interface Schemas<
 export type Payload<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > = {
   key: Key;
   name: string;
@@ -120,16 +111,14 @@ export const commandZ = z.object({
     .optional() as z.ZodOptional<z.ZodType<record.Unknown>>,
 });
 
-export interface Command<Args extends {} = record.Unknown>
-  extends Omit<z.infer<typeof commandZ>, "args"> {
-  args?: Args;
+export interface Command extends Omit<z.infer<typeof commandZ>, "args"> {
+  args?: record.Unknown;
 }
 
 export interface StateObservable<StatusData extends z.ZodType>
   extends observe.ObservableAsyncCloseable<Status<StatusData>> {}
 
-export interface CommandObservable<Args extends {} = record.Unknown>
-  extends observe.ObservableAsyncCloseable<Command<Args>> {}
+export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
 
 export const ONTOLOGY_TYPE = "task";
 export type OntologyType = typeof ONTOLOGY_TYPE;

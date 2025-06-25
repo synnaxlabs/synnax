@@ -89,15 +89,15 @@ describe("Task", async () => {
           config: { a: "dog" },
           type: "ni",
         });
-        const w = await client.openWriter(["sy_task_state"]);
-        const state: task.Status = {
+        const w = await client.openWriter([task.STATUS_CHANNEL_NAME]);
+        const communicatedStatus: task.Status = {
           key: id.create(),
           variant: "success",
           details: { task: t.key, running: false, data: {} },
           message: "test",
           time: TimeStamp.now(),
         };
-        await w.write(task.STATE_CHANNEL_NAME, [state]);
+        await w.write(task.STATUS_CHANNEL_NAME, [communicatedStatus]);
         await w.close();
         await expect
           .poll(async () => {
@@ -105,7 +105,7 @@ describe("Task", async () => {
               key: t.key,
               includeStatus: true,
             });
-            return retrieved.status?.variant === state.variant;
+            return retrieved.status?.variant === communicatedStatus.variant;
           })
           .toBeTruthy();
       });
@@ -168,22 +168,25 @@ describe("Task", async () => {
         type: "ni",
       });
       const commandObs = await t.openCommandObserver();
-      const w = await client.openWriter([task.STATE_CHANNEL_NAME]);
+      const w = await client.openWriter([task.STATUS_CHANNEL_NAME]);
       commandObs.onChange((cmd) => {
         void (async () => {
-          const state: task.Status = {
+          const status: task.Status = {
             key: cmd.key,
             variant: "success",
-            details: { task: cmd.task, running: false, data: {} },
+            details: { task: cmd.task, running: false, data: { beacons: "lit" } },
             message: "test",
             time: TimeStamp.now(),
           };
-          await w.write(task.STATE_CHANNEL_NAME, [state]);
+          await w.write(task.STATUS_CHANNEL_NAME, [status]);
         })();
       });
-      const state = await t.executeCommandSync("test", TimeSpan.fromSeconds(1));
-      expect(state.variant).toBe("success");
-      expect(state.details).toMatchObject({ beacons: "lit" });
+      const status = await t.executeCommandSync("test", TimeSpan.fromSeconds(1));
+      expect(status.variant).toBe("success");
+      expect(status.details).toMatchObject({
+        data: { beacons: "lit" },
+        running: false,
+      });
       await w.close();
       await commandObs.close();
     });

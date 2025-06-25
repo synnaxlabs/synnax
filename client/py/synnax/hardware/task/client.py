@@ -24,7 +24,7 @@ from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
 from synnax.hardware.rack import Client as RackClient
 from synnax.hardware.rack import Rack
-from synnax.hardware.task.payload import TaskPayload, TaskStatus, TaskStatusDetails
+from synnax.hardware.task.payload import TaskPayload, TaskStatus
 from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
@@ -57,7 +57,7 @@ _CREATE_ENDPOINT = "/hardware/task/create"
 _DELETE_ENDPOINT = "/hardware/task/delete"
 _RETRIEVE_ENDPOINT = "/hardware/task/retrieve"
 
-_TASK_STATE_CHANNEL = "sy_task_state"
+_TASK_STATE_CHANNEL = "sy_task_status"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
 
@@ -259,16 +259,13 @@ class Client:
         type: str = "",
         config: str = "",
         rack: int = 0,
-    ):
-        ...
+    ): ...
 
     @overload
-    def create(self, tasks: Task) -> Task:
-        ...
+    def create(self, tasks: Task) -> Task: ...
 
     @overload
-    def create(self, tasks: list[Task]) -> list[Task]:
-        ...
+    def create(self, tasks: list[Task]) -> list[Task]: ...
 
     def create(
         self,
@@ -345,8 +342,7 @@ class Client:
         key: int | None = None,
         name: str | None = None,
         type: str | None = None,
-    ) -> Task:
-        ...
+    ) -> Task: ...
 
     @overload
     def retrieve(
@@ -354,8 +350,7 @@ class Client:
         names: list[str] | None = None,
         keys: list[int] | None = None,
         types: list[str] | None = None,
-    ) -> list[Task]:
-        ...
+    ) -> list[Task]: ...
 
     def retrieve(
         self,
