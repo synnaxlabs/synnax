@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { rack, type task, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
+import { rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -46,12 +46,10 @@ import {
   ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
 import {
+  SCAN_SCHEMAS,
   SCAN_TYPE,
-  type ScanConfig,
-  type ScanStateDetails,
-  type ScanType,
   TEST_CONNECTION_COMMAND_TYPE,
-  type TestConnectionCommandState,
+  type TestConnectionStatus,
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -82,7 +80,7 @@ interface InternalProps extends Pick<Layout.RendererProps, "layoutKey" | "onClos
 
 const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalProps) => {
   const client = Synnax.use();
-  const [connectionState, setConnectionState] = useState<TestConnectionCommandState>();
+  const [connectionState, setConnectionState] = useState<TestConnectionStatus>();
   const handleError = Status.useErrorHandler();
   const methods = Form.use({ values: initialValues, schema: formSchema });
   const testConnectionMutation = useMutation({
@@ -93,20 +91,20 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
       );
-      const scanTasks = await rack.retrieveTaskByType(SCAN_TYPE);
+      const scanTasks = await client.hardware.tasks.retrieve({
+        type: SCAN_TYPE,
+        rack: rack.key,
+        schemas: SCAN_SCHEMAS,
+      });
       if (scanTasks.length === 0)
         throw new UnexpectedError(`No scan task found for driver ${rack.name}`);
-      const task = scanTasks[0] as unknown as task.Task<
-        ScanConfig,
-        ScanStateDetails,
-        ScanType
-      >;
+      const task = scanTasks[0];
       const state = await task.executeCommandSync(
         TEST_CONNECTION_COMMAND_TYPE,
         TimeSpan.seconds(10),
         { connection: methods.get("connection").value },
       );
-      setConnectionState(state as TestConnectionCommandState);
+      setConnectionState(state);
     },
   });
   const connectMutation = useMutation({
@@ -216,7 +214,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
             <Status.Text level="p" variant={connectionState.variant}>
-              {connectionState.details?.message}
+              {connectionState.message}
             </Status.Text>
           )}
         </Nav.Bar.Start>

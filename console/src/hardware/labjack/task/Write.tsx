@@ -19,11 +19,11 @@ import { SelectOutputChannelType } from "@/hardware/labjack/task/SelectOutputCha
 import {
   type OutputChannel,
   type OutputChannelType,
+  WRITE_SCHEMAS,
   WRITE_TYPE,
-  type WriteConfig,
-  writeConfigZ,
-  type WriteStateDetails,
-  type WriteType,
+  type writeConfigZ,
+  type writeStatusDataZ,
+  type writeTypeZ,
   ZERO_OUTPUT_CHANNEL,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
@@ -194,9 +194,9 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
   );
 };
 
-const Form: FC<Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>> = ({
-  isSnapshot,
-}) => (
+const Form: FC<
+  Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
+> = ({ isSnapshot }) => (
   <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
     canConfigure={!isSnapshot}
     configureLayout={Device.CONFIGURE_LAYOUT}
@@ -206,9 +206,9 @@ const Form: FC<Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>>
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  WriteConfig,
-  WriteStateDetails,
-  WriteType
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_WRITE_PAYLOAD,
   config: {
@@ -217,7 +217,10 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config) => {
+const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
+  client,
+  config,
+) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   Common.Device.checkConfigured(dev);
   let modified = false;
@@ -322,7 +325,7 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
 export const Write = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: writeConfigZ,
+  schemas: WRITE_SCHEMAS,
   type: WRITE_TYPE,
   getInitialPayload,
   onConfigure,

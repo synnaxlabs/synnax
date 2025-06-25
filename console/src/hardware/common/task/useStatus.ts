@@ -9,45 +9,21 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Task, useSyncedRef } from "@synnaxlabs/pluto";
-import { type status } from "@synnaxlabs/x";
 import { useCallback, useState as useReactState } from "react";
+import { type z } from "zod/v4";
 
 import { shouldExecuteCommand } from "@/hardware/common/task/shouldExecuteCommand";
-import {
-  LOADING_STATUS,
-  PAUSED_STATUS,
-  RUNNING_STATUS,
-  type Status,
-} from "@/hardware/common/task/types";
-
-export interface StateDetails {
-  running: boolean;
-  message?: string;
-}
-
-export interface State {
-  status: Status;
-  message?: string;
-  variant?: status.Variant;
-}
-
-const parseState = <D extends StateDetails>(state?: task.State<D>): State => ({
-  status: state?.details?.running ? RUNNING_STATUS : PAUSED_STATUS,
-  message: state?.details?.message,
-  variant: state?.variant,
-});
 
 /**
  * Explicit return type for the useState hook.
  * The object consists of:
  *  - state: The current state of the task.
- *  - triggerError: A function to set the state to "paused" with an error message.
  *  - triggerLoading: A function to set the state to "loading".
  */
-export interface UseStateReturn {
-  state: State;
+export interface UseStatusReturn<StatusData extends z.ZodType = z.ZodType> {
+  status: task.Status<StatusData>;
   triggerError: (message: string) => void;
-  triggerLoading: () => void;
+  triggerLoading: (message: string) => void;
 }
 
 /**
@@ -55,6 +31,8 @@ export interface UseStateReturn {
  *
  * @param key - The unique identifier for the task.
  * @param initialState - The optional initial state of the task.
+ * @param commandLoadingMessages - A record of command types to messages that should
+ * be used when the command is being executed but has not received a result yet (i.e. loading).
  *
  * @returns An object containing:
  *   - state: The current state of the task, which includes:
@@ -63,30 +41,34 @@ export interface UseStateReturn {
  *     - variant: An optional variant of type status.Variant.
  *   - triggerLoading: A function to set the state to "loading".
  */
-export const useState = <D extends StateDetails>(
+export const useStatus = <StatusData extends z.ZodType = z.ZodType>(
   key: task.Key,
-  initialState?: task.State<D>,
-): UseStateReturn => {
-  const [state, setState] = useReactState<State>(() => parseState(initialState));
-  const { status } = state;
+  initialState: task.Status<StatusData>,
+  commandLoadingMessages: Record<string, string>,
+): UseStatusReturn<StatusData> => {
+  const [status, setStatus] = useReactState<task.Status<StatusData>>(initialState);
   const keyRef = useSyncedRef(key);
   const statusRef = useSyncedRef(status);
-  const handleStateUpdate = useCallback((state: task.State) => {
-    if (state.task !== keyRef.current) return;
-    setState(parseState(state as task.State<D>));
-  }, []);
-  Task.useStateSynchronizer(handleStateUpdate);
-  const handleCommandUpdate = useCallback(({ task, type }: task.Command) => {
-    if (task !== keyRef.current) return;
-    if (shouldExecuteCommand(statusRef.current, type)) setState(LOADING_STATE);
-  }, []);
-  Task.useCommandSynchronizer(handleCommandUpdate);
-  const triggerLoading = useCallback(() => setState(LOADING_STATE), []);
-  const triggerError = useCallback(
-    (message: string) => setState({ status: "paused", message, variant: "error" }),
+  const triggerLoading = useCallback(
+    (message: string) =>
+      setStatus((prev) => ({ ...prev, variant: "loading", message })),
     [],
   );
-  return { state, triggerError, triggerLoading };
-};
+  const handleCommandUpdate = useCallback(({ task, type }: task.Command) => {
+    if (task !== keyRef.current || statusRef.current == null) return;
+    if (shouldExecuteCommand<StatusData>(statusRef.current, type))
+      triggerLoading(commandLoadingMessages[type]);
+  }, []);
+  Task.useCommandSynchronizer(handleCommandUpdate);
+  const handleStatusUpdate = useCallback((status: task.Status) => {
+    if (status.details.task !== keyRef.current) return;
+    setStatus(status);
+  }, []);
+  Task.useStatusSynchronizer(handleStatusUpdate);
 
-export const LOADING_STATE: State = { status: LOADING_STATUS, variant: "loading" };
+  const triggerError = useCallback(
+    (message: string) => setStatus((prev) => ({ ...prev, message, variant: "error" })),
+    [],
+  );
+  return { status, triggerError, triggerLoading };
+};

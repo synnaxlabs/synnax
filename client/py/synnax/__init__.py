@@ -38,7 +38,7 @@ from synnax.framer import (
 from synnax.hardware import Client as HardwareClient
 from synnax.hardware.device import Device
 from synnax.hardware.rack import Rack
-from synnax.hardware.task import Task
+from synnax.hardware.task import Task, TaskStatus, TaskStatusDetails
 from synnax.options import SynnaxOptions
 from synnax.ranger import Range
 from synnax.synnax import Synnax
@@ -109,6 +109,8 @@ __all__ = [
     "Synnax",
     "SynnaxOptions",
     "Task",
+    "TaskStatus",
+    "TaskStatusDetails",
     "Timer",
     "TimeRange",
     "TimeSpan",

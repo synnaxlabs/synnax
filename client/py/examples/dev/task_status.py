@@ -7,21 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal
+import synnax as sy
 
-SUCCESS_VARIANT = "success"
-INFO_VARIANT = "info"
-WARNING_VARIANT = "warning"
-ERROR_VARIANT = "error"
-DISABLED_VARIANT = "disabled"
-LOADING_VARIANT = "loading"
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    secure=False,
+    username="synnax",
+    password="seldon",
+)
 
-Variant = Literal[
-    "success",
-    "info",
-    "warning",
-    "error",
-    "disabled",
-    "loading",
-]
-"""Represents the variant of a status message."""
+
+with client.open_streamer(["sy_device_status"]) as s:
+    for frame in s:
+        for v in frame["sy_device_status"]:
+            print(v)

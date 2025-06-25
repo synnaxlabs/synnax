@@ -11,7 +11,9 @@ import { customAlphabet } from "nanoid/non-secure";
 
 const ALPHANUMERIC = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-const createInternal = customAlphabet(ALPHANUMERIC, 11);
+export const LENGTH = 11;
+
+const createInternal = customAlphabet(ALPHANUMERIC, LENGTH);
 
 /**
  * Creates a unique alphanumeric string of length 11.

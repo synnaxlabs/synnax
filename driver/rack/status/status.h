@@ -20,8 +20,8 @@
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/status/status.h"
 
-namespace rack::state {
-const std::string INTEGRATION_NAME = "rack_state";
+namespace rack::status {
+const std::string INTEGRATION_NAME = "rack_status";
 const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
 const std::string TASK_NAME = "Rack State";
 const std::string TASK_TYPE = TASK_NAME;
@@ -42,13 +42,16 @@ public:
     xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         fr.clear();
         this->loop.wait(breaker);
-        const synnax::RackState state{
-            .key = this->rack_key,
-            .variant = status::VARIANT_SUCCESS,
-            .message = "Driver is running"
+        const synnax::RackStatus status{
+            .variant = ::status::variant::SUCCESS,
+            .message = "Driver is running",
+            .details =
+                synnax::RackStatusDetails{
+                    .rack = this->rack_key,
+                }
         };
         VLOG(1) << "[rack_state] emitting state for rack " << this->rack_key;
-        fr.emplace(key, telem::Series(state.to_json()));
+        fr.emplace(key, telem::Series(status.to_json()));
         return xerrors::NIL;
     }
 };
@@ -83,7 +86,8 @@ public:
     /// @brief configures the heartbeat task.
     static std::unique_ptr<task::Task>
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
-        auto [ch, err] = ctx->client->channels.retrieve(synnax::RACK_STATE_CHAN_NAME);
+        auto [ch, err] = ctx->client->channels.retrieve(synnax::RACK_STATUS_CHANNEL_NAME
+        );
         if (err) {
             LOG(WARNING) << "[rack_state] failed to retrieve rack state channel: "
                          << err;

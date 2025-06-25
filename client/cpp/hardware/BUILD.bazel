@@ -8,6 +8,7 @@ cc_library(
         "//freighter/cpp:freighter",
         "//freighter/cpp/fgrpc",
         "//synnax/pkg/api/grpc/v1:api_grpc",
+        "//x/cpp/status",
         "//x/cpp/telem",
         "//x/cpp/xerrors",
         "//x/cpp/xjson",

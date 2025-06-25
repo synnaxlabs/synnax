@@ -9,6 +9,8 @@
 
 package status
 
+import "github.com/synnaxlabs/x/telem"
+
 // Variant is a general classification mechanism for statuses.
 type Variant string
 
@@ -20,3 +22,19 @@ const (
 	DisabledVariant Variant = "disabled"
 	LoadingVariant  Variant = "loading"
 )
+
+// Status is a standardized payload used across Synnax.
+type Status[D any] struct {
+	// Key is a unique key for the status.
+	Key string `json:"key" msgpack:"key"`
+	// Variant is the variant of the status.
+	Variant Variant `json:"variant" msgpack:"variant"`
+	// Message is the message of the status.
+	Message string `json:"message" msgpack:"message"`
+	// Description is the description of the status.
+	Description string `json:"description" msgpack:"description"`
+	// Time is the time the status was created.
+	Time telem.TimeStamp `json:"time" msgpack:"time"`
+	// Details are customizable details for component specific statuses.
+	Details D `json:"details" msgpack:"details"`
+}

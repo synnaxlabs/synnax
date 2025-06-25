@@ -15,7 +15,7 @@
 
 /// internal
 #include "client/cpp/testutil/testutil.h"
-#include "driver/rack/state/state.h"
+#include "driver/rack/status/status.h"
 
 #include "x/cpp/defer/defer.h"
 
@@ -23,9 +23,9 @@
 TEST(stateTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
-    auto ch = ASSERT_NIL_P(client->channels.retrieve(synnax::RACK_STATE_CHAN_NAME));
+    auto ch = ASSERT_NIL_P(client->channels.retrieve(synnax::RACK_STATUS_CHANNEL_NAME));
     auto ctx = std::make_shared<task::SynnaxContext>(client);
-    auto hb = rack::state::Task::configure(
+    auto hb = rack::status::Task::configure(
         ctx,
         synnax::Task(rack.key, "state", "state", "", true)
     );
@@ -42,10 +42,10 @@ TEST(stateTests, testNominal) {
         ASSERT_FALSE(msg_err) << msg_err.message();
         ASSERT_EQ(frm.size(), 1);
         frm.series->at(0).at(-1, j);
-        if (j["key"] == rack.key) break;
+        if (j["details"]["rack"] == rack.key) break;
     }
-    EXPECT_EQ(j["key"], rack.key);
-    EXPECT_EQ(j["variant"], status::VARIANT_SUCCESS);
+    EXPECT_EQ(j["details"]["rack"], rack.key);
+    EXPECT_EQ(j["variant"], status::variant::SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
     const auto err = streamer.close();
     ASSERT_FALSE(err) << err.message();
