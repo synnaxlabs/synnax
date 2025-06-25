@@ -10,7 +10,7 @@
 import { createContext, use } from "react";
 
 import { useRequiredContext } from "@/hooks";
-import { type ListenerAdder } from "@/query/types";
+import { type ListenerAdder } from "@/query/sync/types";
 
 export const AddListenerContext = createContext<ListenerAdder | null>(null);
 

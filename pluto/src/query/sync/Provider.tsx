@@ -13,8 +13,8 @@ import { array, strings, unique } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback, useRef } from "react";
 
 import { useAsyncEffect } from "@/hooks";
-import { AddListenerContext } from "@/query/Context";
-import { type FrameHandler, type ListenerAdder } from "@/query/types";
+import { AddListenerContext } from "@/query/sync/Context";
+import { type FrameHandler, type ListenerAdder } from "@/query/sync/types";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
@@ -23,8 +23,19 @@ export interface ProviderProps extends PropsWithChildren {}
 const uniqueNamesInMap = (map: Map<FrameHandler, Set<channel.Name>>): channel.Names =>
   unique.unique([...map.values()].flatMap((names) => [...names]));
 
-export const Provider = (props: PropsWithChildren): ReactElement => {
-  const client = Synnax.use();
+interface Client {
+  openStreamer: framer.StreamOpener;
+}
+
+export interface ProviderProps extends PropsWithChildren {
+  useClient?: () => Client | null;
+}
+
+export const Provider = ({
+  useClient = () => Synnax.use(),
+  children,
+}: ProviderProps): ReactElement => {
+  const client = useClient();
   const handlersRef = useRef(new Map<FrameHandler, Set<channel.Name>>());
   const streamerRef = useRef<framer.Streamer>(null);
   const handleError = Status.useErrorHandler();
@@ -52,6 +63,7 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
         const namesInFrame = new Set([...frame.uniqueNames]);
         handlersRef.current.forEach((channels, handler) => {
           if (namesInFrame.isDisjointFrom(channels)) return;
+          console.log("handler", handler, channels, namesInFrame);
           try {
             handler(frame);
           } catch (e) {
@@ -100,9 +112,5 @@ export const Provider = (props: PropsWithChildren): ReactElement => {
     [handleError, updateStreamer],
   );
 
-  return (
-    <AddListenerContext {...props} value={addListener}>
-      {props.children}
-    </AddListenerContext>
-  );
+  return <AddListenerContext value={addListener}>{children}</AddListenerContext>;
 };

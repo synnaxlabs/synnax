@@ -9,18 +9,57 @@
 
 import { type channel, type MultiSeries, type Synnax } from "@synnaxlabs/client";
 import { array, type primitive, type status } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { Mutex } from "async-mutex";
+import { type ReactElement, useCallback, useRef, useState } from "react";
 import { type z } from "zod/v4";
 
 import { Form } from "@/form";
-import { useAsyncEffect } from "@/hooks";
+import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
 import { useMemoPrimitiveArray } from "@/memo";
-import { useAddListener } from "@/query/Context";
+import { Sync } from "@/query/sync";
 import { state } from "@/state";
 import { Status } from "@/status";
 import { Synnax as PSynnax } from "@/synnax";
 
 export type Params = primitive.Value | primitive.Value[];
+
+interface ListenerExtraArgs<P extends Params, V extends state.State> {
+  params: P;
+  client: Synnax;
+  onChange: state.Setter<V>;
+}
+
+export interface ListenerConfig<P extends Params, V extends state.State> {
+  channel: channel.Name;
+  onChange: Sync.ListenerHandler<MultiSeries, ListenerExtraArgs<P, V>>;
+}
+
+interface RetrieveArgs<P extends Params> {
+  client: Synnax;
+  params: P;
+}
+
+interface UpdateArgs<P extends Params, V extends state.State> {
+  client: Synnax;
+  params: P;
+  values: V;
+}
+
+export const createStatusContent = (
+  status: status.Variant,
+  message: string,
+): ReactElement => (
+  <Status.Text.Centered level="h4" variant={status}>
+    {message}
+  </Status.Text.Centered>
+);
+
+export interface UseArgs<P extends Params, V extends state.State> {
+  name: string;
+  params: P;
+  retrieve: (args: RetrieveArgs<P>) => Promise<V>;
+  listeners: ListenerConfig<P, V>[];
+}
 
 export type UseReturn<V> = {
   message: string;
@@ -43,240 +82,201 @@ export type UseReturn<V> = {
     }
 );
 
-export interface ListenerArgs<P extends Params, Changed, Value extends state.State> {
-  client: Synnax;
-  params: P;
-  changed: Changed;
-  onChange: state.Setter<Value>;
-}
+const initialResult = <V extends state.State>(name: string): UseReturn<V> => ({
+  status: "loading",
+  message: `Loading ${name}`,
+  data: null,
+  error: null,
+  statusContent: createStatusContent("loading", "Loading..."),
+});
 
-export interface ListenerHandler<P extends Params, Changed, Value extends state.State> {
-  (args: ListenerArgs<P, Changed, Value>): Promise<void>;
-}
+const loadingResult = <V extends state.State>(name: string): UseReturn<V> => ({
+  status: "loading",
+  message: `Loading ${name}`,
+  data: null,
+  error: null,
+  statusContent: createStatusContent("loading", "Loading..."),
+});
 
-export interface ListenerConfig<P extends Params, V extends state.State> {
-  channel: channel.Name;
-  onChange: ListenerHandler<P, MultiSeries, V>;
-}
+const successResult = <V extends state.State>(
+  name: string,
+  value: V,
+): UseReturn<V> => ({
+  status: "success",
+  message: `Loaded ${name}`,
+  data: value,
+  error: null,
+  statusContent: createStatusContent("success", "Success!"),
+});
 
-interface QueryArgs<P extends Params> {
-  client: Synnax;
-  params: P;
-}
+const errorResult = <V extends state.State>(
+  name: string,
+  error: unknown,
+): UseReturn<V> => ({
+  status: "error",
+  message: `Failed to load ${name}`,
+  data: null,
+  error,
+  statusContent: createStatusContent("error", "Error!"),
+});
 
-export interface CreateArgs<P extends Params, V extends state.State> {
-  name: string;
-  queryFn: (args: QueryArgs<P>) => Promise<V>;
-  listeners: ListenerConfig<P, V>[];
-}
-
-export interface QueryHook<P extends Params, V extends state.State> {
-  (params: P): UseReturn<V>;
-}
-
-export const createStatusContent = (
-  status: status.Variant,
-  message: string,
-): ReactElement => (
-  <Status.Text.Centered level="h4" variant={status}>
-    {message}
-  </Status.Text.Centered>
-);
-
-export const create =
-  <P extends Params, V extends state.State>({
-    queryFn,
+export const use = <P extends Params, V extends state.State>({
+  retrieve,
+  listeners,
+  name,
+  params,
+}: UseArgs<P, V>): UseReturn<V> => {
+  const [result, setResult] = useState<UseReturn<V>>(initialResult(name));
+  const client = PSynnax.use();
+  const addListener = Sync.useAddListener();
+  useBase<P, V>({
+    retrieve,
     listeners,
     name,
-  }: CreateArgs<P, V>): QueryHook<P, V> =>
-  (params: P) => {
-    const [result, setResult] = useState<UseReturn<V>>({
-      status: "loading",
-      message: `Loading ${name}`,
-      data: null,
-      error: null,
-      statusContent: createStatusContent("loading", "Loading..."),
-    });
-    const client = PSynnax.use();
-    const addListener = useAddListener();
-    const memoParams = useMemoPrimitiveArray(array.toArray(params));
-    const handleError = Status.useErrorHandler();
+    params,
+    client,
+    addListener,
+    onChange: setResult,
+  });
+  return result;
+};
 
-    useAsyncEffect(
-      async (signal) => {
-        try {
-          if (client == null) return;
-          setResult({
-            status: "loading",
-            message: `Loading ${name}`,
-            data: null,
-            error: null,
-            statusContent: createStatusContent("loading", "Loading..."),
-          });
-          const value = await queryFn({ client, params });
-          if (signal.aborted) return;
-          setResult({
-            status: "success",
-            message: `Loaded ${name}`,
-            data: value,
-            error: null,
-            statusContent: createStatusContent("success", "Success!"),
-          });
-          const destructors = listeners.map(({ channel, onChange }) =>
-            addListener({
-              channels: channel,
-              handler: (frame) => {
-                handleError(
-                  async () =>
-                    await onChange({
-                      client,
-                      params,
-                      changed: frame.get(channel),
-                      onChange: (value) =>
-                        setResult((prev) => ({
-                          ...prev,
-                          error: null,
-                          status: "success",
-                          data: state.executeSetter(value, prev.data as unknown as V),
-                          statusContent: createStatusContent("success", "Success!"),
-                        })),
-                    }),
-                );
-              },
-            }),
-          );
-          return () => destructors.forEach((d) => d());
-        } catch (error) {
-          setResult({
-            status: "error",
-            message: `Failed to load ${name}`,
-            data: null,
-            error,
-            statusContent: createStatusContent("error", "Error!"),
-          });
-        }
-        return () => {};
-      },
-      [memoParams, client],
-    );
-    return result;
-  };
-
-interface MutateArgs<K extends primitive.Value, Z extends z.ZodObject> {
-  key: K;
-  client: Synnax;
-  values: z.infer<Z>;
-}
-
-export interface CreateFormArgs<K extends primitive.Value, Z extends z.ZodObject> {
+interface UseBaseArgs<P extends Params, V extends state.State> {
+  retrieve: (args: RetrieveArgs<P>) => Promise<V>;
+  listeners: ListenerConfig<P, V>[];
   name: string;
-  schema: Z;
-  queryFn: (args: QueryArgs<K | undefined>) => Promise<z.infer<Z> | null>;
-  mutationFn: (args: MutateArgs<K, Z>) => Promise<unknown>;
-  listeners: ListenerConfig<K, z.infer<Z>>[];
+  params: P;
+  onChange: state.Setter<UseReturn<V>>;
+  client: Synnax | null;
+  addListener: Sync.ListenerAdder;
 }
 
-export type UseFormReturn<Z extends z.ZodType> = {
-  status: "loading" | "success" | "error";
-  message: string;
-  error: null;
-  statusContent: ReactElement;
+export const useBase = <P extends Params, V extends state.State>({
+  retrieve,
+  listeners,
+  name,
+  params,
+  onChange,
+  client,
+  addListener,
+}: UseBaseArgs<P, V>): void => {
+  const memoParams = useMemoPrimitiveArray(array.toArray(params));
+  useAsyncEffect(
+    async (signal) => {
+      try {
+        if (client == null) return;
+        onChange(loadingResult(name));
+        const value = await retrieve({ client, params });
+        if (signal.aborted) return;
+        onChange(successResult(name, value));
+        const destructors = listeners.map(({ channel, onChange: listenerOnChange }) => {
+          const mu = new Mutex();
+          return addListener({
+            channels: channel,
+            handler: (frame) => {
+              void mu.runExclusive(async () => {
+                try {
+                  await listenerOnChange({
+                    client,
+                    params,
+                    changed: frame.get(channel),
+                    onChange: (value) => {
+                      onChange((prev) => ({
+                        ...prev,
+                        error: null,
+                        status: "success",
+                        data: state.executeSetter(value, prev.data as unknown as V),
+                        statusContent: createStatusContent("success", "Success!"),
+                      }));
+                    },
+                  });
+                } catch (error) {
+                  onChange(errorResult(name, error));
+                }
+              });
+            },
+          });
+        });
+        return () => destructors.forEach((d) => d());
+      } catch (error) {
+        onChange(errorResult(name, error));
+      }
+      return () => {};
+    },
+    [client, memoParams],
+  );
+};
+
+export interface UseFormArgs<K extends primitive.Value, Z extends z.ZodObject>
+  extends UseArgs<K, z.infer<Z> | null> {
+  initialValues: z.infer<Z>;
+  autoSave?: boolean;
+  schema: Z;
+  update: (args: UpdateArgs<K, z.infer<Z>>) => Promise<z.infer<Z>>;
+}
+
+export type UseFormReturn<Z extends z.ZodType> = Omit<UseReturn<z.infer<Z>>, "data"> & {
   form: Form.UseReturn<Z>;
   save: () => void;
 };
 
-interface UseFormArgs<K extends primitive.Value, Z extends z.ZodObject> {
-  key?: K;
-  initialValues: z.infer<Z>;
-  autoSave?: boolean;
-}
+export const useForm = <K extends primitive.Value, Z extends z.ZodObject>({
+  name,
+  params,
+  initialValues,
+  schema,
+  retrieve,
+  listeners,
+  update,
+}: UseFormArgs<K, Z>): UseFormReturn<Z> => {
+  const [status, setStatus, statusRef] = useCombinedStateAndRef<
+    UseReturn<z.infer<Z> | null>
+  >(loadingResult(name));
+  const form = Form.use<Z>({ schema, values: initialValues });
+  const client = PSynnax.use();
+  const addListener = Sync.useAddListener();
 
-export interface FormHook<K extends primitive.Value, Z extends z.ZodObject> {
-  ({ key, initialValues, autoSave }: UseFormArgs<K, Z>): UseFormReturn<Z>;
-}
-
-export const createForm =
-  <K extends primitive.Value, Z extends z.ZodObject>({
-    name,
-    schema,
-    queryFn,
-    listeners,
-  }: CreateFormArgs<K, Z>): FormHook<K, Z> =>
-  ({ key, initialValues }: UseFormArgs<K, Z>): UseFormReturn<Z> => {
-    const [status, setStatus] = useState<Omit<UseFormReturn<Z>, "form" | "save">>({
-      status: "loading",
-      message: `Loading ${name}`,
-      error: null,
-      statusContent: createStatusContent("loading", "Loading..."),
-    });
-    const form = Form.use<Z>({ schema, values: initialValues });
-    const client = PSynnax.use();
-    const addListener = useAddListener();
-    const handleError = Status.useErrorHandler();
-
-    useAsyncEffect(
-      async (signal) => {
-        try {
-          if (client == null) return;
-          setStatus({
-            status: "loading",
-            message: `Loading ${name}`,
-            error: null,
-            statusContent: createStatusContent("loading", "Loading..."),
-          });
-          const value = await queryFn({ client, params: key });
-          if (signal.aborted) return;
-          form.set("", value);
-          form.setCurrentStateAsInitialValues();
-          setStatus({
-            status: "success",
-            message: `Loaded ${name}`,
-            error: null,
-            statusContent: createStatusContent("success", "Success!"),
-          });
-          const destructors = listeners.map(({ channel, onChange }) =>
-            addListener({
-              channels: channel,
-              handler: (frame) => {
-                handleError(
-                  async () =>
-                    await onChange({
-                      client,
-                      params: key ?? (undefined as K),
-                      changed: frame.get(channel),
-                      onChange: (value) => {
-                        form.set("", value);
-                        form.setCurrentStateAsInitialValues();
-                        setStatus((prev) => ({
-                          ...prev,
-                          status: "success",
-                          statusContent: createStatusContent("success", "Success!"),
-                        }));
-                      },
-                    }),
-                );
-              },
-            }),
-          );
-          return () => destructors.forEach((d) => d());
-        } catch (error) {
-          setStatus({
-            status: "error",
-            message: `Failed to load ${name}`,
-            error: error as null,
-            statusContent: createStatusContent("error", "Error!"),
-          });
-        }
-        return () => {};
-      },
-      [client],
-    );
-    return {
-      status: status.status,
-      error: status.error,
-      message: status.message,
-      statusContent: status.statusContent,
-      form,
-      save: () => {},
-    };
+  const handleResultChange: state.Setter<UseReturn<z.infer<Z> | null>> = (setter) => {
+    const nextStatus = state.executeSetter(setter, statusRef.current);
+    form.set("", nextStatus.data);
+    form.setCurrentStateAsInitialValues();
+    setStatus(nextStatus);
   };
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const memoParams = useMemoPrimitiveArray(array.toArray(params));
+
+  const handleSave = useCallback(() => {
+    if (abortControllerRef.current != null) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
+    void (async () => {
+      try {
+        if (client == null) return;
+        const res = await update({ client, params, values: form.value() });
+        if (abortControllerRef.current?.signal.aborted) return;
+        form.set("", res);
+        form.setCurrentStateAsInitialValues();
+        handleResultChange(successResult(name, res));
+      } catch (error) {
+        setStatus(errorResult(name, error));
+      }
+    })();
+  }, [client, form, name, memoParams, update]);
+
+  useBase({
+    retrieve,
+    listeners,
+    name,
+    params,
+    onChange: handleResultChange,
+    client,
+    addListener,
+  });
+
+  return {
+    form,
+    save: handleSave,
+    ...status,
+  };
+};

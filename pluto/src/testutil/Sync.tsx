@@ -9,11 +9,11 @@
 
 import { type PropsWithChildren } from "react";
 
-import { Query } from "@/query";
+import { Sync } from "@/query/sync";
 import { SynnaxProvider } from "@/testutil/Synnax";
 
 export const SyncProvider = (props: PropsWithChildren) => (
   <SynnaxProvider>
-    <Query.Provider {...props} />
+    <Sync.Provider {...props} />
   </SynnaxProvider>
 );

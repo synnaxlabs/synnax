@@ -10,23 +10,32 @@
 import { channel } from "@synnaxlabs/client";
 
 import { Query } from "@/query";
+import { Sync } from "@/query/sync";
 
 export const useCalculationStatusSynchronizer = (
   onStatusChange: (status: channel.CalculationStatus) => void,
 ): void =>
-  Sync.useParsedListener(
-    channel.CALCULATION_STATUS_CHANNEL_NAME,
-    channel.calculationStatusZ,
-    onStatusChange,
-  );
+  Sync.useListener({
+    channel: channel.CALCULATION_STATUS_CHANNEL_NAME,
+    onChange: Sync.parsedHandler(channel.calculationStatusZ, async (args) => {
+      onStatusChange(args.changed);
+    }),
+  });
 
-export const useForm = Query.createForm<channel.Key, typeof channel.channelZ>({
-  name: "Channel",
-  schema: channel.channelZ,
-  queryFn: async ({ client, params: key }) => {
-    if (key == null) return null;
-    return await client.channels.retrieve(key);
-  },
-  mutationFn: async ({ client, values }) => await client.channels.create(values),
-  listeners: [],
-});
+export const useForm = (
+  args: Pick<
+    Query.UseFormArgs<channel.Key, typeof channel.channelZ>,
+    "initialValues" | "params"
+  >,
+) =>
+  Query.useForm<channel.Key, typeof channel.channelZ>({
+    name: "Channel",
+    schema: channel.channelZ,
+    ...args,
+    retrieve: async ({ client, params: key }) => {
+      if (key == null) return null;
+      return await client.channels.retrieve(key);
+    },
+    update: async ({ client, values }) => await client.channels.create(values),
+    listeners: [],
+  });

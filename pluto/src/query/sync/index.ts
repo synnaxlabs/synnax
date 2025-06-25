@@ -7,16 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack } from "@synnaxlabs/client";
-
-import { Sync } from "@/query/sync";
-
-export const useStatusSynchronizer = (
-  onStatusChange: (status: rack.Status) => void,
-): void =>
-  Sync.useListener({
-    channel: rack.STATUS_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(rack.statusZ, async (args) => {
-      onStatusChange(args.changed);
-    }),
-  });
+export * as Sync from "@/query/sync/external";

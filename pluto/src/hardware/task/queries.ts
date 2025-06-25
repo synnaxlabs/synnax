@@ -8,25 +8,47 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { type z } from "zod/v4";
+import { z } from "zod/v4";
 
 import { Query } from "@/query";
+import { Sync } from "@/query/sync";
 
 export const useCommandSynchronizer = (
   onCommandUpdate: (command: task.Command) => void,
 ): void =>
-  Query.useParsedListener(task.COMMAND_CHANNEL_NAME, task.commandZ, onCommandUpdate);
+  Sync.useListener({
+    channel: task.COMMAND_CHANNEL_NAME,
+    onChange: Sync.parsedHandler(task.commandZ, async (args) => {
+      onCommandUpdate(args.changed);
+    }),
+  });
 
-export const useStateSynchronizer = (
-  onStateUpdate: (state: task.Status) => void,
+export const useStatusSynchronizer = <StatusData extends z.ZodType>(
+  onStatusUpdate: (status: task.Status<StatusData>) => void,
+  statusDataZ: StatusData = z.unknown() as unknown as StatusData,
 ): void =>
-  Query.useParsedListener(task.STATE_CHANNEL_NAME, task.statusZ(), onStateUpdate);
+  Sync.useListener({
+    channel: task.STATUS_CHANNEL_NAME,
+    onChange: Sync.parsedHandler(task.statusZ(statusDataZ), async (args) => {
+      onStatusUpdate(args.changed);
+    }),
+  });
 
 export const useSetSynchronizer = (onSet: (key: task.Key) => void): void =>
-  Query.useParsedListener(task.SET_CHANNEL_NAME, task.keyZ, onSet);
+  Sync.useListener({
+    channel: task.SET_CHANNEL_NAME,
+    onChange: Sync.parsedHandler(task.keyZ, async (args) => {
+      onSet(args.changed);
+    }),
+  });
 
 export const useDeleteSynchronizer = (onDelete: (key: task.Key) => void): void =>
-  Query.useParsedListener(task.DELETE_CHANNEL_NAME, task.keyZ, onDelete);
+  Sync.useListener({
+    channel: task.DELETE_CHANNEL_NAME,
+    onChange: Sync.parsedHandler(task.keyZ, async (args) => {
+      onDelete(args.changed);
+    }),
+  });
 
 const baseUse = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -35,22 +57,20 @@ const baseUse = <
 >(
   key: task.Key | undefined,
   schemas: task.Schemas<Type, Config, StatusData>,
-) => {
-  const useQuery = Query.create<
-    task.Key | undefined,
-    task.Task<Type, Config, StatusData> | null
-  >({
+) =>
+  Query.use<task.Key | undefined, task.Task<Type, Config, StatusData> | null>({
     name: "Task",
-    queryFn: async ({ client, params: key }) => {
+    params: key,
+    retrieve: async ({ client, params: key }) => {
       if (key == null) return null;
       return await client.hardware.tasks.retrieve({ key, schemas });
     },
     listeners: [
       {
         channel: task.SET_CHANNEL_NAME,
-        onChange: Query.parsedHandler(
+        onChange: Sync.parsedHandler(
           task.keyZ,
-          async ({ client, changed, params: key, onChange }) => {
+          async ({ client, changed, onChange }) => {
             if (key == null || changed.toString() !== key.toString()) return;
             onChange(await client.hardware.tasks.retrieve({ key, schemas }));
           },
@@ -58,7 +78,5 @@ const baseUse = <
       },
     ],
   });
-  return useQuery(key);
-};
 
 export const use = baseUse;

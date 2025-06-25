@@ -9,10 +9,20 @@
 
 import { workspace } from "@synnaxlabs/client";
 
-import { Query } from "@/query";
+import { Sync } from "@/query/sync";
 
 export const useSetSynchronizer = (onSet: (ws: workspace.Workspace) => void): void =>
-  Query.useParsedListener(workspace.SET_CHANNEL_NAME, workspace.workspaceZ, onSet);
+  Sync.useListener({
+    channel: workspace.SET_CHANNEL_NAME,
+    onChange: Sync.parsedHandler(workspace.workspaceZ, async (args) => {
+      onSet(args.changed);
+    }),
+  });
 
 export const useDeleteSynchronizer = (onDelete: (ws: workspace.Key) => void): void =>
-  Query.useParsedListener(workspace.DELETE_CHANNEL_NAME, workspace.keyZ, onDelete);
+  Sync.useListener({
+    channel: workspace.DELETE_CHANNEL_NAME,
+    onChange: Sync.parsedHandler(workspace.keyZ, async (args) => {
+      onDelete(args.changed);
+    }),
+  });
