@@ -15,6 +15,7 @@ import (
 	"encoding/base64"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -135,6 +136,12 @@ func start(cmd *cobra.Command) {
 		if err != nil || ctx.Err() != nil {
 			return err
 		}
+
+		workDir, err := resolveWorkDir()
+		if err != nil {
+			return errors.Wrapf(err, "failed to resolve working directory")
+		}
+		ins.L.Info("using working directory", zap.String("dir", workDir))
 
 		// An array to hold the grpcServerTransports we use for cluster internal communication.
 		grpcServerTransports := &[]fgrpc.BindableTransport{}
@@ -359,6 +366,7 @@ func start(cmd *cobra.Command) {
 				hardwareSvc.Rack.EmbeddedKey,
 				dist.Cluster.Key(),
 				insecure,
+				workDir,
 			),
 		)
 		if err != nil {
@@ -461,6 +469,7 @@ func buildEmbeddedDriverConfig(
 	rackKey rack.Key,
 	clusterKey uuid.UUID,
 	insecure bool,
+	workDir string,
 ) embedded.Config {
 	cfg := embedded.Config{
 		Enabled: config.Bool(!viper.GetBool(noDriverFlag)),
@@ -475,6 +484,7 @@ func buildEmbeddedDriverConfig(
 		Username:        viper.GetString(usernameFlag),
 		Password:        viper.GetString(passwordFlag),
 		Debug:           config.Bool(viper.GetBool(debugFlag)),
+		ParentDirname:   workDir,
 	}
 	if insecure {
 		return cfg
@@ -657,4 +667,12 @@ func configureClientGRPC(
 
 func getClientGRPCTransportCredentials(sec security.Provider, insecure bool) credentials.TransportCredentials {
 	return lo.Ternary(insecure, insecureGRPC.NewCredentials(), credentials.NewTLS(sec.TLS()))
+}
+
+func resolveWorkDir() (string, error) {
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(cacheDir, "synnax", "core", "workdir"), nil
 }
