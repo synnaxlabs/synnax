@@ -43,7 +43,8 @@ const (
 
 const (
 	// embeddedDriverPath is the path at which the driver lives inside our
-	// embedded fs. We use unix style paths regardless of operating system
+	// embedded fs. Unix style paths are used in embedded directories regardless
+	// of the OS.
 	embeddedDriverPath = "assets/" + driverName
 	configFileName     = "config.json"
 	extractedDriverDir = "driver"
@@ -85,11 +86,11 @@ func (d *Driver) start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		opsDir := filepath.Join(d.cfg.ParentDirname, extractedDriverDir)
-		if err = os.MkdirAll(opsDir, xfs.OS_USER_RWX); err != nil {
+		workDir := filepath.Join(d.cfg.ParentDirname, extractedDriverDir)
+		if err = os.MkdirAll(workDir, xfs.OS_USER_RWX); err != nil {
 			return err
 		}
-		cfgFileName := filepath.Join(opsDir, configFileName)
+		cfgFileName := filepath.Join(workDir, configFileName)
 		if err = os.WriteFile(cfgFileName, b, xfs.OS_USER_RW); err != nil {
 			return err
 		}
@@ -97,7 +98,7 @@ func (d *Driver) start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		driverFileName := filepath.Join(opsDir, driverName)
+		driverFileName := filepath.Join(workDir, driverName)
 		if err = os.WriteFile(driverFileName, data, xfs.OS_USER_RWX); err != nil {
 			return err
 		}
