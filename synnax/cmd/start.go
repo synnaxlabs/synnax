@@ -141,6 +141,7 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return errors.Wrapf(err, "failed to resolve ops directory")
 		}
+		ins.L.Info("using ops directory", zap.String("dir", opsDir))
 
 		// An array to hold the grpcServerTransports we use for cluster internal communication.
 		grpcServerTransports := &[]fgrpc.BindableTransport{}
