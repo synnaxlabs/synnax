@@ -182,9 +182,13 @@
       "telem",
       "Telem",
       "testutil",
+      "unmarshalling",
+      "unmarshals",
       "Wrapf",
+      "xbinary",
       "xchange",
       "xjson",
+      "xslices",
       "zodutil"
     ],
     "cSpell.enableFiletypes": ["mdx"],

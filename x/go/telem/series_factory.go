@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	xbinary "github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -28,7 +29,7 @@ type Sample interface{ types.Numeric }
 func NewSeries[T Sample](data []T) Series {
 	return Series{
 		DataType: InferDataType[T](),
-		Data:     MarshalSlice[T](data),
+		Data:     MarshalSlice(data),
 	}
 }
 
@@ -55,7 +56,7 @@ func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 // NewSeriesStrings creates a new Series from a slice of strings. The strings are stored with
 // newline characters as delimiters.
 func NewSeriesStrings(data []string) Series {
-	return Series{DataType: StringT, Data: MarshalStrings(data, StringT)}
+	return Series{DataType: StringT, Data: MarshalStrings(data)}
 }
 
 // NewSeriesStringsV is a variadic version of NewSeriesStrings that creates a new Series from
@@ -70,43 +71,44 @@ func NewSeriesStaticJSONV[T any](data ...T) (series Series) {
 	for i, v := range data {
 		strings[i] = xbinary.MustEncodeJSONToString(v)
 	}
-	series.Data = MarshalStrings(strings, series.DataType)
+	series.Data = MarshalStrings(strings)
 	return series
 }
 
-const newLine = '\n'
-
-// MarshalStrings converts a slice of strings into a byte slice. Each string is
-// terminated with a newline character. Panics if the DataType is not variable.
-func MarshalStrings(data []string, dt DataType) []byte {
-	if !dt.IsVariable() {
-		panic("data type must be variable length")
-	}
-	total := lo.SumBy(data, func(s string) int64 { return int64(len(s)) + 1 })
+// MarshalStrings converts a slice of strings into a byte slice. Each string is prefixed
+// by a varint denoting the length of the string.
+func MarshalStrings(data []string) []byte {
+	total := lo.SumBy(data, func(s string) int64 {
+		l := len(s)
+		return int64(l) + int64(xbinary.VarintLength(uint(l)))
+	})
 	b := make([]byte, total)
 	offset := 0
 	for _, s := range data {
+		written := binary.PutUvarint(b[offset:], uint64(len(s)))
+		offset += written
 		copy(b[offset:], s)
-		b[offset+len(s)] = newLine
-		offset += len(s) + 1
+		offset += len(s)
 	}
 	return b
 }
 
-// UnmarshalStrings converts a byte slice back into a slice of strings. It assumes
-// strings are separated by newline characters.
+// UnmarshalStrings converts a byte slice back into a slice of strings. It panics if
+// unmarshalling fails.
 func UnmarshalStrings(b []byte) []string {
 	var (
 		offset = 0
 		data   []string
 	)
 	for offset < len(b) {
-		end := offset
-		for b[end] != newLine {
-			end++
+		length, bytesRead, err := xbinary.UVarint(b[offset:])
+		if err != nil {
+			panic(errors.Newf("Failed to decode varint: %w", err))
 		}
-		data = append(data, string(b[offset:end]))
-		offset = end + 1
+		offset += bytesRead
+		s := string(b[offset : offset+int(length)])
+		data = append(data, s)
+		offset += int(length)
 	}
 	return data
 }

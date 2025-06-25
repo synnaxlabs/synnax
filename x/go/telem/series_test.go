@@ -10,8 +10,6 @@
 package telem_test
 
 import (
-	"bytes"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
@@ -510,8 +508,7 @@ var _ = Describe("Series", func() {
 				s := telem.NewSeriesStaticJSONV(data...)
 				downsampled := s.Downsample(2)
 				Expect(downsampled.Len()).To(Equal(int64(2)))
-				split := bytes.Split(downsampled.Data, []byte("\n"))
-				Expect(len(split)).To(Equal(3)) // 2 items + empty string after last newline
+				Expect(telem.UnmarshalStrings(downsampled.Data)).To(Equal([]string{`{"id":1}`, `{"id":3}`}))
 			})
 		})
 

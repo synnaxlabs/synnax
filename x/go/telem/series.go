@@ -10,20 +10,18 @@
 package telem
 
 import (
-	"bytes"
 	"fmt"
 	"iter"
 	"slices"
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/bounds"
 	xslices "github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/stringer"
 	"github.com/synnaxlabs/x/types"
 )
-
-const newLineChar = '\n'
 
 // Series is a strongly typed array of telemetry samples backed by an underlying
 // binary buffer.
@@ -49,8 +47,19 @@ func (s Series) Len() int64 {
 	}
 	if s.DataType.IsVariable() {
 		if s.cachedLength == nil {
-			cl := int64(bytes.Count(s.Data, []byte{newLineChar}))
-			s.cachedLength = &cl
+			var count int64
+			offset := 0
+			for offset < len(s.Data) {
+				_, n, err := binary.UVarint(s.Data[offset:])
+				if err != nil {
+					panic(fmt.Sprintf("failed to decode varint at offset %d: %v", offset, err))
+				}
+				offset += n
+				length := int(s.Data[offset-n]) // already read in varint
+				offset += length
+				count++
+			}
+			s.cachedLength = &count
 		}
 		return *s.cachedLength
 	}
@@ -62,23 +71,23 @@ func (s Series) Size() Size { return Size(len(s.Data)) }
 
 // Samples returns an iterator over the samples in the Series.
 func (s Series) Samples() iter.Seq[[]byte] {
-	return func(yield func([]byte) bool) {
-		if s.DataType.IsVariable() {
-			var (
-				buf    []byte
-				offset int
-			)
-			for i := range s.Data {
-				if s.Data[i] == newLineChar {
-					buf = s.Data[offset:i]
-					offset = i + 1
-					if !yield(buf) {
-						return
-					}
+	if s.DataType.IsVariable() {
+		return func(yield func([]byte) bool) {
+			offset := 0
+			for offset < len(s.Data) {
+				l, n, err := binary.UVarint(s.Data[offset:])
+				if err != nil {
+					panic(fmt.Sprintf("failed to decode varint at offset %d: %v", offset, err))
 				}
+				offset += n
+				if !yield(s.Data[offset : offset+int(l)]) {
+					return
+				}
+				offset += int(l)
 			}
-			return
 		}
+	}
+	return func(yield func([]byte) bool) {
 		den := int64(s.DataType.Density())
 		for i := int64(0); i < s.Len(); i++ {
 			b := s.Data[i*den : (i+1)*den]
@@ -93,15 +102,18 @@ func (s Series) Samples() iter.Seq[[]byte] {
 func (s Series) At(i int) []byte {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	if s.DataType.IsVariable() {
+		// TODO
 		var offset int
-		for j := range s.Data {
-			if s.Data[j] == newLineChar {
-				if i == 0 {
-					return s.Data[offset:j]
-				}
-				i--
-				offset = j + 1
+		for idx := 0; offset < len(s.Data); idx++ {
+			l, n, err := binary.UVarint(s.Data[offset:])
+			if err != nil {
+				panic(fmt.Sprintf("failed to decode varint at offset %d: %v", offset, err))
 			}
+			offset += n
+			if idx == i {
+				return s.Data[offset : offset+int(l)]
+			}
+			offset += int(l)
 		}
 		panic(fmt.Sprintf("index %v out of bounds for series with length %v", i, s.Len()))
 	}
@@ -160,14 +172,24 @@ func (s Series) Downsample(factor int) Series {
 	}
 	var oData []byte
 	if s.DataType.IsVariable() {
-		iLines := bytes.Split(s.Data, []byte{newLineChar})
-		oLines := make([][]byte, 0, len(iLines)/factor+1)
-		for i := 0; i < len(iLines); i += factor {
-			if i < len(iLines) {
-				oLines = append(oLines, iLines[i])
+		var (
+			offset int
+			count  int
+			out    []byte
+		)
+		for offset < len(s.Data) {
+			l, n, err := binary.UVarint(s.Data[offset:])
+			if err != nil {
+				break
 			}
+			next := offset + n + int(l)
+			if count%factor == 0 {
+				out = append(out, s.Data[offset:next]...)
+			}
+			offset = next
+			count++
 		}
-		oData = bytes.Join(oLines, []byte{newLineChar})
+		oData = out
 	} else {
 		seriesLength := len(s.Data) / factor
 		oData = make([]byte, 0, seriesLength)
@@ -191,7 +213,7 @@ func truncateAndFormatSlice[T any](slice []T) string {
 	return stringer.TruncateAndFormatSlice(slice, maxDisplayValues)
 }
 
-// DataString returns a string representation of the data in a seris.
+// DataString returns a string representation of the data in a series.
 func (s Series) DataString() string {
 	if s.Len() == 0 {
 		return "[]"
