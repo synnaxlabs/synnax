@@ -22,8 +22,7 @@ var executable embed.FS
 
 // driverPath is the path to the driver executable
 const (
-	embeddedDriverDir = "assets"
-	driverName        = "driver"
+	driverName = "driver"
 )
 
 func configureSysProcAttr(cmd *exec.Cmd) {

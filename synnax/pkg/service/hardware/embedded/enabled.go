@@ -42,6 +42,7 @@ const (
 )
 
 const (
+	embeddedDriverDir  = "assets"
 	configFileName     = "config.json"
 	extractedDriverDir = "driver"
 )
