@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
-	errors2 "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -138,7 +137,7 @@ o:
 }
 
 func (m *MultiSender[M]) closeSenders() error {
-	c := errors2.NewCatcher(errors2.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, s := range m.Senders {
 		c.Exec(s.CloseSend)
 	}
@@ -156,7 +155,7 @@ func (s MapTargetedSender[M]) Send(_ context.Context, target address.Address, ms
 }
 
 func (s MapTargetedSender[M]) Close() error {
-	c := errors2.NewCatcher(errors2.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, s := range s {
 		c.Exec(s.CloseSend)
 	}
@@ -337,7 +336,7 @@ o:
 }
 
 func (m *MultiTransformSender[I, M]) closeSenders() error {
-	c := errors2.NewCatcher(errors2.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, s := range m.Senders {
 		c.Exec(s.CloseSend)
 	}

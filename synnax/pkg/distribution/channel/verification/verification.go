@@ -11,13 +11,13 @@ package verification
 
 import (
 	"encoding/base64"
-	"errors"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/synnaxlabs/x/crypto"
 	"github.com/synnaxlabs/x/date"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
 )
 

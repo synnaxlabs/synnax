@@ -11,9 +11,10 @@ package freighter
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/errors"
 	"io"
 	"strings"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 var (
