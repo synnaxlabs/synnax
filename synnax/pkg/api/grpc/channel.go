@@ -20,7 +20,6 @@ import (
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/grpc"
@@ -213,7 +212,7 @@ func translateChannelBackward(
 	}
 }
 
-func newChannel(a *api.Transport) []fgrpc.BindableTransport {
+func newChannel(a *api.Transport) fgrpc.BindableTransport {
 	c := &createServer{
 		RequestTranslator:  channelCreateRequestTranslator{},
 		ResponseTranslator: channelCreateResponseTranslator{},
@@ -232,7 +231,7 @@ func newChannel(a *api.Transport) []fgrpc.BindableTransport {
 	a.ChannelCreate = c
 	a.ChannelRetrieve = r
 	a.ChannelDelete = d
-	return []fgrpc.BindableTransport{c, r, d}
+	return fgrpc.CompoundBindableTransport{c, r, d}
 }
 
 func NewChannelCreateClient(

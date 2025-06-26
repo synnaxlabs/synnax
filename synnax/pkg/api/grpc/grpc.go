@@ -19,13 +19,14 @@ import (
 )
 
 func New(channels channel.Readable) (a api.Transport, transports []fgrpc.BindableTransport) {
-	transports = make([]fgrpc.BindableTransport, 0, 20)
-	transports = append(transports, newChannel(&a)...)
-	transports = append(transports, newFramer(&a, channels))
-	transports = append(transports, newConnectivity(&a))
-	transports = append(transports, newAuth(&a))
-	transports = append(transports, newRanger(&a))
-	transports = append(transports, newHardware(&a))
+	transports = fgrpc.CompoundBindableTransport{
+		newChannel(&a),
+		newFramer(&a, channels),
+		newConnectivity(&a),
+		newAuth(&a),
+		newRanger(&a),
+		newHardware(&a),
+	}
 
 	// AUTH
 	a.AuthChangePassword = fnoop.UnaryServer[api.AuthChangePasswordRequest, types.Nil]{}
