@@ -98,7 +98,7 @@ var _ = Describe("Literal", func() {
 		})
 	})
 
-	Describe("Custom Types", func() {
+	Describe("Custom DataTypes", func() {
 		type MyEnum string
 
 		Specify("custom type literal", func() {

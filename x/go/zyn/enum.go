@@ -35,6 +35,35 @@ func (e EnumZ) Optional() EnumZ { e.optional = true; return e }
 // Shape returns the base shape of the enum schema.
 func (e EnumZ) Shape() Shape { return e.baseZ }
 
+// validateDestination validates that the destination is compatible with enum data
+func (e EnumZ) validateDestination(dest reflect.Value) error {
+	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+		return NewInvalidDestinationTypeError("enum", dest)
+	}
+
+	// Get the actual destination type (dereferencing pointer layers)
+	destType := dest.Type().Elem()
+	for destType.Kind() == reflect.Ptr {
+		destType = destType.Elem()
+	}
+
+	// Enum can accept destinations that are compatible with its enum values
+	// Allow assignment compatibility for custom types
+	if e.expectedType != nil && (destType.AssignableTo(e.expectedType) || e.expectedType.AssignableTo(destType)) {
+		return nil
+	}
+
+	// If no specific expected type, allow basic types that the enum values could convert to
+	switch destType.Kind() {
+	case reflect.String, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64, reflect.Bool:
+		return nil
+	}
+
+	return NewInvalidDestinationTypeError("enum-compatible type", dest)
+}
+
 // Values adds the given values to the enum schema.
 // The values must be of the same type.
 func (e EnumZ) Values(values ...any) EnumZ {
@@ -81,7 +110,7 @@ func (e EnumZ) Dump(data any) (any, error) {
 // The function ensures the value is one of the allowed enum values.
 func (e EnumZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
-	if err := validateDestinationValue(destVal, string(EnumT)); err != nil {
+	if err := e.validateDestination(destVal); err != nil {
 		return err
 	}
 

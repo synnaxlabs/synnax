@@ -12,6 +12,7 @@ package zyn_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -61,6 +62,26 @@ var _ = Describe("Enum", func() {
 			var dest int
 			Expect(zyn.Enum[int](1, 2, 3).Parse(int64(1), &dest)).To(Succeed())
 			Expect(dest).To(Equal(1))
+		})
+
+		Specify("incompatible channel destination", func() {
+			var dest chan string
+			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
+
+		Specify("incompatible slice destination", func() {
+			var dest []string
+			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
+
+		Specify("incompatible map destination", func() {
+			var dest map[string]any
+			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
+
+		Specify("incompatible struct destination", func() {
+			var dest struct{ Value string }
+			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 	})
 
@@ -120,7 +141,7 @@ var _ = Describe("Enum", func() {
 		})
 	})
 
-	Describe("Custom Types", func() {
+	Describe("Custom DataTypes", func() {
 		type MyEnum string
 
 		Specify("custom type enum", func() {

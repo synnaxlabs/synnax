@@ -41,6 +41,24 @@ func (s StringZ) Optional() StringZ { s.optional = true; return s }
 // Shape returns the base shape of the string schema.
 func (s StringZ) Shape() Shape { return s.baseZ }
 
+// validateDestinationValue validates that the destination is compatible with string data
+func (s StringZ) validateDestinationValue(dest reflect.Value) error {
+	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+		return NewInvalidDestinationTypeError(string(s.dataType), dest)
+	}
+	destType := dest.Type().Elem()
+	for destType.Kind() == reflect.Ptr {
+		destType = destType.Elem()
+	}
+	if destType.Kind() == reflect.String || destType.String() == "uuid.UUID" {
+		return nil
+	}
+	if s.expectedType != nil && (destType.AssignableTo(s.expectedType) || s.expectedType.AssignableTo(destType)) {
+		return nil
+	}
+	return NewInvalidDestinationTypeError(string(s.dataType), dest)
+}
+
 // UUID marks the string field as a UUID.
 // This enables UUID-specific validation and conversion.
 // The field will be validated to ensure it's a valid UUID format.
@@ -122,10 +140,9 @@ func (s StringZ) Dump(data any) (any, error) {
 //   - boolean values (converted to string)
 func (s StringZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
-	if err := validateDestinationValue(destVal, string(s.dataType)); err != nil {
+	if err := s.validateDestinationValue(destVal); err != nil {
 		return err
 	}
-
 	if ok, err := validateNilData(destVal, data, s.baseZ); !ok || err != nil {
 		return err
 	}

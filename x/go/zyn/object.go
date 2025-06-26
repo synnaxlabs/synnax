@@ -72,6 +72,21 @@ func (o ObjectZ) Field(name string, shape Schema) ObjectZ {
 	return o
 }
 
+// validateDestination validates that the destination is compatible with object data
+func (o ObjectZ) validateDestination(dest reflect.Value) error {
+	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+		return NewInvalidDestinationTypeError(string(ObjectT), dest)
+	}
+	destType := dest.Type().Elem()
+	for destType.Kind() == reflect.Ptr {
+		destType = destType.Elem()
+	}
+	if destType.Kind() != reflect.Struct {
+		return NewInvalidDestinationTypeError("struct", dest)
+	}
+	return nil
+}
+
 // Dump converts the given data to an object according to the schema.
 // It validates the data and returns an error if the data is invalid.
 // The function accepts:
@@ -167,7 +182,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 // All fields are validated according to their defined schemas.
 func (o ObjectZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
-	if err := validateDestinationValue(destVal, string(ObjectT)); err != nil {
+	if err := o.validateDestination(destVal); err != nil {
 		return err
 	}
 
@@ -180,9 +195,6 @@ func (o ObjectZ) Parse(data any, dest any) error {
 	}
 
 	destVal = destVal.Elem()
-	if destVal.Kind() != reflect.Struct {
-		return NewInvalidDestinationTypeError("object", destVal)
-	}
 
 	dataVal := reflect.ValueOf(data)
 	if dataVal.Kind() != reflect.Map {

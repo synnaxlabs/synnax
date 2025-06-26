@@ -264,7 +264,7 @@ var _ = Describe("Number", func() {
 			})
 		})
 
-		Describe("Custom Types", func() {
+		Describe("Custom DataTypes", func() {
 			type MyInt int
 			type MyFloat float64
 			type MyUint uint64
@@ -288,10 +288,10 @@ var _ = Describe("Number", func() {
 			})
 		})
 
-		Describe("Invalid Inputs", func() {
+		Describe("Invalid Destination", func() {
 			Specify("non-numeric type", func() {
-				var dest int
-				Expect(zyn.Number().Parse("not a number", &dest)).To(MatchError(ContainSubstring("expected number or convertible to number")))
+				var dest string
+				Expect(zyn.Number().Parse(12, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 			})
 
 			Specify("nil pointer", func() {
@@ -307,6 +307,31 @@ var _ = Describe("Number", func() {
 			Specify("nil interface", func() {
 				var dest any
 				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+			})
+
+			Specify("channel destination", func() {
+				var dest chan int
+				Expect(zyn.Number().Parse(12, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+			})
+
+			Specify("slice destination", func() {
+				var dest []int
+				Expect(zyn.Number().Parse(12, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+			})
+
+			Specify("map destination", func() {
+				var dest map[string]int
+				Expect(zyn.Number().Parse(12, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+			})
+
+			Specify("struct destination", func() {
+				var dest struct{ Value int }
+				Expect(zyn.Number().Parse(12, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+			})
+
+			Specify("bool destination", func() {
+				var dest bool
+				Expect(zyn.Number().Parse(12, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 			})
 		})
 	})
@@ -338,7 +363,7 @@ var _ = Describe("Number", func() {
 	})
 
 	Describe("Dump", func() {
-		Describe("Basic Types", func() {
+		Describe("Basic DataTypes", func() {
 			Specify("float64", func() {
 				result, err := zyn.Number().Dump(12.5)
 				Expect(err).ToNot(HaveOccurred())
@@ -414,7 +439,7 @@ var _ = Describe("Number", func() {
 			})
 		})
 
-		Describe("Custom Types", func() {
+		Describe("Custom DataTypes", func() {
 			type MyInt int
 			type MyFloat float64
 			type MyUint uint64

@@ -33,6 +33,24 @@ func (b BoolZ) Optional() BoolZ { b.optional = true; return b }
 // Shape returns the base shape of the boolean schema.
 func (b BoolZ) Shape() Shape { return b.baseZ }
 
+// validateDestination validates that the destination is compatible with boolean data
+func (b BoolZ) validateDestination(dest reflect.Value) error {
+	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+		return NewInvalidDestinationTypeError(string(BoolT), dest)
+	}
+	destType := dest.Type().Elem()
+	for destType.Kind() == reflect.Ptr {
+		destType = destType.Elem()
+	}
+	if destType.Kind() == reflect.Bool {
+		return nil
+	}
+	if b.expectedType != nil && (destType.AssignableTo(b.expectedType) || b.expectedType.AssignableTo(destType)) {
+		return nil
+	}
+	return NewInvalidDestinationTypeError(string(BoolT), dest)
+}
+
 // Dump converts the given data to a boolean according to the schema.
 // It validates the data and returns an error if the data is invalid.
 // The function accepts:
@@ -87,7 +105,7 @@ func (b BoolZ) Dump(data any) (any, error) {
 //   - numeric values (non-zero is true, zero is false)
 func (b BoolZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
-	if err := validateDestinationValue(destVal, string(BoolT)); err != nil {
+	if err := b.validateDestination(destVal); err != nil {
 		return err
 	}
 

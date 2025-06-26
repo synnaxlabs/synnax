@@ -28,11 +28,15 @@ func NewInvalidDestinationTypeError(expected string, received reflect.Value) err
 	)
 }
 
-func validateDestinationValue(dest reflect.Value, expected string) error {
-	if dest.Kind() != reflect.Ptr || dest.IsNil() {
-		return NewInvalidDestinationTypeError(expected, dest)
+// isNumericType checks if a type is numeric
+func isNumericType(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return true
 	}
-	return nil
+	return false
 }
 
 func validateNilData(destVal reflect.Value, data any, base baseZ) (bool, error) {

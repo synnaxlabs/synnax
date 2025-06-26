@@ -43,6 +43,15 @@ func (u UnionZ) Optional() UnionZ { u.optional = true; return u }
 // Shape returns the base shape of the union schema.
 func (u UnionZ) Shape() Shape { return u.baseZ }
 
+// validateDestination validates that the destination is compatible with union data
+// Union accepts any destination type since it can contain various types
+func (u UnionZ) validateDestination(dest reflect.Value) error {
+	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+		return NewInvalidDestinationTypeError("union", dest)
+	}
+	return nil
+}
+
 // Dump converts the given data according to the union schema.
 // It tries each schema in sequence until one succeeds.
 // Returns an error if no schema can handle the data.
@@ -75,7 +84,7 @@ func (u UnionZ) Dump(data any) (any, error) {
 // Returns an error if no schema can handle the data.
 func (u UnionZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
-	if err := validateDestinationValue(destVal, "union"); err != nil {
+	if err := u.validateDestination(destVal); err != nil {
 		return err
 	}
 	if ok, err := validateNilData(destVal, data, u.baseZ); !ok || err != nil {

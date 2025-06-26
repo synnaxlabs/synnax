@@ -28,7 +28,7 @@ import (
 
 func TestSchematic(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "LinePlot Suite")
+	RunSpecs(t, "Line Plot Suite")
 }
 
 var (

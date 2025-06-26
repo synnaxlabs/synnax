@@ -56,13 +56,13 @@ func OntologyIDsFromTables(tables []Table) []ontology.ID {
 	})
 }
 
-var Z = zyn.Object(map[string]zyn.Schema{
+var schema = zyn.Object(map[string]zyn.Schema{
 	"key":  zyn.UUID(),
 	"name": zyn.String(),
 })
 
 func newResource(l Table) ontology.Resource {
-	return core.NewResource(Z, OntologyID(l.Key), l.Name, l)
+	return core.NewResource(schema, OntologyID(l.Key), l.Name, l)
 }
 
 var _ ontology.Service = (*Service)(nil)
@@ -72,7 +72,7 @@ type change = changex.Change[uuid.UUID, Table]
 func (s *Service) Type() ontology.Type { return ontologyType }
 
 // Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return Z }
+func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
