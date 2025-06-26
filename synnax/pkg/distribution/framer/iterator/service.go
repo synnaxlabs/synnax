@@ -97,7 +97,7 @@ func (cfg ServiceConfig) Validate() error {
 
 // Service is the distribution layer entry point for using iterators within Synnax.
 // Iterators allow for reading chunks of historical data from channels distributed
-// across a muti-node cluster.
+// across a multi-node cluster.
 type Service struct {
 	cfg    ServiceConfig
 	server *server
