@@ -38,7 +38,7 @@ func MarshalCSV(value any) ([][]string, error) {
 		return records, nil
 	}
 	rowLength := len(records[0])
-	for _, row := range records {
+	for i, row := range records {
 		if len(row) != rowLength {
 			return nil, errors.Newf("all rows must have the same length. Row %d has length %d, expected %d", i, len(row), rowLength)
 		}
