@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { channel, DataType } from "@synnaxlabs/client";
+import { type Optional } from "@synnaxlabs/x";
+import { z } from "zod/v4";
 
 import { Query } from "@/query";
 import { Sync } from "@/query/sync";
@@ -22,20 +24,112 @@ export const useCalculationStatusSynchronizer = (
     }),
   });
 
-export const useForm = (
-  args: Pick<
-    Query.UseFormArgs<channel.Key, typeof channel.channelZ>,
-    "initialValues" | "params"
-  >,
-) =>
-  Query.useForm<channel.Key, typeof channel.channelZ>({
-    name: "Channel",
-    schema: channel.channelZ,
-    ...args,
-    retrieve: async ({ client, params: key }) => {
-      if (key == null) return null;
-      return await client.channels.retrieve(key);
+export const formSchema = channel.newZ
+  .extend({
+    name: z.string().min(1, "Name must not be empty"),
+    dataType: DataType.z.transform((v) => v.toString()),
+  })
+  .refine(
+    (v) => !v.isIndex || DataType.z.parse(v.dataType).equals(DataType.TIMESTAMP),
+    {
+      message: "Index channel must have data type TIMESTAMP",
+      path: ["dataType"],
     },
-    update: async ({ client, values }) => await client.channels.create(values),
+  )
+  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
+    message: "Data channel must have an index",
+    path: ["index"],
+  })
+  .refine((v) => v.virtual || !DataType.z.parse(v.dataType).isVariable, {
+    message: "Persisted channels must have a fixed-size data type",
+    path: ["dataType"],
+  });
+
+export const calculatedFormSchema = formSchema
+  .extend({
+    expression: z
+      .string()
+      .min(1, "Expression must not be empty")
+      .refine((v) => v.includes("return"), {
+        message: "Expression must contain a return statement",
+      }),
+  })
+  .refine((v) => v.requires?.length > 0, {
+    message: "Expression must use at least one synnax channel",
+    path: ["requires"],
+  });
+
+const channelToFormValues = (ch: channel.Channel) => ({
+  ...ch.payload,
+  dataType: ch.dataType.toString(),
+});
+
+interface UseFormArgs<Z extends z.ZodObject>
+  extends Optional<
+    Pick<
+      Query.UseFormArgs<channel.Key | undefined, Z>,
+      "initialValues" | "params" | "afterUpdate"
+    >,
+    "initialValues" | "params"
+  > {}
+
+export const ZERO_FORM_VALUES: z.infer<
+  typeof formSchema | typeof calculatedFormSchema
+> = {
+  key: 0,
+  name: "",
+  index: 0,
+  dataType: DataType.FLOAT32.toString(),
+  internal: false,
+  isIndex: false,
+  leaseholder: 0,
+  virtual: false,
+  expression: "",
+  requires: [],
+};
+
+const retrieve = async ({
+  client,
+  params: key,
+}: Query.RetrieveArgs<channel.Key | undefined>) => {
+  if (key == null) return null;
+  return channelToFormValues(await client.channels.retrieve(key));
+};
+
+const update = async ({
+  client,
+  values,
+}: Query.UpdateArgs<
+  channel.Key | undefined,
+  typeof formSchema | typeof calculatedFormSchema
+>) => channelToFormValues(await client.channels.create(values));
+
+export const useForm = ({
+  params = undefined,
+  ...rest
+}: UseFormArgs<typeof formSchema>) =>
+  Query.useForm<channel.Key | undefined, typeof formSchema>({
+    name: "Channel",
+    schema: formSchema,
+    initialValues: { ...ZERO_FORM_VALUES },
+    params,
+    ...rest,
+    retrieve,
+    update,
+    listeners: [],
+  });
+
+export const useCalculatedForm = ({
+  params = undefined,
+  ...rest
+}: UseFormArgs<typeof calculatedFormSchema>) =>
+  Query.useForm<channel.Key | undefined, typeof calculatedFormSchema>({
+    name: "CalculatedChannel",
+    schema: calculatedFormSchema,
+    initialValues: { ...ZERO_FORM_VALUES },
+    params,
+    ...rest,
+    retrieve,
+    update,
     listeners: [],
   });

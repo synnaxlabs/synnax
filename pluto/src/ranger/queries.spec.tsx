@@ -32,7 +32,7 @@ describe("queries", () => {
       });
       const { result } = renderHook(() => Ranger.use(rng.key), { wrapper: Wrapper });
       await waitFor(async () => {
-        expect(result.current.status).toEqual("success");
+        expect(result.current.variant).toEqual("success");
         expect(result.current.data?.key).toEqual(rng.key);
       });
     });
@@ -46,7 +46,7 @@ describe("queries", () => {
         wrapper: Wrapper,
       });
       await waitFor(async () => {
-        expect(result.current.status).toEqual("success");
+        expect(result.current.variant).toEqual("success");
         expect(result.current.data?.key).toEqual(rng.key);
         expect(result.current.data?.name).toEqual("test");
       });
@@ -56,7 +56,7 @@ describe("queries", () => {
         timeRange: new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(10)),
       });
       await waitFor(async () => {
-        expect(result.current.status).toEqual("success");
+        expect(result.current.variant).toEqual("success");
         expect(result.current.data?.key).toEqual(rng.key);
         expect(result.current.data?.name).toEqual("updated test");
       });
@@ -80,14 +80,14 @@ describe("queries", () => {
         { wrapper: Wrapper },
       );
       await waitFor(async () => {
-        expect(result.current.status).toEqual("success");
+        expect(result.current.variant).toEqual("success");
       });
       await act(async () => {
         result.current.form.set("name", "new name");
         result.current.save();
       });
       await waitFor(async () => {
-        expect(result.current.status).toEqual("success");
+        expect(result.current.variant).toEqual("success");
         expect(result.current.form.get("name").value).toEqual("new name");
         const rng2 = await client.ranges.retrieve(rng.key);
         expect(rng2.name).toEqual("new name");
@@ -114,14 +114,14 @@ describe("queries", () => {
         { wrapper: Wrapper },
       );
       await waitFor(async () => {
-        expect(result.current.status).toEqual("success");
+        expect(result.current.variant).toEqual("success");
       });
       await act(async () => {
         result.current.form.set("labels", [label.key]);
         result.current.save();
       });
       await waitFor(async () => {
-        expect(result.current.status).toEqual("success");
+        expect(result.current.variant).toEqual("success");
         expect(result.current.form.get("labels").value).toEqual([label.key]);
         expect(await rng.labels()).toEqual([label]);
       });
@@ -147,14 +147,14 @@ describe("queries", () => {
         { wrapper: Wrapper },
       );
       await waitFor(async () => {
-        expect(result.current.status).toEqual("success");
+        expect(result.current.variant).toEqual("success");
       });
       await act(async () => {
         result.current.form.set("parent", parent.key);
         result.current.save();
       });
       await waitFor(async () => {
-        expect(result.current.status).toEqual("success");
+        expect(result.current.variant).toEqual("success");
         expect(result.current.form.get("parent").value).toEqual(parent.key);
         expect(await rng.retrieveParent()).toEqual(parent);
       });

@@ -28,7 +28,7 @@ describe("sync", () => {
       virtual: true,
     });
     const writer = await client.openWriter([testChannelName]);
-    const { result } = renderHook(
+    const { result, unmount } = renderHook(
       () => {
         const [data, setData] = useState<string[]>([]);
         const [open, setOpen] = useState(false);
@@ -59,6 +59,7 @@ describe("sync", () => {
       expect(result.current.data).toEqual(["write number one"]),
     );
     await writer.close();
+    unmount();
   });
 
   // it("should handle updates for other listeners when one throws an error", async () => {

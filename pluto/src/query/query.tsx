@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type MultiSeries, type Synnax } from "@synnaxlabs/client";
-import { array, type primitive, type status } from "@synnaxlabs/x";
+import { array, id, type primitive, status, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import { type z } from "zod/v4";
 
@@ -33,15 +33,9 @@ export interface ListenerConfig<P extends Params, V extends state.State> {
   onChange: Sync.ListenerHandler<MultiSeries, ListenerExtraArgs<P, V>>;
 }
 
-interface RetrieveArgs<P extends Params> {
+export interface RetrieveArgs<P extends Params> {
   client: Synnax;
   params: P;
-}
-
-interface UpdateArgs<P extends Params, V extends state.State> {
-  client: Synnax;
-  params: P;
-  values: V;
 }
 
 export const createStatusContent = (
@@ -60,36 +54,27 @@ export interface UseArgs<P extends Params, V extends state.State> {
   listeners: ListenerConfig<P, V>[];
 }
 
-export type UseReturn<V> = {
-  message: string;
-} & (
-  | {
-      status: "loading";
+export type UseReturn<V> =
+  | (status.Status<undefined, "loading"> & {
       data: null;
       error: null;
-    }
-  | {
-      status: "success";
-      data: V;
-      error: null;
-    }
-  | {
-      status: "error";
+    })
+  | (status.Status<status.ExceptionDetails, "error"> & {
       data: null;
       error: unknown;
-    }
-);
-
-const initialResult = <V extends state.State>(name: string): UseReturn<V> => ({
-  status: "loading",
-  message: `Loading ${name}`,
-  data: null,
-  error: null,
-});
+    })
+  | (status.Status<undefined, "success"> & {
+      data: V;
+      error: null;
+    });
 
 const loadingResult = <V extends state.State>(name: string): UseReturn<V> => ({
-  status: "loading",
-  message: `Loading ${name}`,
+  ...status.create<undefined, "loading">({
+    key: id.create(),
+    variant: "loading",
+    message: `Loading ${name}`,
+    time: TimeStamp.now(),
+  }),
   data: null,
   error: null,
 });
@@ -98,8 +83,12 @@ const successResult = <V extends state.State>(
   name: string,
   value: V,
 ): UseReturn<V> => ({
-  status: "success",
-  message: `Loaded ${name}`,
+  ...status.create<undefined, "success">({
+    key: id.create(),
+    variant: "success",
+    message: `Loaded ${name}`,
+    time: TimeStamp.now(),
+  }),
   data: value,
   error: null,
 });
@@ -108,8 +97,7 @@ const errorResult = <V extends state.State>(
   name: string,
   error: unknown,
 ): UseReturn<V> => ({
-  status: "error",
-  message: `Failed to load ${name}`,
+  ...status.fromException(error, `Failed to load ${name}`),
   data: null,
   error,
 });
@@ -120,7 +108,7 @@ export const use = <P extends Params, V extends state.State>({
   name,
   params,
 }: UseArgs<P, V>): UseReturn<V> => {
-  const [result, setResult] = useState<UseReturn<V>>(initialResult(name));
+  const [result, setResult] = useState<UseReturn<V>>(loadingResult(name));
   const client = PSynnax.use();
   const addListener = Sync.useAddListener();
   useBase<P, V>({
@@ -162,6 +150,10 @@ export const useBase = <P extends Params, V extends state.State>({
         onChange(loadingResult(name));
         const value = await retrieve({ client, params });
         if (signal.aborted) return;
+        if (listeners.length === 0) {
+          onChange(successResult(name, value));
+          return;
+        }
         const destructors = listeners.map(
           ({ channel, onChange: listenerOnChange }, i) =>
             addListener({
@@ -177,12 +169,12 @@ export const useBase = <P extends Params, V extends state.State>({
                       params,
                       changed: frame.get(channel),
                       onChange: (value) => {
-                        onChange((prev) => ({
-                          ...prev,
-                          error: null,
-                          status: "success",
-                          data: state.executeSetter(value, prev.data as unknown as V),
-                        }));
+                        onChange((prev) =>
+                          successResult(
+                            name,
+                            state.executeSetter(value, prev.data as unknown as V),
+                          ),
+                        );
                       },
                     });
                   } catch (error) {
@@ -202,12 +194,20 @@ export const useBase = <P extends Params, V extends state.State>({
   );
 };
 
+export interface UpdateArgs<P extends Params, Z extends z.ZodObject> {
+  client: Synnax;
+  params: P;
+  values: z.infer<Z>;
+  form: Form.UseReturn<Z>;
+}
+
 export interface UseFormArgs<K extends primitive.Value, Z extends z.ZodObject>
   extends UseArgs<K, z.infer<Z> | null> {
   initialValues: z.infer<Z>;
   autoSave?: boolean;
   schema: Z;
-  update: (args: UpdateArgs<K, z.infer<Z>>) => Promise<z.infer<Z>>;
+  update: (args: UpdateArgs<K, Z>) => Promise<z.infer<Z>>;
+  afterUpdate?: (args: UpdateArgs<K, Z>) => Promise<void>;
 }
 
 export type UseFormReturn<Z extends z.ZodType> = Omit<UseReturn<z.infer<Z>>, "data"> & {
@@ -223,6 +223,7 @@ export const useForm = <K extends primitive.Value, Z extends z.ZodObject>({
   retrieve,
   listeners,
   update,
+  afterUpdate,
 }: UseFormArgs<K, Z>): UseFormReturn<Z> => {
   const [status, setStatus, statusRef] = useCombinedStateAndRef<
     UseReturn<z.infer<Z> | null>
@@ -232,9 +233,14 @@ export const useForm = <K extends primitive.Value, Z extends z.ZodObject>({
   const addListener = Sync.useAddListener();
 
   const handleResultChange: state.Setter<UseReturn<z.infer<Z> | null>> = (setter) => {
-    const nextStatus = state.executeSetter(setter, statusRef.current);
-    form.set("", nextStatus.data);
-    form.setCurrentStateAsInitialValues();
+    const nextStatus = state.executeSetter(setter, {
+      ...statusRef.current,
+      data: form.value() as any,
+    });
+    if (nextStatus.data != null) {
+      form.set("", nextStatus.data);
+      form.setCurrentStateAsInitialValues();
+    }
     setStatus(nextStatus);
   };
 
@@ -248,16 +254,18 @@ export const useForm = <K extends primitive.Value, Z extends z.ZodObject>({
     void (async () => {
       try {
         if (client == null) return;
-        const res = await update({ client, params, values: form.value() });
-        if (abortControllerRef.current?.signal.aborted) return;
+        if (!(await form.validateAsync())) return;
+        const res = await update({ client, params, values: form.value(), form });
         form.set("", res);
         form.setCurrentStateAsInitialValues();
         handleResultChange(successResult(name, res));
+        if (afterUpdate != null)
+          await afterUpdate({ client, params, values: form.value(), form });
       } catch (error) {
         setStatus(errorResult(name, error));
       }
     })();
-  }, [client, form, name, memoParams, update]);
+  }, [client, form, name, memoParams, update, afterUpdate]);
 
   useBase({
     retrieve,
@@ -269,9 +277,5 @@ export const useForm = <K extends primitive.Value, Z extends z.ZodObject>({
     addListener,
   });
 
-  return {
-    form,
-    save: handleSave,
-    ...status,
-  };
+  return { form, save: handleSave, ...status };
 };

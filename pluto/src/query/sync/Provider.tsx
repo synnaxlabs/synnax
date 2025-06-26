@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, framer } from "@synnaxlabs/client";
-import { StreamClosed } from "@synnaxlabs/freighter";
-import { array, strings, unique } from "@synnaxlabs/x";
+import { array, strings, sync, unique } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback, useRef } from "react";
 
 import { useAsyncEffect } from "@/hooks";
@@ -31,72 +30,90 @@ export interface ProviderProps extends PropsWithChildren {
   useClient?: () => Client | null;
 }
 
+interface MutexValue {
+  streamer: framer.ObservableStreamer | null;
+}
+
 export const Provider = ({
   useClient = () => Synnax.use(),
   children,
 }: ProviderProps): ReactElement => {
   const client = useClient();
   const handlersRef = useRef(new Map<FrameHandler, Set<channel.Name>>());
-  const streamerRef = useRef<framer.Streamer | null>(null);
-  const streamerPromiseRef = useRef<Promise<framer.Streamer> | null>(null);
+  const streamerRef = useRef<sync.Mutex<MutexValue>>(sync.newMutex({ streamer: null }));
   const handleError = Status.useErrorHandler();
 
   useAsyncEffect(
     async () => async () => {
       await updateStreamer();
-      return () => streamerRef.current?.close();
+      return async () =>
+        await streamerRef.current.runExclusive(async () => {
+          const { streamer } = streamerRef.current;
+          if (streamer == null) return;
+          await streamer.close();
+          streamerRef.current.streamer = null;
+        });
     },
     [client],
   );
 
+  const handleChange = useCallback(
+    (frame: framer.Frame) => {
+      const namesInFrame = new Set([...frame.uniqueNames]);
+      handlersRef.current.forEach((channels, handler) => {
+        if (namesInFrame.isDisjointFrom(channels)) return;
+        try {
+          handler(frame);
+        } catch (e) {
+          handleError(
+            e,
+            `Error calling Sync Frame Handler on channel(s): ${strings.naturalLanguageJoin([...channels])}`,
+          );
+        }
+      });
+    },
+    [handleError],
+  );
+
   const updateStreamer = useCallback(async () => {
-    if (client == null) return;
-    try {
-      if (streamerPromiseRef.current != null) await streamerPromiseRef.current;
-      if (handlersRef.current.size === 0) return;
-      if (streamerRef.current != null) {
-        await streamerRef.current.update(uniqueNamesInMap(handlersRef.current));
+    await streamerRef.current.runExclusive(async () => {
+      if (client == null) return;
+      const { streamer } = streamerRef.current;
+      const names = uniqueNamesInMap(handlersRef.current);
+      if (streamer != null) {
+        if (names.length === 0) {
+          await streamer.close();
+          streamerRef.current.streamer = null;
+          return;
+        }
+        await streamer.update(names);
         return;
       }
-      streamerPromiseRef.current = framer.HardenedStreamer.open(
-        async (cfg) => await client.openStreamer(cfg),
-        uniqueNamesInMap(handlersRef.current),
+      const hardenedStreamer = await framer.HardenedStreamer.open(
+        client.openStreamer.bind(client),
+        names,
       );
-      streamerRef.current = await streamerPromiseRef.current;
-      const observableStreamer = new framer.ObservableStreamer(streamerRef.current);
-      observableStreamer.onChange((frame) => {
-        const namesInFrame = new Set([...frame.uniqueNames]);
-        handlersRef.current.forEach((channels, handler) => {
-          if (namesInFrame.isDisjointFrom(channels)) return;
-          try {
-            handler(frame);
-          } catch (e) {
-            handleError(
-              e,
-              `Error calling Sync Frame Handler on channel(s): ${strings.naturalLanguageJoin([...channels])}`,
-            );
-          }
-        });
-      });
-    } catch (e) {
-      if (StreamClosed.matches(e)) return;
-      throw e;
-    }
-  }, []);
+      streamerRef.current.streamer = new framer.ObservableStreamer(hardenedStreamer);
+      streamerRef.current.streamer.onChange(handleChange);
+    });
+  }, [client, handleChange]);
 
   const addListener: ListenerAdder = useCallback(
     ({ channels, handler, onOpen }) => {
       const channelNames = array.toArray(channels);
       if (channelNames.length === 0)
         throw new Error("No channels provided to Sync.Provider listener");
-      handlersRef.current.set(handler, new Set(channelNames));
-      handleError(
-        async () => {
-          await updateStreamer();
-          onOpen?.();
-        },
-        `Failed to add ${strings.naturalLanguageJoin(channelNames)} to the Sync.Provider streamer`,
-      );
+      const newNames = new Set(channelNames);
+      const prevNames = new Set(uniqueNamesInMap(handlersRef.current));
+      handlersRef.current.set(handler, newNames);
+      if (!newNames.isSubsetOf(prevNames))
+        handleError(
+          async () => {
+            await updateStreamer();
+            onOpen?.();
+          },
+          `Failed to add ${strings.naturalLanguageJoin(channelNames)} to the Sync.Provider streamer`,
+        );
       return () => {
         handlersRef.current.delete(handler);
         handleError(

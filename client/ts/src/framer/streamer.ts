@@ -315,6 +315,10 @@ export class ObservableStreamer<V = Frame>
     this.closePromise = this.stream();
   }
 
+  async update(channels: channel.Params): Promise<void> {
+    await this.streamer.update(channels);
+  }
+
   async close(): Promise<void> {
     this.streamer.close();
     await this.closePromise;

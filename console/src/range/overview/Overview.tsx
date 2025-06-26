@@ -15,7 +15,6 @@ import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
-import { Labels } from "@/range/overview/Labels";
 import { MetaData } from "@/range/overview/MetaData";
 import { Snapshots } from "@/range/overview/Snapshots";
 
@@ -27,7 +26,6 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     size="medium"
   >
     <Details rangeKey={layoutKey} />
-    <Labels rangeKey={layoutKey} />
     <Divider.Divider x />
     <MetaData rangeKey={layoutKey} />
     <Divider.Divider x />

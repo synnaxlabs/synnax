@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, ranger } from "@synnaxlabs/client";
+import { label, ontology, ranger } from "@synnaxlabs/client";
 import { primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
+import { Label } from "@/label";
 import { Ontology } from "@/ontology";
 import { Query } from "@/query";
 import { type UseReturn } from "@/query/query";
@@ -54,7 +55,7 @@ export const useAliasDeleteSynchronizer = (
 export const useChildren = (key: ranger.Key): UseReturn<ranger.Range[]> => {
   const res = Ontology.useChildren(ranger.ontologyID(key));
   const client = Synnax.use();
-  if (res.status !== "success") return res;
+  if (res.variant !== "success") return res;
   if (client == null) return { ...res, data: [] };
   return {
     ...res,
@@ -67,7 +68,7 @@ export const useChildren = (key: ranger.Key): UseReturn<ranger.Range[]> => {
 export const useParent = (key: ranger.Key): UseReturn<ranger.Range | null> => {
   const res = Ontology.useParents(ranger.ontologyID(key));
   const client = Synnax.use();
-  if (res.status !== "success") return res;
+  if (res.variant !== "success") return res;
   if (client == null) return { ...res, data: null };
   const parent = res.data.find(({ id: { type } }) => type === ranger.ONTOLOGY_TYPE);
   if (parent == null) return { ...res, data: null };
@@ -130,7 +131,7 @@ export const useForm = (
       const parentID = primitive.isZero(values.parent)
         ? undefined
         : ranger.ontologyID(values.parent as string);
-      const rng = await client.ranges.create(values);
+      const rng = await client.ranges.create(values, { parent: parentID });
       await client.labels.label(rng.ontologyID, values.labels, { replace: true });
       return await rangeToFormValues(rng, values.labels, values.parent);
     },
@@ -144,6 +145,61 @@ export const useForm = (
             onChange(await rangeToFormValues(client.ranges.sugarOne(changed)));
           },
         ),
+      },
+      {
+        channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
+        onChange: Sync.stringHandler(async ({ changed, onChange }) => {
+          onChange((prev) => {
+            if (prev == null) return prev;
+            const rel = ontology.parseRelationship(changed);
+            if (!Label.matchRelationship(rel, ranger.ontologyID(prev.key))) return prev;
+            return {
+              ...prev,
+              labels: [...prev.labels.filter((l) => l !== rel.to.key), rel.to.key],
+            };
+          });
+        }),
+      },
+      {
+        channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
+        onChange: Sync.stringHandler(async ({ changed, onChange }) => {
+          onChange((prev) => {
+            if (prev == null) return prev;
+            const rel = ontology.parseRelationship(changed);
+            if (Label.matchRelationship(rel, ranger.ontologyID(prev.key))) return prev;
+            return { ...prev, labels: prev.labels.filter((l) => l !== rel.to.key) };
+          });
+        }),
+      },
+      {
+        channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
+        onChange: Sync.stringHandler(async ({ changed, onChange }) => {
+          onChange((prev) => {
+            if (prev == null) return prev;
+            const rel = ontology.parseRelationship(changed);
+            if (
+              rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
+              !rel.to.equals(ranger.ontologyID(prev.key))
+            )
+              return prev;
+            return { ...prev, parent: rel.from.key };
+          });
+        }),
+      },
+      {
+        channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
+        onChange: Sync.stringHandler(async ({ changed, onChange }) => {
+          onChange((prev) => {
+            if (prev == null) return prev;
+            const rel = ontology.parseRelationship(changed);
+            if (
+              rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
+              !rel.to.equals(ranger.ontologyID(prev.key))
+            )
+              return prev;
+            return { ...prev, parent: undefined };
+          });
+        }),
       },
     ],
   });

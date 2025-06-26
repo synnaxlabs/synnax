@@ -21,7 +21,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { DataType, unique } from "@synnaxlabs/x";
+import { unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
@@ -61,31 +61,16 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
   const { channelKey } = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
   const isEdit = channelKey !== 0;
 
-  const { form, status, save } = Channel.useForm({
-    key: channelKey,
-    autoSave: false,
-    initialValues: {
-      key: 0,
-      leaseholder: 0,
-      index: 0,
-      internal: false,
-      name: "",
-      expression: "",
-      dataType: DataType.FLOAT32,
-      requires: [],
-      isIndex: false,
-      virtual: true,
-    },
-  });
+  const { form, status, save } = Channel.useCalculatedForm({ params: channelKey });
 
   const handleError = Status.useErrorHandler();
   const [createMore, setCreateMore] = useState(false);
 
-  const isIndex = Form.useFieldValue<boolean, boolean, typeof channel.channelZ>(
-    "isIndex",
-    false,
-    form,
-  );
+  const isIndex = Form.useFieldValue<
+    boolean,
+    boolean,
+    typeof Channel.calculatedFormSchema
+  >("isIndex", false, form);
 
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,
@@ -110,7 +95,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
       <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
-        <Form.Form<typeof channel.channelZ> {...form}>
+        <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
               <Input.Text

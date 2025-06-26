@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType } from "@synnaxlabs/client";
+import { type channel, DataType } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -16,12 +16,9 @@ import {
   Input,
   Nav,
   Select,
-  Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -44,76 +41,22 @@ export const CREATE_LAYOUT: Layout.BaseState = {
   },
 };
 
-export const baseFormSchema = channel.newZ
-  .extend({
-    name: z.string().min(1, "Name must not be empty"),
-    dataType: DataType.z.transform((v) => v.toString()),
-  })
-  .refine(
-    (v) => !v.isIndex || DataType.z.parse(v.dataType).equals(DataType.TIMESTAMP),
-    {
-      message: "Index channel must have data type TIMESTAMP",
-      path: ["dataType"],
-    },
-  )
-  .refine((v) => v.isIndex || v.index !== 0 || v.virtual, {
-    message: "Data channel must have an index",
-    path: ["index"],
-  })
-  .refine((v) => v.virtual || !DataType.z.parse(v.dataType).isVariable, {
-    message: "Persisted channels must have a fixed-size data type",
-    path: ["dataType"],
-  });
-
-type Schema = typeof baseFormSchema;
-
-export const ZERO_CHANNEL: z.infer<Schema> = {
-  key: 0,
-  name: "",
-  index: 0,
-  dataType: DataType.FLOAT32.toString(),
-  internal: false,
-  isIndex: false,
-  leaseholder: 0,
-  virtual: false,
-  expression: "",
-  requires: [],
-};
-
 export const Create: Layout.Renderer = ({ onClose }) => {
-  const client = Synnax.use();
-  const methods = Form.use<Schema>({
-    schema: baseFormSchema,
-    values: { ...ZERO_CHANNEL },
-  });
   const [createMore, setCreateMore] = useState(false);
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: async (createMore: boolean) => {
-      if (!methods.validate() || client == null) return;
-      const d = methods.value();
-      d.dataType = d.dataType.toString();
-      await client.channels.create(methods.value());
-      if (!createMore) onClose();
-      else methods.reset({ ...ZERO_CHANNEL });
+  const { form, status, save } = Channel.useForm({
+    afterUpdate: async ({ form }) => {
+      if (createMore) form.reset({ ...Channel.ZERO_FORM_VALUES });
+      else onClose();
     },
   });
 
-  const isIndex = Form.useFieldValue<boolean, boolean, Schema>(
-    "isIndex",
-    false,
-    methods,
-  );
-  const isVirtual = Form.useFieldValue<boolean, boolean, Schema>(
-    "virtual",
-    false,
-    methods,
-  );
+  const isIndex = Form.useFieldValue<boolean, boolean>("isIndex", false, form);
+  const isVirtual = Form.useFieldValue<boolean, boolean>("virtual", false, form);
 
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
       <Align.Space className="console-form" style={{ padding: "3rem" }} grow>
-        <Form.Form<typeof baseFormSchema> {...methods}>
+        <Form.Form<typeof Channel.formSchema> {...form}>
           <Form.Field<string> path="name" label="Name">
             {(p) => (
               <Input.Text
@@ -132,8 +75,8 @@ export const Create: Layout.Renderer = ({ onClose }) => {
               inputProps={{ disabled: isIndex }}
               onChange={(v, ctx) => {
                 if (!v) {
-                  const dType = ctx.get<string>("dataType").value;
-                  if (new DataType(dType).isVariable)
+                  const dataType = ctx.get<string>("dataType").value;
+                  if (new DataType(dataType).isVariable)
                     ctx.set("dataType", DataType.FLOAT32.toString());
                   return;
                 }
@@ -188,9 +131,9 @@ export const Create: Layout.Renderer = ({ onClose }) => {
             </Text.Text>
           </Align.Space>
           <Button.Button
-            disabled={isPending}
-            loading={isPending}
-            onClick={() => mutate(createMore)}
+            disabled={status === "loading"}
+            loading={status === "loading"}
+            onClick={() => save()}
             triggers={[Triggers.SAVE]}
           >
             Create
