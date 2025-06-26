@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -19,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -158,6 +158,10 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 	return err
 }
 
+func indexChannelNotFoundError(key ChannelKey) error {
+	return errors.Wrapf(query.NotFound, "index channel with key %d does not exist", key)
+}
+
 func (db *DB) validateNewChannel(ch Channel) error {
 	if err := ch.Validate(); err != nil {
 		return err
@@ -173,16 +177,13 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	if ch.Index != 0 && !ch.IsIndex {
 		indexDB, ok := db.mu.unaryDBs[ch.Index]
 		if !ok {
-			return validate.FieldError{
-				Field:   "index",
-				Message: fmt.Sprintf("index channel <%d> does not exist", ch.Index),
-			}
+			return validate.PathedError(indexChannelNotFoundError(ch.Index), "index")
 		}
 		if !indexDB.Channel().IsIndex {
-			return validate.FieldError{
-				Field:   "index",
-				Message: fmt.Sprintf("channel %v is not an index", indexDB.Channel()),
-			}
+			return validate.PathedError(
+				errors.Wrapf(validate.Error, "channel %v is not an index", indexDB.Channel()),
+				"index",
+			)
 		}
 	}
 	return nil

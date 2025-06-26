@@ -317,7 +317,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			s, ok := tr.GetTask(ctx, taskKey)
 			Expect(ok).To(BeTrue())
 			Expect(s.Variant).To(Equal(status.WarningVariant))
-			Expect(s.Message).To(ContainSubstring("Synnax Driver on rack1 is not running."))
+			Expect(s.Message).To(ContainSubstring("Synnax Driver on rack1 is not running"))
 			Expect(s.Time).To(BeNumerically(">", telem.Now()-10*telem.SecondTS))
 		})
 	})
