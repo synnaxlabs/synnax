@@ -9,7 +9,6 @@
 
 import { type channel, type MultiSeries, type Synnax } from "@synnaxlabs/client";
 import { array, type primitive, type status } from "@synnaxlabs/x";
-import { Mutex } from "async-mutex";
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import { type z } from "zod/v4";
 
@@ -63,7 +62,6 @@ export interface UseArgs<P extends Params, V extends state.State> {
 
 export type UseReturn<V> = {
   message: string;
-  statusContent: ReactElement;
 } & (
   | {
       status: "loading";
@@ -87,7 +85,6 @@ const initialResult = <V extends state.State>(name: string): UseReturn<V> => ({
   message: `Loading ${name}`,
   data: null,
   error: null,
-  statusContent: createStatusContent("loading", "Loading..."),
 });
 
 const loadingResult = <V extends state.State>(name: string): UseReturn<V> => ({
@@ -95,7 +92,6 @@ const loadingResult = <V extends state.State>(name: string): UseReturn<V> => ({
   message: `Loading ${name}`,
   data: null,
   error: null,
-  statusContent: createStatusContent("loading", "Loading..."),
 });
 
 const successResult = <V extends state.State>(
@@ -106,7 +102,6 @@ const successResult = <V extends state.State>(
   message: `Loaded ${name}`,
   data: value,
   error: null,
-  statusContent: createStatusContent("success", "Success!"),
 });
 
 const errorResult = <V extends state.State>(
@@ -117,7 +112,6 @@ const errorResult = <V extends state.State>(
   message: `Failed to load ${name}`,
   data: null,
   error,
-  statusContent: createStatusContent("error", "Error!"),
 });
 
 export const use = <P extends Params, V extends state.State>({
@@ -168,35 +162,36 @@ export const useBase = <P extends Params, V extends state.State>({
         onChange(loadingResult(name));
         const value = await retrieve({ client, params });
         if (signal.aborted) return;
-        onChange(successResult(name, value));
-        const destructors = listeners.map(({ channel, onChange: listenerOnChange }) => {
-          const mu = new Mutex();
-          return addListener({
-            channels: channel,
-            handler: (frame) => {
-              void mu.runExclusive(async () => {
-                try {
-                  await listenerOnChange({
-                    client,
-                    params,
-                    changed: frame.get(channel),
-                    onChange: (value) => {
-                      onChange((prev) => ({
-                        ...prev,
-                        error: null,
-                        status: "success",
-                        data: state.executeSetter(value, prev.data as unknown as V),
-                        statusContent: createStatusContent("success", "Success!"),
-                      }));
-                    },
-                  });
-                } catch (error) {
-                  onChange(errorResult(name, error));
-                }
-              });
-            },
-          });
-        });
+        const destructors = listeners.map(
+          ({ channel, onChange: listenerOnChange }, i) =>
+            addListener({
+              channels: channel,
+              onOpen: () => {
+                if (i === listeners.length - 1) onChange(successResult(name, value));
+              },
+              handler: (frame) => {
+                void (async () => {
+                  try {
+                    await listenerOnChange({
+                      client,
+                      params,
+                      changed: frame.get(channel),
+                      onChange: (value) => {
+                        onChange((prev) => ({
+                          ...prev,
+                          error: null,
+                          status: "success",
+                          data: state.executeSetter(value, prev.data as unknown as V),
+                        }));
+                      },
+                    });
+                  } catch (error) {
+                    onChange(errorResult(name, error));
+                  }
+                })();
+              },
+            }),
+        );
         return () => destructors.forEach((d) => d());
       } catch (error) {
         onChange(errorResult(name, error));

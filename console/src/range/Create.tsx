@@ -66,7 +66,7 @@ export const Create: Layout.Renderer = (props) => {
   const client = Synnax.use();
   const clientExists = client != null;
   const { form, status, save } = Ranger.useForm({
-    key: args.key,
+    params: args.key,
     autoSave: false,
     initialValues: {
       key: "",

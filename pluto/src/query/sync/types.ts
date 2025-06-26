@@ -15,6 +15,7 @@ export interface FrameHandler extends observe.Handler<framer.Frame> {}
 export interface Subscriber {
   channels: channel.Name | channel.Names;
   handler: FrameHandler;
+  onOpen?: () => void;
 }
 
 export interface ListenerAdder {

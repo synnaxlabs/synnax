@@ -165,6 +165,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
 	}); !ok(err, nil) {
 		return nil, err
 	}

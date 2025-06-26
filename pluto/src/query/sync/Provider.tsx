@@ -37,33 +37,37 @@ export const Provider = ({
 }: ProviderProps): ReactElement => {
   const client = useClient();
   const handlersRef = useRef(new Map<FrameHandler, Set<channel.Name>>());
-  const streamerRef = useRef<framer.Streamer>(null);
+  const streamerRef = useRef<framer.Streamer | null>(null);
+  const streamerPromiseRef = useRef<Promise<framer.Streamer> | null>(null);
   const handleError = Status.useErrorHandler();
 
   useAsyncEffect(
-    async (signal) => {
-      if (client == null) return;
+    async () => async () => {
+      await updateStreamer();
+      return () => streamerRef.current?.close();
+    },
+    [client],
+  );
 
-      try {
-        const hardenedStreamer = await framer.HardenedStreamer.open(
-          async (cfg) => await client.openStreamer(cfg),
-          uniqueNamesInMap(handlersRef.current),
-        );
-        if (signal.aborted) {
-          hardenedStreamer.close();
-          return;
-        }
-        streamerRef.current = hardenedStreamer;
-      } catch (e) {
-        handleError(e, "Failed to open streamer in Sync.Provider");
+  const updateStreamer = useCallback(async () => {
+    if (client == null) return;
+    try {
+      if (streamerPromiseRef.current != null) await streamerPromiseRef.current;
+      if (handlersRef.current.size === 0) return;
+      if (streamerRef.current != null) {
+        await streamerRef.current.update(uniqueNamesInMap(handlersRef.current));
         return;
       }
+      streamerPromiseRef.current = framer.HardenedStreamer.open(
+        async (cfg) => await client.openStreamer(cfg),
+        uniqueNamesInMap(handlersRef.current),
+      );
+      streamerRef.current = await streamerPromiseRef.current;
       const observableStreamer = new framer.ObservableStreamer(streamerRef.current);
       observableStreamer.onChange((frame) => {
         const namesInFrame = new Set([...frame.uniqueNames]);
         handlersRef.current.forEach((channels, handler) => {
           if (namesInFrame.isDisjointFrom(channels)) return;
-          console.log("handler", handler, channels, namesInFrame);
           try {
             handler(frame);
           } catch (e) {
@@ -74,17 +78,6 @@ export const Provider = ({
           }
         });
       });
-      return async () => {
-        streamerRef.current = null;
-        await observableStreamer.close();
-      };
-    },
-    [client, handleError],
-  );
-
-  const updateStreamer = useCallback(async () => {
-    try {
-      await streamerRef.current?.update(uniqueNamesInMap(handlersRef.current));
     } catch (e) {
       if (StreamClosed.matches(e)) return;
       throw e;
@@ -92,13 +85,16 @@ export const Provider = ({
   }, []);
 
   const addListener: ListenerAdder = useCallback(
-    ({ channels, handler }) => {
+    ({ channels, handler, onOpen }) => {
       const channelNames = array.toArray(channels);
       if (channelNames.length === 0)
         throw new Error("No channels provided to Sync.Provider listener");
       handlersRef.current.set(handler, new Set(channelNames));
       handleError(
-        updateStreamer,
+        async () => {
+          await updateStreamer();
+          onOpen?.();
+        },
         `Failed to add ${strings.naturalLanguageJoin(channelNames)} to the Sync.Provider streamer`,
       );
       return () => {

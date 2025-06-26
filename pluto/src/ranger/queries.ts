@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, ranger } from "@synnaxlabs/client";
+import { primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { Ontology } from "@/ontology";
@@ -88,7 +89,7 @@ export const use = (key: ranger.Key) =>
   Query.use({
     name: "Range",
     params: key,
-    retrieve: async ({ client, params: key }) => await client.ranges.retrieve(key),
+    retrieve: async ({ client }) => await client.ranges.retrieve(key),
     listeners: [SET_LISTENER_CONFIG],
   });
 
@@ -107,13 +108,13 @@ export const rangeToFormValues = async (
   ...range.payload,
   timeRange: range.timeRange.numeric,
   labels: labels ?? (await range.labels()).map((l) => l.key),
-  parent: parent ?? (await range.retrieveParent())?.key,
+  parent: parent ?? (await range.retrieveParent())?.key ?? "",
 });
 
 export const useForm = (
   args: Pick<
     Query.UseFormArgs<ranger.Key, typeof rangeFormSchema>,
-    "initialValues" | "params"
+    "initialValues" | "params" | "autoSave"
   >,
 ) =>
   Query.useForm<ranger.Key, typeof rangeFormSchema>({
@@ -126,8 +127,11 @@ export const useForm = (
       return await rangeToFormValues(rng);
     },
     update: async ({ client, values }) => {
+      const parentID = primitive.isZero(values.parent)
+        ? undefined
+        : ranger.ontologyID(values.parent as string);
       const rng = await client.ranges.create(values);
-      await client.labels.label(rng.key, values.labels, { replace: true });
+      await client.labels.label(rng.ontologyID, values.labels, { replace: true });
       return await rangeToFormValues(rng, values.labels, values.parent);
     },
     listeners: [

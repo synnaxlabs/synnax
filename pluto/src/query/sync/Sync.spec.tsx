@@ -16,12 +16,12 @@ import { describe, expect, it } from "vitest";
 import { Sync } from "@/query/sync";
 
 describe("sync", () => {
-  it.only("should add a basic listener", async () => {
+  it("should add a basic listener", async () => {
     const client = newTestClient();
     const Wrapper = (props: PropsWithChildren) => (
       <Sync.Provider useClient={() => client} {...props} />
     );
-    const testChannelName = id.create();
+    const testChannelName = `sync_test_channel_${id.create()}`;
     await client.channels.create({
       name: testChannelName,
       dataType: "string",
@@ -31,6 +31,7 @@ describe("sync", () => {
     const { result } = renderHook(
       () => {
         const [data, setData] = useState<string[]>([]);
+        const [open, setOpen] = useState(false);
         const addListener = Sync.useAddListener();
         useEffect(
           () =>
@@ -42,16 +43,22 @@ describe("sync", () => {
                   ...frame.series.flatMap((s) => s.toStrings()).flat(),
                 ]);
               },
+              onOpen: () => setOpen(true),
             }),
           [addListener],
         );
-        return data;
+        return { data, open };
       },
       { wrapper: Wrapper },
     );
-    await waitFor(async () => expect(result.current).toEqual([]));
-    await act(async () => writer.write({ [testChannelName]: "write number one" }));
-    await waitFor(async () => expect(result.current).toEqual(["write number one"]));
+    await waitFor(async () => expect(result.current.open).toEqual(true));
+    await act(
+      async () => await writer.write({ [testChannelName]: "write number one" }),
+    );
+    await waitFor(async () =>
+      expect(result.current.data).toEqual(["write number one"]),
+    );
+    await writer.close();
   });
 
   // it("should handle updates for other listeners when one throws an error", async () => {
@@ -60,7 +67,7 @@ describe("sync", () => {
 
   //   const useErrorListener = () => {
   //     const timesReceivedRef = useRef(0);
-  //     const addListener = Query.useAddListener();
+  //     const addListener = Sync.useAddListener();
   //     useEffect(() =>
   //       addListener({
   //         channels: errChannelName,
@@ -74,12 +81,12 @@ describe("sync", () => {
 
   //   const useSuccessListener = () => {
   //     const [data, setData] = useState<string[]>([]);
-  //     Query.useListener(
-  //       successChannelName,
-  //       Sync.stringHandler(async ({ changed }) =>
+  //     Sync.useListener({
+  //       channel: successChannelName,
+  //       onChange: Sync.stringHandler(async ({ changed }) =>
   //         setData((prev) => [...prev, changed]),
   //       ),
-  //     );
+  //     });
   //     return data;
   //   };
   //   const useBothListeners = () => {
