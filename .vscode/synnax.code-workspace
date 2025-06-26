@@ -53,6 +53,7 @@
       "Enableable",
       "fgrpc",
       "fhttp",
+      "Finalizer",
       "freightfluence",
       "glsl",
       "gofiber",
