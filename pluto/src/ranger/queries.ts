@@ -14,8 +14,8 @@ import { z } from "zod/v4";
 import { Label } from "@/label";
 import { Ontology } from "@/ontology";
 import { Query } from "@/query";
-import { type UseReturn } from "@/query/query";
 import { Sync } from "@/query/sync";
+import { type UseReturn } from "@/query/use";
 import { Synnax } from "@/synnax";
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void =>
@@ -69,28 +69,31 @@ export const useParent = (key: ranger.Key): UseReturn<ranger.Range | null> => {
   const res = Ontology.useParents(ranger.ontologyID(key));
   const client = Synnax.use();
   if (res.variant !== "success") return res;
-  if (client == null) return { ...res, data: null };
   const parent = res.data.find(({ id: { type } }) => type === ranger.ONTOLOGY_TYPE);
-  if (parent == null) return { ...res, data: null };
+  if (parent == null || client == null) return { ...res, data: null };
   return { ...res, data: client.ranges.sugarOntologyResource(parent) };
 };
 
-const SET_LISTENER_CONFIG: Query.ListenerConfig<ranger.Key, ranger.Range> = {
+export interface QueryParams extends Record<string, primitive.Value> {
+  key: ranger.Key;
+}
+
+const SET_LISTENER_CONFIG: Query.ListenerConfig<QueryParams, ranger.Range> = {
   channel: ranger.SET_CHANNEL_NAME,
   onChange: Sync.parsedHandler(
     ranger.payloadZ,
-    async ({ client, changed, params: key, onChange }) => {
+    async ({ client, changed, params: { key }, onChange }) => {
       if (changed.key !== key) return;
       onChange(client.ranges.sugarOne(changed));
     },
   ),
 };
 
-export const use = (key: ranger.Key) =>
+export const use = (params: QueryParams) =>
   Query.use({
     name: "Range",
-    params: key,
-    retrieve: async ({ client }) => await client.ranges.retrieve(key),
+    params,
+    retrieve: async ({ client, params: { key } }) => await client.ranges.retrieve(key),
     listeners: [SET_LISTENER_CONFIG],
   });
 
@@ -114,33 +117,33 @@ export const rangeToFormValues = async (
 
 export const useForm = (
   args: Pick<
-    Query.UseFormArgs<ranger.Key, typeof rangeFormSchema>,
+    Query.UseFormArgs<QueryParams, typeof rangeFormSchema>,
     "initialValues" | "params" | "autoSave"
   >,
 ) =>
-  Query.useForm<ranger.Key, typeof rangeFormSchema>({
+  Query.useForm<QueryParams, typeof rangeFormSchema>({
     ...args,
     name: "Range",
     schema: rangeFormSchema,
-    retrieve: async ({ client, params: key }) => {
+    retrieve: async ({ client, params: { key } }) => {
       if (key == null) return null;
-      const rng = await client.ranges.retrieve(key);
-      return await rangeToFormValues(rng);
+      return await rangeToFormValues(await client.ranges.retrieve(key));
     },
-    update: async ({ client, values }) => {
+    update: async ({ client, values, onChange, onParamsChange, params: { key } }) => {
       const parentID = primitive.isZero(values.parent)
         ? undefined
         : ranger.ontologyID(values.parent as string);
       const rng = await client.ranges.create(values, { parent: parentID });
       await client.labels.label(rng.ontologyID, values.labels, { replace: true });
-      return await rangeToFormValues(rng, values.labels, values.parent);
+      onChange(await rangeToFormValues(rng, values.labels, values.parent));
+      if (key != rng.key) onParamsChange({ key: rng.key });
     },
     listeners: [
       {
         channel: ranger.SET_CHANNEL_NAME,
         onChange: Sync.parsedHandler(
           ranger.payloadZ,
-          async ({ client, changed, params: key, onChange }) => {
+          async ({ client, changed, params: { key }, onChange }) => {
             if (changed.key !== key) return;
             onChange(await rangeToFormValues(client.ranges.sugarOne(changed)));
           },

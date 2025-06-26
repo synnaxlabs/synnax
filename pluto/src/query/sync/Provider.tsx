@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, framer } from "@synnaxlabs/client";
-import { array, strings, sync, unique } from "@synnaxlabs/x";
+import { sync } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback, useRef } from "react";
 
 import { useAsyncEffect } from "@/hooks";
@@ -18,9 +18,6 @@ import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 export interface ProviderProps extends PropsWithChildren {}
-
-const uniqueNamesInMap = (map: Map<FrameHandler, Set<channel.Name>>): channel.Names =>
-  unique.unique([...map.values()].flatMap((names) => [...names]));
 
 interface Client {
   openStreamer: framer.StreamOpener;
@@ -39,7 +36,7 @@ export const Provider = ({
   children,
 }: ProviderProps): ReactElement => {
   const client = useClient();
-  const handlersRef = useRef(new Map<FrameHandler, Set<channel.Name>>());
+  const handlersRef = useRef(new Map<FrameHandler, channel.Name>());
   const streamerRef = useRef<sync.Mutex<MutexValue>>(sync.newMutex({ streamer: null }));
   const handleError = Status.useErrorHandler();
 
@@ -60,15 +57,12 @@ export const Provider = ({
   const handleChange = useCallback(
     (frame: framer.Frame) => {
       const namesInFrame = new Set([...frame.uniqueNames]);
-      handlersRef.current.forEach((channels, handler) => {
-        if (namesInFrame.isDisjointFrom(channels)) return;
+      handlersRef.current.forEach((channel, handler) => {
+        if (!namesInFrame.has(channel)) return;
         try {
           handler(frame);
         } catch (e) {
-          handleError(
-            e,
-            `Error calling Sync Frame Handler on channel(s): ${strings.naturalLanguageJoin([...channels])}`,
-          );
+          handleError(e, `Error calling Sync Frame Handler on channel(s): ${channel}`);
         }
       });
     },
@@ -79,15 +73,13 @@ export const Provider = ({
     await streamerRef.current.runExclusive(async () => {
       if (client == null) return;
       const { streamer } = streamerRef.current;
-      const names = uniqueNamesInMap(handlersRef.current);
+      const names = Array.from(handlersRef.current.values());
       if (streamer != null) {
         if (names.length === 0) {
-          await streamer.close();
           streamerRef.current.streamer = null;
-          return;
+          return await streamer.close();
         }
-        await streamer.update(names);
-        return;
+        return await streamer.update(names);
       }
       const hardenedStreamer = await framer.HardenedStreamer.open(
         client.openStreamer.bind(client),
@@ -99,26 +91,19 @@ export const Provider = ({
   }, [client, handleChange]);
 
   const addListener: ListenerAdder = useCallback(
-    ({ channels, handler, onOpen }) => {
-      const channelNames = array.toArray(channels);
-      if (channelNames.length === 0)
-        throw new Error("No channels provided to Sync.Provider listener");
-      const newNames = new Set(channelNames);
-      const prevNames = new Set(uniqueNamesInMap(handlersRef.current));
-      handlersRef.current.set(handler, newNames);
-      if (!newNames.isSubsetOf(prevNames))
-        handleError(
-          async () => {
-            await updateStreamer();
-            onOpen?.();
-          },
-          `Failed to add ${strings.naturalLanguageJoin(channelNames)} to the Sync.Provider streamer`,
-        );
+    ({ channel, handler, onOpen }) => {
+      const prevNames = new Set(handlersRef.current.values());
+      handlersRef.current.set(handler, channel);
+      if (!prevNames.has(channel))
+        handleError(async () => {
+          await updateStreamer();
+          onOpen?.();
+        }, `Failed to add ${channel} to the Sync.Provider streamer`);
       return () => {
         handlersRef.current.delete(handler);
         handleError(
           updateStreamer,
-          `Failed to remove ${strings.naturalLanguageJoin(channelNames)} from the Sync.Provider streamer`,
+          `Failed to remove ${channel} from the Sync.Provider streamer`,
         );
       };
     },

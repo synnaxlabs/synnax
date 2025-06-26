@@ -16,7 +16,7 @@ import { Aether } from "@/aether";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
 import { type ChipStatusDetails } from "@/telem/control/aether/chip";
 import { Text } from "@/text";
@@ -73,7 +73,7 @@ const tooltipMessage = (status: status.Status<ChipStatusDetails>): ChipStyle => 
 };
 
 export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElement => {
-  const memoProps = useMemoDeepEqualProps({ source, sink });
+  const memoProps = useMemoDeepEqual({ source, sink });
   const [, { status }, setState] = Aether.use({
     type: control.Chip.TYPE,
     schema: control.chipStateZ,

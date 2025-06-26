@@ -18,7 +18,7 @@ import {
 import { type z } from "zod/v4";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
 
 export interface ControllerProps
@@ -41,7 +41,7 @@ export const Controller = ({
   onStatusChange,
   ...props
 }: ControllerProps): ReactElement => {
-  const memoProps = useMemoDeepEqualProps(props);
+  const memoProps = useMemoDeepEqual(props);
   const [{ path }, { status, needsControlOf }, setState] = Aether.use({
     type: control.Controller.TYPE,
     schema: control.controllerStateZ,

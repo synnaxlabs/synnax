@@ -58,7 +58,7 @@ export const useListener = ({
   useEffect(() => {
     const mu = new Mutex();
     return addListener({
-      channels: channel,
+      channel,
       handler: (frame) => {
         handleError(async () => {
           await mu.runExclusive(async () => {

@@ -23,7 +23,7 @@ import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useMemoDeepEqualProps as useMemoDeepEqual } from "@/memo";
+import { useMemoDeepEqual as useMemoDeepEqual } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { lineplot } from "@/vis/lineplot/aether";
