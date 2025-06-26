@@ -38,7 +38,6 @@ const retrieveReqZ = z.object({
   ids: idZ.array().optional(),
   children: z.boolean().optional(),
   parents: z.boolean().optional(),
-  includeSchema: z.boolean().optional(),
   excludeFieldData: z.boolean().optional(),
   term: z.string().optional(),
   limit: z.number().optional(),
@@ -48,7 +47,7 @@ const retrieveReqZ = z.object({
 interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 export interface RetrieveOptions
-  extends Pick<RetrieveRequest, "includeSchema" | "excludeFieldData" | "types"> {}
+  extends Pick<RetrieveRequest, "excludeFieldData" | "types"> {}
 
 const retrieveResZ = z.object({ resources: resourceZ.array() });
 
@@ -76,8 +75,6 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    *
    * @param term The search term.
    * @param options Additional options for the search.
-   * @param options.includeSchema Whether to include the schema of the resources in the
-   * results.
    * @param options.excludeFieldData Whether to exclude the field data of the resources in
    * the results.
    * @returns A list of resources that match the search term.
@@ -90,8 +87,6 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    * Retrieves the resource in the ontology with the given ID.
    * @param id - The ID of the resource to retrieve.
    * @param options - Additional options for the retrieval.
-   * @param options.includeSchema - Whether to include the schema of the resource in the
-   * results.
    * @param options.excludeFieldData - Whether to exclude the field data of the resource
    * in the results.
    * @returns The resource with the given ID.
@@ -104,8 +99,6 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    *
    * @param ids - The IDs of the resources to retrieve.
    * @param options - Additional options for the retrieval.
-   * @param options.includeSchema - Whether to include the schema of the resources in
-   * the results.
    * @param options.excludeFieldData - Whether to exclude the field data of the
    * resources in the results.
    * @returns The resources with the given IDs.
@@ -149,9 +142,6 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    * Retrieves the children of the resources with the given IDs.
    * @param ids - The IDs of the resources whose children to retrieve.
    * @param options - Additional options for the retrieval.
-   * @param options.includeSchema - Whether to include the schema of the children in the
-   * results.
-   * @param options.excludeFieldData - Whether to exclude the field data of the children in
    * the results.
    * @returns The children of the resources with the given IDs.
    */
@@ -167,8 +157,6 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    *
    * @param ids - the IDs of the resources whose parents to retrieve
    * @param options - additional options for the retrieval
-   * @param options.includeSchema - whether to include the schema of the parents in the
-   * results
    * @param options.excludeFieldData - whether to exclude the field data of the parents
    * in the results
    * @returns the parents of the resources with the given IDs

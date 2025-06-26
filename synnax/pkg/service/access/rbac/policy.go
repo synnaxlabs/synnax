@@ -55,8 +55,8 @@ func allowRequest(req access.Request, policies []Policy) bool {
 
 	for _, policy := range policies {
 		if !lo.Contains(policy.Subjects, req.Subject) {
-			// Policy not directly pertaining to requested subject.
-			var shouldContinue bool = true
+			// Policy not directly pertaining to the requested subject.
+			shouldContinue := true
 			for _, s := range policy.Subjects {
 				if s.IsType() && s.Type == req.Subject.Type {
 					shouldContinue = false
@@ -68,7 +68,7 @@ func allowRequest(req access.Request, policies []Policy) bool {
 			}
 		}
 		if policy.Actions != nil && !lo.Contains(policy.Actions, req.Action) && !lo.Contains(policy.Actions, access.All) {
-			// If the requested action is not described by the current policy, skip the
+			// If the current policy does not describe the requested action, skip the
 			// policy. Unless the policy is an AllowAll, in which case do not skip.
 			if !lo.Contains(policy.Objects, AllowAllOntologyID) {
 				continue

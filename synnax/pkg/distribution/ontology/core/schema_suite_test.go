@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package schema
+package core_test
 
-const TimeRangeType Type = "time-range"
+import (
+	"testing"
 
-var TimeRange = &Schema{
-	Type: TimeRangeType,
-	Fields: map[string]Field{
-		"start": {Type: Int64},
-		"end":   {Type: Int64},
-	},
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestSchema(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Schema Suite")
 }
