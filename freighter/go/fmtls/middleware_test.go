@@ -50,7 +50,7 @@ var _ = Describe("Middleware", func() {
 		It("Should return a SecurityError if no certificate is provided", func() {
 			ctx.SecurityInfo.TLS.Used = true
 			_, err := collector.Exec(ctx, freighter.NoopFinalizer)
-			Expect(err).To(HaveOccurredAs(fmtls.AuthError))
+			Expect(err).To(HaveOccurredAs(fmtls.ErrAuth))
 		})
 		It("Should return a SecurityError if the CN is not correct", func() {
 			ctx.SecurityInfo.TLS.Used = true
@@ -64,7 +64,7 @@ var _ = Describe("Middleware", func() {
 				},
 			}
 			_, err := collector.Exec(ctx, freighter.NoopFinalizer)
-			Expect(err).To(HaveOccurredAs(fmtls.AuthError))
+			Expect(err).To(HaveOccurredAs(fmtls.ErrAuth))
 		})
 	})
 })

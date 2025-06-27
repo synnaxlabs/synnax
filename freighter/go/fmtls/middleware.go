@@ -15,20 +15,20 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// AuthError is returned whenever the client certificate cannot be validated.
-var AuthError = errors.Wrapf(
+// ErrAuth is returned whenever the client certificate cannot be validated.
+var ErrAuth = errors.Wrapf(
 	freighter.ErrSecurity,
 	"unable to verify TLS certificate",
 )
 
-// GateMiddleware is a per-request middleware that checks whether the underlying connection
-// is protected by TLS and that the client certificate is valid. It checks the certificate
-// CommonName against the provided list of expected CNs. If the check fails, the middleware
-// returns an error.
+// GateMiddleware is a per-request middleware that checks whether the underlying
+// connection is protected by TLS and that the client certificate is valid. It checks
+// the certificate CommonName against the provided list of expected CNs. If the check
+// fails, the middleware returns an error.
 //
-// It's important to note that this middleware does not perform any certificate validation
-// or TLS negotiation. GateMiddleware is particularly useful in scenarios where only a
-// subset of endpoints must be protected by mTLS.
+// It's important to note that this middleware does not perform any certificate
+// validation or TLS negotiation. GateMiddleware is particularly useful in scenarios
+// where only a subset of endpoints must be protected by mTLS.
 func GateMiddleware(expectedCNs ...string) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
@@ -37,7 +37,7 @@ func GateMiddleware(expectedCNs ...string) freighter.Middleware {
 		if !ctx.SecurityInfo.TLS.Used ||
 			(len(ctx.SecurityInfo.TLS.VerifiedChains) == 0 || len(ctx.SecurityInfo.TLS.VerifiedChains[0]) == 0) ||
 			!lo.Contains(expectedCNs, ctx.SecurityInfo.TLS.VerifiedChains[0][0].Subject.CommonName) {
-			return ctx, AuthError
+			return ctx, ErrAuth
 		}
 		return next(ctx)
 	})

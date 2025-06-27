@@ -48,6 +48,7 @@
       "cmux",
       "cockroachdb",
       "Deleter",
+      "Depropagate",
       "dorny",
       "downsample",
       "Enableable",
