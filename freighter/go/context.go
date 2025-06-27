@@ -16,16 +16,16 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
-// Role indicates whether the middleware is located on the client or server side of
-// the request.
+// Role indicates whether the middleware is located on the client- or server-side of the
+// request.
 type Role uint8
 
 //go:generate stringer -type=Role
 const (
-	// Client indicates whether the middleware is located on the client side of the
+	// Client indicates that the middleware is located on the client-side of the
 	// request.
 	Client Role = iota + 1
-	// Server indicates whether the middleware is located on the server side of the
+	// Server indicates that the middleware is located on the server-side of the
 	// request.
 	Server
 )
@@ -45,25 +45,20 @@ const (
 // Context represents the metadata for a request that is passed to Middleware.
 type Context struct {
 	context.Context
-	// Role indicates the location of the middleware (client or server).
-	Role Role
-	// Variant indicates the variant of the middleware (unary or stream).
-	Variant Variant
+	Role
+	Variant
 	// Protocol is the protocol that the request is being sent over.
 	Protocol string
 	// Target is the address the request is being sent to.
 	Target address.Address
-	// Sec is the security information for the requests/response connection.
-	Sec SecurityInfo
-	// Params is a set of arbitrary parameters that can be set by client side middleware,
-	// and read by server side middleware.
+	SecurityInfo
 	Params
 }
 
 // SecurityInfo represents the security information for a request.
 type SecurityInfo struct {
-	// TLS contains the TLS information for the request. If Used is false, the connection
-	// is not protected by TLS, and the ConnectionState is invalid.
+	// TLS contains the TLS information for the request. If Used is false, the
+	// connection is not protected by TLS, and the ConnectionState is invalid.
 	TLS struct {
 		// Used is set to true if TLS is being used.
 		Used bool
@@ -72,20 +67,9 @@ type SecurityInfo struct {
 	}
 }
 
-// Params is a set of arbitrary parameters that can be set by client side middleware, and
-// read by server side middleware.
+// Params is a set of arbitrary parameters that can be set by client-side middleware,
+// and read by server-side middleware.
 type Params map[string]any
-
-// GetRequired returns the value of the given key, or panics if the key is not set. It
-// should only be used in contexts where the absence of a key represents a programming
-// error.
-func (p Params) GetRequired(k string) any {
-	v, ok := p[k]
-	if !ok {
-		panic("missing required param: " + k)
-	}
-	return v
-}
 
 // GetDefault returns the value of the given key, or the given default value if the key
 // is not set.
@@ -104,11 +88,6 @@ func (p Params) Get(k string) (any, bool) {
 }
 
 // Set sets the value of the given key.
-func (p Params) Set(k string, v any) { p[k] = v }
-
-// SetIfAbsent sets the value of the given key if it is not already set.
-func (p Params) SetIfAbsent(k string, v any) {
-	if _, ok := p[k]; !ok {
-		p[k] = v
-	}
+func (p Params) Set(k string, v any) {
+	p[k] = v
 }

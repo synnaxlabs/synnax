@@ -46,8 +46,8 @@ var _ = BeforeSuite(func() {
 			}
 			return errors.Payload{}, false
 		},
-		func(ctx context.Context, f errors.Payload) (error, bool) {
-			if f.Type != "myCustomError" {
+		func(_ context.Context, pld errors.Payload) (error, bool) {
+			if pld.Type != "myCustomError" {
 				return nil, false
 			}
 			return myCustomError, true

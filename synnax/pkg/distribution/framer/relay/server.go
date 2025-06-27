@@ -38,7 +38,7 @@ func (s *server) handle(ctx context.Context, server ServerStream) error {
 		sCtx, cancel = signal.WithCancel(ctx)
 		rcv          = &freightfluence.Receiver[Request]{Receiver: server}
 		sender       = &freightfluence.Sender[Response]{
-			Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
+			Sender: freighter.SenderNoopCloser[Response]{StreamSender: server},
 		}
 		reader, err = s.newStreamer(ctx, StreamerConfig{})
 		pipe        = plumber.New()

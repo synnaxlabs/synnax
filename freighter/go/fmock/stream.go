@@ -11,10 +11,11 @@ package fmock
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
-	"go/types"
 )
 
 var (
@@ -181,7 +182,7 @@ func (s *ServerStream[RQ, RS]) Send(res RS) error {
 	case <-s.ctx.Done():
 		return s.ctx.Err()
 	case <-s.serverClosed:
-		return freighter.StreamClosed
+		return freighter.ErrStreamClosed
 	case s.responses <- message[RS]{payload: res}:
 		return nil
 	}
@@ -199,7 +200,7 @@ func (s *ServerStream[RQ, RS]) Receive() (req RQ, err error) {
 	case <-s.ctx.Done():
 		return req, s.ctx.Err()
 	case <-s.serverClosed:
-		return req, freighter.StreamClosed
+		return req, freighter.ErrStreamClosed
 	case msg := <-s.requests:
 		// Any error message means the Stream should die.
 		if msg.error.Type != errors.TypeEmpty {
@@ -217,7 +218,7 @@ func (s *ServerStream[RQ, RS]) exec(
 	err := handler(ctx, s)
 	errPayload := errors.Encode(ctx, err, true)
 	if errPayload.Type == errors.TypeNil {
-		errPayload = errors.Encode(ctx, freighter.EOF, true)
+		errPayload = errors.Encode(ctx, freighter.ErrEOF, true)
 	}
 	close(s.serverClosed)
 	s.responses <- message[RS]{error: errPayload}
@@ -241,7 +242,7 @@ func (c *ClientStream[RQ, RS]) Send(req RQ) error {
 		return c.sendErr
 	}
 	if c.receiveErr != nil {
-		return freighter.EOF
+		return freighter.ErrEOF
 	}
 	if c.ctx.Err() != nil {
 		return c.ctx.Err()
@@ -250,11 +251,11 @@ func (c *ClientStream[RQ, RS]) Send(req RQ) error {
 	case <-c.ctx.Done():
 		return c.ctx.Err()
 	case <-c.clientClosed:
-		return freighter.StreamClosed
+		return freighter.ErrStreamClosed
 	case <-c.serverClosed:
 		// If the server was serverClosed, we set the sendErr to EOF and let
 		// the client discover the server error by calling Receive.
-		c.sendErr = freighter.EOF
+		c.sendErr = freighter.ErrEOF
 		return c.sendErr
 	case c.requests <- message[RQ]{payload: req}:
 		return nil
@@ -286,8 +287,8 @@ func (c *ClientStream[RQ, RS]) CloseSend() error {
 	if c.sendErr != nil {
 		return nil
 	}
-	c.sendErr = freighter.StreamClosed
-	c.requests <- message[RQ]{error: errors.Encode(c.ctx, freighter.EOF, true)}
+	c.sendErr = freighter.ErrStreamClosed
+	c.requests <- message[RQ]{error: errors.Encode(c.ctx, freighter.ErrEOF, true)}
 	close(c.clientClosed)
 	return nil
 }

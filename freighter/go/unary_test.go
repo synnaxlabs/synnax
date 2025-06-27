@@ -30,18 +30,15 @@ type (
 )
 
 type unaryImplementation interface {
-	start(host address.Address) (unaryServer, unaryClient)
+	start(address.Address) (unaryServer, unaryClient)
 	stop() error
 }
 
-var unaryImplementations = []unaryImplementation{
-	&httpUnaryImplementation{},
-}
+var unaryImplementations = []unaryImplementation{&httpUnaryImplementation{}}
 
 var _ = Describe("Unary", Ordered, Serial, func() {
 	Describe("Implementation Tests", func() {
 		for _, impl := range unaryImplementations {
-			impl := impl
 			var (
 				addr   address.Address
 				server unaryServer
@@ -56,25 +53,25 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			})
 			Describe("Normal Operation", func() {
 				It("should send a request", func() {
-					server.BindHandler(func(ctx context.Context, req request) (response, error) {
+					server.BindHandler(func(_ context.Context, req request) (response, error) {
 						return response{
 							ID:      req.ID,
 							Message: req.Message,
 						}, nil
 					})
 					req := request{ID: 1, Message: "hello"}
-					res, err := client.Send(context.TODO(), addr, req)
+					res, err := client.Send(context.Background(), addr, req)
 					Expect(err).To(Succeed())
 					Expect(res).To(Equal(response{ID: 1, Message: "hello"}))
 				})
 			})
 			Describe("Details Handling", func() {
 				It("Should correctly return a custom error to the client", func() {
-					server.BindHandler(func(ctx context.Context, req request) (response, error) {
+					server.BindHandler(func(context.Context, request) (response, error) {
 						return response{}, myCustomError
 					})
 					req := request{ID: 1, Message: "hello"}
-					_, err := client.Send(context.TODO(), addr, req)
+					_, err := client.Send(context.Background(), addr, req)
 					Expect(err).To(Equal(myCustomError))
 				})
 			})
@@ -87,11 +84,11 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 						c++
 						return oMd, err
 					}))
-					server.BindHandler(func(ctx context.Context, req request) (response, error) {
+					server.BindHandler(func(context.Context, request) (response, error) {
 						return response{}, nil
 					})
 					req := request{ID: 1, Message: "hello"}
-					_, err := client.Send(context.TODO(), addr, req)
+					_, err := client.Send(context.Background(), addr, req)
 					Expect(err).To(Succeed())
 					Expect(c).To(Equal(2))
 				})

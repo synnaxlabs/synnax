@@ -42,7 +42,7 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	// to their storage counterparts.
 	receiver := &freightfluence.TransformReceiver[ts.WriterRequest, Request]{Receiver: server}
 	receiver.Transform = newRequestTranslator()
-	sender := &freightfluence.TransformSender[ts.WriterResponse, Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
+	sender := &freightfluence.TransformSender[ts.WriterResponse, Response]{Sender: freighter.SenderNoopCloser[Response]{StreamSender: server}}
 	sender.Transform = newResponseTranslator(sf.HostResolver.HostKey())
 
 	w, err := sf.TS.NewStreamWriter(ctx, req.Config.toStorage())

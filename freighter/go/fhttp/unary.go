@@ -133,12 +133,12 @@ func encodeAndWrite(c *fiber.Ctx, codec httputil.Codec, v any) error {
 
 func parseRequestCtx(socketCtx context.Context, fiberCtx *fiber.Ctx, target address.Address) freighter.Context {
 	md := freighter.Context{
-		Context:  socketCtx,
-		Protocol: unaryReporter.Protocol,
-		Target:   target,
-		Sec:      parseSecurityInfo(fiberCtx),
-		Role:     freighter.Server,
-		Variant:  freighter.Unary,
+		Context:      socketCtx,
+		Protocol:     unaryReporter.Protocol,
+		Target:       target,
+		SecurityInfo: parseSecurityInfo(fiberCtx),
+		Role:         freighter.Server,
+		Variant:      freighter.Unary,
 	}
 	headers := fiberCtx.GetReqHeaders()
 	md.Params = make(freighter.Params, len(headers))

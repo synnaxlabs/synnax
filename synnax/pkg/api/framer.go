@@ -131,7 +131,7 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 
 	receiver := &freightfluence.Receiver[iterator.Request]{Receiver: stream}
 	sender := &freightfluence.TransformSender[iterator.Response, iterator.Response]{
-		Sender: freighter.SenderNopCloser[iterator.Response]{StreamSender: stream},
+		Sender: freighter.SenderNoopCloser[iterator.Response]{StreamSender: stream},
 		Transform: func(ctx context.Context, res iterator.Response) (iterator.Response, bool, error) {
 			res.Error = errors.Encode(ctx, res.Error, false)
 			return res, true, nil
@@ -193,7 +193,7 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 	var (
 		receiver = &freightfluence.Receiver[FrameStreamerRequest]{Receiver: stream}
 		sender   = &freightfluence.Sender[FrameStreamerResponse]{
-			Sender: freighter.SenderNopCloser[FrameStreamerResponse]{StreamSender: stream},
+			Sender: freighter.SenderNoopCloser[FrameStreamerResponse]{StreamSender: stream},
 		}
 		pipe = plumber.New()
 	)
@@ -347,7 +347,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 		},
 	}
 	sender := &freightfluence.TransformSender[framer.WriterResponse, FrameWriterResponse]{
-		Sender: freighter.SenderNopCloser[FrameWriterResponse]{StreamSender: stream},
+		Sender: freighter.SenderNoopCloser[FrameWriterResponse]{StreamSender: stream},
 		Transform: func(ctx context.Context, i framer.WriterResponse) (o FrameWriterResponse, ok bool, err error) {
 			o.Command = i.Command
 			o.Authorized = i.Authorized

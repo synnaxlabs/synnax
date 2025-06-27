@@ -18,12 +18,14 @@ import (
 )
 
 var (
-	// EOF is returned when either the receiving or sending end of a Stream
-	// exits normally.
-	EOF = io.EOF
-	// StreamClosed is returned when a caller attempts to send or receive a message
+	// ErrEOF is returned when either the receiving or sending end of a Stream exits
+	// normally.
+	ErrEOF = io.EOF
+	// ErrSecurity is returned when a security error occurs.
+	ErrSecurity = errors.New("[freighter] - security error")
+	// ErrStreamClosed is returned when a caller attempts to send or receive a message
 	// from a stream that is already closed.
-	StreamClosed = errors.New("[freighter] - stream closed")
+	ErrStreamClosed = errors.New("[freighter] - stream closed")
 )
 
 const (
@@ -33,10 +35,10 @@ const (
 )
 
 func encodeErr(_ context.Context, err error) (errors.Payload, bool) {
-	if errors.Is(err, EOF) {
+	if errors.Is(err, ErrEOF) {
 		return errors.Payload{Type: eofErrorType, Data: err.Error()}, true
 	}
-	if errors.Is(err, StreamClosed) {
+	if errors.Is(err, ErrStreamClosed) {
 		return errors.Payload{Type: streamClosedErrorType, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false
@@ -45,9 +47,9 @@ func encodeErr(_ context.Context, err error) (errors.Payload, bool) {
 func decodeErr(_ context.Context, pld errors.Payload) (error, bool) {
 	switch pld.Type {
 	case eofErrorType:
-		return EOF, true
+		return ErrEOF, true
 	case streamClosedErrorType:
-		return StreamClosed, true
+		return ErrStreamClosed, true
 	}
 	if strings.HasPrefix(pld.Type, freighterErrorType) {
 		return errors.New(pld.Data), true

@@ -135,18 +135,18 @@ func (c *streamCore[I, O]) Receive() (pld I, err error) {
 	msg, err := c.receiveRaw()
 	if err != nil {
 		if ws.IsCloseError(err, normalCloseCode) {
-			c.peerCloseErr = freighter.EOF
+			c.peerCloseErr = freighter.ErrEOF
 		} else if ws.IsCloseError(err, contextCancelledCloseCode) {
 			c.peerCloseErr = context.Canceled
 		} else {
-			c.peerCloseErr = freighter.StreamClosed
+			c.peerCloseErr = freighter.ErrStreamClosed
 		}
 		return pld, c.peerCloseErr
 	}
 	if msg.Type == WSMessageTypeClose {
 		c.peerCloseErr = errors.Decode(context.TODO(), msg.Err)
 		if c.peerCloseErr == nil {
-			c.peerCloseErr = freighter.EOF
+			c.peerCloseErr = freighter.ErrEOF
 		}
 	}
 	return msg.Payload, c.peerCloseErr
@@ -168,10 +168,10 @@ type serverStream[RQ, RS freighter.Payload] struct{ streamCore[RQ, RS] }
 // Send implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) Send(req RQ) error {
 	if s.peerCloseErr != nil {
-		return freighter.EOF
+		return freighter.ErrEOF
 	}
 	if s.sendClosed {
-		return freighter.StreamClosed
+		return freighter.ErrStreamClosed
 	}
 	s.peerCloseErr = s.streamCore.send(WSMessage[RQ]{Type: WSMessageTypeData, Payload: req})
 	return s.peerCloseErr
@@ -201,7 +201,7 @@ func (s *serverStream[RQ, RS]) Send(res RS) error {
 
 func (s *serverStream[RQ, RS]) close(err error) error {
 	if err == nil {
-		err = freighter.EOF
+		err = freighter.ErrEOF
 	}
 	closeCode := contextCancelledCloseCode
 	if !errors.Is(err, context.Canceled) {
@@ -214,7 +214,7 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 		}
 	}
 
-	s.peerCloseErr = freighter.StreamClosed
+	s.peerCloseErr = freighter.ErrStreamClosed
 
 	// Tell the client we're closing the connection. Make sure to include
 	// a write deadline here in-case the client is stuck.

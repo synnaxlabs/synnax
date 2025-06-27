@@ -17,7 +17,7 @@ import (
 
 // AuthError is returned whenever the client certificate cannot be validated.
 var AuthError = errors.Wrapf(
-	freighter.SecurityError,
+	freighter.ErrSecurity,
 	"unable to verify TLS certificate",
 )
 
@@ -34,9 +34,9 @@ func GateMiddleware(expectedCNs ...string) freighter.Middleware {
 		ctx freighter.Context,
 		next freighter.Next,
 	) (freighter.Context, error) {
-		if !ctx.Sec.TLS.Used ||
-			(len(ctx.Sec.TLS.VerifiedChains) == 0 || len(ctx.Sec.TLS.VerifiedChains[0]) == 0) ||
-			!lo.Contains(expectedCNs, ctx.Sec.TLS.VerifiedChains[0][0].Subject.CommonName) {
+		if !ctx.SecurityInfo.TLS.Used ||
+			(len(ctx.SecurityInfo.TLS.VerifiedChains) == 0 || len(ctx.SecurityInfo.TLS.VerifiedChains[0]) == 0) ||
+			!lo.Contains(expectedCNs, ctx.SecurityInfo.TLS.VerifiedChains[0][0].Subject.CommonName) {
 			return ctx, AuthError
 		}
 		return next(ctx)
