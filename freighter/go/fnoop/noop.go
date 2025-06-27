@@ -11,6 +11,7 @@ package fnoop
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 )
@@ -21,10 +22,10 @@ type UnaryServer[RQ, RS freighter.Payload] struct {
 
 var _ freighter.UnaryServer[any, any] = (*UnaryServer[any, any])(nil)
 
-func (s UnaryServer[RQ, RS]) Use(middleware ...freighter.Middleware) {
+func (us UnaryServer[RQ, RS]) Use(...freighter.Middleware) {
 }
 
-func (s UnaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, req RQ) (res RS, err error)) {
+func (us UnaryServer[RQ, RS]) BindHandler(func(context.Context, RQ) (RS, error)) {
 }
 
 type UnaryClient[RQ, RS freighter.Payload] struct {
@@ -33,13 +34,12 @@ type UnaryClient[RQ, RS freighter.Payload] struct {
 
 var _ freighter.UnaryClient[any, any] = (*UnaryClient[any, any])(nil)
 
-func (c UnaryClient[RQ, RS]) Use(middleware ...freighter.Middleware) {
-
+func (uc UnaryClient[RQ, RS]) Use(...freighter.Middleware) {
 }
 
-func (c UnaryClient[RQ, RS]) Send(ctx context.Context, target address.Address, req RQ) (res RS, err error) {
-	return
-
+func (uc UnaryClient[RQ, RS]) Send(context.Context, address.Address, RQ) (RS, error) {
+	var res RS
+	return res, nil
 }
 
 type StreamServer[RQ, RS freighter.Payload] struct {
@@ -48,10 +48,9 @@ type StreamServer[RQ, RS freighter.Payload] struct {
 
 var _ freighter.StreamServer[any, any] = (*StreamServer[any, any])(nil)
 
-func (s StreamServer[RQ, RS]) Use(middleware ...freighter.Middleware) {
-}
+func (ss StreamServer[RQ, RS]) Use(...freighter.Middleware) {}
 
-func (s StreamServer[RQ, RS]) BindHandler(handle func(ctx context.Context, stream freighter.ServerStream[RQ, RS]) (err error)) {
+func (ss StreamServer[RQ, RS]) BindHandler(func(context.Context, freighter.ServerStream[RQ, RS]) error) {
 }
 
 type StreamClient[RQ, RS freighter.Payload] struct {
@@ -60,9 +59,8 @@ type StreamClient[RQ, RS freighter.Payload] struct {
 
 var _ freighter.StreamClient[any, any] = (*StreamClient[any, any])(nil)
 
-func (c StreamClient[RQ, RS]) Use(middleware ...freighter.Middleware) {
-}
+func (sc StreamClient[RQ, RS]) Use(...freighter.Middleware) {}
 
-func (c StreamClient[RQ, RS]) Stream(ctx context.Context, target address.Address) (stream freighter.ClientStream[RQ, RS], err error) {
-	return
+func (sc StreamClient[RQ, RS]) Stream(context.Context, address.Address) (freighter.ClientStream[RQ, RS], error) {
+	return nil, nil
 }
