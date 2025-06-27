@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology, ranger } from "@synnaxlabs/client";
-import { primitive } from "@synnaxlabs/x";
+import { type Optional, primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { Label } from "@/label";
@@ -115,13 +115,15 @@ export const rangeToFormValues = async (
   parent: parent ?? (await range.retrieveParent())?.key ?? "",
 });
 
+export interface UseFormQueryParams extends Optional<QueryParams, "key"> {}
+
 export const useForm = (
   args: Pick<
-    Query.UseFormArgs<QueryParams, typeof rangeFormSchema>,
+    Query.UseFormArgs<UseFormQueryParams, typeof rangeFormSchema>,
     "initialValues" | "params" | "autoSave"
   >,
 ) =>
-  Query.useForm<QueryParams, typeof rangeFormSchema>({
+  Query.useForm<UseFormQueryParams, typeof rangeFormSchema>({
     ...args,
     name: "Range",
     schema: rangeFormSchema,
@@ -129,23 +131,25 @@ export const useForm = (
       if (key == null) return null;
       return await rangeToFormValues(await client.ranges.retrieve(key));
     },
-    update: async ({ client, values, onChange, onParamsChange, params: { key } }) => {
+    update: async ({ client, values, onChange }) => {
       const parentID = primitive.isZero(values.parent)
         ? undefined
         : ranger.ontologyID(values.parent as string);
       const rng = await client.ranges.create(values, { parent: parentID });
       await client.labels.label(rng.ontologyID, values.labels, { replace: true });
       onChange(await rangeToFormValues(rng, values.labels, values.parent));
-      if (key != rng.key) onParamsChange({ key: rng.key });
     },
     listeners: [
       {
         channel: ranger.SET_CHANNEL_NAME,
         onChange: Sync.parsedHandler(
           ranger.payloadZ,
-          async ({ client, changed, params: { key }, onChange }) => {
-            if (changed.key !== key) return;
-            onChange(await rangeToFormValues(client.ranges.sugarOne(changed)));
+          async ({ client, changed, onChange }) => {
+            const values = await rangeToFormValues(client.ranges.sugarOne(changed));
+            onChange((prev) => {
+              if (prev?.key !== changed.key) return prev;
+              return values;
+            });
           },
         ),
       },
@@ -154,7 +158,7 @@ export const useForm = (
         onChange: Sync.stringHandler(async ({ changed, onChange }) => {
           onChange((prev) => {
             if (prev == null) return prev;
-            const rel = ontology.parseRelationship(changed);
+            const rel = ontology.relationShipZ.parse(changed);
             if (!Label.matchRelationship(rel, ranger.ontologyID(prev.key))) return prev;
             return {
               ...prev,
@@ -168,7 +172,7 @@ export const useForm = (
         onChange: Sync.stringHandler(async ({ changed, onChange }) => {
           onChange((prev) => {
             if (prev == null) return prev;
-            const rel = ontology.parseRelationship(changed);
+            const rel = ontology.relationShipZ.parse(changed);
             if (Label.matchRelationship(rel, ranger.ontologyID(prev.key))) return prev;
             return { ...prev, labels: prev.labels.filter((l) => l !== rel.to.key) };
           });
@@ -179,10 +183,10 @@ export const useForm = (
         onChange: Sync.stringHandler(async ({ changed, onChange }) => {
           onChange((prev) => {
             if (prev == null) return prev;
-            const rel = ontology.parseRelationship(changed);
+            const rel = ontology.relationShipZ.parse(changed);
             if (
               rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
-              !rel.to.equals(ranger.ontologyID(prev.key))
+              ontology.idsEqual(rel.to, ranger.ontologyID(prev.key))
             )
               return prev;
             return { ...prev, parent: rel.from.key };
@@ -194,10 +198,10 @@ export const useForm = (
         onChange: Sync.stringHandler(async ({ changed, onChange }) => {
           onChange((prev) => {
             if (prev == null) return prev;
-            const rel = ontology.parseRelationship(changed);
+            const rel = ontology.relationShipZ.parse(changed);
             if (
               rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
-              !rel.to.equals(ranger.ontologyID(prev.key))
+              ontology.idsEqual(rel.to, ranger.ontologyID(prev.key))
             )
               return prev;
             return { ...prev, parent: undefined };
@@ -206,3 +210,6 @@ export const useForm = (
       },
     ],
   });
+
+export const useLabels = (key: ranger.Key): UseReturn<label.Label[]> =>
+  Label.useLabelsOf(ranger.ontologyID(key));

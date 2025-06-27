@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, type task } from "@synnaxlabs/client";
+import { DisconnectedError, type Synnax, type task } from "@synnaxlabs/client";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Common } from "@/hardware/common";
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";
@@ -40,7 +39,7 @@ export const retrieveAndPlaceLayout = async (
   key: task.Key,
   placeLayout: Layout.Placer,
 ) => {
-  if (client == null) throw NULL_CLIENT_ERROR;
+  if (client == null) throw new DisconnectedError();
   const t = await client.hardware.tasks.retrieve({ key });
   const layout = createLayout(t);
   if (t.snapshot)

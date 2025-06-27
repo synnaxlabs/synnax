@@ -25,7 +25,7 @@ import {
   statusZ,
 } from "@/hardware/device/payload";
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { signals } from "@/signals";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
@@ -221,5 +221,4 @@ const decodeDeviceChanges: signals.Decoder<string, Device> = (variant, data) => 
   return data.parseJSON(deviceZ).map((d) => ({ variant, key: d.key, value: d }));
 };
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });

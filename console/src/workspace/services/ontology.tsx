@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
+  DisconnectedError,
   linePlot as clientLinePlot,
   log as clientLog,
+  ontology,
   schematic as clientSchematic,
   table as clientTable,
   workspace as clientWorkspace,
@@ -22,7 +24,6 @@ import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { Group } from "@/group";
@@ -52,7 +53,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
-          keys: resources.map(({ id }) => id.toString()),
+          keys: resources.map(({ id }) => ontology.idToString(id)),
         }),
       ]);
       return prevNodes;
@@ -84,7 +85,7 @@ const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
     if (activeWS === key) return;
     let ws = select(store.getState(), key);
     if (ws == null) {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       ws = await client.workspaces.retrieve(key);
     }
     dispatch(add(ws));
@@ -257,7 +258,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const importTable = TableServices.useImport(selection.resources[0].id.key);
   const handleSelect = {
     delete: () => handleDelete(props),
-    rename: () => Tree.startRenaming(resources[0].id.toString()),
+    rename: () => Tree.startRenaming(ontology.idToString(resources[0].id)),
     group: () => group(props),
     createLog: () => createLog(props),
     createPlot: () => createPlot(props),
@@ -268,8 +269,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     createSchematic: () => createSchematic(props),
     importSchematic: () => importSchematic(),
     export: () => handleExport(resources[0].id.key),
-    link: () =>
-      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
+    link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
   };
   const singleResource = resources.length === 1;
   const canCreateSchematic = Schematic.useSelectHasPermission();

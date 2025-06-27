@@ -73,7 +73,7 @@ const createErrorDescription = (
   `Cluster version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
 
 interface TestProviderProps extends PropsWithChildren {
-  client: Synnax;
+  client: Synnax | null;
 }
 
 export const TestProvider = ({ children, client }: TestProviderProps): ReactElement => (

@@ -37,7 +37,7 @@ const ParentRangeButton = ({
 }: ParentRangeButtonProps): ReactElement | null => {
   const res = Ranger.useParent(rangeKey);
   const placeLayout = Layout.usePlacer();
-  if (res.status !== "success" || res.data == null) return null;
+  if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
   return (
     <Align.Space x size="small" align="center">
@@ -69,7 +69,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const layoutName = Layout.useSelect(rangeKey)?.name;
   const prevLayoutName = usePrevious(layoutName);
   const { form } = Ranger.useForm({
-    key: rangeKey,
+    params: { key: rangeKey },
     initialValues: {
       key: rangeKey,
       name: "",

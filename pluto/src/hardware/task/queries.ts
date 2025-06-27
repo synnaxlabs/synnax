@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
+import { type primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { Query } from "@/query";
@@ -50,7 +51,11 @@ export const useDeleteSynchronizer = (onDelete: (key: task.Key) => void): void =
     }),
   });
 
-const baseUse = <
+interface QueryParams extends Record<string, primitive.Value> {
+  key: task.Key | undefined;
+}
+
+export const use = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
@@ -58,10 +63,10 @@ const baseUse = <
   key: task.Key | undefined,
   schemas: task.Schemas<Type, Config, StatusData>,
 ) =>
-  Query.use<task.Key | undefined, task.Task<Type, Config, StatusData> | null>({
+  Query.use<QueryParams, task.Task<Type, Config, StatusData> | null>({
     name: "Task",
-    params: key,
-    retrieve: async ({ client, params: key }) => {
+    params: { key },
+    retrieve: async ({ client, params: { key } }) => {
       if (key == null) return null;
       return await client.hardware.tasks.retrieve({ key, schemas });
     },
@@ -78,5 +83,3 @@ const baseUse = <
       },
     ],
   });
-
-export const use = baseUse;

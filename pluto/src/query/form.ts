@@ -1,5 +1,5 @@
 import { type Synnax } from "@synnaxlabs/client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { type z } from "zod/v4";
 
 import { Form } from "@/form";
@@ -10,7 +10,6 @@ import {
   loadingResult,
   type Params,
   type Result,
-  successResult,
   useBase,
 } from "@/query/base";
 import { Sync } from "@/query/sync";
@@ -58,8 +57,6 @@ export interface UpdateArgs<P extends Params, Schema extends z.ZodObject> {
   form: Form.UseReturn<Schema>;
   /** Function to update the form state with new data */
   onChange: state.PureSetter<z.infer<Schema>>;
-  /** Function to update the query parameters */
-  onParamsChange: state.PureSetter<P>;
 }
 
 /**
@@ -164,11 +161,7 @@ export const useForm = <P extends Params, Z extends z.ZodObject>({
   const form = Form.use<Z>({ schema, values: initialValues });
   const client = PSynnax.use();
 
-  const [params, setParams] = useState(propsParams);
-  const memoPropsParams = useMemoDeepEqual(propsParams);
-  useEffect(() => {
-    setParams(propsParams);
-  }, [memoPropsParams]);
+  const params = useMemoDeepEqual(propsParams);
 
   const handleResultChange: state.Setter<Result<z.infer<Z> | null>> = (setter) => {
     const nextStatus = state.executeSetter(setter, {
@@ -193,10 +186,10 @@ export const useForm = <P extends Params, Z extends z.ZodObject>({
           values: result,
           form,
           onChange: (v) => (result = v),
-          onParamsChange: setParams,
         });
+        // handleResultChange(successResult(name, result));
         await afterUpdate?.({ client, params, values: result, form });
-        handleResultChange(successResult(name, result));
+        console.log("HERE");
       } catch (error) {
         setStatus(errorResult(name, error));
       }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { DisconnectedError, group, ontology } from "@synnaxlabs/client";
 import {
   Haul,
   Menu,
@@ -23,7 +23,6 @@ import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
 import { useStore } from "react-redux";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
 import {
@@ -63,7 +62,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
 
   const baseProps: BaseProps = useMemo<BaseProps>(() => {
-    if (client == null) throw NULL_CLIENT_ERROR;
+    if (client == null) throw new DisconnectedError();
     return {
       client,
       store,
@@ -93,11 +92,11 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   const handleResourceSet = useCallback(
     (id: ontology.ID) => {
       handleError(async () => {
-        if (client == null) throw NULL_CLIENT_ERROR;
+        if (client == null) throw new DisconnectedError();
         const resource = await client.ontology.retrieve(id);
         setResources((prevResources) => {
-          const existingIndex = prevResources.findIndex(
-            ({ id }) => id.toString() === resource.id.toString(),
+          const existingIndex = prevResources.findIndex(({ id }) =>
+            ontology.idsEqual(id, resource.id),
           );
           if (existingIndex === -1) return prevResources;
           const nextResources = [...prevResources];
@@ -105,8 +104,8 @@ const Internal = ({ root }: InternalProps): ReactElement => {
           return nextResources;
         });
         setNodes((prevNodes) => {
-          const existingIndex = prevNodes.findIndex(
-            ({ key }) => key === resource.id.toString(),
+          const existingIndex = prevNodes.findIndex(({ key }) =>
+            ontology.idsEqual(ontology.idZ.parse(key), resource.id),
           );
           if (existingIndex === -1) return prevNodes;
           const nextNodes = [...prevNodes];
@@ -121,16 +120,18 @@ const Internal = ({ root }: InternalProps): ReactElement => {
 
   const handleResourceDelete = useCallback((id: ontology.ID) => {
     setResources((prevResources) =>
-      prevResources.filter(({ id }) => id.toString() !== id.toString()),
+      prevResources.filter(({ id }) => !ontology.idsEqual(id, id)),
     );
-    setNodes((prevNodes) => prevNodes.filter(({ key }) => key !== id.toString()));
+    setNodes((prevNodes) =>
+      prevNodes.filter(({ key }) => key !== ontology.idToString(id)),
+    );
   }, []);
   Ontology.useResourceDeleteSynchronizer(handleResourceDelete);
 
   const handleRelationshipDelete = useCallback((rel: ontology.Relationship) => {
     if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
     setNodes((prevNodes) =>
-      Core.removeNode({ keys: [rel.to.toString()], tree: prevNodes }),
+      Core.removeNode({ keys: [ontology.idToString(rel.to)], tree: prevNodes }),
     );
   }, []);
   Ontology.useRelationshipDeleteSynchronizer(handleRelationshipDelete);
@@ -140,15 +141,15 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     const { from, to } = rel;
     const visibleNode = Core.findNode({
       tree: nodesRef.current,
-      key: from.toString(),
+      key: ontology.idToString(from),
     });
     if (visibleNode == null) return;
     handleError(async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const resource = await client.ontology.retrieve(to);
       setResources((prevResources) => {
-        const existingIndex = prevResources.findIndex(
-          ({ id }) => id.toString() === to.toString(),
+        const existingIndex = prevResources.findIndex(({ id }) =>
+          ontology.idsEqual(id, to),
         );
         if (existingIndex === -1) return [...prevResources, resource];
         const nextResources = [...prevResources];
@@ -156,8 +157,8 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         return nextResources;
       });
       setNodes((prevNodes) => {
-        let destination: string | null = from.toString();
-        if (destination === root.toString()) destination = null;
+        let destination: string | null = ontology.idToString(from);
+        if (ontology.idsEqual(from, root)) destination = null;
         return Core.setNode({
           tree: prevNodes,
           destination,
@@ -172,18 +173,18 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     ({ action, clicked }: Core.HandleExpandProps): void => {
       if (action !== "expand") return;
       handleError(async () => {
-        if (client == null) throw NULL_CLIENT_ERROR;
-        const id = new ontology.ID(clicked);
+        if (client == null) throw new DisconnectedError();
+        const clickedID = ontology.idZ.parse(clicked);
         try {
           setLoading(clicked);
-          if (!resourcesRef.current.find(({ id }) => id.toString() === clicked))
+          if (!resourcesRef.current.find(({ id }) => ontology.idsEqual(id, clickedID)))
             // This happens when we need add an item to the tree before we create it in
             // the ontology service. For instance, creating a new group will create a
             // new node in the tree, but if onExpand is called before the group is
             // created on the server, an error will be thrown when we try to retrieve
             // the children of the new group.
             return;
-          const resources = await client.ontology.retrieveChildren(id);
+          const resources = await client.ontology.retrieveChildren(clickedID);
           const converted = toTreeNodes(services, resources);
           const nextTree = Core.updateNodeChildren({
             tree: nodesRef.current,
@@ -200,10 +201,12 @@ const Internal = ({ root }: InternalProps): ReactElement => {
               return [...res, ...nodesBeingRenamed];
             },
           });
-          const keys = resources.map(({ id }) => id.toString());
+          const keys = resources.map(({ id }) => ontology.idToString(id));
           resourcesRef.current = [
             // Dedupe any resources that already exist.
-            ...resourcesRef.current.filter(({ id }) => !keys.includes(id.toString())),
+            ...resourcesRef.current.filter(
+              ({ id }) => !keys.includes(ontology.idToString(id)),
+            ),
             ...resources,
           ];
           setNodes([...nextTree]);
@@ -232,7 +235,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     onMutate: ({ ids, destination }) => {
       const nodesSnapshot = nodesRef.current;
       const prevNodes = Core.deepCopy(nodesSnapshot);
-      const keys = ids.map((id) => id.toString());
+      const keys = ids.map((id) => ontology.idToString(id));
       // Move the nodes in the tree.
       const next = Core.moveNode({
         tree: nodesSnapshot,
@@ -258,7 +261,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       const dropped = Haul.filterByType(Core.HAUL_TYPE, items);
       const isValidDrop = dropped.length > 0 && source.type === "Tree.Item";
       if (!isValidDrop) return [];
-      const destination = new ontology.ID(key);
+      const destination = ontology.idZ.parse(key);
       const svc = services[destination.type];
       if (!svc.canDrop({ source, items })) return [];
       const minDepth = Math.min(
@@ -272,11 +275,11 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         tree: nodesSnapshot,
         key: firstNodeOfMinDepth.key.toString(),
       });
-      const sourceID = new ontology.ID(parent?.key ?? root.toString());
+      const sourceID = ontology.idZ.parse(parent?.key ?? root.toString());
       treeProps.contract(...keys);
       dropMutation.mutate({
         source: sourceID,
-        ids: keys.map((key) => new ontology.ID(key)),
+        ids: keys.map((key) => ontology.idZ.parse(key)),
         destination,
       });
       return moved;
@@ -286,7 +289,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
 
   const getRenameProps = useCallback(
     (key: string, name: string): HandleTreeRenameProps => {
-      const id = new ontology.ID(key);
+      const id = ontology.idZ.parse(key);
       return {
         id,
         name,
@@ -358,8 +361,8 @@ const Internal = ({ root }: InternalProps): ReactElement => {
 
   const handleDoubleClick: Core.TreeProps["onDoubleClick"] = useCallback(
     (key: string) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
-      const { type } = new ontology.ID(key);
+      if (client == null) throw new DisconnectedError();
+      const { type } = ontology.idZ.parse(key);
       services[type].onSelect?.({
         client,
         store,
@@ -368,7 +371,9 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         handleError,
         removeLayout,
         addStatus,
-        selection: resourcesRef.current.filter(({ id }) => id.toString() === key),
+        selection: resourcesRef.current.filter(({ id }) =>
+          ontology.idsEqual(id, ontology.idZ.parse(key)),
+        ),
       });
     },
     [client, store, services, placeLayout, handleError, removeLayout, addStatus],
@@ -403,9 +408,9 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         key: selectedNodes.sort((a, b) => a.depth - b.depth)[0].key,
       });
 
-      const parentID = parent == null ? root : new ontology.ID(parent.key);
+      const parentID = parent == null ? root : ontology.idZ.parse(parent.key);
 
-      const firstID = new ontology.ID(keys[0]);
+      const firstID = ontology.idZ.parse(keys[0]);
 
       const props: TreeContextMenuProps = {
         client,
@@ -487,7 +492,7 @@ interface AdapterItemProps extends Core.ItemProps {
 
 const AdapterItem = memo<AdapterItemProps>(
   ({ loading, services, ...rest }): ReactElement => {
-    const { type } = new ontology.ID(rest.entry.key);
+    const { type } = ontology.idZ.parse(rest.entry.key);
     const Item = useMemo(() => services[type].Item ?? Core.DefaultItem, [type]);
     return <Item loading={loading} {...rest} />;
   },

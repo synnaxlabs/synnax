@@ -28,19 +28,19 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ selection, removeLayout, state: { nodes, setNodes } }) => {
       if (!(await confirm(selection.resources))) throw new errors.Canceled();
-      const ids = selection.resources.map((res) => new ontology.ID(res.key));
+      const ids = selection.resources.map((res) => ontology.idZ.parse(res.key));
       const keys = ids.map((id) => id.key);
       removeLayout(...keys);
       const prevNodes = Tree.deepCopy(nodes);
       const next = Tree.removeNode({
         tree: nodes,
-        keys: ids.map((id) => id.toString()),
+        keys: ids.map((id) => ontology.idToString(id)),
       });
       setNodes([...next]);
       return prevNodes;
     },
     mutationFn: async ({ client, selection }) => {
-      const ids = selection.resources.map((res) => new ontology.ID(res.key));
+      const ids = selection.resources.map((res) => ontology.idZ.parse(res.key));
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.log.delete(ids.map((id) => id.key));
     },
@@ -64,8 +64,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const onSelect = useAsyncActionMenu({
     delete: () => del(props),
     rename: () => Tree.startRenaming(resources[0].key),
-    link: () =>
-      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
+    link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
     export: () => handleExport(resources[0].id.key),
     group: () => group(props),
   });
@@ -146,7 +145,9 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Log />,
   hasChildren: false,
   onSelect: handleSelect,
-  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
+  haulItems: ({ id }) => [
+    { type: Mosaic.HAUL_CREATE_TYPE, key: ontology.idToString(id) },
+  ],
   allowRename: () => true,
   onRename: handleRename,
   onMosaicDrop: handleMosaicDrop,

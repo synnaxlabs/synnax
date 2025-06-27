@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device, type rack, task } from "@synnaxlabs/client";
-import { Task } from "@synnaxlabs/pluto";
+import { Status, Task } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 import { useStore } from "react-redux";
 import { type z } from "zod/v4";
@@ -78,7 +78,7 @@ export const wrap = <
       layoutKey,
     );
     const res = Task.use(taskKey, schemas);
-    if (res.status !== "success") return res.statusContent;
+    if (res.variant !== "success") return <Status.Text {...res} />;
     return (
       <Wrapped
         rackKey={res.data ? task.getRackKey(res.data.key) : rackKey}

@@ -43,7 +43,8 @@ export const CREATE_LAYOUT: Layout.BaseState = {
 
 export const Create: Layout.Renderer = ({ onClose }) => {
   const [createMore, setCreateMore] = useState(false);
-  const { form, status, save } = Channel.useForm({
+  const { form, variant, save } = Channel.useForm({
+    params: {},
     afterUpdate: async ({ form }) => {
       if (createMore) form.reset({ ...Channel.ZERO_FORM_VALUES });
       else onClose();
@@ -131,8 +132,8 @@ export const Create: Layout.Renderer = ({ onClose }) => {
             </Text.Text>
           </Align.Space>
           <Button.Button
-            disabled={status === "loading"}
-            loading={status === "loading"}
+            disabled={variant === "loading"}
+            loading={variant === "loading"}
             onClick={() => save()}
             triggers={[Triggers.SAVE]}
           >

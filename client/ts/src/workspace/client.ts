@@ -12,7 +12,7 @@ import { array, type record } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod/v4";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { type Key as UserKey, keyZ as userKeyZ } from "@/user/payload";
 import { nullableArrayZ } from "@/util/zod";
 import { linePlot } from "@/workspace/lineplot";
@@ -166,5 +166,4 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });

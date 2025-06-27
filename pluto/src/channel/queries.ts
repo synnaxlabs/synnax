@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType } from "@synnaxlabs/client";
-import { type Optional } from "@synnaxlabs/x";
+import { type Optional, type primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { Query } from "@/query";
@@ -64,13 +64,14 @@ const channelToFormValues = (ch: channel.Channel) => ({
   dataType: ch.dataType.toString(),
 });
 
+export interface QueryParams extends Record<string, primitive.Value> {
+  key?: channel.Key;
+}
+
 interface UseFormArgs<Z extends z.ZodObject>
   extends Optional<
-    Pick<
-      Query.UseFormArgs<channel.Key | undefined, Z>,
-      "initialValues" | "params" | "afterUpdate"
-    >,
-    "initialValues" | "params"
+    Pick<Query.UseFormArgs<QueryParams, Z>, "initialValues" | "params" | "afterUpdate">,
+    "initialValues"
   > {}
 
 export const ZERO_FORM_VALUES: z.infer<
@@ -90,8 +91,8 @@ export const ZERO_FORM_VALUES: z.infer<
 
 const retrieve = async ({
   client,
-  params: key,
-}: Query.RetrieveArgs<channel.Key | undefined>) => {
+  params: { key },
+}: Query.RetrieveArgs<QueryParams>) => {
   if (key == null) return null;
   return channelToFormValues(await client.channels.retrieve(key));
 };
@@ -99,36 +100,29 @@ const retrieve = async ({
 const update = async ({
   client,
   values,
-}: Query.UpdateArgs<
-  channel.Key | undefined,
-  typeof formSchema | typeof calculatedFormSchema
->) => channelToFormValues(await client.channels.create(values));
+  onChange,
+}: Query.UpdateArgs<QueryParams, typeof formSchema | typeof calculatedFormSchema>) => {
+  const ch = await client.channels.create(values);
+  onChange(channelToFormValues(ch));
+};
 
-export const useForm = ({
-  params = undefined,
-  ...rest
-}: UseFormArgs<typeof formSchema>) =>
-  Query.useForm<channel.Key | undefined, typeof formSchema>({
+export const useForm = (args: UseFormArgs<typeof formSchema>) =>
+  Query.useForm<QueryParams, typeof formSchema>({
     name: "Channel",
     schema: formSchema,
     initialValues: { ...ZERO_FORM_VALUES },
-    params,
-    ...rest,
+    ...args,
     retrieve,
     update,
     listeners: [],
   });
 
-export const useCalculatedForm = ({
-  params = undefined,
-  ...rest
-}: UseFormArgs<typeof calculatedFormSchema>) =>
-  Query.useForm<channel.Key | undefined, typeof calculatedFormSchema>({
+export const useCalculatedForm = (args: UseFormArgs<typeof calculatedFormSchema>) =>
+  Query.useForm<QueryParams, typeof calculatedFormSchema>({
     name: "CalculatedChannel",
     schema: calculatedFormSchema,
     initialValues: { ...ZERO_FORM_VALUES },
-    params,
-    ...rest,
+    ...args,
     retrieve,
     update,
     listeners: [],

@@ -19,7 +19,6 @@ export * from "@/css";
 export { Dialog } from "@/dialog";
 export { Divider } from "@/divider";
 export { Dropdown } from "@/dropdown";
-export { NULL_CLIENT_ERROR } from "@/errors";
 export { Form } from "@/form";
 export { Generic } from "@/generic";
 export { Device } from "@/hardware/device";

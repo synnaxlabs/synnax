@@ -30,7 +30,9 @@ describe("queries", () => {
         name: "test",
         timeRange: new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(10)),
       });
-      const { result } = renderHook(() => Ranger.use(rng.key), { wrapper: Wrapper });
+      const { result } = renderHook(() => Ranger.use({ key: rng.key }), {
+        wrapper: Wrapper,
+      });
       await waitFor(async () => {
         expect(result.current.variant).toEqual("success");
         expect(result.current.data?.key).toEqual(rng.key);
@@ -42,7 +44,7 @@ describe("queries", () => {
         name: "test",
         timeRange: new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(10)),
       });
-      const { result } = renderHook(() => Ranger.use(rng.key), {
+      const { result } = renderHook(() => Ranger.use({ key: rng.key }), {
         wrapper: Wrapper,
       });
       await waitFor(async () => {
@@ -74,7 +76,7 @@ describe("queries", () => {
         () =>
           Ranger.useForm({
             autoSave: false,
-            params: rng.key,
+            params: { key: rng.key },
             initialValues: formValues,
           }),
         { wrapper: Wrapper },
@@ -108,7 +110,7 @@ describe("queries", () => {
         () =>
           Ranger.useForm({
             autoSave: false,
-            params: rng.key,
+            params: { key: rng.key },
             initialValues: formValues,
           }),
         { wrapper: Wrapper },
@@ -141,7 +143,7 @@ describe("queries", () => {
         () =>
           Ranger.useForm({
             autoSave: false,
-            params: rng.key,
+            params: { key: rng.key },
             initialValues: formValues,
           }),
         { wrapper: Wrapper },

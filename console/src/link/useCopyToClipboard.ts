@@ -16,7 +16,7 @@ import { PREFIX } from "@/link/types";
 export interface CopyToClipboardArgs {
   clusterKey: string;
   name: string;
-  ontologyID?: ontology.IDPayload;
+  ontologyID?: ontology.ID;
 }
 
 export interface CopyToClipboard {

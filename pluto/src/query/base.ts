@@ -1,5 +1,14 @@
-import { type channel, type Synnax } from "@synnaxlabs/client";
-import { id, type MultiSeries, type primitive, status, TimeStamp } from "@synnaxlabs/x";
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type channel, DisconnectedError, type Synnax } from "@synnaxlabs/client";
+import { type MultiSeries, type primitive, status } from "@synnaxlabs/x";
 
 import { useAsyncEffect } from "@/hooks";
 import { useMemoDeepEqual } from "@/memo";
@@ -8,20 +17,20 @@ import { state } from "@/state";
 
 export type Params = Record<string, primitive.Value>;
 
-interface ListenerExtraArgs<P extends Params, V extends state.State> {
-  params: P;
+interface ListenerExtraArgs<QueryParams extends Params, Value extends state.State> {
+  params: QueryParams;
   client: Synnax;
-  onChange: state.Setter<V>;
+  onChange: state.Setter<Value>;
 }
 
-export interface ListenerConfig<P extends Params, V extends state.State> {
+export interface ListenerConfig<QueryParams extends Params, Value extends state.State> {
   channel: channel.Name;
-  onChange: Sync.ListenerHandler<MultiSeries, ListenerExtraArgs<P, V>>;
+  onChange: Sync.ListenerHandler<MultiSeries, ListenerExtraArgs<QueryParams, Value>>;
 }
 
-export interface RetrieveArgs<P extends Params> {
+export interface RetrieveArgs<QueryParams extends Params> {
   client: Synnax;
-  params: P;
+  params: QueryParams;
 }
 
 export type Result<V> =
@@ -40,10 +49,8 @@ export type Result<V> =
 
 export const loadingResult = <V extends state.State>(name: string): Result<V> => ({
   ...status.create<undefined, "loading">({
-    key: id.create(),
     variant: "loading",
     message: `Loading ${name}`,
-    time: TimeStamp.now(),
   }),
   data: null,
   error: null,
@@ -54,10 +61,8 @@ export const successResult = <V extends state.State>(
   value: V,
 ): Result<V> => ({
   ...status.create<undefined, "success">({
-    key: id.create(),
     variant: "success",
     message: `Loaded ${name}`,
-    time: TimeStamp.now(),
   }),
   data: value,
   error: null,
@@ -72,17 +77,17 @@ export const errorResult = <V extends state.State>(
   error,
 });
 
-interface UseBaseArgs<P extends Params, V extends state.State> {
-  retrieve: (args: RetrieveArgs<P>) => Promise<V>;
-  listeners: ListenerConfig<P, V>[];
+export interface UseBaseArgs<QueryParams extends Params, Value extends state.State> {
+  retrieve: (args: RetrieveArgs<QueryParams>) => Promise<Value>;
+  listeners?: ListenerConfig<QueryParams, Value>[];
   name: string;
-  params: P;
-  onChange: state.Setter<Result<V>>;
+  params: QueryParams;
+  onChange: state.Setter<Result<Value>>;
   client: Synnax | null;
   addListener: Sync.ListenerAdder;
 }
 
-export const useBase = <P extends Params, V extends state.State>({
+export const useBase = <QueryParams extends Params, Value extends state.State>({
   retrieve,
   listeners,
   name,
@@ -90,26 +95,31 @@ export const useBase = <P extends Params, V extends state.State>({
   onChange,
   client,
   addListener,
-}: UseBaseArgs<P, V>): void => {
+}: UseBaseArgs<QueryParams, Value>): void => {
   const memoParams = useMemoDeepEqual(params);
   useAsyncEffect(
     async (signal) => {
       try {
-        if (client == null) return;
+        if (client == null)
+          return onChange(
+            errorResult(
+              name,
+              new DisconnectedError(
+                `Cannot retrieve ${name} because no cluster is connected.`,
+              ),
+            ),
+          );
         onChange(loadingResult(name));
         const value = await retrieve({ client, params });
         if (signal.aborted) return;
-        if (listeners.length === 0) {
-          onChange(successResult(name, value));
-          return;
-        }
+        if (listeners == null || listeners.length === 0)
+          return onChange(successResult(name, value));
         const destructors = listeners.map(
           ({ channel, onChange: listenerOnChange }, i) =>
             addListener({
               channel,
-              onOpen: () => {
-                if (i === listeners.length - 1) onChange(successResult(name, value));
-              },
+              onOpen: () =>
+                i === listeners.length - 1 && onChange(successResult(name, value)),
               handler: (frame) => {
                 void (async () => {
                   try {
@@ -121,7 +131,7 @@ export const useBase = <P extends Params, V extends state.State>({
                         onChange((prev) =>
                           successResult(
                             name,
-                            state.executeSetter(value, prev.data as unknown as V),
+                            state.executeSetter(value, prev.data as unknown as Value),
                           ),
                         );
                       },

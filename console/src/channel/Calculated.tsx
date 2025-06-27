@@ -61,7 +61,9 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
   const { channelKey } = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
   const isEdit = channelKey !== 0;
 
-  const { form, status, save } = Channel.useCalculatedForm({ params: channelKey });
+  const { form, variant, save } = Channel.useCalculatedForm({
+    params: { key: channelKey },
+  });
 
   const handleError = Status.useErrorHandler();
   const [createMore, setCreateMore] = useState(false);
@@ -174,8 +176,8 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
           )}
           <Align.Space x align="center">
             <Button.Button
-              disabled={status === "loading"}
-              loading={status === "loading"}
+              disabled={variant === "loading"}
+              loading={variant === "loading"}
               triggers={Triggers.SAVE}
               onClick={() => save()}
             >

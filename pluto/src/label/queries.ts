@@ -8,19 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology } from "@synnaxlabs/client";
+import { type primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { Query } from "@/query";
 import { Sync } from "@/query/sync";
 
-export const matchRelationship = (rel: ontology.Relationship, id: ontology.CrudeID) =>
-  rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE && rel.from.equals(id);
+export const matchRelationship = (rel: ontology.Relationship, id: ontology.ID) =>
+  rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
+  ontology.idsEqual(rel.from, id);
 
-export const useLabelsOf = (id: ontology.CrudeID): Query.UseReturn<label.Label[]> =>
-  Query.use({
+interface UseLabelsOfQueryParams extends Record<string, primitive.Value> {
+  id: ontology.ID;
+}
+
+export const useLabelsOf = (id: ontology.ID): Query.UseReturn<label.Label[]> =>
+  Query.use<UseLabelsOfQueryParams, label.Label[]>({
     name: "Labels",
-    params: id,
-    retrieve: async ({ client, params: id }) => await client.labels.retrieveFor(id),
+    params: { id },
+    retrieve: async ({ client, params: { id } }) => await client.labels.retrieveFor(id),
     listeners: [
       {
         channel: label.SET_CHANNEL_NAME,
@@ -37,8 +43,8 @@ export const useLabelsOf = (id: ontology.CrudeID): Query.UseReturn<label.Label[]
       {
         channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
         onChange: Sync.stringHandler(
-          async ({ client, changed, onChange, params: id }) => {
-            const rel = ontology.parseRelationship(changed);
+          async ({ client, changed, onChange, params: { id } }) => {
+            const rel = ontology.relationShipZ.parse(changed);
             if (!matchRelationship(rel, id)) return;
             const { key } = rel.to;
             const l = await client.labels.retrieve(key);
@@ -48,8 +54,8 @@ export const useLabelsOf = (id: ontology.CrudeID): Query.UseReturn<label.Label[]
       },
       {
         channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-        onChange: Sync.stringHandler(async ({ changed, onChange, params: id }) => {
-          const rel = ontology.parseRelationship(changed);
+        onChange: Sync.stringHandler(async ({ changed, onChange, params: { id } }) => {
+          const rel = ontology.relationShipZ.parse(changed);
           if (!matchRelationship(rel, id)) return;
           onChange((prev) => prev.filter((l) => l.key !== rel.to.key));
         }),
@@ -59,28 +65,29 @@ export const useLabelsOf = (id: ontology.CrudeID): Query.UseReturn<label.Label[]
 
 export const labelsOfFormSchema = z.object({ labels: z.array(label.keyZ) });
 
-export const useLabelsOfForm = (id: ontology.CrudeID) =>
-  Query.useForm<ontology.CrudeID, typeof labelsOfFormSchema>({
+export const useLabelsOfForm = (id: ontology.ID) =>
+  Query.useForm<UseLabelsOfQueryParams, typeof labelsOfFormSchema>({
     name: "Labels",
     schema: labelsOfFormSchema,
-    params: id,
+    params: { id },
     initialValues: { labels: [] },
-    retrieve: async ({ client, params: id }) => {
+    retrieve: async ({ client, params: { id } }) => {
       if (id == null) return null;
       const labels = await client.labels.retrieveFor(id);
       return { labels: labels.map((l) => l.key) };
     },
-    update: async ({ client, values, params: id }) => {
-      if (id == null) return { labels: [] };
-      await client.labels.label(id, values.labels, { replace: true });
-      return { labels: values.labels };
+    update: async ({ client, values, params: { id } }) => {
+      if (id == null) return;
+      await client.labels.label(id, values.labels, {
+        replace: true,
+      });
     },
     listeners: [
       {
         channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
         onChange: Sync.stringHandler(
-          async ({ client, changed, onChange, params: id }) => {
-            const rel = ontology.parseRelationship(changed);
+          async ({ client, changed, onChange, params: { id } }) => {
+            const rel = ontology.relationShipZ.parse(changed);
             if (!matchRelationship(rel, id)) return;
             const { key } = rel.to;
             const l = await client.labels.retrieve(key);
@@ -93,8 +100,8 @@ export const useLabelsOfForm = (id: ontology.CrudeID) =>
       },
       {
         channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-        onChange: Sync.stringHandler(async ({ changed, onChange, params: id }) => {
-          const rel = ontology.parseRelationship(changed);
+        onChange: Sync.stringHandler(async ({ changed, onChange, params: { id } }) => {
+          const rel = ontology.relationShipZ.parse(changed);
           if (!matchRelationship(rel, id)) return;
           onChange((prev) => {
             if (prev == null) return { labels: [] };

@@ -10,22 +10,21 @@
 import { useState } from "react";
 
 import {
-  type ListenerConfig,
   loadingResult,
   type Params,
   type Result,
-  type RetrieveArgs,
   useBase,
+  type UseBaseArgs,
 } from "@/query/base";
 import { Sync } from "@/query/sync";
 import { type state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
 /**
- * Configuration for the main query hook that handles data fetching and real-time updates.
+ * Configuration arguments for the use hook.
  *
- * @template P - The type of parameters passed to the query
- * @template V - The type of the state being managed
+ * @template QParams - The type of parameters passed to the query
+ * @template Value - The type of the state being managed
  *
  * @example
  * ```typescript
@@ -46,16 +45,11 @@ import { Synnax as PSynnax } from "@/synnax";
  * };
  * ```
  */
-export interface UseArgs<P extends Params, V extends state.State> {
-  /** A descriptive name for the query, used in status messages and debugging */
-  name: string;
-  /** The parameters to pass to the retrieve function */
-  params: P;
-  /** Function that fetches the initial data */
-  retrieve: (args: RetrieveArgs<P>) => Promise<V>;
-  /** Array of listener configurations for real-time updates */
-  listeners: ListenerConfig<P, V>[];
-}
+export interface UseArgs<QParams extends Params, Value extends state.State>
+  extends Pick<
+    UseBaseArgs<QParams, Value>,
+    "retrieve" | "listeners" | "name" | "params"
+  > {}
 
 /**
  * Return type for query hooks, representing the current state of a data fetch operation.

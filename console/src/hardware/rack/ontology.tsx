@@ -44,7 +44,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
-          keys: resources.map(({ id }) => id.toString()),
+          keys: resources.map(({ id }) => ontology.idToString(id)),
         }),
       ]);
       return prevNodes;
@@ -74,7 +74,7 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
-  const id = new ontology.ID(entry.key);
+  const id = ontology.idZ.parse(entry.key);
   const status = Rack.useStatus(Number(id.key));
 
   const heartRef = useRef<SVGSVGElement>(null);

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  DisconnectedError,
   type ontology,
   ranger,
   schematic,
@@ -26,7 +27,6 @@ import {
 } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/hardware/task/layouts";
 import { Layout } from "@/layout";
 import { create } from "@/schematic/Schematic";
@@ -45,7 +45,7 @@ const SNAPSHOTS: Record<schematic.OntologyType | task.OntologyType, SnapshotServ
   [schematic.ONTOLOGY_TYPE]: {
     icon: <Icon.Schematic />,
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const s = await client.workspaces.schematic.retrieve(key);
       placeLayout(
         create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot }),
@@ -98,15 +98,15 @@ export interface SnapshotsProps {
 }
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const snapshots = Ontology.useChildren(ranger.ontologyID(rangeKey)).filter(
-    ({ data }) => data?.snapshot === true,
-  );
+  const { data: snapshots } = Ontology.useChildren(ranger.ontologyID(rangeKey));
+  if (snapshots == null) return null;
+  const filtered = snapshots.filter(({ data }) => data?.snapshot === true);
   return (
     <Align.Space y>
       <Text.Text level="h4" shade={10} weight={500}>
         Snapshots
       </Text.Text>
-      <List.List data={snapshots} emptyContent={EMPTY_LIST_CONTENT}>
+      <List.List data={filtered} emptyContent={EMPTY_LIST_CONTENT}>
         <List.Core empty>{snapshotsListItem}</List.Core>
       </List.List>
     </Align.Space>

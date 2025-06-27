@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
+import { ontology, user } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
@@ -35,7 +35,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
-          keys: resources.map(({ id }) => id.toString()),
+          keys: resources.map(({ id }) => ontology.idToString(id)),
         }),
       ]);
       return prevNodes;

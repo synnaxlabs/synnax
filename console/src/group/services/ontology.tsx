@@ -36,7 +36,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     link: () =>
       handleLink({
         name: resources[0].name,
-        ontologyID: resources[0].id.payload,
+        ontologyID: resources[0].id,
       }),
   });
   const isDelete = nodes.every((n) => n.children == null || n.children.length === 0);
@@ -77,9 +77,9 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
       for (const res of selection.resources) {
         const id = res.id;
         const children =
-          Tree.findNode({ tree: nodes, key: id.toString() })?.children ?? [];
+          Tree.findNode({ tree: nodes, key: ontology.idToString(id) })?.children ?? [];
         const parentID = selection.parentID;
-        const childKeys = children.map((c) => new ontology.ID(c.key));
+        const childKeys = children.map((c) => ontology.idZ.parse(c.key));
         await client.ontology.moveChildren(id, parentID, ...childKeys);
         await client.ontology.groups.delete(id.key);
       }
@@ -111,10 +111,9 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
         const children = Tree.findNode({ tree: nodes, key })?.children ?? [];
         acc = Tree.moveNode({
           tree: acc,
-          destination:
-            selection.parentID.toString() === selection.rootID.toString()
-              ? null
-              : selection.parentID.toString(),
+          destination: ontology.idsEqual(selection.parentID, selection.rootID)
+            ? null
+            : ontology.idToString(selection.parentID),
           keys: children.map((c) => c.key),
         });
         acc = Tree.removeNode({ tree: acc, keys: key });
@@ -141,20 +140,24 @@ const useCreateEmpty = (): ((
     }) => {
       if (resources.length === 0) return;
       const resource = resources[resources.length - 1];
-      const res: ontology.Resource = { key: newID.toString(), id: newID, name: "" };
-      expand(resource.id.toString());
+      const res: ontology.Resource = {
+        key: ontology.idToString(newID),
+        id: newID,
+        name: "",
+      };
+      expand(ontology.idToString(resource.id));
       const newGroupNode = Ontology.toTreeNode(services, res);
       setNodes([
         ...Tree.setNode({
           tree: nodes,
-          destination: resource.id.toString(),
+          destination: ontology.idToString(resource.id),
           additions: newGroupNode,
         }),
       ]);
     },
     mutationFn: async ({ client, selection: { resources }, newID }) => {
       const resource = resources[resources.length - 1];
-      const [name, renamed] = await Tree.asyncRename(newID.toString());
+      const [name, renamed] = await Tree.asyncRename(ontology.idToString(newID));
       if (!renamed) throw new errors.Canceled();
       await client.ontology.groups.create(resource.id, name, newID.key);
     },
@@ -164,7 +167,7 @@ const useCreateEmpty = (): ((
     ) => {
       if (selection.resources.length === 0) return;
       if (!errors.Canceled.matches(e)) handleError(e, "Failed to create group");
-      setNodes([...Tree.removeNode({ tree: nodes, keys: newID.toString() })]);
+      setNodes([...Tree.removeNode({ tree: nodes, keys: ontology.idToString(newID) })]);
     },
   });
   return async (props: Ontology.TreeContextMenuProps) =>

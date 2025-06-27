@@ -117,7 +117,7 @@ export const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
-          keys: resources.map(({ id }) => id.toString()),
+          keys: resources.map(({ id }) => ontology.idToString(id)),
         }),
       ]);
       return prevNodes;
@@ -236,8 +236,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     deleteAlias: () => delAlias(props),
     alias: () => setAlias(props),
     rename: () => handleRename(props),
-    link: () =>
-      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
+    link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
     openCalculated: () => openCalculated(props),
   };
   const singleResource = resources.length === 1;
@@ -290,7 +289,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 export const Item: Tree.Item = ({ entry, ...rest }) => {
-  const alias = PChannel.useAlias(Number(new ontology.ID(entry.key).key));
+  const alias = PChannel.useAlias(Number(ontology.idZ.parse(entry.key).key));
   const data = entry.extraData as channel.Payload;
   const I = PChannel.resolveIcon(data);
   return (
