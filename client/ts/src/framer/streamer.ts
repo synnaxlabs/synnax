@@ -252,7 +252,6 @@ export class HardenedStreamer implements Streamer {
     try {
       await this.wrapped.update(channels);
     } catch {
-      console.log("failed to update streamer, running new streamer");
       await this.runStreamer();
       return await this.update(channels);
     }

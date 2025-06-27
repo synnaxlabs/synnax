@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type MultiSeries } from "@synnaxlabs/client";
+import { type channel, DataType, type MultiSeries } from "@synnaxlabs/client";
 import { Mutex } from "async-mutex";
 import { useEffect } from "react";
 import { type z } from "zod/v4";
@@ -30,7 +30,10 @@ export const parsedHandler =
     onChange: ListenerHandler<z.output<Z>, Extra>,
   ): ListenerHandler<MultiSeries, Extra> =>
   async (args) => {
-    const parsed = args.changed.parseJSON(schema);
+    let parsed: z.output<Z>[];
+    if (args.changed.dataType.equals(DataType.STRING))
+      parsed = args.changed.toStrings().map((s) => schema.parse(s));
+    else parsed = args.changed.parseJSON(schema);
     for (const value of parsed) await onChange({ ...args, changed: value });
   };
 

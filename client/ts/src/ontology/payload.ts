@@ -82,8 +82,15 @@ export const idToString = (id: ID) => `${id.type}:${id.key}`;
 
 export const idsEqual = (a: ID, b: ID) => a.type === b.type && a.key === b.key;
 
-export const parseIDs = (ids: ID | ID[] | string | string[]): ID[] =>
-  array.toArray(ids).map((id) => idZ.parse(id));
+export const parseIDs = (
+  ids: ID | ID[] | string | string[] | Resource | Resource[],
+): ID[] => {
+  const arr = array.toArray(ids);
+  if (arr.length === 0) return [];
+  if (typeof arr[0] === "object" && "id" in arr[0])
+    return (arr as Resource[]).map(({ id }) => id);
+  return arr.map((id) => idZ.parse(id));
+};
 
 export const resourceZ = z
   .object({
@@ -106,7 +113,7 @@ export const oppositeRelationshipDirection = (
 export const relationShipZ = z.object({ from: idZ, type: z.string(), to: idZ }).or(
   z.string().transform((v) => {
     const [from, type, to] = v.split("->");
-    return { from: stringIDZ.parse(from), type, to: stringIDZ.parse(to) };
+    return { from: idZ.parse(from), type, to: idZ.parse(to) };
   }),
 );
 export type Relationship = z.infer<typeof relationShipZ>;

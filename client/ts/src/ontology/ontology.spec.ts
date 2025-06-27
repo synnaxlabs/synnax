@@ -95,11 +95,11 @@ describe("Ontology", () => {
   });
   describe("signals", async () => {
     it("should correctly decode a set of relationships from a string", () => {
-      const rel = ontology.relationShipZ.parse("typeA:keyA->parent->typeB:keyB");
+      const rel = ontology.relationShipZ.parse("table:keyA->parent->schematic:keyB");
       expect(rel.type).toEqual(ontology.PARENT_OF_RELATIONSHIP_TYPE);
-      expect(rel.from.type).toEqual("typeA");
+      expect(rel.from.type).toEqual("table");
       expect(rel.from.key).toEqual("keyA");
-      expect(rel.to.type).toEqual("typeB");
+      expect(rel.to.type).toEqual("schematic");
       expect(rel.to.key).toEqual("keyB");
     });
     it("should correctly propagate resource changes to the ontology", async () => {

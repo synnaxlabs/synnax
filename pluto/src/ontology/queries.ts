@@ -16,9 +16,7 @@ import { Sync } from "@/query/sync";
 export const useResourceSetSynchronizer = (onSet: (id: ontology.ID) => void): void =>
   Sync.useListener({
     channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-    onChange: Sync.stringHandler(async ({ changed }) =>
-      onSet(ontology.idZ.parse(changed)),
-    ),
+    onChange: Sync.parsedHandler(ontology.idZ, async ({ changed }) => onSet(changed)),
   });
 
 export const useResourceDeleteSynchronizer = (
@@ -26,9 +24,9 @@ export const useResourceDeleteSynchronizer = (
 ): void =>
   Sync.useListener({
     channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
-    onChange: Sync.stringHandler(async ({ changed }) =>
-      onDelete(ontology.idZ.parse(changed)),
-    ),
+    onChange: Sync.parsedHandler(ontology.idZ, async ({ changed }) => {
+      onDelete(changed);
+    }),
   });
 
 export const useRelationshipSetSynchronizer = (
@@ -36,9 +34,9 @@ export const useRelationshipSetSynchronizer = (
 ): void =>
   Sync.useListener({
     channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-    onChange: Sync.stringHandler(async ({ changed }) =>
-      onSet(ontology.relationShipZ.parse(changed)),
-    ),
+    onChange: Sync.parsedHandler(ontology.relationShipZ, async ({ changed }) => {
+      onSet(changed);
+    }),
   });
 
 export const useRelationshipDeleteSynchronizer = (
@@ -46,9 +44,9 @@ export const useRelationshipDeleteSynchronizer = (
 ): void =>
   Sync.useListener({
     channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-    onChange: Sync.stringHandler(async ({ changed }) =>
-      onDelete(ontology.relationShipZ.parse(changed)),
-    ),
+    onChange: Sync.parsedHandler(ontology.relationShipZ, async ({ changed }) => {
+      onDelete(changed);
+    }),
   });
 
 const matchRelationshipAndID = (
@@ -80,11 +78,11 @@ const useDependents = (
     listeners: [
       {
         channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-        onChange: Sync.stringHandler(
+        onChange: Sync.parsedHandler(
+          ontology.relationShipZ,
           async ({ client, changed, params: { id, direction }, onChange }) => {
-            const relationship = ontology.relationShipZ.parse(changed);
-            if (!matchRelationshipAndID(relationship, direction, id)) return;
-            const dependent = await client.ontology.retrieve(relationship[direction]);
+            if (!matchRelationshipAndID(changed, direction, id)) return;
+            const dependent = await client.ontology.retrieve(changed[direction]);
             onChange((p) => [
               ...p.filter((d) => !ontology.idsEqual(d.id, dependent.id)),
               dependent,
@@ -94,26 +92,27 @@ const useDependents = (
       },
       {
         channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-        onChange: Sync.stringHandler(
+        onChange: Sync.parsedHandler(
+          ontology.relationShipZ,
           async ({ changed, params: { id, direction }, onChange }) => {
-            const relationship = ontology.relationShipZ.parse(changed);
-            if (!matchRelationshipAndID(relationship, direction, id)) return;
+            if (!matchRelationshipAndID(changed, direction, id)) return;
             onChange((p) =>
-              p.filter((d) => !ontology.idsEqual(d.id, relationship[direction])),
+              p.filter((d) => !ontology.idsEqual(d.id, changed[direction])),
             );
           },
         ),
       },
-
       {
         channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-        onChange: Sync.stringHandler(async ({ client, changed, onChange }) => {
-          const nextID = ontology.idZ.parse(changed);
-          const nextDependent = await client.ontology.retrieve(nextID);
-          onChange((p) =>
-            p.map((d) => (ontology.idsEqual(d.id, nextID) ? nextDependent : d)),
-          );
-        }),
+        onChange: Sync.parsedHandler(
+          ontology.idZ,
+          async ({ client, changed, onChange }) => {
+            const nextDependent = await client.ontology.retrieve(changed);
+            onChange((p) =>
+              p.map((d) => (ontology.idsEqual(d.id, changed) ? nextDependent : d)),
+            );
+          },
+        ),
       },
     ],
   });
@@ -136,18 +135,18 @@ export const useResource = (id: ontology.ID): Query.UseReturn<ontology.Resource>
     listeners: [
       {
         channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-        onChange: Sync.stringHandler(
+        onChange: Sync.parsedHandler(
+          ontology.idZ,
           async ({ client, changed, params: { id }, onChange }) => {
-            const nextID = ontology.idZ.parse(changed);
-            if (!ontology.idsEqual(id, nextID)) return;
-            const nextDependent = await client.ontology.retrieve(nextID);
+            if (!ontology.idsEqual(id, changed)) return;
+            const nextDependent = await client.ontology.retrieve(changed);
             onChange(nextDependent);
           },
         ),
       },
       {
         channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
-        onChange: Sync.stringHandler(async ({ params: { id } }) => {
+        onChange: Sync.parsedHandler(ontology.idZ, async ({ params: { id } }) => {
           throw new NotFoundError(
             `Resource with ID ${ontology.idToString(id)} not found`,
           );

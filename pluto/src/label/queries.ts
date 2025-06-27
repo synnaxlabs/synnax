@@ -42,11 +42,11 @@ export const useLabelsOf = (id: ontology.ID): Query.UseReturn<label.Label[]> =>
       },
       {
         channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-        onChange: Sync.stringHandler(
+        onChange: Sync.parsedHandler(
+          ontology.relationShipZ,
           async ({ client, changed, onChange, params: { id } }) => {
-            const rel = ontology.relationShipZ.parse(changed);
-            if (!matchRelationship(rel, id)) return;
-            const { key } = rel.to;
+            if (!matchRelationship(changed, id)) return;
+            const { key } = changed.to;
             const l = await client.labels.retrieve(key);
             onChange((prev) => [...prev.filter((l) => l.key !== key), l]);
           },
@@ -54,11 +54,13 @@ export const useLabelsOf = (id: ontology.ID): Query.UseReturn<label.Label[]> =>
       },
       {
         channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-        onChange: Sync.stringHandler(async ({ changed, onChange, params: { id } }) => {
-          const rel = ontology.relationShipZ.parse(changed);
-          if (!matchRelationship(rel, id)) return;
-          onChange((prev) => prev.filter((l) => l.key !== rel.to.key));
-        }),
+        onChange: Sync.parsedHandler(
+          ontology.relationShipZ,
+          async ({ changed, onChange, params: { id } }) => {
+            if (!matchRelationship(changed, id)) return;
+            onChange((prev) => prev.filter((l) => l.key !== changed.to.key));
+          },
+        ),
       },
     ],
   });
@@ -85,11 +87,11 @@ export const useLabelsOfForm = (id: ontology.ID) =>
     listeners: [
       {
         channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-        onChange: Sync.stringHandler(
+        onChange: Sync.parsedHandler(
+          ontology.relationShipZ,
           async ({ client, changed, onChange, params: { id } }) => {
-            const rel = ontology.relationShipZ.parse(changed);
-            if (!matchRelationship(rel, id)) return;
-            const { key } = rel.to;
+            if (!matchRelationship(changed, id)) return;
+            const { key } = changed.to;
             const l = await client.labels.retrieve(key);
             onChange((prev) => {
               if (prev == null) return { labels: [l.key] };
@@ -100,14 +102,16 @@ export const useLabelsOfForm = (id: ontology.ID) =>
       },
       {
         channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-        onChange: Sync.stringHandler(async ({ changed, onChange, params: { id } }) => {
-          const rel = ontology.relationShipZ.parse(changed);
-          if (!matchRelationship(rel, id)) return;
-          onChange((prev) => {
-            if (prev == null) return { labels: [] };
-            return { labels: prev.labels.filter((l) => l !== rel.to.key) };
-          });
-        }),
+        onChange: Sync.parsedHandler(
+          ontology.relationShipZ,
+          async ({ changed, onChange, params: { id } }) => {
+            if (!matchRelationship(changed, id)) return;
+            onChange((prev) => {
+              if (prev == null) return { labels: [] };
+              return { labels: prev.labels.filter((l) => l !== changed.to.key) };
+            });
+          },
+        ),
       },
     ],
   });

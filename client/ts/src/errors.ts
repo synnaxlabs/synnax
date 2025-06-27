@@ -92,9 +92,7 @@ export class ControlError extends SynnaxError.sub("control") {}
 export class UnauthorizedError extends ControlError.sub("unauthorized") {}
 
 export class DisconnectedError extends SynnaxError.sub("disconnected") {
-  constructor(
-    message: string = "Operation failed because the client is disconnected from the cluster.",
-  ) {
+  constructor(message: string = "Operation failed because no cluster is connected.") {
     super(message);
   }
 }

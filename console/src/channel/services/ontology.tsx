@@ -32,6 +32,7 @@ import { Ontology } from "@/ontology";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
+
 const canDrop = (): boolean => false;
 
 const handleSelect: Ontology.HandleSelect = ({

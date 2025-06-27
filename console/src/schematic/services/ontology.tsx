@@ -29,7 +29,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ selection, removeLayout, state: { nodes, setNodes } }) => {
       if (!(await confirm(selection.resources))) throw new errors.Canceled();
-      const ids = selection.resources.map((res) => ontology.idZ.parse(res.key));
+      const ids = ontology.parseIDs(selection.resources);
       const keys = ids.map((id) => id.key);
       removeLayout(...keys);
       const prevNodes = Tree.deepCopy(nodes);
@@ -41,7 +41,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       return prevNodes;
     },
     mutationFn: async ({ client, selection }) => {
-      const ids = selection.resources.map((res) => ontology.idZ.parse(res.key));
+      const ids = ontology.parseIDs(selection.resources);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.schematic.delete(ids.map((id) => id.key));
     },

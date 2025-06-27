@@ -79,7 +79,7 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
         const children =
           Tree.findNode({ tree: nodes, key: ontology.idToString(id) })?.children ?? [];
         const parentID = selection.parentID;
-        const childKeys = children.map((c) => ontology.idZ.parse(c.key));
+        const childKeys = ontology.parseIDs(children.map(({ key }) => key));
         await client.ontology.moveChildren(id, parentID, ...childKeys);
         await client.ontology.groups.delete(id.key);
       }

@@ -155,58 +155,74 @@ export const useForm = (
       },
       {
         channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-        onChange: Sync.stringHandler(async ({ changed, onChange }) => {
-          onChange((prev) => {
-            if (prev == null) return prev;
-            const rel = ontology.relationShipZ.parse(changed);
-            if (!Label.matchRelationship(rel, ranger.ontologyID(prev.key))) return prev;
-            return {
-              ...prev,
-              labels: [...prev.labels.filter((l) => l !== rel.to.key), rel.to.key],
-            };
-          });
-        }),
+        onChange: Sync.parsedHandler(
+          ontology.relationShipZ,
+          async ({ changed, onChange }) => {
+            onChange((prev) => {
+              if (prev == null) return prev;
+              if (!Label.matchRelationship(changed, ranger.ontologyID(prev.key)))
+                return prev;
+              return {
+                ...prev,
+                labels: [
+                  ...prev.labels.filter((l) => l !== changed.to.key),
+                  changed.to.key,
+                ],
+              };
+            });
+          },
+        ),
       },
       {
         channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-        onChange: Sync.stringHandler(async ({ changed, onChange }) => {
-          onChange((prev) => {
-            if (prev == null) return prev;
-            const rel = ontology.relationShipZ.parse(changed);
-            if (Label.matchRelationship(rel, ranger.ontologyID(prev.key))) return prev;
-            return { ...prev, labels: prev.labels.filter((l) => l !== rel.to.key) };
-          });
-        }),
+        onChange: Sync.parsedHandler(
+          ontology.relationShipZ,
+          async ({ changed, onChange }) => {
+            onChange((prev) => {
+              if (prev == null) return prev;
+              const rel = ontology.relationShipZ.parse(changed);
+              if (Label.matchRelationship(rel, ranger.ontologyID(prev.key)))
+                return prev;
+              return { ...prev, labels: prev.labels.filter((l) => l !== rel.to.key) };
+            });
+          },
+        ),
       },
       {
         channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-        onChange: Sync.stringHandler(async ({ changed, onChange }) => {
-          onChange((prev) => {
-            if (prev == null) return prev;
-            const rel = ontology.relationShipZ.parse(changed);
-            if (
-              rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
-              ontology.idsEqual(rel.to, ranger.ontologyID(prev.key))
-            )
-              return prev;
-            return { ...prev, parent: rel.from.key };
-          });
-        }),
+        onChange: Sync.parsedHandler(
+          ontology.relationShipZ,
+          async ({ changed, onChange }) => {
+            onChange((prev) => {
+              if (prev == null) return prev;
+              const rel = ontology.relationShipZ.parse(changed);
+              if (
+                rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
+                ontology.idsEqual(rel.to, ranger.ontologyID(prev.key))
+              )
+                return prev;
+              return { ...prev, parent: rel.from.key };
+            });
+          },
+        ),
       },
       {
         channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-        onChange: Sync.stringHandler(async ({ changed, onChange }) => {
-          onChange((prev) => {
-            if (prev == null) return prev;
-            const rel = ontology.relationShipZ.parse(changed);
-            if (
-              rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
-              ontology.idsEqual(rel.to, ranger.ontologyID(prev.key))
-            )
-              return prev;
-            return { ...prev, parent: undefined };
-          });
-        }),
+        onChange: Sync.parsedHandler(
+          ontology.relationShipZ,
+          async ({ changed, onChange }) => {
+            onChange((prev) => {
+              if (prev == null) return prev;
+              const rel = ontology.relationShipZ.parse(changed);
+              if (
+                rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE ||
+                ontology.idsEqual(rel.to, ranger.ontologyID(prev.key))
+              )
+                return prev;
+              return { ...prev, parent: undefined };
+            });
+          },
+        ),
       },
     ],
   });
