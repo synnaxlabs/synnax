@@ -25,16 +25,20 @@ import (
 type Config struct {
 	alamos.Instrumentation
 	// EnableTracing sets whether the middleware starts traces. Defaults to true.
+	//
 	// [OPTIONAL]
 	EnableTracing *bool
-	// EnablePropagation sets whether the middleware propagates any traces attached
-	// to the request context. Defaults to true.
+	// EnablePropagation sets whether the middleware propagates any traces attached to
+	// the request context. Defaults to true.
+	//
 	// [OPTIONAL]
 	EnablePropagation *bool
 	// EnableLogging sets whether the middleware logs the trace. Defaults to true.
+	//
 	// [OPTIONAL]
 	EnableLogging *bool
 	// Level is the level of the trace. Defaults to alamos.Prod.
+	//
 	// [OPTIONAL]
 	Level alamos.Environment
 }
@@ -65,8 +69,8 @@ var Default = Config{
 	EnableLogging:     config.True(),
 }
 
-// Middleware adds traces and logs to incoming and outgoing requests and ensures
-// that they are propagated across the network.
+// Middleware adds traces and logs to incoming and outgoing requests and ensures that
+// they are propagated across the network.
 func Middleware(configs ...Config) (freighter.Middleware, error) {
 	cfg, err := config.New(Default, configs...)
 	if err != nil {
@@ -107,15 +111,19 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 	}), nil
 }
 
-type carrier struct{ freighter.Context }
+type carrier struct {
+	freighter.Context
+}
 
 var _ alamos.TraceCarrier = carrier{}
 
 const keyPrefix = "alamos"
 
-func keyF(k string) string { return keyPrefix + "-" + k }
+func keyF(k string) string {
+	return keyPrefix + "-" + k
+}
 
-// Get implements TextMapCarrier.
+// Get implements alamos.TraceCarrier.
 func (c carrier) Get(key string) string {
 	v, ok := c.Context.Get(keyF(key))
 	if !ok {
@@ -128,10 +136,12 @@ func (c carrier) Get(key string) string {
 	return vStr
 }
 
-// Set implements TextMapCarrier.
-func (c carrier) Set(key, value string) { c.Context.Params.Set(keyF(key), value) }
+// Set implements alamos.TraceCarrier.
+func (c carrier) Set(key, value string) {
+	c.Context.Params.Set(keyF(key), value)
+}
 
-// Keys implements TextMapCarrier.
+// Keys implements alamos.TraceCarrier.
 func (c carrier) Keys() []string {
 	keys := make([]string, 0, len(c.Context.Params))
 	for k := range c.Context.Params {
