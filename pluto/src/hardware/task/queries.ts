@@ -62,7 +62,7 @@ export const use = <
   key: task.Key | undefined,
   schemas: task.Schemas<Type, Config, StatusData>,
 ) =>
-  Query.use<QueryParams, task.Task<Type, Config, StatusData> | null>({
+  Query.useObservable<QueryParams, task.Task<Type, Config, StatusData> | null>({
     name: "Task",
     params: { key },
     retrieve: async ({ client, params: { key } }) => {

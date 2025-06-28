@@ -20,9 +20,9 @@ import {
   type Params,
   type Result,
   successResult,
-  useBase,
-} from "@/query/base";
-import { type UseArgs } from "@/query/use";
+  useObservable,
+} from "@/query/observable";
+import { type UseObserableArgs } from "@/query/useStateful";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
@@ -97,7 +97,7 @@ export interface UpdateArgs<P extends Params, Schema extends z.ZodObject> {
  * ```
  */
 export interface UseFormArgs<QueryParams extends Params, DataSchema extends z.ZodObject>
-  extends UseArgs<QueryParams, z.infer<DataSchema> | null> {
+  extends UseObserableArgs<QueryParams, z.infer<DataSchema> | null> {
   /** Initial values for the form fields */
   initialValues: z.infer<DataSchema>;
   /** Whether to automatically save form changes (not currently implemented) */
@@ -212,7 +212,7 @@ export const useForm = <P extends Params, Z extends z.ZodObject>({
     })();
   }, [client, form, name, params, update, afterUpdate]);
 
-  useBase({
+  useObservable({
     retrieve,
     listeners,
     name,

@@ -38,7 +38,7 @@ describe("use", () => {
     it("should return a loading result as its initial state", () => {
       const { result } = renderHook(
         () =>
-          Query.use<Params, number>({
+          Query.useObservable<Params, number>({
             params: {},
             name: "Resource",
             retrieve: async () => 0,
@@ -54,7 +54,7 @@ describe("use", () => {
     it("should return a success result when the data is fetched", async () => {
       const { result } = renderHook(
         () =>
-          Query.use<Params, number>({
+          Query.useObservable<Params, number>({
             params: {},
             name: "Resource",
             retrieve: async () => 12,
@@ -72,7 +72,7 @@ describe("use", () => {
     it("should return an error result when the retrieve function throws an error", async () => {
       const { result } = renderHook(
         () =>
-          Query.use<Params, number>({
+          Query.useObservable<Params, number>({
             params: {},
             name: "Resource",
             retrieve: async () => {
@@ -93,7 +93,7 @@ describe("use", () => {
     it("should return an error result when no client is connected", async () => {
       const { result } = renderHook(
         () =>
-          Query.use<Params, number>({
+          Query.useObservable<Params, number>({
             params: {},
             name: "Resource",
             retrieve: async () => 0,
@@ -128,7 +128,7 @@ describe("use", () => {
       }
       const { result } = renderHook(
         () =>
-          Query.use<Params, channel.Channel>({
+          Query.useObservable<Params, channel.Channel>({
             params: { key: ch.key },
             name: "Resource",
             retrieve: async ({ client, params: { key } }) =>
@@ -168,7 +168,7 @@ describe("use", () => {
       }
       const { result } = renderHook(
         () =>
-          Query.use<Params, channel.Channel>({
+          Query.useObservable<Params, channel.Channel>({
             params: { key: ch.key },
             name: "Resource",
             retrieve: async ({ client, params: { key } }) =>

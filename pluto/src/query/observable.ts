@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, DisconnectedError, type Synnax } from "@synnaxlabs/client";
-import { type MultiSeries, type primitive, status } from "@synnaxlabs/x";
+import {
+  type Destructor,
+  type MultiSeries,
+  type primitive,
+  status,
+} from "@synnaxlabs/x";
+import { useCallback, useEffect, useRef } from "react";
 
-import { useAsyncEffect } from "@/hooks";
-import { useMemoDeepEqual } from "@/memo";
 import { Sync } from "@/query/sync";
 import { state } from "@/state";
 
@@ -110,17 +114,12 @@ export const errorResult = <Data extends state.State>(
  * @template QParams - The type of the parameters for the query.
  * @template Data - The type of the data being retrieved.
  */
-export interface UseBaseArgs<QParams extends Params, Data extends state.State> {
+export interface UseObservableArgs<QParams extends Params, Data extends state.State> {
   /**
    * The name of the resource being retrieve. This is used to make pretty messages for
    * the various query states.
    */
   name: string;
-  /**
-   * Parameters used to retrieve the resource. The query will re-execute whenever the
-   * parameters change.
-   */
-  params: QParams;
   /** Executed when the query is first created, or whenever the query parameters change. */
   retrieve: (args: RetrieveArgs<QParams>) => Promise<Data>;
   /**
@@ -144,6 +143,14 @@ export interface UseBaseArgs<QParams extends Params, Data extends state.State> {
   client: Synnax | null;
 }
 
+interface UseObservableReturn<QueryParams extends Params> {
+  retrieve: (params: QueryParams, options: { signal?: AbortSignal }) => void;
+  retrieveAsync: (
+    params: QueryParams,
+    options: { signal?: AbortSignal },
+  ) => Promise<void>;
+}
+
 /**
  * A low level hook that is used to create a query, and allows the caller to manage
  * the result state externally.
@@ -151,19 +158,23 @@ export interface UseBaseArgs<QParams extends Params, Data extends state.State> {
  * @template QueryParams - The type of the parameters for the query.
  * @template Data - The type of the data being retrieved.
  */
-export const useBase = <QueryParams extends Params, Data extends state.State>({
+export const useObservable = <QueryParams extends Params, Data extends state.State>({
   retrieve,
   listeners,
   name,
-  params,
   onChange,
   client,
-}: UseBaseArgs<QueryParams, Data>): void => {
-  const memoParams = useMemoDeepEqual(params);
+}: UseObservableArgs<QueryParams, Data>): UseObservableReturn<QueryParams> => {
   const addListener = Sync.useAddListener();
-  useAsyncEffect(
-    async (signal) => {
+  const destructorsRef = useRef<Destructor[]>([]);
+  const cleanupDestructors = useCallback(() => {
+    destructorsRef.current.forEach((d) => d());
+  }, []);
+  useEffect(() => cleanupDestructors, [cleanupDestructors]);
+  const base = useCallback(
+    async (params: QueryParams, { signal }: { signal?: AbortSignal }) => {
       try {
+        cleanupDestructors();
         if (client == null)
           return onChange(
             errorResult(
@@ -175,10 +186,10 @@ export const useBase = <QueryParams extends Params, Data extends state.State>({
           );
         onChange(loadingResult(name));
         const value = await retrieve({ client, params });
-        if (signal.aborted) return;
+        if (signal?.aborted) return;
         if (listeners == null || listeners.length === 0)
           return onChange(successResult(name, value));
-        const destructors = listeners.map(
+        destructorsRef.current = listeners.map(
           ({ channel, onChange: listenerOnChange }, i) =>
             addListener({
               channel,
@@ -206,11 +217,17 @@ export const useBase = <QueryParams extends Params, Data extends state.State>({
               },
             }),
         );
-        return () => destructors.forEach((d) => d());
       } catch (error) {
         onChange(errorResult(name, error));
       }
     },
-    [client, memoParams, addListener],
+    [client, name, addListener],
   );
+  return {
+    retrieve: (params: QueryParams, options: { signal?: AbortSignal }) => {
+      void base(params, options);
+    },
+    retrieveAsync: async (params: QueryParams, options: { signal?: AbortSignal }) =>
+      await base(params, options),
+  };
 };

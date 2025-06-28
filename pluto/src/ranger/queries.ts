@@ -15,7 +15,7 @@ import { Label } from "@/label";
 import { Ontology } from "@/ontology";
 import { Query } from "@/query";
 import { Sync } from "@/query/sync";
-import { type UseReturn } from "@/query/use";
+import { type UseReturn } from "@/query/useStateful";
 import { Synnax } from "@/synnax";
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void =>
@@ -89,13 +89,11 @@ const SET_LISTENER_CONFIG: Query.ListenerConfig<QueryParams, ranger.Range> = {
   ),
 };
 
-export const use = (params: QueryParams) =>
-  Query.use({
-    name: "Range",
-    params,
-    retrieve: async ({ client, params: { key } }) => await client.ranges.retrieve(key),
-    listeners: [SET_LISTENER_CONFIG],
-  });
+export const use = Query.create({
+  name: "Range",
+  retrieve: async ({ client, params: { key } }) => await client.ranges.retrieve(key),
+  listeners: [SET_LISTENER_CONFIG],
+});
 
 export const rangeFormSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).shape,

@@ -66,8 +66,8 @@ interface UseDependentQueryParams extends Query.Params {
 
 const useDependents = (
   params: UseDependentQueryParams,
-): Query.UseReturn<ontology.Resource[]> =>
-  Query.use<UseDependentQueryParams, ontology.Resource[]>({
+): Query.CreateReturn<ontology.Resource[]> =>
+  Query.useObservable<UseDependentQueryParams, ontology.Resource[]>({
     name: "useDependents",
     params,
     retrieve: async ({ client, params: { id, direction } }) =>
@@ -116,18 +116,18 @@ const useDependents = (
     ],
   });
 
-export const useChildren = (id: ontology.ID): Query.UseReturn<ontology.Resource[]> =>
+export const useChildren = (id: ontology.ID): Query.CreateReturn<ontology.Resource[]> =>
   useDependents({ id, direction: "to" });
 
-export const useParents = (id: ontology.ID): Query.UseReturn<ontology.Resource[]> =>
+export const useParents = (id: ontology.ID): Query.CreateReturn<ontology.Resource[]> =>
   useDependents({ id, direction: "from" });
 
 export interface UseResourceQueryParams extends Query.Params {
   id: ontology.ID;
 }
 
-export const useResource = (id: ontology.ID): Query.UseReturn<ontology.Resource> =>
-  Query.use<UseResourceQueryParams, ontology.Resource>({
+export const useResource = (id: ontology.ID): Query.CreateReturn<ontology.Resource> =>
+  Query.useObservable<UseResourceQueryParams, ontology.Resource>({
     name: "useResource",
     params: { id },
     retrieve: async ({ client, params: { id } }) => client.ontology.retrieve(id),

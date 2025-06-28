@@ -21,8 +21,8 @@ interface UseLabelsOfQueryParams extends Query.Params {
   id: ontology.ID;
 }
 
-export const useLabelsOf = (id: ontology.ID): Query.UseReturn<label.Label[]> =>
-  Query.use<UseLabelsOfQueryParams, label.Label[]>({
+export const useLabelsOf = (id: ontology.ID): Query.CreateReturn<label.Label[]> =>
+  Query.useObservable<UseLabelsOfQueryParams, label.Label[]>({
     name: "Labels",
     params: { id },
     retrieve: async ({ client, params: { id } }) => await client.labels.retrieveFor(id),
