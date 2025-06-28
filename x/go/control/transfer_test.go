@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 )
 
-var _ = Describe("Stage", func() {
+var _ = Describe("State", func() {
 	Describe("Subject", func() {
 		Describe("String", func() {
 			It("Should return both the key and name when present", func() {
@@ -30,7 +30,7 @@ var _ = Describe("Stage", func() {
 		})
 	})
 
-	Describe("Stage", func() {
+	Describe("State", func() {
 		Describe("String", func() {
 			It("Should return a nicely formatted state string", func() {
 				s := control.Subject{Key: "cat", Name: "Hat"}

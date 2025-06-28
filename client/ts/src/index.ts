@@ -19,6 +19,7 @@ export { effect } from "@/effect";
 export {
   AuthError,
   ContiguityError,
+  DisconnectedError,
   MultipleFoundError,
   NotFoundError,
   QueryError,

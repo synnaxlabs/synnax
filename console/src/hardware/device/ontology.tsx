@@ -103,7 +103,7 @@ const useDelete = () => {
       setNodes([
         ...Tree.removeNode({
           tree: nodes,
-          keys: resources.map(({ id }) => id.toString()),
+          keys: resources.map(({ id }) => ontology.idToString(id)),
         }),
       ]);
       return prevNodes;
@@ -181,7 +181,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
 const Item: Tree.Item = ({ entry, className, ...rest }: Tree.ItemProps) => {
-  const id = new ontology.ID(entry.key);
+  const id = ontology.idZ.parse(entry.key);
   const devStatus = Device.useStatus(id.key);
   const variant = devStatus?.variant;
   const message = devStatus?.message ?? "Device Status Unknown";

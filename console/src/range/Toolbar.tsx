@@ -30,7 +30,7 @@ import { useDispatch, useStore } from "react-redux";
 import { Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { ContextMenu, useLabels } from "@/range/ContextMenu";
+import { ContextMenu } from "@/range/ContextMenu";
 import { CREATE_LAYOUT } from "@/range/Create";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
@@ -132,7 +132,7 @@ interface ListItemProps extends CoreList.ItemProps<string, StaticRange> {}
 
 const ListItem = (props: ListItemProps): ReactElement => {
   const { entry } = props;
-  const labels = useLabels(entry.key);
+  const labels = Ranger.useLabels(entry.key)?.data ?? [];
   const onRename = useRename(entry.key);
 
   return (

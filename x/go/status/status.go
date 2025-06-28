@@ -54,6 +54,3 @@ type Status[D any] struct {
 	// Details are customizable details for component specific statuses.
 	Details D `json:"details" msgpack:"details"`
 }
-
-
-

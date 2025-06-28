@@ -21,7 +21,7 @@ import {
 } from "@/label/payload";
 import { Retriever } from "@/label/retriever";
 import { type New, type SetOptions, Writer } from "@/label/writer";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { signals } from "@/signals";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
@@ -57,20 +57,16 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
     return isMany ? res : res[0];
   }
 
-  async retrieveFor(id: ontology.CrudeID): Promise<Label[]> {
-    return await this.retriever.retrieveFor(new ontology.ID(id));
+  async retrieveFor(id: ontology.ID): Promise<Label[]> {
+    return await this.retriever.retrieveFor(id);
   }
 
-  async label(
-    id: ontology.CrudeID,
-    labels: Key[],
-    opts: SetOptions = {},
-  ): Promise<void> {
-    await this.writer.set(new ontology.ID(id), labels, opts);
+  async label(id: ontology.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
+    await this.writer.set(id, labels, opts);
   }
 
-  async removeLabels(id: ontology.CrudeID, labels: Key[]): Promise<void> {
-    await this.writer.remove(new ontology.ID(id), labels);
+  async removeLabels(id: ontology.ID, labels: Key[]): Promise<void> {
+    await this.writer.remove(id, labels);
   }
 
   async page(offset: number, limit: number): Promise<Label[]> {
@@ -101,7 +97,7 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
   }
 
   async trackLabelsOf(
-    id: ontology.CrudeID,
+    id: ontology.ID,
   ): Promise<observe.ObservableAsyncCloseable<Label[]>> {
     const wrapper = new observe.Observer<Label[]>();
     const initial = (await this.retrieveFor(id)).map((l) => ({
@@ -111,7 +107,7 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
       data: l,
     }));
     const base = await this.ontology.openDependentTracker({
-      target: new ontology.ID(id),
+      target: id,
       dependents: initial,
       relationshipType: LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
     });
@@ -133,5 +129,4 @@ const decodeChanges: signals.Decoder<string, Label> = (variant, data) => {
   return data.parseJSON(labelZ).map((l) => ({ variant, key: l.key, value: l }));
 };
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });

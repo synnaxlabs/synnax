@@ -9,7 +9,7 @@
 
 import "@/hardware/task/Toolbar.css";
 
-import { task, UnexpectedError } from "@synnaxlabs/client";
+import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -30,7 +30,6 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Common } from "@/hardware/common";
 import { createLayout } from "@/hardware/task/layouts";
 import { SELECTOR_LAYOUT } from "@/hardware/task/Selector";
@@ -102,7 +101,7 @@ const Content = () => {
           return task;
         }),
       );
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       await client.hardware.tasks.create({ ...tsk, name });
     },
     onError: (e, { name, key }, oldName) => {
@@ -144,7 +143,7 @@ const Content = () => {
   const handleSet = useCallback(
     (key: task.Key) => {
       handleError(async () => {
-        if (client == null) throw NULL_CLIENT_ERROR;
+        if (client == null) throw new DisconnectedError();
         const tk = await client.hardware.tasks.retrieve({ key, includeStatus: true });
         setTasks((prev) => {
           const existing = prev.find((t) => t.key === tk.key);
@@ -181,7 +180,7 @@ const Content = () => {
     mutationFn: async (keys: string[]) => {
       setSelected([]);
       if (keys.length === 0) return;
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const deletedNames = tasks
         .filter(({ key }) => keys.includes(key))
         .map(({ name }) => name);
@@ -208,7 +207,7 @@ const Content = () => {
   );
   const startOrStop = useMutation({
     mutationFn: async ({ command, keys }: StartStopArgs) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const filteredKeys = new Set(
         keys.filter((k) => {
           const status = tasks.find(({ key }) => key === k)?.status;

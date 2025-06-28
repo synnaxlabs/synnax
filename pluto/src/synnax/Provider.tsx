@@ -46,6 +46,7 @@ export const useConnectionState = () => useContext().state;
 
 export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxProps;
+  client?: Synnax;
 }
 
 export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
@@ -70,6 +71,14 @@ const createErrorDescription = (
   nodeVersion?: string,
 ): string =>
   `Cluster version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
+
+interface TestProviderProps extends PropsWithChildren {
+  client: Synnax | null;
+}
+
+export const TestProvider = ({ children, client }: TestProviderProps): ReactElement => (
+  <Context value={{ ...ZERO_CONTEXT_VALUE, client }}>{children}</Context>
+);
 
 export const Provider = ({ children, connParams }: ProviderProps): ReactElement => {
   const [state, setState, ref] =

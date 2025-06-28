@@ -12,7 +12,7 @@ import { array, type record } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod/v4";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { type Key as UserKey, keyZ as userKeyZ } from "@/user/payload";
 import { nullableArrayZ } from "@/util/zod";
 import { linePlot } from "@/workspace/lineplot";
@@ -52,6 +52,9 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const retrieveResZ = z.object({ workspaces: nullableArrayZ(workspaceZ) });
 const createResZ = z.object({ workspaces: remoteZ.array() });
 const emptyResZ = z.object({});
+
+export const SET_CHANNEL_NAME = "sy_workspace_set";
+export const DELETE_CHANNEL_NAME = "sy_workspace_delete";
 
 export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   readonly type = ONTOLOGY_TYPE;
@@ -163,5 +166,4 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });

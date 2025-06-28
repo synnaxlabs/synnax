@@ -74,7 +74,7 @@ var _ = Describe("Receiver", func() {
 			Expect(v).To(Equal(1))
 			cancel()
 			_, err = stream.Receive()
-			Expect(err).To(Equal(context.Canceled))
+			Expect(err).To(HaveOccurredAs(context.Canceled))
 			By("Closing the receive server on exit")
 			_, ok := <-receiverStream.Outlet()
 			Expect(ok).To(BeFalse())

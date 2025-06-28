@@ -15,22 +15,18 @@ import {
   Form,
   Icon,
   Input,
+  Label,
   Ranger,
   Text,
   usePrevious,
 } from "@synnaxlabs/pluto";
-import { type change, deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
-import { useDispatch } from "react-redux";
-import { z } from "zod/v4";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
-import { useSelect } from "@/range/selectors";
-import { add, type StaticRange } from "@/range/slice";
 
 interface ParentRangeButtonProps {
   rangeKey: string;
@@ -39,10 +35,10 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const parent = Ranger.useRetrieveParentRange(rangeKey);
+  const res = Ranger.useParent(rangeKey);
   const placeLayout = Layout.usePlacer();
-
-  if (parent == null) return null;
+  if (res.variant !== "success" || res.data == null) return null;
+  const parent = res.data;
   return (
     <Align.Space x size="small" align="center">
       <Text.Text level="p" shade={11} weight={450}>
@@ -69,76 +65,22 @@ export interface DetailsProps {
   rangeKey: string;
 }
 
-const formSchema = z.object({
-  name: z.string().min(1, "Name must not be empty"),
-  timeRange: z.object({
-    start: z.number(),
-    end: z.number(),
-  }),
-});
-
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
-  const existingRangeInState = useSelect(rangeKey);
   const layoutName = Layout.useSelect(rangeKey)?.name;
   const prevLayoutName = usePrevious(layoutName);
-  const dispatch = useDispatch();
-
-  const formCtx = Form.useSynced<
-    typeof formSchema,
-    change.Change<string, ranger.Range>[]
-  >({
-    name: "Range",
-    key: [rangeKey, "details"],
-    schema: formSchema,
-    values: {
+  const { form } = Ranger.useForm({
+    params: { key: rangeKey },
+    initialValues: {
+      key: rangeKey,
       name: "",
       timeRange: { start: 0, end: 0 },
-    },
-    queryFn: async ({ client }) => {
-      const rng = await client.ranges.retrieve(rangeKey);
-      return {
-        name: rng.name,
-        timeRange: {
-          start: Number(rng.timeRange.start),
-          end: Number(rng.timeRange.end),
-        },
-      };
-    },
-    openObservable: async (client) => await client.ranges.openTracker(),
-    applyObservable: ({ changes, ctx }) => {
-      const target = changes.find((c) => c.variant === "set" && c.key === rangeKey);
-      if (target == null || target.value == null) return;
-      ctx.set("", {
-        name: target.value.name,
-        timeRange: {
-          start: Number(target.value.timeRange.start),
-          end: Number(target.value.timeRange.end),
-        },
-      });
-    },
-    applyChanges: async ({ client, path, values, prev }) => {
-      if (client == null || deep.equal(values, prev)) return;
-      const { name, timeRange } = values;
-      await client.ranges.create({ key: rangeKey, name, timeRange });
-      if (existingRangeInState == null) return;
-      if (path.includes("name")) dispatch(Layout.rename({ key: rangeKey, name }));
-      const newRange: StaticRange = {
-        key: rangeKey,
-        persisted: true,
-        variant: "static",
-        name,
-        timeRange: {
-          start: Number(timeRange.start),
-          end: Number(timeRange.end),
-        },
-      };
-      dispatch(add({ ranges: [newRange], switchActive: false }));
+      labels: [],
     },
   });
-  const name = Form.useFieldValue<string, string, typeof formSchema>(
+  const name = Form.useFieldValue<string, string, typeof Ranger.rangeFormSchema>(
     "name",
     false,
-    formCtx,
+    form,
   );
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleCopyLink = () => {
@@ -147,7 +89,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
 
   useEffect(() => {
     if (prevLayoutName == layoutName || prevLayoutName == null) return;
-    formCtx.set("name", layoutName);
+    form.set("name", layoutName);
   }, [layoutName]);
 
   const copy = useCopyToClipboard();
@@ -162,7 +104,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   };
 
   const handleCopyTypeScriptCode = () => {
-    const name = formCtx.get<string>("name").value;
+    const name = form.get<string>("name").value;
     copy(
       `
       // Retrieve ${name}
@@ -181,7 +123,8 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       background={1}
       bordered
     >
-      <Form.Form<typeof formSchema> {...formCtx}>
+    <Form.Form<typeof Ranger.rangeFormSchema> {...form}>
+      <Align.Space y size="large">
         <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
           <Align.Space y grow>
             <Form.TextField
@@ -258,6 +201,18 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           >
             {(p) => (
               <Input.DateTime onlyChangeOnBlur level="h4" variant="natural" {...p} />
+            )}
+          </Form.Field>
+          <Form.Field<string[]> required={false} path="labels">
+            {({ variant: _, ...p }) => (
+              <Label.SelectMultiple
+                entryRenderKey="name"
+                dropdownVariant="floating"
+                zIndex={100}
+                location="bottom"
+                style={{ width: "fit-content" }}
+                {...p}
+              />
             )}
           </Form.Field>
         </Align.Space>
