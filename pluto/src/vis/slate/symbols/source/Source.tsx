@@ -16,7 +16,7 @@ export type Config = z.infer<typeof config>;
 export interface SymbolProps extends types.SymbolProps<Config> {}
 
 export const Symbol = ({ channel }: SymbolProps) => {
-  const name = Channel.useName(channel, "Channel");
+  const [name] = Channel.useName(channel, "Channel");
 
   return (
     <Base

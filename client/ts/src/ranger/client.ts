@@ -376,5 +376,6 @@ export const convertOntologyResourceToPayload = ({
     name,
     timeRange,
     color: typeof data?.color === "string" ? data.color : undefined,
+    stage: data?.stage as Stage,
   };
 };
