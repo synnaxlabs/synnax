@@ -10,9 +10,9 @@
 import { TimeRange } from "@synnaxlabs/x/telem";
 import { z } from "zod/v4";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 
-export const keyZ = z.string().uuid();
+export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
 
@@ -29,8 +29,7 @@ export interface New extends z.input<typeof newZ> {}
 export const ONTOLOGY_TYPE = "annotation";
 export type OntologyType = typeof ONTOLOGY_TYPE;
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
 
 export const ontologyIDsFromAnnotations = (annotations: Annotation[]): ontology.ID[] =>
   annotations.map((a) => ontologyID(a.key));

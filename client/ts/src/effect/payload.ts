@@ -10,11 +10,11 @@
 import { record, status } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { slate } from "@/slate";
 import { decodeJSONString } from "@/util/decodeJSONString";
 
-export const keyZ = z.string().uuid();
+export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
 
@@ -41,8 +41,7 @@ export interface New extends z.input<typeof newZ> {}
 export const ONTOLOGY_TYPE = "effect";
 export type OntologyType = typeof ONTOLOGY_TYPE;
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
 
 export const ontologyIDsFromEffects = (effects: Effect[]): ontology.ID[] =>
   effects.map((e) => ontologyID(e.key));
