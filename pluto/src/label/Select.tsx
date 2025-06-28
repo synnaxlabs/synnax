@@ -93,7 +93,7 @@ export const SelectMultiple = ({
           ...array.toArray(value),
           ...(dropped.map((c) => c.key) as label.Key[]),
         ]);
-        onChange(v, { clickedIndex: null, clicked: null, entries: [] });
+        onChange(v, { clicked: null, entries: [] });
         return dropped;
       },
       [onChange, value],
@@ -105,7 +105,7 @@ export const SelectMultiple = ({
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
       onChange(
         array.toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
-        { clickedIndex: null, clicked: null, entries: [] },
+        { clicked: null, entries: [] },
       );
     },
     [onChange, value],
@@ -174,7 +174,6 @@ const useSingle = ({
         const ch = Haul.filterByType(HAUL_TYPE, items);
         if (ch.length === 0) return [];
         onChange(ch[0].key as label.Key, {
-          clickedIndex: null,
           clicked: null,
           entries: [],
         });

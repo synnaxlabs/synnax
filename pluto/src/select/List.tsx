@@ -13,26 +13,20 @@ import { type ReactElement } from "react";
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
-import { List as CoreList } from "@/list";
+import { List as CoreList } from "@/list/v2";
 import { componentRenderProp } from "@/util/renderProp";
 
 export type SelectListProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
-> = Omit<CoreList.SelectorProps<K, E>, "children"> &
-  Pick<Partial<CoreList.ColumnHeaderProps<K, E>>, "columns"> &
-  Omit<Dropdown.DialogProps, "onChange" | "children"> &
-  Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">> & {
-    emptyContent?: ReactElement;
-    hideColumnHeader?: boolean;
-    data?: E[];
-    omit?: K[];
-    listItem?: CoreList.VirtualCoreProps<K, E>["children"];
-    trigger?: ReactElement;
-    extraDialogContent?: ReactElement;
-  };
-
-const DEFAULT_COLUMNS: CoreList.ColumnSpec[] = [];
+> = {
+  emptyContent?: ReactElement;
+  hideColumnHeader?: boolean;
+  data: K[];
+  listItem?: CoreList.Item;
+  trigger?: ReactElement;
+  extraDialogContent?: ReactElement;
+};
 
 export const Core = <K extends record.Key, E extends record.Keyed<K>>({
   data,
@@ -41,8 +35,6 @@ export const Core = <K extends record.Key, E extends record.Keyed<K>>({
   onChange,
   allowMultiple,
   allowNone,
-  hideColumnHeader = false,
-  columns = DEFAULT_COLUMNS,
   visible,
   itemHeight = CoreList.Column.itemHeight,
   listItem = componentRenderProp(CoreList.Column.Item) as CoreList.VirtualCoreProps<
@@ -50,7 +42,6 @@ export const Core = <K extends record.Key, E extends record.Keyed<K>>({
     E
   >["children"],
   replaceOnSingle,
-  omit,
   autoSelectOnNone,
   trigger,
   extraDialogContent,
@@ -58,16 +49,11 @@ export const Core = <K extends record.Key, E extends record.Keyed<K>>({
   ...rest
 }: SelectListProps<K, E>): ReactElement => {
   let dialogContent = (
-    <CoreList.Hover<K, E> disabled={!visible}>
+    <CoreList.Hover disabled={!visible}>
       {extraDialogContent}
-      <CoreList.Column.Header
-        hide={hideColumnHeader || listItem != null}
-        columns={columns}
-      >
-        <CoreList.Core.Virtual<K, E> itemHeight={itemHeight}>
-          {listItem}
-        </CoreList.Core.Virtual>
-      </CoreList.Column.Header>
+      <CoreList.VirtualItems<K> data={data} itemHeight={itemHeight}>
+        {listItem}
+      </CoreList.VirtualItems>
     </CoreList.Hover>
   );
 
@@ -78,27 +64,15 @@ export const Core = <K extends record.Key, E extends record.Keyed<K>>({
       </Align.Pack>
     );
   return (
-    <CoreList.List<K, E> data={data} emptyContent={emptyContent} omit={omit}>
-      {/* @ts-expect-error - selector compatibility with generic props */}
-      <CoreList.Selector<K, E>
-        value={value}
-        onChange={onChange}
-        allowMultiple={allowMultiple}
-        allowNone={allowNone}
-        replaceOnSingle={replaceOnSingle}
-        autoSelectOnNone={autoSelectOnNone}
-      >
-        <Dropdown.Dialog
-          visible={visible}
-          className={CSS.B("select")}
-          keepMounted={false}
-          variant={variant}
-          {...rest}
-        >
-          {trigger}
-          {dialogContent}
-        </Dropdown.Dialog>
-      </CoreList.Selector>
-    </CoreList.List>
+    <Dropdown.Dialog
+      visible={visible}
+      className={CSS.B("select")}
+      keepMounted={false}
+      variant={variant}
+      {...rest}
+    >
+      {trigger}
+      {dialogContent}
+    </Dropdown.Dialog>
   );
 };

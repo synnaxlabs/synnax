@@ -244,7 +244,6 @@ export const Multiple = <
               const next = arrValue.filter((v) => v !== k);
               onChange(next, {
                 clicked: null,
-                clickedIndex: -1,
                 entries: [],
               });
             },

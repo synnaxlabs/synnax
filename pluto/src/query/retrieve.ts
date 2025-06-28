@@ -116,11 +116,6 @@ export interface UseBaseArgs<QParams extends Params, Data extends state.State> {
    * the various query states.
    */
   name: string;
-  /**
-   * Parameters used to retrieve the resource. The query will re-execute whenever the
-   * parameters change.
-   */
-  params: QParams;
   /** Executed when the query is first created, or whenever the query parameters change. */
   retrieve: (args: RetrieveArgs<QParams>) => Promise<Data>;
   /**
@@ -144,6 +139,14 @@ export interface UseBaseArgs<QParams extends Params, Data extends state.State> {
   client: Synnax | null;
 }
 
+interface RetrieverOptions {
+  signal?: AbortSignal;
+}
+
+type Retriever<QueryParams extends Params, Data extends state.State> = (
+  options: RetrieverOptions,
+) => Promise<Data>;
+
 /**
  * A low level hook that is used to create a query, and allows the caller to manage
  * the result state externally.
@@ -151,16 +154,15 @@ export interface UseBaseArgs<QParams extends Params, Data extends state.State> {
  * @template QueryParams - The type of the parameters for the query.
  * @template Data - The type of the data being retrieved.
  */
-export const useBase = <QueryParams extends Params, Data extends state.State>({
+export const useRetrieve = <QueryParams extends Params, Data extends state.State>({
   retrieve,
   listeners,
   name,
-  params,
   onChange,
   client,
-}: UseBaseArgs<QueryParams, Data>): void => {
-  const memoParams = useMemoDeepEqual(params);
+}: UseBaseArgs<QueryParams, Data>): Retriever<QueryParams, Data> => {
   const addListener = Sync.useAddListener();
+
   useAsyncEffect(
     async (signal) => {
       try {

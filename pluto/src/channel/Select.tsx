@@ -127,7 +127,6 @@ export const SelectMultiple = ({
           ...(dropped.map((c) => c.key) as channel.Keys),
         ]);
         onChange(v, {
-          clickedIndex: null,
           clicked: null,
           entries: [],
         });
@@ -143,7 +142,6 @@ export const SelectMultiple = ({
       onChange(
         array.toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
         {
-          clickedIndex: null,
           clicked: null,
           entries: [],
         },
@@ -238,7 +236,6 @@ export const SelectSingle = ({
         const ch = Haul.filterByType(HAUL_TYPE, items);
         if (ch.length === 0) return [];
         onChange(ch[0].key as channel.Key, {
-          clickedIndex: null,
           clicked: null,
           entries: [],
         });

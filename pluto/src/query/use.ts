@@ -13,9 +13,9 @@ import {
   loadingResult,
   type Params,
   type Result,
-  useBase,
+  useRetrieve,
   type UseBaseArgs,
-} from "@/query/base";
+} from "@/query/retrieve";
 import { type state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
@@ -89,7 +89,7 @@ export const use = <P extends Params, V extends state.State>({
 }: UseArgs<P, V>): UseReturn<V> => {
   const [result, setResult] = useState<Result<V>>(loadingResult(name));
   const client = PSynnax.use();
-  useBase<P, V>({
+  useRetrieve<P, V>({
     retrieve,
     listeners,
     name,

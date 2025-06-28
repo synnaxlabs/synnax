@@ -68,12 +68,7 @@ const VirtualCore = <
 }: VirtualCoreProps<K, E>): ReactElement => {
   const { hasMore, onFetchMore } = useInfiniteContext();
   const { hover: hoverValue, setHover } = useHoverContext();
-  const {
-    transformedData: data,
-    emptyContent,
-    transformed,
-    sourceData,
-  } = useDataContext<K, E>();
+  const { transformedData: data, emptyContent } = useDataContext<K, E>();
   const selected = useSelection();
   const { onSelect } = useSelectionUtils();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -134,13 +129,8 @@ const VirtualCore = <
         >
           {items.map(({ index, start }) => {
             const entry = data[index];
-            let sourceIndex = index;
-            if (transformed)
-              sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
             return children({
               key: entry.key,
-              sourceIndex,
-              index,
               onSelect,
               entry,
               selected: selected.includes(entry.key),
@@ -166,12 +156,7 @@ export const Core = <
   children: ItemRenderProp<K, E>;
   itemHeight?: number;
 }): ReactElement => {
-  const {
-    transformedData: data,
-    transformed,
-    emptyContent,
-    sourceData,
-  } = useDataContext<K, E>();
+  const { transformedData: data, emptyContent } = useDataContext<K, E>();
   const { hover } = useHoverContext();
   const { selected } = useSelectionContext();
   const { onSelect } = useSelectionUtils();
@@ -189,20 +174,15 @@ export const Core = <
   }, [hover, itemHeight]);
 
   const child = useCallback(
-    (entry: E, index: number) => {
-      let sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
-      if (transformed) sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
-      return children({
+    (entry: E) =>
+      children({
         key: entry.key,
-        index,
-        sourceIndex,
         onSelect,
         entry,
         selected: selected.includes(entry.key),
-        hovered: index === hover,
-      });
-    },
-    [children, transformed, selected, hover, sourceData],
+        hovered: false,
+      }),
+    [children, selected, hover],
   );
 
   return (
@@ -212,11 +192,7 @@ export const Core = <
       size={0}
       {...rest}
     >
-      {data.length === 0 ? (
-        emptyContent
-      ) : (
-        <>{data.map((entry, index) => child(entry, index))}</>
-      )}
+      {data.length === 0 ? emptyContent : <>{data.map(child)}</>}
     </Align.Space>
   );
 };

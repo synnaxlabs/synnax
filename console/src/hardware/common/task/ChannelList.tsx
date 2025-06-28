@@ -32,7 +32,7 @@ interface ContextMenuProps<C extends Channel> {
   isSnapshot: boolean;
   keys: string[];
   onDuplicate?: (channels: C[], indices: number[]) => void;
-  onSelect: (keys: string[], index: number) => void;
+  onSelect: (keys: string[]) => void;
   onTare?: (keys: string[], channels: C[]) => void;
   path: string;
   remove: (index: number | number[]) => void;
@@ -54,12 +54,12 @@ const ContextMenu = <C extends Channel>({
   const keyToIndexMap = new Map(channels.map(({ key }, i) => [key, i]));
   const indices = keys.map((key) => keyToIndexMap.get(key)).filter((i) => i != null);
   const handleRemove = () => {
-    if (indices.length === 0) return onSelect([], -1);
+    if (indices.length === 0) return onSelect([]);
     remove(indices);
     const sorted = indices.sort((a, b) => a - b);
     const idxToSelect = sorted[0] - 1;
-    if (idxToSelect >= 0) onSelect([channels[idxToSelect].key], idxToSelect);
-    else onSelect([], -1);
+    if (idxToSelect >= 0) onSelect([channels[idxToSelect].key]);
+    else onSelect([]);
   };
   const { set } = Form.useContext();
   const handleDuplicate = () => onDuplicate?.(channels, indices);
@@ -156,11 +156,7 @@ export const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const { channels, isSnapshot, onSelect, path } = rest;
-  const handleChange = useCallback(
-    (keys: string[], { clickedIndex }: { clickedIndex: number | null }) =>
-      clickedIndex != null && onSelect(keys, clickedIndex),
-    [onSelect],
-  );
+  const handleChange = useCallback((keys: string[]) => onSelect(keys), [onSelect]);
   const menuProps = PMenu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channel-list")} empty grow={grow}>

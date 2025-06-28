@@ -42,7 +42,6 @@ interface RenderF<
   E extends record.Keyed<K> = record.Keyed<K>,
 > extends RenderProp<{
     key: string | number | symbol;
-    index: number;
     entry: E;
     style: CSSProperties;
   }> {}
@@ -194,7 +193,6 @@ const Item = <
   ...rest
 }: ItemProps<K, E> & ItemFrameProps<K, E>): ReactElement => {
   const { columns } = useColumnContext<K, E>();
-  const { index } = rest;
   return (
     <ItemFrame<K, E>
       key={entry.key.toString()}
@@ -212,12 +210,7 @@ const Item = <
       {columns
         .filter(({ visible = true }) => visible)
         .map((col) => (
-          <ListColumnValue
-            key={col.key.toString()}
-            entry={entry}
-            col={col}
-            index={index}
-          />
+          <ListColumnValue key={col.key.toString()} entry={entry} col={col} />
         ))}
     </ItemFrame>
   );
@@ -228,13 +221,11 @@ interface ListColumnValueProps<
   E extends record.Keyed<K> = record.Keyed<K>,
 > {
   entry: E;
-  index: number;
   col: ColumnSpec<K, E>;
 }
 
 const ListColumnValue = <K extends record.Key, E extends record.Keyed<K>>({
   entry,
-  index,
   col: { width, ...col },
 }: ListColumnValueProps<K, E>): ReactElement | null => {
   const style: CSSProperties = {
@@ -243,7 +234,7 @@ const ListColumnValue = <K extends record.Key, E extends record.Keyed<K>>({
     padding: "1rem",
     flexShrink: 0,
   };
-  if (col.render != null) return col.render({ key: col.key, entry, style, index });
+  if (col.render != null) return col.render({ key: col.key, entry, style });
   let rv: E[keyof E] | string;
   if (col.stringer != null) rv = col.stringer(entry);
   else rv = entry[col.key as keyof E];

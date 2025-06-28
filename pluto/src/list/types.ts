@@ -14,8 +14,6 @@ export interface ItemProps<
   E extends record.Keyed<K> = record.Keyed<K>,
 > {
   entry: E;
-  index: number;
-  sourceIndex: number;
   selected: boolean;
   hovered: boolean;
   onSelect?: (key: K) => void;

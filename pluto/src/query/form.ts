@@ -20,8 +20,8 @@ import {
   type Params,
   type Result,
   successResult,
-  useBase,
-} from "@/query/base";
+  useRetrieve,
+} from "@/query/retrieve";
 import { type UseArgs } from "@/query/use";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
@@ -212,7 +212,7 @@ export const useForm = <P extends Params, Z extends z.ZodObject>({
     })();
   }, [client, form, name, params, update, afterUpdate]);
 
-  useBase({
+  useRetrieve({
     retrieve,
     listeners,
     name,

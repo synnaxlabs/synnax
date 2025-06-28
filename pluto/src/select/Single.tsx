@@ -9,7 +9,7 @@
 
 import "@/select/Single.css";
 
-import { type AsyncTermSearcher, primitive, type record } from "@synnaxlabs/x";
+import { primitive, type record } from "@synnaxlabs/x";
 import {
   type FocusEventHandler,
   type ReactElement,
@@ -24,11 +24,9 @@ import { Button } from "@/button";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
-import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
-import { List as CoreList, type List } from "@/list";
+import { List as CoreList, List } from "@/list";
 import {
-  selectValueIsZero,
   type UseSelectOnChangeExtra,
   type UseSelectSingleProps,
 } from "@/list/useSelect";
@@ -44,14 +42,9 @@ export interface SingleProps<K extends record.Key, E extends record.Keyed<K>>
     >,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "variant" | "disabled">,
-    Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">>,
-    Pick<CoreList.SearchProps<K, E>, "filter"> {
+    Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">> {
   entryRenderKey?: keyof E | ((e: E) => string | number | ReactNode);
-  columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Partial<Omit<Input.TextProps, "onChange">>;
-  searcher?: AsyncTermSearcher<string, K, E>;
-  hideColumnHeader?: boolean;
-  omit?: Array<K>;
   children?: List.VirtualCoreProps<K, E>["children"];
   dropdownVariant?: Dropdown.Variant;
   dropdownZIndex?: number;
@@ -78,20 +71,15 @@ export interface SingleProps<K extends record.Key, E extends record.Keyed<K>>
  * @param props.onChange - The callback to be invoked when the selected value changes.
  * @param props.value - The currently selected value.
  */
-export const Single = <
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
->({
+export const Single = <K extends record.Key = record.Key>({
   onChange,
   value,
   entryRenderKey = "key",
   data,
   inputProps,
   allowNone = true,
-  searcher,
   className,
   variant = "button",
-  hideColumnHeader = false,
   disabled,
   children,
   dropdownVariant = "connected",
@@ -99,48 +87,26 @@ export const Single = <
   inputPlaceholder = placeholder,
   triggerTooltip,
   dropdownZIndex,
-  filter,
   actions,
   ...rest
-}: SingleProps<K, E>): ReactElement => {
+}: SingleProps<K>): ReactElement => {
   const { visible, open, close, toggle } = Dropdown.use();
-  const [selected, setSelected] = useState<E | null>(null);
-  const searchMode = searcher != null;
-
-  // This hook runs to make sure we have the selected entry populated when the value
-  // changes externally.
-  useAsyncEffect(
-    async (signal) => {
-      if (selectValueIsZero(value)) {
-        setSelected(null);
-        return;
-      }
-      if (selected?.key === value) return;
-      let nextSelected: E | null = null;
-      if (searchMode)
-        // Wrap this in a try-except clause just in case the searcher throws an error.
-        try {
-          [nextSelected] = await searcher.retrieve([value]);
-        } finally {
-          // It might be undefined, so coalesce it to null.
-          nextSelected ??= null;
-        }
-      else if (data != null) nextSelected = data.find((e) => e.key === value) ?? null;
-      if (signal.aborted) return;
-      setSelected(nextSelected);
-    },
-    [searcher, value, data],
-  );
 
   const handleChange = useCallback(
-    (v: K | K[] | null, e: UseSelectOnChangeExtra<K, E>): void => {
-      if (Array.isArray(v)) return;
-      setSelected(v == null ? null : e.entries[0]);
+    (v: K | null, e: UseSelectOnChangeExtra<K>): void => {
       close();
-      onChange(v as K, e);
+      onChange(v, e);
     },
-    [onChange, allowNone],
+    [onChange, close],
   );
+
+  const { onSelect } = List.useSelect<K>({
+    value,
+    data,
+    onChange: handleChange,
+    allowNone,
+    allowMultiple: false,
+  });
 
   const InputWrapper = useMemo(
     () => (searchMode ? CoreList.Search : CoreList.Filter),
@@ -156,7 +122,6 @@ export const Single = <
           variant={variant}
           onChange={handleChange}
           onFocus={open}
-          selected={selected}
           entryRenderKey={entryRenderKey}
           visible={visible}
           allowNone={allowNone}
@@ -171,17 +136,6 @@ export const Single = <
     </InputWrapper>
   );
 
-  const buttonTrigger = (
-    <Button.Button
-      tooltip={triggerTooltip}
-      variant="outlined"
-      onClick={toggle}
-      disabled={disabled}
-    >
-      {selected != null ? getRenderValue(entryRenderKey, selected) : placeholder}
-    </Button.Button>
-  );
-
   return (
     <Core<K, E>
       close={close}
@@ -190,7 +144,6 @@ export const Single = <
       allowMultiple={false}
       visible={visible}
       value={value}
-      hideColumnHeader={hideColumnHeader}
       onChange={handleChange}
       allowNone={allowNone}
       listItem={children}

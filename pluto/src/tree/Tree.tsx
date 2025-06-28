@@ -195,8 +195,6 @@ export const DefaultItem = memo(
     useMargin = true,
     translate,
     children: childrenProp,
-    index,
-    sourceIndex,
     className,
     hovered,
     ...rest
@@ -332,8 +330,6 @@ export const DefaultItem = memo(
             entry,
             selected,
             onSelect,
-            index,
-            sourceIndex,
             hovered,
           })
         ) : (

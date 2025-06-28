@@ -153,7 +153,6 @@ describe("Select", () => {
       fireEvent.click(c.getByText("John"));
       expect(onChange).toHaveBeenCalledWith(["1"], {
         clicked: mockOptions[0].key,
-        clickedIndex: 0,
         entries: [mockOptions[0]],
       });
     });
@@ -165,7 +164,6 @@ describe("Select", () => {
       fireEvent.click(c.getByLabelText("clear"));
       expect(onChange).toHaveBeenCalledWith([], {
         clicked: null,
-        clickedIndex: 0,
         entries: [],
       });
     });
@@ -215,7 +213,6 @@ describe("Select", () => {
       expect(onChange).toHaveBeenCalledTimes(2);
       expect(onChange).toHaveBeenCalledWith(null, {
         clicked: null,
-        clickedIndex: 0,
         entries: [],
       });
     });

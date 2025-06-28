@@ -17,76 +17,64 @@ import { Triggers } from "@/triggers";
  * Extra information passed as an additional argument to the `onChange` callback.
  * of the {@link useSelect} hook.
  */
-export interface UseSelectOnChangeExtra<
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
-> {
-  clickedIndex: number | null;
+export interface UseSelectOnChangeExtra<K extends record.Key = record.Key> {
   /** The key of the entry that was last clicked. */
   clicked: K | null;
-  /** The entries that are currently selected. */
-  entries: E[];
 }
 
-interface BaseProps<K extends record.Key, E extends record.Keyed<K>> {
-  data?: E[] | (() => E[]);
+interface BaseProps<K extends record.Key> {
+  data: K[];
   replaceOnSingle?: boolean;
 }
 
-export interface UseSelectSingleAllowNoneProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> extends BaseProps<K, E> {
+export interface UseSelectSingleAllowNoneProps<K extends record.Key>
+  extends BaseProps<K> {
   allowMultiple: false;
   allowNone?: true;
   autoSelectOnNone?: boolean;
   value: K | null;
-  onChange: (next: K | null, extra: UseSelectOnChangeExtra<K, E>) => void;
+  onChange: (next: K | null, extra: UseSelectOnChangeExtra<K>) => void;
 }
 
-export interface UseSelectSingleDisallowNoneProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> extends BaseProps<K, E> {
+export interface UseSelectSingleDisallowNoneProps<K extends record.Key>
+  extends BaseProps<K> {
   allowMultiple: false;
   allowNone: false | undefined;
   autoSelectOnNone?: boolean;
   value: K;
-  onChange: (next: K, extra: UseSelectOnChangeExtra<K, any>) => void;
+  onChange: (next: K, extra: UseSelectOnChangeExtra<K>) => void;
 }
 
-type UseSelectSingleInternalProps<K extends record.Key, E extends record.Keyed<K>> =
-  | UseSelectSingleAllowNoneProps<K, E>
-  | UseSelectSingleDisallowNoneProps<K, E>;
+type UseSelectSingleInternalProps<K extends record.Key> =
+  | UseSelectSingleAllowNoneProps<K>
+  | UseSelectSingleDisallowNoneProps<K>;
 
-export type UseSelectSingleProps<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> = Optional<UseSelectSingleInternalProps<K, E>, "allowNone">;
+export type UseSelectSingleProps<K extends record.Key> = Optional<
+  UseSelectSingleInternalProps<K>,
+  "allowNone"
+>;
 
-export interface UseSelectMultipleProps<K extends record.Key, E extends record.Keyed<K>>
-  extends BaseProps<K, E> {
+export interface UseSelectMultipleProps<K extends record.Key> extends BaseProps<K> {
   allowMultiple?: true;
   allowNone?: boolean;
   autoSelectOnNone?: boolean;
   value: K | K[];
-  onChange: (next: K[], extra: UseSelectOnChangeExtra<K, E>) => void;
+  onChange: (next: K[], extra: UseSelectOnChangeExtra<K>) => void;
 }
 
 /** Props for the {@link useSelect} hook. */
-export type UseSelectProps<
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
-> = UseSelectSingleProps<K, E> | UseSelectMultipleProps<K, E>;
+export type UseSelectProps<K extends record.Key = record.Key> =
+  | UseSelectSingleProps<K>
+  | UseSelectMultipleProps<K>;
 
-export type FlexUseSelectProps<K extends record.Key, E extends record.Keyed<K>> = {
-  data?: E[] | (() => E[]);
+export type FlexUseSelectProps<K extends record.Key> = {
+  data: K[];
   value: K | K[] | null;
   allowMultiple?: boolean;
   allowNone?: boolean;
   autoSelectOnNone?: boolean;
   replaceOnSingle?: boolean;
-  onChange: (next: K | K[] | null, extra: UseSelectOnChangeExtra<K, E>) => void;
+  onChange: (next: K | K[] | null, extra: UseSelectOnChangeExtra<K>) => void;
 };
 
 /** Return value for the {@link useSelect} hook. */
@@ -103,9 +91,6 @@ export const selectValueIsZero = <K extends record.Key>(
   if (typeof value === "string") return value.length === 0;
   return false;
 };
-
-const DEFAULT_PROPS_DATA: any[] = [];
-const DEFAULT_PROPS_VALUE: any[] = [];
 
 /**
  * Implements generic selection over a collection of keyed records. The hook
@@ -132,24 +117,24 @@ const DEFAULT_PROPS_VALUE: any[] = [];
  * probably be passed to the `onClick` corresponding to each record.
  * @returns clear - A callback that can be used to clear the selection.
  */
-export const useSelect = <K extends record.Key, E extends record.Keyed<K>>({
-  data: propsData = DEFAULT_PROPS_DATA,
-  value: propsValue = DEFAULT_PROPS_VALUE,
+export const useSelect = <K extends record.Key>({
+  data,
+  value,
   allowMultiple,
   allowNone,
   replaceOnSingle = false,
   autoSelectOnNone = false,
   onChange,
-}: UseSelectProps<K, E> | FlexUseSelectProps<K, E>): UseSelectMultipleReturn<K> => {
+}: UseSelectProps<K> | FlexUseSelectProps<K>): UseSelectMultipleReturn<K> => {
   const shiftValueRef = useRef<K | null>(null);
   const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
   const ctrl = Triggers.useHeldRef({ triggers: [["Control"]], loose: true });
 
-  const valueRef = useSyncedRef(propsValue);
-  const dataRef = useSyncedRef(propsData);
+  const valueRef = useSyncedRef(value);
+  const dataRef = useSyncedRef(data);
 
   const handleChange = useCallback(
-    (next: K[], extra: UseSelectOnChangeExtra<K, E>) => {
+    (next: K[], extra: UseSelectOnChangeExtra<K>) => {
       valueRef.current = next;
       if (next.length === 0 && allowNone !== false) {
         if (allowMultiple !== false) return onChange([], extra);
@@ -162,31 +147,25 @@ export const useSelect = <K extends record.Key, E extends record.Keyed<K>>({
   );
 
   useEffect(() => {
-    let data = dataRef.current;
-    if (!Array.isArray(data)) data = data();
+    const data = dataRef.current;
     // If for some reason the value is empty and it shouldn't be, automatically set
     // it to the new value..
     if (
-      selectValueIsZero(propsValue) &&
+      selectValueIsZero(value) &&
       allowNone === false &&
       data.length > 0 &&
       autoSelectOnNone
     ) {
       const first = data[0];
-      shiftValueRef.current = first.key;
-      handleChange([first.key], {
-        entries: [first],
-        clicked: first.key,
-        clickedIndex: 0,
-      });
+      shiftValueRef.current = first;
+      handleChange([first], { clicked: first });
     }
-  }, [handleChange, dataRef, propsValue, allowNone]);
+  }, [handleChange, dataRef, value, allowNone]);
 
   const onSelect = useCallback(
     (key: K): void => {
       const shiftValue = shiftValueRef.current;
-      let data = dataRef.current;
-      if (!Array.isArray(data)) data = data();
+      const data = dataRef.current;
       let nextSelected: K[] = [];
       const value = array.toArray(valueRef.current).filter((v) => v != null);
       // Simple case. If we can't allow multiple, then just toggle the key.
@@ -201,10 +180,10 @@ export const useSelect = <K extends record.Key, E extends record.Keyed<K>>({
       else if (shift.current.held && shiftValue !== null) {
         // We might select in reverse order, so we need to sort the indexes.
         const [start, end] = [
-          data.findIndex((v) => v.key === key),
-          data.findIndex((v) => v.key === shiftValue),
+          data.findIndex((v) => v === key),
+          data.findIndex((v) => v === shiftValue),
         ].sort((a, b) => a - b);
-        const nextKeys = data.slice(start, end + 1).map(({ key }) => key);
+        const nextKeys = data.slice(start, end + 1);
         // We already deselect the shiftSelected key, so we don't included it
         // when checking whether to select or deselect the entire range.
         if (
@@ -225,23 +204,15 @@ export const useSelect = <K extends record.Key, E extends record.Keyed<K>>({
       if (allowNone === false && v.length === 0)
         // If we're not allowed to have no select, still call handleChange with the same
         // value. This is useful when you want to close a dialog on selection.
-        return handleChange(value, {
-          entries: data.filter(({ key }) => value.includes(key)),
-          clicked: key,
-          clickedIndex: data.findIndex(({ key: k }) => k === key),
-        });
+        return handleChange(value, { clicked: key });
       if (v.length === 0) shiftValueRef.current = null;
-      handleChange(v, {
-        entries: data.filter(({ key }) => nextSelected.includes(key)),
-        clicked: key,
-        clickedIndex: data.findIndex(({ key: k }) => k === key),
-      });
+      handleChange(v, { clicked: key });
     },
     [valueRef, dataRef, handleChange, allowMultiple, allowNone],
   );
 
   const clear = useCallback(
-    (): void => handleChange([], { entries: [], clicked: null, clickedIndex: 0 }),
+    (): void => handleChange([], { clicked: null }),
     [handleChange],
   );
 
