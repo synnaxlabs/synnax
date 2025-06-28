@@ -151,7 +151,7 @@ export class Range {
     const wrapper = new observe.Observer<Range[]>();
     const initial: ontology.Resource[] = (await this.retrieveChildren()).map((r) => {
       const id = ontologyID(r.key);
-      return { id, key: id.toString(), name: r.name, data: r.payload };
+      return { id, key: ontology.idToString(id), name: r.name, data: r.payload };
     });
     const base = await this.ontologyClient.openDependentTracker({
       target: this.ontologyID,
@@ -170,7 +170,12 @@ export class Range {
     const p = await this.retrieveParent();
     if (p == null) return null;
     const id = ontologyID(p.key);
-    const resourceP = { id, key: id.toString(), name: p.name, data: p.payload };
+    const resourceP = {
+      id,
+      key: ontology.idToString(id),
+      name: p.name,
+      data: p.payload,
+    };
     const base = await this.ontologyClient.openDependentTracker({
       target: this.ontologyID,
       dependents: [resourceP],
@@ -352,11 +357,12 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
 
-export const aliasOntologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ALIAS_ONTOLOGY_TYPE, key });
+export const aliasOntologyID = (key: Key): ontology.ID => ({
+  type: ALIAS_ONTOLOGY_TYPE,
+  key,
+});
 
 export const convertOntologyResourceToPayload = ({
   data,
