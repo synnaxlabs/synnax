@@ -23,10 +23,12 @@ import { Frame, ONTOLOGY_TYPE } from "@/framer/frame";
 import { Iterator, type IteratorConfig } from "@/framer/iterator";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 
-export const ontologyID = (key: channel.Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
+export const ontologyID = (key: channel.Key): ontology.ID => ({
+  type: ONTOLOGY_TYPE,
+  key: key.toString(),
+});
 
 const normalizeConfig = <T extends { channels: channel.Params }>(
   config: T | channel.Params,

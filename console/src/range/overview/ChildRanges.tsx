@@ -17,7 +17,7 @@ import {
   Ranger,
   Text,
 } from "@synnaxlabs/pluto";
-import { type FC, useMemo } from "react";
+import { type FC } from "react";
 
 import { Layout } from "@/layout";
 import { createCreateLayout } from "@/range/Create";
@@ -35,7 +35,8 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
       size="tiny"
       justify="spaceBetween"
       align="center"
-      style={{ padding: "1.5rem" }}
+      style={{ padding: "1.5rem", boxShadow: "none" }}
+      rounded={1}
       {...props}
     >
       <Text.WithIcon
@@ -61,29 +62,29 @@ export interface ChildRangesProps {
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const children = Ranger.useRetrieveChildRanges(rangeKey);
-  const childRanges = useMemo(() => children.map(({ payload }) => payload), [children]);
+  const res = Ranger.useChildren(rangeKey);
+  let childRanges: ranger.Payload[] = [];
+  if (res.variant === "success") childRanges = res.data.map(({ payload }) => payload);
   const placeLayout = Layout.usePlacer();
   return (
-    <Align.Space y>
-      <Text.Text level="h4" shade={11} weight={450}>
-        Child Ranges
-      </Text.Text>
-      <List.List data={childRanges}>
-        <List.Core empty>{childRangeListItem}</List.Core>
-      </List.List>
-      <Button.Button
-        size="medium"
-        shade={10}
-        weight={500}
-        startIcon={<Icon.Add />}
-        style={{ width: "fit-content" }}
-        iconSpacing="small"
-        variant="text"
-        onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
-      >
-        Add Child Range
-      </Button.Button>
+    <Align.Space y style={{ padding: "2rem" }} rounded={2} background={1} bordered>
+      <Align.Space x justify="spaceBetween" grow>
+        <Text.Text level="h4" shade={10} weight={450}>
+          Child Ranges
+        </Text.Text>
+        <Button.Icon
+          onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
+          variant="outlined"
+          size="small"
+        >
+          <Icon.Add />
+        </Button.Icon>
+      </Align.Space>
+      {childRanges.length > 0 && (
+        <List.List data={childRanges}>
+          <List.Core empty>{childRangeListItem}</List.Core>
+        </List.List>
+      )}
     </Align.Space>
   );
 };

@@ -16,6 +16,7 @@ import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Button,
+  componentRenderProp,
   Control,
   Diagram,
   Haul,
@@ -30,6 +31,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
+import { Sync } from "@synnaxlabs/pluto/dist/src/icon/registry.js";
 import { box, deep, id, location, uuid, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
@@ -138,14 +140,10 @@ const SymbolRenderer = ({
   );
 
   if (props == null) return null;
-
   const C = Core.SYMBOLS[key as Core.Variant];
-
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
-  // Just here to make sure we don't spread the key into the symbol.
   const { key: _, ...rest } = props;
-
   return (
     <C.Symbol
       key={key}
@@ -158,6 +156,8 @@ const SymbolRenderer = ({
     />
   );
 };
+
+const edgeRenderer = componentRenderProp(Core.Edge);
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   <PMenu.Menu level="small" iconSpacing="small">
@@ -178,7 +178,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
     selector,
     internalCreate,
-    30, // roughly the right time needed to prevent actions that get dispatch automatically by Diagram.tsx, like setNodes immediately following addElement
+    30, // roughly the right time needed to prevent actions that get dispatch
+    // automatically by Diagram.tsx, like setNodes immediately following addElement
   );
   const undoableDispatch = useSyncComponent(layoutKey, undoableDispatch_);
 
@@ -241,7 +242,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, dispatch],
   );
 
-  const elRenderer = useCallback(
+  const nodeRenderer = useCallback(
     (props: Diagram.SymbolProps) => (
       <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
     ),
@@ -367,7 +368,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         acquireTrigger={schematic.controlAcquireTrigger}
         onStatusChange={handleControlStatusChange}
       >
-        <Diagram.Diagram
+        <Core.Schematic
           onViewportChange={handleViewportChange}
           edges={schematic.edges}
           nodes={schematic.nodes}
@@ -384,10 +385,14 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           fitViewOnResize={schematic.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
           visible={visible}
-          dragHandleSelector={`.${Core.DRAG_HANDLE_CLASS}`}
           {...dropProps}
         >
-          <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
+          <Diagram.NodeRenderer>{nodeRenderer}</Diagram.NodeRenderer>
+          <Diagram.EdgeRenderer<Core.EdgeData>
+            connectionLineComponent={Core.ConnectionLine}
+          >
+            {edgeRenderer}
+          </Diagram.EdgeRenderer>
           <Diagram.Background />
           <Diagram.Controls>
             {canEditSchematic && (
@@ -413,7 +418,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               </Button.ToggleIcon>
             )}
           </Diagram.Controls>
-        </Diagram.Diagram>
+        </Core.Schematic>
         <Control.Legend
           position={legendPosition}
           onPositionChange={handleLegendPositionChange}

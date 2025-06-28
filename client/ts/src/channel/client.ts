@@ -41,13 +41,16 @@ import {
 import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 interface CreateOptions {
   retrieveIfNameExists?: boolean;
 }
+
+export const SET_CHANNEL_NAME = "sy_channel_set";
+export const DELETE_CHANNEL_NAME = "sy_channel_delete";
 
 /**
  * Represents a Channel in a Synnax database. Typically, channels should not be
@@ -455,5 +458,7 @@ export const resolveCalculatedIndex = async (
   return null;
 };
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
+export const ontologyID = (key: Key): ontology.ID => ({
+  type: ONTOLOGY_TYPE,
+  key: key.toString(),
+});

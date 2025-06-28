@@ -29,19 +29,19 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({ selection, removeLayout, state: { nodes, setNodes } }) => {
       if (!(await confirm(selection.resources))) throw new errors.Canceled();
-      const ids = selection.resources.map((res) => new ontology.ID(res.key));
+      const ids = ontology.parseIDs(selection.resources);
       const keys = ids.map((id) => id.key);
       removeLayout(...keys);
       const prevNodes = Tree.deepCopy(nodes);
       const next = Tree.removeNode({
         tree: nodes,
-        keys: ids.map((id) => id.toString()),
+        keys: ids.map((id) => ontology.idToString(id)),
       });
       setNodes([...next]);
       return prevNodes;
     },
     mutationFn: async ({ client, selection }) => {
-      const ids = selection.resources.map((res) => new ontology.ID(res.key));
+      const ids = ontology.parseIDs(selection.resources);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.schematic.delete(ids.map((id) => id.key));
     },
@@ -77,11 +77,11 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       state.setResources([...state.resources, ...otg]);
       const nextTree = Tree.setNode({
         tree: state.nodes,
-        destination: parentID.toString(),
+        destination: ontology.idToString(parentID),
         additions: Ontology.toTreeNodes(services, otg),
       });
       state.setNodes([...nextTree]);
-      Tree.startRenaming(otg[0].id.toString());
+      Tree.startRenaming(ontology.idToString(otg[0].id));
     },
     onError: (err, { handleError }) => {
       handleError(err, "Failed to copy schematic");
@@ -115,8 +115,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     rename: () => Tree.startRenaming(resources[0].key),
     export: () => handleExport(resources[0].id.key),
     group: () => group(props),
-    link: () =>
-      handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
+    link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
   });
   const canEditSchematic = Schematic.useSelectHasPermission();
   const isSingle = resources.length === 1;
@@ -221,7 +220,9 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Schematic />,
   hasChildren: false,
   onSelect: handleSelect,
-  haulItems: ({ id }) => [{ type: Mosaic.HAUL_CREATE_TYPE, key: id.toString() }],
+  haulItems: ({ id }) => [
+    { type: Mosaic.HAUL_CREATE_TYPE, key: ontology.idToString(id) },
+  ],
   allowRename: () => true,
   onRename: handleRename,
   onMosaicDrop: handleMosaicDrop,

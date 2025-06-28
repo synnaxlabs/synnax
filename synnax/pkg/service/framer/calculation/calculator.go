@@ -33,7 +33,7 @@ type Calculator struct {
 		alignment telem.Alignment
 		timestamp telem.TimeStamp
 	}
-	// required is a map of required channels and an accumulated buffer of data. Data
+	// required is a map of required channels and an accumulated buffer of data. Config
 	// is accumulated for each channel until a calculation can be performed, and is
 	// then flushed.
 	required map[channel.Key]requiredInfo

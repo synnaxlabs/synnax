@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, observe, strings } from "@synnaxlabs/x";
+import { observe, strings } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod/v4";
 
@@ -16,15 +16,16 @@ import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { group } from "@/ontology/group";
 import {
-  type CrudeID,
-  ID,
-  type IDPayload,
+  type ID,
+  idsEqual,
+  idToString,
   idZ,
   oppositeRelationshipDirection,
   PARENT_OF_RELATIONSHIP_TYPE,
-  parseRelationship,
+  parseIDs,
   type RelationshipChange,
   type RelationshipDirection,
+  relationShipZ,
   type Resource,
   type ResourceChange,
   resourceTypeZ,
@@ -50,9 +51,6 @@ export interface RetrieveOptions
   extends Pick<RetrieveRequest, "excludeFieldData" | "types"> {}
 
 const retrieveResZ = z.object({ resources: resourceZ.array() });
-
-export const parseIDs = (ids: CrudeID | CrudeID[] | string | string[]): IDPayload[] =>
-  array.toArray(ids).map((id) => new ID(id).payload);
 
 /** The core client class for executing queries against a Synnax cluster ontology */
 export class Client implements AsyncTermSearcher<string, string, Resource> {
@@ -92,7 +90,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    * @returns The resource with the given ID.
    * @throws {QueryError} If no resource is found with the given ID.
    */
-  async retrieve(id: CrudeID, options?: RetrieveOptions): Promise<Resource>;
+  async retrieve(id: ID | string, options?: RetrieveOptions): Promise<Resource>;
 
   /**
    * Retrieves the resources in the ontology with the given IDs.
@@ -104,18 +102,19 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    * @returns The resources with the given IDs.
    * @throws {QueryError} If no resource is found with any of the given IDs.
    */
-  async retrieve(ids: CrudeID[], options?: RetrieveOptions): Promise<Resource[]>;
+  async retrieve(ids: ID[] | string[], options?: RetrieveOptions): Promise<Resource[]>;
 
   async retrieve(
-    ids: CrudeID | CrudeID[],
+    ids: ID | ID[] | string | string[],
     options?: RetrieveOptions,
   ): Promise<Resource | Resource[]> {
-    const resources = await this.execRetrieve({ ids: parseIDs(ids), ...options });
+    const parsedIDs = parseIDs(ids);
+    const resources = await this.execRetrieve({ ids: parsedIDs, ...options });
     if (Array.isArray(ids)) return resources;
     if (resources.length === 0)
       throw new QueryError(
         `No resource found with ID ${strings.naturalLanguageJoin(
-          array.toArray(ids).map((id) => new ID(id).toString()),
+          parsedIDs.map((id) => idToString(id)),
         )}`,
       );
     return resources[0];
@@ -146,7 +145,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    * @returns The children of the resources with the given IDs.
    */
   async retrieveChildren(
-    ids: CrudeID | CrudeID[],
+    ids: ID | ID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
     return await this.execRetrieve({ ids: parseIDs(ids), children: true, ...options });
@@ -162,7 +161,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    * @returns the parents of the resources with the given IDs
    */
   async retrieveParents(
-    ids: CrudeID | CrudeID[],
+    ids: ID | ID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
     return await this.execRetrieve({ ids: parseIDs(ids), parents: true, ...options });
@@ -173,7 +172,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    * @param id - The ID of the resource to add children to.
    * @param children - The IDs of the children to add.
    */
-  async addChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
+  async addChildren(id: ID, ...children: ID[]): Promise<void> {
     return await this.writer.addChildren(id, ...children);
   }
 
@@ -182,7 +181,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    * @param id - The ID of the resource to remove children from.
    * @param children - The IDs of the children to remove.
    */
-  async removeChildren(id: CrudeID, ...children: CrudeID[]): Promise<void> {
+  async removeChildren(id: ID, ...children: ID[]): Promise<void> {
     return await this.writer.removeChildren(id, ...children);
   }
 
@@ -192,11 +191,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    * @param to - The ID of the resource to move children to.
    * @param children - The IDs of the children to move.
    */
-  async moveChildren(
-    from: CrudeID,
-    to: CrudeID,
-    ...children: CrudeID[]
-  ): Promise<void> {
+  async moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void> {
     return await this.writer.moveChildren(from, to, ...children);
   }
 
@@ -299,7 +294,7 @@ export class ChangeTracker {
     if (relationships.length === 0) return [];
     return Array.from(relationships.as("string")).map((rel) => ({
       variant: "set",
-      key: parseRelationship(rel),
+      key: relationShipZ.parse(rel),
       value: undefined,
     }));
   }
@@ -309,7 +304,7 @@ export class ChangeTracker {
     if (relationships.length === 0) return [];
     return Array.from(relationships.as("string")).map((rel) => ({
       variant: "delete",
-      key: parseRelationship(rel),
+      key: relationShipZ.parse(rel),
     }));
   }
 
@@ -317,7 +312,7 @@ export class ChangeTracker {
     const sets = frame.get(RESOURCE_SET_CHANNEL_NAME);
     if (sets.length === 0) return [];
     // We should only ever get one series of sets
-    const ids = Array.from(sets.as("string")).map((id: string) => new ID(id));
+    const ids = parseIDs(Array.from(sets.as("string")));
     try {
       const resources = await this.client.retrieve(ids);
       return resources.map((resource) => ({
@@ -337,7 +332,7 @@ export class ChangeTracker {
     // We should only ever get one series of deletes
     return Array.from(deletes.as("string")).map((str) => ({
       variant: "delete",
-      key: new ID(str),
+      key: idZ.parse(str),
     }));
   }
 
@@ -412,7 +407,7 @@ export class DependentTracker
 
   private handleResourceChange = (changes: ResourceChange[]): void => {
     this.dependents = this.dependents.map((child) => {
-      const change = changes.find((c) => c.key.toString() == child.id.toString());
+      const change = changes.find((c) => idToString(c.key) == idToString(child.id));
       if (change == null || change.variant === "delete") return child;
       return change.value;
     });
@@ -423,23 +418,21 @@ export class DependentTracker
     const deletes = changes.filter(
       (c) =>
         c.variant === "delete" &&
-        c.key[this.relDir].toString() === this.target.toString() &&
+        idsEqual(c.key[this.relDir], this.target) &&
         (this.resourceType == null ||
           c.key[oppositeRelationshipDirection(this.relDir)].type === this.resourceType),
     );
     this.dependents = this.dependents.filter(
       (child) =>
         !deletes.some(
-          (del) =>
-            del.key.to.toString() === child.id.toString() &&
-            del.key.type === this.relType,
+          (del) => idsEqual(del.key.to, child.id) && del.key.type === this.relType,
         ),
     );
     const sets = changes.filter(
       (c) =>
         c.variant === "set" &&
         c.key.type === this.relType &&
-        c.key[this.relDir].toString() === this.target.toString() &&
+        idsEqual(c.key[this.relDir], this.target) &&
         (this.resourceType == null ||
           c.key[oppositeRelationshipDirection(this.relDir)].type === this.resourceType),
     );

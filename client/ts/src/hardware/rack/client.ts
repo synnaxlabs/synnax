@@ -25,7 +25,7 @@ import {
   statusZ,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
@@ -225,5 +225,7 @@ export class Rack {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key: key.toString() });
+export const ontologyID = (key: Key): ontology.ID => ({
+  type: ONTOLOGY_TYPE,
+  key: key.toString(),
+});

@@ -115,7 +115,7 @@ var _ = Describe("DB Metadata Operations", func() {
 					})
 				})
 
-				Describe("Data Channel", func() {
+				Describe("Config Channel", func() {
 					It("Should set the data channel to a new key", func() {
 						newIndexKey := testutil.GenerateChannelKey()
 						Expect(dataDB.SetIndexKeyInMeta(ctx, newIndexKey)).To(Succeed())
