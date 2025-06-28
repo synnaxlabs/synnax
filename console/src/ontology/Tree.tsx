@@ -239,7 +239,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       // Move the nodes in the tree.
       const next = Core.moveNode({
         tree: nodesSnapshot,
-        destination: destination.toString(),
+        destination: ontology.idToString(destination),
         keys,
       });
       setNodes([...next]);
@@ -275,7 +275,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         tree: nodesSnapshot,
         key: firstNodeOfMinDepth.key.toString(),
       });
-      const sourceID = ontology.idZ.parse(parent?.key ?? root.toString());
+      const sourceID = ontology.idZ.parse(parent?.key ?? ontology.idToString(root));
       treeProps.contract(...keys);
       dropMutation.mutate({
         source: sourceID,

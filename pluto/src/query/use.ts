@@ -19,31 +19,7 @@ import {
 import { type state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
-/**
- * Configuration arguments for the use hook.
- *
- * @template QParams - The type of parameters passed to the query
- * @template Value - The type of the state being managed
- *
- * @example
- * ```typescript
- * const queryArgs: UseArgs<{ workspaceId: string }, User[]> = {
- *   name: "users",
- *   params: { workspaceId: "workspace-123" },
- *   retrieve: async ({ client, params }) => {
- *     return await client.users.list(params.workspaceId);
- *   },
- *   listeners: [{
- *     channel: "users.changes",
- *     onChange: async ({ changed, onChange, client, params }) => {
- *       // Handle real-time updates
- *       const updatedUsers = await client.users.list(params.workspaceId);
- *       onChange(updatedUsers);
- *     }
- *   }]
- * };
- * ```
- */
+/** Configuration arguments for the `use` hook. */
 export interface UseArgs<QParams extends Params, Value extends state.State>
   extends Pick<
     UseBaseArgs<QParams, Value>,

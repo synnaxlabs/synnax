@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType } from "@synnaxlabs/client";
-import { type Optional, type primitive } from "@synnaxlabs/x";
+import { type Optional } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { Query } from "@/query";

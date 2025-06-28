@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, ontology } from "@synnaxlabs/client";
-import { type primitive } from "@synnaxlabs/x";
 
 import { Query } from "@/query";
 import { Sync } from "@/query/sync";

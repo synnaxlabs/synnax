@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology } from "@synnaxlabs/client";
-import { type primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { Query } from "@/query";
