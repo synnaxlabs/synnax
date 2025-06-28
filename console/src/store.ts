@@ -104,7 +104,7 @@ export type RootAction =
   | Schematic.Action
   | Table.Action
   | Version.Action
-  | Workspace.Action;
+  | Workspace.Action
   | Slate.Action
   | Effect.Action;
 

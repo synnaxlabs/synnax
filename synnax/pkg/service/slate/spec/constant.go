@@ -22,8 +22,8 @@ type ConstantConfig struct {
 	Value    any
 }
 
-var configZ = zyn.Object(map[string]zyn.Z{
-	"data_type": zyn.PrimitiveTypeZ,
+var configZ = zyn.Object(map[string]zyn.Schema{
+	"data_type": zyn.PrimitiveTypeSchema,
 	"value":     zyn.Primitive(),
 })
 

@@ -22,7 +22,7 @@ type RangeCreateConfig struct {
 	Range ranger.Range `json:"range" msgpack:"range"`
 }
 
-var rangeCreateConfigZ = zyn.Object(map[string]zyn.Z{
+var rangeCreateConfigZ = zyn.Object(map[string]zyn.Schema{
 	"range": ranger.RangeZ,
 })
 
@@ -40,9 +40,9 @@ func rangeCreator(_ context.Context, _ Config, n Node) (NodeSchema, bool, error)
 		return ns, true, err
 	}
 	ns.Inputs = []Input{
-		{Key: string(ranger.ToDo), AcceptsDataType: zyn.AnyTypeZ},
-		{Key: string(ranger.InProgress), AcceptsDataType: zyn.AnyTypeZ},
-		{Key: string(ranger.Completed), AcceptsDataType: zyn.AnyTypeZ},
+		{Key: string(ranger.ToDo), AcceptsDataType: zyn.AnyDataTypeSchema},
+		{Key: string(ranger.InProgress), AcceptsDataType: zyn.AnyDataTypeSchema},
+		{Key: string(ranger.Completed), AcceptsDataType: zyn.AnyDataTypeSchema},
 	}
 	ns.Type = RangeCreateType
 	return ns, true, nil

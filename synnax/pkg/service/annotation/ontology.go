@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package effect
+package annotation
 
 import (
 	"context"
@@ -23,21 +23,21 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "effect"
+const ontologyType ontology.Type = "annotation"
 
-// OntologyID returns unique identifier for the effect within the ontology.
+// OntologyID returns a unique identifier for the annotation within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: k.String()}
 }
 
-// OntologyIDs returns unique identifiers for the effects within the ontology.
+// OntologyIDs returns unique identifiers for the annotations within the ontology.
 func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	return lo.Map(keys, func(key uuid.UUID, _ int) ontology.ID {
 		return OntologyID(key)
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the effects from the ontology IDs.
+// KeysFromOntologyIDs extracts the keys of the annotations from the ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -49,26 +49,27 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
-// OntologyIDsFromEffects returns the ontology IDs of the effects.
-func OntologyIDsFromEffects(effects []Effect) []ontology.ID {
-	return lo.Map(effects, func(c Effect, _ int) ontology.ID {
+// OntologyIDsFromAnnotations returns the ontology IDs of the annotations.
+func OntologyIDsFromAnnotations(annotations []Annotation) []ontology.ID {
+	return lo.Map(annotations, func(c Annotation, _ int) ontology.ID {
 		return OntologyID(c.Key)
 	})
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":  zyn.String(),
-	"type": zyn.String(),
+	"key":     zyn.UUID(),
+	"message": zyn.String(),
 })
 
-func newResource(c Effect) core.Resource {
-	return core.NewResource(schema, OntologyID(c.Key), c.Name, c)
+func newResource(c Annotation) core.Resource {
+	return core.NewResource(schema, OntologyID(c.Key), c.Message, c)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[uuid.UUID, Effect]
+type change = changex.Change[uuid.UUID, Annotation]
 
+// Type implements ontology.Service.
 func (s *Service) Type() ontology.Type { return ontologyType }
 
 // Schema implements ontology.Service.
@@ -77,12 +78,12 @@ func (s *Service) Schema() zyn.Schema { return schema }
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (core.Resource, error) {
 	k := uuid.MustParse(key)
-	var effect Effect
-	err := s.NewRetrieve().WhereKeys(k).Entry(&effect).Exec(ctx, tx)
-	return newResource(effect), err
+	var annotation Annotation
+	err := s.NewRetrieve().WhereKeys(k).Entry(&annotation).Exec(ctx, tx)
+	return newResource(annotation), err
 }
 
-func translateChange(c change) core.Change {
+func translateAnnotationChange(c change) core.Change {
 	return core.Change{
 		Variant: c.Variant,
 		Key:     OntologyID(c.Key),
@@ -92,16 +93,16 @@ func translateChange(c change) core.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[core.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Effect]) {
-		f(ctx, iter.NexterTranslator[change, core.Change]{Wrap: reader, Translate: translateChange})
+	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Annotation]) {
+		f(ctx, iter.NexterTranslator[change, core.Change]{Wrap: reader, Translate: translateAnnotationChange})
 	}
-	return gorp.Observe[uuid.UUID, Effect](s.cfg.DB).OnChange(handleChange)
+	return gorp.Observe[uuid.UUID, Annotation](s.cfg.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter() (iter.NexterCloser[core.Resource], error) {
-	n, err := gorp.WrapReader[uuid.UUID, Effect](s.cfg.DB).OpenNexter()
-	return iter.NexterCloserTranslator[Effect, core.Resource]{
+	n, err := gorp.WrapReader[uuid.UUID, Annotation](s.cfg.DB).OpenNexter()
+	return iter.NexterCloserTranslator[Annotation, core.Resource]{
 		Wrap:      n,
 		Translate: newResource,
 	}, err

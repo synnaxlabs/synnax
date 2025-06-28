@@ -70,16 +70,16 @@ func operator(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err 
 	}
 	if containsSuffix(n.Type, requiresNumericOperators) {
 		ns.Inputs = []Input{
-			{Key: "x", AcceptsDataType: zyn.NumericTypeZ},
-			{Key: "y", AcceptsDataType: zyn.NumericTypeZ},
+			{Key: "x", AcceptsDataType: zyn.NumericTypeSchema},
+			{Key: "y", AcceptsDataType: zyn.NumericTypeSchema},
 		}
 	} else if containsSuffix(n.Type, requiresBooleanOperators) {
 		ns.Inputs = []Input{
-			{Key: "x", AcceptsDataType: zyn.BoolTypeZ},
-			{Key: "y", AcceptsDataType: zyn.BoolTypeZ},
+			{Key: "x", AcceptsDataType: zyn.BoolTypeSchema},
+			{Key: "y", AcceptsDataType: zyn.BoolTypeSchema},
 		}
 	} else if strings.HasSuffix(n.Type, OperatorNotSuffix) {
-		ns.Inputs = []Input{{Key: "x", AcceptsDataType: zyn.BoolTypeZ}}
+		ns.Inputs = []Input{{Key: "x", AcceptsDataType: zyn.BoolTypeSchema}}
 	} else {
 		return ns, false, errors.Wrapf(validate.Error, "operator %s not supported", n.Type)
 	}

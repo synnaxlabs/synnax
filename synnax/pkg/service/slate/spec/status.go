@@ -23,7 +23,7 @@ type StatusChangerConfig struct {
 	Variant status.Variant
 }
 
-var statusChangerConfigZ = zyn.Object(map[string]zyn.Z{
+var statusChangerConfigZ = zyn.Object(map[string]zyn.Schema{
 	"message": zyn.String(),
 	"variant": status.VariantZ,
 })
@@ -42,7 +42,7 @@ func createStatusChanger(_ context.Context, _ Config, n Node) (NodeSchema, bool,
 	}
 	ns.Inputs = []Input{{
 		Key:             "Value",
-		AcceptsDataType: zyn.PrimitiveTypeZ,
+		AcceptsDataType: zyn.PrimitiveTypeSchema,
 	}}
 	ns.Outputs = []Output{}
 	ns.Type = StatusChangeType

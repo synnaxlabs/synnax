@@ -29,7 +29,7 @@ func (t *TelemConfig) Parse(data any) error {
 	return telemConfigZ.Parse(data, t)
 }
 
-var telemConfigZ = zyn.Object(map[string]zyn.Z{
+var telemConfigZ = zyn.Object(map[string]zyn.Schema{
 	"channel": zyn.Uint32().Coerce(),
 })
 

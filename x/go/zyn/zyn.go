@@ -116,7 +116,7 @@ var (
 		[]DataType{ObjectT},
 		IntegerTypes,
 	)
-	DataTypeSchema = Enum(DataTypes...)
+	AnyDataTypeSchema = Enum(DataTypes...)
 )
 
 func Primitive() UnionZ { return Union(Number(), String(), Bool()) }

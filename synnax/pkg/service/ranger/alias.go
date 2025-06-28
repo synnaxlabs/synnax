@@ -97,7 +97,7 @@ func newAliasResource(a Alias) ontology.Resource {
 type (
 	aliasOntologyService struct{ db *gorp.DB }
 
-	aliasChange = changex.Change[string, alias]
+	aliasChange = changex.Change[string, Alias]
 )
 
 var _ ontology.Service = (*aliasOntologyService)(nil)

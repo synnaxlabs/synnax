@@ -75,6 +75,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       name: "",
       timeRange: { start: 0, end: 0 },
       labels: [],
+      stage: "to_do",
     },
   });
   const name = Form.useFieldValue<string, string, typeof Ranger.rangeFormSchema>(
@@ -123,8 +124,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       background={1}
       bordered
     >
-    <Form.Form<typeof Ranger.rangeFormSchema> {...form}>
-      <Align.Space y size="large">
+      <Form.Form<typeof Ranger.rangeFormSchema> {...form}>
         <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
           <Align.Space y grow>
             <Form.TextField
@@ -216,7 +216,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             )}
           </Form.Field>
         </Align.Space>
-        <Labels rangeKey={rangeKey} />
       </Form.Form>
     </Align.Space>
   );

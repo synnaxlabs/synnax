@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/annotation"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -60,7 +61,7 @@ func (g Graph) FindEdge(match func(item Edge) bool) (Edge, bool) {
 
 type Input struct {
 	Key             string
-	AcceptsDataType zyn.Z
+	AcceptsDataType zyn.Schema
 }
 
 type Output struct {
@@ -72,7 +73,7 @@ type NodeSchema struct {
 	Type    string
 	Inputs  []Input
 	Outputs []Output
-	Config  zyn.Z
+	Config  zyn.Schema
 }
 
 func (n NodeSchema) GetOutput(key string) (Output, bool) {
@@ -104,6 +105,7 @@ type Config struct {
 	Channel        channel.Service
 	Framer         *framer.Service
 	Ranger         *ranger.Service
+	Annotation     *annotation.Service
 	OnStatusChange func(ctx context.Context, status status.Status[any])
 }
 

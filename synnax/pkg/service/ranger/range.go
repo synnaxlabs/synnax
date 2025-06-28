@@ -65,10 +65,10 @@ type Range struct {
 	Stage Stage `json:"stage" msgpack:"stage"`
 }
 
-var RangeZ = zyn.Object(map[string]zyn.Z{
+var RangeZ = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.UUID(),
 	"name":       zyn.String(),
-	"time_range": telem.TimeRangeZ,
+	"time_range": telem.TimeRangeSchema,
 	"color":      zyn.String(),
 	"status":     StageZ,
 })

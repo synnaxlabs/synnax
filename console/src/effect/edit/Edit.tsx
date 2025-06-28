@@ -1,4 +1,4 @@
-import { type effect, NotFoundError } from "@synnaxlabs/client";
+import { DisconnectedError, type effect, NotFoundError } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -13,7 +13,6 @@ import { type ReactElement, useState } from "react";
 import { useStore } from "react-redux";
 
 import { useSelect } from "@/effect/selectors";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Layout } from "@/layout";
 import { Slate } from "@/slate";
 import { translateSlateBackward } from "@/slate/types/translate";
@@ -28,7 +27,7 @@ const Loaded = ({ effect }: LoadedProps): ReactElement => {
   const store = useStore<RootState>();
   const publishMut = useMutation({
     mutationFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const slate = Slate.select(store.getState(), effect.slate);
       await client.slates.create(translateSlateBackward(slate));
       await client.effects.create(effect);
