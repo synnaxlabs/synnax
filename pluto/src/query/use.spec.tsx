@@ -13,7 +13,6 @@ import {
   newTestClient,
   type Synnax,
 } from "@synnaxlabs/client";
-import { type primitive } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
@@ -35,7 +34,7 @@ const newWrapper =
 
 describe("use", () => {
   describe("basic retrieval", () => {
-    interface Params extends Record<string, primitive.Value> {}
+    interface Params extends Query.Params {}
     it("should return a loading result as its initial state", () => {
       const { result } = renderHook(
         () =>
@@ -124,7 +123,7 @@ describe("use", () => {
         virtual: true,
         dataType: "float32",
       });
-      interface Params extends Record<string, primitive.Value> {
+      interface Params extends Query.Params {
         key: channel.Key;
       }
       const { result } = renderHook(
@@ -164,7 +163,7 @@ describe("use", () => {
         virtual: true,
         dataType: "float32",
       });
-      interface Params extends Record<string, primitive.Value> {
+      interface Params extends Query.Params {
         key: channel.Key;
       }
       const { result } = renderHook(

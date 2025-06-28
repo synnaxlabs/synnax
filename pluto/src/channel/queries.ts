@@ -64,7 +64,7 @@ const channelToFormValues = (ch: channel.Channel) => ({
   dataType: ch.dataType.toString(),
 });
 
-export interface QueryParams extends Record<string, primitive.Value> {
+export interface QueryParams extends Query.Params {
   key?: channel.Key;
 }
 

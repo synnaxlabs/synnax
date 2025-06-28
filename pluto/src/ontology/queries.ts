@@ -60,7 +60,7 @@ const matchRelationshipAndID = (
     id,
   );
 
-interface UseDependentQueryParams extends Record<string, primitive.Value> {
+interface UseDependentQueryParams extends Query.Params {
   id: ontology.ID;
   direction: ontology.RelationshipDirection;
 }
@@ -123,7 +123,7 @@ export const useChildren = (id: ontology.ID): Query.UseReturn<ontology.Resource[
 export const useParents = (id: ontology.ID): Query.UseReturn<ontology.Resource[]> =>
   useDependents({ id, direction: "from" });
 
-export interface UseResourceQueryParams extends Record<string, primitive.Value> {
+export interface UseResourceQueryParams extends Query.Params {
   id: ontology.ID;
 }
 

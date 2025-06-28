@@ -18,7 +18,7 @@ export const matchRelationship = (rel: ontology.Relationship, id: ontology.ID) =
   rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
   ontology.idsEqual(rel.from, id);
 
-interface UseLabelsOfQueryParams extends Record<string, primitive.Value> {
+interface UseLabelsOfQueryParams extends Query.Params {
   id: ontology.ID;
 }
 

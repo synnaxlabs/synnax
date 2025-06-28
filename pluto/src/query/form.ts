@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type Synnax } from "@synnaxlabs/client";
 import { useCallback } from "react";
 import { type z } from "zod/v4";
@@ -10,9 +19,9 @@ import {
   loadingResult,
   type Params,
   type Result,
+  successResult,
   useBase,
 } from "@/query/base";
-import { Sync } from "@/query/sync";
 import { type UseArgs } from "@/query/use";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
@@ -40,9 +49,6 @@ import { Synnax as PSynnax } from "@/synnax";
  *
  *   // Update the local form state with any server-returned data
  *   onChange({ ...values, updatedAt: new Date().toISOString() });
- *
- *   // Optionally update parameters (e.g., if ID changed)
- *   // onParamsChange({ id: newId });
  * };
  * ```
  */
@@ -64,8 +70,8 @@ export interface UpdateArgs<P extends Params, Schema extends z.ZodObject> {
  * The update function now returns void and uses callbacks to modify state, allowing for
  * more flexible update patterns and better separation of concerns.
  *
- * @template P - The type of the parameters (must be a Params record)
- * @template Z - The Zod schema type for form validation
+ * @template QueryParams - The type of the parameters (must be a Params record)
+ * @template DataSchema - The Zod schema type for form validation
  *
  * @example
  * ```typescript
@@ -90,26 +96,26 @@ export interface UpdateArgs<P extends Params, Schema extends z.ZodObject> {
  * };
  * ```
  */
-export interface UseFormArgs<P extends Params, Z extends z.ZodObject>
-  extends UseArgs<P, z.infer<Z> | null> {
+export interface UseFormArgs<QueryParams extends Params, DataSchema extends z.ZodObject>
+  extends UseArgs<QueryParams, z.infer<DataSchema> | null> {
   /** Initial values for the form fields */
-  initialValues: z.infer<Z>;
+  initialValues: z.infer<DataSchema>;
   /** Whether to automatically save form changes (not currently implemented) */
   autoSave?: boolean;
   /** Zod schema for form validation */
-  schema: Z;
+  schema: DataSchema;
   /** Function to save form data to the server (now returns void, uses callbacks to update state) */
-  update: (args: UpdateArgs<P, Z>) => Promise<void>;
+  update: (args: UpdateArgs<QueryParams, DataSchema>) => Promise<void>;
   /** Optional callback to run after successful update (excludes onChange/onParamsChange) */
   afterUpdate?: (
-    args: Omit<UpdateArgs<P, Z>, "onChange" | "onParamsChange">,
+    args: Omit<UpdateArgs<QueryParams, DataSchema>, "onChange" | "onParamsChange">,
   ) => Promise<void>;
 }
 
 /**
  * Return type for form query hooks, combining query state with form management.
  *
- * @template Z - The Zod schema type for form validation
+ * @template DataSchema - The Zod schema type for form validation
  *
  * @example
  * ```typescript
@@ -129,9 +135,12 @@ export interface UseFormArgs<P extends Params, Z extends z.ZodObject>
  * );
  * ```
  */
-export type UseFormReturn<Z extends z.ZodType> = Omit<Result<z.infer<Z>>, "data"> & {
+export type UseFormReturn<DataSchema extends z.ZodObject> = Omit<
+  Result<z.infer<DataSchema>>,
+  "data"
+> & {
   /** Form management utilities for binding inputs and validation */
-  form: Form.UseReturn<Z>;
+  form: Form.UseReturn<DataSchema>;
   /** Function to save the current form values */
   save: () => void;
 };
@@ -154,11 +163,19 @@ export const useForm = <P extends Params, Z extends z.ZodObject>({
   listeners,
   update,
   afterUpdate,
+  autoSave = false,
 }: UseFormArgs<P, Z>): UseFormReturn<Z> => {
   const [status, setStatus, statusRef] = useCombinedStateAndRef<
     Result<z.infer<Z> | null>
   >(loadingResult(name));
-  const form = Form.use<Z>({ schema, values: initialValues });
+
+  const form = Form.use<Z>({
+    schema,
+    values: initialValues,
+    onChange: ({ path }) => {
+      if (autoSave && path !== "") handleSave();
+    },
+  });
   const client = PSynnax.use();
 
   const params = useMemoDeepEqual(propsParams);
@@ -187,16 +204,14 @@ export const useForm = <P extends Params, Z extends z.ZodObject>({
           form,
           onChange: (v) => (result = v),
         });
-        // handleResultChange(successResult(name, result));
         await afterUpdate?.({ client, params, values: result, form });
-        console.log("HERE");
+        handleResultChange(successResult(name, result));
       } catch (error) {
         setStatus(errorResult(name, error));
       }
     })();
   }, [client, form, name, params, update, afterUpdate]);
 
-  const addListener = Sync.useAddListener();
   useBase({
     retrieve,
     listeners,
@@ -204,7 +219,6 @@ export const useForm = <P extends Params, Z extends z.ZodObject>({
     params,
     onChange: handleResultChange,
     client,
-    addListener,
   });
 
   return { form, save: handleSave, ...status };

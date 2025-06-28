@@ -51,7 +51,7 @@ export const useDeleteSynchronizer = (onDelete: (key: task.Key) => void): void =
     }),
   });
 
-interface QueryParams extends Record<string, primitive.Value> {
+interface QueryParams extends Query.Params {
   key: task.Key | undefined;
 }
 

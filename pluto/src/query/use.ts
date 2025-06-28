@@ -16,7 +16,6 @@ import {
   useBase,
   type UseBaseArgs,
 } from "@/query/base";
-import { Sync } from "@/query/sync";
 import { type state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
@@ -55,7 +54,7 @@ export interface UseArgs<QParams extends Params, Value extends state.State>
  * Return type for query hooks, representing the current state of a data fetch operation.
  * Uses a discriminated union to ensure type safety across different states.
  *
- * @template V - The type of data being fetched
+ * @template Data - The type of data being fetched
  *
  * @example
  * ```typescript
@@ -73,7 +72,7 @@ export interface UseArgs<QParams extends Params, Value extends state.State>
  * return <UserList users={result.data} />;
  * ```
  */
-export type UseReturn<V> = Result<V>;
+export type UseReturn<Data extends state.State> = Result<Data>;
 
 /**
  * Main query hook for fetching data with optional real-time updates.
@@ -114,14 +113,12 @@ export const use = <P extends Params, V extends state.State>({
 }: UseArgs<P, V>): UseReturn<V> => {
   const [result, setResult] = useState<Result<V>>(loadingResult(name));
   const client = PSynnax.use();
-  const addListener = Sync.useAddListener();
   useBase<P, V>({
     retrieve,
     listeners,
     name,
     params,
     client,
-    addListener,
     onChange: setResult,
   });
   return result;

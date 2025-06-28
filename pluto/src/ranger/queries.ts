@@ -74,7 +74,7 @@ export const useParent = (key: ranger.Key): UseReturn<ranger.Range | null> => {
   return { ...res, data: client.ranges.sugarOntologyResource(parent) };
 };
 
-export interface QueryParams extends Record<string, primitive.Value> {
+export interface QueryParams extends Query.Params {
   key: ranger.Key;
 }
 

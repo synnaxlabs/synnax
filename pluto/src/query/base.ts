@@ -12,20 +12,20 @@ import { type MultiSeries, type primitive, status } from "@synnaxlabs/x";
 
 import { useAsyncEffect } from "@/hooks";
 import { useMemoDeepEqual } from "@/memo";
-import { type Sync } from "@/query/sync";
+import { Sync } from "@/query/sync";
 import { state } from "@/state";
 
 export type Params = Record<string, primitive.Value>;
 
-interface ListenerExtraArgs<QueryParams extends Params, Value extends state.State> {
+interface ListenerExtraArgs<QueryParams extends Params, Data extends state.State> {
   params: QueryParams;
   client: Synnax;
-  onChange: state.Setter<Value>;
+  onChange: state.Setter<Data>;
 }
 
-export interface ListenerConfig<QueryParams extends Params, Value extends state.State> {
+export interface ListenerConfig<QueryParams extends Params, Data extends state.State> {
   channel: channel.Name;
-  onChange: Sync.ListenerHandler<MultiSeries, ListenerExtraArgs<QueryParams, Value>>;
+  onChange: Sync.ListenerHandler<MultiSeries, ListenerExtraArgs<QueryParams, Data>>;
 }
 
 export interface RetrieveArgs<QueryParams extends Params> {
@@ -33,7 +33,7 @@ export interface RetrieveArgs<QueryParams extends Params> {
   params: QueryParams;
 }
 
-export type Result<V> =
+export type Result<Data extends state.State> =
   | (status.Status<undefined, "loading"> & {
       data: null;
       error: null;
@@ -43,11 +43,13 @@ export type Result<V> =
       error: unknown;
     })
   | (status.Status<undefined, "success"> & {
-      data: V;
+      data: Data;
       error: null;
     });
 
-export const loadingResult = <V extends state.State>(name: string): Result<V> => ({
+export const loadingResult = <Data extends state.State>(
+  name: string,
+): Result<Data> => ({
   ...status.create<undefined, "loading">({
     variant: "loading",
     message: `Loading ${name}`,
@@ -56,10 +58,10 @@ export const loadingResult = <V extends state.State>(name: string): Result<V> =>
   error: null,
 });
 
-export const successResult = <V extends state.State>(
+export const successResult = <Data extends state.State>(
   name: string,
-  value: V,
-): Result<V> => ({
+  value: Data,
+): Result<Data> => ({
   ...status.create<undefined, "success">({
     variant: "success",
     message: `Loaded ${name}`,
@@ -68,35 +70,34 @@ export const successResult = <V extends state.State>(
   error: null,
 });
 
-export const errorResult = <V extends state.State>(
+export const errorResult = <Data extends state.State>(
   name: string,
   error: unknown,
-): Result<V> => ({
+): Result<Data> => ({
   ...status.fromException(error, `Failed to load ${name}`),
   data: null,
   error,
 });
 
-export interface UseBaseArgs<QueryParams extends Params, Value extends state.State> {
-  retrieve: (args: RetrieveArgs<QueryParams>) => Promise<Value>;
-  listeners?: ListenerConfig<QueryParams, Value>[];
+export interface UseBaseArgs<QueryParams extends Params, Data extends state.State> {
+  retrieve: (args: RetrieveArgs<QueryParams>) => Promise<Data>;
+  listeners?: ListenerConfig<QueryParams, Data>[];
   name: string;
   params: QueryParams;
-  onChange: state.Setter<Result<Value>>;
+  onChange: state.Setter<Result<Data>>;
   client: Synnax | null;
-  addListener: Sync.ListenerAdder;
 }
 
-export const useBase = <QueryParams extends Params, Value extends state.State>({
+export const useBase = <QueryParams extends Params, Data extends state.State>({
   retrieve,
   listeners,
   name,
   params,
   onChange,
   client,
-  addListener,
-}: UseBaseArgs<QueryParams, Value>): void => {
+}: UseBaseArgs<QueryParams, Data>): void => {
   const memoParams = useMemoDeepEqual(params);
+  const addListener = Sync.useAddListener();
   useAsyncEffect(
     async (signal) => {
       try {
@@ -131,7 +132,7 @@ export const useBase = <QueryParams extends Params, Value extends state.State>({
                         onChange((prev) =>
                           successResult(
                             name,
-                            state.executeSetter(value, prev.data as unknown as Value),
+                            state.executeSetter(value, prev.data as unknown as Data),
                           ),
                         );
                       },
@@ -147,8 +148,7 @@ export const useBase = <QueryParams extends Params, Value extends state.State>({
       } catch (error) {
         onChange(errorResult(name, error));
       }
-      return () => {};
     },
-    [client, memoParams],
+    [client, memoParams, addListener],
   );
 };
