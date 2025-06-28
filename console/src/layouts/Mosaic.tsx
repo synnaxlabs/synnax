@@ -44,7 +44,7 @@ import { Controls } from "@/layout/Controls";
 import { Nav } from "@/layouts/nav";
 import { createSelectorLayout } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
-import { SERVICES } from "@/services";
+import { Ontology } from "@/ontology";
 import { type RootState, type RootStore } from "@/store";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
@@ -180,6 +180,8 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [dispatch, windowKey],
   );
 
+  const services = Ontology.useServices();
+
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
@@ -191,7 +193,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         if (res.success) {
           const id = new ontology.ID(res.data);
           if (client == null) return;
-          SERVICES[id.type].onMosaicDrop?.({
+          services[id.type].onMosaicDrop?.({
             client,
             store: store as RootStore,
             id,

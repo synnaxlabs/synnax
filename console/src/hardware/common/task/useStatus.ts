@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { Observe, Synnax, useSyncedRef } from "@synnaxlabs/pluto";
+import { Task, useSyncedRef } from "@synnaxlabs/pluto";
 import { useCallback, useState as useReactState } from "react";
 import { type z } from "zod/v4";
 
@@ -31,6 +31,8 @@ export interface UseStatusReturn<StatusData extends z.ZodType = z.ZodType> {
  *
  * @param key - The unique identifier for the task.
  * @param initialState - The optional initial state of the task.
+ * @param commandLoadingMessages - A record of command types to messages that should
+ * be used when the command is being executed but has not received a result yet (i.e. loading).
  *
  * @returns An object containing:
  *   - state: The current state of the task, which includes:
@@ -42,11 +44,9 @@ export interface UseStatusReturn<StatusData extends z.ZodType = z.ZodType> {
 export const useStatus = <StatusData extends z.ZodType = z.ZodType>(
   key: task.Key,
   initialState: task.Status<StatusData>,
-  commandMessages: Record<string, string>,
+  commandLoadingMessages: Record<string, string>,
 ): UseStatusReturn<StatusData> => {
   const [status, setStatus] = useReactState<task.Status<StatusData>>(initialState);
-  const client = Synnax.use();
-  // const status = state?.details.running ? RUNNING_STATUS : PAUSED_STATUS;
   const keyRef = useSyncedRef(key);
   const statusRef = useSyncedRef(status);
   const triggerLoading = useCallback(
@@ -54,23 +54,17 @@ export const useStatus = <StatusData extends z.ZodType = z.ZodType>(
       setStatus((prev) => ({ ...prev, variant: "loading", message })),
     [],
   );
-  Observe.useListener({
-    key: [client?.key],
-    open: async () => client?.hardware.tasks.openCommandObserver(),
-    onChange: ({ task, type }) => {
-      if (task !== keyRef.current || statusRef.current == null) return;
-      if (shouldExecuteCommand<StatusData>(statusRef.current, type))
-        triggerLoading(commandMessages[type]);
-    },
-  });
-  Observe.useListener({
-    key: [client?.key],
-    open: async () => await client?.hardware.tasks.openStateObserver<StatusData>(),
-    onChange: (status) => {
-      if (status.details.task !== keyRef.current) return;
-      setStatus(status);
-    },
-  });
+  const handleCommandUpdate = useCallback(({ task, type }: task.Command) => {
+    if (task !== keyRef.current || statusRef.current == null) return;
+    if (shouldExecuteCommand<StatusData>(statusRef.current, type))
+      triggerLoading(commandLoadingMessages[type]);
+  }, []);
+  Task.useCommandSynchronizer(handleCommandUpdate);
+  const handleStatusUpdate = useCallback((status: task.Status) => {
+    if (status.details.task !== keyRef.current) return;
+    setStatus(status);
+  }, []);
+  Task.useStatusSynchronizer(handleStatusUpdate);
 
   const triggerError = useCallback(
     (message: string) => setStatus((prev) => ({ ...prev, message, variant: "error" })),

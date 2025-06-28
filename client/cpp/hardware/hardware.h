@@ -75,11 +75,11 @@ using RackKey = std::uint32_t;
 using TaskKey = std::uint64_t;
 
 /// @brief the name of the channel used to propagate device state.
-const std::string DEVICE_STATE_CHAN_NAME = "sy_device_state";
+const std::string DEVICE_STATUS_CHANNEL_NAME = "sy_device_status";
 /// @brief the name of the channel used to propagate task state.
-const std::string TASK_STATE_CHAN_NAME = "sy_task_state";
+const std::string TASK_STATUS_CHANNEL_NAME = "sy_task_status";
 /// @brief the name of the channel used to propagate rack state.
-const std::string RACK_STATE_CHAN_NAME = "sy_rack_state";
+const std::string RACK_STATUS_CHANNEL_NAME = "sy_rack_status";
 
 /// @brief Creates a task key from a rack key and a local task key.
 /// @param rack The rack key.
@@ -314,15 +314,43 @@ private:
     friend class HardwareClient;
 };
 
+/// @brief specific status details for devices.
 struct DeviceStatusDetails {
+    /// @brief the rack that this device is connected to.
+    RackKey rack = 0;
+    /// @brief the device that this status is for.
+    std::string device;
+
+    /// @brief parses the device status details from a JSON parser.
+    static DeviceStatusDetails parse(xjson::Parser parser) {
+        return DeviceStatusDetails{
+            .rack = parser.required<RackKey>("rack"),
+            .device = parser.required<std::string>("device"),
+        };
+    }
+
+    /// @brief converts the device status details to JSON.
+    [[nodiscard]] json to_json() const {
+        json j;
+        j["rack"] = this->rack;
+        j["device"] = this->device;
+        return j;
+    }
+};
+
+/// @brief specific status details for devices.
+struct RackStatusDetails {
+    /// @brief the rack that this device is connected to.
     RackKey rack = 0;
 
+    /// @brief parses the device status details from a JSON parser.
     static DeviceStatusDetails parse(xjson::Parser parser) {
         return DeviceStatusDetails{
             .rack = parser.required<RackKey>("rack"),
         };
     }
 
+    /// @brief converts the device status details to JSON.
     [[nodiscard]] json to_json() const {
         json j;
         j["rack"] = this->rack;
@@ -330,13 +358,16 @@ struct DeviceStatusDetails {
     }
 };
 
-using RackStatusDetails = DeviceStatusDetails;
-
+/// @brief specific status details for tasks.
 struct TaskStatusDetails {
+    /// @brief The key of the task that this status is for.
     TaskKey task;
+    /// @brief whether the task is currently running.
     bool running;
+    /// @brief additional data associated with the task.
     json data;
 
+    /// @brief parses the task status details from a JSON parser.
     static TaskStatusDetails parse(xjson::Parser parser) {
         return TaskStatusDetails{
             .task = parser.required<TaskKey>("task"),
@@ -345,6 +376,7 @@ struct TaskStatusDetails {
         };
     }
 
+    /// @brief converts the task status details to JSON.
     [[nodiscard]] json to_json() const {
         json j;
         j["task"] = this->task;
@@ -354,8 +386,11 @@ struct TaskStatusDetails {
     }
 };
 
+/// @brief status information about a device.
 using DeviceStatus = status::Status<DeviceStatusDetails>;
-using RackStatus = status::Status<DeviceStatusDetails>;
+/// @brief status information for a device.
+using RackStatus = status::Status<RackStatusDetails>;
+/// @brief status information for a task.
 using TaskStatus = status::Status<TaskStatusDetails>;
 
 /// @brief A Device represents a physical hardware device connected to a rack.

@@ -21,18 +21,10 @@ export const keyZ = z.union([
 ]);
 export type Key = z.infer<typeof keyZ>;
 
-const statusDetailsZ = <StatusData extends z.ZodType>(data: StatusData) =>
-  z.object({
-    task: keyZ,
-    running: z.boolean(),
-    data,
-  });
+export const statusDetailsZ = <D extends z.ZodType>(data: D) =>
+  z.object({ task: keyZ, running: z.boolean(), data });
 
-export type StatusDetails<StatusData extends z.ZodType> = z.infer<
-  ReturnType<typeof statusDetailsZ<StatusData>>
->;
-
-export const statusZ = <StatusData extends z.ZodType>(data: StatusData) =>
+export const statusZ = <D extends z.ZodType>(data: D) =>
   status.statusZ(statusDetailsZ(data));
 
 export type Status<StatusData extends z.ZodType = z.ZodUnknown> = z.infer<
@@ -44,24 +36,36 @@ export const taskZ = <
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodUnknown,
 >(
-  typeZ: Type = z.string() as unknown as Type,
-  configZ: Config = z.unknown() as unknown as Config,
-  statusDataZ: StatusData = z.unknown() as unknown as StatusData,
+  schemas: Schemas<Type, Config, StatusData> = {
+    typeSchema: z.string() as unknown as Type,
+    configSchema: z.unknown() as unknown as Config,
+    statusDataSchema: z.unknown() as unknown as StatusData,
+  },
 ) =>
   z.object({
     key: keyZ,
     name: z.string(),
-    type: typeZ,
+    type: schemas.typeSchema,
     internal: z.boolean().optional(),
-    config: z.string().transform(decodeJSONString).or(configZ),
-    status: statusZ(statusDataZ).optional().nullable(),
+    config: z.string().transform(decodeJSONString).or(schemas.configSchema),
+    status: statusZ(schemas.statusDataSchema).optional().nullable(),
     snapshot: z.boolean().optional(),
   });
+
+export interface Schemas<
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+> {
+  typeSchema: Type;
+  configSchema: Config;
+  statusDataSchema: StatusData;
+}
 
 export type Payload<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodTypeAny = z.ZodTypeAny,
+  StatusData extends z.ZodType = z.ZodType,
 > = {
   key: Key;
   name: string;
@@ -77,11 +81,9 @@ export const newZ = <
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodUnknown,
 >(
-  typeZ: Type = z.string() as unknown as Type,
-  configZ: Config = z.unknown() as unknown as Config,
-  statusDataZ: StatusData = z.unknown() as unknown as StatusData,
+  schemas?: Schemas<Type, Config, StatusData>,
 ) =>
-  taskZ(typeZ, configZ, statusDataZ)
+  taskZ(schemas)
     .omit({ key: true })
     .extend({
       key: keyZ.transform((k) => k.toString()).optional(),
@@ -109,16 +111,14 @@ export const commandZ = z.object({
     .optional() as z.ZodOptional<z.ZodType<record.Unknown>>,
 });
 
-export interface Command<Args extends {} = record.Unknown>
-  extends Omit<z.infer<typeof commandZ>, "args"> {
-  args?: Args;
+export interface Command extends Omit<z.infer<typeof commandZ>, "args"> {
+  args?: record.Unknown;
 }
 
 export interface StateObservable<StatusData extends z.ZodType>
   extends observe.ObservableAsyncCloseable<Status<StatusData>> {}
 
-export interface CommandObservable<Args extends {} = record.Unknown>
-  extends observe.ObservableAsyncCloseable<Command<Args>> {}
+export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
 
 export const ONTOLOGY_TYPE = "task";
 export type OntologyType = typeof ONTOLOGY_TYPE;

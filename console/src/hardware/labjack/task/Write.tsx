@@ -19,8 +19,9 @@ import { SelectOutputChannelType } from "@/hardware/labjack/task/SelectOutputCha
 import {
   type OutputChannel,
   type OutputChannelType,
+  WRITE_SCHEMAS,
   WRITE_TYPE,
-  writeConfigZ,
+  type writeConfigZ,
   type writeStatusDataZ,
   type writeTypeZ,
   ZERO_OUTPUT_CHANNEL,
@@ -324,7 +325,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
 export const Write = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: writeConfigZ,
+  schemas: WRITE_SCHEMAS,
   type: WRITE_TYPE,
   getInitialPayload,
   onConfigure,

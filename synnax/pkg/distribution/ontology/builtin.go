@@ -40,7 +40,7 @@ var _ Service = (*builtinService)(nil)
 func (b *builtinService) Type() core.Type { return BuiltInType }
 
 // Schema implements Service.
-func (b *builtinService) Schema() zyn.Z { return zyn.Object(nil) }
+func (b *builtinService) Schema() zyn.Schema { return zyn.Object(nil) }
 
 // RetrieveResource implements Service.
 func (b *builtinService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (Resource, error) {

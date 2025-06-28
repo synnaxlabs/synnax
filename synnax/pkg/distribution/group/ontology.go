@@ -34,14 +34,14 @@ func OntologyIDs(keys []uuid.UUID) []core.ID {
 }
 
 func newResource(g Group) ontology.Resource {
-	return core.NewResource(Z, OntologyID(g.Key), g.Name, g)
+	return core.NewResource(schema, OntologyID(g.Key), g.Name, g)
 }
 
 type change = changex.Change[uuid.UUID, Group]
 
 func (s *Service) Type() ontology.Type { return ontologyType }
 
-func (s *Service) Schema() zyn.Z { return Z }
+func (s *Service) Schema() zyn.Schema { return schema }
 
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (r ontology.Resource, err error) {
 	k, err := uuid.Parse(key)

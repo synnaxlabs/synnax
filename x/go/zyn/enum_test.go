@@ -1,8 +1,18 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package zyn_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -52,6 +62,26 @@ var _ = Describe("Enum", func() {
 			var dest int
 			Expect(zyn.Enum[int](1, 2, 3).Parse(int64(1), &dest)).To(Succeed())
 			Expect(dest).To(Equal(1))
+		})
+
+		Specify("incompatible channel destination", func() {
+			var dest chan string
+			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
+
+		Specify("incompatible slice destination", func() {
+			var dest []string
+			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
+
+		Specify("incompatible map destination", func() {
+			var dest map[string]any
+			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
+
+		Specify("incompatible struct destination", func() {
+			var dest struct{ Value string }
+			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
 		})
 	})
 
@@ -111,7 +141,7 @@ var _ = Describe("Enum", func() {
 		})
 	})
 
-	Describe("Custom Types", func() {
+	Describe("Custom DataTypes", func() {
 		type MyEnum string
 
 		Specify("custom type enum", func() {

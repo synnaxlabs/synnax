@@ -151,7 +151,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			}).Should(Succeed())
 
 			var rackStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_rack_state").Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames(tracker.RackStatusChannelName).Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -183,7 +183,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			taskKey := task.NewKey(rck.Key, 1)
 
 			var rackStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_rack_state").Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames(tracker.RackStatusChannelName).Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -202,7 +202,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			var taskStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames(tracker.TaskStatusChannelName).Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
 
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: []channel.Key{taskStateCh.Key()},
@@ -220,14 +220,14 @@ var _ = Describe("Tracker", Ordered, func() {
 		})
 	})
 
-	Describe("Tracking Task Stage", func() {
+	Describe("Tracking Task Status", func() {
 		It("Should correctly update the state of a task", func() {
 			rack := &rack.Rack{Name: "rack1"}
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
 			tsk := &task.Task{Key: task.NewKey(rack.Key, 0), Name: "task1"}
 			Expect(cfg.Task.NewWriter(nil).Create(ctx, tsk)).To(Succeed())
 			var taskStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames(tracker.TaskStatusChannelName).Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{taskStateCh.Key()},
@@ -262,7 +262,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			tsk := &task.Task{Key: task.NewKey(rack.Key, 0), Name: "task1"}
 			Expect(cfg.Task.NewWriter(nil).Create(ctx, tsk)).To(Succeed())
 			var taskStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames(tracker.TaskStatusChannelName).Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{taskStateCh.Key()},
@@ -289,7 +289,7 @@ var _ = Describe("Tracker", Ordered, func() {
 		})
 	})
 
-	Describe("Communicating Through Task Stage when a Rack Has Died", func() {
+	Describe("Communicating Through Task Status when a Rack Has Died", func() {
 		BeforeEach(func() {
 			cfg.RackStateAliveThreshold = 5 * telem.Millisecond
 		})
@@ -299,7 +299,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			taskKey := task.NewKey(rack.Key, 1)
 
 			var taskStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames(tracker.TaskStatusChannelName).Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
 
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: []channel.Key{taskStateCh.Key()},
@@ -317,11 +317,11 @@ var _ = Describe("Tracker", Ordered, func() {
 			s, ok := tr.GetTask(ctx, taskKey)
 			Expect(ok).To(BeTrue())
 			Expect(s.Variant).To(Equal(status.WarningVariant))
-			Expect(s.Message).To(ContainSubstring("Synnax Driver on rack1 is not running."))
+			Expect(s.Message).To(ContainSubstring("Synnax Driver on rack1 is not running"))
 			Expect(s.Time).To(BeNumerically(">", telem.Now()-10*telem.SecondTS))
 		})
 	})
-	Describe("Communicating Through Task Stage when a Rack is Alive", func() {
+	Describe("Communicating Through Task Status when a Rack is Alive", func() {
 		BeforeEach(func() {
 			cfg.RackStateAliveThreshold = 10 * telem.Second
 		})
@@ -330,7 +330,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(cfg.Rack.NewWriter(nil).Create(ctx, rck)).To(Succeed())
 			taskKey := task.NewKey(rck.Key, 1)
 			var rackStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_rack_state").Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames(tracker.RackStatusChannelName).Entry(&rackStateCh).Exec(ctx, nil)).To(Succeed())
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{rackStateCh.Key()},
@@ -351,7 +351,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			var taskStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames(tracker.TaskStatusChannelName).Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
 
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: []channel.Key{taskStateCh.Key()},
@@ -431,7 +431,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(cfg.Device.NewWriter(nil).Create(ctx, dev)).To(Succeed())
 
 			var deviceStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_device_state").Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames(tracker.DeviceStatusChannelName).Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -442,7 +442,10 @@ var _ = Describe("Tracker", Ordered, func() {
 				Key:     dev.Key,
 				Variant: status.WarningVariant,
 				Message: "Device is warming up",
-				Details: device.StatusDetails{Rack: rck.Key},
+				Details: device.StatusDetails{
+					Rack:   rck.Key,
+					Device: dev.Key,
+				},
 			}
 
 			MustSucceed(w.Write(core.UnaryFrame(
@@ -473,7 +476,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Expect(cfg.Device.NewWriter(nil).Create(ctx, dev)).To(Succeed())
 
 			var deviceStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_device_state").Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames(tracker.DeviceStatusChannelName).Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -484,7 +487,10 @@ var _ = Describe("Tracker", Ordered, func() {
 				Key:     dev.Key,
 				Variant: status.ErrorVariant,
 				Message: "Device error state",
-				Details: device.StatusDetails{Rack: rck.Key},
+				Details: device.StatusDetails{
+					Rack:   rck.Key,
+					Device: dev.Key,
+				},
 			}
 
 			MustSucceed(w.Write(core.UnaryFrame(
@@ -529,7 +535,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			}).Should(Succeed())
 
 			var deviceStateCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_device_state").Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames(tracker.DeviceStatusChannelName).Entry(&deviceStateCh).Exec(ctx, nil)).To(Succeed())
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
@@ -540,7 +546,10 @@ var _ = Describe("Tracker", Ordered, func() {
 				Key:     dev.Key,
 				Variant: status.WarningVariant,
 				Message: "Update from wrong rack",
-				Details: device.StatusDetails{Rack: rack2.Key},
+				Details: device.StatusDetails{
+					Rack:   rack2.Key,
+					Device: dev.Key,
+				},
 			}
 
 			MustSucceed(w.Write(core.UnaryFrame(

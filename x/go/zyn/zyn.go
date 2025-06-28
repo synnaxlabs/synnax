@@ -66,23 +66,24 @@ const (
 )
 
 var (
-	StringTypeZ  = Literal(StringT)
-	BoolTypeZ    = Literal(BoolT)
-	ObjectTypeZ  = Literal(ObjectT)
-	UUIDTypeZ    = Literal(UUIDT)
-	IntTypeZ     = Literal(IntT)
-	Int8TypeZ    = Literal(Int8T)
-	Int16TypeZ   = Literal(Int16T)
-	Int32TypeZ   = Literal(Int32T)
-	Int64TypeZ   = Literal(Int64T)
-	UintTypeZ    = Literal(UintT)
-	Uint8TypeZ   = Literal(Uint8T)
-	Uint16TypeZ  = Literal(Uint16T)
-	Uint32TypeZ  = Literal(Uint32T)
-	Uint64TypeZ  = Literal(Uint64T)
-	Float32TypeZ = Literal(Float32T)
-	Float64TypeZ = Literal(Float64T)
-	IntegerTypes = []DataType{
+	StringTypeSchema  = Literal(StringT)
+	BoolTypeSchema    = Literal(BoolT)
+	NumberTypeSchema  = Literal(NumberT)
+	ObjectTypeSchema  = Literal(ObjectT)
+	UUIDTypeSchema    = Literal(UUIDT)
+	IntTypeSchema     = Literal(IntT)
+	Int8TypeSchema    = Literal(Int8T)
+	Int16TypeSchema   = Literal(Int16T)
+	Int32TypeSchema   = Literal(Int32T)
+	Int64TypeSchema   = Literal(Int64T)
+	UintTypeSchema    = Literal(UintT)
+	Uint8TypeSchema   = Literal(Uint8T)
+	Uint16TypeSchema  = Literal(Uint16T)
+	Uint32TypeSchema  = Literal(Uint32T)
+	Uint64TypeSchema  = Literal(Uint64T)
+	Float32TypeSchema = Literal(Float32T)
+	Float64TypeShema  = Literal(Float64T)
+	IntegerTypes      = []DataType{
 		IntT,
 		Int8T,
 		Int16T,
@@ -94,34 +95,34 @@ var (
 		Uint32T,
 		Uint64T,
 	}
-	IntegerTypeZ       = Enum(IntegerTypes...)
+	IntegerTypeSchema  = Enum(IntegerTypes...)
 	FloatingPointTypes = []DataType{
 		Float32T,
 		Float64T,
 	}
-	FloatingPointTypeZ = Enum(FloatingPointTypes...)
-	NumericTypes       = slices.Concat(
+	FloatingPointTypeSchema = Enum(FloatingPointTypes...)
+	NumericTypes            = slices.Concat(
 		[]DataType{NumberT},
 		IntegerTypes,
 		FloatingPointTypes,
 	)
-	NumericTypeZ   = Enum(NumericTypes...)
-	PrimitiveTypes = slices.Concat(
+	NumericTypeSchema = Enum(NumericTypes...)
+	PrimitiveTypes    = slices.Concat(
 		[]DataType{StringT, BoolT, UUIDT},
 		IntegerTypes,
 	)
-	PrimitiveTypeZ = Enum(PrimitiveTypes...)
-	Types          = slices.Concat(
+	PrimitiveTypeSchema = Enum(PrimitiveTypes...)
+	DataTypes           = slices.Concat(
 		[]DataType{ObjectT},
 		IntegerTypes,
 	)
-	AnyTypeZ = Enum(Types...)
+	DataTypeSchema = Enum(DataTypes...)
 )
 
 func Primitive() UnionZ { return Union(Number(), String(), Bool()) }
 
-// Z is a schema that provides methods for validating and converting data.
-type Z interface {
+// Schema is a schema that provides methods for validating and converting data.
+type Schema interface {
 	// Parse converts the given data from a standardized format to the destination type.
 	// It validates the data and returns an error if the data is invalid.
 	Parse(data any, dest any) error
@@ -150,7 +151,7 @@ type baseZ struct {
 	optional     bool
 	dataType     DataType
 	expectedType reflect.Type
-	wrapper      Z
+	wrapper      Schema
 }
 
 // Shape returns the base shape of the schema.
@@ -159,7 +160,7 @@ func (b baseZ) Shape() Shape { return b }
 // Optional returns whether the schema is optional.
 func (b baseZ) Optional() bool { return b.optional }
 
-// Type returns the type of the schema.
+// DataType returns the type of the schema.
 func (b baseZ) DataType() DataType { return b.dataType }
 
 // Fields returns nil as baseZ is not an object schema.

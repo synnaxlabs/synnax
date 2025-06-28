@@ -65,7 +65,7 @@ func ResourceIDs(resources []Resource) []ID {
 // NewResource creates a new entity with the given schema and name and an empty set of
 // field data. NewResource panics if the provided data value does not fit the ontology
 // schema.
-func NewResource(schema zyn.Z, id ID, name string, data any) core.Resource {
+func NewResource(schema zyn.Schema, id ID, name string, data any) core.Resource {
 	return core.NewResource(schema, id, name, data)
 }
 

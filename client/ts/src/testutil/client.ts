@@ -7,4 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/status/aether/aggregator";
+import Synnax, { type SynnaxProps } from "@/client";
+
+export const TEST_CLIENT_PROPS: SynnaxProps = {
+  host: "localhost",
+  port: 9090,
+  username: "synnax",
+  password: "seldon",
+};
+
+export const newTestClient = (props?: Partial<SynnaxProps>): Synnax =>
+  new Synnax({ ...TEST_CLIENT_PROPS, ...props });

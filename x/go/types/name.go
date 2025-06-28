@@ -60,6 +60,11 @@ func PluralName[T any]() string {
 	}
 }
 
+// PackageName extracts the package name from a reflect.Type.
+// It returns the last component of the package path, which is typically
+// the package name. For example, given a type from "github.com/user/project/pkg",
+// it returns "pkg". If the type has no package path or the path is empty,
+// it returns "unknown".
 func PackageName(t reflect.Type) string {
 	pkgPath := t.PkgPath()
 	parts := strings.Split(pkgPath, "/")
@@ -125,12 +130,12 @@ func ValueName(v reflect.Value) string {
 			if t.Name() != "" {
 				return t.String()
 			}
-			return "interface{} (nil)"
+			return "any (nil)"
 		}
 		if t.Name() != "" {
 			return t.String()
 		}
-		return "interface{}"
+		return "any"
 	default:
 		if t.Name() != "" {
 			if t.PkgPath() != "" {

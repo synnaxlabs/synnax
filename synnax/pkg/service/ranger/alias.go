@@ -79,7 +79,7 @@ func AliasOntologyIDs(r uuid.UUID, chs []channel.Key) []ontology.ID {
 	return ids
 }
 
-var AliasZ = zyn.Object(map[string]zyn.Z{
+var aliasSchema = zyn.Object(map[string]zyn.Schema{
 	"range":   zyn.UUID(),
 	"channel": zyn.Uint32().Coerce(),
 	"alias":   zyn.String(),
@@ -87,7 +87,7 @@ var AliasZ = zyn.Object(map[string]zyn.Z{
 
 func newAliasResource(a Alias) ontology.Resource {
 	return core.NewResource(
-		AliasZ,
+		aliasSchema,
 		AliasOntologyID(a.Range, a.Channel),
 		a.Alias,
 		a,
@@ -97,7 +97,7 @@ func newAliasResource(a Alias) ontology.Resource {
 type (
 	aliasOntologyService struct{ db *gorp.DB }
 
-	aliasChange = changex.Change[string, Alias]
+	aliasChange = changex.Change[string, alias]
 )
 
 var _ ontology.Service = (*aliasOntologyService)(nil)
@@ -105,7 +105,7 @@ var _ ontology.Service = (*aliasOntologyService)(nil)
 func (a *aliasOntologyService) Type() ontology.Type { return aliasOntologyType }
 
 // Schema implements ontology.Service.
-func (s *aliasOntologyService) Schema() zyn.Z { return AliasZ }
+func (s *aliasOntologyService) Schema() zyn.Schema { return aliasSchema }
 
 // RetrieveResource implements ontology.Service.
 func (s *aliasOntologyService) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {

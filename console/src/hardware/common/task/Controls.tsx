@@ -20,7 +20,7 @@ export interface ControlsProps<StatusData extends z.ZodType = z.ZodType>
   extends Align.SpaceProps {
   layoutKey: string;
   status: task.Status<StatusData>;
-  onStartStop: (command: Command) => void;
+  onCommand: (command: Command) => void;
   onConfigure: () => void;
   isConfiguring: boolean;
   isSnapshot: boolean;
@@ -31,7 +31,7 @@ const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
 
 export const Controls = <StatusData extends z.ZodType = z.ZodType>({
   status,
-  onStartStop,
+  onCommand,
   layoutKey,
   onConfigure,
   hasBeenConfigured,
@@ -64,8 +64,8 @@ export const Controls = <StatusData extends z.ZodType = z.ZodType>({
   const hasTriggers =
     Layout.useSelectActiveMosaicTabKey() === layoutKey && canConfigure;
   const handleStartStop = useCallback(
-    () => onStartStop(running ? "stop" : "start"),
-    [running, onStartStop],
+    () => onCommand(running ? "stop" : "start"),
+    [running, onCommand],
   );
   return (
     <Align.Space

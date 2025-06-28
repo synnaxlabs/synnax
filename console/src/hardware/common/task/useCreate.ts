@@ -19,8 +19,10 @@ import { Layout } from "@/layout";
 export const useCreate = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
 >(
   layoutKey: string,
+  schemas: task.Schemas<Type, Config, StatusData>,
 ) => {
   const client = Synnax.use();
   const dispatch = useDispatch();
@@ -28,7 +30,7 @@ export const useCreate = <
     async (task: task.New<Type, Config>, rackKey: rack.Key) => {
       if (client == null) throw NULL_CLIENT_ERROR;
       const rck = await client.hardware.racks.retrieve(rackKey);
-      const createdTask = await rck.createTask<Type, Config>(task);
+      const createdTask = await rck.createTask(task, schemas);
       dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: createdTask.key } }));
       dispatch(Layout.setAltKey({ key: layoutKey, altKey: createdTask.key }));
       return createdTask;

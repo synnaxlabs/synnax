@@ -19,14 +19,14 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 )
 
 type DB struct {
-	kvx.DB
-	kvx.Observable
+	xkv.DB
+	xkv.Observable
 	config     Config
 	leaseAlloc *leaseAllocator
 	source     struct {
@@ -36,7 +36,7 @@ type DB struct {
 	shutdown io.Closer
 }
 
-var _ kvx.DB = (*DB)(nil)
+var _ xkv.DB = (*DB)(nil)
 
 func (d *DB) Set(
 	ctx context.Context,
@@ -66,7 +66,7 @@ func (d *DB) Delete(
 	return
 }
 
-func (d *DB) OpenTx() kvx.Tx {
+func (d *DB) OpenTx() xkv.Tx {
 	return &tx{
 		Instrumentation: d.config.Instrumentation,
 		apply:           d.apply,
@@ -75,7 +75,7 @@ func (d *DB) OpenTx() kvx.Tx {
 	}
 }
 
-func (d *DB) OnChange(f func(ctx context.Context, reader kvx.TxReader)) observe.Disconnect {
+func (d *DB) OnChange(f func(ctx context.Context, reader xkv.TxReader)) observe.Disconnect {
 	return d.Observable.OnChange(f)
 }
 
@@ -178,9 +178,9 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	// We use a generator observable to generate a unique transaction reader for
 	// each handler in the observable chain. This is necessary because the transaction
 	// reader can be exhausted.
-	observable := confluence.NewGeneratorTransformObservable[TxRequest, kvx.TxReader](
-		func(ctx context.Context, tx TxRequest) (func() kvx.TxReader, bool, error) {
-			return func() kvx.TxReader { return tx.reader() }, true, nil
+	observable := confluence.NewGeneratorTransformObservable[TxRequest, xkv.TxReader](
+		func(ctx context.Context, tx TxRequest) (func() xkv.TxReader, bool, error) {
+			return func() xkv.TxReader { return tx.reader() }, true, nil
 		})
 	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
 	db_.Observable = observable

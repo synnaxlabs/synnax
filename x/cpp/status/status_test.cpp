@@ -34,7 +34,7 @@ TEST(StatusTest, TestToJSON) {
 TEST(StatusTest, TestParse) {
     json j = {
         {"key", "cat"},
-        {"variant", status::variant::ERROR},
+        {"variant", status::variant::ERR},
         {"message", "the cat is angry"},
         {"description", "a longer description of the cat's status"},
         {"time", telem::TimeStamp(telem::SECOND).nanoseconds()}
@@ -42,7 +42,7 @@ TEST(StatusTest, TestParse) {
     xjson::Parser p(j);
     auto stat = status::Status<>::parse(p);
     ASSERT_EQ(stat.key, "cat");
-    ASSERT_EQ(stat.variant, status::variant::ERROR);
+    ASSERT_EQ(stat.variant, status::variant::ERR);
     ASSERT_EQ(stat.message, "the cat is angry");
     ASSERT_EQ(stat.description, "a longer description of the cat's status");
     ASSERT_EQ(stat.time, telem::TimeStamp(telem::SECOND));

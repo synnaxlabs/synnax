@@ -111,8 +111,8 @@ export class ID {
     return this.key === "";
   }
 
-  matchesType(type: ResourceType): boolean {
-    return this.type === type && this.isType();
+  equals(other: CrudeID): boolean {
+    return this.toString() === new ID(other).toString();
   }
 
   get payload(): IDPayload {
@@ -136,11 +136,11 @@ export interface Resource<T extends record.Unknown = record.Unknown>
   data?: T | null;
 }
 
-export const TO_RELATIONSHIP_DIRECTION = "to";
-export const FROM_RELATIONSHIP_DIRECTION = "from";
-export type RelationshipDirection =
-  | typeof TO_RELATIONSHIP_DIRECTION
-  | typeof FROM_RELATIONSHIP_DIRECTION;
+export type RelationshipDirection = "to" | "from";
+
+export const oppositeRelationshipDirection = (
+  direction: RelationshipDirection,
+): RelationshipDirection => (direction === "to" ? "from" : "to");
 
 export const relationshipSchemaZ = z.object({ from: ID.z, type: z.string(), to: ID.z });
 export interface Relationship extends z.infer<typeof relationshipSchemaZ> {}
@@ -149,3 +149,5 @@ export const parseRelationship = (str: string): Relationship => {
   const [from, type, to] = str.split("->");
   return { from: new ID(from), type, to: new ID(to) };
 };
+
+export const PARENT_OF_RELATIONSHIP_TYPE = "parent";

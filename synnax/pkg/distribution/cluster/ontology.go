@@ -45,12 +45,12 @@ func OntologyID(key uuid.UUID) ontology.ID {
 }
 
 var (
-	NodeZ = zyn.Object(map[string]zyn.Z{
+	nodeSchema = zyn.Object(map[string]zyn.Schema{
 		"key":     zyn.Uint16().Coerce(),
 		"address": zyn.String(),
 		"state":   zyn.Uint32().Coerce(),
 	})
-	Z = zyn.Object(map[string]zyn.Z{"key": zyn.UUID()})
+	schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID()})
 )
 
 // NodeOntologyService implements the ontology.Service interface to provide resource access
@@ -98,8 +98,8 @@ func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource]
 	), nil
 }
 
-// Schema implements ontology.Service.
-func (s *NodeOntologyService) Schema() zyn.Z { return NodeZ }
+// schema implements ontology.Service.
+func (s *NodeOntologyService) Schema() zyn.Schema { return nodeSchema }
 
 // RetrieveResource implements ontology.Service.
 func (s *NodeOntologyService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
@@ -116,8 +116,8 @@ func (s *NodeOntologyService) RetrieveResource(_ context.Context, key string, _ 
 }
 
 func newNodeResource(n Node) ontology.Resource {
-	return ontology.NewResource(
-		NodeZ,
+	return ontologycore.NewResource(
+		nodeSchema,
 		NodeOntologyID(n.Key),
 		fmt.Sprintf("Node %v", n.Key),
 		n,
@@ -136,8 +136,8 @@ var _ ontology.Service = (*OntologyService)(nil)
 
 func (s *OntologyService) Type() ontology.Type { return clusterOntologyType }
 
-// Schema implements ontology.Service.
-func (s *OntologyService) Schema() zyn.Z { return Z }
+// schema implements ontology.Service.
+func (s *OntologyService) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (ontology.Resource, error) {
@@ -151,7 +151,7 @@ func (s *OntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource], er
 
 func newClusterResource(key uuid.UUID) ontology.Resource {
 	return ontologycore.NewResource(
-		Z,
+		schema,
 		OntologyID(key),
 		"Cluster",
 		map[string]any{"key": key},

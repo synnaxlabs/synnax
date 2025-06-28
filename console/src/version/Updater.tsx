@@ -41,14 +41,18 @@ export const useCheckForUpdates = (): boolean => {
       });
   };
 
-  useAsyncEffect(async () => {
-    await checkForUpdates(!isSilenced);
-    const i = setInterval(
-      () => void checkForUpdates(!isSilenced),
-      TimeSpan.seconds(30).milliseconds,
-    );
-    return () => clearInterval(i);
-  }, [isSilenced]);
+  useAsyncEffect(
+    async (signal) => {
+      await checkForUpdates(!isSilenced);
+      if (signal.aborted) return;
+      const i = setInterval(
+        () => void checkForUpdates(!isSilenced),
+        TimeSpan.seconds(30).milliseconds,
+      );
+      return () => clearInterval(i);
+    },
+    [isSilenced],
+  );
 
   return available;
 };

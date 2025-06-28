@@ -27,12 +27,12 @@ import (
 type mockIndexingService struct {
 	observe.Observer[iter.Nexter[ontology.Change]]
 	resources []ontology.Resource
-	schema    zyn.Z
+	schema    zyn.Schema
 }
 
 var _ ontology.Service = (*mockIndexingService)(nil)
 
-func newMockIndexingService(schema zyn.Z, resources []ontology.Resource) *mockIndexingService {
+func newMockIndexingService(schema zyn.Schema, resources []ontology.Resource) *mockIndexingService {
 	return &mockIndexingService{
 		Observer:  observe.New[iter.Nexter[ontology.Change]](),
 		resources: resources,
@@ -44,7 +44,7 @@ const testType ontology.Type = "test-type"
 
 func (s *mockIndexingService) Type() ontology.Type { return testType }
 
-func (s *mockIndexingService) Schema() zyn.Z {
+func (s *mockIndexingService) Schema() zyn.Schema {
 	return s.schema
 }
 
@@ -72,13 +72,6 @@ var _ = Describe("Search Indexing", func() {
 
 	BeforeEach(func() {
 		z := zyn.Object(nil)
-		//db = gorp.Wrap(memkv.New())
-		//otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-		//	Instrumentation: alamos.New("test"),
-		//	DB:              db,
-		//	EnableSearch:    config.True(),
-		//}))
-
 		resources := []ontology.Resource{
 			ontology.NewResource(
 				z,

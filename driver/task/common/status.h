@@ -48,7 +48,7 @@ struct StatusHandler {
     /// will override any other accumulated errors.
     bool error(const xerrors::Error &err) {
         if (!err) return false;
-        this->status.variant = status::variant::ERROR;
+        this->status.variant = status::variant::ERR;
         this->accumulated_err = err;
         return true;
     }
@@ -85,7 +85,7 @@ struct StatusHandler {
             this->status.details.running = true;
             this->status.message = "Task started successfully";
         } else {
-            this->status.variant = status::variant::ERROR;
+            this->status.variant = status::variant::ERR;
             this->status.details.running = false;
             this->status.message = this->accumulated_err.data;
         }
@@ -100,7 +100,7 @@ struct StatusHandler {
         this->status.key = cmd_key;
         this->status.details.running = false;
         if (this->accumulated_err) {
-            this->status.variant = status::variant::ERROR;
+            this->status.variant = status::variant::ERR;
             this->status.message = this->accumulated_err.data;
         } else
             this->status.message = "Task stopped successfully";
@@ -119,7 +119,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     status.details.task = task.key;
     status.details.running = false;
     if (res.error) {
-        status.variant = status::variant::ERROR;
+        status.variant = status::variant::ERR;
         status.message = res.error.message();
     } else {
         status.variant = status::variant::SUCCESS;

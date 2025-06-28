@@ -60,7 +60,7 @@ func KeyFromOntologyID(id ontology.ID) (uuid.UUID, error) {
 
 var OntologyTypeID = ontology.ID{Type: ontologyType, Key: ""}
 
-var Z = zyn.Object(map[string]zyn.Z{
+var schema = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.UUID(),
 	"username":   zyn.String(),
 	"first_name": zyn.String(),
@@ -71,7 +71,7 @@ var Z = zyn.Object(map[string]zyn.Z{
 func (s *Service) Type() ontology.Type { return ontologyType }
 
 // Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Z { return Z }
+func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
@@ -119,5 +119,5 @@ func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 }
 
 func newResource(u User) ontology.Resource {
-	return core.NewResource(Z, OntologyID(u.Key), u.Username, u)
+	return core.NewResource(schema, OntologyID(u.Key), u.Username, u)
 }

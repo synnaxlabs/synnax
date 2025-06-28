@@ -41,7 +41,7 @@ func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
 	})
 }
 
-var Z = zyn.Object(map[string]zyn.Z{
+var schema = zyn.Object(map[string]zyn.Schema{
 	"key":         zyn.Uint32().Coerce(),
 	"name":        zyn.String(),
 	"leaseholder": zyn.Uint16().Coerce(),
@@ -54,7 +54,7 @@ var Z = zyn.Object(map[string]zyn.Z{
 })
 
 func newResource(c Channel) ontology.Resource {
-	return core.NewResource(Z, OntologyID(c.Key()), c.Name, map[string]any{
+	return core.NewResource(schema, OntologyID(c.Key()), c.Name, map[string]any{
 		"key":         c.Key(),
 		"name":        c.Name,
 		"leaseholder": c.Leaseholder,
@@ -73,8 +73,8 @@ type change = changex.Change[Key, Channel]
 
 func (s *service) Type() ontology.Type { return OntologyType }
 
-// Schema implements ontology.Service.
-func (s *service) Schema() zyn.Z { return Z }
+// schema implements ontology.Service.
+func (s *service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {

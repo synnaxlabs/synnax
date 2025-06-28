@@ -108,6 +108,41 @@ var _ = Describe("Bool", func() {
 			var dest bool
 			Expect(zyn.Bool().Parse(struct{}{}, &dest)).To(MatchError(ContainSubstring("expected boolean, string, number, or nil")))
 		})
+
+		Specify("string destination", func() {
+			var dest string
+			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
+
+		Specify("numeric destination", func() {
+			var dest int
+			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
+
+		Specify("float destination", func() {
+			var dest float64
+			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
+
+		Specify("channel destination", func() {
+			var dest chan bool
+			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
+
+		Specify("slice destination", func() {
+			var dest []bool
+			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
+
+		Specify("map destination", func() {
+			var dest map[string]bool
+			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
+
+		Specify("struct destination", func() {
+			var dest struct{ Flag bool }
+			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+		})
 	})
 
 	Describe("Optional Fields", func() {

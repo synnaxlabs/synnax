@@ -33,7 +33,7 @@ const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_ENDPOINT = "/hardware/rack/create";
 const DELETE_ENDPOINT = "/hardware/rack/delete";
 
-const STATE_CHANNEL_NAME = "sy_rack_state";
+export const STATUS_CHANNEL_NAME = "sy_rack_status";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -149,22 +149,25 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return single ? sugared[0] : sugared;
   }
 
-  async openStateObserver(): Promise<framer.ObservableStreamer<Status[]>> {
+  async openStatusObserver(): Promise<framer.ObservableStreamer<Status[]>> {
     return new framer.ObservableStreamer<Status[]>(
-      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
       (fr) => {
-        const data = fr.get(STATE_CHANNEL_NAME);
-        if (data.length === 0) return [[], false];
-        const states = data.parseJSON(statusZ);
-        return [states, true];
+        const data = fr.get(STATUS_CHANNEL_NAME);
+        return [data.parseJSON(statusZ), data.length > 0];
       },
     );
   }
 
-  private sugar(payloads: Payload[]): Rack[] {
-    return payloads.map(
-      ({ key, name, status: state }) => new Rack(key, name, this.tasks, state),
-    );
+  sugar(payload: Payload): Rack;
+  sugar(payloads: Payload[]): Rack[];
+  sugar(payloads: Payload | Payload[]): Rack | Rack[] {
+    const isSingle = !Array.isArray(payloads);
+    const sugared = array
+      .toArray(payloads)
+      .map(({ key, name, status }) => new Rack(key, name, this.tasks, status));
+    if (isSingle) return sugared[0];
+    return sugared;
   }
 }
 
@@ -182,30 +185,43 @@ export class Rack {
   }
 
   async listTasks(): Promise<task.Task[]> {
-    return await this.tasks.retrieve(this.key);
+    return await this.tasks.retrieve({ rack: this.key });
   }
 
-  async retrieveTaskByName(name: string): Promise<task.Task> {
-    return await this.tasks.retrieveByName(name, this.key);
-  }
-
-  async retrieveTaskByType(type: string): Promise<task.Task[]> {
-    return await this.tasks.retrieveByType(type, this.key);
-  }
+  async createTask(task: task.New): Promise<task.Task>;
+  async createTask<
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+    StatusData extends z.ZodType = z.ZodType,
+  >(
+    task: task.New<Type, Config>,
+    schemas: task.Schemas<Type, Config, StatusData>,
+  ): Promise<task.Task<Type, Config, StatusData>>;
 
   async createTask<
     Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
     Config extends z.ZodType = z.ZodType,
-  >(task: task.New<Type, Config>): Promise<task.Task<Type, Config>> {
+    StatusData extends z.ZodType = z.ZodType,
+  >(
+    task: task.New<Type, Config>,
+    schemas?: task.Schemas<Type, Config, StatusData>,
+  ): Promise<task.Task<Type, Config, StatusData>> {
     task.key = (
       (BigInt(this.key) << 32n) +
       (BigInt(task.key ?? 0) & 0xffffffffn)
     ).toString();
-    return await this.tasks.create<Type, Config>(task);
+    return await this.tasks.create(
+      task,
+      schemas as Required<task.Schemas<Type, Config, StatusData>>,
+    );
   }
 
   async deleteTask(task: bigint): Promise<void> {
     await this.tasks.delete([task]);
+  }
+
+  get payload(): Payload {
+    return { key: this.key, name: this.name, status: this.status };
   }
 }
 

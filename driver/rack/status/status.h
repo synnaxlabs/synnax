@@ -20,8 +20,8 @@
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/status/status.h"
 
-namespace rack::state {
-const std::string INTEGRATION_NAME = "rack_state";
+namespace rack::status {
+const std::string INTEGRATION_NAME = "rack_status";
 const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
 const std::string TASK_NAME = "Rack State";
 const std::string TASK_TYPE = TASK_NAME;
@@ -43,7 +43,7 @@ public:
         fr.clear();
         this->loop.wait(breaker);
         const synnax::RackStatus status{
-            .variant = status::variant::SUCCESS,
+            .variant = ::status::variant::SUCCESS,
             .message = "Driver is running",
             .details =
                 synnax::RackStatusDetails{
@@ -86,7 +86,8 @@ public:
     /// @brief configures the heartbeat task.
     static std::unique_ptr<task::Task>
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
-        auto [ch, err] = ctx->client->channels.retrieve(synnax::RACK_STATE_CHAN_NAME);
+        auto [ch, err] = ctx->client->channels.retrieve(synnax::RACK_STATUS_CHANNEL_NAME
+        );
         if (err) {
             LOG(WARNING) << "[rack_state] failed to retrieve rack state channel: "
                          << err;

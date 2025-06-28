@@ -37,6 +37,7 @@ export { ontology } from "@/ontology";
 export { group } from "@/ontology/group";
 export { ranger } from "@/ranger";
 export { signals } from "@/signals";
+export { newTestClient, TEST_CLIENT_PROPS } from "@/testutil/client";
 export { slate } from "@/slate";
 export { user } from "@/user";
 export { workspace } from "@/workspace";

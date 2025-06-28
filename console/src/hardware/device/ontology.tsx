@@ -12,6 +12,7 @@ import "@/hardware/device/ontology.css";
 import { device, ontology } from "@synnaxlabs/client";
 import {
   Align,
+  Device,
   Icon,
   Menu as PMenu,
   Status,
@@ -34,7 +35,6 @@ import {
   hasIdentifier,
   makeZ,
 } from "@/hardware/device/make";
-import { useState as useStatus } from "@/hardware/device/Toolbar";
 import { useRename } from "@/modals/Rename";
 import { Ontology } from "@/ontology";
 
@@ -182,7 +182,7 @@ const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.mak
 
 const Item: Tree.Item = ({ entry, className, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
-  const devStatus = useStatus(id.key);
+  const devStatus = Device.useStatus(id.key);
   const variant = devStatus?.variant;
   const message = devStatus?.message ?? "Device Status Unknown";
   return (

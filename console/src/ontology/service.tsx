@@ -92,12 +92,8 @@ export interface HandleTreeRename {
   rollback?: (props: HandleTreeRenameProps, prevName: string) => void;
 }
 
-export interface NodeAdapterProps extends BaseProps {
-  node: Tree.FlattenedNode;
-}
-
 export interface AllowRename {
-  (res: ontology.Resource): boolean;
+  (resource: ontology.Resource): boolean;
 }
 
 export interface PaletteListItem

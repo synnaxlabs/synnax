@@ -16,11 +16,7 @@ import { decodeJSONString } from "@/util/decodeJSONString";
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
-export const statusDetailsZ = z.object({
-  rack: rackKeyZ,
-});
-
-export const statusZ = status.statusZ(statusDetailsZ);
+export const statusZ = status.statusZ(z.object({ rack: rackKeyZ, device: keyZ }));
 
 export interface Status extends z.infer<typeof statusZ> {}
 
@@ -40,7 +36,7 @@ export interface Device<
   Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
-> extends Omit<z.infer<typeof deviceZ>, "properties" | "state"> {
+> extends Omit<z.infer<typeof deviceZ>, "properties" | "status"> {
   properties: Properties;
   make: Make;
   model: Model;

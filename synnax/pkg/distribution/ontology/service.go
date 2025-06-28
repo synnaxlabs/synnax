@@ -27,7 +27,7 @@ import (
 type Service interface {
 	Type() Type
 	// Schema returns the schema of the entities returned by this service.
-	Schema() zyn.Z
+	Schema() zyn.Schema
 	// RetrieveResource returns the resource with the give key (Name.Name). If the resource
 	// does not exist, returns a query.NotFound error.
 	RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (Resource, error)

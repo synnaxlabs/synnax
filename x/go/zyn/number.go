@@ -24,7 +24,7 @@ type NumberZ struct {
 	coerce bool
 }
 
-var _ Z = (*NumberZ)(nil)
+var _ Schema = (*NumberZ)(nil)
 
 // Number is a schema that validates numeric values.
 func Number() NumberZ {
@@ -43,6 +43,24 @@ func (n NumberZ) Coerce() NumberZ { n.coerce = true; return n }
 
 // Shape returns the base shape of the number schema.
 func (n NumberZ) Shape() Shape { return n.baseZ }
+
+// validateDestination validates that the destination is compatible with numeric data
+func (n NumberZ) validateDestination(dest reflect.Value) error {
+	if dest.Kind() != reflect.Ptr || dest.IsNil() {
+		return NewInvalidDestinationTypeError(string(n.dataType), dest)
+	}
+	destType := dest.Type().Elem()
+	for destType.Kind() == reflect.Ptr {
+		destType = destType.Elem()
+	}
+	if isNumericType(destType) {
+		return nil
+	}
+	if n.expectedType != nil && (destType.AssignableTo(n.expectedType) || n.expectedType.AssignableTo(destType)) {
+		return nil
+	}
+	return NewInvalidDestinationTypeError(string(n.dataType), dest)
+}
 
 // Float64 marks the number field as a float64.
 // This enables float64-specific validation and conversion.
@@ -286,7 +304,7 @@ func (n NumberZ) Dump(data any) (any, error) {
 // For floating-point types, it handles precision conversion.
 func (n NumberZ) Parse(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
-	if err := validateDestinationValue(destVal, string(n.dataType)); err != nil {
+	if err := n.validateDestination(destVal); err != nil {
 		return err
 	}
 	if ok, err := validateNilData(destVal, data, n.baseZ); !ok || err != nil {

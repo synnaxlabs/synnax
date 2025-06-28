@@ -21,14 +21,16 @@ import (
 // that have a specific startup and shutdown order.
 //
 // NewOpener returns two functions, cleanup and ok. cleanup must be called in a defer
-// statement directly after NewOpener returns.
+// statement directly after NewOpener returns, passing the final error.
 //
 //	var (
 //		err error
 //		closers xio.MultiCloser
 //	)
-//	cleanup, ok := NewOpener(ctx, &err, &closer)
-//	defer cleanup()
+//	cleanup, ok := NewOpener(ctx, &closers)
+//	defer func() {
+//		err = cleanup(err)
+//	}()
 //
 // ok should be called after every call to open a service or every call to a function
 // that modifies the value of err. If ok returns false, the calling function must
@@ -50,14 +52,16 @@ import (
 //			err error
 //			myLayer = &Layer{closer: xio.MultiCloser{}}
 //		)
-//		cleanup, ok := layer.NewOpener(ctx, &err, &myLayer.closer)
-//		defer cleanup()
+//		cleanup, ok := NewOpener(ctx, &myLayer.closer)
+//		defer func() {
+//			err = cleanup(err)
+//		}()
 //		// If creating service 2 fails, then service 1 will be shut down correctly.
-//		if myLayer.Service1, err = service1.Open(...); !ok(myLayer.Service1) {
+//		if myLayer.Service1, err = service1.Open(...); !ok(err, myLayer.Service1) {
 //			return nil, err
 //		}
 //		// service2 does not have a closer for shutdown, so we can pass nil to ok.
-//		if myLayer.Service2, err = service2.Provision(...); !ok(nil) {
+//		if myLayer.Service2, err = service2.Provision(...); !ok(err, nil) {
 //			return nil, err
 //		}
 //		return myLayer, nil
@@ -67,10 +71,7 @@ func NewOpener(ctx context.Context, closer *xio.MultiCloser) (
 	ok func(err error, c io.Closer) bool,
 ) {
 	cleanup = func(err error) error {
-		if err == nil {
-			err = ctx.Err()
-		}
-		if err != nil {
+		if err = errors.Combine(err, ctx.Err()); err != nil {
 			err = errors.Combine(err, closer.Close())
 		}
 		return err

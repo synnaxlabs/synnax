@@ -76,34 +76,35 @@ const reducer = combineReducers({
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
-  [Drift.SLICE_NAME]: Drift.SliceState;
   [Cluster.SLICE_NAME]: Cluster.SliceState;
-  [Layout.SLICE_NAME]: Layout.SliceState;
-  [Range.SLICE_NAME]: Range.SliceState;
-  [Version.SLICE_NAME]: Version.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
-  [Schematic.SLICE_NAME]: Schematic.SliceState;
+  [Drift.SLICE_NAME]: Drift.SliceState;
+  [Layout.SLICE_NAME]: Layout.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
-  [Workspace.SLICE_NAME]: Workspace.SliceState;
-  [Permissions.SLICE_NAME]: Permissions.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
+  [Permissions.SLICE_NAME]: Permissions.SliceState;
+  [Range.SLICE_NAME]: Range.SliceState;
+  [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
+  [Version.SLICE_NAME]: Version.SliceState;
+  [Workspace.SLICE_NAME]: Workspace.SliceState;
   [Slate.SLICE_NAME]: Slate.SliceState;
   [Effect.SLICE_NAME]: Effect.SliceState;
 }
 
 export type RootAction =
+  | Cluster.Action
+  | Docs.Action
   | Drift.Action
   | Layout.Action
-  | Range.Action
-  | Docs.Action
-  | Cluster.Action
   | LinePlot.Action
-  | Schematic.Action
-  | Permissions.Action
-  | Version.Action
-  | Workspace.Action
   | Log.Action
+  | Permissions.Action
+  | Range.Action
+  | Schematic.Action
+  | Table.Action
+  | Version.Action
+  | Workspace.Action;
   | Slate.Action
   | Effect.Action;
 

@@ -15,7 +15,6 @@ import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
-import { Labels } from "@/range/overview/Labels";
 import { MetaData } from "@/range/overview/MetaData";
 
 export const Overview: Layout.Renderer = ({ layoutKey }) => (

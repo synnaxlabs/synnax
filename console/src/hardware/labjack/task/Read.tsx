@@ -24,8 +24,9 @@ import {
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
   type InputChannelType,
+  READ_SCHEMAS,
   READ_TYPE,
-  readConfigZ,
+  type readConfigZ,
   type ReadPayload,
   type readStatusDataZ,
   type ReadTask,
@@ -230,7 +231,6 @@ const ChannelsForm = ({
     ),
     [device.model],
   );
-  console.log(task.config);
   return (
     <Common.Task.Layouts.ListAndDetails<InputChannel>
       listItem={listItem}
@@ -337,7 +337,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
 export const Read = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: readConfigZ,
+  schemas: READ_SCHEMAS,
   type: READ_TYPE,
   getInitialPayload,
   onConfigure,

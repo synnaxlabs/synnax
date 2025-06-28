@@ -36,9 +36,17 @@ D = TypeVar("D", bound=Payload, default=Payload)
 
 
 class Status(Payload, Generic[D]):
+    """A standardized payload used across Synnax."""
+
     key: str = Field(default=str(uuid4()))
+    """A unique key for the status."""
     variant: Variant
+    """The variant of the status."""
     message: str
+    """The message of the status."""
     description: str = ""
+    """The description of the status."""
     time: TimeStamp = Field(default=TimeStamp.now())
+    """The time the status was created."""
     details: D
+    """The details are customizable details for component specific statuses."""

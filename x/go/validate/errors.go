@@ -37,7 +37,7 @@ func (p pathError) joinPath() string {
 	return strings.Join(p.Path, ".")
 }
 
-type encodedPatherror struct {
+type encodedPathError struct {
 	Path  []string       `json:"path"`
 	Error errors.Payload `json:"error"`
 }
@@ -56,7 +56,7 @@ func PathedError(err error, path string) error {
 	return pathErr
 }
 
-func (fe pathError) Error() string { return fe.joinPath() + ": " + fe.Err.Error() }
+func (p pathError) Error() string { return p.joinPath() + ": " + p.Err.Error() }
 
 func NewInvalidTypeError(expected, received string) error {
 	return errors.Wrapf(InvalidTypeError, "expected %s but received %s", expected, received)
@@ -73,7 +73,7 @@ func encode(ctx context.Context, err error) (errors.Payload, bool) {
 		internal := errors.Encode(ctx, fe.Err, false)
 		return errors.Payload{
 			Type: pathErrorType,
-			Data: string(lo.Must(json.Marshal(encodedPatherror{
+			Data: string(lo.Must(json.Marshal(encodedPathError{
 				Error: internal,
 				Path:  fe.Path,
 			}))),
@@ -90,7 +90,7 @@ func decode(ctx context.Context, p errors.Payload) (error, bool) {
 		return nil, false
 	}
 	if p.Type == pathErrorType {
-		var decodedPathError encodedPatherror
+		var decodedPathError encodedPathError
 		if err := json.Unmarshal([]byte(p.Data), &decodedPathError); err != nil {
 			return err, true
 		}

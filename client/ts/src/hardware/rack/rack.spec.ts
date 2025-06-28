@@ -10,11 +10,10 @@
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod/v4";
 
-import { NotFoundError } from "@/errors";
 import { type rack } from "@/hardware/rack";
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Rack", () => {
   describe("create", () => {
@@ -60,15 +59,9 @@ describe("Rack", () => {
       const tasks = await r.listTasks();
       expect(tasks).toHaveLength(0);
     });
-    it("should throw an error if a task cannot be found by name", async () => {
-      const r = await client.hardware.racks.create({ name: "test" });
-      await expect(
-        async () => await r.retrieveTaskByName("nonexistent"),
-      ).rejects.toThrow(NotFoundError);
-    });
   });
-  describe("state", () => {
-    it("should include state when includeStatus is true", async () => {
+  describe("status", () => {
+    it("should include the rack's status when includeStatus is true", async () => {
       const r = await client.hardware.racks.create({ name: "test" });
       let status: rack.Status | undefined;
       await expect
@@ -82,22 +75,22 @@ describe("Rack", () => {
         .toBeDefined();
       expect(status?.details?.rack).toBe(r.key);
     });
-    it("should include state for multiple racks", async () => {
+    it("should include the status for multiple racks", async () => {
       const r1 = await client.hardware.racks.create({ name: "test1" });
       const r2 = await client.hardware.racks.create({ name: "test2" });
-      let states: (rack.Status | undefined)[] = [];
+      let statuses: (rack.Status | undefined)[] = [];
       await expect
         .poll(async () => {
           const retrieved = await client.hardware.racks.retrieve([r1.key, r2.key], {
             includeStatus: true,
           });
-          states = retrieved.map((r) => r.status);
-          return states.every((s) => s != null);
+          statuses = retrieved.map((r) => r.status);
+          return statuses.every((s) => s != null);
         })
         .toBeTruthy();
-      expect(states).toHaveLength(2);
-      expect(states[0]?.details?.rack).toBe(r1.key);
-      expect(states[1]?.details?.rack).toBe(r2.key);
+      expect(statuses).toHaveLength(2);
+      expect(statuses[0]?.details?.rack).toBe(r1.key);
+      expect(statuses[1]?.details?.rack).toBe(r2.key);
     });
   });
 });

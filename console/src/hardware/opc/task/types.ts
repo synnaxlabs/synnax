@@ -108,7 +108,7 @@ const ZERO_READ_CONFIG: ReadConfig = {
 };
 
 export const readStatusDataZ = z.object({});
-export interface ReadStatus extends task.Status<typeof readStatusDataZ> {}
+export type ReadStatus = task.Status<typeof readStatusDataZ>;
 
 export const READ_TYPE = `${PREFIX}_read`;
 export const readTypeZ = z.literal(READ_TYPE);
@@ -126,6 +126,16 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
 export interface ReadTask
   extends task.Task<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
 export interface NewReadTask extends task.New<typeof readTypeZ, typeof readConfigZ> {}
+
+export const READ_SCHEMAS: task.Schemas<
+  typeof readTypeZ,
+  typeof readConfigZ,
+  typeof readStatusDataZ
+> = {
+  typeSchema: readTypeZ,
+  configSchema: readConfigZ,
+  statusDataSchema: readStatusDataZ,
+};
 
 export const scanConfigZ = z.object({});
 
@@ -153,13 +163,23 @@ export type ScanCommandResponse = z.infer<typeof scanCommandResponseZ>;
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 export const scanStatusDataZ = scanCommandResponseZ;
-export interface ScanStatus extends task.Status<typeof scanCommandResponseZ> {}
+export type ScanStatus = task.Status<typeof scanCommandResponseZ>;
 
-export interface TestConnectionStatus extends task.Status {}
+export type TestConnectionStatus = task.Status;
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 export const scanTypeZ = z.literal(SCAN_TYPE);
 export type ScanType = typeof SCAN_TYPE;
+
+export const SCAN_SCHEMAS: task.Schemas<
+  typeof scanTypeZ,
+  typeof scanConfigZ,
+  typeof scanStatusDataZ
+> = {
+  typeSchema: scanTypeZ,
+  configSchema: scanConfigZ,
+  statusDataSchema: scanStatusDataZ,
+};
 
 export interface ScanPayload
   extends task.Payload<typeof scanTypeZ, typeof scanConfigZ, typeof scanStatusDataZ> {}
@@ -197,7 +217,7 @@ export const ZERO_WRITE_CONFIG: WriteConfig = {
 };
 
 export const writeStatusDataZ = z.object({});
-export interface WriteStatus extends task.Status<typeof writeStatusDataZ> {}
+export type WriteStatus = task.Status<typeof writeStatusDataZ>;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 export const writeTypeZ = z.literal(WRITE_TYPE);
@@ -219,3 +239,13 @@ export interface WriteTask
   extends task.Task<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ> {}
 export interface NewWriteTask
   extends task.New<typeof writeTypeZ, typeof writeConfigZ> {}
+
+export const WRITE_SCHEMAS: task.Schemas<
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
+> = {
+  typeSchema: writeTypeZ,
+  configSchema: writeConfigZ,
+  statusDataSchema: writeStatusDataZ,
+};

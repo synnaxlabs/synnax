@@ -23,7 +23,7 @@ import (
 	grpct "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"
-	kvx "github.com/synnaxlabs/x/kv"
+	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -81,7 +81,7 @@ func Bootstrap() Option { return func(o *options) { o.bootstrap = true } }
 // WithEngine sets the underlying KV engine that aspen uses to store its data. When
 // using this option, the caller should transfer all responsibility for executing queries
 // on the engine to aspen.
-func WithEngine(engine kvx.DB) Option {
+func WithEngine(engine xkv.DB) Option {
 	return func(o *options) {
 		o.externalKV = true
 		o.kv.Engine = engine

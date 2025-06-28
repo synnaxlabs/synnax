@@ -15,12 +15,7 @@ import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
 import { ANALOG_WRITE_LAYOUT } from "@/hardware/ni/task/AnalogWrite";
 import { DIGITAL_READ_LAYOUT } from "@/hardware/ni/task/DigitalRead";
 import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
-import {
-  SCAN_TYPE,
-  type scanConfigZ,
-  type scanStatusDataZ,
-  type scanTypeZ,
-} from "@/hardware/ni/task/types";
+import { SCAN_SCHEMAS, SCAN_TYPE } from "@/hardware/ni/task/types";
 import { type Palette } from "@/palette";
 
 const CREATE_ANALOG_READ_COMMAND: Palette.Command = {
@@ -58,24 +53,22 @@ const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
   onSelect: ({ client, addStatus, handleError }) => {
     handleError(async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      const scanTasks = await client.hardware.tasks.retrieveByType<
-        typeof scanTypeZ,
-        typeof scanConfigZ,
-        typeof scanStatusDataZ
-      >(SCAN_TYPE);
+      const scanTasks = await client.hardware.tasks.retrieve({
+        type: SCAN_TYPE,
+        schemas: SCAN_SCHEMAS,
+      });
       if (scanTasks.length === 0)
         throw new UnexpectedError("No NI device scanner found");
       const { config, payload } = scanTasks[0];
       const {
         config: { enabled },
-      } = await client.hardware.tasks.create<
-        typeof scanTypeZ,
-        typeof scanConfigZ,
-        typeof scanStatusDataZ
-      >({
-        ...payload,
-        config: { ...config, enabled: !config.enabled },
-      });
+      } = await client.hardware.tasks.create(
+        {
+          ...payload,
+          config: { ...config, enabled: !config.enabled },
+        },
+        SCAN_SCHEMAS,
+      );
       addStatus({
         variant: "success",
         message: `NI device scanning ${enabled ? "enabled" : "disabled"}`,

@@ -38,11 +38,12 @@ func (v *Validator) Ternary(path string, cond bool, msg string) bool {
 
 func (v *Validator) Ternaryf(field string, cond bool, format string, args ...any) bool {
 	v.Exec(func() error {
-		return lo.Ternary[error](
+		err := lo.Ternary[error](
 			cond,
 			PathedError(errors.Newf(format, args...), field),
 			nil,
 		)
+		return err
 	})
 	return v.Error() != nil
 }

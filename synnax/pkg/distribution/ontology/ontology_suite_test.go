@@ -47,13 +47,13 @@ func newSampleType(key string) ontology.ID {
 	return ontology.ID{Key: key, Type: sampleType}
 }
 
-var SampleZ = zyn.Object(map[string]zyn.Z{
+var schema = zyn.Object(map[string]zyn.Schema{
 	"key": zyn.String(),
 })
 
 func (s *sampleService) Type() ontology.Type { return sampleType }
 
-func (s *sampleService) Schema() zyn.Z { return SampleZ }
+func (s *sampleService) Schema() zyn.Schema { return schema }
 
 func (s *sampleService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
 	return core.NewResource(s.Schema(), newSampleType(key), "empty", Sample{Key: key}), nil

@@ -10,14 +10,21 @@
 import "@/hardware/rack/ontology.css";
 
 import { ontology, rack } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Status, Text, Tooltip, Tree } from "@synnaxlabs/pluto";
+import {
+  Icon,
+  Menu as PMenu,
+  Rack,
+  Status,
+  Text,
+  Tooltip,
+  Tree,
+} from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
-import { useRackState } from "@/hardware/device/Toolbar";
 import { Sequence } from "@/hardware/task/sequence";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
@@ -68,11 +75,11 @@ const handleRename: Ontology.HandleTreeRename = {
 
 const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
-  const state = useRackState(id.key);
+  const status = Rack.useStatus(Number(id.key));
 
   const heartRef = useRef<SVGSVGElement>(null);
 
-  const variant = state?.variant ?? "disabled";
+  const variant = status?.variant ?? "disabled";
 
   useEffect(() => {
     if (variant !== "success") return;
@@ -80,7 +87,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
     if (!heart) return;
     heart.classList.remove("synnax-rack-heartbeat--beat");
     requestAnimationFrame(() => heart.classList.add("synnax-rack-heartbeat--beat"));
-  }, [state]);
+  }, [status]);
 
   return (
     <Tree.DefaultItem {...rest} entry={entry}>
@@ -102,7 +109,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
           />
           <Tooltip.Dialog location="right">
             <Status.Text variant={variant} hideIcon level="small" weight={450}>
-              {state?.message}
+              {status?.message}
             </Status.Text>
             <Icon.Heart
               ref={heartRef}

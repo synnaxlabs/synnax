@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { defineWorkspace } from "vitest/config";
-
-export default defineWorkspace(["**/*/vite.config.ts"]);
+export * from "@/hardware/rack/Select";
+export * from "@/hardware/rack/synchronizers";
+export * from "@/hardware/rack/use";
+export * from "@/hardware/rack/useStatus";

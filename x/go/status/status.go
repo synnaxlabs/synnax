@@ -26,6 +26,7 @@ const (
 	LoadingVariant  Variant = "loading"
 )
 
+
 var (
 	Variants = []Variant{
 		InfoVariant,
@@ -38,11 +39,21 @@ var (
 	VariantZ = zyn.Enum(Variants...)
 )
 
+// Status is a standardized payload used across Synnax.
 type Status[D any] struct {
-	Key         string          `json:"key" msgpack:"key"`
-	Variant     Variant         `json:"variant" msgpack:"variant"`
-	Message     string          `json:"message" msgpack:"message"`
-	Description string          `json:"description" msgpack:"description"`
-	Time        telem.TimeStamp `json:"time" msgpack:"time"`
-	Details     D               `json:"details" msgpack:"details"`
+	// Key is a unique key for the status.
+	Key string `json:"key" msgpack:"key"`
+	// Variant is the variant of the status.
+	Variant Variant `json:"variant" msgpack:"variant"`
+	// Message is the message of the status.
+	Message string `json:"message" msgpack:"message"`
+	// Description is the description of the status.
+	Description string `json:"description" msgpack:"description"`
+	// Time is the time the status was created.
+	Time telem.TimeStamp `json:"time" msgpack:"time"`
+	// Details are customizable details for component specific statuses.
+	Details D `json:"details" msgpack:"details"`
 }
+
+
+

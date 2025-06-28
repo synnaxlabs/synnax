@@ -112,7 +112,7 @@ type Config struct {
 	// Channels is used to create channels for the tracker service.
 	//
 	// [REQUIRED]
-	Channels channel.Writeable
+	Channels channel.ReadWriteable
 	// HostProvider returns information about the cluster host.
 	//
 	// [REQUIRED]
@@ -165,10 +165,16 @@ func (c Config) Validate() error {
 }
 
 const (
-	deviceStateChannelName = "sy_device_state"
-	rackStateChannelName   = "sy_rack_state"
-	taskStateChannelName   = "sy_task_state"
+	DeviceStatusChannelName = "sy_device_status"
+	RackStatusChannelName   = "sy_rack_status"
+	TaskStatusChannelName   = "sy_task_status"
 )
+
+var legacyChannelNames = map[string]string{
+	"sy_device_state": DeviceStatusChannelName,
+	"sy_rack_state":   RackStatusChannelName,
+	"sy_task_state":   TaskStatusChannelName,
+}
 
 // Open opens a new hardware state tracker with the provided configuration. The Tracker
 // must be closed after use.
@@ -212,7 +218,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 			if err = gorp.NewRetrieve[task.Key, task.Status]().
 				WhereKeys(tsk.Key).
 				Entry(&taskState).
-				Exec(ctx, cfg.DB); err != nil && !errors.Is(err, query.NotFound) {
+				Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.DecodeError) {
 				return nil, err
 			}
 			rck.TaskStatuses[tsk.Key] = taskState
@@ -234,7 +240,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 		if err = gorp.NewRetrieve[string, device.Status]().
 			WhereKeys(dev.Key).
 			Entry(&deviceState).
-			Exec(ctx, cfg.DB); err != nil && !errors.Is(err, query.NotFound) {
+			Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.DecodeError) {
 			return nil, err
 		}
 		t.mu.Devices[dev.Key] = deviceState
@@ -246,14 +252,14 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	}
 	channels := []channel.Channel{
 		{
-			Name:        taskStateChannelName,
+			Name:        TaskStatusChannelName,
 			DataType:    telem.JSONT,
 			Leaseholder: cfg.HostProvider.HostKey(),
 			Virtual:     true,
 			Internal:    true,
 		},
 		{
-			Name:        rackStateChannelName,
+			Name:        RackStatusChannelName,
 			DataType:    telem.JSONT,
 			Leaseholder: cfg.HostProvider.HostKey(),
 			Virtual:     true,
@@ -267,19 +273,30 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 			Internal:    true,
 		},
 		{
-			Name:        deviceStateChannelName,
+			Name:        DeviceStatusChannelName,
 			DataType:    telem.JSONT,
 			Leaseholder: cfg.HostProvider.HostKey(),
 			Virtual:     true,
 			Internal:    true,
 		},
 	}
-	if err = cfg.Channels.CreateMany(
+	tx := cfg.DB.OpenTx()
+	defer func() {
+		err = errors.Combine(err, tx.Close())
+	}()
+	w := cfg.Channels.NewWriter(tx)
+	if err = w.MapRename(ctx, legacyChannelNames, true); err != nil {
+		return nil, err
+	}
+	if err = w.CreateMany(
 		ctx,
 		&channels,
 		channel.OverwriteIfNameExistsAndDifferentProperties(),
 		channel.RetrieveIfNameExists(true),
 	); err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	t.taskStateChannelKey = channels[0].Key()
@@ -292,14 +309,14 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	dcRackObs := rackObs.OnChange(t.handleRackChanges)
 	dcDeviceObs := deviceObs.OnChange(t.handleDeviceChanges)
 	rackStateObs, closeRackStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
-		SetChannelName: rackStateChannelName,
+		SetChannelName: RackStatusChannelName,
 	})
 	if err != nil {
 		return nil, err
 	}
 	dcRackStateObs := rackStateObs.OnChange(t.handleRackState)
 	taskStateObs, closeTaskStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
-		SetChannelName: taskStateChannelName,
+		SetChannelName: TaskStatusChannelName,
 	})
 	if err != nil {
 		return nil, err
@@ -328,7 +345,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	t.deviceSaveNotifications = make(chan string, 10)
 	signal.GoRange(sCtx, t.deviceSaveNotifications, t.saveDeviceState, signal.WithKey("save_device_state"))
 	deviceStateObs, closeDeviceStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
-		SetChannelName: deviceStateChannelName,
+		SetChannelName: DeviceStatusChannelName,
 	})
 	if err != nil {
 		return nil, err
@@ -474,7 +491,7 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 	}
 }
 
-func (t *Tracker) checkRackState(ctx context.Context) {
+func (t *Tracker) checkRackState(_ context.Context) {
 	rackStatuses := make([]rack.Status, 0, len(t.mu.Racks))
 	taskStatuses := make([]task.Status, 0, len(t.mu.Racks))
 	deviceStatuses := make([]device.Status, 0)
@@ -607,7 +624,8 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 			continue
 		}
 
-		existingState, exists := t.mu.Devices[incomingState.Key]
+		devKey := incomingState.Details.Device
+		existingState, exists := t.mu.Devices[devKey]
 		if exists && existingState.Details.Rack != incomingState.Details.Rack {
 			var racks []rack.Rack
 			if err := gorp.NewRetrieve[rack.Key, rack.Rack]().
@@ -628,10 +646,10 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 			return
 		}
 
-		t.mu.Devices[incomingState.Key] = incomingState
+		t.mu.Devices[devKey] = incomingState
 
 		select {
-		case t.deviceSaveNotifications <- incomingState.Key:
+		case t.deviceSaveNotifications <- devKey:
 		default:
 		}
 	}
@@ -649,6 +667,7 @@ func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[strin
 		existing, hasState := t.mu.Devices[c.Key]
 		existing.Key = c.Value.Key
 		existing.Details.Rack = c.Value.Rack
+		existing.Details.Device = c.Key
 		if !hasState {
 			existing.Variant = status.InfoVariant
 		}
@@ -695,5 +714,6 @@ func newUnknownDeviceStatus(devKey string, rackKey rack.Key) device.Status {
 	s.Variant = status.WarningVariant
 	s.Message = "Device state unknown"
 	s.Details.Rack = rackKey
+	s.Details.Device = devKey
 	return s
 }

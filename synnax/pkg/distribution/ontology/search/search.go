@@ -113,7 +113,7 @@ func (t *Tx) Close() { t.idx = nil; t.batch = nil }
 func (s *Index) Register(
 	ctx context.Context,
 	t core.Type,
-	sch zyn.Z,
+	sch zyn.Schema,
 ) {
 	s.L.Debug("registering schema", zap.Stringer("type", t))
 	_, span := s.T.Prod(ctx, "register")

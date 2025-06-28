@@ -53,7 +53,7 @@ func KeysFromOntologyIds(ids []ontology.ID) (keys []Key, err error) {
 	return keys, nil
 }
 
-var Z = zyn.Object(map[string]zyn.Z{
+var schema = zyn.Object(map[string]zyn.Schema{
 	"key":      zyn.Uint64().Coerce(),
 	"name":     zyn.String(),
 	"type":     zyn.String(),
@@ -61,7 +61,7 @@ var Z = zyn.Object(map[string]zyn.Z{
 })
 
 func newResource(t Task) ontology.Resource {
-	return core.NewResource(Z, OntologyID(t.Key), t.Name, t)
+	return core.NewResource(schema, OntologyID(t.Key), t.Name, t)
 }
 
 type change = changex.Change[Key, Task]
@@ -69,7 +69,7 @@ type change = changex.Change[Key, Task]
 func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Z { return Z }
+func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
