@@ -1,6 +1,8 @@
 package types_test
 
 import (
+	"reflect"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/types"
@@ -21,6 +23,16 @@ type box struct{}
 type class struct{}
 type bus struct{}
 type catch struct{}
+
+type testInterface interface {
+	DoSomething()
+}
+
+type namedType struct{}
+
+type impl struct{}
+
+func (i impl) DoSomething() {}
 
 var _ = Describe("Name", func() {
 	Context("Name", func() {
@@ -64,6 +76,81 @@ var _ = Describe("Name", func() {
 		It("Should work with built-in types", func() {
 			Expect(types.PluralName[string]()).To(Equal("strings"))
 			Expect(types.PluralName[int]()).To(Equal("ints"))
+		})
+	})
+
+	Context("ValueName", func() {
+		It("Should handle pointer types", func() {
+			Expect(types.ValueName(reflect.ValueOf((*string)(nil)))).To(Equal("*string (nil)"))
+			Expect(types.ValueName(reflect.ValueOf((*namedType)(nil)))).To(Equal("*types_test.namedType (nil)"))
+			s := "hello"
+			Expect(types.ValueName(reflect.ValueOf(&s))).To(Equal("*string"))
+		})
+
+		It("Should handle slice types", func() {
+			Expect(types.ValueName(reflect.ValueOf([]string(nil)))).To(Equal("[]string (nil)"))
+			Expect(types.ValueName(reflect.ValueOf([]int(nil)))).To(Equal("[]int (nil)"))
+			Expect(types.ValueName(reflect.ValueOf([]string{}))).To(Equal("[]string"))
+			Expect(types.ValueName(reflect.ValueOf([]int{}))).To(Equal("[]int"))
+		})
+
+		It("Should handle array types", func() {
+			Expect(types.ValueName(reflect.ValueOf([3]string{}))).To(Equal("[3]string"))
+			Expect(types.ValueName(reflect.ValueOf([5]int{}))).To(Equal("[5]int"))
+		})
+
+		It("Should handle map types", func() {
+			Expect(types.ValueName(reflect.ValueOf(map[string]int(nil)))).To(Equal("map[string]int (nil)"))
+			Expect(types.ValueName(reflect.ValueOf(map[int]string(nil)))).To(Equal("map[int]string (nil)"))
+			Expect(types.ValueName(reflect.ValueOf(map[string]int{}))).To(Equal("map[string]int"))
+			Expect(types.ValueName(reflect.ValueOf(map[int]string{}))).To(Equal("map[int]string"))
+		})
+
+		It("Should handle channel types", func() {
+			Expect(types.ValueName(reflect.ValueOf((chan string)(nil)))).To(Equal("chan string (nil)"))
+			Expect(types.ValueName(reflect.ValueOf((chan<- string)(nil)))).To(Equal("chan<- string (nil)"))
+			Expect(types.ValueName(reflect.ValueOf((<-chan string)(nil)))).To(Equal("<-chan string (nil)"))
+			ch := make(chan string)
+			Expect(types.ValueName(reflect.ValueOf(ch))).To(Equal("chan string"))
+		})
+
+		It("Should handle function types", func() {
+			Expect(types.ValueName(reflect.ValueOf((func())(nil)))).To(Equal("func (nil)"))
+			Expect(types.ValueName(reflect.ValueOf(func() {}))).To(Equal("func"))
+		})
+
+		It("Should handle send directional channels", func() {
+			v := make(chan<- string)
+			Expect(types.ValueName(reflect.ValueOf(v))).To(Equal("chan<- string"))
+		})
+
+		It("Should handle receive directional channels", func() {
+			v := make(<-chan string)
+			Expect(types.ValueName(reflect.ValueOf(v))).To(Equal("<-chan string"))
+		})
+
+		It("Should handle interface types", func() {
+			var i testInterface = impl{}
+			Expect(types.ValueName(reflect.ValueOf(i))).To(Equal("types_test.impl"))
+			Expect(types.ValueName(reflect.ValueOf((interface{})(nil)))).To(Equal("nil"))
+		})
+
+		It("Should handle named types", func() {
+			Expect(types.ValueName(reflect.ValueOf(namedType{}))).To(Equal("types_test.namedType"))
+		})
+
+		It("Should handle nested complex types", func() {
+			Expect(types.ValueName(reflect.ValueOf([]*string(nil)))).To(Equal("[]*string (nil)"))
+			Expect(types.ValueName(reflect.ValueOf(map[string][]int(nil)))).To(Equal("map[string][]int (nil)"))
+			Expect(types.ValueName(reflect.ValueOf([][]string{}))).To(Equal("[][]string"))
+			Expect(types.ValueName(reflect.ValueOf(make(chan []string)))).To(Equal("chan []string"))
+		})
+	})
+
+	Context("PackageName", func() {
+		It("Should extract package name from custom types", func() {
+			Expect(types.PackageName(reflect.TypeOf(namedType{}))).To(Equal("types_test"))
+			Expect(types.PackageName(reflect.TypeOf(customNamed{}))).To(Equal("types_test"))
 		})
 	})
 })

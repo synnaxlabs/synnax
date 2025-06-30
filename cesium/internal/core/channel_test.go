@@ -53,27 +53,27 @@ var _ = Describe("Channel", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
-	DescribeTable("Validation", func(expected error, ch core.Channel) {
-		Expect(ch.Validate()).To(HaveOccurredAs(expected))
+	DescribeTable("Validation", func(substring string, ch core.Channel) {
+		Expect(ch.Validate()).To(MatchError(ContainSubstring(substring)))
 	},
 		Entry("ChannelKey has no datatype",
-			validate.FieldError{Field: "data_type", Message: "field must be set"},
+			"data_type: required",
 			cesium.Channel{Name: "cat", Key: 9990, IsIndex: true},
 		),
 		Entry("ChannelKey IsIndex - Non Int64 Series Variant",
-			validate.FieldError{Field: "data_type", Message: "index channel must be of type timestamp"},
+			"data_type: index channel must be of type timestamp",
 			cesium.Channel{Name: "Richard", Key: 9993, IsIndex: true, DataType: telem.Float32T},
 		),
 		Entry("ChannelKey IsIndex - LocalIndex non-zero",
-			validate.FieldError{Field: "index", Message: "index channel cannot be indexed by another channel"},
+			"index: index channel cannot be indexed by another channel",
 			cesium.Channel{Name: "Feynman", Key: 9995, IsIndex: true, Index: 500, DataType: telem.TimeStampT},
 		),
 		Entry("ChannelKey has no index",
-			validate.FieldError{Field: "index", Message: "non-indexed channel must have an index"},
+			"index: non-indexed channel must have an index",
 			cesium.Channel{Name: "Steinbeck", Key: 9998, DataType: telem.Float32T},
 		),
 		Entry("Virtual channel has an index",
-			validate.FieldError{Field: "index", Message: "virtual channel cannot be indexed"},
+			"index: virtual channel cannot be indexed",
 			cesium.Channel{Name: "Steinbeck", Key: 9998, Virtual: true, Index: 123, DataType: telem.Float32T},
 		),
 	)

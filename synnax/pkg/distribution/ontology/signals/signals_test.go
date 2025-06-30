@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
@@ -28,10 +28,11 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 type changeService struct {
-	observe.Observer[iter.Nexter[schema.Change]]
+	observe.Observer[iter.Nexter[ontology.Change]]
 }
 
 const changeType ontology.Type = "change"
@@ -42,23 +43,27 @@ func newChangeID(key string) ontology.ID {
 
 var _ ontology.Service = (*changeService)(nil)
 
-func (s *changeService) Schema() *ontology.Schema {
-	return &ontology.Schema{
-		Type: changeType,
-		Fields: map[string]schema.Field{
-			"key": {Type: schema.String},
-		},
-	}
+func (s *changeService) Type() ontology.Type { return changeType }
+
+func (s *changeService) Schema() zyn.Schema {
+	return zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 }
 
 func (s *changeService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	return iter.NexterNopCloser(iter.All[ontology.Resource](nil)), nil
 }
 
-func (s *changeService) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
-	e := schema.NewResource(s.Schema(), newChangeID(key), "empty")
-	schema.Set(e, "key", key)
-	return e, nil
+func (s *changeService) RetrieveResource(
+	_ context.Context,
+	key string,
+	_ gorp.Tx,
+) (ontology.Resource, error) {
+	return core.NewResource(
+		s.Schema(),
+		newChangeID(key),
+		"",
+		map[string]any{"key": key},
+	), nil
 }
 
 var _ = Describe("Signals", Ordered, func() {
@@ -71,7 +76,7 @@ var _ = Describe("Signals", Ordered, func() {
 	BeforeAll(func() {
 		builder = mock.NewCluster()
 		dist = builder.Provision(ctx)
-		svc = &changeService{Observer: observe.New[iter.Nexter[schema.Change]]()}
+		svc = &changeService{Observer: observe.New[iter.Nexter[ontology.Change]]()}
 		dist.Ontology.RegisterService(ctx, svc)
 	})
 	AfterAll(func() {
@@ -97,12 +102,17 @@ var _ = Describe("Signals", Ordered, func() {
 			time.Sleep(5 * time.Millisecond)
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
-			svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
-				return iter.All([]schema.Change{
+			svc.NotifyGenerator(ctx, func() iter.Nexter[ontology.Change] {
+				return iter.All([]ontology.Change{
 					{
 						Variant: change.Set,
 						Key:     newChangeID(key),
-						Value:   schema.NewResource(svc.Schema(), newChangeID(key), "empty"),
+						Value: core.NewResource(
+							svc.Schema(),
+							newChangeID(key),
+							"empty",
+							map[string]any{"key": key},
+						),
 					},
 				})
 			})
@@ -130,8 +140,8 @@ var _ = Describe("Signals", Ordered, func() {
 			time.Sleep(5 * time.Millisecond)
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
-			svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
-				return iter.All([]schema.Change{
+			svc.NotifyGenerator(ctx, func() iter.Nexter[ontology.Change] {
+				return iter.All([]ontology.Change{
 					{
 						Variant: change.Delete,
 						Key:     newChangeID(key),

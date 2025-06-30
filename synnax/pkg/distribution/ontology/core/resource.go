@@ -7,17 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package schema
+package core
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/zyn"
 )
+
+// Type is the type of a specific ontology Resource. This type should be unique for each
+// [Schema] in the cluster. in the cluster. in the cluster. in the cluster.
+type Type string
+
+// ZeroType is the zero type and should be assigned to any resource.
+const ZeroType = Type("")
+
+// String implements fmt.Stringer.
+func (t Type) String() string { return string(t) }
 
 // ID is a unique identifier for a Resource. An example:
 //
@@ -81,25 +92,19 @@ func ParseIDs(s []string) ([]ID, error) {
 	return ids, nil
 }
 
-type Data = map[string]any
-
 // Resource represents an instance matching a [Schema] (think class and object in OOP).
 type Resource struct {
 	ID ID `json:"id" msgpack:"id"`
-	// Schema is the schema that this entity matches.
-	Schema *Schema `json:"schema" msgpack:"schema"`
 	// Name is a human-readable name for the entity.
 	Name string `json:"name" msgpack:"name"`
 	// Data is the data for the entity. Data must match [Schema.Fields].
-	Data Data `json:"data" msgpack:"data"`
+	Data any `json:"data" msgpack:"data"`
+	// schema is the schema that this entity matches.
+	schema zyn.Schema
 }
 
-func ResourceIDs(resources []Resource) []ID {
-	ids := make([]ID, 0, len(resources))
-	for _, r := range resources {
-		ids = append(ids, r.ID)
-	}
-	return ids
+func (r Resource) Parse(dest any) error {
+	return r.schema.Parse(r.Data, dest)
 }
 
 type Change = change.Change[ID, Resource]
@@ -116,42 +121,14 @@ func (r Resource) GorpKey() ID { return r.ID }
 // SetOptions implements gorp.Entry.
 func (r Resource) SetOptions() []any { return nil }
 
-// Get is a strongly-typed getter for a [Resource] field value. Returns true if the
-// value was found, false otherwise. Panics if the value is not of the asserted type (
-// as defined in the type parameter).
-func Get[V Value](d Resource, k string) (v V, ok bool) {
-	rv, ok := d.Data[k]
-	if !ok {
-		return v, false
-	}
-	v, ok = rv.(V)
-	if !ok {
-		panic("[schema] - invalid field type")
-	}
-	return v, true
-}
-
-// Set is a strongly-typed setter for an [Resource] field value. Panics if the value is
-// not of the asserted type (as defined in the type parameter) or if the field is not
-// defined in the [Schema].
-func Set[V Value](D Resource, k string, v V) {
-	f, ok := D.Schema.Fields[k]
-	if !ok {
-		panic("[Schema] - field not found")
-	}
-	if !f.AssertValue(v) {
-		panic(fmt.Sprintf("[Schema] - invalid value %v for field %s", v, k))
-	}
-	D.Data[k] = v
-}
-
 // NewResource creates a new entity with the given schema and name and an empty set of
-// field data.
-func NewResource(schema *Schema, id ID, name string) Resource {
+// field data. NewResource panics if the provided data value does not fit the ontology
+// schema.
+func NewResource(schema zyn.Schema, id ID, name string, data any) Resource {
 	return Resource{
-		Schema: schema,
+		schema: schema,
 		ID:     id,
 		Name:   name,
-		Data:   make(map[string]any),
+		Data:   lo.Must(schema.Dump(data)),
 	}
 }

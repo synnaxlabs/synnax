@@ -14,10 +14,10 @@ import {
   AuthError,
   ContiguityError,
   ControlError,
-  FieldError,
   InvalidTokenError,
   MultipleFoundError,
   NotFoundError,
+  PathError,
   QueryError,
   RouteError,
   UnauthorizedError,
@@ -30,7 +30,11 @@ describe("error", () => {
   describe("type matching", () => {
     const ERRORS: [string, Error, errors.Matchable][] = [
       [ValidationError.TYPE, new ValidationError(), ValidationError],
-      [FieldError.TYPE, new FieldError("field", "message"), FieldError],
+      [
+        PathError.TYPE,
+        new PathError("field", new ValidationError("message")),
+        PathError,
+      ],
       [AuthError.TYPE, new AuthError(), AuthError],
       [InvalidTokenError.TYPE, new InvalidTokenError(), InvalidTokenError],
       [UnexpectedError.TYPE, new UnexpectedError("message"), UnexpectedError],
