@@ -15,7 +15,7 @@ import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Haul } from "@/haul";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
-import { Sync } from "@/query/sync";
+import { Sync } from "@/flux/sync";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Telem } from "@/telem";

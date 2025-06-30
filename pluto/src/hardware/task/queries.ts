@@ -10,8 +10,8 @@
 import { task } from "@synnaxlabs/client";
 import { z } from "zod/v4";
 
-import { Query } from "@/query";
-import { Sync } from "@/query/sync";
+import { Flux } from "@/flux";
+import { Sync } from "@/flux/sync";
 
 export const useCommandSynchronizer = (
   onCommandUpdate: (command: task.Command) => void,
@@ -50,21 +50,19 @@ export const useDeleteSynchronizer = (onDelete: (key: task.Key) => void): void =
     }),
   });
 
-interface QueryParams extends Query.Params {
+interface QueryParams extends Flux.Params {
   key: task.Key | undefined;
 }
 
-export const use = <
+export const createRetrieveQuery = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 >(
-  key: task.Key | undefined,
   schemas: task.Schemas<Type, Config, StatusData>,
 ) =>
-  Query.use<QueryParams, task.Task<Type, Config, StatusData> | null>({
+  Flux.createRetrieve<QueryParams, task.Task<Type, Config, StatusData> | null>({
     name: "Task",
-    params: { key },
     retrieve: async ({ client, params: { key } }) => {
       if (key == null) return null;
       return await client.hardware.tasks.retrieve({ key, schemas });
@@ -74,7 +72,7 @@ export const use = <
         channel: task.SET_CHANNEL_NAME,
         onChange: Sync.parsedHandler(
           task.keyZ,
-          async ({ client, changed, onChange }) => {
+          async ({ client, changed, onChange, params: { key } }) => {
             if (key == null || changed.toString() !== key.toString()) return;
             onChange(await client.hardware.tasks.retrieve({ key, schemas }));
           },

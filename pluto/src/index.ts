@@ -44,7 +44,7 @@ export { Override } from "@/override";
 export { Pluto } from "@/pluto";
 export { Portal } from "@/portal";
 export { Progress } from "@/progress";
-export { Query as Sync } from "@/query";
+export { Flux as Sync } from "@/flux";
 export { Ranger } from "@/ranger";
 export { Resize } from "@/resize";
 export { Select } from "@/select";

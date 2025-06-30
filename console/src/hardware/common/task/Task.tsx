@@ -71,13 +71,14 @@ export const wrap = <
   options: WrapOptions<Type, Config, StatusData>,
 ): Layout.Renderer => {
   const { schemas, getInitialPayload } = options;
+  const useRetrieve = Task.createRetrieveQuery(schemas).useDirect;
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = useStore<RootState>();
     const { deviceKey, taskKey, rackKey } = Layout.selectArgs<LayoutArgs>(
       store.getState(),
       layoutKey,
     );
-    const res = Task.use(taskKey, schemas);
+    const res = useRetrieve({ params: { key: taskKey } });
     if (res.variant !== "success") return <Status.Text {...res} />;
     return (
       <Wrapped

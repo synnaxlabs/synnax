@@ -9,7 +9,7 @@
 
 import { workspace } from "@synnaxlabs/client";
 
-import { Sync } from "@/query/sync";
+import { Sync } from "@/flux/sync";
 
 export const useSetSynchronizer = (onSet: (ws: workspace.Workspace) => void): void =>
   Sync.useListener({

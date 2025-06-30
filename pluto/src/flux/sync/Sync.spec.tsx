@@ -13,7 +13,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { act, type PropsWithChildren, useEffect, useState } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Sync } from "@/query/sync";
+import { Sync } from "@/flux/sync";
 
 describe("sync", () => {
   it("should add a basic listener", async () => {

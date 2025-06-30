@@ -8,11 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, DisconnectedError, type Synnax } from "@synnaxlabs/client";
-import { type MultiSeries, type primitive, status } from "@synnaxlabs/x";
+import {
+  type Destructor,
+  type MultiSeries,
+  type primitive,
+  status,
+} from "@synnaxlabs/x";
+import { useCallback, useEffect, useRef } from "react";
 
-import { useAsyncEffect } from "@/hooks";
-import { useMemoDeepEqual } from "@/memo";
-import { Sync } from "@/query/sync";
+import { Sync } from "@/flux/sync";
 import { state } from "@/state";
 
 /**
@@ -110,7 +114,7 @@ export const errorResult = <Data extends state.State>(
  * @template QParams - The type of the parameters for the query.
  * @template Data - The type of the data being retrieved.
  */
-export interface UseBaseArgs<QParams extends Params, Data extends state.State> {
+export interface UseObservableArgs<QParams extends Params, Data extends state.State> {
   /**
    * The name of the resource being retrieve. This is used to make pretty messages for
    * the various query states.
@@ -139,6 +143,7 @@ export interface UseBaseArgs<QParams extends Params, Data extends state.State> {
   client: Synnax | null;
 }
 
+<<<<<<<< HEAD:pluto/src/query/retrieve.ts
 interface RetrieverOptions {
   signal?: AbortSignal;
 }
@@ -147,6 +152,16 @@ type Retriever<QueryParams extends Params, Data extends state.State> = (
   options: RetrieverOptions,
 ) => Promise<Data>;
 
+========
+interface UseObservableReturn<QueryParams extends Params> {
+  retrieve: (params: QueryParams, options: { signal?: AbortSignal }) => void;
+  retrieveAsync: (
+    params: QueryParams,
+    options: { signal?: AbortSignal },
+  ) => Promise<void>;
+}
+
+>>>>>>>> 00d7f51bcf1750975480ae5ea495900e72a3c93a:pluto/src/query/observable.ts
 /**
  * A low level hook that is used to create a query, and allows the caller to manage
  * the result state externally.
@@ -154,6 +169,7 @@ type Retriever<QueryParams extends Params, Data extends state.State> = (
  * @template QueryParams - The type of the parameters for the query.
  * @template Data - The type of the data being retrieved.
  */
+<<<<<<<< HEAD:pluto/src/query/retrieve.ts
 export const useRetrieve = <QueryParams extends Params, Data extends state.State>({
   retrieve,
   listeners,
@@ -216,3 +232,5 @@ export const useRetrieve = <QueryParams extends Params, Data extends state.State
     [client, memoParams, addListener],
   );
 };
+========
+>>>>>>>> 00d7f51bcf1750975480ae5ea495900e72a3c93a:pluto/src/query/observable.ts
