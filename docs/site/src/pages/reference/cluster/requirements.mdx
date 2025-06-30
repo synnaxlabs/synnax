@@ -36,9 +36,9 @@ certain operating systems are supported.
 - [National Instruments](https://docs.synnaxlabs.com/reference/device-drivers/ni/get-started) -
   Windows, Linux
 - [LabJack](https://docs.synnaxlabs.com/reference/device-drivers/labjack/get-started) -
-  Windows, Linux, MacOS
+  Windows, Linux, macOS
 - [OPC UA](https://docs.synnaxlabs.com/reference/device-drivers/opc-ua/get-started) -
-  Windows, Linux, MacOS, or a containerized environment
+  Windows, Linux, macOS, or a containerized environment
 
 <Divider.Divider x />
 
@@ -122,7 +122,7 @@ _minimum_ hardware requirements for your cluster.
 
 <Note.Note variant="info">
   When operating Synnax in mission critical environments, we recommend provisioning
-  hardware that is at least 2x the minimum requirements. This leaves ample room for
+  hardware that is at least twice the minimum requirements. This leaves ample room for
   workload growth and unexpected spikes in throughput.
 </Note.Note>
 
@@ -155,7 +155,7 @@ cores for your deployment.
 ### Memory
 
 The Synnax cluster is generally less memory intensive than it is storage or compute
-intensive. For most production deployments, we recommend using a minimum of 8GB of RAM.
+intensive. For most production deployments, we recommend using a minimum of 8 GB of RAM.
 
 <Divider.Divider x />
 
@@ -181,8 +181,6 @@ For production deployments, we recommend the following network interface specifi
 - 25 Gigabit Ethernet (25GbE) or higher for workloads exceeding 2M samples/s
 - Multiple NICs for redundancy and load balancing in mission-critical environments
 - RDMA-capable NICs for ultra-low latency applications
-
-<Divider.Divider x />
 
 ### Switch Infrastructure
 
@@ -225,5 +223,3 @@ For production control environments:
   policies.
 - **VPN Access**: When remote access is required, use industrial-grade VPN solutions
   with multi-factor authentication.
-
-<Divider.Divider x />
