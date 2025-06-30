@@ -12,7 +12,6 @@ package fhttp
 import (
 	"context"
 	"go/types"
-	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -36,8 +35,8 @@ var (
 	_ config.Config[ClientFactoryConfig]     = ClientFactoryConfig{}
 )
 
-// WSMessageType is used to differentiate between the different types of messages
-// use to implement the websocket stream transport.
+// WSMessageType is used to differentiate between the different types of messages use to
+// implement the websocket stream transport.
 type WSMessageType string
 
 const (
@@ -45,24 +44,24 @@ const (
 	// ServerStream implementations.
 	WSMessageTypeData WSMessageType = "data"
 	// WSMessageTypeClose is used to signal the end of the stream. We need to use this
-	// instead of the regular websocket Close message because the 'reason' can't
-	// have more than 123 bytes.
+	// instead of the regular websocket Close message because the 'reason' can't have
+	// more than 123 bytes.
 	WSMessageTypeClose WSMessageType = "close"
-	// WSMessageTypeOpen is used to acknowledge the successful opening of the stream.
-	// We need to do this to correctly handle the case where middleware
-	// returns an error early. We can't just use the regular HTTP request/response
-	// cycle because JavaScript implementations of WebSocket don't allow for
-	// accessing the response body.
+	// WSMessageTypeOpen is used to acknowledge the successful opening of the stream. We
+	// need to do this to correctly handle the case where middleware returns an error
+	// early. We can't just use the regular HTTP request/response cycle because
+	// JavaScript implementations of WebSocket don't allow for accessing the response
+	// body.
 	WSMessageTypeOpen WSMessageType = "open"
 )
 
 // WSMessage wraps a user payload with additional information needed for the websocket
-// transport to correctly implement the Stream interface. Namely, we need a custom
-// close WSMessage type to correctly encode and transfer information about a closure
-// error across the socket.
+// transport to correctly implement the Stream interface. Namely, we need a custom close
+// WSMessage type to correctly encode and transfer information about a closure error
+// across the socket.
 type WSMessage[P freighter.Payload] struct {
-	// Type represents the type of WSMessage being sent. One of WSMessageTypeData
-	// or WSMessageTypeClose.
+	// Type represents the type of WSMessage being sent. One of WSMessageTypeData or
+	// WSMessageTypeClose.
 	Type WSMessageType `json:"type" msgpack:"type"`
 	// Err is the error payload to send if the WSMessage type is WSMessageTypeClose.
 	Err errors.Payload `json:"error" msgpack:"error"`
@@ -96,7 +95,8 @@ type coreConfig struct {
 	writeDeadline time.Duration
 }
 
-// streamCore is the common functionality implemented by both the client and server streams.
+// streamCore is the common functionality implemented by both the client and server
+// streams.
 type streamCore[I, O freighter.Payload] struct {
 	coreConfig
 	serverShutdownSig  <-chan struct{}
@@ -119,12 +119,12 @@ func (c *streamCore[I, O]) send(msg WSMessage[O]) error {
 	return errors.Combine(err, w.Close())
 }
 
-func (c *streamCore[I, O]) receiveRaw() (msg WSMessage[I], err error) {
-	var r io.Reader
-	_, r, err = c.conn.NextReader()
+func (c *streamCore[I, O]) receiveRaw() (WSMessage[I], error) {
+	_, r, err := c.conn.NextReader()
 	if err != nil {
-		return msg, err
+		return WSMessage[I]{}, err
 	}
+	var msg WSMessage[I]
 	return msg, c.codec.DecodeStream(context.TODO(), r, &msg)
 }
 
@@ -279,18 +279,19 @@ func (s *streamClient[RQ, RS]) Report() alamos.Report {
 func (s *streamClient[RQ, RS]) Stream(
 	ctx context.Context,
 	target address.Address,
-) (stream freighter.ClientStream[RQ, RS], err error) {
-	_, err = s.MiddlewareCollector.Exec(
+) (freighter.ClientStream[RQ, RS], error) {
+	var stream freighter.ClientStream[RQ, RS]
+	_, err := s.MiddlewareCollector.Exec(
 		freighter.Context{
 			Context:  ctx,
 			Target:   target,
 			Protocol: s.Reporter.Protocol,
 			Params:   make(freighter.Params),
 		},
-		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
-			ctx.Params[fiber.HeaderContentType] = s.codec.ContentType()
-			conn, res, err := s.dialer.DialContext(ctx, "ws://"+target.String(), mdToHeaders(ctx))
-			oCtx = parseResponseCtx(res, target)
+		freighter.FinalizerFunc(func(fCtx freighter.Context) (freighter.Context, error) {
+			fCtx.Params[fiber.HeaderContentType] = s.codec.ContentType()
+			conn, res, err := s.dialer.DialContext(fCtx, "ws://"+target.String(), ctxToHeaders(fCtx))
+			oCtx := parseResponseCtx(res, target)
 			if err != nil {
 				return oCtx, err
 			}
@@ -303,25 +304,25 @@ func (s *streamClient[RQ, RS]) Stream(
 					codec:           s.codec,
 					Instrumentation: s.Instrumentation,
 				},
-				ctx.Done(),
+				fCtx.Done(),
 			)
 			msg, err := core.receiveRaw()
 			if err != nil {
-				return
+				return oCtx, err
 			}
 			if msg.Type != WSMessageTypeOpen {
-				return oCtx, errors.Decode(ctx, msg.Err)
+				return oCtx, errors.Decode(fCtx, msg.Err)
 			}
 			stream = &clientStream[RQ, RS]{streamCore: core}
-			return
+			return oCtx, nil
 		}),
 	)
 	return stream, err
 }
 
-func mdToHeaders(md freighter.Context) http.Header {
-	headers := make(http.Header, len(md.Params))
-	for k, v := range md.Params {
+func ctxToHeaders(ctx freighter.Context) http.Header {
+	headers := make(http.Header, len(ctx.Params))
+	for k, v := range ctx.Params {
 		if vStr, ok := v.(string); ok {
 			headers[k] = []string{vStr}
 		}

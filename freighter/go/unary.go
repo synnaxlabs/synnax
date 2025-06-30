@@ -29,7 +29,7 @@ type UnaryClient[RQ, RS Payload] interface {
 // request-response cycle against a client.
 type UnaryServer[RQ, RS Payload] interface {
 	Transport
-	// BindHandler binds a handle that processes a request from a client. The server is
+	// BindHandler binds a handler that processes a request from a client. The server is
 	// expected to send a response along with any errors encountered during processing.
 	// If the provided context is invalid, the server is expected to abort the request
 	// and respond with an error (ideally this error should wrap a context error in some

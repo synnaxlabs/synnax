@@ -17,7 +17,7 @@ import (
 
 type BindableTransport interface {
 	freighter.Transport
-	BindTo(app *fiber.App)
+	BindTo(*fiber.App)
 }
 
 var streamReporter = freighter.Reporter{
@@ -49,8 +49,8 @@ func InternalRoute() ServerOption {
 	}
 }
 
-func newServerOptions(opts []ServerOption) (so serverOptions) {
-	so.codecResolver = httputil.ResolveCodec
+func newServerOptions(opts []ServerOption) serverOptions {
+	so := serverOptions{codecResolver: httputil.ResolveCodec}
 	for _, opt := range opts {
 		opt(&so)
 	}
