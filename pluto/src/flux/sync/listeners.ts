@@ -13,7 +13,7 @@ import { useEffect } from "react";
 import { type z } from "zod/v4";
 
 import { useSyncedRef } from "@/hooks";
-import { useAddListener } from "@/query/sync/Context";
+import { useAddListener } from "@/flux/sync/Context";
 import { Status } from "@/status";
 
 export type ListenerArgs<Value, Extra> = {

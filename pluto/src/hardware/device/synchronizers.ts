@@ -9,7 +9,7 @@
 
 import { device } from "@synnaxlabs/client";
 
-import { Sync } from "@/query/sync";
+import { Sync } from "@/flux/sync";
 
 export const useSetSynchronizer = (onSet: (device: device.Device) => void): void =>
   Sync.useListener({

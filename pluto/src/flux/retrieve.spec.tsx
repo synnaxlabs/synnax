@@ -17,8 +17,8 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Query } from "@/query";
-import { Sync } from "@/query/sync";
+import { Flux } from "@/flux";
+import { Sync } from "@/flux/sync";
 import { Synnax as PSynnax } from "@/synnax";
 
 const client = newTestClient();
@@ -34,15 +34,14 @@ const newWrapper =
 
 describe("use", () => {
   describe("basic retrieval", () => {
-    interface Params extends Query.Params {}
+    interface Params extends Flux.Params {}
     it("should return a loading result as its initial state", () => {
       const { result } = renderHook(
         () =>
-          Query.useObservable<Params, number>({
-            params: {},
+          Flux.createRetrieve<Params, number>({
             name: "Resource",
             retrieve: async () => 0,
-          }),
+          }).useDirect({ params: {} }),
         { wrapper: newWrapper(client) },
       );
       expect(result.current.variant).toEqual("loading");
@@ -54,11 +53,10 @@ describe("use", () => {
     it("should return a success result when the data is fetched", async () => {
       const { result } = renderHook(
         () =>
-          Query.useObservable<Params, number>({
-            params: {},
+          Flux.createRetrieve<Params, number>({
             name: "Resource",
             retrieve: async () => 12,
-          }),
+          }).useDirect({ params: {} }),
         { wrapper: newWrapper(client) },
       );
       await waitFor(() => {
@@ -72,13 +70,12 @@ describe("use", () => {
     it("should return an error result when the retrieve function throws an error", async () => {
       const { result } = renderHook(
         () =>
-          Query.useObservable<Params, number>({
-            params: {},
+          Flux.createRetrieve<Params, number>({
             name: "Resource",
             retrieve: async () => {
               throw new Error("test");
             },
-          }),
+          }).useDirect({ params: {} }),
         { wrapper: newWrapper(client) },
       );
       await waitFor(() => {
@@ -93,11 +90,10 @@ describe("use", () => {
     it("should return an error result when no client is connected", async () => {
       const { result } = renderHook(
         () =>
-          Query.useObservable<Params, number>({
-            params: {},
+          Flux.createRetrieve<Params, number>({
             name: "Resource",
             retrieve: async () => 0,
-          }),
+          }).useDirect({ params: {} }),
         { wrapper: newWrapper(null) },
       );
       await waitFor(() => {
@@ -123,13 +119,12 @@ describe("use", () => {
         virtual: true,
         dataType: "float32",
       });
-      interface Params extends Query.Params {
+      interface Params extends Flux.Params {
         key: channel.Key;
       }
       const { result } = renderHook(
         () =>
-          Query.useObservable<Params, channel.Channel>({
-            params: { key: ch.key },
+          Flux.createRetrieve<Params, channel.Channel>({
             name: "Resource",
             retrieve: async ({ client, params: { key } }) =>
               await client.channels.retrieve(key),
@@ -141,7 +136,7 @@ describe("use", () => {
                 },
               },
             ],
-          }),
+          }).useDirect({ params: { key: ch.key } }),
         { wrapper: newWrapper(client) },
       );
       await waitFor(() => {
@@ -163,13 +158,12 @@ describe("use", () => {
         virtual: true,
         dataType: "float32",
       });
-      interface Params extends Query.Params {
+      interface Params extends Flux.Params {
         key: channel.Key;
       }
       const { result } = renderHook(
         () =>
-          Query.useObservable<Params, channel.Channel>({
-            params: { key: ch.key },
+          Flux.createRetrieve<Params, channel.Channel>({
             name: "Resource",
             retrieve: async ({ client, params: { key } }) =>
               await client.channels.retrieve(key),
@@ -181,7 +175,7 @@ describe("use", () => {
                 },
               },
             ],
-          }),
+          }).useDirect({ params: { key: ch.key } }),
         { wrapper: newWrapper(client) },
       );
       await waitFor(() => {

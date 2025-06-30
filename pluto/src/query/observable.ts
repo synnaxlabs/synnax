@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
-import { Sync } from "@/query/sync";
+import { Sync } from "@/flux/sync";
 import { state } from "@/state";
 
 /**
@@ -158,76 +158,3 @@ interface UseObservableReturn<QueryParams extends Params> {
  * @template QueryParams - The type of the parameters for the query.
  * @template Data - The type of the data being retrieved.
  */
-export const useObservable = <QueryParams extends Params, Data extends state.State>({
-  retrieve,
-  listeners,
-  name,
-  onChange,
-  client,
-}: UseObservableArgs<QueryParams, Data>): UseObservableReturn<QueryParams> => {
-  const addListener = Sync.useAddListener();
-  const destructorsRef = useRef<Destructor[]>([]);
-  const cleanupDestructors = useCallback(() => {
-    destructorsRef.current.forEach((d) => d());
-  }, []);
-  useEffect(() => cleanupDestructors, [cleanupDestructors]);
-  const base = useCallback(
-    async (params: QueryParams, { signal }: { signal?: AbortSignal }) => {
-      try {
-        cleanupDestructors();
-        if (client == null)
-          return onChange(
-            errorResult(
-              name,
-              new DisconnectedError(
-                `Cannot retrieve ${name} because no cluster is connected.`,
-              ),
-            ),
-          );
-        onChange(loadingResult(name));
-        const value = await retrieve({ client, params });
-        if (signal?.aborted) return;
-        if (listeners == null || listeners.length === 0)
-          return onChange(successResult(name, value));
-        destructorsRef.current = listeners.map(
-          ({ channel, onChange: listenerOnChange }, i) =>
-            addListener({
-              channel,
-              onOpen: () =>
-                i === listeners.length - 1 && onChange(successResult(name, value)),
-              handler: (frame) => {
-                void (async () => {
-                  try {
-                    await listenerOnChange({
-                      client,
-                      params,
-                      changed: frame.get(channel),
-                      onChange: (value) => {
-                        onChange((prev) => {
-                          if (prev.data == null) return prev;
-                          const next = state.executeSetter(value, prev.data);
-                          return successResult(name, next);
-                        });
-                      },
-                    });
-                  } catch (error) {
-                    onChange(errorResult(name, error));
-                  }
-                })();
-              },
-            }),
-        );
-      } catch (error) {
-        onChange(errorResult(name, error));
-      }
-    },
-    [client, name, addListener],
-  );
-  return {
-    retrieve: (params: QueryParams, options: { signal?: AbortSignal }) => {
-      void base(params, options);
-    },
-    retrieveAsync: async (params: QueryParams, options: { signal?: AbortSignal }) =>
-      await base(params, options),
-  };
-};

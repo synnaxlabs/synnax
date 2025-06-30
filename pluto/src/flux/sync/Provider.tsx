@@ -12,8 +12,8 @@ import { sync } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback, useRef } from "react";
 
 import { useAsyncEffect } from "@/hooks";
-import { AddListenerContext } from "@/query/sync/Context";
-import { type FrameHandler, type ListenerAdder } from "@/query/sync/types";
+import { AddListenerContext } from "@/flux/sync/Context";
+import { type FrameHandler, type ListenerAdder } from "@/flux/sync/types";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 

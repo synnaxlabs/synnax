@@ -13,8 +13,8 @@ import { type FC, type PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod/v4";
 
-import { Query } from "@/query";
-import { Sync } from "@/query/sync";
+import { Flux } from "@/flux";
+import { Sync } from "@/flux/sync";
 import { Synnax as PSynnax } from "@/synnax";
 
 const formSchema = z.object({
@@ -23,7 +23,7 @@ const formSchema = z.object({
   age: z.number(),
 });
 
-interface Params extends Query.Params {
+interface Params extends Flux.Params {
   key?: string;
 }
 
@@ -45,7 +45,7 @@ describe("useForm", () => {
       const update = vi.fn();
       const { result } = renderHook(
         () =>
-          Query.useForm<Params, typeof formSchema>({
+          Flux.createForm<Params, typeof formSchema>({
             initialValues: {
               key: "",
               name: "John Doe",
@@ -53,10 +53,9 @@ describe("useForm", () => {
             },
             schema: formSchema,
             name: "test",
-            params: {},
             retrieve,
             update,
-          }),
+          })({ params: {} }),
         { wrapper: newWrapper(client) },
       );
       expect(result.current.form.value()).toEqual({
@@ -80,7 +79,7 @@ describe("useForm", () => {
       });
       const { result } = renderHook(
         () =>
-          Query.useForm<Params, typeof formSchema>({
+          Flux.createForm<Params, typeof formSchema>({
             initialValues: {
               key: "",
               name: "",
@@ -88,10 +87,9 @@ describe("useForm", () => {
             },
             schema: formSchema,
             name: "test",
-            params: {},
             retrieve,
             update: vi.fn(),
-          }),
+          })({ params: {} }),
         { wrapper: newWrapper(client) },
       );
       await waitFor(() => {
@@ -110,7 +108,7 @@ describe("useForm", () => {
     const retrieve = vi.fn().mockReturnValue(null);
     const { result } = renderHook(
       () =>
-        Query.useForm<Params, typeof formSchema>({
+        Flux.createForm<Params, typeof formSchema>({
           initialValues: {
             key: "",
             name: "John Doe",
@@ -118,10 +116,9 @@ describe("useForm", () => {
           },
           schema: formSchema,
           name: "test",
-          params: {},
           retrieve,
           update,
-        }),
+        })({ params: {} }),
       { wrapper: newWrapper(client) },
     );
 
@@ -139,7 +136,7 @@ describe("useForm", () => {
     const retrieve = vi.fn().mockReturnValue(null);
     const { result } = renderHook(
       () =>
-        Query.useForm<Params, typeof formSchema>({
+        Flux.createForm<Params, typeof formSchema>({
           initialValues: {
             key: "",
             name: "",
@@ -147,10 +144,9 @@ describe("useForm", () => {
           },
           schema: formSchema,
           name: "test",
-          params: {},
           retrieve,
           update,
-        }),
+        })({ params: {} }),
       { wrapper: newWrapper(client) },
     );
     act(() => {
@@ -173,7 +169,7 @@ describe("useForm", () => {
       const retrieve = vi.fn().mockReturnValue(null);
       const { result } = renderHook(
         () =>
-          Query.useForm<Params, typeof formSchema>({
+          Flux.createForm<Params, typeof formSchema>({
             initialValues: {
               key: "",
               name: "John Doe",
@@ -181,10 +177,9 @@ describe("useForm", () => {
             },
             schema: formSchema,
             name: "test",
-            params: {},
             retrieve,
             update,
-          }),
+          })({ params: {} }),
         { wrapper: newWrapper(client) },
       );
       expect(result.current.form.value()).toEqual({
@@ -213,7 +208,7 @@ describe("useForm", () => {
     const retrieve = vi.fn().mockReturnValue(null);
     const { result } = renderHook(
       () =>
-        Query.useForm<Params, typeof formSchema>({
+        Flux.createForm<Params, typeof formSchema>({
           initialValues: {
             key: "",
             name: "John Doe",
@@ -221,10 +216,9 @@ describe("useForm", () => {
           },
           schema: formSchema,
           name: "test",
-          params: {},
           retrieve,
           update,
-        }),
+        })({ params: {} }),
       { wrapper: newWrapper(client) },
     );
     act(() => {
@@ -243,7 +237,7 @@ describe("useForm", () => {
       const retrieve = vi.fn().mockReturnValue(null);
       const { result } = renderHook(
         () =>
-          Query.useForm<Params, typeof formSchema>({
+          Flux.createForm<Params, typeof formSchema>({
             initialValues: {
               key: "",
               name: "John Doe",
@@ -251,11 +245,9 @@ describe("useForm", () => {
             },
             schema: formSchema,
             name: "test",
-            params: {},
             retrieve,
-            update: ({ values }) => update(values.name),
-            autoSave: true,
-          }),
+            update: ({ value }) => update(value.name),
+          })({ params: {} }),
         { wrapper: newWrapper(client) },
       );
       act(() => {
@@ -277,7 +269,7 @@ describe("useForm", () => {
       });
       renderHook(
         () =>
-          Query.useForm<Params, typeof formSchema>({
+          Flux.createForm<Params, typeof formSchema>({
             initialValues: {
               key: "",
               name: "",
@@ -285,11 +277,9 @@ describe("useForm", () => {
             },
             schema: formSchema,
             name: "test",
-            params: {},
             retrieve,
-            update: ({ values }) => update(values.name),
-            autoSave: true,
-          }),
+            update: ({ value }) => update(value.name),
+          })({ params: {} }),
         { wrapper: newWrapper(client) },
       );
       await waitFor(() => {

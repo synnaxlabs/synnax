@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/query/sync/Context";
-export * from "@/query/sync/listeners";
-export * from "@/query/sync/Provider";
-export * from "@/query/sync/types";
+export * from "@/flux/form";
+export * from "@/flux/params";
+export * from "@/flux/result";
+export * from "@/flux/retrieve";
+export * from "@/flux/update";
