@@ -11,6 +11,7 @@ package rbac
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 )
 

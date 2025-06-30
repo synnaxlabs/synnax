@@ -24,6 +24,10 @@ export interface IndicatorProps
   extends Omit<z.input<typeof control.indicatorStateZ>, "status" | "color">,
     PropsWithChildren {}
 
+export interface StatusDetails {
+  color?: string;
+}
+
 export const Indicator = ({
   colorSource,
   statusSource,
@@ -39,6 +43,7 @@ export const Indicator = ({
         variant: "warning",
         message: "No chip connected.",
         time: TimeStamp.now(),
+        details: { color: undefined },
       },
     },
     schema: control.indicatorStateZ,
@@ -49,7 +54,8 @@ export const Indicator = ({
   }, [memoProps, setState]);
 
   let parsedColor: color.Crude;
-  if (status.data?.color != null) parsedColor = color.colorZ.parse(status.data.color);
+  if (status.details?.color != null)
+    parsedColor = color.colorZ.parse(status.details.color);
   else if (colorVal != null && !color.isZero(colorVal)) parsedColor = colorVal;
   else parsedColor = "var(--pluto-gray-l10)";
 

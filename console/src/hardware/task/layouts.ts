@@ -41,7 +41,7 @@ export const retrieveAndPlaceLayout = async (
   placeLayout: Layout.Placer,
 ) => {
   if (client == null) throw NULL_CLIENT_ERROR;
-  const t = await client.hardware.tasks.retrieve(key);
+  const t = await client.hardware.tasks.retrieve({ key });
   const layout = createLayout(t);
   if (t.snapshot)
     layout.tab = {

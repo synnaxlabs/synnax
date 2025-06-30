@@ -13,10 +13,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -73,7 +72,7 @@ var _ = Describe("Rack", Ordered, func() {
 			r := &rack.Rack{}
 			err := w.Create(ctx, r)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("Name"))
+			Expect(err.Error()).To(ContainSubstring("name: required"))
 		})
 	})
 	Describe("Retrieve", func() {

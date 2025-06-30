@@ -79,10 +79,7 @@ var _ = Describe("Writer", func() {
 				Start: 10 * telem.SecondTS,
 				Sync:  config.True(),
 			})
-			Expect(err).To(Equal(validate.FieldError{
-				Field:   "keys",
-				Message: "must be non-empty",
-			}))
+			Expect(err).To(MatchError(ContainSubstring("keys: must be non-empty")))
 		})
 		It("Should return an error if the channel can't be found", func() {
 			_, err := s.dist.Framer.OpenWriter(ctx, writer.Config{
