@@ -8,7 +8,7 @@ prev: "Production"
 prevURL: "/reference/cluster/production"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import Table from "@/components/Table.astro";
 export const components = mdxOverrides;
@@ -52,8 +52,8 @@ workload.
 The first step in sizing a system to meet your requirements is to calculate the total
 sample throughput of your workload.
 
-- The approximate number of channels you'll be acquiring data from. This includes sensor
-  sensor, actuators, logs, and any other channels you may be using.
+- The approximate number of channels you'll be acquiring data from. This includes
+  sensors, actuators, logs, and any other channels you may be using.
 - The average rate at which you'll be writing data for each channel. To be even more
   precise, separate your channels into groups with specific sampling rates.
 
@@ -62,24 +62,23 @@ you'll be writing data for each channel.
 
 For example, if we have three groups of channels:
 
-- 10 high speed at 25Khz - 250K samples/s
-- 100 medium speed at 100Hz - 10K samples/s
-- 20 actuators sending states at 50Hz - 1K samples/s
+- 10 high speed at 25 kHz -> 250K samples/s
+- 100 medium speed at 100 Hz -> 10K samples/s
+- 20 actuators sending states at 50 Hz -> 1K samples/s
 
 The total throughput for our cluster is 250K + 10K + 1K = 261K samples/s.
 
-### Workload-Based Recommendations
+### Workload-Based Minimum Requirements
 
-The following table provides a recommended hardware configuration for a Synnax cluster
-to run.
+Once you've calculated your total throughput, use the following table to determine the
+_minimum_ hardware requirements for your cluster.
 
 <Table>
   <thead>
     <th>Throughput (samples/s)</th>
-    <th>CPU (# Cores)</th>
+    <th>CPU (Cores) </th>
     <th>Memory (GB)</th>
     <th>Storage (GB)</th>
-    <th>Storage Throughput (IOPS)</th>
     <th>Storage Throughput (MB/s)</th>
   </thead>
   <tbody>
@@ -88,23 +87,20 @@ to run.
       <td>4</td>
       <td>8</td>
       <td>100</td>
-      <td>500</td>
       <td>120</td>
     </tr>
     <tr>
       <td>500K</td>
-      <td>8</td>
+      <td>6</td>
       <td>16</td>
       <td>200</td>
       <td>1000</td>
-      <td>240</td>
     </tr>
     <tr>
       <td>1M</td>
       <td>12</td>
       <td>16</td>
       <td>500</td>
-      <td>2500</td>
       <td>600</td>
     </tr>
     <tr>
@@ -112,7 +108,6 @@ to run.
       <td>16</td>
       <td>32</td>
       <td>1000</td>
-      <td>5000</td>
       <td>1200</td>
     </tr>
     <tr>
@@ -120,22 +115,115 @@ to run.
       <td>24</td>
       <td>64</td>
       <td>2000</td>
-      <td>10000</td>
       <td>2400</td>
     </tr>
   </tbody>
 </Table>
 
-### Production Recommendations
+<Note.Note variant="info">
+  When operating Synnax in mission critical environments, we recommend provisioning
+  hardware that is at least 2x the minimum requirements. This leaves ample room for
+  workload growth and unexpected spikes in throughput.
+</Note.Note>
 
-The following table provides a recommended hardware configuration for a Synnax cluster
-to run.
+### Storage
 
-## Networking
+We highly recommend using a high-performance M.2, NVMe, or SATA SSD for storage. This
+recommendation becomes more of a requirement if you have any very high throughput data
+acquisition channels (10 kHz or higher).
 
-Nodes gossip with each other at regular intervals to share information about cluster
-state and health. They also communicate with each other to read and write data to the
-cluster. To support this, Synnax requires that every node can reach **all** other nodes
-in the cluster.
+### CPU
+
+The Synnax cluster is CPU intensive during data ingestion, streaming, and control
+operations. Modern multi-core processors perform best, and are a must when working in
+safety/performance critical environments.
+
+For production deployments, we recommend using a minimum four core processors from one
+of the following families:
+
+- Intel x86-64 processors (Xeon or Core i7/i9 series).
+- AMD x86-64 processors (EPYC or Ryzen series).
+- Apple Silicon Chips on MacOS (M1/M2/M3 series).
+
+Avoid single or dual core processors for anything beyond development or testing
+environments.
+
+If you plan on using large numbers of
+[calculated channels](/reference/cluster/calculated-channels), increase the number of
+cores for your deployment.
+
+### Memory
+
+The Synnax cluster is generally less memory intensive than it is storage or compute
+intensive. For most production deployments, we recommend using a minimum of 8GB of RAM.
+
+<Divider.Divider x />
+
+## Network
+
+Synnax nodes communicate using TCP and/or UDP protocols for cluster coordination, data
+replication, and client connections. Given Synnax's high-performance capabilities for
+both data acquisition and control operations, the network infrastructure must be
+designed to handle substantial throughput with minimal latency.
+
+### Network Interface Requirements
+
+For production deployments, we recommend the following network interface specifications:
+
+#### Minimum Requirements
+
+- 10 Gigabit Ethernet (10GbE) network interface cards (NICs)
+- Full-duplex operation support
+- Hardware-based packet processing capabilities
+
+#### High-Performance Scenarios
+
+- 25 Gigabit Ethernet (25GbE) or higher for workloads exceeding 2M samples/s
+- Multiple NICs for redundancy and load balancing in mission-critical environments
+- RDMA-capable NICs for ultra-low latency applications
+
+<Divider.Divider x />
+
+### Switch Infrastructure
+
+Network switches should be selected and configured to minimize latency and maximize
+throughput:
+
+- **Low-Latency Switches** -> Use enterprise-grade switches with sub-microsecond
+  port-to-port latency.
+- **Non-Blocking Architecture** -> Ensure switches provide full line-rate forwarding
+  across all ports.
+- **Buffer Management** -> Configure appropriate buffer sizes to handle bursty traffic
+  patterns common in data acquisition workloads.
+- **Quality of Service (QoS)** -> Implement traffic prioritization to ensure control
+  commands receive priority over bulk data transfers.
+
+### Cabling and Physical Infrastructure
+
+For optimal performance, especially over longer distances:
+
+- **Fiber Optic Cabling** -> Use single-mode or multi-mode fiber for runs longer than
+  100 meters.
+- **Direct Attach Cables (DAC)** -> Acceptable for short runs (< 10 meters) between
+  adjacent equipment.
+
+### Network Security and Isolation
+
+<Note.Note variant="error">
+  **Critical Security & Performance Requirement** -> Never use public internet
+  connections for control operations. Control systems must operate on isolated,
+  dedicated networks.
+</Note.Note>
+
+For production control environments:
+
+- **Isolated Networks**: Deploy Synnax clusters on dedicated, air-gapped networks
+  separate from corporate IT infrastructure.
+- **Network Segmentation**: Use VLANs or physical separation to isolate control traffic
+  from data acquisition traffic.
+- **Firewall Protection**: Implement network firewalls with strict access control
+  policies.
+- **VPN Access**: When remote access is required, use industrial-grade VPN solutions
+  with multi-factor authentication.
 
 <Divider.Divider x />
