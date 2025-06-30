@@ -57,6 +57,13 @@ export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant
 
 export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
 
+export interface StatusDetails {
+  type: string;
+  oldServer: boolean;
+  nodeVersion?: string;
+  clientVersion: string;
+}
+
 const createErrorDescription = (
   oldServer: boolean,
   clientVersion: string,
@@ -129,11 +136,11 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
           connectivity.nodeVersion,
         );
 
-        addStatus({
+        addStatus<StatusDetails>({
           variant: "warning",
           message: "Incompatible cluster version",
           description,
-          data: {
+          details: {
             type: SERVER_VERSION_MISMATCH,
             oldServer,
             nodeVersion: connectivity.nodeVersion,

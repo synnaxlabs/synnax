@@ -11,8 +11,9 @@ package task
 
 import (
 	"context"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -32,7 +33,7 @@ func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 		}
 		t.Key = NewKey(t.Rack(), localKey)
 	}
-	t.State = nil
+	t.Status = nil
 	// We don't create ontology resources for internal tasks.
 	if err = gorp.NewCreate[Key, Task]().
 		MergeExisting(func(creating Task, existing Task) (Task, error) {

@@ -24,22 +24,29 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+var (
+	DecodeError = errors.New("failed to decode")
+	EncodeError = errors.New("failed to encode")
+)
+
 // sugarEncodingErr adds additional context to encoding errors.
-func sugarEncodingErr(value any, err error) error {
-	if err == nil {
-		return err
+func sugarEncodingErr(value any, base error) error {
+	if base == nil {
+		return base
 	}
 	val := reflect.ValueOf(value)
-	return errors.Wrapf(err, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
+	main := errors.Wrapf(EncodeError, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
+	return errors.Combine(main, base)
 }
 
 // sugarDecodingErr adds additional context to decoding errors.
-func sugarDecodingErr(data []byte, value any, err error) error {
-	if err == nil {
-		return err
+func sugarDecodingErr(data []byte, value any, base error) error {
+	if base == nil {
+		return base
 	}
 	val := reflect.ValueOf(value)
-	return errors.Wrapf(err, "failed to decode into value: kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
+	main := errors.Wrapf(DecodeError, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
+	return errors.Combine(main, base)
 }
 
 // Codec is an interface that encodes and decodes values.

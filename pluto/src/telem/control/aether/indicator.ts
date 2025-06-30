@@ -7,22 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, status } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { aether } from "@/aether/aether";
-import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
+
+export const indicatorStatusDetailsZ = z.object({
+  color: color.colorZ.optional(),
+});
+
+export interface IndicatorStatusDetails
+  extends z.infer<typeof indicatorStatusDetailsZ> {}
 
 export const indicatorStateZ = z.object({
   statusSource: telem.statusSourceSpecZ.optional().default(telem.noopStatusSourceSpec),
   colorSource: telem.colorSourceSpecZ.optional().default(telem.noopColorSourceSpec),
-  status: status.specZ,
+  status: status.statusZ(indicatorStatusDetailsZ),
   color: color.colorZ.optional(),
 });
 
 interface InternalState {
-  statusSource: telem.StatusSource;
+  statusSource: telem.StatusSource<IndicatorStatusDetails>;
   colorSource: telem.ColorSource;
 }
 
