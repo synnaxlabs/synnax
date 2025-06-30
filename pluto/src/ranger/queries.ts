@@ -234,7 +234,7 @@ export const useLabels = (
 ): Flux.UseDirectRetrieveReturn<label.Label[]> =>
   Label.retrieveLabelsOf.useDirect({ params: { id: ranger.ontologyID(key) } });
 
-interface ListParams extends Flux.Params {
+export interface ListParams extends Flux.Params {
   term?: string;
   offset?: number;
   limit?: number;

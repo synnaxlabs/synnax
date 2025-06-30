@@ -9,16 +9,27 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { array, type AsyncTermSearcher, unique } from "@synnaxlabs/x";
-import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
+import {
+  type DragEvent,
+  type ReactElement,
+  useCallback,
+  useId,
+  useMemo,
+  useState,
+} from "react";
 
 import { CSS } from "@/css";
+import { Dropdown } from "@/dropdown";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
-import { type List } from "@/list";
+import { Input } from "@/input";
+import { List } from "@/list";
+import { type ItemProps, Items } from "@/list/v2/List";
+import { type ListParams, useList } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
-import { Select } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
+import { componentRenderProp } from "@/util/renderProp";
 
 const rangeCols: Array<List.ColumnSpec<ranger.Key, ranger.Payload>> = [
   { key: "name", name: "Name" },
@@ -218,5 +229,50 @@ export const SelectButton = ({
       {...dragProps}
       {...rest}
     />
+  );
+};
+
+const Select = () => {
+  const { visible, close } = Dropdown.use();
+  const [query, setQuery] = useState<Required<ListParams>>({
+    term: "",
+    offset: 0,
+    limit: 10,
+  });
+  const { data, useListItem, retrieve } = useList();
+  const handleSearch = useCallback(
+    (term: string) => {
+      setQuery((prev) => ({ ...prev, term }));
+      retrieve(query, {});
+    },
+    [retrieve],
+  );
+  const [selected, setSelected] = useState<string>("");
+  const { onSelect } = List.useSelect({
+    data,
+    value: selected,
+    allowMultiple: false,
+    onChange: setSelected,
+  });
+
+  const listItem = useMemo(
+    () =>
+      componentRenderProp(({ itemKey }: ItemProps<ranger.Key>) => {
+        const item = useListItem(itemKey);
+        return (
+          <div onClick={() => onSelect(item.key)}>
+            <span>{item.name}</span>
+          </div>
+        );
+      }),
+    [useListItem],
+  );
+  return (
+    <Dropdown.Dialog visible={visible} close={close}>
+      <Input.Text value={query.term} onChange={handleSearch} />
+      <Items data={data} itemHeight={30}>
+        {listItem}
+      </Items>
+    </Dropdown.Dialog>
   );
 };

@@ -6,7 +6,7 @@ import { type Params } from "@/flux/params";
 import { errorResult, loadingResult, type Result, successResult } from "@/flux/result";
 import {
   type CreateRetrieveArgs,
-  type UseStatefulRetrieveReturn,
+  type UseObservableRetrieveReturn,
 } from "@/flux/retrieve";
 import { Sync } from "@/flux/sync";
 import { type state } from "@/state";
@@ -16,9 +16,11 @@ export type UseListReturn<
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,
-> = UseStatefulRetrieveReturn<RetrieveParams, K[]> & {
-  useListItem: (key: K) => E;
-};
+> = UseObservableRetrieveReturn<RetrieveParams> &
+  Omit<Result<K[]>, "data"> & {
+    data: K[];
+    useListItem: (key: K) => E;
+  };
 
 export interface CreateListArgs<
   RetrieveParams extends Params,

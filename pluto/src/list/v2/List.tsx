@@ -5,7 +5,7 @@ import { type ComponentPropsWithoutRef, type FC, useRef, useState } from "react"
 import { CSS } from "@/css";
 import { type RenderProp } from "@/util/renderProp";
 
-interface ItemProps<K extends record.Key> {
+export interface ItemProps<K extends record.Key> {
   itemKey: K;
 }
 
