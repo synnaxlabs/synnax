@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
-import { type Required } from "@synnaxlabs/x";
 
 import { type DynamicProps } from "@/telem/client/cache/dynamic";
 import {

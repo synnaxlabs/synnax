@@ -58,39 +58,6 @@ struct Command {
     }
 };
 
-/// @brief struct that represents the network portable state of a task. Used both
-/// internally by a task and externally by the driver to track its state.
-struct State {
-    /// @brief the key of the task.
-    synnax::TaskKey task = 0;
-    /// @brief an optional key to assign to the state update. This is particularly
-    /// useful for identifying responses to commands.
-    std::string key;
-    /// @brief the type of the task.
-    std::string variant;
-    /// @brief relevant details about the current state of the task.
-    json details = {};
-
-    /// @brief parses a state from the provided configuration parser.
-    static State parse(xjson::Parser parser) {
-        return State{
-            .task = parser.required<synnax::TaskKey>("task"),
-            .key = parser.optional<std::string>("key", ""),
-            .variant = parser.required<std::string>("variant"),
-            .details = parser.optional<json>("details", json{})
-        };
-    }
-
-    [[nodiscard]] json to_json() const {
-        return {
-            {"task", task},
-            {"key", key},
-            {"variant", variant},
-            {"details", details}
-        };
-    }
-};
-
 /// @brief interface for a task that can be executed by the driver. Tasks should be
 /// constructed by an @see Factory.
 class Task {
@@ -113,10 +80,10 @@ public:
 };
 
 /// @brief name of the channel used in Synnax to communicate state updates.
-const std::string TASK_STATE_CHANNEL = "sy_task_state";
+const std::string TASK_STATE_CHANNEL = "sy_task_status";
 
 /// @brief an interface for a standard context that is provided to every task in the
-/// driver. This context provides access to the Synnax client and alllows tasks to
+/// driver. This context provides access to the Synnax client and allows tasks to
 /// easily update their state.
 class Context {
 public:
@@ -131,7 +98,7 @@ public:
         client(std::move(client)) {}
 
     /// @brief updates the state of the task in the Synnax cluster.
-    virtual void set_state(const State &state) = 0;
+    virtual void set_status(const synnax::TaskStatus &status) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -139,14 +106,14 @@ class MockContext final : public Context {
     std::mutex mu;
 
 public:
-    std::vector<State> states{};
+    std::vector<synnax::TaskStatus> states{};
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
 
-    void set_state(const State &state) override {
+    void set_status(const synnax::TaskStatus &status) override {
         mu.lock();
-        states.push_back(state);
+        states.push_back(status);
         mu.unlock();
     }
 };
@@ -160,7 +127,7 @@ public:
     explicit SynnaxContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
 
-    void set_state(const State &state) override {
+    void set_status(const synnax::TaskStatus &status) override {
         std::unique_lock lock(mu);
         if (writer == nullptr) {
             auto [ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);
@@ -184,7 +151,7 @@ public:
         }
         // We're safe to ignore the error return value here and just check for a nil
         // error, as close() is guaranteed to return the same error as write.
-        if (!writer->write(synnax::Frame(chan.key, telem::Series(state.to_json()))))
+        if (!writer->write(synnax::Frame(chan.key, telem::Series(status.to_json()))))
             return;
         auto err = writer->close();
         LOG(ERROR) << "[task.context] failed to write task state update" << err;

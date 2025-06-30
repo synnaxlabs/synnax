@@ -11,13 +11,14 @@ package calculation
 
 import (
 	"context"
+	"fmt"
+	"go/types"
 	"io"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -97,11 +98,7 @@ type entry struct {
 	shutdown io.Closer
 }
 
-type State struct {
-	Key     channel.Key    `json:"key"`
-	Variant status.Variant `json:"variant"`
-	Message string         `json:"message"`
-}
+type Status = status.Status[types.Nil]
 
 // Service creates and operates calculations on channels.
 type Service struct {
@@ -115,6 +112,8 @@ type Service struct {
 	w                            *framer.Writer
 }
 
+const StatusChannelName = "sy_calculation_status"
+
 // OpenService opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
@@ -124,11 +123,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 
 	calculationStateCh := channel.Channel{
-		Name:        "sy_calculation_state",
+		Name:        StatusChannelName,
 		DataType:    telem.JSONT,
 		Virtual:     true,
 		Leaseholder: cluster.Free,
 		Internal:    true,
+	}
+
+	if err = cfg.Channel.MapRename(ctx, map[string]string{
+		"sy_calculation_state": StatusChannelName,
+	}, true); err != nil {
+		return nil, err
 	}
 
 	if err = cfg.Channel.Create(
@@ -155,19 +160,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
-func (s *Service) setState(
+func (s *Service) setStatus(
 	_ context.Context,
-	ch channel.Channel,
-	variant status.Variant,
-	message string,
+	status Status,
 ) {
 	if _, err := s.w.Write(core.UnaryFrame(
 		s.stateKey,
-		telem.NewSeriesStaticJSONV(State{
-			Key:     ch.Key(),
-			Variant: variant,
-			Message: message,
-		}),
+		telem.NewSeriesStaticJSONV(status),
 	)); err != nil {
 		s.cfg.L.Error("failed to encode state", zap.Error(err))
 	}
@@ -211,10 +210,10 @@ func (s *Service) update(ctx context.Context, ch channel.Channel) {
 	delete(s.mu.entries, ch.Key())
 	if _, err := s.startCalculation(ctx, ch.Key(), e.count); err != nil {
 		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
-		e.ch.Requires = ch.Requires
-		e.ch.Expression = ch.Expression
-		s.mu.entries[ch.Key()] = e
 	}
+	e.ch.Requires = ch.Requires
+	e.ch.Expression = ch.Expression
+	s.mu.entries[ch.Key()] = e
 }
 
 func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
@@ -270,103 +269,104 @@ func (s *Service) startCalculation(
 	ctx context.Context,
 	key channel.Key,
 	initialCount int,
-) (closer io.Closer, err error) {
+) (io.Closer, error) {
 	var ch channel.Channel
-	ch.LocalKey = key.LocalKey()
-	ch.Leaseholder = key.Leaseholder()
-	defer func() {
-		if err != nil {
-			s.setState(ctx, ch, status.ErrorVariant, err.Error())
+	// Wrap everything in a closure so we can properly propagate status changes.
+	closer, err := func() (io.Closer, error) {
+		ch.LocalKey = key.LocalKey()
+		ch.Leaseholder = key.Leaseholder()
+		if err := s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
+			return nil, err
 		}
-	}()
-	if err = s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	if !ch.IsCalculated() {
-		return nil, errors.Newf("channel %v is not calculated", ch)
-	}
+		if !ch.IsCalculated() {
+			return nil, errors.Wrapf(validate.Error, "channel %v is not calculated", ch)
+		}
+		if _, exists := s.mu.entries[key]; exists {
+			s.mu.entries[key].count++
+			return s.releaseEntryCloser(key), nil
+		}
 
-	if _, exists := s.mu.entries[key]; exists {
-		s.mu.entries[key].count++
-		return s.releaseEntryCloser(key), nil
-	}
+		var requires []channel.Channel
+		if err := s.cfg.Channel.NewRetrieve().
+			WhereKeys(ch.Requires...).
+			Entries(&requires).
+			Exec(ctx, nil); err != nil {
+			return nil, err
+		}
 
-	var requires []channel.Channel
-	if err = s.cfg.Channel.NewRetrieve().
-		WhereKeys(ch.Requires...).
-		Entries(&requires).
-		Exec(ctx, nil); err != nil {
-		return nil, err
-	}
+		writer_, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+			Keys:  channel.Keys{ch.Key()},
+			Start: telem.Now(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		streamer_, err := s.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: ch.Requires})
+		if err != nil {
+			return nil, err
+		}
+		p := plumber.New()
+		plumber.SetSegment(p, "streamer", streamer_)
+		plumber.SetSegment(p, "writer", writer_)
 
-	writer_, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-		Keys:  channel.Keys{ch.Key()},
-		Start: telem.Now(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	streamer_, err := s.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: ch.Requires})
-	if err != nil {
-		return nil, err
-	}
-	p := plumber.New()
-	plumber.SetSegment(p, "streamer", streamer_)
-	plumber.SetSegment(p, "writer", writer_)
-
-	c, err := OpenCalculator(ch, requires)
-	if err != nil {
-		return nil, err
-	}
-	sc := newCalculationTransform([]*Calculator{c}, s.setState)
-	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](
-		p,
-		"Calculator",
-		sc,
-		confluence.Defer(sc.close),
-	)
-
-	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
-	o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
-		s.cfg.L.DPanic(
-			"write of calculated channel value failed",
-			zap.Stringer("channel", ch),
+		c, err := OpenCalculator(ch, requires)
+		if err != nil {
+			return nil, err
+		}
+		sc := newCalculationTransform([]*Calculator{c}, s.setStatus)
+		plumber.SetSegment(
+			p,
+			"Calculator",
+			sc,
+			confluence.Defer(sc.close),
 		)
-	})
-	plumber.SetSink[framer.WriterResponse](p, "obs", o)
-	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "Calculator", defaultPipelineBufferSize)
-	plumber.MustConnect[framer.WriterRequest](p, "Calculator", "writer", defaultPipelineBufferSize)
-	plumber.MustConnect[framer.WriterResponse](p, "writer", "obs", defaultPipelineBufferSize)
-	streamerRequests := confluence.NewStream[framer.StreamerRequest](1)
-	streamer_.InFrom(streamerRequests)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
-	s.mu.entries[ch.Key()] = &entry{
-		ch:          ch,
-		count:       initialCount,
-		calculation: streamerRequests,
-		shutdown:    signal.NewHardShutdown(sCtx, cancel),
+
+		o := confluence.NewObservableSubscriber[framer.WriterResponse]()
+		o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
+			s.cfg.L.DPanic(
+				"write of calculated channel value failed",
+				zap.Stringer("channel", ch),
+			)
+		})
+		plumber.SetSink(p, "obs", o)
+		plumber.MustConnect[framer.StreamerResponse](p, "streamer", "Calculator", defaultPipelineBufferSize)
+		plumber.MustConnect[framer.WriterRequest](p, "Calculator", "writer", defaultPipelineBufferSize)
+		plumber.MustConnect[framer.WriterResponse](p, "writer", "obs", defaultPipelineBufferSize)
+		streamerRequests := confluence.NewStream[framer.StreamerRequest](1)
+		streamer_.InFrom(streamerRequests)
+		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
+		s.mu.entries[ch.Key()] = &entry{
+			ch:          ch,
+			count:       initialCount,
+			calculation: streamerRequests,
+			shutdown:    signal.NewHardShutdown(sCtx, cancel),
+		}
+		p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+		s.cfg.L.Debug("started calculated channel", zap.Stringer("key", key))
+		return s.releaseEntryCloser(key), nil
+	}()
+	if err != nil {
+		s.setStatus(ctx, status.Status[types.Nil]{
+			Key:         ch.Key().String(),
+			Variant:     status.ErrorVariant,
+			Message:     fmt.Sprintf("Failed to start calculation for %s", ch),
+			Description: err.Error(),
+		})
 	}
-	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-	s.cfg.L.Debug("started calculated channel", zap.Stringer("key", key))
-	return s.releaseEntryCloser(key), nil
+	return closer, err
 }
 
-type onStateChange func(
-	ctx context.Context,
-	channel channel.Channel,
-	variant status.Variant,
-	message string,
-)
+type onStatusChange func(ctx context.Context, status Status)
 
 type streamCalculationTransform struct {
 	confluence.LinearTransform[framer.StreamerResponse, framer.WriterRequest]
 	calculators   []*Calculator
-	onStateChange onStateChange
+	onStateChange onStatusChange
 }
 
 func newCalculationTransform(
 	calculators []*Calculator,
-	onChange onStateChange,
+	onChange onStatusChange,
 ) *streamCalculationTransform {
 	t := &streamCalculationTransform{calculators: calculators}
 	t.Transform = t.transform
@@ -382,7 +382,12 @@ func (t *streamCalculationTransform) transform(
 	for _, c := range t.calculators {
 		s, err := c.Next(req.Frame)
 		if err != nil {
-			t.onStateChange(ctx, c.ch, status.ErrorVariant, err.Error())
+			t.onStateChange(ctx, Status{
+				Key:         c.ch.Key().String(),
+				Variant:     status.ErrorVariant,
+				Message:     fmt.Sprintf("Failed to start calculation for %s", c.ch),
+				Description: err.Error(),
+			})
 		} else if s.Len() > 0 {
 			res.Frame = res.Frame.Append(c.ch.Key(), s)
 			send = true

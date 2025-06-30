@@ -75,11 +75,11 @@ const handleRename: Ontology.HandleTreeRename = {
 
 const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
   const id = new ontology.ID(entry.key);
-  const state = Rack.useState(Number(id.key));
+  const status = Rack.useStatus(Number(id.key));
 
   const heartRef = useRef<SVGSVGElement>(null);
 
-  const variant = state?.variant ?? "disabled";
+  const variant = status?.variant ?? "disabled";
 
   useEffect(() => {
     if (variant !== "success") return;
@@ -87,7 +87,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
     if (!heart) return;
     heart.classList.remove("synnax-rack-heartbeat--beat");
     requestAnimationFrame(() => heart.classList.add("synnax-rack-heartbeat--beat"));
-  }, [state]);
+  }, [status]);
 
   return (
     <Tree.DefaultItem {...rest} entry={entry}>
@@ -109,7 +109,7 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
           />
           <Tooltip.Dialog location="right">
             <Status.Text variant={variant} hideIcon level="small" weight={450}>
-              {state?.message}
+              {status?.message}
             </Status.Text>
             <Icon.Heart
               ref={heartRef}

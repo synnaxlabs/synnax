@@ -20,7 +20,7 @@ describe("id", () => {
 
     it("should create a string of length 11", () => {
       const newID = id.create();
-      expect(newID.length).toBe(11);
+      expect(newID.length).toBe(id.LENGTH);
     });
 
     it("should only contain alphanumeric characters", () => {

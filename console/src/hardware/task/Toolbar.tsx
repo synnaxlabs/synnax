@@ -22,7 +22,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { errors, type record, strings, TimeSpan } from "@synnaxlabs/x";
+import { errors, strings, TimeSpan } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -40,66 +40,6 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
 import { Range } from "@/range";
-
-interface SugaredDetails extends record.Unknown {
-  status: Common.Task.Status;
-}
-
-interface SugaredState extends task.State {
-  details: SugaredDetails;
-}
-
-interface SugaredTask extends task.Task {
-  state: SugaredState;
-}
-
-const sugarTask = (task: task.Task): SugaredTask => {
-  if (task.state?.details?.status != null) return task as SugaredTask;
-
-  if (task.state?.details != null) {
-    task.state.details = {
-      ...task.state.details,
-      status: task.state.details.running
-        ? Common.Task.RUNNING_STATUS
-        : Common.Task.PAUSED_STATUS,
-    };
-    return task as SugaredTask;
-  }
-
-  if (task.state != null) {
-    task.state = { ...task.state, details: { status: Common.Task.PAUSED_STATUS } };
-    return task as SugaredTask;
-  }
-
-  const state: SugaredState = {
-    key: "",
-    variant: "success",
-    task: task.key,
-    details: { status: Common.Task.PAUSED_STATUS },
-  };
-  return Object.assign(task, { state });
-};
-
-const updateTaskStatus = (tsk: SugaredTask, state: task.State): SugaredTask => {
-  const running = state.details?.running;
-  const newStatus =
-    running === true
-      ? Common.Task.RUNNING_STATUS
-      : running === false
-        ? Common.Task.PAUSED_STATUS
-        : tsk.state.details.status;
-  tsk.state = {
-    ...tsk.state,
-    ...state,
-    details: { ...tsk.state.details, ...state.details, status: newStatus },
-  };
-  return tsk;
-};
-
-const setLoading = (task: SugaredTask): SugaredTask => {
-  task.state.details.status = Common.Task.LOADING_STATUS;
-  return task;
-};
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
@@ -124,13 +64,20 @@ interface RenameArgs {
 }
 
 interface StartStopArgs {
-  command: Common.Task.StartOrStopCommand;
+  command: Common.Task.Command;
   keys: task.Key[];
 }
 
+const updateTaskStatus =
+  (key: task.Key, update: (prev: task.Status) => task.Status) => (prev: task.Task[]) =>
+    prev.map((tsk) => {
+      if (tsk.key === key && tsk.status != null) tsk.status = update(tsk.status);
+      return tsk;
+    });
+
 const Content = () => {
   const client = Synnax.use();
-  const [tasks, setTasks] = useState<SugaredTask[]>([]);
+  const [tasks, setTasks] = useState<task.Task[]>([]);
   const [selected, setSelected] = useState<task.Key[]>([]);
   const handleError = Status.useErrorHandler();
   const confirm = Modals.useConfirm();
@@ -139,7 +86,7 @@ const Content = () => {
     mutationFn: async ({ name, key }: RenameArgs) => {
       const tsk = tasks.find((t) => t.key === key);
       if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);
-      if (tsk.state.details.status === Common.Task.RUNNING_STATUS) {
+      if (tsk.status?.details.running === true) {
         const confirmed = await confirm({
           message: `Are you sure you want to rename ${tsk.name} to ${name}?`,
           description: `This will cause ${tsk.name} to stop and be reconfigured.`,
@@ -178,33 +125,31 @@ const Content = () => {
         setTasks([]);
         return;
       }
-      const allTasks = await client.hardware.tasks.list({ includeState: true });
+      const all = await client.hardware.tasks.list({ includeStatus: true });
       if (signal.aborted) return;
-      const shownTasks = allTasks.filter(
-        ({ internal, snapshot }) => !internal && !snapshot,
-      );
-      setTasks(shownTasks.map(sugarTask));
+      const shown = all.filter(({ internal, snapshot }) => !internal && !snapshot);
+      setTasks(shown);
     },
     [client?.key],
   );
-  const handleStateUpdate = useCallback((state: task.State) => {
-    setTasks((prevTasks) => {
-      const tsk = prevTasks.find((t) => t.key === state.task);
-      if (tsk == null) return prevTasks;
-      updateTaskStatus(tsk, state);
-      return [...prevTasks];
+  const handleStatusChange = useCallback((status: task.Status) => {
+    setTasks((prev) => {
+      const tsk = prev.find((t) => t.key === status.details.task);
+      if (tsk == null) return prev;
+      tsk.status = status;
+      return [...prev];
     });
   }, []);
-  Task.useStateSynchronizer(handleStateUpdate);
+  Task.useStatusSynchronizer(handleStatusChange);
   const handleSet = useCallback(
     (key: task.Key) => {
       handleError(async () => {
         if (client == null) throw NULL_CLIENT_ERROR;
-        const tk = await client.hardware.tasks.retrieve(key, { includeState: true });
+        const tk = await client.hardware.tasks.retrieve({ key, includeStatus: true });
         setTasks((prev) => {
           const existing = prev.find((t) => t.key === tk.key);
-          if (existing == null) return [...prev, sugarTask(tk)];
-          return prev.map((t) => (t.key === tk.key ? sugarTask(tk) : t));
+          if (existing == null) return [...prev, tk];
+          return prev.map((t) => (t.key === tk.key ? tk : t));
         });
       }, "Failed to update task toolbar from sy_task_set channel");
     },
@@ -216,19 +161,20 @@ const Content = () => {
   }, []);
   Task.useSetSynchronizer(handleSet);
   Task.useDeleteSynchronizer(handleDeletedTasks);
+
   const handleCommandUpdate = useCallback(
     ({ task, type }: task.Command) => {
-      const status = tasks.find(({ key }) => key === task)?.state.details.status;
+      const status = tasks.find(({ key }) => key === task)?.status;
       if (status == null) return;
       if (Common.Task.shouldExecuteCommand(status, type))
         setTasks((prev) =>
           prev.map((tsk) => {
-            if (tsk.key === task) setLoading(tsk);
+            if (tsk.key === task && tsk.status != null) tsk.status.variant = "loading";
             return tsk;
           }),
         );
     },
-    [tasks, setLoading],
+    [tasks],
   );
   Task.useCommandSynchronizer(handleCommandUpdate);
   const handleDelete = useMutation({
@@ -265,27 +211,27 @@ const Content = () => {
       if (client == null) throw NULL_CLIENT_ERROR;
       const filteredKeys = new Set(
         keys.filter((k) => {
-          const status = tasks.find(({ key }) => key === k)?.state.details.status;
+          const status = tasks.find(({ key }) => key === k)?.status;
           if (status == null) throw new UnexpectedError(`Task with key ${k} not found`);
           return Common.Task.shouldExecuteCommand(status, command);
         }),
       );
       setTasks((prev) =>
-        prev.map((tsk) => (filteredKeys.has(tsk.key) ? setLoading(tsk) : tsk)),
+        prev.map((tsk) => {
+          if (filteredKeys.has(tsk.key) && tsk.status != null)
+            tsk.status.variant = "loading";
+          return tsk;
+        }),
       );
       const tasksToExecute = tasks.filter(({ key }) => filteredKeys.has(key));
       tasksToExecute.forEach((t) => {
-        t.executeCommandSync(command, TimeSpan.fromSeconds(10)).catch((e) => {
-          const status: task.State = {
-            key: "",
-            variant: "error",
-            task: t.key,
-            details: { message: e.message },
-          };
-          setTasks((prev) =>
-            prev.map((tsk) =>
-              tsk.key === t.key ? updateTaskStatus(tsk, status) : tsk,
-            ),
+        t.executeCommandSync(command, TimeSpan.fromSeconds(10), {}).catch((e) => {
+          setTasks(
+            updateTaskStatus(t.key, (prev) => ({
+              ...prev,
+              variant: "error",
+              message: e.message,
+            })),
           );
         });
       });
@@ -293,11 +239,11 @@ const Content = () => {
     onError: (e, { command }) => handleError(e, `Failed to ${command} tasks`),
   }).mutate;
   const handleStart = useCallback(
-    (keys: string[]) => startOrStop({ command: Common.Task.START_COMMAND, keys }),
+    (keys: string[]) => startOrStop({ command: "start", keys }),
     [startOrStop],
   );
   const handleStop = useCallback(
-    (keys: string[]) => startOrStop({ command: Common.Task.STOP_COMMAND, keys }),
+    (keys: string[]) => startOrStop({ command: "stop", keys }),
     [startOrStop],
   );
   const contextMenu = useCallback<NonNullable<PMenu.ContextMenuProps["menu"]>>(
@@ -313,11 +259,11 @@ const Content = () => {
     [handleDelete, handleStart, handleStop, tasks],
   );
   const handleListItemStopStart = useCallback(
-    (command: Common.Task.StartOrStopCommand, key: task.Key) =>
+    (command: Common.Task.Command, key: task.Key) =>
       startOrStop({ command, keys: [key] }),
     [startOrStop],
   );
-  const listItem = useCallback<List.ItemRenderProp<string, SugaredTask>>(
+  const listItem = useCallback<List.ItemRenderProp<string, task.Task>>(
     ({ key, ...p }) => (
       <TaskListItem
         key={key}
@@ -342,7 +288,7 @@ const Content = () => {
         </Toolbar.Header>
         <List.List data={tasks} emptyContent={<EmptyContent />}>
           <List.Selector value={selected} onChange={setSelected} replaceOnSingle>
-            <List.Core<task.Key, SugaredTask>>{listItem}</List.Core>
+            <List.Core<task.Key, task.Task>>{listItem}</List.Core>
           </List.Selector>
         </List.List>
       </Align.Space>
@@ -361,28 +307,23 @@ export const TOOLBAR_NAV_DRAWER_ITEM: Layout.NavDrawerItem = {
   maxSize: 400,
 };
 
-interface TaskListItemProps extends List.ItemProps<task.Key, SugaredTask> {
-  onStopStart: (command: Common.Task.StartOrStopCommand) => void;
+interface TaskListItemProps extends List.ItemProps<task.Key, task.Task> {
+  onStopStart: (command: Common.Task.Command) => void;
   onRename: (name: string) => void;
 }
 
 const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
-  const {
-    key,
-    name,
-    state: {
-      details: { status },
-      variant,
-    },
-    type,
-  } = rest.entry;
+  const { key, name, status, type } = rest.entry;
+  const details = status?.details;
+  let variant = status?.variant;
   const icon = getIcon(type);
-  const isLoading = status === Common.Task.LOADING_STATUS;
-  const isRunning = status === Common.Task.RUNNING_STATUS;
+  const isLoading = variant === "loading";
+  const isRunning = details?.running === true;
+  if (!isRunning && variant === "success") variant = "info";
   const handleClick = useCallback<NonNullable<Button.IconProps["onClick"]>>(
     (e) => {
       e.stopPropagation();
-      const command = isRunning ? Common.Task.STOP_COMMAND : Common.Task.START_COMMAND;
+      const command = isRunning ? "stop" : "start";
       onStopStart(command);
     },
     [isRunning, onStopStart],
@@ -392,7 +333,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
       <Align.Space y size="small" grow className={CSS.BE("task", "metadata")}>
         <Align.Space x align="center" size="small">
           <Status.Indicator
-            variant={status === Common.Task.LOADING_STATUS ? "loading" : variant}
+            variant={variant}
             style={{ fontSize: "2rem", minWidth: "2rem" }}
           />
           <Text.WithIcon
@@ -432,7 +373,7 @@ interface ContextMenuProps {
   onDelete: (keys: task.Key[]) => void;
   onStart: (keys: task.Key[]) => void;
   onStop: (keys: task.Key[]) => void;
-  tasks: SugaredTask[];
+  tasks: task.Task[];
 }
 
 const ContextMenu = ({ keys, tasks, onDelete, onStart, onStop }: ContextMenuProps) => {
@@ -442,19 +383,9 @@ const ContextMenu = ({ keys, tasks, onDelete, onStart, onStop }: ContextMenuProp
   const snapshotToActiveRange = useRangeSnapshot();
 
   const canStart = selectedTasks.some(
-    ({
-      state: {
-        details: { status },
-      },
-    }) => status === Common.Task.PAUSED_STATUS,
+    ({ status }) => status?.details.running === false,
   );
-  const canStop = selectedTasks.some(
-    ({
-      state: {
-        details: { status },
-      },
-    }) => status === Common.Task.RUNNING_STATUS,
-  );
+  const canStop = selectedTasks.some(({ status }) => status?.details.running === true);
   const someSelected = selectedTasks.length > 0;
   const isSingle = selectedTasks.length === 1;
 

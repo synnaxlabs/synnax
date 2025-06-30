@@ -239,7 +239,6 @@ const reduceCreateWindow = (
   if (label == null || prerenderLabel == null)
     throw new Error("[drift] - bug - missing label and prerender label");
 
-  console.log(s.config.debug);
   group(s.config.debug, "reducer create window");
 
   const mainWin = s.windows.main;

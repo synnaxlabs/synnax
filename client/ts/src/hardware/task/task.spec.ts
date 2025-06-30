@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeSpan } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { task } from "@/hardware/task";
@@ -57,7 +57,7 @@ describe("Task", async () => {
         name: "updated",
       });
       expect(updated.name).toBe("updated");
-      const retrieved = await client.hardware.tasks.retrieve(m.key);
+      const retrieved = await client.hardware.tasks.retrieve({ key: m.key });
       expect(retrieved.name).toBe("updated");
     });
   });
@@ -68,7 +68,7 @@ describe("Task", async () => {
         config: { a: "dog" },
         type: "ni",
       });
-      const retrieved = await client.hardware.tasks.retrieve(m.key);
+      const retrieved = await client.hardware.tasks.retrieve({ key: m.key });
       expect(retrieved.key).toBe(m.key);
       expect(retrieved.name).toBe("test");
       expect(retrieved.config).toStrictEqual({ a: "dog" });
@@ -78,7 +78,7 @@ describe("Task", async () => {
       it("should retrieve a task by its name", async () => {
         const name = `test-${Date.now()}-${Math.random()}`;
         const m = await testRack.createTask({ name, config: { a: "dog" }, type: "ni" });
-        const retrieved = await client.hardware.tasks.retrieveByName(name);
+        const retrieved = await client.hardware.tasks.retrieve({ name });
         expect(retrieved.key).toBe(m.key);
       });
     });
@@ -89,23 +89,23 @@ describe("Task", async () => {
           config: { a: "dog" },
           type: "ni",
         });
-        const w = await client.openWriter([task.STATE_CHANNEL_NAME]);
-        interface StateDetails {
-          dog: string;
-        }
-        const state: task.State<StateDetails> = {
+        const w = await client.openWriter([task.STATUS_CHANNEL_NAME]);
+        const communicatedStatus: task.Status = {
           key: id.create(),
-          task: t.key,
           variant: "success",
+          details: { task: t.key, running: false, data: {} },
+          message: "test",
+          time: TimeStamp.now(),
         };
-        await w.write(task.STATE_CHANNEL_NAME, [state]);
+        await w.write(task.STATUS_CHANNEL_NAME, [communicatedStatus]);
         await w.close();
         await expect
           .poll(async () => {
-            const retrieved = await client.hardware.tasks.retrieve(t.key, {
-              includeState: true,
+            const retrieved = await client.hardware.tasks.retrieve({
+              key: t.key,
+              includeStatus: true,
             });
-            return retrieved.state?.variant === state.variant;
+            return retrieved.status?.variant === communicatedStatus.variant;
           })
           .toBeTruthy();
       });
@@ -168,21 +168,25 @@ describe("Task", async () => {
         type: "ni",
       });
       const commandObs = await t.openCommandObserver();
-      const w = await client.openWriter([task.STATE_CHANNEL_NAME]);
+      const w = await client.openWriter([task.STATUS_CHANNEL_NAME]);
       commandObs.onChange((cmd) => {
         void (async () => {
-          const state: task.State = {
+          const status: task.Status = {
             key: cmd.key,
-            task: cmd.task,
             variant: "success",
-            details: { beacons: "lit" },
+            details: { task: cmd.task, running: false, data: { beacons: "lit" } },
+            message: "test",
+            time: TimeStamp.now(),
           };
-          await w.write(task.STATE_CHANNEL_NAME, [state]);
+          await w.write(task.STATUS_CHANNEL_NAME, [status]);
         })();
       });
-      const state = await t.executeCommandSync("test", TimeSpan.fromSeconds(1));
-      expect(state.variant).toBe("success");
-      expect(state.details).toMatchObject({ beacons: "lit" });
+      const status = await t.executeCommandSync("test", TimeSpan.fromSeconds(1));
+      expect(status.variant).toBe("success");
+      expect(status.details).toMatchObject({
+        data: { beacons: "lit" },
+        running: false,
+      });
       await w.close();
       await commandObs.close();
     });

@@ -11,7 +11,7 @@ import { channel, type task } from "@synnaxlabs/client";
 import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
-import { type Device } from "@/hardware/opc/device";
+import { connectionConfigZ } from "@/hardware/opc/device/types";
 
 export const PREFIX = "opc";
 
@@ -56,11 +56,6 @@ const validateNodeIDs = ({
     });
   });
 };
-
-interface BaseStateDetails {
-  message?: string;
-  running: boolean;
-}
 
 const baseReadConfigZ = Common.Task.baseConfigZ.extend({
   channels: z
@@ -112,14 +107,15 @@ const ZERO_READ_CONFIG: ReadConfig = {
   streamRate: 25,
 };
 
-export interface ReadStateDetails extends BaseStateDetails {}
-export interface ReadState extends task.State<ReadStateDetails> {}
+export const readStatusDataZ = z.object({});
+export type ReadStatus = task.Status<typeof readStatusDataZ>;
 
 export const READ_TYPE = `${PREFIX}_read`;
+export const readTypeZ = z.literal(READ_TYPE);
 export type ReadType = typeof READ_TYPE;
 
 export interface ReadPayload
-  extends task.Payload<ReadConfig, ReadStateDetails, ReadType> {}
+  extends task.Payload<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
 export const ZERO_READ_PAYLOAD: ReadPayload = {
   key: "",
   type: READ_TYPE,
@@ -127,44 +123,69 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
   config: ZERO_READ_CONFIG,
 };
 
-export interface ReadTask extends task.Task<ReadConfig, ReadStateDetails, ReadType> {}
-export interface NewReadTask extends task.New<ReadConfig, ReadType> {}
+export interface ReadTask
+  extends task.Task<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
+export interface NewReadTask extends task.New<typeof readTypeZ, typeof readConfigZ> {}
 
-export type ScanConfig = {};
+export const READ_SCHEMAS: task.Schemas<
+  typeof readTypeZ,
+  typeof readConfigZ,
+  typeof readStatusDataZ
+> = {
+  typeSchema: readTypeZ,
+  configSchema: readConfigZ,
+  statusDataSchema: readStatusDataZ,
+};
+
+export const scanConfigZ = z.object({});
+
+export type ScanConfig = z.infer<typeof scanConfigZ>;
 export const ZERO_SCAN_CONFIG: ScanConfig = {};
 
 export const SCAN_COMMAND_TYPE = "scan";
 
-export interface ScannedNode {
-  dataType: string;
-  isArray: boolean;
-  name: string;
-  nodeClass: string;
-  nodeId: string;
-}
-export interface ScanCommandResponse {
-  channels: ScannedNode[];
-  connection: Device.ConnectionConfig;
-}
+export const scannedNodeZ = z.object({
+  dataType: z.string(),
+  isArray: z.boolean(),
+  name: z.string(),
+  nodeClass: z.string(),
+  nodeId: z.string(),
+});
+
+export type ScannedNode = z.infer<typeof scannedNodeZ>;
+
+export const scanCommandResponseZ = z.object({
+  channels: z.array(scannedNodeZ),
+  connection: connectionConfigZ,
+});
+export type ScanCommandResponse = z.infer<typeof scanCommandResponseZ>;
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
-export interface TestConnectionCommandResponse {
-  message: string;
-}
 
-export type ScanStateDetails = ScanCommandResponse | TestConnectionCommandResponse;
-export interface ScanState extends task.State<ScanStateDetails> {}
+export const scanStatusDataZ = scanCommandResponseZ;
+export type ScanStatus = task.Status<typeof scanCommandResponseZ>;
 
-export interface TestConnectionCommandState
-  extends task.State<TestConnectionCommandResponse> {}
+export type TestConnectionStatus = task.Status;
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
+export const scanTypeZ = z.literal(SCAN_TYPE);
 export type ScanType = typeof SCAN_TYPE;
 
+export const SCAN_SCHEMAS: task.Schemas<
+  typeof scanTypeZ,
+  typeof scanConfigZ,
+  typeof scanStatusDataZ
+> = {
+  typeSchema: scanTypeZ,
+  configSchema: scanConfigZ,
+  statusDataSchema: scanStatusDataZ,
+};
+
 export interface ScanPayload
-  extends task.Payload<ScanConfig, ScanStateDetails, ScanType> {}
-export interface ScanTask extends task.Task<ScanConfig, ScanStateDetails, ScanType> {}
-export interface NewScanTask extends task.New<ScanConfig, ScanType> {}
+  extends task.Payload<typeof scanTypeZ, typeof scanConfigZ, typeof scanStatusDataZ> {}
+export interface ScanTask
+  extends task.Task<typeof scanTypeZ, typeof scanConfigZ, typeof scanStatusDataZ> {}
+export interface NewScanTask extends task.New<typeof scanTypeZ, typeof scanConfigZ> {}
 
 export const writeConfigZ = Common.Task.baseConfigZ.extend({
   channels: z
@@ -195,13 +216,18 @@ export const ZERO_WRITE_CONFIG: WriteConfig = {
   channels: [],
 };
 
-export interface WriteStateDetails extends BaseStateDetails {}
-export interface WriteState extends task.State<WriteStateDetails> {}
+export const writeStatusDataZ = z.object({});
+export type WriteStatus = task.Status<typeof writeStatusDataZ>;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
+export const writeTypeZ = z.literal(WRITE_TYPE);
 export type WriteType = typeof WRITE_TYPE;
 
-export type WritePayload = task.Payload<WriteConfig, WriteStateDetails, WriteType>;
+export type WritePayload = task.Payload<
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
+>;
 export const ZERO_WRITE_PAYLOAD: WritePayload = {
   key: "",
   type: WRITE_TYPE,
@@ -210,5 +236,16 @@ export const ZERO_WRITE_PAYLOAD: WritePayload = {
 };
 
 export interface WriteTask
-  extends task.Task<WriteConfig, WriteStateDetails, WriteType> {}
-export interface NewWriteTask extends task.New<WriteConfig, WriteType> {}
+  extends task.Task<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ> {}
+export interface NewWriteTask
+  extends task.New<typeof writeTypeZ, typeof writeConfigZ> {}
+
+export const WRITE_SCHEMAS: task.Schemas<
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
+> = {
+  typeSchema: writeTypeZ,
+  configSchema: writeConfigZ,
+  statusDataSchema: writeStatusDataZ,
+};

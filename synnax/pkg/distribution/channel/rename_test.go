@@ -10,8 +10,12 @@
 package channel_test
 
 import (
+	"fmt"
+
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -100,6 +104,49 @@ var _ = Describe("Rename", Ordered, func() {
 				g.Expect(resChannels[1].Name).To(Equal("laplace1"))
 				g.Expect(resChannels[2].Name).To(Equal("newton1"))
 			}).Should(Succeed())
+		})
+	})
+
+	Context("Map Rename", func() {
+		It("Should rename channels using a map of old names to new names", func() {
+			id := uuid.New()
+			ch1 := channel.Channel{
+				Name:     fmt.Sprintf("young_fermat_%s", id),
+				Virtual:  true,
+				DataType: telem.Int64T,
+			}
+			ch2 := channel.Channel{
+				Name:     fmt.Sprintf("young_laplace_%s", id),
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			ch3 := channel.Channel{
+				Name:        fmt.Sprintf("young_newton_%s", id),
+				DataType:    telem.StringT,
+				Leaseholder: cluster.Free,
+				Virtual:     true,
+			}
+			channels := []channel.Channel{ch1, ch2, ch3}
+			Expect(mockCluster.Nodes[1].Channel.CreateMany(ctx, &channels)).To(Succeed())
+			nameMap := map[string]string{
+				ch1.Name: fmt.Sprintf("old_fermat_%s", id),
+				ch2.Name: fmt.Sprintf("old_laplace_%s", id),
+				ch3.Name: fmt.Sprintf("old_newton_%s", id),
+			}
+			Expect(mockCluster.Nodes[1].Channel.MapRename(ctx, nameMap, false)).To(Succeed())
+			var resChannels []channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereNames(lo.Keys(nameMap)...).
+				Entries(&resChannels).
+				Exec(ctx, nil),
+			).To(Succeed())
+			Expect(resChannels).To(HaveLen(0))
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereNames(lo.Values(nameMap)...).
+				Entries(&resChannels).
+				Exec(ctx, nil),
+			).To(Succeed())
+			Expect(resChannels).To(HaveLen(3))
 		})
 	})
 })

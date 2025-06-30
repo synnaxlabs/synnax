@@ -64,6 +64,7 @@ const (
 	Panicked
 )
 
+//go:generate stringer -type=panicPolicy
 const (
 	propagatePanic panicPolicy = iota
 	recoverNoErr
@@ -328,28 +329,34 @@ func (r *routine) runPostlude(err error) error {
 	return err
 }
 
-func (r *routine) maybeRecover(err any) error {
+func (r *routine) maybeRecover(panicReason any) error {
 	r.ctx.mu.Lock()
 	defer r.ctx.mu.Unlock()
 
-	r.ctx.L.Debugf("routine panicked, handling with strategy %v", r.panicPolicy)
-	r.ctx.L.Debugf(routineFailedFormat, r.key, err, r.ctx.routineDiagnostics())
+	zapFields := []zap.Field{
+		zap.Stringer("recovery_strategy", r.panicPolicy),
+	}
+	if err, ok := panicReason.(error); ok {
+		zapFields = append(zapFields, zap.Error(err))
+	}
+	r.ctx.L.Error("routine panicked", zapFields...)
+	r.ctx.L.Debugf(routineFailedFormat, r.key, panicReason, r.ctx.routineDiagnostics())
 
 	switch r.panicPolicy {
 	case propagatePanic:
 		r.state.state = Panicked
-		if err, ok := err.(error); ok {
+		if err, ok := panicReason.(error); ok {
 			r.state.err = err
 			_ = r.span.Error(err)
 		}
 		r.span.End()
-		panic(err)
+		panic(panicReason)
 	case recoverErr:
 		r.state.state = Failed
-		if err, ok := err.(error); ok {
+		if err, ok := panicReason.(error); ok {
 			return errors.Wrap(err, "routine recovered")
 		}
-		return errors.Newf("%s", err)
+		return errors.Newf("%s", panicReason)
 	case recoverNoErr:
 		r.state.state = Exited
 		return nil

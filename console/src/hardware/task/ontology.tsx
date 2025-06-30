@@ -130,7 +130,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const handleRename: Ontology.HandleTreeRename = {
   execute: async ({ client, id, name, store }) => {
-    const task = await client.hardware.tasks.retrieve(id.key);
+    const task = await client.hardware.tasks.retrieve({ key: id.key });
     await client.hardware.tasks.create({ ...task, name });
     const layout = Layout.selectByFilter(
       store.getState(),
@@ -150,7 +150,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError,
 }) => {
   client.hardware.tasks
-    .retrieve(id.key)
+    .retrieve({ key: id.key })
     .then((task) => {
       const layout = createLayout(task);
       placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });

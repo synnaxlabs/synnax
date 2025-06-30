@@ -58,7 +58,6 @@ TEST(LoopTest, testWaitLowRate) {
 
 void runBreaker(breaker::Breaker &brker) {
     const auto rate = telem::HZ * 1;
-    const auto AVG_THRESHOLD = telem::MILLISECOND * 10;
     loop::Timer timer{rate};
     timer.wait(brker);
 }

@@ -8,7 +8,3 @@
 // included in the file licenses/APL.txt.
 
 export type Optional<T, K extends keyof T> = Pick<Partial<T>, K> & Omit<T, K>;
-
-export type Required<T> = {
-  [P in keyof T]-?: T[P];
-};

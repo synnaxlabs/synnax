@@ -56,9 +56,5 @@ export interface New extends Omit<z.input<typeof newZ>, "dataType"> {
 export const ONTOLOGY_TYPE = "channel";
 export type OntologyType = typeof ONTOLOGY_TYPE;
 
-export const calculationStateZ = z.object({
-  key: keyZ,
-  variant: status.variantZ,
-  message: z.string(),
-});
-export interface CalculationState extends z.infer<typeof calculationStateZ> {}
+export const calculationStatusZ = status.statusZ();
+export type CalculationStatus = z.infer<typeof calculationStatusZ>;

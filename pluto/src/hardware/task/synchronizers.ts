@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
+import { z } from "zod/v4";
 
 import { Sync } from "@/sync";
 
@@ -16,9 +17,15 @@ export const useCommandSynchronizer = (
 ): void =>
   Sync.useParsedListener(task.COMMAND_CHANNEL_NAME, task.commandZ, onCommandUpdate);
 
-export const useStateSynchronizer = (
-  onStateUpdate: (state: task.State) => void,
-): void => Sync.useParsedListener(task.STATE_CHANNEL_NAME, task.stateZ, onStateUpdate);
+export const useStatusSynchronizer = <StatusData extends z.ZodType>(
+  onStatusUpdate: (status: task.Status<StatusData>) => void,
+  statusDataZ: StatusData = z.unknown() as unknown as StatusData,
+): void =>
+  Sync.useParsedListener(
+    task.STATUS_CHANNEL_NAME,
+    task.statusZ(statusDataZ),
+    onStatusUpdate,
+  );
 
 export const useSetSynchronizer = (onSet: (key: task.Key) => void): void =>
   Sync.useParsedListener(task.SET_CHANNEL_NAME, task.keyZ, onSet);

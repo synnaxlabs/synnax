@@ -2,4 +2,17 @@ cc_library(
     name = "status",
     srcs = ["status.h"],
     visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/telem",
+        "//x/cpp/xjson",
+    ],
+)
+
+cc_test(
+    name = "status_test",
+    srcs = ["status_test.cpp"],
+    deps = [
+        "//x/cpp/status",
+        "@googletest//:gtest_main",
+    ],
 )

@@ -163,10 +163,7 @@ var _ = Describe("Control", func() {
 				cfg, _ := baseConfig(1)
 				cfg.TimeRange = telem.TimeRange{}
 				g, t, err := c.OpenGate(cfg)
-				Expect(err).To(HaveOccurredAs(validate.FieldError{
-					Field:   "time_range",
-					Message: "must be non-zero",
-				}))
+				Expect(err).To(MatchError(ContainSubstring("time_range: must be non-zero")))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(g).To(BeNil())
 			})
@@ -175,10 +172,7 @@ var _ = Describe("Control", func() {
 				cfg, _ := baseConfig(1)
 				cfg.Subject.Key = ""
 				g, t, err := c.OpenGate(cfg)
-				Expect(err).To(HaveOccurredAs(validate.FieldError{
-					Field:   "subject.key",
-					Message: "field must be set",
-				}))
+				Expect(err).To(MatchError(ContainSubstring("subject.key: required")))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(g).To(BeNil())
 			})

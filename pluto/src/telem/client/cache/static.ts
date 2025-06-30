@@ -11,7 +11,6 @@ import { alamos } from "@synnaxlabs/alamos";
 import {
   bounds,
   MultiSeries,
-  type Required,
   type Series,
   Size,
   TimeRange,

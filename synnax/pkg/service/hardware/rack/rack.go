@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -56,22 +55,11 @@ func (k Key) IsZero() bool { return k == 0 }
 // String implements fmt.Stringer.
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 
-// State is the state of the rack. This is updated by external device drivers to
-// communicate the racks health.
-type State struct {
-	// Key is the key of the rack.
-	Key Key `json:"key" msgpack:"key"`
-	// LastReceived is the last time the rack sent a heartbeat signal. This is the
-	// time a fresh variant and message have been received, and shows that the rack
-	// is alive. Note that even if LastReceived is updated, Variant and Message may
-	// still be the same.
-	LastReceived telem.TimeStamp `json:"last_received" msgpack:"last_received"`
-	// Variant is status variant of the state update.
-	Variant status.Variant `json:"variant" msgpack:"variant"`
-	// Message is the last message sent by the rack. This is used to determine if the
-	// rack is healthy.
-	Message string `json:"message" msgpack:"message"`
+type StatusDetails struct {
+	Rack Key `json:"rack" msgpack:"rack"`
 }
+
+type Status = status.Status[StatusDetails]
 
 // Rack represents a driver that can communicate with devices and execute tasks.
 type Rack struct {
@@ -85,8 +73,8 @@ type Rack struct {
 	// Embedded sets whether the rack is built-in to the Synnax node, or it is an
 	// external rack.
 	Embedded bool `json:"embedded" msgpack:"embedded"`
-	// State is the current state of the rack.
-	State *State `json:"state" msgpack:"state"`
+	// Status is the current state of the rack.
+	Status *Status `json:"status" msgpack:"status"`
 }
 
 var _ gorp.Entry[Key] = Rack{}

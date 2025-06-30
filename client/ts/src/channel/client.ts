@@ -200,7 +200,7 @@ export class Channel {
   }
 }
 
-export const CALCULATION_STATE_CHANNEL_NAME = "sy_calculation_state";
+export const CALCULATION_STATUS_CHANNEL_NAME = "sy_calculation_status";
 
 const RETRIEVE_GROUP_ENDPOINT = "/channel/retrieve-group";
 

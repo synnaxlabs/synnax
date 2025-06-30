@@ -24,13 +24,13 @@ import {
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
   type InputChannelType,
+  READ_SCHEMAS,
   READ_TYPE,
-  type ReadConfig,
-  readConfigZ,
+  type readConfigZ,
   type ReadPayload,
-  type ReadStateDetails,
+  type readStatusDataZ,
   type ReadTask,
-  type ReadType,
+  type readTypeZ,
   ZERO_INPUT_CHANNEL,
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
@@ -245,9 +245,9 @@ const ChannelsForm = ({
   );
 };
 
-const Form: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = (
-  props,
-) => {
+const Form: FC<
+  Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
+> = (props) => {
   const { isSnapshot } = props;
   return (
     <Common.Device.Provider<Device.Properties, Device.Make, Device.Model>
@@ -260,9 +260,9 @@ const Form: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = 
 };
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  ReadConfig,
-  ReadStateDetails,
-  ReadType
+  typeof readTypeZ,
+  typeof readConfigZ,
+  typeof readStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_READ_PAYLOAD,
   config: {
@@ -271,7 +271,10 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) => {
+const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
+  client,
+  config,
+) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   Common.Device.checkConfigured(dev);
   let shouldCreateIndex = false;
@@ -334,7 +337,7 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) 
 export const Read = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: readConfigZ,
+  schemas: READ_SCHEMAS,
   type: READ_TYPE,
   getInitialPayload,
   onConfigure,
