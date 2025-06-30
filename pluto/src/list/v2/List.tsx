@@ -1,6 +1,6 @@
 import { type record } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type ComponentPropsWithoutRef, type FC, useRef } from "react";
+import { type ComponentPropsWithoutRef, type FC, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { type RenderProp } from "@/util/renderProp";
@@ -19,7 +19,7 @@ export interface VirtualItemsProps<K extends record.Key = record.Key>
   overscan?: number;
 }
 
-export const VirtualItems = <K extends record.Key>({
+export const Items = <K extends record.Key>({
   data,
   className,
   itemHeight,
@@ -42,4 +42,11 @@ export const VirtualItems = <K extends record.Key>({
       </div>
     </div>
   );
+};
+
+const Example = () => {
+  const [keys, setKeys] = useState<record.Key[]>([]);
+  const [sourceData, setSourceData] = useState<
+    Map<record.Key, Record<string, unknown>>
+  >(new Map());
 };

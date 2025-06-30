@@ -51,9 +51,9 @@ export const Core = <K extends record.Key, E extends record.Keyed<K>>({
   let dialogContent = (
     <CoreList.Hover disabled={!visible}>
       {extraDialogContent}
-      <CoreList.VirtualItems<K> data={data} itemHeight={itemHeight}>
+      <CoreList.Items<K> data={data} itemHeight={itemHeight}>
         {listItem}
-      </CoreList.VirtualItems>
+      </CoreList.Items>
     </CoreList.Hover>
   );
 

@@ -20,7 +20,6 @@ import {
   useState,
 } from "react";
 
-import { Button } from "@/button";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
@@ -35,7 +34,7 @@ import { Core } from "@/select/List";
 import { Triggers } from "@/triggers";
 
 export interface SingleProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
+  extends Omit<UseSelectSingleProps<K>, "data" | "allowMultiple">,
     Omit<
       Dropdown.DialogProps,
       "onChange" | "visible" | "children" | "variant" | "close"
@@ -90,7 +89,7 @@ export const Single = <K extends record.Key = record.Key>({
   actions,
   ...rest
 }: SingleProps<K>): ReactElement => {
-  const { visible, open, close, toggle } = Dropdown.use();
+  const { visible, open, close } = Dropdown.use();
 
   const handleChange = useCallback(
     (v: K | null, e: UseSelectOnChangeExtra<K>): void => {
@@ -108,32 +107,23 @@ export const Single = <K extends record.Key = record.Key>({
     allowMultiple: false,
   });
 
-  const InputWrapper = useMemo(
-    () => (searchMode ? CoreList.Search : CoreList.Filter),
-    [searchMode],
-  );
-
   const searchInput = (
-    <InputWrapper<K, E> searcher={searcher} filter={filter}>
-      {({ onChange: handleChange }) => (
-        <SingleInput<K, E>
-          {...inputProps}
-          autoFocus={dropdownVariant === "modal"}
-          variant={variant}
-          onChange={handleChange}
-          onFocus={open}
-          entryRenderKey={entryRenderKey}
-          visible={visible}
-          allowNone={allowNone}
-          className={className}
-          dropdownVariant={dropdownVariant}
-          disabled={disabled}
-          placeholder={inputPlaceholder}
-        >
-          {actions}
-        </SingleInput>
-      )}
-    </InputWrapper>
+    <SingleInput<K, E>
+      {...inputProps}
+      autoFocus={dropdownVariant === "modal"}
+      variant={variant}
+      onChange={handleChange}
+      onFocus={open}
+      entryRenderKey={entryRenderKey}
+      visible={visible}
+      allowNone={allowNone}
+      className={className}
+      dropdownVariant={dropdownVariant}
+      disabled={disabled}
+      placeholder={inputPlaceholder}
+    >
+      {actions}
+    </SingleInput>
   );
 
   return (
