@@ -36,31 +36,31 @@ type Config struct {
 }
 
 // Override implements the config.ServiceConfig interface.
-func (cfg Config) Override(other Config) Config {
-	cfg.Interval = override.Numeric(cfg.Interval, other.Interval)
-	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
-	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
-	cfg.Store = override.Nil(cfg.Store, other.Store)
-	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	return cfg
+func (c Config) Override(other Config) Config {
+	c.Interval = override.Numeric(c.Interval, other.Interval)
+	c.TransportClient = override.Nil(c.TransportClient, other.TransportClient)
+	c.TransportServer = override.Nil(c.TransportServer, other.TransportServer)
+	c.Store = override.Nil(c.Store, other.Store)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	return c
 }
 
 // Validate implements the config.ServiceConfig interface.
-func (cfg Config) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("gossip")
-	validate.NotNil(v, "TransportClient", cfg.TransportClient)
-	validate.NotNil(v, "TransportServer", cfg.TransportServer)
-	validate.NotNil(v, "Store", cfg.Store)
-	validate.Positive(v, "Interval", cfg.Interval)
+	validate.NotNil(v, "TransportClient", c.TransportClient)
+	validate.NotNil(v, "TransportServer", c.TransportServer)
+	validate.NotNil(v, "Store", c.Store)
+	validate.Positive(v, "Interval", c.Interval)
 	return v.Error()
 }
 
 // Report implements the alamos.ReportProvider interface. Assumes the config is valid.
-func (cfg Config) Report() alamos.Report {
+func (c Config) Report() alamos.Report {
 	return alamos.Report{
-		"interval":         cfg.Interval,
-		"transport_client": cfg.TransportClient.Report(),
-		"transport_server": cfg.TransportServer.Report(),
+		"interval":         c.Interval,
+		"transport_client": c.TransportClient.Report(),
+		"transport_server": c.TransportServer.Report(),
 	}
 }
 

@@ -113,37 +113,37 @@ var (
 )
 
 // Override implements Config.
-func (cfg Config) Override(other Config) Config {
-	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.Dirname = override.String(cfg.Dirname, other.Dirname)
-	cfg.Perm = override.Numeric(cfg.Perm, other.Perm)
-	cfg.InMemory = override.Nil(cfg.InMemory, other.InMemory)
-	cfg.KVEngine = override.Numeric(cfg.KVEngine, other.KVEngine)
-	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
-	if cfg.InMemory != nil && *cfg.InMemory {
-		cfg.Dirname = ""
+func (c Config) Override(other Config) Config {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.Dirname = override.String(c.Dirname, other.Dirname)
+	c.Perm = override.Numeric(c.Perm, other.Perm)
+	c.InMemory = override.Nil(c.InMemory, other.InMemory)
+	c.KVEngine = override.Numeric(c.KVEngine, other.KVEngine)
+	c.TSEngine = override.Numeric(c.TSEngine, other.TSEngine)
+	if c.InMemory != nil && *c.InMemory {
+		c.Dirname = ""
 	}
-	return cfg
+	return c
 }
 
 // Validate implements Config.
-func (cfg Config) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("storage")
-	v.Ternaryf("dirname", !*cfg.InMemory && cfg.Dirname == "", "dirname must be set")
-	v.Ternaryf("kv_engine", !lo.Contains(kvEngines, cfg.KVEngine), "invalid key-value engine %s", cfg.KVEngine)
-	v.Ternaryf("ts_engine", !lo.Contains(tsEngines, cfg.TSEngine), "invalid time-series engine %s", cfg.TSEngine)
-	v.Ternary("permissions", cfg.Perm == 0, "insufficient permission bits on directory")
+	v.Ternaryf("dirname", !*c.InMemory && c.Dirname == "", "dirname must be set")
+	v.Ternaryf("kv_engine", !lo.Contains(kvEngines, c.KVEngine), "invalid key-value engine %s", c.KVEngine)
+	v.Ternaryf("ts_engine", !lo.Contains(tsEngines, c.TSEngine), "invalid time-series engine %s", c.TSEngine)
+	v.Ternary("permissions", c.Perm == 0, "insufficient permission bits on directory")
 	return v.Error()
 }
 
 // Report implements the alamos.ReportProvider interface.
-func (cfg Config) Report() alamos.Report {
+func (c Config) Report() alamos.Report {
 	return alamos.Report{
-		"dirname":     cfg.Dirname,
-		"permissions": cfg.Perm,
-		"in_memory":   cfg.InMemory,
-		"kv_engine":   cfg.KVEngine.String(),
-		"ts_engine":   cfg.TSEngine.String(),
+		"dirname":     c.Dirname,
+		"permissions": c.Perm,
+		"in_memory":   c.InMemory,
+		"kv_engine":   c.KVEngine.String(),
+		"ts_engine":   c.TSEngine.String(),
 	}
 }
 

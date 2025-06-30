@@ -10,6 +10,8 @@
 package pledge
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
@@ -18,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"time"
 )
 
 type (
@@ -70,43 +71,43 @@ type Config struct {
 var _ config.Config[Config] = Config{}
 
 // Override implements the config.ServiceConfig interface.
-func (cfg Config) Override(other Config) Config {
-	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
-	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
-	cfg.ClusterKey = override.If(cfg.ClusterKey, other.ClusterKey, other.ClusterKey != uuid.Nil)
-	cfg.RequestTimeout = override.Numeric(cfg.RequestTimeout, other.RequestTimeout)
-	cfg.RetryInterval = override.Numeric(cfg.RetryInterval, other.RetryInterval)
-	cfg.RetryScale = override.Numeric(cfg.RetryScale, other.RetryScale)
-	cfg.MaxProposals = override.Numeric(cfg.MaxProposals, other.MaxProposals)
-	cfg.Candidates = override.Nil(cfg.Candidates, other.Candidates)
-	cfg.Peers = override.Slice(cfg.Peers, other.Peers)
-	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	return cfg
+func (c Config) Override(other Config) Config {
+	c.TransportClient = override.Nil(c.TransportClient, other.TransportClient)
+	c.TransportServer = override.Nil(c.TransportServer, other.TransportServer)
+	c.ClusterKey = override.If(c.ClusterKey, other.ClusterKey, other.ClusterKey != uuid.Nil)
+	c.RequestTimeout = override.Numeric(c.RequestTimeout, other.RequestTimeout)
+	c.RetryInterval = override.Numeric(c.RetryInterval, other.RetryInterval)
+	c.RetryScale = override.Numeric(c.RetryScale, other.RetryScale)
+	c.MaxProposals = override.Numeric(c.MaxProposals, other.MaxProposals)
+	c.Candidates = override.Nil(c.Candidates, other.Candidates)
+	c.Peers = override.Slice(c.Peers, other.Peers)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	return c
 }
 
 // Validate implements the config.ServiceConfig interface.
-func (cfg Config) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("pledge")
-	validate.NotNil(v, "TransportClient", cfg.TransportClient)
-	validate.NotNil(v, "TransportServer", cfg.TransportServer)
-	validate.Positive(v, "RequestTimeout", cfg.RequestTimeout)
-	validate.GreaterThanEq(v, "RetryScale", cfg.RetryScale, 1)
-	validate.NonZero(v, "MaxProposals", cfg.MaxProposals)
-	validate.NotNil(v, "Candidates", cfg.Candidates)
+	validate.NotNil(v, "TransportClient", c.TransportClient)
+	validate.NotNil(v, "TransportServer", c.TransportServer)
+	validate.Positive(v, "RequestTimeout", c.RequestTimeout)
+	validate.GreaterThanEq(v, "RetryScale", c.RetryScale, 1)
+	validate.NonZero(v, "MaxProposals", c.MaxProposals)
+	validate.NotNil(v, "Candidates", c.Candidates)
 	return v.Error()
 }
 
 // Report implements the alamos.ReportProvider interface. Assumes the Config is valid.
-func (cfg Config) Report() alamos.Report {
+func (c Config) Report() alamos.Report {
 	report := make(alamos.Report)
-	report["cluster_key"] = cfg.ClusterKey.String()
-	report["transport_client"] = cfg.TransportClient.Report()
-	report["transport_server"] = cfg.TransportServer.Report()
-	report["request_timeout"] = cfg.RequestTimeout
-	report["pledge_retry_interval"] = cfg.RetryInterval
-	report["pledge_retry_scale"] = cfg.RetryScale
-	report["max_proposals"] = cfg.MaxProposals
-	report["peers"] = cfg.Peers
+	report["cluster_key"] = c.ClusterKey.String()
+	report["transport_client"] = c.TransportClient.Report()
+	report["transport_server"] = c.TransportServer.Report()
+	report["request_timeout"] = c.RequestTimeout
+	report["pledge_retry_interval"] = c.RetryInterval
+	report["pledge_retry_scale"] = c.RetryScale
+	report["max_proposals"] = c.MaxProposals
+	report["peers"] = c.Peers
 	return report
 }
 

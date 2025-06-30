@@ -44,19 +44,19 @@ type Config struct {
 }
 
 // Validate implements config.Config
-func (cfg Config) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("falamos.Properties")
-	validate.NotNil(v, "Instrumentation", cfg.Instrumentation)
+	validate.NotNil(v, "Instrumentation", c.Instrumentation)
 	return v.Error()
 }
 
 // Override implements config.Config
-func (cfg Config) Override(other Config) Config {
-	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.EnablePropagation = override.Nil(cfg.EnableLogging, other.EnableLogging)
-	cfg.EnableLogging = override.Nil(cfg.EnablePropagation, other.EnablePropagation)
-	cfg.EnableTracing = override.Nil(cfg.EnableTracing, other.EnableTracing)
-	return cfg
+func (c Config) Override(other Config) Config {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.EnablePropagation = override.Nil(c.EnableLogging, other.EnableLogging)
+	c.EnableLogging = override.Nil(c.EnablePropagation, other.EnablePropagation)
+	c.EnableTracing = override.Nil(c.EnableTracing, other.EnableTracing)
+	return c
 }
 
 var _ config.Config[Config] = Config{}
