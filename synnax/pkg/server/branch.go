@@ -39,8 +39,8 @@ const (
 	ServeOnlyIfInsecure RoutingPolicy = iota + 1
 	// ServeOnlyIfSecure serves the Branch only if the server is running in secure mode.
 	ServeOnlyIfSecure
-	// ServeOnInsecureIfSecure serves the Branch without TLS if the server is running
-	// in secure mode.
+	// ServeOnInsecureIfSecure serves the Branch without TLS if the server is running in
+	// secure mode.
 	ServeOnInsecureIfSecure
 	// ServeAlwaysPreferSecure serves the Branch with TLS if the server is running in
 	// secure mode and without TLS if the server is running in insecure mode.
@@ -66,16 +66,16 @@ func (r RoutingPolicy) ShouldServe(insecure, insecureMux bool) bool {
 // BranchRouting is the information provided by a Branch to the Server so that it can
 // appropriately route requests to it.
 type BranchRouting struct {
-	// Matchers returns a list of cmux matchers that will be used to determine
-	// which requests should be handled by this branch.
+	// Matchers returns a list of cmux matchers that will be used to determine which
+	// requests should be handled by this branch.
 	Matchers []cmux.Matcher
 	// Policy determines how this branch should be served depending on the current
 	// security configuration of the server.
 	Policy RoutingPolicy
 }
 
-// Branch represents a sub-server of the main server, which process requests that
-// match a specific pattern.
+// Branch represents a sub-server of the main server, which process requests that match
+// a specific pattern.
 type Branch interface {
 	// Key is a human-readable key that identifies this branch.
 	Key() string
@@ -85,6 +85,5 @@ type Branch interface {
 	// exits abnormally or is stopped by calling Stop.
 	Serve(ctx BranchContext) error
 	// Stop stops the branch gracefully.
-	// (TODO: Evaluate whether we should pass a context here to allow for a timeout.)
 	Stop()
 }
