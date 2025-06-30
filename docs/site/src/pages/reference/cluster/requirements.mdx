@@ -10,17 +10,126 @@ prevURL: "/reference/cluster/production"
 
 import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import Table from "@/components/Table.astro";
 export const components = mdxOverrides;
 
-This page lists the hardware and software requirements for deploying a Synnax cluster.
+This page lists the hardware and software requirements for deploying a Synnax cluster to
+production.
 
 <Divider.Divider x />
 
 ## Operating System
 
-A Synnax node can run on Linux, macOS, Windows, or any containerized environment.
+A Synnax cluster can run on Linux, macOS, Windows, or a containerized environment.
+
+For most production scenarios, we recommend running a glibc-based Linux distribution and
+a Linux kernel version from the last 5 years, such as
+[Ubuntu](https://ubuntu.com/download/server),
+[Red Hat Enterprise Linux](https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux),
+or [CentOS](https://www.centos.org/centos-stream/).
+
+### Device Driver Compatibility
+
+If you plan on using our device drivers to integrate directly with your hardware, only
+certain operating systems are supported.
+
+- [National Instruments](https://docs.synnaxlabs.com/reference/device-drivers/ni/get-started) -
+  Windows, Linux
+- [LabJack](https://docs.synnaxlabs.com/reference/device-drivers/labjack/get-started) -
+  Windows, Linux, MacOS
+- [OPC UA](https://docs.synnaxlabs.com/reference/device-drivers/opc-ua/get-started) -
+  Windows, Linux, MacOS, or a containerized environment
 
 <Divider.Divider x />
+
+## Hardware
+
+Cluster hardware requirements vary depending on your data acquisition and control
+workload.
+
+### Calculating Workload
+
+The first step in sizing a system to meet your requirements is to calculate the total
+sample throughput of your workload.
+
+- The approximate number of channels you'll be acquiring data from. This includes sensor
+  sensor, actuators, logs, and any other channels you may be using.
+- The average rate at which you'll be writing data for each channel. To be even more
+  precise, separate your channels into groups with specific sampling rates.
+
+The total throughput is the number of channels multiplied by the average rate at which
+you'll be writing data for each channel.
+
+For example, if we have three groups of channels:
+
+- 10 high speed at 25Khz - 250K samples/s
+- 100 medium speed at 100Hz - 10K samples/s
+- 20 actuators sending states at 50Hz - 1K samples/s
+
+The total throughput for our cluster is 250K + 10K + 1K = 261K samples/s.
+
+### Workload-Based Recommendations
+
+The following table provides a recommended hardware configuration for a Synnax cluster
+to run.
+
+<Table>
+  <thead>
+    <th>Throughput (samples/s)</th>
+    <th>CPU (# Cores)</th>
+    <th>Memory (GB)</th>
+    <th>Storage (GB)</th>
+    <th>Storage Throughput (IOPS)</th>
+    <th>Storage Throughput (MB/s)</th>
+  </thead>
+  <tbody>
+    <tr>
+      <td>250K</td>
+      <td>4</td>
+      <td>8</td>
+      <td>100</td>
+      <td>500</td>
+      <td>120</td>
+    </tr>
+    <tr>
+      <td>500K</td>
+      <td>8</td>
+      <td>16</td>
+      <td>200</td>
+      <td>1000</td>
+      <td>240</td>
+    </tr>
+    <tr>
+      <td>1M</td>
+      <td>12</td>
+      <td>16</td>
+      <td>500</td>
+      <td>2500</td>
+      <td>600</td>
+    </tr>
+    <tr>
+      <td>2M</td>
+      <td>16</td>
+      <td>32</td>
+      <td>1000</td>
+      <td>5000</td>
+      <td>1200</td>
+    </tr>
+    <tr>
+      <td>4M</td>
+      <td>24</td>
+      <td>64</td>
+      <td>2000</td>
+      <td>10000</td>
+      <td>2400</td>
+    </tr>
+  </tbody>
+</Table>
+
+### Production Recommendations
+
+The following table provides a recommended hardware configuration for a Synnax cluster
+to run.
 
 ## Networking
 
@@ -30,44 +139,3 @@ cluster. To support this, Synnax requires that every node can reach **all** othe
 in the cluster.
 
 <Divider.Divider x />
-
-## Hardware
-
-Node hardware requirements vary depending on the workload you are running. The following
-table provides bare minimum requirements for testing as well as a recommended minimum
-configuration for production.
-
-<table>
-  <thead>
-    <th>Specification</th>
-    <th>Minimum</th>
-    <th>Recomendation</th>
-  </thead>
-  <tbody>
-    <tr>
-      <td>CPU (# Cores)</td>
-      <td>2</td>
-      <td>4</td>
-    </tr>
-    <tr>
-      <td>Memory per CPU (GB)</td>
-      <td>2</td>
-      <td>4</td>
-    </tr>
-    <tr>
-      <td>Storage per CPU (GB)</td>
-      <td>50</td>
-      <td>320</td>
-    </tr>
-    <tr>
-      <td>Storage Throughput (IOPS) </td>
-      <td>100</td>
-      <td>500</td>
-    </tr>
-    <tr>
-      <td>Storage Throughput (MB/s)</td>
-      <td>20</td>
-      <td>100</td>
-    </tr>
-  </tbody>
-</table>
