@@ -12,7 +12,7 @@ import { type ReactElement, useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type List } from "@/list";
-import { type UseSelectOnChangeExtra } from "@/list/useSelect";
+import { type UseSelectOnChangeExtra } from "@/list/v2/useSelect";
 import { Select } from "@/select";
 import { DEFAULT_PLACEHOLDER } from "@/select/Single";
 import { mockBoundingClientRect } from "@/testutil/dom";

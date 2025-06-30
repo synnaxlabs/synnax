@@ -30,7 +30,7 @@ import {
   type UseSelectMultipleProps,
   type UseSelectOnChangeExtra,
   type UseSelectProps,
-} from "@/list/useSelect";
+} from "@/list/v2/useSelect";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { state } from "@/state";
 import { Text } from "@/text";
@@ -162,7 +162,7 @@ type TreePropsInheritedFromItem = Pick<
 >;
 
 type TreePropsInheritedFromList = Omit<
-  List.VirtualCoreProps<string, FlattenedNode>,
+  List.ItemsProps<string, FlattenedNode>,
   "onDrop" | "onSelect" | "children" | "onDoubleClick" | "itemHeight"
 > & {
   itemHeight?: number;

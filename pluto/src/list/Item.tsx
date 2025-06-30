@@ -9,7 +9,7 @@
 
 import "@/list/Item.css";
 
-import { type record } from "@synnaxlabs/x";
+import { type Optional, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
@@ -18,7 +18,7 @@ import { type ItemProps } from "@/list/types";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 
 export interface ItemFrameProps<K extends record.Key, E extends record.Keyed<K>>
-  extends ItemProps<K, E>,
+  extends Optional<ItemProps<K, E>, "sourceIndex">,
     Omit<Align.SpaceProps, "key" | "onSelect" | "translate"> {
   draggingOver?: boolean;
   rightAligned?: boolean;
@@ -39,6 +39,7 @@ export const ItemFrame = <K extends record.Key, E extends record.Keyed<K>>({
   allowSelect = true,
   translate,
   style,
+  sourceIndex: _,
   ...rest
 }: ItemFrameProps<K, E>): ReactElement => (
   <Align.Space

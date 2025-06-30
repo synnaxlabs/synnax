@@ -18,12 +18,13 @@ import { Triggers } from "@/triggers";
  * of the {@link useSelect} hook.
  */
 export interface UseSelectOnChangeExtra<K extends record.Key = record.Key> {
+  clickedIndex: number | null;
   /** The key of the entry that was last clicked. */
   clicked: K | null;
 }
 
 interface BaseProps<K extends record.Key> {
-  data: K[];
+  data: K[] | (() => K[]);
   replaceOnSingle?: boolean;
 }
 
@@ -92,6 +93,9 @@ export const selectValueIsZero = <K extends record.Key>(
   return false;
 };
 
+const DEFAULT_PROPS_DATA: any[] = [];
+const DEFAULT_PROPS_VALUE: any[] = [];
+
 /**
  * Implements generic selection over a collection of keyed records. The hook
  * does not maintain internal selection state, but instead relies on the `value` and
@@ -118,8 +122,8 @@ export const selectValueIsZero = <K extends record.Key>(
  * @returns clear - A callback that can be used to clear the selection.
  */
 export const useSelect = <K extends record.Key>({
-  data,
-  value,
+  data: propsData = DEFAULT_PROPS_DATA,
+  value: propsValue = DEFAULT_PROPS_VALUE,
   allowMultiple,
   allowNone,
   replaceOnSingle = false,
@@ -130,8 +134,8 @@ export const useSelect = <K extends record.Key>({
   const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
   const ctrl = Triggers.useHeldRef({ triggers: [["Control"]], loose: true });
 
-  const valueRef = useSyncedRef(value);
-  const dataRef = useSyncedRef(data);
+  const valueRef = useSyncedRef(propsValue);
+  const dataRef = useSyncedRef(propsData);
 
   const handleChange = useCallback(
     (next: K[], extra: UseSelectOnChangeExtra<K>) => {
@@ -147,25 +151,30 @@ export const useSelect = <K extends record.Key>({
   );
 
   useEffect(() => {
-    const data = dataRef.current;
+    let data = dataRef.current;
+    if (!Array.isArray(data)) data = data();
     // If for some reason the value is empty and it shouldn't be, automatically set
     // it to the new value..
     if (
-      selectValueIsZero(value) &&
+      selectValueIsZero(propsValue) &&
       allowNone === false &&
       data.length > 0 &&
       autoSelectOnNone
     ) {
       const first = data[0];
       shiftValueRef.current = first;
-      handleChange([first], { clicked: first });
+      handleChange([first], {
+        clicked: first,
+        clickedIndex: 0,
+      });
     }
-  }, [handleChange, dataRef, value, allowNone]);
+  }, [handleChange, dataRef, propsValue, allowNone]);
 
   const onSelect = useCallback(
     (key: K): void => {
       const shiftValue = shiftValueRef.current;
-      const data = dataRef.current;
+      let data = dataRef.current;
+      if (!Array.isArray(data)) data = data();
       let nextSelected: K[] = [];
       const value = array.toArray(valueRef.current).filter((v) => v != null);
       // Simple case. If we can't allow multiple, then just toggle the key.
@@ -183,7 +192,7 @@ export const useSelect = <K extends record.Key>({
           data.findIndex((v) => v === key),
           data.findIndex((v) => v === shiftValue),
         ].sort((a, b) => a - b);
-        const nextKeys = data.slice(start, end + 1);
+        const nextKeys = data.slice(start, end + 1).map((v) => v);
         // We already deselect the shiftSelected key, so we don't included it
         // when checking whether to select or deselect the entire range.
         if (
@@ -204,15 +213,21 @@ export const useSelect = <K extends record.Key>({
       if (allowNone === false && v.length === 0)
         // If we're not allowed to have no select, still call handleChange with the same
         // value. This is useful when you want to close a dialog on selection.
-        return handleChange(value, { clicked: key });
+        return handleChange(value, {
+          clicked: key,
+          clickedIndex: data.findIndex((v) => v === key),
+        });
       if (v.length === 0) shiftValueRef.current = null;
-      handleChange(v, { clicked: key });
+      handleChange(v, {
+        clicked: key,
+        clickedIndex: data.findIndex((v) => v === key),
+      });
     },
     [valueRef, dataRef, handleChange, allowMultiple, allowNone],
   );
 
   const clear = useCallback(
-    (): void => handleChange([], { clicked: null }),
+    (): void => handleChange([], { clicked: null, clickedIndex: 0 }),
     [handleChange],
   );
 

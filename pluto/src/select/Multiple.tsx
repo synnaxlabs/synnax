@@ -40,7 +40,7 @@ import {
   selectValueIsZero,
   type UseSelectMultipleProps,
   type UseSelectOnChangeExtra,
-} from "@/list/useSelect";
+} from "@/list/v2/useSelect";
 import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
 import { DEFAULT_PLACEHOLDER } from "@/select/Single";
@@ -54,14 +54,14 @@ export interface MultipleProps<
     Omit<UseSelectMultipleProps<K, E>, "data">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "placeholder">,
-    Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">> {
+    Partial<Pick<CoreList.ItemsProps<K, E>, "itemHeight">> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   searcher?: AsyncTermSearcher<string, K, E>;
   entryRenderKey?: keyof E | ((e: E) => string | number);
   renderTag?: RenderProp<MultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
-  children?: CoreList.VirtualCoreProps<K, E>["children"];
+  children?: CoreList.ItemsProps<K, E>["children"];
   dropdownVariant?: Dropdown.Variant;
   addPlaceholder?: ReactNode;
   actions?: Input.ExtensionProps["children"];

@@ -10,7 +10,7 @@
 import { compare, type record } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { DataProvider } from "@/list/Data";
+import { type Data, DataProvider } from "@/list/Data";
 import { InfiniteProvider } from "@/list/Infinite";
 import { useMemoCompare } from "@/memo";
 import { Text } from "@/text";
@@ -19,7 +19,7 @@ export interface ListProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
 > extends PropsWithChildren<unknown> {
-  data?: E[];
+  data?: Data<K, E>;
   emptyContent?: ReactElement;
   omit?: K[];
 }
@@ -46,7 +46,7 @@ export const List = <
   omit,
 }: ListProps<K, E>): ReactElement => {
   const omittedData = useMemoCompare(
-    () => (omit != null ? data?.filter((e) => !omit.includes(e.key)) : data),
+    () => (omit != null ? data?.items.filter((k) => !omit.includes(k)) : data),
     ([prevOmit, prevData], [omit, data]) => {
       let omitsEqual: boolean;
       if (prevOmit != null && omit != null)

@@ -12,151 +12,45 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
-  useEffect,
   useMemo,
 } from "react";
 
-import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { useRequiredContext } from "@/hooks/useRequiredContext";
-import { useTransforms, type UseTransformsReturn } from "@/hooks/useTransforms";
-import { type state } from "@/state";
+
+export interface Data<K extends record.Key, E extends record.Keyed<K>> {
+  items: K[];
+  getItem: (key: K) => E | undefined;
+  useItem: (key: K) => E | undefined;
+}
 
 export interface DataContextValue<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
-> {
-  transformedData: E[];
-  sourceData: E[];
-  transformed: boolean;
-  emptyContent?: React.ReactElement;
-}
-
-export interface DataUtilsContextValue<
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
-> extends Omit<UseTransformsReturn<E>, "transform"> {
-  setSourceData: state.Setter<E[]>;
-  getSourceData: () => E[];
-  getTransformedData: () => E[];
-  setEmptyContent: state.Setter<React.ReactElement | undefined>;
-  getEmptyContent: () => React.ReactElement | undefined;
-  getDefaultEmptyContent: () => React.ReactElement | undefined;
-  getTransformed: () => boolean;
-}
+> extends Data<K, E> {}
 
 const Context = createContext<DataContextValue | null>({
-  transformedData: [],
-  sourceData: [],
-  transformed: false,
+  items: [],
+  getItem: () => undefined,
+  useItem: () => undefined,
 });
 
-const UtilsContext = createContext<DataUtilsContextValue | null>({
-  setSourceData: () => undefined,
-  getSourceData: () => [],
-  getTransformedData: () => [],
-  deleteTransform: () => undefined,
-  setTransform: () => undefined,
-  setEmptyContent: () => undefined,
-  getEmptyContent: () => undefined,
-  getDefaultEmptyContent: () => undefined,
-  getTransformed: () => false,
-});
-
-export const useDataContext = <
+export const useData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
->() => useRequiredContext(Context) as DataContextValue<K, E>;
-
-export const useDataUtils = <
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
->() => useRequiredContext(UtilsContext) as unknown as DataUtilsContextValue<K, E>;
-
-export const useTransformedData = <
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
->(): E[] => useDataContext<K, E>().transformedData;
-
-export const useSourceData = <
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
->(): E[] => useDataContext<K, E>().sourceData;
-
-export const useGetTransformedData = <
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
->(): (() => E[]) => useDataUtils<K, E>().getTransformedData;
-
-export const useSetSourceData = <
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
->(): state.Setter<E[]> => useDataUtils<K, E>().setSourceData;
+>() => useRequiredContext(Context) as unknown as Data<K, E>;
 
 export interface DataProviderProps<K extends record.Key, E extends record.Keyed<K>>
   extends PropsWithChildren<{}> {
-  data?: E[];
-  emptyContent?: React.ReactElement;
+  data: Data<K, E>;
 }
 
 export const DataProvider = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
 >({
-  data: sourceData,
-  emptyContent: emptyContentProp,
+  data,
   children,
 }: DataProviderProps<K, E>): ReactElement => {
-  const { transform, setTransform, deleteTransform } = useTransforms<E>({});
-  const [data, setData, dataRef] = useCombinedStateAndRef<E[]>(() => sourceData ?? []);
-
-  useEffect(() => {
-    if (sourceData != null) setData(sourceData);
-  }, [sourceData]);
-
-  const transformRes = useMemo(
-    () => transform({ data: [...data], transformed: false }),
-    [data, transform],
-  );
-  const transformedDataRef = useSyncedRef(transformRes);
-
-  const defaultEmptyContent = useSyncedRef<React.ReactElement | undefined>(
-    emptyContentProp,
-  );
-  const [emptyContent, setEmptyContent, emptyContentRef] = useCombinedStateAndRef<
-    React.ReactElement | undefined
-  >(undefined);
-  useEffect(() => {
-    if (emptyContentProp != null) setEmptyContent(emptyContentProp);
-  }, [emptyContentProp]);
-
-  const utilValue: DataUtilsContextValue<K, E> = useMemo(
-    () => ({
-      setSourceData: setData,
-      getSourceData: () => dataRef.current,
-      getTransformedData: () => transformedDataRef.current.data,
-      getTransformed: () => transformedDataRef.current.transformed,
-      deleteTransform,
-      setTransform,
-      setEmptyContent,
-      getEmptyContent: () => emptyContentRef.current,
-      getDefaultEmptyContent: () => defaultEmptyContent.current,
-    }),
-    [setData, dataRef, transformedDataRef, deleteTransform, setTransform],
-  );
-
-  const ctxValue: DataContextValue<K, E> = useMemo(
-    () => ({
-      transformed: transformRes.transformed,
-      transformedData: transformRes.data,
-      sourceData: data,
-      emptyContent,
-    }),
-    [transformRes, data, emptyContent],
-  );
-
-  return (
-    <UtilsContext value={utilValue as unknown as DataUtilsContextValue}>
-      <Context value={ctxValue}>{children}</Context>
-    </UtilsContext>
-  );
+  const ctxValue = useMemo(() => data as unknown as DataContextValue, [data]);
+  return <Context value={ctxValue}>{children}</Context>;
 };

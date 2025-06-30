@@ -16,7 +16,6 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -41,10 +40,10 @@ export interface SingleProps<K extends record.Key, E extends record.Keyed<K>>
     >,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "variant" | "disabled">,
-    Partial<Pick<CoreList.VirtualCoreProps<K, E>, "itemHeight">> {
+    Partial<Pick<CoreList.ItemsProps<K, E>, "itemHeight">> {
   entryRenderKey?: keyof E | ((e: E) => string | number | ReactNode);
   inputProps?: Partial<Omit<Input.TextProps, "onChange">>;
-  children?: List.VirtualCoreProps<K, E>["children"];
+  children?: List.ItemsProps<K, E>["children"];
   dropdownVariant?: Dropdown.Variant;
   dropdownZIndex?: number;
   placeholder?: ReactNode;

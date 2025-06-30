@@ -29,7 +29,7 @@ import {
   useSelect,
   type UseSelectOnChangeExtra,
   type UseSelectProps,
-} from "@/list/useSelect";
+} from "@/list/v2/useSelect";
 import { Core } from "@/select/List";
 import { type ComponentSize } from "@/util/component";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
