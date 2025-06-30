@@ -24,7 +24,10 @@ import { useAsyncEffect } from "@/hooks";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
-interface ListenerExtraArgs<RetrieveParams extends Params, Data extends state.State> {
+interface RetrieveListenerExtraArgs<
+  RetrieveParams extends Params,
+  Data extends state.State,
+> {
   params: RetrieveParams;
   client: Synnax;
   onChange: state.Setter<Data>;
@@ -37,14 +40,17 @@ interface ListenerExtraArgs<RetrieveParams extends Params, Data extends state.St
  *
  * The listener will not be called if the query is in a loading or an error state.
  */
-export interface ListenerConfig<
+export interface RetrieveListenerConfig<
   RetrieveParams extends Params,
   Data extends state.State,
 > {
   /** The channel to listen to. */
   channel: channel.Name;
   /** The function to call when a new value is received. */
-  onChange: Sync.ListenerHandler<MultiSeries, ListenerExtraArgs<RetrieveParams, Data>>;
+  onChange: Sync.ListenerHandler<
+    MultiSeries,
+    RetrieveListenerExtraArgs<RetrieveParams, Data>
+  >;
 }
 
 /**
@@ -79,7 +85,7 @@ export interface CreateRetrieveArgs<
    * These listeners will NOT be remounted when the identity of the onChange function
    * changes.
    */
-  listeners?: ListenerConfig<RetrieveParams, Data>[];
+  listeners?: RetrieveListenerConfig<RetrieveParams, Data>[];
 }
 
 export interface UseObservableRetrieveArgs<V extends state.State> {
