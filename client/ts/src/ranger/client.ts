@@ -266,9 +266,14 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   async retrieve(range: CrudeTimeRange): Promise<Range[]>;
   async retrieve(range: Key | Name): Promise<Range>;
   async retrieve(range: Keys | Names): Promise<Range[]>;
-  async retrieve(ranges: Params | CrudeTimeRange): Promise<Range | Range[]> {
+  async retrieve(req: RetrieveRequest): Promise<Range[]>;
+  async retrieve(
+    ranges: Params | CrudeTimeRange | RetrieveRequest,
+  ): Promise<Range | Range[]> {
     if (typeof ranges === "object" && "start" in ranges)
       return await this.execRetrieve({ overlapsWith: new TimeRange(ranges) });
+    if (typeof ranges === "object" && !Array.isArray(ranges))
+      return await this.execRetrieve(ranges);
     const { single, actual, variant, normalized, empty } = analyzeParams(ranges);
     if (empty) return [];
     const retrieved = await this.execRetrieve({ [variant]: normalized });

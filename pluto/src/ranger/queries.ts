@@ -81,7 +81,7 @@ export interface QueryParams extends Flux.Params {
   key: ranger.Key;
 }
 
-const SET_LISTENER_CONFIG: Flux.ListenerConfig<QueryParams, ranger.Range> = {
+const SET_LISTENER_CONFIG: Flux.RetrieveListenerConfig<QueryParams, ranger.Range> = {
   channel: ranger.SET_CHANNEL_NAME,
   onChange: Sync.parsedHandler(
     ranger.payloadZ,
@@ -233,3 +233,25 @@ export const useLabels = (
   key: ranger.Key,
 ): Flux.UseDirectRetrieveReturn<label.Label[]> =>
   Label.retrieveLabelsOf.useDirect({ params: { id: ranger.ontologyID(key) } });
+
+interface ListParams extends Flux.Params {
+  term?: string;
+  offset?: number;
+  limit?: number;
+}
+
+export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range>({
+  name: "Range",
+  retrieve: async ({ client, params }) => await client.ranges.retrieve(params),
+  listeners: [
+    {
+      channel: ranger.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(ranger.payloadZ, async ({ changed, onChange }) => {
+        onChange(changed.key, (prev) => {
+          if (prev == null) return prev;
+          return changed;
+        });
+      }),
+    },
+  ],
+});
