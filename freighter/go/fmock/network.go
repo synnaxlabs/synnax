@@ -11,9 +11,10 @@ package fmock
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"sync"
 )
 
 // Network is a mock network implementation that is ideal for in-memory testing

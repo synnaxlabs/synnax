@@ -18,30 +18,34 @@ import (
 	"google.golang.org/grpc/connectivity"
 )
 
-// ClientConn is a wrapper around grpc.ClientConn that implements the
-// pool.Adapter interface.
+// ClientConn is a wrapper around grpc.ClientConn that implements the pool.Adapter
+// interface.
 type ClientConn struct {
 	*grpc.ClientConn
 	demand *pool.Demand
 }
 
+var _ pool.Adapter = (*ClientConn)(nil)
+
 // Acquire implements pool.Adapter.
-func (c *ClientConn) Acquire() error {
-	c.demand.Increase(1)
+func (cc *ClientConn) Acquire() error {
+	cc.demand.Increase(1)
 	return nil
 }
 
 // Release implements pool.Adapter.
-func (c *ClientConn) Release() {
-	c.demand.Decrease(1)
+func (cc *ClientConn) Release() {
+	cc.demand.Decrease(1)
 }
 
 // Close implements pool.Adapter.
-func (c *ClientConn) Close() error { return c.ClientConn.Close() }
+func (cc *ClientConn) Close() error {
+	return cc.ClientConn.Close()
+}
 
 // Healthy implements pool.Adapter
-func (c *ClientConn) Healthy() bool {
-	state := c.GetState()
+func (cc *ClientConn) Healthy() bool {
+	state := cc.GetState()
 	return state != connectivity.TransientFailure && state != connectivity.Shutdown
 }
 
@@ -50,7 +54,7 @@ type Pool struct {
 }
 
 func NewPool(targetPrefix address.Address, dialOpts ...grpc.DialOption) *Pool {
-	return &Pool{Pool: pool.New[address.Address, *ClientConn](&factory{dialOpts: dialOpts, targetPrefix: targetPrefix})}
+	return &Pool{Pool: pool.New(&factory{dialOpts: dialOpts, targetPrefix: targetPrefix})}
 }
 
 // factory implements the pool.Factory interface.
@@ -58,6 +62,8 @@ type factory struct {
 	targetPrefix address.Address
 	dialOpts     []grpc.DialOption
 }
+
+var _ pool.Factory[address.Address, *ClientConn] = (*factory)(nil)
 
 func (f *factory) New(addr address.Address) (*ClientConn, error) {
 	c, err := grpc.NewClient(path.Join(f.targetPrefix.String(), addr.String()), f.dialOpts...)

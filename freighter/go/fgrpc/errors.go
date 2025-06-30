@@ -11,11 +11,12 @@ package fgrpc
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/errors"
 )
 
-// EncodeError encodes the given error into a protobuf error payload. If the type of
-// the error cannot be determined, returns a payload with type TypeUnknown and the error
+// EncodeError encodes the given error into a protobuf error payload. If the type of the
+// error cannot be determined, returns a payload with type TypeUnknown and the error
 // message. If the error is nil, returns a payload with type TypeNil.
 func EncodeError(ctx context.Context, err error, internal bool) *errors.PBPayload {
 	pld := errors.Encode(ctx, err, internal)
