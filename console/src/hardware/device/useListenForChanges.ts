@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Device, Status } from "@synnaxlabs/pluto";
-import { type record, strings } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 const PREFIX = "new-device-";
@@ -19,11 +19,11 @@ export const useListenForChanges = () => {
   const handleSet = useCallback(
     (dev: device.Device) => {
       if (dev.configured) return;
-      addStatus({
+      addStatus<device.Device>({
         variant: "info",
         key: `${PREFIX}${dev.key}`,
         message: `New ${dev.model} connected`,
-        data: dev as unknown as record.Unknown,
+        details: dev,
       });
     },
     [addStatus],

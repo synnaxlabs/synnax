@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type task } from "@synnaxlabs/client";
+
 import * as v0 from "@/hardware/ni/task/types/v0";
 import * as v1 from "@/hardware/ni/task/types/v1";
 
@@ -69,55 +71,101 @@ export type DigitalChannel = v0.DigitalChannel;
 
 export type Channel = v1.Channel;
 
+export const analogReadTypeZ = v0.analogReadTypeZ;
 export const analogReadConfigZ = v1.analogReadConfigZ;
+export const analogReadStatusDataZ = v0.analogReadStatusDataZ;
 export interface AnalogReadConfig extends v1.AnalogReadConfig {}
-export interface AnalogReadStateDetails extends v0.AnalogReadStateDetails {}
-export interface AnalogReadState extends v0.AnalogReadState {}
 export const ANALOG_READ_TYPE = v0.ANALOG_READ_TYPE;
 export type AnalogReadType = v0.AnalogReadType;
 export const ZERO_ANALOG_READ_PAYLOAD = v1.ZERO_ANALOG_READ_PAYLOAD;
 export interface AnalogReadPayload extends v1.AnalogReadPayload {}
 export interface AnalogReadTask extends v1.AnalogReadTask {}
 export interface NewAnalogReadTask extends v1.NewAnalogReadTask {}
+export const ANALOG_READ_SCHEMAS: task.Schemas<
+  typeof analogReadTypeZ,
+  typeof analogReadConfigZ,
+  typeof analogReadStatusDataZ
+> = {
+  typeSchema: analogReadTypeZ,
+  configSchema: analogReadConfigZ,
+  statusDataSchema: analogReadStatusDataZ,
+};
 
+export const analogWriteTypeZ = v0.analogWriteTypeZ;
 export const analogWriteConfigZ = v0.analogWriteConfigZ;
+export const analogWriteStatusDataZ = v0.analogWriteStatusDataZ;
 export interface AnalogWriteConfig extends v0.AnalogWriteConfig {}
-export interface AnalogWriteStateDetails extends v0.AnalogWriteStateDetails {}
-export interface AnalogWriteState extends v0.AnalogWriteState {}
 export const ANALOG_WRITE_TYPE = v0.ANALOG_WRITE_TYPE;
 export type AnalogWriteType = v0.AnalogWriteType;
 export const ZERO_ANALOG_WRITE_PAYLOAD = v0.ZERO_ANALOG_WRITE_PAYLOAD;
 export interface AnalogWritePayload extends v0.AnalogWritePayload {}
 export interface AnalogWriteTask extends v0.AnalogWriteTask {}
 export interface NewAnalogWriteTask extends v0.NewAnalogWriteTask {}
+export const ANALOG_WRITE_SCHEMAS: task.Schemas<
+  typeof analogWriteTypeZ,
+  typeof analogWriteConfigZ,
+  typeof analogWriteStatusDataZ
+> = {
+  typeSchema: analogWriteTypeZ,
+  configSchema: analogWriteConfigZ,
+  statusDataSchema: analogWriteStatusDataZ,
+};
 
+export const digitalReadTypeZ = v0.digitalReadTypeZ;
 export const digitalReadConfigZ = v0.digitalReadConfigZ;
+export const digitalReadStatusDataZ = v0.digitalReadStatusDataZ;
 export interface DigitalReadConfig extends v0.DigitalReadConfig {}
-export interface DigitalReadStateDetails extends v0.DigitalReadStateDetails {}
-export interface DigitalReadState extends v0.DigitalReadState {}
 export const DIGITAL_READ_TYPE = v0.DIGITAL_READ_TYPE;
 export type DigitalReadType = v0.DigitalReadType;
 export const ZERO_DIGITAL_READ_PAYLOAD = v0.ZERO_DIGITAL_READ_PAYLOAD;
 export interface DigitalReadPayload extends v0.DigitalReadPayload {}
 export interface DigitalReadTask extends v0.DigitalReadTask {}
 export interface NewDigitalReadTask extends v0.NewDigitalReadTask {}
+export const DIGITAL_READ_SCHEMAS: task.Schemas<
+  typeof digitalReadTypeZ,
+  typeof digitalReadConfigZ,
+  typeof digitalReadStatusDataZ
+> = {
+  typeSchema: digitalReadTypeZ,
+  configSchema: digitalReadConfigZ,
+  statusDataSchema: digitalReadStatusDataZ,
+};
 
+export const digitalWriteTypeZ = v0.digitalWriteTypeZ;
 export const digitalWriteConfigZ = v0.digitalWriteConfigZ;
+export const digitalWriteStatusDataZ = v0.digitalWriteStatusDataZ;
 export interface DigitalWriteConfig extends v0.DigitalWriteConfig {}
-export interface DigitalWriteStateDetails extends v0.DigitalWriteStateDetails {}
-export interface DigitalWriteState extends v0.DigitalWriteState {}
 export const DIGITAL_WRITE_TYPE = v0.DIGITAL_WRITE_TYPE;
 export type DigitalWriteType = v0.DigitalWriteType;
 export const ZERO_DIGITAL_WRITE_PAYLOAD = v0.ZERO_DIGITAL_WRITE_PAYLOAD;
 export interface DigitalWritePayload extends v0.DigitalWritePayload {}
 export interface DigitalWriteTask extends v0.DigitalWriteTask {}
 export interface NewDigitalWriteTask extends v0.NewDigitalWriteTask {}
+export const DIGITAL_WRITE_SCHEMAS: task.Schemas<
+  typeof digitalWriteTypeZ,
+  typeof digitalWriteConfigZ,
+  typeof digitalWriteStatusDataZ
+> = {
+  typeSchema: digitalWriteTypeZ,
+  configSchema: digitalWriteConfigZ,
+  statusDataSchema: digitalWriteStatusDataZ,
+};
 
+export const scanTypeZ = v0.scanTypeZ;
+export const scanConfigZ = v0.scanConfigZ;
+export const scanStatusDataZ = v0.scanStatusDataZ;
 export interface ScanConfig extends v0.ScanConfig {}
-export interface ScanStateDetails extends v0.ScanStateDetails {}
-export interface ScanState extends v0.ScanState {}
 export const SCAN_TYPE = v0.SCAN_TYPE;
 export type ScanType = v0.ScanType;
 export interface ScanPayload extends v0.ScanPayload {}
 export interface ScanTask extends v0.ScanTask {}
 export interface NewScanTask extends v0.NewScanTask {}
+export const SCAN_SCHEMAS: task.Schemas<
+  typeof scanTypeZ,
+  typeof scanConfigZ,
+  typeof scanStatusDataZ
+> = {
+  typeSchema: scanTypeZ,
+  configSchema: scanConfigZ,
+  statusDataSchema: scanStatusDataZ,
+};

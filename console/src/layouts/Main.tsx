@@ -68,7 +68,7 @@ const SideEffect = (): null => {
   Version.useLoadTauri();
   Cluster.useSyncClusterKey();
   Hardware.Device.useListenForChanges();
-  Channel.useListenForCalculationState();
+  Channel.useListenForCalculationStatus();
   Range.useListenForChanges();
   Workspace.useSyncLayout();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);

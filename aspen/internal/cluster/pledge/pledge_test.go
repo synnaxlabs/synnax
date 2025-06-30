@@ -117,7 +117,7 @@ var _ = Describe("PledgeServer", func() {
 	})
 
 	Describe("Responsible", func() {
-		Context("cluster State is Synchronized", func() {
+		Context("Cluster State is Synchronized", func() {
 			It("Should correctly assign an Name", func() {
 				var (
 					nodes         = make(node.Group)
