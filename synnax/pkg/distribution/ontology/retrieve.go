@@ -71,13 +71,6 @@ func (r Retrieve) Offset(offset int) Retrieve {
 	return r
 }
 
-// IncludeSchema includes the schema of the resource in the results based on the
-// provided predicate.
-func (r Retrieve) IncludeSchema(includeSchema bool) Retrieve {
-	setIncludeSchema(r.query.Current().Params, includeSchema)
-	return r
-}
-
 // ExcludeFieldData includes the field data of the resource in the results based on the
 // provided predicate.
 func (r Retrieve) ExcludeFieldData(excludeFieldData bool) Retrieve {
@@ -199,20 +192,6 @@ func getExcludeFieldData(q query.Parameters) bool {
 	return v.(bool)
 }
 
-const includeSchemaOptKey = "includeSchema"
-
-func setIncludeSchema(q query.Parameters, b bool) {
-	q.Set(includeSchemaOptKey, b)
-}
-
-func getIncludeSchema(q query.Parameters) bool {
-	v, ok := q.Get(includeSchemaOptKey)
-	if !ok {
-		return true
-	}
-	return v.(bool)
-}
-
 func (r Retrieve) retrieveEntities(
 	ctx context.Context,
 	clause gorp.Retrieve[ID, Resource],
@@ -221,8 +200,7 @@ func (r Retrieve) retrieveEntities(
 	var (
 		entries          = gorp.GetEntries[ID, Resource](clause.Params)
 		excludeFieldData = getExcludeFieldData(clause.Params)
-		includeSchema    = getIncludeSchema(clause.Params)
-		retrieveResource = (!excludeFieldData) || includeSchema
+		retrieveResource = !excludeFieldData
 	)
 	// Iterate over the entries in place, retrieving the resource if the query requires it.
 	err := entries.MapInPlace(func(res Resource) (Resource, bool, error) {
@@ -241,9 +219,6 @@ func (r Retrieve) retrieveEntities(
 		}
 		if excludeFieldData {
 			res.Data = nil
-		}
-		if !includeSchema {
-			res.Schema = nil
 		}
 		return res, true, err
 	})

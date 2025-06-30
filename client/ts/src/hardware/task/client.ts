@@ -10,8 +10,6 @@
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { caseconv, id } from "@synnaxlabs/x";
 import { array } from "@synnaxlabs/x/array";
-import { type record } from "@synnaxlabs/x/record";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
 import { z } from "zod/v4";
 
@@ -27,18 +25,18 @@ import {
   newZ,
   ONTOLOGY_TYPE,
   type Payload,
-  type State,
+  type Schemas,
   type StateObservable,
-  stateZ,
+  type Status,
+  statusZ,
   taskZ,
 } from "@/hardware/task/payload";
 import { ontology } from "@/ontology";
 import { type ranger } from "@/ranger";
 import { signals } from "@/signals";
-import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
-export const STATE_CHANNEL_NAME = "sy_task_state";
+export const STATUS_CHANNEL_NAME = "sy_task_status";
 export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
@@ -52,52 +50,77 @@ const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Clie
 };
 
 export class Task<
-  Config extends record.Unknown = record.Unknown,
-  Details extends {} = record.Unknown,
-  Type extends string = string,
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
 > {
   readonly key: Key;
   name: string;
-  readonly internal: boolean;
-  readonly type: Type;
-  config: Config;
-  readonly snapshot: boolean;
-  state?: State<Details>;
-  private readonly frameClient: framer.Client | null;
-  private readonly ontologyClient: ontology.Client | null;
-  private readonly rangeClient: ranger.Client | null;
+  internal: boolean;
+  type: z.infer<Type>;
+  snapshot: boolean;
+  config: z.infer<Config>;
+  status?: Status<StatusData>;
+
+  readonly schemas: Schemas<Type, Config, StatusData>;
+  private readonly frameClient_?: framer.Client;
+  private readonly ontologyClient_?: ontology.Client;
+  private readonly rangeClient_?: ranger.Client;
+
+  get frameClient(): framer.Client {
+    if (this.frameClient_ == null) throw NOT_CREATED_ERROR;
+    return this.frameClient_;
+  }
+
+  get ontologyClient(): ontology.Client {
+    if (this.ontologyClient_ == null) throw NOT_CREATED_ERROR;
+    return this.ontologyClient_;
+  }
+
+  get rangeClient(): ranger.Client {
+    if (this.rangeClient_ == null) throw NOT_CREATED_ERROR;
+    return this.rangeClient_;
+  }
 
   constructor(
-    key: Key,
-    name: string,
-    type: Type,
-    config: Config,
-    internal: boolean = false,
-    snapshot: boolean = false,
-    state?: State<Details> | null,
-    frameClient: framer.Client | null = null,
-    ontologyClient: ontology.Client | null = null,
-    rangeClient: ranger.Client | null = null,
+    {
+      key,
+      type,
+      name,
+      config,
+      internal = false,
+      snapshot = false,
+      status,
+    }: Payload<Type, Config, StatusData>,
+    schemas?: Schemas<Type, Config, StatusData>,
+    frameClient?: framer.Client,
+    ontologyClient?: ontology.Client,
+    rangeClient?: ranger.Client,
   ) {
     this.key = key;
     this.name = name;
     this.type = type;
     this.config = config;
+    this.schemas = schemas ?? {
+      typeSchema: z.string() as unknown as Type,
+      configSchema: z.unknown() as unknown as Config,
+      statusDataSchema: z.unknown() as unknown as StatusData,
+    };
     this.internal = internal;
     this.snapshot = snapshot;
-    if (state !== null) this.state = state;
-    this.frameClient = frameClient;
-    this.ontologyClient = ontologyClient;
-    this.rangeClient = rangeClient;
+    this.status = status;
+    this.frameClient_ = frameClient;
+    this.ontologyClient_ = ontologyClient;
+    this.rangeClient_ = rangeClient;
   }
 
-  get payload(): Payload<Config, Details, Type> {
+  get payload(): Payload<Type, Config, StatusData> {
     return {
       key: this.key,
       name: this.name,
       type: this.type,
       config: this.config,
-      state: this.state,
+      status: this.status,
       internal: this.internal,
     };
   }
@@ -114,33 +137,35 @@ export class Task<
     type: string,
     timeout: CrudeTimeSpan,
     args?: {},
-  ): Promise<State<Details>> {
-    const state = await executeCommandSync(
+  ): Promise<Status<StatusData>> {
+    return await executeCommandSync<StatusData>(
       this.frameClient,
       this.key,
       type,
       timeout,
       this.name,
+      this.schemas?.statusDataSchema,
       args,
     );
-    return state as State<Details>;
   }
 
-  async openStateObserver(): Promise<StateObservable<Details>> {
+  async openStateObserver(): Promise<StateObservable<StatusData>> {
     if (this.frameClient == null) throw NOT_CREATED_ERROR;
-    return new framer.ObservableStreamer<State<Details>>(
-      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+    return new framer.ObservableStreamer<Status<StatusData>>(
+      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
       (frame) => {
-        const s = frame.get(STATE_CHANNEL_NAME);
+        const s = frame.get(STATUS_CHANNEL_NAME);
         if (s.length === 0) return [null, false];
-        const parse = stateZ.safeParse(s.at(-1));
+        const parse = statusZ<StatusData>(this.schemas?.statusDataSchema).safeParse(
+          s.at(-1),
+        );
         if (!parse.success) {
           console.error(parse.error);
           return [null, false];
         }
-        const state = parse.data;
-        if (state.task !== this.key) return [null, false];
-        return [state as State<Details>, true];
+        const status = parse.data;
+        if (status.details.task !== this.key) return [null, false];
+        return [status, true];
       },
     );
   }
@@ -177,19 +202,28 @@ const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   types: z.string().array().optional(),
-  includeState: z.boolean().optional(),
+  includeStatus: z.boolean().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
 });
 
-const retrieveResZ = z.object({ tasks: nullableArrayZ(taskZ) });
+const retrieveResZ = <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+>(
+  schemas?: Schemas<Type, Config, StatusData>,
+) =>
+  z.object({
+    tasks: nullableArrayZ(taskZ(schemas)),
+  });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 export interface RetrieveOptions
   extends Pick<
     RetrieveRequest,
-    "rack" | "offset" | "limit" | "includeState" | "types"
+    "rack" | "offset" | "limit" | "includeStatus" | "types"
   > {}
 
 const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
@@ -197,14 +231,32 @@ const CREATE_ENDPOINT = "/hardware/task/create";
 const DELETE_ENDPOINT = "/hardware/task/delete";
 const COPY_ENDPOINT = "/hardware/task/copy";
 
-const createReqZ = z.object({ tasks: newZ.array() });
-const createResZ = z.object({ tasks: taskZ.array() });
+const createReqZ = <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+>(
+  schemas?: Schemas<Type, Config, StatusData>,
+) => z.object({ tasks: newZ(schemas).array() });
+const createResZ = <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+>(
+  schemas?: Schemas<Type, Config, StatusData>,
+) => z.object({ tasks: taskZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
-const copyResZ = z.object({ task: taskZ });
+const copyResZ = <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+>(
+  schemas?: Schemas<Type, Config, StatusData>,
+) => z.object({ task: taskZ(schemas) });
 
-export class Client implements AsyncTermSearcher<string, Key, Payload> {
+export class Client {
   readonly type: string = ONTOLOGY_TYPE;
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
@@ -223,34 +275,49 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     this.rangeClient = rangeClient;
   }
 
-  async create<
-    Config extends record.Unknown = record.Unknown,
-    Details extends {} = record.Unknown,
-    Type extends string = string,
-  >(task: New<Config, Type>): Promise<Task<Config, Details, Type>>;
+  async create(task: New): Promise<Task>;
+  async create(tasks: New[]): Promise<Task[]>;
+  async create(task: New | New[]): Promise<Task | Task[]>;
 
   async create<
-    Config extends record.Unknown = record.Unknown,
-    Details extends {} = record.Unknown,
-    Type extends string = string,
-  >(tasks: New<Config, Type>[]): Promise<Task<Config, Details, Type>[]>;
-
-  async create<
-    Config extends record.Unknown = record.Unknown,
-    Details extends {} = record.Unknown,
-    Type extends string = string,
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+    StatusData extends z.ZodType = z.ZodType,
   >(
-    task: New<Config, Type> | Array<New<Config, Type>>,
-  ): Promise<Task<Config, Details, Type> | Array<Task<Config, Details, Type>>> {
+    task: New<Type, Config>,
+    schemas: Schemas<Type, Config, StatusData>,
+  ): Promise<Task<Type, Config, StatusData>>;
+  async create<
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+    StatusData extends z.ZodType = z.ZodType,
+  >(
+    tasks: New<Type, Config>[],
+    schemas: Schemas<Type, Config, StatusData>,
+  ): Promise<Task<Type, Config, StatusData>[]>;
+
+  async create<
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+    StatusData extends z.ZodType = z.ZodType,
+  >(
+    task: New<Type, Config> | Array<New<Type, Config>>,
+    schemas?: Schemas<Type, Config, StatusData>,
+  ): Promise<Task<Type, Config, StatusData> | Array<Task<Type, Config, StatusData>>> {
     const isSingle = !Array.isArray(task);
-    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
+    const createReq = createReqZ(schemas);
+    const createRes = createResZ(schemas);
+    const res = await sendRequired(
       this.client,
       CREATE_ENDPOINT,
-      { tasks: array.toArray(task) },
-      createReqZ,
-      createResZ,
+      { tasks: array.toArray(task) } as z.infer<typeof createReq>,
+      createReq,
+      createRes,
     );
-    const sugared = this.sugar(res.tasks) as Array<Task<Config, Details, Type>>;
+    const sugared = this.sugar<Type, Config, StatusData>(
+      res.tasks as Payload<Type, Config, StatusData>[],
+      schemas,
+    );
     return isSingle ? sugared[0] : sugared;
   }
 
@@ -277,72 +344,98 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
   }
 
   async retrieve<
-    Config extends record.Unknown = record.Unknown,
-    Details extends {} = record.Unknown,
-    Type extends string = string,
-  >(rack: number, options?: RetrieveOptions): Promise<Task<Config, Details, Type>[]>;
+    Type extends z.ZodLiteral<string>,
+    Config extends z.ZodType,
+    StatusData extends z.ZodType,
+  >({
+    key,
+  }: { key: string } & RetrieveOptions & {
+      schemas: Schemas<Type, Config, StatusData>;
+    }): Promise<Task<Type, Config, StatusData>>;
+
+  async retrieve({ key }: { key: string } & RetrieveOptions): Promise<Task>;
 
   async retrieve<
-    Config extends record.Unknown = record.Unknown,
-    Details extends {} = record.Unknown,
-    Type extends string = string,
-  >(keys: string[], options?: RetrieveOptions): Promise<Task<Config, Details, Type>[]>;
+    Type extends z.ZodLiteral<string>,
+    Config extends z.ZodType,
+    StatusData extends z.ZodType,
+  >({
+    name,
+  }: { name: string } & RetrieveOptions & {
+      schemas: Schemas<Type, Config, StatusData>;
+    }): Promise<Task<Type, Config, StatusData>[]>;
+
+  async retrieve({ name }: { name: string } & RetrieveOptions): Promise<Task>;
 
   async retrieve<
-    Config extends record.Unknown = record.Unknown,
-    Details extends {} = record.Unknown,
-    Type extends string = string,
-  >(key: string, options?: RetrieveOptions): Promise<Task<Config, Details, Type>>;
+    Type extends z.ZodLiteral<string>,
+    Config extends z.ZodType,
+    StatusData extends z.ZodType,
+  >({
+    type,
+  }: { type: string } & RetrieveOptions & {
+      schemas: Schemas<Type, Config, StatusData>;
+    }): Promise<Task<Type, Config, StatusData>[]>;
+
+  async retrieve({
+    rack,
+  }: { rack: number | string | string[] } & RetrieveOptions): Promise<Task[]>;
+
+  async retrieve({ type }: { type: string } & RetrieveOptions): Promise<Task[]>;
 
   async retrieve<
-    Config extends record.Unknown = record.Unknown,
-    Details extends {} = record.Unknown,
-    Type extends string = string,
-  >(
-    rack: number | string | string[],
-    options?: RetrieveOptions,
-  ): Promise<Task<Config, Details, Type> | Task<Config, Details, Type>[]> {
-    const { single, normalized, variant } = analyzeParams(
-      rack,
-      { number: "rack", string: "keys" },
-      { convertNumericStrings: false },
-    );
+    Type extends z.ZodLiteral<string>,
+    Config extends z.ZodType,
+    StatusData extends z.ZodType,
+  >({
+    key,
+    keys,
+    name,
+    type,
+    schemas,
+    ...options
+  }: {
+    key?: string;
+    keys?: string[];
+    name?: string;
+    type?: string;
+    rack?: number | string | string[];
+  } & RetrieveOptions & { schemas?: Schemas<Type, Config, StatusData> }): Promise<
+    Task<Type, Config, StatusData> | Task<Type, Config, StatusData>[]
+  > {
     const req: RetrieveRequest = { ...options };
-    if (variant === "rack") req.rack = rack as number;
-    else req.keys = normalized as string[];
-    const tasks = await this.execRetrieve(req);
-    const sugared = this.sugar(tasks) as Array<Task<Config, Details, Type>>;
-    return single && variant !== "rack" ? sugared[0] : sugared;
+    let isMultiple = true;
+    if (key != null) {
+      req.keys = [key];
+      isMultiple = false;
+    }
+    if (keys != null) req.keys = keys;
+    if (name != null) {
+      req.names = [name];
+      isMultiple = false;
+    }
+    if (type != null) {
+      req.types = [type];
+      isMultiple = false;
+    }
+    const tasks = await this.execRetrieve<Type, Config, StatusData>(req);
+    const sugared = this.sugar<Type, Config, StatusData>(
+      tasks,
+      schemas as Schemas<Type, Config, StatusData>,
+    );
+    return isMultiple ? sugared : sugared[0];
   }
 
   async copy(key: string, name: string, snapshot: boolean): Promise<Task> {
-    const res = await sendRequired(
+    const copyRes = copyResZ();
+    const response = await sendRequired(
       this.client,
       COPY_ENDPOINT,
       { key, name, snapshot },
       copyReqZ,
-      copyResZ,
+      copyRes,
     );
-    return this.sugar([res.task])[0];
-  }
-
-  async retrieveByName<
-    Config extends record.Unknown = record.Unknown,
-    Details extends {} = record.Unknown,
-    Type extends string = string,
-  >(name: string, rack?: number): Promise<Task<Config, Details, Type>> {
-    const tasks = await this.execRetrieve({ names: [name], rack });
-    checkForMultipleOrNoResults("Task", name, tasks, true);
-    return this.sugar(tasks)[0] as Task<Config, Details, Type>;
-  }
-
-  async retrieveByType<
-    Config extends record.Unknown = record.Unknown,
-    Details extends {} = record.Unknown,
-    Type extends string = string,
-  >(type: Type, rack?: number): Promise<Task<Config, Details, Type>[]> {
-    const tasks = await this.execRetrieve({ types: [type], rack });
-    return this.sugar(tasks) as Task<Config, Details, Type>[];
+    return this.sugar(response.task as Payload);
   }
 
   async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
@@ -350,48 +443,71 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return await retrieveSnapshottedTo(taskKey, this.ontologyClient);
   }
 
-  private async execRetrieve(req: RetrieveRequest): Promise<Payload[]> {
+  private async execRetrieve<
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+    StatusData extends z.ZodType = z.ZodType,
+  >({
+    schemas,
+    ...req
+  }: RetrieveRequest & { schemas?: Schemas<Type, Config, StatusData> }): Promise<
+    Payload<Type, Config, StatusData>[]
+  > {
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
       req,
       retrieveReqZ,
-      retrieveResZ,
+      retrieveResZ(schemas),
     );
-    return res.tasks;
+    return res.tasks as Payload<Type, Config, StatusData>[];
   }
 
   sugar<
-    Config extends record.Unknown = record.Unknown,
-    Details extends {} = record.Unknown,
-    Type extends string = string,
-  >(payload: Payload<Config, Details, Type>): Task<Config, Details, Type>;
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+    StatusData extends z.ZodType = z.ZodType,
+  >(
+    payloads: Payload<Type, Config, StatusData>[],
+    schemas?: Schemas<Type, Config, StatusData>,
+  ): Task<Type, Config, StatusData>[];
 
   sugar<
-    Config extends record.Unknown = record.Unknown,
-    Details extends {} = record.Unknown,
-    Type extends string = string,
-  >(payloads: Payload<Config, Details, Type>[]): Task<Config, Details, Type>[];
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+    StatusData extends z.ZodType = z.ZodType,
+  >(
+    payload: Payload<Type, Config, StatusData>,
+    schemas?: Schemas<Type, Config, StatusData>,
+  ): Task<Type, Config, StatusData>;
 
-  sugar(payloads: Payload | Payload[]): Task | Task[] {
+  sugar<
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+    StatusData extends z.ZodType = z.ZodType,
+  >(
+    payloads: Payload<Type, Config, StatusData> | Payload<Type, Config, StatusData>[],
+    schemas?: Schemas<Type, Config, StatusData>,
+  ): Task<Type, Config, StatusData>[] | Task<Type, Config, StatusData> {
     const isSingle = !Array.isArray(payloads);
-    const res = array
-      .toArray(payloads)
-      .map(
-        ({ key, name, type, config, state, internal, snapshot }) =>
-          new Task(
+    const res = array.toArray(payloads).map(
+      ({ key, name, type, config, status, internal, snapshot }) =>
+        new Task(
+          {
             key,
             name,
             type,
             config,
             internal,
             snapshot,
-            state,
-            this.frameClient,
-            this.ontologyClient,
-            this.rangeClient,
-          ),
-      );
+            status,
+          },
+          schemas,
+          this.frameClient,
+          this.ontologyClient,
+          this.rangeClient,
+        ),
+    );
     return isSingle ? res[0] : res;
   }
 
@@ -399,15 +515,16 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return await executeCommand(this.frameClient, task, type, args);
   }
 
-  async executeCommandSync(
+  async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
     task: Key,
     type: string,
     timeout: CrudeTimeSpan,
     args?: {},
     name?: string,
-  ): Promise<State> {
+    statusDataZ: StatusData = z.unknown() as unknown as StatusData,
+  ): Promise<Status<StatusData>> {
     const retrieveName = async () => {
-      const t = await this.retrieve(task);
+      const t = await this.retrieve({ key: task });
       return t.name;
     };
     return await executeCommandSync(
@@ -416,6 +533,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
       type,
       timeout,
       name ?? retrieveName,
+      statusDataZ,
       args,
     );
   }
@@ -434,13 +552,15 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     );
   }
 
-  async openStateObserver(): Promise<StateObservable> {
-    return new framer.ObservableStreamer<State>(
-      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+  async openStateObserver<StatusData extends z.ZodType = z.ZodType>(
+    stateSchema: z.ZodType<StatusData> = z.unknown() as unknown as z.ZodType<StatusData>,
+  ): Promise<StateObservable<StatusData>> {
+    return new framer.ObservableStreamer<Status<StatusData>>(
+      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
       (frame) => {
-        const s = frame.get(STATE_CHANNEL_NAME);
+        const s = frame.get(STATUS_CHANNEL_NAME);
         if (s.length === 0) return [null, false];
-        const parse = stateZ.safeParse(s.at(-1));
+        const parse = statusZ(stateSchema).safeParse(s.at(-1));
         if (!parse.success) {
           console.error(parse.error);
           return [null, false];
@@ -456,7 +576,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
       (frame) => {
         const s = frame.get(COMMAND_CHANNEL_NAME);
         if (s.length === 0) return [null, false];
-        const parse = commandZ.safeParse(s.at(-1));
+        const parse = commandZ.safeParse(s.at(-1) as unknown as Command);
         if (!parse.success) {
           console.error(parse.error);
           return [null, false];
@@ -484,16 +604,17 @@ const executeCommand = async (
   return key;
 };
 
-const executeCommandSync = async (
+const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>(
   frameClient: framer.Client | null,
   task: Key,
   type: string,
   timeout: CrudeTimeSpan,
   tskName: string | (() => Promise<string>),
+  statusDataZ: StatusData,
   args?: {},
-): Promise<State> => {
+): Promise<Status<StatusData>> => {
   if (frameClient == null) throw NOT_CREATED_ERROR;
-  const streamer = await frameClient.openStreamer(STATE_CHANNEL_NAME);
+  const streamer = await frameClient.openStreamer(STATUS_CHANNEL_NAME);
   const cmdKey = await executeCommand(frameClient, task, type, args);
   const parsedTimeout = new TimeSpan(timeout);
 
@@ -507,7 +628,7 @@ const executeCommandSync = async (
   try {
     while (true) {
       const frame = await Promise.race([streamer.read(), timeoutPromise]);
-      const state = stateZ.parse(frame.at(-1)[STATE_CHANNEL_NAME]);
+      const state = statusZ(statusDataZ).parse(frame.at(-1)[STATUS_CHANNEL_NAME]);
       if (state.key === cmdKey) return state;
     }
   } finally {

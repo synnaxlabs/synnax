@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -136,7 +136,7 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 }
 
 func (s *service) NewWriter(tx gorp.Tx) Writer {
-	return writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
+	return writer{svc: s, tx: s.DB.OverrideTx(tx)}
 }
 
 func (s *service) Group() group.Group { return s.group }
