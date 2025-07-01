@@ -23,6 +23,26 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/zyn"
+)
+
+type Stage string
+
+func (s Stage) EarlierThan(other Stage) bool {
+	sIdx := lo.IndexOf(Stages, s)
+	otherIdx := lo.IndexOf(Stages, other)
+	return sIdx < otherIdx
+}
+
+const (
+	ToDo       Stage = "to_do"
+	InProgress Stage = "in_progress"
+	Completed  Stage = "completed"
+)
+
+var (
+	Stages = []Stage{ToDo, InProgress, Completed}
+	StageZ = zyn.Enum(Stages...)
 )
 
 // Range (short for time range) is an interesting, user defined regions of time in a
@@ -41,7 +61,17 @@ type Range struct {
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is the color used to represent the range in the UI.
 	Color string `json:"color" msgpack:"color"`
+	// Stage
+	Stage Stage `json:"stage" msgpack:"stage"`
 }
+
+var RangeZ = zyn.Object(map[string]zyn.Schema{
+	"key":        zyn.UUID(),
+	"name":       zyn.String(),
+	"time_range": telem.TimeRangeSchema,
+	"color":      zyn.String(),
+	"status":     StageZ,
+})
 
 var _ gorp.Entry[uuid.UUID] = Range{}
 
@@ -258,6 +288,6 @@ func (r Range) ListLabels(ctx context.Context) ([]label.Label, error) {
 	return r.label.RetrieveFor(ctx, OntologyID(r.Key), r.tx)
 }
 
-// OntologyID returns the semantic ID for this range in order to look it up from within
+// OntologyID returns the semantic ID for this range to look it up from within
 // the ontology.
 func (r Range) OntologyID() ontology.ID { return OntologyID(r.Key) }

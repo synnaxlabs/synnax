@@ -13,10 +13,12 @@ import { URL } from "@synnaxlabs/x/url";
 import { z } from "zod/v4";
 
 import { access } from "@/access";
+import { annotation } from "@/annotation";
 import { auth } from "@/auth";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
+import { effect } from "@/effect";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { hardware } from "@/hardware";
@@ -26,6 +28,7 @@ import { task } from "@/hardware/task";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
+import { slate } from "@/slate";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { workspace } from "@/workspace";
@@ -68,6 +71,9 @@ export default class Synnax extends framer.Client {
   readonly labels: label.Client;
   readonly hardware: hardware.Client;
   readonly control: control.Client;
+  readonly slates: slate.Client;
+  readonly effects: effect.Client;
+  readonly annotations: annotation.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -153,6 +159,9 @@ export default class Synnax extends framer.Client {
     );
     const racks = new rack.Client(this.transport.unary, tasks, this);
     this.hardware = new hardware.Client(tasks, racks, devices);
+    this.slates = new slate.Client(this.transport.unary);
+    this.effects = new effect.Client(this.transport.unary, this);
+    this.annotations = new annotation.Client(this.transport.unary);
   }
 
   get key(): string {

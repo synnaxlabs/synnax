@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type task } from "@synnaxlabs/client";
+import { DisconnectedError, type rack, type task } from "@synnaxlabs/client";
 import { Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod/v4";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
 
 export const useCreate = <
@@ -28,7 +27,7 @@ export const useCreate = <
   const dispatch = useDispatch();
   return useCallback(
     async (task: task.New<Type, Config>, rackKey: rack.Key) => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const rck = await client.hardware.racks.retrieve(rackKey);
       const createdTask = await rck.createTask(task, schemas);
       dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: createdTask.key } }));

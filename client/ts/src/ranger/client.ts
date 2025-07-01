@@ -33,6 +33,7 @@ import {
   type Params,
   type Payload,
   payloadZ,
+  type Stage,
 } from "@/ranger/payload";
 import { type CreateOptions, type Writer } from "@/ranger/writer";
 import { signals } from "@/signals";
@@ -47,6 +48,7 @@ export class Range {
   readonly kv: KV;
   readonly timeRange: TimeRange;
   readonly color: string | undefined;
+  readonly stage: Stage;
   readonly channels: channel.Retriever;
   private readonly aliaser: Aliaser;
   private readonly frameClient: framer.Client;
@@ -59,6 +61,7 @@ export class Range {
     timeRange: TimeRange = TimeRange.ZERO,
     key: string,
     color: string | undefined,
+    stage: Stage,
     _frameClient: framer.Client,
     _kv: KV,
     _aliaser: Aliaser,
@@ -70,6 +73,7 @@ export class Range {
     this.key = key;
     this.name = name;
     this.timeRange = timeRange;
+    this.stage = stage;
     this.frameClient = _frameClient;
     this.color = color;
     this.kv = _kv;
@@ -89,6 +93,7 @@ export class Range {
       key: this.key,
       name: this.name,
       timeRange: this.timeRange,
+      stage: this.stage,
       color: this.color,
     };
   }
@@ -151,7 +156,7 @@ export class Range {
     const wrapper = new observe.Observer<Range[]>();
     const initial: ontology.Resource[] = (await this.retrieveChildren()).map((r) => {
       const id = ontologyID(r.key);
-      return { id, key: id.toString(), name: r.name, data: r.payload };
+      return { id, key: ontology.idToString(id), name: r.name, data: r.payload };
     });
     const base = await this.ontologyClient.openDependentTracker({
       target: this.ontologyID,
@@ -170,7 +175,12 @@ export class Range {
     const p = await this.retrieveParent();
     if (p == null) return null;
     const id = ontologyID(p.key);
-    const resourceP = { id, key: id.toString(), name: p.name, data: p.payload };
+    const resourceP = {
+      id,
+      key: ontology.idToString(id),
+      name: p.name,
+      data: p.payload,
+    };
     const base = await this.ontologyClient.openDependentTracker({
       target: this.ontologyID,
       dependents: [resourceP],
@@ -310,6 +320,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
       payload.timeRange,
       payload.key,
       payload.color,
+      payload.stage,
       this.frameClient,
       new KV(payload.key, this.unaryClient, this.frameClient),
       new Aliaser(payload.key, this.frameClient, this.unaryClient),
@@ -347,16 +358,18 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
       key: resource.id.key,
       name: resource.data?.name as string,
       timeRange: new TimeRange(resource.data?.timeRange as CrudeTimeRange),
+      stage: resource.data?.stage as Stage,
       color: resource.data?.color as string,
     });
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
 
-export const aliasOntologyID = (key: Key): ontology.ID =>
-  new ontology.ID({ type: ALIAS_ONTOLOGY_TYPE, key });
+export const aliasOntologyID = (key: Key): ontology.ID => ({
+  type: ALIAS_ONTOLOGY_TYPE,
+  key,
+});
 
 export const convertOntologyResourceToPayload = ({
   data,
@@ -369,5 +382,6 @@ export const convertOntologyResourceToPayload = ({
     name,
     timeRange,
     color: typeof data?.color === "string" ? data.color : undefined,
+    stage: data?.stage as Stage,
   };
 };

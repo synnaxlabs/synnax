@@ -15,22 +15,18 @@ import {
   Form,
   Icon,
   Input,
+  Label,
   Ranger,
   Text,
   usePrevious,
 } from "@synnaxlabs/pluto";
-import { type change, deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
-import { useDispatch } from "react-redux";
-import { z } from "zod/v4";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Layout } from "@/layout";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
-import { useSelect } from "@/range/selectors";
-import { add, type StaticRange } from "@/range/slice";
 
 interface ParentRangeButtonProps {
   rangeKey: string;
@@ -39,10 +35,10 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const parent = Ranger.useRetrieveParentRange(rangeKey);
+  const res = Ranger.useParent(rangeKey);
   const placeLayout = Layout.usePlacer();
-
-  if (parent == null) return null;
+  if (res.variant !== "success" || res.data == null) return null;
+  const parent = res.data;
   return (
     <Align.Space x size="small" align="center">
       <Text.Text level="p" shade={11} weight={450}>
@@ -50,7 +46,7 @@ const ParentRangeButton = ({
       </Text.Text>
       <Button.Button
         variant="text"
-        shade={11}
+        shade={1}
         weight={400}
         startIcon={<Icon.Range />}
         iconSpacing="small"
@@ -69,76 +65,23 @@ export interface DetailsProps {
   rangeKey: string;
 }
 
-const formSchema = z.object({
-  name: z.string().min(1, "Name must not be empty"),
-  timeRange: z.object({
-    start: z.number(),
-    end: z.number(),
-  }),
-});
-
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
-  const existingRangeInState = useSelect(rangeKey);
   const layoutName = Layout.useSelect(rangeKey)?.name;
   const prevLayoutName = usePrevious(layoutName);
-  const dispatch = useDispatch();
-
-  const formCtx = Form.useSynced<
-    typeof formSchema,
-    change.Change<string, ranger.Range>[]
-  >({
-    name: "Range",
-    key: [rangeKey, "details"],
-    schema: formSchema,
-    values: {
+  const { form } = Ranger.useForm({
+    params: { key: rangeKey },
+    initialValues: {
+      key: rangeKey,
       name: "",
       timeRange: { start: 0, end: 0 },
-    },
-    queryFn: async ({ client }) => {
-      const rng = await client.ranges.retrieve(rangeKey);
-      return {
-        name: rng.name,
-        timeRange: {
-          start: Number(rng.timeRange.start),
-          end: Number(rng.timeRange.end),
-        },
-      };
-    },
-    openObservable: async (client) => await client.ranges.openTracker(),
-    applyObservable: ({ changes, ctx }) => {
-      const target = changes.find((c) => c.variant === "set" && c.key === rangeKey);
-      if (target == null || target.value == null) return;
-      ctx.set("", {
-        name: target.value.name,
-        timeRange: {
-          start: Number(target.value.timeRange.start),
-          end: Number(target.value.timeRange.end),
-        },
-      });
-    },
-    applyChanges: async ({ client, path, values, prev }) => {
-      if (client == null || deep.equal(values, prev)) return;
-      const { name, timeRange } = values;
-      await client.ranges.create({ key: rangeKey, name, timeRange });
-      if (existingRangeInState == null) return;
-      if (path.includes("name")) dispatch(Layout.rename({ key: rangeKey, name }));
-      const newRange: StaticRange = {
-        key: rangeKey,
-        persisted: true,
-        variant: "static",
-        name,
-        timeRange: {
-          start: Number(timeRange.start),
-          end: Number(timeRange.end),
-        },
-      };
-      dispatch(add({ ranges: [newRange], switchActive: false }));
+      labels: [],
+      stage: "to_do",
     },
   });
-  const name = Form.useFieldValue<string, string, typeof formSchema>(
+  const name = Form.useFieldValue<string, string, typeof Ranger.rangeFormSchema>(
     "name",
     false,
-    formCtx,
+    form,
   );
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleCopyLink = () => {
@@ -147,7 +90,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
 
   useEffect(() => {
     if (prevLayoutName == layoutName || prevLayoutName == null) return;
-    formCtx.set("name", layoutName);
+    form.set("name", layoutName);
   }, [layoutName]);
 
   const copy = useCopyToClipboard();
@@ -162,7 +105,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   };
 
   const handleCopyTypeScriptCode = () => {
-    const name = formCtx.get<string>("name").value;
+    const name = form.get<string>("name").value;
     copy(
       `
       // Retrieve ${name}
@@ -173,8 +116,15 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   };
 
   return (
-    <Form.Form<typeof formSchema> {...formCtx}>
-      <Align.Space y size="large">
+    <Align.Space
+      y
+      size="large"
+      style={{ padding: "3rem" }}
+      rounded={2}
+      background={1}
+      bordered
+    >
+      <Form.Form<typeof Ranger.rangeFormSchema> {...form}>
         <Align.Space x justify="spaceBetween" className={CSS.B("header")}>
           <Align.Space y grow>
             <Form.TextField
@@ -182,6 +132,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               showLabel={false}
               inputProps={{
                 variant: "natural",
+                weight: 500,
                 level: "h1",
                 placeholder: "Name",
                 onlyChangeOnBlur: true,
@@ -197,16 +148,14 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             style={{ height: "fit-content" }}
             size="small"
           >
-            <Align.Space x>
+            <Align.Space x size="small">
               <Button.Icon
                 tooltip={`Copy Python code to retrieve ${name}`}
                 tooltipLocation="bottom"
                 variant="text"
+                onClick={handleCopyPythonCode}
               >
-                <Icon.Python
-                  onClick={handleCopyPythonCode}
-                  style={{ color: "var(--pluto-gray-l9)" }}
-                />
+                <Icon.Python color={10} />
               </Button.Icon>
               <Button.Icon
                 variant="text"
@@ -214,7 +163,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 tooltipLocation="bottom"
                 onClick={handleCopyTypeScriptCode}
               >
-                <Icon.TypeScript style={{ color: "var(--pluto-gray-l9)" }} />
+                <Icon.TypeScript color={10} />
               </Button.Icon>
             </Align.Space>
             <Divider.Divider y />
@@ -224,12 +173,17 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               tooltipLocation="bottom"
               onClick={handleCopyLink}
             >
-              <Icon.Link />
+              <Icon.Link color={10} />
             </Button.Icon>
           </Align.Space>
         </Align.Space>
         <Align.Space className={CSS.B("time-range")} x size="medium" align="center">
-          <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
+          <Form.Field<number>
+            path="timeRange.start"
+            padHelpText={false}
+            required={false}
+            label="From"
+          >
             {(p) => (
               <Input.DateTime level="h4" variant="natural" onlyChangeOnBlur {...p} />
             )}
@@ -239,13 +193,30 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             level="h4"
             startIcon={<Icon.Arrow.Right />}
           />
-          <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
+          <Form.Field<number>
+            required={false}
+            padHelpText={false}
+            path="timeRange.end"
+            label="To"
+          >
             {(p) => (
               <Input.DateTime onlyChangeOnBlur level="h4" variant="natural" {...p} />
             )}
           </Form.Field>
+          <Form.Field<string[]> required={false} path="labels">
+            {({ variant: _, ...p }) => (
+              <Label.SelectMultiple
+                entryRenderKey="name"
+                dropdownVariant="floating"
+                zIndex={100}
+                location="bottom"
+                style={{ width: "fit-content" }}
+                {...p}
+              />
+            )}
+          </Form.Field>
         </Align.Space>
-      </Align.Space>
-    </Form.Form>
+      </Form.Form>
+    </Align.Space>
   );
 };

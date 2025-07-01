@@ -73,7 +73,7 @@ var _ = Describe("Sender", func() {
 				senderStream.Inlet() <- 2
 				v = <-receiverStream.Outlet()
 				cancel()
-				Expect(sCtx.Wait()).To(Equal(context.Canceled))
+				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
 				_, ok := <-receiverStream.Outlet()
 				Expect(ok).To(BeFalse())
 			})
@@ -94,7 +94,7 @@ var _ = Describe("Sender", func() {
 				v := <-receiverStream.Outlet()
 				Expect(v).To(Equal(2))
 				cancel()
-				Expect(sCtx.Wait()).To(Equal(context.Canceled))
+				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
 				_, ok := <-receiverStream.Outlet()
 				Expect(ok).To(BeFalse())
 			})
@@ -169,7 +169,7 @@ var _ = Describe("Sender", func() {
 				sender.Flow(sCtx)
 				senderStream.Inlet() <- 2
 				cancel()
-				Expect(sCtx.Wait()).To(Equal(context.Canceled))
+				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
 			})
 		})
 		Describe("SwitchSender", func() {
@@ -202,7 +202,7 @@ var _ = Describe("Sender", func() {
 				sender.Flow(sCtx)
 				senderStream.Inlet() <- 1
 				cancel()
-				Expect(sCtx.Wait()).To(Equal(context.Canceled))
+				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
 			})
 			It("Should exit when the switch returns an error", func() {
 				sender := &freightfluence.SwitchSender[int]{}

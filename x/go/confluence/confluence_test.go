@@ -11,6 +11,7 @@ package confluence_test
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/atomic"
@@ -108,6 +109,20 @@ var _ = Describe("Confluence", func() {
 			_, ok := <-o.Outlet()
 			Expect(ok).To(BeFalse())
 			Expect(a.Value()).To(Equal(int32(10)))
+		})
+	})
+
+	Describe("Drain", func() {
+		It("Should drain an outlet of values until it is closed", func() {
+			c := NewStream[int](10)
+			go func() {
+				for i := 0; i < 10; i++ {
+					c.Inlet() <- 1
+				}
+				c.Close()
+			}()
+			Drain[int](c)
+			Expect(c.Outlet()).To(BeClosed())
 		})
 	})
 })

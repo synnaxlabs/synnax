@@ -338,6 +338,8 @@ export class Series<T extends TelemValue = TelemValue>
     } else this.dataType = new DataType(data);
 
     if (!isArray && !isSingle) this._data = data as ArrayBuffer;
+    else if (isArray && data.length === 0)
+      this._data = new this.dataType.Array([]).buffer;
     else {
       let data_ = isSingle ? [data] : data;
       const first = data_[0];
@@ -1471,6 +1473,15 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
         },
       };
     return new MultiSeriesIterator<T>(this.series);
+  }
+
+  /**
+   * Returns an array of the values in the multi-series as strings.
+   * For variable length data types (like STRING or JSON), this decodes the underlying buffer.
+   * @returns An array of string representations of the multi-series values.
+   */
+  toStrings(): string[] {
+    return this.series.flatMap((s) => s.toStrings());
   }
 }
 
