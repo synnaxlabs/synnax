@@ -30,7 +30,7 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		ChannelRetrieve:        fhttp.UnaryServer[api.ChannelRetrieveRequest, api.ChannelRetrieveResponse](router, "/api/v1/channel/retrieve"),
 		ChannelDelete:          fhttp.UnaryServer[api.ChannelDeleteRequest, types.Nil](router, "/api/v1/channel/delete"),
 		ChannelRename:          fhttp.UnaryServer[api.ChannelRenameRequest, types.Nil](router, "/api/v1/channel/rename"),
-		ChannelRetrieveGroup:   fhttp.UnaryServer[api.ChannelRetrieveGroupRequest, api.ChannelRetrieveGroupResponse](router, "/api/v1/channel/retrieve-group"),
+		ChannelRetrieveGroup:   fhttp.UnaryServer[types.Nil, api.ChannelRetrieveGroupResponse](router, "/api/v1/channel/retrieve-group"),
 		ConnectivityCheck:      fhttp.UnaryServer[types.Nil, api.ConnectivityCheckResponse](router, "/api/v1/connectivity/check"),
 		FrameWriter:            fhttp.StreamServer[api.FrameWriterRequest, api.FrameWriterResponse](router, "/api/v1/frame/write", fhttp.WithCodecResolver(codecResolver)),
 		FrameIterator:          fhttp.StreamServer[api.FrameIteratorRequest, api.FrameIteratorResponse](router, "/api/v1/frame/iterate"),

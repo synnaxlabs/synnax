@@ -69,15 +69,15 @@ type LogRenameRequest struct {
 	Name string    `json:"name" msgpack:"name"`
 }
 
-func (s *LogService) Rename(ctx context.Context, req LogRenameRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *LogService) Rename(ctx context.Context, req LogRenameRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
 		Objects: []ontology.ID{log.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 	})
 }
@@ -87,15 +87,15 @@ type LogSetDataRequest struct {
 	Data string    `json:"data" msgpack:"data"`
 }
 
-func (s *LogService) SetData(ctx context.Context, req LogSetDataRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *LogService) SetData(ctx context.Context, req LogSetDataRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
 		Objects: []ontology.ID{log.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
 	})
 }
@@ -129,15 +129,15 @@ type LogDeleteRequest struct {
 	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
-func (s *LogService) Delete(ctx context.Context, req LogDeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *LogService) Delete(ctx context.Context, req LogDeleteRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
 		Objects: log.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
 }

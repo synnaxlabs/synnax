@@ -71,7 +71,7 @@ type Transport struct {
 	ChannelRetrieve      freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
 	ChannelDelete        freighter.UnaryServer[ChannelDeleteRequest, types.Nil]
 	ChannelRename        freighter.UnaryServer[ChannelRenameRequest, types.Nil]
-	ChannelRetrieveGroup freighter.UnaryServer[ChannelRetrieveGroupRequest, ChannelRetrieveGroupResponse]
+	ChannelRetrieveGroup freighter.UnaryServer[types.Nil, ChannelRetrieveGroupResponse]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
 	// FRAME
@@ -417,8 +417,8 @@ func (l *Layer) BindTo(t Transport) {
 
 // New instantiates the server API layer using the provided Config. This should only be called
 // once.
-func New(configs ...Config) (*Layer, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func New(cfgs ...Config) (*Layer, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

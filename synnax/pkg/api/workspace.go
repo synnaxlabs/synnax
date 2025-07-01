@@ -74,15 +74,15 @@ type WorkspaceRenameRequest struct {
 	Name string    `json:"name" msgpack:"name"`
 }
 
-func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameRequest) (res types.Nil, err error) {
+func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameRequest) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 	})
 }
@@ -92,15 +92,15 @@ type WorkspaceSetLayoutRequest struct {
 	Layout string    `json:"layout" msgpack:"layout"`
 }
 
-func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).SetLayout(ctx, req.Key, req.Layout)
 	})
 }
@@ -150,15 +150,15 @@ type WorkspaceDeleteRequest struct {
 	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
-func (s *WorkspaceService) Delete(ctx context.Context, req WorkspaceDeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *WorkspaceService) Delete(ctx context.Context, req WorkspaceDeleteRequest) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
 		Objects: workspace.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
 }

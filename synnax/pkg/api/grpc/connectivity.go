@@ -21,18 +21,14 @@ import (
 
 type connectivityResponseTranslator struct{}
 
-type (
-	connectivityServer = fgrpc.UnaryServer[
-		types.Nil,
-		*emptypb.Empty,
-		api.ConnectivityCheckResponse,
-		*gapi.ConnectivityCheckResponse,
-	]
-)
+type connectivityServer = fgrpc.UnaryServer[
+	types.Nil,
+	*emptypb.Empty,
+	api.ConnectivityCheckResponse,
+	*gapi.ConnectivityCheckResponse,
+]
 
-var (
-	_ fgrpc.Translator[api.ConnectivityCheckResponse, *gapi.ConnectivityCheckResponse] = (*connectivityResponseTranslator)(nil)
-)
+var _ fgrpc.Translator[api.ConnectivityCheckResponse, *gapi.ConnectivityCheckResponse] = (*connectivityResponseTranslator)(nil)
 
 func (c connectivityResponseTranslator) Forward(
 	ctx context.Context,

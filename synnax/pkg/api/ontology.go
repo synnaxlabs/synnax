@@ -134,15 +134,15 @@ type OntologyDeleteGroupRequest struct {
 func (o *OntologyService) DeleteGroup(
 	ctx context.Context,
 	req OntologyDeleteGroupRequest,
-) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+) (types.Nil, error) {
+	if err := o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
 		Objects: group.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.group.NewWriter(tx)
 		return w.Delete(ctx, req.Keys...)
 	})
@@ -156,15 +156,15 @@ type OntologyRenameGroupRequest struct {
 func (o *OntologyService) RenameGroup(
 	ctx context.Context,
 	req OntologyRenameGroupRequest,
-) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+) (types.Nil, error) {
+	if err := o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.group.NewWriter(tx)
 		return w.Rename(ctx, req.Key, req.Name)
 	})
@@ -178,15 +178,15 @@ type OntologyAddChildrenRequest struct {
 func (o *OntologyService) AddChildren(
 	ctx context.Context,
 	req OntologyAddChildrenRequest,
-) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+) (types.Nil, error) {
+	if err := o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
 		Objects: append(req.Children, req.ID),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.Ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err := w.DefineRelationship(ctx, req.ID, ontology.ParentOf, child); err != nil {
@@ -205,15 +205,15 @@ type OntologyRemoveChildrenRequest struct {
 func (o *OntologyService) RemoveChildren(
 	ctx context.Context,
 	req OntologyRemoveChildrenRequest,
-) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+) (types.Nil, error) {
+	if err := o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
 		Objects: append(req.Children, req.ID),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.Ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err := w.DeleteRelationship(ctx, req.ID, ontology.ParentOf, child); err != nil {
@@ -233,21 +233,21 @@ type OntologyMoveChildrenRequest struct {
 func (o *OntologyService) MoveChildren(
 	ctx context.Context,
 	req OntologyMoveChildrenRequest,
-) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+) (types.Nil, error) {
+	if err := o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
 		Objects: append(req.Children, req.From, req.To),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.Ontology.NewWriter(tx)
 		for _, child := range req.Children {
-			if err = w.DeleteRelationship(ctx, req.From, ontology.ParentOf, child); err != nil {
+			if err := w.DeleteRelationship(ctx, req.From, ontology.ParentOf, child); err != nil {
 				return err
 			}
-			if err = w.DefineRelationship(ctx, req.To, ontology.ParentOf, child); err != nil {
+			if err := w.DefineRelationship(ctx, req.To, ontology.ParentOf, child); err != nil {
 				return err
 			}
 		}

@@ -348,15 +348,13 @@ func (s *ChannelService) Rename(
 	})
 }
 
-type ChannelRetrieveGroupRequest struct{}
-
 type ChannelRetrieveGroupResponse struct {
 	Group group.Group `json:"group" msgpack:"group"`
 }
 
 func (s *ChannelService) RetrieveGroup(
 	ctx context.Context,
-	_ ChannelRetrieveGroupRequest,
+	_ types.Nil,
 ) (ChannelRetrieveGroupResponse, error) {
 	g := s.internal.Group()
 	if err := s.access.Enforce(ctx, access.Request{

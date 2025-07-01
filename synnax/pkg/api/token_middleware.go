@@ -31,9 +31,9 @@ func tokenMiddleware(svc *token.Service) freighter.Middleware {
 		ctx freighter.Context,
 		next freighter.Next,
 	) (freighter.Context, error) {
-		tk, _err := tryParseToken(ctx.Params)
-		if _err != nil {
-			return ctx, _err
+		tk, err := tryParseToken(ctx.Params)
+		if err != nil {
+			return ctx, err
 		}
 		userKey, newTK, err := svc.ValidateMaybeRefresh(tk)
 		if err != nil {
