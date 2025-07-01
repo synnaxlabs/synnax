@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package api implements the client interfaces for interacting with the Synnax cluster.
-// The top level package is transport agnostic, and provides freighter
-// compatible interfaces for all of its services. sub-packages in this directory wrap
-// the core API services to provide transport-specific implementations.
+// The top level package is transport agnostic, and provides freighter-compatible
+// interfaces for all of its services. Packages in this directory wrap the core API
+// services to provide transport-specific implementations.
 package api
 
 import (
@@ -35,10 +35,7 @@ type Config struct {
 	Distribution *distribution.Layer
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
-)
+var _ config.Config[Config] = Config{}
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
@@ -152,8 +149,8 @@ type Transport struct {
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
 }
 
-// Layer wraps all implemented API services into a single container. Protocol-specific Layer
-// implementations should use this struct during instantiation.
+// Layer wraps all implemented API services into a single container. Protocol-specific
+// Layer implementations should use this struct during instantiation.
 type Layer struct {
 	provider     Provider
 	config       Config
@@ -180,10 +177,8 @@ func (l *Layer) BindTo(t Transport) {
 		tk                 = tokenMiddleware(l.provider.auth.token)
 		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: l.config.Instrumentation}))
 		insecureMiddleware = []freighter.Middleware{instrumentation}
-		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
+		secureMiddleware   = []freighter.Middleware{instrumentation, tk}
 	)
-	copy(secureMiddleware, insecureMiddleware)
-	secureMiddleware = append(secureMiddleware, tk)
 
 	freighter.UseOnAll(
 		insecureMiddleware,
@@ -413,10 +408,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.AccessRetrievePolicy.BindHandler(l.Access.RetrievePolicy)
 }
 
-// New instantiates the server API layer using the provided Config. This should only be called
-// once.
+// New instantiates the server API layer using the provided Config. This should only be
+// called once.
 func New(cfgs ...Config) (*Layer, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
