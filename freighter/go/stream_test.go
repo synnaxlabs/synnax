@@ -389,7 +389,7 @@ func (impl *mockStreamImplementation) start(
 	host address.Address,
 	ins alamos.Instrumentation,
 ) (streamServer, streamClient) {
-	return fmock.NewStreamPair[request, response]( /*request buffer */ 11 /* response buffer */, 11)
+	return fmock.NewStreamPair[request, response]()
 }
 
 func (impl *mockStreamImplementation) stop() error { return nil }
