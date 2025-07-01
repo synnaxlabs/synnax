@@ -244,7 +244,6 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   for (const c of config.channels) {
     const key = readMapKey(c);
     const existing = dev.properties.read.channels[key];
-    console.log(existing, key, dev.properties.read.channels);
     if (existing == null) toCreate.push(c);
     else
       try {

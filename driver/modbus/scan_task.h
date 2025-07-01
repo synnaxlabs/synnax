@@ -47,21 +47,22 @@ class ScanTask final : public task::Task {
     void test_connection(const task::Command &cmd) const {
         xjson::Parser parser(cmd.args);
         const ScanCommandArgs args(parser);
-        task::State state;
-        state.task = task.key;
-        state.key = cmd.key;
-        x::defer set_state([&] { this->ctx->set_state(state); });
+        synnax::TaskStatus status;
+        status.key = cmd.key;
+        status.details.task = task.key;
+        status.details.running = true;
+        x::defer set_state([&] { this->ctx->set_status(status); });
         if (!parser.ok()) {
-            state.details = parser.error_json();
+            status.details.data = parser.error_json();
             return;
         }
         auto [dev, err] = this->devices->acquire(args.connection);
         if (err) {
-            state.variant = "error";
-            state.details = {{"message", err.data}};
+            status.variant = "error";
+            status.message = err.data;
         } else {
-            state.variant = "success";
-            state.details = {{"message", "Connection successful"}};
+            status.variant = "success";
+            status.message = "Connection successful";
         }
     }
 
