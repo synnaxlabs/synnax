@@ -87,6 +87,26 @@ interface UseField {
   ): UseFieldReturn<I, O> | null;
 }
 
+interface FieldStatus {
+  status: status.Crude;
+}
+
+export const createFieldState = <V extends Input.Value>(
+  value: V,
+  status: FieldStatus,
+  touched: boolean,
+  required: boolean,
+): FieldState<V> => {
+  const status 
+
+}
+  value,
+  status,
+  touched,
+  required,
+});
+
+
 /**
  * Hook for managing a particular field in a form.
  *
@@ -457,8 +477,8 @@ const NO_ERROR_STATUS = (path: string): status.Crude => ({
 });
 
 interface UseRef<Z extends z.ZodType> {
-  state: z.infer<Z>;
-  statuses: Map<string, status.Crude>;
+  values: z.infer<Z>;
+  states: Map<string, status.Crude>;
   touched: Set<string>;
   listeners: Map<string, Set<Listener>>;
   parentListeners: Map<string, Set<Listener>>;
@@ -502,8 +522,8 @@ export const use = <Z extends z.ZodType>({
   onHasTouched,
 }: UseProps<Z>): UseReturn<Z> => {
   const ref = useInitializerRef<UseRef<Z>>(() => ({
-    state: deep.copy(initialValues),
-    statuses: new Map(),
+    values: deep.copy(initialValues),
+    states: new Map(),
     touched: new Set(),
     listeners: new Map(),
     parentListeners: new Map(),
@@ -515,7 +535,7 @@ export const use = <Z extends z.ZodType>({
   const handleError = Status.useErrorHandler();
 
   const setCurrentStateAsInitialValues = useCallback(() => {
-    initialValuesRef.current = deep.copy(ref.current.state);
+    initialValuesRef.current = deep.copy(ref.current.values);
     clearTouched();
   }, []);
 
@@ -539,7 +559,7 @@ export const use = <Z extends z.ZodType>({
       path: string,
       { optional }: GetOptions = { optional: false },
     ): FieldState<V> | null => {
-      const { state, statuses, touched } = ref.current;
+      const { values: state, states: statuses, touched } = ref.current;
       const value = deep.get(state, path, { optional });
       if (value == null) return null;
       const fs = {
@@ -584,7 +604,7 @@ export const use = <Z extends z.ZodType>({
   }, []);
 
   const remove = useCallback((path: string) => {
-    const { state, statuses, listeners, parentListeners } = ref.current;
+    const { values: state, states: statuses, listeners, parentListeners } = ref.current;
     deep.remove(state, path);
     statuses.delete(path);
     removeTouched(path);
@@ -593,8 +613,8 @@ export const use = <Z extends z.ZodType>({
   }, []);
 
   const reset = useCallback((values?: z.infer<Z>) => {
-    const { statuses } = ref.current;
-    ref.current.state = values ?? deep.copy(initialValuesRef.current);
+    const { states: statuses } = ref.current;
+    ref.current.values = values ?? deep.copy(initialValuesRef.current);
     updateFieldValues("");
     statuses.clear();
     clearTouched();
@@ -658,7 +678,7 @@ export const use = <Z extends z.ZodType>({
       validationPath: string = "",
       validateChildren: boolean = true,
     ): boolean => {
-      const { statuses, listeners } = ref.current;
+      const { states: statuses, listeners } = ref.current;
 
       // Parse was a complete success. No errors encountered.
       if (result.success) {
@@ -718,7 +738,7 @@ export const use = <Z extends z.ZodType>({
   const validate = useCallback(
     (path?: string, validateChildren?: boolean): boolean => {
       if (schemaRef.current == null) return true;
-      const { state } = ref.current;
+      const { values: state } = ref.current;
       const result = schemaRef.current.safeParse(state);
       return processValidationResult(result, path, validateChildren);
     },
@@ -728,7 +748,7 @@ export const use = <Z extends z.ZodType>({
   const validateAsync = useCallback(
     async (path?: string, validateChildren?: boolean): Promise<boolean> => {
       if (schemaRef.current == null) return true;
-      const { state } = ref.current;
+      const { values: state } = ref.current;
       const result = await schemaRef.current.safeParseAsync(state);
       return processValidationResult(result, path, validateChildren);
     },
@@ -736,15 +756,15 @@ export const use = <Z extends z.ZodType>({
   );
 
   const set: SetFunc = useCallback((path, value, opts = {}): void => {
-    const prev = deep.get(ref.current.state, path, { optional: true });
+    const prev = deep.get(ref.current.values, path, { optional: true });
     const { validateChildren = true } = opts;
-    const { state } = ref.current;
+    const { values: state } = ref.current;
     // check if the value is the same as the initial value provided
     const initialValue = deep.get(initialValuesRef.current, path, { optional: true });
     const equalsInitial = deep.equal(initialValue, value);
     if (equalsInitial) removeTouched(path);
     else addTouched(path);
-    if (path.length === 0) ref.current.state = value as z.infer<Z>;
+    if (path.length === 0) ref.current.values = value as z.infer<Z>;
     else deep.set(state, path, value);
     updateFieldValues(path);
     handleError(async () => {
@@ -754,23 +774,23 @@ export const use = <Z extends z.ZodType>({
       } catch {
         valid = await validateAsync(path, validateChildren);
       }
-      onChangeRef.current?.({ values: ref.current.state, path, prev, valid });
+      onChangeRef.current?.({ values: ref.current.values, path, prev, valid });
     }, "Failed to validate form");
   }, []);
 
   const has = useCallback(
-    (path: string): boolean => deep.has(ref.current.state, path),
+    (path: string): boolean => deep.has(ref.current.values, path),
     [],
   );
 
   const setStatus = useCallback((path: string, status: status.Crude): void => {
-    ref.current.statuses.set(path, status);
+    ref.current.states.set(path, status);
     addTouched(path);
     updateFieldState(path);
   }, []);
 
   const clearStatuses = useCallback(() => {
-    const { statuses } = ref.current;
+    const { states: statuses } = ref.current;
     statuses.clear();
     statuses.forEach((_, path) => updateFieldState(path));
   }, []);
@@ -778,7 +798,7 @@ export const use = <Z extends z.ZodType>({
   useEffect(() => {
     if (!sync) return;
     const { listeners } = ref.current;
-    ref.current.state = initialValues;
+    ref.current.values = initialValues;
     listeners.forEach((lis, p) => {
       const v = get(p, { optional: true });
       if (v == null) return;
@@ -794,7 +814,7 @@ export const use = <Z extends z.ZodType>({
       mode,
       validate,
       validateAsync,
-      value: () => ref.current.state,
+      value: () => ref.current.values,
       has,
       remove,
       setStatus,
