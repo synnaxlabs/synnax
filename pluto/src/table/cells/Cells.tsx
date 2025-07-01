@@ -9,14 +9,7 @@
 
 import "@/table/cells/Cells.css";
 
-import {
-  bounds,
-  type box,
-  color,
-  location,
-  scale,
-  type UnknownRecord,
-} from "@synnaxlabs/x";
+import { bounds, type box, color, location, type record, scale } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod/v4";
 
@@ -38,7 +31,7 @@ export const textPropsZ = z.object({
 });
 export type TextProps = z.infer<typeof textPropsZ>;
 
-export type CellProps<P extends object = UnknownRecord> = P & {
+export type CellProps<P extends object = record.Unknown> = P & {
   cellKey: string;
   box: box.Box;
   selected: boolean;

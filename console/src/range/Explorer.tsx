@@ -10,11 +10,10 @@
 import "@/range/Explorer.css";
 
 import { ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Haul,
-  Icon as PIcon,
+  Icon,
   Input,
   List,
   Menu as PMenu,
@@ -23,7 +22,6 @@ import {
   Synnax,
   Tag,
   Text,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
@@ -35,7 +33,6 @@ import {
   deleteMenuItem,
   useDelete,
   useLabels,
-  useParent,
   useViewDetails,
   viewDetailsMenuItem,
 } from "@/range/ContextMenu";
@@ -67,7 +64,7 @@ const ExplorerListItem = ({
   const { entry } = props;
   const placeLayout = Layout.usePlacer();
   const labels = useLabels(entry.key);
-  const parent = useParent(entry.key);
+  const parent = Ranger.useRetrieveParentRange(entry.key);
   const dragGhost = useRef<HTMLElement | null>(null);
   const elRef = useRef<HTMLDivElement>(null);
   const onRename = useRename(entry.key);
@@ -89,6 +86,8 @@ const ExplorerListItem = ({
       );
     else dispatch(remove({ keys: [entry.key] }));
   };
+
+  const StarIcon = selected ? Icon.StarFilled : Icon.StarOutlined;
 
   return (
     <List.ItemFrame
@@ -169,7 +168,7 @@ const ExplorerListItem = ({
           ))}
         </Align.Stack>
         <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
-        <PIcon.Icon
+        <StarIcon
           className={CSS(
             CSS.B("range-explorer-item-star"),
             selected && CSS.M("selected"),
@@ -178,37 +177,28 @@ const ExplorerListItem = ({
             e.stopPropagation();
             handleStar();
           }}
-        >
-          {selected ? <Icon.StarFilled /> : <Icon.StarOutlined />}
-        </PIcon.Icon>
+        />
       </Align.Space>
     </List.ItemFrame>
   );
 };
 
 const ChangeLoader = () => {
-  const { setSourceData } = List.useDataUtils<string>();
-  const client = Synnax.use();
-  useAsyncEffect(async () => {
-    const obs = await client?.ranges.openTracker();
-    obs?.onChange((changes) => {
-      setSourceData((prev) => {
-        const deletes = new Set(
-          changes.filter((c) => c.variant === "delete").map((c) => c.key),
-        );
-        const next = prev.filter((r) => !deletes.has(r.key));
-        const sets = changes.filter((c) => c.variant === "set");
-        const setKeys = new Set(sets.map((c) => c.key));
-        return [
-          ...next.filter((r) => !setKeys.has(r.key)),
-          ...sets.map((c) => c.value),
-        ];
-      });
+  const { setSourceData } = List.useDataUtils<ranger.Key, ranger.Payload>();
+  const handleDelete = useCallback((key: ranger.Key) => {
+    setSourceData((prev) => prev.filter((r) => r.key !== key));
+  }, []);
+  const handleSet = useCallback((range: ranger.Payload) => {
+    setSourceData((prev) => {
+      const next = [...prev];
+      const index = next.findIndex((r) => r.key === range.key);
+      if (index !== -1) next[index] = range;
+      else next.push(range);
+      return next;
     });
-    return async () => {
-      await obs?.close();
-    };
-  }, [client]);
+  }, []);
+  Ranger.useDeleteSynchronizer(handleDelete);
+  Ranger.useSetSynchronizer(handleSet);
   return null;
 };
 

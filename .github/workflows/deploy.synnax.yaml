@@ -89,7 +89,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS, Ubuntu for NI Linux RT, Ubuntu Latest, and Windows Latest
         os: [macos-15, ubuntu-22.04, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
@@ -229,7 +228,14 @@ jobs:
         if: matrix.os == 'windows-latest' && github.event_name == 'push'
         shell: powershell
         run: |
+          # Ensure EnVar.dll is present in the correct plugin path
+          $pluginPath = "${env:ProgramFiles(x86)}\NSIS\Plugins\x86-unicode"
+          Copy-Item -Force .\scripts\EnVar.dll "$pluginPath\EnVar.dll"
+
+          # Prepare the binary for packaging
           Copy-Item -Force .\synnax\synnax-v${{ needs.setup.outputs.VERSION }}-windows.exe .\scripts\synnax-server.exe
+
+          # Build the installer
           & makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows-installer.nsi
           if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to build Windows installer"

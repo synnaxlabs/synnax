@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { task } from "@synnaxlabs/client";
+import { Icon, Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -18,6 +17,7 @@ import { Menu } from "@/components";
 import { Group } from "@/group";
 import { type LayoutArgs } from "@/hardware/common/task/Task";
 import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layouts";
+import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
@@ -71,23 +71,6 @@ const useDelete = () => {
   }).mutate;
 };
 
-const useRangeSnapshot = () =>
-  useMutation<void, Error, Ontology.TreeContextMenuProps>({
-    mutationFn: async ({ store, client, selection: { resources, parentID } }) => {
-      const activeRange = Range.selectActiveKey(store.getState());
-      if (activeRange === null || parentID == null) return;
-      const tasks = await Promise.all(
-        resources.map(({ id, name }) =>
-          client.hardware.tasks.copy(id.key, `${name} (Snapshot)`, true),
-        ),
-      );
-      const otgIDs = tasks.map((t) => t.ontologyID);
-      const rangeID = ranger.ontologyID(activeRange);
-      await client.ontology.moveChildren(parentID, rangeID, ...otgIDs);
-    },
-    onError: (e: Error, { handleError }) => handleError(e, "Failed to create snapshot"),
-  }).mutate;
-
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client, addStatus, handleError } = props;
   const { resources, nodes } = selection;
@@ -112,7 +95,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     rename: () => Tree.startRenaming(nodes[0].key),
     link: () =>
       handleLink({ name: resources[0].name, ontologyID: resources[0].id.payload }),
-    rangeSnapshot: () => snap(props),
+    rangeSnapshot: () => snap(props.selection.resources),
     group: () => group(props),
   };
   const singleResource = resources.length === 1;
@@ -147,7 +130,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const handleRename: Ontology.HandleTreeRename = {
   execute: async ({ client, id, name, store }) => {
-    const task = await client.hardware.tasks.retrieve(id.key);
+    const task = await client.hardware.tasks.retrieve({ key: id.key });
     await client.hardware.tasks.create({ ...task, name });
     const layout = Layout.selectByFilter(
       store.getState(),
@@ -167,7 +150,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError,
 }) => {
   client.hardware.tasks
-    .retrieve(id.key)
+    .retrieve({ key: id.key })
     .then((task) => {
       const layout = createLayout(task);
       placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });

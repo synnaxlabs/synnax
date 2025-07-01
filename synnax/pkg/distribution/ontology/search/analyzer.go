@@ -17,12 +17,13 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/custom"
 	"github.com/blevesearch/bleve/v2/mapping"
 	"github.com/blevesearch/bleve/v2/registry"
+	"github.com/samber/lo"
 )
 
 func init() {
-	registry.RegisterTokenizer(separatorTokenizer, func(config map[string]any, cache *registry.Cache) (analysis.Tokenizer, error) {
+	lo.Must0(registry.RegisterTokenizer(separatorTokenizer, func(config map[string]any, cache *registry.Cache) (analysis.Tokenizer, error) {
 		return &SepTokenizer{}, nil
-	})
+	}))
 }
 
 const (

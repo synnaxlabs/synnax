@@ -17,19 +17,19 @@
     "fix": "eslint --cache --fix"
   },
   "dependencies": {
-    "@synnaxlabs/client": "workspace:*",
-    "@synnaxlabs/x": "workspace:*",
-    "tsx": "^4.19.4"
+    "@synnaxlabs/client": "workspace:^",
+    "@synnaxlabs/x": "workspace:^",
+    "tsx": "^4.20.3"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "workspace:*",
-    "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^24.0.0",
-    "eslint": "^9.28.0",
-    "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.8.3",
-    "vite": "^6.3.5",
-    "vitest": "^3.2.3"
+    "@synnaxlabs/tsconfig": "workspace:^",
+    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-synnaxlabs": "workspace:^",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
   },
   "main": "dist/client.cjs",
   "module": "dist/client.js",

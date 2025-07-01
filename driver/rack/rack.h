@@ -30,7 +30,7 @@
 #include "driver/modbus/modbus.h"
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
-#include "driver/rack/state/state.h"
+#include "driver/rack/status/status.h"
 #include "driver/sequence/sequence.h"
 #include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"

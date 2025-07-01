@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Synnax } from "@synnaxlabs/pluto";
+import { Align, Icon, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
@@ -20,10 +19,10 @@ import { Tree } from "@/ontology/Tree";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-  const group = useQuery<ontology.ID | undefined>({
+  const group = useQuery({
     queryKey: [client?.key, "user-group"],
     queryFn: async () => {
-      if (client == null) return undefined;
+      if (client == null) return null;
       const { id } = await client.ontology.retrieve(ontology.ROOT_ID);
       return id;
     },

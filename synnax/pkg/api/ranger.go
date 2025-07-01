@@ -40,7 +40,7 @@ func NewRangeService(p Provider) *RangeService {
 	return &RangeService{
 		dbProvider:     p.db,
 		accessProvider: p.access,
-		internal:       p.Config.Ranger,
+		internal:       p.Service.Ranger,
 	}
 }
 

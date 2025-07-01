@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, componentRenderProp } from "@synnaxlabs/pluto";
+import { Align, componentRenderProp, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -23,11 +22,11 @@ import {
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
   type DIChannel,
+  DIGITAL_READ_SCHEMAS,
   DIGITAL_READ_TYPE,
-  type DigitalReadConfig,
-  digitalReadConfigZ,
-  type DigitalReadStateDetails,
-  type DigitalReadType,
+  type digitalReadConfigZ,
+  type digitalReadStatusDataZ,
+  type digitalReadTypeZ,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
 import { type Selector } from "@/selector";
@@ -65,7 +64,11 @@ const NameComponent = ({ entry: { channel, key } }: NameProps<DIChannel>) => (
 const name = componentRenderProp(NameComponent);
 
 const Form: FC<
-  Common.Task.FormProps<DigitalReadConfig, DigitalReadStateDetails, DigitalReadType>
+  Common.Task.FormProps<
+    typeof digitalReadTypeZ,
+    typeof digitalReadConfigZ,
+    typeof digitalReadStatusDataZ
+  >
 > = (props) => (
   <DigitalChannelList<DIChannel>
     {...props}
@@ -76,9 +79,9 @@ const Form: FC<
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  DigitalReadConfig,
-  DigitalReadStateDetails,
-  DigitalReadType
+  typeof digitalReadTypeZ,
+  typeof digitalReadConfigZ,
+  typeof digitalReadStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_DIGITAL_READ_PAYLOAD,
   config: {
@@ -87,7 +90,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   client,
   config,
 ) => {
@@ -152,7 +155,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalReadConfig> = async (
 export const DigitalRead = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: digitalReadConfigZ,
+  schemas: DIGITAL_READ_SCHEMAS,
   getInitialPayload,
   onConfigure,
   type: DIGITAL_READ_TYPE,

@@ -46,10 +46,10 @@ import {
   ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
 import {
+  SCAN_SCHEMAS,
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
-  type TestConnectionCommandResponse,
-  type TestConnectionCommandState,
+  type TestConnectionStatus,
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -63,12 +63,12 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   name: "Server.Connect",
   icon: "Logo.OPC",
   location: "modal",
-  window: { resizable: false, size: { height: 720, width: 800 }, navTop: true },
+  window: { resizable: false, size: { height: 720, width: 915 }, navTop: true },
 };
 
 const formSchema = z.object({
   name: Common.Device.nameZ,
-  rack: rack.keyZ,
+  rack: rack.keyZ.refine((k) => k > 0, "Must select a location to connect from"),
   connection: connectionConfigZ,
 });
 interface FormSchema extends z.infer<typeof formSchema> {}
@@ -80,25 +80,29 @@ interface InternalProps extends Pick<Layout.RendererProps, "layoutKey" | "onClos
 
 const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalProps) => {
   const client = Synnax.use();
-  const [connectionState, setConnectionState] = useState<TestConnectionCommandState>();
+  const [connectionState, setConnectionState] = useState<TestConnectionStatus>();
   const handleError = Status.useErrorHandler();
   const methods = Form.use({ values: initialValues, schema: formSchema });
   const testConnectionMutation = useMutation({
     onError: (e) => handleError(e, "Failed to test connection"),
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      if (!methods.validate("connection")) throw new Error("Invalid configuration");
+      if (!methods.validate()) return;
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
       );
-      const scanTasks = await rack.retrieveTaskByType(SCAN_TYPE);
+      const scanTasks = await client.hardware.tasks.retrieve({
+        type: SCAN_TYPE,
+        rack: rack.key,
+        schemas: SCAN_SCHEMAS,
+      });
       if (scanTasks.length === 0)
         throw new UnexpectedError(`No scan task found for driver ${rack.name}`);
       const task = scanTasks[0];
-      const state = await task.executeCommandSync<TestConnectionCommandResponse>(
+      const state = await task.executeCommandSync(
         TEST_CONNECTION_COMMAND_TYPE,
-        { connection: methods.get("connection").value },
         TimeSpan.seconds(10),
+        { connection: methods.get("connection").value },
       );
       setConnectionState(state);
     },
@@ -107,7 +111,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     onError: (e) => handleError(e, "Failed to connect to OPC UA Server"),
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
-      if (!methods.validate()) throw new Error("Invalid configuration");
+      if (!methods.validate()) return;
       await testConnectionMutation.mutateAsync();
       if (connectionState?.variant !== "success")
         throw new Error("Connection test failed");
@@ -148,7 +152,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             }}
             path="name"
           />
-          <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
+          <Form.Field<rack.Key> path="rack" label="Connect From" required>
             {(p) => <Rack.SelectSingle {...p} allowNone={false} />}
           </Form.Field>
           <Form.Field<string> path="connection.endpoint">
@@ -210,7 +214,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
             <Status.Text level="p" variant={connectionState.variant}>
-              {connectionState.details?.message}
+              {connectionState.message}
             </Status.Text>
           )}
         </Nav.Bar.Start>

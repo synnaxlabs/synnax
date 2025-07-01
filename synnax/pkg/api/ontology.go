@@ -14,9 +14,8 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/gorp"
@@ -34,7 +33,7 @@ func NewOntologyService(p Provider) *OntologyService {
 		OntologyProvider: p.ontology,
 		accessProvider:   p.access,
 		dbProvider:       p.db,
-		group:            p.Group,
+		group:            p.Distribution.Group,
 	}
 }
 
@@ -43,7 +42,6 @@ type (
 		IDs              []ontology.ID   `json:"ids" msgpack:"ids" validate:"required"`
 		Children         bool            `json:"children" msgpack:"children"`
 		Parents          bool            `json:"parents" msgpack:"parents"`
-		IncludeSchema    bool            `json:"include_schema" msgpack:"include_schema"`
 		ExcludeFieldData bool            `json:"exclude_field_data" msgpack:"exclude_field_data"`
 		Types            []ontology.Type `json:"types" msgpack:"types"`
 		Term             string          `json:"term" msgpack:"term"`
@@ -83,14 +81,13 @@ func (o *OntologyService) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	q = q.IncludeSchema(req.IncludeSchema).ExcludeFieldData(req.ExcludeFieldData)
 	if err = q.Entries(&res.Resources).Exec(ctx, nil); err != nil {
 		return OntologyRetrieveResponse{}, err
 	}
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: schema.ResourceIDs(res.Resources),
+		Objects: ontology.ResourceIDs(res.Resources),
 	}); err != nil {
 		return OntologyRetrieveResponse{}, err
 	}
@@ -247,10 +244,10 @@ func (o *OntologyService) MoveChildren(
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.Ontology.NewWriter(tx)
 		for _, child := range req.Children {
-			if err := w.DeleteRelationship(ctx, req.From, ontology.ParentOf, child); err != nil {
+			if err = w.DeleteRelationship(ctx, req.From, ontology.ParentOf, child); err != nil {
 				return err
 			}
-			if err := w.DefineRelationship(ctx, req.To, ontology.ParentOf, child); err != nil {
+			if err = w.DefineRelationship(ctx, req.To, ontology.ParentOf, child); err != nil {
 				return err
 			}
 		}

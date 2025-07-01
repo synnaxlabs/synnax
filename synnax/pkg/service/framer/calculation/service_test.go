@@ -14,6 +14,7 @@ import (
 
 	"encoding/json"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/config"
@@ -21,9 +22,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/confluence"
@@ -37,12 +37,12 @@ var sleepInterval = 25 * time.Millisecond
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c    *calculation.Service
-		dist distribution.Distribution
+		dist mock.Node
 	)
 
 	BeforeAll(func() {
-		distB := mock.NewBuilder()
-		dist = distB.New(ctx)
+		distB := mock.NewCluster()
+		dist = distB.Provision(ctx)
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,
@@ -65,7 +65,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: dcore.Free,
+			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base * 2",
 		}
@@ -88,7 +88,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				},
 			),
 		)
-		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		time.Sleep(sleepInterval)
 		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
@@ -109,7 +109,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: dcore.Free,
+			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base * fake",
 		}
@@ -125,7 +125,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Keys:        []channel.Key{calculatedCH.Key()},
 			SendOpenAck: config.True(),
 		}))
-		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
@@ -144,7 +144,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: dcore.Free,
+			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base / 0",
 		}
@@ -160,7 +160,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Keys:        []channel.Key{calculatedCH.Key()},
 			SendOpenAck: config.True(),
 		}))
-		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 		MustSucceed(w.Write(core.UnaryFrame(
@@ -185,7 +185,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calc1",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: dcore.Free,
+			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return base * 2",
 		}
@@ -196,7 +196,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calc2",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: dcore.Free,
+			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{calc1CH.Key()},
 			Expression:  "return calc1 + 1",
 		}
@@ -223,7 +223,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				},
 			),
 		)
-		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 
@@ -253,18 +253,18 @@ var _ = Describe("Calculation", Ordered, func() {
 			Name:        "calculated",
 			DataType:    telem.Int64T,
 			Virtual:     true,
-			Leaseholder: dcore.Free,
+			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCH.Key()},
 			Expression:  "return fake1 + fake2",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
 
-		var stateCH channel.Channel
-		stateCH.Name = "sy_calculation_state"
+		var statusCh channel.Channel
+		statusCh.Name = calculation.StatusChannelName
 		Expect(
 			dist.Channel.Create(
 				ctx,
-				&stateCH,
+				&statusCh,
 				channel.RetrieveIfNameExists(true),
 			),
 		).To(Succeed())
@@ -282,17 +282,17 @@ var _ = Describe("Calculation", Ordered, func() {
 				},
 			),
 		)
-		// Set up a streamer to watch for state changes
+		// Set up a streamer to watch for status changes
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
 				ctx,
 				framer.StreamerConfig{
-					Keys:        []channel.Key{stateCH.Key()},
+					Keys:        []channel.Key{statusCh.Key()},
 					SendOpenAck: config.True(),
 				},
 			),
 		)
-		_, sOutlet := confluence.Attach[framer.StreamerRequest, framer.StreamerResponse](streamer, 1, 1)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		MustSucceed(c.Request(ctx, calculatedCH.Key()))
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
@@ -307,12 +307,13 @@ var _ = Describe("Calculation", Ordered, func() {
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.SeriesAt(0).DataType).To(Equal(telem.JSONT))
 
-		var state calculation.State
+		var s calculation.Status
 		data := res.Frame.SeriesAt(0).Data
-		Expect(json.Unmarshal(data[:len(data)-1], &state)).To(Succeed()) // -1 to remove newline
+		Expect(json.Unmarshal(data[:len(data)-1], &s)).To(Succeed()) // -1 to remove newline
 
-		Expect(state.Key).To(Equal(calculatedCH.Key()))
-		Expect(state.Variant).To(Equal(status.ErrorVariant))
-		Expect(state.Message).To(ContainSubstring("cannot perform add operation between nil and nil"))
+		Expect(s.Key).To(Equal(calculatedCH.Key().String()))
+		Expect(s.Variant).To(Equal(status.ErrorVariant))
+		Expect(s.Message).To(ContainSubstring("Failed to start calculation for"))
+		Expect(s.Description).To(ContainSubstring("cannot perform add operation between nil and nil"))
 	})
 })

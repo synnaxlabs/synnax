@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/drift",
-  "version": "0.43.0",
+  "version": "0.44.0",
   "description": "State synchronization and Redux state synchronization for Tauri Apps",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/drift",
   "type": "module",
@@ -22,30 +22,30 @@
     "fix": "eslint --cache --fix"
   },
   "dependencies": {
-    "@reduxjs/toolkit": "^2.8.2",
-    "@synnaxlabs/x": "workspace:*",
-    "@tauri-apps/api": "^2.5.0",
-    "async-mutex": "^0.5.0",
-    "proxy-memoize": "2.0.3",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-redux": "^9.2.0",
-    "zod": "^3.25.58"
+    "@reduxjs/toolkit": "catalog:",
+    "@synnaxlabs/x": "workspace:^",
+    "@tauri-apps/api": "catalog:",
+    "async-mutex": "catalog:",
+    "proxy-memoize": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-redux": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "workspace:*",
-    "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/react": "^19.1.7",
-    "@vitejs/plugin-react": "^4.5.2",
+    "@synnaxlabs/tsconfig": "workspace:^",
+    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@types/react": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
     "electron": "^36.4.0",
-    "eslint": "^9.28.0",
-    "eslint-config-synnaxlabs": "workspace:*",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-redux": "^9.2.0",
-    "typescript": "^5.8.3",
-    "vite": "^6.3.5",
-    "vitest": "^3.2.3"
+    "eslint": "catalog:",
+    "eslint-config-synnaxlabs": "workspace:^",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-redux": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
   },
   "files": [
     "dist"

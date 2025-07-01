@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Synnax } from "@synnaxlabs/pluto";
+import { Align, Icon, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactElement } from "react";
 
@@ -21,14 +20,12 @@ import { CREATE_LAYOUT } from "@/workspace/Create";
 
 const Content = (): ReactElement => {
   const client = Synnax.use();
-  const group = useQuery<ontology.ID | undefined>({
+  const group = useQuery({
     queryKey: [client?.key, "workspace-group"],
     queryFn: async () => {
-      if (client == null) return undefined;
-      const res = await client?.ontology.retrieveChildren(ontology.ROOT_ID, {
-        includeSchema: false,
-      });
-      return res?.filter((r) => r.name === "Workspaces")[0].id;
+      if (client == null) return null;
+      const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
+      return res.filter((r) => r.name === "Workspaces")[0].id;
     },
   });
   const placeLayout = Layout.usePlacer();

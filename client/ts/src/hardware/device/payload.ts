@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, status, type UnknownRecord, unknownRecordZ, zod } from "@synnaxlabs/x";
+import { binary, record, status, zod } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
@@ -16,16 +16,9 @@ import { decodeJSONString } from "@/util/decodeJSONString";
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
-export const stateZ = z.object({
-  key: keyZ,
-  variant: status.variantZ,
-  details: unknownRecordZ.or(z.string().transform(decodeJSONString)),
-});
+export const statusZ = status.statusZ(z.object({ rack: rackKeyZ, device: keyZ }));
 
-export interface State<Details extends {} = UnknownRecord>
-  extends Omit<z.infer<typeof stateZ>, "details"> {
-  details: Details;
-}
+export interface Status extends z.infer<typeof statusZ> {}
 
 export const deviceZ = z.object({
   key: keyZ,
@@ -35,27 +28,26 @@ export const deviceZ = z.object({
   model: z.string(),
   location: z.string(),
   configured: z.boolean().optional(),
-  properties: unknownRecordZ.or(z.string().transform(decodeJSONString)),
-  state: zod.nullToUndefined(stateZ),
+  properties: record.unknownZ.or(z.string().transform(decodeJSONString)),
+  status: zod.nullToUndefined(statusZ),
 });
 
 export interface Device<
-  Properties extends UnknownRecord = UnknownRecord,
+  Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
-  StateDetails extends {} = UnknownRecord,
-> extends Omit<z.infer<typeof deviceZ>, "properties" | "state"> {
+> extends Omit<z.infer<typeof deviceZ>, "properties" | "status"> {
   properties: Properties;
   make: Make;
   model: Model;
-  state?: State<StateDetails>;
+  status?: Status;
 }
 
 export const newZ = deviceZ.extend({
   properties: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
 });
 export interface New<
-  Properties extends UnknownRecord = UnknownRecord,
+  Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
 > extends Omit<z.input<typeof newZ>, "properties"> {

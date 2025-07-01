@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, componentRenderProp } from "@synnaxlabs/pluto";
+import { Align, componentRenderProp, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -22,11 +21,11 @@ import {
 } from "@/hardware/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
 import {
+  DIGITAL_WRITE_SCHEMAS,
   DIGITAL_WRITE_TYPE,
-  type DigitalWriteConfig,
-  digitalWriteConfigZ,
-  type DigitalWriteStateDetails,
-  type DigitalWriteType,
+  type digitalWriteConfigZ,
+  type digitalWriteStatusDataZ,
+  type digitalWriteTypeZ,
   type DOChannel,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -70,7 +69,11 @@ const NameComponent = ({
 const name = componentRenderProp(NameComponent);
 
 const Form: FC<
-  Common.Task.FormProps<DigitalWriteConfig, DigitalWriteStateDetails, DigitalWriteType>
+  Common.Task.FormProps<
+    typeof digitalWriteTypeZ,
+    typeof digitalWriteConfigZ,
+    typeof digitalWriteStatusDataZ
+  >
 > = (props) => (
   <DigitalChannelList
     {...props}
@@ -81,9 +84,9 @@ const Form: FC<
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  DigitalWriteConfig,
-  DigitalWriteStateDetails,
-  DigitalWriteType
+  typeof digitalWriteTypeZ,
+  typeof digitalWriteConfigZ,
+  typeof digitalWriteStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_DIGITAL_WRITE_PAYLOAD,
   config: {
@@ -92,7 +95,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<DigitalWriteConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   client,
   config,
 ) => {
@@ -197,7 +200,7 @@ const onConfigure: Common.Task.OnConfigure<DigitalWriteConfig> = async (
 export const DigitalWrite = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: digitalWriteConfigZ,
+  schemas: DIGITAL_WRITE_SCHEMAS,
   getInitialPayload,
   onConfigure,
   type: DIGITAL_WRITE_TYPE,

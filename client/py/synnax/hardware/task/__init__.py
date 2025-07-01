@@ -8,3 +8,4 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.hardware.task.client import *
+from synnax.hardware.task.payload import TaskStatusDetails

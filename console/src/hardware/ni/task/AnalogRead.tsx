@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
+import { Align, componentRenderProp, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -23,11 +22,11 @@ import {
   AI_CHANNEL_TYPE_NAMES,
   type AIChannel,
   type AIChannelType,
+  ANALOG_READ_SCHEMAS,
   ANALOG_READ_TYPE,
-  type AnalogReadConfig,
-  analogReadConfigZ,
-  type AnalogReadStateDetails,
-  type AnalogReadType,
+  type analogReadConfigZ,
+  type analogReadStatusDataZ,
+  type analogReadTypeZ,
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
@@ -86,10 +85,7 @@ const ChannelListItem = ({
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
-      icon={{
-        name: AI_CHANNEL_TYPE_NAMES[type],
-        icon: <Icon style={{ color: "var(--pluto-gray-l9)" }} />,
-      }}
+      icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
     />
   );
@@ -108,7 +104,11 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
 const channelDetails = componentRenderProp(ChannelDetails);
 
 const Form: FC<
-  Common.Task.FormProps<AnalogReadConfig, AnalogReadStateDetails, AnalogReadType>
+  Common.Task.FormProps<
+    typeof analogReadTypeZ,
+    typeof analogReadConfigZ,
+    typeof analogReadStatusDataZ
+  >
 > = ({ task, isRunning, isSnapshot, configured }) => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>({
     task,
@@ -136,9 +136,9 @@ const Form: FC<
 };
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  AnalogReadConfig,
-  AnalogReadStateDetails,
-  AnalogReadType
+  typeof analogReadTypeZ,
+  typeof analogReadConfigZ,
+  typeof analogReadStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_ANALOG_READ_PAYLOAD,
   config: {
@@ -150,7 +150,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
   client,
   config,
 ) => {
@@ -229,7 +229,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogReadConfig> = async (
 export const AnalogRead = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: analogReadConfigZ,
+  schemas: ANALOG_READ_SCHEMAS,
   type: ANALOG_READ_TYPE,
   getInitialPayload,
   onConfigure,

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type UnknownRecord } from "@synnaxlabs/x";
+import { array, type record } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod/v4";
 
@@ -21,8 +21,8 @@ import {
   type New,
   newZ,
   ONTOLOGY_TYPE,
-  type State,
-  stateZ,
+  type Status,
+  statusZ,
 } from "@/hardware/device/payload";
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 import { ontology } from "@/ontology";
@@ -30,9 +30,9 @@ import { signals } from "@/signals";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
-const SET_CHANNEL_NAME = "sy_device_set";
-const DELETE_CHANNEL_NAME = "sy_device_delete";
-const STATE_CHANNEL_NAME = "sy_device_state";
+export const SET_CHANNEL_NAME = "sy_device_set";
+export const DELETE_CHANNEL_NAME = "sy_device_delete";
+export const STATUS_CHANNEL_NAME = "sy_device_status";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 const CREATE_ENDPOINT = "/hardware/device/create";
@@ -57,7 +57,7 @@ const retrieveReqZ = z.object({
   limit: z.number().optional(),
   offset: z.number().optional(),
   ignoreNotFound: z.boolean().optional(),
-  includeState: z.boolean().optional(),
+  includeStatus: z.boolean().optional(),
 });
 
 interface RetrieveRequest extends z.input<typeof retrieveReqZ> {}
@@ -65,7 +65,7 @@ interface RetrieveRequest extends z.input<typeof retrieveReqZ> {}
 export interface RetrieveOptions
   extends Pick<
     RetrieveRequest,
-    "limit" | "offset" | "makes" | "ignoreNotFound" | "includeState"
+    "limit" | "offset" | "makes" | "ignoreNotFound" | "includeStatus"
   > {}
 
 interface PageOptions extends Pick<RetrieveOptions, "makes"> {}
@@ -83,37 +83,28 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
   }
 
   async retrieve<
-    Properties extends UnknownRecord = UnknownRecord,
+    Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-    StateDetails extends {} = UnknownRecord,
-  >(
-    key: string,
-    options?: RetrieveOptions,
-  ): Promise<Device<Properties, Make, Model, StateDetails>>;
+  >(key: string, options?: RetrieveOptions): Promise<Device<Properties, Make, Model>>;
 
   async retrieve<
-    Properties extends UnknownRecord = UnknownRecord,
+    Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-    StateDetails extends {} = UnknownRecord,
   >(
     keys: string[],
     options?: RetrieveOptions,
-  ): Promise<Array<Device<Properties, Make, Model, StateDetails>>>;
+  ): Promise<Array<Device<Properties, Make, Model>>>;
 
   async retrieve<
-    Properties extends UnknownRecord = UnknownRecord,
+    Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
-    StateDetails extends {} = UnknownRecord,
   >(
     keys: string | string[],
     options?: RetrieveOptions,
-  ): Promise<
-    | Device<Properties, Make, Model, StateDetails>
-    | Array<Device<Properties, Make, Model, StateDetails>>
-  > {
+  ): Promise<Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>> {
     const isSingle = !Array.isArray(keys);
     const res = await sendRequired(
       this.client,
@@ -124,8 +115,8 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     );
     checkForMultipleOrNoResults("Device", keys, res.devices, isSingle);
     return isSingle
-      ? (res.devices[0] as Device<Properties, Make, Model, StateDetails>)
-      : (res.devices as Array<Device<Properties, Make, Model, StateDetails>>);
+      ? (res.devices[0] as Device<Properties, Make, Model>)
+      : (res.devices as Array<Device<Properties, Make, Model>>);
   }
 
   async search(term: string, options?: RetrieveOptions): Promise<Device[]> {
@@ -153,17 +144,17 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
   }
 
   async create<
-    Properties extends UnknownRecord = UnknownRecord,
+    Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
   >(device: New<Properties, Make>): Promise<Device<Properties, Make, Model>>;
   async create<
-    Properties extends UnknownRecord = UnknownRecord,
+    Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
   >(devices: New<Properties, Make>[]): Promise<Device<Properties, Make, Model>[]>;
   async create<
-    Properties extends UnknownRecord = UnknownRecord,
+    Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
   >(
@@ -201,16 +192,12 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     );
   }
 
-  async openStateObserver<Details extends {} = UnknownRecord>(): Promise<
-    framer.ObservableStreamer<State<Details>[]>
-  > {
-    return new framer.ObservableStreamer<State<Details>[]>(
-      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+  async openStatusObserver(): Promise<framer.ObservableStreamer<Status[]>> {
+    return new framer.ObservableStreamer<Status[]>(
+      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
       (frame) => {
-        const s = frame.get(STATE_CHANNEL_NAME);
-        if (s.length === 0) return [null, false];
-        const states = s.parseJSON(stateZ);
-        return [states as State<Details>[], true];
+        const s = frame.get(STATUS_CHANNEL_NAME);
+        return [s.parseJSON(statusZ), s.length > 0];
       },
     );
   }

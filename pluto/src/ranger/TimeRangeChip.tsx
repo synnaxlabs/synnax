@@ -9,12 +9,12 @@
 
 import "@/ranger/TimeRangeChip.css";
 
-import { Icon } from "@synnaxlabs/media";
 import { type CrudeTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Text } from "@/text";
 

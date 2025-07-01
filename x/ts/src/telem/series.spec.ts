@@ -260,7 +260,7 @@ describe("Series", () => {
         expect(series.length).toEqual(0);
         expect(series.byteLength).toEqual(Size.bytes(0));
       });
-      it("should throw an error when attempting to allocate an array of lenght 0", () => {
+      it("should throw an error when attempting to allocate an array of length 0", () => {
         expect(() => {
           Series.alloc({ capacity: 0, dataType: DataType.FLOAT32 });
         }).toThrow();
@@ -1519,6 +1519,14 @@ describe("MultiSeries", () => {
       const ms = new MultiSeries([s1, s2]);
       const iter = ms.subAlignmentSpanIterator(4n, 10);
       expect(Array.from(iter)).toEqual([5, 6]);
+    });
+
+    it("should handle span that exceeds available data with non-continuous spans", () => {
+      const s1 = new Series({ data: [1, 2, 3], alignment: 0n });
+      const s2 = new Series({ data: [4, 5, 6], alignment: 500000000n });
+      const ms = new MultiSeries([s1, s2]);
+      const iter = ms.subAlignmentSpanIterator(4n, 10000000000);
+      expect(Array.from(iter)).toEqual([4, 5, 6]);
     });
 
     it("should handle empty series", () => {

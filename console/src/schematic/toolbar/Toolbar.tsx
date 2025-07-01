@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Breadcrumb, Status, Tabs, Text } from "@synnaxlabs/pluto";
+import { Align, Breadcrumb, Icon, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -77,12 +76,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
-  const editable = useSelectEditable(layoutKey);
+  const isEditable = useSelectEditable(layoutKey) === true;
   const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
-      if (!editable) return <NotEditableContent layoutKey={layoutKey} />;
+      if (!isEditable) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "symbols":
           return <Symbols layoutKey={layoutKey} />;
@@ -92,7 +91,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           return <PropertiesControls layoutKey={layoutKey} />;
       }
     },
-    [layoutKey, editable],
+    [layoutKey, isEditable],
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {

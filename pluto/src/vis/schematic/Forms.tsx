@@ -10,7 +10,6 @@
 import "@/vis/schematic/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import { type bounds, color, type direction, location, type xy } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback, useEffect } from "react";
 
@@ -20,6 +19,7 @@ import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Form } from "@/form";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
@@ -626,7 +626,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({ ...value, source: t });
   };
 
-  const c = Channel.useName(source.channel as number);
+  const [c] = Channel.useName(source.channel as number);
 
   useEffect(() => onChange({ ...value }), [c]);
 

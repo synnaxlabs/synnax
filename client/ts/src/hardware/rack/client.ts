@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { type UnknownRecord } from "@synnaxlabs/x";
 import { array } from "@synnaxlabs/x/array";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod/v4";
@@ -22,8 +21,8 @@ import {
   ONTOLOGY_TYPE,
   type Payload,
   rackZ,
-  type State,
-  stateZ,
+  type Status,
+  statusZ,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
 import { ontology } from "@/ontology";
@@ -34,7 +33,7 @@ const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_ENDPOINT = "/hardware/rack/create";
 const DELETE_ENDPOINT = "/hardware/rack/delete";
 
-const STATE_CHANNEL_NAME = "sy_rack_state";
+export const STATUS_CHANNEL_NAME = "sy_rack_status";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -44,8 +43,10 @@ const retrieveReqZ = z.object({
   hostIsNode: z.boolean().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
-  includeState: z.boolean().optional(),
+  includeStatus: z.boolean().optional(),
 });
+
+type RetrieveRequest = z.infer<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ racks: nullableArrayZ(rackZ) });
 
@@ -57,9 +58,7 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const deleteResZ = z.object({});
 
-export interface RetrieveOptions {
-  includeState?: boolean;
-}
+export interface RetrieveOptions extends Pick<RetrieveRequest, "includeStatus"> {}
 
 export class Client implements AsyncTermSearcher<string, Key, Payload> {
   readonly type = ONTOLOGY_TYPE;
@@ -140,7 +139,7 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
       RETRIEVE_ENDPOINT,
       {
         [variant]: normalized,
-        includeState: options?.includeState,
+        includeStatus: options?.includeStatus,
       },
       retrieveReqZ,
       retrieveResZ,
@@ -150,64 +149,79 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return single ? sugared[0] : sugared;
   }
 
-  async openStateObserver(): Promise<framer.ObservableStreamer<State[]>> {
-    return new framer.ObservableStreamer<State[]>(
-      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+  async openStatusObserver(): Promise<framer.ObservableStreamer<Status[]>> {
+    return new framer.ObservableStreamer<Status[]>(
+      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
       (fr) => {
-        const data = fr.get(STATE_CHANNEL_NAME);
-        if (data.length === 0) return [[], false];
-        const states = data.parseJSON(stateZ);
-        return [states, true];
+        const data = fr.get(STATUS_CHANNEL_NAME);
+        return [data.parseJSON(statusZ), data.length > 0];
       },
     );
   }
 
-  private sugar(payloads: Payload[]): Rack[] {
-    return payloads.map(
-      ({ key, name, state }) => new Rack(key, name, this.tasks, state),
-    );
+  sugar(payload: Payload): Rack;
+  sugar(payloads: Payload[]): Rack[];
+  sugar(payloads: Payload | Payload[]): Rack | Rack[] {
+    const isSingle = !Array.isArray(payloads);
+    const sugared = array
+      .toArray(payloads)
+      .map(({ key, name, status }) => new Rack(key, name, this.tasks, status));
+    if (isSingle) return sugared[0];
+    return sugared;
   }
 }
 
 export class Rack {
   key: Key;
   name: string;
-  state?: State;
+  status?: Status;
   private readonly tasks: task.Client;
 
-  constructor(key: Key, name: string, taskClient: task.Client, state?: State) {
+  constructor(key: Key, name: string, taskClient: task.Client, status?: Status) {
     this.key = key;
     this.name = name;
     this.tasks = taskClient;
-    this.state = state;
+    this.status = status;
   }
 
   async listTasks(): Promise<task.Task[]> {
-    return await this.tasks.retrieve(this.key);
+    return await this.tasks.retrieve({ rack: this.key });
   }
 
-  async retrieveTaskByName(name: string): Promise<task.Task> {
-    return await this.tasks.retrieveByName(name, this.key);
-  }
-
-  async retrieveTaskByType(type: string): Promise<task.Task[]> {
-    return await this.tasks.retrieveByType(type, this.key);
-  }
+  async createTask(task: task.New): Promise<task.Task>;
+  async createTask<
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+    StatusData extends z.ZodType = z.ZodType,
+  >(
+    task: task.New<Type, Config>,
+    schemas: task.Schemas<Type, Config, StatusData>,
+  ): Promise<task.Task<Type, Config, StatusData>>;
 
   async createTask<
-    Config extends UnknownRecord,
-    Details extends {} = UnknownRecord,
-    Type extends string = string,
-  >(task: task.New<Config, Type>): Promise<task.Task<Config, Details, Type>> {
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+    StatusData extends z.ZodType = z.ZodType,
+  >(
+    task: task.New<Type, Config>,
+    schemas?: task.Schemas<Type, Config, StatusData>,
+  ): Promise<task.Task<Type, Config, StatusData>> {
     task.key = (
       (BigInt(this.key) << 32n) +
       (BigInt(task.key ?? 0) & 0xffffffffn)
     ).toString();
-    return await this.tasks.create<Config, Details, Type>(task);
+    return await this.tasks.create(
+      task,
+      schemas as Required<task.Schemas<Type, Config, StatusData>>,
+    );
   }
 
   async deleteTask(task: bigint): Promise<void> {
     await this.tasks.delete([task]);
+  }
+
+  get payload(): Payload {
+    return { key: this.key, name: this.name, status: this.status };
   }
 }
 

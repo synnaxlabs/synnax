@@ -18,5 +18,5 @@ import (
 
 func TestClustermock(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Clustermock Suite")
+	RunSpecs(t, "Cluster Mock Suite")
 }

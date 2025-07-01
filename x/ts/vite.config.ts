@@ -44,7 +44,7 @@ export default defineConfig({
         array: path.resolve(".", "src/array/index.ts"),
         search: path.resolve(".", "src/search.ts"),
         unique: path.resolve(".", "src/unique/index.ts"),
-        record: path.resolve(".", "src/record.ts"),
+        record: path.resolve(".", "src/record/index.ts"),
         change: path.resolve(".", "src/change/index.ts"),
         identity: path.resolve(".", "src/identity.ts"),
         caseconv: path.resolve(".", "src/caseconv/index.ts"),

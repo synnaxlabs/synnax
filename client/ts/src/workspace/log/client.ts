@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type UnknownRecord } from "@synnaxlabs/x";
+import { array, type record } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { ontology } from "@/ontology";
@@ -71,7 +71,7 @@ export class Client {
     );
   }
 
-  async setData(key: Key, data: UnknownRecord): Promise<void> {
+  async setData(key: Key, data: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
       SET_DATA_ENDPOINT,

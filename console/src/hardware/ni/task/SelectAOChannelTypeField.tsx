@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Form, Text } from "@synnaxlabs/pluto";
-import { deep, type Keyed } from "@synnaxlabs/x";
+import { Form, Text } from "@synnaxlabs/pluto";
+import { deep, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import {
@@ -20,7 +20,7 @@ import {
   ZERO_AO_CHANNELS,
 } from "@/hardware/ni/task/types";
 
-export interface Entry extends Keyed<AOChannelType> {
+export interface Entry extends record.Keyed<AOChannelType> {
   name: ReactElement;
 }
 
@@ -28,12 +28,17 @@ interface ChannelTypeProps {
   type: AOChannelType;
 }
 
-const ChannelType = ({ type }: ChannelTypeProps) => (
-  <Align.Space direction="x" size="small">
-    <Text.WithIcon startIcon={AO_CHANNEL_TYPE_ICONS[type]} level="p" shade={7} />
-    <Text.Text level="p">{AO_CHANNEL_TYPE_NAMES[type]}</Text.Text>
-  </Align.Space>
-);
+const ChannelType = ({ type }: ChannelTypeProps) => {
+  const Icon = AO_CHANNEL_TYPE_ICONS[type];
+  return (
+    <Text.WithIcon
+      level="p"
+      startIcon={<Icon style={{ color: "var(--pluto-gray-l7)" }} />}
+    >
+      {AO_CHANNEL_TYPE_NAMES[type]}
+    </Text.WithIcon>
+  );
+};
 
 export type SelectAOChannelTypeFieldProps = Form.DropdownButtonFieldProps<
   AOChannelType,

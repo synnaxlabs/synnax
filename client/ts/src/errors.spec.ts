@@ -14,23 +14,27 @@ import {
   AuthError,
   ContiguityError,
   ControlError,
-  FieldError,
   InvalidTokenError,
   MultipleFoundError,
   NotFoundError,
+  PathError,
   QueryError,
   RouteError,
   UnauthorizedError,
   UnexpectedError,
   ValidationError,
 } from "@/errors";
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/client";
 
 describe("error", () => {
   describe("type matching", () => {
     const ERRORS: [string, Error, errors.Matchable][] = [
       [ValidationError.TYPE, new ValidationError(), ValidationError],
-      [FieldError.TYPE, new FieldError("field", "message"), FieldError],
+      [
+        PathError.TYPE,
+        new PathError("field", new ValidationError("message")),
+        PathError,
+      ],
       [AuthError.TYPE, new AuthError(), AuthError],
       [InvalidTokenError.TYPE, new InvalidTokenError(), InvalidTokenError],
       [UnexpectedError.TYPE, new UnexpectedError("message"), UnexpectedError],
@@ -50,7 +54,7 @@ describe("error", () => {
   });
 });
 
-const client = newClient();
+const client = newTestClient();
 
 test("client", async () => {
   expect.assertions(2);

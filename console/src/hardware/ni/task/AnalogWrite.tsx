@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, componentRenderProp, Form as PForm } from "@synnaxlabs/pluto";
+import { Align, componentRenderProp, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -19,11 +18,11 @@ import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
 import { createAOChannel } from "@/hardware/ni/task/createChannel";
 import { SelectAOChannelTypeField } from "@/hardware/ni/task/SelectAOChannelTypeField";
 import {
+  ANALOG_WRITE_SCHEMAS,
   ANALOG_WRITE_TYPE,
-  type AnalogWriteConfig,
-  analogWriteConfigZ,
-  type AnalogWriteStateDetails,
-  type AnalogWriteType,
+  type analogWriteConfigZ,
+  type analogWriteStatusDataZ,
+  type analogWriteTypeZ,
   AO_CHANNEL_TYPE_ICONS,
   AO_CHANNEL_TYPE_NAMES,
   type AOChannel,
@@ -63,6 +62,7 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
   const {
     entry: { port, cmdChannel, stateChannel, type },
   } = rest;
+  const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
       {...rest}
@@ -74,10 +74,7 @@ const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) =>
       canTare={false}
       isSnapshot={isSnapshot}
       path={path}
-      icon={{
-        name: AO_CHANNEL_TYPE_NAMES[type],
-        icon: AO_CHANNEL_TYPE_ICONS[type],
-      }}
+      icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
     />
   );
 };
@@ -96,7 +93,11 @@ const channelDetails = componentRenderProp(ChannelDetails);
 const channelListItem = componentRenderProp(ChannelListItem);
 
 const Form: FC<
-  Common.Task.FormProps<AnalogWriteConfig, AnalogWriteStateDetails, AnalogWriteType>
+  Common.Task.FormProps<
+    typeof analogWriteTypeZ,
+    typeof analogWriteConfigZ,
+    typeof analogWriteStatusDataZ
+  >
 > = ({ task, isSnapshot }) => (
   <Common.Task.Layouts.ListAndDetails
     listItem={channelListItem}
@@ -109,9 +110,9 @@ const Form: FC<
 );
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  AnalogWriteConfig,
-  AnalogWriteStateDetails,
-  AnalogWriteType
+  typeof analogWriteTypeZ,
+  typeof analogWriteConfigZ,
+  typeof analogWriteStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_ANALOG_WRITE_PAYLOAD,
   config: {
@@ -120,7 +121,7 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<AnalogWriteConfig> = async (
+const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
   client,
   config,
 ) => {
@@ -221,7 +222,7 @@ const onConfigure: Common.Task.OnConfigure<AnalogWriteConfig> = async (
 export const AnalogWrite = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: analogWriteConfigZ,
+  schemas: ANALOG_WRITE_SCHEMAS,
   type: ANALOG_WRITE_TYPE,
   getInitialPayload,
   onConfigure,

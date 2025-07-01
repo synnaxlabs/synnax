@@ -73,7 +73,7 @@ const (
 )
 
 func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
-	rel, err := s.relay.NewStreamer(ctx, cfg)
+	rel, err := s.Relay.NewStreamer(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}

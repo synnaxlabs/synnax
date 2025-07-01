@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, type UnknownRecord } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
-import { newClient } from "@/setupspecs";
+import { newTestClient } from "@/testutil/client";
 
-const client = newClient();
+const client = newTestClient();
 
 describe("Device", async () => {
   const testRack = await client.hardware.racks.create({ name: "test" });
@@ -123,10 +123,10 @@ describe("Device", async () => {
         });
 
         const retrieved = await client.hardware.devices.retrieve(d.key);
-        expect(retrieved.state).toBeUndefined();
+        expect(retrieved.status).toBeUndefined();
       });
 
-      it("should include state when includeState is true", async () => {
+      it("should include status when includeStatus is true", async () => {
         const d = await client.hardware.devices.create({
           key: id.create(),
           rack: testRack.key,
@@ -139,10 +139,10 @@ describe("Device", async () => {
 
         await expect
           .poll(async () => {
-            const { state } = await client.hardware.devices.retrieve(d.key, {
-              includeState: true,
+            const { status } = await client.hardware.devices.retrieve(d.key, {
+              includeStatus: true,
             });
-            return state !== undefined;
+            return status != null;
           })
           .toBeTruthy();
       });
@@ -172,20 +172,15 @@ describe("Device", async () => {
           .poll(async () => {
             const retrievedDevices = await client.hardware.devices.retrieve(
               [d1.key, d2.key],
-              { includeState: true },
+              { includeStatus: true },
             );
             if (retrievedDevices.length !== 2) return false;
-            return retrievedDevices.every(({ state }) => state !== undefined);
+            return retrievedDevices.every(({ status }) => status !== undefined);
           })
           .toBeTruthy();
       });
 
       it("should handle state with type-safe details", async () => {
-        interface DeviceStateDetails {
-          status: string;
-          temperature: number;
-        }
-
         const key = id.create();
         await client.hardware.devices.create({
           key,
@@ -199,16 +194,13 @@ describe("Device", async () => {
 
         await expect
           .poll(async () => {
-            const retrieved = await client.hardware.devices.retrieve<
-              UnknownRecord,
-              string,
-              string,
-              DeviceStateDetails
-            >(key, { includeState: true });
+            const retrieved = await client.hardware.devices.retrieve(key, {
+              includeStatus: true,
+            });
             return (
-              retrieved.state !== undefined &&
-              retrieved.state.variant === "info" &&
-              retrieved.state.key === key
+              retrieved.status !== undefined &&
+              retrieved.status.variant === "info" &&
+              retrieved.status.details.device === key
             );
           })
           .toBeTruthy();
