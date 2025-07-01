@@ -12,13 +12,19 @@ package freighter_test
 import (
 	"context"
 	"io"
+	"log"
+	"net/http"
 	"strings"
+	"time"
 
+	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/httputil"
 )
 
 type (
@@ -103,7 +109,7 @@ type testPipelineImplementation struct {
 
 var _ pipelineImplementation = (*testPipelineImplementation)(nil)
 
-func (tpi *testPipelineImplementation) start(host address.Address) (pipelineServer, pipelineClient) {
+func (tpi *testPipelineImplementation) start(_ address.Address) (pipelineServer, pipelineClient) {
 	server := &testPipelineServer{
 		MiddlewareCollector: freighter.MiddlewareCollector{},
 	}
@@ -118,7 +124,10 @@ func (tpi *testPipelineImplementation) stop() error {
 	return nil
 }
 
-var pipelineImplementations = []pipelineImplementation{&testPipelineImplementation{}}
+var pipelineImplementations = []pipelineImplementation{
+	&testPipelineImplementation{},
+	&httpPipelineImplementation{},
+}
 
 var _ = Describe("Pipeline", Ordered, Serial, func() {
 	Describe("Implementation Tests", func() {
@@ -140,7 +149,12 @@ var _ = Describe("Pipeline", Ordered, Serial, func() {
 						return strings.NewReader(req.Message), nil
 					})
 					req := request{ID: 1, Message: "hello"}
-					Expect(client.Send(context.Background(), addr, req)).To(Equal(io.NopCloser(strings.NewReader(req.Message))))
+					reader, err := client.Send(context.Background(), addr, req)
+					Expect(err).ToNot(HaveOccurred())
+					body, err := io.ReadAll(reader)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(string(body)).To(Equal(req.Message))
+					Expect(reader.Close()).To(Succeed())
 				})
 			})
 			Describe("Error handling", func() {
@@ -152,7 +166,7 @@ var _ = Describe("Pipeline", Ordered, Serial, func() {
 					Expect(client.Send(context.Background(), addr, req)).Error().To(MatchError("test error"))
 				})
 			})
-			Describe("Middleware", Focus, func() {
+			Describe("Middleware", func() {
 				It("should call the middleware", func() {
 					c := 0
 					client.Use(freighter.MiddlewareFunc(func(ctx freighter.Context, next freighter.Next) (freighter.Context, error) {
@@ -168,7 +182,12 @@ var _ = Describe("Pipeline", Ordered, Serial, func() {
 						return strings.NewReader(req.Message), nil
 					})
 					req := request{ID: 1, Message: "hello"}
-					Expect(client.Send(context.Background(), addr, req)).To(Equal(io.NopCloser(strings.NewReader(req.Message))))
+					reader, err := client.Send(context.Background(), addr, req)
+					Expect(err).ToNot(HaveOccurred())
+					body, err := io.ReadAll(reader)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(string(body)).To(Equal(req.Message))
+					Expect(reader.Close()).To(Succeed())
 					Expect(c).To(Equal(1))
 					Expect(s).To(Equal(1))
 				})
@@ -176,3 +195,32 @@ var _ = Describe("Pipeline", Ordered, Serial, func() {
 		}
 	})
 })
+
+type httpPipelineImplementation struct {
+	app *fiber.App
+}
+
+func (hpi *httpPipelineImplementation) start(host address.Address) (pipelineServer, pipelineClient) {
+	hpi.app = fiber.New(fiber.Config{DisableStartupMessage: true})
+	router := fhttp.NewRouter(fhttp.RouterConfig{})
+	factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
+		Codec: httputil.JSONCodec,
+	})
+	server := fhttp.PipelineServer[request](router, "/")
+	client := fhttp.PipelineClient[request](factory)
+	router.BindTo(hpi.app)
+	go func() {
+		if err := hpi.app.Listen(host.PortString()); err != nil {
+			log.Fatal(err)
+		}
+	}()
+	Eventually(func(g Gomega) {
+		_, err := http.Get("http://" + host.String() + "/health")
+		g.Expect(err).ToNot(HaveOccurred())
+	}).WithPolling(1 * time.Millisecond).Should(Succeed())
+	return server, client
+}
+
+func (hpi *httpPipelineImplementation) stop() error {
+	return hpi.app.Shutdown()
+}

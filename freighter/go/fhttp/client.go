@@ -57,3 +57,7 @@ func StreamClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.StreamCl
 func UnaryClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.UnaryClient[RQ, RS] {
 	return &unaryClient[RQ, RS]{codec: c.Codec}
 }
+
+func PipelineClient[RQ freighter.Payload](c *ClientFactory) freighter.PipelineClient[RQ] {
+	return &pipelineClient[RQ]{codec: c.Codec}
+}

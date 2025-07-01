@@ -25,6 +25,11 @@ import (
 	"github.com/synnaxlabs/x/httputil"
 )
 
+var unaryReporter = freighter.Reporter{
+	Protocol:  "http",
+	Encodings: httputil.SupportedContentTypes(),
+}
+
 type unaryServer[RQ, RS freighter.Payload] struct {
 	serverOptions
 	freighter.Reporter
