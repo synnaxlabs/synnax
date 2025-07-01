@@ -244,8 +244,8 @@ func (s *serverStream[RQ, RS]) close(err error) error {
 }
 
 // listenForContextCancellation is a goroutine that listens for the context to be
-// canceled and shuts down the stream forcefully if it is. We need this as
-// the websocket implementation itself doesn't support context cancellation.
+// canceled and shuts down the stream forcefully if it is. We need this as the websocket
+// implementation itself doesn't support context cancellation.
 func (c *streamCore[I, O]) listenForContextCancellation() {
 	defer close(c.successfulShutdown)
 	select {
@@ -337,21 +337,21 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
 	serverCtx     context.Context
 	path          string
-	handler       func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
+	handler       func(context.Context, freighter.ServerStream[RQ, RS]) error
 	writeDeadline time.Duration
 	wg            *sync.WaitGroup
 }
 
 func (s *streamServer[RQ, RS]) BindHandler(
-	handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error,
+	handler func(context.Context, freighter.ServerStream[RQ, RS]) error,
 ) {
 	s.handler = handler
 }
 
 const closeReadWriteDeadline = 500 * time.Millisecond
 
-// fiberHandler handles the incoming websocket connection and upgrades the connection
-// to a websocket connection.
+// fiberHandler handles the incoming websocket connection and upgrades the connection to
+// a websocket connection.
 //
 // NOTE: shortLivedFiberCtx is a temporary fiber context
 func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx *fiber.Ctx) error {
@@ -369,8 +369,8 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx *fiber.Ctx) error {
 	headerContentType := iCtx.Params.GetDefault(fiber.HeaderContentType, "").(string)
 	codec, err := s.codecResolver(headerContentType)
 	if err != nil {
-		// If we can't determine the encoder/decoder, we can't continue, so we send
-		// a best effort string.
+		// If we can't determine the encoder/decoder, we can't continue, so we send a
+		// best effort string.
 		return upgradeCtx.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	// Upgrade the connection to a websocket connection.

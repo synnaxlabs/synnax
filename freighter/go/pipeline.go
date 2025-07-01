@@ -21,10 +21,10 @@ import (
 // StreamClient which handles bidirectional message exchange over time.
 type PipelineClient[RQ Payload] interface {
 	Transport
-	// StreamResponse sends a complete request and streams the response body. The
-	// response body is returned as an io.ReadCloser that must be closed by the caller.
-	// This is useful for scenarios like file downloads or data exports.
-	StreamResponse(context.Context, address.Address, RQ) (io.ReadCloser, error)
+	// Send sends a complete request and streams the response body. The response body is
+	// returned as an io.ReadCloser that must be closed by the caller. This is useful
+	// for scenarios like file downloads or data exports.
+	Send(context.Context, address.Address, RQ) (io.ReadCloser, error)
 }
 
 // PipelineServer is the server-side interface for transports that support streaming

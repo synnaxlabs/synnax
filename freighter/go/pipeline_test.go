@@ -70,7 +70,7 @@ type testPipelineClient struct {
 
 var _ pipelineClient = (*testPipelineClient)(nil)
 
-func (tpc *testPipelineClient) StreamResponse(ctx context.Context, target address.Address, req request) (io.ReadCloser, error) {
+func (tpc *testPipelineClient) Send(ctx context.Context, target address.Address, req request) (io.ReadCloser, error) {
 	var reader io.Reader
 	_, err := tpc.MiddlewareCollector.Exec(
 		freighter.Context{Context: ctx, Target: target, Protocol: tpc.Reporter.Protocol},
@@ -140,7 +140,7 @@ var _ = Describe("Pipeline", Ordered, Serial, func() {
 						return strings.NewReader(req.Message), nil
 					})
 					req := request{ID: 1, Message: "hello"}
-					Expect(client.StreamResponse(context.Background(), addr, req)).To(Equal(io.NopCloser(strings.NewReader(req.Message))))
+					Expect(client.Send(context.Background(), addr, req)).To(Equal(io.NopCloser(strings.NewReader(req.Message))))
 				})
 			})
 			Describe("Error handling", func() {
@@ -149,7 +149,7 @@ var _ = Describe("Pipeline", Ordered, Serial, func() {
 						return nil, errors.New("test error")
 					})
 					req := request{ID: 1, Message: "hello"}
-					Expect(client.StreamResponse(context.Background(), addr, req)).Error().To(MatchError("test error"))
+					Expect(client.Send(context.Background(), addr, req)).Error().To(MatchError("test error"))
 				})
 			})
 			Describe("Middleware", Focus, func() {
@@ -168,7 +168,7 @@ var _ = Describe("Pipeline", Ordered, Serial, func() {
 						return strings.NewReader(req.Message), nil
 					})
 					req := request{ID: 1, Message: "hello"}
-					Expect(client.StreamResponse(context.Background(), addr, req)).To(Equal(io.NopCloser(strings.NewReader(req.Message))))
+					Expect(client.Send(context.Background(), addr, req)).To(Equal(io.NopCloser(strings.NewReader(req.Message))))
 					Expect(c).To(Equal(1))
 					Expect(s).To(Equal(1))
 				})
