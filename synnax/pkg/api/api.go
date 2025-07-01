@@ -57,29 +57,28 @@ func (c Config) Override(other Config) Config {
 }
 
 type Transport struct {
-	// AUTH
 	AuthLogin          freighter.UnaryServer[AuthLoginRequest, AuthLoginResponse]
 	AuthChangePassword freighter.UnaryServer[AuthChangePasswordRequest, types.Nil]
-	// USER
+
 	UserRename         freighter.UnaryServer[UserRenameRequest, types.Nil]
 	UserChangeUsername freighter.UnaryServer[UserChangeUsernameRequest, types.Nil]
 	UserCreate         freighter.UnaryServer[UserCreateRequest, UserCreateResponse]
 	UserDelete         freighter.UnaryServer[UserDeleteRequest, types.Nil]
 	UserRetrieve       freighter.UnaryServer[UserRetrieveRequest, UserRetrieveResponse]
-	// CHANNEL
+
 	ChannelCreate        freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
 	ChannelRetrieve      freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
 	ChannelDelete        freighter.UnaryServer[ChannelDeleteRequest, types.Nil]
 	ChannelRename        freighter.UnaryServer[ChannelRenameRequest, types.Nil]
 	ChannelRetrieveGroup freighter.UnaryServer[types.Nil, ChannelRetrieveGroupResponse]
-	// CONNECTIVITY
+
 	ConnectivityCheck freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
-	// FRAME
+
 	FrameWriter   freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
 	FrameIterator freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
 	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
 	FrameDelete   freighter.UnaryServer[FrameDeleteRequest, types.Nil]
-	// RANGE
+
 	RangeCreate       freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
 	RangeRetrieve     freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
 	RangeDelete       freighter.UnaryServer[RangeDeleteRequest, types.Nil]
@@ -91,53 +90,52 @@ type Transport struct {
 	RangeAliasList    freighter.UnaryServer[RangeAliasListRequest, RangeAliasListResponse]
 	RangeRename       freighter.UnaryServer[RangeRenameRequest, types.Nil]
 	RangeAliasDelete  freighter.UnaryServer[RangeAliasDeleteRequest, types.Nil]
-	// ONTOLOGY
+
 	OntologyRetrieve       freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 	OntologyAddChildren    freighter.UnaryServer[OntologyAddChildrenRequest, types.Nil]
 	OntologyRemoveChildren freighter.UnaryServer[OntologyRemoveChildrenRequest, types.Nil]
 	OntologyMoveChildren   freighter.UnaryServer[OntologyMoveChildrenRequest, types.Nil]
-	// GROUP
-	OntologyGroupCreate freighter.UnaryServer[OntologyCreateGroupRequest, OntologyCreateGroupResponse]
-	OntologyGroupDelete freighter.UnaryServer[OntologyDeleteGroupRequest, types.Nil]
-	OntologyGroupRename freighter.UnaryServer[OntologyRenameGroupRequest, types.Nil]
-	// WORKSPACE
+	OntologyGroupCreate    freighter.UnaryServer[OntologyCreateGroupRequest, OntologyCreateGroupResponse]
+	OntologyGroupDelete    freighter.UnaryServer[OntologyDeleteGroupRequest, types.Nil]
+	OntologyGroupRename    freighter.UnaryServer[OntologyRenameGroupRequest, types.Nil]
+
 	WorkspaceCreate    freighter.UnaryServer[WorkspaceCreateRequest, WorkspaceCreateResponse]
 	WorkspaceRetrieve  freighter.UnaryServer[WorkspaceRetrieveRequest, WorkspaceRetrieveResponse]
 	WorkspaceDelete    freighter.UnaryServer[WorkspaceDeleteRequest, types.Nil]
 	WorkspaceRename    freighter.UnaryServer[WorkspaceRenameRequest, types.Nil]
 	WorkspaceSetLayout freighter.UnaryServer[WorkspaceSetLayoutRequest, types.Nil]
-	// SCHEMATIC
+
 	SchematicCreate   freighter.UnaryServer[SchematicCreateRequest, SchematicCreateResponse]
 	SchematicRetrieve freighter.UnaryServer[SchematicRetrieveRequest, SchematicRetrieveResponse]
 	SchematicDelete   freighter.UnaryServer[SchematicDeleteRequest, types.Nil]
 	SchematicRename   freighter.UnaryServer[SchematicRenameRequest, types.Nil]
 	SchematicSetData  freighter.UnaryServer[SchematicSetDataRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[SchematicCopyRequest, SchematicCopyResponse]
-	// LOG
+
 	LogCreate   freighter.UnaryServer[LogCreateRequest, LogCreateResponse]
 	LogRetrieve freighter.UnaryServer[LogRetrieveRequest, LogRetrieveResponse]
 	LogDelete   freighter.UnaryServer[LogDeleteRequest, types.Nil]
 	LogRename   freighter.UnaryServer[LogRenameRequest, types.Nil]
 	LogSetData  freighter.UnaryServer[LogSetDataRequest, types.Nil]
-	// TABLE
+
 	TableCreate   freighter.UnaryServer[TableCreateRequest, TableCreateResponse]
 	TableRetrieve freighter.UnaryServer[TableRetrieveRequest, TableRetrieveResponse]
 	TableDelete   freighter.UnaryServer[TableDeleteRequest, types.Nil]
 	TableRename   freighter.UnaryServer[TableRenameRequest, types.Nil]
 	TableSetData  freighter.UnaryServer[TableSetDataRequest, types.Nil]
-	// LINE PLOT
+
 	LinePlotCreate   freighter.UnaryServer[LinePlotCreateRequest, LinePlotCreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[LinePlotRetrieveRequest, LinePlotRetrieveResponse]
 	LinePlotDelete   freighter.UnaryServer[LinePlotDeleteRequest, types.Nil]
 	LinePlotRename   freighter.UnaryServer[LinePlotRenameRequest, types.Nil]
 	LinePlotSetData  freighter.UnaryServer[LinePlotSetDataRequest, types.Nil]
-	// LABEL
+
 	LabelCreate   freighter.UnaryServer[LabelCreateRequest, LabelCreateResponse]
 	LabelRetrieve freighter.UnaryServer[LabelRetrieveRequest, LabelRetrieveResponse]
 	LabelDelete   freighter.UnaryServer[LabelDeleteRequest, types.Nil]
 	LabelAdd      freighter.UnaryServer[LabelAddRequest, types.Nil]
 	LabelRemove   freighter.UnaryServer[LabelRemoveRequest, types.Nil]
-	// DEVICE
+
 	HardwareCreateRack     freighter.UnaryServer[HardwareCreateRackRequest, HardwareCreateRackResponse]
 	HardwareRetrieveRack   freighter.UnaryServer[HardwareRetrieveRackRequest, HardwareRetrieveRackResponse]
 	HardwareDeleteRack     freighter.UnaryServer[HardwareDeleteRackRequest, types.Nil]
@@ -148,7 +146,7 @@ type Transport struct {
 	HardwareCreateDevice   freighter.UnaryServer[HardwareCreateDeviceRequest, HardwareCreateDeviceResponse]
 	HardwareRetrieveDevice freighter.UnaryServer[HardwareRetrieveDeviceRequest, HardwareRetrieveDeviceResponse]
 	HardwareDeleteDevice   freighter.UnaryServer[HardwareDeleteDeviceRequest, types.Nil]
-	// ACCESS
+
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]

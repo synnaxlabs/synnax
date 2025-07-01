@@ -23,14 +23,14 @@ import (
 
 type OntologyService struct {
 	dbProvider
-	OntologyProvider
+	ontologyProvider
 	accessProvider
 	group *group.Service
 }
 
 func NewOntologyService(p Provider) *OntologyService {
 	return &OntologyService{
-		OntologyProvider: p.ontology,
+		ontologyProvider: p.ontology,
 		accessProvider:   p.access,
 		dbProvider:       p.db,
 		group:            p.Distribution.Group,

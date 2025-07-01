@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Provider is a dependency injection container containing essential utilities
-// for particular API services (if they so require them).
+// Provider is a dependency injection container containing essential utilities for
+// particular API services (if they so require them).
 type Provider struct {
 	Config
 	db       dbProvider
@@ -28,7 +28,7 @@ type Provider struct {
 	access   accessProvider
 	auth     authProvider
 	cluster  clusterProvider
-	ontology OntologyProvider
+	ontology ontologyProvider
 }
 
 func NewProvider(cfg Config) Provider {
@@ -38,7 +38,7 @@ func NewProvider(cfg Config) Provider {
 	p.access = accessProvider{access: cfg.Service.RBAC}
 	p.auth = authProvider{token: cfg.Service.Token, authenticator: cfg.Service.Auth}
 	p.cluster = clusterProvider{cluster: cfg.Distribution.Cluster}
-	p.ontology = OntologyProvider{Ontology: cfg.Distribution.Ontology}
+	p.ontology = ontologyProvider{Ontology: cfg.Distribution.Ontology}
 	return p
 }
 
@@ -52,7 +52,7 @@ type userProvider struct {
 	user *user.Service
 }
 
-// AccessProvider provides access control information and utilities to services.
+// accessProvider provides access control information and utilities to services.
 type accessProvider struct {
 	access *rbac.Service
 }
@@ -64,8 +64,8 @@ type authProvider struct {
 	token         *token.Service
 }
 
-// OntologyProvider provides the cluster wide ontology to services.
-type OntologyProvider struct {
+// ontologyProvider provides the cluster wide ontology to services.
+type ontologyProvider struct {
 	Ontology *ontology.Ontology
 }
 
