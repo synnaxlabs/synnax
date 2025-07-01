@@ -315,7 +315,7 @@ export const scanConfigZ = z.object({});
 export type ScanConfig = z.infer<typeof scanConfigZ>;
 export const ZERO_SCAN_CONFIG: ScanConfig = {};
 
-export const scanStatusDataZ = z.object({});
+export const scanStatusDataZ = z.object({}).or(z.null());
 export type ScanStatus = task.Status<typeof scanStatusDataZ>;
 
 export const scanTypeZ = z.literal(SCAN_TYPE);

@@ -162,7 +162,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
               {(p) => <Input.Numeric placeholder="502" {...p} />}
             </Form.Field>
           </Align.Space>
-          <Align.Space direction="x" justify="spaceBetween">
+          <Align.Space direction="x" justify="start">
             <Form.Field<boolean> path="connection.swapBytes" label="Swap Bytes">
               {(p) => <Input.Switch {...p} />}
             </Form.Field>
