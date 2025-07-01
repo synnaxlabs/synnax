@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/pluto";
-import { type KeyedNamed } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 
 import {
   COIL_OUTPUT_TYPE,
@@ -18,7 +18,7 @@ import {
 
 const COLUMNS = [{ key: "name", name: "Name" }];
 
-export interface OutputChannelTypeEntry extends KeyedNamed<OutputChannelType> {}
+export interface OutputChannelTypeEntry extends record.KeyedNamed<OutputChannelType> {}
 
 const OUTPUT_CHANNEL_TYPES: OutputChannelTypeEntry[] = [
   { key: COIL_OUTPUT_TYPE, name: "Coil" },

@@ -16,11 +16,10 @@ import {
   Status,
   Synnax,
 } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { v4 as uuid } from "uuid";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -34,10 +33,10 @@ import {
   ZERO_PROPERTIES,
 } from "@/hardware/modbus/device/types";
 import {
+  SCAN_SCHEMAS,
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
-  type TestConnectionCommandState,
-  type TestConnectionCommandStateDetails,
+  type TestConnectionStatus,
 } from "@/hardware/modbus/task/types";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -69,7 +68,7 @@ interface InternalProps extends Pick<Layout.RendererProps, "layoutKey" | "onClos
 
 const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalProps) => {
   const client = Synnax.use();
-  const [connectionState, setConnectionState] = useState<TestConnectionCommandState>();
+  const [connectionState, setConnectionState] = useState<TestConnectionStatus>();
   const handleError = Status.useErrorHandler();
   const methods = Form.use({ values: initialValues, schema: formSchema });
 
@@ -83,17 +82,21 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
         methods.get<rack.Key>("rack").value,
       );
 
-      const scanTasks = await rack.retrieveTaskByType(SCAN_TYPE);
+      const scanTasks = await client.hardware.tasks.retrieve({
+        type: SCAN_TYPE,
+        rack: rack.key,
+        schemas: SCAN_SCHEMAS,
+      });
       if (scanTasks.length === 0)
         throw new UnexpectedError(`No scan task found for driver ${rack.name}`);
 
       const task = scanTasks[0];
-      const state = await task.executeCommandSync<TestConnectionCommandStateDetails>(
+      const state = await task.executeCommandSync(
         TEST_CONNECTION_COMMAND_TYPE,
+        TimeSpan.seconds(10),
         {
           connection: methods.get("connection").value,
         },
-        TimeSpan.seconds(10),
       );
 
       setConnectionState(state);
@@ -114,7 +117,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
       );
-      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid() : layoutKey;
+      const key = layoutKey === CONNECT_LAYOUT_TYPE ? uuid.create() : layoutKey;
 
       await client.hardware.devices.create<Properties>({
         key,
@@ -174,8 +177,8 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
           {connectionState == null ? (
             <Triggers.SaveHelpText action="Test Connection" noBar />
           ) : (
-            <Status.Text level="p" variant={connectionState.variant as Status.Variant}>
-              {connectionState.details?.message}
+            <Status.Text level="p" variant={connectionState.variant}>
+              {connectionState.message}
             </Status.Text>
           )}
         </Nav.Bar.Start>

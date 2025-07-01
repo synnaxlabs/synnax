@@ -10,8 +10,7 @@
 import "@/hardware/modbus/task/Read.css";
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm, List, Select } from "@synnaxlabs/pluto";
+import { Align, Form as PForm, Icon, List, Select } from "@synnaxlabs/pluto";
 import { DataType, deep, id } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -27,11 +26,11 @@ import {
   type InputChannel,
   type InputChannelType,
   isVariableDensityInputChannel,
+  READ_SCHEMAS,
   READ_TYPE,
-  type ReadConfig,
-  readConfigZ,
-  type ReadStateDetails,
-  type ReadType,
+  type readConfigZ,
+  type readStatusDataZ,
+  type readTypeZ,
   REGISTER_INPUT_TYPE,
   type TypedInput,
   ZERO_INPUT_CHANNELS,
@@ -182,9 +181,9 @@ const ChannelList = ({ isSnapshot }: { isSnapshot: boolean }) => {
   );
 };
 
-const Form: FC<Common.Task.FormProps<ReadConfig, ReadStateDetails, ReadType>> = (
-  props,
-) => {
+const Form: FC<
+  Common.Task.FormProps<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ>
+> = (props) => {
   const { isSnapshot } = props;
   return <ChannelList isSnapshot={isSnapshot} />;
 };
@@ -203,9 +202,9 @@ const channelName = (device: Device.Device, channel: InputChannel) => {
 };
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  ReadConfig,
-  ReadStateDetails,
-  ReadType
+  typeof readTypeZ,
+  typeof readConfigZ,
+  typeof readStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_READ_PAYLOAD,
   config: {
@@ -214,7 +213,10 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) => {
+const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
+  client,
+  config,
+) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>(
     config.device,
   );
@@ -280,7 +282,7 @@ const onConfigure: Common.Task.OnConfigure<ReadConfig> = async (client, config) 
 export const Read = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: readConfigZ,
+  schemas: READ_SCHEMAS,
   type: READ_TYPE,
   getInitialPayload,
   onConfigure,

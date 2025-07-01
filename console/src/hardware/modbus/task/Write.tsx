@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Form as PForm, List, Select } from "@synnaxlabs/pluto";
+import { Align, Form as PForm, Icon, List, Select } from "@synnaxlabs/pluto";
 import { caseconv, deep, id } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -22,11 +21,11 @@ import {
   OUTPUT_CHANNEL_SCHEMAS,
   type OutputChannel,
   type OutputChannelType,
+  WRITE_SCHEMAS,
   WRITE_TYPE,
-  type WriteConfig,
-  writeConfigZ,
-  type WriteStateDetails,
-  type WriteType,
+  type writeConfigZ,
+  type writeStatusDataZ,
+  type writeTypeZ,
   ZERO_OUTPUT_CHANNELS,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/modbus/task/types";
@@ -139,9 +138,9 @@ const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
   };
 };
 
-const Form: FC<Common.Task.FormProps<WriteConfig, WriteStateDetails, WriteType>> = ({
-  isSnapshot,
-}) => {
+const Form: FC<
+  Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
+> = ({ isSnapshot }) => {
   const createChannel = useCallback(
     (channels: OutputChannel[]) => getOpenChannel(channels),
     [],
@@ -165,9 +164,9 @@ const writeMapKey = (channel: OutputChannel) =>
   `${channel.type}-${channel.address.toString()}`.replace("_", "-");
 
 const getInitialPayload: Common.Task.GetInitialPayload<
-  WriteConfig,
-  WriteStateDetails,
-  WriteType
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
 > = ({ deviceKey }) => ({
   ...ZERO_WRITE_PAYLOAD,
   config: {
@@ -176,7 +175,10 @@ const getInitialPayload: Common.Task.GetInitialPayload<
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config) => {
+const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
+  client,
+  config,
+) => {
   const dev = await client.hardware.devices.retrieve<Device.Properties>(config.device);
   const commandsToCreate: OutputChannel[] = [];
   for (const channel of config.channels) {
@@ -231,7 +233,7 @@ const onConfigure: Common.Task.OnConfigure<WriteConfig> = async (client, config)
 export const Write = Common.Task.wrapForm({
   Properties,
   Form,
-  configSchema: writeConfigZ,
+  schemas: WRITE_SCHEMAS,
   type: WRITE_TYPE,
   getInitialPayload,
   onConfigure,
