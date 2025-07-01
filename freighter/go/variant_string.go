@@ -10,11 +10,12 @@ func _() {
 	var x [1]struct{}
 	_ = x[Unary-1]
 	_ = x[Stream-2]
+	_ = x[Pipeline-3]
 }
 
-const _Variant_name = "UnaryStream"
+const _Variant_name = "UnaryStreamPipeline"
 
-var _Variant_index = [...]uint8{0, 5, 11}
+var _Variant_index = [...]uint8{0, 5, 11, 19}
 
 func (i Variant) String() string {
 	i -= 1
