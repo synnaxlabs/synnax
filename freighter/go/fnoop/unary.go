@@ -22,11 +22,9 @@ type UnaryServer[RQ, RS freighter.Payload] struct {
 
 var _ freighter.UnaryServer[any, any] = (*UnaryServer[any, any])(nil)
 
-func (us UnaryServer[RQ, RS]) Use(...freighter.Middleware) {
-}
+func (us UnaryServer[RQ, RS]) Use(...freighter.Middleware) {}
 
-func (us UnaryServer[RQ, RS]) BindHandler(func(context.Context, RQ) (RS, error)) {
-}
+func (us UnaryServer[RQ, RS]) BindHandler(func(context.Context, RQ) (RS, error)) {}
 
 type UnaryClient[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
@@ -34,33 +32,9 @@ type UnaryClient[RQ, RS freighter.Payload] struct {
 
 var _ freighter.UnaryClient[any, any] = (*UnaryClient[any, any])(nil)
 
-func (uc UnaryClient[RQ, RS]) Use(...freighter.Middleware) {
-}
+func (uc UnaryClient[RQ, RS]) Use(...freighter.Middleware) {}
 
 func (uc UnaryClient[RQ, RS]) Send(context.Context, address.Address, RQ) (RS, error) {
 	var res RS
 	return res, nil
-}
-
-type StreamServer[RQ, RS freighter.Payload] struct {
-	freighter.Reporter
-}
-
-var _ freighter.StreamServer[any, any] = (*StreamServer[any, any])(nil)
-
-func (ss StreamServer[RQ, RS]) Use(...freighter.Middleware) {}
-
-func (ss StreamServer[RQ, RS]) BindHandler(func(context.Context, freighter.ServerStream[RQ, RS]) error) {
-}
-
-type StreamClient[RQ, RS freighter.Payload] struct {
-	freighter.Reporter
-}
-
-var _ freighter.StreamClient[any, any] = (*StreamClient[any, any])(nil)
-
-func (sc StreamClient[RQ, RS]) Use(...freighter.Middleware) {}
-
-func (sc StreamClient[RQ, RS]) Stream(context.Context, address.Address) (freighter.ClientStream[RQ, RS], error) {
-	return nil, nil
 }
