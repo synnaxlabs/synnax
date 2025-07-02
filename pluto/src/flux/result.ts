@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { DisconnectedError } from "@synnaxlabs/client";
 import { status } from "@synnaxlabs/x";
 
 import { type state } from "@/state";
@@ -66,3 +67,12 @@ export const errorResult = <Data extends state.State>(
   data: null,
   error,
 });
+
+export const nullClientResult = <Data extends state.State>(
+  name: string,
+  opName: string,
+): Result<Data> =>
+  errorResult(
+    name,
+    new DisconnectedError(`Cannot ${opName} ${name} because no cluster is connected.`),
+  );

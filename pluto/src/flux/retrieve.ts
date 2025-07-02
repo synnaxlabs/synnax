@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DisconnectedError, type Synnax } from "@synnaxlabs/client";
+import { type channel, type Synnax } from "@synnaxlabs/client";
 import { type Destructor, type MultiSeries } from "@synnaxlabs/x";
 import {
   useCallback,
@@ -18,7 +18,13 @@ import {
 } from "react";
 
 import { type Params } from "@/flux/params";
-import { errorResult, loadingResult, type Result, successResult } from "@/flux/result";
+import {
+  errorResult,
+  loadingResult,
+  nullClientResult,
+  type Result,
+  successResult,
+} from "@/flux/result";
 import { Sync } from "@/flux/sync";
 import { useAsyncEffect } from "@/hooks";
 import { state } from "@/state";
@@ -166,15 +172,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
       paramsRef.current = params;
       try {
         cleanupDestructors();
-        if (client == null)
-          return onChange(
-            errorResult(
-              name,
-              new DisconnectedError(
-                `Cannot retrieve ${name} because no cluster is connected.`,
-              ),
-            ),
-          );
+        if (client == null) return onChange(nullClientResult(name, "retrieve"));
         onChange(loadingResult(name));
         const value = await retrieve({ client, params });
         if (signal?.aborted) return;

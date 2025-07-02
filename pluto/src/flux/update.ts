@@ -1,8 +1,14 @@
-import { DisconnectedError, type Synnax } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
 import { type Params } from "@/flux/params";
-import { errorResult, loadingResult, type Result, successResult } from "@/flux/result";
+import {
+  errorResult,
+  loadingResult,
+  nullClientResult,
+  type Result,
+  successResult,
+} from "@/flux/result";
 import { type state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
@@ -64,10 +70,7 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
   const handleUpdate = useCallback(
     async (value: Data) => {
       try {
-        if (client == null)
-          return onChange(
-            errorResult(`Failed to update ${name}`, new DisconnectedError()),
-          );
+        if (client == null) return onChange(nullClientResult(name, "update"));
         onChange(loadingResult(`Updating ${name}`));
         await update({
           client,
