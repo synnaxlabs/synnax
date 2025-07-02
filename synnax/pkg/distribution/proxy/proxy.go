@@ -12,7 +12,6 @@ package proxy
 import (
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/x/address"
 )
 

@@ -11,9 +11,10 @@ package version
 
 import (
 	"embed"
-	"go.uber.org/zap"
 	"io"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 //go:embed VERSION
