@@ -165,6 +165,7 @@ export const useForm = <
     mutationFn: async () => {
       if (client == null) throw NULL_CLIENT_ERROR;
       if (initialTask.snapshot) return;
+      console.log("VALIDATE ASYNC");
       if (!(await methods.validateAsync())) return;
       const { name, config } = methods.value();
       if (config == null) throw new Error("Config is required");

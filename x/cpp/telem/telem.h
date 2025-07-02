@@ -496,11 +496,11 @@ public:
 };
 
 /// @brief a single hertz
-inline const auto HZ = Rate(1);
+inline const auto HERTZ = telem::Rate(1);
 /// @brief a single kilohertz
-inline const Rate KHZ = 1000 * HZ;
+inline const Rate KHZ = 1000 * telem::HERTZ;
 /// @brief a single megahertz
-inline const Rate MHZ = 1000 * KHZ;
+inline const Rate MHZ = 1000 * telem::KHZ;
 /// @brief a single nanosecond.
 inline const auto NANOSECOND = TimeSpan(1);
 /// @brief a single microsecond.
@@ -627,6 +627,17 @@ template<typename T>
     );
 }
 
+[[nodiscard]] inline std::string to_string(const SampleValue &value) {
+    return std::visit([]<typename T>(const T &arg) -> std::string {
+        if constexpr (std::is_same_v<std::decay_t<T>, std::string>)
+            return arg;
+        else if constexpr (std::is_same_v<std::decay_t<T>, TimeStamp>)
+            return std::to_string(arg.nanoseconds());
+        else if constexpr (std::is_arithmetic_v<std::decay_t<T>>)
+            return std::to_string(arg);
+        throw std::runtime_error("cannot convert unknown type to string");
+    }, value);
+}
 using NowFunc = std::function<TimeStamp()>;
 
 namespace _priv {

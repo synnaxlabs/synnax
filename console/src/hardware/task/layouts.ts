@@ -12,6 +12,7 @@ import { type Synnax, type task } from "@synnaxlabs/client";
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { type Common } from "@/hardware/common";
 import { LabJack } from "@/hardware/labjack";
+import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Sequence } from "@/hardware/task/sequence";
@@ -27,6 +28,8 @@ const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
   [NI.Task.DIGITAL_READ_TYPE]: NI.Task.DIGITAL_READ_LAYOUT,
   [NI.Task.ANALOG_WRITE_TYPE]: NI.Task.ANALOG_WRITE_LAYOUT,
   [Sequence.TYPE]: Sequence.LAYOUT,
+  [Modbus.Task.READ_TYPE]: Modbus.Task.READ_LAYOUT,
+  [Modbus.Task.WRITE_TYPE]: Modbus.Task.WRITE_LAYOUT,
 };
 
 export const createLayout = ({ key, name, type }: task.Task): Layout.BaseState => {
