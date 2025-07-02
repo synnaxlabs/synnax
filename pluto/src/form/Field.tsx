@@ -11,13 +11,9 @@ import { caseconv, deep, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  type ContextValue,
-  useContext,
-  useField,
-  type UseFieldOptions,
-} from "@/form/use";
+import { type ContextValue, useContext } from "@/form/Context";
 import { type FieldState, type GetOptions } from "@/form/state";
+import { useField, type UseFieldOptions } from "@/form/useField";
 import { Input } from "@/input";
 import { Select } from "@/select";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
