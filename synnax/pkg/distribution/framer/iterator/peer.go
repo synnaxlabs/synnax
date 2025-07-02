@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/telem"
 )

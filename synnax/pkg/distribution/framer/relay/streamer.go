@@ -35,13 +35,15 @@ type streamer struct {
 
 // StreamerConfig is the configuration for creating a new streamer.
 type StreamerConfig struct {
-	// Keys are the list of channels to read from. This slice may be empty, in
-	// which case no data will be streamed until a new configuration is provided
-	// as a request to the streamer.
+	// Keys are the list of channels to read from. This slice may be empty, in which
+	// case no data will be streamed until a new configuration is provided as a request
+	// to the streamer.
+	//
 	// [OPTIONAL]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// SendOpenAck sets whether to send an acknowledgement when the streamer has
 	// successfully connected to the relay and is ready to start streaming data.
+	//
 	// [OPTIONAL] - defaults to false
 	SendOpenAck *bool `json:"send_open_ack" msgpack:"send_open_ack"`
 }
@@ -49,8 +51,8 @@ type StreamerConfig struct {
 var (
 	_ config.Config[StreamerConfig] = StreamerConfig{}
 	// DefaultStreamerConfig is the default configuration for opening a new streamer.
-	// This configuration is valid and will create a streamer that does
-	// not stream from any channels.
+	// This configuration is valid and will create a streamer that does not stream from
+	// any channels.
 	DefaultStreamerConfig = StreamerConfig{SendOpenAck: config.False()}
 )
 
@@ -95,8 +97,8 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		r.demands.Acquire(1)
 		// We only set demands when we start the streamer, avoiding unnecessary overhead
 		// when the streamer is not in use. We also need to make sure we send these
-		// demands before we connect to the delta, otherwise, under extreme load we
-		// may cause deadlock.
+		// demands before we connect to the delta, otherwise, under extreme load we may
+		// cause deadlock.
 		r.demands.Inlet() <- demand{
 			Variant: change.Set,
 			Key:     r.addr,
@@ -111,8 +113,8 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			disconnect()
 			// Tell the tapper that we are no longer requesting any channels.
 			r.demands.Inlet() <- demand{Variant: change.Delete, Key: r.addr}
-			// If we add this in AttachClosables, it may not be closed at the end of
-			// if the caller does not use the confluence.CloseOutputInletsOnExit option, so
+			// If we add this in AttachClosables, it may not be closed at the end of if
+			// the caller does not use the confluence.CloseOutputInletsOnExit option, so
 			// we explicitly close it here.
 			r.demands.Close()
 		}()

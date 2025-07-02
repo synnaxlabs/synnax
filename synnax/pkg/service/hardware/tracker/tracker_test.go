@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
@@ -165,7 +165,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Details: rack.StatusDetails{Rack: rck.Key},
 			}
 
-			MustSucceed(w.Write(core.UnaryFrame(rackStateCh.Key(), telem.NewSeriesStaticJSONV(state))))
+			MustSucceed(w.Write(frame.UnaryFrame(rackStateCh.Key(), telem.NewSeriesStaticJSONV(state))))
 
 			Expect(w.Close()).To(Succeed())
 
@@ -197,7 +197,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Details: rack.StatusDetails{Rack: rck.Key},
 			}
 
-			MustSucceed(w.Write(core.UnaryFrame(rackStateCh.Key(), telem.NewSeriesStaticJSONV(state))))
+			MustSucceed(w.Write(frame.UnaryFrame(rackStateCh.Key(), telem.NewSeriesStaticJSONV(state))))
 
 			Expect(w.Close()).To(Succeed())
 
@@ -238,7 +238,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Time:    telem.Now(),
 				Details: task.StatusDetails{Task: tsk.Key},
 			}))
-			MustSucceed(w.Write(core.UnaryFrame(
+			MustSucceed(w.Write(frame.UnaryFrame(
 				taskStateCh.Key(),
 				telem.Series{
 					DataType: telem.JSONT,
@@ -267,7 +267,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Start: telem.Now(),
 				Keys:  []channel.Key{taskStateCh.Key()},
 			}))
-			MustSucceed(w.Write(core.UnaryFrame(
+			MustSucceed(w.Write(frame.UnaryFrame(
 				taskStateCh.Key(),
 				telem.NewSeriesStaticJSONV(task.Status{
 					Variant: status.ErrorVariant,
@@ -343,7 +343,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				Details: rack.StatusDetails{Rack: rck.Key},
 			}
 
-			MustSucceed(w.Write(core.UnaryFrame(
+			MustSucceed(w.Write(frame.UnaryFrame(
 				rackStateCh.Key(),
 				telem.NewSeriesStaticJSONV(state),
 			)))
@@ -448,7 +448,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				},
 			}
 
-			MustSucceed(w.Write(core.UnaryFrame(
+			MustSucceed(w.Write(frame.UnaryFrame(
 				deviceStateCh.Key(),
 				telem.NewSeriesStaticJSONV(state),
 			)))
@@ -493,7 +493,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				},
 			}
 
-			MustSucceed(w.Write(core.UnaryFrame(
+			MustSucceed(w.Write(frame.UnaryFrame(
 				deviceStateCh.Key(),
 				telem.NewSeriesStaticJSONV(state),
 			)))
@@ -552,7 +552,7 @@ var _ = Describe("Tracker", Ordered, func() {
 				},
 			}
 
-			MustSucceed(w.Write(core.UnaryFrame(
+			MustSucceed(w.Write(frame.UnaryFrame(
 				deviceStateCh.Key(),
 				telem.NewSeriesStaticJSONV(state),
 			)))

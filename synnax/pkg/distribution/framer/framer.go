@@ -10,15 +10,15 @@
 package framer
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 )
 
 type (
-	Frame            = core.Frame
+	Frame            = frame.Frame
 	Iterator         = iterator.Iterator
 	IteratorRequest  = iterator.Request
 	IteratorResponse = iterator.Response

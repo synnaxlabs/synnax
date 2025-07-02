@@ -16,15 +16,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -72,7 +71,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			time.Sleep(5 * time.Millisecond)
-			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
+			writtenFr := frame.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -135,7 +134,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
-			writtenFr := core.MultiFrame(
+			writtenFr := frame.MultiFrame(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
@@ -178,7 +177,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive())
 			inlet.Inlet() <- streamer.Request{Keys: channel.Keys{calculation.Key()}}
 			time.Sleep(5 * time.Millisecond)
-			writtenFr := core.MultiFrame(
+			writtenFr := frame.MultiFrame(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
@@ -219,7 +218,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
-			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
+			writtenFr := frame.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
 			MustSucceed(w.Write(writtenFr))
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -295,7 +294,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 
-			writtenFr := core.MultiFrame(
+			writtenFr := frame.MultiFrame(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
@@ -309,7 +308,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 
 			expectedValues := []float32{2, 6, 10, 14}
-			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](expectedValues...))
+			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV(expectedValues...))
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())

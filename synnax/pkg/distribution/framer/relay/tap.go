@@ -19,22 +19,21 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
-	changex "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
 
-// demand represents a demand for streaming data from a specific entity.
-// this entity should generate a unique address (preferably through address.Rand)
-// and use it throughout its lifecycle. To update the requested keys, the entity
-// should send a demand with variant Label, and to remove the demand, it should
-// send a demand with variant DeleteChannel.
-type demand = changex.Change[address.Address, Request]
+// demand represents a demand for streaming data from a specific entity. this entity
+// should generate a unique address (preferably through address.Rand) and use it
+// throughout its lifecycle. To update the requested keys, the entity should send a
+// demand with variant Label, and to remove the demand, it should send a demand with
+// variant DeleteChannel.
+type demand = change.Change[address.Address, Request]
 
 // tap is a tap into a relay, whether another node's distribution relay or the hosts
 // relay. It can receive updates for channels to stream, and sends frames it receives
@@ -54,8 +53,8 @@ type tapper struct {
 	// UnarySink is where we receive demands from, using them to update the set of
 	// relay's we tap into.
 	confluence.UnarySink[demand]
-	// AbstractUnarySource is where we send our responses to, which are the frames
-	// we receive from the tapController relays.
+	// AbstractUnarySource is where we send our responses to, which are the frames we
+	// receive from the tapController relays.
 	confluence.AbstractUnarySource[Response]
 	// demands track the current channels demanded by each entity.
 	demands map[address.Address]channel.Keys
@@ -88,7 +87,7 @@ func (t *tapper) sink(ctx context.Context, d demand) error {
 // updateDemands modifies the current set of locations that the relay needs to stream
 // channel data from.
 func (t *tapper) updateDemands(d demand) map[cluster.NodeKey]channel.Keys {
-	if d.Variant == changex.Delete {
+	if d.Variant == change.Delete {
 		delete(t.demands, d.Key)
 	} else {
 		t.demands[d.Key] = d.Value.Keys
@@ -102,8 +101,8 @@ func (t *tapper) updateDemands(d demand) map[cluster.NodeKey]channel.Keys {
 	return nodeDemands
 }
 
-// Flow starts the tapper goroutines, which listen for demands that update relevant
-// taps into remote nodes, the host time-series db, or the free write pipeline.
+// Flow starts the tapper goroutines, which listen for demands that update relevant taps
+// into remote nodes, the host time-series db, or the free write pipeline.
 func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	t.taps[cluster.Free], _ = t.tapInto(sCtx, cluster.Free, channel.Keys{})
 	t.UnarySink.Flow(sCtx, append(opts,
@@ -189,7 +188,7 @@ func (t *tapper) tapInto(
 
 // tapIntoGateway opens a new tap over the given storage layer streamer.
 func (t *tapper) tapIntoGateway(ctx context.Context, keys channel.Keys) (tap, error) {
-	return cesium.NewTranslatedStreamer[Request, Response](
+	return cesium.NewTranslatedStreamer(
 		ctx,
 		t.TS,
 		ts.StreamerConfig{Channels: keys.Storage()},
@@ -198,8 +197,8 @@ func (t *tapper) tapIntoGateway(ctx context.Context, keys channel.Keys) (tap, er
 	)
 }
 
-// tapIntoPeer opens a new tap that sends requests and receives responses
-// over the given stream.
+// tapIntoPeer opens a new tap that sends requests and receives responses over the given
+// stream.
 func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey cluster.NodeKey) (tap, error) {
 	addr, err := t.HostResolver.Resolve(nodeKey)
 	if err != nil {
@@ -212,8 +211,8 @@ func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey cluster.NodeKey) (tap,
 	receiver := &freightfluence.Receiver[Response]{Receiver: stream}
 	sender := &freightfluence.Sender[Request]{Sender: stream}
 	p := plumber.New()
-	plumber.SetSink[Request](p, "sender", sender)
-	plumber.SetSource[Response](p, "receiver", receiver)
+	plumber.SetSink(p, "sender", sender)
+	plumber.SetSource(p, "receiver", receiver)
 	seg := &plumber.Segment[Request, Response]{Pipeline: p}
 	lo.Must0(seg.RouteOutletFrom("receiver"))
 	lo.Must0(seg.RouteInletTo("sender"))

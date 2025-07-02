@@ -17,10 +17,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -47,7 +46,7 @@ var _ = Describe("Writer", func() {
 					Start: 10 * telem.SecondTS,
 					Sync:  config.True(),
 				}))
-				MustSucceed(writer.Write(core.MultiFrame(
+				MustSucceed(writer.Write(frame.MultiFrame(
 					s.keys,
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
@@ -56,7 +55,7 @@ var _ = Describe("Writer", func() {
 					},
 				)))
 				MustSucceed(writer.Commit())
-				MustSucceed(writer.Write(core.MultiFrame(
+				MustSucceed(writer.Write(frame.MultiFrame(
 					s.keys,
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
@@ -106,7 +105,7 @@ var _ = Describe("Writer", func() {
 				Start: 10 * telem.SecondTS,
 				Sync:  config.True(),
 			}))
-			_, err := writer.Write(core.MultiFrame(
+			_, err := writer.Write(frame.MultiFrame(
 				append(s.keys, channel.NewKey(12, 22)),
 				[]telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3),

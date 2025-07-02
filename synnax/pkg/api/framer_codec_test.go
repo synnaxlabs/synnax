@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/telem"
@@ -34,7 +34,7 @@ var _ = Describe("FramerCodec", func() {
 			}
 			req := api.FrameWriterRequest{
 				Command: writer.Write,
-				Frame: core.MultiFrame(
+				Frame: frame.MultiFrame(
 					keys,
 					[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 				),
@@ -62,7 +62,7 @@ var _ = Describe("FramerCodec", func() {
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
 			res := api.FrameStreamerResponse{
-				Frame: core.MultiFrame(
+				Frame: frame.MultiFrame(
 					keys,
 					[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 				),

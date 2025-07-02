@@ -45,27 +45,33 @@ type Service struct {
 // Config is the configuration for the Service.
 type Config struct {
 	// Instrumentation is used for logging, tracing, etc.
+	//
 	// [OPTIONAL]
 	alamos.Instrumentation
 	// ChannelReader is used to retrieve channel information.
+	//
 	// [REQUIRED]
 	ChannelReader channel.Readable
-	// TS is the underlying storage time-series database for reading and writing telemetry.
+	// TS is the underlying storage time-series database for reading and writing
+	// telemetry.
+	//
 	// [REQUIRED]
 	TS *ts.DB
 	// Transport is the network transport for moving telemetry across nodes.
+	//
 	// [REQUIRED]
 	Transport Transport
 	// HostResolved is used to resolve address information about hosts on the network.
+	//
 	// [REQUIRED]
 	HostResolver cluster.HostResolver
 }
 
 var (
 	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening the framer service.
-	// This configuration is not valid on its own and must be overridden by a
-	// user-provided configuration. See Config for more information.
+	// DefaultConfig is the default configuration for opening the framer service. This
+	// configuration is not valid on its own and must be overridden by a user-provided
+	// configuration. See Config for more information.
 	DefaultConfig = Config{}
 )
 
@@ -89,9 +95,9 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Open opens a new service using the provided configuration(s). Fields defined in
-// each subsequent configuration override those in previous configurations. See the
-// Config struct for information required fields.
+// Open opens a new service using the provided configuration(s). Fields defined in each
+// subsequent configuration override those in previous configurations. See the Config
+// struct for information required fields.
 //
 // Returns the Service and a nil error if opened successfully, and a nil Service and
 // non-nil error if the configuration is invalid or another error occurs.
@@ -146,8 +152,8 @@ func Open(configs ...Config) (*Service, error) {
 }
 
 // OpenIterator opens a new iterator for reading historical data from a Synnax cluster.
-// If the returned error is nil, the iterator must be closed after use. For
-// information on configuration parameters, see the IteratorConfig struct.
+// If the returned error is nil, the iterator must be closed after use. For information
+// on configuration parameters, see the IteratorConfig struct.
 //
 // The returned iterator uses a synchronous, method-based model. For a channel-based
 // iterator model, use NewStreamIterator.
@@ -155,10 +161,10 @@ func (s *Service) OpenIterator(ctx context.Context, cfg IteratorConfig) (*Iterat
 	return s.iterator.Open(ctx, cfg)
 }
 
-// NewStreamIterator returns an iterator for reading historical data from a Synnax cluster.
-// The returned StreamIterator is a confluence.Segment that uses a channel-based interface,
-// where requests are sent through an input stream, and responses are received through
-// an output stream.
+// NewStreamIterator returns an iterator for reading historical data from a Synnax
+// cluster. The returned StreamIterator is a confluence.Segment that uses a
+// channel-based interface, where requests are sent through an input stream, and
+// responses are received through an output stream.
 func (s *Service) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error) {
 	return s.iterator.NewStream(ctx, cfg)
 }
@@ -175,7 +181,8 @@ func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, er
 
 // NewStreamWriter returns a writer for writing data to a Synnax cluster. The returned
 // writer is a confluence.Segment that uses a channel-based interface, where requests
-// are sent through an input stream, and responses are received through an output stream.
+// are sent through an input stream, and responses are received through an output
+// stream.
 func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
 	return s.writer.NewStream(ctx, cfg)
 }

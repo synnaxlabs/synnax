@@ -21,9 +21,9 @@ type Deleter struct {
 	channelReader channel.Readable
 }
 
-// DeleteTimeRange deletes a time range in the specified channel. It is idempotent:
-// if no data is found in the range, nil is returned. However, if the channel
-// does not exist, an ErrChannelNotfound is returned.
+// DeleteTimeRange deletes a time range in the specified channel. It is idempotent: if
+// no data is found in the range, nil is returned. However, if the channel does not
+// exist, an ErrChannelNotfound is returned.
 func (d Deleter) DeleteTimeRange(
 	ctx context.Context,
 	key channel.Key,
@@ -32,10 +32,10 @@ func (d Deleter) DeleteTimeRange(
 	return d.DeleteTimeRangeMany(ctx, []channel.Key{key}, tr)
 }
 
-// DeleteTimeRangeByName deletes a time range in the specified channel. It is idempotent:
-// if no data is found in the range, nil is returned. However, if the channel
-// does not exist, a query.NotFound is returned.
-// All channels with the provided name are affected.
+// DeleteTimeRangeByName deletes a time range in the specified channel. It is
+// idempotent: if no data is found in the range, nil is returned. However, if the
+// channel does not exist, a query.NotFound is returned. All channels with the provided
+// name are affected.
 func (d Deleter) DeleteTimeRangeByName(
 	ctx context.Context,
 	name string,
@@ -47,8 +47,8 @@ func (d Deleter) DeleteTimeRangeByName(
 // DeleteTimeRangeMany deletes a time range in the specified channels. It is idempotent:
 // if no data is found in the range, that channel is skipped.
 //
-// It is NOT atomic: if any deletion fails after others have succeeded, the operation
-// is abandoned midway.
+// It is NOT atomic: if any deletion fails after others have succeeded, the operation is
+// abandoned midway.
 //
 // However, if any channel is not found by its name, the operation is abandoned before
 // any data is deleted.
@@ -60,15 +60,14 @@ func (d Deleter) DeleteTimeRangeMany(
 	return d.proxy.deleteTimeRange(ctx, keys, tr)
 }
 
-// DeleteTimeRangeManyByNames deletes a time range in the specified channels.
-// It is idempotent: if no data is found in the range, that channel is skipped.
+// DeleteTimeRangeManyByNames deletes a time range in the specified channels. It is
+// idempotent: if no data is found in the range, that channel is skipped.
 //
-// It is NOT atomic: if any deletion fails after others have succeeded, the operation
-// is abandoned midway.
+// It is NOT atomic: if any deletion fails after others have succeeded, the operation is
+// abandoned midway.
 //
 // However, if any one channel is not found by its name, the operation is abandoned
-// before any data is deleted.
-// All channels with the provided name are affected.
+// before any data is deleted. All channels with the provided name are affected.
 func (d Deleter) DeleteTimeRangeManyByNames(
 	ctx context.Context,
 	names []string,

@@ -21,21 +21,22 @@ type requiredInfo struct {
 	data telem.MultiSeries
 }
 
-// Calculator is an extension of the lua-based computron.Calculator to provide
-// specific functionality for evaluating calculations on channels using frame data.
+// Calculator is an extension of the lua-based computron.Calculator to provide specific
+// functionality for evaluating calculations on channels using frame data.
 type Calculator struct {
 	// base is the underlying computron calculator.
 	base *computron.Calculator
 	// ch is the calculated channel we're operating on.
 	ch channel.Channel
-	// highWaterMark is the high-water mark of the sample that we've run the calculation on.
+	// highWaterMark is the high-water mark of the sample that we've run the calculation
+	// on.
 	highWaterMark struct {
 		alignment telem.Alignment
 		timestamp telem.TimeStamp
 	}
-	// required is a map of required channels and an accumulated buffer of data. Data
-	// is accumulated for each channel until a calculation can be performed, and is
-	// then flushed.
+	// required is a map of required channels and an accumulated buffer of data. Data is
+	// accumulated for each channel until a calculation can be performed, and is then
+	// flushed.
 	required map[channel.Key]requiredInfo
 }
 
@@ -43,7 +44,8 @@ type Calculator struct {
 // channel. The requiredChannels provided must include ALL and ONLY the channels
 // corresponding to the keys specified in ch.Requires.
 //
-// The calculator must be closed by calling Close() after use, or memory leaks will occur.
+// The calculator must be closed by calling Close() after use, or memory leaks will
+// occur.
 func OpenCalculator(
 	ch channel.Channel,
 	requiredChannels []channel.Channel,
@@ -68,9 +70,9 @@ func (c *Calculator) Channel() channel.Channel { return c.ch }
 
 // Next executes the next calculation step. It takes in the given frame and determines
 // if enough data is available to perform the next set of calculations. The returned
-// telem.Series will have a length equal to the number of new calculations completed.
-// If no calculations are completed, the length of the series will be 0, and the caller
-// is free to discard the returned value.
+// telem.Series will have a length equal to the number of new calculations completed. If
+// no calculations are completed, the length of the series will be 0, and the caller is
+// free to discard the returned value.
 //
 // Any error encountered during calculations is returned as well.
 func (c *Calculator) Next(fr framer.Frame) (telem.Series, error) {

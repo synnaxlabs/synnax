@@ -19,7 +19,7 @@ import (
 
 var ctx = context.Background()
 
-func TestEncoder(t *testing.T) {
+func TestCodec(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Encoder Suite")
+	RunSpecs(t, "Codec Suite")
 }

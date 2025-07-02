@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package writer exposes the Synnax cluster for framed writes as a monolithic data space.
-// It provides a Writer interface that automatically handles the distribution of writes
-// across the cluster. It also provides a StreamWriter interface that enables the user to
-// optimize the concurrency of writes by passing requests and receiving responses through
-// a channel (implementing the confluence.Segment interface).
+// Package writer exposes the Synnax cluster for framed writes as a monolithic data
+// space. It provides a Writer interface that automatically handles the distribution of
+// writes across the cluster. It also provides a StreamWriter interface that enables the
+// user to optimize the concurrency of writes by passing requests and receiving
+// responses through a channel (implementing the confluence.Segment interface).
 //
-// As Synnax is in its early stages, the writer package still has a number of issues, the
-// most relevant of which is a lack of proper distributed transaction support. This means
-// that commits that succeed on one node may fail on another. Caveat emptor.
+// As Synnax is in its early stages, the writer package still has a number of issues,
+// the most relevant of which is a lack of proper distributed transaction support. This
+// means that commits that succeed on one node may fail on another. Caveat emptor.
 package writer
 
 import (
@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -47,40 +46,48 @@ type Config struct {
 	// ControlSubject is an identifier for the writer.
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
 	// Keys are the channel keys to write to. At least one key must be provided. All
-	// Frames written to the Writer must have a array specified for each key, and all series must be the same length (i.e.
-	// calls Frame.Even must return true).
+	// Frames written to the Writer must have a array specified for each key, and all
+	// series must be the same length (i.e. calls Frame.Even must return true).
+	//
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Start marks the starting timestamp of the first sample in the first frame. If
-	// telemetry occupying the given timestamp already exists for the provided keys,
-	// the writer will fail to open.
+	// telemetry occupying the given timestamp already exists for the provided keys, the
+	// writer will fail to open.
+	//
 	// [REQUIRED]
 	Start telem.TimeStamp `json:"start" msgpack:"start"`
 	// Authorities sets the control authority the writer has on each channel for the
-	// write. This should either be a single authority for all channels or a slice
-	// of authorities with the same length as the number of channels where each
-	// authority corresponds to the channel at the same index. Defaults to
-	// absolute authority for all channels.
+	// write. This should either be a single authority for all channels or a slice of
+	// authorities with the same length as the number of channels where each authority
+	// corresponds to the channel at the same index. Defaults to absolute authority for
+	// all channels.
+	//
 	// [OPTIONAL]
 	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
 	// ErrOnUnauthorized controls whether the writer will return an error when
-	// attempting to write to a channel that it does not have authority over.
-	// In non-control scenarios, this value should be set to true. In scenarios
-	// that require control handoff, this value should be set to false.
+	// attempting to write to a channel that it does not have authority over. In
+	// non-control scenarios, this value should be set to true. In scenarios that
+	// require control handoff, this value should be set to false.
+	//
 	// [OPTIONAL] - Defaults to False
 	ErrOnUnauthorized *bool
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
+	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
-	// EnableAutoCommit determines whether the writer will automatically commit after each write.
-	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
+	// EnableAutoCommit determines whether the writer will automatically commit after
+	// each write. If EnableAutoCommit is true, then the writer will commit after each
+	// write, and will flush that commit to index on FS after the specified
+	// AutoIndexPersistInterval.
+	//
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit *bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
-	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
-	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
-	// to AlwaysAutoPersist.
+	// AutoIndexPersistInterval is the interval at which commits to the index will be
+	// persisted. To persist every commit to guarantee minimal loss of data, set
+	// AutoIndexPersistInterval to AlwaysAutoPersist.
+	//
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 	// Sync is set to true if the writer should send acknowledgements for every write
@@ -197,18 +204,22 @@ func (c Config) Override(other Config) Config {
 type ServiceConfig struct {
 	alamos.Instrumentation
 	// TS is the local time series store to write to.
+	//
 	// [REQUIRED]
 	TS *ts.DB
-	// ChannelReader is used to resolve metadata and routing information for the provided
-	// keys.
+	// ChannelReader is used to resolve metadata and routing information for the
+	// provided keys.
+	//
 	// [REQUIRED]
 	ChannelReader channel.Readable
-	// HostResolver is used to resolve the host address for nodes in the cluster in order
-	// to route writes.
+	// HostResolver is used to resolve the host address for nodes in the cluster in
+	// order to route writes.
+	//
 	// [REQUIRED]
 	HostResolver cluster.HostResolver
 	// Transport is the network transport for sending and receiving writes from other
 	// nodes in the cluster.
+	//
 	// [REQUIRED]
 	Transport Transport
 	// FreeWrites is the write pipeline where samples from free channels should be
@@ -250,8 +261,8 @@ type Service struct {
 	server *server
 }
 
-// OpenService opens the writer service using the given configuration. Also binds a server
-// to the given transport for receiving writes from other nodes in the cluster.
+// OpenService opens the writer service using the given configuration. Also binds a
+// server to the given transport for receiving writes from other nodes in the cluster.
 func OpenService(configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	return &Service{ServiceConfig: cfg, server: startServer(cfg)}, err
@@ -298,9 +309,9 @@ func (s *Service) Open(ctx context.Context, cfgs ...Config) (*Writer, error) {
 	}, nil
 }
 
-// NewStream opens a new StreamWriter using the given configuration. The provided context
-// is only used for opening the stream and is not used for concurrent flow control. The
-// context for managing flow control must be provided to StreamWriter.Flow.
+// NewStream opens a new StreamWriter using the given configuration. The provided
+// context is only used for opening the stream and is not used for concurrent flow
+// control. The context for managing flow control must be provided to StreamWriter.Flow.
 func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, error) {
 	cfg, err := config.New(DefaultConfig(), cfgs...)
 	if err != nil {
