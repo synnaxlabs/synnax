@@ -93,9 +93,12 @@ export interface UseObservableRetrieveArgs<V extends state.State> {
 }
 
 export interface UseObservableRetrieveReturn<RetrieveParams extends Params> {
-  retrieve: (params: RetrieveParams, options: { signal?: AbortSignal }) => void;
+  retrieve: (
+    params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+    options: { signal?: AbortSignal },
+  ) => void;
   retrieveAsync: (
-    params: RetrieveParams,
+    params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
     options: { signal?: AbortSignal },
   ) => Promise<void>;
 }
@@ -150,8 +153,17 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   }, []);
   reactUseEffect(() => cleanupDestructors, [cleanupDestructors]);
   const client = PSynnax.use();
+  const paramsRef = useRef<RetrieveParams | {}>({});
   const base = useCallback(
-    async (params: RetrieveParams, { signal }: { signal?: AbortSignal }) => {
+    async (
+      paramsSetter: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+      { signal }: { signal?: AbortSignal },
+    ) => {
+      const params = state.executeSetter<RetrieveParams, RetrieveParams | {}>(
+        paramsSetter,
+        paramsRef.current,
+      );
+      paramsRef.current = params;
       try {
         cleanupDestructors();
         if (client == null)
@@ -203,11 +215,16 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
     [client, name, addListener],
   );
   return {
-    retrieve: (params: RetrieveParams, options: { signal?: AbortSignal }) => {
+    retrieve: (
+      params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+      options: { signal?: AbortSignal },
+    ) => {
       void base(params, options);
     },
-    retrieveAsync: async (params: RetrieveParams, options: { signal?: AbortSignal }) =>
-      await base(params, options),
+    retrieveAsync: async (
+      params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+      options: { signal?: AbortSignal },
+    ) => await base(params, options),
   };
 };
 

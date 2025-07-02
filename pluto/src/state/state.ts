@@ -13,16 +13,19 @@ import { useState } from "react";
 export type State = primitive.Value | record.Unknown;
 export type SetFunc<S, PS = S> = (prev: PS) => S;
 
-export const isSetter = <S extends State>(arg: SetArg<S>): arg is SetFunc<S> =>
-  typeof arg === "function";
+export const isSetter = <S extends State, PS = S>(
+  arg: SetArg<S, PS>,
+): arg is SetFunc<S, PS> => typeof arg === "function";
 
 export type SetArg<S extends State, PS = S> = S | SetFunc<S, PS>;
 export type Setter<S extends State> = (value: SetArg<S>) => void;
 export type PureSetter<S extends State> = (value: S) => void;
 export type Initial<S extends State> = S | (() => S);
 
-export const executeSetter = <S extends State>(setter: SetArg<S>, prev: S): S =>
-  isSetter(setter) ? setter(prev) : setter;
+export const executeSetter = <S extends State, PS = S>(
+  setter: SetArg<S, PS>,
+  prev: PS,
+): S => (isSetter(setter) ? setter(prev) : setter);
 
 export const executeInitialSetter = <S extends State>(setter: Initial<S>): S =>
   isInitialSetter(setter) ? setter() : setter;
