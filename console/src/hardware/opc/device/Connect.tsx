@@ -136,8 +136,10 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
     },
   });
   const hasSecurity =
-    Form.useFieldValue<SecurityMode>("connection.securityMode", undefined, methods) !=
-    NO_SECURITY_MODE;
+    Form.useFieldValue<SecurityMode, SecurityMode, typeof formSchema>(
+      "connection.securityMode",
+      { ctx: methods },
+    ) != NO_SECURITY_MODE;
   const isPending = testConnectionMutation.isPending || connectMutation.isPending;
   return (
     <Align.Space align="start" className={CSS.B("opc-connect")} justify="center">

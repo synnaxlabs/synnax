@@ -72,7 +72,9 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
     boolean,
     boolean,
     typeof Channel.calculatedFormSchema
-  >("isIndex", false, form);
+  >("isIndex", {
+    ctx: form,
+  });
 
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,

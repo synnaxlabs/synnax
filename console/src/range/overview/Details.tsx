@@ -79,8 +79,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   });
   const name = Form.useFieldValue<string, string, typeof Ranger.rangeFormSchema>(
     "name",
-    false,
-    form,
+    { ctx: form },
   );
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleCopyLink = () => {

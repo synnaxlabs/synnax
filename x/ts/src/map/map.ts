@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/form/Context";
-export * from "@/form/Field";
-export * from "@/form/Form";
-export * from "@/form/synced";
-export * from "@/form/use";
-export * from "@/form/useField";
+export const getOrSetDefault = <K, V>(map: Map<K, V>, key: K, defaultValue: V): V => {
+  const value = map.get(key);
+  if (value == null) {
+    map.set(key, defaultValue);
+    return defaultValue;
+  }
+  return value;
+};

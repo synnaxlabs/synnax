@@ -51,8 +51,14 @@ export const Create: Layout.Renderer = ({ onClose }) => {
     },
   });
 
-  const isIndex = Form.useFieldValue<boolean, boolean>("isIndex", false, form);
-  const isVirtual = Form.useFieldValue<boolean, boolean>("virtual", false, form);
+  const isIndex = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
+    "isIndex",
+    { ctx: form },
+  );
+  const isVirtual = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
+    "virtual",
+    { ctx: form },
+  );
 
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
