@@ -35,11 +35,11 @@ func stableFor(_ context.Context, _ Config, n Node) (NodeSchema, bool, error) {
 	if n.Type != StableForType {
 		return ns, false, nil
 	}
-	if err := stableForConfigZ.Validate(n); err != nil {
+	if err := stableForConfigZ.Validate(n.Config); err != nil {
 		return ns, true, err
 	}
-	ns.Inputs = []Input{{Key: "input", AcceptsDataType: zyn.NumericTypeSchema}}
-	ns.Outputs = []Output{{Key: "output", DataType: zyn.BoolT}}
+	ns.Inputs = []Input{{Key: "input", AcceptsDataType: zyn.PrimitiveTypeSchema}}
+	ns.Outputs = []Output{{Key: "value", DataType: zyn.BoolT}}
 	ns.Type = StableForType
 	return ns, true, nil
 }

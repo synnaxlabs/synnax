@@ -39,7 +39,7 @@ func telemSource(ctx context.Context, cfg Config, n Node) (NodeSchema, bool, err
 		return ns, false, nil
 	}
 	tCfg := &TelemConfig{}
-	if err := tCfg.Parse(cfg); err != nil {
+	if err := tCfg.Parse(n.Config); err != nil {
 		return ns, true, err
 	}
 	var ch channel.Channel
@@ -49,7 +49,7 @@ func telemSource(ctx context.Context, cfg Config, n Node) (NodeSchema, bool, err
 		Exec(ctx, nil); err != nil {
 		return ns, true, err
 	}
-	ns.Outputs = []Output{{Key: "Value", DataType: zyn.DataType(ch.DataType)}}
+	ns.Outputs = []Output{{Key: "value", DataType: zyn.DataType(ch.DataType)}}
 	ns.Type = TelemSourceType
 	return ns, true, nil
 }
@@ -60,14 +60,14 @@ func telemSink(ctx context.Context, cfg Config, n Node) (NodeSchema, bool, error
 		return ns, false, nil
 	}
 	tCfg := &TelemConfig{}
-	if err := tCfg.Parse(cfg); err != nil {
+	if err := tCfg.Parse(n.Config); err != nil {
 		return ns, true, err
 	}
 	var ch channel.Channel
 	if err := cfg.Channel.NewRetrieve().WhereKeys(tCfg.Channel).Entry(&ch).Exec(ctx, nil); err != nil {
 		return ns, true, err
 	}
-	ns.Inputs = []Input{{Key: "Value", AcceptsDataType: zyn.Literal(ch.DataType)}}
+	ns.Inputs = []Input{{Key: "value", AcceptsDataType: zyn.Literal(ch.DataType)}}
 	ns.Type = TelemSinkType
 	return ns, true, nil
 }

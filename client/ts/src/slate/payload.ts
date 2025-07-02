@@ -15,7 +15,7 @@ import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 export const nodeZ = z.object({
   key: z.string(),
   type: z.string(),
-  data: record.unknownZ.or(z.string().transform(parseWithoutKeyConversion)),
+  config: record.unknownZ.or(z.string().transform(parseWithoutKeyConversion)),
 });
 
 export const handleZ = z.object({

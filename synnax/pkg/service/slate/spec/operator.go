@@ -84,9 +84,9 @@ func operator(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err 
 		return ns, false, errors.Wrapf(validate.Error, "operator %s not supported", n.Type)
 	}
 	if containsSuffix(n.Type, numericOutputOperators) {
-		ns.Outputs = []Output{{Key: "Value", DataType: zyn.Float64T}}
+		ns.Outputs = []Output{{Key: "value", DataType: zyn.Float64T}}
 	} else {
-		ns.Outputs = []Output{{Key: "Value", DataType: zyn.BoolT}}
+		ns.Outputs = []Output{{Key: "value", DataType: zyn.BoolT}}
 	}
 	ns.Type = n.Type
 	return ns, true, nil

@@ -19,12 +19,12 @@ import {
   type New,
   newZ,
   type Params,
-  type State,
-  stateZ,
+  type Status,
+  statusZ,
 } from "@/effect/payload";
 import { framer } from "@/framer";
 
-const STATE_CHANNEL_NAME = "sy_effect_state";
+const STATUS_CHANNEL_NAME = "sy_effect_status";
 
 const CREATE_ENDPOINT = "/effect/create";
 const DELETE_ENDPOINT = "/effect/delete";
@@ -86,14 +86,14 @@ export class Client {
     return isMany ? res.effects : res.effects[0];
   }
 
-  async openStateObserver(): Promise<framer.ObservableStreamer<State[]>> {
-    return new framer.ObservableStreamer<State[]>(
-      await this.frameClient.openStreamer(STATE_CHANNEL_NAME),
+  async openStatusObserver(): Promise<framer.ObservableStreamer<Status[]>> {
+    return new framer.ObservableStreamer<Status[]>(
+      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
       (frame) => {
-        const s = frame.get(STATE_CHANNEL_NAME);
+        const s = frame.get(STATUS_CHANNEL_NAME);
         if (s.length === 0) return [null, false];
-        const states = s.parseJSON(stateZ);
-        return [states as State[], true];
+        const statuses = s.parseJSON(statusZ);
+        return [statuses as Status[], true];
       },
     );
   }

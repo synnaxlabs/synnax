@@ -47,7 +47,7 @@ export const translateSlateBackward = (slate: State): slate.Slate => ({
     nodes: slate.nodes.map((n) => ({
       key: n.key,
       type: slate.props[n.key].key,
-      data: slate.props[n.key],
+      config: slate.props[n.key],
     })),
     edges: slate.edges.map((e) => ({
       source: { key: e.sourceHandle as string, node: e.source },

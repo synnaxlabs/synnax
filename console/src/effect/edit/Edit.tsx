@@ -8,6 +8,7 @@ import {
   Text,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 import { useStore } from "react-redux";
@@ -25,12 +26,19 @@ export interface LoadedProps {
 const Loaded = ({ effect }: LoadedProps): ReactElement => {
   const client = Synnax.use();
   const store = useStore<RootState>();
+  const addStatus = Status.useAdder();
   const publishMut = useMutation({
     mutationFn: async () => {
-      if (client == null) throw new DisconnectedError();
-      const slate = Slate.select(store.getState(), effect.slate);
-      await client.slates.create(translateSlateBackward(slate));
-      await client.effects.create(effect);
+      try {
+        if (client == null) throw new DisconnectedError();
+        const slate = Slate.select(store.getState(), effect.slate);
+        console.log("slate", slate, translateSlateBackward(slate));
+        await client.slates.create(translateSlateBackward(slate));
+        await client.effects.create(effect);
+      } catch (e) {
+        console.log(e);
+        addStatus(status.fromException(e));
+      }
     },
   });
   return (
@@ -64,24 +72,29 @@ const Loaded = ({ effect }: LoadedProps): ReactElement => {
 
 const EffectState = ({ effect }: { effect: effect.Effect }) => {
   const client = Synnax.use();
-  const [state, setState] = useState<effect.State | null>(null);
+  const [status, setStatus] = useState<effect.Status | null>(null);
   const addStatus = Status.useAdder();
   useAsyncEffect(async () => {
     if (client == null) return;
-    const observer = await client.effects.openStateObserver();
-    observer.onChange((states) => {
-      const s = states.find((s) => s.key === effect.key);
-      if (s == null) return;
-      setState(s);
+    const observer = await client.effects.openStatusObserver();
+    observer.onChange((statuses) => {
+      console.log("statuses", statuses, effect.key);
+      const status = statuses.find((s) => s.details.effect === effect.key);
+      if (status == null) return;
+      setStatus(status);
       addStatus({
         key: effect.key,
-        variant: s.variant,
-        message: s.details?.message as string,
+        variant: status.variant,
+        message: status.message,
       });
     });
     return () => observer.close();
   }, [client]);
-  return <Status.Text variant={state?.variant}>{state?.message}</Status.Text>;
+  return (
+    <Status.Text variant={status?.variant}>
+      {status?.message ?? "Effect has not been deployed yet."}
+    </Status.Text>
+  );
 };
 
 export const Edit: Layout.Renderer = ({ layoutKey }) => {

@@ -38,5 +38,9 @@ func constant(_ context.Context, _ Config, n Node) (ns NodeSchema, ok bool, err 
 		return ns, true, err
 	}
 	ns.Type = ConstantType
+	ns.Outputs = []Output{{
+		Key:      "value",
+		DataType: c.DataType,
+	}}
 	return ns, true, nil
 }

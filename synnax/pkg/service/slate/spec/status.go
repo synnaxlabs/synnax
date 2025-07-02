@@ -41,7 +41,7 @@ func createStatusChanger(_ context.Context, _ Config, n Node) (NodeSchema, bool,
 		return ns, false, err
 	}
 	ns.Inputs = []Input{{
-		Key:             "Value",
+		Key:             "value",
 		AcceptsDataType: zyn.PrimitiveTypeSchema,
 	}}
 	ns.Outputs = []Output{}

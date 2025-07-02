@@ -23,7 +23,7 @@ func selectStatement(_ context.Context, _ Config, n Node) (ns NodeSchema, ok boo
 	}
 	ns.Inputs = []Input{
 		{
-			Key:             "Value",
+			Key:             "value",
 			AcceptsDataType: zyn.Enum(zyn.BoolT, zyn.Uint8T),
 		},
 	}

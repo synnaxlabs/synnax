@@ -57,8 +57,7 @@ func OntologyIDsFromEffects(effects []Effect) []ontology.ID {
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":  zyn.String(),
-	"type": zyn.String(),
+	"key": zyn.UUID(),
 })
 
 func newResource(c Effect) core.Resource {

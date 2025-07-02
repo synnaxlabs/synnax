@@ -57,9 +57,7 @@ func OntologyIDsFromSlates(slates []Slate) []ontology.ID {
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":    zyn.String(),
-	"type":   zyn.String(),
-	"config": zyn.String(),
+	"key": zyn.UUID(),
 })
 
 func newResource(c Slate) core.Resource {
