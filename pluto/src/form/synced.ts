@@ -18,7 +18,7 @@ import {
   use,
   type UseProps,
   type UseReturn,
-} from "@/form/Form";
+} from "@/form/use";
 import { useAsyncEffect } from "@/hooks";
 import { useMemoPrimitiveArray } from "@/memo";
 import { Observe } from "@/observe";

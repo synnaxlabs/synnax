@@ -315,30 +315,13 @@ describe("Form", () => {
     });
   });
 
-  describe("useFieldListener", () => {
-    it("should call a listener when a field changes", () => {
-      const onChange = vi.fn();
-      const res = renderHook(
-        () => {
-          Form.useFieldListener("name", onChange);
-          return Form.useField<string>("name");
-        },
-        { wrapper },
-      );
-      act(() => res.result.current.onChange("Jane Doe"));
-      expect(onChange).toHaveBeenCalled();
-      act(() => res.result.current.onChange("John Doe"));
-      expect(onChange).toHaveBeenCalled();
-    });
-  });
-
   describe("useFieldArray", () => {
     it("should return the array as the value", () => {
-      const res = renderHook(() => Form.useFieldArray({ path: "array" }), { wrapper });
+      const res = renderHook(() => Form.useFieldArray("array"), { wrapper });
       expect(res.result.current.value).toEqual([{ name: "John Doe" }]);
     });
     it("should correctly push a value onto the start of the array", () => {
-      const res = renderHook(() => Form.useFieldArray({ path: "array" }), { wrapper });
+      const res = renderHook(() => Form.useFieldArray("array"), { wrapper });
       res.result.current.push({ name: "Jane Doe" });
       res.rerender();
       expect(res.result.current.value).toEqual([
@@ -348,14 +331,14 @@ describe("Form", () => {
     });
 
     it("should correctly remove the given index from the array", () => {
-      const res = renderHook(() => Form.useFieldArray({ path: "array" }), { wrapper });
+      const res = renderHook(() => Form.useFieldArray("array"), { wrapper });
       res.result.current.remove(0);
       res.rerender();
       expect(res.result.current.value).toEqual([]);
     });
 
     it("should correctly keep only the given index in the array", () => {
-      const res = renderHook(() => Form.useFieldArray({ path: "array" }), { wrapper });
+      const res = renderHook(() => Form.useFieldArray("array"), { wrapper });
       res.result.current.push({ name: "Jane Doe" });
       res.rerender();
       res.result.current.keepOnly(1);
