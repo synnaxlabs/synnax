@@ -24,26 +24,22 @@ import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { Input } from "@/input";
 import { List as CoreList, List } from "@/list";
-import {
-  type UseSelectOnChangeExtra,
-  type UseSelectSingleProps,
-} from "@/list/useSelect";
 import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
+import { type UseSelectOnChangeExtra, type UseSelectSingleProps } from "@/select/use";
 import { Triggers } from "@/triggers";
 
-export interface SingleProps<K extends record.Key, E extends record.Keyed<K>>
+export interface SingleProps<K extends record.Key>
   extends Omit<UseSelectSingleProps<K>, "data" | "allowMultiple">,
     Omit<
       Dropdown.DialogProps,
       "onChange" | "visible" | "children" | "variant" | "close"
     >,
-    Omit<CoreList.ListProps<K, E>, "children">,
-    Pick<Input.TextProps, "variant" | "disabled">,
-    Partial<Pick<CoreList.ItemsProps<K, E>, "itemHeight">> {
+    Omit<CoreList.ListProps<K>, "children">,
+    Pick<Input.TextProps, "variant" | "disabled" {
   entryRenderKey?: keyof E | ((e: E) => string | number | ReactNode);
   inputProps?: Partial<Omit<Input.TextProps, "onChange">>;
-  children?: List.ItemsProps<K, E>["children"];
+  children?: List.ItemRenderProp<K>;
   dropdownVariant?: Dropdown.Variant;
   dropdownZIndex?: number;
   placeholder?: ReactNode;
@@ -98,7 +94,7 @@ export const Single = <K extends record.Key = record.Key>({
     [onChange, close],
   );
 
-  const { onSelect } = List.useSelect<K>({
+  const { onSelect } = List.use<K>({
     value,
     data,
     onChange: handleChange,

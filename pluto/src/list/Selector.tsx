@@ -22,7 +22,7 @@ import {
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { useData } from "@/list/Data";
-import { useSelect, type UseSelectProps } from "@/list/useSelect";
+import { use, type UseSelectProps } from "@/select/use";
 import { Triggers } from "@/triggers";
 
 const UP_TRIGGER: Triggers.Trigger = ["ArrowUp"];
@@ -71,7 +71,7 @@ export const useSelectionUtils = <K extends record.Key = record.Key>() =>
  * Implements selection behavior for a list.
  *
  * @param props - The props for the List.Selector component. These props are identical
- * to the props for {@link useSelect} hook.
+ * to the props for {@link use} hook.
  */
 const Base = memo(
   <K extends record.Key = record.Key>({
@@ -82,7 +82,7 @@ const Base = memo(
     ...rest
   }: SelectorProps<K>): ReactElement => {
     const { items } = useData<K>();
-    const { onSelect, clear } = useSelect<K>({
+    const { onSelect, clear } = use<K>({
       ...rest,
       value,
       data: items,

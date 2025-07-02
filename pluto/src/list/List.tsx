@@ -7,66 +7,80 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, type record } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement } from "react";
+import "@/list/Core.css";
 
-import { type Data, DataProvider } from "@/list/Data";
-import { InfiniteProvider } from "@/list/Infinite";
-import { useMemoCompare } from "@/memo";
-import { Text } from "@/text";
+import { type record } from "@synnaxlabs/x";
+import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
+import {
+  type ComponentPropsWithoutRef,
+  type ReactElement,
+  type RefObject,
+  useRef,
+} from "react";
+
+import { CSS } from "@/css";
+import { type ItemRenderProp } from "@/list/types";
+
+export interface UseProps<K extends record.Key = record.Key> {
+  data: K[];
+  itemHeight: number;
+}
+
+export interface UseReturn {
+  ref: RefObject<HTMLDivElement | null>;
+  virtualizer: Virtualizer<HTMLDivElement, Element>;
+}
 
 export interface ListProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
-> extends PropsWithChildren<unknown> {
-  data?: Data<K, E>;
-  emptyContent?: ReactElement;
-  omit?: K[];
+> extends Omit<ComponentPropsWithoutRef<"div">, "children">,
+    UseReturn {
+  data: K[];
+  children: ItemRenderProp<K, E>;
+  useItem: (key: K) => E;
+  onFetchMore?: () => void;
 }
 
-/**
- * The main component for building a List. By itself, it does not render any HTML, and
- * should be used in conjunction with its sub-components (List.'X') to build a list
- * component to fit your needs.
- *
- * @param props - The props for the List component.
- * @param props.data - The data to be displayed in the list. The values of the object in
- * each entry of the array must satisfy the {@link RenderableValue} interface i.e. they
- * must be a primitive type or implement a 'toString' method.
- * @param props.children - Sub-components of the List component to add additional functionality.
- *
- */
+export const use = <K extends record.Key = record.Key>({
+  data,
+  itemHeight,
+}: UseProps<K>): UseReturn => {
+  const ref = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: data.length,
+    getScrollElement: () => ref.current,
+    estimateSize: () => itemHeight,
+  });
+  return { ref, virtualizer };
+};
+
 export const List = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
 >({
-  children,
+  virtualizer,
   data,
-  emptyContent,
-  omit,
+  className,
+  ref,
+  children,
+  useItem,
+  ...rest
 }: ListProps<K, E>): ReactElement => {
-  const omittedData = useMemoCompare(
-    () => (omit != null ? data?.items.filter((k) => !omit.includes(k)) : data),
-    ([prevOmit, prevData], [omit, data]) => {
-      let omitsEqual: boolean;
-      if (prevOmit != null && omit != null)
-        omitsEqual = compare.unorderedPrimitiveArrays(prevOmit, omit) === compare.EQUAL;
-      else omitsEqual = prevOmit == omit;
-      return prevData === data && omitsEqual;
-    },
-    [omit, data] as [K[] | undefined, E[] | undefined],
-  );
-  const newEmptyContent =
-    typeof emptyContent === "string" ? (
-      <Text.Text level="p">{emptyContent}</Text.Text>
-    ) : (
-      emptyContent
-    );
+  const visibleData = virtualizer.getVirtualItems();
   return (
-    <InfiniteProvider>
-      <DataProvider<K, E> data={omittedData} emptyContent={newEmptyContent}>
-        {children}
-      </DataProvider>
-    </InfiniteProvider>
+    <div ref={ref} className={CSS(className, CSS.BE("list", "container"))} {...rest}>
+      <div
+        className={CSS.BE("list", "virtualizer")}
+        style={{ height: virtualizer.getTotalSize() }}
+      >
+        {visibleData.map(({ index, start }) => {
+          const key = data[index];
+          return (
+            children({ key, index, translate: start, useItem, itemKey: key }) ?? null
+          );
+        })}
+      </div>
+    </div>
   );
 };

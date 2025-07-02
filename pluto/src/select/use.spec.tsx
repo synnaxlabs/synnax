@@ -11,18 +11,9 @@ import { act, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 
-import { useSelect, type UseSelectMultipleProps } from "@/list/useSelect";
+import { use, type UseSelectMultipleProps } from "@/select/use";
 
-interface Entry {
-  key: string;
-  name: string;
-}
-
-const data: Entry[] = [
-  { key: "1", name: "John" },
-  { key: "2", name: "James" },
-  { key: "3", name: "Javier" },
-];
+const data: string[] = ["1", "2", "3"];
 
 interface UseSelectMultipleWrapperReturn {
   value: string[];
@@ -31,10 +22,10 @@ interface UseSelectMultipleWrapperReturn {
 }
 
 const useSelectMultipleWrapper = (
-  props: Omit<UseSelectMultipleProps<string, Entry>, "data" | "value" | "onChange">,
+  props: Omit<UseSelectMultipleProps<string>, "data" | "value" | "onChange">,
 ): UseSelectMultipleWrapperReturn => {
   const [value, setValue] = useState<string[]>([]);
-  const { clear, onSelect } = useSelect<string, Entry>({
+  const { clear, onSelect } = use<string>({
     ...props,
     data,
     value,
@@ -50,11 +41,11 @@ interface UseSelectSingleWrapperReturn {
 }
 
 const useSelectSingleWrapper = (
-  props: Omit<UseSelectMultipleProps<string, Entry>, "data" | "value" | "onChange">,
+  props: Omit<UseSelectMultipleProps<string>, "data" | "value" | "onChange">,
 ): UseSelectSingleWrapperReturn => {
   const [value, setValue] = useState<string | null>(null);
   // a different wrapper for the allowNone: false case
-  const { clear, onSelect } = useSelect<string, Entry>({
+  const { clear, onSelect } = use<string>({
     allowNone: true,
     ...props,
     data,

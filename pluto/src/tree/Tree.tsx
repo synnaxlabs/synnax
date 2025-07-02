@@ -162,7 +162,7 @@ type TreePropsInheritedFromItem = Pick<
 >;
 
 type TreePropsInheritedFromList = Omit<
-  List.ItemsProps<string, FlattenedNode>,
+  List.ListProps<string, FlattenedNode>,
   "onDrop" | "onSelect" | "children" | "onDoubleClick" | "itemHeight"
 > & {
   itemHeight?: number;

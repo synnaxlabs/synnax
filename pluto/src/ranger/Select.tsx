@@ -24,9 +24,9 @@ import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
 import { Input } from "@/input";
 import { List } from "@/list";
-import { type ItemProps, Items } from "@/list/v2/List";
 import { type ListParams, useList } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
+import { Select as CoreSelect } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { componentRenderProp } from "@/util/renderProp";
@@ -232,6 +232,13 @@ export const SelectButton = ({
   );
 };
 
+const ListItem = ({ key, useItem }: List.ItemProps<ranger.Key, ranger.Payload>) => {
+  const item = useItem(key);
+  return <div>{item.name}</div>;
+};
+
+const listItem = componentRenderProp(ListItem);
+
 const Select = () => {
   const { visible, close } = Dropdown.use();
   const [query, setQuery] = useState<Required<ListParams>>({
@@ -248,31 +255,25 @@ const Select = () => {
     [retrieve],
   );
   const [selected, setSelected] = useState<string>("");
-  const { onSelect } = List.useSelect({
+  const { onSelect } = CoreSelect.use({
     data,
     value: selected,
     allowMultiple: false,
     onChange: setSelected,
   });
-
-  const listItem = useMemo(
-    () =>
-      componentRenderProp(({ itemKey }: ItemProps<ranger.Key>) => {
-        const item = useListItem(itemKey);
-        return (
-          <div onClick={() => onSelect(item.key)}>
-            <span>{item.name}</span>
-          </div>
-        );
-      }),
-    [useListItem],
-  );
+  const listProps = List.use({ data, itemHeight: 30 });
   return (
     <Dropdown.Dialog visible={visible} close={close}>
       <Input.Text value={query.term} onChange={handleSearch} />
-      <Items data={data} itemHeight={30}>
-        {listItem}
-      </Items>
+      <CoreSelect.Provider<ranger.Key> value={selected} onSelect={onSelect}>
+        <List.List<ranger.Key, ranger.Payload>
+          {...listProps}
+          data={data}
+          useItem={useListItem}
+        >
+          {listItem}
+        </List.List>
+      </CoreSelect.Provider>
     </Dropdown.Dialog>
   );
 };

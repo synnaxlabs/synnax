@@ -54,14 +54,14 @@ export interface MultipleProps<
     Omit<UseSelectMultipleProps<K, E>, "data">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "placeholder">,
-    Partial<Pick<CoreList.ItemsProps<K, E>, "itemHeight">> {
+    Partial<Pick<CoreList.ListProps<K, E>, "itemHeight">> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   searcher?: AsyncTermSearcher<string, K, E>;
   entryRenderKey?: keyof E | ((e: E) => string | number);
   renderTag?: RenderProp<MultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
-  children?: CoreList.ItemsProps<K, E>["children"];
+  children?: CoreList.ListProps<K, E>["children"];
   dropdownVariant?: Dropdown.Variant;
   addPlaceholder?: ReactNode;
   actions?: Input.ExtensionProps["children"];

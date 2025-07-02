@@ -15,7 +15,7 @@ import { Triggers } from "@/triggers";
 
 /**
  * Extra information passed as an additional argument to the `onChange` callback.
- * of the {@link useSelect} hook.
+ * of the {@link use} hook.
  */
 export interface UseSelectOnChangeExtra<K extends record.Key = record.Key> {
   clickedIndex: number | null;
@@ -63,7 +63,7 @@ export interface UseSelectMultipleProps<K extends record.Key> extends BaseProps<
   onChange: (next: K[], extra: UseSelectOnChangeExtra<K>) => void;
 }
 
-/** Props for the {@link useSelect} hook. */
+/** Props for the {@link use} hook. */
 export type UseSelectProps<K extends record.Key = record.Key> =
   | UseSelectSingleProps<K>
   | UseSelectMultipleProps<K>;
@@ -78,8 +78,8 @@ export type FlexUseSelectProps<K extends record.Key> = {
   onChange: (next: K | K[] | null, extra: UseSelectOnChangeExtra<K>) => void;
 };
 
-/** Return value for the {@link useSelect} hook. */
-export interface UseSelectMultipleReturn<K extends record.Key = record.Key> {
+/** Return value for the {@link use} hook. */
+export interface UseSelectReturn<K extends record.Key = record.Key> {
   onSelect: (key: K) => void;
   clear: () => void;
 }
@@ -92,9 +92,6 @@ export const selectValueIsZero = <K extends record.Key>(
   if (typeof value === "string") return value.length === 0;
   return false;
 };
-
-const DEFAULT_PROPS_DATA: any[] = [];
-const DEFAULT_PROPS_VALUE: any[] = [];
 
 /**
  * Implements generic selection over a collection of keyed records. The hook
@@ -121,15 +118,15 @@ const DEFAULT_PROPS_VALUE: any[] = [];
  * probably be passed to the `onClick` corresponding to each record.
  * @returns clear - A callback that can be used to clear the selection.
  */
-export const useSelect = <K extends record.Key>({
-  data: propsData = DEFAULT_PROPS_DATA,
-  value: propsValue = DEFAULT_PROPS_VALUE,
+export const use = <K extends record.Key>({
+  data: propsData = [],
+  value: propsValue = [],
   allowMultiple,
   allowNone,
   replaceOnSingle = false,
   autoSelectOnNone = false,
   onChange,
-}: UseSelectProps<K> | FlexUseSelectProps<K>): UseSelectMultipleReturn<K> => {
+}: UseSelectProps<K> | FlexUseSelectProps<K>): UseSelectReturn<K> => {
   const shiftValueRef = useRef<K | null>(null);
   const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
   const ctrl = Triggers.useHeldRef({ triggers: [["Control"]], loose: true });
@@ -163,10 +160,7 @@ export const useSelect = <K extends record.Key>({
     ) {
       const first = data[0];
       shiftValueRef.current = first;
-      handleChange([first], {
-        clicked: first,
-        clickedIndex: 0,
-      });
+      handleChange([first], { clicked: first, clickedIndex: 0 });
     }
   }, [handleChange, dataRef, propsValue, allowNone]);
 

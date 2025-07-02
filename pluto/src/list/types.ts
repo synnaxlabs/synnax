@@ -9,19 +9,21 @@
 
 import { type record } from "@synnaxlabs/x";
 
+import { type RenderProp } from "@/util/renderProp";
+
 export interface ItemProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
 > {
-  entry: E;
   index: number;
-  selected: boolean;
-  hovered: boolean;
-  onSelect?: (key: K) => void;
+  key: K;
+  itemKey: K;
   className?: string;
   translate?: number;
+  useItem: (key: K) => E;
 }
 
-export type ItemRenderProp<K extends record.Key, E extends record.Keyed<K>> = (
-  props: ItemProps<K, E> & { key: K },
-) => React.ReactElement | null;
+export type ItemRenderProp<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> = RenderProp<ItemProps<K, E>>;

@@ -13,5 +13,7 @@ export * from "@/select/ComponentSize";
 export * from "@/select/DataType";
 export * from "@/select/Direction";
 export * from "@/select/Multiple";
+export * from "@/select/Provider";
 export * from "@/select/Single";
 export * from "@/select/text";
+export * from "@/select/use";
