@@ -9,13 +9,7 @@
 
 import { type channel, type Synnax } from "@synnaxlabs/client";
 import { type Destructor, type MultiSeries } from "@synnaxlabs/x";
-import {
-  useCallback,
-  useEffect as reactUseEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect as reactUseEffect, useRef, useState } from "react";
 
 import { type Params } from "@/flux/params";
 import {
@@ -257,7 +251,7 @@ const useEffect = <RetrieveParams extends Params, V extends state.State>({
 }: UseEffectRetrieveArgs<RetrieveParams, V> &
   CreateRetrieveArgs<RetrieveParams, V>): void => {
   const { retrieveAsync } = useObservable<RetrieveParams, V>(restArgs);
-  const memoParams = useMemo(() => params, [params]);
+  const memoParams = useMemoDeepEqual(params);
   useAsyncEffect(
     async (signal) => await retrieveAsync(memoParams, { signal }),
     [retrieveAsync, memoParams],

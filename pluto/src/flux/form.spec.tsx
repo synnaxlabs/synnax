@@ -247,7 +247,7 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update: ({ value }) => update(value.name),
-          })({ params: {} }),
+          })({ params: {}, autoSave: true }),
         { wrapper: newWrapper(client) },
       );
       act(() => {

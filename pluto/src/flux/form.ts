@@ -82,7 +82,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
   return ({ params, initialValues, autoSave = false, afterSave }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
       Result<z.infer<Schema> | null>
-    >(pendingResult(name));
+    >(pendingResult(name, "retrieving"));
 
     const handleResultChange: state.Setter<Result<z.infer<Schema> | null>> = (
       setter,
@@ -100,7 +100,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
 
     retrieveHook.useEffect({ params, onChange: handleResultChange });
 
-    const { updateAsync: handleUpdate } = updateHook.useObservable({
+    const { updateAsync } = updateHook.useObservable({
       params,
       onChange: handleResultChange,
     });
@@ -116,10 +116,10 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
     const handleSave = useCallback(() => {
       void (async () => {
         if (!(await form.validateAsync())) return;
-        await handleUpdate(form.value());
+        await updateAsync(form.value());
         afterSave?.({ form, params });
       })();
-    }, [form, handleUpdate]);
+    }, [form, updateAsync]);
 
     return { form, save: handleSave, ...result };
   };

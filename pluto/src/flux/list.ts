@@ -14,8 +14,8 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { type Params } from "@/flux/params";
 import {
   errorResult,
-  pendingResult,
   nullClientResult,
+  pendingResult,
   type Result,
   successResult,
 } from "@/flux/result";
@@ -90,7 +90,9 @@ export const createList =
   () => {
     const dataRef = useRef<Map<K, E>>(new Map());
     const listenersRef = useRef<Map<() => void, K>>(new Map());
-    const [result, setResult] = useState<Result<K[]>>(pendingResult(name));
+    const [result, setResult] = useState<Result<K[]>>(
+      pendingResult(name, "retrieving"),
+    );
     const paramsRef = useRef<P | {}>({});
     const addListener = Sync.useAddListener();
     const client = PSynnax.use();
@@ -119,7 +121,7 @@ export const createList =
                   },
                 });
               } catch (error) {
-                setResult(errorResult(name, error));
+                setResult(errorResult(name, "retrieve", error));
               }
             })();
           },
@@ -137,13 +139,13 @@ export const createList =
         paramsRef.current = params;
         try {
           if (client == null) return setResult(nullClientResult(name, "retrieve"));
-          setResult(pendingResult(name));
+          setResult(pendingResult(name, "retrieving"));
           const value = await retrieve({ client, params });
           const keys = value.map((v) => v.key);
           if (signal?.aborted) return;
-          return setResult(successResult(name, keys));
+          return setResult(successResult(name, "retrieved", keys));
         } catch (error) {
-          setResult(errorResult(name, error));
+          setResult(errorResult(name, "retrieve", error));
         }
       },
       [client, name, addListener],
@@ -159,7 +161,7 @@ export const createList =
               if (k === key) listener();
             });
           } catch (error) {
-            setResult(errorResult(name, error));
+            setResult(errorResult(name, "retrieve", error));
           }
         })();
       },
