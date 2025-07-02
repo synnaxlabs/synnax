@@ -123,10 +123,10 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	}
 
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_iterator")))
-	// Cancellation here would occur for one of two reasons. Either we encounter
-	// a fatal error (transport or iterator internal) and we need to free all
-	// resources, OR the client executed the close command on the iterator (in
-	// which case resources have already been freed and cancel does nothing).
+	// Cancellation here would occur for one of two reasons. Either we encounter a fatal
+	// error (transport or iterator internal) and we need to free all resources, OR the
+	// client executed the close command on the iterator (in which case resources have
+	// already been freed and cancel does nothing).
 	defer cancel()
 
 	receiver := &freightfluence.Receiver[iterator.Request]{Receiver: stream}

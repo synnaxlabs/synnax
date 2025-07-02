@@ -149,12 +149,7 @@ var _ = Describe("Pipeline", Ordered, Serial, func() {
 						return strings.NewReader(req.Message), nil
 					})
 					req := request{ID: 1, Message: "hello"}
-					reader, err := client.Send(context.Background(), addr, req)
-					Expect(err).ToNot(HaveOccurred())
-					body, err := io.ReadAll(reader)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(string(body)).To(Equal(req.Message))
-					Expect(reader.Close()).To(Succeed())
+					Expect(client.Send(context.Background(), addr, req)).To(Equal(io.NopCloser(strings.NewReader(req.Message))))
 				})
 			})
 			Describe("Error handling", func() {
@@ -182,12 +177,7 @@ var _ = Describe("Pipeline", Ordered, Serial, func() {
 						return strings.NewReader(req.Message), nil
 					})
 					req := request{ID: 1, Message: "hello"}
-					reader, err := client.Send(context.Background(), addr, req)
-					Expect(err).ToNot(HaveOccurred())
-					body, err := io.ReadAll(reader)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(string(body)).To(Equal(req.Message))
-					Expect(reader.Close()).To(Succeed())
+					Expect(client.Send(context.Background(), addr, req)).To(Equal(io.NopCloser(strings.NewReader(req.Message))))
 					Expect(c).To(Equal(1))
 					Expect(s).To(Equal(1))
 				})
