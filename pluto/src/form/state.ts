@@ -1,8 +1,6 @@
 import { deep, map, observe, type status, zod } from "@synnaxlabs/x";
 import { type z } from "zod/v4";
 
-import { type Input } from "@/input";
-
 export interface FieldState<V = unknown> {
   value: V;
   status: status.Crude;
