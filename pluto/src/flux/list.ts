@@ -1,6 +1,6 @@
 import { DisconnectedError, type Synnax } from "@synnaxlabs/client";
-import { type Destructor, type MultiSeries, type record } from "@synnaxlabs/x";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type Destructor, type MultiSeries, observe, type record } from "@synnaxlabs/x";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { type Params } from "@/flux/params";
 import { errorResult, loadingResult, type Result, successResult } from "@/flux/result";
@@ -9,7 +9,7 @@ import {
   type UseStatefulRetrieveReturn,
 } from "@/flux/retrieve";
 import { Sync } from "@/flux/sync";
-import { type state } from "@/state";
+import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
 export type UseListReturn<
@@ -17,7 +17,7 @@ export type UseListReturn<
   K extends record.Key,
   E extends record.Keyed<K>,
 > = UseStatefulRetrieveReturn<RetrieveParams, K[]> & {
-  useListItem: (key: K) => E;
+  useListItem: (key: K) => E | undefined;
 };
 
 export interface CreateListArgs<
@@ -25,6 +25,7 @@ export interface CreateListArgs<
   K extends record.Key,
   E extends record.Keyed<K>,
 > extends Omit<CreateRetrieveArgs<RetrieveParams, E[]>, "listeners"> {
+  retrieveByKey: (key: K) => Promise<E>;
   listeners?: ListListenerConfig<RetrieveParams, K, E>[];
 }
 
@@ -63,12 +64,12 @@ export const createList =
     name,
     listeners,
     retrieve,
+    retrieveByKey,
   }: CreateListArgs<P, K, E>): UseList<P, K, E> =>
   () => {
     const dataRef = useRef<Map<K, E>>(new Map());
-    const listenersRef = useRef<Map<(e: E) => void, K>>(new Map());
+    const listenersRef = useRef<Map<() => void, K>>(new Map());
     const [result, setResult] = useState<Result<K[]>>();
-
     const addListener = Sync.useAddListener();
     const destructorsRef = useRef<Destructor[]>([]);
     const cleanupDestructors = useCallback(() => {
@@ -77,8 +78,14 @@ export const createList =
     }, []);
     useEffect(() => cleanupDestructors, [cleanupDestructors]);
     const client = PSynnax.use();
+    const paramsRef = useRef<P | {}>({});
     const base = useCallback(
-      async (params: P, { signal }: { signal?: AbortSignal }) => {
+      async (
+        paramsSetter: state.SetArg<P, P | {}>,
+        { signal }: { signal?: AbortSignal },
+      ) => {
+        const params = state.executeSetter(paramsSetter, paramsRef.current);
+        paramsRef.current = params;
         try {
           cleanupDestructors();
           if (client == null)
@@ -134,26 +141,33 @@ export const createList =
       [client, name, addListener],
     );
 
-    const useListItem = (key: K) => {
-      const [item, setItem] = useState<E>(() => dataRef.current.get(key)!);
-      useEffect(() => {
-        const listener = (e: E) => {
-          if (e.key === key) setItem(e);
-        };
-        listenersRef.current.set(listener, key);
-        return () => {
-          listenersRef.current.delete(listener);
-        };
-      }, [key, dataRef.current]);
-      return item;
-    };
+    const useListItem = (key: K) =>
+      useSyncExternalStore<E | undefined>(
+        useCallback(
+          (callback) => {
+            listenersRef.current.set(callback, key);
+            return () => listenersRef.current.delete(callback);
+          },
+          [key],
+        ),
+        useCallback(() => {
+          const res = dataRef.current.get(key);
+          if (res == null) void retrieveByKey(key);
+          return res;
+        }, [key]),
+      );
     const res: Result<K[]> = { ...result, data: result?.data ?? [] } as Result<K[]>;
     const v: UseListReturn<P, K, E> = {
-      retrieve: (params: P, options: { signal?: AbortSignal }) => {
+      retrieve: (
+        params: state.SetArg<P, P | {}>,
+        options: { signal?: AbortSignal },
+      ) => {
         void base(params, options);
       },
-      retrieveAsync: async (params: P, options: { signal?: AbortSignal }) =>
-        await base(params, options),
+      retrieveAsync: async (
+        params: state.SetArg<P, P | {}>,
+        options: { signal?: AbortSignal },
+      ) => await base(params, options),
       useListItem,
       ...res,
     };
