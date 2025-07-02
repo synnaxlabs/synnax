@@ -7,5 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/list/Item";
 export * from "@/list/List";
-export * from "@/list/types";

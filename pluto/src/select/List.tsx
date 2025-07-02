@@ -59,7 +59,6 @@ export const Core = <K extends record.Key, E extends record.Keyed<K>>({
 
   if (variant !== "connected")
     dialogContent = (
-      <Align.Pack y className={CSS.B("select-dialog-content")}>
         {dialogContent}
       </Align.Pack>
     );

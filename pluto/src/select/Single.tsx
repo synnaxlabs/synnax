@@ -9,42 +9,36 @@
 
 import "@/select/Single.css";
 
-import { primitive, type record } from "@synnaxlabs/x";
-import {
-  type FocusEventHandler,
-  type ReactElement,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { type Optional, type record } from "@synnaxlabs/x";
+import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
-import { Caret } from "@/caret";
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { Input } from "@/input";
-import { List as CoreList, List } from "@/list";
-import { ClearButton } from "@/select/ClearButton";
-import { Core } from "@/select/List";
-import { type UseSelectOnChangeExtra, type UseSelectSingleProps } from "@/select/use";
-import { Triggers } from "@/triggers";
+import { List } from "@/list";
+import { Provider } from "@/select/Provider";
+import { use, type UseSelectSingleProps } from "@/select/use";
+import { type RenderProp } from "@/util/renderProp";
 
-export interface SingleProps<K extends record.Key>
+export interface TriggerProps<K extends record.Key, E extends record.Keyed<K>> {
+  value: K | null;
+  useItem: (key: K) => E;
+  onClick: () => void;
+}
+
+export interface SingleProps<K extends record.Key, E extends record.Keyed<K>>
   extends Omit<UseSelectSingleProps<K>, "data" | "allowMultiple">,
-    Omit<
-      Dropdown.DialogProps,
-      "onChange" | "visible" | "children" | "variant" | "close"
-    >,
-    Omit<CoreList.ListProps<K>, "children">,
-    Pick<Input.TextProps, "variant" | "disabled"> {
-  entryRenderKey?: keyof E | ((e: E) => string | number | ReactNode);
+    Omit<Dropdown.DialogProps, "visible" | "close" | "children" | "onChange">,
+    List.UseProps<K>,
+    Pick<List.ListProps<K, E>, "useItem"> {
   inputProps?: Partial<Omit<Input.TextProps, "onChange">>;
-  children?: List.ItemRenderProp<K, E>;
+  children: [RenderProp<TriggerProps<K, E>>, List.ItemRenderProp<K, E>];
+  onSearch?: (term: string) => void;
   dropdownVariant?: Dropdown.Variant;
   dropdownZIndex?: number;
   placeholder?: ReactNode;
   inputPlaceholder?: ReactNode;
-  triggerTooltip?: ReactNode;
   actions?: Input.ExtensionProps["children"];
 }
 
@@ -75,117 +69,77 @@ export const Single = <
 >({
   onChange,
   value,
-  entryRenderKey = "key",
   data,
   inputProps,
-  allowNone = true,
   className,
-  variant = "button",
-  disabled,
   children,
   dropdownVariant = "connected",
   placeholder = DEFAULT_PLACEHOLDER,
   inputPlaceholder = placeholder,
-  triggerTooltip,
   dropdownZIndex,
+  location,
+  keepMounted,
   actions,
+  onSearch,
+  allowNone = true,
+  useItem,
   ...rest
-}: SingleProps<K>): ReactElement => {
-  const { visible, open, close } = Dropdown.use();
-
-  const handleChange = useCallback(
-    (v: K | null, e: UseSelectOnChangeExtra<K>): void => {
-      close();
-      onChange(v, e);
-    },
-    [onChange, close],
-  );
-
-  const { onSelect } = List.use<K>({
-    value,
+}: SingleProps<K, E>): ReactElement => {
+  const { visible, close } = Dropdown.use();
+  const { onSelect } = use<K>({
     data,
-    onChange: handleChange,
-    allowNone,
+    value,
+    onChange,
     allowMultiple: false,
+    allowNone,
   });
-
-  const searchInput = (
-    <SingleInput<K, E>
-      {...inputProps}
-      autoFocus={dropdownVariant === "modal"}
-      variant={variant}
-      onChange={handleChange}
-      onFocus={open}
-      entryRenderKey={entryRenderKey}
-      visible={visible}
-      allowNone={allowNone}
-      className={className}
-      dropdownVariant={dropdownVariant}
-      disabled={disabled}
-      placeholder={inputPlaceholder}
-    >
-      {actions}
-    </SingleInput>
-  );
-
+  const listProps = List.use({ data });
+  const [triggerRenderProp, listItemRenderProp] = children;
   return (
-    <Core<K, E>
-      close={close}
-      zIndex={dropdownZIndex}
-      data={data}
-      allowMultiple={false}
-      visible={visible}
-      value={value}
-      onChange={handleChange}
-      allowNone={allowNone}
-      listItem={children}
-      variant={dropdownVariant}
-      trigger={dropdownVariant !== "modal" ? searchInput : buttonTrigger}
-      extraDialogContent={dropdownVariant === "modal" ? searchInput : undefined}
-      keepMounted={false}
-      {...rest}
-    />
+    <Provider value={value} onSelect={onSelect}>
+      <Dropdown.Dialog
+        visible={visible}
+        close={close}
+        location={location}
+        keepMounted={keepMounted}
+        variant={dropdownVariant}
+        zIndex={dropdownZIndex}
+        {...rest}
+      >
+        {triggerRenderProp({ value, useItem, onClick: open })}
+        <Align.Space empty>
+          {onSearch != null && (
+            <SingleInput
+              visible={visible}
+              onChange={onSearch}
+              placeholder={inputPlaceholder}
+            />
+          )}
+          <List.List data={data} useItem={useItem} {...listProps}>
+            {listItemRenderProp}
+          </List.List>
+        </Align.Space>
+      </Dropdown.Dialog>
+    </Provider>
   );
 };
 
-export interface SelectInputProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Omit<Input.TextProps, "value" | "onFocus"> {
-  entryRenderKey: keyof E | ((e: E) => string | number | ReactNode);
-  selected: E | null;
+export interface SelectInputProps
+  extends Optional<Omit<Input.TextProps, "value" | "onFocus">, "onChange"> {
   visible: boolean;
-  debounceSearch?: number;
-  allowNone?: boolean;
-  onFocus: () => void;
-  dropdownVariant?: Dropdown.Variant;
-  zIndex?: number;
 }
 
 export const DEFAULT_PLACEHOLDER = "Select";
 
-const getRenderValue = <K extends record.Key, E extends record.Keyed<K>>(
-  entryRenderKey: keyof E | ((e: E) => string | number | ReactNode),
-  selected: E | null,
-): ReactNode => {
-  if (selected == null) return "";
-  if (typeof entryRenderKey === "function") return entryRenderKey(selected);
-  return (selected[entryRenderKey] as string | number).toString();
-};
-
-const SingleInput = <K extends record.Key, E extends record.Keyed<K>>({
-  entryRenderKey,
-  selected,
+const SingleInput = ({
   visible,
   onChange,
-  onFocus,
-  allowNone = true,
   placeholder = DEFAULT_PLACEHOLDER,
   className,
   disabled,
-  dropdownVariant,
   children,
   ...rest
-}: SelectInputProps<K, E>): ReactElement => {
-  const { clear } = CoreList.useSelectionUtils();
+}: SelectInputProps): ReactElement => {
   // We maintain our own value state for two reasons:
   //
   //  1. So we can avoid executing a search when the user selects an item and hides the
@@ -198,60 +152,25 @@ const SingleInput = <K extends record.Key, E extends record.Keyed<K>>({
   // Runs to set the value of the input to the item selected from the list.
   useEffect(() => {
     if (visible) return;
-    if (primitive.isZero(selected?.key)) return setInternalValue("");
-    if (selected == null) return;
-    setInternalValue(getRenderValue(entryRenderKey, selected) as string);
-  }, [selected, visible, entryRenderKey]);
+    setInternalValue("");
+  }, [visible]);
 
   const handleChange = (v: string): void => {
-    onChange(v);
+    onChange?.(v);
     setInternalValue(v);
   };
-
-  const handleFocus: FocusEventHandler<HTMLInputElement> = () => {
-    // Trigger an onChange to make sure the parent component is aware of the focus event.
-    if (internalValue === "") onChange("");
-    setInternalValue("");
-    onFocus?.();
-  };
-
-  const handleClick: React.MouseEventHandler<HTMLInputElement> = (e) => {
-    if (visible) return;
-    e.preventDefault();
-    onFocus?.();
-  };
-
-  const handleClear = (): void => {
-    setInternalValue("");
-    clear?.();
-  };
-
-  let endContent: ReactElement | undefined;
-  if (dropdownVariant !== "modal")
-    endContent = (
-      <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
-    );
 
   return (
     <Input.Text
       className={CSS(CSS.BE("select", "input"), className)}
       value={internalValue}
       onChange={handleChange}
-      onFocus={handleFocus}
-      onKeyDown={Triggers.matchCallback([["Enter"]], (e) => {
-        e.preventDefault();
-        if (visible) return;
-        onFocus?.();
-      })}
-      endContent={endContent}
       style={{ flexGrow: 1 }}
-      onClick={handleClick}
       placeholder={placeholder}
       disabled={disabled}
       {...rest}
     >
       {children}
-      {allowNone && <ClearButton onClick={handleClear} disabled={disabled} />}
     </Input.Text>
   );
 };

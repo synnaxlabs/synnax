@@ -9,33 +9,14 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { array, type AsyncTermSearcher, unique } from "@synnaxlabs/x";
-import {
-  type DragEvent,
-  type ReactElement,
-  useCallback,
-  useId,
-  useMemo,
-  useState,
-} from "react";
+import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
-import { Align } from "@/align";
-import { Button } from "@/button";
 import { CSS } from "@/css";
-import { Dropdown } from "@/dropdown";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
-import { Input } from "@/input";
-import { List } from "@/list";
-import { type ListParams, useList } from "@/ranger/queries";
+import { useList } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
-import { Select as CoreSelect } from "@/select";
-import { Status } from "@/status";
-import { Synnax } from "@/synnax";
-import { componentRenderProp } from "@/util/renderProp";
-
-const rangeCols: Array<List.ColumnSpec<ranger.Key, ranger.Payload>> = [
-  { key: "name", name: "Name" },
-];
+import { Select } from "@/select";
 
 const canDrop = (
   { items: entities }: DraggingState,
@@ -57,14 +38,6 @@ export const SelectMultiple = ({
   value,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const client = Synnax.use();
-  const emptyContent =
-    client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
-        No client available
-      </Status.Text.Centered>
-    );
-
   const {
     startDrag,
     onDragEnd: endDrag,
@@ -95,10 +68,7 @@ export const SelectMultiple = ({
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
       onChange(
         array.toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
-        {
-          clicked: null,
-          entries: [],
-        },
+        { clicked: null, entries: [] },
       );
     },
     [onChange, value],
@@ -133,31 +103,20 @@ export const SelectMultiple = ({
 export interface SelectSingleProps
   extends Omit<Select.SingleProps<ranger.Key, ranger.Payload>, "columns"> {}
 
-interface UseSingleReturn extends Omit<Haul.UseDragReturn, "startDrag"> {
-  emptyContent?: ReactElement;
-  dragging: DraggingState;
-  onDragStart: (e: DragEvent<HTMLDivElement>) => void;
-  searcher?: AsyncTermSearcher<string, ranger.Key, ranger.Payload>;
-}
-
-const useSingle = ({
-  value,
+export const SelectSingle = ({
   onChange,
-}: Pick<SelectSingleProps, "onChange" | "value">): UseSingleReturn => {
-  const client = Synnax.use();
-  const emptyContent =
-    client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
-        No client available
-      </Status.Text.Centered>
-    );
-
+  value,
+  className,
+  data: _,
+  useItem: __,
+  ...rest
+}: SelectSingleProps): ReactElement => {
+  const { data, useListItem } = useList();
   const id = useId();
   const sourceAndTarget: Haul.Item = useMemo(
     () => ({ key: id, type: "Ranger.SelectMultiple" }),
     [id],
   );
-
   const { startDrag, ...dragProps } = Haul.useDragAndDrop({
     type: "Ranger.SelectSingle",
     canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
@@ -165,121 +124,30 @@ const useSingle = ({
       ({ items }) => {
         const ch = Haul.filterByType(HAUL_TYPE, items);
         if (ch.length === 0) return [];
-        onChange(ch[0].key as ranger.Key, {
-          clicked: null,
-          entries: [],
-        });
+        onChange(ch[0].key as ranger.Key, { clicked: null, clickedIndex: 0 });
         return ch;
       },
       [sourceAndTarget, onChange],
     ),
   });
-
   const dragging = Haul.useDraggingState();
   const onDragStart = useCallback(
     () => value != null && startDrag([{ type: HAUL_TYPE, key: value }]),
     [startDrag, value],
   );
-  return {
-    emptyContent,
-    dragging,
-    ...dragProps,
-    onDragStart,
-    searcher: client?.ranges,
-  };
-};
-
-export const SelectSingle = ({
-  onChange,
-  value,
-  className,
-  data,
-  ...rest
-}: SelectSingleProps): ReactElement => {
-  const { dragging, ...dragProps } = useSingle({ value, onChange });
   return (
     <Select.Single<ranger.Key, ranger.Payload>
-      data={data}
       className={CSS(
         className,
         CSS.dropRegion(canDrop(dragging, array.toArray(value))),
       )}
       value={value}
       onChange={onChange}
-      columns={rangeCols}
-      entryRenderKey="name"
-      {...dragProps}
-      {...rest}
-    />
-  );
-};
-
-export const SelectButton = ({
-  data,
-  value,
-  onChange,
-  ...rest
-}: SelectSingleProps): ReactElement => {
-  const { dragging, ...dragProps } = useSingle({ value, onChange });
-  return (
-    <Select.Single<ranger.Key, ranger.Payload>
+      useItem={useListItem}
       data={data}
-      value={value as string}
-      onChange={onChange}
-      columns={rangeCols}
-      entryRenderKey="name"
+      onDragStart={onDragStart}
       {...dragProps}
       {...rest}
     />
-  );
-};
-
-const ListItem = ({ key, useItem }: List.ItemProps<ranger.Key, ranger.Payload>) => {
-  const item = useItem(key);
-  return <div>{item.name}</div>;
-};
-
-const listItem = componentRenderProp(ListItem);
-
-const Select = () => {
-  const { visible, close } = Dropdown.use();
-  const [params, setParams] = useState<Required<ListParams>>({
-    term: "",
-    offset: 0,
-    limit: 10,
-  });
-  const { data, useListItem, retrieve } = useList();
-  const handleSearch = useCallback(
-    (term: string) => {
-      setParams((prev) => ({ ...prev, term }));
-      retrieve(params, {});
-    },
-    [retrieve, params],
-  );
-  const [selected, setSelected] = useState<string>("");
-  const { onSelect } = CoreSelect.use({
-    data,
-    value: selected,
-    allowMultiple: false,
-    onChange: setSelected,
-  });
-  const listProps = List.use({ data });
-  const selectedItem = useListItem(selected);
-  return (
-    <Dropdown.Dialog visible={visible} close={close}>
-      <Button.Button>{selectedItem?.name}</Button.Button>
-      <Align.Space>
-        <CoreSelect.Provider<ranger.Key> value={selected} onSelect={onSelect}>
-          <Input.Text value={params.term} onChange={handleSearch} />
-          <List.List<ranger.Key, ranger.Payload>
-            {...listProps}
-            data={data}
-            useItem={useListItem}
-          >
-            {listItem}
-          </List.List>
-        </CoreSelect.Provider>
-      </Align.Space>
-    </Dropdown.Dialog>
   );
 };
