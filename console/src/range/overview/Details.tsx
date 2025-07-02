@@ -135,11 +135,9 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       dispatch(add({ ranges: [newRange], switchActive: false }));
     },
   });
-  const name = Form.useFieldValue<string, string, typeof formSchema>(
-    "name",
-    false,
-    formCtx,
-  );
+  const name = Form.useFieldValue<string, string, typeof formSchema>("name", {
+    ctx: formCtx,
+  });
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleCopyLink = () => {
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });

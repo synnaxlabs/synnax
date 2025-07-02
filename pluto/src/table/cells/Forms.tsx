@@ -88,7 +88,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
 };
 
 const RedlineForm = (): ReactElement => {
-  const { set, get } = Form.useContext();
+  const { set: set, get } = Form.useContext();
   const b = Form.useFieldValue<bounds.Bounds>("redline.bounds");
   const s = scale.Scale.scale<number>(0, 1).scale(b);
   return (

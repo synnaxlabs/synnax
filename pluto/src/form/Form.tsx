@@ -15,7 +15,6 @@ import {
   type Destructor,
   shallowCopy,
   type status,
-  zod,
 } from "@synnaxlabs/x";
 import {
   createContext,
@@ -25,46 +24,39 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
 } from "react";
-import { z } from "zod/v4";
+import { type z } from "zod/v4";
 
+import {
+  type DefaultGetOptions,
+  type ExtensionGetOptions,
+  type FieldState,
+  type GetOptions,
+  type OptionalGetOptions,
+  type RequiredGetOptions,
+  State,
+} from "@/form/state";
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
 import { state } from "@/state";
 import { Status } from "@/status";
 
-interface BaseUseFieldProps<I, O = I> {
-  path: string;
-  onChange?: (value: O, extra: ContextValue & { path: string }) => void;
+interface Listener {
+  (): void;
 }
 
-/** Props for the @link useField hook */
-export interface UseRequiredFieldProps<I, O = I> extends BaseUseFieldProps<I, O> {
-  optional?: false;
-  defaultValue?: undefined;
-}
+export type UseOptions<Z extends z.ZodType = z.ZodType> = {
+  ctx?: ContextValue<Z>;
+};
 
-export interface UseDefaultFieldProps<I, O = I> extends BaseUseFieldProps<I, O> {
-  optional?: boolean;
-  defaultValue: I;
-}
-
-export interface UseOptionalFieldProps<I, O = I> extends BaseUseFieldProps<I, O> {
-  optional: true;
-  defaultValue?: undefined;
-}
-
-export interface UseExtensionFieldProps<I, O = I> extends BaseUseFieldProps<I, O> {
-  optional?: boolean;
-  defaultValue?: I;
-}
-
-export type UseFieldProps<I, O = I> =
-  | UseRequiredFieldProps<I, O>
-  | UseDefaultFieldProps<I, O>
-  | UseOptionalFieldProps<I, O>
-  | UseExtensionFieldProps<I, O>;
+export type UseFieldOptions<
+  I extends Input.Value,
+  O extends Input.Value = I,
+  Z extends z.ZodType = z.ZodType,
+> = UseOptions<Z> & {
+  onChange?: (value: O, extra: ContextValue<Z> & { path: string }) => void;
+};
 
 /** Return type for the @link useField hook */
 export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I>
@@ -77,35 +69,22 @@ export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I
 
 interface UseField {
   <I extends Input.Value, O extends Input.Value = I>(
-    props: UseFieldProps<I, O>,
+    path: string,
+    opts?: RequiredGetOptions & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O>;
   <I extends Input.Value, O extends Input.Value = I>(
-    props: UseDefaultFieldProps<I, O>,
+    path: string,
+    opts?: DefaultGetOptions<I> & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O>;
   <I extends Input.Value, O extends Input.Value = I>(
-    props: UseOptionalFieldProps<I, O>,
+    path: string,
+    opts?: OptionalGetOptions & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O> | null;
+  <I extends Input.Value, O extends Input.Value = I>(
+    path: string,
+    opts?: ExtensionGetOptions<I> & UseFieldOptions<I, O>,
+  ): UseFieldReturn<I, O>;
 }
-
-interface FieldStatus {
-  status: status.Crude;
-}
-
-export const createFieldState = <V extends Input.Value>(
-  value: V,
-  status: FieldStatus,
-  touched: boolean,
-  required: boolean,
-): FieldState<V> => {
-  const status 
-
-}
-  value,
-  status,
-  touched,
-  required,
-});
-
 
 /**
  * Hook for managing a particular field in a form.
@@ -113,33 +92,13 @@ export const createFieldState = <V extends Input.Value>(
  * @param props - The props for the hook
  * @param props.path - The path to the field in the form.
  */
-export const useField = (<I extends Input.Value, O extends Input.Value = I>({
-  path,
-  optional = false,
-  onChange,
-  defaultValue,
-}: UseFieldProps<I, O>): UseFieldReturn<I, O> | null => {
+export const useField = (<I extends Input.Value, O extends Input.Value = I>(
+  path: string,
+  opts: UseFieldOptions<I, O> & GetOptions<I> = {},
+): UseFieldReturn<I, O> | null => {
+  const { optional = false, onChange, defaultValue } = opts;
   const ctx = useContext();
-  const { get, bind, set, setStatus } = ctx;
-
-  const [state, setState] = useState<FieldState<I> | null>(() => {
-    const state = get<I>(path, { optional: optional || defaultValue != null });
-    if (state != null || defaultValue == null || optional) return state;
-    const s: FieldState<I> = {
-      value: defaultValue,
-      status: { key: "", variant: "success", message: "" },
-      touched: false,
-      required: false,
-    };
-    return s;
-  });
-
-  useEffect(() => {
-    const prev = get<I>(path, { optional: optional || defaultValue != null });
-    if (prev == null && defaultValue != null) set(path, defaultValue);
-    setState(get<I>(path, { optional }));
-    return bind({ path, onChange: setState, listenToChildren: false });
-  }, [path, onChange, bind, get, optional, defaultValue]);
+  const { get: getState, bind, set, setStatus } = ctx;
 
   const handleChange = useCallback(
     (value: O) => {
@@ -153,73 +112,92 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
     (status: status.Crude) => setStatus(path, status),
     [path, setStatus],
   );
-
+  const state = useSyncExternalStore(
+    bind,
+    useCallback(
+      () => getState<I>(path, { optional, defaultValue }),
+      [path, getState, optional, defaultValue],
+    ),
+  );
   if (state == null) {
     if (!optional) throw new Error(`Field state is null: ${path}`);
     return null;
   }
-
   let variant: Input.Variant | undefined;
   if (ctx.mode === "preview") variant = "preview";
   return { onChange: handleChange, setStatus: handleSetStatus, variant, ...state };
 }) as UseField;
 
 export interface UseFieldValue {
-  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = any>(
+  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    optional?: false,
-    ctx?: ContextValue<Z>,
+    opts?: RequiredGetOptions & UseOptions<Z>,
   ): O;
-  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = any>(
+  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    optional: true,
-    ctx?: ContextValue<Z>,
+    opts?: OptionalGetOptions & UseOptions<Z>,
   ): O | null;
+  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
+    path: string,
+    opts?: DefaultGetOptions<I> & UseOptions<Z>,
+  ): O;
+  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
+    path: string,
+    opts?: ExtensionGetOptions<I> & UseOptions<Z>,
+  ): O;
 }
 
 export interface UseFieldState {
   <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    optional?: false,
-    ctx?: ContextValue<Z>,
+    opts?: RequiredGetOptions & UseOptions<Z>,
   ): FieldState<O>;
   <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    optional: true,
-    ctx?: ContextValue<Z>,
+    opts?: OptionalGetOptions & UseOptions<Z>,
   ): FieldState<O> | null;
+  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
+    path: string,
+    opts?: DefaultGetOptions<I> & UseOptions<Z>,
+  ): FieldState<O>;
+  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
+    path: string,
+    opts?: ExtensionGetOptions<I> & UseOptions<Z>,
+  ): FieldState<O>;
 }
 
-export const useFieldState = <I extends Input.Value, O extends Input.Value = I>(
+export const useFieldState = (<
+  I extends Input.Value,
+  O extends Input.Value = I,
+  Z extends z.ZodType = z.ZodType,
+>(
   path: string,
-  optional: boolean = false,
-  ctx?: ContextValue,
+  opts?: GetOptions<O> & UseOptions<Z>,
 ): FieldState<O> | null => {
-  const { get, bind } = useContext(ctx);
-  const [, setChangeTrigger] = useState(0);
-  useEffect(() => {
-    setChangeTrigger((prev) => prev + 1);
-    return bind<O>({ path, onChange: () => setChangeTrigger((p) => p + 1) });
-  }, [path, bind]);
-  return get<O>(path, { optional }) ?? null;
-};
+  const { get, bind } = useContext();
+  return useSyncExternalStore(
+    bind,
+    useCallback(() => get<O>(path, opts), [path, get, opts]),
+  );
+}) as UseFieldState;
 
-export const useFieldValue = (<I extends Input.Value, O extends Input.Value = I>(
+export const useFieldValue = (<
+  I extends Input.Value,
+  O extends Input.Value = I,
+  Z extends z.ZodType = z.ZodType,
+>(
   path: string,
-  optional: boolean = false,
-  ctx?: ContextValue,
+  opts?: GetOptions<O> & UseOptions<Z>,
 ): O | null => {
-  const { get, bind } = useContext(ctx);
-  const [, setChangeTrigger] = useState(0);
-  useEffect(() => {
-    setChangeTrigger((prev) => prev + 1);
-    return bind<O>({ path, onChange: () => setChangeTrigger((p) => p + 1) });
-  }, [path, bind]);
-  return get<O>(path, { optional })?.value ?? null;
+  const { get, bind } = useContext();
+  return useSyncExternalStore(
+    bind,
+    useCallback(() => get<O>(path, opts)?.value ?? null, [path, get, opts]),
+  );
 }) as UseFieldValue;
 
 export const useFieldValid = (path: string): boolean =>
-  useFieldState(path, true)?.status?.variant === "success";
+  useFieldState(path, { optional: true })?.status?.variant === "success";
 
 export interface UseFieldListenerProps<
   I extends Input.Value,
@@ -239,51 +217,13 @@ export const useFieldListener = <
   onChange,
 }: UseFieldListenerProps<I, Z>): void => {
   const ctx = useContext(override);
-  useEffect(
-    () =>
-      ctx.bind<I>({
-        path,
-        onChange: (fs) => onChange(fs, ctx),
-        listenToChildren: false,
-      }),
-    [path, ctx],
+  return useSyncExternalStore(
+    ctx.bind,
+    useCallback(() => onChange(ctx.get<I>(path), ctx), [path, ctx, onChange]),
   );
 };
 
-export interface UseChildFieldValuesProps {
-  path: string;
-  optional?: false;
-}
-
-export interface UseNullableChildFieldValuesProps {
-  path: string;
-  optional: true;
-}
-
-export interface UseChildFieldValues {
-  <V extends unknown = unknown>(props: UseChildFieldValuesProps): V;
-  <V extends unknown = unknown>(props: UseNullableChildFieldValuesProps): V | null;
-}
-
-export const useChildFieldValues = (<V extends unknown = unknown>({
-  path,
-  optional = false,
-}: UseChildFieldValuesProps): V | null => {
-  const { bind, get } = useContext();
-  const [state, setState] = useState<FieldState<V> | null>(get<V>(path, { optional }));
-  useEffect(() => {
-    setState(get<V>(path, { optional }));
-    return bind<V>({
-      path,
-      onChange: (fs) => setState({ ...fs, value: shallowCopy(fs.value) }),
-      listenToChildren: true,
-    });
-  }, [path, bind, get]);
-  if (state == null && !optional) throw new Error("Field state is null");
-  return state?.value ?? null;
-}) as UseChildFieldValues;
-
-export interface UseFieldArrayProps {
+interface UseFieldArrayProps {
   path: string;
   updateOnChildren?: boolean;
   ctx?: ContextValue<any>;
@@ -348,59 +288,20 @@ export interface UseFieldArrayReturn<V extends unknown> {
 
 export const useFieldArray = <V extends unknown = unknown>({
   path,
-  updateOnChildren = false,
+  updateOnChildren: _ = false,
   ctx: pCtx,
 }: UseFieldArrayProps): UseFieldArrayReturn<V> => {
   const ctx = useContext(pCtx);
-  const { bind, get } = ctx;
-  const [fState, setFState] = useState<V[]>(get<V[]>(path).value);
-  useEffect(() => {
-    setFState(get<V[]>(path).value);
-    return bind<V[]>({
-      path,
-      onChange: (fs) => {
-        setFState(shallowCopy<V[]>(fs.value));
-      },
-      listenToChildren: updateOnChildren,
-    });
-  }, [path, bind, get, setFState]);
+  const { get: getState } = ctx;
+  const fState = useSyncExternalStore(
+    ctx.bind,
+    useCallback(() => getState<V[]>(path).value, [path, getState]),
+  );
   return useMemo(
     () => ({ value: fState, ...fieldArrayUtils<V>(ctx, path) }),
     [fState, ctx, path],
   );
 };
-
-export interface Listener<V = unknown> {
-  (state: FieldState<V>): void;
-}
-
-export interface FieldState<V = unknown> {
-  value: V;
-  status: status.Crude;
-  touched: boolean;
-  required: boolean;
-}
-
-interface RequiredGetOptions<O extends boolean | undefined = boolean | undefined> {
-  optional?: O;
-}
-
-interface OptionalGetOptions {
-  optional?: true;
-}
-
-type GetOptions = RequiredGetOptions | OptionalGetOptions;
-
-interface GetFunc {
-  <V extends Input.Value>(
-    path: string,
-    opts: RequiredGetOptions<true>,
-  ): FieldState<V> | null;
-  <V extends Input.Value>(
-    path: string,
-    opts?: RequiredGetOptions<boolean | undefined>,
-  ): FieldState<V>;
-}
 
 interface RemoveFunc {
   (path: string): void;
@@ -414,14 +315,8 @@ interface SetFunc {
   (path: string, value: unknown, opts?: SetOptions): void;
 }
 
-interface BindProps<V = unknown> {
-  path: string;
-  onChange: Listener<V>;
-  listenToChildren?: boolean;
-}
-
 interface BindFunc {
-  <V = unknown>(props: BindProps<V>): Destructor;
+  (props: Listener): Destructor;
 }
 
 type Mode = "normal" | "preview";
@@ -430,14 +325,14 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   mode: Mode;
   bind: BindFunc;
   set: SetFunc;
+  get: typeof State.prototype.getState;
   reset: (values?: z.infer<Z>) => void;
-  get: GetFunc;
   remove: RemoveFunc;
   value: () => z.infer<Z>;
   validate: (path?: string) => boolean;
   validateAsync: (path?: string) => Promise<boolean>;
   has: (path: string) => boolean;
-  setStatus: (path: string, status: status.Crude) => void;
+  setStatus: typeof State.prototype.setStatus;
   clearStatuses: () => void;
   setCurrentStateAsInitialValues: () => void;
 }
@@ -470,20 +365,6 @@ export const useContext = <Z extends z.ZodType = z.ZodType>(
   return override ?? (internal as unknown as ContextValue<Z>);
 };
 
-const NO_ERROR_STATUS = (path: string): status.Crude => ({
-  key: path,
-  variant: "success",
-  message: "",
-});
-
-interface UseRef<Z extends z.ZodType> {
-  values: z.infer<Z>;
-  states: Map<string, status.Crude>;
-  touched: Set<string>;
-  listeners: Map<string, Set<Listener>>;
-  parentListeners: Map<string, Set<Listener>>;
-}
-
 export interface OnChangeProps<Z extends z.ZodType> {
   /** The values in the form AFTER the change. */
   values: z.infer<Z>;
@@ -506,13 +387,6 @@ export interface UseProps<Z extends z.ZodType> {
 
 export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}
 
-const getVariant = (issue: z.ZodIssue): status.Variant =>
-  issue.code === z.ZodIssueCode.custom &&
-  issue.params != null &&
-  "variant" in issue.params
-    ? issue.params.variant
-    : "error";
-
 export const use = <Z extends z.ZodType>({
   values: initialValues,
   sync = false,
@@ -521,261 +395,73 @@ export const use = <Z extends z.ZodType>({
   onChange,
   onHasTouched,
 }: UseProps<Z>): UseReturn<Z> => {
-  const ref = useInitializerRef<UseRef<Z>>(() => ({
-    values: deep.copy(initialValues),
-    states: new Map(),
-    touched: new Set(),
-    listeners: new Map(),
-    parentListeners: new Map(),
-  }));
-  const schemaRef = useSyncedRef(schema);
+  const ref = useInitializerRef<State<Z>>(() => new State<Z>(initialValues, schema));
   const onChangeRef = useSyncedRef(onChange);
-  const initialValuesRef = useSyncedRef<z.infer<Z>>(initialValues);
-  const onHasTouchedRef = useSyncedRef(onHasTouched);
   const handleError = Status.useErrorHandler();
+  const onHasTouchedRef = useSyncedRef(onHasTouched);
 
   const setCurrentStateAsInitialValues = useCallback(() => {
-    initialValuesRef.current = deep.copy(ref.current.values);
-    clearTouched();
+    ref.current.setCurrentStateAsInitialValues();
   }, []);
 
   const bind: BindFunc = useCallback(
-    <V extends unknown = unknown>({
-      path,
-      onChange: callback,
-      listenToChildren = false,
-    }: BindProps<V>): Destructor => {
-      const { parentListeners, listeners } = ref.current;
-      const lis = listenToChildren ? parentListeners : listeners;
-      if (!lis.has(path)) lis.set(path, new Set());
-      lis.get(path)?.add(callback as Listener);
-      return () => lis.get(path)?.delete(callback as Listener);
-    },
+    (handleChange: Listener): Destructor => ref.current.onChange(handleChange),
     [],
   );
 
-  const get: GetFunc = useCallback(
+  const get: typeof State.prototype.getState = useCallback(
     <V extends unknown = unknown>(
       path: string,
-      { optional }: GetOptions = { optional: false },
-    ): FieldState<V> | null => {
-      const { values: state, states: statuses, touched } = ref.current;
-      const value = deep.get(state, path, { optional });
-      if (value == null) return null;
-      const fs = {
-        value: value as V,
-        status: statuses.get(path) ?? NO_ERROR_STATUS(path),
-        touched: touched.has(path),
-        required: false,
-      };
-      if (schemaRef.current == null) return fs;
-      const schema = schemaRef.current;
-      const zField = zod.getFieldSchema(schema, path, { optional: true });
-      if (zField == null) return fs;
-      if ("isOptional" in zField && typeof zField.isOptional === "function")
-        fs.required = !zField.isOptional();
-      return fs;
-    },
+      opts?: GetOptions<V>,
+    ): FieldState<V> | null => ref.current.getState(path, opts),
     [],
-  ) as GetFunc;
-
-  const addTouched = useCallback((path: string) => {
-    const { touched } = ref.current;
-    const prevEmpty = touched.size === 0;
-    touched.add(path);
-    const currEmpty = touched.size === 0;
-    if (prevEmpty !== currEmpty) onHasTouchedRef.current?.(!currEmpty);
-  }, []);
-
-  const removeTouched = useCallback((path: string) => {
-    const { touched } = ref.current;
-    const prevEmpty = touched.size === 0;
-    touched.delete(path);
-    const currEmpty = touched.size === 0;
-    if (prevEmpty !== currEmpty) onHasTouchedRef.current?.(!currEmpty);
-  }, []);
-
-  const clearTouched = useCallback(() => {
-    const { touched } = ref.current;
-    const prevEmpty = touched.size === 0;
-    touched.clear();
-    const currEmpty = touched.size === 0;
-    if (prevEmpty !== currEmpty) onHasTouchedRef.current?.(!currEmpty);
-  }, []);
+  ) as typeof State.prototype.getState;
 
   const remove = useCallback((path: string) => {
-    const { values: state, states: statuses, listeners, parentListeners } = ref.current;
-    deep.remove(state, path);
-    statuses.delete(path);
-    removeTouched(path);
-    listeners.delete(path);
-    parentListeners.delete(path);
+    ref.current.remove(path);
+    ref.current.notify();
   }, []);
 
   const reset = useCallback((values?: z.infer<Z>) => {
-    const { states: statuses } = ref.current;
-    ref.current.values = values ?? deep.copy(initialValuesRef.current);
-    updateFieldValues("");
-    statuses.clear();
-    clearTouched();
+    ref.current.reset(values);
+    ref.current.notify();
   }, []);
 
-  const updateFieldState = useCallback((path: string) => {
-    const { listeners } = ref.current;
-    const fs = get(path, { optional: true });
-    if (fs == null) return;
-    listeners.get(path)?.forEach((l) => l(fs));
-  }, []);
-
-  const updateFieldValues = useCallback((path: string) => {
-    const { listeners, parentListeners } = ref.current;
-    const fired: string[] = [];
-    const lis = listeners.get(path);
-    if (path == "") {
-      const paths = [...listeners.keys()];
-      paths.forEach((p) => {
-        const v = get(p, { optional: true });
-        if (v != null)
-          listeners.get(p)?.forEach((l) => {
-            fired.push(p);
-            l(v);
-          });
-      });
-      const parentPaths = [...parentListeners.keys()];
-      parentPaths.forEach((p) => {
-        const v = get(p, { optional: true });
-        if (v != null)
-          parentListeners.get(p)?.forEach((l) => {
-            fired.push(p);
-            l(v);
-          });
-      });
-    }
-    if (lis != null) {
-      const fs = get(path, { optional: true });
-      if (fs != null)
-        lis.forEach((l) => {
-          fired.push(path);
-          l(fs);
-        });
-    }
-    parentListeners.forEach((lis, lisPath) => {
-      const equalOrChild = deep.pathsMatch(path, lisPath);
-      if (equalOrChild) {
-        const v = get(lisPath, { optional: true });
-        if (v != null)
-          lis.forEach((l) => {
-            fired.push(`parent->${lisPath}`);
-            l(v);
-          });
-      }
-    });
-  }, []);
-
-  const processValidationResult = useCallback(
-    (
-      result: z.ZodSafeParseResult<z.infer<Z>>,
-      validationPath: string = "",
-      validateChildren: boolean = true,
-    ): boolean => {
-      const { states: statuses, listeners } = ref.current;
-
-      // Parse was a complete success. No errors encountered.
-      if (result.success) {
-        /// Clear statuses for all fields and update relevant listeners.
-        const paths = [...statuses.keys()];
-        statuses.clear();
-        paths.forEach((path) => updateFieldState(path));
-        return true;
-      }
-
-      // The validation may still be a success if all errors are warnings.
-      let success = true;
-      const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
-
-      let matcher = (a: string, b: string) => a === b;
-      if (validateChildren) matcher = (a: string, b: string) => deep.pathsMatch(a, b);
-
-      result.error.issues.forEach((issue) => {
-        const { message } = issue;
-        const issuePath = issue.path.join(".");
-
-        // If we're only validating a sub-path and it doesn't match a particular issue,
-        // skip it.
-        if (!matcher(issuePath, validationPath)) return;
-
-        const variant = getVariant(issue);
-        if (variant !== "warning") success = false;
-
-        statuses.set(issuePath, { key: issuePath, variant, message });
-        addTouched(issuePath);
-
-        let fs = get(issuePath, { optional: true });
-        // If we can't find the field value, this means the user never set it, so
-        // instead we just to a best effort construction of the field state. This means
-        // that if the user has a field rendered for this path, the error will be displayed.
-        fs ??= {
-          value: undefined,
-          status: statuses.get(issuePath) ?? NO_ERROR_STATUS(issuePath),
-          touched: false,
-          required: false,
-        };
-        listeners.get(issuePath)?.forEach((l) => l(fs));
-      });
-
-      // Clear any statuses that had previous validation errors, but no longer do.
-      statuses.forEach((_, subPath) => {
-        if (issueKeys.has(subPath)) return;
-        statuses.delete(subPath);
-        updateFieldState(subPath);
-      });
-
-      return success;
+  const validateAsync = useCallback(
+    async (path?: string, validateChildren?: boolean): Promise<boolean> => {
+      const valid = await ref.current.validateAsync(path, validateChildren);
+      ref.current.notify();
+      return valid;
     },
     [],
   );
 
-  const validate = useCallback(
-    (path?: string, validateChildren?: boolean): boolean => {
-      if (schemaRef.current == null) return true;
-      const { values: state } = ref.current;
-      const result = schemaRef.current.safeParse(state);
-      return processValidationResult(result, path, validateChildren);
-    },
-    [processValidationResult],
-  );
-
-  const validateAsync = useCallback(
-    async (path?: string, validateChildren?: boolean): Promise<boolean> => {
-      if (schemaRef.current == null) return true;
-      const { values: state } = ref.current;
-      const result = await schemaRef.current.safeParseAsync(state);
-      return processValidationResult(result, path, validateChildren);
-    },
-    [processValidationResult],
-  );
+  const validate = useCallback((path?: string, validateChildren?: boolean): boolean => {
+    const valid = ref.current.validate(path, validateChildren);
+    ref.current.notify();
+    return valid;
+  }, []);
 
   const set: SetFunc = useCallback((path, value, opts = {}): void => {
     const prev = deep.get(ref.current.values, path, { optional: true });
     const { validateChildren = true } = opts;
-    const { values: state } = ref.current;
-    // check if the value is the same as the initial value provided
-    const initialValue = deep.get(initialValuesRef.current, path, { optional: true });
-    const equalsInitial = deep.equal(initialValue, value);
-    if (equalsInitial) removeTouched(path);
-    else addTouched(path);
-    if (path.length === 0) ref.current.values = value as z.infer<Z>;
-    else deep.set(state, path, value);
-    updateFieldValues(path);
-    handleError(async () => {
-      let valid: boolean;
-      try {
-        valid = validate(path, validateChildren);
-      } catch {
-        valid = await validateAsync(path, validateChildren);
-      }
-      onChangeRef.current?.({ values: ref.current.values, path, prev, valid });
-    }, "Failed to validate form");
+    const prevHasTouched = ref.current.hasBeenTouched;
+    ref.current.setValue(path, value);
+    const finish = () => {
+      onChangeRef.current?.({ values: ref.current.values, path, prev, valid: true });
+      ref.current.notify();
+      const hasTouched = ref.current.hasBeenTouched;
+      if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
+    };
+    try {
+      ref.current.validate(path, validateChildren);
+    } catch (_) {
+      return handleError(async () => {
+        await ref.current.validateAsync(path, validateChildren);
+        finish();
+      }, "Failed to validate form");
+    }
+    finish();
   }, []);
 
   const has = useCallback(
@@ -784,26 +470,22 @@ export const use = <Z extends z.ZodType>({
   );
 
   const setStatus = useCallback((path: string, status: status.Crude): void => {
-    ref.current.states.set(path, status);
-    addTouched(path);
-    updateFieldState(path);
+    const prevHasTouched = ref.current.hasBeenTouched;
+    ref.current.setStatus(path, status);
+    ref.current.notify();
+    const hasTouched = ref.current.hasBeenTouched;
+    if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
   }, []);
 
   const clearStatuses = useCallback(() => {
-    const { states: statuses } = ref.current;
-    statuses.clear();
-    statuses.forEach((_, path) => updateFieldState(path));
+    ref.current.clearStatus();
+    ref.current.notify();
   }, []);
 
   useEffect(() => {
     if (!sync) return;
-    const { listeners } = ref.current;
-    ref.current.values = initialValues;
-    listeners.forEach((lis, p) => {
-      const v = get(p, { optional: true });
-      if (v == null) return;
-      lis.forEach((l) => l(v));
-    });
+    ref.current.reset(initialValues);
+    ref.current.notify();
   }, [sync, initialValues]);
 
   return useMemo(

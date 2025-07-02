@@ -13,11 +13,11 @@ import { type FC, type ReactElement } from "react";
 import { CSS } from "@/css";
 import {
   type ContextValue,
-  type FieldState,
   useContext,
   useField,
-  type UseFieldProps,
+  type UseFieldOptions,
 } from "@/form/Form";
+import { type FieldState, type GetOptions } from "@/form/state";
 import { Input } from "@/input";
 import { Select } from "@/select";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
@@ -30,8 +30,10 @@ interface FieldChild<I extends Input.Value, O extends Input.Value>
 export type FieldProps<
   I extends Input.Value = string | number,
   O extends Input.Value = I,
-> = UseFieldProps<I, O> &
+> = GetOptions<I> &
+  UseFieldOptions<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
+    path: string;
     children?: RenderProp<FieldChild<I, O>>;
     padHelpText?: boolean;
     visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
@@ -60,8 +62,7 @@ export const Field = <
   defaultValue,
   ...rest
 }: FieldProps<I, O>): ReactElement | null => {
-  const field = useField<I, O>({
-    path,
+  const field = useField<I, O>(path, {
     optional: optional ?? hideIfNull,
     onChange,
     defaultValue,
