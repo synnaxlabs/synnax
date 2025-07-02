@@ -9,7 +9,7 @@
 
 export const getOrSetDefault = <K, V>(map: Map<K, V>, key: K, defaultValue: V): V => {
   const value = map.get(key);
-  if (value == null) {
+  if (value === undefined) {
     map.set(key, defaultValue);
     return defaultValue;
   }
