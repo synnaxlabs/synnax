@@ -28,16 +28,15 @@ export type ContextOptions<Z extends z.ZodType = z.ZodType> = {
 };
 
 export type UseFieldOptions<
-  I extends Input.Value,
-  O extends Input.Value = I,
+  I,
+  O = I,
   Z extends z.ZodType = z.ZodType,
 > = ContextOptions<Z> & {
   onChange?: (value: O, extra: ContextValue<Z> & { path: string }) => void;
 };
 
 /** Return type for the @link useField hook */
-export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I>
-  extends FieldState<I> {
+export interface UseFieldReturn<I, O = I> extends FieldState<I> {
   onChange: (value: O) => void;
   setStatus: (status: status.Crude) => void;
   status: status.Crude;
@@ -45,19 +44,19 @@ export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I
 }
 
 interface UseField {
-  <I extends Input.Value, O extends Input.Value = I>(
+  <I, O = I>(
     path: string,
     opts?: RequiredGetOptions & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O>;
-  <I extends Input.Value, O extends Input.Value = I>(
+  <I, O = I>(
     path: string,
     opts?: DefaultGetOptions<I> & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O>;
-  <I extends Input.Value, O extends Input.Value = I>(
+  <I, O = I>(
     path: string,
     opts?: OptionalGetOptions & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O> | null;
-  <I extends Input.Value, O extends Input.Value = I>(
+  <I, O = I>(
     path: string,
     opts?: ExtensionGetOptions<I> & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O>;
@@ -69,7 +68,7 @@ interface UseField {
  * @param props - The props for the hook
  * @param props.path - The path to the field in the form.
  */
-export const useField = (<I extends Input.Value, O extends Input.Value = I>(
+export const useField = (<I, O = I>(
   path: string,
   opts: UseFieldOptions<I, O> & GetOptions<I> = {},
 ): UseFieldReturn<I, O> | null => {
@@ -106,48 +105,44 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>(
 }) as UseField;
 
 export interface UseFieldValue {
-  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
+  <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
     opts?: RequiredGetOptions & ContextOptions<Z>,
   ): O;
-  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
+  <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
     opts?: OptionalGetOptions & ContextOptions<Z>,
   ): O | null;
-  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
+  <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
     opts?: DefaultGetOptions<I> & ContextOptions<Z>,
   ): O;
-  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
+  <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
     opts?: ExtensionGetOptions<I> & ContextOptions<Z>,
   ): O;
 }
 
 export interface UseFieldState {
-  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
+  <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
     opts?: RequiredGetOptions & ContextOptions<Z>,
   ): FieldState<O>;
-  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
+  <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
     opts?: OptionalGetOptions & ContextOptions<Z>,
   ): FieldState<O> | null;
-  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
+  <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
     opts?: DefaultGetOptions<I> & ContextOptions<Z>,
   ): FieldState<O>;
-  <I extends Input.Value, O extends Input.Value = I, Z extends z.ZodType = z.ZodType>(
+  <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
     opts?: ExtensionGetOptions<I> & ContextOptions<Z>,
   ): FieldState<O>;
 }
 
-export const useFieldState = (<
-  I extends Input.Value,
-  O extends Input.Value = I,
-  Z extends z.ZodType = z.ZodType,
->(
+export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   path: string,
   opts?: GetOptions<O> & ContextOptions<Z>,
 ): FieldState<O> | null => {
@@ -158,11 +153,7 @@ export const useFieldState = (<
   );
 }) as UseFieldState;
 
-export const useFieldValue = (<
-  I extends Input.Value,
-  O extends Input.Value = I,
-  Z extends z.ZodType = z.ZodType,
->(
+export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   path: string,
   opts?: GetOptions<O> & ContextOptions<Z>,
 ): O | null => {

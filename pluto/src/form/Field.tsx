@@ -18,15 +18,11 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
-interface FieldChild<I extends Input.Value, O extends Input.Value>
-  extends Input.Control<I, O> {
+interface FieldChild<I, O> extends Input.Control<I, O> {
   variant?: Input.Variant;
 }
 
-export type FieldProps<
-  I extends Input.Value = string | number,
-  O extends Input.Value = I,
-> = GetOptions<I> &
+export type FieldProps<I = string | number, O = I> = GetOptions<I> &
   UseFieldOptions<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
     path: string;
@@ -38,14 +34,9 @@ export type FieldProps<
 
 const defaultInput = componentRenderProp(Input.Text);
 
-export type FieldT<I extends Input.Value, O extends Input.Value = I> = (
-  props: FieldProps<I, O>,
-) => ReactElement | null;
+export type FieldT<I, O = I> = (props: FieldProps<I, O>) => ReactElement | null;
 
-export const Field = <
-  I extends Input.Value = string | number,
-  O extends Input.Value = I,
->({
+export const Field = <I = string | number, O = I>({
   path,
   children = defaultInput as unknown as RenderProp<FieldChild<I, O>>,
   label,
@@ -92,29 +83,19 @@ export const Field = <
   );
 };
 
-export interface FieldBuilderProps<
-  I extends Input.Value,
-  O extends Input.Value,
-  P extends {},
-> {
+export interface FieldBuilderProps<I, O, P extends {}> {
   fieldKey?: string;
   fieldProps?: Partial<FieldProps<I, O>>;
   inputProps?: Partial<P>;
 }
 
-export type BuiltFieldProps<
-  I extends Input.Value,
-  O extends Input.Value,
-  P extends {},
-> = FieldProps<I, O> & {
+export type BuiltFieldProps<I, O, P extends {}> = FieldProps<I, O> & {
   inputProps?: Partial<P>;
   fieldKey?: string;
 };
 
 export const fieldBuilder =
-  <I extends Input.Value, O extends Input.Value, P extends {}>(
-    Component: FC<P & Input.Control<I, O>>,
-  ) =>
+  <I, O, P extends {}>(Component: FC<P & Input.Control<I, O>>) =>
   ({
     fieldKey: baseFieldKey,
     fieldProps,

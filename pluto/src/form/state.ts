@@ -15,7 +15,7 @@ export interface RequiredGetOptions {
   defaultValue?: undefined;
 }
 
-export interface DefaultGetOptions<V extends Input.Value> {
+export interface DefaultGetOptions<V> {
   optional?: boolean;
   defaultValue: V;
 }
@@ -25,12 +25,12 @@ export interface OptionalGetOptions {
   defaultValue?: undefined;
 }
 
-export interface ExtensionGetOptions<V extends Input.Value> {
+export interface ExtensionGetOptions<V> {
   optional?: boolean;
   defaultValue?: V;
 }
 
-export type GetOptions<V extends Input.Value> =
+export type GetOptions<V> =
   | RequiredGetOptions
   | OptionalGetOptions
   | DefaultGetOptions<V>
