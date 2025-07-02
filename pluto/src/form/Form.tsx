@@ -97,7 +97,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>(
   opts: UseFieldOptions<I, O> & GetOptions<I> = {},
 ): UseFieldReturn<I, O> | null => {
   const { optional = false, onChange, defaultValue } = opts;
-  const ctx = useContext();
+  const ctx = useContext(opts?.ctx);
   const { get: getState, bind, set, setStatus } = ctx;
 
   const handleChange = useCallback(
@@ -174,7 +174,7 @@ export const useFieldState = (<
   path: string,
   opts?: GetOptions<O> & UseOptions<Z>,
 ): FieldState<O> | null => {
-  const { get, bind } = useContext();
+  const { get, bind } = useContext(opts?.ctx);
   return useSyncExternalStore(
     bind,
     useCallback(() => get<O>(path, opts), [path, get, opts]),
@@ -189,7 +189,7 @@ export const useFieldValue = (<
   path: string,
   opts?: GetOptions<O> & UseOptions<Z>,
 ): O | null => {
-  const { get, bind } = useContext();
+  const { get, bind } = useContext(opts?.ctx);
   return useSyncExternalStore(
     bind,
     useCallback(() => get<O>(path, opts)?.value ?? null, [path, get, opts]),
@@ -199,33 +199,25 @@ export const useFieldValue = (<
 export const useFieldValid = (path: string): boolean =>
   useFieldState(path, { optional: true })?.status?.variant === "success";
 
-export interface UseFieldListenerProps<
-  I extends Input.Value,
-  Z extends z.ZodType = z.ZodType,
-> {
-  ctx?: ContextValue<Z>;
-  path: string;
-  onChange: (state: FieldState<I>, extra: ContextValue<Z>) => void;
-}
-
 export const useFieldListener = <
   I extends Input.Value,
   Z extends z.ZodType = z.ZodType,
->({
-  path,
-  ctx: override,
-  onChange,
-}: UseFieldListenerProps<I, Z>): void => {
-  const ctx = useContext(override);
+>(
+  path: string,
+  onChange: (state: FieldState<I>, extra: ContextValue<Z>) => void,
+  opts: UseOptions<Z> = {},
+): void => {
+  const ctx = useContext(opts?.ctx);
   return useSyncExternalStore(
     ctx.bind,
-    useCallback(() => onChange(ctx.get<I>(path), ctx), [path, ctx, onChange]),
+    useCallback(() => {
+      onChange(ctx.get<I>(path), ctx);
+    }, [path, ctx, onChange]),
   );
 };
 
 interface UseFieldArrayProps {
   path: string;
-  updateOnChildren?: boolean;
   ctx?: ContextValue<any>;
 }
 
@@ -288,7 +280,6 @@ export interface UseFieldArrayReturn<V extends unknown> {
 
 export const useFieldArray = <V extends unknown = unknown>({
   path,
-  updateOnChildren: _ = false,
   ctx: pCtx,
 }: UseFieldArrayProps): UseFieldArrayReturn<V> => {
   const ctx = useContext(pCtx);

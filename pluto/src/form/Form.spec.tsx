@@ -204,18 +204,13 @@ describe("Form", () => {
     });
 
     it("should still allow the caller to set the field value even if a validation error occurs", () => {
-      const { result, rerender } = renderHook(() => Form.useField<string>("name"), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Form.useField<string>("name"), { wrapper });
       act(() => result.current.onChange(""));
-      rerender();
       expect(result.current.value).toBe("");
     });
 
     it("should return true if a field is required in the schema", () => {
-      const { result } = renderHook(() => Form.useField<string>("name"), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Form.useField<string>("name"), { wrapper });
       expect(result.current.required).toBe(true);
     });
 
@@ -322,18 +317,18 @@ describe("Form", () => {
 
   describe("useFieldListener", () => {
     it("should call a listener when a field changes", () => {
-      const listener = vi.fn();
+      const onChange = vi.fn();
       const res = renderHook(
         () => {
-          Form.useFieldListener({ path: "name", onChange: listener });
+          Form.useFieldListener("name", onChange);
           return Form.useField<string>("name");
         },
         { wrapper },
       );
       act(() => res.result.current.onChange("Jane Doe"));
-      expect(listener).toHaveBeenCalled();
+      expect(onChange).toHaveBeenCalled();
       act(() => res.result.current.onChange("John Doe"));
-      expect(listener).toHaveBeenCalled();
+      expect(onChange).toHaveBeenCalled();
     });
   });
 
