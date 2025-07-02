@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { type Params } from "@/flux/params";
 import {
   errorResult,
-  loadingResult,
+  pendingResult,
   nullClientResult,
   type Result,
   successResult,
@@ -90,7 +90,7 @@ export const createList =
   () => {
     const dataRef = useRef<Map<K, E>>(new Map());
     const listenersRef = useRef<Map<() => void, K>>(new Map());
-    const [result, setResult] = useState<Result<K[]>>(loadingResult(name));
+    const [result, setResult] = useState<Result<K[]>>(pendingResult(name));
     const paramsRef = useRef<P | {}>({});
     const addListener = Sync.useAddListener();
     const client = PSynnax.use();
@@ -137,7 +137,7 @@ export const createList =
         paramsRef.current = params;
         try {
           if (client == null) return setResult(nullClientResult(name, "retrieve"));
-          setResult(loadingResult(name));
+          setResult(pendingResult(name));
           const value = await retrieve({ client, params });
           const keys = value.map((v) => v.key);
           if (signal?.aborted) return;

@@ -11,7 +11,7 @@ import { useCallback } from "react";
 import { type z } from "zod/v4";
 
 import { type Params } from "@/flux/params";
-import { loadingResult, type Result } from "@/flux/result";
+import { pendingResult, type Result } from "@/flux/result";
 import { createRetrieve, type CreateRetrieveArgs } from "@/flux/retrieve";
 import { createUpdate, type CreateUpdateArgs } from "@/flux/update";
 import { Form } from "@/form";
@@ -82,7 +82,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
   return ({ params, initialValues, autoSave = false, afterSave }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
       Result<z.infer<Schema> | null>
-    >(loadingResult(name));
+    >(pendingResult(name));
 
     const handleResultChange: state.Setter<Result<z.infer<Schema> | null>> = (
       setter,

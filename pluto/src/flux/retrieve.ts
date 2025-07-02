@@ -20,13 +20,14 @@ import {
 import { type Params } from "@/flux/params";
 import {
   errorResult,
-  loadingResult,
   nullClientResult,
+  pendingResult,
   type Result,
   successResult,
 } from "@/flux/result";
 import { Sync } from "@/flux/sync";
 import { useAsyncEffect } from "@/hooks";
+import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
@@ -160,7 +161,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   reactUseEffect(() => cleanupDestructors, [cleanupDestructors]);
   const client = PSynnax.use();
   const paramsRef = useRef<RetrieveParams | {}>({});
-  const base = useCallback(
+  const retrieveAsync = useCallback(
     async (
       paramsSetter: state.SetArg<RetrieveParams, RetrieveParams | {}>,
       { signal }: { signal?: AbortSignal },
@@ -173,17 +174,18 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
       try {
         cleanupDestructors();
         if (client == null) return onChange(nullClientResult(name, "retrieve"));
-        onChange(loadingResult(name));
+        onChange(pendingResult(name, "retrieving"));
         const value = await retrieve({ client, params });
         if (signal?.aborted) return;
         if (listeners == null || listeners.length === 0)
-          return onChange(successResult(name, value));
+          return onChange(successResult(name, "retrieved", value));
         destructorsRef.current = listeners.map(
           ({ channel, onChange: listenerOnChange }, i) =>
             addListener({
               channel,
               onOpen: () =>
-                i === listeners.length - 1 && onChange(successResult(name, value)),
+                i === listeners.length - 1 &&
+                onChange(successResult(name, "retrieved", value)),
               handler: (frame) => {
                 void (async () => {
                   try {
@@ -195,41 +197,40 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
                         onChange((prev) => {
                           if (prev.data == null) return prev;
                           const next = state.executeSetter(value, prev.data);
-                          return successResult(name, next);
+                          return successResult(name, "retrieved", next);
                         });
                       },
                     });
                   } catch (error) {
-                    onChange(errorResult(name, error));
+                    onChange(errorResult(name, "retrieve", error));
                   }
                 })();
               },
             }),
         );
       } catch (error) {
-        onChange(errorResult(name, error));
+        onChange(errorResult(name, "retrieve", error));
       }
     },
     [client, name, addListener],
   );
+  const retrieveSync = useCallback(
+    (
+      params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+      options: { signal?: AbortSignal },
+    ) => void retrieveAsync(params, options),
+    [retrieveAsync],
+  );
   return {
-    retrieve: (
-      params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
-      options: { signal?: AbortSignal },
-    ) => {
-      void base(params, options);
-    },
-    retrieveAsync: async (
-      params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
-      options: { signal?: AbortSignal },
-    ) => await base(params, options),
+    retrieve: retrieveSync,
+    retrieveAsync,
   };
 };
 
 const useStateful = <RetrieveParams extends Params, V extends state.State>(
   args: CreateRetrieveArgs<RetrieveParams, V>,
 ): UseStatefulRetrieveReturn<RetrieveParams, V> => {
-  const [state, setState] = useState<Result<V>>(loadingResult(args.name));
+  const [state, setState] = useState<Result<V>>(pendingResult(args.name, "retrieving"));
   return {
     ...state,
     ...useObservable({ ...args, onChange: setState }),
@@ -242,11 +243,9 @@ const useDirect = <RetrieveParams extends Params, V extends state.State>({
 }: UseDirectRetrieveArgs<RetrieveParams> &
   CreateRetrieveArgs<RetrieveParams, V>): UseDirectRetrieveReturn<V> => {
   const { retrieveAsync, retrieve: _, ...rest } = useStateful(restArgs);
-  const memoParams = useMemo(() => params, [params]);
+  const memoParams = useMemoDeepEqual(params);
   useAsyncEffect(
-    async (signal) => {
-      await retrieveAsync(memoParams, { signal });
-    },
+    async (signal) => await retrieveAsync(memoParams, { signal }),
     [retrieveAsync, memoParams],
   );
   return rest;
@@ -260,9 +259,7 @@ const useEffect = <RetrieveParams extends Params, V extends state.State>({
   const { retrieveAsync } = useObservable<RetrieveParams, V>(restArgs);
   const memoParams = useMemo(() => params, [params]);
   useAsyncEffect(
-    async (signal) => {
-      await retrieveAsync(memoParams, { signal });
-    },
+    async (signal) => await retrieveAsync(memoParams, { signal }),
     [retrieveAsync, memoParams],
   );
 };

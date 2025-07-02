@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError } from "@synnaxlabs/client";
-import { status } from "@synnaxlabs/x";
+import { caseconv, status } from "@synnaxlabs/x";
 
 import { type state } from "@/state";
 
@@ -34,12 +34,13 @@ export type Result<Data extends state.State> =
     });
 
 /** A factory function to create a loading result. */
-export const loadingResult = <Data extends state.State>(
+export const pendingResult = <Data extends state.State>(
   name: string,
+  op: string,
 ): Result<Data> => ({
   ...status.create<undefined, "loading">({
     variant: "loading",
-    message: `Loading ${name}`,
+    message: `${caseconv.capitalize(op)} ${name}`,
   }),
   data: null,
   error: null,
@@ -48,11 +49,12 @@ export const loadingResult = <Data extends state.State>(
 /** A factory function to create a success result. */
 export const successResult = <Data extends state.State>(
   name: string,
+  op: string,
   value: Data,
 ): Result<Data> => ({
   ...status.create<undefined, "success">({
     variant: "success",
-    message: `Loaded ${name}`,
+    message: `${caseconv.capitalize(op)} ${name}`,
   }),
   data: value,
   error: null,
@@ -61,9 +63,10 @@ export const successResult = <Data extends state.State>(
 /** A factory function to create an error result. */
 export const errorResult = <Data extends state.State>(
   name: string,
+  op: string,
   error: unknown,
 ): Result<Data> => ({
-  ...status.fromException(error, `Failed to load ${name}`),
+  ...status.fromException(error, `Failed to ${op} ${name}`),
   data: null,
   error,
 });
@@ -74,5 +77,6 @@ export const nullClientResult = <Data extends state.State>(
 ): Result<Data> =>
   errorResult(
     name,
+    opName,
     new DisconnectedError(`Cannot ${opName} ${name} because no cluster is connected.`),
   );

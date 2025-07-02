@@ -4,8 +4,8 @@ import { useCallback, useState } from "react";
 import { type Params } from "@/flux/params";
 import {
   errorResult,
-  loadingResult,
   nullClientResult,
+  pendingResult,
   type Result,
   successResult,
 } from "@/flux/result";
@@ -71,16 +71,16 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
     async (value: Data) => {
       try {
         if (client == null) return onChange(nullClientResult(name, "update"));
-        onChange(loadingResult(`Updating ${name}`));
+        onChange(pendingResult(name, "updating"));
         await update({
           client,
-          onChange: (value) => onChange(successResult(`Updated ${name}`, value)),
+          onChange: (value) => onChange(successResult(name, "updated", value)),
           value,
           params,
         });
-        onChange(successResult(`Updated ${name}`, value));
+        onChange(successResult(name, "updated", value));
       } catch (error) {
-        onChange(errorResult(`Updating ${name}`, error));
+        onChange(errorResult(name, "update", error));
       }
     },
     [name, params],
@@ -97,12 +97,16 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
 
 const useDirect = <UpdateParams extends Params, Data extends state.State>({
   params,
+  name,
   ...restArgs
 }: UseDirectUpdateArgs<UpdateParams> &
   CreateUpdateArgs<UpdateParams, Data>): UseDirectUpdateReturn<Data> => {
-  const [result, setResult] = useState<Result<Data | null>>(successResult("", null));
+  const [result, setResult] = useState<Result<Data | null>>(
+    successResult(name, "updated", null),
+  );
   const ret = useObservable<UpdateParams, Data>({
     ...restArgs,
+    name,
     onChange: setResult,
     params,
   });
