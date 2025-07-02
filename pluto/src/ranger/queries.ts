@@ -92,11 +92,13 @@ const SET_LISTENER_CONFIG: Flux.RetrieveListenerConfig<QueryParams, ranger.Range
   ),
 };
 
-export const retrieve = Flux.createRetrieve<QueryParams, ranger.Range>({
+export const retrieveQuery = Flux.createRetrieve<QueryParams, ranger.Range>({
   name: "Range",
   retrieve: async ({ client, params: { key } }) => await client.ranges.retrieve(key),
   listeners: [SET_LISTENER_CONFIG],
 });
+
+export const useRetrieve = retrieveQuery.useDirect;
 
 export const rangeFormSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).shape,

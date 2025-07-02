@@ -36,10 +36,10 @@ export interface SingleProps<K extends record.Key>
       "onChange" | "visible" | "children" | "variant" | "close"
     >,
     Omit<CoreList.ListProps<K>, "children">,
-    Pick<Input.TextProps, "variant" | "disabled" {
+    Pick<Input.TextProps, "variant" | "disabled"> {
   entryRenderKey?: keyof E | ((e: E) => string | number | ReactNode);
   inputProps?: Partial<Omit<Input.TextProps, "onChange">>;
-  children?: List.ItemRenderProp<K>;
+  children?: List.ItemRenderProp<K, E>;
   dropdownVariant?: Dropdown.Variant;
   dropdownZIndex?: number;
   placeholder?: ReactNode;
@@ -65,7 +65,10 @@ export interface SingleProps<K extends record.Key>
  * @param props.onChange - The callback to be invoked when the selected value changes.
  * @param props.value - The currently selected value.
  */
-export const Single = <K extends record.Key = record.Key>({
+export const Single = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>({
   onChange,
   value,
   entryRenderKey = "key",

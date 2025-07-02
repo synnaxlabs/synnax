@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { type z } from "zod/v4";
 
 import { type Params } from "@/flux/params";
@@ -54,6 +54,25 @@ export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject> {
 
 export interface UseForm<FormParams extends Params, Z extends z.ZodObject> {
   (args: UseFormArgs<FormParams, Z>): UseFormReturn<Z>;
+}
+
+const Details = () => {
+  const [key, setKey] = useState("");
+  const [result, setResult] = useState<Result<z.infer<ZodObject>>>(loadingResult(""));
+
+  export const useForm = () => {
+
+const form = Form.use<ZodObject>({
+  values: result.data
+  onchange: (value) => {
+    mutate()
+  }
+});
+const {retrieve, }= useRetrieve(key, {onChange: form.setValues("")});
+const {update}= useUpdate(key, {onChange: form.setValues("")});
+  }
+
+
 }
 
 /**

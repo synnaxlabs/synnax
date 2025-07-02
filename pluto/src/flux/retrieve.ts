@@ -122,13 +122,13 @@ export interface CreateRetrieveReturn<
   RetrieveParams extends Params,
   V extends state.State,
 > {
+  useDirect: (
+    args: UseDirectRetrieveArgs<RetrieveParams>,
+  ) => UseDirectRetrieveReturn<V>;
   useObservable: (
     args: UseObservableRetrieveArgs<V>,
   ) => UseObservableRetrieveReturn<RetrieveParams>;
   useStateful: () => UseStatefulRetrieveReturn<RetrieveParams, V>;
-  useDirect: (
-    args: UseDirectRetrieveArgs<RetrieveParams>,
-  ) => UseDirectRetrieveReturn<V>;
   useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, V>) => void;
 }
 

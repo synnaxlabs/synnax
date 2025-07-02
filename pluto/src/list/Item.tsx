@@ -9,7 +9,7 @@
 
 import "@/list/Item.css";
 
-import { type Optional, type record } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
@@ -18,34 +18,37 @@ import { type ItemProps } from "@/list/types";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 
 export interface ItemFrameProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Optional<ItemProps<K, E>, "sourceIndex">,
+  extends ItemProps<K, E>,
     Omit<Align.SpaceProps, "key" | "onSelect" | "translate"> {
+  itemKey: K;
   draggingOver?: boolean;
   rightAligned?: boolean;
   highlightHovered?: boolean;
   allowSelect?: boolean;
+  onSelect?: (key: K) => void;
+  selected?: boolean;
+  hovered?: boolean;
 }
 
 export const ItemFrame = <K extends record.Key, E extends record.Keyed<K>>({
-  entry,
-  selected,
-  hovered,
-  onSelect,
+  itemKey,
   className,
   direction = "x",
   draggingOver: __,
   rightAligned = false,
   highlightHovered = false,
   allowSelect = true,
+  selected = false,
   translate,
+  onSelect,
+  hovered,
   style,
-  sourceIndex: _,
   ...rest
 }: ItemFrameProps<K, E>): ReactElement => (
   <Align.Space
-    id={entry.key.toString()}
+    id={itemKey.toString()}
     direction={direction}
-    onClick={() => onSelect?.(entry.key)}
+    onClick={() => onSelect?.(itemKey)}
     tabIndex={0}
     className={CSS(
       className,

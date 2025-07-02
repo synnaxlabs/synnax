@@ -18,13 +18,15 @@ interface ListEntry {
   name: string;
 }
 
-const ALLCAPS = new Set([TelemDataType.UUID, TelemDataType.JSON]);
+const ALL_CAPS = new Set([TelemDataType.UUID, TelemDataType.JSON]);
 
 const DATA: ListEntry[] = TelemDataType.ALL.filter(
   (d) => d !== TelemDataType.UNKNOWN,
 ).map((d) => ({
   key: d.toString(),
-  name: ALLCAPS.has(d) ? d.toString().toUpperCase() : caseconv.capitalize(d.toString()),
+  name: ALL_CAPS.has(d)
+    ? d.toString().toUpperCase()
+    : caseconv.capitalize(d.toString()),
 }));
 
 const FIXED_DENSITY_DATA = DATA.filter((d) => !new TelemDataType(d.key).isVariable);

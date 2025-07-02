@@ -150,14 +150,20 @@ export const createList =
       return item;
     };
     const res: Result<K[]> = { ...result, data: result?.data ?? [] } as Result<K[]>;
-    const v: UseListReturn<P, K, E> = {
-      retrieve: (params: P, options: { signal?: AbortSignal }) => {
-        void base(params, options);
-      },
-      retrieveAsync: async (params: P, options: { signal?: AbortSignal }) =>
-        await base(params, options),
+    return {
+      retrieve: useCallback(
+        (params: P, options: { signal?: AbortSignal }) => {
+          void base(params, options);
+        },
+        [base],
+      ),
+      retrieveAsync: useCallback(
+        async (params: P, options: { signal?: AbortSignal }) =>
+          await base(params, options),
+        [base],
+      ),
       useListItem,
       ...res,
+      data: result?.data ?? [],
     };
-    return v;
   };

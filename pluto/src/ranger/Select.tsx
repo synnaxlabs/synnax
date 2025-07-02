@@ -18,6 +18,8 @@ import {
   useState,
 } from "react";
 
+import { Align } from "@/align";
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { Haul } from "@/haul";
@@ -241,7 +243,7 @@ const listItem = componentRenderProp(ListItem);
 
 const Select = () => {
   const { visible, close } = Dropdown.use();
-  const [query, setQuery] = useState<Required<ListParams>>({
+  const [params, setParams] = useState<Required<ListParams>>({
     term: "",
     offset: 0,
     limit: 10,
@@ -249,10 +251,10 @@ const Select = () => {
   const { data, useListItem, retrieve } = useList();
   const handleSearch = useCallback(
     (term: string) => {
-      setQuery((prev) => ({ ...prev, term }));
-      retrieve(query, {});
+      setParams((prev) => ({ ...prev, term }));
+      retrieve(params, {});
     },
-    [retrieve],
+    [retrieve, params],
   );
   const [selected, setSelected] = useState<string>("");
   const { onSelect } = CoreSelect.use({
@@ -261,19 +263,23 @@ const Select = () => {
     allowMultiple: false,
     onChange: setSelected,
   });
-  const listProps = List.use({ data, itemHeight: 30 });
+  const listProps = List.use({ data });
+  const selectedItem = useListItem(selected);
   return (
     <Dropdown.Dialog visible={visible} close={close}>
-      <Input.Text value={query.term} onChange={handleSearch} />
-      <CoreSelect.Provider<ranger.Key> value={selected} onSelect={onSelect}>
-        <List.List<ranger.Key, ranger.Payload>
-          {...listProps}
-          data={data}
-          useItem={useListItem}
-        >
-          {listItem}
-        </List.List>
-      </CoreSelect.Provider>
+      <Button.Button>{selectedItem?.name}</Button.Button>
+      <Align.Space>
+        <CoreSelect.Provider<ranger.Key> value={selected} onSelect={onSelect}>
+          <Input.Text value={params.term} onChange={handleSearch} />
+          <List.List<ranger.Key, ranger.Payload>
+            {...listProps}
+            data={data}
+            useItem={useListItem}
+          >
+            {listItem}
+          </List.List>
+        </CoreSelect.Provider>
+      </Align.Space>
     </Dropdown.Dialog>
   );
 };

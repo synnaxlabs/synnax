@@ -23,7 +23,7 @@ import { type ItemRenderProp } from "@/list/types";
 
 export interface UseProps<K extends record.Key = record.Key> {
   data: K[];
-  itemHeight: number;
+  itemHeight?: number;
 }
 
 export interface UseReturn {
@@ -44,7 +44,7 @@ export interface ListProps<
 
 export const use = <K extends record.Key = record.Key>({
   data,
-  itemHeight,
+  itemHeight = 30,
 }: UseProps<K>): UseReturn => {
   const ref = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
