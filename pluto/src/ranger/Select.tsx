@@ -14,9 +14,11 @@ import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
+import { type List } from "@/list";
 import { useList } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select } from "@/select";
+import { componentRenderProp } from "@/util/renderProp";
 
 const canDrop = (
   { items: entities }: DraggingState,
@@ -101,7 +103,28 @@ export const SelectMultiple = ({
 };
 
 export interface SelectSingleProps
-  extends Omit<Select.SingleProps<ranger.Key, ranger.Payload>, "columns"> {}
+  extends Omit<
+    Select.SingleProps<ranger.Key, ranger.Payload>,
+    "columns" | "children"
+  > {}
+
+const SingleTrigger = ({
+  value,
+  useItem,
+  onClick,
+}: Select.TriggerProps<ranger.Key, ranger.Payload | undefined>): ReactElement => <></>;
+
+const ListItem = ({
+  key,
+  index,
+  itemKey,
+  translate,
+  useItem,
+}: List.ItemProps<ranger.Key, ranger.Payload | undefined>): ReactElement => <></>;
+
+const listItemRenderProp = componentRenderProp(ListItem);
+
+const singleTriggerRenderProp = componentRenderProp(SingleTrigger);
 
 export const SelectSingle = ({
   onChange,
@@ -136,7 +159,7 @@ export const SelectSingle = ({
     [startDrag, value],
   );
   return (
-    <Select.Single<ranger.Key, ranger.Payload>
+    <Select.Single<ranger.Key, ranger.Payload | undefined>
       className={CSS(
         className,
         CSS.dropRegion(canDrop(dragging, array.toArray(value))),
@@ -148,6 +171,9 @@ export const SelectSingle = ({
       onDragStart={onDragStart}
       {...dragProps}
       {...rest}
-    />
+    >
+      {singleTriggerRenderProp}
+      {listItemRenderProp}
+    </Select.Single>
   );
 };

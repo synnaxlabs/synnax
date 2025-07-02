@@ -33,7 +33,7 @@ export interface UseReturn {
 
 export interface ListProps<
   K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > extends Omit<ComponentPropsWithoutRef<"div">, "children">,
     UseReturn {
   data: K[];
@@ -57,7 +57,7 @@ export const use = <K extends record.Key = record.Key>({
 
 export const List = <
   K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
+  E extends record.Keyed<K> | undefined = record.Keyed<K>,
 >({
   virtualizer,
   data,

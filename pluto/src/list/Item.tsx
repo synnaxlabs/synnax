@@ -32,7 +32,7 @@ export interface ItemFrameProps<K extends record.Key, E extends record.Keyed<K>>
 
 export interface ItemProps<
   K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
+  E extends record.Keyed<K> | undefined = record.Keyed<K>,
 > {
   index: number;
   key: K;
@@ -44,7 +44,7 @@ export interface ItemProps<
 
 export type ItemRenderProp<
   K extends record.Key,
-  E extends record.Keyed<K>,
+  E extends record.Keyed<K> | undefined = record.Keyed<K>,
 > = RenderProp<ItemProps<K, E>>;
 
 export const ItemFrame = <K extends record.Key, E extends record.Keyed<K>>({

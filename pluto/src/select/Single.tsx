@@ -21,14 +21,19 @@ import { Provider } from "@/select/Provider";
 import { use, type UseSelectSingleProps } from "@/select/use";
 import { type RenderProp } from "@/util/renderProp";
 
-export interface TriggerProps<K extends record.Key, E extends record.Keyed<K>> {
+export interface TriggerProps<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+> {
   value: K | null;
   useItem: (key: K) => E;
   onClick: () => void;
 }
 
-export interface SingleProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Omit<UseSelectSingleProps<K>, "data" | "allowMultiple">,
+export interface SingleProps<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+> extends Omit<UseSelectSingleProps<K>, "data" | "allowMultiple">,
     Omit<Dropdown.DialogProps, "visible" | "close" | "children" | "onChange">,
     List.UseProps<K>,
     Pick<List.ListProps<K, E>, "useItem"> {
@@ -65,7 +70,7 @@ export interface SingleProps<K extends record.Key, E extends record.Keyed<K>>
  */
 export const Single = <
   K extends record.Key = record.Key,
-  E extends record.Keyed<K> = record.Keyed<K>,
+  E extends record.Keyed<K> | undefined = record.Keyed<K>,
 >({
   onChange,
   value,
