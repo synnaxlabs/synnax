@@ -231,6 +231,140 @@ describe("Form", () => {
     });
   });
 
+  describe("useFieldState", () => {
+    it("should get the full field state from the form", () => {
+      const { result } = renderHook(() => Form.useFieldState<string>("name"), {
+        wrapper,
+      });
+      expect(result.current?.value).toBe("John Doe");
+      expect(result.current?.status.variant).toBe("success");
+      expect(result.current?.touched).toBe(false);
+      expect(result.current?.required).toBe(true);
+    });
+
+    it("should return the correct nested field state", () => {
+      const { result } = renderHook(() => Form.useFieldState<string>("nested.ssn"), {
+        wrapper,
+      });
+      expect(result.current?.value).toBe("123-45-6789");
+      expect(result.current?.status.variant).toBe("success");
+      expect(result.current?.required).toBe(true);
+    });
+
+    it("should return null for optional fields when they don't exist", () => {
+      const { result } = renderHook(
+        () => Form.useFieldState<string>("nonExistentField", { optional: true }),
+        { wrapper },
+      );
+      expect(result.current).toBeNull();
+    });
+
+    it("should use default value when field is null", () => {
+      const { result } = renderHook(
+        () => Form.useFieldState<string>("optionalField", { defaultValue: "default" }),
+        { wrapper },
+      );
+      expect(result.current?.value).toBe("default");
+    });
+
+    it("should correctly identify required vs optional fields", () => {
+      const { result: requiredResult } = renderHook(
+        () => Form.useFieldState<string>("name"),
+        { wrapper },
+      );
+      const { result: optionalResult } = renderHook(
+        () => Form.useFieldState<string>("optionalField", { optional: true }),
+        { wrapper },
+      );
+
+      expect(requiredResult.current?.required).toBe(true);
+      expect(optionalResult.current?.required).toBeUndefined();
+    });
+  });
+
+  describe("useFieldValue", () => {
+    it("should get just the value from a field", () => {
+      const { result } = renderHook(() => Form.useFieldValue<string>("name"), {
+        wrapper,
+      });
+      expect(result.current).toBe("John Doe");
+    });
+
+    it("should return the correct nested field value", () => {
+      const { result } = renderHook(() => Form.useFieldValue<string>("nested.ssn"), {
+        wrapper,
+      });
+      expect(result.current).toBe("123-45-6789");
+    });
+
+    it("should return null for optional fields when they don't exist", () => {
+      const { result } = renderHook(
+        () => Form.useFieldValue<string>("nonExistentField", { optional: true }),
+        { wrapper },
+      );
+      expect(result.current).toBeNull();
+    });
+
+    it("should use default value when field is null", () => {
+      const { result } = renderHook(
+        () => Form.useFieldValue<string>("optionalField", { defaultValue: "default" }),
+        { wrapper },
+      );
+      expect(result.current).toBe("default");
+    });
+
+    it("should return array values correctly", () => {
+      const { result } = renderHook(() => Form.useFieldValue("array"), {
+        wrapper,
+      });
+      expect(result.current).toEqual([{ name: "John Doe" }]);
+    });
+
+    it("should return array element values correctly", () => {
+      const { result } = renderHook(() => Form.useFieldValue<string>("array.0.name"), {
+        wrapper,
+      });
+      expect(result.current).toBe("John Doe");
+    });
+
+    it("should return complex nested object values correctly", () => {
+      const { result } = renderHook(() => Form.useFieldValue("nested"), {
+        wrapper,
+      });
+      expect(result.current).toEqual({ ssn: "123-45-6789", ein: "" });
+    });
+  });
+
+  describe("useFieldValid", () => {
+    it("should return true for valid fields", () => {
+      const { result } = renderHook(() => Form.useFieldValid("name"), {
+        wrapper,
+      });
+      expect(result.current).toBe(true);
+    });
+
+    it("should return false for non-existent optional fields", () => {
+      const { result } = renderHook(() => Form.useFieldValid("nonExistentField"), {
+        wrapper,
+      });
+      expect(result.current).toBe(false);
+    });
+
+    it("should work with nested fields", () => {
+      const { result } = renderHook(() => Form.useFieldValid("nested.ssn"), {
+        wrapper,
+      });
+      expect(result.current).toBe(true);
+    });
+
+    it("should work with array fields", () => {
+      const { result } = renderHook(() => Form.useFieldValid("array.0.name"), {
+        wrapper,
+      });
+      expect(result.current).toBe(true);
+    });
+  });
+
   describe("Field", () => {
     it("should return a text field with the correct value", () => {
       const c = render(<Form.Field path="name" />, { wrapper });

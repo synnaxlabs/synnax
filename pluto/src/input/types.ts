@@ -13,8 +13,6 @@ import { type Align } from "@/align";
 import { type Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
-export type Value = unknown;
-
 export interface Control<I = unknown, O = I> {
   value: I;
   onChange: (value: O) => void;
