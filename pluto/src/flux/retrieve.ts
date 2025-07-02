@@ -93,14 +93,18 @@ export interface UseObservableRetrieveArgs<V extends state.State> {
   onChange: state.Setter<Result<V>>;
 }
 
+export interface RetrieveOptions {
+  signal?: AbortSignal;
+}
+
 export interface UseObservableRetrieveReturn<RetrieveParams extends Params> {
   retrieve: (
     params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
-    options: { signal?: AbortSignal },
+    options?: RetrieveOptions,
   ) => void;
   retrieveAsync: (
     params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
-    options: { signal?: AbortSignal },
+    options?: RetrieveOptions,
   ) => Promise<void>;
 }
 
@@ -158,8 +162,9 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   const retrieveAsync = useCallback(
     async (
       paramsSetter: state.SetArg<RetrieveParams, RetrieveParams | {}>,
-      { signal }: { signal?: AbortSignal },
+      options: RetrieveOptions = {},
     ) => {
+      const { signal } = options;
       const params = state.executeSetter<RetrieveParams, RetrieveParams | {}>(
         paramsSetter,
         paramsRef.current,
@@ -211,7 +216,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   const retrieveSync = useCallback(
     (
       params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
-      options: { signal?: AbortSignal },
+      options?: { signal?: AbortSignal },
     ) => void retrieveAsync(params, options),
     [retrieveAsync],
   );

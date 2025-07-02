@@ -1,0 +1,100 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { newTestClient, type Synnax } from "@synnaxlabs/client";
+import { type record } from "@synnaxlabs/x";
+import { renderHook, waitFor } from "@testing-library/react";
+import { act, type FC, type PropsWithChildren } from "react";
+import { describe, expect, it, vi } from "vitest";
+
+import { Flux } from "@/flux";
+import { Sync } from "@/flux/sync";
+import { Synnax as PSynnax } from "@/synnax";
+
+const client = newTestClient();
+
+const newWrapper =
+  (client: Synnax | null): FC<PropsWithChildren> =>
+  // eslint-disable-next-line react/display-name
+  (props) => (
+    <PSynnax.TestProvider client={client}>
+      <Sync.Provider {...props} />
+    </PSynnax.TestProvider>
+  );
+
+describe("list", () => {
+  describe("initial list", () => {
+    it("should return a loading result as its initial state", () => {
+      const { result } = renderHook(
+        () =>
+          Flux.createList({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async () => ({ key: 12 }),
+          })(),
+        { wrapper: newWrapper(client) },
+      );
+      expect(result.current.variant).toEqual("loading");
+      expect(result.current.data).toEqual([]);
+      expect(result.current.error).toEqual(null);
+    });
+
+    it("should return a success result when the list is retrieved", async () => {
+      const retrieve = vi.fn().mockResolvedValue([
+        {
+          key: 1,
+        },
+        {
+          key: 2,
+        },
+      ]);
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async () => ({ key: 12 }),
+          })(),
+        { wrapper: newWrapper(client) },
+      );
+      act(() => {
+        result.current.retrieve({});
+      });
+      await waitFor(() => {
+        expect(retrieve).toHaveBeenCalledTimes(1);
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toEqual([1, 2]);
+        expect(result.current.error).toEqual(null);
+      });
+    });
+  });
+
+  describe("useListItem", () => {
+    it("should return a pre-retrieved list item", async () => {
+      const { result } = renderHook(
+        () => {
+          const { useListItem, retrieve } = Flux.createList<
+            {},
+            number,
+            record.Keyed<number>
+          >({
+            name: "Resource",
+            retrieve: async () => [{ key: 1 }, { key: 2 }],
+            retrieveByKey: async ({ key }) => ({ key }),
+          })();
+          return { retrieve, value: useListItem(1) };
+        },
+        { wrapper: newWrapper(client) },
+      );
+      await waitFor(() => {
+        expect(result.current.value).toEqual({ key: 1 });
+      });
+    });
+  });
+});

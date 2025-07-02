@@ -44,7 +44,7 @@ describe("update", () => {
 
     it("should call update function when the user calls update", async () => {
       const update = vi.fn();
-      const { result } = renderHook(
+      const { result, unmount } = renderHook(
         () =>
           Flux.createUpdate<{}, number>({
             name: "Resource",
@@ -57,11 +57,12 @@ describe("update", () => {
         expect(update).toHaveBeenCalled();
         expect(result.current.data).toEqual(12);
       });
+      unmount();
     });
 
     it("should return an error result if the update function throws an error", async () => {
       const update = vi.fn().mockRejectedValue(new Error("test"));
-      const { result } = renderHook(
+      const { result, unmount } = renderHook(
         () =>
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
@@ -77,11 +78,12 @@ describe("update", () => {
         expect(result.current.error).toEqual(new Error("test"));
         expect(result.current.message).toEqual("Failed to update Resource");
       });
+      unmount();
     });
 
     it("should return an error result if the client is null and the update function is called", async () => {
       const update = vi.fn();
-      const { result } = renderHook(
+      const { result, unmount } = renderHook(
         () =>
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
@@ -101,13 +103,14 @@ describe("update", () => {
         );
         expect(result.current.message).toEqual("Failed to update Resource");
       });
+      unmount();
     });
 
     it("should return a loading result when the update function is being executed", async () => {
       const update = async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
       };
-      const { result } = renderHook(
+      const { result, unmount } = renderHook(
         () =>
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
@@ -123,6 +126,7 @@ describe("update", () => {
         expect(result.current.error).toEqual(null);
         expect(result.current.message).toEqual("Updating Resource");
       });
+      unmount();
     });
   });
 });
