@@ -19,7 +19,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { type ItemRenderProp } from "@/list/types";
+import { type ItemRenderProp } from "@/list/Item";
 
 export interface UseProps<K extends record.Key = record.Key> {
   data: K[];

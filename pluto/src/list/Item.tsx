@@ -14,8 +14,8 @@ import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { type ItemProps } from "@/list/types";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
+import { type RenderProp } from "@/util/renderProp";
 
 export interface ItemFrameProps<K extends record.Key, E extends record.Keyed<K>>
   extends ItemProps<K, E>,
@@ -29,6 +29,23 @@ export interface ItemFrameProps<K extends record.Key, E extends record.Keyed<K>>
   selected?: boolean;
   hovered?: boolean;
 }
+
+export interface ItemProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> {
+  index: number;
+  key: K;
+  itemKey: K;
+  className?: string;
+  translate?: number;
+  useItem: (key: K) => E;
+}
+
+export type ItemRenderProp<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> = RenderProp<ItemProps<K, E>>;
 
 export const ItemFrame = <K extends record.Key, E extends record.Keyed<K>>({
   itemKey,

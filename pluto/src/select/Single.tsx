@@ -48,6 +48,10 @@ export interface SingleProps<K extends record.Key>
   actions?: Input.ExtensionProps["children"];
 }
 
+// Point of select is to wrap together button, selector, list, dropdown, and search
+// input.
+// Takes two children -
+
 /**
  * Allows a user to browse, search for, and select a value from a list of options.
  * It's important to note that Select maintains no internal selection state. The caller
