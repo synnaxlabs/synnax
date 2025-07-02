@@ -188,12 +188,11 @@ export const createList =
       [retrieveAsync],
     );
 
-    const res: UseListReturn<P, K, E> = {
+    return {
       retrieve: retrieveSync,
       retrieveAsync,
       useListItem,
       ...result,
       data: result?.data ?? [],
     };
-    return res;
   };
