@@ -68,8 +68,12 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
   const handleError = Status.useErrorHandler();
   const [createMore, setCreateMore] = useState(false);
 
-  const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>("isIndex", {
-    ctx: methods,
+  const isIndex = Form.useFieldValue<
+    boolean,
+    boolean,
+    typeof Channel.calculatedFormSchema
+  >("isIndex", {
+    ctx: form,
   });
 
   const globals = usePhantomGlobals({
