@@ -215,7 +215,7 @@ export const CommonStyleForm = ({
 const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<
     Omit<Toggle.UseProps, "aetherKey"> & { control: ControlStateProps }
-  >({ path });
+  >(path);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
   const source = telem.streamChannelValuePropsZ.parse(
@@ -589,7 +589,7 @@ export const ValueForm = (): ReactElement => {
 interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}
 
 const LightTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<LightTelemFormT>({ path });
+  const { value, onChange } = Form.useField<LightTelemFormT>(path);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
@@ -705,7 +705,7 @@ const SelectButtonMode = Form.buildButtonSelectField({
 });
 
 export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<ButtonTelemFormT>({ path });
+  const { value, onChange } = Form.useField<ButtonTelemFormT>(path);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
@@ -793,7 +793,7 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
       control: ControlStateProps;
       disabled?: boolean;
     }
-  >({ path });
+  >(path);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
@@ -875,10 +875,7 @@ export const SetpointForm = (): ReactElement => {
 };
 
 export const TextBoxForm = (): ReactElement => {
-  const autoFit = Form.useField<boolean>({
-    path: "autoFit",
-    optional: true,
-  });
+  const autoFit = Form.useField<boolean>("autoFit", { optional: true });
   return (
     <FormWrapper x align="stretch" grow>
       <Align.Space y grow>
