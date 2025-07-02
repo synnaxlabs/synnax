@@ -141,10 +141,10 @@ export const useForm = <
   );
   const methods = PForm.use<FormSchema<Config>>({
     schema,
-    values: schema.parse({
+    values: {
       name: initialTask.name,
       config: initialTask.config,
-    }) as z.infer<FormSchema<Config>>,
+    } as z.infer<FormSchema<Config>>,
     onHasTouched: handleUnsavedChanges,
   });
   const create = useCreate<Type, Config, StatusData>(layoutKey, schemas);
