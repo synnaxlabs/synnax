@@ -10,6 +10,7 @@
 package telem_test
 
 import (
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
@@ -35,6 +36,8 @@ var _ = Describe("DataType", func() {
 		Specify("uint16", DataTypeInferTest[uint16](telem.Uint16T))
 		Specify("uint8", DataTypeInferTest[uint8](telem.Uint8T))
 		Specify("string", DataTypeInferTest[string](telem.StringT))
+		Specify("uuid", DataTypeInferTest[uuid.UUID](telem.UUIDT))
+		Specify("timestamp", DataTypeInferTest[telem.TimeStamp](telem.TimeStampT))
 
 		It("Should panic if a a struct if provided", func() {
 			Expect(func() {
@@ -42,6 +45,28 @@ var _ = Describe("DataType", func() {
 			}).To(Panic())
 		})
 	})
+
+	DescribeTable("IsVariable", func(dataType telem.DataType, expected bool) {
+		Expect(dataType.IsVariable()).To(Equal(expected))
+	},
+		Entry("timestamp", telem.TimeStampT, false),
+		Entry("uuid", telem.UUIDT, false),
+		Entry("float64", telem.Float64T, false),
+		Entry("float32", telem.Float32T, false),
+		Entry("int64", telem.Int64T, false),
+		Entry("int32", telem.Int32T, false),
+		Entry("int16", telem.Int16T, false),
+		Entry("int8", telem.Int8T, false),
+		Entry("uint64", telem.Uint64T, false),
+		Entry("uint32", telem.Uint32T, false),
+		Entry("uint16", telem.Uint16T, false),
+		Entry("uint8", telem.Uint8T, false),
+		Entry("bytes", telem.BytesT, true),
+		Entry("json", telem.JSONT, true),
+		Entry("string", telem.StringT, true),
+		Entry("unknown", telem.UnknownT, false),
+		Entry("random", telem.DataType("random"), false),
+	)
 
 	DescribeTable("Density", func(dataType telem.DataType, expected telem.Density) {
 		Expect(dataType.Density()).To(Equal(expected))
@@ -60,5 +85,8 @@ var _ = Describe("DataType", func() {
 		Entry("timestamp", telem.TimeStampT, telem.Bit64),
 		Entry("uuid", telem.UUIDT, telem.Bit128),
 		Entry("random", telem.DataType("random"), telem.UnknownDensity),
+		Entry("unknown", telem.UnknownT, telem.UnknownDensity),
+		Entry("bytes", telem.BytesT, telem.UnknownDensity),
+		Entry("json", telem.JSONT, telem.UnknownDensity),
 	)
 })
