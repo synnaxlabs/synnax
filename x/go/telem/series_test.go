@@ -28,7 +28,7 @@ func marshalSeriesTest[T telem.Sample](data []T, dt telem.DataType) func() {
 
 func marshalUnmarshalSliceTest[T telem.Sample](data []T, dt telem.DataType) func() {
 	return func() {
-		s := telem.MarshalSlice[T](data)
+		s := telem.MarshalSlice(data)
 		Expect(telem.UnmarshalSlice[T](s, dt)).To(Equal(data))
 	}
 }
@@ -89,7 +89,7 @@ var _ = Describe("Series", func() {
 			Specify("bad data type", func() {
 				type BadType uint32
 				Expect(func() {
-					telem.MarshalSlice[BadType]([]BadType{1, 2, 3})
+					telem.MarshalSlice([]BadType{1, 2, 3})
 				}).To(Panic())
 			})
 		})
