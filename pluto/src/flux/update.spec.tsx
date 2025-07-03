@@ -10,7 +10,7 @@
 import { DisconnectedError, newTestClient, type Synnax } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
@@ -29,6 +29,13 @@ const newWrapper =
 
 describe("update", () => {
   describe("basic update", () => {
+    let controller: AbortController;
+    beforeEach(() => {
+      controller = new AbortController();
+    });
+    afterEach(() => {
+      controller.abort();
+    });
     it("should return a success result as its initial state", () => {
       const { result, unmount } = renderHook(() =>
         Flux.createUpdate<{}, number>({
@@ -53,7 +60,7 @@ describe("update", () => {
           }).useDirect({ params: {} }),
         { wrapper: newWrapper(client) },
       );
-      act(() => result.current.update(12));
+      act(() => result.current.update(12, { signal: controller.signal }));
       await waitFor(() => {
         expect(update).toHaveBeenCalled();
         expect(result.current.data).toEqual(12);
@@ -71,7 +78,7 @@ describe("update", () => {
         { wrapper: newWrapper(client) },
       );
       act(() => {
-        result.current.update(12);
+        result.current.update(12, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
@@ -92,7 +99,7 @@ describe("update", () => {
         { wrapper: newWrapper(null) },
       );
       act(() => {
-        result.current.update(12);
+        result.current.update(12, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
@@ -119,7 +126,7 @@ describe("update", () => {
         { wrapper: newWrapper(client) },
       );
       act(() => {
-        result.current.update(12);
+        result.current.update(12, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("loading");

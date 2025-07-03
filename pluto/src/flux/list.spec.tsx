@@ -11,7 +11,7 @@ import { newTestClient, ranger, type Synnax } from "@synnaxlabs/client";
 import { type record, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { act, type FC, type PropsWithChildren } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
@@ -29,6 +29,13 @@ const newWrapper =
   );
 
 describe("list", () => {
+  let controller: AbortController;
+  beforeEach(() => {
+    controller = new AbortController();
+  });
+  afterEach(() => {
+    controller.abort();
+  });
   describe("initial list", () => {
     it("should return a loading result as its initial state", () => {
       const { result } = renderHook(
@@ -57,7 +64,7 @@ describe("list", () => {
         { wrapper: newWrapper(client) },
       );
       act(() => {
-        result.current.retrieve({});
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
@@ -178,15 +185,12 @@ describe("list", () => {
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
       });
-
       await act(async () => {
         await client.ranges.delete(rng.key);
       });
-
       await waitFor(() => {
         expect(result.current.value).toBeUndefined();
       });
-
       unmount();
     });
   });

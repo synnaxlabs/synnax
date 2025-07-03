@@ -20,8 +20,8 @@ import {
   successResult,
 } from "@/flux/result";
 import {
+  type AsyncOptions,
   type CreateRetrieveArgs,
-  type RetrieveOptions,
   type UseStatefulRetrieveReturn,
 } from "@/flux/retrieve";
 import { Sync } from "@/flux/sync";
@@ -142,7 +142,7 @@ export const createList =
     }, [addListener, client]);
 
     const retrieveAsync = useCallback(
-      async (paramsSetter: state.SetArg<P, P | {}>, options: RetrieveOptions = {}) => {
+      async (paramsSetter: state.SetArg<P, P | {}>, options: AsyncOptions = {}) => {
         const { signal } = options;
         const params = state.executeSetter(paramsSetter, paramsRef.current);
         paramsRef.current = params;
@@ -194,7 +194,7 @@ export const createList =
       );
 
     const retrieveSync = useCallback(
-      (params: state.SetArg<P, P | {}>, options: RetrieveOptions = {}) =>
+      (params: state.SetArg<P, P | {}>, options: AsyncOptions = {}) =>
         void retrieveAsync(params, options),
       [retrieveAsync],
     );
