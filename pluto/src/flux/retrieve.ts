@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type Synnax } from "@synnaxlabs/client";
-import { type Destructor, type MultiSeries } from "@synnaxlabs/x";
-import { useCallback, useEffect as reactUseEffect, useRef, useState } from "react";
+import { type MultiSeries } from "@synnaxlabs/x";
+import { useCallback, useRef, useState } from "react";
 
-import { useListeners } from "@/flux/listeners";
+import { useMountListeners } from "@/flux/listeners";
 import { type Params } from "@/flux/params";
 import {
   errorResult,
@@ -20,7 +20,7 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import { Sync } from "@/flux/sync";
+import { type Sync } from "@/flux/sync";
 import { useAsyncEffect } from "@/hooks";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
@@ -151,34 +151,9 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
     RetrieveParams,
     Data
   >): UseObservableRetrieveReturn<RetrieveParams> => {
-  const addListener = Sync.useAddListener();
-  const mountListeners = useListeners({
-    listeners: () =>
-      listeners.map((l) => ({
-        channel: l.channel,
-        handler: (frame) => {
-          void (async () => {
-            try {
-              await l.onChange({
-                client,
-                params,
-                changed: frame.get(channel),
-                onChange: (value) => {
-                  onChange((prev) => {
-                    if (prev.data == null) return prev;
-                    const next = state.executeSetter(value, prev.data);
-                    return successResult(name, "retrieved", next);
-                  });
-                },
-              });
-            } catch (error) {
-              onChange(errorResult(name, "retrieve", error));
-            }
-          })();
-        },
-      })),
-  });
-  const paramsRef = useRef<RetrieveParams | {}>({});
+  const client = PSynnax.use();
+  const paramsRef = useRef<RetrieveParams | null>(null);
+  const mountListeners = useMountListeners();
   const retrieveAsync = useCallback(
     async (
       paramsSetter: state.SetArg<RetrieveParams, RetrieveParams | {}>,
@@ -187,32 +162,45 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
       const { signal } = options;
       const params = state.executeSetter<RetrieveParams, RetrieveParams | {}>(
         paramsSetter,
-        paramsRef.current,
+        paramsRef.current ?? {},
       );
       paramsRef.current = params;
       try {
-        cleanupDestructors();
         if (client == null) return onChange(nullClientResult(name, "retrieve"));
         onChange(pendingResult(name, "retrieving"));
         const value = await retrieve({ client, params });
         if (signal?.aborted) return;
-        if (listeners == null || listeners.length === 0)
-          return onChange(successResult(name, "retrieved", value));
-        destructorsRef.current = listeners.map(
-          ({ channel, onChange: listenerOnChange }, i) =>
-            addListener({
-              channel,
-              onOpen: () =>
-                i === listeners.length - 1 &&
-                onChange(successResult(name, "retrieved", value)),
-              handler: (frame) => {},
-            }),
+        mountListeners(
+          listeners.map((l) => ({
+            channel: l.channel,
+            handler: (frame) =>
+              void (async () => {
+                if (client == null || paramsRef.current == null) return;
+                try {
+                  await l.onChange({
+                    client,
+                    params: paramsRef.current,
+                    changed: frame.get(l.channel),
+                    onChange: (value) => {
+                      onChange((prev) => {
+                        if (prev.data == null) return prev;
+                        const next = state.executeSetter(value, prev.data);
+                        return successResult(name, "retrieved", next);
+                      });
+                    },
+                  });
+                } catch (error) {
+                  onChange(errorResult(name, "retrieve", error));
+                }
+              })(),
+          })),
         );
+        onChange(successResult(name, "retrieved", value));
       } catch (error) {
         onChange(errorResult(name, "retrieve", error));
       }
     },
-    [client, name, addListener],
+    [client, name, mountListeners],
   );
   const retrieveSync = useCallback(
     (

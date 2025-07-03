@@ -14,7 +14,6 @@ import { Mutex } from "async-mutex";
 import { z } from "zod/v4";
 
 import {
-  payloadZ,
   type Key,
   type KeyOrName,
   type Keys,
@@ -24,6 +23,7 @@ import {
   type Names,
   type Params,
   type Payload,
+  payloadZ,
 } from "@/channel/payload";
 import { QueryError } from "@/errors";
 import {

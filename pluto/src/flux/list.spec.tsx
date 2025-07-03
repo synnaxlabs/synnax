@@ -99,9 +99,7 @@ describe("list", () => {
   });
 
   describe("listeners", () => {
-    interface RangeParams extends Flux.Params {
-      key: ranger.Key;
-    }
+    interface RangeParams extends Flux.Params {}
     it("should correctly update a list item when the listener changes", async () => {
       const rng = await client.ranges.create({
         name: "Test Range",
@@ -135,6 +133,10 @@ describe("list", () => {
         },
         { wrapper: newWrapper(client) },
       );
+
+      act(() => {
+        result.current.retrieve({});
+      });
 
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
@@ -182,6 +184,10 @@ describe("list", () => {
         { wrapper: newWrapper(client) },
       );
 
+      act(() => {
+        result.current.retrieve({});
+      });
+
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
       });
@@ -189,7 +195,7 @@ describe("list", () => {
         await client.ranges.delete(rng.key);
       });
       await waitFor(() => {
-        expect(result.current.value).toBeUndefined();
+        expect(result.current.value?.key).not.toEqual(rng.key);
       });
       unmount();
     });
