@@ -11,6 +11,7 @@ import { type channel, type Synnax } from "@synnaxlabs/client";
 import { type Destructor, type MultiSeries } from "@synnaxlabs/x";
 import { useCallback, useEffect as reactUseEffect, useRef, useState } from "react";
 
+import { useListeners } from "@/flux/listeners";
 import { type Params } from "@/flux/params";
 import {
   errorResult,
@@ -142,7 +143,7 @@ export interface CreateRetrieveReturn<
 
 const useObservable = <RetrieveParams extends Params, Data extends state.State>({
   retrieve,
-  listeners,
+  listeners = [],
   name,
   onChange,
 }: UseObservableRetrieveArgs<Data> &
@@ -151,13 +152,32 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
     Data
   >): UseObservableRetrieveReturn<RetrieveParams> => {
   const addListener = Sync.useAddListener();
-  const destructorsRef = useRef<Destructor[]>([]);
-  const cleanupDestructors = useCallback(() => {
-    destructorsRef.current.forEach((d) => d());
-    destructorsRef.current = [];
-  }, []);
-  reactUseEffect(() => cleanupDestructors, [cleanupDestructors]);
-  const client = PSynnax.use();
+  const mountListeners = useListeners({
+    listeners: () =>
+      listeners.map((l) => ({
+        channel: l.channel,
+        handler: (frame) => {
+          void (async () => {
+            try {
+              await l.onChange({
+                client,
+                params,
+                changed: frame.get(channel),
+                onChange: (value) => {
+                  onChange((prev) => {
+                    if (prev.data == null) return prev;
+                    const next = state.executeSetter(value, prev.data);
+                    return successResult(name, "retrieved", next);
+                  });
+                },
+              });
+            } catch (error) {
+              onChange(errorResult(name, "retrieve", error));
+            }
+          })();
+        },
+      })),
+  });
   const paramsRef = useRef<RetrieveParams | {}>({});
   const retrieveAsync = useCallback(
     async (
@@ -185,26 +205,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
               onOpen: () =>
                 i === listeners.length - 1 &&
                 onChange(successResult(name, "retrieved", value)),
-              handler: (frame) => {
-                void (async () => {
-                  try {
-                    await listenerOnChange({
-                      client,
-                      params,
-                      changed: frame.get(channel),
-                      onChange: (value) => {
-                        onChange((prev) => {
-                          if (prev.data == null) return prev;
-                          const next = state.executeSetter(value, prev.data);
-                          return successResult(name, "retrieved", next);
-                        });
-                      },
-                    });
-                  } catch (error) {
-                    onChange(errorResult(name, "retrieve", error));
-                  }
-                })();
-              },
+              handler: (frame) => {},
             }),
         );
       } catch (error) {

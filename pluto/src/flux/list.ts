@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax } from "@synnaxlabs/client";
-import { type MultiSeries, type record } from "@synnaxlabs/x";
+import { type Destructor, type MultiSeries, type record } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { type Params } from "@/flux/params";
@@ -24,7 +24,8 @@ import {
   type CreateRetrieveArgs,
   type UseStatefulRetrieveReturn,
 } from "@/flux/retrieve";
-import { Sync } from "@/flux/sync";
+import { type Sync } from "@/flux/sync";
+import { useInitializerRef } from "@/hooks";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
@@ -90,17 +91,23 @@ export const createList =
     retrieveByKey,
   }: CreateListArgs<P, K, E>): UseList<P, K, E> =>
   () => {
+    const client = PSynnax.use();
     const dataRef = useRef<Map<K, E>>(new Map());
-    const listenersRef = useRef<Map<() => void, K>>(new Map());
+    const listenersRef = useInitializerRef<ListenerRef<K>>(() => ({
+      mounted: false,
+      listeners: new Map(),
+      destructor: () => {},
+    }));
     const [result, setResult] = useState<Result<K[]>>(
       pendingResult(name, "retrieving"),
     );
+
     const paramsRef = useRef<P | {}>({});
-    const addListener = Sync.useAddListener();
-    const client = PSynnax.use();
-    useEffect(() => {
-      if (listeners == null || listeners.length === 0 || client == null)
-        return () => {};
+
+    const mountListeners = useCallback(() => {
+      listenersRef.current.mounted = true;
+      if (listeners == null || listeners.length === 0 || client == null) return;
+
       const destructors = listeners.map(({ channel, onChange: listenerOnChange }) =>
         addListener({
           channel,
@@ -126,7 +133,7 @@ export const createList =
                     if (v == null) return;
                     const res = state.executeSetter(setter, v);
                     dataRef.current.set(k, res);
-                    listenersRef.current.forEach((key, listener) => {
+                    listenersRef.current.listeners.forEach((key, listener) => {
                       if (key === k) listener();
                     });
                   },
@@ -138,8 +145,10 @@ export const createList =
           },
         }),
       );
-      return () => destructors.forEach((d) => d());
+      listenersRef.current.destructor = () => destructors.forEach((d) => d());
     }, [addListener, client]);
+
+    useEffect(() => () => listenersRef.current.destructor(), []);
 
     const retrieveAsync = useCallback(
       async (paramsSetter: state.SetArg<P, P | {}>, options: AsyncOptions = {}) => {
@@ -157,7 +166,7 @@ export const createList =
           setResult(errorResult(name, "retrieve", error));
         }
       },
-      [client, name, addListener],
+      [client, name, addListener, mountListeners],
     );
 
     const retrieveSingle = useCallback(
@@ -166,7 +175,7 @@ export const createList =
           try {
             if (client == null) return;
             dataRef.current.set(key, await retrieveByKey({ client, key }));
-            listenersRef.current.forEach((k, listener) => {
+            listenersRef.current.listeners.forEach((k, listener) => {
               if (k === key) listener();
             });
           } catch (error) {
@@ -181,8 +190,8 @@ export const createList =
       useSyncExternalStore<E | undefined>(
         useCallback(
           (callback) => {
-            listenersRef.current.set(callback, key);
-            return () => listenersRef.current.delete(callback);
+            listenersRef.current.listeners.set(callback, key);
+            return () => listenersRef.current.listeners.delete(callback);
           },
           [key],
         ),
