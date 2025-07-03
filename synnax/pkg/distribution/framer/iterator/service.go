@@ -178,12 +178,12 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		if err != nil {
 			return nil, err
 		}
-		plumber.SetSink[Request](pipe, peerSenderAddr, sender)
+		plumber.SetSink(pipe, peerSenderAddr, sender)
 		receiverAddresses = make([]address.Address, len(receivers))
 		for i, c := range receivers {
 			addr := address.Newf("client_%v", i+1)
 			receiverAddresses[i] = addr
-			plumber.SetSource[Response](pipe, addr, c)
+			plumber.SetSource(pipe, addr, c)
 		}
 	}
 
@@ -196,13 +196,13 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		if err != nil {
 			return nil, err
 		}
-		plumber.SetSegment[Request, Response](pipe, gatewayIterAddr, gatewayIter)
+		plumber.SetSegment(pipe, gatewayIterAddr, gatewayIter)
 		receiverAddresses = append(receiverAddresses, gatewayIterAddr)
 	}
 
 	if needPeerRouting && needGatewayRouting {
 		routeInletTo = broadcasterAddr
-		plumber.SetSegment[Request, Request](
+		plumber.SetSegment(
 			pipe,
 			broadcasterAddr,
 			newBroadcaster(),
@@ -215,7 +215,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		}.MustRoute(pipe)
 	}
 
-	plumber.SetSegment[Response, Response](
+	plumber.SetSegment(
 		pipe,
 		synchronizerAddr,
 		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.cfg.Instrumentation),
