@@ -18,7 +18,7 @@ import { type Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
-import { useMemoDeepEqualProps } from "@/memo";
+import { useMemoDeepEqual } from "@/memo";
 import { Status } from "@/status";
 import { Canvas } from "@/vis/canvas";
 import { log } from "@/vis/log/aether";
@@ -50,7 +50,7 @@ export const Log = ({
   telem,
   ...rest
 }: LogProps): ReactElement | null => {
-  const memoProps = useMemoDeepEqualProps({ font, color, telem, visible });
+  const memoProps = useMemoDeepEqual({ font, color, telem, visible });
   const [, { scrolling, empty }, setState] = Aether.use({
     type: log.Log.TYPE,
     schema: log.logState,

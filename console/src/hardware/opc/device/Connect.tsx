@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
+import { DisconnectedError, rack, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -28,7 +28,6 @@ import { useState } from "react";
 import { z } from "zod/v4";
 
 import { CSS } from "@/css";
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { FS } from "@/fs";
 import { Common } from "@/hardware/common";
 import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
@@ -86,7 +85,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   const testConnectionMutation = useMutation({
     onError: (e) => handleError(e, "Failed to test connection"),
     mutationFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       if (!methods.validate()) return;
       const rack = await client.hardware.racks.retrieve(
         methods.get<rack.Key>("rack").value,
@@ -110,7 +109,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
   const connectMutation = useMutation({
     onError: (e) => handleError(e, "Failed to connect to OPC UA Server"),
     mutationFn: async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       if (!methods.validate()) return;
       await testConnectionMutation.mutateAsync();
       if (connectionState?.variant !== "success")

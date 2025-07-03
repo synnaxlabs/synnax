@@ -11,6 +11,7 @@ package freightfluence_test
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func clientStreamsToSlice(
@@ -73,7 +75,7 @@ var _ = Describe("Sender", func() {
 				senderStream.Inlet() <- 2
 				v = <-receiverStream.Outlet()
 				cancel()
-				Expect(sCtx.Wait()).To(Equal(context.Canceled))
+				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
 				_, ok := <-receiverStream.Outlet()
 				Expect(ok).To(BeFalse())
 			})
@@ -94,7 +96,7 @@ var _ = Describe("Sender", func() {
 				v := <-receiverStream.Outlet()
 				Expect(v).To(Equal(2))
 				cancel()
-				Expect(sCtx.Wait()).To(Equal(context.Canceled))
+				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
 				_, ok := <-receiverStream.Outlet()
 				Expect(ok).To(BeFalse())
 			})
@@ -169,7 +171,7 @@ var _ = Describe("Sender", func() {
 				sender.Flow(sCtx)
 				senderStream.Inlet() <- 2
 				cancel()
-				Expect(sCtx.Wait()).To(Equal(context.Canceled))
+				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
 			})
 		})
 		Describe("SwitchSender", func() {
@@ -202,7 +204,7 @@ var _ = Describe("Sender", func() {
 				sender.Flow(sCtx)
 				senderStream.Inlet() <- 1
 				cancel()
-				Expect(sCtx.Wait()).To(Equal(context.Canceled))
+				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
 			})
 			It("Should exit when the switch returns an error", func() {
 				sender := &freightfluence.SwitchSender[int]{}

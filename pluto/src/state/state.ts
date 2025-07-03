@@ -13,16 +13,19 @@ import { useState } from "react";
 export type State = primitive.Value | record.Unknown;
 export type SetFunc<S, PS = S> = (prev: PS) => S;
 
-export const isSetter = <S extends State>(arg: SetArg<S>): arg is SetFunc<S> =>
-  typeof arg === "function";
+export const isSetter = <S extends State, PS = S>(
+  arg: SetArg<S, PS>,
+): arg is SetFunc<S, PS> => typeof arg === "function";
 
 export type SetArg<S extends State, PS = S> = S | SetFunc<S, PS>;
-export type Set<S extends State> = (value: SetArg<S>) => void;
-export type PureSet<S extends State> = (value: S) => void;
+export type Setter<S extends State> = (value: SetArg<S>) => void;
+export type PureSetter<S extends State> = (value: S) => void;
 export type Initial<S extends State> = S | (() => S);
 
-export const executeSetter = <S extends State>(setter: SetArg<S>, prev: S): S =>
-  isSetter(setter) ? setter(prev) : setter;
+export const executeSetter = <S extends State, PS = S>(
+  setter: SetArg<S, PS>,
+  prev: PS,
+): S => (isSetter(setter) ? setter(prev) : setter);
 
 export const executeInitialSetter = <S extends State>(setter: Initial<S>): S =>
   isInitialSetter(setter) ? setter() : setter;
@@ -30,15 +33,15 @@ export const executeInitialSetter = <S extends State>(setter: Initial<S>): S =>
 export const isInitialSetter = <S extends State>(arg: Initial<S>): arg is () => S =>
   typeof arg === "function";
 
-export type UseReturn<S extends State> = [S, Set<S>];
+export type UseReturn<S extends State> = [S, Setter<S>];
 export type Use = <S extends State>(initial: Initial<S>) => UseReturn<S>;
-export type PureUseReturn<S extends State> = [S, PureSet<S>];
+export type PureUseReturn<S extends State> = [S, PureSetter<S>];
 export type PureUse<S extends State> = (initial: S) => PureUseReturn<S>;
 
 export interface UsePassthroughProps<S extends State> {
   initial: Initial<S>;
   value?: S;
-  onChange?: Set<S>;
+  onChange?: Setter<S>;
 }
 
 export const usePassthrough = <S extends State>({
@@ -54,7 +57,7 @@ export const usePassthrough = <S extends State>({
 export interface UsePurePassthroughProps<S extends State> {
   initial: Initial<S>;
   value?: S;
-  onChange?: PureSet<S>;
+  onChange?: PureSetter<S>;
   callOnChangeIfValueIsUndefined?: boolean;
 }
 

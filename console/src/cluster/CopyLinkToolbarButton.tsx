@@ -15,7 +15,7 @@ import { useCopyLinkToClipboard } from "@/cluster/useCopyLinkToClipboard";
 
 export interface CopyLinkToolbarButtonProps extends Omit<Button.IconProps, "children"> {
   name: string;
-  ontologyID: ontology.IDPayload;
+  ontologyID: ontology.ID;
 }
 
 export const CopyLinkToolbarButton = ({

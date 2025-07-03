@@ -13,8 +13,9 @@ import { type Destructor, type observe } from "@synnaxlabs/x";
 export interface FrameHandler extends observe.Handler<framer.Frame> {}
 
 export interface Subscriber {
-  channels: channel.Name | channel.Names;
+  channel: channel.Name;
   handler: FrameHandler;
+  onOpen?: () => void;
 }
 
 export interface ListenerAdder {

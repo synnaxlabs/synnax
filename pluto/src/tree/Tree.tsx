@@ -49,7 +49,7 @@ export interface HandleExpandProps {
 export interface UseProps {
   onExpand?: (props: HandleExpandProps) => void;
   selected?: string[];
-  onSelectedChange?: state.Set<string[]>;
+  onSelectedChange?: state.Setter<string[]>;
   initialExpanded?: string[];
   nodes: Node[];
   sort?: SortOption;

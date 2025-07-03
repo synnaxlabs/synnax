@@ -19,7 +19,6 @@ export * from "@/css";
 export { Dialog } from "@/dialog";
 export { Divider } from "@/divider";
 export { Dropdown } from "@/dropdown";
-export { NULL_CLIENT_ERROR } from "@/errors";
 export { Form } from "@/form";
 export { Generic } from "@/generic";
 export { Device } from "@/hardware/device";
@@ -45,13 +44,13 @@ export { Override } from "@/override";
 export { Pluto } from "@/pluto";
 export { Portal } from "@/portal";
 export { Progress } from "@/progress";
+export { Flux as Sync } from "@/flux";
 export { Ranger } from "@/ranger";
 export { Resize } from "@/resize";
 export { Select } from "@/select";
 export { state } from "@/state";
 export { Status } from "@/status";
 export { Steps } from "@/steps";
-export { Sync } from "@/sync";
 export { Synnax } from "@/synnax";
 export { Table } from "@/table";
 export { TableCells } from "@/table/cells";
@@ -85,6 +84,7 @@ export { Rule } from "@/vis/rule";
 export { Schematic } from "@/vis/schematic";
 export { Value } from "@/vis/value";
 export { Worker } from "@/worker";
+export { Workspace } from "@/workspace";
 export {
   type CrudeDataType,
   type CrudeDensity,
