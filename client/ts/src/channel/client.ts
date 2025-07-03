@@ -21,7 +21,7 @@ import {
 import { z } from "zod/v4";
 
 import {
-  channelZ,
+  payloadZ,
   type Key,
   type KeyOrName,
   type Name,
@@ -156,7 +156,7 @@ export class Channel {
    * network transportation, but also provided to you as a convenience.
    */
   get payload(): Payload {
-    return channelZ.parse({
+    return payloadZ.parse({
       key: this.key,
       name: this.name,
       dataType: this.dataType.valueOf(),

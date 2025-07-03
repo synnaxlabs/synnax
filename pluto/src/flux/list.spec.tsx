@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newTestClient, type Synnax } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
+import { newTestClient, ranger, type Synnax } from "@synnaxlabs/client";
+import { type record, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { act, type FC, type PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -94,6 +94,61 @@ describe("list", () => {
       );
       await waitFor(() => {
         expect(result.current.value).toEqual({ key: 1 });
+      });
+    });
+  });
+
+  describe("listeners", () => {
+    it("should correctly update a list item when the listener changes", async () => {
+      const rng = await client.ranges.create({
+        name: "Test Range",
+        timeRange: new TimeRange({
+          start: TimeSpan.seconds(12),
+          end: TimeSpan.seconds(13),
+        }),
+      });
+
+      interface Params extends Flux.Params {
+        key: ranger.Key;
+      }
+
+      const { result } = renderHook(
+        () => {
+          const { useListItem, retrieve } = Flux.createList<
+            Params,
+            ranger.Key,
+            ranger.Payload
+          >({
+            name: "Resource",
+            retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
+            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
+            listeners: [
+              {
+                channel: ranger.SET_CHANNEL_NAME,
+                onChange: Sync.parsedHandler(
+                  ranger.payloadZ,
+                  async ({ onChange, changed }) => {
+                    onChange(changed.key, () => changed);
+                  },
+                ),
+              },
+            ],
+          })();
+          return { retrieve, value: useListItem(rng.key) };
+        },
+        { wrapper: newWrapper(client) },
+      );
+
+      await waitFor(() => {
+        expect(result.current.value?.name).toEqual("Test Range");
+      });
+
+      await act(async () => {
+        await client.ranges.rename(rng.key, "Test Range 2");
+      });
+
+      await waitFor(() => {
+        expect(result.current.value?.name).toEqual("Test Range 2");
       });
     });
   });
