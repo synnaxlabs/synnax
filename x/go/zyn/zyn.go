@@ -114,7 +114,7 @@ var (
 	PrimitiveTypeSchema = Enum(PrimitiveTypes...)
 	DataTypes           = slices.Concat(
 		[]DataType{ObjectT},
-		IntegerTypes,
+		PrimitiveTypes,
 	)
 	AnyDataTypeSchema = Enum(DataTypes...)
 )

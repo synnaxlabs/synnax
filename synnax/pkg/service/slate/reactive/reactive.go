@@ -27,6 +27,7 @@ var factories = []factory{
 	newSelectStatement,
 	newStatusChange,
 	newStableFor,
+	newRangeCreate,
 }
 
 type factoryConfig struct {

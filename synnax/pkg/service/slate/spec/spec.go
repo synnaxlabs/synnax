@@ -99,6 +99,7 @@ var schemaMatchers = []SchemaMatcher{
 	selectStatement,
 	createStatusChanger,
 	stableFor,
+	rangeCreator,
 }
 
 type Config struct {

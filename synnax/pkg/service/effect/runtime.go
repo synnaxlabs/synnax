@@ -60,6 +60,7 @@ func (s *Service) handleChange(
 			Channel:    s.cfg.Channel,
 			Framer:     s.cfg.Framer,
 			Annotation: s.cfg.Annotation,
+			Ranger:     s.cfg.Ranger,
 			OnStatusChange: func(
 				ctx context.Context,
 				stat status.Status[any],

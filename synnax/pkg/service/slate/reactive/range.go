@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type rangeCreate struct {
@@ -57,8 +58,10 @@ func (r *rangeCreate) sink(ctx context.Context, origin address.Address, _ spec.V
 	if r.currRng.Key == uuid.Nil {
 		r.currRng.Key = uuid.New()
 		r.currRng.Stage = originStage
+		r.currRng.TimeRange.Start = telem.Now()
 	}
 	if shouldCreate {
+		r.currRng.TimeRange.End = telem.Now()
 		return r.rngService.NewWriter(nil).Create(ctx, &r.currRng)
 	}
 	return nil

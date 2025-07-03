@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/annotation"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/slate"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -41,6 +42,7 @@ type ServiceConfig struct {
 	Slate      *slate.Service
 	Channel    channel.Service
 	Annotation *annotation.Service
+	Ranger     *ranger.Service
 }
 
 var (
@@ -57,6 +59,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Slate = override.Nil(c.Slate, other.Slate)
 	c.Annotation = override.Nil(c.Annotation, other.Annotation)
+	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	return c
 }
 
@@ -69,6 +72,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "slate", c.Slate)
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "annotation", c.Annotation)
+	validate.NotNil(v, "ranger", c.Ranger)
 	return v.Error()
 }
 

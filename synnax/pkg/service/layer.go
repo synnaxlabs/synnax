@@ -254,6 +254,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			DB:              cfg.Distribution.DB,
 			Ontology:        cfg.Distribution.Ontology,
 			Framer:          cfg.Distribution.Framer,
+			Ranger:          l.Ranger,
 			Slate:           l.Slate,
 			Channel:         cfg.Distribution.Channel,
 			Annotation:      l.Annotation,

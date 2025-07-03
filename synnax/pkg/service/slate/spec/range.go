@@ -23,7 +23,10 @@ type RangeCreateConfig struct {
 }
 
 var rangeCreateConfigZ = zyn.Object(map[string]zyn.Schema{
-	"range": ranger.RangeZ,
+	"range": zyn.Object(map[string]zyn.Schema{
+		"name":  zyn.String(),
+		"color": zyn.String(),
+	}),
 })
 
 func (r *RangeCreateConfig) Parse(data any) error {
