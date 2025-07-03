@@ -506,6 +506,7 @@ export class Series<T extends TelemValue = TelemValue>
   toStrings(): string[] {
     if (this.dataType.isVariable)
       return new TextDecoder().decode(this.underlyingData).split("\n").slice(0, -1);
+    if (this.dataType.equals(DataType.UUID)) return this.toUUIDs();
     return Array.from(this).map((d) => d.toString());
   }
 

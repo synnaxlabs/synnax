@@ -114,8 +114,16 @@ export const createList =
                     const v = dataRef.current.get(k);
                     if (v == null) return;
                     const res = setter(v);
-                    if (res == null) return;
-                    dataRef.current.set(k, res);
+                    if (res == null) {
+                      dataRef.current.delete(k);
+                      setResult(
+                        (p) =>
+                          ({
+                            ...p,
+                            data: p.data?.filter((k) => k !== k),
+                          }) as Result<K[]>,
+                      );
+                    } else dataRef.current.set(k, res);
                     listenersRef.current.forEach((key, listener) => {
                       if (key === k) listener();
                     });

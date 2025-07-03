@@ -12,8 +12,8 @@ import { Mutex } from "async-mutex";
 import { useEffect } from "react";
 import { type z } from "zod/v4";
 
-import { useSyncedRef } from "@/hooks";
 import { useAddListener } from "@/flux/sync/Context";
+import { useSyncedRef } from "@/hooks";
 import { Status } from "@/status";
 
 export type ListenerArgs<Value, Extra> = {
@@ -31,7 +31,7 @@ export const parsedHandler =
   ): ListenerHandler<MultiSeries, Extra> =>
   async (args) => {
     let parsed: z.output<Z>[];
-    if (args.changed.dataType.equals(DataType.STRING))
+    if (!args.changed.dataType.equals(DataType.JSON))
       parsed = args.changed.toStrings().map((s) => schema.parse(s));
     else parsed = args.changed.parseJSON(schema);
     for (const value of parsed) await onChange({ ...args, changed: value });

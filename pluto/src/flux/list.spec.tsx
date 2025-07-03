@@ -46,14 +46,7 @@ describe("list", () => {
     });
 
     it("should return a success result when the list is retrieved", async () => {
-      const retrieve = vi.fn().mockResolvedValue([
-        {
-          key: 1,
-        },
-        {
-          key: 2,
-        },
-      ]);
+      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
       const { result } = renderHook(
         () =>
           Flux.createList<{}, number, record.Keyed<number>>({
@@ -99,6 +92,9 @@ describe("list", () => {
   });
 
   describe("listeners", () => {
+    interface RangeParams extends Flux.Params {
+      key: ranger.Key;
+    }
     it("should correctly update a list item when the listener changes", async () => {
       const rng = await client.ranges.create({
         name: "Test Range",
@@ -108,14 +104,10 @@ describe("list", () => {
         }),
       });
 
-      interface Params extends Flux.Params {
-        key: ranger.Key;
-      }
-
       const { result } = renderHook(
         () => {
           const { useListItem, retrieve } = Flux.createList<
-            Params,
+            RangeParams,
             ranger.Key,
             ranger.Payload
           >({
@@ -127,9 +119,7 @@ describe("list", () => {
                 channel: ranger.SET_CHANNEL_NAME,
                 onChange: Sync.parsedHandler(
                   ranger.payloadZ,
-                  async ({ onChange, changed }) => {
-                    onChange(changed.key, () => changed);
-                  },
+                  async ({ onChange, changed }) => onChange(changed.key, () => changed),
                 ),
               },
             ],
@@ -150,6 +140,56 @@ describe("list", () => {
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range 2");
       });
+    });
+
+    it("should correctly remove a list item when it gets deleted", async () => {
+      const rng = await client.ranges.create({
+        name: "Test Range",
+        timeRange: new TimeRange({
+          start: TimeSpan.seconds(12),
+          end: TimeSpan.seconds(13),
+        }),
+      });
+      const { result, unmount } = renderHook(
+        () => {
+          const { useListItem, retrieve } = Flux.createList<
+            RangeParams,
+            ranger.Key,
+            ranger.Payload
+          >({
+            name: "Resource",
+            retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
+            retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
+            listeners: [
+              {
+                channel: ranger.DELETE_CHANNEL_NAME,
+                onChange: Sync.parsedHandler(
+                  ranger.keyZ,
+                  async ({ onChange, changed }) => {
+                    onChange(changed, () => null);
+                  },
+                ),
+              },
+            ],
+          })();
+          return { retrieve, value: useListItem(rng.key) };
+        },
+        { wrapper: newWrapper(client) },
+      );
+
+      await waitFor(() => {
+        expect(result.current.value?.name).toEqual("Test Range");
+      });
+
+      await act(async () => {
+        await client.ranges.delete(rng.key);
+      });
+
+      await waitFor(() => {
+        expect(result.current.value).toBeUndefined();
+      });
+
+      unmount();
     });
   });
 });
