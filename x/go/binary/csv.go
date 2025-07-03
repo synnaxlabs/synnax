@@ -12,9 +12,9 @@ package binary
 import (
 	"bytes"
 	"context"
-	"encoding/csv"
 	"io"
 
+	"github.com/synnaxlabs/x/binary/internal/csv"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -83,8 +83,7 @@ func (c *CSVCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	if err := csvWriter.Error(); err != nil {
 		return nil, sugarEncodingErr(value, err)
 	}
-	// trim the last CRLF
-	return buf.Bytes()[:buf.Len()-2], nil
+	return buf.Bytes(), nil
 }
 
 // EncodeStream encodes a value to a CSV representation in bytes and writes it to a
@@ -123,4 +122,28 @@ func (c *CSVCodec) DecodeStream(ctx context.Context, r io.Reader, value any) err
 		return sugarDecodingErr(data, value, err)
 	}
 	return c.Decode(ctx, data, value)
+}
+
+type CSVRecords [][]string
+
+var (
+	_ CSVMarshaler   = (*CSVRecords)(nil)
+	_ CSVUnmarshaler = (*CSVRecords)(nil)
+)
+
+func (r CSVRecords) MarshalCSV() ([][]string, error) {
+	return r, nil
+}
+
+func (r *CSVRecords) UnmarshalCSV(data [][]string) error {
+	*r = data
+	return nil
+}
+
+func NewCSVRecords(rows int, cols int) CSVRecords {
+	records := make([][]string, rows)
+	for i := range records {
+		records[i] = make([]string, cols)
+	}
+	return records
 }

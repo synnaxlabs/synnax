@@ -22,6 +22,11 @@ type marshaller struct {
 	records [][]string
 }
 
+var (
+	_ CSVMarshaler   = (*CSVRecords)(nil)
+	_ CSVUnmarshaler = (*CSVRecords)(nil)
+)
+
 func (m marshaller) MarshalCSV() ([][]string, error) {
 	return m.records, nil
 }
@@ -31,9 +36,6 @@ func (m *marshaller) UnmarshalCSV(records [][]string) error {
 	return nil
 }
 
-var _ CSVMarshaler = marshaller{}
-var _ CSVUnmarshaler = (*marshaller)(nil)
-
 var _ = Describe("CSV", func() {
 	var records [][]string
 	BeforeEach(func() {
@@ -42,29 +44,21 @@ var _ = Describe("CSV", func() {
 	Describe("MarshalCSV", func() {
 		It("should marshal the records", func() {
 			m := &marshaller{records: records}
-			encoded, err := MarshalCSV(m)
-			Expect(err).To(BeNil())
-			Expect(encoded).To(Equal(records))
+			Expect(MarshalCSV(m)).To(Equal(records))
 		})
 		It("should return an error if the value does not implement CSVMarshaler", func() {
-			m := struct{}{}
-			_, err := MarshalCSV(m)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("does not implement CSVMarshaler"))
+			Expect(MarshalCSV(struct{}{})).Error().To(HaveOccurred())
 		})
 	})
 	Describe("UnmarshalCSV", func() {
 		It("should unmarshal the records", func() {
 			u := marshaller{}
-			err := UnmarshalCSV(records, &u)
-			Expect(err).To(BeNil())
+			Expect(UnmarshalCSV(records, &u)).To(Succeed())
 			Expect(u.records).To(Equal(records))
 		})
 		It("should return an error if the value does not implement CSVUnmarshaler", func() {
 			v := struct{}{}
-			err := UnmarshalCSV(records, &v)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("does not implement CSVUnmarshaler"))
+			Expect(UnmarshalCSV(records, &v)).Error().To(HaveOccurred())
 		})
 	})
 	Describe("Codec", func() {
@@ -79,13 +73,10 @@ var _ = Describe("CSV", func() {
 					marshaler = &marshaller{records: records}
 				})
 				It("Regular", func() {
-					data, err := codec.Encode(context.Background(), marshaler)
-					Expect(err).To(BeNil())
-					Expect(data).To(Equal(encoded))
+					Expect(codec.Encode(context.Background(), marshaler)).To(Equal(encoded))
 				})
 				It("Stream", func() {
-					err := codec.EncodeStream(context.Background(), io.Discard, marshaler)
-					Expect(err).To(BeNil())
+					Expect(codec.EncodeStream(context.Background(), io.Discard, marshaler)).To(Succeed())
 				})
 			})
 			Describe("Decoding", func() {
@@ -94,37 +85,35 @@ var _ = Describe("CSV", func() {
 					unmarshaler = &marshaller{}
 				})
 				It("Regular", func() {
-					err := codec.Decode(context.Background(), encoded, unmarshaler)
-					Expect(err).To(BeNil())
+					Expect(codec.Decode(context.Background(), encoded, unmarshaler)).To(Succeed())
 					Expect(unmarshaler.records).To(Equal(records))
 				})
 				It("Stream", func() {
-					err := codec.DecodeStream(context.Background(), bytes.NewReader(encoded), unmarshaler)
-					Expect(err).To(BeNil())
+					Expect(codec.DecodeStream(context.Background(), bytes.NewReader(encoded), unmarshaler)).To(Succeed())
 					Expect(unmarshaler.records).To(Equal(records))
 				})
 			})
 		},
-			Entry("basic", [][]string{{"a", "b"}, {"c", "d"}}, []byte("a,b\r\nc,d")),
-			Entry("double quotes", [][]string{{"a", "b"}, {"\"", "d"}}, []byte("a,b\r\n\"\"\"\",d")),
+			Entry("basic", [][]string{{"a", "b"}, {"c", "d"}}, []byte("a,b\r\nc,d\r\n")),
+			Entry("double quotes", [][]string{{"a", "b"}, {"\"", "d"}}, []byte("a,b\r\n\"\"\"\",d\r\n")),
 			Entry("empty", [][]string{}, []byte("")),
-			Entry("single row", [][]string{{"a", "b"}}, []byte("a,b")),
-			Entry("commas", [][]string{{"a", "b"}, {",", "d"}}, []byte("a,b\r\n\",\",d")),
+			Entry("single row", [][]string{{"a", "b"}}, []byte("a,b\r\n")),
+			Entry("commas", [][]string{{"a", "b"}, {",", "d"}}, []byte("a,b\r\n\",\",d\r\n")),
 		)
 		Describe("Data with CRLFs", func() {
 			// These tests only encode data because the standard library's CSV reader
 			// automatically converts CRLFs in data to LFs. See
-			// https://linear.app/synnax/issue/SY-2638/add-csv-data-exporting-to-server.
+			// https://linear.app/synnax/issue/SY-2639/stop-stripping-of-cr-in-decoding-csvs.
 			// The decoding tests just make sure that no errors are returned. Since we
 			// don't call Decode or DecodeStream for CSVs, we don't need to worry about
-			// this.
+			// this yet.
 			var (
 				codec   *CSVCodec
 				encoded []byte
 			)
 			BeforeEach(func() {
 				codec = &CSVCodec{}
-				encoded = []byte("a,b\r\n\"\r\n\",d")
+				encoded = []byte("a,b\r\n\"\r\n\",d\r\n")
 			})
 			Describe("Encoding", func() {
 				var marshaler *marshaller
@@ -132,13 +121,10 @@ var _ = Describe("CSV", func() {
 					marshaler = &marshaller{records: [][]string{{"a", "b"}, {"\r\n", "d"}}}
 				})
 				It("Regular", func() {
-					data, err := codec.Encode(context.Background(), marshaler)
-					Expect(err).To(BeNil())
-					Expect(data).To(Equal(encoded))
+					Expect(codec.Encode(context.Background(), marshaler)).To(Equal(encoded))
 				})
 				It("Stream", func() {
-					err := codec.EncodeStream(context.Background(), io.Discard, marshaler)
-					Expect(err).To(BeNil())
+					Expect(codec.EncodeStream(context.Background(), io.Discard, marshaler)).To(Succeed())
 				})
 			})
 			Describe("Decoding", func() {
@@ -147,12 +133,10 @@ var _ = Describe("CSV", func() {
 					unmarshaler = &marshaller{}
 				})
 				It("Regular", func() {
-					err := codec.Decode(context.Background(), encoded, unmarshaler)
-					Expect(err).To(BeNil())
+					Expect(codec.Decode(context.Background(), encoded, unmarshaler)).To(Succeed())
 				})
 				It("Stream", func() {
-					err := codec.DecodeStream(context.Background(), bytes.NewReader(encoded), unmarshaler)
-					Expect(err).To(BeNil())
+					Expect(codec.DecodeStream(context.Background(), bytes.NewReader(encoded), unmarshaler)).To(Succeed())
 				})
 			})
 		})
@@ -167,12 +151,10 @@ var _ = Describe("CSV", func() {
 					marshaler = &marshaller{records: [][]string{{"a", "b"}, {"c"}}}
 				})
 				It("Regular", func() {
-					_, err := codec.Encode(context.Background(), marshaler)
-					Expect(err).To(HaveOccurred())
+					Expect(codec.Encode(context.Background(), marshaler)).Error().To(HaveOccurred())
 				})
 				It("Stream", func() {
-					err := codec.EncodeStream(context.Background(), io.Discard, marshaler)
-					Expect(err).To(HaveOccurred())
+					Expect(codec.EncodeStream(context.Background(), io.Discard, marshaler)).To(HaveOccurred())
 				})
 			})
 			Describe("Decoding", func() {
@@ -183,14 +165,48 @@ var _ = Describe("CSV", func() {
 					encoded = []byte("a,b\r\nc")
 				})
 				It("Regular", func() {
-					err := codec.Decode(context.Background(), encoded, unmarshaler)
-					Expect(err).To(HaveOccurred())
+					Expect(codec.Decode(context.Background(), encoded, unmarshaler)).To(HaveOccurred())
 				})
 				It("Stream", func() {
-					err := codec.DecodeStream(context.Background(), bytes.NewReader(encoded), unmarshaler)
-					Expect(err).To(HaveOccurred())
+					Expect(codec.DecodeStream(context.Background(), bytes.NewReader(encoded), unmarshaler)).To(HaveOccurred())
 				})
 			})
+		})
+	})
+	Describe("CSVRecords", func() {
+		var data = [][]string{{"a", "b"}, {"c", "d"}}
+		Describe("MarshalCSV", func() {
+			It("should marshal the records", func() {
+				records := CSVRecords(data)
+				Expect(MarshalCSV(records)).To(Equal(data))
+			})
+		})
+		Describe("UnmarshalCSV", func() {
+			It("should unmarshal the records", func() {
+				var records CSVRecords
+				Expect(UnmarshalCSV(data, &records)).To(Succeed())
+				Expect(records).To(Equal(CSVRecords(data)))
+			})
+		})
+	})
+	Describe("NewCSVRecords", func() {
+		It("should create a new CSVRecords", func() {
+			records := NewCSVRecords(2, 2)
+			Expect(records).To(Equal(CSVRecords{{"", ""}, {"", ""}}))
+		})
+		It("should create a new CSVRecords with zero rows", func() {
+			records := NewCSVRecords(0, 2)
+			Expect(records).To(Equal(CSVRecords{}))
+		})
+		It("should create a new CSVRecords with zero columns", func() {
+			records := NewCSVRecords(2, 0)
+			Expect(records).To(Equal(CSVRecords{{}, {}}))
+		})
+		It("should error if the number of rows is negative", func() {
+			Expect(func() { NewCSVRecords(-1, 2) }).To(Panic())
+		})
+		It("should error if the number of columns is negative", func() {
+			Expect(func() { NewCSVRecords(2, -1) }).To(Panic())
 		})
 	})
 })
