@@ -240,7 +240,7 @@ interface ListParams extends Flux.Params {
   limit?: number;
 }
 
-export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range>({
+export const useList = Flux.createList<ListParams, ranger.Key, ranger.Payload>({
   name: "Range",
   retrieve: async ({ client, params }) => await client.ranges.retrieve(params),
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
@@ -256,9 +256,9 @@ export const useList = Flux.createList<ListParams, ranger.Key, ranger.Range>({
     },
     {
       channel: ranger.DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(ranger.keyZ, async ({ changed, onChange }) => {
-        onChange(changed, () => null);
-      }),
+      onChange: Sync.parsedHandler(ranger.keyZ, async ({ changed, onDelete }) =>
+        onDelete(changed),
+      ),
     },
   ],
 });
