@@ -165,9 +165,7 @@ describe("list", () => {
                 channel: ranger.DELETE_CHANNEL_NAME,
                 onChange: Sync.parsedHandler(
                   ranger.keyZ,
-                  async ({ onChange, changed }) => {
-                    onChange(changed, () => null);
-                  },
+                  async ({ onDelete, changed }) => onDelete(changed),
                 ),
               },
             ],

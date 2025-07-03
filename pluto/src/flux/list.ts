@@ -66,7 +66,8 @@ interface ListListenerExtraArgs<
 > {
   params: RetrieveParams;
   client: Synnax;
-  onChange: (key: K, e: state.Setter<E | null>) => void;
+  onChange: (key: K, e: state.SetArg<E>) => void;
+  onDelete: (key: K) => void;
 }
 
 export interface ListListenerConfig<
@@ -110,20 +111,21 @@ export const createList =
                   client,
                   params: paramsRef.current,
                   changed: frame.get(channel),
+                  onDelete: (k) => {
+                    dataRef.current.delete(k);
+                    setResult(
+                      (p) =>
+                        ({
+                          ...p,
+                          data: p.data?.filter((k) => k !== k),
+                        }) as Result<K[]>,
+                    );
+                  },
                   onChange: (k, setter) => {
                     const v = dataRef.current.get(k);
                     if (v == null) return;
-                    const res = setter(v);
-                    if (res == null) {
-                      dataRef.current.delete(k);
-                      setResult(
-                        (p) =>
-                          ({
-                            ...p,
-                            data: p.data?.filter((k) => k !== k),
-                          }) as Result<K[]>,
-                      );
-                    } else dataRef.current.set(k, res);
+                    const res = state.executeSetter(setter, v);
+                    dataRef.current.set(k, res);
                     listenersRef.current.forEach((key, listener) => {
                       if (key === k) listener();
                     });

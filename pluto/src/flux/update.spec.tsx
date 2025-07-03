@@ -30,7 +30,7 @@ const newWrapper =
 describe("update", () => {
   describe("basic update", () => {
     it("should return a success result as its initial state", () => {
-      const { result } = renderHook(() =>
+      const { result, unmount } = renderHook(() =>
         Flux.createUpdate<{}, number>({
           name: "Resource",
           update: async () => {},
@@ -40,6 +40,7 @@ describe("update", () => {
       expect(result.current.data).toEqual(null);
       expect(result.current.error).toEqual(null);
       expect(result.current.message).toEqual("Updated Resource");
+      unmount();
     });
 
     it("should call update function when the user calls update", async () => {
