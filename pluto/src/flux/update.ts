@@ -1,8 +1,24 @@
-import { DisconnectedError, type Synnax } from "@synnaxlabs/client";
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type Synnax } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
 import { type Params } from "@/flux/params";
-import { errorResult, loadingResult, type Result, successResult } from "@/flux/result";
+import {
+  errorResult,
+  nullClientResult,
+  pendingResult,
+  type Result,
+  successResult,
+} from "@/flux/result";
+import { type AsyncOptions } from "@/flux/retrieve";
 import { type state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
@@ -24,8 +40,8 @@ export interface CreateUpdateArgs<
 }
 
 export interface UseObservableUpdateReturn<Data extends state.State> {
-  update: (value: Data) => void;
-  updateAsync: (value: Data) => Promise<void>;
+  update: (value: Data, opts?: AsyncOptions) => void;
+  updateAsync: (value: Data, opts?: AsyncOptions) => Promise<void>;
 }
 
 export interface UseObservableUpdateArgs<
@@ -62,22 +78,21 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
   CreateUpdateArgs<UpdateParams, Data>): UseObservableUpdateReturn<Data> => {
   const client = PSynnax.use();
   const handleUpdate = useCallback(
-    async (value: Data) => {
+    async (value: Data, opts: AsyncOptions = {}) => {
+      const { signal } = opts;
       try {
-        if (client == null)
-          return onChange(
-            errorResult(`Failed to update ${name}`, new DisconnectedError()),
-          );
-        onChange(loadingResult(`Updating ${name}`));
+        if (client == null) return onChange(nullClientResult(name, "update"));
+        onChange(pendingResult(name, "updating"));
         await update({
           client,
-          onChange: (value) => onChange(successResult(`Updated ${name}`, value)),
+          onChange: (value) => onChange(successResult(name, "updated", value)),
           value,
           params,
         });
-        onChange(successResult(`Updated ${name}`, value));
+        if (signal?.aborted) return;
+        onChange(successResult(name, "updated", value));
       } catch (error) {
-        onChange(errorResult(`Updating ${name}`, error));
+        onChange(errorResult(name, "update", error));
       }
     },
     [name, params],
@@ -94,12 +109,16 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
 
 const useDirect = <UpdateParams extends Params, Data extends state.State>({
   params,
+  name,
   ...restArgs
 }: UseDirectUpdateArgs<UpdateParams> &
   CreateUpdateArgs<UpdateParams, Data>): UseDirectUpdateReturn<Data> => {
-  const [result, setResult] = useState<Result<Data | null>>(successResult("", null));
+  const [result, setResult] = useState<Result<Data | null>>(
+    successResult(name, "updated", null),
+  );
   const ret = useObservable<UpdateParams, Data>({
     ...restArgs,
+    name,
     onChange: setResult,
     params,
   });

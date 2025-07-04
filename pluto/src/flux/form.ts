@@ -11,7 +11,7 @@ import { useCallback, useState } from "react";
 import { type z } from "zod/v4";
 
 import { type Params } from "@/flux/params";
-import { loadingResult, type Result } from "@/flux/result";
+import { errorResult, pendingResult, type Result } from "@/flux/result";
 import { createRetrieve, type CreateRetrieveArgs } from "@/flux/retrieve";
 import { createUpdate, type CreateUpdateArgs } from "@/flux/update";
 import { Form } from "@/form";
@@ -101,7 +101,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
   return ({ params, initialValues, autoSave = false, afterSave }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
       Result<z.infer<Schema> | null>
-    >(loadingResult(name));
+    >(pendingResult(name, "retrieving"));
 
     const handleResultChange: state.Setter<Result<z.infer<Schema> | null>> = (
       setter,
@@ -119,7 +119,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
 
     retrieveHook.useEffect({ params, onChange: handleResultChange });
 
-    const { updateAsync: handleUpdate } = updateHook.useObservable({
+    const { updateAsync } = updateHook.useObservable({
       params,
       onChange: handleResultChange,
     });
@@ -132,13 +132,19 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
       },
     });
 
-    const handleSave = useCallback(() => {
-      void (async () => {
-        if (!(await form.validateAsync())) return;
-        await handleUpdate(form.value());
-        afterSave?.({ form, params });
-      })();
-    }, [form, handleUpdate]);
+    const handleSave = useCallback(
+      () =>
+        void (async () => {
+          try {
+            if (!(await form.validateAsync())) return;
+            await updateAsync(form.value());
+            afterSave?.({ form, params });
+          } catch (error) {
+            setResult(errorResult(name, "update", error));
+          }
+        })(),
+      [form, updateAsync, afterSave, params],
+    );
 
     return { form, save: handleSave, ...result };
   };

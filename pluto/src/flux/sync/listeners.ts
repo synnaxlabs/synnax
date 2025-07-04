@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, DataType, type MultiSeries } from "@synnaxlabs/client";
+import { array } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { useEffect } from "react";
 import { type z } from "zod/v4";
 
-import { useSyncedRef } from "@/hooks";
 import { useAddListener } from "@/flux/sync/Context";
 import { Status } from "@/status";
 
@@ -31,7 +31,7 @@ export const parsedHandler =
   ): ListenerHandler<MultiSeries, Extra> =>
   async (args) => {
     let parsed: z.output<Z>[];
-    if (args.changed.dataType.equals(DataType.STRING))
+    if (!args.changed.dataType.equals(DataType.JSON))
       parsed = args.changed.toStrings().map((s) => schema.parse(s));
     else parsed = args.changed.parseJSON(schema);
     for (const value of parsed) await onChange({ ...args, changed: value });
@@ -51,24 +51,24 @@ export interface ListenerSpec<Value, Extra> {
   onChange: ListenerHandler<Value, Extra>;
 }
 
-export const useListener = ({
-  channel,
-  onChange: handler,
-}: ListenerSpec<MultiSeries, {}>): void => {
+export const useListener = (
+  listeners: ListenerSpec<MultiSeries, {}> | ListenerSpec<MultiSeries, {}>[],
+): void => {
   const addListener = useAddListener();
-  const onChangeRef = useSyncedRef(handler);
   const handleError = Status.useErrorHandler();
   useEffect(() => {
     const mu = new Mutex();
-    return addListener({
-      channel,
-      handler: (frame) => {
-        handleError(async () => {
-          await mu.runExclusive(async () => {
-            await onChangeRef.current({ changed: frame.get(channel) });
-          });
-        }, "Error in Sync.useListener");
-      },
+    array.toArray(listeners).map(({ channel, onChange }) => {
+      addListener({
+        channel,
+        handler: (frame) => {
+          handleError(async () => {
+            await mu.runExclusive(async () => {
+              await onChange({ changed: frame.get(channel) });
+            });
+          }, "Error in Sync.useListener");
+        },
+      });
     });
-  }, [addListener, channel]);
+  }, [addListener]);
 };

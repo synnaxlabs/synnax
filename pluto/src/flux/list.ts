@@ -1,14 +1,32 @@
-import { DisconnectedError, type Synnax } from "@synnaxlabs/client";
-import { type Destructor, type MultiSeries, type record } from "@synnaxlabs/x";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
+import { type Synnax } from "@synnaxlabs/client";
+import { type MultiSeries, type record } from "@synnaxlabs/x";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+
+import { useMountListeners } from "@/flux/listeners";
 import { type Params } from "@/flux/params";
-import { errorResult, loadingResult, type Result, successResult } from "@/flux/result";
 import {
+  errorResult,
+  nullClientResult,
+  pendingResult,
+  type Result,
+  successResult,
+} from "@/flux/result";
+import {
+  type AsyncOptions,
   type CreateRetrieveArgs,
   type UseStatefulRetrieveReturn,
 } from "@/flux/retrieve";
-import { Sync } from "@/flux/sync";
+import { type Sync } from "@/flux/sync";
+import { useInitializerRef } from "@/hooks";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
@@ -17,17 +35,22 @@ export type UseListReturn<
   K extends record.Key,
   E extends record.Keyed<K>,
 > = Omit<UseStatefulRetrieveReturn<RetrieveParams, K[]>, "data"> & {
-  useListItem: (key: K) => E | undefined;
   data: K[];
+  useListItem: (key: K) => E | undefined;
 };
+
+export interface RetrieveByKeyArgs<K extends record.Key> {
+  key: K;
+  client: Synnax;
+}
 
 export interface CreateListArgs<
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,
 > extends Omit<CreateRetrieveArgs<RetrieveParams, E[]>, "listeners"> {
-  retrieveByKey: (key: K) => Promise<E>;
-  listeners?: ListListenerConfig<RetrieveParams, K, E>[];
+  retrieveByKey: (args: RetrieveByKeyArgs<K>) => Promise<E>;
+  listeners?: ListListenerConfig<RetrieveParams | {}, K, E>[];
 }
 
 export interface UseList<
@@ -45,7 +68,8 @@ interface ListListenerExtraArgs<
 > {
   params: RetrieveParams;
   client: Synnax;
-  onChange: (key: K, e: state.Setter<E | null>) => void;
+  onChange: (key: K, e: state.SetArg<E>) => void;
+  onDelete: (key: K) => void;
 }
 
 export interface ListListenerConfig<
@@ -60,6 +84,11 @@ export interface ListListenerConfig<
   >;
 }
 
+interface ListenersRef<K extends record.Key> {
+  mounted: boolean;
+  listeners: Map<() => void, K>;
+}
+
 export const createList =
   <P extends Params, K extends record.Key, E extends record.Keyed<K>>({
     name,
@@ -68,109 +97,129 @@ export const createList =
     retrieveByKey,
   }: CreateListArgs<P, K, E>): UseList<P, K, E> =>
   () => {
-    const dataRef = useRef<Map<K, E>>(new Map());
-    const listenersRef = useRef<Map<() => void, K>>(new Map());
-    const [result, setResult] = useState<Result<K[]>>();
-    const addListener = Sync.useAddListener();
-    const destructorsRef = useRef<Destructor[]>([]);
-    const cleanupDestructors = useCallback(() => {
-      destructorsRef.current.forEach((d) => d());
-      destructorsRef.current = [];
-    }, []);
-    useEffect(() => cleanupDestructors, [cleanupDestructors]);
     const client = PSynnax.use();
+    const dataRef = useRef<Map<K, E>>(new Map());
+    const listenersRef = useInitializerRef<ListenersRef<K>>(() => ({
+      mounted: false,
+      listeners: new Map(),
+    }));
+    const [result, setResult] = useState<Result<K[]>>(
+      pendingResult(name, "retrieving"),
+    );
+
     const paramsRef = useRef<P | {}>({});
-    const base = useCallback(
-      async (
-        paramsSetter: state.SetArg<P, P | {}>,
-        { signal }: { signal?: AbortSignal },
-      ) => {
+
+    const mountListeners = useMountListeners();
+    const retrieveAsync = useCallback(
+      async (paramsSetter: state.SetArg<P, P | {}>, options: AsyncOptions = {}) => {
+        const { signal } = options;
         const params = state.executeSetter(paramsSetter, paramsRef.current);
         paramsRef.current = params;
         try {
-          cleanupDestructors();
-          if (client == null)
-            return setResult(
-              errorResult(
-                name,
-                new DisconnectedError(
-                  `Cannot retrieve ${name} because no cluster is connected.`,
-                ),
-              ),
-            );
-          setResult(loadingResult(name));
+          if (client == null) return setResult(nullClientResult(name, "retrieve"));
+          setResult(pendingResult(name, "retrieving"));
           const value = await retrieve({ client, params });
           const keys = value.map((v) => v.key);
+          value.forEach((v) => dataRef.current.set(v.key, v));
           if (signal?.aborted) return;
-          if (listeners == null || listeners.length === 0)
-            return setResult(successResult(name, keys));
-          destructorsRef.current = listeners.map(
-            ({ channel, onChange: listenerOnChange }, i) =>
-              addListener({
-                channel,
-                onOpen: () =>
-                  i === listeners.length - 1 && setResult(successResult(name, keys)),
-                handler: (frame) => {
-                  void (async () => {
-                    try {
-                      await listenerOnChange({
-                        client,
-                        params,
-                        changed: frame.get(channel),
-                        onChange: (k, setter) => {
-                          const v = value.find((v) => v.key === k);
-                          if (v == null) return;
-                          const res = setter(v);
-                          if (res == null) return;
-                          dataRef.current.set(k, res);
-                          listenersRef.current.forEach((key, listener) => {
-                            if (key === k) listener(res);
-                          });
-                        },
-                      });
-                    } catch (error) {
-                      setResult(errorResult(name, error));
-                    }
-                  })();
-                },
-              }),
+          mountListeners(
+            listeners?.map((l) => ({
+              channel: l.channel,
+              handler: (frame) =>
+                void (async () => {
+                  if (client == null) return;
+                  try {
+                    await l.onChange({
+                      client,
+                      params: paramsRef.current,
+                      changed: frame.get(l.channel),
+                      onDelete: (k) => {
+                        dataRef.current.delete(k);
+                        setResult(
+                          (p) =>
+                            ({
+                              ...p,
+                              data: p.data?.filter((key) => key !== k),
+                            }) as Result<K[]>,
+                        );
+                      },
+                      onChange: (k, setter) => {
+                        const v = dataRef.current.get(k);
+                        if (v == null) return;
+                        const res = state.executeSetter(setter, v);
+                        dataRef.current.set(k, res);
+                        listenersRef.current.listeners.forEach((key, listener) => {
+                          if (key === k) listener();
+                        });
+                      },
+                    });
+                  } catch (error) {
+                    setResult(errorResult(name, "retrieve", error));
+                  }
+                })(),
+            })),
           );
+          return setResult(successResult(name, "retrieved", keys));
         } catch (error) {
-          setResult(errorResult(name, error));
+          setResult(errorResult(name, "retrieve", error));
         }
       },
-      [client, name, addListener],
+      [client, name, mountListeners],
     );
 
-    const useListItem = (key: K) =>
-      useSyncExternalStore<E | undefined>(
+    const retrieveSingle = useCallback(
+      (key: K, options: AsyncOptions = {}) => {
+        const { signal } = options;
+        void (async () => {
+          try {
+            if (client == null) return;
+            dataRef.current.set(key, await retrieveByKey({ client, key }));
+            if (signal?.aborted) return;
+            listenersRef.current.listeners.forEach((k, listener) => {
+              if (k === key) listener();
+            });
+          } catch (error) {
+            setResult(errorResult(name, "retrieve", error));
+          }
+        })();
+      },
+      [dataRef, retrieveByKey, client],
+    );
+
+    const useListItem = (key: K) => {
+      const abortControllerRef = useRef<AbortController | null>(null);
+      return useSyncExternalStore<E | undefined>(
         useCallback(
           (callback) => {
-            listenersRef.current.set(callback, key);
-            return () => listenersRef.current.delete(callback);
+            abortControllerRef.current = new AbortController();
+            listenersRef.current.listeners.set(callback, key);
+            return () => {
+              listenersRef.current.listeners.delete(callback);
+              abortControllerRef.current?.abort();
+            };
           },
           [key],
         ),
         useCallback(() => {
           const res = dataRef.current.get(key);
-          if (res == null) void retrieveByKey(key);
+          if (res == null)
+            retrieveSingle(key, { signal: abortControllerRef.current?.signal });
           return res;
         }, [key]),
       );
-    const res: Result<K[]> = { ...result, data: result?.data ?? [] } as Result<K[]>;
-    const v: UseListReturn<P, K, E> = {
-      retrieve: (
-        params: state.SetArg<P, P | {}>,
-        options: { signal?: AbortSignal },
-      ) => {
-        void base(params, options);
-      },
-      retrieveAsync: async (
-        params: state.SetArg<P, P | {}>,
-        options: { signal?: AbortSignal },
-      ) => await base(params, options),
-      useListItem,
-      ...res,
     };
-    return v;
+
+    const retrieveSync = useCallback(
+      (params: state.SetArg<P, P | {}>, options: AsyncOptions = {}) =>
+        void retrieveAsync(params, options),
+      [retrieveAsync],
+    );
+
+    return {
+      retrieve: retrieveSync,
+      retrieveAsync,
+      useListItem,
+      ...result,
+      data: result?.data ?? [],
+    };
   };

@@ -32,7 +32,7 @@ const newWrapper =
     </PSynnax.TestProvider>
   );
 
-describe("use", () => {
+describe("retrieve", () => {
   describe("basic retrieval", () => {
     interface Params extends Flux.Params {}
     it("should return a loading result as its initial state", () => {
@@ -47,7 +47,7 @@ describe("use", () => {
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual(null);
       expect(result.current.error).toEqual(null);
-      expect(result.current.message).toEqual("Loading Resource");
+      expect(result.current.message).toEqual("Retrieving Resource");
     });
 
     it("should return a success result when the data is fetched", async () => {
@@ -63,7 +63,7 @@ describe("use", () => {
         expect(result.current.variant).toEqual("success");
         expect(result.current.data).toEqual(12);
         expect(result.current.error).toEqual(null);
-        expect(result.current.message).toEqual("Loaded Resource");
+        expect(result.current.message).toEqual("Retrieved Resource");
       });
     });
 
@@ -82,7 +82,7 @@ describe("use", () => {
         expect(result.current.variant).toEqual("error");
         expect(result.current.error).toEqual(new Error("test"));
         expect(result.current.data).toEqual(null);
-        expect(result.current.message).toEqual("Failed to load Resource");
+        expect(result.current.message).toEqual("Failed to retrieve Resource");
         expect(result.current.description).toEqual("test");
       });
     });
@@ -104,7 +104,7 @@ describe("use", () => {
           ),
         );
         expect(result.current.data).toEqual(null);
-        expect(result.current.message).toEqual("Failed to load Resource");
+        expect(result.current.message).toEqual("Failed to retrieve Resource");
         expect(result.current.description).toEqual(
           "Cannot retrieve Resource because no cluster is connected.",
         );
