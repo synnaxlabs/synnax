@@ -9,6 +9,7 @@
 
 import { device } from "@synnaxlabs/client";
 
+import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
 
 export const useSetSynchronizer = (onSet: (device: device.Device) => void): void =>
@@ -36,3 +37,16 @@ export const useStatusSynchronizer = (
       onStatusChange(args.changed);
     }),
   });
+
+export interface ListParams extends Flux.Params {
+  term?: string;
+  offset?: number;
+  limit?: number;
+}
+
+export const useList = Flux.createList<ListParams, device.Key, device.Device>({
+  name: "Devices",
+  retrieve: async ({ client, params }) =>
+    await client.hardware.devices.search(params.term ?? ""),
+  retrieveByKey: async ({ client, key }) => await client.hardware.devices.retrieve(key),
+});

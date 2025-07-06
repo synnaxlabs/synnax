@@ -7,4 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Dropdown from "@/dropdown/Dropdown";
+export * from "@/dialog/Dialog";
+export * from "@/dialog/Trigger";
+export * from "@/dialog/use";

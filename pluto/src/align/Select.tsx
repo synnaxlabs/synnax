@@ -7,21 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { type Alignment, ALIGNMENTS } from "@/align/Space";
+import { Icon } from "@/icon";
 import { Select as CoreSelect } from "@/select";
 
-const DATA = [...notation.NOTATIONS];
+const DATA: Alignment[] = [...ALIGNMENTS];
 
-export interface SelectNotationProps
-  extends CoreSelect.SingleProps<notation.Notation> {}
+export interface SelectProps extends CoreSelect.SingleProps<Alignment> {}
 
-export const Select = ({
-  value,
-  onChange,
-  ...rest
-}: SelectNotationProps): ReactElement => {
+export const Select = ({ onChange, value, ...rest }: SelectProps): ReactElement => {
   const { onSelect, ...selectProps } = CoreSelect.useSingle({
     value,
     onChange,
@@ -29,9 +25,15 @@ export const Select = ({
   });
   return (
     <CoreSelect.Buttons {...rest} {...selectProps} value={value} onSelect={onSelect}>
-      <CoreSelect.Button itemKey="standard">Standard</CoreSelect.Button>
-      <CoreSelect.Button itemKey="scientific">Scientific</CoreSelect.Button>
-      <CoreSelect.Button itemKey="engineering">Engineering</CoreSelect.Button>
+      <CoreSelect.ButtonIcon itemKey="start">
+        <Icon.TextAlign.Left />
+      </CoreSelect.ButtonIcon>
+      <CoreSelect.ButtonIcon itemKey="center">
+        <Icon.TextAlign.Center />
+      </CoreSelect.ButtonIcon>
+      <CoreSelect.ButtonIcon itemKey="end">
+        <Icon.TextAlign.Right />
+      </CoreSelect.ButtonIcon>
     </CoreSelect.Buttons>
   );
 };

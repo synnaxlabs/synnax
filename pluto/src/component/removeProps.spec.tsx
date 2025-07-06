@@ -10,7 +10,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { removeProps } from "@/util/removeProps";
+import { removeProps } from "@/component/removeProps";
 
 describe("removeProps", () => {
   // Test component that we'll use

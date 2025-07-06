@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import {
   Align,
-  componentRenderProp,
+  Component.renderProp,
   Icon,
   List,
   Ontology,
@@ -85,7 +85,7 @@ const SnapshotsListItem = (props: List.ItemProps<string, ontology.Resource>) => 
   );
 };
 
-const snapshotsListItem = componentRenderProp(SnapshotsListItem);
+const snapshotsListItem = Component.renderProp(SnapshotsListItem);
 
 const EMPTY_LIST_CONTENT = (
   <Text.Text level="p" weight={400} shade={10}>

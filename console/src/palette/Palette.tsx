@@ -13,7 +13,7 @@ import { ontology } from "@synnaxlabs/client";
 import {
   Align,
   Button,
-  componentRenderProp,
+  Component.renderProp,
   Dropdown,
   Icon,
   Input,
@@ -259,7 +259,7 @@ const PaletteList = ({ mode, services }: PaletteListProps): ReactElement => {
     const Item = (
       mode === "command" ? CommandListItem : createResourceListItem(services)
     ) as FC<List.ItemProps<Key, Entry>>;
-    return componentRenderProp(Item);
+    return Component.renderProp(Item);
   }, [mode, services]);
   return (
     <List.Core<Key, Entry>

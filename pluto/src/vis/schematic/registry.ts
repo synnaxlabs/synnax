@@ -14,7 +14,7 @@ import { z } from "zod/v4";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
-import { removeProps } from "@/util/removeProps";
+import { removeProps } from "@/component/removeProps";
 import {
   BoxForm,
   ButtonForm,

@@ -11,7 +11,7 @@ import { act, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 
-import { use, type UseSelectMultipleProps } from "@/select/use";
+import { Select } from "@/select";
 
 const data: string[] = ["1", "2", "3"];
 
@@ -21,15 +21,15 @@ interface UseSelectMultipleWrapperReturn {
   onSelect: (key: string) => void;
 }
 
-const useSelectMultipleWrapper = (
-  props: Omit<UseSelectMultipleProps<string>, "data" | "value" | "onChange">,
+const useMultipleWrapper = (
+  props: Omit<Select.UseMultipleProps<string>, "data" | "value" | "onChange">,
 ): UseSelectMultipleWrapperReturn => {
-  const [value, setValue] = useState<string[]>([]);
-  const { clear, onSelect } = use<string>({
+  const [value, onChange] = useState<string[]>([]);
+  const { clear, onSelect } = Select.useMultiple<string>({
     ...props,
     data,
     value,
-    onChange: setValue,
+    onChange,
   });
   return { value, clear, onSelect };
 };
@@ -41,17 +41,15 @@ interface UseSelectSingleWrapperReturn {
 }
 
 const useSelectSingleWrapper = (
-  props: Omit<UseSelectMultipleProps<string>, "data" | "value" | "onChange">,
+  props: Omit<Select.UseSingleProps<string>, "data" | "value" | "onChange">,
 ): UseSelectSingleWrapperReturn => {
-  const [value, setValue] = useState<string | null>(null);
-  // a different wrapper for the allowNone: false case
-  const { clear, onSelect } = use<string>({
+  const [value, onChange] = useState<string | null>(null);
+  const { clear, onSelect } = Select.useSingle<string>({
     allowNone: true,
     ...props,
     data,
     value,
-    onChange: setValue,
-    allowMultiple: false,
+    onChange,
   });
   return { value, clear, onSelect };
 };
@@ -59,21 +57,21 @@ const useSelectSingleWrapper = (
 describe("useSelect", () => {
   describe("multiple selection", () => {
     it("should select two items", () => {
-      const { result } = renderHook(useSelectMultipleWrapper);
+      const { result } = renderHook(useMultipleWrapper);
       act(() => result.current.onSelect("1"));
       expect(result.current.value).toEqual(["1"]);
       act(() => result.current.onSelect("2"));
       expect(result.current.value).toEqual(["1", "2"]);
     });
     it("should deselect an item when you click it again", () => {
-      const { result } = renderHook(useSelectMultipleWrapper);
+      const { result } = renderHook(useMultipleWrapper);
       act(() => result.current.onSelect("1"));
       act(() => result.current.onSelect("2"));
       act(() => result.current.onSelect("1"));
       expect(result.current.value).toEqual(["2"]);
     });
     it("should clear all selections", () => {
-      const { result } = renderHook(useSelectMultipleWrapper);
+      const { result } = renderHook(useMultipleWrapper);
       act(() => result.current.onSelect("1"));
       act(() => result.current.onSelect("2"));
       act(() => result.current.clear());
@@ -81,24 +79,16 @@ describe("useSelect", () => {
     });
     describe("no not allow none", () => {
       it("should not allow removing the last selection", () => {
-        const { result } = renderHook(() =>
-          useSelectMultipleWrapper({ allowNone: false }),
-        );
+        const { result } = renderHook(() => useMultipleWrapper({}));
         act(() => result.current.onSelect("1"));
         act(() => result.current.onSelect("1"));
-        expect(result.current.value).toEqual(["1"]);
-      });
-      it("should automatically populate the first item", () => {
-        const { result } = renderHook(() =>
-          useSelectMultipleWrapper({ allowNone: false, autoSelectOnNone: true }),
-        );
         expect(result.current.value).toEqual(["1"]);
       });
     });
     describe("replaceOnSingle", () => {
       it("should replace the selection when you click a new item", () => {
         const { result } = renderHook(() =>
-          useSelectMultipleWrapper({ replaceOnSingle: true }),
+          useMultipleWrapper({ replaceOnSingle: true }),
         );
         act(() => result.current.onSelect("1"));
         act(() => result.current.onSelect("2"));
@@ -127,12 +117,6 @@ describe("useSelect", () => {
         );
         act(() => result.current.onSelect("1"));
         act(() => result.current.onSelect("1"));
-        expect(result.current.value).toEqual("1");
-      });
-      it("should automatically populate the first item", () => {
-        const { result } = renderHook(() =>
-          useSelectSingleWrapper({ allowNone: false, autoSelectOnNone: true }),
-        );
         expect(result.current.value).toEqual("1");
       });
     });

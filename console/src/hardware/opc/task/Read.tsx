@@ -10,7 +10,7 @@
 import { type channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import {
   Align,
-  componentRenderProp,
+  Component.renderProp,
   Form as PForm,
   type Haul,
   Icon,
@@ -74,7 +74,7 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
   />
 );
 
-const isIndexItem = componentRenderProp(IsIndexItem);
+const isIndexItem = Component.renderProp(IsIndexItem);
 
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");

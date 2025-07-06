@@ -10,8 +10,8 @@
 import { type ComponentPropsWithRef, type ReactNode } from "react";
 
 import { type Align } from "@/align";
+import { type Component } from "@/component";
 import { type Text } from "@/text";
-import { type ComponentSize } from "@/util/component";
 
 export interface Control<I = unknown, O = I> {
   value: I;
@@ -28,7 +28,7 @@ type HTMLInputProps = Omit<
 export type Variant = "outlined" | "shadow" | "natural" | "preview" | "button";
 
 export interface ExtensionProps<I = unknown, O = I> extends Control<I, O> {
-  size?: ComponentSize;
+  size?: Component.Size;
   variant?: Variant;
   sharp?: boolean;
   placeholder?: ReactNode;

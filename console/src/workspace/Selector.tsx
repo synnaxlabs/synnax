@@ -14,7 +14,7 @@ import {
   Align,
   Button,
   Caret,
-  componentRenderProp,
+  Component.renderProp,
   Dropdown,
   Icon,
   Input,
@@ -141,7 +141,7 @@ export const Selector = (): ReactElement => {
                 )}
               </List.Search>
               <List.Core bordered borderShade={5} color="red" background={1}>
-                {componentRenderProp(SelectorListItem)}
+                {Component.renderProp(SelectorListItem)}
               </List.Core>
             </List.Selector>
           </List.List>

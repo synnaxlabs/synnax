@@ -9,25 +9,29 @@
 
 import { type ReactElement } from "react";
 
+import { type Size, SIZES } from "@/component/size";
 import { Select } from "@/select";
-import { type text } from "@/text/core";
 
-const DATA = [250, 400, 500, 600];
+const SIZE_DATA = [...SIZES];
 
-export interface WeightProps extends Select.SingleProps<text.Weight> {}
+export interface SelectComponentSizeProps extends Select.SingleProps<Size> {}
 
-export const Weight = ({ value, onChange, ...rest }: WeightProps): ReactElement => {
+export const SelectSize = ({
+  value,
+  onChange,
+  ...rest
+}: SelectComponentSizeProps): ReactElement => {
   const { onSelect, ...selectProps } = Select.useSingle({
+    data: SIZE_DATA,
     value,
     onChange,
-    data: DATA,
+    ...rest,
   });
   return (
-    <Select.Buttons {...rest} {...selectProps} value={value} onSelect={onSelect}>
-      <Select.Button itemKey={250}>Light</Select.Button>
-      <Select.Button itemKey={400}>Normal</Select.Button>
-      <Select.Button itemKey={500}>Medium</Select.Button>
-      <Select.Button itemKey={600}>Bold</Select.Button>
+    <Select.Buttons {...rest} {...selectProps} onSelect={onSelect} value={value}>
+      <Select.ButtonIcon itemKey="tiny">L</Select.ButtonIcon>
+      <Select.ButtonIcon itemKey="small">M</Select.ButtonIcon>
+      <Select.ButtonIcon itemKey="medium">L</Select.ButtonIcon>
     </Select.Buttons>
   );
 };

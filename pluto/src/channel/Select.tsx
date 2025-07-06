@@ -9,58 +9,23 @@
 
 import { channel } from "@synnaxlabs/client";
 import { array, DataType, unique } from "@synnaxlabs/x";
-import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
-import { useActiveRange, useAliases } from "@/channel/AliasContext";
+import { Align } from "@/align";
+import { useAliases } from "@/channel/AliasContext";
+import { useList } from "@/channel/queries";
 import { HAUL_TYPE } from "@/channel/types";
+import { Component } from "@/component";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
 import { Icon } from "@/icon";
-import { type List } from "@/list";
-import { useMemoDeepEqual } from "@/memo";
+import { Input } from "@/input";
+import { List } from "@/list";
 import { Select } from "@/select";
-import { Status } from "@/status";
-import { Synnax } from "@/synnax";
-
-const channelColumns: Array<List.ColumnSpec<channel.Key, channel.Payload>> = [
-  { key: "name", name: "Name" },
-  { key: "alias", name: "Alias" },
-  { key: "rate", name: "Rate" },
-  { key: "dataType", name: "Data Type" },
-  { key: "index", name: "Index" },
-  { key: "key", name: "Key" },
-  { key: "isIndex", name: "Is Index" },
-];
-
-const canDrop = (
-  { items: entities }: DraggingState,
-  value: channel.Key[] | readonly channel.Key[],
-): boolean => {
-  const f = Haul.filterByType(HAUL_TYPE, entities);
-  return f.length > 0 && !f.every((h) => value.includes(h.key as channel.Key));
-};
-
-export interface SelectMultipleProps
-  extends Omit<
-    Select.MultipleProps<channel.Key, channel.Payload>,
-    "columns" | "searcher"
-  > {
-  columns?: string[];
-  searchOptions?: channel.RetrieveOptions;
-}
-
-const DEFAULT_FILTER = ["name", "alias"];
-
-const useColumns = (
-  filter: string[],
-): Array<List.ColumnSpec<channel.Key, channel.Payload>> => {
-  const aliases = useAliases();
-  return useMemo(() => {
-    if (filter.length === 0) return channelColumns;
-    return channelColumns.filter((column) => filter.includes(column.key));
-  }, [filter, aliases]);
-};
+import { Tag } from "@/tag";
+import { Text } from "@/text";
 
 export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
   if (ch == null) return Icon.Channel;
@@ -74,42 +39,84 @@ export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
   return Icon.Channel;
 };
 
-const renderTag = ({
-  key,
-  ...rest
-}: Select.MultipleTagProps<channel.Key, channel.Payload>): ReactElement => {
-  const Icon = resolveIcon(rest.entry);
-  return <Select.MultipleTag key={key} icon={<Icon />} {...rest} />;
+const listItemRenderProp = Component.renderProp(
+  ({ itemKey, ...rest }: List.ItemRenderProps<channel.Key>): ReactElement | null => {
+    const item = List.useItem<channel.Key, channel.Channel>(itemKey);
+    const [selected, onSelect] = Select.useItemState<channel.Key>(itemKey);
+    const aliases = useAliases();
+    const Icon = resolveIcon(item?.payload);
+    const displayName = aliases[item?.key ?? 0] ?? item?.name ?? "";
+    return (
+      <List.Item itemKey={itemKey} onSelect={onSelect} selected={selected} {...rest}>
+        <Align.Space direction="x" size="small" align="center">
+          <Icon />
+          <Text.Text level="p">{displayName}</Text.Text>
+        </Align.Space>
+      </List.Item>
+    );
+  },
+);
+
+const canDrop = (
+  { items: entities }: DraggingState,
+  value: channel.Key[] | readonly channel.Key[],
+): boolean => {
+  const f = Haul.filterByType(HAUL_TYPE, entities);
+  return f.length > 0 && !f.every((h) => value.includes(h.key as channel.Key));
 };
 
+const MultipleTag = ({
+  itemKey,
+  onDragStart,
+}: Omit<Tag.TagProps, "onDragStart"> & {
+  itemKey: channel.Key;
+  onDragStart: (key: channel.Key) => void;
+}): ReactElement => {
+  const item = List.useItem<channel.Key, channel.Channel>(itemKey);
+  const [, onSelect] = Select.useItemState(itemKey);
+  const aliases = useAliases();
+  const Icon = resolveIcon(item?.payload);
+  const displayName = aliases[item?.key ?? 0] ?? item?.name ?? "";
+  return (
+    <Tag.Tag
+      icon={<Icon />}
+      onSelect={onSelect}
+      onDragStart={() => onDragStart(itemKey)}
+      draggable
+    >
+      {displayName}
+    </Tag.Tag>
+  );
+};
+
+export interface MultipleTriggerProps extends Align.SpaceExtensionProps {
+  onTagDragStart: (key: channel.Key) => void;
+}
+
+const MultipleTrigger = ({ onTagDragStart }: MultipleTriggerProps): ReactElement => {
+  const value = Select.useSelection<channel.Key>();
+  return (
+    <Align.Space x bordered>
+      {value.map((v) => (
+        <MultipleTag key={v} itemKey={v} onDragStart={onTagDragStart} />
+      ))}
+    </Align.Space>
+  );
+};
+
+export interface SelectMultipleProps extends Select.MultipleProps<channel.Key> {
+  searchOptions?: channel.RetrieveOptions;
+}
+
 export const SelectMultiple = ({
-  columns: filter = DEFAULT_FILTER,
   onChange,
   className,
   value,
   searchOptions,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const client = Synnax.use();
-  const aliases = useAliases();
-  const columns = useColumns(filter);
-  const activeRange = useActiveRange();
-  const memoSearchOptions = useMemoDeepEqual(searchOptions);
-  const searcher = useMemo(
-    () =>
-      client?.channels.newSearcherWithOptions({
-        rangeKey: activeRange ?? undefined,
-        internal: false,
-        ...memoSearchOptions,
-      }),
-    [client, activeRange, memoSearchOptions],
-  );
-  const emptyContent =
-    client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
-        No client available
-      </Status.Text.Centered>
-    );
+  const { data, useListItem, retrieve } = useList();
+  const { onSelect, ...selectProps } = Select.useMultiple({ value, onChange, data });
 
   const {
     startDrag,
@@ -118,130 +125,118 @@ export const SelectMultiple = ({
   } = Haul.useDragAndDrop({
     type: "Channel.SelectMultiple",
     canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
-    onDrop: useCallback(
+    onDrop: Haul.useFilterByTypeCallback(
+      HAUL_TYPE,
       ({ items }) => {
-        const dropped = Haul.filterByType(HAUL_TYPE, items);
-        if (dropped.length === 0) return [];
-        const v = unique.unique([
-          ...array.toArray(value),
-          ...(dropped.map((c) => c.key) as channel.Keys),
-        ]);
-        onChange(v, {
-          clicked: null,
-          entries: [],
-        });
-        return dropped;
+        onChange(
+          unique.unique([
+            ...array.toArray(value),
+            ...(items.map((c) => c.key) as channel.Key[]),
+          ]),
+          { clicked: null, clickedIndex: null },
+        );
+        return items;
       },
       [onChange, value],
     ),
   });
-  const dragging = Haul.useDraggingState();
 
   const handleSuccessfulDrop = useCallback(
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
       onChange(
         array.toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
-        {
-          clicked: null,
-          entries: [],
-        },
+        { clicked: null, clickedIndex: null },
       );
     },
     [onChange, value],
   );
 
-  const onDragStart = useCallback(
-    (_: DragEvent<HTMLDivElement>, key: channel.Key) =>
-      startDrag([{ key, type: HAUL_TYPE }], handleSuccessfulDrop),
+  const onTagDragStart = useCallback(
+    (key: channel.Key) => startDrag([{ key, type: HAUL_TYPE }], handleSuccessfulDrop),
     [startDrag, handleSuccessfulDrop],
   );
 
-  const entryRenderKey = useCallback(
-    (e: channel.Payload) => aliases[e.key] ?? e.name,
-    [aliases],
-  );
-
+  const dragging = Haul.useDraggingState();
   return (
-    <Select.Multiple
+    <Select.Dialog<channel.Key, channel.Channel | undefined>
       className={CSS(
         className,
         CSS.dropRegion(canDrop(dragging, array.toArray(value))),
       )}
       value={value}
-      onTagDragStart={onDragStart}
-      onTagDragEnd={endDrag}
-      searcher={searcher}
-      onChange={onChange}
-      columns={columns}
-      emptyContent={emptyContent}
-      entryRenderKey={entryRenderKey}
-      renderTag={renderTag}
+      onSelect={onSelect}
+      useItem={useListItem}
+      data={data}
       {...dropProps}
+      {...selectProps}
       {...rest}
-    />
+    >
+      <MultipleTrigger onTagDragStart={onTagDragStart} />
+      <DialogContent retrieve={retrieve} searchOptions={searchOptions} />
+    </Select.Dialog>
   );
 };
 
-export interface SelectSingleProps
-  extends Omit<Select.SingleProps<channel.Key, channel.Payload>, "columns"> {
-  columns?: string[];
+const SingleTrigger = (): ReactElement => {
+  const [value] = Select.useSelection<channel.Key>();
+  const item = List.useItem<channel.Key, channel.Channel>(value);
+  const Icon = resolveIcon(item?.payload);
+  return (
+    <Dialog.Trigger>
+      <Align.Space direction="x" size="small" align="center">
+        <Icon />
+        <Text.Text level="p">{item?.name}</Text.Text>
+      </Align.Space>
+    </Dialog.Trigger>
+  );
+};
+
+const DialogContent = ({
+  retrieve,
+  searchOptions,
+}: Pick<ReturnType<typeof useList>, "retrieve"> & {
+  searchOptions?: channel.RetrieveOptions;
+}): ReactElement => {
+  const [search, setSearch] = useState("");
+  return (
+    <Dialog.Content>
+      <Input.Text
+        value={search}
+        onChange={(term) => {
+          setSearch(term);
+          retrieve((p) => ({ ...p, term, ...searchOptions }));
+        }}
+        placeholder="Search channels..."
+      />
+      <List.Items>{listItemRenderProp}</List.Items>
+    </Dialog.Content>
+  );
+};
+
+export interface SelectSingleProps extends Select.SingleProps<channel.Key> {
   searchOptions?: channel.RetrieveOptions;
 }
 
 export const SelectSingle = ({
-  columns: filter = DEFAULT_FILTER,
   onChange,
   value,
   className,
-  data,
   searchOptions,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const client = Synnax.use();
-  const aliases = useAliases();
-  const columns = useColumns(filter);
-  const activeRange = useActiveRange();
-  const memoSearchOptions = useMemoDeepEqual(searchOptions);
-  const searcher = useMemo(() => {
-    if (data != null && data.length > 0) return undefined;
-    return client?.channels.newSearcherWithOptions({
-      rangeKey: activeRange ?? undefined,
-      internal: false,
-      ...memoSearchOptions,
-    });
-  }, [client, activeRange, data?.length, memoSearchOptions]);
+  const { data, useListItem, retrieve } = useList();
+  const { onSelect, ...selectProps } = Select.useSingle({ value, onChange, data });
 
-  const emptyContent =
-    client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
-        No client available
-      </Status.Text.Centered>
-    );
-
-  const id = useId();
-  const sourceAndTarget: Haul.Item = useMemo(
-    () => ({ key: id, type: "Channel.SelectMultiple" }),
-    [id],
-  );
-
-  const {
-    startDrag,
-    onDragEnd: endDrag,
-    ...dragProps
-  } = Haul.useDragAndDrop({
+  const { startDrag, ...dragProps } = Haul.useDragAndDrop({
     type: "Channel.SelectSingle",
     canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
-    onDrop: useCallback(
+    onDrop: Haul.useFilterByTypeCallback(
+      HAUL_TYPE,
       ({ items }) => {
-        const ch = Haul.filterByType(HAUL_TYPE, items);
-        if (ch.length === 0) return [];
-        onChange(ch[0].key as channel.Key, {
-          clicked: null,
-          entries: [],
-        });
-        return ch;
+        if (items.length !== 0) onSelect(items[0].key as channel.Key);
+        return items;
       },
-      [sourceAndTarget, onChange],
+      [onSelect],
     ),
   });
 
@@ -251,28 +246,23 @@ export const SelectSingle = ({
     [startDrag, value],
   );
 
-  const entryRenderKey = useCallback(
-    (e: channel.Payload) => aliases[e.key] ?? e.name,
-    [aliases],
-  );
-
   return (
-    <Select.Single
-      data={data}
+    <Select.Dialog<channel.Key, channel.Channel | undefined>
       className={CSS(
         className,
         CSS.dropRegion(canDrop(dragging, array.toArray(value))),
       )}
       value={value}
+      onSelect={onSelect}
+      useItem={useListItem}
+      data={data}
       onDragStart={onDragStart}
-      onDragEnd={endDrag}
-      onChange={onChange}
-      searcher={searcher}
-      columns={columns}
-      emptyContent={emptyContent}
-      entryRenderKey={entryRenderKey}
       {...dragProps}
+      {...selectProps}
       {...rest}
-    />
+    >
+      <SingleTrigger />
+      <DialogContent retrieve={retrieve} searchOptions={searchOptions} />
+    </Select.Dialog>
   );
 };

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb, componentRenderProp, Icon } from "@synnaxlabs/pluto";
+import { Breadcrumb, Component.renderProp, Icon } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
@@ -132,7 +132,7 @@ export const SearchListItem = (props: List.ItemProps<string, SearchResult>) => {
   );
 };
 
-const searchListItem = componentRenderProp(SearchListItem);
+const searchListItem = Component.renderProp(SearchListItem);
 
 interface SearchDialogContentProps
   extends Pick<Dropdown.DialogProps, "close" | "visible"> {}

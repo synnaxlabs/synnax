@@ -10,7 +10,7 @@
 import {
   Align,
   Button,
-  componentRenderProp,
+  Component.renderProp,
   Divider,
   Form,
   Icon,
@@ -112,7 +112,7 @@ const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
         />
       </Align.Space>
       <Form.Field<WaveType> path={`${path}.waveType`} showLabel={false}>
-        {componentRenderProp(SelectWaveType)}
+        {Component.renderProp(SelectWaveType)}
       </Form.Field>
     </Align.Space>
   ),

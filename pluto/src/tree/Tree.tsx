@@ -21,22 +21,18 @@ import {
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
+import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { List } from "@/list";
-import {
-  type UseSelectMultipleProps,
-  type UseSelectOnChangeExtra,
-  type UseSelectProps,
-} from "@/list/v2/useSelect";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
+import { type Select } from "@/select";
 import { state } from "@/state";
 import { Text } from "@/text";
 import { flatten, type FlattenedNode, type Node, type SortOption } from "@/tree/core";
 import { Triggers } from "@/triggers";
-import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 export const HAUL_TYPE = "tree-item";
 
@@ -55,10 +51,9 @@ export interface UseProps {
   sort?: SortOption;
 }
 
-export interface UseReturn {
+export interface UseReturn extends Select.UseReturn<string> {
   selected: string[];
   expanded: string[];
-  onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
   expand: (key: string) => void;
   contract: (...keys: string[]) => void;
   clearExpanded: () => void;
@@ -145,7 +140,7 @@ export const use = ({
   };
 };
 
-export interface ItemProps extends List.ItemProps<string, FlattenedNode> {
+export interface ItemProps extends List.ItemRenderProps<string, FlattenedNode> {
   key?: string;
   onDrop?: (key: string, props: Haul.OnDropProps) => Haul.Item[];
   onSuccessfulDrop?: (key: string, props: Haul.OnSuccessfulDropProps) => void;
@@ -348,7 +343,7 @@ export const DefaultItem = memo(
 );
 DefaultItem.displayName = "Tree.Item";
 
-const defaultChild = componentRenderProp(DefaultItem);
+const defaultChild = renderProp(DefaultItem);
 
 export const Tree = ({
   nodes,
@@ -371,8 +366,7 @@ export const Tree = ({
   loading,
   ...rest
 }: TreeProps): ReactElement => {
-  const Core = virtual ? List.Core.Virtual : List.Core;
-  const child: List.ItemRenderProp<string, FlattenedNode> = useCallback(
+  const child: List.ItemRenderProp<string> = useCallback(
     ({ key, ...rest }) =>
       children({
         ...rest,

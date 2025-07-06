@@ -13,12 +13,17 @@ import { type record } from "@synnaxlabs/x";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
   type ComponentPropsWithoutRef,
+  createContext,
+  type PropsWithChildren,
   type ReactElement,
   type RefObject,
+  useCallback,
+  useMemo,
   useRef,
 } from "react";
 
 import { CSS } from "@/css";
+import { useRequiredContext } from "@/hooks";
 import { type ItemRenderProp } from "@/list/Item";
 
 export interface UseProps<K extends record.Key = record.Key> {
@@ -31,15 +36,9 @@ export interface UseReturn {
   virtualizer: Virtualizer<HTMLDivElement, Element>;
 }
 
-export interface ListProps<
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
-> extends Omit<ComponentPropsWithoutRef<"div">, "children">,
-    UseReturn {
-  data: K[];
-  children: ItemRenderProp<K, E>;
-  useItem: (key: K) => E;
-  onFetchMore?: () => void;
+export interface ItemsProps<K extends record.Key = record.Key>
+  extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
+  children: ItemRenderProp<K>;
 }
 
 export const use = <K extends record.Key = record.Key>({
@@ -55,18 +54,61 @@ export const use = <K extends record.Key = record.Key>({
   return { ref, virtualizer };
 };
 
+export interface ContextValue<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+> {
+  ref: RefObject<HTMLDivElement | null>;
+  virtualizer: Virtualizer<HTMLDivElement, Element>;
+  onFetchMore?: () => void;
+  data: K[];
+  useItem: (key: K | null) => E | undefined;
+}
+
+const Context = createContext<ContextValue | null>(null);
+
+export const useContext = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>(): ContextValue<K, E> => useRequiredContext(Context) as unknown as ContextValue<K, E>;
+
+export const useItem = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>(
+  key: K | null,
+): E | undefined => {
+  const { useItem } = useContext<K, E>();
+  return useItem(key);
+};
+
+export interface ListProps<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+> extends PropsWithChildren,
+    ContextValue<K, E> {}
+
 export const List = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>({
+  children,
+  ...rest
+}: ListProps<K, E>): ReactElement => (
+  <Context.Provider value={rest as unknown as ContextValue}>
+    {children}
+  </Context.Provider>
+);
+
+export const Items = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
 >({
-  virtualizer,
-  data,
   className,
-  ref,
   children,
-  useItem,
   ...rest
-}: ListProps<K, E>): ReactElement => {
+}: ItemsProps<K>): ReactElement => {
+  const { ref, virtualizer, data } = useContext<K, E>();
   const visibleData = virtualizer.getVirtualItems();
   return (
     <div ref={ref} className={CSS(className, CSS.BE("list", "container"))} {...rest}>
@@ -76,11 +118,32 @@ export const List = <
       >
         {visibleData.map(({ index, start }) => {
           const key = data[index];
-          return (
-            children({ key, index, translate: start, useItem, itemKey: key }) ?? null
-          );
+          return children({ key, index, translate: start, itemKey: key });
         })}
       </div>
     </div>
   );
 };
+
+export interface UseStaticDataReturn<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+> {
+  useItem: (key: K | null) => E | undefined;
+  data: K[];
+}
+
+export const useStaticData = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+>(
+  data: E[],
+): UseStaticDataReturn<K, E> =>
+  useMemo(() => {
+    const keys = data.map((d) => d.key);
+    const useItem = useCallback(
+      (key: K | null) => data.find((d) => d.key === key),
+      [data],
+    );
+    return { useItem, data: keys };
+  }, [data]);

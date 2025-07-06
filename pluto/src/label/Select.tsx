@@ -8,36 +8,36 @@
 // included in the file licenses/APL.txt.
 
 import { type label } from "@synnaxlabs/client";
-import { array, type AsyncTermSearcher, unique } from "@synnaxlabs/x";
-import {
-  type DragEvent,
-  type FC,
-  type ReactElement,
-  useCallback,
-  useId,
-  useMemo,
-} from "react";
+import { array, unique } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useState } from "react";
 
+import { Align } from "@/align";
+import { Component } from "@/component";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
 import { Icon } from "@/icon";
+import { Input } from "@/input";
+import { useList } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
-import { type List } from "@/list";
+import { List } from "@/list";
 import { Select } from "@/select";
-import { Status } from "@/status";
-import { Synnax } from "@/synnax";
 import { Tag } from "@/tag";
-import { componentRenderProp } from "@/util/renderProp";
+import { Text } from "@/text";
 
-const rangeCols: Array<List.ColumnSpec<label.Key, label.Label>> = [
-  {
-    key: "color",
-    name: "Color",
-    render: ({ entry }) => <Icon.Circle color={entry.color} size="2.5rem" />,
+const listItemRenderProp = Component.renderProp(
+  ({ itemKey, ...rest }: List.ItemRenderProps<label.Key>): ReactElement | null => {
+    const item = List.useItem<label.Key, label.Label>(itemKey);
+    const [selected, onSelect] = Select.useItemState<label.Key>(itemKey);
+    return (
+      <List.Item itemKey={itemKey} onSelect={onSelect} selected={selected} {...rest}>
+        <Icon.Circle color={item?.color} size="1.5rem" />
+        <Text.Text level="p">{item?.name}</Text.Text>
+      </List.Item>
+    );
   },
-  { key: "name", name: "Name" },
-];
+);
 
 const canDrop = (
   { items: entities }: DraggingState,
@@ -47,22 +47,43 @@ const canDrop = (
   return f.length > 0 && !f.every((h) => value.includes(h.key as label.Key));
 };
 
-export interface SelectMultipleProps
-  extends Omit<Select.MultipleProps<label.Key, label.Label>, "columns" | "searcher"> {}
+const MultipleTag = ({
+  itemKey,
+  onDragStart,
+}: Omit<Tag.TagProps, "onDragStart"> & {
+  itemKey: label.Key;
+  onDragStart: (key: label.Key) => void;
+}): ReactElement => {
+  const item = List.useItem<label.Key, label.Label>(itemKey);
+  const [, onSelect] = Select.useItemState(itemKey);
+  return (
+    <Tag.Tag
+      color={item?.color}
+      onSelect={onSelect}
+      onDragStart={() => onDragStart(itemKey)}
+      draggable
+    >
+      {item?.name}
+    </Tag.Tag>
+  );
+};
 
-const RenderTag: FC<Select.MultipleTagProps<label.Key, label.Label>> = ({
-  entry,
-  loading,
-  entryKey: _,
-  entryRenderKey: __,
-  ...rest
-}) => (
-  <Tag.Tag color={entry?.color} {...rest}>
-    {entry?.name}
-  </Tag.Tag>
-);
+export interface MultipleTriggerProps extends Align.SpaceExtensionProps {
+  onTagDragStart: (key: label.Key) => void;
+}
 
-const renderTag = componentRenderProp(RenderTag);
+const MultipleTrigger = ({ onTagDragStart }: MultipleTriggerProps): ReactElement => {
+  const value = Select.useSelection<label.Key>();
+  return (
+    <Align.Space x bordered>
+      {value.map((v) => (
+        <MultipleTag key={v} itemKey={v} onDragStart={onTagDragStart} />
+      ))}
+    </Align.Space>
+  );
+};
+
+export interface SelectMultipleProps extends Select.MultipleProps<label.Key> {}
 
 export const SelectMultiple = ({
   onChange,
@@ -70,14 +91,8 @@ export const SelectMultiple = ({
   value,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const client = Synnax.use();
-  const emptyContent =
-    client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
-        No client available
-      </Status.Text.Centered>
-    );
-
+  const { data, useListItem, retrieve } = useList();
+  const { onSelect, ...selectProps } = Select.useMultiple({ value, onChange, data });
   const {
     startDrag,
     onDragEnd: endDrag,
@@ -85,159 +100,136 @@ export const SelectMultiple = ({
   } = Haul.useDragAndDrop({
     type: "Label.SelectMultiple",
     canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
-    onDrop: useCallback(
+    onDrop: Haul.useFilterByTypeCallback(
+      HAUL_TYPE,
       ({ items }) => {
-        const dropped = Haul.filterByType(HAUL_TYPE, items);
-        if (dropped.length === 0) return [];
-        const v = unique.unique([
-          ...array.toArray(value),
-          ...(dropped.map((c) => c.key) as label.Key[]),
-        ]);
-        onChange(v, { clicked: null, entries: [] });
-        return dropped;
+        onChange(
+          unique.unique([
+            ...array.toArray(value),
+            ...(items.map((c) => c.key) as label.Key[]),
+          ]),
+          { clicked: null, clickedIndex: null },
+        );
+        return items;
       },
       [onChange, value],
     ),
   });
-  const dragging = Haul.useDraggingState();
 
   const handleSuccessfulDrop = useCallback(
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
       onChange(
         array.toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
-        { clicked: null, entries: [] },
+        { clicked: null, clickedIndex: null },
       );
     },
     [onChange, value],
   );
 
-  const onDragStart = useCallback(
-    (_: DragEvent<HTMLDivElement>, key: label.Key) =>
-      startDrag([{ key, type: HAUL_TYPE }], handleSuccessfulDrop),
+  const onTagDragStart = useCallback(
+    (key: label.Key) => startDrag([{ key, type: HAUL_TYPE }], handleSuccessfulDrop),
     [startDrag, handleSuccessfulDrop],
   );
 
+  const dragging = Haul.useDraggingState();
   return (
-    <Select.Multiple
+    <Select.Dialog<label.Key, label.Label | undefined>
       className={CSS(
         className,
         CSS.dropRegion(canDrop(dragging, array.toArray(value))),
       )}
       value={value}
-      onTagDragStart={onDragStart}
-      onTagDragEnd={endDrag}
-      searcher={client?.labels}
-      onChange={onChange}
-      columns={rangeCols}
-      emptyContent={emptyContent}
-      renderTag={renderTag}
-      addPlaceholder="Label"
+      onSelect={onSelect}
+      useItem={useListItem}
+      data={data}
       {...dropProps}
+      {...selectProps}
       {...rest}
-    />
+    >
+      <MultipleTrigger onTagDragStart={onTagDragStart} />
+      <DialogContent retrieve={retrieve} />
+    </Select.Dialog>
   );
 };
 
-export interface SelectSingleProps
-  extends Omit<Select.SingleProps<label.Key, label.Label>, "columns"> {}
-
-interface UseSingleReturn extends Haul.UseDragReturn {
-  emptyContent?: ReactElement;
-  dragging: DraggingState;
-  onDragStart: (e: DragEvent<HTMLDivElement>) => void;
-  searcher?: AsyncTermSearcher<string, label.Key, label.Label>;
-}
-
-const useSingle = ({
-  value,
-  onChange,
-}: Pick<SelectSingleProps, "onChange" | "value">): UseSingleReturn => {
-  const client = Synnax.use();
-  const emptyContent =
-    client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
-        No client available
-      </Status.Text.Centered>
-    );
-
-  const id = useId();
-  const sourceAndTarget: Haul.Item = useMemo(
-    () => ({ key: id, type: "Label.SelectMultiple" }),
-    [id],
+const SingleTrigger = (): ReactElement => {
+  const [value] = Select.useSelection<label.Key>();
+  const item = List.useItem<label.Key, label.Label>(value);
+  return (
+    <Dialog.Trigger>
+      <Align.Space direction="x" size="small" align="center">
+        <Icon.Circle color={item?.color} size="1.5rem" />
+        <Text.Text level="p">{item?.name}</Text.Text>
+      </Align.Space>
+    </Dialog.Trigger>
   );
-
-  const dragProps = Haul.useDragAndDrop({
-    type: "Label.SelectSingle",
-    canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
-    onDrop: useCallback(
-      ({ items }) => {
-        const ch = Haul.filterByType(HAUL_TYPE, items);
-        if (ch.length === 0) return [];
-        onChange(ch[0].key as label.Key, {
-          clicked: null,
-          entries: [],
-        });
-        return ch;
-      },
-      [sourceAndTarget, onChange],
-    ),
-  });
-
-  const dragging = Haul.useDraggingState();
-  const onDragStart = useCallback(
-    () => value != null && dragProps.startDrag([{ type: HAUL_TYPE, key: value }]),
-    [dragProps.startDrag, value],
-  );
-  return {
-    emptyContent,
-    dragging,
-    ...dragProps,
-    onDragStart,
-    searcher: client?.labels,
-  };
 };
+
+const DialogContent = ({
+  retrieve,
+}: Pick<ReturnType<typeof useList>, "retrieve"> & {}): ReactElement => {
+  const [search, setSearch] = useState("");
+  return (
+    <Dialog.Content>
+      <Input.Text
+        value={search}
+        onChange={(v) => {
+          setSearch(v);
+          retrieve((prev) => ({ ...prev, term: v }));
+        }}
+        placeholder="Search labels..."
+      />
+      <List.Items>{listItemRenderProp}</List.Items>
+    </Dialog.Content>
+  );
+};
+
+export interface SelectSingleProps extends Select.SingleProps<label.Key> {}
 
 export const SelectSingle = ({
   onChange,
   value,
   className,
-  data,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { dragging, ...dragProps } = useSingle({ value, onChange });
+  const { data, useListItem, retrieve } = useList();
+  const { onSelect, ...selectProps } = Select.useSingle({ value, onChange, data });
+  const { startDrag, ...dragProps } = Haul.useDragAndDrop({
+    type: "Label.SelectSingle",
+    canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
+    onDrop: Haul.useFilterByTypeCallback(
+      HAUL_TYPE,
+      ({ items }) => {
+        if (items.length !== 0) onSelect(items[0].key as label.Key);
+        return items;
+      },
+      [onSelect],
+    ),
+  });
+
+  const dragging = Haul.useDraggingState();
+  const onDragStart = useCallback(
+    () => value != null && startDrag([{ type: HAUL_TYPE, key: value }]),
+    [startDrag, value],
+  );
+
   return (
-    <Select.Single<label.Key, label.Label>
-      data={data}
+    <Select.Dialog<label.Key, label.Label | undefined>
       className={CSS(
         className,
         CSS.dropRegion(canDrop(dragging, array.toArray(value))),
       )}
       value={value}
-      onChange={onChange}
-      columns={rangeCols}
-      entryRenderKey="name"
-      {...dragProps}
-      {...rest}
-    />
-  );
-};
-
-export const SelectButton = ({
-  data,
-  value,
-  onChange,
-  ...rest
-}: SelectSingleProps): ReactElement => {
-  const { dragging, ...dragProps } = useSingle({ value, onChange });
-  return (
-    <Select.Single<label.Key, label.Label>
+      onSelect={onSelect}
+      useItem={useListItem}
       data={data}
-      value={value as string}
-      onChange={onChange}
-      columns={rangeCols}
-      entryRenderKey="name"
+      onDragStart={onDragStart}
       {...dragProps}
+      {...selectProps}
       {...rest}
-    />
+    >
+      <SingleTrigger />
+      <DialogContent retrieve={retrieve} />
+    </Select.Dialog>
   );
 };

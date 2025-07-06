@@ -7,21 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { notation } from "@synnaxlabs/x";
+import { direction } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Icon } from "@/icon";
 import { Select as CoreSelect } from "@/select";
 
-const DATA = [...notation.NOTATIONS];
+export interface SelectProps extends CoreSelect.SingleProps<direction.Direction> {
+  yDirection?: "up" | "down";
+}
 
-export interface SelectNotationProps
-  extends CoreSelect.SingleProps<notation.Notation> {}
+const DATA: direction.Direction[] = [...direction.DIRECTIONS];
 
 export const Select = ({
+  yDirection = "up",
   value,
   onChange,
   ...rest
-}: SelectNotationProps): ReactElement => {
+}: SelectProps): ReactElement => {
   const { onSelect, ...selectProps } = CoreSelect.useSingle({
     value,
     onChange,
@@ -29,9 +32,12 @@ export const Select = ({
   });
   return (
     <CoreSelect.Buttons {...rest} {...selectProps} value={value} onSelect={onSelect}>
-      <CoreSelect.Button itemKey="standard">Standard</CoreSelect.Button>
-      <CoreSelect.Button itemKey="scientific">Scientific</CoreSelect.Button>
-      <CoreSelect.Button itemKey="engineering">Engineering</CoreSelect.Button>
+      <CoreSelect.ButtonIcon itemKey="x">
+        <Icon.Arrow.Right />
+      </CoreSelect.ButtonIcon>
+      <CoreSelect.ButtonIcon itemKey="y">
+        {yDirection === "up" ? <Icon.Arrow.Up /> : <Icon.Arrow.Down />}
+      </CoreSelect.ButtonIcon>
     </CoreSelect.Buttons>
   );
 };

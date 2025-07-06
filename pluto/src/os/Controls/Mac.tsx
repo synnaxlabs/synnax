@@ -13,9 +13,9 @@ import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { type Button } from "@/button";
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { type InternalControlsProps } from "@/os/Controls/types";
-import { type ComponentSize } from "@/util/component";
 
 export const Icon = {
   Close: (
@@ -131,7 +131,7 @@ const TrafficLight = ({
     className={CSS(CSS.B("macos-control"), CSS.disabled(disabled), className)}
     tabIndex={-1}
     disabled={disabled}
-    size={"" as ComponentSize}
+    size={"" as Component.Size}
     {...rest}
   />
 );

@@ -12,7 +12,7 @@ import "@/range/Toolbar.css";
 import { ranger } from "@synnaxlabs/client";
 import {
   Align,
-  componentRenderProp,
+  Component.renderProp,
   Haul,
   Icon,
   List as CoreList,
@@ -105,7 +105,7 @@ const List = (): ReactElement => {
             className={menuProps.className}
             {...drop}
           >
-            {componentRenderProp(ListItem)}
+            {Component.renderProp(ListItem)}
           </CoreList.Core>
         </CoreList.Selector>
       </PMenu.ContextMenu>

@@ -13,7 +13,7 @@ import { Logo } from "@synnaxlabs/media";
 import {
   Align,
   Button,
-  componentRenderProp,
+  Component.renderProp,
   CSS as PCSS,
   Nav,
   OS,
@@ -164,8 +164,8 @@ const FallBackRenderContent = ({
   );
 };
 
-const fallbackRenderWithStore = componentRenderProp(FallbackRenderWithStore);
-const fallbackRenderWithoutStore = componentRenderProp(FallbackRenderWithoutStore);
+const fallbackRenderWithStore = Component.renderProp(FallbackRenderWithStore);
+const fallbackRenderWithoutStore = Component.renderProp(FallbackRenderWithoutStore);
 
 export const OverlayWithStore = (props: OverlayProps): ReactElement => (
   <ErrorBoundary {...props} fallbackRender={fallbackRenderWithStore} />

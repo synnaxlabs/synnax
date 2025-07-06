@@ -20,13 +20,13 @@ import {
 } from "react";
 
 import { type Align } from "@/align";
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
-import { type ComponentSize } from "@/util/component";
 
 /** The variant of button */
 export type Variant =
@@ -40,7 +40,7 @@ export type Variant =
 /** The base props accepted by all button types in this directory. */
 export interface BaseProps extends Omit<ComponentPropsWithRef<"button">, "color"> {
   variant?: Variant;
-  size?: ComponentSize;
+  size?: Component.Size;
   sharp?: boolean;
   loading?: boolean;
   triggers?: Triggers.Trigger | Triggers.Trigger[];
@@ -176,8 +176,8 @@ export const Button = Tooltip.wrap(
         [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
       };
 
-    if (size == null && level != null) size = Text.LevelComponentSizes[level];
-    else if (size != null && level == null) level = Text.ComponentSizeLevels[size];
+    if (size == null && level != null) size = Text.LEVEL_COMPONENT_SIZES[level];
+    else if (size != null && level == null) level = Text.COMPONENT_SIZE_LEVELS[size];
     else size ??= "medium";
 
     return (
@@ -197,7 +197,7 @@ export const Button = Tooltip.wrap(
         )}
         tabIndex={tabIndex}
         type={type}
-        level={level ?? Text.ComponentSizeLevels[size]}
+        level={level ?? Text.COMPONENT_SIZE_LEVELS[size]}
         size={iconSpacing}
         onClick={handleClick}
         onMouseDown={handleMouseDown}

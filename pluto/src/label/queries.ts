@@ -129,3 +129,32 @@ export const useDeleteSynchronizer = (onDelete: (key: label.Key) => void): void 
       onDelete(args.changed);
     }),
   });
+
+interface ListParams extends Flux.Params {
+  term?: string;
+  offset?: number;
+  limit?: number;
+}
+
+export const useList = Flux.createList<ListParams, label.Key, label.Label>({
+  name: "Labels",
+  retrieve: async ({ client, params }) => await client.labels.search(params.term ?? ""),
+  retrieveByKey: async ({ client, key }) => await client.labels.retrieve(key),
+  listeners: [
+    {
+      channel: label.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(label.labelZ, async ({ changed, onChange }) => {
+        onChange(changed.key, (prev) => {
+          if (prev == null) return prev;
+          return changed;
+        });
+      }),
+    },
+    {
+      channel: label.DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(label.keyZ, async ({ changed, onDelete }) =>
+        onDelete(changed),
+      ),
+    },
+  ],
+});

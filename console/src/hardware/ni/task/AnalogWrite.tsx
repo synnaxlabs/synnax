@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Align, componentRenderProp, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Align, Component.renderProp, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -89,8 +89,8 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
   );
 };
 
-const channelDetails = componentRenderProp(ChannelDetails);
-const channelListItem = componentRenderProp(ChannelListItem);
+const channelDetails = Component.renderProp(ChannelDetails);
+const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<
   Common.Task.FormProps<

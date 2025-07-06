@@ -10,7 +10,7 @@
 import {
   Align,
   Button,
-  componentRenderProp,
+  Component,
   Icon,
   Input,
   type List,
@@ -65,7 +65,7 @@ const RenderTag = ({
   </Tag.Tag>
 );
 
-const renderTag = componentRenderProp(RenderTag);
+const renderTag = Component.renderProp(RenderTag);
 
 const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => (
   <Select.Multiple

@@ -16,6 +16,7 @@ import { type FC, type ReactElement, useState } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
+import { renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { Icon } from "@/icon";
@@ -26,7 +27,6 @@ import { List } from "@/list";
 import { Nav } from "@/nav";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
-import { componentRenderProp } from "@/util/renderProp";
 
 const applyTimezoneOffset = (ts: TimeStamp): TimeStamp =>
   ts.add(
@@ -169,13 +169,16 @@ interface AISuggestion {
   onSelect: () => void;
 }
 
-const AIListItem = (props: List.ItemProps<string, AISuggestion>): ReactElement => (
-  <List.ItemFrame {...props}>
-    <Text.Text level="p">{props.entry.name}</Text.Text>
-  </List.ItemFrame>
-);
+const AIListItem = (props: List.ItemRenderProps<string>): ReactElement => {
+  const item = List.useItem<string, AISuggestion>(props.key);
+  return (
+    <List.Item {...props}>
+      <Text.Text level="p">{item?.name}</Text.Text>
+    </List.Item>
+  );
+};
 
-const aiListItem = componentRenderProp(AIListItem);
+const aiListItem = renderProp(AIListItem);
 
 interface AISelectorProps {
   value: TimeStamp;
@@ -374,13 +377,13 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
 };
 
 const TimeListItem = (
-  props: List.ItemProps<string, record.KeyedNamed>,
+  props: List.ItemRenderProps<string, record.KeyedNamed>,
 ): ReactElement => {
   const { entry } = props;
   return (
-    <List.ItemFrame {...props} style={{ padding: "0.5rem", paddingLeft: "2rem" }}>
+    <List.Item {...props} style={{ padding: "0.5rem", paddingLeft: "2rem" }}>
       <Text.Text level="small">{entry.name}</Text.Text>
-    </List.ItemFrame>
+    </List.Item>
   );
 };
 
@@ -389,7 +392,7 @@ interface TimeListProps {
   onChange: (next: number) => void;
 }
 
-const timeListItem = componentRenderProp(TimeListItem);
+const timeListItem = renderProp(TimeListItem);
 
 export const createTimeList = (count: number): FC<TimeListProps> => {
   const data = Array.from({ length: count }, (_, i) => ({

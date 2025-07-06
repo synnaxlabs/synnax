@@ -14,13 +14,12 @@ import { type ReactElement, useCallback, useMemo } from "react";
 import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
 import { Picker, type PickerProps } from "@/color/Picker";
 import { CSS } from "@/css";
-import { Dropdown } from "@/dropdown";
-import { type UseProps } from "@/dropdown/Dropdown";
+import { Dialog } from "@/dialog";
 import { Text } from "@/text";
 
 export interface SwatchProps
   extends BaseSwatchProps,
-    UseProps,
+    Dialog.UseProps,
     Pick<PickerProps, "onDelete" | "position"> {
   allowChange?: boolean;
 }
@@ -35,7 +34,7 @@ export const Swatch = ({
   value,
   ...rest
 }: SwatchProps): ReactElement => {
-  const { visible, open, close } = Dropdown.use({ onVisibleChange, initialVisible });
+  const { visible, open, close } = Dialog.use({ onVisibleChange, initialVisible });
   const canPick = onChange != null && allowChange;
   const handleClick = useCallback<NonNullable<BaseSwatchProps["onClick"]>>(
     (e) => (canPick ? open() : onClick?.(e)),
@@ -59,7 +58,7 @@ export const Swatch = ({
   );
   if (!canPick) return swatch;
   return (
-    <Dropdown.Dialog
+    <Dialog.Dialog
       close={close}
       visible={visible}
       className={CSS.BE("color-swatch", "dropdown")}
@@ -70,6 +69,6 @@ export const Swatch = ({
     >
       {swatch}
       <Picker value={value} onChange={onChange} />
-    </Dropdown.Dialog>
+    </Dialog.Dialog>
   );
 };

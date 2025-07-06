@@ -21,7 +21,6 @@ import {
 import { z } from "zod/v4";
 
 import {
-  payloadZ,
   type Key,
   type KeyOrName,
   type Name,
@@ -29,6 +28,7 @@ import {
   ONTOLOGY_TYPE,
   type Params,
   type Payload,
+  payloadZ,
 } from "@/channel/payload";
 import {
   analyzeParams,

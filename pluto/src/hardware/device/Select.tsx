@@ -7,84 +7,89 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type rack } from "@synnaxlabs/client";
-import { type AsyncTermSearcher } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { type device } from "@synnaxlabs/client";
+import { type ReactElement, useState } from "react";
 
 import { Breadcrumb } from "@/breadcrumb";
-import { useAsyncEffect } from "@/hooks";
-import { type List } from "@/list";
+import { Component } from "@/component";
+import { Dialog } from "@/dialog";
+import { type ListParams, useList } from "@/hardware/device/queries";
+import { Input } from "@/input";
+import { List } from "@/list";
 import { Select } from "@/select";
-import { Synnax } from "@/synnax";
+import { type state } from "@/state";
+import { Text } from "@/text";
 
-interface Entry extends device.Device {
-  rackName?: string;
-}
+const SingleTrigger = (): ReactElement => {
+  const [value] = Select.useSelection<device.Key>();
+  const item = List.useItem<device.Key, device.Device>(value);
+  return (
+    <Dialog.Trigger>
+      <Text.Text level="p">{item?.name}</Text.Text>
+    </Dialog.Trigger>
+  );
+};
 
-const COLUMNS: Array<List.ColumnSpec<device.Key, Entry>> = [
-  { key: "name", name: "Name" },
-  {
-    key: "location",
-    name: "Location",
-    render: ({ entry: { location, rackName } }) => (
-      <Breadcrumb.Breadcrumb
-        level="small"
-        shade={9}
-        weight={450}
-        style={{ marginTop: "0.25rem" }}
-        size="tiny"
-      >
-        {rackName ? `${rackName}.${location}` : location}
-      </Breadcrumb.Breadcrumb>
-    ),
+const listItemRenderProp = Component.renderProp(
+  ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
+    const item = List.useItem<device.Key, device.Device>(itemKey);
+    return (
+      <List.Item itemKey={itemKey} {...rest}>
+        <Text.Text level="p">{item?.name}</Text.Text>
+        <Breadcrumb.Breadcrumb
+          level="small"
+          shade={9}
+          weight={450}
+          style={{ marginTop: "0.25rem" }}
+          size="tiny"
+        >
+          {item?.location ?? ""}
+        </Breadcrumb.Breadcrumb>
+      </List.Item>
+    );
   },
-];
+);
 
-export interface SelectSingleProps
-  extends Omit<Select.SingleProps<device.Key, Entry>, "columns"> {
-  searchOptions?: device.RetrieveOptions;
+interface DialogContentProps {
+  retrieve: state.Setter<ListParams>;
 }
+
+const DialogContent = ({ retrieve }: DialogContentProps): ReactElement => {
+  const [search, setSearch] = useState("");
+  return (
+    <Dialog.Content>
+      <Input.Text
+        value={search}
+        onChange={(v) => {
+          setSearch(v);
+          retrieve((prev) => ({ ...prev, search: v }));
+        }}
+      />
+      <List.Items>{listItemRenderProp}</List.Items>
+    </Dialog.Content>
+  );
+};
+
+export interface SelectSingleProps extends Select.SingleProps<device.Key> {}
 
 export const SelectSingle = ({
-  searchOptions,
-  filter: originalFilter,
+  value,
+  onChange,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const client = Synnax.use();
-  let searcher: AsyncTermSearcher<string, device.Key, Entry> | undefined =
-    client?.hardware.devices;
-  if (searchOptions != null && client != null)
-    searcher = client.hardware.devices.newSearcherWithOptions(searchOptions);
-  const [rackMap, setRackMap] = useState(new Map<rack.Key, string>());
-  const filter = useCallback(
-    (items: device.Device[]) => {
-      const newItems = originalFilter?.(items) ?? items;
-      return newItems.map((item) => ({
-        ...item,
-        rackName: rackMap.get(item.rack),
-      }));
-    },
-    [originalFilter, rackMap],
-  );
-  useAsyncEffect(
-    async (signal) => {
-      if (client == null) {
-        setRackMap(new Map());
-        return;
-      }
-      const racks = await client.hardware.racks.retrieve([]);
-      if (signal.aborted) return;
-      setRackMap(new Map(racks.map(({ key, name }) => [key, name])));
-    },
-    [client?.key],
-  );
+  const { data, useListItem, retrieve } = useList();
+  const { onSelect, ...selectProps } = Select.useSingle({ value, onChange, data });
   return (
-    <Select.Single<device.Key, Entry>
-      columns={COLUMNS}
-      searcher={searcher}
-      entryRenderKey="name"
-      filter={filter}
+    <Select.Dialog<device.Key, device.Device | undefined>
+      value={value}
+      onSelect={onSelect}
+      useItem={useListItem}
+      data={data}
       {...rest}
-    />
+      {...selectProps}
+    >
+      <SingleTrigger />
+      <DialogContent retrieve={retrieve} />
+    </Select.Dialog>
   );
 };

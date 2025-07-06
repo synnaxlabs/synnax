@@ -11,7 +11,7 @@ import { type ranger } from "@synnaxlabs/client";
 import {
   Align,
   Button,
-  componentRenderProp,
+  Component.renderProp,
   Divider,
   Form,
   Icon,
@@ -71,7 +71,7 @@ const ValueInput = ({ value, onChange }: Input.Control<string>): ReactElement =>
   );
 };
 
-const valueInput = componentRenderProp(ValueInput);
+const valueInput = Component.renderProp(ValueInput);
 
 const MetaDataListItem: FC<List.ItemProps> = (props) => {
   const { index } = props;
@@ -137,7 +137,7 @@ const MetaDataListItem: FC<List.ItemProps> = (props) => {
   );
 };
 
-const metaDataItem = componentRenderProp(MetaDataListItem);
+const metaDataItem = Component.renderProp(MetaDataListItem);
 
 const sortF: compare.CompareF<kv.Pair> = (a, b) => {
   if (a.key === "") return 1;

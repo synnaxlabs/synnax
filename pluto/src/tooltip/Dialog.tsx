@@ -35,7 +35,7 @@ import { CSS } from "@/css";
 import { useCombinedStateAndRef } from "@/hooks";
 import { Text } from "@/text";
 import { useConfig } from "@/tooltip/Config";
-import { isRenderProp, type RenderProp } from "@/util/renderProp";
+import { isRenderProp, type RenderProp } from "@/component/renderProp";
 
 interface ChildProps {
   id?: string;

@@ -32,24 +32,31 @@ const isSelected = <K extends record.Key>(
 interface ContextValue<K extends record.Key = record.Key> {
   value: K | K[] | null | undefined;
   onSelect: (key: K) => void;
+  clear: () => void;
 }
 
 export interface ProviderProps<K extends record.Key = record.Key>
   extends ContextValue<K>,
-    PropsWithChildren {
-  onSelect: (key: K) => void;
-}
+    PropsWithChildren {}
 
 export const Provider = <K extends record.Key = record.Key>({
   value,
   onSelect,
+  clear,
 }: ProviderProps<K>): ReactElement => {
-  const ctx = useMemo(() => ({ value, onSelect }), [value, onSelect]);
+  const ctx = useMemo(() => ({ value, onSelect, clear }), [value, onSelect, clear]);
   return <Context.Provider value={ctx}></Context.Provider>;
 };
 
-export const useItem = <K extends record.Key>(key: K): [boolean, () => void] => {
+export const useItemState = <K extends record.Key>(key: K): [boolean, () => void] => {
   const { value, onSelect } = useRequiredContext(Context);
   const handleSelect = useCallback(() => onSelect(key), [key, onSelect]);
   return [isSelected(value, key), handleSelect];
 };
+
+export const useSelection = <K extends record.Key>(): K[] => {
+  const { value } = useRequiredContext(Context);
+  return value as K[];
+};
+
+export const useClear = () => useRequiredContext(Context).clear;

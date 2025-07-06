@@ -69,7 +69,7 @@ const Action = ({ index, level, children, divided }: ActionProps): ReactElement 
           e.preventDefault();
           onClick?.(e);
         }}
-        size={Text.LevelComponentSizes[level]}
+        size={Text.LEVEL_COMPONENT_SIZES[level]}
         {...rest}
       />
     );

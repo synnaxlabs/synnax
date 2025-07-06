@@ -7,15 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createContext,
-  use as reactUse,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useEffect, useMemo } from "react";
+
+import { useCombinedStateAndRef, useRequiredContext, useSyncedRef } from "@/hooks";
+import { state } from "@/state";
 
 /** Props for the {@link use} hook. */
 export interface UseProps {
@@ -51,17 +46,13 @@ export interface UseReturn {
   visible: boolean;
 }
 
-export interface ContextValue extends Pick<UseReturn, "close"> {}
+export interface ContextValue extends Pick<UseReturn, "close" | "open"> {}
 
-const Context = createContext<ContextValue>({
-  close: () => {
-    console.error("Dialog context not provided.");
-  },
-});
+const Context = createContext<ContextValue | null>(null);
 
 export const Provider = Context;
 
-export const useContext = (): ContextValue => reactUse(Context);
+export const useContext = (): ContextValue => useRequiredContext(Context);
 
 /**
  * Implements basic dialog behavior. Opens the dialog whenever the 'open' function is
@@ -80,14 +71,21 @@ export const use = ({
   initialVisible = false,
   onVisibleChange,
 }: UseProps = {}): UseReturn => {
-  const [visible, setVisible] = useState(initialVisible);
-  const onVisibleChangeRef = useRef(onVisibleChange);
-  useEffect(() => {
-    onVisibleChangeRef.current = onVisibleChange;
-  }, [onVisibleChange]);
+  const [visible, setVisible, visibleRef] = useCombinedStateAndRef(initialVisible);
+  const onVisibleChangeRef = useSyncedRef(onVisibleChange);
   useEffect(() => onVisibleChangeRef.current?.(visible), [visible]);
-  const close = useCallback(() => setVisible(false), []);
-  const open = useCallback(() => setVisible(true), []);
-  const toggle = useCallback(() => setVisible((prevVisible) => !prevVisible), []);
-  return useMemo(() => ({ close, open, toggle, visible }), [visible]);
+  const set = useCallback((setter: state.SetArg<boolean>) => {
+    const nextVisible = state.executeSetter(setter, visibleRef.current);
+    onVisibleChangeRef.current?.(nextVisible);
+    setVisible(nextVisible);
+  }, []);
+  return useMemo(
+    () => ({
+      close: () => set(false),
+      open: () => set(true),
+      toggle: () => set((prev) => !prev),
+      visible,
+    }),
+    [set, visible],
+  );
 };

@@ -307,6 +307,16 @@ export const canDropOfType =
 export const filterByType = (type: string, entities: Item[]): Item[] =>
   entities.filter((entity) => entity.type === type);
 
+export const useFilterByTypeCallback = (
+  type: string,
+  fn: OnDrop,
+  deps: unknown[],
+): OnDrop =>
+  useCallback(
+    (props) => fn({ ...props, items: filterByType(type, props.items) }),
+    deps,
+  );
+
 export interface UseDropOutsideProps extends Omit<UseDropProps, "onDrop"> {
   onDrop: (props: OnDropProps, cursor: xy.XY) => Item[];
 }

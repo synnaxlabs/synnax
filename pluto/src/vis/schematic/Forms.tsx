@@ -17,7 +17,9 @@ import { Align } from "@/align";
 import { Button } from "@/button";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Component } from "@/component";
 import { CSS } from "@/css";
+import { Direction } from "@/direction";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
@@ -26,7 +28,6 @@ import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Text } from "@/text";
-import { type ComponentSize } from "@/util/component";
 import { type Button as CoreButton } from "@/vis/button";
 import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
 import {
@@ -123,7 +124,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       label="Label Size"
       padHelpText={false}
     >
-      {(p) => <Select.Text.Level {...p} />}
+      {({ value, onChange }) => <Select.Text.Level value={value} onChange={onChange} />}
     </Form.Field>
     <Form.Field<Align.Alignment>
       visible={!omit.includes("align")}
@@ -132,7 +133,7 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       padHelpText={false}
       hideIfNull
     >
-      {(p) => <Select.TextAlignment {...p} />}
+      {({ value, onChange }) => <Align.Select value={value} onChange={onChange} />}
     </Form.Field>
     <Form.Field<direction.Direction>
       visible={!omit.includes("direction")}
@@ -141,7 +142,9 @@ const LabelControls = ({ path, omit = [] }: LabelControlsProps): ReactElement =>
       padHelpText={false}
       hideIfNull
     >
-      {(p) => <Select.Direction {...p} yDirection="down" />}
+      {({ value, onChange }) => (
+        <Direction.Select value={value} onChange={onChange} yDirection="down" />
+      )}
     </Form.Field>
   </Align.Space>
 );
@@ -573,7 +576,9 @@ export const ValueForm = (): ReactElement => {
                   hideIfNull
                   padHelpText={false}
                 >
-                  {(p) => <Select.Text.Level {...p} />}
+                  {({ value, onChange }) => (
+                    <Select.Text.Level value={value} onChange={onChange} />
+                  )}
                 </Form.Field>
               </Align.Space>
             </Align.Space>
@@ -852,13 +857,15 @@ export const SetpointForm = (): ReactElement => {
                   align="start"
                   padHelpText={false}
                 />
-                <Form.Field<ComponentSize>
+                <Form.Field<Component.Size>
                   path="size"
                   label="Size"
                   hideIfNull
                   padHelpText={false}
                 >
-                  {(p) => <Select.ComponentSize {...p} />}
+                  {({ value, onChange }) => (
+                    <Component.SelectSize value={value} onChange={onChange} />
+                  )}
                 </Form.Field>
                 <ColorControl path="color" />
               </Align.Space>
@@ -884,7 +891,9 @@ export const TextBoxForm = (): ReactElement => {
             {(p) => <Input.Text {...p} />}
           </Form.Field>
           <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
-            {(p) => <Select.Text.Level {...p} />}
+            {({ value, onChange }) => (
+              <Select.Text.Level value={value} onChange={onChange} />
+            )}
           </Form.Field>
           <Form.Field<Align.Alignment>
             path="align"
@@ -892,7 +901,9 @@ export const TextBoxForm = (): ReactElement => {
             padHelpText={false}
             hideIfNull
           >
-            {(p) => <Select.TextAlignment {...p} />}
+            {({ value, onChange }) => (
+              <Align.Select value={value} onChange={onChange} />
+            )}
           </Form.Field>
         </Align.Space>
         <Align.Space x>

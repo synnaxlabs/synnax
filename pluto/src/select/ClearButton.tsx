@@ -12,11 +12,20 @@ import { type ReactElement } from "react";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
+import { useClear } from "@/select/Provider";
 
 export const ClearButton = (
   props: Omit<Button.IconProps, "children">,
-): ReactElement => (
-  <Button.Icon className={CSS.BE("select", "clear")} variant="outlined" {...props}>
-    <Icon.Close aria-label="clear" />
-  </Button.Icon>
-);
+): ReactElement => {
+  const clear = useClear();
+  return (
+    <Button.Icon
+      className={CSS.BE("select", "clear")}
+      variant="outlined"
+      onClick={clear}
+      {...props}
+    >
+      <Icon.Close aria-label="clear" />
+    </Button.Icon>
+  );
+};

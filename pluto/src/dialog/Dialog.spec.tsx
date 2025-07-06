@@ -13,17 +13,17 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Button } from "@/button";
-import { Dropdown } from "@/dropdown";
+import { Dialog } from "@/dialog";
 import { Triggers } from "@/triggers";
 
 const TestDropdown = (): ReactElement => {
-  const { toggle, visible, close } = Dropdown.use();
+  const { toggle, visible, close } = Dialog.use();
 
   return (
-    <Dropdown.Dialog close={close} visible={visible}>
+    <Dialog.Dialog close={close} visible={visible}>
       <Button.Button onClick={() => toggle()}>Toggle</Button.Button>
       <p>Content</p>
-    </Dropdown.Dialog>
+    </Dialog.Dialog>
   );
 };
 

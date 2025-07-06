@@ -16,7 +16,7 @@ export type RenderProp<P extends Record<string, any>, R = ReactElement | null> =
 /**
  * Component prop takes in a component and turns it into a render prop.
  */
-export const componentRenderProp =
+export const renderProp =
   <P extends Record<string, any>, R = ReactElement | null>(
     Component: React.ComponentType<P>,
   ): RenderProp<P, R> =>

@@ -15,7 +15,6 @@ import { Color } from "@/color";
 import { Form } from "@/form";
 import { Input } from "@/input";
 import { Select } from "@/select";
-import { type ButtonProps } from "@/select/Button";
 import { type Variant } from "@/table/cells/registry";
 import { Tabs } from "@/tabs";
 import { type Text } from "@/text";
@@ -69,7 +68,9 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
                 hideIfNull
                 padHelpText={false}
               >
-                {(p) => <Select.Text.Level {...p} />}
+                {({ value, onChange, variant: __, ...rest }) => (
+                  <Select.Text.Level value={value} onChange={onChange} {...rest} />
+                )}
               </Form.Field>
             </Align.Space>
           </Align.Space>
@@ -156,13 +157,19 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
     </Input.Item>
     <Form.TextField path="value" label="Text" />
     <Form.Field<Text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
-      {(p) => <Select.Text.Level {...p} />}
+      {({ value, onChange, variant: __, ...rest }) => (
+        <Select.Text.Level value={value} onChange={onChange} {...rest} />
+      )}
     </Form.Field>
     <Form.Field<Text.Weight> path="weight" label="Weight" padHelpText={false}>
-      {(p) => <Select.Text.Weight {...p} />}
+      {({ value, onChange, variant: ___, ...rest }) => (
+        <Select.Text.Weight value={value} onChange={onChange} {...rest} />
+      )}
     </Form.Field>
     <Form.Field<Align.Alignment> path="align" label="Alignment" hideIfNull>
-      {(p) => <Select.TextAlignment {...p} />}
+      {({ value, onChange, variant: ___, ...rest }) => (
+        <Select.Select value={value} onChange={onChange} {...rest} />
+      )}
     </Form.Field>
     <Form.Field<color.Crude>
       path="backgroundColor"
@@ -189,7 +196,7 @@ interface SelectVariantProps
   > {}
 
 const SelectVariant = (props: SelectVariantProps) => (
-  <Select.Button<Variant, VariantEntry>
+  <Select.Buttons<Variant>
     {...props}
     data={VARIANT_DATA}
     allowMultiple={false}

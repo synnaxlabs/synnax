@@ -14,7 +14,7 @@ import {
   Align,
   Button,
   Color,
-  componentRenderProp,
+  Component.renderProp,
   Form,
   Icon,
   Input,
@@ -87,7 +87,7 @@ export const EDIT_LAYOUT: Layout.BaseState = {
   window: { navTop: true, size: { height: 800, width: 500 } },
 };
 
-const listItem = componentRenderProp(LabelListItem);
+const listItem = Component.renderProp(LabelListItem);
 
 const initialState = formSchema.parse({ labels: [] });
 

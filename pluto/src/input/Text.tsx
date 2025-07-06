@@ -153,7 +153,7 @@ export const Text = ({
       <div
         className={CSS(
           CSS.BE("input", "internal"),
-          CSS.BM("text", level ?? CoreText.ComponentSizeLevels[size]),
+          CSS.BM("text", level ?? CoreText.COMPONENT_SIZE_LEVELS[size]),
           CSS.M("clickable"),
           CSS.M("outlined"),
           CSS.shade(0),
@@ -167,7 +167,7 @@ export const Text = ({
             )}
           >
             {CoreText.formatChildren(
-              level ?? CoreText.ComponentSizeLevels[size],
+              level ?? CoreText.COMPONENT_SIZE_LEVELS[size],
               placeholder,
             )}
           </div>
@@ -192,7 +192,7 @@ export const Text = ({
         {endContent != null && (
           <div className={CSS.BE("input", "end-content")}>
             {CoreText.formatChildren(
-              level ?? CoreText.ComponentSizeLevels[size],
+              level ?? CoreText.COMPONENT_SIZE_LEVELS[size],
               endContent,
             )}
           </div>

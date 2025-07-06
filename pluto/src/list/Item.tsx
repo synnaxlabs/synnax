@@ -13,14 +13,21 @@ import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Align } from "@/align";
+import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
-import { type RenderProp } from "@/util/renderProp";
 
-export interface ItemFrameProps<K extends record.Key, E extends record.Keyed<K>>
-  extends ItemProps<K, E>,
-    Omit<Align.SpaceProps, "key" | "onSelect" | "translate"> {
+export interface ItemRenderProps<K extends record.Key = record.Key> {
+  index: number;
+  key: K;
   itemKey: K;
+  className?: string;
+  translate?: number;
+}
+
+export interface ItemProps<K extends record.Key>
+  extends Omit<Align.SpaceProps, "key" | "onSelect" | "translate">,
+    ItemRenderProps<K> {
   draggingOver?: boolean;
   rightAligned?: boolean;
   highlightHovered?: boolean;
@@ -30,24 +37,9 @@ export interface ItemFrameProps<K extends record.Key, E extends record.Keyed<K>>
   hovered?: boolean;
 }
 
-export interface ItemProps<
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> | undefined = record.Keyed<K>,
-> {
-  index: number;
-  key: K;
-  itemKey: K;
-  className?: string;
-  translate?: number;
-  useItem: (key: K) => E;
-}
+export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
 
-export type ItemRenderProp<
-  K extends record.Key,
-  E extends record.Keyed<K> | undefined = record.Keyed<K>,
-> = RenderProp<ItemProps<K, E>>;
-
-export const ItemFrame = <K extends record.Key, E extends record.Keyed<K>>({
+export const Item = <K extends record.Key>({
   itemKey,
   className,
   direction = "x",
@@ -61,7 +53,7 @@ export const ItemFrame = <K extends record.Key, E extends record.Keyed<K>>({
   hovered,
   style,
   ...rest
-}: ItemFrameProps<K, E>): ReactElement => (
+}: ItemProps<K>): ReactElement => (
   <Align.Space
     id={itemKey.toString()}
     direction={direction}

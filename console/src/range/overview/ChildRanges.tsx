@@ -11,7 +11,7 @@ import { type ranger } from "@synnaxlabs/client";
 import {
   Align,
   Button,
-  componentRenderProp,
+  Component.renderProp,
   Icon,
   List,
   Ranger,
@@ -54,7 +54,7 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
   );
 };
 
-const childRangeListItem = componentRenderProp(ChildRangeListItem);
+const childRangeListItem = Component.renderProp(ChildRangeListItem);
 
 export interface ChildRangesProps {
   rangeKey: string;

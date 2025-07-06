@@ -15,7 +15,7 @@ import {
   Align,
   Breadcrumb,
   Button,
-  componentRenderProp,
+  Component.renderProp,
   Eraser,
   Icon,
   Menu as PMenu,
@@ -145,7 +145,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
   );
 };
 
-const contextMenu = componentRenderProp(ContextMenu);
+const contextMenu = Component.renderProp(ContextMenu);
 
 interface MosaicProps {
   windowKey: string;

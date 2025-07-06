@@ -7,4 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Dialog from "@/dialog/external";
+import { z } from "zod/v4";
+
+export const SIZES = ["tiny", "small", "medium", "large", "huge"] as const;
+export const size = z.enum(SIZES);
+export type Size = z.infer<typeof size>;
+
+export const isSize = (value: unknown): value is Size => size.safeParse(value).success;

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Align, componentRenderProp, Icon } from "@synnaxlabs/pluto";
+import { Align, Component.renderProp, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -61,7 +61,7 @@ const NameComponent = ({ entry: { channel, key } }: NameProps<DIChannel>) => (
   <Common.Task.ChannelName channel={channel} id={Common.Task.getChannelNameID(key)} />
 );
 
-const name = componentRenderProp(NameComponent);
+const name = Component.renderProp(NameComponent);
 
 const Form: FC<
   Common.Task.FormProps<

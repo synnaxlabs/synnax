@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, location } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { caseconv } from "@synnaxlabs/x";
+import { type ReactElement, useMemo } from "react";
 
 import { Align } from "@/align";
-import { Button } from "@/button";
 import { Icon } from "@/icon";
 import { Select } from "@/select";
 import { Text } from "@/text";
@@ -20,12 +19,6 @@ import { type Trigger } from "@/triggers/triggers";
 import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
 
 export type FilteredMode = Exclude<Mode, "cancel">;
-
-interface Entry {
-  key: FilteredMode;
-  icon: Icon.ReactElement;
-  tooltip: ReactNode;
-}
 
 interface TooltipProps {
   mode: FilteredMode;
@@ -41,51 +34,63 @@ const Tooltip = ({ mode, triggers }: TooltipProps): ReactElement => (
   </Align.Space>
 );
 
-const MODE_ICONS: Record<FilteredMode, ReactElement> = {
-  zoom: <Icon.Zoom />,
-  pan: <Icon.Pan />,
-  select: <Icon.Selection />,
-  zoomReset: <Icon.Expand />,
-  click: <Icon.Bolt />,
-};
-
-export interface SelectModeProps extends Omit<Select.ButtonProps<Mode>, "data"> {
+export interface SelectModeProps extends Select.SingleProps<Mode> {
   triggers: UseTriggers;
   disable?: FilteredMode[];
 }
 
 export const SelectMode = ({
   triggers,
-  disable = ["zoomReset", "click"],
+  value,
+  onChange,
+  disable: propsDisabled = ["zoomReset", "click"],
   ...rest
 }: SelectModeProps): ReactElement => {
-  const vDisabled = [...disable, "cancel"];
-  const data = Object.entries(triggers)
-    .filter(
-      ([key]) =>
-        !vDisabled.includes(key as FilteredMode) && MODES.includes(key as FilteredMode),
-    )
-    .map(([key, value]) => ({
-      key: key as FilteredMode,
-      icon: MODE_ICONS[key as FilteredMode],
-      tooltip: <Tooltip mode={key as FilteredMode} triggers={value as Trigger[]} />,
-    }))
-    .sort((a, b) => MODES.indexOf(a.key) - MODES.indexOf(b.key)) as Entry[];
-
+  const { disabled, data } = useMemo(() => {
+    const disabled = new Set([...propsDisabled, "cancel"]);
+    const data = MODES.filter((m) => !disabled.has(m));
+    return { disabled, data };
+  }, [propsDisabled]);
+  const { onSelect, clear } = Select.useSingle({ data, value, onChange });
   return (
-    <Select.Button<Mode, Entry> {...rest} data={data} entryRenderKey="icon">
-      {({ title: _, entry, ...rest }) => (
-        <Button.Icon
-          {...rest}
-          key={entry.key}
-          variant={rest.selected ? "filled" : "outlined"}
-          size="small"
-          tooltip={entry.tooltip}
-          tooltipLocation={location.BOTTOM_LEFT}
+    <Select.Buttons {...rest} onSelect={onSelect} clear={clear} value={value}>
+      {!disabled.has("zoom") && (
+        <Select.ButtonIcon
+          itemKey="zoom"
+          tooltip={<Tooltip mode="zoom" triggers={triggers.zoom} />}
         >
-          {entry.icon}
-        </Button.Icon>
+          <Icon.Zoom />
+        </Select.ButtonIcon>
       )}
-    </Select.Button>
+      {!disabled.has("pan") && (
+        <Select.ButtonIcon
+          itemKey="pan"
+          tooltip={<Tooltip mode="pan" triggers={triggers.pan} />}
+        >
+          <Icon.Pan />
+        </Select.ButtonIcon>
+      )}
+      {!disabled.has("select") && (
+        <Select.ButtonIcon
+          itemKey="select"
+          tooltip={<Tooltip mode="select" triggers={triggers.select} />}
+        >
+          <Icon.Selection />
+        </Select.ButtonIcon>
+      )}
+      {!disabled.has("zoomReset") && (
+        <Select.ButtonIcon
+          itemKey="zoomReset"
+          tooltip={<Tooltip mode="zoomReset" triggers={triggers.zoomReset} />}
+        >
+          <Icon.Expand />
+        </Select.ButtonIcon>
+      )}
+      {!disabled.has("click") && (
+        <Select.ButtonIcon itemKey="click">
+          <Icon.Bolt />
+        </Select.ButtonIcon>
+      )}
+    </Select.Buttons>
   );
 };

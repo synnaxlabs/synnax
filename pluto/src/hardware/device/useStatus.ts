@@ -10,7 +10,7 @@
 import { type device } from "@synnaxlabs/client";
 import { useCallback, useState as useState_ } from "react";
 
-import { useStatusSynchronizer } from "@/hardware/device/synchronizers";
+import { useStatusSynchronizer } from "@/hardware/device/queries";
 import { useAsyncEffect } from "@/hooks";
 import { Synnax } from "@/synnax";
 

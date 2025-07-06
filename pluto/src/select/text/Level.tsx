@@ -9,25 +9,27 @@
 
 import { type ReactElement } from "react";
 
-import { Button, type ButtonProps } from "@/select/Button";
-import { type text } from "@/text/core";
+import { Select } from "@/select";
+import { Buttons } from "@/select/Button";
+import { text } from "@/text/core";
 
-export interface LevelEntry {
-  key: text.Level;
-  label: string;
-}
+export interface LevelProps extends Select.SingleProps<text.Level> {}
 
-export interface LevelProps
-  extends Omit<ButtonProps<text.Level, LevelEntry>, "data" | "entryRenderKey"> {}
+const DATA = [...text.LEVELS];
 
-const DATA: LevelEntry[] = [
-  { key: "h2", label: "XL" },
-  { key: "h3", label: "L" },
-  { key: "h4", label: "M" },
-  { key: "h5", label: "S" },
-  { key: "small", label: "XS" },
-];
-
-export const Level = (props: LevelProps): ReactElement => (
-  <Button {...props} data={DATA} entryRenderKey="label" />
-);
+export const Level = ({ value, onChange, ...rest }: LevelProps): ReactElement => {
+  const { onSelect, ...selectProps } = Select.useSingle({
+    value,
+    onChange,
+    data: DATA,
+  });
+  return (
+    <Buttons {...rest} {...selectProps} value={value} onSelect={onSelect}>
+      <Select.Button itemKey="h2">XL</Select.Button>
+      <Select.Button itemKey="h3">L</Select.Button>
+      <Select.Button itemKey="h4">M</Select.Button>
+      <Select.Button itemKey="h5">S</Select.Button>
+      <Select.Button itemKey="small">XS</Select.Button>
+    </Buttons>
+  );
+};

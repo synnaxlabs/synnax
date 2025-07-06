@@ -212,7 +212,7 @@ const RETRIEVE_ENDPOINT = "/range/retrieve";
 
 const retrieveResZ = z.object({ ranges: nullableArrayZ(payloadZ) });
 
-export class Client implements AsyncTermSearcher<string, Key, Range> {
+export class Client {
   readonly type: string = "range";
   private readonly frameClient: framer.Client;
   private readonly writer: Writer;

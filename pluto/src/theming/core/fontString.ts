@@ -9,10 +9,10 @@
 
 import { text } from "@/text/core";
 import { type ThemeSpec } from "@/theming/core/theme";
-import { type ComponentSize, isComponentSize } from "@/util/component";
+import { type SIZES, isSize } from "@/component/size";
 
 interface FontStringOptions {
-  level: text.Level | ComponentSize;
+  level: text.Level | Size;
   weight?: text.Weight;
   code?: boolean;
 }
@@ -59,7 +59,7 @@ export const fontString = (
     else fmly = "Inter Light, sans-serif";
   }
   const size =
-    typography[isComponentSize(level) ? text.ComponentSizeLevels[level] : level].size;
+    typography[isSize(level) ? text.COMPONENT_SIZE_LEVELS[level] : level].size;
   const sizePx = (base * size).toFixed(1);
   const [family, serif] = fmly.split(", ");
   if (weight != null) return ` ${weight} ${sizePx}px ${family}, ${serif}`;

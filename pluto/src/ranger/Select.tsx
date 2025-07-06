@@ -8,17 +8,37 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { array, type AsyncTermSearcher, unique } from "@synnaxlabs/x";
-import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
+import { array, unique } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useState } from "react";
 
+import { Align } from "@/align";
+import { renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
-import { type List } from "@/list";
+import { Input } from "@/input";
+import { List } from "@/list";
 import { useList } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select } from "@/select";
-import { componentRenderProp } from "@/util/renderProp";
+import { Tag } from "@/tag";
+import { Text } from "@/text";
+
+const ListItem = ({
+  itemKey,
+  ...rest
+}: List.ItemRenderProps<ranger.Key>): ReactElement | null => {
+  const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
+  const [selected, onSelect] = Select.useItemState<ranger.Key>(itemKey);
+  return (
+    <List.Item itemKey={itemKey} onSelect={onSelect} selected={selected} {...rest}>
+      <Text.Text level="p">{item?.name}</Text.Text>
+    </List.Item>
+  );
+};
+
+const listItemRenderProp = renderProp(ListItem);
 
 const canDrop = (
   { items: entities }: DraggingState,
@@ -28,11 +48,38 @@ const canDrop = (
   return f.length > 0 && !f.every((h) => value.includes(h.key as ranger.Key));
 };
 
-export interface SelectMultipleProps
-  extends Omit<
-    Select.MultipleProps<ranger.Key, ranger.Payload>,
-    "columns" | "searcher"
-  > {}
+const MultipleTag = ({
+  itemKey,
+  onDragStart,
+}: Omit<Tag.TagProps, "onDragStart"> & {
+  itemKey: ranger.Key;
+  onDragStart: (key: ranger.Key) => void;
+}): ReactElement => {
+  const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
+  const [, onSelect] = Select.useItemState(itemKey);
+  return (
+    <Tag.Tag onSelect={onSelect} onDragStart={() => onDragStart(itemKey)} draggable>
+      {item?.name}
+    </Tag.Tag>
+  );
+};
+
+export interface MultipleTriggerProps extends Align.SpaceExtensionProps {
+  onTagDragStart: (key: ranger.Key) => void;
+}
+
+const MultipleTrigger = ({ onTagDragStart }: MultipleTriggerProps): ReactElement => {
+  const value = Select.useSelection<ranger.Key>();
+  return (
+    <Align.Space x bordered>
+      {value.map((v) => (
+        <MultipleTag key={v} itemKey={v} onDragStart={onTagDragStart} />
+      ))}
+    </Align.Space>
+  );
+};
+
+export interface SelectMultipleProps extends Select.MultipleProps<ranger.Key> {}
 
 export const SelectMultiple = ({
   onChange,
@@ -40,6 +87,8 @@ export const SelectMultiple = ({
   value,
   ...rest
 }: SelectMultipleProps): ReactElement => {
+  const { data, useListItem, retrieve } = useList();
+  const { onSelect, ...selectProps } = Select.useMultiple({ value, onChange, data });
   const {
     startDrag,
     onDragEnd: endDrag,
@@ -47,110 +96,106 @@ export const SelectMultiple = ({
   } = Haul.useDragAndDrop({
     type: "Ranger.SelectMultiple",
     canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
-    onDrop: useCallback(
+    onDrop: Haul.useFilterByTypeCallback(
+      HAUL_TYPE,
       ({ items }) => {
-        const dropped = Haul.filterByType(HAUL_TYPE, items);
-        if (dropped.length === 0) return [];
-        const v = unique.unique([
-          ...array.toArray(value),
-          ...(dropped.map((c) => c.key) as ranger.Keys),
-        ]);
-        onChange(v, {
-          clicked: null,
-          entries: [],
-        });
-        return dropped;
+        onChange(
+          unique.unique([
+            ...array.toArray(value),
+            ...(items.map((c) => c.key) as ranger.Keys),
+          ]),
+          { clicked: null, clickedIndex: null },
+        );
+        return items;
       },
       [onChange, value],
     ),
   });
-  const dragging = Haul.useDraggingState();
 
   const handleSuccessfulDrop = useCallback(
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
       onChange(
         array.toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
-        { clicked: null, entries: [] },
+        { clicked: null, clickedIndex: null },
       );
     },
     [onChange, value],
   );
 
-  const onDragStart = useCallback(
-    (_: DragEvent<HTMLDivElement>, key: ranger.Key) =>
-      startDrag([{ key, type: HAUL_TYPE }], handleSuccessfulDrop),
+  const onTagDragStart = useCallback(
+    (key: ranger.Key) => startDrag([{ key, type: HAUL_TYPE }], handleSuccessfulDrop),
     [startDrag, handleSuccessfulDrop],
   );
 
+  const dragging = Haul.useDraggingState();
   return (
-    <Select.Multiple
+    <Select.Dialog<ranger.Key, ranger.Payload | undefined>
       className={CSS(
         className,
         CSS.dropRegion(canDrop(dragging, array.toArray(value))),
       )}
       value={value}
-      onTagDragStart={onDragStart}
-      onTagDragEnd={endDrag}
-      searcher={client?.ranges}
-      onChange={onChange}
-      columns={rangeCols}
-      emptyContent={emptyContent}
-      entryRenderKey="name"
+      onSelect={onSelect}
+      useItem={useListItem}
+      data={data}
       {...dropProps}
+      {...selectProps}
       {...rest}
-    />
+    >
+      <MultipleTrigger onTagDragStart={onTagDragStart} />
+      <DialogContent retrieve={retrieve} />
+    </Select.Dialog>
   );
 };
 
-export interface SelectSingleProps
-  extends Omit<
-    Select.SingleProps<ranger.Key, ranger.Payload>,
-    "columns" | "children"
-  > {}
+const SingleTrigger = (): ReactElement => {
+  const [value] = Select.useSelection<ranger.Key>();
+  const item = List.useItem<ranger.Key, ranger.Payload>(value);
+  return (
+    <Dialog.Trigger>
+      <Text.Text level="p">{item?.name}</Text.Text>
+    </Dialog.Trigger>
+  );
+};
 
-const SingleTrigger = ({
-  value,
-  useItem,
-  onClick,
-}: Select.TriggerProps<ranger.Key, ranger.Payload | undefined>): ReactElement => <></>;
+const DialogContent = ({
+  retrieve,
+}: Pick<ReturnType<typeof useList>, "retrieve">): ReactElement => {
+  const [search, setSearch] = useState("");
+  return (
+    <Dialog.Content>
+      <Input.Text
+        value={search}
+        onChange={(v) => {
+          setSearch(v);
+          retrieve((prev) => ({ ...prev, search: v }));
+        }}
+      />
+      <List.Items>{listItemRenderProp}</List.Items>
+    </Dialog.Content>
+  );
+};
 
-const ListItem = ({
-  key,
-  index,
-  itemKey,
-  translate,
-  useItem,
-}: List.ItemProps<ranger.Key, ranger.Payload | undefined>): ReactElement => <></>;
-
-const listItemRenderProp = componentRenderProp(ListItem);
-
-const singleTriggerRenderProp = componentRenderProp(SingleTrigger);
+export interface SelectSingleProps extends Select.SingleProps<ranger.Key> {}
 
 export const SelectSingle = ({
   onChange,
   value,
   className,
-  data: _,
-  useItem: __,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, useListItem } = useList();
-  const id = useId();
-  const sourceAndTarget: Haul.Item = useMemo(
-    () => ({ key: id, type: "Ranger.SelectMultiple" }),
-    [id],
-  );
+  const { data, useListItem, retrieve } = useList();
+  const { onSelect, ...selectProps } = Select.useSingle({ value, onChange, data });
   const { startDrag, ...dragProps } = Haul.useDragAndDrop({
     type: "Ranger.SelectSingle",
     canDrop: useCallback((hauled) => canDrop(hauled, array.toArray(value)), [value]),
-    onDrop: useCallback(
+    onDrop: Haul.useFilterByTypeCallback(
+      HAUL_TYPE,
       ({ items }) => {
-        const ch = Haul.filterByType(HAUL_TYPE, items);
-        if (ch.length === 0) return [];
-        onChange(ch[0].key as ranger.Key, { clicked: null, clickedIndex: 0 });
-        return ch;
+        if (items.length !== 0) onSelect(items[0].key as ranger.Key);
+        return items;
       },
-      [sourceAndTarget, onChange],
+      [onSelect],
     ),
   });
   const dragging = Haul.useDraggingState();
@@ -159,21 +204,22 @@ export const SelectSingle = ({
     [startDrag, value],
   );
   return (
-    <Select.Single<ranger.Key, ranger.Payload | undefined>
+    <Select.Dialog<ranger.Key, ranger.Payload | undefined>
       className={CSS(
         className,
         CSS.dropRegion(canDrop(dragging, array.toArray(value))),
       )}
       value={value}
-      onChange={onChange}
+      onSelect={onSelect}
       useItem={useListItem}
       data={data}
       onDragStart={onDragStart}
       {...dragProps}
+      {...selectProps}
       {...rest}
     >
-      {singleTriggerRenderProp}
-      {listItemRenderProp}
-    </Select.Single>
+      <SingleTrigger />
+      <DialogContent retrieve={retrieve} />
+    </Select.Dialog>
   );
 };

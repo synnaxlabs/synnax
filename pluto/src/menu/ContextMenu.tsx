@@ -16,7 +16,7 @@ import { createPortal } from "react-dom";
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
-import { type RenderProp } from "@/util/renderProp";
+import { type RenderProp } from "@/component/renderProp";
 
 interface ContextMenuState {
   visible: boolean;

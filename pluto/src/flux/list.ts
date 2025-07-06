@@ -36,7 +36,7 @@ export type UseListReturn<
   E extends record.Keyed<K>,
 > = Omit<UseStatefulRetrieveReturn<RetrieveParams, K[]>, "data"> & {
   data: K[];
-  useListItem: (key: K) => E | undefined;
+  useListItem: (key: K | null) => E | undefined;
 };
 
 export interface RetrieveByKeyArgs<K extends record.Key> {
@@ -186,11 +186,12 @@ export const createList =
       [dataRef, retrieveByKey, client],
     );
 
-    const useListItem = (key: K) => {
+    const useListItem = (key: K | null) => {
       const abortControllerRef = useRef<AbortController | null>(null);
       return useSyncExternalStore<E | undefined>(
         useCallback(
           (callback) => {
+            if (key == null) return () => {};
             abortControllerRef.current = new AbortController();
             listenersRef.current.listeners.set(callback, key);
             return () => {
@@ -201,6 +202,7 @@ export const createList =
           [key],
         ),
         useCallback(() => {
+          if (key == null) return undefined;
           const res = dataRef.current.get(key);
           if (res == null)
             retrieveSingle(key, { signal: abortControllerRef.current?.signal });

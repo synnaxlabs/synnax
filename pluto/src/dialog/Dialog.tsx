@@ -30,19 +30,14 @@ import {
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Dialog as CoreDialog } from "@/dialog";
+import { Background } from "@/dialog/Background";
 import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
-import { Modal } from "@/modal";
 import { Triggers } from "@/triggers";
-import { type ComponentSize } from "@/util/component";
 import { findParent } from "@/util/findParent";
 import { getRootElement } from "@/util/rootElement";
-
-export type UseProps = CoreDialog.UseProps;
-export type UseReturn = CoreDialog.UseReturn;
-
-export const use = CoreDialog.use;
 
 export type Variant = "connected" | "floating" | "modal";
 
@@ -54,7 +49,7 @@ export interface DialogProps
   children: [ReactNode, ReactNode];
   keepMounted?: boolean;
   variant?: Variant;
-  maxHeight?: ComponentSize | number;
+  maxHeight?: Component.Size | number;
   zIndex?: number;
   modalOffset?: number;
 }
@@ -200,7 +195,7 @@ export const Dialog = ({
   if (variant === "floating") child = createPortal(child, getRootElement());
   else if (variant === "modal")
     child = createPortal(
-      <Modal.Background
+      <Background
         role="dialog"
         empty
         align="center"
@@ -208,11 +203,11 @@ export const Dialog = ({
         visible={visible}
       >
         {child}
-      </Modal.Background>,
+      </Background>,
       getRootElement(),
     );
 
-  const ctxValue = useMemo(() => ({ close }), [close]);
+  const ctxValue = useMemo(() => ({ close, open }), [close, open]);
   return (
     <CoreDialog.Provider value={ctxValue}>
       <C
@@ -332,3 +327,5 @@ const calcConnectedDialog = ({
   }
   return { adjustedDialog, location };
 };
+
+export const Content = Align.Space;
