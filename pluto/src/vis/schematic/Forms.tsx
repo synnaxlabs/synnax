@@ -10,7 +10,13 @@
 import "@/vis/schematic/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { type bounds, color, type direction, location, type xy } from "@synnaxlabs/x";
+import {
+  type bounds,
+  color,
+  type direction,
+  type location,
+  type xy,
+} from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback, useEffect } from "react";
 
 import { Align } from "@/align";
@@ -28,7 +34,7 @@ import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Text } from "@/text";
-import { type Button as CoreButton } from "@/vis/button";
+import { Button as CoreButton } from "@/vis/button";
 import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
 import {
   type ControlStateProps,
@@ -686,29 +692,6 @@ type ButtonTelemFormT = Omit<CoreButton.UseProps, "aetherKey"> & {
   control: ControlStateProps;
 };
 
-const SelectButtonMode = Form.buildButtonSelectField({
-  fieldProps: { label: "Mode" },
-  inputProps: {
-    entryRenderKey: "name",
-    tooltipKey: "tooltip",
-    tooltipLocation: location.TOP_RIGHT,
-    data: [
-      { key: "fire", name: "Fire", tooltip: "Output true when clicked" },
-      {
-        key: "momentary",
-        name: "Momentary",
-        tooltip: "Output true on press, false on release",
-      },
-      {
-        key: "pulse",
-        name: "Pulse",
-        tooltip: "Output true and then immediately output false on click",
-      },
-    ],
-    allowNone: false,
-  },
-});
-
 export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Form.useField<ButtonTelemFormT>(path);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
@@ -766,7 +749,11 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
           padHelpText={false}
         />
       </Align.Space>
-      <SelectButtonMode path="mode" optional defaultValue="fire" />
+      <Form.Field<CoreButton.Mode> path="mode" label="Mode" optional>
+        {({ value, onChange }) => (
+          <CoreButton.SelectMode value={value} onChange={onChange} />
+        )}
+      </Form.Field>
     </FormWrapper>
   );
 };

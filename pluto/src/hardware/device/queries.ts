@@ -8,35 +8,42 @@
 // included in the file licenses/APL.txt.
 
 import { device } from "@synnaxlabs/client";
+import { type record } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
 
-export const useSetSynchronizer = (onSet: (device: device.Device) => void): void =>
-  Sync.useListener({
-    channel: device.SET_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(device.deviceZ, async (args) => {
-      onSet(args.changed);
-    }),
-  });
+export interface RetrieveParams extends Flux.Params {
+  key: device.Key;
+}
 
-export const useDeleteSynchronizer = (onDelete: (key: device.Key) => void): void =>
-  Sync.useListener({
-    channel: device.DELETE_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(device.keyZ, async (args) => {
-      onDelete(args.changed);
-    }),
-  });
-
-export const useStatusSynchronizer = (
-  onStatusChange: (status: device.Status) => void,
-): void =>
-  Sync.useListener({
-    channel: device.STATUS_CHANNEL_NAME,
-    onChange: Sync.parsedHandler(device.statusZ, async (args) => {
-      onStatusChange(args.changed);
-    }),
-  });
+export const useRetrieve = <
+  Properties extends record.Unknown = record.Unknown,
+  Make extends string = string,
+  Model extends string = string,
+>() =>
+  Flux.createRetrieve<RetrieveParams, device.Device<Properties, Make, Model>>({
+    name: "Device",
+    retrieve: async ({ client, params }) =>
+      await client.hardware.devices.retrieve(params.key),
+    listeners: [
+      {
+        channel: device.SET_CHANNEL_NAME,
+        onChange: Sync.parsedHandler(device.deviceZ, async ({ onChange, changed }) =>
+          onChange(changed as device.Device<Properties, Make, Model>),
+        ),
+      },
+      {
+        channel: device.STATUS_CHANNEL_NAME,
+        onChange: Sync.parsedHandler(device.statusZ, async ({ changed, onChange }) =>
+          onChange((p) => {
+            p.status = changed;
+            return p;
+          }),
+        ),
+      },
+    ],
+  }).useDirect;
 
 export interface ListParams extends Flux.Params {
   term?: string;
@@ -49,4 +56,27 @@ export const useList = Flux.createList<ListParams, device.Key, device.Device>({
   retrieve: async ({ client, params }) =>
     await client.hardware.devices.search(params.term ?? ""),
   retrieveByKey: async ({ client, key }) => await client.hardware.devices.retrieve(key),
+  listeners: [
+    {
+      channel: device.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(device.deviceZ, async ({ onChange, changed }) =>
+        onChange(changed.key, changed),
+      ),
+    },
+    {
+      channel: device.DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(device.keyZ, async ({ changed, onDelete }) =>
+        onDelete(changed),
+      ),
+    },
+    {
+      channel: device.STATUS_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(device.statusZ, async ({ changed, onChange }) =>
+        onChange(changed.key, (p) => {
+          p.status = changed;
+          return p;
+        }),
+      ),
+    },
+  ],
 });

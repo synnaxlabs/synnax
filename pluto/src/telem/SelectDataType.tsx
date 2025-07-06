@@ -34,10 +34,10 @@ export interface DataTypeProps extends Select.SingleProps<string> {
 }
 
 const itemRenderProp = renderProp(
-  ({ key, ...rest }: List.ItemRenderProps<string>): ReactElement => {
-    const item = List.useItem<string, record.KeyedNamed>(key);
+  ({ itemKey, ...rest }: List.ItemRenderProps<string>): ReactElement => {
+    const item = List.useItem<string, record.KeyedNamed>(itemKey);
     return (
-      <List.Item key={key} itemKey={key} {...rest}>
+      <List.Item itemKey={itemKey} {...rest}>
         <Text.Text level="p">{item?.name}</Text.Text>
       </List.Item>
     );
@@ -53,12 +53,12 @@ export const SelectDataType = ({
   const { useItem, data } = List.useStaticData<string, record.KeyedNamed>(
     hideVariableDensity ? FIXED_DENSITY_DATA : DATA,
   );
-  const { onSelect } = Select.useSingle({ data, value, onChange });
+  const selectProps = Select.useSingle({ data, value, onChange });
   const selected = useItem(value);
   return (
     <Select.Dialog
       {...rest}
-      onSelect={onSelect}
+      {...selectProps}
       value={value}
       useItem={useItem}
       data={data}

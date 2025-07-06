@@ -12,12 +12,15 @@ import { type ReactElement, useCallback } from "react";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
+import { Component } from "@/component";
+import { Dialog } from "@/dialog";
 import { Form } from "@/form";
 import { Input } from "@/input";
+import { List } from "@/list";
 import { Select } from "@/select";
 import { type Variant } from "@/table/cells/registry";
 import { Tabs } from "@/tabs";
-import { type Text } from "@/text";
+import { Text } from "@/text";
 import { Value } from "@/vis/value";
 
 export interface FormProps {
@@ -168,7 +171,7 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
     </Form.Field>
     <Form.Field<Align.Alignment> path="align" label="Alignment" hideIfNull>
       {({ value, onChange, variant: ___, ...rest }) => (
-        <Select.Select value={value} onChange={onChange} {...rest} />
+        <Align.Select value={value} onChange={onChange} {...rest} />
       )}
     </Form.Field>
     <Form.Field<color.Crude>
@@ -189,17 +192,28 @@ const VARIANT_DATA: VariantEntry[] = [
   { key: "value", name: "Value" },
 ];
 
-interface SelectVariantProps
-  extends Omit<
-    ButtonProps<Variant, VariantEntry>,
-    "data" | "entryRenderKey" | "allowMultiple"
-  > {}
+interface SelectVariantProps extends Select.SingleProps<Variant> {}
 
-const SelectVariant = (props: SelectVariantProps) => (
-  <Select.Buttons<Variant>
-    {...props}
-    data={VARIANT_DATA}
-    allowMultiple={false}
-    entryRenderKey="name"
-  />
+const variantListRenderProp = Component.renderProp(
+  ({ itemKey, ...rest }: List.ItemRenderProps<Variant>) => {
+    const item = List.useItem<Variant, VariantEntry>(itemKey);
+    return (
+      <List.Item itemKey={itemKey} {...rest}>
+        <Text.Text level="p">{item?.name}</Text.Text>
+      </List.Item>
+    );
+  },
 );
+
+const SelectVariant = ({ value, onChange }: SelectVariantProps) => {
+  const { data, useItem } = List.useStaticData<Variant, VariantEntry>(VARIANT_DATA);
+  const selectProps = Select.useSingle({ data, value, onChange });
+  return (
+    <Select.Dialog value={value} data={data} useItem={useItem} {...selectProps}>
+      <Dialog.Trigger></Dialog.Trigger>
+      <Dialog.Content>
+        <List.Items>{variantListRenderProp}</List.Items>
+      </Dialog.Content>
+    </Select.Dialog>
+  );
+};

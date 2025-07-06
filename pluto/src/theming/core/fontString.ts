@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Component } from "@/component";
+import { isSize } from "@/component/size";
 import { text } from "@/text/core";
 import { type ThemeSpec } from "@/theming/core/theme";
-import { type SIZES, isSize } from "@/component/size";
 
 interface FontStringOptions {
-  level: text.Level | Size;
+  level: text.Level | Component.Size;
   weight?: text.Weight;
   code?: boolean;
 }
