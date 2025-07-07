@@ -12,6 +12,7 @@ package telem_test
 import (
 	"bytes"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
@@ -227,6 +228,27 @@ var _ = Describe("Series", func() {
 			})
 		})
 
+		Describe("MarshalUUIDs", func() {
+			It("Should correctly marshal a UUID", func() {
+				ids := uuid.UUIDs{uuid.New()}
+				Expect(telem.MarshalUUIDs(ids)).To(Equal([]byte(ids[0][:])))
+			})
+			It("should correctly unmarshal multiple uuids", func() {
+				ids := uuid.UUIDs{uuid.New(), uuid.New()}
+				bytes := []byte(ids[0][:])
+				bytes = append(bytes, ids[1][:]...)
+				Expect(telem.MarshalUUIDs(ids)).To(Equal(bytes))
+			})
+		})
+		Describe("UnmarshalUUIDs", func() {
+			It("should correctly unmarshal multiple uuids", func() {
+				ids := uuid.UUIDs{uuid.New(), uuid.New()}
+				bytes := []byte(ids[0][:])
+				bytes = append(bytes, ids[1][:]...)
+				Expect(telem.UnmarshalUUIDs(bytes)).To(Equal(ids))
+			})
+		})
+
 		Describe("StaticJSONV", func() {
 			It("Should correctly marshal a static JSON data structure", func() {
 				data := map[string]any{
@@ -236,6 +258,26 @@ var _ = Describe("Series", func() {
 				}
 				s := telem.NewSeriesStaticJSONV(data)
 				Expect(s.Len()).To(Equal(int64(1)))
+			})
+		})
+
+		Describe("NewSeriesUUIDs", func() {
+			It("should correctly create a slice of UUIDs", func() {
+				ids := uuid.UUIDs{uuid.New(), uuid.New()}
+				s := telem.NewSeriesUUIDs(ids)
+				Expect(s.Len()).To(Equal(int64(2)))
+				Expect(s.At(0)).To(Equal([]byte(ids[0][:])))
+				Expect(s.At(1)).To(Equal([]byte(ids[1][:])))
+			})
+		})
+
+		Describe("NewSeriesUUIDsV", func() {
+			It("should correctly create a slice of UUIDs", func() {
+				ids := uuid.UUIDs{uuid.New(), uuid.New()}
+				s := telem.NewSeriesUUIDsV(ids[0], ids[1])
+				Expect(s.Len()).To(Equal(int64(2)))
+				Expect(s.At(0)).To(Equal([]byte(ids[0][:])))
+				Expect(s.At(1)).To(Equal([]byte(ids[1][:])))
 			})
 		})
 	})
