@@ -14,6 +14,7 @@ type Density uint32
 
 // SampleCount returns the number of samples within the number of bytes provided in
 // Size.
+//
 // For example,
 //
 //	Bit64.SampleCount(16) == 2
@@ -24,8 +25,9 @@ func (d Density) SampleCount(size Size) int64 {
 	return int64(size) / int64(d)
 }
 
-// Size returns the number of bytes occupied by the number of samples provided
-// in sampleCount.
+// Size returns the number of bytes occupied by the number of samples provided in
+// sampleCount.
+//
 // For example,
 //
 //	Bit64.Size(2) == 16

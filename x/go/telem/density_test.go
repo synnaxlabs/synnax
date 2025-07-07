@@ -20,6 +20,9 @@ var _ = Describe("Density", func() {
 		It("Should return the number of samples within the number of bytes", func() {
 			Expect(telem.Bit64.SampleCount(16)).To(Equal(int64(2)))
 		})
+		It("should work with zero bytes", func() {
+			Expect(telem.Bit64.SampleCount(0)).To(Equal(int64(0)))
+		})
 		It("Should panic if the density if unknown", func() {
 			Expect(func() {
 				telem.UnknownDensity.SampleCount(16)
@@ -30,6 +33,9 @@ var _ = Describe("Density", func() {
 	Describe("Size", func() {
 		It("Should return the number of bytes occupied by the given sample count", func() {
 			Expect(telem.Bit64.Size(2)).To(Equal(telem.Size(16)))
+		})
+		It("should work with zero samples", func() {
+			Expect(telem.Bit64.Size(0)).To(Equal(telem.Size(0)))
 		})
 		It("Should panic if the density if unknown", func() {
 			Expect(func() {
