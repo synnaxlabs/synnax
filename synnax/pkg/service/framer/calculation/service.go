@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
@@ -43,19 +43,22 @@ import (
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
 	alamos.Instrumentation
-	// Framer is the underlying frame service to stream required channel values and write
-	// calculated samples.
+	// Framer is the underlying frame service to stream required channel values and
+	// write calculated samples.
+	//
 	// [REQUIRED]
 	Framer *framer.Service
 	// Channel is used to retrieve information about the channels being calculated.
+	//
 	// [REQUIRED]
 	Channel channel.Service
 	// ChannelObservable is used to listen to real-time changes in calculated channels
 	// so the calculation routines can be updated accordingly.
+	//
 	// [REQUIRED]
 	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
-	// StateCodec is the encoder/decoder used to communicate calculation state
-	// changes.
+	// StateCodec is the encoder/decoder used to communicate calculation state changes.
+	//
 	// [OPTIONAL]
 	StateCodec binary.Codec
 }
@@ -114,8 +117,8 @@ type Service struct {
 
 const StatusChannelName = "sy_calculation_status"
 
-// OpenService opens the service with the provided configuration. The service must be closed
-// when it is no longer needed.
+// OpenService opens the service with the provided configuration. The service must be
+// closed when it is no longer needed.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -164,7 +167,7 @@ func (s *Service) setStatus(
 	_ context.Context,
 	status Status,
 ) {
-	if _, err := s.w.Write(core.UnaryFrame(
+	if _, err := s.w.Write(frame.UnaryFrame(
 		s.stateKey,
 		telem.NewSeriesStaticJSONV(status),
 	)); err != nil {

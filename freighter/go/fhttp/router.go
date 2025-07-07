@@ -47,8 +47,8 @@ func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 	return r
 }
 
-func NewRouter(configs ...RouterConfig) *Router {
-	cfg, err := config.New(RouterConfig{}, configs...)
+func NewRouter(cfgs ...RouterConfig) *Router {
+	cfg, err := config.New(RouterConfig{}, cfgs...)
 	if err != nil {
 		panic(err)
 	}
@@ -99,9 +99,9 @@ func (r *Router) Report() alamos.Report {
 	return alamos.Report{}
 }
 
-func (r *Router) Use(middleware ...freighter.Middleware) {
+func (r *Router) Use(middlewares ...freighter.Middleware) {
 	for _, route := range r.routes {
-		route.transport.Use(middleware...)
+		route.transport.Use(middlewares...)
 	}
 }
 
@@ -145,4 +145,14 @@ func UnaryServer[RQ, RS freighter.Payload](r *Router, path string, opts ...Serve
 	}
 	r.register(path, "POST", us, us.fiberHandler)
 	return us
+}
+
+func PipelineServer[RQ freighter.Payload](r *Router, path string, opts ...ServerOption) freighter.PipelineServer[RQ] {
+	ps := &pipelineServer[RQ]{
+		serverOptions: newServerOptions(opts),
+		Reporter:      pipelineReporter,
+		path:          path,
+	}
+	r.register(path, "POST", ps, ps.fiberHandler)
+	return ps
 }

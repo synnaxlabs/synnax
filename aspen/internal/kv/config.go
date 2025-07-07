@@ -62,50 +62,50 @@ type Config struct {
 }
 
 // Override implements config.Config.
-func (cfg Config) Override(other Config) Config {
-	cfg.Cluster = override.Nil(cfg.Cluster, other.Cluster)
-	cfg.BatchTransportClient = override.Nil(cfg.BatchTransportClient, other.BatchTransportClient)
-	cfg.BatchTransportServer = override.Nil(cfg.BatchTransportServer, other.BatchTransportServer)
-	cfg.FeedbackTransportClient = override.Nil(cfg.FeedbackTransportClient, other.FeedbackTransportClient)
-	cfg.FeedbackTransportServer = override.Nil(cfg.FeedbackTransportServer, other.FeedbackTransportServer)
-	cfg.LeaseTransportServer = override.Nil(cfg.LeaseTransportServer, other.LeaseTransportServer)
-	cfg.LeaseTransportClient = override.Nil(cfg.LeaseTransportClient, other.LeaseTransportClient)
-	cfg.RecoveryTransportClient = override.Nil(cfg.RecoveryTransportClient, other.RecoveryTransportClient)
-	cfg.RecoveryTransportServer = override.Nil(cfg.RecoveryTransportServer, other.RecoveryTransportServer)
-	cfg.Engine = override.Nil(cfg.Engine, other.Engine)
-	cfg.GossipInterval = override.Numeric(cfg.GossipInterval, other.GossipInterval)
-	cfg.RecoveryThreshold = override.Numeric(cfg.RecoveryThreshold, other.RecoveryThreshold)
-	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	return cfg
+func (c Config) Override(other Config) Config {
+	c.Cluster = override.Nil(c.Cluster, other.Cluster)
+	c.BatchTransportClient = override.Nil(c.BatchTransportClient, other.BatchTransportClient)
+	c.BatchTransportServer = override.Nil(c.BatchTransportServer, other.BatchTransportServer)
+	c.FeedbackTransportClient = override.Nil(c.FeedbackTransportClient, other.FeedbackTransportClient)
+	c.FeedbackTransportServer = override.Nil(c.FeedbackTransportServer, other.FeedbackTransportServer)
+	c.LeaseTransportServer = override.Nil(c.LeaseTransportServer, other.LeaseTransportServer)
+	c.LeaseTransportClient = override.Nil(c.LeaseTransportClient, other.LeaseTransportClient)
+	c.RecoveryTransportClient = override.Nil(c.RecoveryTransportClient, other.RecoveryTransportClient)
+	c.RecoveryTransportServer = override.Nil(c.RecoveryTransportServer, other.RecoveryTransportServer)
+	c.Engine = override.Nil(c.Engine, other.Engine)
+	c.GossipInterval = override.Numeric(c.GossipInterval, other.GossipInterval)
+	c.RecoveryThreshold = override.Numeric(c.RecoveryThreshold, other.RecoveryThreshold)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	return c
 }
 
 // Validate implements config.Config.
-func (cfg Config) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("cesium")
-	validate.NotNil(v, "Cluster", cfg.Cluster)
-	validate.NotNil(v, "TxTransportClient", cfg.BatchTransportClient)
-	validate.NotNil(v, "TxTransportServer", cfg.BatchTransportServer)
-	validate.NotNil(v, "FeedbackTransportClient", cfg.FeedbackTransportClient)
-	validate.NotNil(v, "FeedbackTransportServer", cfg.FeedbackTransportServer)
-	validate.NotNil(v, "LeaseTransportClient", cfg.LeaseTransportServer)
-	validate.NotNil(v, "LeaseTransportServer", cfg.LeaseTransportClient)
-	validate.NotNil(v, "RecoveryTransportClient", cfg.RecoveryTransportClient)
-	validate.NotNil(v, "RecoveryTransportServer", cfg.RecoveryTransportServer)
-	validate.NotNil(v, "Engine", cfg.Engine)
+	validate.NotNil(v, "Cluster", c.Cluster)
+	validate.NotNil(v, "TxTransportClient", c.BatchTransportClient)
+	validate.NotNil(v, "TxTransportServer", c.BatchTransportServer)
+	validate.NotNil(v, "FeedbackTransportClient", c.FeedbackTransportClient)
+	validate.NotNil(v, "FeedbackTransportServer", c.FeedbackTransportServer)
+	validate.NotNil(v, "LeaseTransportClient", c.LeaseTransportServer)
+	validate.NotNil(v, "LeaseTransportServer", c.LeaseTransportClient)
+	validate.NotNil(v, "RecoveryTransportClient", c.RecoveryTransportClient)
+	validate.NotNil(v, "RecoveryTransportServer", c.RecoveryTransportServer)
+	validate.NotNil(v, "Engine", c.Engine)
 	return v.Error()
 }
 
 // Report implements alamos.ReportProvider.
-func (cfg Config) Report() alamos.Report {
+func (c Config) Report() alamos.Report {
 	report := make(alamos.Report)
-	report["recovery_threshold"] = cfg.RecoveryThreshold
-	report["gossip_interval"] = cfg.GossipInterval.String()
-	report["batch_transport_client"] = cfg.BatchTransportClient.Report()
-	report["batch_transport_server"] = cfg.BatchTransportServer.Report()
-	report["feedback_transport_client"] = cfg.FeedbackTransportClient.Report()
-	report["feedback_transport_server"] = cfg.FeedbackTransportServer.Report()
-	report["lease_transport_client"] = cfg.LeaseTransportClient.Report()
-	report["lease_transport_server"] = cfg.LeaseTransportServer.Report()
+	report["recovery_threshold"] = c.RecoveryThreshold
+	report["gossip_interval"] = c.GossipInterval.String()
+	report["batch_transport_client"] = c.BatchTransportClient.Report()
+	report["batch_transport_server"] = c.BatchTransportServer.Report()
+	report["feedback_transport_client"] = c.FeedbackTransportClient.Report()
+	report["feedback_transport_server"] = c.FeedbackTransportServer.Report()
+	report["lease_transport_client"] = c.LeaseTransportClient.Report()
+	report["lease_transport_server"] = c.LeaseTransportServer.Report()
 	return report
 }
 

@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -123,15 +123,15 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	}
 
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_iterator")))
-	// Cancellation here would occur for one of two reasons. Either we encounter
-	// a fatal error (transport or iterator internal) and we need to free all
-	// resources, OR the client executed the close command on the iterator (in
-	// which case resources have already been freed and cancel does nothing).
+	// Cancellation here would occur for one of two reasons. Either we encounter a fatal
+	// error (transport or iterator internal) and we need to free all resources, OR the
+	// client executed the close command on the iterator (in which case resources have
+	// already been freed and cancel does nothing).
 	defer cancel()
 
 	receiver := &freightfluence.Receiver[iterator.Request]{Receiver: stream}
 	sender := &freightfluence.TransformSender[iterator.Response, iterator.Response]{
-		Sender: freighter.SenderNopCloser[iterator.Response]{StreamSender: stream},
+		Sender: freighter.SenderNoopCloser[iterator.Response]{StreamSender: stream},
 		Transform: func(ctx context.Context, res iterator.Response) (iterator.Response, bool, error) {
 			res.Error = errors.Encode(ctx, res.Error, false)
 			return res, true, nil
@@ -139,8 +139,8 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	}
 	pipe := plumber.New()
 	plumber.SetSegment(pipe, frameIteratorAddr, iter)
-	plumber.SetSink[iterator.Response](pipe, frameSenderAddr, sender)
-	plumber.SetSource[iterator.Request](pipe, frameReceiverAddr, receiver)
+	plumber.SetSink(pipe, frameSenderAddr, sender)
+	plumber.SetSource(pipe, frameReceiverAddr, receiver)
 	plumber.MustConnect[iterator.Response](pipe, frameIteratorAddr, frameSenderAddr, iteratorResponseBufferSize)
 	plumber.MustConnect[iterator.Request](pipe, frameReceiverAddr, frameIteratorAddr, iteratorRequestBufferSize)
 
@@ -193,14 +193,14 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 	var (
 		receiver = &freightfluence.Receiver[FrameStreamerRequest]{Receiver: stream}
 		sender   = &freightfluence.Sender[FrameStreamerResponse]{
-			Sender: freighter.SenderNopCloser[FrameStreamerResponse]{StreamSender: stream},
+			Sender: freighter.SenderNoopCloser[FrameStreamerResponse]{StreamSender: stream},
 		}
 		pipe = plumber.New()
 	)
 
-	plumber.SetSegment[FrameStreamerRequest, FrameStreamerResponse](pipe, framerStreamerAddr, streamer)
-	plumber.SetSink[FrameStreamerResponse](pipe, frameSenderAddr, sender)
-	plumber.SetSource[FrameStreamerRequest](pipe, frameReceiverAddr, receiver)
+	plumber.SetSegment(pipe, framerStreamerAddr, streamer)
+	plumber.SetSink(pipe, frameSenderAddr, sender)
+	plumber.SetSource(pipe, frameReceiverAddr, receiver)
 	plumber.MustConnect[FrameStreamerRequest](pipe, frameReceiverAddr, framerStreamerAddr, streamingRequestBufferSize)
 	plumber.MustConnect[FrameStreamerResponse](pipe, framerStreamerAddr, frameSenderAddr, streamingResponseBufferSize)
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
@@ -347,7 +347,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 		},
 	}
 	sender := &freightfluence.TransformSender[framer.WriterResponse, FrameWriterResponse]{
-		Sender: freighter.SenderNopCloser[FrameWriterResponse]{StreamSender: stream},
+		Sender: freighter.SenderNoopCloser[FrameWriterResponse]{StreamSender: stream},
 		Transform: func(ctx context.Context, i framer.WriterResponse) (o FrameWriterResponse, ok bool, err error) {
 			o.Command = i.Command
 			o.Authorized = i.Authorized
@@ -360,8 +360,8 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	pipe := plumber.New()
 
 	plumber.SetSegment(pipe, "writer", w)
-	plumber.SetSource[framer.WriterRequest](pipe, frameReceiverAddr, receiver)
-	plumber.SetSink[framer.WriterResponse](pipe, frameSenderAddr, sender)
+	plumber.SetSource(pipe, frameReceiverAddr, receiver)
+	plumber.SetSink(pipe, frameSenderAddr, sender)
 	plumber.MustConnect[framer.WriterRequest](pipe, frameReceiverAddr, frameWriterAddr, writerRequestBufferSize)
 	plumber.MustConnect[framer.WriterResponse](pipe, frameWriterAddr, frameSenderAddr, writerResponseBufferSize)
 
@@ -419,14 +419,14 @@ func (s *FrameService) openWriter(
 }
 
 type WSFramerCodec struct {
-	*framercodec.Codec
+	*codec.Codec
 	LowerPerfCodec xbinary.Codec
 }
 
 func NewWSFramerCodec(channels channel.Readable) httputil.Codec {
 	return &WSFramerCodec{
 		LowerPerfCodec: httputil.JSONCodec,
-		Codec:          framercodec.NewDynamic(channels),
+		Codec:          codec.NewDynamic(channels),
 	}
 }
 
@@ -541,7 +541,7 @@ func (c *WSFramerCodec) encodeWriteRequest(
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	return c.Codec.EncodeStream(nil, w, v.Payload.Frame)
+	return c.Codec.EncodeStream(context.TODO(), w, v.Payload.Frame)
 }
 
 func (c *WSFramerCodec) decodeStreamResponse(
@@ -578,7 +578,7 @@ func (c *WSFramerCodec) encodeStreamResponse(
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	return c.Codec.EncodeStream(nil, w, v.Payload.Frame)
+	return c.Codec.EncodeStream(context.TODO(), w, v.Payload.Frame)
 }
 
 func (c *WSFramerCodec) decodeStreamRequest(

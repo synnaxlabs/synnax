@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -42,7 +42,7 @@ var _ = Describe("Calculator", func() {
 				out,
 				[]channel.Channel{in},
 			))
-			outSeries := MustSucceed(calc.Next(core.UnaryFrame(in.Key(), telem.NewSeriesV[float32](1, 2, 3))))
+			outSeries := MustSucceed(calc.Next(frame.UnaryFrame(in.Key(), telem.NewSeriesV[float32](1, 2, 3))))
 			Expect(outSeries.Len()).To(Equal(int64(3)))
 			Expect(outSeries).To(telem.MatchSeriesDataV[float32](2, 4, 6))
 		})
@@ -87,7 +87,7 @@ var _ = Describe("Calculator", func() {
 				inSeries1.TimeRange = telem.NewRangeSeconds(5, 10)
 				inSeries2 := telem.NewSeriesV[float32](1, 2, 3)
 				inSeries2.TimeRange = telem.NewRangeSeconds(5, 10)
-				outSeries := MustSucceed(calc.Next(core.MultiFrame(
+				outSeries := MustSucceed(calc.Next(frame.MultiFrame(
 					[]channel.Key{inCh1.Key(), inCh2.Key()},
 					[]telem.Series{inSeries1, inSeries2},
 				)))
@@ -108,7 +108,7 @@ var _ = Describe("Calculator", func() {
 				inCh2Series := telem.NewSeriesV[float32](1, 2, 3)
 				inCh2Series.Alignment = 3
 				inCh2Series.TimeRange = telem.NewRangeSeconds(5, 10)
-				outSeries := MustSucceed(calc.Next(core.UnaryFrame(
+				outSeries := MustSucceed(calc.Next(frame.UnaryFrame(
 					inCh1.Key(),
 					inCh1Series,
 				)))
@@ -116,7 +116,7 @@ var _ = Describe("Calculator", func() {
 				Expect(outSeries.Alignment).To(Equal(telem.Alignment(0)))
 				Expect(outSeries.TimeRange).To(Equal(telem.TimeRangeZero))
 
-				outSeries = MustSucceed(calc.Next(core.UnaryFrame(
+				outSeries = MustSucceed(calc.Next(frame.UnaryFrame(
 					inCh2.Key(),
 					inCh2Series,
 				)))
@@ -169,7 +169,7 @@ var _ = Describe("Calculator", func() {
 				DataType: telem.Float32T,
 			}
 			c := MustSucceed(calculation.OpenCalculator(out, []channel.Channel{in}))
-			o, err := c.Next(core.UnaryFrame(in.Key(), telem.NewSeriesV[float32](1, 2, 3)))
+			o, err := c.Next(frame.UnaryFrame(in.Key(), telem.NewSeriesV[float32](1, 2, 3)))
 			Expect(o.Len()).To(Equal(int64(0)))
 			Expect(err).To(MatchError(ContainSubstring("nil")))
 		})
@@ -204,7 +204,7 @@ func BenchmarkCalculator(b *testing.B) {
 	data2 := telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 
 	for b.Loop() {
-		_, _ = calc.Next(core.MultiFrame(
+		_, _ = calc.Next(frame.MultiFrame(
 			[]channel.Key{inCh1.Key(), inCh2.Key()},
 			[]telem.Series{data1, data2},
 		))

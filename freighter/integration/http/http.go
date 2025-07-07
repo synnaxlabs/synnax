@@ -159,7 +159,7 @@ func streamSendMessageAfterClientClose(
 ) error {
 	for {
 		msg, err := stream.Receive()
-		if errors.Is(err, freighter.EOF) {
+		if errors.Is(err, freighter.ErrEOF) {
 			return stream.Send(Message{Message: "Close Acknowledged"})
 		}
 		if err != nil {

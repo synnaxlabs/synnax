@@ -21,9 +21,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	xbinary "github.com/synnaxlabs/x/binary"
-	xbits "github.com/synnaxlabs/x/bit"
+	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -191,12 +191,12 @@ type flags struct {
 }
 
 const (
-	zeroAlignmentsFlagPos     xbits.FlagPos = 5
-	equalAlignmentsFlagPos    xbits.FlagPos = 4
-	equalLengthsFlagPos       xbits.FlagPos = 3
-	equalTimeRangesFlagPos    xbits.FlagPos = 2
-	timeRangesZeroFlagPos     xbits.FlagPos = 1
-	allChannelsPresentFlagPos xbits.FlagPos = 0
+	zeroAlignmentsFlagPos     bit.FlagPos = 5
+	equalAlignmentsFlagPos    bit.FlagPos = 4
+	equalLengthsFlagPos       bit.FlagPos = 3
+	equalTimeRangesFlagPos    bit.FlagPos = 2
+	timeRangesZeroFlagPos     bit.FlagPos = 1
+	allChannelsPresentFlagPos bit.FlagPos = 0
 )
 
 func (f flags) encode() byte {
@@ -378,7 +378,7 @@ func (c *Codec) Decode(src []byte) (dst framer.Frame, err error) {
 }
 
 // DecodeStream decodes a frame from the given io reader.
-func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
+func (c *Codec) DecodeStream(reader io.Reader) (fr framer.Frame, err error) {
 	c.processUpdates()
 	c.panicIfNotUpdated("Decode")
 	var (
@@ -448,12 +448,12 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 				return
 			}
 		}
-		frame = frame.Append(key, s)
+		fr = fr.Append(key, s)
 		return
 	}
 
 	if fgs.allChannelsPresent {
-		frame = core.AllocFrame(len(cState.keys))
+		fr = frame.AllocFrame(len(cState.keys))
 		for _, k := range cState.keys {
 			if err = decodeSeries(k); err != nil {
 				return

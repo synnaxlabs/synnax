@@ -125,10 +125,7 @@ const ChannelList = <C extends Channel>({
   getChannelKeyAndID,
   ...rest
 }: ChannelListProps<C>) => {
-  const { value, push, remove } = PForm.useFieldArray<C>({
-    path: CHANNELS_PATH,
-    updateOnChildren: true,
-  });
+  const { value, push, remove } = PForm.useFieldArray<C>(CHANNELS_PATH);
   const valueRef = useSyncedRef(value);
   const handleDrop = useCallback(
     ({ items }: Haul.OnDropProps): Haul.Item[] => {

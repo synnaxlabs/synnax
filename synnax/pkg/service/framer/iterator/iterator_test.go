@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/computron"
@@ -54,7 +54,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             []channel.Key{ch.Key()},
 				EnableAutoCommit: config.True(),
 			}))
-			fr := core.UnaryFrame(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
+			fr := frame.UnaryFrame(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())
 
@@ -64,7 +64,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-			Expect(iter.Value().Frame).To(telem.MatchWrittenFrame[channel.Key](fr.Frame))
+			Expect(iter.Value().Frame).To(telem.MatchWrittenFrame(fr.Frame))
 			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
 		})
@@ -100,7 +100,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Keys:             keys,
 					EnableAutoCommit: config.True(),
 				}))
-				fr := core.MultiFrame(
+				fr := frame.MultiFrame(
 					keys,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),

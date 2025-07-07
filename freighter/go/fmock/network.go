@@ -11,9 +11,10 @@ package fmock
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"sync"
 )
 
 // Network is a mock network implementation that is ideal for in-memory testing
@@ -29,7 +30,7 @@ type Network[RQ, RS freighter.Payload] struct {
 	}
 }
 
-// NetworkEntry is a single entry in the network's history. NetworkEntry
+// NetworkEntry is a single entry in the network's history.
 type NetworkEntry[RQ, RS freighter.Payload] struct {
 	Host     address.Address
 	Target   address.Address
@@ -39,7 +40,8 @@ type NetworkEntry[RQ, RS freighter.Payload] struct {
 }
 
 // UnaryServer returns a new freighter.Unary hosted at the given address. This transport
-// is not reachable by other hosts in the network until freighter.UnaryServer.ServeHTTP is called.
+// is not reachable by other hosts in the network until freighter.UnaryServer.ServeHTTP
+// is called.
 func (n *Network[RQ, RS]) UnaryServer(host address.Address) *UnaryServer[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -62,14 +64,14 @@ func (n *Network[RQ, RS]) resolveUnaryTarget(target address.Address) (*UnaryServ
 	return t, ok
 }
 
-// StreamServer returns a new freighter.Stream hosted at the given address.
-// This transport is not reachable by other hosts in the network until
+// StreamServer returns a new freighter.Stream hosted at the given address. This
+// transport is not reachable by other hosts in the network until
 // freighter.Stream.ServeHTTP is called.
-func (n *Network[RQ, RS]) StreamServer(host address.Address, buffer ...int) *StreamServer[RQ, RS] {
+func (n *Network[RQ, RS]) StreamServer(host address.Address, buffers ...int) *StreamServer[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	addr := n.parseTarget(host)
-	b, _ := parseBuffers(buffer)
+	b, _ := parseBuffers(buffers)
 	s := &StreamServer[RQ, RS]{Reporter: reporter, BufferSize: b, Address: addr}
 	n.mu.streamRoutes[addr] = s
 	return s

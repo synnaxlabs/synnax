@@ -143,11 +143,9 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     },
   });
 
-  const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>(
-    "isIndex",
-    false,
-    methods,
-  );
+  const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>("isIndex", {
+    ctx: methods,
+  });
 
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,

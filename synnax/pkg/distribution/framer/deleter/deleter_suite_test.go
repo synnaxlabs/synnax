@@ -19,7 +19,7 @@ import (
 
 var ctx = context.Background()
 
-func TestWriter(t *testing.T) {
+func TestDeleter(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Deleter Suite")
 }

@@ -16,10 +16,9 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -227,10 +226,10 @@ func (w relayResponseTranslator) Forward(
 	return &framerv1.RelayResponse{Frame: translateFrameBackward(res.Frame)}, nil
 }
 
-func translateFrameForward(frame *framerv1.Frame) framer.Frame {
-	keys := channel.KeysFromUint32(frame.Keys)
-	series := telem.TranslateManySeriesBackward(frame.Series)
-	return core.MultiFrame(keys, series)
+func translateFrameForward(fr *framerv1.Frame) framer.Frame {
+	keys := channel.KeysFromUint32(fr.Keys)
+	series := telem.TranslateManySeriesBackward(fr.Series)
+	return frame.MultiFrame(keys, series)
 }
 
 func translateFrameBackward(frame framer.Frame) *framerv1.Frame {

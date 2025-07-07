@@ -75,11 +75,7 @@ export const ChannelList = <C extends Channel>({
   path = "config.channels",
   ...rest
 }: ChannelListProps<C>) => {
-  const {
-    value: channels,
-    push,
-    remove,
-  } = Form.useFieldArray<C>({ path, updateOnChildren: true });
+  const { value: channels, push, remove } = Form.useFieldArray<C>(path);
   const handleAdd = useCallback(() => {
     const channel = createChannel(channels);
     if (channel == null) return;

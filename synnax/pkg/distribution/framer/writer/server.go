@@ -38,11 +38,11 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 		return err
 	}
 
-	// Senders and receivers must be set up to distribution requests and responses
-	// to their storage counterparts.
+	// Senders and receivers must be set up to distribution requests and responses to
+	// their storage counterparts.
 	receiver := &freightfluence.TransformReceiver[ts.WriterRequest, Request]{Receiver: server}
 	receiver.Transform = newRequestTranslator()
-	sender := &freightfluence.TransformSender[ts.WriterResponse, Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
+	sender := &freightfluence.TransformSender[ts.WriterResponse, Response]{Sender: freighter.SenderNoopCloser[Response]{StreamSender: server}}
 	sender.Transform = newResponseTranslator(sf.HostResolver.HostKey())
 
 	w, err := sf.TS.NewStreamWriter(ctx, req.Config.toStorage())

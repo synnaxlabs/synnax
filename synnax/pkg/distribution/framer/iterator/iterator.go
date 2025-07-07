@@ -12,7 +12,7 @@ package iterator
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -28,45 +28,45 @@ type Iterator struct {
 	value     []Response
 }
 
-// Next reads all channel data occupying the next span of time. Returns true
-// if the current IteratorServer.View is pointing to any valid segments.
+// Next reads all channel data occupying the next span of time. Returns true if the
+// current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) Next(span telem.TimeSpan) bool {
 	i.value = nil
 	return i.exec(Request{Command: Next, Span: span})
 }
 
-// Prev reads all channel data occupying the previous span of time. Returns true
-// if the current IteratorServer.View is pointing to any valid segments.
+// Prev reads all channel data occupying the previous span of time. Returns true if the
+// current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) Prev(span telem.TimeSpan) bool {
 	i.value = nil
 	return i.exec(Request{Command: Prev, Span: span})
 }
 
-// SeekFirst seeks the Iterator the start of the Iterator range.
-// Returns true if the current IteratorServer.View is pointing to any valid segments.
+// SeekFirst seeks the Iterator the start of the Iterator range. Returns true if the
+// current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) SeekFirst() bool {
 	i.value = nil
 	return i.exec(Request{Command: SeekFirst})
 }
 
-// SeekLast seeks the Iterator the end of the Iterator range.
-// Returns true if the current IteratorServer.View is pointing to any valid segments.
+// SeekLast seeks the Iterator the end of the Iterator range. Returns true if the
+// current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) SeekLast() bool {
 	i.value = nil
 	return i.exec(Request{Command: SeekLast})
 }
 
-// SeekLE seeks the Iterator to the first whose timestamp is less than or equal
-// to the given timestamp. Returns true if the current IteratorServer.View is pointing
-// to any valid segments.
+// SeekLE seeks the Iterator to the first whose timestamp is less than or equal to the
+// given timestamp. Returns true if the current IteratorServer.View is pointing to any
+// valid segments.
 func (i *Iterator) SeekLE(stamp telem.TimeStamp) bool {
 	i.value = nil
 	return i.exec(Request{Command: SeekLE, Stamp: stamp})
 }
 
-// SeekGE seeks the Iterator to the first whose timestamp is greater than the
-// given timestamp. Returns true if the current IteratorServer.View is pointing to
-// any valid segments.
+// SeekGE seeks the Iterator to the first whose timestamp is greater than the given
+// timestamp. Returns true if the current IteratorServer.View is pointing to any valid
+// segments.
 func (i *Iterator) SeekGE(stamp telem.TimeStamp) bool {
 	i.value = nil
 	return i.exec(Request{Command: SeekGE, Stamp: stamp})
@@ -83,9 +83,9 @@ func (i *Iterator) Error() error {
 	return err
 }
 
-// Close closes the Iterator, ensuring that all in-progress reads complete
-// before closing the Source outlet. All iterators must be Closed, or the
-// distribution layer will panic.
+// Close closes the Iterator, ensuring that all in-progress reads complete before
+// closing the Source outlet. All iterators must be Closed, or the distribution layer
+// will panic.
 func (i *Iterator) Close() error {
 	defer i.shutdown()
 	i.requests.Close()
@@ -97,12 +97,12 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
 	return i.exec(Request{Command: SetBounds, Bounds: bounds})
 }
 
-func (i *Iterator) Value() core.Frame {
-	frames := make([]core.Frame, len(i.value))
+func (i *Iterator) Value() frame.Frame {
+	frames := make([]frame.Frame, len(i.value))
 	for i, v := range i.value {
 		frames[i] = v.Frame
 	}
-	return core.MergeFrames(frames)
+	return frame.MergeFrames(frames)
 }
 
 func (i *Iterator) exec(req Request) bool {

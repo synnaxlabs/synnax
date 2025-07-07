@@ -15,29 +15,29 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// AuthError is returned whenever the client certificate cannot be validated.
-var AuthError = errors.Wrapf(
-	freighter.SecurityError,
+// ErrAuth is returned whenever the client certificate cannot be validated.
+var ErrAuth = errors.Wrapf(
+	freighter.ErrSecurity,
 	"unable to verify TLS certificate",
 )
 
-// GateMiddleware is a per-request middleware that checks whether the underlying connection
-// is protected by TLS and that the client certificate is valid. It checks the certificate
-// CommonName against the provided list of expected CNs. If the check fails, the middleware
-// returns an error.
+// GateMiddleware is a per-request middleware that checks whether the underlying
+// connection is protected by TLS and that the client certificate is valid. It checks
+// the certificate CommonName against the provided list of expected CNs. If the check
+// fails, the middleware returns an error.
 //
-// It's important to note that this middleware does not perform any certificate validation
-// or TLS negotiation. GateMiddleware is particularly useful in scenarios where only a
-// subset of endpoints must be protected by mTLS.
+// It's important to note that this middleware does not perform any certificate
+// validation or TLS negotiation. GateMiddleware is particularly useful in scenarios
+// where only a subset of endpoints must be protected by mTLS.
 func GateMiddleware(expectedCNs ...string) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
 		next freighter.Next,
 	) (freighter.Context, error) {
-		if !ctx.Sec.TLS.Used ||
-			(len(ctx.Sec.TLS.VerifiedChains) == 0 || len(ctx.Sec.TLS.VerifiedChains[0]) == 0) ||
-			!lo.Contains(expectedCNs, ctx.Sec.TLS.VerifiedChains[0][0].Subject.CommonName) {
-			return ctx, AuthError
+		if !ctx.SecurityInfo.TLS.Used ||
+			(len(ctx.SecurityInfo.TLS.VerifiedChains) == 0 || len(ctx.SecurityInfo.TLS.VerifiedChains[0]) == 0) ||
+			!lo.Contains(expectedCNs, ctx.SecurityInfo.TLS.VerifiedChains[0][0].Subject.CommonName) {
+			return ctx, ErrAuth
 		}
 		return next(ctx)
 	})

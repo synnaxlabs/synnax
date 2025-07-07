@@ -11,13 +11,13 @@ package verification
 
 import (
 	"context"
-	"errors"
 	"io"
 	"strconv"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"

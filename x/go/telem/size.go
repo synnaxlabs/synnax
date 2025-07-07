@@ -9,9 +9,7 @@
 
 package telem
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // Size represents the size of an element in bytes.
 type Size int64

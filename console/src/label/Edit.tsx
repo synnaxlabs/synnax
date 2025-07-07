@@ -118,7 +118,9 @@ export const Edit: Layout.Renderer = () => {
     },
   });
 
-  const arr = Form.useFieldArray<label.Label>({ path: "labels", ctx: methods });
+  const arr = Form.useFieldArray<label.Label, typeof formSchema>("labels", {
+    ctx: methods,
+  });
   const theme = Layout.useSelectTheme();
 
   return (

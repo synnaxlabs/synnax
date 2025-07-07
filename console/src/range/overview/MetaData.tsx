@@ -196,7 +196,9 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
       await kv.set(pair.key, pair.value);
     },
   });
-  const arr = Form.useFieldArray<kv.Pair>({ path: "pairs", ctx: formCtx });
+  const arr = Form.useFieldArray<kv.Pair, typeof metaDataFormSchema>("pairs", {
+    ctx: formCtx,
+  });
   const sorted = useMemo(() => arr.value.sort(), [arr.value]);
   return (
     <Align.Space y>

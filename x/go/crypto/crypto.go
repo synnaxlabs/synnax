@@ -12,8 +12,7 @@
 package crypto
 
 import (
-	"errors"
-
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/math"
 )
 

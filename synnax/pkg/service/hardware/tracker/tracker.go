@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
@@ -466,7 +466,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 			}
 			t.stateWriter.Inlet() <- framer.WriterRequest{
 				Command: writer.Write,
-				Frame:   core.UnaryFrame(t.taskStateChannelKey, telem.NewSeriesStaticJSONV(s)),
+				Frame:   frame.UnaryFrame(t.taskStateChannelKey, telem.NewSeriesStaticJSONV(s)),
 			}
 		}
 	}
@@ -535,7 +535,7 @@ func (t *Tracker) checkRackState(_ context.Context) {
 
 	}
 
-	fr := core.Frame{}
+	fr := frame.Frame{}
 	if len(rackStatuses) > 0 {
 		fr = fr.Append(t.rackStateChannelKey, telem.NewSeriesStaticJSONV(rackStatuses...))
 	}

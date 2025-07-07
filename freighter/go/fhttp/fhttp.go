@@ -17,21 +17,10 @@ import (
 
 type BindableTransport interface {
 	freighter.Transport
-	BindTo(app *fiber.App)
-}
-
-var streamReporter = freighter.Reporter{
-	Protocol:  "websocket",
-	Encodings: httputil.SupportedContentTypes(),
-}
-
-var unaryReporter = freighter.Reporter{
-	Protocol:  "http",
-	Encodings: httputil.SupportedContentTypes(),
+	BindTo(*fiber.App)
 }
 
 type serverOptions struct {
-	internal      bool
 	codecResolver httputil.CodecResolver
 }
 
@@ -43,14 +32,8 @@ func WithCodecResolver(r httputil.CodecResolver) ServerOption {
 	}
 }
 
-func InternalRoute() ServerOption {
-	return func(o *serverOptions) {
-		o.internal = true
-	}
-}
-
-func newServerOptions(opts []ServerOption) (so serverOptions) {
-	so.codecResolver = httputil.ResolveCodec
+func newServerOptions(opts []ServerOption) serverOptions {
+	so := serverOptions{codecResolver: httputil.ResolveCodec}
 	for _, opt := range opts {
 		opt(&so)
 	}

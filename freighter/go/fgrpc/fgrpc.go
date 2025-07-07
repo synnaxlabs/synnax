@@ -15,8 +15,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// BindableTransport is a transport that can be bound to a gRPC service
-// registrar.
+// BindableTransport is a transport that can be bound to a gRPC service registrar.
 type BindableTransport interface {
 	freighter.Transport
 	// BindTo binds the transport to the given gRPC service registrar.
@@ -27,18 +26,18 @@ type CompoundBindableTransport []BindableTransport
 
 var _ BindableTransport = CompoundBindableTransport{}
 
-func (t CompoundBindableTransport) Use(mw ...freighter.Middleware) {
-	for _, t := range t {
-		t.Use(mw...)
+func (cbt CompoundBindableTransport) Use(middlewares ...freighter.Middleware) {
+	for _, t := range cbt {
+		t.Use(middlewares...)
 	}
 }
 
-func (t CompoundBindableTransport) Report() alamos.Report {
-	return t[0].Report()
+func (cbt CompoundBindableTransport) Report() alamos.Report {
+	return cbt[0].Report()
 }
 
-func (t CompoundBindableTransport) BindTo(reg grpc.ServiceRegistrar) {
-	for _, t := range t {
+func (cbt CompoundBindableTransport) BindTo(reg grpc.ServiceRegistrar) {
+	for _, t := range cbt {
 		t.BindTo(reg)
 	}
 }

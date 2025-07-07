@@ -21,6 +21,8 @@ type ClientFactoryConfig struct {
 	Codec httputil.Codec
 }
 
+var _ config.Config[ClientFactoryConfig] = ClientFactoryConfig{}
+
 func (c ClientFactoryConfig) Validate() error {
 	v := validate.New("[ws.streamClient]")
 	validate.NotNil(v, "Codec", c.Codec)
@@ -40,8 +42,8 @@ type ClientFactory struct {
 	ClientFactoryConfig
 }
 
-func NewClientFactory(configs ...ClientFactoryConfig) *ClientFactory {
-	cfg, err := config.New(DefaultClientConfig, configs...)
+func NewClientFactory(cfgs ...ClientFactoryConfig) *ClientFactory {
+	cfg, err := config.New(DefaultClientConfig, cfgs...)
 	if err != nil {
 		panic(err)
 	}
@@ -54,4 +56,8 @@ func StreamClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.StreamCl
 
 func UnaryClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.UnaryClient[RQ, RS] {
 	return &unaryClient[RQ, RS]{codec: c.Codec}
+}
+
+func PipelineClient[RQ freighter.Payload](c *ClientFactory) freighter.PipelineClient[RQ] {
+	return &pipelineClient[RQ]{codec: c.Codec}
 }

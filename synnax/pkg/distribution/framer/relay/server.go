@@ -38,7 +38,7 @@ func (s *server) handle(ctx context.Context, server ServerStream) error {
 		sCtx, cancel = signal.WithCancel(ctx)
 		rcv          = &freightfluence.Receiver[Request]{Receiver: server}
 		sender       = &freightfluence.Sender[Response]{
-			Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
+			Sender: freighter.SenderNoopCloser[Response]{StreamSender: server},
 		}
 		reader, err = s.newStreamer(ctx, StreamerConfig{})
 		pipe        = plumber.New()
@@ -48,8 +48,8 @@ func (s *server) handle(ctx context.Context, server ServerStream) error {
 		return err
 	}
 	plumber.SetSegment(pipe, "streamer", reader)
-	plumber.SetSource[Request](pipe, "tap", rcv)
-	plumber.SetSink[Response](pipe, "sender", sender)
+	plumber.SetSource(pipe, "tap", rcv)
+	plumber.SetSink(pipe, "sender", sender)
 	plumber.MustConnect[Request](pipe, "tap", "streamer", 1)
 	plumber.MustConnect[Response](pipe, "streamer", "sender", 1)
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
