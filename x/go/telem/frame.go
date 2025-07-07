@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
@@ -496,4 +497,32 @@ func (f Frame[K]) FilterKeys(keys []K) Frame[K] {
 		}
 	}
 	return Frame[K]{keys: fKeys, series: fSeries}
+}
+
+var _ binary.CSVMarshaler = Frame[int]{}
+
+func (f Frame[K]) getLargestSeriesLength() int64 {
+	var length int64
+	for s := range f.Series() {
+		if s.Len() > length {
+			length = s.Len()
+		}
+	}
+	return length
+}
+
+func (f Frame[K]) MarshalCSV() ([][]string, error) {
+	rowCount := int(f.getLargestSeriesLength())
+	records := make([][]string, rowCount)
+	for s := range f.Series() {
+		seriesAsStrings := s.AsCSVStrings()
+		for i := range rowCount {
+			if i < len(seriesAsStrings) {
+				records[i] = append(records[i], seriesAsStrings[i])
+			} else {
+				records[i] = append(records[i], "")
+			}
+		}
+	}
+	return records, nil
 }
