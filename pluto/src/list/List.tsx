@@ -39,6 +39,7 @@ export interface UseReturn {
 export interface ItemsProps<K extends record.Key = record.Key>
   extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   children: ItemRenderProp<K>;
+  emptyContent?: ReactElement;
 }
 
 export const use = <K extends record.Key = record.Key>({
@@ -106,12 +107,14 @@ export const Items = <
 >({
   className,
   children,
+  emptyContent,
   ...rest
 }: ItemsProps<K>): ReactElement => {
   const { ref, virtualizer, data } = useContext<K, E>();
   const visibleData = virtualizer.getVirtualItems();
-  return (
-    <div ref={ref} className={CSS(className, CSS.BE("list", "container"))} {...rest}>
+  let content = emptyContent;
+  if (data.length > 0)
+    content = (
       <div
         className={CSS.BE("list", "virtualizer")}
         style={{ height: virtualizer.getTotalSize() }}
@@ -121,6 +124,10 @@ export const Items = <
           return children({ key, index, translate: start, itemKey: key });
         })}
       </div>
+    );
+  return (
+    <div ref={ref} className={CSS(className, CSS.BE("list", "items"))} {...rest}>
+      {content}
     </div>
   );
 };

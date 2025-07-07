@@ -167,7 +167,7 @@ export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(
 export const useFieldValid = (path: string): boolean =>
   useFieldState(path, { optional: true })?.status?.variant === "success";
 
-export interface FieldArrayUtils<V> {
+export interface FieldListUtils<V> {
   push: (value: V | V[], sort?: compare.CompareF<V>) => void;
   add: (value: V | V[], start: number) => void;
   remove: (index: number | number[]) => void;
@@ -176,10 +176,10 @@ export interface FieldArrayUtils<V> {
   sort?: (compareFn: compare.CompareF<V>) => void;
 }
 
-export const fieldArrayUtils = <V = unknown>(
+export const fieldListUtils = <V = unknown>(
   ctx: ContextValue<any>,
   path: string,
-): FieldArrayUtils<V> => ({
+): FieldListUtils<V> => ({
   add: (value, start) => {
     const copy = shallowCopy(ctx.get<V[]>(path).value);
     copy.splice(start, 0, ...array.toArray(value));
@@ -215,8 +215,9 @@ export const fieldArrayUtils = <V = unknown>(
   },
 });
 
-export interface UseFieldArrayReturn<V = unknown> {
-  value: V[];
+export interface UseFieldListReturn<V = unknown> {
+  data: number[];
+  useListItem: (index: number) => V;
   push: (value: V | V[]) => void;
   add: (value: V | V[], start: number) => void;
   remove: (index: number | number[]) => void;
@@ -224,18 +225,23 @@ export interface UseFieldArrayReturn<V = unknown> {
   set: (values: state.SetArg<V[]>) => void;
 }
 
-export const useFieldArray = <V = unknown, Z extends z.ZodType = z.ZodType>(
+export const useFieldList = <V = unknown, Z extends z.ZodType = z.ZodType>(
   path: string,
   opts: ContextOptions<Z> = {},
-): UseFieldArrayReturn<V> => {
+): UseFieldListReturn<V> => {
   const ctx = useContext(opts?.ctx);
   const { get: getState } = ctx;
-  const fState = useSyncExternalStore(
+  const count = useSyncExternalStore(
     ctx.bind,
-    useCallback(() => getState<V[]>(path).value, [path, getState]),
+    useCallback(() => getState<V[]>(path).value.length, [path, getState]),
+  );
+  const data = useMemo(() => Array.from({ length: count }, (_, i) => i), [count]);
+  const useListItem = useCallback(
+    (index: number) => useFieldValue<V>(`${path}.${index}`, opts),
+    [path, opts],
   );
   return useMemo(
-    () => ({ value: fState, ...fieldArrayUtils<V>(ctx, path) }),
-    [fState, ctx, path],
+    () => ({ data, useListItem, ...fieldListUtils<V>(ctx, path) }),
+    [count, ctx, path, useListItem],
   );
 };

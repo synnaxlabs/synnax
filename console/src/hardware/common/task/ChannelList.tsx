@@ -14,6 +14,7 @@ import {
   List,
   Menu as PMenu,
   type RenderProp,
+  Select,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
@@ -32,7 +33,7 @@ interface ContextMenuProps<C extends Channel> {
   isSnapshot: boolean;
   keys: string[];
   onDuplicate?: (channels: C[], indices: number[]) => void;
-  onSelect: (keys: string[]) => void;
+  onSelect: (indices: number[]) => void;
   onTare?: (keys: string[], channels: C[]) => void;
   path: string;
   remove: (index: number | number[]) => void;
@@ -127,8 +128,7 @@ const ContextMenu = <C extends Channel>({
   );
 };
 
-export interface ChannelListItemProps<C extends Channel>
-  extends List.ItemProps<string, C> {
+export interface ChannelListItemProps extends List.ItemProps<string> {
   key: string;
   isSnapshot: boolean;
   path: string;
@@ -137,17 +137,19 @@ export interface ChannelListItemProps<C extends Channel>
 export interface ChannelListProps<C extends Channel>
   extends Omit<ContextMenuProps<C>, "keys">,
     Pick<Align.SpaceProps, "onDragOver" | "onDrop" | "grow"> {
+  data: number[];
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
-  listItem: RenderProp<ChannelListItemProps<C>>;
-  selected: string[];
+  listItem: RenderProp<ChannelListItemProps>;
+  selected: number[];
 }
 
 export const ChannelList = <C extends Channel>({
   listItem,
   emptyContent,
   header,
+  data,
   isDragging,
   onDragOver,
   onDrop,
@@ -155,9 +157,15 @@ export const ChannelList = <C extends Channel>({
   grow,
   ...rest
 }: ChannelListProps<C>) => {
-  const { channels, isSnapshot, onSelect, path } = rest;
-  const handleChange = useCallback((keys: string[]) => onSelect(keys), [onSelect]);
+  const { isSnapshot, onSelect, path } = rest;
+  const handleChange = useCallback((keys: number[]) => onSelect(keys.map((k) => `${path}.${k}`)), [onSelect, path]);
   const menuProps = PMenu.useContextMenu();
+  const selectProps = Select.useMultiple<number>({
+    value: selected,
+    onChange: handleChange,
+    data,
+  });
+  const listProps = List.use({ data });
   return (
     <Align.Space className={CSS.B("channel-list")} empty grow={grow}>
       {header}
@@ -167,17 +175,18 @@ export const ChannelList = <C extends Channel>({
         onDragOver={onDragOver}
         onDrop={onDrop}
       >
-        <List.List<string, C> data={channels} emptyContent={emptyContent}>
-          <List.Selector<string, C>
+        <List.List<number> {...listProps} data={data}>
+          <List.Selector<number, C>
             onChange={handleChange}
             replaceOnSingle
             value={selected}
           >
-            <List.Core<string, C>
+            <List.Items<string, C>
               onDragOver={onDragOver}
               onDrop={onDrop}
               className={menuProps.className}
               onContextMenu={menuProps.open}
+              emptyContent={emptyContent}
             >
               {(props) =>
                 listItem({ isSnapshot, path: `${path}.${props.index}`, ...props })

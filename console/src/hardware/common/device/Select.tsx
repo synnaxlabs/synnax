@@ -50,10 +50,11 @@ export const Select = ({
       path={path}
       style={{ flexBasis: 150 }}
     >
-      {(p) => (
+      {({ value, onChange }) => (
         <Device.SelectSingle
-          {...p}
-          allowNone={false}
+          value={value}
+          onChange={onChange}
+          params={{ makes: [make] }}
           emptyContent={
             typeof emptyContent === "string" ? (
               <Align.Center>
@@ -66,7 +67,6 @@ export const Select = ({
             )
           }
           grow
-          searchOptions={{ makes: [make] }}
         />
       )}
     </Form.Field>

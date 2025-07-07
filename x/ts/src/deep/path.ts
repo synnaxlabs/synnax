@@ -116,6 +116,16 @@ export const transformPath = (
   return result.join(separator);
 };
 
+const defaultGetter = (obj: record.Unknown, key: string): unknown => {
+  if (!Array.isArray(obj)) return obj[key];
+  const res = obj[key];
+  if (res != null || obj.length == 0) return res;
+  const first = obj[0];
+  if (typeof first === "object" && "key" in first)
+    return obj.find((o) => o.key === key);
+  return undefined;
+};
+
 /**
  * Gets the value at the given path on the object. If the path does not exist
  * and the optional flag is set to true, null will be returned. If the path does
@@ -133,7 +143,7 @@ export const get = (<V = record.Unknown, T = record.Unknown>(
   opts: GetOptions = { optional: false, separator: "." },
 ): V | null => {
   opts.separator ??= ".";
-  const { optional, getter = (obj, key) => obj[key] } = opts;
+  const { optional, getter = defaultGetter } = opts;
   const parts = path.split(opts.separator);
   if (parts.length === 1 && parts[0] === "") return obj as record.Unknown as V;
   let result: record.Unknown = obj as record.Unknown;
@@ -155,13 +165,24 @@ export const get = (<V = record.Unknown, T = record.Unknown>(
  * @param path the path to set the value at.
  * @param value the value to set.
  */
-export const set = <V>(obj: V, path: string, value: unknown): void => {
-  const parts = path.split(".");
+export const set = <V>(
+  obj: V,
+  path: string,
+  value: unknown,
+  opts: GetOptions = { optional: false, separator: "." },
+): void => {
+  opts.separator ??= ".";
+  const { optional, getter = defaultGetter } = opts;
+  const parts = path.split(opts.separator);
   let result: record.Unknown = obj as record.Unknown;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
-    result[part] ??= {};
-    result = result[part] as record.Unknown;
+    const v = getter(result, part);
+    if (v == null) {
+      if (optional) return;
+      throw new Error(`Path ${path} does not exist. ${part} is null`);
+    }
+    result = v as record.Unknown;
   }
   try {
     result[parts[parts.length - 1]] = value;

@@ -49,12 +49,13 @@ export interface ListParams extends Flux.Params {
   term?: string;
   offset?: number;
   limit?: number;
+  makes?: string[];
 }
 
 export const useList = Flux.createList<ListParams, device.Key, device.Device>({
   name: "Devices",
   retrieve: async ({ client, params }) =>
-    await client.hardware.devices.search(params.term ?? ""),
+    await client.hardware.devices.retrieve(params),
   retrieveByKey: async ({ client, key }) => await client.hardware.devices.retrieve(key),
   listeners: [
     {

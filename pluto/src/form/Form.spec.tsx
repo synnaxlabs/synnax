@@ -22,7 +22,7 @@ const basicFormSchema = z
     optionalField: z.string().optional(),
     age: z.number().min(5, "You must be at least 5 years old."),
     nested: z.object({ ssn: z.string(), ein: z.string().optional() }),
-    array: z.array(z.object({ name: z.string() })),
+    array: z.array(z.object({ key: z.string(), name: z.string() })),
   })
   .check((ctx) => {
     if (ctx.value.name === "Billy Bob")
@@ -39,7 +39,7 @@ const initialFormValues: z.infer<typeof basicFormSchema> = {
   name: "John Doe",
   age: 42,
   nested: { ssn: "123-45-6789", ein: "" },
-  array: [{ name: "John Doe" }],
+  array: [{ key: "1", name: "John Doe" }],
 };
 
 const FormContainer = (props: PropsWithChildren): ReactElement => {
@@ -451,33 +451,33 @@ describe("Form", () => {
 
   describe("useFieldArray", () => {
     it("should return the array as the value", () => {
-      const res = renderHook(() => Form.useFieldArray("array"), { wrapper });
-      expect(res.result.current.value).toEqual([{ name: "John Doe" }]);
+      const res = renderHook(() => Form.useFieldList("array"), { wrapper });
+      expect(res.result.current.data).toEqual([{ name: "John Doe" }]);
     });
     it("should correctly push a value onto the start of the array", () => {
-      const res = renderHook(() => Form.useFieldArray("array"), { wrapper });
-      res.result.current.push({ name: "Jane Doe" });
+      const res = renderHook(() => Form.useFieldList("array"), { wrapper });
+      res.result.current.push({ key: "2", name: "Jane Doe" });
       res.rerender();
-      expect(res.result.current.value).toEqual([
-        { name: "John Doe" },
-        { name: "Jane Doe" },
+      expect(res.result.current.data).toEqual([
+        { key: "1", name: "John Doe" },
+        { key: "2", name: "Jane Doe" },
       ]);
     });
 
     it("should correctly remove the given index from the array", () => {
-      const res = renderHook(() => Form.useFieldArray("array"), { wrapper });
+      const res = renderHook(() => Form.useFieldList("array"), { wrapper });
       res.result.current.remove(0);
       res.rerender();
-      expect(res.result.current.value).toEqual([]);
+      expect(res.result.current.data).toEqual([]);
     });
 
     it("should correctly keep only the given index in the array", () => {
-      const res = renderHook(() => Form.useFieldArray("array"), { wrapper });
-      res.result.current.push({ name: "Jane Doe" });
+      const res = renderHook(() => Form.useFieldList("array"), { wrapper });
+      res.result.current.push({ key: "2", name: "Jane Doe" });
       res.rerender();
       res.result.current.keepOnly(1);
       res.rerender();
-      expect(res.result.current.value).toEqual([{ name: "Jane Doe" }]);
+      expect(res.result.current.data).toEqual([{ name: "Jane Doe" }]);
     });
   });
 

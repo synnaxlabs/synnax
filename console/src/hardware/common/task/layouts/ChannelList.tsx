@@ -75,26 +75,25 @@ export const ChannelList = <C extends Channel>({
   path = "config.channels",
   ...rest
 }: ChannelListProps<C>) => {
-  const { value: channels, push, remove } = Form.useFieldArray<C>(path);
+  const ctx = Form.useContext();
+  const { data, useListItem, push, remove } = Form.useFieldList<C>(path);
   const handleAdd = useCallback(() => {
+    const channels = ctx.get<C[]>(path).value;
     const channel = createChannel(channels);
     if (channel == null) return;
     push(channel);
-    onSelect([channel.key], channels.length);
-  }, [push, channels, createChannel, onSelect]);
+    onSelect([channel.key]);
+  }, [push, createChannel, onSelect]);
   const handleDuplicate = useMemo(() => {
     if (createChannels == null) return undefined;
     return (chs: C[], indices: number[]) => {
       const duplicated = createChannels(chs, indices);
       if (duplicated.length === 0) {
-        onSelect([], -1);
+        onSelect([]);
         return;
       }
       push(duplicated);
-      onSelect(
-        duplicated.map(({ key }) => key),
-        chs.length + duplicated.length - 1,
-      );
+      onSelect(duplicated.map(({ key }) => key));
     };
   }, [createChannels, onSelect, push]);
   return (

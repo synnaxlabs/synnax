@@ -51,10 +51,16 @@ const listItemRenderProp = Component.renderProp(
 );
 
 interface DialogContentProps {
+  emptyContent?: ReactElement;
+  params?: ListParams;
   retrieve: state.Setter<ListParams>;
 }
 
-const DialogContent = ({ retrieve }: DialogContentProps): ReactElement => {
+const DialogContent = ({
+  emptyContent,
+  retrieve,
+  params,
+}: DialogContentProps): ReactElement => {
   const [search, setSearch] = useState("");
   return (
     <Dialog.Content>
@@ -62,19 +68,23 @@ const DialogContent = ({ retrieve }: DialogContentProps): ReactElement => {
         value={search}
         onChange={(v) => {
           setSearch(v);
-          retrieve((prev) => ({ ...prev, search: v }));
+          retrieve((prev) => ({ ...prev, ...params, search: v }));
         }}
       />
-      <List.Items>{listItemRenderProp}</List.Items>
+      <List.Items emptyContent={emptyContent}>{listItemRenderProp}</List.Items>
     </Dialog.Content>
   );
 };
 
-export interface SelectSingleProps extends Select.SingleProps<device.Key> {}
+export interface SelectSingleProps extends Select.SingleProps<device.Key> {
+  params?: ListParams;
+}
 
 export const SelectSingle = ({
   value,
   onChange,
+  emptyContent,
+  params,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, useListItem, retrieve } = useList();
@@ -89,7 +99,7 @@ export const SelectSingle = ({
       {...selectProps}
     >
       <SingleTrigger />
-      <DialogContent retrieve={retrieve} />
+      <DialogContent emptyContent={emptyContent} params={params} retrieve={retrieve} />
     </Select.Dialog>
   );
 };

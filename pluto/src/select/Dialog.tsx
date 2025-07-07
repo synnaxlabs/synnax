@@ -50,7 +50,8 @@ export interface MultipleProps<K extends record.Key = record.Key>
 
 export interface SingleProps<K extends record.Key = record.Key>
   extends Omit<UseSingleProps<K>, "data">,
-    OmittedDialogProps<K> {
+    OmittedDialogProps<K>,
+    Pick<List.ItemsProps<K>, "emptyContent"> {
   disabled?: boolean;
   placeholder?: string;
 }

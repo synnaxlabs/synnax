@@ -72,7 +72,7 @@ interface PageOptions extends Pick<RetrieveOptions, "makes"> {}
 
 const retrieveResZ = z.object({ devices: nullableArrayZ(deviceZ) });
 
-export class Client implements AsyncTermSearcher<string, Key, Device> {
+export class Client {
   readonly type = ONTOLOGY_TYPE;
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
@@ -101,15 +101,25 @@ export class Client implements AsyncTermSearcher<string, Key, Device> {
     Properties extends record.Unknown = record.Unknown,
     Make extends string = string,
     Model extends string = string,
+  >(request: RetrieveRequest): Promise<Array<Device<Properties, Make, Model>>>;
+
+  async retrieve<
+    Properties extends record.Unknown = record.Unknown,
+    Make extends string = string,
+    Model extends string = string,
   >(
-    keys: string | string[],
+    keys: string | string[] | RetrieveRequest,
     options?: RetrieveOptions,
   ): Promise<Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>> {
+    let request: RetrieveRequest;
+    if (Array.isArray(keys)) request = { keys: array.toArray(keys), ...options };
+    else if (typeof keys === "object") request = keys;
+    else request = { keys: [keys], ...options };
     const isSingle = !Array.isArray(keys);
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: array.toArray(keys), ...options },
+      request,
       retrieveReqZ,
       retrieveResZ,
     );
