@@ -36,7 +36,7 @@ export type UseListReturn<
   E extends record.Keyed<K>,
 > = Omit<UseStatefulRetrieveReturn<RetrieveParams, K[]>, "data"> & {
   data: K[];
-  useListItem: (key: K | null) => E | undefined;
+  useListItem: (key?: K) => E | undefined;
 };
 
 export interface RetrieveByKeyArgs<K extends record.Key> {
@@ -99,7 +99,7 @@ export const createList =
   () => {
     const client = PSynnax.use();
     const dataRef = useRef<Map<K, E>>(new Map());
-    const listenersRef = useInitializerRef<ListenersRef<K>>(() => ({
+    const itemListenersRef = useInitializerRef<ListenersRef<K>>(() => ({
       mounted: false,
       listeners: new Map(),
     }));
@@ -148,7 +148,7 @@ export const createList =
                         if (v == null) return;
                         const res = state.executeSetter(setter, v);
                         dataRef.current.set(k, res);
-                        listenersRef.current.listeners.forEach((key, listener) => {
+                        itemListenersRef.current.listeners.forEach((key, listener) => {
                           if (key === k) listener();
                         });
                       },
@@ -175,7 +175,7 @@ export const createList =
             if (client == null) return;
             dataRef.current.set(key, await retrieveByKey({ client, key }));
             if (signal?.aborted) return;
-            listenersRef.current.listeners.forEach((k, listener) => {
+            itemListenersRef.current.listeners.forEach((k, listener) => {
               if (k === key) listener();
             });
           } catch (error) {
@@ -186,16 +186,16 @@ export const createList =
       [dataRef, retrieveByKey, client],
     );
 
-    const useListItem = (key: K | null) => {
+    const useListItem = (key?: K) => {
       const abortControllerRef = useRef<AbortController | null>(null);
       return useSyncExternalStore<E | undefined>(
         useCallback(
           (callback) => {
             if (key == null) return () => {};
             abortControllerRef.current = new AbortController();
-            listenersRef.current.listeners.set(callback, key);
+            itemListenersRef.current.listeners.set(callback, key);
             return () => {
-              listenersRef.current.listeners.delete(callback);
+              itemListenersRef.current.listeners.delete(callback);
               abortControllerRef.current?.abort();
             };
           },

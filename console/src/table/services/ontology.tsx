@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax, table } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Icon, Menu as PMenu, Mosaic, Text, Tree } from "@synnaxlabs/pluto";
 import { errors, strings } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -26,9 +26,14 @@ import { Table } from "@/table";
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = useConfirmDelete({ type: "Table" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({ selection, removeLayout, state: { nodes, setNodes } }) => {
-      if (!(await confirm(selection.resources))) throw new errors.Canceled();
-      const ids = ontology.parseIDs(selection.resources);
+    onMutate: async ({
+      selection,
+      removeLayout,
+      state: { nodes, setNodes, getResource },
+    }) => {
+      if (!(await confirm(getResource(selection.resourceIDs))))
+        throw new errors.Canceled();
+      const ids = ontology.parseIDs(selection.resourceIDs);
       const keys = ids.map((id) => id.key);
       removeLayout(...keys);
       const prevNodes = Tree.deepCopy(nodes);
@@ -40,7 +45,7 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       return prevNodes;
     },
     mutationFn: async ({ client, selection }) => {
-      const ids = ontology.parseIDs(selection.resources);
+      const ids = ontology.parseIDs(selection.resourceIDs);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await client.workspaces.table.delete(ids.map((id) => id.key));
     },
@@ -55,20 +60,23 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection,
-    selection: { resources },
+    selection: { resourceIDs },
+    state: { getResource },
   } = props;
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = Table.useExport();
   const group = Group.useCreateFromSelection();
+  const firstID = resourceIDs[0];
+  const first = getResource(firstID);
   const onSelect = useAsyncActionMenu({
     delete: () => del(props),
-    rename: () => Tree.startRenaming(resources[0].key),
-    link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
-    export: () => handleExport(resources[0].id.key),
+    rename: () => Text.edit(firstID.key),
+    link: () => handleLink({ name: first.name, ontologyID: firstID }),
+    export: () => handleExport(first.id.key),
     group: () => group(props),
   });
-  const isSingle = resources.length === 1;
+  const isSingle = resourceIDs.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Menu.RenameItem />

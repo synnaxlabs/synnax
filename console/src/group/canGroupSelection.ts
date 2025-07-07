@@ -13,4 +13,4 @@ import { type Ontology } from "@/ontology";
 
 export const canGroupSelection = (
   selection: Ontology.TreeContextMenuProps["selection"],
-): boolean => Tree.getAllNodesOfMinDepth(selection.nodes).length > 1;
+): boolean => Tree.getAllNodesOfMinDepth(selection.resourceIDs).length > 1;

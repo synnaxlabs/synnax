@@ -64,7 +64,7 @@ interface UseDependentQueryParams extends Flux.Params {
   direction: ontology.RelationshipDirection;
 }
 
-const retrieveDependents = Flux.createRetrieve<
+export const retrieveDependents = Flux.createRetrieve<
   UseDependentQueryParams,
   ontology.Resource[]
 >({

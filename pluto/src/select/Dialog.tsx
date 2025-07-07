@@ -50,7 +50,10 @@ export interface MultipleProps<K extends record.Key = record.Key>
 
 export interface SingleProps<K extends record.Key = record.Key>
   extends Omit<UseSingleProps<K>, "data">,
-    OmittedDialogProps<K> {}
+    OmittedDialogProps<K> {
+  disabled?: boolean;
+  placeholder?: string;
+}
 
 export const Dialog = <
   K extends record.Key = record.Key,

@@ -30,7 +30,7 @@ interface BaseProps<K extends record.Key> {
 
 export interface UseSingleAllowNoneProps<K extends record.Key> extends BaseProps<K> {
   allowNone?: true;
-  value: K | null;
+  value?: K;
   onChange: (next: K | null, extra: UseOnChangeExtra<K>) => void;
 }
 
@@ -62,8 +62,8 @@ export interface UseReturn<K extends record.Key = record.Key> {
 }
 
 export const selectValueIsZero = <K extends record.Key>(
-  value: K | K[] | null,
-): value is null | K[] => {
+  value?: K | K[],
+): value is undefined | K[] => {
   if (value == null) return true;
   if (Array.isArray(value)) return value.length === 0;
   if (typeof value === "string") return value.length === 0;

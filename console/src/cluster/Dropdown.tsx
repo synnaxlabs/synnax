@@ -13,11 +13,12 @@ import { Synnax as Client } from "@synnaxlabs/client";
 import {
   Align,
   Button,
-  Dropdown as Core,
+  Dialog,
   Header,
   Icon,
   List as CoreList,
   Menu as PMenu,
+  Select,
   Status,
   Synnax,
   Text,
@@ -27,6 +28,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
   useCallback,
+  useMemo,
 } from "react";
 import { useDispatch } from "react-redux";
 
@@ -41,13 +43,90 @@ import { Link } from "@/link";
 import { clear } from "@/workspace/slice";
 import { useCreateOrRetrieve } from "@/workspace/useCreateOrRetrieve";
 
-export const List = (): ReactElement => {
+interface ListItemProps extends CoreList.ItemProps<string> {
+  validateName: (name: string) => boolean;
+}
+
+const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null => {
+  const dispatch = useDispatch();
+  const item = CoreList.useItem<string, Cluster>(rest.itemKey);
+  const handleChange = (value: string) => {
+    if (!validateName(value) || item == null) return;
+    dispatch(rename({ key: item.key, name: value }));
+  };
+
+  if (item == null) return null;
+  return (
+    <CoreList.Item
+      className={CSS(CSS.B("cluster-list-item"))}
+      x
+      align="center"
+      {...rest}
+    >
+      <Align.Space y justify="spaceBetween" size="tiny" grow>
+        <Text.MaybeEditable
+          level="p"
+          id={`cluster-dropdown-${item.key}`}
+          weight={450}
+          value={item.name}
+          onChange={handleChange}
+          allowDoubleClick={false}
+        />
+        <Text.Text level="p" shade={10}>
+          {item.host}:{item.port}
+        </Text.Text>
+      </Align.Space>
+    </CoreList.Item>
+  );
+};
+
+export interface NoneConnectedProps extends PropsWithChildren {}
+
+export const NoneConnectedBoundary = ({
+  children,
+  ...rest
+}: NoneConnectedProps): ReactElement => {
+  const client = Synnax.use();
+  if (client != null) return <>{children}</>;
+  return <NoneConnected {...rest} />;
+};
+
+export interface NoneConnectedProps extends Align.SpaceProps<"div"> {}
+
+export const NoneConnected = ({ style, ...rest }: NoneConnectedProps): ReactElement => {
+  const placeLayout = Layout.usePlacer();
+
+  const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
+    e.stopPropagation();
+    placeLayout(CONNECT_LAYOUT);
+  };
+
+  return (
+    <Align.Space
+      empty
+      style={{ height: "100%", position: "relative", ...style }}
+      {...rest}
+    >
+      <Align.Center y style={{ height: "100%" }} size="small">
+        <Text.Text level="p">No cluster connected.</Text.Text>
+        <Text.Link level="p" onClick={handleCluster}>
+          Connect a cluster
+        </Text.Link>
+      </Align.Center>
+    </Align.Space>
+  );
+};
+
+export const Dropdown = (): ReactElement => {
+  const cluster = useSelect();
+  const disconnected = cluster == null;
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
+  const keys = useMemo(() => allClusters.map((c) => c.key), [allClusters]);
   const active = useSelect();
   const placeLayout = Layout.usePlacer();
-  const selected = active?.key ?? null;
+  const selected = active?.key;
   const addStatus = Status.useAdder();
   const createWS = useCreateOrRetrieve();
 
@@ -135,151 +214,54 @@ export const List = (): ReactElement => {
     [active?.key, handleConnect, handleRemove],
   );
 
-  return (
-    <Align.Pack className={CSS.B("cluster-list")} y>
-      <Align.Pack x justify="spaceBetween" size="large" grow>
-        <Header.Header grow bordered borderShade={5} size="small">
-          <Header.Title level="h5" startIcon={<Icon.Cluster />}>
-            Clusters
-          </Header.Title>
-        </Header.Header>
-        <Button.Button
-          variant="filled"
-          size="large"
-          iconSpacing="small"
-          startIcon={<Icon.Connect />}
-          onClick={() => placeLayout(CONNECT_LAYOUT)}
-          className={CSS.B("cluster-list-add")}
-        >
-          Connect
-        </Button.Button>
-      </Align.Pack>
-      <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-        <CoreList.List<string, Cluster>
-          data={allClusters}
-          emptyContent={<NoneConnected />}
-        >
-          <CoreList.Selector
-            value={selected}
-            allowMultiple={false}
-            onChange={handleConnect}
-          >
-            <CoreList.Core<string, Cluster>
-              style={{ height: 190, width: "100%" }}
-              onContextMenu={menuProps.open}
-              className={menuProps.className}
-              bordered
-              borderShade={5}
-            >
-              {({ key, ...p }) => (
-                <ListItem key={key} {...p} validateName={validateName} />
-              )}
-            </CoreList.Core>
-          </CoreList.Selector>
-        </CoreList.List>
-      </PMenu.ContextMenu>
-    </Align.Pack>
-  );
-};
+  const listProps = CoreList.use({ data: keys });
 
-interface ListItemProps extends CoreList.ItemProps<string, Cluster> {
-  validateName: (name: string) => boolean;
-}
+  const selectProps = Select.useSingle({
+    value: selected,
+    onChange: handleConnect,
+    data: keys,
+  });
 
-const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement => {
-  const dispatch = useDispatch();
-  const handleChange = (value: string) => {
-    if (!validateName(value)) return;
-    dispatch(rename({ key: rest.entry.key, name: value }));
-  };
-
-  return (
-    <CoreList.ItemFrame
-      className={CSS(CSS.B("cluster-list-item"))}
-      x
-      align="center"
-      {...rest}
-    >
-      <Align.Space y justify="spaceBetween" size="tiny" grow>
-        <Text.MaybeEditable
-          level="p"
-          id={`cluster-dropdown-${rest.entry.key}`}
-          weight={450}
-          value={rest.entry.name}
-          onChange={handleChange}
-          allowDoubleClick={false}
-        />
-        <Text.Text level="p" shade={10}>
-          {rest.entry.host}:{rest.entry.port}
-        </Text.Text>
-      </Align.Space>
-    </CoreList.ItemFrame>
-  );
-};
-
-export interface NoneConnectedProps extends PropsWithChildren {}
-
-export const NoneConnectedBoundary = ({
-  children,
-  ...rest
-}: NoneConnectedProps): ReactElement => {
-  const client = Synnax.use();
-  if (client != null) return <>{children}</>;
-  return <NoneConnected {...rest} />;
-};
-
-export interface NoneConnectedProps extends Align.SpaceProps<"div"> {}
-
-export const NoneConnected = ({ style, ...rest }: NoneConnectedProps): ReactElement => {
-  const placeLayout = Layout.usePlacer();
-
-  const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
-    e.stopPropagation();
-    placeLayout(CONNECT_LAYOUT);
-  };
-
-  return (
-    <Align.Space
-      empty
-      style={{ height: "100%", position: "relative", ...style }}
-      {...rest}
-    >
-      <Align.Center y style={{ height: "100%" }} size="small">
-        <Text.Text level="p">No cluster connected.</Text.Text>
-        <Text.Link level="p" onClick={handleCluster}>
-          Connect a cluster
-        </Text.Link>
-      </Align.Center>
-    </Align.Space>
-  );
-};
-
-export const Dropdown = (): ReactElement => {
-  const { close, toggle, visible } = Core.use();
-  const cluster = useSelect();
-  const disconnected = cluster == null;
   return (
     <Align.Pack>
-      <Core.Dialog
-        close={close}
-        visible={visible}
-        variant="floating"
-        bordered={false}
-        className={CSS.B("cluster-dropdown")}
-        borderShade={5}
-        rounded={0.5}
-      >
-        <Button.Button
-          onClick={toggle}
+      <Select.Dialog data={keys} useItem={useSelect} {...listProps} {...selectProps}>
+        <Dialog.Trigger
           startIcon={disconnected ? <Icon.Connect /> : <Icon.Cluster />}
           justify="center"
           shade={2}
           variant={disconnected ? "filled" : "outlined"}
         >
           {cluster?.name ?? "Connect Cluster"}
-        </Button.Button>
-        <List />
-      </Core.Dialog>
+        </Dialog.Trigger>
+        <Dialog.Content>
+          <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
+            <Header.Header grow bordered borderShade={5} size="small">
+              <Header.Title level="h5" startIcon={<Icon.Cluster />}>
+                Clusters
+              </Header.Title>
+            </Header.Header>
+            <Button.Button
+              variant="filled"
+              size="large"
+              iconSpacing="small"
+              startIcon={<Icon.Connect />}
+              onClick={() => placeLayout(CONNECT_LAYOUT)}
+              className={CSS.B("cluster-list-add")}
+            >
+              Connect
+            </Button.Button>
+            <CoreList.Items<string, Cluster>
+              style={{ height: 190, width: "100%" }}
+              onContextMenu={menuProps.open}
+              className={menuProps.className}
+            >
+              {({ itemKey, ...p }) => (
+                <ListItem itemKey={itemKey} {...p} validateName={validateName} />
+              )}
+            </CoreList.Items>
+          </PMenu.ContextMenu>
+        </Dialog.Content>
+      </Select.Dialog>
       <ConnectionBadge />
     </Align.Pack>
   );

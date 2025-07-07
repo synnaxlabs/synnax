@@ -13,7 +13,7 @@ import { ontology } from "@synnaxlabs/client";
 import {
   Align,
   Button,
-  Component.renderProp,
+  Component,
   Dropdown,
   Icon,
   Input,

@@ -11,7 +11,7 @@ import { type ranger } from "@synnaxlabs/client";
 import {
   Align,
   Button,
-  Component.renderProp,
+  Component,
   Divider,
   Form,
   Icon,

@@ -15,7 +15,7 @@ import {
   Align,
   Breadcrumb,
   Button,
-  Component.renderProp,
+  Component,
   Eraser,
   Icon,
   Menu as PMenu,

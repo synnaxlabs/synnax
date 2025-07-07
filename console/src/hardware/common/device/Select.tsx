@@ -54,7 +54,6 @@ export const Select = ({
         <Device.SelectSingle
           {...p}
           allowNone={false}
-          autoSelectOnNone={false}
           emptyContent={
             typeof emptyContent === "string" ? (
               <Align.Center>

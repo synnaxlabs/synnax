@@ -35,7 +35,7 @@ const useMultipleWrapper = (
 };
 
 interface UseSelectSingleWrapperReturn {
-  value: string | null;
+  value: string | undefined;
   clear: () => void;
   onSelect: (key: string) => void;
 }
@@ -43,7 +43,7 @@ interface UseSelectSingleWrapperReturn {
 const useSelectSingleWrapper = (
   props: Omit<Select.UseSingleProps<string>, "data" | "value" | "onChange">,
 ): UseSelectSingleWrapperReturn => {
-  const [value, onChange] = useState<string | null>(null);
+  const [value, onChange] = useState<string | undefined>(undefined);
   const { clear, onSelect } = Select.useSingle<string>({
     allowNone: true,
     ...props,

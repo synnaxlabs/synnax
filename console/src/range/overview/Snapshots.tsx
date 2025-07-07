@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import {
   Align,
-  Component.renderProp,
+  Component,
   Icon,
   List,
   Ontology,

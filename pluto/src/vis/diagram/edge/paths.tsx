@@ -271,7 +271,7 @@ const DATA_NAMES: record.KeyedNamed<PathType>[] = [
   { key: "data", name: "Data" },
 ];
 
-const useListItem = (key: PathType | null): record.KeyedNamed<PathType> | undefined =>
+const useListItem = (key?: PathType): record.KeyedNamed<PathType> | undefined =>
   DATA_NAMES.find((d) => d.key === key);
 
 const listItemRenderProp = Component.renderProp(

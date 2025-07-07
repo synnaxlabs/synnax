@@ -46,11 +46,12 @@ const handleRename: Ontology.HandleTreeRename = {
 };
 
 const handleConfigure = ({
-  selection: { resources },
+  selection: { resourceIDs },
+  state: { getResource },
   placeLayout,
   handleError,
 }: Ontology.TreeContextMenuProps) => {
-  const resource = resources[0];
+  const resource = getResource(resourceIDs[0]);
   try {
     const make = makeZ.parse(resource.data?.make);
     placeLayout({ ...CONFIGURE_LAYOUTS[make], key: resource.id.key });
@@ -62,11 +63,12 @@ const handleConfigure = ({
 const useHandleChangeIdentifier = () => {
   const rename = useRename();
   return ({
-    selection: { resources },
+    selection: { resourceIDs },
+    state: { getResource },
     handleError,
     client,
   }: Ontology.TreeContextMenuProps) => {
-    const resource = resources[0];
+    const resource = getResource(resourceIDs[0]);
     handleError(async () => {
       const device = await client.hardware.devices.retrieve(resource.id.key);
       const identifier =
@@ -97,8 +99,13 @@ const useHandleChangeIdentifier = () => {
 const useDelete = () => {
   const confirm = Ontology.useConfirmDelete({ type: "Device" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+    onMutate: async ({
+      state: { nodes, setNodes },
+      selection: { resourceIDs },
+      state: { getResource },
+    }) => {
       const prevNodes = Tree.deepCopy(nodes);
+      const resources = getResource(resourceIDs);
       if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
@@ -108,8 +115,8 @@ const useDelete = () => {
       ]);
       return prevNodes;
     },
-    mutationFn: async ({ selection, client }) =>
-      await client.hardware.devices.delete(selection.resources.map((r) => r.id.key)),
+    mutationFn: async ({ selection: { resourceIDs }, client }) =>
+      await client.hardware.devices.delete(resourceIDs.map((id) => id.key)),
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) setNodes(prevNodes);
@@ -121,22 +128,23 @@ const useDelete = () => {
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection,
-    selection: { nodes, resources },
+    selection: { resourceIDs },
+    state: { getResource },
   } = props;
-  const singleResource = nodes.length === 1;
-  const first = resources[0];
+  const singleResource = resourceIDs.length === 1;
+  const first = getResource(resourceIDs[0]);
   const handleDelete = useDelete();
   const group = Group.useCreateFromSelection();
   const handleChangeIdentifier = useHandleChangeIdentifier();
-  if (nodes.length === 0) return null;
+  if (resourceIDs.length === 0) return null;
   const handleSelect = {
     configure: () => handleConfigure(props),
     delete: () => handleDelete(props),
-    rename: () => Tree.startRenaming(nodes[0].key),
+    rename: () => Text.edit(resourceIDs[0].key),
     group: () => group(props),
     changeIdentifier: () => handleChangeIdentifier(props),
   };
-  const C = singleResource ? getContextMenuItems(resources[0].data?.make) : null;
+  const C = singleResource ? getContextMenuItems(first.data?.make) : null;
   const customMenuItems = C ? <C {...props} /> : null;
   const showConfigure = singleResource && first.data?.configured !== true;
   const showChangeIdentifier =
@@ -180,47 +188,38 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
-const Item: Tree.Item = ({ entry, className, ...rest }: Tree.ItemProps) => {
-  const id = ontology.idZ.parse(entry.key);
-  const devStatus = Device.useStatus(id.key);
+const Item = ({
+  id,
+  resource,
+  className,
+  onRename,
+  ...rest
+}: Ontology.TreeItemProps) => {
+  const devStatus = Device.useRetrieve()({ params: { key: id.key } });
   const variant = devStatus?.variant;
   const message = devStatus?.message ?? "Device Status Unknown";
   return (
-    <Tree.DefaultItem
-      className={CSS(className, CSS.B("device-ontology-item"))}
-      entry={entry}
-      {...rest}
-    >
-      {({ entry, onRename, key }) => (
-        <>
-          <Align.Space x grow align="center" className={CSS.B("name-location")}>
-            <Text.MaybeEditable
-              id={`text-${key}`}
-              level="p"
-              className={CSS.B("name")}
-              allowDoubleClick={false}
-              value={entry.name}
-              disabled={!entry.allowRename}
-              onChange={(name) => onRename?.(entry.key, name)}
-            />
-            <Text.Text level="small" shade={9} className={CSS.B("location")}>
-              {entry.extraData?.location as string}
-            </Text.Text>
-          </Align.Space>
-          <Tooltip.Dialog location="right">
-            <Status.Text
-              variant={variant ?? "error"}
-              hideIcon
-              level="small"
-              weight={450}
-            >
-              {message}
-            </Status.Text>
-            <Status.Indicator variant={variant ?? "disabled"} />
-          </Tooltip.Dialog>
-        </>
-      )}
-    </Tree.DefaultItem>
+    <Tree.Item className={CSS(className, CSS.B("device-ontology-item"))} {...rest}>
+      <Align.Space x grow align="center" className={CSS.B("name-location")}>
+        <Text.MaybeEditable
+          id={`text-${id.key}`}
+          level="p"
+          className={CSS.B("name")}
+          allowDoubleClick={false}
+          value={resource.name}
+          onChange={onRename}
+        />
+        <Text.Text level="small" shade={9} className={CSS.B("location")}>
+          {resource.data?.location as string}
+        </Text.Text>
+      </Align.Space>
+      <Tooltip.Dialog location="right">
+        <Status.Text variant={variant ?? "error"} hideIcon level="small" weight={450}>
+          {message}
+        </Status.Text>
+        <Status.Indicator variant={variant ?? "disabled"} />
+      </Tooltip.Dialog>
+    </Tree.Item>
   );
 };
 

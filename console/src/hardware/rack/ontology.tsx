@@ -12,6 +12,7 @@ import "@/hardware/rack/ontology.css";
 import { ontology, rack } from "@synnaxlabs/client";
 import {
   Icon,
+  List,
   Menu as PMenu,
   Rack,
   Status,
@@ -38,7 +39,11 @@ const CreateSequenceIcon = Icon.createComposite(Icon.Control, {
 const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const confirm = Ontology.useConfirmDelete({ type: "Rack" });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
-    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+    onMutate: async ({
+      state: { nodes, setNodes, getResource },
+      selection: { resourceIDs },
+    }) => {
+      const resources = resourceIDs.map((id) => getResource(id));
       if (!(await confirm(resources))) throw new errors.Canceled();
       const prevNodes = Tree.deepCopy(nodes);
       setNodes([
@@ -49,8 +54,8 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       ]);
       return prevNodes;
     },
-    mutationFn: async ({ selection: { resources }, client }) =>
-      await client.hardware.racks.delete(resources.map(({ id }) => Number(id.key))),
+    mutationFn: async ({ selection: { resourceIDs }, client }) =>
+      await client.hardware.racks.delete(resourceIDs.map((id) => Number(id.key))),
     onError: (e, { handleError, state: { setNodes } }, prevNodes) => {
       if (prevNodes != null) setNodes(prevNodes);
       if (errors.Canceled.matches(e)) return;
@@ -61,8 +66,8 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const useCopyKeyToClipboard = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const copy = useCopyToClipboard();
-  return ({ selection: { resources } }) => {
-    copy(resources[0].id.key, `key to ${resources[0].name}`);
+  return ({ selection: { resourceIDs }, state: { getResource } }) => {
+    copy(resourceIDs[0].key, `key to ${getResource(resourceIDs[0]).name}`);
   };
 };
 
@@ -73,10 +78,11 @@ const handleRename: Ontology.HandleTreeRename = {
   },
 };
 
-const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
-  const id = ontology.idZ.parse(entry.key);
+const Item = (props: Ontology.TreeItemProps) => {
+  const { itemKey, onRename } = props;
+  const entry = List.useItem<string, ontology.Resource>(itemKey);
+  const id = ontology.idZ.parse(itemKey);
   const status = Rack.useStatus(Number(id.key));
-
   const heartRef = useRef<SVGSVGElement>(null);
 
   const variant = status?.variant ?? "disabled";
@@ -89,43 +95,40 @@ const Item: Tree.Item = ({ entry, ...rest }: Tree.ItemProps) => {
     requestAnimationFrame(() => heart.classList.add("synnax-rack-heartbeat--beat"));
   }, [status]);
 
+  if (entry == null) return null;
+
   return (
-    <Tree.DefaultItem {...rest} entry={entry}>
-      {({ entry, onRename, key }) => (
-        <>
-          <Text.MaybeEditable
-            id={`text-${key}`}
-            level="p"
-            allowDoubleClick={false}
-            value={entry.name}
-            disabled={!entry.allowRename}
-            onChange={(name) => onRename?.(entry.key, name)}
-            style={{
-              textOverflow: "ellipsis",
-              width: 0,
-              overflow: "hidden",
-              flexGrow: 1,
-            }}
-          />
-          <Tooltip.Dialog location="right">
-            <Status.Text variant={variant} hideIcon level="small" weight={450}>
-              {status?.message}
-            </Status.Text>
-            <Icon.Heart
-              ref={heartRef}
-              className="synnax-rack-heartbeat"
-              style={{ color: Status.VARIANT_COLORS[variant] }}
-            />
-          </Tooltip.Dialog>
-        </>
-      )}
-    </Tree.DefaultItem>
+    <Tree.Item {...props}>
+      <Text.MaybeEditable
+        id={`text-${itemKey}`}
+        level="p"
+        allowDoubleClick={false}
+        value={entry?.name}
+        onChange={(name) => onRename?.(name)}
+        style={{
+          textOverflow: "ellipsis",
+          width: 0,
+          overflow: "hidden",
+          flexGrow: 1,
+        }}
+      />
+      <Tooltip.Dialog location="right">
+        <Status.Text variant={variant} hideIcon level="small" weight={450}>
+          {status?.message}
+        </Status.Text>
+        <Icon.Heart
+          ref={heartRef}
+          className="synnax-rack-heartbeat"
+          style={{ color: Status.VARIANT_COLORS[variant] }}
+        />
+      </Tooltip.Dialog>
+    </Tree.Item>
   );
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { selection } = props;
-  const { nodes } = selection;
+  const { resourceIDs } = selection;
   const handleDelete = useDelete();
   const placeLayout = Layout.usePlacer();
   const rename = Modals.useRename();
@@ -133,7 +136,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const group = Group.useCreateFromSelection();
   const copyKeyToClipboard = useCopyKeyToClipboard();
   const createSequence = () => {
-    Sequence.createLayout({ rename, rackKey: Number(selection.resources[0].id.key) })
+    Sequence.createLayout({ rename, rackKey: Number(resourceIDs[0].key) })
       .then((layout) => {
         if (layout == null) return;
         placeLayout(layout);
@@ -142,12 +145,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
   const onSelect = {
     group: () => group(props),
-    rename: () => Tree.startRenaming(nodes[0].key),
+    rename: () => Text.edit(resourceIDs[0].key),
     createSequence,
     copy: () => copyKeyToClipboard(props),
     delete: () => handleDelete(props),
   };
-  const isSingle = nodes.length === 1;
+  const isSingle = resourceIDs.length === 1;
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
       <Group.MenuItem selection={selection} showBottomDivider />

@@ -10,7 +10,7 @@
 import {
   Align,
   Button,
-  Component.renderProp,
+  Component,
   Divider,
   Form,
   Icon,

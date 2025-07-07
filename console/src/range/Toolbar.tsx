@@ -12,7 +12,7 @@ import "@/range/Toolbar.css";
 import { ranger } from "@synnaxlabs/client";
 import {
   Align,
-  Component.renderProp,
+  Component,
   Haul,
   Icon,
   List as CoreList,

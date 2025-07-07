@@ -21,6 +21,21 @@ import { type FC } from "react";
 import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
 
+export interface TreeState {
+  nodes: Tree.Node[];
+  shape: Tree.Shape;
+  setNodes: (nodes: Tree.Node[]) => void;
+  setResource: (resource: ontology.Resource | ontology.Resource[]) => void;
+  getResource: {
+    (id: ontology.ID): ontology.Resource;
+    (ids: ontology.ID[]): ontology.Resource[];
+  };
+  setSelection: (keys: string[]) => void;
+  expand: (key: string) => void;
+  contract: (key: string) => void;
+  setLoading: (key: string | false) => void;
+}
+
 export interface BaseProps {
   client: Synnax;
   store: RootStore;
@@ -39,14 +54,9 @@ export interface HandleSelect {
   (props: HandleSelectProps): void;
 }
 
-export interface HandleMosaicDropProps {
-  client: Synnax;
-  store: RootStore;
-  placeLayout: Layout.Placer;
+export interface HandleMosaicDropProps extends BaseProps {
   nodeKey: number;
   location: location.Location;
-  addStatus: Status.Adder;
-  handleError: Status.ErrorHandler;
   id: ontology.ID;
 }
 
@@ -58,19 +68,9 @@ export interface TreeContextMenuProps extends BaseProps {
   selection: {
     parentID: ontology.ID;
     rootID: ontology.ID;
-    resources: ontology.Resource[];
-    nodes: Tree.NodeWithPosition[];
+    resourceIDs: ontology.ID[];
   };
-  state: {
-    resources: ontology.Resource[];
-    nodes: Tree.Node[];
-    setNodes: (nodes: Tree.Node[]) => void;
-    setResources: React.Dispatch<React.SetStateAction<ontology.Resource[]>>;
-    setSelection: (keys: string[]) => void;
-    expand: (key: string) => void;
-    contract: (key: string) => void;
-    setLoading: (key: string | false) => void;
-  };
+  state: TreeState;
 }
 
 export interface TreeContextMenu extends FC<TreeContextMenuProps> {}
@@ -78,12 +78,7 @@ export interface TreeContextMenu extends FC<TreeContextMenuProps> {}
 export interface HandleTreeRenameProps extends BaseProps {
   id: ontology.ID;
   name: string;
-  state: {
-    resources: ontology.Resource[];
-    nodes: Tree.Node[];
-    setNodes: (nodes: Tree.Node[]) => void;
-    setResources: (resources: ontology.Resource[]) => void;
-  };
+  state: TreeState;
 }
 
 export interface HandleTreeRename {
@@ -96,8 +91,17 @@ export interface AllowRename {
   (resource: ontology.Resource): boolean;
 }
 
-export interface PaletteListItem
-  extends FC<List.ItemProps<string, ontology.Resource>> {}
+export interface PaletteListItem extends FC<List.ItemProps<string>> {}
+
+export interface TreeItemProps extends Tree.ItemProps<string> {
+  id: ontology.ID;
+  icon: Icon.ReactElement;
+  loading: boolean;
+  resource: ontology.Resource;
+  onRename: (name: string) => void;
+  onDrop: (props: Haul.OnDropProps) => Haul.Item[];
+  onDoubleClick: () => void;
+}
 
 export interface Service {
   type: ontology.ResourceType;
@@ -107,7 +111,7 @@ export interface Service {
   canDrop: Haul.CanDrop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
   allowRename: AllowRename;
-  Item?: Tree.Item;
+  Item?: FC<TreeItemProps>;
   onRename?: HandleTreeRename;
   onMosaicDrop?: HandleMosaicDrop;
   TreeContextMenu?: TreeContextMenu;

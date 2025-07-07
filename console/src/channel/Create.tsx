@@ -15,7 +15,7 @@ import {
   Form,
   Input,
   Nav,
-  Select,
+  Telem,
   Text,
 } from "@synnaxlabs/pluto";
 import { useState } from "react";
@@ -51,12 +51,18 @@ export const Create: Layout.Renderer = ({ onClose }) => {
     },
   });
 
-  const isIndex = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>("isIndex", {
-    ctx: form,
-  });
-  const isVirtual = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>("virtual", {
-    ctx: form,
-  });
+  const isIndex = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
+    "isIndex",
+    {
+      ctx: form,
+    },
+  );
+  const isVirtual = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
+    "virtual",
+    {
+      ctx: form,
+    },
+  );
 
   return (
     <Align.Space className={CSS.B("channel-edit-layout")} grow empty>
@@ -101,7 +107,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
             />
             <Form.Field<string> path="dataType" label="Data Type" grow>
               {({ variant: _, ...p }) => (
-                <Select.DataType
+                <Telem.SelectDataType
                   {...p}
                   disabled={isIndex}
                   maxHeight="small"
@@ -112,15 +118,16 @@ export const Create: Layout.Renderer = ({ onClose }) => {
             </Form.Field>
           </Align.Space>
           <Form.Field<channel.Key> path="index" label="Index">
-            {(p) => (
+            {({ value, onChange }) => (
               <Channel.SelectSingle
                 placeholder="Select Index"
+                value={value}
+                onChange={onChange}
                 searchOptions={{ isIndex: true }}
                 disabled={isIndex || isVirtual}
                 maxHeight="small"
                 allowNone={false}
                 zIndex={100}
-                {...p}
               />
             )}
           </Form.Field>

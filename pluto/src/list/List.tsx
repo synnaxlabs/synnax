@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/list/Core.css";
+import "@/list/List.css";
 
 import { type record } from "@synnaxlabs/x";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
@@ -62,7 +62,7 @@ export interface ContextValue<
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   onFetchMore?: () => void;
   data: K[];
-  useItem: (key: K | null) => E | undefined;
+  useItem: (key?: K) => E | undefined;
 }
 
 const Context = createContext<ContextValue | null>(null);
@@ -76,7 +76,7 @@ export const useItem = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >(
-  key: K | null,
+  key?: K,
 ): E | undefined => {
   const { useItem } = useContext<K, E>();
   return useItem(key);
@@ -129,7 +129,7 @@ export interface UseStaticDataReturn<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > {
-  useItem: (key: K | null) => E | undefined;
+  useItem: (key?: K) => E | undefined;
   data: K[];
 }
 
@@ -141,9 +141,6 @@ export const useStaticData = <
 ): UseStaticDataReturn<K, E> =>
   useMemo(() => {
     const keys = data.map((d) => d.key);
-    const useItem = useCallback(
-      (key: K | null) => data.find((d) => d.key === key),
-      [data],
-    );
+    const useItem = useCallback((key?: K) => data.find((d) => d.key === key), [data]);
     return { useItem, data: keys };
   }, [data]);

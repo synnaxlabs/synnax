@@ -13,7 +13,7 @@ import { Logo } from "@synnaxlabs/media";
 import {
   Align,
   Button,
-  Component.renderProp,
+  Component,
   CSS as PCSS,
   Nav,
   OS,

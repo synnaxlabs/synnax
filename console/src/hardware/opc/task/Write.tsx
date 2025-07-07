@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
-import { Component.renderProp, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { Component, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { type FC } from "react";
 

@@ -95,19 +95,19 @@ const fetchIfNotInState = async (
 const useActivate = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
     mutationFn: async ({ selection, client, store }) => {
-      const res = selection.resources[0];
-      await fetchIfNotInState(store, client, res.id.key);
-      store.dispatch(setActive(res.id.key));
+      const id = selection.resourceIDs[0];
+      await fetchIfNotInState(store, client, id.key);
+      store.dispatch(setActive(id.key));
     },
     onError: (e, { handleError }) => handleError(e, "Failed to activate range"),
   }).mutate;
 
 const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
-    mutationFn: async ({ selection: { resources }, client, store }) => {
+    mutationFn: async ({ selection: { resourceIDs }, client, store }) => {
       const active = Layout.selectActiveMosaicLayout(store.getState());
       if (active == null) return;
-      const keys = resources.map((r) => r.id.key);
+      const keys = resourceIDs.map((r) => r.key);
       await fetchIfNotInState(store, client, keys);
       store.dispatch(
         LinePlot.setRanges({
@@ -118,8 +118,11 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
         }),
       );
     },
-    onError: (e, { handleError, selection: { resources } }) => {
-      const rangeNames = resources.map((r) => r.name);
+    onError: (
+      e,
+      { handleError, selection: { resourceIDs }, state: { getResource } },
+    ) => {
+      const rangeNames = resourceIDs.map((r) => getResource(r).name);
       handleError(
         e,
         `Failed to add ${strings.naturalLanguageJoin(rangeNames, "range")} to the active plot`,
@@ -129,10 +132,16 @@ const useAddToActivePlot = (): ((props: Ontology.TreeContextMenuProps) => void) 
 
 const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
   useMutation<void, Error, Ontology.TreeContextMenuProps>({
-    mutationFn: async ({ selection: { resources }, client, store, placeLayout }) => {
-      const keys = resources.map((r) => r.id.key);
+    mutationFn: async ({
+      selection: { resourceIDs },
+      state: { getResource },
+      client,
+      store,
+      placeLayout,
+    }) => {
+      const keys = resourceIDs.map((r) => r.key);
       await fetchIfNotInState(store, client, keys);
-      const names = resources.map((r) => r.name);
+      const names = resourceIDs.map((r) => getResource(r).name);
       placeLayout(
         LinePlot.create({
           name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
@@ -143,8 +152,11 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
         }),
       );
     },
-    onError: (e, { handleError, selection: { resources } }) => {
-      const names = resources.map((r) => r.name);
+    onError: (
+      e,
+      { handleError, selection: { resourceIDs }, state: { getResource } },
+    ) => {
+      const names = resourceIDs.map((r) => getResource(r).name);
       handleError(
         e,
         `Failed to add ${strings.naturalLanguageJoin(names, "range")} to plot`,
@@ -154,11 +166,11 @@ const useAddToNewPlot = (): ((props: Ontology.TreeContextMenuProps) => void) =>
 
 const useViewDetails = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   const placeLayout = Layout.usePlacer();
-  return ({ selection: { resources } }) =>
+  return ({ selection: { resourceIDs }, state: { getResource } }) =>
     placeLayout({
       ...OVERVIEW_LAYOUT,
-      name: resources[0].name,
-      key: resources[0].id.key,
+      name: getResource(resourceIDs[0]).name,
+      key: resourceIDs[0].key,
     });
 };
 
@@ -169,48 +181,45 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   });
   return useMutation<void, Error, Ontology.TreeContextMenuProps, Tree.Node[]>({
     onMutate: async ({
-      state: { nodes, setNodes },
-      selection: { resources, nodes: selectedNodes },
+      state: { nodes, setNodes, getResource },
+      selection: { resourceIDs },
       store,
       removeLayout,
     }) => {
+      const resources = resourceIDs.map((r) => getResource(r));
+      const stringIDs = resourceIDs.map((id) => ontology.idToString(id));
       if (!(await confirm(resources))) throw new errors.Canceled();
-      const prevNodes = Tree.deepCopy(nodes);
-      const minDepth = Math.min(...selectedNodes.map((n) => n.depth));
-      const nodesOfMinDepth = selectedNodes.filter((n) => n.depth === minDepth);
-      const descendants = Tree.getDescendants(...nodesOfMinDepth).map(
-        (n) => ontology.idZ.parse(n.key).key,
-      );
-      setNodes([
-        ...Tree.removeNode({
-          tree: nodes,
-          keys: nodesOfMinDepth.map((n) => n.key),
-        }),
-      ]);
-      const keys = descendants.concat(
-        nodesOfMinDepth.map(({ key }) => ontology.idZ.parse(key).key),
-      );
-      store.dispatch(remove({ keys }));
-      removeLayout(...keys);
-      return prevNodes;
+      setNodes(Tree.removeNode({ tree: nodes, keys: stringIDs }));
+      const rangesToRemove = resourceIDs
+        .filter((id) => id.type === ranger.ONTOLOGY_TYPE)
+        .map((id) => id.key);
+      store.dispatch(remove({ keys: rangesToRemove }));
+      removeLayout(...resourceIDs.map((id) => ontology.idToString(id)));
+      return nodes;
     },
-    mutationFn: async ({ selection, client }) =>
-      await client.ranges.delete(selection.resources.map((r) => r.id.key)),
+    mutationFn: async ({ selection: { resourceIDs }, client }) =>
+      await client.ranges.delete(resourceIDs.map((r) => r.key)),
     onError: (
       e,
-      { handleError, selection: { resources }, state: { setNodes }, store },
+      {
+        handleError,
+        selection: { resourceIDs },
+        state: { setNodes, getResource },
+        store,
+      },
       prevNodes,
     ) => {
       if (errors.Canceled.matches(e)) return;
       if (prevNodes != null) {
         setNodes(prevNodes);
         const ranges = fromClientRange(
-          resources.map((resource) => resource.data as unknown as ranger.Range),
+          resourceIDs.map((id) => getResource(id).data as unknown as ranger.Range),
         );
         store.dispatch(add({ ranges }));
       }
       let message = "Failed to delete ranges";
-      if (resources.length === 1) message = `Failed to delete ${resources[0].name}`;
+      if (resourceIDs.length === 1)
+        message = `Failed to delete ${getResource(resourceIDs[0]).name}`;
       handleError(e, message);
     },
   }).mutate;
@@ -219,8 +228,9 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection,
-    selection: { resources, nodes },
+    selection: { resourceIDs },
     store,
+    state: { getResource },
     placeLayout,
   } = props;
   const activeRange = useSelect();
@@ -233,40 +243,40 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const clearActiveRange = () => {
     dispatch(setActive(null));
   };
+  const firstID = resourceIDs[0];
+  const firstResource = getResource(firstID);
   const groupFromSelection = Group.useCreateFromSelection();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleAddChildRange = () => {
-    placeLayout(createCreateLayout({ parent: resources[0].id.key }));
+    placeLayout(createCreateLayout({ parent: firstID.key }));
   };
   const viewDetails = useViewDetails();
   const handleSelect = {
     delete: () => handleDelete(props),
-    rename: () => Tree.startRenaming(nodes[0].key),
+    rename: () => Text.edit(resourceIDs[0].key),
     setAsActive: () => activate(props),
     addToActivePlot: () => addToActivePlot(props),
     addToNewPlot: () => addToNewPlot(props),
     group: () => groupFromSelection(props),
     details: () => viewDetails(props),
-    link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
+    link: () => handleLink({ name: firstResource.name, ontologyID: firstID }),
     addChildRange: handleAddChildRange,
     clearActive: clearActiveRange,
   };
-  const isSingle = resources.length === 1;
+  const isSingle = resourceIDs.length === 1;
   let showAddToActivePlot = false;
   if (layout?.type === LinePlot.LAYOUT_TYPE) {
     const activeRanges = LinePlot.selectRanges(store.getState(), layout.key).x1.map(
       (r) => r.key,
     );
-    showAddToActivePlot = resources.some((r) => !activeRanges.includes(r.id.key));
+    showAddToActivePlot = resourceIDs.some((r) => !activeRanges.includes(r.key));
   }
 
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       {isSingle && (
         <>
-          {resources[0].id.key !== activeRange?.key
-            ? setAsActiveMenuItem
-            : clearActiveMenuItem}
+          {firstID.key !== activeRange?.key ? setAsActiveMenuItem : clearActiveMenuItem}
           {viewDetailsMenuItem}
           <PMenu.Divider />
           <Menu.RenameItem />
@@ -296,15 +306,9 @@ const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
 ];
 
 const PaletteListItem: Ontology.PaletteListItem = (props) => {
-  const { entry } = props;
+  const resource = List.useItem<string, ontology.Resource>(props.itemKey);
   return (
-    <List.ItemFrame
-      y
-      size="tiny"
-      style={{ padding: "1.5rem" }}
-      highlightHovered
-      {...props}
-    >
+    <List.Item y size="tiny" style={{ padding: "1.5rem" }} highlightHovered {...props}>
       <Text.WithIcon
         startIcon={<Icon.Range />}
         level="p"
@@ -312,13 +316,13 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
         shade={11}
         size="medium"
       >
-        {entry.name}{" "}
+        {resource?.name}
       </Text.WithIcon>
       <Ranger.TimeRangeChip
         level="small"
-        timeRange={entry.data?.timeRange as CrudeTimeRange}
+        timeRange={resource?.data?.timeRange as CrudeTimeRange}
       />
-    </List.ItemFrame>
+    </List.Item>
   );
 };
 

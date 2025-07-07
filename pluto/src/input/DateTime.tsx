@@ -18,13 +18,14 @@ import { Align } from "@/align";
 import { Button } from "@/button";
 import { renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { Dropdown } from "@/dropdown";
+import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
 import { Text as InputText } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
 import { List } from "@/list";
 import { Nav } from "@/nav";
+import { Select } from "@/select";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
@@ -80,10 +81,10 @@ export const DateTime = ({
   const tsValue = new TimeStamp(value, "UTC");
   const parsedValue = tsValue.fString("ISO", "local").slice(0, -1);
 
-  const { close, toggle, visible } = Dropdown.use();
+  const { close, toggle, visible } = Dialog.use();
 
   return (
-    <Dropdown.Dialog
+    <Dialog.Dialog
       close={close}
       visible={visible}
       variant="modal"
@@ -113,7 +114,7 @@ export const DateTime = ({
         onChange={(next) => onChange(Number(next.valueOf()))}
         close={close}
       />
-    </Dropdown.Dialog>
+    </Dialog.Dialog>
   );
 };
 
@@ -193,6 +194,7 @@ const AISelector = ({
 }: AISelectorProps): ReactElement => {
   const [value, setValue] = useState<string>("");
   const [entries, setEntries] = useState<AISuggestion[]>([]);
+  const { data, useItem } = List.useStaticData<string>(entries);
 
   const handleChange = (next: string): void => {
     const processed = nlp(next) as DatesMethods;
@@ -240,6 +242,12 @@ const AISelector = ({
     setValue("");
     setEntries([]);
   };
+  const { ref, virtualizer } = List.use({ data });
+  const selectProps = Select.useSingle<string>({
+    value: undefined,
+    onChange: handleSelect,
+    data,
+  });
   return (
     <Align.Pack y className={CSS.B("ai-selector")} background={1}>
       <InputText
@@ -248,37 +256,33 @@ const AISelector = ({
         autoFocus
         placeholder="AI Suggestion"
       />
-      <List.List
-        data={entries}
-        emptyContent={
-          <Align.Center empty grow>
-            <Align.Space y size="tiny">
-              <Text.Text level="small" color="var(--pluto-gray-l7)">
-                "April 1 at 2PM"
-              </Text.Text>
-              <Text.Text level="small" color="var(--pluto-gray-l7)">
-                "Add 2 two hours"
-              </Text.Text>
-              <Text.Text level="small" color="var(--pluto-gray-l7)">
-                "Next Friday"
-              </Text.Text>
-            </Align.Space>
-          </Align.Center>
-        }
-      >
-        <List.Selector<string, AISuggestion>
-          value={null}
-          allowMultiple={false}
-          allowNone
-          onChange={handleSelect}
+      <Select.Provider {...selectProps} value={value}>
+        <List.List
+          data={data}
+          useItem={useItem}
+          ref={ref}
+          virtualizer={virtualizer}
+          // emptyContent={
+          //   <Align.Center empty grow>
+          //     <Align.Space y size="tiny">
+          //       <Text.Text level="small" color="var(--pluto-gray-l7)">
+          //         "April 1 at 2PM"
+          //       </Text.Text>
+          //       <Text.Text level="small" color="var(--pluto-gray-l7)">
+          //         "Add 2 two hours"
+          //       </Text.Text>
+          //       <Text.Text level="small" color="var(--pluto-gray-l7)">
+          //         "Next Friday"
+          //       </Text.Text>
+          //     </Align.Space>
+          //   </Align.Center>
+          // }
         >
-          <List.Hover initialHover={0}>
-            <List.Core grow bordered>
-              {aiListItem}
-            </List.Core>
-          </List.Hover>
-        </List.Selector>
-      </List.List>
+          <List.Items<string, AISuggestion> className={CSS.B("ai-list")}>
+            {aiListItem}
+          </List.Items>
+        </List.List>
+      </Select.Provider>
     </Align.Pack>
   );
 };
@@ -376,13 +380,11 @@ export const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
   );
 };
 
-const TimeListItem = (
-  props: List.ItemRenderProps<string, record.KeyedNamed>,
-): ReactElement => {
-  const { entry } = props;
+const TimeListItem = (props: List.ItemRenderProps<number>): ReactElement => {
+  const entry = List.useItem<number, record.KeyedNamed<number>>(props.key);
   return (
     <List.Item {...props} style={{ padding: "0.5rem", paddingLeft: "2rem" }}>
-      <Text.Text level="small">{entry.name}</Text.Text>
+      <Text.Text level="small">{entry?.name}</Text.Text>
     </List.Item>
   );
 };
@@ -395,24 +397,32 @@ interface TimeListProps {
 const timeListItem = renderProp(TimeListItem);
 
 export const createTimeList = (count: number): FC<TimeListProps> => {
-  const data = Array.from({ length: count }, (_, i) => ({
-    key: i.toString(),
-    name: i.toString(),
-  }));
-  const TimeList = ({ value, onChange }: TimeListProps): ReactElement => (
-    <List.List<string, record.KeyedNamed> data={data}>
-      <List.Selector<string, record.KeyedNamed>
-        value={value.toString()}
-        onChange={(next: string) => onChange(Number(next))}
-        allowMultiple={false}
-        allowNone={false}
+  const data = Array.from({ length: count }, (_, i) => i);
+  const useItem = (key?: number): record.KeyedNamed<number> | undefined =>
+    key == null ? undefined : { key, name: key.toString() };
+
+  const TimeList = ({ value, onChange }: TimeListProps): ReactElement => {
+    const { ref, virtualizer } = List.use({ data });
+    const selectProps = Select.useSingle({
+      value,
+      onChange: (next: number) => onChange(next),
+      data,
+    });
+    return (
+      <List.List<number, record.KeyedNamed<number>>
+        data={data}
+        useItem={useItem}
+        ref={ref}
+        virtualizer={virtualizer}
       >
-        <List.Core<string, record.KeyedNamed> className={CSS.B("time-list")}>
-          {timeListItem}
-        </List.Core>
-      </List.Selector>
-    </List.List>
-  );
+        <Select.Provider {...selectProps} value={value}>
+          <List.Items<number, record.KeyedNamed<number>> className={CSS.B("time-list")}>
+            {timeListItem}
+          </List.Items>
+        </Select.Provider>
+      </List.List>
+    );
+  };
   TimeList.displayName = "TimeList";
   return TimeList;
 };

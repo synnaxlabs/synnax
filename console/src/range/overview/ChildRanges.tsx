@@ -8,15 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import {
-  Align,
-  Button,
-  Component.renderProp,
-  Icon,
-  List,
-  Ranger,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Component, Icon, List, Ranger, Text } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { Layout } from "@/layout";

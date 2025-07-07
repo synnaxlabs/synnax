@@ -9,107 +9,85 @@
 
 import "@/tree/Tree.css";
 
-import { type Optional, unique } from "@synnaxlabs/x";
-import {
-  type FC,
-  memo,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { type record, unique } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useMemo } from "react";
 
-import { Button } from "@/button";
-import { Caret } from "@/caret";
-import { type RenderProp, renderProp } from "@/component/renderProp";
-import { CSS } from "@/css";
-import { Haul } from "@/haul";
+import { type Component } from "@/component";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
-import { Icon } from "@/icon";
 import { List } from "@/list";
-import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
-import { type Select } from "@/select";
+import { Select } from "@/select";
 import { state } from "@/state";
-import { Text } from "@/text";
-import { flatten, type FlattenedNode, type Node, type SortOption } from "@/tree/core";
+import { flatten, type Node, type Shape } from "@/tree/core";
 import { Triggers } from "@/triggers";
 
 export const HAUL_TYPE = "tree-item";
 
-export interface HandleExpandProps {
-  current: string[];
+export interface HandleExpandProps<K extends record.Key = string> {
+  current: K[];
   action: "expand" | "contract";
-  clicked: string;
+  clicked: K;
 }
 
-export interface UseProps {
-  onExpand?: (props: HandleExpandProps) => void;
-  selected?: string[];
-  onSelectedChange?: state.Setter<string[]>;
-  initialExpanded?: string[];
-  nodes: Node[];
-  sort?: SortOption;
+export interface UseProps<K extends record.Key = string> {
+  onExpand?: (props: HandleExpandProps<K>) => void;
+  selected?: K[];
+  onSelectedChange?: state.Setter<K[]>;
+  initialExpanded?: K[];
+  nodes: Node<K>[];
 }
 
-export interface UseReturn extends Select.UseReturn<string> {
-  selected: string[];
-  expanded: string[];
-  expand: (key: string) => void;
-  contract: (...keys: string[]) => void;
+export interface UseReturn<K extends record.Key = string> extends Select.UseReturn<K> {
+  selected: K[];
+  expanded: K[];
+  expand: (key: K) => void;
+  contract: (...keys: K[]) => void;
   clearExpanded: () => void;
-  nodes: FlattenedNode[];
+  shape: Shape<K>;
 }
 
 const SHIFT_TRIGGERS: Triggers.Trigger[] = [["Shift"]];
 
-export const use = ({
+export const use = <K extends record.Key = string>({
   onExpand,
   nodes,
   initialExpanded = [],
-  sort,
   selected: propsSelected,
   onSelectedChange,
-}: UseProps): UseReturn => {
+}: UseProps<K>): UseReturn<K> => {
   const [expanded, setExpanded, expandedRef] =
-    useCombinedStateAndRef<string[]>(initialExpanded);
-  const [selected, setSelected] = state.usePassthrough<string[]>({
+    useCombinedStateAndRef<K[]>(initialExpanded);
+  const [selected, setSelected] = state.usePassthrough<K[]>({
     initial: [],
     value: propsSelected,
     onChange: onSelectedChange,
   });
-  const flat = useMemo(
-    () => flatten({ nodes, expanded, sort }),
-    [nodes, expanded, sort],
-  );
-  const flatRef = useSyncedRef(flat);
+  const data = useMemo(() => flatten<K>({ nodes, expanded }), [nodes, expanded]);
+  const nodesRef = useSyncedRef(nodes);
 
   const shiftRef = Triggers.useHeldRef({ triggers: SHIFT_TRIGGERS });
 
-  const handleSelect: UseSelectProps<string, FlattenedNode>["onChange"] = useCallback(
-    (
-      keys: string[],
-      { clicked }: UseSelectOnChangeExtra<string, FlattenedNode>,
-    ): void => {
+  const handleSelect: Select.UseMultipleProps<K>["onChange"] = useCallback(
+    (keys: K[], { clicked }: Select.UseOnChangeExtra<K>): void => {
       setSelected(keys);
-      const n = flatRef.current.find((node) => node.key === clicked);
-      if (n?.hasChildren === false) return;
+      const n = nodesRef.current.find((node) => node.key === clicked);
+      if (n?.children == null) return;
       if (clicked == null || shiftRef.current.held) return;
       const currentlyExpanded = expandedRef.current;
       const action = currentlyExpanded.some((key) => key === clicked)
         ? "contract"
         : "expand";
-      let nextExpanded: string[];
+      let nextExpanded: K[];
       if (action === "contract")
         nextExpanded = currentlyExpanded.filter((key) => key !== clicked);
       else nextExpanded = [...currentlyExpanded, clicked];
       setExpanded(nextExpanded);
       onExpand?.({ current: nextExpanded, action, clicked });
     },
-    [onExpand, flatRef, setExpanded, setSelected],
+    [onExpand, nodesRef, setExpanded, setSelected],
   );
 
   const handleExpand = useCallback(
-    (key: string): void => {
+    (key: K): void => {
       setExpanded((expanded) => unique.unique([...expanded, key]));
       onExpand?.({ current: expanded, action: "expand", clicked: key });
     },
@@ -117,7 +95,7 @@ export const use = ({
   );
 
   const handleContract = useCallback(
-    (...keys: string[]): void => {
+    (...keys: K[]): void => {
       setExpanded((expanded) => expanded.filter((k) => !keys.includes(k)));
       // Call onExpand for each contracted key
       keys.forEach((key) => {
@@ -129,281 +107,64 @@ export const use = ({
 
   const clearExpanded = useCallback(() => setExpanded([]), [setExpanded]);
 
+  const { onSelect, clear } = Select.useMultiple({
+    value: selected,
+    onChange: handleSelect,
+    data: data.keys,
+  });
+
   return {
-    onSelect: handleSelect,
     selected,
     expanded,
     contract: handleContract,
     expand: handleExpand,
-    nodes: flat,
     clearExpanded,
+    shape: data,
+    onSelect,
+    clear,
   };
 };
 
-export interface ItemProps extends List.ItemRenderProps<string, FlattenedNode> {
-  key?: string;
-  onDrop?: (key: string, props: Haul.OnDropProps) => Haul.Item[];
-  onSuccessfulDrop?: (key: string, props: Haul.OnSuccessfulDropProps) => void;
-  onRename?: (key: string, name: string) => void;
-  onDoubleClick?: (key: string, e: React.MouseEvent) => void;
-  loading: boolean;
-  useMargin?: boolean;
-  children?: RenderProp<ItemProps>;
+export interface ItemProps<K extends record.Key = string>
+  extends List.ItemRenderProps<K> {
+  depth: number;
 }
 
-type TreePropsInheritedFromItem = Pick<
-  ItemProps,
-  "onDrop" | "onRename" | "onSuccessfulDrop" | "onDoubleClick" | "useMargin"
->;
-
-type TreePropsInheritedFromList = Omit<
-  List.ListProps<string, FlattenedNode>,
-  "onDrop" | "onSelect" | "children" | "onDoubleClick" | "itemHeight"
-> & {
-  itemHeight?: number;
-};
-
-export interface TreeProps
-  extends TreePropsInheritedFromItem,
-    TreePropsInheritedFromList,
-    Optional<UseReturn, "selected" | "expand" | "contract">,
-    Pick<List.ListProps, "emptyContent"> {
-  nodes: FlattenedNode[];
-  children?: RenderProp<ItemProps>;
-  virtual?: boolean;
+export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
+  extends Omit<List.ListProps<K, E>, "children" | "ref" | "virtualizer" | "data">,
+    Omit<List.ItemsProps<K>, "children" | "onSelect"> {
+  selected: K[];
+  children: Component.RenderProp<ItemProps<K>>;
+  onSelect: (key: K) => void;
+  clearSelected: () => void;
   showRules?: boolean;
-  loading?: string | null | false;
+  shape: Shape<K>;
 }
 
-export type Item = FC<ItemProps>;
-
-export const DefaultItem = memo(
-  ({
-    entry,
-    selected,
-    onSelect,
-    onDrop,
-    onRename,
-    onSuccessfulDrop,
-    onDoubleClick,
-    loading = false,
-    useMargin = true,
-    translate,
-    children: childrenProp,
-    className,
-    hovered,
-    ...rest
-  }: ItemProps): ReactElement => {
-    const {
-      key,
-      hasChildren = false,
-      allowRename = false,
-      children,
-      icon,
-      name,
-      depth,
-      expanded,
-      href,
-      haulItems = [],
-    } = entry;
-
-    const { getSelected } = List.useSelectionUtils<string>();
-    const { getSourceData } = List.useDataUtils<string, FlattenedNode>();
-
-    const actuallyHasChildren =
-      hasChildren || (children != null && children.length > 0);
-
-    // Expand, contract, and loading items.
-    const startIcons: Icon.ReactElement[] = [];
-    if (actuallyHasChildren)
-      startIcons.push(
-        <Caret.Animated
-          key="caret"
-          enabled={expanded}
-          enabledLoc="bottom"
-          disabledLoc="right"
-        />,
-      );
-    if (icon != null) startIcons.push(icon);
-    const endIcons: Icon.ReactElement[] = [];
-    if (loading)
-      endIcons.push(
-        <Icon.Loading key="loading-indicator" className={CSS.B("loading-indicator")} />,
-      );
-
-    const [draggingOver, setDraggingOver] = useState(false);
-
-    const { startDrag, ...dropProps } = Haul.useDragAndDrop({
-      type: "Tree.Item",
-      key,
-      canDrop: useCallback(({ items: entities, source }) => {
-        const keys = entities.map((item) => item.key);
-        setDraggingOver(false);
-        return source.type === "Tree.Item" && !keys.includes(key);
-      }, []),
-      onDrop: useCallback((props) => onDrop?.(key, props) ?? [], [key, onDrop]),
-      onDragOver: useCallback(() => setDraggingOver(true), []),
-    });
-
-    const handleDragStart = (): void => {
-      const selectedItemKeys = getSelected();
-      const selectedItems = getSourceData().filter((item) =>
-        selectedItemKeys.includes(item.key),
-      );
-      if (selectedItemKeys.includes(key)) {
-        const selectedHaulItems = selectedItems
-          .map(({ key, haulItems, depth }) => [
-            { type: HAUL_TYPE, key, data: { depth } },
-            ...(haulItems?.map((item) => ({
-              ...item,
-              data: { ...item.data, depth },
-            })) ?? []),
-          ])
-          .flat();
-        return startDrag(selectedHaulItems, (props) => onSuccessfulDrop?.(key, props));
-      }
-      startDrag(
-        [
-          { type: HAUL_TYPE, key, data: { depth } },
-          ...haulItems.map((item) => ({ ...item, data: { ...item.data, depth } })),
-        ],
-        (props) => onSuccessfulDrop?.(key, props),
-      );
-    };
-
-    const offsetKey = useMargin ? "marginLeft" : "paddingLeft";
-
-    let offset = depth * 2.5 + 1.5;
-    if (actuallyHasChildren) offset -= 0.5;
-
-    const baseProps: Button.LinkProps | Button.ButtonProps = {
-      id: key,
-      variant: "text",
-      draggable: haulItems.length > 0,
-      className: CSS(
-        CSS.BE("list", "item"),
-        CONTEXT_TARGET,
-        draggingOver && CSS.M("dragging-over"),
-        selected && CONTEXT_SELECTED,
-        CSS.selected(selected),
-        actuallyHasChildren && CSS.M("has-children"),
-        CSS.BM("depth", depth.toString()),
-        className,
-      ),
-      onDragLeave: () => setDraggingOver(false),
-      onDragStart: handleDragStart,
-      onClick: () => onSelect?.(key),
-      style: {
-        border: "none",
-        position: translate != null ? "absolute" : "relative",
-        transform: `translateY(${translate}px)`,
-        [offsetKey]: `${offset}rem`,
-        [CSS.var("tree-indicator-offset")]: `${offset - 1.5}rem`,
-      },
-      startIcon: startIcons,
-      iconSpacing: "small",
-      noWrap: true,
-      endIcon: endIcons,
-      onDoubleClick: (e) => onDoubleClick?.(key, e),
-      href,
-      ...dropProps,
-    };
-
-    const Base = href != null ? Button.Link : Button.Button;
-
-    return (
-      <Base {...baseProps} align="center" {...rest}>
-        {childrenProp != null ? (
-          childrenProp({
-            key,
-            loading,
-            useMargin,
-            onDrop,
-            onRename,
-            onSuccessfulDrop,
-            onDoubleClick,
-            entry,
-            selected,
-            onSelect,
-            hovered,
-          })
-        ) : (
-          <Text.MaybeEditable
-            id={`text-${key}`}
-            level="p"
-            allowDoubleClick={false}
-            value={name}
-            disabled={!allowRename}
-            onChange={(name) => onRename?.(key, name)}
-          />
-        )}
-      </Base>
-    );
-  },
-);
-DefaultItem.displayName = "Tree.Item";
-
-const defaultChild = renderProp(DefaultItem);
-
-export const Tree = ({
-  nodes,
-  selected = [],
+export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
+  shape,
+  children,
+  selected,
+  clearSelected,
   onSelect,
-  onDrop,
-  onRename,
-  onSuccessfulDrop,
-  onDoubleClick,
-  className,
-  children = defaultChild,
-  itemHeight = 27,
-  useMargin = false,
-  showRules = false,
-  virtual = true,
-  clearExpanded,
-  expand,
-  contract,
-  emptyContent,
-  loading,
+  useItem,
   ...rest
-}: TreeProps): ReactElement => {
-  const child: List.ItemRenderProp<string> = useCallback(
-    ({ key, ...rest }) =>
-      children({
-        ...rest,
-        key,
-        loading: loading === key,
-        useMargin,
-        onDrop,
-        onRename,
-        onSuccessfulDrop,
-        onDoubleClick,
-      }),
-    [children, loading, onDrop, onDoubleClick, onRename, onSuccessfulDrop],
-  );
+}: TreeProps<K, E>): ReactElement => {
+  const { keys, depths } = shape;
+  const { ref, virtualizer } = List.use({ data: keys });
   return (
-    <List.List<string, FlattenedNode> data={nodes} emptyContent={emptyContent}>
-      <List.Selector<string, FlattenedNode>
-        value={selected}
-        onChange={onSelect}
-        allowMultiple
-        replaceOnSingle
+    <Select.Provider value={selected} onSelect={onSelect} clear={clearSelected}>
+      <List.List
+        ref={ref}
+        data={keys}
+        virtualizer={virtualizer}
+        useItem={useItem}
+        {...rest}
       >
-        <Core<string, FlattenedNode>
-          itemHeight={itemHeight}
-          className={CSS(className, CSS.B("tree"), showRules && CSS.M("rules"))}
-          {...rest}
-        >
-          {child}
-        </Core>
-      </List.Selector>
-    </List.List>
+        <List.Items<K, E>>
+          {({ index, ...rest }) => children({ index, depth: depths[index], ...rest })}
+        </List.Items>
+      </List.List>
+    </Select.Provider>
   );
 };
-
-export const startRenaming = (
-  key: string,
-  onChange?: (value: string, renamed: boolean) => void,
-): void => Text.edit(`text-${key}`, onChange);
-
-export const asyncRename = (key: string): Promise<[string, boolean]> =>
-  Text.asyncEdit(`text-${key}`);

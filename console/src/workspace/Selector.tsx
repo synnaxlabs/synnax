@@ -14,7 +14,7 @@ import {
   Align,
   Button,
   Caret,
-  Component.renderProp,
+  Component,
   Dropdown,
   Icon,
   Input,

@@ -48,6 +48,7 @@ export const SelectDataType = ({
   hideVariableDensity = false,
   value,
   onChange,
+  disabled,
   ...rest
 }: DataTypeProps): ReactElement => {
   const { useItem, data } = List.useStaticData<string, record.KeyedNamed>(
@@ -63,7 +64,9 @@ export const SelectDataType = ({
       useItem={useItem}
       data={data}
     >
-      <Dialog.Trigger variant="outlined">{selected?.name}</Dialog.Trigger>
+      <Dialog.Trigger variant="outlined" disabled={disabled}>
+        {selected?.name}
+      </Dialog.Trigger>
       <List.Items>{itemRenderProp}</List.Items>
     </Select.Dialog>
   );

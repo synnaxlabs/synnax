@@ -15,7 +15,7 @@ import { type Ontology } from "@/ontology";
 export const getResourcesToGroup = (
   selection: Ontology.TreeContextMenuProps["selection"],
 ): ontology.ID[] => {
-  const nodesOfMinDepth = Tree.getAllNodesOfMinDepth(selection.nodes);
+  const nodesOfMinDepth = Tree.getAllNodesOfMinDepth(selection.resourceIDs);
   const nodesOfMinDepthKeys = nodesOfMinDepth.map(({ key }) => key);
   return selection.resources
     .filter(({ id }) => nodesOfMinDepthKeys.includes(ontology.idToString(id)))

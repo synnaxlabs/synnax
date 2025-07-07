@@ -41,8 +41,12 @@ const handleSelect: Ontology.HandleSelect = ({
 const useDelete = () => {
   const confirm = Ontology.useConfirmDelete({ type: "Task" });
   return useMutation({
-    onMutate: async ({ state: { nodes, setNodes }, selection: { resources } }) => {
+    onMutate: async ({
+      state: { nodes, setNodes, getResource },
+      selection: { resourceIDs },
+    }) => {
       const prevNodes = Tree.deepCopy(nodes);
+      const resources = resourceIDs.map((id) => getResource(id));
       if (!(await confirm(resources))) throw new errors.Canceled();
       setNodes([
         ...Tree.removeNode({
@@ -55,16 +59,20 @@ const useDelete = () => {
     mutationFn: async (props: Ontology.TreeContextMenuProps) => {
       const {
         client,
-        selection: { resources },
+        selection: { resourceIDs },
         removeLayout,
       } = props;
-      await client.hardware.tasks.delete(resources.map(({ id }) => BigInt(id.key)));
-      removeLayout(...resources.map(({ id }) => id.key));
+      const keys = resourceIDs.map((id) => id.key);
+      await client.hardware.tasks.delete(keys.map((key) => BigInt(key)));
+      removeLayout(...keys);
     },
-    onError: (e: Error, { handleError, selection: { resources } }) => {
+    onError: (
+      e: Error,
+      { handleError, selection: { resourceIDs }, state: { getResource } },
+    ) => {
       let message = "Failed to delete tasks";
-      if (resources.length === 1)
-        message = `Failed to delete task ${resources[0].name}`;
+      if (resourceIDs.length === 1)
+        message = `Failed to delete task ${getResource(resourceIDs[0]).name}`;
       if (errors.Canceled.matches(e)) return;
       handleError(e, message);
     },
@@ -73,7 +81,7 @@ const useDelete = () => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client, addStatus, handleError } = props;
-  const { resources, nodes } = selection;
+  const { resourceIDs: nodes } = selection;
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const snap = useRangeSnapshot();
