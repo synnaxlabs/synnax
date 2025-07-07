@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"io"
 	"net/http"
 	"strings"
 
@@ -131,6 +132,9 @@ func (uc *unaryClient[RQ, RS]) Send(
 }
 
 func encodeAndWrite(c *fiber.Ctx, codec httputil.Codec, v any) error {
+	if r, ok := v.(io.Reader); ok {
+		return c.SendStream(r)
+	}
 	b, err := codec.Encode(c.Context(), v)
 	if err != nil {
 		return err

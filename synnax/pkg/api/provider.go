@@ -10,11 +10,13 @@
 package api
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -27,6 +29,8 @@ type Provider struct {
 	user     userProvider
 	access   accessProvider
 	auth     authProvider
+	framer   framerProvider
+	channel  channelProvider
 	cluster  clusterProvider
 	ontology ontologyProvider
 }
@@ -38,6 +42,8 @@ func NewProvider(cfg Config) Provider {
 	p.access = accessProvider{access: cfg.Service.RBAC}
 	p.auth = authProvider{token: cfg.Service.Token, authenticator: cfg.Service.Auth}
 	p.cluster = clusterProvider{cluster: cfg.Distribution.Cluster}
+	p.framer = framerProvider{framer: cfg.Service.Framer}
+	p.channel = channelProvider{channel: &cfg.Distribution.Channel}
 	p.ontology = ontologyProvider{Ontology: cfg.Distribution.Ontology}
 	return p
 }
@@ -55,6 +61,15 @@ type userProvider struct {
 // accessProvider provides access control information and utilities to services.
 type accessProvider struct {
 	access *rbac.Service
+}
+
+// framerProvider provides framer information to services.
+type framerProvider struct {
+	framer *framer.Service
+}
+
+type channelProvider struct {
+	channel *channel.Service
 }
 
 // authProvider provides authentication and token utilities to services. In most cases

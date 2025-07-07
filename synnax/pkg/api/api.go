@@ -71,6 +71,8 @@ type Transport struct {
 
 	ConnectivityCheck freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
 
+	ExportCSV freighter.UnaryServer[ExportCSVRequest, ExportCSVResponse]
+
 	FrameWriter   freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
 	FrameIterator freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
 	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
@@ -156,6 +158,7 @@ type Layer struct {
 	config       Config
 	Auth         *AuthService
 	User         *UserService
+	Export       *ExportService
 	Framer       *FrameService
 	Channel      *ChannelService
 	Connectivity *ConnectivityService
@@ -184,6 +187,7 @@ func (l *Layer) BindTo(t Transport) {
 		insecureMiddleware,
 		t.AuthLogin,
 		t.ConnectivityCheck,
+		t.ExportCSV,
 	)
 
 	freighter.UseOnAll(
@@ -205,6 +209,9 @@ func (l *Layer) BindTo(t Transport) {
 		t.ChannelDelete,
 		t.ChannelRename,
 		t.ChannelRetrieveGroup,
+
+		// // EXPORT
+		// t.ExportCSV,
 
 		// FRAME
 		t.FrameWriter,
@@ -317,6 +324,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.ChannelRename.BindHandler(l.Channel.Rename)
 	t.ChannelRetrieveGroup.BindHandler(l.Channel.RetrieveGroup)
 
+	// EXPORT
+	t.ExportCSV.BindHandler(l.Export.CSV)
+
 	// FRAME
 	t.FrameWriter.BindHandler(l.Framer.Write)
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
@@ -422,6 +432,7 @@ func New(cfgs ...Config) (*Layer, error) {
 	layer.Auth = NewAuthService(layer.provider)
 	layer.User = NewUserService(layer.provider)
 	layer.Access = NewAccessService(layer.provider)
+	layer.Export = NewExportService(layer.provider)
 	layer.Framer = NewFrameService(layer.provider)
 	layer.Channel = NewChannelService(layer.provider)
 	layer.Connectivity = NewConnectivityService(layer.provider)
