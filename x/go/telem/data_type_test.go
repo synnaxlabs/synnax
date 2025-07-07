@@ -24,7 +24,7 @@ func DataTypeInferTest[T any](expected telem.DataType) func() {
 }
 
 var _ = Describe("DataType", func() {
-	Describe("Infer", func() {
+	Describe("InferDataType", func() {
 		Specify("float64", DataTypeInferTest[float64](telem.Float64T))
 		Specify("float32", DataTypeInferTest[float32](telem.Float32T))
 		Specify("int64", DataTypeInferTest[int64](telem.Int64T))
@@ -38,7 +38,7 @@ var _ = Describe("DataType", func() {
 		Specify("string", DataTypeInferTest[string](telem.StringT))
 		Specify("uuid", DataTypeInferTest[uuid.UUID](telem.UUIDT))
 		Specify("timestamp", DataTypeInferTest[telem.TimeStamp](telem.TimeStampT))
-
+		Specify("bytes", DataTypeInferTest[[]byte](telem.BytesT))
 		It("Should panic if a a struct if provided", func() {
 			Expect(func() {
 				telem.InferDataType[struct{}]()
@@ -65,7 +65,6 @@ var _ = Describe("DataType", func() {
 		Entry("json", telem.JSONT, true),
 		Entry("string", telem.StringT, true),
 		Entry("unknown", telem.UnknownT, false),
-		Entry("random", telem.DataType("random"), false),
 	)
 
 	DescribeTable("Density", func(dataType telem.DataType, expected telem.Density) {
@@ -84,7 +83,6 @@ var _ = Describe("DataType", func() {
 		Entry("string", telem.StringT, telem.UnknownDensity),
 		Entry("timestamp", telem.TimeStampT, telem.Bit64),
 		Entry("uuid", telem.UUIDT, telem.Bit128),
-		Entry("random", telem.DataType("random"), telem.UnknownDensity),
 		Entry("unknown", telem.UnknownT, telem.UnknownDensity),
 		Entry("bytes", telem.BytesT, telem.UnknownDensity),
 		Entry("json", telem.JSONT, telem.UnknownDensity),

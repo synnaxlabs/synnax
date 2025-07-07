@@ -39,7 +39,7 @@ func (dt DataType) Density() Density {
 }
 
 // IsVariable returns true if the data type has a variable density i.e. is a string,
-// JSON, or bytes.
+// JSON, or bytes. If the data type is unknown, false is returned.
 func (dt DataType) IsVariable() bool {
 	return dt == BytesT || dt == StringT || dt == JSONT
 }
@@ -57,13 +57,13 @@ var dataTypes = map[string]DataType{
 	"uint64":    Uint64T,
 	"uint32":    Uint32T,
 	"uint16":    Uint16T,
-	"bytes":     BytesT,
+	"[]uint8":   BytesT,
 	"string":    StringT,
 	"json":      JSONT,
 }
 
-// InferDataType infers the data type of the given generic type argument. Panics
-// if the data type cannot be inferred.
+// InferDataType infers the data type of the given generic type argument. Panics if the
+// data type cannot be inferred.
 func InferDataType[T any]() DataType {
 	name := strings.ToLower(types.Name[T]())
 	if dt, ok := dataTypes[name]; ok {
@@ -75,10 +75,9 @@ func InferDataType[T any]() DataType {
 const (
 	// UnknownT is an unknown data type.
 	UnknownT DataType = ""
-	// TimeStampT is a data type for a 64-bit nanosecond integer since the
-	// epoch in UTC.
+	// TimeStampT is a data type for a 64-bit nanosecond integer since the epoch in UTC.
 	TimeStampT = DataType("timestamp")
-	// UUIDT is a data type for a UUID V4.
+	// UUIDT is a data type for a UUID v4.
 	UUIDT = DataType("uuid")
 	// Float64T is a data type for a 64-bit IEEE 754 floating point number.
 	Float64T DataType = "float64"
@@ -100,10 +99,10 @@ const (
 	Uint16T DataType = "uint16"
 	// Uint8T is a data type for an 8-bit unsigned integer, i.e., a single byte.
 	Uint8T DataType = "uint8"
-	// BytesT is a variable density data type for an arbitrary byte array
+	// BytesT is a variable-density data type for an arbitrary byte array.
 	BytesT DataType = "bytes"
-	// StringT is a variable density data type for a UTF-8 encoded string.
+	// StringT is a variable-density data type for a UTF-8 encoded string.
 	StringT DataType = "string"
-	// JSONT is a variable density data type for a JSON structure.
+	// JSONT is a variable-density data type for a JSON structure.
 	JSONT DataType = "json"
 )
