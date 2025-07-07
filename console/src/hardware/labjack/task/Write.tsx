@@ -53,7 +53,7 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<OutputChannel> {
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
   device: Device.Device;
 }
 
@@ -63,13 +63,12 @@ const ChannelListItem = ({
   device,
   ...rest
 }: ChannelListItemProps) => {
-  const {
-    entry,
-    entry: { cmdChannel, key, stateChannel, type, port },
-  } = rest;
   const { set } = PForm.useContext();
+  const item = List.useItem<OutputChannel["key"], OutputChannel>();
+  if (item == null) return null;
+  const { port, type, cmdChannel, stateChannel } = item;
   return (
-    <List.ItemFrame
+    <List.Item
       {...rest}
       style={{ width: "100%" }}
       justify="spaceBetween"
@@ -87,7 +86,7 @@ const ChannelListItem = ({
               device.properties[type].channels[value] ??
               Common.Device.ZERO_COMMAND_STATE_PAIR;
             set(path, {
-              ...entry,
+              ...item,
               cmdChannel: existingCommandStatePair.command,
               stateChannel: existingCommandStatePair.state,
               port: value,
@@ -116,7 +115,7 @@ const ChannelListItem = ({
                       device.properties[value].channels[port] ??
                       Common.Device.ZERO_COMMAND_STATE_PAIR;
                     set(path, {
-                      ...entry,
+                      ...item,
                       cmdChannel: existingCommandStatePair.command,
                       stateChannel: existingCommandStatePair.state,
                       type: value,
@@ -135,7 +134,7 @@ const ChannelListItem = ({
       <Align.Space x align="center" justify="spaceEvenly">
         <Common.Task.WriteChannelNames
           cmdChannel={cmdChannel}
-          itemKey={key}
+          itemKey={item.key}
           stateChannel={stateChannel}
         />
         <Common.Task.EnableDisableButton
@@ -143,7 +142,7 @@ const ChannelListItem = ({
           isSnapshot={isSnapshot}
         />
       </Align.Space>
-    </List.ItemFrame>
+    </List.Item>
   );
 };
 
@@ -179,7 +178,7 @@ const ChannelList = ({ device, isSnapshot }: ChannelListProps) => {
     [device],
   );
   const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps<OutputChannel>) => (
+    ({ key, ...p }: Common.Task.ChannelListItemProps) => (
       <ChannelListItem key={key} {...p} device={device} />
     ),
     [device],

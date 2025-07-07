@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
-import { Align, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Align, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -73,7 +73,7 @@ const getRenderedPort = (
   return portInfo == null ? port : (portInfo.alias ?? portInfo.key);
 };
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<InputChannel> {
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
   isRunning: boolean;
   deviceModel: Device.Model;
@@ -87,9 +87,9 @@ const ChannelListItem = ({
   deviceModel,
   ...rest
 }: ChannelListItemProps) => {
-  const {
-    entry: { channel, port, enabled, type },
-  } = rest;
+  const entry = List.useItem<InputChannel["key"], InputChannel>();
+  if (entry == null) return null;
+  const { channel, port, enabled, type } = entry;
   const hasTareButton = channel !== 0 && type === AI_CHANNEL_TYPE && !isSnapshot;
   const canTare = enabled && isRunning;
   const renderedPort = getRenderedPort(port, deviceModel, type);
@@ -214,7 +214,7 @@ const ChannelsForm = ({
     [device],
   );
   const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps<InputChannel>) => (
+    ({ key, ...p }: Common.Task.ChannelListItemProps) => (
       <ChannelListItem
         {...p}
         onTare={tare}

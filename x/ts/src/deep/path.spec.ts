@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { deep } from "@/deep";
+import { type record } from "@/record";
 
 interface TestRecord {
   a: number;
@@ -72,8 +73,22 @@ describe("path", () => {
           }),
         ).toEqual(0);
       });
+
+      it("should get an array of keyed records", () => {
+        interface TestKeyedRecord {
+          values: record.KeyedNamed[];
+        }
+        const a: TestKeyedRecord = {
+          values: [
+            { key: "a", name: "a" },
+            { key: "b", name: "b" },
+          ],
+        };
+        expect(deep.get(a, "values.a.name")).toEqual("a");
+      });
     });
   });
+
   describe("set", () => {
     it("should set a key", () => {
       const a: TestRecord = {

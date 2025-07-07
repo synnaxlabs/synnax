@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type compare, shallowCopy, type status } from "@synnaxlabs/x";
+import {
+  array,
+  type compare,
+  type record,
+  shallowCopy,
+  type status,
+} from "@synnaxlabs/x";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { type z } from "zod/v4";
 
@@ -167,81 +173,83 @@ export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(
 export const useFieldValid = (path: string): boolean =>
   useFieldState(path, { optional: true })?.status?.variant === "success";
 
-export interface FieldListUtils<V> {
-  push: (value: V | V[], sort?: compare.CompareF<V>) => void;
-  add: (value: V | V[], start: number) => void;
-  remove: (index: number | number[]) => void;
-  keepOnly: (indices: number | number[]) => void;
-  set: (values: state.SetArg<V[]>) => void;
-  sort?: (compareFn: compare.CompareF<V>) => void;
+export interface FieldListUtils<K extends record.Key, E extends record.Keyed<K>> {
+  push: (value: E | E[], sort?: compare.CompareF<E>) => void;
+  add: (value: E | E[], start: number) => void;
+  remove: (keys: K | K[]) => K[];
+  keepOnly: (keys: K | K[]) => K[];
+  set: (values: state.SetArg<E[]>) => void;
+  value(): E[];
+  sort?: (compareFn: compare.CompareF<E>) => void;
 }
 
-export const fieldListUtils = <V = unknown>(
+export const fieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
   ctx: ContextValue<any>,
   path: string,
-): FieldListUtils<V> => ({
+): FieldListUtils<K, E> => ({
+  value: () => ctx.get<E[]>(path).value,
   add: (value, start) => {
-    const copy = shallowCopy(ctx.get<V[]>(path).value);
+    const copy = shallowCopy(ctx.get<E[]>(path).value);
     copy.splice(start, 0, ...array.toArray(value));
     ctx.set(path, copy, { validateChildren: false });
   },
   push: (value, sort) => {
-    const copy = shallowCopy(ctx.get<V[]>(path).value);
+    const copy = shallowCopy(ctx.get<E[]>(path).value);
     copy.push(...array.toArray(value));
     if (sort != null) copy.sort(sort);
     ctx.set(path, copy, { validateChildren: false });
   },
-  remove: (index) => {
-    const val = ctx.get<V[]>(path).value;
-    const indices = new Set(array.toArray(index));
-    ctx.set(
-      path,
-      val.filter((_, i) => !indices.has(i)),
-    );
+  remove: (key) => {
+    const val = ctx.get<E[]>(path).value;
+    const keys = new Set(array.toArray(key));
+    const next = val.filter(({ key }) => !keys.has(key));
+    ctx.set(path, next);
+    return next.map(({ key }) => key);
   },
-  keepOnly: (index) => {
-    const val = ctx.get<V[]>(path).value;
-    const indices = new Set(array.toArray(index));
-    ctx.set(
-      path,
-      val.filter((_, i) => indices.has(i)),
-    );
+  keepOnly: (key) => {
+    const val = ctx.get<E[]>(path).value;
+    const keys = new Set(array.toArray(key));
+    const next = val.filter(({ key }) => keys.has(key));
+    ctx.set(path, next);
+    return next.map(({ key }) => key);
   },
-  set: (values) => ctx.set(path, state.executeSetter(values, ctx.get<V[]>(path).value)),
+  set: (values) => ctx.set(path, state.executeSetter(values, ctx.get<E[]>(path).value)),
   sort: (compareFn) => {
-    const copy = shallowCopy(ctx.get<V[]>(path).value);
+    const copy = shallowCopy(ctx.get<E[]>(path).value);
     copy.sort(compareFn);
     ctx.set(path, copy);
   },
 });
 
-export interface UseFieldListReturn<V = unknown> {
-  data: number[];
-  useListItem: (index: number) => V;
-  push: (value: V | V[]) => void;
-  add: (value: V | V[], start: number) => void;
-  remove: (index: number | number[]) => void;
-  keepOnly: (indices: number | number[]) => void;
-  set: (values: state.SetArg<V[]>) => void;
+export interface UseFieldListReturn<K extends record.Key, E extends record.Keyed<K>>
+  extends FieldListUtils<K, E> {
+  data: K[];
+  useListItem: (key?: K) => E | undefined;
 }
 
-export const useFieldList = <V = unknown, Z extends z.ZodType = z.ZodType>(
+export const useFieldList = <
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  Z extends z.ZodType = z.ZodType,
+>(
   path: string,
   opts: ContextOptions<Z> = {},
-): UseFieldListReturn<V> => {
+): UseFieldListReturn<K, E> => {
   const ctx = useContext(opts?.ctx);
-  const { get: getState } = ctx;
-  const count = useSyncExternalStore(
-    ctx.bind,
-    useCallback(() => getState<V[]>(path).value.length, [path, getState]),
+  const { get, bind } = ctx;
+  const data = useSyncExternalStore(
+    bind,
+    useCallback(() => get<E[]>(path).value.map(({ key }) => key), [path, get]),
   );
-  const data = useMemo(() => Array.from({ length: count }, (_, i) => i), [count]);
   const useListItem = useCallback(
-    (index: number) => useFieldValue<V>(`${path}.${index}`, opts),
+    (key?: K) => {
+      if (key == null) return undefined;
+      return useFieldValue<E>(`${path}.${key}`, opts);
+    },
     [path, opts],
   );
   return useMemo(
-    () => ({ data, useListItem, ...fieldListUtils<V>(ctx, path) }),
-    [count, ctx, path, useListItem],
+    () => ({ data, useListItem, ...fieldListUtils<K, E>(ctx, path) }),
+    [data, ctx, path, useListItem],
   );
 };

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x";
+import { deep, type record } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -455,7 +455,10 @@ describe("Form", () => {
       expect(res.result.current.data).toEqual([{ name: "John Doe" }]);
     });
     it("should correctly push a value onto the start of the array", () => {
-      const res = renderHook(() => Form.useFieldList("array"), { wrapper });
+      const res = renderHook(
+        () => Form.useFieldList<string, record.KeyedNamed>("array"),
+        { wrapper },
+      );
       res.result.current.push({ key: "2", name: "Jane Doe" });
       res.rerender();
       expect(res.result.current.data).toEqual([
@@ -472,10 +475,13 @@ describe("Form", () => {
     });
 
     it("should correctly keep only the given index in the array", () => {
-      const res = renderHook(() => Form.useFieldList("array"), { wrapper });
+      const res = renderHook(
+        () => Form.useFieldList<string, record.KeyedNamed>("array"),
+        { wrapper },
+      );
       res.result.current.push({ key: "2", name: "Jane Doe" });
       res.rerender();
-      res.result.current.keepOnly(1);
+      res.result.current.keepOnly("2");
       res.rerender();
       expect(res.result.current.data).toEqual([{ name: "Jane Doe" }]);
     });

@@ -9,7 +9,7 @@
 
 import "@/layout/Modals.css";
 
-import { Breadcrumb, Button, Icon, Modal as Core, Nav } from "@synnaxlabs/pluto";
+import { Breadcrumb, Button, Dialog, Icon, Nav } from "@synnaxlabs/pluto";
 import { type CSSProperties } from "react";
 
 import { Content } from "@/layout/Content";
@@ -27,7 +27,6 @@ const layoutCSS = (window?: WindowProps): CSSProperties => ({
 interface ModalProps {
   state: State;
   remove: (key: string) => void;
-  root?: string;
 }
 
 const calculateOffset = (window?: WindowProps): number => {
@@ -36,16 +35,16 @@ const calculateOffset = (window?: WindowProps): number => {
   return Math.round(window.size.height / 75);
 };
 
-export const Modal = ({ state, remove, root }: ModalProps) => {
+export const Modal = ({ state, remove }: ModalProps) => {
   const { key, name, window, icon } = state;
   return (
-    <Core.Modal
+    <Dialog.Dialog
       key={key}
+      variant="modal"
       visible
       close={() => remove(key)}
       style={layoutCSS(window)}
-      root={root}
-      offset={calculateOffset(window)}
+      modalOffset={calculateOffset(window)}
       background={0}
     >
       {window?.navTop && (
@@ -65,6 +64,6 @@ export const Modal = ({ state, remove, root }: ModalProps) => {
         </Nav.Bar>
       )}
       <Content layoutKey={key} />
-    </Core.Modal>
+    </Dialog.Dialog>
   );
 };

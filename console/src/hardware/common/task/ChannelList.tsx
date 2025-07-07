@@ -16,6 +16,7 @@ import {
   type RenderProp,
   Select,
 } from "@synnaxlabs/pluto";
+import { array } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Menu } from "@/components";
@@ -23,28 +24,30 @@ import { CSS } from "@/css";
 import { type Channel } from "@/hardware/common/task/types";
 
 export interface ContextMenuItemProps<C extends Channel> {
-  channels: C[];
   keys: string[];
+  channels: C[];
 }
 
-interface ContextMenuProps<C extends Channel> {
-  allowTare?: (keys: string[], channels: C[]) => boolean;
-  channels: C[];
-  isSnapshot: boolean;
+interface ContextMenuProps<C extends Channel>
+  extends Pick<
+    Form.UseFieldListReturn<C["key"], C>,
+    "data" | "useListItem" | "remove" | "value"
+  > {
   keys: string[];
-  onDuplicate?: (channels: C[], indices: number[]) => void;
-  onSelect: (indices: number[]) => void;
+  allowTare?: (keys: string[], channels: C[]) => boolean;
+  isSnapshot: boolean;
+  onDuplicate?: (channels: C[], keys: string[]) => void;
+  onSelect: (keys: string[]) => void;
   onTare?: (keys: string[], channels: C[]) => void;
   path: string;
-  remove: (index: number | number[]) => void;
   contextMenuItems?: RenderProp<ContextMenuItemProps<C>>;
 }
 
 const ContextMenu = <C extends Channel>({
   allowTare,
-  channels,
-  isSnapshot,
   keys,
+  isSnapshot,
+  value,
   onDuplicate,
   onSelect,
   onTare,
@@ -52,26 +55,14 @@ const ContextMenu = <C extends Channel>({
   remove,
   contextMenuItems,
 }: ContextMenuProps<C>) => {
-  const keyToIndexMap = new Map(channels.map(({ key }, i) => [key, i]));
-  const indices = keys.map((key) => keyToIndexMap.get(key)).filter((i) => i != null);
-  const handleRemove = () => {
-    if (indices.length === 0) return onSelect([]);
-    remove(indices);
-    const sorted = indices.sort((a, b) => a - b);
-    const idxToSelect = sorted[0] - 1;
-    if (idxToSelect >= 0) onSelect([channels[idxToSelect].key]);
-    else onSelect([]);
-  };
+  const handleRemove = () => onSelect(array.toArray(remove(keys)[0]));
+  const channels = value();
   const { set } = Form.useContext();
-  const handleDuplicate = () => onDuplicate?.(channels, indices);
+  const handleDuplicate = () => onDuplicate?.(value(), keys);
   const handleDisable = () =>
-    indices.forEach((index) => set(`${path}.${index}.enabled`, false));
-  const handleEnable = () =>
-    indices.forEach((index) => set(`${path}.${index}.enabled`, true));
-  const handleTare = useCallback(
-    () => onTare?.(keys, channels),
-    [onTare, keys, channels],
-  );
+    keys.forEach((key) => set(`${path}.${key}.enabled`, false));
+  const handleEnable = () => keys.forEach((key) => set(`${path}.${key}.enabled`, true));
+  const handleTare = useCallback(() => onTare?.(keys, value()), [onTare, keys, value]);
   const handleSelect: Record<string, () => void> = {
     remove: handleRemove,
     disable: handleDisable,
@@ -79,10 +70,10 @@ const ContextMenu = <C extends Channel>({
     tare: handleTare,
     duplicate: handleDuplicate,
   };
-  const canDuplicate = onDuplicate != null && indices.length > 0;
-  const canRemove = indices.length > 0;
-  const canDisable = indices.some((i) => channels[i].enabled);
-  const canEnable = indices.some((i) => !channels[i].enabled);
+  const canDuplicate = onDuplicate != null && keys.length > 0;
+  const canRemove = keys.length > 0;
+  const canDisable = channels.some(({ enabled }) => !enabled);
+  const canEnable = channels.some(({ enabled }) => enabled);
   const canTare = allowTare?.(keys, channels) ?? false;
   return (
     <PMenu.Menu onChange={handleSelect} level="small">
@@ -137,19 +128,18 @@ export interface ChannelListItemProps extends List.ItemProps<string> {
 export interface ChannelListProps<C extends Channel>
   extends Omit<ContextMenuProps<C>, "keys">,
     Pick<Align.SpaceProps, "onDragOver" | "onDrop" | "grow"> {
-  data: number[];
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
+  useListItem: (key?: C["key"]) => C | undefined;
   listItem: RenderProp<ChannelListItemProps>;
-  selected: number[];
+  selected: string[];
 }
 
 export const ChannelList = <C extends Channel>({
   listItem,
   emptyContent,
   header,
-  data,
   isDragging,
   onDragOver,
   onDrop,
@@ -157,13 +147,17 @@ export const ChannelList = <C extends Channel>({
   grow,
   ...rest
 }: ChannelListProps<C>) => {
-  const { isSnapshot, onSelect, path } = rest;
-  const handleChange = useCallback((keys: number[]) => onSelect(keys.map((k) => `${path}.${k}`)), [onSelect, path]);
+  const { isSnapshot, onSelect, path, data, useListItem } = rest;
+  const handleChange = useCallback(
+    (keys: string[]) => onSelect(keys.map((k) => `${path}.${k}`)),
+    [onSelect, path],
+  );
   const menuProps = PMenu.useContextMenu();
-  const selectProps = Select.useMultiple<number>({
+  const selectProps = Select.useMultiple<string>({
     value: selected,
     onChange: handleChange,
     data,
+    replaceOnSingle: true,
   });
   const listProps = List.use({ data });
   return (
@@ -175,12 +169,8 @@ export const ChannelList = <C extends Channel>({
         onDragOver={onDragOver}
         onDrop={onDrop}
       >
-        <List.List<number> {...listProps} data={data}>
-          <List.Selector<number, C>
-            onChange={handleChange}
-            replaceOnSingle
-            value={selected}
-          >
+        <List.List<string, C> {...listProps} data={data} useItem={useListItem}>
+          <Select.Provider<string> {...selectProps} value={selected}>
             <List.Items<string, C>
               onDragOver={onDragOver}
               onDrop={onDrop}
@@ -189,10 +179,10 @@ export const ChannelList = <C extends Channel>({
               emptyContent={emptyContent}
             >
               {(props) =>
-                listItem({ isSnapshot, path: `${path}.${props.index}`, ...props })
+                listItem({ isSnapshot, path: `${path}.${props.key}`, ...props })
               }
-            </List.Core>
-          </List.Selector>
+            </List.Items>
+          </Select.Provider>
         </List.List>
       </PMenu.ContextMenu>
     </Align.Space>

@@ -19,7 +19,6 @@ import {
   List,
   type RenderProp,
   Text,
-  useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
@@ -38,7 +37,7 @@ export interface ChannelKeyAndIDGetter<C extends Channel> {
 }
 
 interface ChannelListItemProps<C extends Channel>
-  extends Common.Task.ChannelListItemProps<C> {
+  extends Omit<Common.Task.ChannelListItemProps, "children"> {
   children: RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
@@ -50,15 +49,15 @@ const ChannelListItem = <C extends Channel>({
   getChannelKeyAndID,
   ...rest
 }: ChannelListItemProps<C>) => {
-  const {
-    entry: { nodeName, nodeId },
-  } = rest;
+  const item = List.useItem<C["key"], C>();
+  if (item == null) return null;
+  const { nodeName, nodeId } = item;
   const opcNode = nodeId.length > 0 ? nodeId : "No Node Selected";
   let opcNodeColor;
   if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
-  const { key: channel, id } = getChannelKeyAndID(rest.entry);
+  const { key: channel, id } = getChannelKeyAndID(item);
   return (
-    <List.ItemFrame {...rest} justify="spaceBetween" align="center">
+    <List.Item {...rest} justify="spaceBetween" align="center">
       <Align.Space direction="y" size="small">
         <ChannelName level="p" weight={500} shade={10} channel={channel} id={id} />
         <Text.WithIcon
@@ -79,7 +78,7 @@ const ChannelListItem = <C extends Channel>({
           isSnapshot={isSnapshot}
         />
       </Align.Space>
-    </List.ItemFrame>
+    </List.Item>
   );
 };
 
@@ -125,15 +124,15 @@ const ChannelList = <C extends Channel>({
   getChannelKeyAndID,
   ...rest
 }: ChannelListProps<C>) => {
-  const { data, useListItem, push, remove } = PForm.useFieldList<C>(CHANNELS_PATH);
-  const valueRef = useSyncedRef(value);
+  const ctx = PForm.useContext();
+  const fieldListreturn = PForm.useFieldList<C["key"], C>(CHANNELS_PATH);
+  const { data, push } = fieldListreturn;
   const handleDrop = useCallback(
     ({ items }: Haul.OnDropProps): Haul.Item[] => {
+      const channels = ctx.get<C[]>(CHANNELS_PATH).value;
       const dropped = items.filter(filterHaulItem);
       const toAdd = dropped
-        .filter(
-          ({ data }) => !valueRef.current.some(({ nodeId }) => nodeId === data?.nodeId),
-        )
+        .filter(({ data }) => !channels.some(({ nodeId }) => nodeId === data?.nodeId))
         .map(convertHaulItemToChannel);
       push(toAdd);
       return dropped;
@@ -149,9 +148,9 @@ const ChannelList = <C extends Channel>({
 
   const isDragging = Haul.canDropOfType(Device.HAUL_TYPE)(Haul.useDraggingState());
 
-  const [selected, setSelected] = useState(value.length > 0 ? [value[0].key] : []);
+  const [selected, setSelected] = useState(data.length > 0 ? [data[0]] : []);
   const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps<C>) => (
+    ({ key, ...p }: Common.Task.ChannelListItemProps) => (
       <ChannelListItem<C> key={key} {...p} getChannelKeyAndID={getChannelKeyAndID}>
         {children}
       </ChannelListItem>
@@ -160,18 +159,17 @@ const ChannelList = <C extends Channel>({
   );
   return (
     <Common.Task.ChannelList
-      {...rest}
-      channels={value}
       onSelect={setSelected}
       path={CHANNELS_PATH}
-      remove={remove}
       emptyContent={<EmptyContent />}
       header={<Header />}
       selected={selected}
       isDragging={isDragging}
       listItem={listItem}
       grow
+      {...rest}
       {...haulProps}
+      {...fieldListreturn}
     />
   );
 };

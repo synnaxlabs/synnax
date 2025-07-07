@@ -11,20 +11,24 @@ import "@/workspace/Selector.css";
 
 import { type workspace } from "@synnaxlabs/client";
 import {
-  Align,
   Button,
-  Caret,
   Component,
-  Dropdown,
+  Dialog,
   Icon,
   Input,
   List,
+  Select,
   Status,
   Synnax,
   Text,
   Workspace,
 } from "@synnaxlabs/pluto";
-import { type MouseEventHandler, type ReactElement, useCallback } from "react";
+import {
+  type MouseEventHandler,
+  type ReactElement,
+  useCallback,
+  useState,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -39,8 +43,9 @@ export const Selector = (): ReactElement => {
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
   const active = useSelectActive();
-  const { close, toggle, visible } = Dropdown.use();
   const handleError = Status.useErrorHandler();
+  const { data, useListItem, retrieve } = Workspace.useList();
+  const [search, setSearch] = useState("");
   const handleChange = useCallback(
     (v: string | null) => {
       close();
@@ -66,103 +71,90 @@ export const Selector = (): ReactElement => {
     [active, client, dispatch, close, handleError],
   );
 
+  const selectProps = Select.useSingle({
+    value: active?.key,
+    onChange: handleChange,
+    data,
+  });
+
   return (
-    <Dropdown.Dialog
-      close={close}
-      visible={visible}
-      keepMounted={false}
+    <Select.Dialog
       variant="floating"
       className={CSS(CSS.BE("workspace", "selector"))}
-      bordered={false}
+      data={data}
+      useItem={useListItem}
+      {...selectProps}
     >
-      <Button.Button
+      <Dialog.Trigger
         startIcon={<Icon.Workspace key="workspace" />}
-        endIcon={
-          <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
-        }
         variant="text"
-        onClick={toggle}
         size="medium"
         className={CSS.B("trigger")}
         shade={2}
         weight={400}
       >
         {active?.name ?? "No Workspace"}
-      </Button.Button>
-      <Align.Pack y style={{ width: 500, height: 200 }}>
+      </Dialog.Trigger>
+      <Dialog.Content y style={{ width: 500, height: 200 }}>
         <Cluster.NoneConnectedBoundary bordered borderShade={5} background={1}>
-          <List.List>
-            <List.Synchronizer
-              useSetSynchronizer={Workspace.useSetSynchronizer}
-              useDeleteSynchronizer={Workspace.useDeleteSynchronizer}
-            />
-            <List.Selector
-              value={active?.key ?? null}
-              onChange={handleChange}
-              allowMultiple={false}
-              allowNone={true}
+          <Input.Text
+            size="large"
+            placeholder={
+              <Text.WithIcon level="p" startIcon={<Icon.Search key="search" />}>
+                Search Workspaces
+              </Text.WithIcon>
+            }
+            value={search}
+            onChange={(v) => {
+              setSearch(v);
+              retrieve((p) => ({ ...p, search: v }));
+            }}
+          >
+            <Button.Button
+              startIcon={<Icon.Close />}
+              size="large"
+              variant="outlined"
+              onClick={() => handleChange(null)}
+              iconSpacing="small"
+              tooltip="Switch to no workspace"
             >
-              <List.Search searcher={client?.workspaces}>
-                {(p) => (
-                  <Input.Text
-                    size="large"
-                    placeholder={
-                      <Text.WithIcon level="p" startIcon={<Icon.Search key="search" />}>
-                        Search Workspaces
-                      </Text.WithIcon>
-                    }
-                    {...p}
-                  >
-                    <Button.Button
-                      startIcon={<Icon.Close />}
-                      size="large"
-                      variant="outlined"
-                      onClick={() => handleChange(null)}
-                      iconSpacing="small"
-                      tooltip="Switch to no workspace"
-                    >
-                      Clear
-                    </Button.Button>
-                    <Button.Button
-                      size="large"
-                      startIcon={<Icon.Add />}
-                      variant="outlined"
-                      onClick={() => {
-                        close();
-                        placeLayout(CREATE_LAYOUT);
-                      }}
-                      iconSpacing="small"
-                      tooltip="Create a new workspace"
-                      tooltipLocation={{ y: "bottom" }}
-                    >
-                      New
-                    </Button.Button>
-                  </Input.Text>
-                )}
-              </List.Search>
-              <List.Core bordered borderShade={5} color="red" background={1}>
-                {Component.renderProp(SelectorListItem)}
-              </List.Core>
-            </List.Selector>
-          </List.List>
+              Clear
+            </Button.Button>
+            <Button.Button
+              size="large"
+              startIcon={<Icon.Add />}
+              variant="outlined"
+              onClick={() => {
+                close();
+                placeLayout(CREATE_LAYOUT);
+              }}
+              iconSpacing="small"
+              tooltip="Create a new workspace"
+              tooltipLocation={{ y: "bottom" }}
+            >
+              New
+            </Button.Button>
+          </Input.Text>
+          <List.Items>{Component.renderProp(SelectorListItem)}</List.Items>
         </Cluster.NoneConnectedBoundary>
-      </Align.Pack>
-    </Dropdown.Dialog>
+      </Dialog.Content>
+    </Select.Dialog>
   );
 };
 
 export const SelectorListItem = ({
   onSelect,
   ...rest
-}: List.ItemProps<string, workspace.Workspace>): ReactElement => {
-  const { entry } = rest;
+}: List.ItemProps<workspace.Key>): ReactElement | null => {
+  const ws = List.useItem<workspace.Key, workspace.Workspace>();
   const handleSelect: MouseEventHandler = (e): void => {
     e.stopPropagation();
-    onSelect?.(entry.key);
+    onSelect?.(ws?.key ?? "");
   };
+  if (ws == null) return null;
   return (
-    <List.ItemFrame {...rest} onClick={handleSelect}>
-      <Text.Text level="p">{entry.name}</Text.Text>
-    </List.ItemFrame>
+    <List.Item {...rest} onClick={handleSelect}>
+      <Text.Text level="p">{ws.name}</Text.Text>
+    </List.Item>
   );
 };
