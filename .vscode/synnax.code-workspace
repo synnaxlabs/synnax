@@ -51,6 +51,7 @@
       "Depropagate",
       "dorny",
       "downsample",
+      "downsampled",
       "Enableable",
       "fgrpc",
       "fhttp",
