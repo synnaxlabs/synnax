@@ -30,6 +30,11 @@ import { useInitializerRef } from "@/hooks";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
+interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
+  (key: K): E | undefined;
+  (keys: K[]): E[];
+}
+
 export type UseListReturn<
   RetrieveParams extends Params,
   K extends record.Key,
@@ -37,6 +42,7 @@ export type UseListReturn<
 > = Omit<UseStatefulRetrieveReturn<RetrieveParams, K[]>, "data"> & {
   data: K[];
   useListItem: (key: K) => E | undefined;
+  getItem: GetItem<K, E>;
 };
 
 export interface RetrieveByKeyArgs<K extends record.Key> {
@@ -107,13 +113,13 @@ export const createList =
       pendingResult(name, "retrieving"),
     );
 
-    const paramsRef = useRef<P | {}>({});
+    const paramsRef = useRef<P | null>(null);
 
     const mountListeners = useMountListeners();
     const retrieveAsync = useCallback(
       async (paramsSetter: state.SetArg<P, P | {}>, options: AsyncOptions = {}) => {
         const { signal } = options;
-        const params = state.executeSetter(paramsSetter, paramsRef.current);
+        const params = state.executeSetter(paramsSetter, paramsRef.current ?? {});
         paramsRef.current = params;
         try {
           if (client == null) return setResult(nullClientResult(name, "retrieve"));
@@ -127,7 +133,7 @@ export const createList =
               channel: l.channel,
               handler: (frame) =>
                 void (async () => {
-                  if (client == null) return;
+                  if (client == null || paramsRef.current == null) return;
                   try {
                     await l.onChange({
                       client,
@@ -186,6 +192,15 @@ export const createList =
       [dataRef, retrieveByKey, client],
     );
 
+    const getItem = useCallback(
+      ((key: K | K[]) => {
+        if (Array.isArray(key))
+          return key.map((k) => dataRef.current.get(k)).filter((v) => v != null);
+        return dataRef.current.get(key);
+      }) as GetItem<K, E>,
+      [],
+    );
+
     const useListItem = (key: K) => {
       const abortControllerRef = useRef<AbortController | null>(null);
       return useSyncExternalStore<E | undefined>(
@@ -219,6 +234,7 @@ export const createList =
       retrieve: retrieveSync,
       retrieveAsync,
       useListItem,
+      getItem,
       ...result,
       data: result?.data ?? [],
     };
