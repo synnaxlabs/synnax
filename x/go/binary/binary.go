@@ -22,7 +22,7 @@ func MakeCopy(bytes []byte) []byte {
 	return copied
 }
 
-// UVarint decodes a varint from a byte slice. It wraps the encoding/binary.Uvarint
+// UVarint decodes a varint from a byte slice. It wraps the encoding/binary.UVarint
 // function and returns an error if the varint is not found.
 func UVarint(buf []byte) (uint64, int, error) {
 	value, n := binary.Uvarint(buf)
