@@ -9,7 +9,7 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { array, unique } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { Align } from "@/align";
 import { renderProp } from "@/component/renderProp";
@@ -148,14 +148,16 @@ export const SelectMultiple = ({
   );
 };
 
-const SingleTrigger = (): ReactElement => {
+export interface SingleTriggerProps extends Align.SpaceExtensionProps {
+  placeholder?: ReactNode;
+}
+
+const SingleTrigger = ({
+  placeholder = "Select",
+}: SingleTriggerProps): ReactElement => {
   const [value] = Select.useSelection<ranger.Key>();
   const item = List.useItem<ranger.Key, ranger.Payload>(value);
-  return (
-    <Dialog.Trigger>
-      <Text.Text level="p">{item?.name}</Text.Text>
-    </Dialog.Trigger>
-  );
+  return <Dialog.Trigger>{item?.name ?? placeholder}</Dialog.Trigger>;
 };
 
 const DialogContent = ({
@@ -176,7 +178,9 @@ const DialogContent = ({
   );
 };
 
-export interface SelectSingleProps extends Select.SingleProps<ranger.Key> {}
+export interface SelectSingleProps extends Select.SingleProps<ranger.Key> {
+  placeholder?: ReactNode;
+}
 
 export const SelectSingle = ({
   onChange,

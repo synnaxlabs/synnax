@@ -10,7 +10,7 @@
 import "@/select/Dialog.css";
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { Dialog as CoreDialog } from "@/dialog";
@@ -53,7 +53,7 @@ export interface SingleProps<K extends record.Key = record.Key>
     OmittedDialogProps<K>,
     Pick<List.ItemsProps<K>, "emptyContent"> {
   disabled?: boolean;
-  placeholder?: string;
+  placeholder?: ReactNode;
 }
 
 export const Dialog = <
