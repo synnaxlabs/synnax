@@ -17,6 +17,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
+import { type Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { useList } from "@/ranger/queries";
@@ -150,14 +151,18 @@ export const SelectMultiple = ({
 
 export interface SingleTriggerProps extends Align.SpaceExtensionProps {
   placeholder?: ReactNode;
+  triggerIcon?: Icon.ReactElement;
 }
 
 const SingleTrigger = ({
   placeholder = "Select",
+  triggerIcon,
 }: SingleTriggerProps): ReactElement => {
   const [value] = Select.useSelection<ranger.Key>();
   const item = List.useItem<ranger.Key, ranger.Payload>(value);
-  return <Dialog.Trigger>{item?.name ?? placeholder}</Dialog.Trigger>;
+  return (
+    <Dialog.Trigger startIcon={triggerIcon}>{item?.name ?? placeholder}</Dialog.Trigger>
+  );
 };
 
 const DialogContent = ({
@@ -178,17 +183,21 @@ const DialogContent = ({
   );
 };
 
-export interface SelectSingleProps extends Select.SingleProps<ranger.Key> {
-  placeholder?: ReactNode;
+export interface SelectSingleProps
+  extends Select.SingleProps<ranger.Key>,
+    SingleTriggerProps {
+  filter?: (item: ranger.Payload) => boolean;
 }
 
 export const SelectSingle = ({
   onChange,
   value,
   className,
+  filter,
+  triggerIcon,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, useListItem, retrieve } = useList();
+  const { data, useListItem, retrieve } = useList({ filter });
   const { onSelect, ...selectProps } = Select.useSingle({ value, onChange, data });
   const { startDrag, ...dragProps } = Haul.useDragAndDrop({
     type: "Ranger.SelectSingle",
@@ -222,7 +231,7 @@ export const SelectSingle = ({
       {...selectProps}
       {...rest}
     >
-      <SingleTrigger />
+      <SingleTrigger triggerIcon={triggerIcon} />
       <DialogContent retrieve={retrieve} />
     </Select.Dialog>
   );

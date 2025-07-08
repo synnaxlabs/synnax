@@ -18,10 +18,12 @@ import {
   xy,
 } from "@synnaxlabs/x";
 import {
+  createContext,
   type CSSProperties,
   type ReactElement,
   type ReactNode,
   useCallback,
+  useContext as reactUseContext,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -32,9 +34,9 @@ import { createPortal } from "react-dom";
 import { Align } from "@/align";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
-import { Dialog as CoreDialog } from "@/dialog";
 import { Background } from "@/dialog/Background";
 import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
+import { state } from "@/state";
 import { Triggers } from "@/triggers";
 import { findParent } from "@/util/findParent";
 import { getRootElement } from "@/util/rootElement";
@@ -43,15 +45,16 @@ export type Variant = "connected" | "floating" | "modal";
 
 /** Props for the {@link Dialog} component. */
 export interface DialogProps
-  extends Pick<CoreDialog.UseReturn, "visible" | "close">,
-    Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty"> {
+  extends Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty"> {
   location?: loc.Y | loc.XY;
   children: [ReactNode, ReactNode];
-  keepMounted?: boolean;
   variant?: Variant;
   maxHeight?: Component.Size | number;
   zIndex?: number;
   modalOffset?: number;
+  visible?: boolean;
+  onVisibleChange?: state.Setter<boolean>;
+  initialVisible?: boolean;
 }
 
 interface State {
@@ -70,6 +73,23 @@ const ZERO_STATE: State = {
 
 const Z_INDEX_VARIABLE = "--pluto-dropdown-z-index";
 
+/** Return type for the {@link use} hook. */
+export interface ContextValue {
+  close: () => void;
+  open: () => void;
+  toggle: () => void;
+  visible: boolean;
+}
+
+const Context = createContext<ContextValue>({
+  close: () => {},
+  open: () => {},
+  toggle: () => {},
+  visible: false,
+});
+
+export const useContext = (): ContextValue => reactUseContext(Context);
+
 /**
  * A controlled dropdown dialog component that wraps its children. For the simplest case, use
  * the {@link use} hook (more behavioral details explained there).
@@ -81,21 +101,35 @@ const Z_INDEX_VARIABLE = "--pluto-dropdown-z-index";
  * or input) and the dropdown content.
  */
 export const Dialog = ({
-  visible,
   children,
   location: propsLocation,
-  keepMounted = true,
+  visible: propsVisible,
+  onVisibleChange: propsOnVisibleChange,
+  initialVisible = false,
   className,
   variant = "connected",
-  close,
   maxHeight,
   zIndex = 5,
   bordered = false,
   modalOffset = 20,
   ...rest
 }: DialogProps): ReactElement => {
-  const targetRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = state.usePassthrough({
+    initial: initialVisible,
+    value: propsVisible,
+    onChange: propsOnVisibleChange,
+  });
   const visibleRef = useSyncedRef(visible);
+  const ctxValue = useMemo(
+    () => ({
+      close: () => setVisible(false),
+      open: () => setVisible(true),
+      toggle: () => setVisible((prev) => !prev),
+      visible,
+    }),
+    [visible],
+  );
+  const parentRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const prevLocation = useRef<location.XY | undefined>(undefined);
 
@@ -104,11 +138,12 @@ export const Dialog = ({
   });
 
   const calculatePosition = useCallback(() => {
-    if (targetRef.current == null || dialogRef.current == null || !visibleRef.current)
+    if (parentRef.current == null || dialogRef.current == null || !visibleRef.current)
       return;
-    const f = variant === "floating" ? calcFloatingDialog : calcConnectedDialog;
-    const { adjustedDialog, location } = f({
-      target: targetRef.current,
+    const calcDialog =
+      variant === "floating" ? calcFloatingDialog : calcConnectedDialog;
+    const { adjustedDialog, location } = calcDialog({
+      target: parentRef.current,
       dialog: dialogRef.current,
       initial: propsLocation,
       prefer: prevLocation.current != null ? [prevLocation.current] : undefined,
@@ -128,20 +163,12 @@ export const Dialog = ({
     setState(nextState);
   }, [propsLocation, variant]);
 
-  useLayoutEffect(() => {
-    calculatePosition();
-  }, [visible, calculatePosition]);
+  useLayoutEffect(() => calculatePosition(), [visible, calculatePosition]);
 
   Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
 
-  const resizeParentRef = useResize(calculatePosition, { enabled: visible });
-  const combinedParentRef = useCombinedRefs(targetRef, resizeParentRef);
-
-  const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
-  const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
-
   let dialogStyle: CSSProperties = {};
-  if (variant !== "modal" && targetRef.current != null) {
+  if (variant !== "modal" && parentRef.current != null) {
     dialogStyle = { ...stateDialogStyle };
     if (variant === "connected") dialogStyle.width = width;
   } else if (variant === "modal") dialogStyle = { top: `${modalOffset}%` };
@@ -156,9 +183,15 @@ export const Dialog = ({
 
   const C = variant === "connected" ? Align.Pack : Align.Space;
 
+  const resizeParentRef = useResize(calculatePosition, { enabled: visible });
+  const combinedParentRef = useCombinedRefs(parentRef, resizeParentRef);
+
+  const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
+  const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
+
   const exclude = useCallback(
     (e: { target: EventTarget | null }) => {
-      if (targetRef.current?.contains(e.target as Node)) return true;
+      if (parentRef.current?.contains(e.target as Node)) return true;
       // If the target has a parent with the role of dialog, don't close the dialog.
       const parent = findParent(e.target as HTMLElement, (el) => {
         const isDialog = el?.getAttribute("role") === "dialog";
@@ -189,7 +222,7 @@ export const Dialog = ({
       bordered={bordered}
       style={dialogStyle}
     >
-      {(keepMounted || visible) && children[1]}
+      {visible && children[1]}
     </Align.Space>
   );
   if (variant === "floating") child = createPortal(child, getRootElement());
@@ -207,9 +240,8 @@ export const Dialog = ({
       getRootElement(),
     );
 
-  const ctxValue = useMemo(() => ({ close, open }), [close, open]);
   return (
-    <CoreDialog.Provider value={ctxValue}>
+    <Context.Provider value={ctxValue}>
       <C
         {...rest}
         ref={combinedParentRef}
@@ -228,7 +260,7 @@ export const Dialog = ({
         {children[0]}
         {child}
       </C>
-    </CoreDialog.Provider>
+    </Context.Provider>
   );
 };
 Dialog.displayName = "Dropdown";
@@ -283,8 +315,6 @@ const calcConnectedDialog = ({
   prefer = CONNECTED_PROPS.prefer,
 }: CalcDialogProps): position.DialogReturn => {
   const targetBox = box.construct(target);
-  // the container is the nearest element that has a container-type or contain property
-
   const win = box.construct(0, 0, window.innerWidth, window.innerHeight);
   let container = win;
 

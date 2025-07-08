@@ -106,7 +106,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
   };
   return (
     <Dialog.Dialog
-      close={handleClose}
+      onVisibleChange={handleClose}
       visible={focused}
       style={{ width: "100%", height: "100%" }}
       modalOffset={0}

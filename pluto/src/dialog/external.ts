@@ -9,4 +9,3 @@
 
 export * from "@/dialog/Dialog";
 export * from "@/dialog/Trigger";
-export * from "@/dialog/use";

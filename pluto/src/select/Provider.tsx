@@ -43,9 +43,10 @@ export const Provider = <K extends record.Key = record.Key>({
   value,
   onSelect,
   clear,
+  children,
 }: ProviderProps<K>): ReactElement => {
   const ctx = useMemo(() => ({ value, onSelect, clear }), [value, onSelect, clear]);
-  return <Context.Provider value={ctx}></Context.Provider>;
+  return <Context.Provider value={ctx}>{children}</Context.Provider>;
 };
 
 export const useItemState = <K extends record.Key>(key: K): [boolean, () => void] => {

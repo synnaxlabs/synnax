@@ -42,7 +42,7 @@ export const Modal = ({ state, remove }: ModalProps) => {
       key={key}
       variant="modal"
       visible
-      close={() => remove(key)}
+      onVisibleChange={() => remove(key)}
       style={layoutCSS(window)}
       modalOffset={calculateOffset(window)}
       background={0}

@@ -1,7 +1,7 @@
 import { type ReactElement } from "react";
 
 import { Button } from "@/button";
-import { useContext } from "@/dialog/use";
+import { useContext } from "@/dialog/Dialog";
 
 export interface TriggerProps extends Button.ButtonProps {}
 

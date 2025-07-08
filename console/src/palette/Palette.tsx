@@ -21,6 +21,7 @@ import {
   Text,
   Tooltip,
   Triggers,
+  useCombinedStateAndRef,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
@@ -39,17 +40,16 @@ export const Palette = ({
   commandSymbol,
   triggerConfig,
 }: PaletteProps): ReactElement => {
-  const { close, open, visible } = Dialog.use();
   const [value, setValue] = useState("");
+  const [visible, setVisible, visibleRef] = useCombinedStateAndRef<boolean>(false);
 
   const handleTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
-      if (stage !== "start" || visible) return;
+      if (stage !== "start" || visibleRef.current) return;
       const mode = Triggers.determineMode(triggerConfig, triggers);
       setValue(mode === "command" ? commandSymbol : "");
-      open();
     },
-    [visible, triggerConfig, commandSymbol, open],
+    [triggerConfig, commandSymbol, visibleRef],
   );
 
   const triggers = useMemo(
@@ -63,15 +63,15 @@ export const Palette = ({
     <Tooltip.Dialog location="bottom" hide={visible}>
       <TooltipContent triggerConfig={triggerConfig} />
       <Dialog.Dialog
-        close={close}
         visible={visible}
+        onVisibleChange={setVisible}
         className={CSS.B("palette")}
         location="bottom"
         variant="modal"
         bordered={false}
       >
         <Button.Button
-          onClick={open}
+          onClick={() => setVisible(true)}
           className={CSS(CSS.BE("palette", "btn"))}
           variant="outlined"
           align="center"
@@ -88,25 +88,22 @@ export const Palette = ({
           value={value}
           onChange={setValue}
           commandSymbol={commandSymbol}
-          close={close}
         />
       </Dialog.Dialog>
     </Tooltip.Dialog>
   );
 };
 
-export interface PaletteDialogProps
-  extends Input.Control<string>,
-    Pick<Dialog.DialogProps, "close"> {
+export interface PaletteDialogProps extends Input.Control<string> {
   commandSymbol: string;
 }
 
 const DialogContent = ({
-  close,
   commandSymbol,
   onChange,
   value,
 }: PaletteDialogProps): ReactElement => {
+  const { close } = Dialog.useContext();
   const resourceProps = useResourceList();
   const commandProps = useCommandList();
   const { handleSelect, data, useListItem, listItem } = value.startsWith(commandSymbol)

@@ -81,15 +81,15 @@ export const DateTime = ({
   const tsValue = new TimeStamp(value, "UTC");
   const parsedValue = tsValue.fString("ISO", "local").slice(0, -1);
 
-  const { close, toggle, visible } = Dialog.use();
+  const [visible, setVisible] = useState(false);
 
   return (
     <Dialog.Dialog
-      close={close}
       visible={visible}
       variant="modal"
       zIndex={500}
       keepMounted={false}
+      onVisibleChange={setVisible}
     >
       <InputText
         className={CSS.BE("input", "datetime")}
@@ -103,7 +103,7 @@ export const DateTime = ({
         {...rest}
       >
         <Button.Icon
-          onClick={toggle}
+          onClick={() => setVisible(!visible)}
           variant={variant === "natural" ? "text" : "outlined"}
         >
           <Icon.Calendar />

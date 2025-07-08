@@ -37,7 +37,7 @@ export type DialogProps<
 > = UseReturn<K> &
   Pick<UseSingleProps<K> | UseMultipleProps<K>, "value"> &
   Pick<List.ListProps<K, E>, "data" | "useItem"> &
-  Omit<CoreDialog.DialogProps, "visible" | "close" | "onSelect">;
+  Omit<CoreDialog.DialogProps, "visible" | "close" | "open" | "onSelect">;
 
 type OmittedDialogProps<K extends record.Key> = Omit<
   DialogProps<K>,
@@ -70,11 +70,10 @@ export const Dialog = <
 }: DialogProps<K, E>): ReactElement => {
   const [triggerChild, dialogChild] = children;
   const { ref, virtualizer } = List.use({ data });
-  const { visible, close } = CoreDialog.use();
   return (
     <Provider value={value} onSelect={onSelect} clear={clear}>
       <List.List ref={ref} data={data} useItem={useItem} virtualizer={virtualizer}>
-        <CoreDialog.Dialog visible={visible} close={close} {...rest}>
+        <CoreDialog.Dialog {...rest}>
           {triggerChild}
           <Align.Space empty>{dialogChild}</Align.Space>
         </CoreDialog.Dialog>

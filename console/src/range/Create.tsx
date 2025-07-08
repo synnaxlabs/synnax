@@ -80,7 +80,7 @@ export const Create: Layout.Renderer = (props) => {
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
-    (data: ranger.Payload[]) => data.filter((r) => r.key !== args.key),
+    (data: ranger.Payload) => data.key !== args.key,
     [args.key],
   );
 
@@ -115,23 +115,14 @@ export const Create: Layout.Renderer = (props) => {
           </Align.Space>
           <Align.Space x>
             <Form.Field<string> path="parent" visible padHelpText={false}>
-              {({ onChange, ...p }) => (
+              {({ onChange, value }) => (
                 <Ranger.SelectSingle
                   style={{ width: "fit-content" }}
                   zIndex={100}
                   filter={recursiveParentFilter}
-                  entryRenderKey={(e: ranger.Payload) => (
-                    <Text.WithIcon
-                      level="p"
-                      shade={11}
-                      startIcon={<ParentRangeIcon />}
-                      size="small"
-                    >
-                      {e.name}
-                    </Text.WithIcon>
-                  )}
-                  inputPlaceholder="Search Ranges"
-                  triggerTooltip="Select Parent Range"
+                  value={value}
+                  onChange={onChange}
+                  triggerIcon={<ParentRangeIcon />}
                   placeholder={
                     <Text.WithIcon
                       level="p"
@@ -142,8 +133,6 @@ export const Create: Layout.Renderer = (props) => {
                       Parent Range
                     </Text.WithIcon>
                   }
-                  onChange={(v: string) => onChange(v ?? "")}
-                  {...p}
                 />
               )}
             </Form.Field>

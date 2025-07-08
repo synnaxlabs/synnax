@@ -10,28 +10,33 @@
 import "@/index.css";
 import "@/main.css";
 
-import { type ReactElement } from "react";
+import { type ranger } from "@synnaxlabs/client";
+import { type ReactElement, useState } from "react";
 import ReactDOM from "react-dom/client";
 
 import { Align } from "@/align";
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { Icon } from "@/icon";
 import { Pluto } from "@/pluto";
+import { Ranger } from "@/ranger";
 
-const Composite = Icon.createComposite(Icon.LinePlot, {
-  topRight: Icon.Add,
-});
+const Content = (): ReactElement => {
+  const [value, setValue] = useState<ranger.Key>("");
+  return (
+    <Align.Center background={3}>
+      <Ranger.SelectSingle value={value} onChange={setValue} />;
+    </Align.Center>
+  );
+};
 
 const Main = (): ReactElement => (
-  <Pluto.Provider>
-    <div style={{ padding: "2rem" }}>
-      <Align.Space x className={CSS.B("stack")}>
-        <Button.Icon>
-          <Composite />
-        </Button.Icon>
-      </Align.Space>
-    </div>
+  <Pluto.Provider
+    connParams={{
+      host: "localhost",
+      port: 9090,
+      username: "synnax",
+      password: "seldon",
+    }}
+  >
+    <Content />
   </Pluto.Provider>
 );
 

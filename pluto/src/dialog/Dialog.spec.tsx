@@ -16,22 +16,18 @@ import { Button } from "@/button";
 import { Dialog } from "@/dialog";
 import { Triggers } from "@/triggers";
 
-const TestDropdown = (): ReactElement => {
-  const { toggle, visible, close } = Dialog.use();
-
-  return (
-    <Dialog.Dialog close={close} visible={visible}>
-      <Button.Button onClick={() => toggle()}>Toggle</Button.Button>
-      <p>Content</p>
-    </Dialog.Dialog>
-  );
-};
+const TestDialog = (): ReactElement => (
+  <Dialog.Dialog>
+    <Button.Button>Toggle</Button.Button>
+    <p>Content</p>
+  </Dialog.Dialog>
+);
 
 describe("Dropdown", () => {
   it("should render a dropdown", () => {
     const c = render(
       <Triggers.Provider>
-        <TestDropdown />
+        <TestDialog />
       </Triggers.Provider>,
     );
     expect(c.getByText("Toggle")).toBeTruthy();
@@ -42,7 +38,7 @@ describe("Dropdown", () => {
   it("should open the dropdown when the toggle button is clicked", async () => {
     const c = render(
       <Triggers.Provider>
-        <TestDropdown />
+        <TestDialog />
       </Triggers.Provider>,
     );
     const toggle = c.getByText("Toggle");
