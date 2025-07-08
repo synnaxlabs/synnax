@@ -45,7 +45,11 @@ export type UseListReturn<
   getItem: GetItem<K, E>;
 };
 
-export interface RetrieveByKeyArgs<K extends record.Key> {
+export interface RetrieveByKeyArgs<
+  RetrieveParams extends Params,
+  K extends record.Key,
+> {
+  params: RetrieveParams;
   key: K;
   client: Synnax;
 }
@@ -55,7 +59,7 @@ export interface CreateListArgs<
   K extends record.Key,
   E extends record.Keyed<K>,
 > extends Omit<CreateRetrieveArgs<RetrieveParams, E[]>, "listeners"> {
-  retrieveByKey: (args: RetrieveByKeyArgs<K>) => Promise<E>;
+  retrieveByKey: (args: RetrieveByKeyArgs<RetrieveParams, K>) => Promise<E>;
   listeners?: ListListenerConfig<RetrieveParams | {}, K, E>[];
 }
 
@@ -178,8 +182,11 @@ export const createList =
         const { signal } = options;
         void (async () => {
           try {
-            if (client == null) return;
-            dataRef.current.set(key, await retrieveByKey({ client, key }));
+            if (client == null || paramsRef.current == null) return;
+            dataRef.current.set(
+              key,
+              await retrieveByKey({ client, key, params: paramsRef.current }),
+            );
             if (signal?.aborted) return;
             listenersRef.current.listeners.forEach((k, listener) => {
               if (k === key) listener();
