@@ -28,24 +28,24 @@ type ClientConn struct {
 var _ pool.Adapter = (*ClientConn)(nil)
 
 // Acquire implements pool.Adapter.
-func (cc *ClientConn) Acquire() error {
-	cc.demand.Increase(1)
+func (c *ClientConn) Acquire() error {
+	c.demand.Increase(1)
 	return nil
 }
 
 // Release implements pool.Adapter.
-func (cc *ClientConn) Release() {
-	cc.demand.Decrease(1)
+func (c *ClientConn) Release() {
+	c.demand.Decrease(1)
 }
 
 // Close implements pool.Adapter.
-func (cc *ClientConn) Close() error {
-	return cc.ClientConn.Close()
+func (c *ClientConn) Close() error {
+	return c.ClientConn.Close()
 }
 
 // Healthy implements pool.Adapter
-func (cc *ClientConn) Healthy() bool {
-	state := cc.GetState()
+func (c *ClientConn) Healthy() bool {
+	state := c.GetState()
 	return state != connectivity.TransientFailure && state != connectivity.Shutdown
 }
 

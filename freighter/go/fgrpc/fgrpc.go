@@ -26,18 +26,18 @@ type CompoundBindableTransport []BindableTransport
 
 var _ BindableTransport = CompoundBindableTransport{}
 
-func (cbt CompoundBindableTransport) Use(middlewares ...freighter.Middleware) {
-	for _, t := range cbt {
+func (t CompoundBindableTransport) Use(middlewares ...freighter.Middleware) {
+	for _, t := range t {
 		t.Use(middlewares...)
 	}
 }
 
-func (cbt CompoundBindableTransport) Report() alamos.Report {
-	return cbt[0].Report()
+func (t CompoundBindableTransport) Report() alamos.Report {
+	return t[0].Report()
 }
 
-func (cbt CompoundBindableTransport) BindTo(reg grpc.ServiceRegistrar) {
-	for _, t := range cbt {
+func (t CompoundBindableTransport) BindTo(reg grpc.ServiceRegistrar) {
+	for _, t := range t {
 		t.BindTo(reg)
 	}
 }
