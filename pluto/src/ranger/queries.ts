@@ -357,7 +357,6 @@ export const useMetaDataForm = Flux.createList<
   retrieveByKey: async ({ client, key }) => ({
     key: await client.ranges.getKV(key).get(key),
     value: "",
-    range: key,
   }),
   listeners: [
 });
