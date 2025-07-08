@@ -41,7 +41,7 @@ var _ = Describe("Alignment", func() {
 	Describe("UnmarshalJSON", func() {
 		It("Should unmarshal the alignment from a JSON string", func() {
 			align := telem.NewAlignment(2, 1)
-			marshalled := MustSucceed(align.MarshalJSON())
+			marshalled := fmt.Appendf(nil, `"%v"`, uint64(align))
 			var unmarshalled telem.Alignment
 			Expect(unmarshalled.UnmarshalJSON(marshalled)).To(Succeed())
 			Expect(unmarshalled).To(Equal(align))
@@ -52,6 +52,7 @@ var _ = Describe("Alignment", func() {
 		It("Should add to the alignment sample index", func() {
 			align := telem.NewAlignment(2, 1)
 			align = align.AddSamples(3)
+			Expect(align.DomainIndex()).To(Equal(uint32(2)))
 			Expect(align.SampleIndex()).To(Equal(uint32(4)))
 		})
 	})
