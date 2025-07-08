@@ -61,6 +61,11 @@ export interface CreateListArgs<
 > extends Omit<CreateRetrieveArgs<RetrieveParams, E[]>, "listeners"> {
   retrieveByKey: (args: RetrieveByKeyArgs<RetrieveParams, K>) => Promise<E>;
   listeners?: ListListenerConfig<RetrieveParams, K, E>[];
+  filter?: (item: E) => boolean;
+}
+
+export interface UseListArgs<K extends record.Key, E extends record.Keyed<K>> {
+  filter?: (item: E) => boolean;
 }
 
 export interface UseList<
@@ -68,7 +73,7 @@ export interface UseList<
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
-  (): UseListReturn<RetrieveParams, K, E>;
+  (args: UseListArgs<K, E>): UseListReturn<RetrieveParams, K, E>;
 }
 
 interface ListListenerExtraArgs<
@@ -99,6 +104,8 @@ interface ListenersRef<K extends record.Key> {
   listeners: Map<() => void, K>;
 }
 
+const defaultFilter = () => true;
+
 export const createList =
   <P extends Params, K extends record.Key, E extends record.Keyed<K>>({
     name,
@@ -106,7 +113,7 @@ export const createList =
     retrieve,
     retrieveByKey,
   }: CreateListArgs<P, K, E>): UseList<P, K, E> =>
-  () => {
+  ({ filter = defaultFilter }) => {
     const client = PSynnax.use();
     const dataRef = useRef<Map<K, E>>(new Map());
     const listenersRef = useInitializerRef<ListenersRef<K>>(() => ({
@@ -130,7 +137,9 @@ export const createList =
           setResult(pendingResult(name, "retrieving"));
           const value = await retrieve({ client, params });
           const keys = value.map((v) => v.key);
-          value.forEach((v) => dataRef.current.set(v.key, v));
+          value.forEach((v) => {
+            if (filter(v)) dataRef.current.set(v.key, v);
+          });
           if (signal?.aborted) return;
           mountListeners(
             listeners?.map((l) => ({
@@ -155,7 +164,7 @@ export const createList =
                       },
                       onChange: (k, setter) => {
                         const v = dataRef.current.get(k);
-                        if (v == null) return;
+                        if (v == null || !filter(v)) return;
                         const res = state.executeSetter(setter, v);
                         dataRef.current.set(k, res);
                         listenersRef.current.listeners.forEach((key, listener) => {
@@ -183,10 +192,13 @@ export const createList =
         void (async () => {
           try {
             if (client == null || paramsRef.current == null) return;
-            dataRef.current.set(
+            const item = await retrieveByKey({
+              client,
               key,
-              await retrieveByKey({ client, key, params: paramsRef.current }),
-            );
+              params: paramsRef.current,
+            });
+            if (!filter(item)) return;
+            dataRef.current.set(key, item);
             if (signal?.aborted) return;
             listenersRef.current.listeners.forEach((k, listener) => {
               if (k === key) listener();
