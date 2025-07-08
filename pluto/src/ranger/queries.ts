@@ -14,9 +14,7 @@ import { z } from "zod/v4";
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
 import { Label } from "@/label";
-import { Ontology } from "@/ontology";
 import { matchRelationshipAndID } from "@/ontology/queries";
-import { Synnax } from "@/synnax";
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void =>
   Sync.useListener({
@@ -101,19 +99,18 @@ export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Ra
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
         ontology.relationShipZ,
-        async ({ changed, onChange, params, client }) => {
-          if (!("key" in params)) return;
-          if (!matchRelationshipAndID(changed, "to", ranger.ontologyID(params.key)))
-            return;
-          const range = await client.ranges.retrieve(params.key);
-          onChange(params.key, range);
-        },
+        async ({ changed, onChange, params: { key }, client }) =>
+          matchRelationshipAndID(changed, "to", ranger.ontologyID(key)) &&
+          onChange(key, await client.ranges.retrieve(key)),
       ),
     },
   ],
 });
 
-export const useParent = Flux.createRetrieve<{ key: ranger.Key }, ranger.Range | null>({
+export const retrieveParent = Flux.createRetrieve<
+  { key: ranger.Key },
+  ranger.Range | null
+>({
   name: "Range",
   retrieve: async ({ client, params: { key } }) => {
     const res = await client.ontology.retrieveParents(ranger.ontologyID(key));
@@ -126,37 +123,26 @@ export const useParent = Flux.createRetrieve<{ key: ranger.Key }, ranger.Range |
       channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
         ontology.relationShipZ,
-        async ({ changed, onChange, params, client }) => {
-          if (!("key" in params)) return;
-          if (!matchRelationshipAndID(changed, "from", ranger.ontologyID(params.key)))
-            return;
-          const range = await client.ranges.retrieve(params.key);
-          onChange(params.key, range);
-        },
+        async ({ changed, onChange, params: { key }, client }) =>
+          matchRelationshipAndID(changed, "from", ranger.ontologyID(key)) &&
+          onChange(await client.ranges.retrieve(key)),
       ),
     },
     {
       channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
         ontology.relationShipZ,
-        async ({ changed, onChange, params, client }) => {
-          if (!("key" in params)) return;
-          if (!matchRelationshipAndID(changed, "from", ranger.ontologyID(params.key)))
-            return;
-          const range = await client.ranges.retrieve(params.key);
-          onChange(params.key, range);
-        },
+        async ({ changed, onChange, params: { key }, client }) =>
+          matchRelationshipAndID(changed, "from", ranger.ontologyID(key)) &&
+          onChange(await client.ranges.retrieve(key)),
       ),
     },
     {
       channel: ranger.SET_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
         ranger.payloadZ,
-        async ({ changed, onChange, params, client }) => {
-          if (!("key" in params)) return;
-          if (changed.key !== params.key) return;
-          onChange(params.key, client.ranges.sugarOne(changed));
-        },
+        async ({ changed, onChange, params: { key }, client }) =>
+          changed.key === key && onChange(client.ranges.sugarOne(changed)),
       ),
     },
   ],
@@ -348,4 +334,30 @@ export const useList = Flux.createList<ListParams, ranger.Key, ranger.Payload>({
       ),
     },
   ],
+});
+
+export const metaDataFormSchema = z.object({
+  pairs: z.array(z.object({ key: z.string(), value: z.string() })),
+});
+
+export interface MetaDataFormParams extends Flux.Params {
+  key: ranger.Key;
+}
+
+export const useMetaDataForm = Flux.createList<
+  MetaDataFormParams,
+  string,
+  ranger.KVPair
+>({
+  retrieve: async ({ client, params: { key } }) => {
+    const kv = client.ranges.getKV(key);
+    const pairs = await kv.list();
+    return Object.entries(pairs).map(([key, value]) => ({ key, value }));
+  },
+  retrieveByKey: async ({ client, key }) => ({
+    key: await client.ranges.getKV(key).get(key),
+    value: "",
+    range: key,
+  }),
+  listeners: [
 });

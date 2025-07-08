@@ -21,7 +21,7 @@ export type ListenerArgs<Value, Extra> = {
 } & Extra;
 
 export interface ListenerHandler<Value, Extra> {
-  (args: ListenerArgs<Value, Extra>): Promise<void>;
+  (args: ListenerArgs<Value, Extra>): Promise<unknown>;
 }
 
 export const parsedHandler =

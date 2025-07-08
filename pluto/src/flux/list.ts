@@ -56,7 +56,7 @@ export interface CreateListArgs<
   E extends record.Keyed<K>,
 > extends Omit<CreateRetrieveArgs<RetrieveParams, E[]>, "listeners"> {
   retrieveByKey: (args: RetrieveByKeyArgs<K>) => Promise<E>;
-  listeners?: ListListenerConfig<RetrieveParams | {}, K, E>[];
+  listeners?: ListListenerConfig<RetrieveParams, K, E>[];
 }
 
 export interface UseList<
@@ -67,7 +67,7 @@ export interface UseList<
   (): UseListReturn<RetrieveParams, K, E>;
 }
 
-export interface ListListenerExtraArgs<
+interface ListListenerExtraArgs<
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,
@@ -105,7 +105,7 @@ export const createList =
   () => {
     const client = PSynnax.use();
     const dataRef = useRef<Map<K, E>>(new Map());
-    const itemListenersRef = useInitializerRef<ListenersRef<K>>(() => ({
+    const listenersRef = useInitializerRef<ListenersRef<K>>(() => ({
       mounted: false,
       listeners: new Map(),
     }));
@@ -113,13 +113,13 @@ export const createList =
       pendingResult(name, "retrieving"),
     );
 
-    const paramsRef = useRef<P | {}>({});
+    const paramsRef = useRef<P | null>(null);
 
     const mountListeners = useMountListeners();
     const retrieveAsync = useCallback(
       async (paramsSetter: state.SetArg<P, P | {}>, options: AsyncOptions = {}) => {
         const { signal } = options;
-        const params = state.executeSetter(paramsSetter, paramsRef.current);
+        const params = state.executeSetter(paramsSetter, paramsRef.current ?? {});
         paramsRef.current = params;
         try {
           if (client == null) return setResult(nullClientResult(name, "retrieve"));
@@ -133,7 +133,7 @@ export const createList =
               channel: l.channel,
               handler: (frame) =>
                 void (async () => {
-                  if (client == null) return;
+                  if (client == null || paramsRef.current == null) return;
                   try {
                     await l.onChange({
                       client,
@@ -154,7 +154,7 @@ export const createList =
                         if (v == null) return;
                         const res = state.executeSetter(setter, v);
                         dataRef.current.set(k, res);
-                        itemListenersRef.current.listeners.forEach((key, listener) => {
+                        listenersRef.current.listeners.forEach((key, listener) => {
                           if (key === k) listener();
                         });
                       },
@@ -181,7 +181,7 @@ export const createList =
             if (client == null) return;
             dataRef.current.set(key, await retrieveByKey({ client, key }));
             if (signal?.aborted) return;
-            itemListenersRef.current.listeners.forEach((k, listener) => {
+            listenersRef.current.listeners.forEach((k, listener) => {
               if (k === key) listener();
             });
           } catch (error) {
@@ -202,22 +202,21 @@ export const createList =
     );
 
     const useListItem = (key?: K) => {
+      if (key == null) return undefined;
       const abortControllerRef = useRef<AbortController | null>(null);
       return useSyncExternalStore<E | undefined>(
         useCallback(
           (callback) => {
-            if (key == null) return () => {};
             abortControllerRef.current = new AbortController();
-            itemListenersRef.current.listeners.set(callback, key);
+            listenersRef.current.listeners.set(callback, key);
             return () => {
-              itemListenersRef.current.listeners.delete(callback);
+              listenersRef.current.listeners.delete(callback);
               abortControllerRef.current?.abort();
             };
           },
           [key],
         ),
         useCallback(() => {
-          if (key == null) return undefined;
           const res = dataRef.current.get(key);
           if (res == null)
             retrieveSingle(key, { signal: abortControllerRef.current?.signal });

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, ontology } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
@@ -163,4 +162,48 @@ export const useResourceList = Flux.createList<ListParams, string, ontology.Reso
   retrieve: async ({ client, params }) => await client.ontology.retrieve(params),
   retrieveByKey: async ({ client, key }) =>
     await client.ontology.retrieve(ontology.idZ.parse(key)),
+});
+
+export const retrieveParentID = Flux.createRetrieve<
+  { id: ontology.ID; type?: ontology.ResourceType },
+  ontology.ID | null
+>({
+  name: "useParentID",
+  retrieve: async ({ client, params: { id, type } }) => {
+    const res = await client.ontology.retrieveParents(id);
+    if (type == null) return res[0].id;
+    const parent = res.find(({ id }) => id.type === type);
+    if (parent == null) return null;
+    return parent.id;
+  },
+  listeners: [
+    {
+      channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        ontology.relationShipZ,
+        async ({ changed, params: { id, type }, onChange }) => {
+          if (
+            changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
+            (type == null || changed.from.type === type) &&
+            ontology.idsEqual(changed.to, id)
+          )
+            onChange(changed.to);
+        },
+      ),
+    },
+    {
+      channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        ontology.relationShipZ,
+        async ({ changed, params: { id, type }, onChange }) => {
+          if (
+            changed.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
+            (type == null || changed.from.type === type) &&
+            ontology.idsEqual(changed.to, id)
+          )
+            onChange(null);
+        },
+      ),
+    },
+  ],
 });
