@@ -64,12 +64,16 @@ export interface CreateListArgs<
   filter?: (item: E) => boolean;
 }
 
+export interface UseListArgs<K extends record.Key, E extends record.Keyed<K>> {
+  filter?: (item: E) => boolean;
+}
+
 export interface UseList<
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
-  (): UseListReturn<RetrieveParams, K, E>;
+  (args: UseListArgs<K, E>): UseListReturn<RetrieveParams, K, E>;
 }
 
 interface ListListenerExtraArgs<
@@ -100,15 +104,16 @@ interface ListenersRef<K extends record.Key> {
   listeners: Map<() => void, K>;
 }
 
+const defaultFilter = () => true;
+
 export const createList =
   <P extends Params, K extends record.Key, E extends record.Keyed<K>>({
     name,
     listeners,
     retrieve,
     retrieveByKey,
-    filter = () => true,
   }: CreateListArgs<P, K, E>): UseList<P, K, E> =>
-  () => {
+  ({ filter = defaultFilter }) => {
     const client = PSynnax.use();
     const dataRef = useRef<Map<K, E>>(new Map());
     const listenersRef = useInitializerRef<ListenersRef<K>>(() => ({
