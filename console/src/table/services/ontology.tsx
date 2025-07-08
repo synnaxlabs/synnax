@@ -59,9 +59,8 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection,
     selection: { resourceIDs },
-    state: { getResource },
+    state: { getResource, shape },
   } = props;
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -81,7 +80,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Menu.RenameItem />
       <Menu.DeleteItem />
-      <Group.MenuItem selection={selection} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
       <PMenu.Divider />
       {isSingle && (
         <>

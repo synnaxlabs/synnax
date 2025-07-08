@@ -28,6 +28,7 @@ import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
 import { Lua } from "@/code/lua";
+import { COMMANDS } from "@/commands";
 import { Docs } from "@/docs";
 import { Error } from "@/error";
 import { Hardware } from "@/hardware";
@@ -38,6 +39,7 @@ import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
+import { Palette } from "@/palette";
 import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
@@ -159,7 +161,9 @@ export const Console = (): ReactElement => (
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
           <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
             <Ontology.ServicesProvider services={SERVICES}>
-              <MainUnderContext />
+              <Palette.CommandProvider commands={COMMANDS}>
+                <MainUnderContext />
+              </Palette.CommandProvider>
             </Ontology.ServicesProvider>
           </Layout.ContextMenuProvider>
         </Layout.RendererProvider>

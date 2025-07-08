@@ -340,23 +340,50 @@ export const metaDataFormSchema = z.object({
   pairs: z.array(z.object({ key: z.string(), value: z.string() })),
 });
 
-export interface MetaDataFormParams extends Flux.Params {
-  key: ranger.Key;
+export interface ListKVParams extends Flux.Params {
+  rangeKey: ranger.Key;
 }
 
-export const useMetaDataForm = Flux.createList<
-  MetaDataFormParams,
-  string,
-  ranger.KVPair
->({
-  retrieve: async ({ client, params: { key } }) => {
-    const kv = client.ranges.getKV(key);
+export const useListKV = Flux.createList<ListKVParams, string, ranger.KVPair>({
+  name: "Range Meta Data",
+  retrieve: async ({ client, params: { rangeKey } }) => {
+    const kv = client.ranges.getKV(rangeKey);
     const pairs = await kv.list();
-    return Object.entries(pairs).map(([key, value]) => ({ key, value }));
+    return Object.entries(pairs).map(([key, value]) => ({
+      key,
+      value,
+      range: rangeKey,
+    }));
   },
-  retrieveByKey: async ({ client, key }) => ({
-    key: await client.ranges.getKV(key).get(key),
-    value: "",
-  }),
+  retrieveByKey: async ({ client, key, params: { rangeKey } }) => {
+    const kv = client.ranges.getKV(rangeKey);
+    const value = await kv.get(key);
+    return { key, value, range: rangeKey };
+  },
   listeners: [
+    {
+      channel: ranger.KV_SET_CHANNEL,
+      onChange: Sync.parsedHandler(ranger.kvPairZ, async ({ changed, onChange }) => {
+        onChange(changed.key, (prev) => {
+          if (prev == null) return prev;
+          return changed;
+        });
+      }),
+    },
+    {
+      channel: ranger.KV_DELETE_CHANNEL,
+      onChange: Sync.parsedHandler(ranger.kvPairZ, async ({ changed, onDelete }) =>
+        onDelete(changed.key),
+      ),
+    },
+  ],
+});
+
+export const useUpdateKV = Flux.createUpdate<ListKVParams, ranger.KVPair>({
+  name: "Range Meta Data",
+  update: async ({ client, value, onChange }) => {
+    const kv = client.ranges.getKV(value.range);
+    await kv.set(value.key, value.value);
+    onChange(value);
+  },
 });

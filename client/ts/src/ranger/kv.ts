@@ -20,7 +20,7 @@ import { nullableArrayZ } from "@/util/zod";
 export const KV_SET_CHANNEL = "sy_range_kv_set";
 export const KV_DELETE_CHANNEL = "sy_range_kv_delete";
 
-const kvPairZ = z.object({ range: keyZ, key: z.string(), value: z.string() });
+export const kvPairZ = z.object({ range: keyZ, key: z.string(), value: z.string() });
 export interface KVPair extends z.infer<typeof kvPairZ> {}
 
 const getReqZ = z.object({ range: keyZ, keys: z.string().array() });

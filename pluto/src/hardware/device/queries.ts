@@ -13,6 +13,14 @@ import { type record } from "@synnaxlabs/x";
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
 
+export const useSetSynchronizer = (onSet: (device: device.Device) => void): void =>
+  Sync.useListener({
+    channel: device.SET_CHANNEL_NAME,
+    onChange: Sync.parsedHandler(device.deviceZ, async ({ changed }) =>
+      onSet(changed as device.Device),
+    ),
+  });
+
 export interface RetrieveParams extends Flux.Params {
   key: device.Key;
 }

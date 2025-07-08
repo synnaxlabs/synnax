@@ -20,7 +20,7 @@ import {
 export interface SelectPortProps extends Select.SingleProps<string> {
   model: Model;
   portType: PortType;
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {

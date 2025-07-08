@@ -127,7 +127,10 @@ const Item = (props: Ontology.TreeItemProps) => {
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { selection } = props;
+  const {
+    selection,
+    state: { shape },
+  } = props;
   const { resourceIDs } = selection;
   const handleDelete = useDelete();
   const placeLayout = Layout.usePlacer();
@@ -153,7 +156,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const isSingle = resourceIDs.length === 1;
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
-      <Group.MenuItem selection={selection} showBottomDivider />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} showBottomDivider />
       {isSingle && (
         <>
           <Menu.RenameItem />

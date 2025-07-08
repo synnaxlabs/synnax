@@ -154,7 +154,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             path="name"
           />
           <Form.Field<rack.Key> path="rack" label="Connect From" required>
-            {(p) => <Rack.SelectSingle {...p} allowNone={false} />}
+            {({ value, onChange }) => (
+              <Rack.SelectSingle value={value} onChange={onChange} allowNone={false} />
+            )}
           </Form.Field>
           <Form.Field<string> path="connection.endpoint">
             {(p) => (
@@ -173,7 +175,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
               label="Security Mode"
               path="connection.securityMode"
             >
-              {SelectSecurityMode}
+              {({ value, onChange }) => (
+                <SelectSecurityMode value={value} onChange={onChange} />
+              )}
             </Form.Field>
           </Align.Space>
           <Divider.Divider x padded="bottom" />
@@ -182,7 +186,9 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             path="connection.securityPolicy"
             label="Security Policy"
           >
-            {(p) => <SelectSecurityPolicy size="medium" {...p} />}
+            {({ value, onChange }) => (
+              <SelectSecurityPolicy value={value} onChange={onChange} />
+            )}
           </Form.Field>
           {hasSecurity && (
             <>

@@ -23,7 +23,7 @@ import { Ontology } from "@/ontology";
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { resourceIDs },
-    state: { getResource, nodes },
+    state: { getResource, nodes, shape },
   } = props;
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty();
@@ -55,7 +55,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           </PMenu.Item>
         </>
       )}
-      <MenuItem selection={props.selection} />
+      <MenuItem resourceIDs={resourceIDs} shape={shape} />
       <PMenu.Item itemKey="ungroup" startIcon={ungroupIcon}>
         {/* TODO: Maybe we shouldn't force them into keeping the ontology tree like this? */}
         {isDelete ? "Delete" : "Ungroup"}

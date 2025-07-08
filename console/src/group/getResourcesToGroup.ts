@@ -10,14 +10,13 @@
 import { ontology } from "@synnaxlabs/client";
 import { Tree } from "@synnaxlabs/pluto";
 
-import { type Ontology } from "@/ontology";
-
 export const getResourcesToGroup = (
-  selection: Ontology.TreeContextMenuProps["selection"],
+  resourceIDs: ontology.ID[],
+  shape: Tree.Shape,
 ): ontology.ID[] => {
-  const nodesOfMinDepth = Tree.getAllNodesOfMinDepth(selection.resourceIDs);
-  const nodesOfMinDepthKeys = nodesOfMinDepth.map(({ key }) => key);
-  return selection.resources
-    .filter(({ id }) => nodesOfMinDepthKeys.includes(ontology.idToString(id)))
-    .map(({ id }) => id);
+  const strIDs = resourceIDs.map((id) => ontology.idToString(id));
+  const nodesOfMinDepth = Tree.getAllNodesOfMinDepth(
+    Tree.filterShape(shape, (key) => strIDs.includes(key)),
+  );
+  return resourceIDs.filter((id) => nodesOfMinDepth.includes(ontology.idToString(id)));
 };

@@ -257,6 +257,19 @@ export const getDescendants = <K extends record.Key = string>(
   return descendants;
 };
 
+export const filterShape = <K extends record.Key = string>(
+  shape: Shape<K>,
+  match: (key: K, depth: number) => boolean,
+): Shape<K> => {
+  const filtered: Shape<K> = { keys: [], depths: [] };
+  shape.keys.forEach((key, index) => {
+    if (!match(key, shape.depths[index])) return;
+    filtered.keys.push(key);
+    filtered.depths.push(shape.depths[index]);
+  });
+  return filtered;
+};
+
 export const getAllNodesOfMinDepth = <K extends record.Key = string>(
   data: Shape<K>,
 ): K[] => {

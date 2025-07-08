@@ -127,9 +127,8 @@ const useDelete = () => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection,
     selection: { resourceIDs },
-    state: { getResource },
+    state: { getResource, shape },
   } = props;
   const singleResource = resourceIDs.length === 1;
   const first = getResource(resourceIDs[0]);
@@ -153,7 +152,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     hasIdentifier(getMake(first.data?.make));
   return (
     <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
-      <Group.MenuItem selection={selection} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
       {singleResource && (
         <>
           <Menu.RenameItem />

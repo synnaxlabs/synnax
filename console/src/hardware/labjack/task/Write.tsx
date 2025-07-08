@@ -125,7 +125,9 @@ const ChannelListItem = ({
                 }}
                 empty
               >
-                {(p) => <SelectOutputChannelType {...p} />}
+                {({ value, onChange }) => (
+                  <SelectOutputChannelType value={value} onChange={onChange} />
+                )}
               </PForm.Field>
             </Device.SelectPort>
           )}

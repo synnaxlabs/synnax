@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, task } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Icon, Menu as PMenu, Mosaic, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -80,8 +80,16 @@ const useDelete = () => {
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection, client, addStatus, handleError } = props;
-  const { resourceIDs: nodes } = selection;
+  const {
+    store,
+    selection,
+    client,
+    addStatus,
+    handleError,
+    state: { getResource, shape },
+  } = props;
+  const { resourceIDs } = selection;
+  const resources = getResource(resourceIDs);
   const del = useDelete();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const snap = useRangeSnapshot();
@@ -100,16 +108,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         removeLayout: props.removeLayout,
         services: props.services,
       }),
-    rename: () => Tree.startRenaming(nodes[0].key),
+    rename: () => Text.edit(resourceIDs[0].key),
     link: () => handleLink({ name: resources[0].name, ontologyID: resources[0].id }),
-    rangeSnapshot: () => snap(props.selection.resources),
+    rangeSnapshot: () => snap(resources),
     group: () => group(props),
   };
-  const singleResource = resources.length === 1;
+  const singleResource = resourceIDs.length === 1;
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={onSelect}>
-      <Group.MenuItem selection={selection} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
       {hasNoSnapshots && range?.persisted === true && (
         <>
           <Range.SnapshotMenuItem key="snapshot" range={range} />

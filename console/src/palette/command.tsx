@@ -17,7 +17,14 @@ import {
   Synnax as PSynnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { createContext, type ReactElement, useCallback, useContext } from "react";
+import {
+  createContext,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useContext,
+  useMemo,
+} from "react";
 import { useStore } from "react-redux";
 
 import { type Export } from "@/export";
@@ -37,7 +44,14 @@ interface ContextValue {
 
 const CommandContext = createContext<ContextValue>({ commands: [] });
 
-export const CommandProvider = CommandContext.Provider;
+export interface CommandProviderProps extends PropsWithChildren {
+  commands: Command[];
+}
+
+export const CommandProvider = ({ commands, children }: CommandProviderProps) => {
+  const ctxValue = useMemo(() => ({ commands }), [commands]);
+  return <CommandContext.Provider value={ctxValue}>{children}</CommandContext.Provider>;
+};
 
 export const useCommandContext = (): ContextValue => useContext(CommandContext);
 

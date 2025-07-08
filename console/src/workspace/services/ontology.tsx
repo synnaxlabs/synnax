@@ -249,7 +249,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection,
     selection: { resourceIDs },
-    state: { getResource },
+    state: { getResource, shape },
   } = props;
   const handleDelete = useDelete();
   const group = Group.useCreateFromSelection();
@@ -292,7 +292,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         </>
       )}
       <Menu.DeleteItem />
-      <Group.MenuItem selection={selection} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
       <PMenu.Divider />
       {singleResource && (
         <>

@@ -227,10 +227,9 @@ const useDelete = (): ((props: Ontology.TreeContextMenuProps) => void) => {
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection,
     selection: { resourceIDs },
     store,
-    state: { getResource },
+    state: { getResource, shape },
     placeLayout,
   } = props;
   const activeRange = useSelect();
@@ -284,7 +283,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Group.MenuItem selection={selection} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
       {showAddToActivePlot && addToActivePlotMenuItem}
       {addToNewPlotMenuItem}
       <PMenu.Divider />

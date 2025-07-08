@@ -243,9 +243,8 @@ const useOpenCalculated =
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection,
     selection: { resourceIDs },
-    state: { getResource },
+    state: { getResource, shape },
   } = props;
   const activeRange = Range.useSelect();
   const groupFromSelection = Group.useCreateFromSelection();
@@ -277,7 +276,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       {singleResource && <Menu.RenameItem />}
-      <Group.MenuItem selection={selection} />
+      <Group.MenuItem resourceIDs={resourceIDs} shape={shape} />
       {isCalc && (
         <>
           <PMenu.Divider />
