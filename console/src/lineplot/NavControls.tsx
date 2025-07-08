@@ -7,17 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Align,
-  Button,
-  Icon,
-  Select,
-  Text,
-  Triggers,
-  Viewport,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Icon, Text, Triggers, Viewport } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useMemo } from "react";
+import { type ReactElement, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -45,7 +37,7 @@ export const NavControls = (): ReactElement => {
     dispatch(setViewportMode({ mode }));
   };
 
-  const handleClickModeChange = (clickMode: ClickMode): void => {
+  const handleClickModeChange = (clickMode: ClickMode | null): void => {
     dispatch(setControlState({ state: { clickMode } }));
   };
 
@@ -74,7 +66,6 @@ export const NavControls = (): ReactElement => {
         value={mode}
         onChange={handleModeChange}
         triggers={triggers}
-        size="medium"
       />
       <Button.Icon
         onClick={handleZoomReset}
@@ -110,40 +101,20 @@ export const NavControls = (): ReactElement => {
       >
         <Icon.Tooltip />
       </Button.ToggleIcon>
-      <Select.Button<
-        ClickMode,
-        { key: ClickMode; icon: Icon.ReactElement; tooltip: ReactNode }
-      >
-        value={control.clickMode}
-        onChange={handleClickModeChange}
+      <Button.ToggleIcon
+        value={control.clickMode != null}
+        tooltip={
+          <Align.Space x align="center">
+            <Text.Text level="small">Slope</Text.Text>
+          </Align.Space>
+        }
+        onChange={() => {
+          handleClickModeChange(control.clickMode != null ? null : "measure");
+        }}
         size="small"
-        bordered={false}
-        entryRenderKey="icon"
-        allowNone
-        data={[
-          {
-            key: "measure",
-            icon: <Icon.Rule />,
-            tooltip: (
-              <Align.Space x align="center">
-                <Text.Text level="small">Slope</Text.Text>
-              </Align.Space>
-            ),
-          },
-        ]}
       >
-        {({ title: _, entry, ...rest }) => (
-          <Button.Icon
-            {...rest}
-            key={entry.key}
-            variant={rest.selected ? "filled" : "outlined"}
-            tooltip={entry.tooltip}
-            tooltipLocation={TOOLTIP_LOCATION}
-          >
-            {entry.icon}
-          </Button.Icon>
-        )}
-      </Select.Button>
+        <Icon.Rule />
+      </Button.ToggleIcon>
       <Button.ToggleIcon
         className={CSS.BE("control", "pause")}
         value={control.hold}

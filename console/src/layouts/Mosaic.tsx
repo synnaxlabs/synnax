@@ -16,10 +16,10 @@ import {
   Breadcrumb,
   Button,
   Component,
+  Dialog,
   Eraser,
   Icon,
   Menu as PMenu,
-  Modal,
   Mosaic as Core,
   Nav as PNav,
   OS,
@@ -105,43 +105,47 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
     handleClose();
   };
   return (
-    <Modal.Dialog
+    <Dialog.Dialog
       close={handleClose}
       visible={focused}
       style={{ width: "100%", height: "100%" }}
-      offset={0}
+      modalOffset={0}
+      variant="modal"
       background={focused ? 0 : undefined}
     >
-      <PNav.Bar
-        location="top"
-        size="5rem"
-        style={{ display: focused ? "flex" : "none" }}
-        bordered
-      >
-        {/*
-         * We do this to reduce the number of mounted DOM nodes. For some reason removing
-         * the entire bar causes react to crash, so we just hide its children.
-         */}
-        {focused && (
-          <>
-            <PNav.Bar.Start style={{ paddingLeft: "2rem" }}>
-              <Breadcrumb.Breadcrumb icon={layout.icon}>
-                {layout.name}
-              </Breadcrumb.Breadcrumb>
-            </PNav.Bar.Start>
-            <PNav.Bar.End style={{ paddingRight: "1rem" }} empty>
-              <Button.Icon onClick={handleOpenInNewWindow} size="small">
-                <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l10)" }} />
-              </Button.Icon>
-              <Button.Icon onClick={handleClose} size="small">
-                <Icon.Subtract style={{ color: "var(--pluto-gray-l10)" }} />
-              </Button.Icon>
-            </PNav.Bar.End>
-          </>
-        )}
-      </PNav.Bar>
-      <Portal.Out node={node} />
-    </Modal.Dialog>
+      {null}
+      <Dialog.Content>
+        <PNav.Bar
+          location="top"
+          size="5rem"
+          style={{ display: focused ? "flex" : "none" }}
+          bordered
+        >
+          {/*
+           * We do this to reduce the number of mounted DOM nodes. For some reason removing
+           * the entire bar causes react to crash, so we just hide its children.
+           */}
+          {focused && (
+            <>
+              <PNav.Bar.Start style={{ paddingLeft: "2rem" }}>
+                <Breadcrumb.Breadcrumb icon={layout.icon}>
+                  {layout.name}
+                </Breadcrumb.Breadcrumb>
+              </PNav.Bar.Start>
+              <PNav.Bar.End style={{ paddingRight: "1rem" }} empty>
+                <Button.Icon onClick={handleOpenInNewWindow} size="small">
+                  <Icon.OpenInNewWindow style={{ color: "var(--pluto-gray-l10)" }} />
+                </Button.Icon>
+                <Button.Icon onClick={handleClose} size="small">
+                  <Icon.Subtract style={{ color: "var(--pluto-gray-l10)" }} />
+                </Button.Icon>
+              </PNav.Bar.End>
+            </>
+          )}
+        </PNav.Bar>
+        <Portal.Out node={node} />
+      </Dialog.Content>
+    </Dialog.Dialog>
   );
 };
 
@@ -168,6 +172,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const activeTab = Layout.useSelectActiveMosaicTabKey();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
+  const removeLayout = Layout.useRemover();
   const dispatch = useDispatch();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
@@ -202,6 +207,8 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             placeLayout,
             addStatus,
             handleError,
+            removeLayout,
+            services,
           });
         } else placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
       });

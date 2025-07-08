@@ -18,10 +18,10 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { useSelect } from "@/lineplot/selectors";
+import { useSelectLine, useSelectLineKeys } from "@/lineplot/selectors";
 import { type LineState, setLine, typedLineKeyFromString } from "@/lineplot/slice";
 
 export interface LinesProps {
@@ -29,7 +29,7 @@ export interface LinesProps {
 }
 
 export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
-  const vis = useSelect(layoutKey);
+  const lineKeys = useSelectLineKeys(layoutKey);
   const dispatch = useDispatch();
 
   const handleChange = (line: LineState): void => {
@@ -58,63 +58,66 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
     </Align.Center>
   );
 
+  const listProps = List.use({ data: lineKeys });
+  const useItem = useCallback(
+    (key?: string) => useSelectLine(layoutKey, key),
+    [layoutKey],
+  );
   return (
-    <List.List data={vis.lines} emptyContent={emptyContent}>
-      <List.Column.Header
-        columns={[
-          { key: "label", name: "Label", width: 305 },
-          { key: "strokeWidth", name: "Line Width", width: 150 },
-          { key: "downsample", name: "Downsampling", width: 110 },
-          { key: "color", name: "Color", width: 100 },
-        ]}
-        level="small"
-        weight={450}
-      />
-      <List.Core<string, LineState> style={{ height: "calc(100% - 28px)" }}>
+    <List.List data={lineKeys} useItem={useItem} {...listProps}>
+      <List.Items<string, LineState>
+        style={{ height: "calc(100% - 28px)" }}
+        emptyContent={emptyContent}
+      >
         {(p) => <Line onChange={handleChange} {...p} />}
-      </List.Core>
+      </List.Items>
     </List.List>
   );
 };
 
-interface LinePlotLineControlsProps extends List.ItemProps<string, LineState> {
+interface LinePlotLineControlsProps extends Omit<List.ItemProps<string>, "onChange"> {
   onChange: (line: LineState) => void;
 }
 
-const Line = ({ entry, onChange }: LinePlotLineControlsProps): ReactElement => {
+const Line = ({
+  itemKey,
+  onChange,
+}: LinePlotLineControlsProps): ReactElement | null => {
+  const line = List.useItem<string, LineState>(itemKey);
+  if (line == null) return null;
   const handleLabelChange: Input.Control<string>["onChange"] = (value: string) => {
-    onChange({ ...entry, label: value });
+    onChange({ ...line, label: value });
   };
 
   const handleWidthChange: Input.Control<number>["onChange"] = (value: number) => {
-    onChange({ ...entry, strokeWidth: value });
+    onChange({ ...line, strokeWidth: value });
   };
 
   const handleDownsampleChange: Input.Control<number>["onChange"] = (value: number) => {
-    onChange({ ...entry, downsample: value });
+    onChange({ ...line, downsample: value });
   };
 
   const handleColorChange: Input.Control<color.Color>["onChange"] = (
     value: color.Color,
   ) => {
-    onChange({ ...entry, color: color.hex(value) });
+    onChange({ ...line, color: color.hex(value) });
   };
 
   const {
     channels: { y: yChannel },
-  } = typedLineKeyFromString(entry.key);
+  } = typedLineKeyFromString(line.key);
 
   return (
     <Align.Space style={{ padding: "0.5rem", width: "100%" }} x>
       <Channel.AliasInput
         channelKey={yChannel}
         style={{ width: 305 }}
-        value={entry.label ?? ""}
+        value={line.label ?? ""}
         onChange={handleLabelChange}
         variant="shadow"
       />
       <Input.Numeric
-        value={entry.strokeWidth}
+        value={line.strokeWidth}
         onChange={handleWidthChange}
         dragScale={{ x: 0.1, y: 0.1 }}
         bounds={{ lower: 1, upper: 11 }}
@@ -123,7 +126,7 @@ const Line = ({ entry, onChange }: LinePlotLineControlsProps): ReactElement => {
       />
       <Input.Numeric
         style={{ width: 100, marginRight: "2rem" }}
-        value={entry.downsample ?? 1}
+        value={line.downsample ?? 1}
         onChange={handleDownsampleChange}
         variant="shadow"
         dragScale={{
@@ -135,7 +138,7 @@ const Line = ({ entry, onChange }: LinePlotLineControlsProps): ReactElement => {
           upper: 51,
         }}
       />
-      <Color.Swatch value={entry.color} onChange={handleColorChange} size="small" />
+      <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
     </Align.Space>
   );
 };

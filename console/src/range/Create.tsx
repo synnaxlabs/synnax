@@ -117,11 +117,10 @@ export const Create: Layout.Renderer = (props) => {
             <Form.Field<string> path="parent" visible padHelpText={false}>
               {({ onChange, ...p }) => (
                 <Ranger.SelectSingle
-                  dropdownVariant="modal"
                   style={{ width: "fit-content" }}
                   zIndex={100}
                   filter={recursiveParentFilter}
-                  entryRenderKey={(e) => (
+                  entryRenderKey={(e: ranger.Payload) => (
                     <Text.WithIcon
                       level="p"
                       shade={11}
@@ -150,13 +149,7 @@ export const Create: Layout.Renderer = (props) => {
             </Form.Field>
             <Form.Field<string[]> path="labels" required={false}>
               {({ variant, ...p }) => (
-                <Label.SelectMultiple
-                  entryRenderKey="name"
-                  dropdownVariant="floating"
-                  zIndex={100}
-                  location="bottom"
-                  {...p}
-                />
+                <Label.SelectMultiple zIndex={100} location="bottom" {...p} />
               )}
             </Form.Field>
           </Align.Space>

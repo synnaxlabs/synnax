@@ -19,6 +19,7 @@ export { Component } from "@/component";
 export * from "@/component/renderProp";
 export * from "@/css";
 export { Dialog } from "@/dialog";
+export { Direction } from "@/direction";
 export { Divider } from "@/divider";
 export { Flux as Sync } from "@/flux";
 export { Flux } from "@/flux";

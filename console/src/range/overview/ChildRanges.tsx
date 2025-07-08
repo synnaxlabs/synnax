@@ -15,11 +15,13 @@ import { Layout } from "@/layout";
 import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 
-export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>) => {
-  const { entry } = props;
+export const ChildRangeListItem = (props: List.ItemProps<string>) => {
+  const { itemKey } = props;
+  const entry = List.useItem<string, ranger.Range>(itemKey);
   const placeLayout = Layout.usePlacer();
+  if (entry == null) return null;
   return (
-    <List.ItemFrame
+    <List.Item
       onClick={() =>
         placeLayout({ ...OVERVIEW_LAYOUT, name: entry.name, key: entry.key })
       }
@@ -42,7 +44,7 @@ export const ChildRangeListItem = (props: List.ItemProps<string, ranger.Payload>
       <Align.Space x size="small">
         <Ranger.TimeRangeChip level="p" timeRange={entry.timeRange} showSpan />
       </Align.Space>
-    </List.ItemFrame>
+    </List.Item>
   );
 };
 
@@ -53,17 +55,16 @@ export interface ChildRangesProps {
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const res = Ranger.useChildren(rangeKey);
-  let childRanges: ranger.Payload[] = [];
-  if (res.variant === "success") childRanges = res.data.map(({ payload }) => payload);
+  const { useListItem, data } = Ranger.useChildren();
   const placeLayout = Layout.usePlacer();
+  const listProps = List.use({ data });
   return (
     <Align.Space y>
       <Text.Text level="h4" shade={11} weight={450}>
         Child Ranges
       </Text.Text>
-      <List.List data={childRanges}>
-        <List.Core empty>{childRangeListItem}</List.Core>
+      <List.List {...listProps} useItem={useListItem} data={data}>
+        <List.Items>{childRangeListItem}</List.Items>
       </List.List>
       <Button.Button
         size="medium"

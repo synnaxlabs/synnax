@@ -9,7 +9,6 @@
 
 import { Form, Text } from "@synnaxlabs/pluto";
 import { deep, type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
 
 import {
   AI_CHANNEL_SCHEMAS,
@@ -20,9 +19,7 @@ import {
   ZERO_AI_CHANNELS,
 } from "@/hardware/ni/task/types";
 
-export interface Entry extends record.Keyed<AIChannelType> {
-  name: ReactElement;
-}
+export interface Entry extends record.KeyedNamed<AIChannelType> {}
 
 interface ChannelTypeProps {
   type: AIChannelType;
@@ -42,15 +39,9 @@ const ChannelType = ({ type }: ChannelTypeProps) => {
   );
 };
 
-export type SelectAIChannelTypeFieldProps = Form.DropdownButtonFieldProps<
-  AIChannelType,
-  Entry
->;
+export type SelectAIChannelTypeFieldProps = Form.SelectFieldProps<AIChannelType, Entry>;
 
-export const SelectAIChannelTypeField = Form.buildDropdownButtonSelectField<
-  AIChannelType,
-  Entry
->({
+export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType, Entry>({
   fieldKey: "type",
   fieldProps: {
     label: "Channel Type",
@@ -68,18 +59,10 @@ export const SelectAIChannelTypeField = Form.buildDropdownButtonSelectField<
     },
   },
   inputProps: {
-    hideColumnHeader: true,
-    entryRenderKey: "name",
-    columns: [
-      {
-        key: "name",
-        name: "Name",
-        render: ({ entry: { key } }) => <ChannelType type={key} />,
-      },
-    ],
+    children: ({ itemKey }) => <ChannelType type={itemKey} />,
     data: Object.keys(AI_CHANNEL_TYPE_NAMES).map((key) => ({
       key: key as AIChannelType,
-      name: <ChannelType type={key as AIChannelType} />,
+      name: key,
     })),
   },
 });

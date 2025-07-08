@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep } from "@synnaxlabs/x";
+import { caseconv, deep, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { type RenderProp, renderProp } from "@/component/renderProp";
@@ -16,6 +16,7 @@ import { type ContextValue, useContext } from "@/form/Context";
 import { type FieldState, type GetOptions } from "@/form/state";
 import { useField, type UseFieldOptions } from "@/form/useField";
 import { Input } from "@/input";
+import { Select } from "@/select";
 
 interface FieldChild<I, O> extends Input.Control<I, O> {
   variant?: Input.Variant;
@@ -133,3 +134,11 @@ export const TextField = buildTextField({});
 export type SwitchFieldProps = BuiltFieldProps<boolean, boolean, Input.SwitchProps>;
 export const buildSwitchField = fieldBuilder(Input.Switch);
 export const SwitchField = buildSwitchField({});
+
+export type SelectFieldProps<
+  K extends record.Key,
+  E extends record.KeyedNamed<K>,
+> = BuiltFieldProps<K, K, Select.SimpleProps<K, E>>;
+export const buildSelectField = <K extends record.Key, E extends record.KeyedNamed<K>>(
+  props: FieldBuilderProps<K, K, Select.SimpleProps<K, E>>,
+) => fieldBuilder(Select.Simple<K, E>)(props as any);

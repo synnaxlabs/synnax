@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type List, Select, Text } from "@synnaxlabs/pluto";
+import { Align, Component, Dialog, List, Select, Text } from "@synnaxlabs/pluto";
+import { type ReactNode } from "react";
 
 import {
   type Model,
@@ -16,37 +17,62 @@ import {
   type PortType,
 } from "@/hardware/labjack/device/types";
 
-export interface SelectPortProps
-  extends Omit<
-    Select.SingleProps<string, Port>,
-    "columns" | "data" | "entryRenderKey"
-  > {
+export interface SelectPortProps extends Select.SingleProps<string> {
   model: Model;
   portType: PortType;
+  children: ReactNode;
 }
 
-const COLUMNS: List.ColumnSpec<string, Port>[] = [
-  { key: "port", name: "Port", stringer: ({ alias, key }) => alias ?? key },
-  {
-    key: "aliases",
-    name: "Aliases",
-    render: ({ entry: { alias, key } }) =>
-      alias != null ? (
+const listItem = Component.renderProp((props: List.ItemProps<string>) => {
+  const port = List.useItem<string, Port>(props.itemKey);
+  if (port == null) return null;
+  const { alias, key } = port;
+  return (
+    <List.Item {...props}>
+      <Text.Text level="p" shade={11}>
+        {alias ?? key}
+      </Text.Text>
+      {alias != null && (
         <Text.Text level="small" shade={10}>
           {key}
         </Text.Text>
-      ) : null,
-  },
-];
+      )}
+    </List.Item>
+  );
+});
 
-const getEntryRenderKey = ({ alias, key }: Port) => alias ?? key;
-
-export const SelectPort = ({ model, portType, ...rest }: SelectPortProps) => (
-  <Select.Single<string, Port>
-    allowNone={false}
-    {...rest}
-    columns={COLUMNS}
-    data={PORTS[model][portType]}
-    entryRenderKey={getEntryRenderKey}
-  />
-);
+export const SelectPort = ({
+  model,
+  portType,
+  value,
+  onChange,
+  children,
+  ...rest
+}: SelectPortProps) => {
+  const { data, useItem } = List.useStaticData<string, Port>(PORTS[model][portType]);
+  const listProps = List.use({ data });
+  const selectProps = Select.useSingle({
+    data,
+    allowNone: false,
+    value,
+    onChange,
+  });
+  const selected = useItem(value);
+  return (
+    <Select.Dialog
+      {...selectProps}
+      {...listProps}
+      data={data}
+      useItem={useItem}
+      {...rest}
+    >
+      <Align.Pack x>
+        <Dialog.Trigger>{selected?.alias ?? selected?.key}</Dialog.Trigger>
+        {children}
+      </Align.Pack>
+      <Dialog.Content>
+        <List.Items<string, Port> {...listProps}>{listItem}</List.Items>
+      </Dialog.Content>
+    </Select.Dialog>
+  );
+};

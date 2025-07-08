@@ -93,41 +93,41 @@ const ChannelListItem = ({
             });
           }}
         >
-          {(p) => (
+          {({ value, onChange }) => (
             <Device.SelectPort
-              {...p}
+              value={value}
+              onChange={onChange}
               model={device.model}
               portType={type}
               allowNone={false}
               onClick={(e) => e.stopPropagation()}
               style={{ width: 250 }}
-              actions={[
-                <PForm.Field<OutputChannelType>
-                  key="type"
-                  path={`${path}.type`}
-                  showLabel={false}
-                  hideIfNull
-                  size="large"
-                  onChange={(value) => {
-                    if (type === value) return;
-                    const port = Device.PORTS[device.model][value][0].key;
-                    const existingCommandStatePair =
-                      device.properties[value].channels[port] ??
-                      Common.Device.ZERO_COMMAND_STATE_PAIR;
-                    set(path, {
-                      ...item,
-                      cmdChannel: existingCommandStatePair.command,
-                      stateChannel: existingCommandStatePair.state,
-                      type: value,
-                      port,
-                    });
-                  }}
-                  empty
-                >
-                  {(p) => <SelectOutputChannelType {...p} />}
-                </PForm.Field>,
-              ]}
-            />
+            >
+              <PForm.Field<OutputChannelType>
+                key="type"
+                path={`${path}.type`}
+                showLabel={false}
+                hideIfNull
+                size="large"
+                onChange={(value) => {
+                  if (type === value) return;
+                  const port = Device.PORTS[device.model][value][0].key;
+                  const existingCommandStatePair =
+                    device.properties[value].channels[port] ??
+                    Common.Device.ZERO_COMMAND_STATE_PAIR;
+                  set(path, {
+                    ...item,
+                    cmdChannel: existingCommandStatePair.command,
+                    stateChannel: existingCommandStatePair.state,
+                    type: value,
+                    port,
+                  });
+                }}
+                empty
+              >
+                {(p) => <SelectOutputChannelType {...p} />}
+              </PForm.Field>
+            </Device.SelectPort>
           )}
         </PForm.Field>
       </Align.Pack>

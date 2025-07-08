@@ -80,3 +80,55 @@ export const createRetrieveQuery = <
       },
     ],
   });
+
+export interface ListParams extends Flux.Params {
+  term?: string;
+  offset?: number;
+  limit?: number;
+}
+
+export const useList = Flux.createList<ListParams, task.Key, task.Task>({
+  name: "Task",
+  retrieve: async ({ client, params }) =>
+    await client.hardware.tasks.list({ ...params, includeStatus: true }),
+  retrieveByKey: async ({ client, key }) =>
+    await client.hardware.tasks.retrieve({ key }),
+  listeners: [
+    {
+      channel: task.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        task.keyZ,
+        async ({ client, changed: key, onChange }) =>
+          onChange(key, await client.hardware.tasks.retrieve({ key })),
+      ),
+    },
+    {
+      channel: task.DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(task.keyZ, async ({ changed, onDelete }) =>
+        onDelete(changed),
+      ),
+    },
+    {
+      channel: task.STATUS_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        task.statusZ(z.unknown()),
+        async ({ changed, onChange }) => {
+          onChange(changed.details.task, (prev) => {
+            prev.status = changed;
+            return prev;
+          });
+        },
+      ),
+    },
+    {
+      channel: task.COMMAND_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(task.commandZ, async ({ changed, onChange }) => {
+        onChange(changed.task, (prev) => {
+          if (prev.status == null) return prev;
+          prev.status.variant = "loading";
+          return prev;
+        });
+      }),
+    },
+  ],
+});

@@ -9,7 +9,6 @@
 
 import { Form, Text } from "@synnaxlabs/pluto";
 import { deep, type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
 
 import {
   AO_CHANNEL_SCHEMAS,
@@ -20,9 +19,7 @@ import {
   ZERO_AO_CHANNELS,
 } from "@/hardware/ni/task/types";
 
-export interface Entry extends record.Keyed<AOChannelType> {
-  name: ReactElement;
-}
+export interface Entry extends record.KeyedNamed<AOChannelType> {}
 
 interface ChannelTypeProps {
   type: AOChannelType;
@@ -40,15 +37,9 @@ const ChannelType = ({ type }: ChannelTypeProps) => {
   );
 };
 
-export type SelectAOChannelTypeFieldProps = Form.DropdownButtonFieldProps<
-  AOChannelType,
-  Entry
->;
+export type SelectAOChannelTypeFieldProps = Form.SelectFieldProps<AOChannelType, Entry>;
 
-export const SelectAOChannelTypeField = Form.buildDropdownButtonSelectField<
-  AOChannelType,
-  Entry
->({
+export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType, Entry>({
   fieldKey: "type",
   fieldProps: {
     label: "Channel Type",
@@ -67,17 +58,10 @@ export const SelectAOChannelTypeField = Form.buildDropdownButtonSelectField<
   },
   inputProps: {
     allowNone: false,
-    entryRenderKey: "name",
-    columns: [
-      {
-        key: "name",
-        name: "Name",
-        render: ({ entry: { key } }) => <ChannelType type={key} />,
-      },
-    ],
+    children: ({ itemKey }) => <ChannelType type={itemKey} />,
     data: Object.keys(AO_CHANNEL_TYPE_NAMES).map((key) => ({
       key: key as AOChannelType,
-      name: <ChannelType type={key as AOChannelType} />,
-    })),
+      name: key,
+    })) as Entry[],
   },
 });

@@ -107,11 +107,11 @@ const DialogContent = ({
   onChange,
   value,
 }: PaletteDialogProps): ReactElement => {
-  const mode = value.startsWith(commandSymbol) ? "command" : "search";
   const resourceProps = useResourceList();
   const commandProps = useCommandList();
-  const { handleSelect, data, useListItem, listItem } =
-    mode === "command" ? commandProps : resourceProps;
+  const { handleSelect, data, useListItem, listItem } = value.startsWith(commandSymbol)
+    ? commandProps
+    : resourceProps;
   const listProps = List.use({ data });
   return (
     <List.List<string, Command | ontology.Resource>

@@ -176,7 +176,13 @@ const Internal = ({
                 padHelpText={false}
                 grow
               >
-                {(p) => <Rack.SelectSingle allowNone={false} {...p} />}
+                {({ value, onChange }) => (
+                  <Rack.SelectSingle
+                    allowNone={false}
+                    value={value}
+                    onChange={onChange}
+                  />
+                )}
               </Form.Field>
               <Form.NumericField
                 label="Loop Rate"

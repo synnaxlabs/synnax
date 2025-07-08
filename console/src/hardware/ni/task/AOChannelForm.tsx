@@ -7,16 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Align,
-  Button,
-  Component,
-  Divider,
-  Form,
-  Icon,
-  Select,
-} from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import { Align, Divider, Form, Icon, Select } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { Device } from "@/hardware/ni/device";
@@ -31,52 +22,38 @@ import {
   SINE_WAVE_TYPE,
   SQUARE_WAVE_TYPE,
   TRIANGLE_WAVE_TYPE,
+  WAVE_TYPES,
   type WaveType,
 } from "@/hardware/ni/task/types";
 
-interface WaveTypeEntry extends record.Keyed<WaveType> {
-  icon: Icon.ReactElement;
-}
+interface SelectWaveTypeProps extends Select.SingleProps<WaveType> {}
 
-const WAVE_TYPE_DATA: WaveTypeEntry[] = [
-  { key: SINE_WAVE_TYPE, icon: <Icon.Wave.Sine /> },
-  { key: SQUARE_WAVE_TYPE, icon: <Icon.Wave.Square /> },
-  { key: TRIANGLE_WAVE_TYPE, icon: <Icon.Wave.Triangle /> },
-  { key: SAWTOOTH_WAVE_TYPE, icon: <Icon.Wave.Sawtooth /> },
-];
+const WAVE_TYPE_DATA = [...WAVE_TYPES];
 
-interface SelectButtonOptionProps
-  extends Select.ButtonOptionProps<WaveType, WaveTypeEntry> {}
-
-const SelectButtonOption = ({
-  key,
-  onClick,
-  selected,
-  entry,
-  title,
-}: SelectButtonOptionProps) => (
-  <Button.Button
-    key={key}
-    onClick={onClick}
-    variant={selected ? "filled" : "outlined"}
-    size="large"
-    tooltip={`${entry.key} Wave`}
-    tooltipLocation="top"
-  >
-    {title}
-  </Button.Button>
-);
-
-const SelectWaveType = (props: Select.ButtonProps<WaveType, WaveTypeEntry>) => (
-  <Select.Button<WaveType, WaveTypeEntry>
-    {...props}
-    data={WAVE_TYPE_DATA}
-    entryRenderKey="icon"
-  >
-    {(p) => <SelectButtonOption {...p} />}
-  </Select.Button>
-);
-
+const SelectWaveType = ({ value, onChange, ...rest }: SelectWaveTypeProps) => {
+  const selectProps = Select.useSingle({
+    data: WAVE_TYPE_DATA,
+    value,
+    onChange,
+    allowNone: false,
+  });
+  return (
+    <Select.Buttons value={value} {...selectProps} {...rest}>
+      <Select.Button itemKey={SINE_WAVE_TYPE} startIcon={<Icon.Wave.Sine />}>
+        Sine
+      </Select.Button>
+      <Select.Button itemKey={TRIANGLE_WAVE_TYPE} startIcon={<Icon.Wave.Triangle />}>
+        Triangle
+      </Select.Button>
+      <Select.Button itemKey={SQUARE_WAVE_TYPE} startIcon={<Icon.Wave.Square />}>
+        Square
+      </Select.Button>
+      <Select.Button itemKey={SAWTOOTH_WAVE_TYPE} startIcon={<Icon.Wave.Sawtooth />}>
+        Sawtooth
+      </Select.Button>
+    </Select.Buttons>
+  );
+};
 interface FormProps {
   path: string;
 }
@@ -112,7 +89,7 @@ const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
         />
       </Align.Space>
       <Form.Field<WaveType> path={`${path}.waveType`} showLabel={false}>
-        {Component.renderProp(SelectWaveType)}
+        {({ value, onChange }) => <SelectWaveType value={value} onChange={onChange} />}
       </Form.Field>
     </Align.Space>
   ),

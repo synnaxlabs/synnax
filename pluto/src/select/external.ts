@@ -10,5 +10,6 @@
 export * from "@/select/Button";
 export * from "@/select/Dialog";
 export * from "@/select/Provider";
+export * from "@/select/Simple";
 export * from "@/select/text";
 export * from "@/select/use";

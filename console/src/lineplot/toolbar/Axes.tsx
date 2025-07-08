@@ -11,6 +11,7 @@ import {
   Align,
   Button,
   compareArrayDeps,
+  Direction,
   Icon,
   Input,
   Select,
@@ -195,7 +196,7 @@ export const LinePlotAxisControls = ({
         </Input.Item>
         {axis.key.startsWith("y") && (
           <Input.Item label="Label Direction" style={{ minWidth: 90 }}>
-            <Select.Direction
+            <Direction.Select
               value={axis.labelDirection}
               onChange={handleLabelDirectionChange}
             />

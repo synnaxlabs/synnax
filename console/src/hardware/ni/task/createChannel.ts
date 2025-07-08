@@ -39,33 +39,37 @@ export const createDOChannel = (channels: DOChannel[]): DOChannel =>
 
 const createAnalogChannel = <C extends AnalogChannel>(
   channels: C[],
-  index: number,
   zeroChannel: C,
   override: Partial<C>,
+  keyToCopy?: string,
 ): C => {
   const key = id.create();
   let template: C;
   if (channels.length === 0) template = deep.copy(zeroChannel);
-  else if (index === -1) template = deep.copy(channels[0]);
-  else template = deep.copy(channels[index]);
+  else if (keyToCopy == null) template = deep.copy(channels[0]);
+  else {
+    const channel = channels.find(({ key }) => key === keyToCopy);
+    if (channel == null) return { ...deep.copy(zeroChannel), key };
+    template = deep.copy(channel);
+  }
   const existingPorts = new Set(channels.map(({ port }) => port));
   let port = 0;
   while (existingPorts.has(port)) port++;
   return { ...template, key, port, ...override };
 };
 
-export const createAIChannel = (channels: AIChannel[], index: number): AIChannel =>
+export const createAIChannel = (channels: AIChannel[], key?: string): AIChannel =>
   createAnalogChannel(
     channels,
-    index,
     ZERO_AI_CHANNEL,
     Common.Task.READ_CHANNEL_OVERRIDE,
+    key,
   );
 
-export const createAOChannel = (channels: AOChannel[], index: number): AOChannel =>
+export const createAOChannel = (channels: AOChannel[], key?: string): AOChannel =>
   createAnalogChannel(
     channels,
-    index,
     ZERO_AO_CHANNEL,
     Common.Task.WRITE_CHANNEL_OVERRIDE,
+    key,
   );

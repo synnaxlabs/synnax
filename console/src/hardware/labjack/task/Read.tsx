@@ -122,6 +122,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
           path={path}
           grow
           onChange={(value, { get, path, set }) => {
+            if (value == null) return;
             const prevType = get<InputChannelType>(path).value;
             if (prevType === value) return;
             const next = deep.copy(ZERO_INPUT_CHANNELS[value]);
@@ -140,9 +141,10 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
           }}
         />
         <PForm.Field<string> path={`${path}.port`}>
-          {(p) => (
+          {({ value, onChange }) => (
             <Device.SelectPort
-              {...p}
+              value={value}
+              onChange={onChange}
               model={deviceModel}
               portType={convertChannelTypeToPortType(channel.type)}
             />
@@ -156,11 +158,13 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
 
 const getOpenChannel = (
   channels: InputChannel[],
-  index: number,
   device: Device.Device,
+  channelKeyToCopy?: string,
 ) => {
-  if (index === -1) return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.create() };
-  const channelToCopy = channels[index];
+  if (channelKeyToCopy == null)
+    return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.create() };
+  const channelToCopy = channels.find(({ key }) => key === channelKeyToCopy);
+  if (channelToCopy == null) return null;
   // preferredPortType is AI or DI
   const preferredPortType = convertChannelTypeToPortType(channelToCopy.type);
   // backupPortType is the opposite of preferredPortType
@@ -209,8 +213,8 @@ const ChannelsForm = ({
     task,
   } as Common.Task.UseTareProps<InputChannel>);
   const createChannel = useCallback(
-    (channels: InputChannel[], index: number) =>
-      getOpenChannel(channels, index, device),
+    (channels: InputChannel[], channelKeyToCopy?: string) =>
+      getOpenChannel(channels, device, channelKeyToCopy),
     [device],
   );
   const listItem = useCallback(

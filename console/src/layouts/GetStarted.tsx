@@ -106,7 +106,6 @@ const Overview = (): ReactElement => {
         <Align.Space x style={{ width: "100%" }} justify="center" size={30} wrap>
           <Align.Space y>
             <Text.Text level="h1">Your Workspaces</Text.Text>
-            <Workspace.Recent />
             <Button.Button
               startIcon={<Icon.Add />}
               onClick={handleWorkspace}

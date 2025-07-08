@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, ontology } from "@synnaxlabs/client";
+import { type record } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
@@ -48,7 +49,7 @@ export const useRelationshipDeleteSynchronizer = (
     }),
   });
 
-const matchRelationshipAndID = (
+export const matchRelationshipAndID = (
   relationship: ontology.Relationship,
   direction: ontology.RelationshipDirection,
   id: ontology.ID,
@@ -61,70 +62,62 @@ const matchRelationshipAndID = (
 
 interface UseDependentQueryParams extends Flux.Params {
   id: ontology.ID;
-  direction: ontology.RelationshipDirection;
 }
 
-export const retrieveDependents = Flux.createRetrieve<
-  UseDependentQueryParams,
-  ontology.Resource[]
->({
-  name: "useDependents",
-  retrieve: async ({ client, params: { id, direction } }) =>
-    await client.ontology.retrieve([id], {
-      children: direction === "to",
-      parents: direction === "from",
-    }),
-  listeners: [
-    {
-      channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
-        async ({ client, changed, params: { id, direction }, onChange }) => {
-          if (!matchRelationshipAndID(changed, direction, id)) return;
-          const dependent = await client.ontology.retrieve(changed[direction]);
-          onChange((p) => [
-            ...p.filter((d) => !ontology.idsEqual(d.id, dependent.id)),
-            dependent,
-          ]);
-        },
-      ),
-    },
-    {
-      channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
-        ontology.relationShipZ,
-        async ({ changed, params: { id, direction }, onChange }) => {
-          if (!matchRelationshipAndID(changed, direction, id)) return;
-          onChange((p) =>
-            p.filter((d) => !ontology.idsEqual(d.id, changed[direction])),
-          );
-        },
-      ),
-    },
-    {
-      channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(
-        ontology.idZ,
-        async ({ client, changed, onChange }) => {
-          const nextDependent = await client.ontology.retrieve(changed);
-          onChange((p) =>
-            p.map((d) => (ontology.idsEqual(d.id, changed) ? nextDependent : d)),
-          );
-        },
-      ),
-    },
-  ],
-});
+export const createDependentsListHook = (direction: ontology.RelationshipDirection) =>
+  Flux.createList<UseDependentQueryParams, string, ontology.Resource>({
+    name: "useDependents",
+    retrieve: async ({ client, params: { id } }) =>
+      await client.ontology.retrieve([id], {
+        children: direction === "to",
+        parents: direction === "from",
+      }),
+    retrieveByKey: async ({ client, key }) =>
+      await client.ontology.retrieve(ontology.idZ.parse(key)),
+    listeners: [
+      {
+        channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
+        onChange: Sync.parsedHandler(
+          ontology.relationShipZ,
+          async ({ client, changed, params, onChange }) => {
+            if (!("id" in params)) return;
+            const { id } = params;
+            if (!matchRelationshipAndID(changed, direction, id)) return;
+            const dependent = await client.ontology.retrieve(changed[direction]);
+            onChange(dependent.key, dependent);
+          },
+        ),
+      },
+      {
+        channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
+        onChange: Sync.parsedHandler(
+          ontology.relationShipZ,
+          async ({ changed, params, onDelete }) => {
+            if (!("id" in params)) return;
+            const { id } = params;
+            if (!matchRelationshipAndID(changed, direction, id)) return;
+            onDelete(ontology.idToString(changed[direction]));
+          },
+        ),
+      },
+      {
+        channel: ontology.RESOURCE_SET_CHANNEL_NAME,
+        onChange: Sync.parsedHandler(
+          ontology.idZ,
+          async ({ client, changed, params, onChange }) => {
+            if (!("id" in params)) return;
+            const { id } = params;
+            if (!ontology.idsEqual(id, changed)) return;
+            const nextDependent = await client.ontology.retrieve(changed);
+            onChange(nextDependent.key, nextDependent);
+          },
+        ),
+      },
+    ],
+  });
 
-export const useChildren = (
-  id: ontology.ID,
-): Flux.UseDirectRetrieveReturn<ontology.Resource[]> =>
-  retrieveDependents.useDirect({ params: { id, direction: "to" } });
-
-export const useParents = (
-  id: ontology.ID,
-): Flux.UseDirectRetrieveReturn<ontology.Resource[]> =>
-  retrieveDependents.useDirect({ params: { id, direction: "from" } });
+export const useChildren = createDependentsListHook("to");
+export const useParents = createDependentsListHook("from");
 
 export interface UseResourceQueryParams extends Flux.Params {
   id: ontology.ID;

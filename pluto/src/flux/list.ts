@@ -67,7 +67,7 @@ export interface UseList<
   (): UseListReturn<RetrieveParams, K, E>;
 }
 
-interface ListListenerExtraArgs<
+export interface ListListenerExtraArgs<
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,

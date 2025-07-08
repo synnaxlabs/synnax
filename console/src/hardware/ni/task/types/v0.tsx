@@ -980,21 +980,18 @@ export const SINE_WAVE_TYPE = "Sine";
 export const TRIANGLE_WAVE_TYPE = "Triangle";
 export const SQUARE_WAVE_TYPE = "Square";
 export const SAWTOOTH_WAVE_TYPE = "Sawtooth";
-export type WaveType =
-  | typeof SINE_WAVE_TYPE
-  | typeof TRIANGLE_WAVE_TYPE
-  | typeof SQUARE_WAVE_TYPE
-  | typeof SAWTOOTH_WAVE_TYPE;
+export const WAVE_TYPES = [
+  SINE_WAVE_TYPE,
+  TRIANGLE_WAVE_TYPE,
+  SQUARE_WAVE_TYPE,
+  SAWTOOTH_WAVE_TYPE,
+] as const;
+export type WaveType = (typeof WAVE_TYPES)[number];
 
 const aoFuncGenChanZ = baseAOChanZ.extend({
   type: z.literal(AO_FUNC_GEN_CHAN_TYPE),
   // note that waveType is called type in DAQmx, but this conflicts with our convention
-  waveType: z.enum([
-    SINE_WAVE_TYPE,
-    SQUARE_WAVE_TYPE,
-    TRIANGLE_WAVE_TYPE,
-    SAWTOOTH_WAVE_TYPE,
-  ]),
+  waveType: z.enum(WAVE_TYPES),
   frequency: z.number(),
   amplitude: z.number(),
   offset: z.number(),

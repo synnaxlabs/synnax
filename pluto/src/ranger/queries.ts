@@ -15,6 +15,7 @@ import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
 import { Label } from "@/label";
 import { Ontology } from "@/ontology";
+import { matchRelationshipAndID } from "@/ontology/queries";
 import { Synnax } from "@/synnax";
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void =>
@@ -51,31 +52,115 @@ export const useAliasDeleteSynchronizer = (
     }),
   });
 
-export const useChildren = (
-  key: ranger.Key,
-): Flux.UseDirectRetrieveReturn<ranger.Range[]> => {
-  const res = Ontology.useChildren(ranger.ontologyID(key));
-  const client = Synnax.use();
-  if (res.variant !== "success") return res;
-  if (client == null) return { ...res, data: [] };
-  return {
-    ...res,
-    data: res.data
-      .filter(({ id: { type } }) => type === ranger.ONTOLOGY_TYPE)
-      .map((child) => client.ranges.sugarOntologyResource(child)),
-  };
-};
+export interface ChildrenParams extends Flux.Params {
+  key: ranger.Key;
+}
 
-export const useParent = (
-  key: ranger.Key,
-): Flux.UseDirectRetrieveReturn<ranger.Range | null> => {
-  const res = Ontology.useParents(ranger.ontologyID(key));
-  const client = Synnax.use();
-  if (res.variant !== "success") return res;
-  const parent = res.data.find(({ id: { type } }) => type === ranger.ONTOLOGY_TYPE);
-  if (parent == null || client == null) return { ...res, data: null };
-  return { ...res, data: client.ranges.sugarOntologyResource(parent) };
-};
+export const useChildren = Flux.createList<ChildrenParams, ranger.Key, ranger.Range>({
+  name: "Range",
+  retrieve: async ({ client, params: { key } }) => {
+    const resources = await client.ontology.retrieveChildren(ranger.ontologyID(key));
+    return resources
+      .filter(({ id: { type } }) => type === ranger.ONTOLOGY_TYPE)
+      .map((resource) => client.ranges.sugarOntologyResource(resource));
+  },
+  retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
+  listeners: [
+    {
+      channel: ranger.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        ranger.payloadZ,
+        async ({ changed, onChange, client }) => {
+          onChange(changed.key, (prev) => {
+            if (prev == null) return prev;
+            return client.ranges.sugarOne(changed);
+          });
+        },
+      ),
+    },
+    {
+      channel: ranger.DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(ranger.keyZ, async ({ changed, onDelete }) =>
+        onDelete(changed),
+      ),
+    },
+    {
+      channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        ontology.relationShipZ,
+        async ({ changed, onChange, params, client }) => {
+          if (!("key" in params)) return;
+          if (!matchRelationshipAndID(changed, "to", ranger.ontologyID(params.key)))
+            return;
+          const range = await client.ranges.retrieve(params.key);
+          onChange(params.key, range);
+        },
+      ),
+    },
+    {
+      channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        ontology.relationShipZ,
+        async ({ changed, onChange, params, client }) => {
+          if (!("key" in params)) return;
+          if (!matchRelationshipAndID(changed, "to", ranger.ontologyID(params.key)))
+            return;
+          const range = await client.ranges.retrieve(params.key);
+          onChange(params.key, range);
+        },
+      ),
+    },
+  ],
+});
+
+export const useParent = Flux.createRetrieve<{ key: ranger.Key }, ranger.Range | null>({
+  name: "Range",
+  retrieve: async ({ client, params: { key } }) => {
+    const res = await client.ontology.retrieveParents(ranger.ontologyID(key));
+    const parent = res.find(({ id: { type } }) => type === ranger.ONTOLOGY_TYPE);
+    if (parent == null) return null;
+    return client.ranges.sugarOntologyResource(parent);
+  },
+  listeners: [
+    {
+      channel: ontology.RELATIONSHIP_SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        ontology.relationShipZ,
+        async ({ changed, onChange, params, client }) => {
+          if (!("key" in params)) return;
+          if (!matchRelationshipAndID(changed, "from", ranger.ontologyID(params.key)))
+            return;
+          const range = await client.ranges.retrieve(params.key);
+          onChange(params.key, range);
+        },
+      ),
+    },
+    {
+      channel: ontology.RELATIONSHIP_DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        ontology.relationShipZ,
+        async ({ changed, onChange, params, client }) => {
+          if (!("key" in params)) return;
+          if (!matchRelationshipAndID(changed, "from", ranger.ontologyID(params.key)))
+            return;
+          const range = await client.ranges.retrieve(params.key);
+          onChange(params.key, range);
+        },
+      ),
+    },
+    {
+      channel: ranger.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        ranger.payloadZ,
+        async ({ changed, onChange, params, client }) => {
+          if (!("key" in params)) return;
+          if (changed.key !== params.key) return;
+          onChange(params.key, client.ranges.sugarOne(changed));
+        },
+      ),
+    },
+  ],
+});
 
 export interface QueryParams extends Flux.Params {
   key: ranger.Key;

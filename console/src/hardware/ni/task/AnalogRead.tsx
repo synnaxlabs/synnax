@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Align, Component, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Align, Component, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -57,7 +57,7 @@ const Properties = () => (
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps<AIChannel> {
+interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
   isRunning: boolean;
 }
@@ -69,9 +69,10 @@ const ChannelListItem = ({
   isRunning,
   ...rest
 }: ChannelListItemProps) => {
-  const {
-    entry: { channel, enabled, port, type },
-  } = rest;
+  const { itemKey } = rest;
+  const item = List.useItem<string, AIChannel>(itemKey);
+  if (item == null) return null;
+  const { channel, enabled, port, type } = item;
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
@@ -116,8 +117,13 @@ const Form: FC<
     configured,
   } as Common.Task.UseTareProps<AIChannel>);
   const listItem = useCallback(
-    ({ key, ...rest }: Common.Task.ChannelListItemProps<AIChannel>) => (
-      <ChannelListItem key={key} {...rest} onTare={tare} isRunning={isRunning} />
+    ({ itemKey, ...rest }: Common.Task.ChannelListItemProps) => (
+      <ChannelListItem
+        itemKey={itemKey}
+        {...rest}
+        onTare={tare}
+        isRunning={isRunning}
+      />
     ),
     [tare, isRunning],
   );
