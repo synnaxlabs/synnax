@@ -30,6 +30,11 @@ import { useInitializerRef } from "@/hooks";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
+interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
+  (key: K): E | undefined;
+  (keys: K[]): E[];
+}
+
 export type UseListReturn<
   RetrieveParams extends Params,
   K extends record.Key,
@@ -37,6 +42,7 @@ export type UseListReturn<
 > = Omit<UseStatefulRetrieveReturn<RetrieveParams, K[]>, "data"> & {
   data: K[];
   useListItem: (key?: K) => E | undefined;
+  getItem: GetItem<K, E>;
 };
 
 export interface RetrieveByKeyArgs<K extends record.Key> {
@@ -186,6 +192,15 @@ export const createList =
       [dataRef, retrieveByKey, client],
     );
 
+    const getItem = useCallback(
+      ((key: K | K[]) => {
+        if (Array.isArray(key))
+          return key.map((k) => dataRef.current.get(k)).filter((v) => v != null);
+        return dataRef.current.get(key);
+      }) as GetItem<K, E>,
+      [],
+    );
+
     const useListItem = (key?: K) => {
       const abortControllerRef = useRef<AbortController | null>(null);
       return useSyncExternalStore<E | undefined>(
@@ -221,6 +236,7 @@ export const createList =
       retrieve: retrieveSync,
       retrieveAsync,
       useListItem,
+      getItem,
       ...result,
       data: result?.data ?? [],
     };

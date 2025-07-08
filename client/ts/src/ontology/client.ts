@@ -9,7 +9,6 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { observe, strings } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod/v4";
 
 import { QueryError } from "@/errors";
@@ -56,7 +55,7 @@ export interface RetrieveOptions
 const retrieveResZ = z.object({ resources: resourceZ.array() });
 
 /** The core client class for executing queries against a Synnax cluster ontology */
-export class Client implements AsyncTermSearcher<string, string, Resource> {
+export class Client {
   readonly type: string = "ontology";
   groups: group.Client;
   private readonly client: UnaryClient;
@@ -107,10 +106,14 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
    */
   async retrieve(ids: ID[] | string[], options?: RetrieveOptions): Promise<Resource[]>;
 
+  async retrieve(params: RetrieveRequest): Promise<Resource[]>;
+
   async retrieve(
-    ids: ID | ID[] | string | string[],
+    ids: ID | ID[] | string | string[] | RetrieveRequest,
     options?: RetrieveOptions,
   ): Promise<Resource | Resource[]> {
+    if (typeof ids === "object" && !("key" in ids))
+      return this.execRetrieve(ids as RetrieveRequest);
     const parsedIDs = parseIDs(ids);
     const resources = await this.execRetrieve({ ids: parsedIDs, ...options });
     if (Array.isArray(ids)) return resources;
@@ -121,23 +124,6 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
         )}`,
       );
     return resources[0];
-  }
-
-  /**
-   * Retrieves resources from the ontology in a paginated manner.
-   *
-   * @param offset - The offset of the page (i.e. how many resources to skip before
-   * returning results).
-   * @param limit - The maximum number of resources to return.
-   * @param options - Additional options for the retrieval.
-   * @returns A list of resources in the ontology.
-   */
-  async page(
-    offset: number,
-    limit: number,
-    options?: RetrieveOptions,
-  ): Promise<Resource[]> {
-    return await this.execRetrieve({ offset, limit, ...options });
   }
 
   /**
@@ -212,17 +198,6 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     props: DependentTrackerProps,
   ): Promise<observe.ObservableAsyncCloseable<Resource[]>> {
     return await DependentTracker.open(props, this.framer, this);
-  }
-
-  newSearcherWithOptions(
-    options: RetrieveOptions,
-  ): AsyncTermSearcher<string, string, Resource> {
-    return {
-      type: this.type,
-      search: (term: string) => this.search(term, options),
-      retrieve: (ids: string[]) => this.retrieve(ids, options),
-      page: (offset: number, limit: number) => this.page(offset, limit, options),
-    };
   }
 
   private async execRetrieve(request: RetrieveRequest): Promise<Resource[]> {

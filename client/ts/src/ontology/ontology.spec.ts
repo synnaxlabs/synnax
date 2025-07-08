@@ -43,20 +43,6 @@ describe("Ontology", () => {
       expect(parents[0].name).toEqual(name);
     });
   });
-  describe("page", () => {
-    it("should return a page of resources", async () => {
-      for (let i = 0; i < 10; i++)
-        await client.ontology.groups.create(ontology.ROOT_ID, randomName());
-      const page = await client.ontology.page(0, 5);
-      expect(page.length).toEqual(5);
-      const page2 = await client.ontology.page(5, 5);
-      expect(page2.length).toEqual(5);
-      const page1Keys = page.map((r) => r.key);
-      const page2Keys = page2.map((r) => r.key);
-      const intersection = page1Keys.filter((key) => page2Keys.includes(key));
-      expect(intersection.length).toEqual(0);
-    });
-  });
   describe("write", () => {
     test("add children", async () => {
       const name = randomName();

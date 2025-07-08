@@ -20,7 +20,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { bounds, color, id, type record } from "@synnaxlabs/x";
+import { bounds, color, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
@@ -45,28 +45,29 @@ const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
   </Align.Center>
 );
 
-interface ListItemProps extends PList.ItemProps<string, RuleState> {
+interface ListItemProps extends PList.ItemProps<string> {
   onChangeLabel: (label: string) => void;
 }
 
-const ListItem = ({ entry, onChangeLabel, ...rest }: ListItemProps): ReactElement => (
-  <PList.ItemFrame
-    entry={entry}
-    {...rest}
-    // style={{ paddingTop: "0.5", paddingBottom: "0.5rem" }}
-    style={{ padding: "0.75rem 1.5rem" }}
-  >
-    <Text.Editable
-      value={entry.label}
-      level="p"
-      noWrap
-      shade={10}
-      weight={500}
-      style={{ overflow: "hidden", textOverflow: "ellipsis" }}
-      onChange={onChangeLabel}
-    />
-  </PList.ItemFrame>
-);
+const ListItem = ({ onChangeLabel, ...rest }: ListItemProps): ReactElement | null => {
+  const { itemKey } = rest;
+  const entry = PList.useItem<string, RuleState>(itemKey);
+  if (entry == null) return null;
+  const { label } = entry;
+  return (
+    <PList.Item {...rest} style={{ padding: "0.75rem 1.5rem" }}>
+      <Text.Editable
+        value={label}
+        level="p"
+        noWrap
+        shade={10}
+        weight={500}
+        style={{ overflow: "hidden", textOverflow: "ellipsis" }}
+        onChange={onChangeLabel}
+      />
+    </PList.Item>
+  );
+};
 
 interface ListProps {
   rules: RuleState[];
@@ -86,19 +87,17 @@ const List = ({
   onLabelChange,
 }: ListProps): ReactElement => {
   const menuProps = PMenu.useContextMenu();
+  const { data, useItem } = PList.useStaticData<string, RuleState>(rules);
+  const listProps = PList.use({ data });
+  const selectProps = Select.useMultiple({ data, value: selected, onChange });
   return (
     <Align.Space x empty style={{ width: "20%" }}>
       <Button.Icon tooltip="Add Rule" size="small" onClick={onCreate}>
         <Icon.Add />
       </Button.Icon>
       <Divider.Divider y />
-      <PList.List<string, RuleState> data={rules}>
-        <PList.Selector
-          value={selected}
-          allowNone={false}
-          replaceOnSingle
-          onChange={onChange}
-        >
+      <PList.List<string, RuleState> {...listProps} useItem={useItem} data={data}>
+        <Select.Provider value={selected} {...selectProps}>
           <PMenu.ContextMenu
             menu={({ keys }) => (
               <PMenu.Menu
@@ -114,10 +113,7 @@ const List = ({
             )}
             {...menuProps}
           >
-            <PList.Core<string, RuleState>
-              y
-              empty
-              grow
+            <PList.Items<string, RuleState>
               onContextMenu={menuProps.open}
               className={menuProps.className}
             >
@@ -128,18 +124,30 @@ const List = ({
                   onChangeLabel={(v) => onLabelChange(v, key)}
                 />
               )}
-            </PList.Core>
+            </PList.Items>
           </PMenu.ContextMenu>
-        </PList.Selector>
+        </Select.Provider>
       </PList.List>
     </Align.Space>
   );
 };
 
-const AXIS_DATA: record.KeyedNamed<AxisKey>[] = [Y1, Y2].map((key) => ({
-  name: key.toUpperCase(),
-  key: key as AxisKey,
-}));
+const AXIS_DATA: AxisKey[] = [Y1, Y2];
+
+const SelectAxis = ({ value, onChange }: Select.SingleProps<AxisKey>): ReactElement => {
+  const selectProps = Select.useSingle({
+    data: AXIS_DATA,
+    value,
+    onChange,
+    allowNone: false,
+  });
+  return (
+    <Select.Buttons value={value} {...selectProps}>
+      <Select.Button itemKey={Y1} />
+      <Select.Button itemKey={Y2} />
+    </Select.Buttons>
+  );
+};
 
 interface RuleContentProps {
   rule: RuleState;
@@ -178,14 +186,7 @@ const RuleContent = ({
         />
       </Input.Item>
       <Input.Item label="Axis">
-        <Select.Button
-          size="medium"
-          onChange={onChangeAxis}
-          value={axis}
-          data={AXIS_DATA}
-          entryRenderKey="name"
-          allowNone={false}
-        />
+        <SelectAxis value={axis} onChange={onChangeAxis} />
       </Input.Item>
     </Align.Space>
     <Align.Space x wrap>

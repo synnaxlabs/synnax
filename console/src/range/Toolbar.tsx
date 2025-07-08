@@ -18,6 +18,7 @@ import {
   List as CoreList,
   Menu as PMenu,
   Ranger,
+  Select,
   Status,
   Synnax,
   Tag,
@@ -32,7 +33,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { ContextMenu } from "@/range/ContextMenu";
 import { CREATE_LAYOUT } from "@/range/Create";
-import { select, useSelect, useSelectMultiple } from "@/range/selectors";
+import { select, useSelect, useSelectKeys, useSelectStatic } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
 import { type RootState } from "@/store";
 
@@ -60,13 +61,13 @@ const NoRanges = (): ReactElement => {
 const List = (): ReactElement => {
   const dispatch = useDispatch();
   const activeRange = useSelect();
-  const ranges = useSelectMultiple();
+  const data = useSelectKeys();
 
   const handleSelect = (key: string): void => {
     dispatch(setActive(key));
   };
 
-  const drop = Haul.useDrop({
+  const dropProps = Haul.useDrop({
     type: "range-toolbar",
     canDrop: Haul.canDropOfType(ranger.ONTOLOGY_TYPE),
     onDrop: ({ items }) => {
@@ -87,27 +88,27 @@ const List = (): ReactElement => {
 
   const menuProps = PMenu.useContextMenu();
 
+  const selectProps = Select.useSingle({
+    data,
+    value: activeRange?.key,
+    onChange: handleSelect,
+    allowNone: true,
+  });
+
+  const listProps = CoreList.use({ data });
+
   return (
     <CoreList.List<string, StaticRange>
-      data={ranges.filter((r) => r.variant === "static")}
-      emptyContent={<NoRanges />}
+      data={data}
+      useItem={useSelectStatic}
+      {...listProps}
     >
       <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
-        <CoreList.Selector
-          value={activeRange?.key ?? null}
-          onChange={handleSelect}
-          allowMultiple={false}
-          allowNone={true}
-        >
-          <CoreList.Core
-            style={{ height: "100%", overflowX: "hidden" }}
-            onContextMenu={menuProps.open}
-            className={menuProps.className}
-            {...drop}
-          >
-            {Component.renderProp(ListItem)}
-          </CoreList.Core>
-        </CoreList.Selector>
+        <Select.Provider value={activeRange?.key} {...selectProps}>
+          <CoreList.Items emptyContent={<NoRanges />} {...listProps} {...dropProps}>
+            {listItem}
+          </CoreList.Items>
+        </Select.Provider>
       </PMenu.ContextMenu>
     </CoreList.List>
   );
@@ -128,16 +129,17 @@ export const useRename = (key: string) => {
   };
 };
 
-interface ListItemProps extends CoreList.ItemProps<string, StaticRange> {}
-
-const ListItem = (props: ListItemProps): ReactElement => {
-  const { entry } = props;
-  const labels = Ranger.useLabels(entry.key)?.data ?? [];
-  const onRename = useRename(entry.key);
+const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
+  const { itemKey } = props;
+  const entry = CoreList.useItem<string, StaticRange>(itemKey);
+  const labels = Ranger.useLabels(itemKey)?.data ?? [];
+  const onRename = useRename(itemKey);
+  if (entry == null) return null;
+  const { key, name, timeRange, persisted } = entry;
 
   return (
-    <CoreList.ItemFrame className={CSS.B("range-list-item")} {...props} size="small" y>
-      {!entry.persisted && (
+    <CoreList.Item className={CSS.B("range-list-item")} {...props} size="small" y>
+      {!persisted && (
         <Tooltip.Dialog location="left">
           <Text.Text level="small">This range is local.</Text.Text>
           <Text.Text className="save-button" weight={700} level="small" shade={11}>
@@ -146,13 +148,13 @@ const ListItem = (props: ListItemProps): ReactElement => {
         </Tooltip.Dialog>
       )}
       <Text.MaybeEditable
-        id={`text-${entry.key}`}
+        id={`text-${key}`}
         level="p"
-        value={entry.name}
+        value={name}
         onChange={onRename}
         allowDoubleClick={false}
       />
-      <Ranger.TimeRangeChip level="small" timeRange={entry.timeRange} />
+      <Ranger.TimeRangeChip level="small" timeRange={timeRange} />
       {labels.length > 0 && (
         <Align.Space
           x
@@ -167,9 +169,9 @@ const ListItem = (props: ListItemProps): ReactElement => {
           ))}
         </Align.Space>
       )}
-    </CoreList.ItemFrame>
+    </CoreList.Item>
   );
-};
+});
 
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();

@@ -11,13 +11,15 @@ import { table } from "@synnaxlabs/client";
 import {
   Align,
   Breadcrumb,
+  Component,
+  Dialog,
   Form,
   Icon,
+  List,
   Select,
   Status,
   Table,
   TableCells,
-  Text,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { deep, type record } from "@synnaxlabs/x";
@@ -157,44 +159,35 @@ interface SelectCellTypeFieldProps {
   onChange: (variant: TableCells.Variant) => void;
 }
 
+const listItem = Component.renderProp((props: List.ItemProps<TableCells.Variant>) => {
+  const { itemKey } = props;
+  const item = List.useItem<TableCells.Variant, CellEntry>(itemKey);
+  return <List.Item {...props}>{item?.name}</List.Item>;
+});
+
 const SelectCellTypeField = ({
   tableKey,
   cellKey,
   onChange,
 }: SelectCellTypeFieldProps) => {
-  const cellType = useSelectCellType(tableKey, cellKey);
+  const value = useSelectCellType(tableKey, cellKey);
+  const { data, useItem } = List.useStaticData<TableCells.Variant, CellEntry>(
+    CELL_TYPE_OPTIONS,
+  );
+  const selectProps = Select.useSingle({ data, value, onChange, allowNone: false });
+  const item = useItem(value);
   return (
-    <Select.DropdownButton<TableCells.Variant, CellEntry>
-      value={cellType}
-      onChange={onChange}
-      columns={[
-        {
-          key: "name",
-          name: "Name",
-          render: ({ entry }) => (
-            <Text.WithIcon level="p" startIcon={entry.icon}>
-              {entry.name}
-            </Text.WithIcon>
-          ),
-        },
-      ]}
-      dropdownVariant="floating"
-      data={CELL_TYPE_OPTIONS}
-      entryRenderKey="name"
+    <Select.Dialog<TableCells.Variant, CellEntry>
+      value={value}
+      data={data}
+      useItem={useItem}
+      {...selectProps}
     >
-      {({ selected, ...p }) => (
-        <Select.BaseButton
-          style={{ width: 80 }}
-          variant="text"
-          size="small"
-          selected={selected}
-          {...p}
-          startIcon={selected?.icon}
-        >
-          {selected?.name}
-        </Select.BaseButton>
-      )}
-    </Select.DropdownButton>
+      <Dialog.Trigger>{item?.name}</Dialog.Trigger>
+      <Dialog.Content>
+        <List.Items>{listItem}</List.Items>
+      </Dialog.Content>
+    </Select.Dialog>
   );
 };
 

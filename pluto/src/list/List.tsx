@@ -11,6 +11,7 @@ import "@/list/List.css";
 
 import { type record } from "@synnaxlabs/x";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
+import Fuse from "fuse.js";
 import {
   type ComponentPropsWithoutRef,
   createContext,
@@ -20,6 +21,7 @@ import {
   useCallback,
   useMemo,
   useRef,
+  useState,
 } from "react";
 
 import { CSS } from "@/css";
@@ -138,6 +140,13 @@ export interface UseStaticDataReturn<
 > {
   useItem: (key?: K) => E | undefined;
   data: K[];
+  retrieve: (params: RetrieveParams) => void;
+}
+
+export interface RetrieveParams {
+  term?: string;
+  offset?: number;
+  limit?: number;
 }
 
 export const useStaticData = <
@@ -145,9 +154,21 @@ export const useStaticData = <
   E extends record.Keyed<K> = record.Keyed<K>,
 >(
   data: E[],
-): UseStaticDataReturn<K, E> =>
-  useMemo(() => {
-    const keys = data.map((d) => d.key);
+): UseStaticDataReturn<K, E> => {
+  const fuse = useMemo(
+    () =>
+      new Fuse(data, {
+        keys: Object.keys(data[0]),
+        threshold: 0.3,
+      }),
+    [data],
+  );
+  const [params, setParams] = useState<RetrieveParams>({});
+
+  const res = useMemo(() => {
+    const keys = fuse.search(params.term ?? "").map((d) => d.item.key);
     const useItem = useCallback((key?: K) => data.find((d) => d.key === key), [data]);
     return { useItem, data: keys };
-  }, [data]);
+  }, [data, params]);
+  return { ...res, retrieve: setParams };
+};

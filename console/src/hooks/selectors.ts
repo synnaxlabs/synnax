@@ -38,8 +38,8 @@ export const selectByKeys = <K extends record.Key, S extends record.Keyed<K>>(
 
 export const selectByKey = <K extends record.Key, S extends record.Keyed<K>>(
   state: Record<string, S>,
-  key?: string,
-  defaultKey?: string,
+  key?: string | null,
+  defaultKey?: string | null,
 ): S | undefined => {
   key ??= defaultKey;
   if (key == null) return undefined;

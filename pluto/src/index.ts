@@ -21,6 +21,7 @@ export * from "@/css";
 export { Dialog } from "@/dialog";
 export { Divider } from "@/divider";
 export { Flux as Sync } from "@/flux";
+export { Flux } from "@/flux";
 export { Form } from "@/form";
 export { Generic } from "@/generic";
 export { Device } from "@/hardware/device";

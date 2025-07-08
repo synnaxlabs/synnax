@@ -51,7 +51,7 @@ export type UseSingleProps<K extends record.Key> = Optional<
 
 export interface UseMultipleProps<K extends record.Key> extends BaseProps<K> {
   allowMultiple?: true;
-  value: K | K[];
+  value: K[];
   onChange: (next: K[], extra: UseOnChangeExtra<K>) => void;
 }
 

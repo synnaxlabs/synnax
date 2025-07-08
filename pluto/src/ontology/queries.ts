@@ -158,3 +158,16 @@ export const useResource = Flux.createRetrieve<
     },
   ],
 });
+
+export interface ListParams extends Flux.Params {
+  offset?: number;
+  limit?: number;
+  term?: string;
+}
+
+export const useResourceList = Flux.createList<ListParams, string, ontology.Resource>({
+  name: "useResourceList",
+  retrieve: async ({ client, params }) => await client.ontology.retrieve(params),
+  retrieveByKey: async ({ client, key }) =>
+    await client.ontology.retrieve(ontology.idZ.parse(key)),
+});
