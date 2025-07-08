@@ -73,7 +73,7 @@ export interface UseList<
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
-  (args: UseListArgs<K, E>): UseListReturn<RetrieveParams, K, E>;
+  (args?: UseListArgs<K, E>): UseListReturn<RetrieveParams, K, E>;
 }
 
 interface ListListenerExtraArgs<
@@ -113,7 +113,8 @@ export const createList =
     retrieve,
     retrieveByKey,
   }: CreateListArgs<P, K, E>): UseList<P, K, E> =>
-  ({ filter = defaultFilter }) => {
+  (args: UseListArgs<K, E> = {}) => {
+    const { filter = defaultFilter } = args;
     const client = PSynnax.use();
     const dataRef = useRef<Map<K, E>>(new Map());
     const listenersRef = useInitializerRef<ListenersRef<K>>(() => ({
