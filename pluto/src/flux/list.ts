@@ -61,6 +61,7 @@ export interface CreateListArgs<
 > extends Omit<CreateRetrieveArgs<RetrieveParams, E[]>, "listeners"> {
   retrieveByKey: (args: RetrieveByKeyArgs<RetrieveParams, K>) => Promise<E>;
   listeners?: ListListenerConfig<RetrieveParams | {}, K, E>[];
+  filter?: (item: E) => boolean;
 }
 
 export interface UseList<
@@ -105,6 +106,7 @@ export const createList =
     listeners,
     retrieve,
     retrieveByKey,
+    filter = () => true,
   }: CreateListArgs<P, K, E>): UseList<P, K, E> =>
   () => {
     const client = PSynnax.use();
@@ -130,7 +132,9 @@ export const createList =
           setResult(pendingResult(name, "retrieving"));
           const value = await retrieve({ client, params });
           const keys = value.map((v) => v.key);
-          value.forEach((v) => dataRef.current.set(v.key, v));
+          value.forEach((v) => {
+            if (filter(v)) dataRef.current.set(v.key, v);
+          });
           if (signal?.aborted) return;
           mountListeners(
             listeners?.map((l) => ({
@@ -155,7 +159,7 @@ export const createList =
                       },
                       onChange: (k, setter) => {
                         const v = dataRef.current.get(k);
-                        if (v == null) return;
+                        if (v == null || !filter(v)) return;
                         const res = state.executeSetter(setter, v);
                         dataRef.current.set(k, res);
                         listenersRef.current.listeners.forEach((key, listener) => {
@@ -183,10 +187,13 @@ export const createList =
         void (async () => {
           try {
             if (client == null || paramsRef.current == null) return;
-            dataRef.current.set(
+            const item = await retrieveByKey({
+              client,
               key,
-              await retrieveByKey({ client, key, params: paramsRef.current }),
-            );
+              params: paramsRef.current,
+            });
+            if (!filter(item)) return;
+            dataRef.current.set(key, item);
             if (signal?.aborted) return;
             listenersRef.current.listeners.forEach((k, listener) => {
               if (k === key) listener();
