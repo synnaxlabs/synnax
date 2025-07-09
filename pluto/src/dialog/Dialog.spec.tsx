@@ -17,10 +17,10 @@ import { Dialog } from "@/dialog";
 import { Triggers } from "@/triggers";
 
 const TestDialog = (): ReactElement => (
-  <Dialog.Dialog>
+  <Dialog.Frame>
     <Button.Button>Toggle</Button.Button>
     <p>Content</p>
-  </Dialog.Dialog>
+  </Dialog.Frame>
 );
 
 describe("Dropdown", () => {

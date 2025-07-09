@@ -10,13 +10,12 @@
 import "@/index.css";
 import "@/main.css";
 
-import { type ranger, TimeSpan } from "@synnaxlabs/client";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ranger } from "@synnaxlabs/client";
+import { type ReactElement, useState } from "react";
 import ReactDOM from "react-dom/client";
 
 import { Align } from "@/align";
 import { Component } from "@/component";
-import { Input } from "@/input";
 import { List } from "@/list";
 import { Pluto } from "@/pluto";
 import { Ranger } from "@/ranger";
@@ -46,36 +45,10 @@ const ListItem = ({
 const listItem = Component.renderProp(ListItem);
 
 const RangeList = () => {
-  const { data, useListItem, retrieve } = Ranger.useList();
-  const [searchTerm, setSearchTerm] = useState<string>("");
   const [selected, setSelected] = useState<string>("");
-  const selectProps = Select.useSingle({
-    data,
-    onChange: setSelected,
-    value: selected,
-  });
   return (
-    <Align.Space x>
-      <Align.Space y>
-        <Input.Text
-          value={searchTerm}
-          onChange={(v) => {
-            setSearchTerm(v);
-            retrieve(() => ({
-              term: v,
-              offset: 0,
-              limit: 10,
-            }));
-          }}
-        />
-        {selected}
-        {selectProps.hover}
-      </Align.Space>
-      <Select.Provider value={selected} {...selectProps}>
-        <List.List data={data} useItem={useListItem}>
-          <List.Items>{listItem}</List.Items>
-        </List.List>
-      </Select.Provider>
+    <Align.Space y style={{ padding: "10rem" }}>
+      <Ranger.SelectSingle value={selected} onChange={setSelected} />
     </Align.Space>
   );
 };

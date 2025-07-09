@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dialog {
+.pluto-dialog__frame {
     > .pluto--visible {
         &:first-child {
             z-index: calc(var(--pluto-dialog-z-index, 6) + 1);
@@ -29,6 +29,8 @@
     position: fixed;
     overflow: hidden;
 
+    border-radius: var(--pluto-pack-br);
+
     &.pluto--connected {
         background: var(--pluto-gray-l1);
         border: var(--pluto-border-l5);
@@ -36,7 +38,6 @@
 
     &.pluto--floating {
         transition: opacity 0.075s ease-in-out;
-        border-radius: 1rem;
     }
 
     & > .pluto-pack.pluto--rounded {
@@ -67,7 +68,7 @@
     }
 }
 
-.pluto-modal__bg {
+.pluto-dialog__bg {
     width: 100%;
     height: 100%;
     -webkit-user-select: none;

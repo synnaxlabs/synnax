@@ -154,6 +154,7 @@ export const Text = ({
         className={CSS(
           CSS.BE("input", "internal"),
           CSS.BM("text", level ?? CoreText.COMPONENT_SIZE_LEVELS[size]),
+          CSS.size(size),
           CSS.M("clickable"),
           CSS.M("outlined"),
           CSS.shade(0),

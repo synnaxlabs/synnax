@@ -40,7 +40,14 @@ export type DialogProps<
 
 type OmittedDialogProps<K extends record.Key> = Omit<
   DialogProps<K>,
-  "value" | "onSelect" | "data" | "useItem" | "children" | "onChange" | "clear"
+  | "value"
+  | "onSelect"
+  | "data"
+  | "useItem"
+  | "children"
+  | "onChange"
+  | "clear"
+  | "hover"
 >;
 
 export interface MultipleProps<K extends record.Key = record.Key>
@@ -65,17 +72,12 @@ export const Dialog = <
   clear,
   useItem,
   children,
+  hover,
   ...rest
-}: DialogProps<K, E>): ReactElement => {
-  const [triggerChild, dialogChild] = children;
-  return (
-    <Provider value={value} onSelect={onSelect} clear={clear}>
-      <List.List data={data} useItem={useItem}>
-        <Core.Dialog {...rest}>
-          {triggerChild}
-          <Core.Content>{dialogChild}</Core.Content>
-        </Core.Dialog>
-      </List.List>
-    </Provider>
-  );
-};
+}: DialogProps<K, E>): ReactElement => (
+  <Provider value={value} onSelect={onSelect} clear={clear} hover={hover}>
+    <List.List data={data} useItem={useItem}>
+      <Core.Frame {...rest}>{children}</Core.Frame>
+    </List.List>
+  </Provider>
+);

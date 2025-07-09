@@ -199,7 +199,7 @@ const DialogContent = ({
 }): ReactElement => {
   const [search, setSearch] = useState("");
   return (
-    <Dialog.Dialog>
+    <Dialog.Frame>
       <Input.Text
         value={search}
         onChange={(term) => {
@@ -209,7 +209,7 @@ const DialogContent = ({
         placeholder="Search channels..."
       />
       <List.Items>{listItemRenderProp}</List.Items>
-    </Dialog.Dialog>
+    </Dialog.Frame>
   );
 };
 

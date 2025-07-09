@@ -20,9 +20,9 @@ import {
 import {
   createContext,
   type CSSProperties,
-  Fragment,
   type ReactElement,
   type ReactNode,
+  type RefCallback,
   useCallback,
   useContext as reactUseContext,
   useLayoutEffect,
@@ -36,7 +36,13 @@ import { Align } from "@/align";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Background } from "@/dialog/Background";
-import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
+import {
+  useClickOutside,
+  useCombinedRefs,
+  useRequiredContext,
+  useResize,
+  useSyncedRef,
+} from "@/hooks";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";
 import { findParent } from "@/util/findParent";
@@ -44,11 +50,11 @@ import { getRootElement } from "@/util/rootElement";
 
 export type Variant = "connected" | "floating" | "modal";
 
-/** Props for the {@link Dialog} component. */
+/** Props for the {@link Frame} component. */
 export interface DialogProps
   extends Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty"> {
   location?: loc.Y | loc.XY;
-  children: [ReactNode, ReactNode];
+  children: ReactNode;
   variant?: Variant;
   maxHeight?: Component.Size | number;
   zIndex?: number;
@@ -101,9 +107,9 @@ export const useContext = (): ContextValue => reactUseContext(Context);
  * @param props.children - Two children are expected: the dropdown trigger (often a button
  * or input) and the dropdown content.
  */
-export const Dialog = ({
+export const Frame = ({
   children,
-  location: propsLocation,
+  location: propsLocation = "bottom",
   visible: propsVisible,
   onVisibleChange: propsOnVisibleChange,
   initialVisible = false,
@@ -199,65 +205,41 @@ export const Dialog = ({
   );
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
-
-  let child: ReactElement = (
-    <Align.Space
-      ref={combinedDialogRef}
-      className={CSS(
-        CSS.BE("dropdown", "dialog"),
-        CSS.loc(dialogLoc.x),
-        CSS.loc(dialogLoc.y),
-        CSS.visible(visible),
-        CSS.M(variant),
-        typeof maxHeight === "string" && CSS.B(`height-${maxHeight}`),
-      )}
-      role="dialog"
-      empty
-      bordered={bordered}
-      style={dialogStyle}
-    >
-      {children[1]}
-    </Align.Space>
+  const internalContextValue: InternalContextValue = useMemo(
+    () => ({
+      ref: combinedDialogRef,
+      location: dialogLoc,
+      variant,
+      style: dialogStyle,
+    }),
+    [combinedDialogRef, dialogLoc, variant, dialogStyle],
   );
-  if (variant === "floating") child = createPortal(child, getRootElement());
-  else if (variant === "modal")
-    child = createPortal(
-      <Background
-        role="dialog"
-        empty
-        align="center"
-        style={{ zIndex, [Z_INDEX_VARIABLE]: zIndex } as CSSProperties}
-        visible={visible}
-      >
-        {child}
-      </Background>,
-      getRootElement(),
-    );
 
   return (
     <Context.Provider value={ctxValue}>
-      <C
-        {...rest}
-        ref={combinedParentRef}
-        className={CSS(
-          className,
-          CSS.B("dropdown"),
-          CSS.visible(visible),
-          CSS.M(variant),
-          CSS.loc(dialogLoc.x),
-          CSS.loc(dialogLoc.y),
-        )}
-        y
-        reverse={dialogLoc.y === "top"}
-        style={{ ...rest.style, [Z_INDEX_VARIABLE]: zIndex } as CSSProperties}
-      >
-        {children[0]}
-        {child}
-      </C>
+      <InternalContext.Provider value={internalContextValue}>
+        <C
+          {...rest}
+          ref={combinedParentRef}
+          className={CSS(
+            className,
+            CSS.BE("dialog", "frame"),
+            CSS.visible(visible),
+            CSS.M(variant),
+            CSS.loc(dialogLoc.x),
+            CSS.loc(dialogLoc.y),
+          )}
+          y
+          reverse={dialogLoc.y === "top"}
+          style={{ ...rest.style, [Z_INDEX_VARIABLE]: zIndex } as CSSProperties}
+        >
+          {children}
+        </C>
+      </InternalContext.Provider>
     </Context.Provider>
   );
 };
-Dialog.displayName = "Dropdown";
+Frame.displayName = "Dropdown";
 
 interface CalcDialogProps extends Pick<position.DialogProps, "initial" | "prefer"> {
   target: HTMLElement;
@@ -301,6 +283,16 @@ const CONNECTED_PROPS: Partial<position.DialogProps> = {
   prefer: [{ y: "bottom" }],
 };
 const CONNECTED_TRANSLATE_AMOUNT: number = 0.5;
+
+interface InternalContextValue {
+  ref: RefCallback<HTMLDivElement>;
+  location: loc.XY;
+  variant: Variant;
+  style: CSSProperties;
+}
+
+const InternalContext = createContext<InternalContextValue | null>(null);
+const useInternalContext = () => useRequiredContext(InternalContext);
 
 const calcConnectedDialog = ({
   target,
@@ -352,4 +344,44 @@ const calcConnectedDialog = ({
   return { adjustedDialog, location };
 };
 
-export const Content = Fragment;
+export interface DialogProps extends Align.SpaceProps {
+  zIndex?: number;
+}
+
+export const Dialog = ({ zIndex, style, ...rest }: DialogProps) => {
+  const { ref, location, variant, style: ctxStyle } = useInternalContext();
+  const { visible } = useContext();
+  if (!visible) return null;
+  let dialog = (
+    <Align.Pack
+      ref={ref}
+      y
+      className={CSS(
+        CSS.BE("dialog", "dialog"),
+        CSS.loc(location.x),
+        CSS.loc(location.y),
+        CSS.visible(visible),
+        CSS.M(variant),
+      )}
+      role="dialog"
+      empty
+      style={{ ...ctxStyle, ...style }}
+      {...rest}
+    />
+  );
+  if (variant === "floating") dialog = createPortal(dialog, getRootElement());
+  else if (variant === "modal")
+    dialog = createPortal(
+      <Background
+        role="dialog"
+        empty
+        align="center"
+        style={{ zIndex, [Z_INDEX_VARIABLE]: zIndex } as CSSProperties}
+        visible={visible}
+      >
+        {dialog}
+      </Background>,
+      getRootElement(),
+    );
+  return dialog;
+};

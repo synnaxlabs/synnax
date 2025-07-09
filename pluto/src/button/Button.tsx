@@ -89,7 +89,7 @@ export type ButtonProps = Omit<
 export const Button = Tooltip.wrap(
   ({
     size,
-    variant = "filled",
+    variant = "outlined",
     type = "button",
     className,
     children,

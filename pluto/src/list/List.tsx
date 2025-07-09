@@ -25,6 +25,7 @@ import {
   useState,
 } from "react";
 
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useRequiredContext } from "@/hooks";
 import { type ItemRenderProp } from "@/list/Item";
@@ -40,7 +41,7 @@ export interface UseReturn {
 }
 
 export interface ItemsProps<K extends record.Key = record.Key>
-  extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
+  extends Omit<Align.SpaceProps, "children"> {
   children: ItemRenderProp<K>;
   emptyContent?: ReactElement;
 }
@@ -108,11 +109,12 @@ const BaseItems = <
   });
   const visibleData = virtualizer.getVirtualItems();
   let content = emptyContent;
+  console.log(virtualizer.getTotalSize());
   if (data.length > 0)
     content = (
       <div
         className={CSS.BE("list", "virtualizer")}
-        style={{ height: virtualizer.getTotalSize() }}
+        style={{ minHeight: virtualizer.getTotalSize() }}
       >
         {visibleData.map(({ index, start }) => {
           const key = data[index];
@@ -121,9 +123,14 @@ const BaseItems = <
       </div>
     );
   return (
-    <div ref={ref} className={CSS(className, CSS.BE("list", "items"))} {...rest}>
+    <Align.Space
+      empty
+      ref={ref}
+      className={CSS(className, CSS.BE("list", "items"))}
+      {...rest}
+    >
       {content}
-    </div>
+    </Align.Space>
   );
 };
 

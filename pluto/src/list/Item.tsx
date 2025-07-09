@@ -42,6 +42,7 @@ export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>
 export const Item = <K extends record.Key>({
   itemKey,
   className,
+  index,
   direction = "x",
   draggingOver: __,
   rightAligned = false,

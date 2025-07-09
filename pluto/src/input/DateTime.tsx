@@ -84,7 +84,7 @@ export const DateTime = ({
   const [visible, setVisible] = useState(false);
 
   return (
-    <Dialog.Dialog
+    <Dialog.Frame
       visible={visible}
       variant="modal"
       zIndex={500}
@@ -113,7 +113,7 @@ export const DateTime = ({
         onChange={(next) => onChange(Number(next.valueOf()))}
         close={close}
       />
-    </Dialog.Dialog>
+    </Dialog.Frame>
   );
 };
 

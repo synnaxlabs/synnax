@@ -46,7 +46,7 @@ interface DialogContentProps {
 const DialogContent = ({ retrieve }: DialogContentProps): ReactElement => {
   const [search, setSearch] = useState("");
   return (
-    <Dialog.Dialog>
+    <Dialog.Frame>
       <Input.Text
         value={search}
         onChange={(v) => {
@@ -55,7 +55,7 @@ const DialogContent = ({ retrieve }: DialogContentProps): ReactElement => {
         }}
       />
       <List.Items>{listItemRenderProp}</List.Items>
-    </Dialog.Dialog>
+    </Dialog.Frame>
   );
 };
 export const SelectSingle = ({

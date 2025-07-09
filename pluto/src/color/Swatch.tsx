@@ -64,7 +64,7 @@ export const Swatch = ({
   );
   if (!canPick) return swatch;
   return (
-    <Dialog.Dialog
+    <Dialog.Frame
       visible={visible}
       initialVisible={initialVisible}
       onVisibleChange={setVisible}
@@ -75,6 +75,6 @@ export const Swatch = ({
     >
       {swatch}
       <Picker value={value} onChange={onChange} />
-    </Dialog.Dialog>
+    </Dialog.Frame>
   );
 };

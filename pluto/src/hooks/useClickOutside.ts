@@ -34,6 +34,7 @@ export const useClickOutside = ({
   const handleClickOutside = useCallback(
     (e: MouseEvent): void => {
       const el = ref.current;
+      console.log(el);
       const windowBox = box.construct(window.document.documentElement);
       const pos = xy.construct(e);
 
@@ -42,6 +43,13 @@ export const useClickOutside = ({
         if (typeof exclude === "function") {
           if (exclude(e)) return;
         } else if (exclude.some((r) => r.current?.contains(e.target as Node))) return;
+
+      console.log({
+        elNull: el == null,
+        elContains: el?.contains(e.target as Node),
+        boxContains: box.contains(el, pos),
+        windowBoxContains: box.contains(windowBox, pos),
+      });
 
       if (
         el == null ||

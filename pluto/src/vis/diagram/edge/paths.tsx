@@ -307,9 +307,9 @@ export const SelectPathType = ({
       <Dialog.Trigger>
         {DATA_NAMES.find((d) => d.key === value)?.name ?? "Select"}
       </Dialog.Trigger>
-      <Dialog.Content>
+      <Dialog.Dialog>
         <List.Items>{listItemRenderProp}</List.Items>
-      </Dialog.Content>
+      </Dialog.Dialog>
     </Select.Dialog>
   );
 };

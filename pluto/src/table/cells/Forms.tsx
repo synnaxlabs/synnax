@@ -211,9 +211,9 @@ const SelectVariant = ({ value, onChange }: SelectVariantProps) => {
   return (
     <Select.Dialog value={value} data={data} useItem={useItem} {...selectProps}>
       <Dialog.Trigger></Dialog.Trigger>
-      <Dialog.Content>
+      <Dialog.Dialog>
         <List.Items>{variantListRenderProp}</List.Items>
-      </Dialog.Content>
+      </Dialog.Dialog>
     </Select.Dialog>
   );
 };

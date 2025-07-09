@@ -17,7 +17,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
-import { type Icon } from "@/icon";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { useList } from "@/ranger/queries";
@@ -31,9 +31,15 @@ const ListItem = ({
   ...rest
 }: List.ItemRenderProps<ranger.Key>): ReactElement | null => {
   const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
-  const [selected, onSelect] = Select.useItemState<ranger.Key>(itemKey);
+  const { selected, onSelect, hovered } = Select.useItemState<ranger.Key>(itemKey);
   return (
-    <List.Item itemKey={itemKey} onSelect={onSelect} selected={selected} {...rest}>
+    <List.Item
+      itemKey={itemKey}
+      onSelect={onSelect}
+      selected={selected}
+      hovered={hovered}
+      {...rest}
+    >
       <Text.Text level="p">{item?.name}</Text.Text>
     </List.Item>
   );
@@ -57,7 +63,7 @@ const MultipleTag = ({
   onDragStart: (key: ranger.Key) => void;
 }): ReactElement => {
   const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
-  const [, onSelect] = Select.useItemState(itemKey);
+  const { onSelect } = Select.useItemState(itemKey);
   return (
     <Tag.Tag onSelect={onSelect} onDragStart={() => onDragStart(itemKey)} draggable>
       {item?.name}
@@ -155,13 +161,15 @@ export interface SingleTriggerProps extends Align.SpaceExtensionProps {
 }
 
 const SingleTrigger = ({
-  placeholder = "Select",
-  triggerIcon,
+  placeholder = "Select Range",
+  triggerIcon = <Icon.Range />,
 }: SingleTriggerProps): ReactElement => {
   const [value] = Select.useSelection<ranger.Key>();
   const item = List.useItem<ranger.Key, ranger.Payload>(value);
   return (
-    <Dialog.Trigger startIcon={triggerIcon}>{item?.name ?? placeholder}</Dialog.Trigger>
+    <Dialog.Trigger startIcon={triggerIcon} iconSpacing="small">
+      {item?.name ?? placeholder}
+    </Dialog.Trigger>
   );
 };
 
@@ -170,16 +178,21 @@ const DialogContent = ({
 }: Pick<ReturnType<typeof useList>, "retrieve">): ReactElement => {
   const [search, setSearch] = useState("");
   return (
-    <Align.Space style={{ height: 300 }}>
+    <Dialog.Dialog style={{ width: 500 }}>
       <Input.Text
         value={search}
+        borderShade={5}
+        autoFocus
+        placeholder="Search Ranges..."
         onChange={(v) => {
           setSearch(v);
           retrieve((prev) => ({ ...prev, term: v }));
         }}
       />
-      <List.Items>{listItemRenderProp}</List.Items>
-    </Align.Space>
+      <List.Items bordered borderShade={5} style={{ minHeight: 300 }}>
+        {listItemRenderProp}
+      </List.Items>
+    </Dialog.Dialog>
   );
 };
 
@@ -222,7 +235,7 @@ export const SelectSingle = ({
         className,
         CSS.dropRegion(canDrop(dragging, array.toArray(value))),
       )}
-      variant="connected"
+      variant="floating"
       value={value}
       onSelect={onSelect}
       useItem={useListItem}

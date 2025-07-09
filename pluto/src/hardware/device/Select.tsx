@@ -63,7 +63,7 @@ const DialogContent = ({
 }: DialogContentProps): ReactElement => {
   const [search, setSearch] = useState("");
   return (
-    <Dialog.Dialog>
+    <Dialog.Frame>
       <Input.Text
         value={search}
         onChange={(v) => {
@@ -72,7 +72,7 @@ const DialogContent = ({
         }}
       />
       <List.Items emptyContent={emptyContent}>{listItemRenderProp}</List.Items>
-    </Dialog.Dialog>
+    </Dialog.Frame>
   );
 };
 
