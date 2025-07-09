@@ -11,10 +11,11 @@ package http
 
 import (
 	"context"
-	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/x/errors"
 	"strconv"
 	"strings"
+
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type Message struct {
