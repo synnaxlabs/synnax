@@ -12,7 +12,7 @@ import { array, unique } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { Align } from "@/align";
-import { renderProp } from "@/component/renderProp";
+import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
@@ -39,7 +39,7 @@ const ListItem = ({
   );
 };
 
-const listItemRenderProp = renderProp(ListItem);
+const listItemRenderProp = Component.renderProp(ListItem);
 
 const canDrop = (
   { items: entities }: DraggingState,
@@ -170,16 +170,16 @@ const DialogContent = ({
 }: Pick<ReturnType<typeof useList>, "retrieve">): ReactElement => {
   const [search, setSearch] = useState("");
   return (
-    <Dialog.Content>
+    <Align.Space style={{ height: 300 }}>
       <Input.Text
         value={search}
         onChange={(v) => {
           setSearch(v);
-          retrieve((prev) => ({ ...prev, search: v }));
+          retrieve((prev) => ({ ...prev, term: v }));
         }}
       />
       <List.Items>{listItemRenderProp}</List.Items>
-    </Dialog.Content>
+    </Align.Space>
   );
 };
 
@@ -222,6 +222,7 @@ export const SelectSingle = ({
         className,
         CSS.dropRegion(canDrop(dragging, array.toArray(value))),
       )}
+      variant="connected"
       value={value}
       onSelect={onSelect}
       useItem={useListItem}

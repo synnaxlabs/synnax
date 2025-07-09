@@ -69,7 +69,6 @@ export const Swatch = ({
       initialVisible={initialVisible}
       onVisibleChange={setVisible}
       className={CSS.BE("color-swatch", "dropdown")}
-      keepMounted={false}
       variant="floating"
       zIndex={100}
       style={style}

@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax } from "@synnaxlabs/client";
-import { type MultiSeries, type record } from "@synnaxlabs/x";
-import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { compare, type MultiSeries, type record } from "@synnaxlabs/x";
+import { useCallback, useRef, useSyncExternalStore } from "react";
 
 import { useMountListeners } from "@/flux/listeners";
 import { type Params } from "@/flux/params";
@@ -26,7 +26,11 @@ import {
   type UseStatefulRetrieveReturn,
 } from "@/flux/retrieve";
 import { type Sync } from "@/flux/sync";
-import { useInitializerRef } from "@/hooks";
+import {
+  useCombinedStateAndRef,
+  useDebouncedCallback,
+  useInitializerRef,
+} from "@/hooks";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
@@ -116,13 +120,13 @@ export const createList =
   (args: UseListArgs<K, E> = {}) => {
     const { filter = defaultFilter } = args;
     const client = PSynnax.use();
-    const dataRef = useRef<Map<K, E>>(new Map());
+    const dataRef = useRef<Map<K, E | null>>(new Map());
     const listenersRef = useInitializerRef<ListenersRef<K>>(() => ({
       mounted: false,
       listeners: new Map(),
     }));
-    const [result, setResult] = useState<Result<K[]>>(
-      pendingResult(name, "retrieving"),
+    const [result, setResult, resultRef] = useCombinedStateAndRef<Result<K[]>>(
+      pendingResult<K[]>(name, "retrieving", []),
     );
 
     const paramsRef = useRef<P | null>(null);
@@ -134,10 +138,16 @@ export const createList =
         const params = state.executeSetter(paramsSetter, paramsRef.current ?? {});
         paramsRef.current = params;
         try {
-          if (client == null) return setResult(nullClientResult(name, "retrieve"));
-          setResult(pendingResult(name, "retrieving"));
+          if (client == null) return setResult(nullClientResult<K[]>(name, "retrieve"));
+          setResult(pendingResult<K[]>(name, "retrieving", resultRef.current.data));
           const value = await retrieve({ client, params });
           const keys = value.map((v) => v.key);
+          if (
+            resultRef.current.data != null &&
+            compare.primitiveArrays(resultRef.current.data, keys) === compare.EQUAL
+          )
+            return;
+
           value.forEach((v) => {
             if (filter(v)) dataRef.current.set(v.key, v);
           });
@@ -174,14 +184,14 @@ export const createList =
                       },
                     });
                   } catch (error) {
-                    setResult(errorResult(name, "retrieve", error));
+                    setResult(errorResult<K[]>(name, "retrieve", error));
                   }
                 })(),
             })),
           );
           return setResult(successResult(name, "retrieved", keys));
         } catch (error) {
-          setResult(errorResult(name, "retrieve", error));
+          setResult(errorResult<K[]>(name, "retrieve", error));
         }
       },
       [client, name, mountListeners],
@@ -198,14 +208,18 @@ export const createList =
               key,
               params: paramsRef.current,
             });
-            if (!filter(item)) return;
+            if (!filter(item)) {
+              dataRef.current.set(key, null);
+              return;
+            }
             dataRef.current.set(key, item);
             if (signal?.aborted) return;
             listenersRef.current.listeners.forEach((k, listener) => {
               if (k === key) listener();
             });
           } catch (error) {
-            setResult(errorResult(name, "retrieve", error));
+            dataRef.current.set(key, null);
+            setResult(errorResult<K[]>(name, "retrieve", error));
           }
         })();
       },
@@ -221,7 +235,7 @@ export const createList =
       [],
     );
 
-    const useListItem = (key?: K) => {
+    const useListItem = useCallback((key?: K) => {
       if (key == null) return undefined;
       const abortControllerRef = useRef<AbortController | null>(null);
       return useSyncExternalStore<E | undefined>(
@@ -238,16 +252,17 @@ export const createList =
         ),
         useCallback(() => {
           const res = dataRef.current.get(key);
-          if (res == null)
+          if (res === undefined)
             retrieveSingle(key, { signal: abortControllerRef.current?.signal });
-          return res;
+          return res ?? undefined;
         }, [key]),
       );
-    };
+    }, []);
 
-    const retrieveSync = useCallback(
+    const retrieveSync = useDebouncedCallback(
       (params: state.SetArg<P, P | {}>, options: AsyncOptions = {}) =>
         void retrieveAsync(params, options),
+      100,
       [retrieveAsync],
     );
 

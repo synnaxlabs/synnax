@@ -88,7 +88,6 @@ export const DateTime = ({
       visible={visible}
       variant="modal"
       zIndex={500}
-      keepMounted={false}
       onVisibleChange={setVisible}
     >
       <InputText
@@ -242,7 +241,6 @@ const AISelector = ({
     setValue("");
     setEntries([]);
   };
-  const { ref, virtualizer } = List.use({ data });
   const selectProps = Select.useSingle<string>({
     value: undefined,
     onChange: handleSelect,
@@ -402,19 +400,13 @@ export const createTimeList = (count: number): FC<TimeListProps> => {
     key == null ? undefined : { key, name: key.toString() };
 
   const TimeList = ({ value, onChange }: TimeListProps): ReactElement => {
-    const { ref, virtualizer } = List.use({ data });
     const selectProps = Select.useSingle({
       value,
       onChange: (next: number) => onChange(next),
       data,
     });
     return (
-      <List.List<number, record.KeyedNamed<number>>
-        data={data}
-        useItem={useItem}
-        ref={ref}
-        virtualizer={virtualizer}
-      >
+      <List.List<number, record.KeyedNamed<number>> data={data} useItem={useItem}>
         <Select.Provider {...selectProps} value={value}>
           <List.Items<number, record.KeyedNamed<number>> className={CSS.B("time-list")}>
             {timeListItem}

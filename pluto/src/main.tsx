@@ -10,22 +10,58 @@
 import "@/index.css";
 import "@/main.css";
 
-import { type ranger } from "@synnaxlabs/client";
-import { type ReactElement, useState } from "react";
+import { type ranger, TimeSpan } from "@synnaxlabs/client";
+import { type ReactElement, useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 
 import { Align } from "@/align";
+import { Component } from "@/component";
+import { Input } from "@/input";
+import { List } from "@/list";
 import { Pluto } from "@/pluto";
 import { Ranger } from "@/ranger";
+import { Select } from "@/select";
+import { Text } from "@/text";
 
-const Content = (): ReactElement => {
-  const [value, setValue] = useState<ranger.Key>("");
+const ListItem = ({
+  itemKey,
+  ...rest
+}: List.ItemRenderProps<ranger.Key>): ReactElement | null => {
+  const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
+  // const [selected, onSelect] = Select.useItemState<ranger.Key>(itemKey);
   return (
-    <Align.Center background={3}>
-      <Ranger.SelectSingle value={value} onChange={setValue} />;
-    </Align.Center>
+    <List.Item itemKey={itemKey} {...rest}>
+      <Text.Text level="p">{item?.name}</Text.Text>
+    </List.Item>
   );
 };
+
+const listItem = Component.renderProp(ListItem);
+
+const RangeList = () => {
+  const { data, useListItem, retrieve } = Ranger.useList();
+  const [value, setValue] = useState<string>("");
+  return (
+    <Align.Space x>
+      <Input.Text
+        value={value}
+        onChange={(v) => {
+          setValue(v);
+          retrieve((p) => ({
+            term: v,
+            offset: 0,
+            limit: 10,
+          }));
+        }}
+      />
+      <List.List data={data} useItem={useListItem}>
+        <List.Items>{listItem}</List.Items>
+      </List.List>
+    </Align.Space>
+  );
+};
+
+const Content = (): ReactElement => <RangeList />;
 
 const Main = (): ReactElement => (
   <Pluto.Provider

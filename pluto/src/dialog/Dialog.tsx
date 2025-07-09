@@ -20,6 +20,7 @@ import {
 import {
   createContext,
   type CSSProperties,
+  Fragment,
   type ReactElement,
   type ReactNode,
   useCallback,
@@ -120,19 +121,13 @@ export const Dialog = ({
     onChange: propsOnVisibleChange,
   });
   const visibleRef = useSyncedRef(visible);
-  const ctxValue = useMemo(
-    () => ({
-      close: () => setVisible(false),
-      open: () => setVisible(true),
-      toggle: () => setVisible((prev) => !prev),
-      visible,
-    }),
-    [visible],
-  );
+  const close = useCallback(() => setVisible(false), [setVisible]);
+  const open = useCallback(() => setVisible(true), [setVisible]);
+  const toggle = useCallback(() => setVisible((prev) => !prev), [setVisible]);
+  const ctxValue = useMemo(() => ({ close, open, toggle, visible }), [visible]);
   const parentRef = useRef<HTMLDivElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const prevLocation = useRef<location.XY | undefined>(undefined);
-
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [{ dialogLoc, width, ...stateDialogStyle }, setState] = useState<State>({
     ...ZERO_STATE,
   });
@@ -182,12 +177,11 @@ export const Dialog = ({
     } as CSSProperties;
 
   const C = variant === "connected" ? Align.Pack : Align.Space;
+  const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
+  const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
   const resizeParentRef = useResize(calculatePosition, { enabled: visible });
   const combinedParentRef = useCombinedRefs(parentRef, resizeParentRef);
-
-  const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
-  const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
   const exclude = useCallback(
     (e: { target: EventTarget | null }) => {
@@ -222,7 +216,7 @@ export const Dialog = ({
       bordered={bordered}
       style={dialogStyle}
     >
-      {visible && children[1]}
+      {children[1]}
     </Align.Space>
   );
   if (variant === "floating") child = createPortal(child, getRootElement());
@@ -358,4 +352,4 @@ const calcConnectedDialog = ({
   return { adjustedDialog, location };
 };
 
-export const Content = Align.Space;
+export const Content = Fragment;

@@ -15,6 +15,7 @@ import Fuse from "fuse.js";
 import {
   type ComponentPropsWithoutRef,
   createContext,
+  memo,
   type PropsWithChildren,
   type ReactElement,
   type RefObject,
@@ -44,26 +45,10 @@ export interface ItemsProps<K extends record.Key = record.Key>
   emptyContent?: ReactElement;
 }
 
-export const use = <K extends record.Key = record.Key>({
-  data,
-  itemHeight = 30,
-}: UseProps<K>): UseReturn => {
-  const ref = useRef<HTMLDivElement>(null);
-  const virtualizer = useVirtualizer({
-    count: data.length,
-    getScrollElement: () => ref.current,
-    estimateSize: () => itemHeight,
-  });
-  return { ref, virtualizer };
-};
-
 export interface ContextValue<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > {
-  ref: RefObject<HTMLDivElement | null>;
-  virtualizer: Virtualizer<HTMLDivElement, Element>;
-  onFetchMore?: () => void;
   data: K[];
   useItem: (key?: K) => E | undefined;
 }
@@ -96,14 +81,25 @@ export const List = <
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >({
   children,
-  ...rest
-}: ListProps<K, E>): ReactElement => (
-  <Context.Provider value={rest as unknown as ContextValue}>
-    {children}
-  </Context.Provider>
-);
+  data,
+  useItem,
+}: ListProps<K, E>): ReactElement => {
+  const contextValue = useMemo(
+    () => ({
+      data,
+      useItem,
+    }),
+    [data, useItem],
+  );
 
-export const Items = <
+  return (
+    <Context.Provider value={contextValue as unknown as ContextValue<K, E>}>
+      {children}
+    </Context.Provider>
+  );
+};
+
+const BaseItems = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
 >({
@@ -112,7 +108,13 @@ export const Items = <
   emptyContent,
   ...rest
 }: ItemsProps<K>): ReactElement => {
-  const { ref, virtualizer, data } = useContext<K, E>();
+  const { data } = useContext<K, E>();
+  const ref = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: data.length,
+    getScrollElement: () => ref.current,
+    estimateSize: () => 30,
+  });
   const visibleData = virtualizer.getVirtualItems();
   let content = emptyContent;
   if (data.length > 0)
@@ -133,6 +135,8 @@ export const Items = <
     </div>
   );
 };
+
+export const Items = memo(BaseItems) as typeof BaseItems;
 
 export interface UseStaticDataReturn<
   K extends record.Key = record.Key,

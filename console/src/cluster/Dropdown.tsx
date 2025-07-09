@@ -214,8 +214,6 @@ export const Dropdown = (): ReactElement => {
     [active?.key, handleConnect, handleRemove],
   );
 
-  const listProps = CoreList.use({ data: keys });
-
   const selectProps = Select.useSingle({
     value: selected,
     onChange: handleConnect,
@@ -224,7 +222,7 @@ export const Dropdown = (): ReactElement => {
 
   return (
     <Align.Pack>
-      <Select.Dialog data={keys} useItem={useSelect} {...listProps} {...selectProps}>
+      <Select.Dialog data={keys} useItem={useSelect} {...selectProps}>
         <Dialog.Trigger
           startIcon={disconnected ? <Icon.Connect /> : <Icon.Cluster />}
           justify="center"

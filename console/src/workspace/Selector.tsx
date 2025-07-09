@@ -95,7 +95,7 @@ export const Selector = (): ReactElement => {
       >
         {active?.name ?? "No Workspace"}
       </Dialog.Trigger>
-      <Dialog.Content y style={{ width: 500, height: 200 }}>
+      <Dialog.Content>
         <Cluster.NoneConnectedBoundary bordered borderShade={5} background={1}>
           <Input.Text
             size="large"

@@ -12,8 +12,7 @@ import "@/select/Dialog.css";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
-import { Align } from "@/align";
-import { Dialog as CoreDialog } from "@/dialog";
+import { Dialog as Core } from "@/dialog";
 import { List } from "@/list";
 import { Provider } from "@/select/Provider";
 import {
@@ -37,7 +36,7 @@ export type DialogProps<
 > = UseReturn<K> &
   Pick<UseSingleProps<K> | UseMultipleProps<K>, "value"> &
   Pick<List.ListProps<K, E>, "data" | "useItem"> &
-  Omit<CoreDialog.DialogProps, "visible" | "close" | "open" | "onSelect">;
+  Omit<Core.DialogProps, "visible" | "close" | "open" | "onSelect">;
 
 type OmittedDialogProps<K extends record.Key> = Omit<
   DialogProps<K>,
@@ -69,14 +68,13 @@ export const Dialog = <
   ...rest
 }: DialogProps<K, E>): ReactElement => {
   const [triggerChild, dialogChild] = children;
-  const { ref, virtualizer } = List.use({ data });
   return (
     <Provider value={value} onSelect={onSelect} clear={clear}>
       <List.List ref={ref} data={data} useItem={useItem} virtualizer={virtualizer}>
-        <CoreDialog.Dialog {...rest}>
+        <Core.Dialog {...rest}>
           {triggerChild}
-          <Align.Space empty>{dialogChild}</Align.Space>
-        </CoreDialog.Dialog>
+          <Core.Content>{dialogChild}</Core.Content>
+        </Core.Dialog>
       </List.List>
     </Provider>
   );

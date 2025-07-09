@@ -170,7 +170,7 @@ const DialogContent = ({
 }: Pick<ReturnType<typeof useList>, "retrieve"> & {}): ReactElement => {
   const [search, setSearch] = useState("");
   return (
-    <Dialog.Content>
+    <Dialog.Dialog>
       <Input.Text
         value={search}
         onChange={(v) => {
@@ -180,7 +180,7 @@ const DialogContent = ({
         placeholder="Search labels..."
       />
       <List.Items>{listItemRenderProp}</List.Items>
-    </Dialog.Content>
+    </Dialog.Dialog>
   );
 };
 

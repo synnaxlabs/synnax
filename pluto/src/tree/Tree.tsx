@@ -151,7 +151,6 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   ...rest
 }: TreeProps<K, E>): ReactElement => {
   const { keys, depths } = shape;
-  const { ref, virtualizer } = List.use({ data: keys });
   return (
     <Select.Provider value={selected} onSelect={onSelect} clear={clearSelected}>
       <List.List

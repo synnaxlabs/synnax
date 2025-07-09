@@ -9,15 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dropdown {
+.pluto-dialog {
     > .pluto--visible {
         &:first-child {
-            z-index: calc(var(--pluto-dropdown-z-index, 6) + 1);
+            z-index: calc(var(--pluto-dialog-z-index, 6) + 1);
         }
     }
     &.pluto--visible {
         & > *:first-child {
-            z-index: calc(var(--pluto-dropdown-z-index, 6) + 1);
+            z-index: calc(var(--pluto-dialog-z-index, 6) + 1);
         }
     }
     &:not(.pluto--connected) {
@@ -25,7 +25,7 @@
     }
 }
 
-.pluto-dropdown__dialog {
+.pluto-dialog__dialog {
     position: fixed;
     overflow: hidden;
 
@@ -34,9 +34,9 @@
         border: var(--pluto-border-l5);
     }
 
-    &.pluto--connected,
     &.pluto--floating {
-        box-shadow: var(--pluto-shadow-v1);
+        transition: opacity 0.075s ease-in-out;
+        border-radius: 1rem;
     }
 
     & > .pluto-pack.pluto--rounded {
@@ -44,6 +44,7 @@
     }
 
     &:not(.pluto--modal) {
+        box-shadow: var(--pluto-shadow-v1);
         max-height: 360px;
         &.pluto-height-small {
             max-height: 200px;
@@ -52,11 +53,6 @@
         &.pluto-height-large {
             max-height: 480px;
         }
-    }
-
-    &.pluto--floating {
-        transition: opacity 0.075s ease-in-out;
-        border-radius: 1rem;
     }
 
     &.pluto--hidden {
@@ -112,7 +108,7 @@
         }
 
         @media (max-height: 800px) {
-            .pluto-dropdown__dialog {
+            .pluto-dialog__dialog {
                 top: 10%;
             }
         }

@@ -59,10 +59,10 @@ export const Simple = <K extends record.Key, E extends record.KeyedNamed<K>>({
   return (
     <SelectDialog {...rest} {...selectProps} data={data} useItem={useItem}>
       <Dialog.Trigger variant="outlined">{selected?.name ?? "Select"}</Dialog.Trigger>
-      <Dialog.Content>
+      <Dialog.Dialog>
         <SearchInput onSearch={handleSearch} />
         <List.Items>{children}</List.Items>
-      </Dialog.Content>
+      </Dialog.Dialog>
     </SelectDialog>
   );
 };
