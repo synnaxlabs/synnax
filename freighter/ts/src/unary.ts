@@ -26,7 +26,7 @@ export interface UnaryClient extends Transport {
    * @param reqSchema - The schema to validate the request against.
    * @param resSchema - The schema to validate the response against.
    */
-  send: <RQ extends z.ZodType, RS extends z.ZodType | undefined>(
+  send: <RQ extends z.ZodType, RS extends z.ZodType | undefined = undefined>(
     target: string,
     req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
