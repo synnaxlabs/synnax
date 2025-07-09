@@ -146,13 +146,3 @@ func UnaryServer[RQ, RS freighter.Payload](r *Router, path string, opts ...Serve
 	r.register(path, "POST", us, us.fiberHandler)
 	return us
 }
-
-func PipelineServer[RQ freighter.Payload](r *Router, path string, opts ...ServerOption) freighter.PipelineServer[RQ] {
-	ps := &pipelineServer[RQ]{
-		serverOptions: newServerOptions(opts),
-		Reporter:      pipelineReporter,
-		path:          path,
-	}
-	r.register(path, "POST", ps, ps.fiberHandler)
-	return ps
-}

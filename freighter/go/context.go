@@ -40,8 +40,6 @@ const (
 	Unary Variant = iota + 1
 	// Stream is set on middleware that is executed for a streaming request.
 	Stream
-	// Pipeline is set on middleware that is executed for a pipeline request.
-	Pipeline
 )
 
 // Context represents the metadata for a request that is passed to Middleware.
