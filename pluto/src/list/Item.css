@@ -15,6 +15,7 @@
     padding: 1rem 2rem;
     width: 100%;
     border-color: var(--pluto-gray-l2);
+    outline: none;
 
     &.pluto--selectable:is(:hover, .pluto--hovered) {
         --pluto-bg: var(--pluto-gray-l2);

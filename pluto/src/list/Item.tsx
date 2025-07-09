@@ -63,7 +63,7 @@ export const Item = <K extends record.Key>({
       onSelect?.(itemKey);
       onClick?.(e);
     }}
-    tabIndex={0}
+    tabIndex={-1}
     className={CSS(
       className,
       CONTEXT_TARGET,
