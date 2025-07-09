@@ -125,6 +125,10 @@ func (uc *unaryClient[RQ, RS]) Send(
 				}
 				return outCtx, errors.Decode(ctx, pld)
 			}
+			if reader, ok := httpRes.Body.(RS); ok {
+				res = reader
+				return outCtx, nil
+			}
 			return outCtx, uc.codec.DecodeStream(context.TODO(), httpRes.Body, &res)
 		}),
 	)
