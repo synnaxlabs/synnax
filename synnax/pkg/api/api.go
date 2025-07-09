@@ -187,7 +187,6 @@ func (l *Layer) BindTo(t Transport) {
 		insecureMiddleware,
 		t.AuthLogin,
 		t.ConnectivityCheck,
-		t.ExportCSV,
 	)
 
 	freighter.UseOnAll(
@@ -210,8 +209,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.ChannelRename,
 		t.ChannelRetrieveGroup,
 
-		// // EXPORT
-		// t.ExportCSV,
+		// EXPORT
+		t.ExportCSV,
 
 		// FRAME
 		t.FrameWriter,

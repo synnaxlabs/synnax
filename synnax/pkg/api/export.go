@@ -39,52 +39,49 @@ func NewExportService(p Provider) *ExportService {
 }
 
 type ExportCSVRequest struct {
-	Keys      channel.Keys    `json:"keys"`
-	TimeRange telem.TimeRange `json:"time_range"`
+	Keys         channel.Keys           `json:"keys" msgpack:"keys"`
+	TimeRange    telem.TimeRange        `json:"time_range" msgpack:"time_range"`
+	ChannelNames map[channel.Key]string `json:"channel_names" msgpack:"channel_names"`
 }
 
 type ExportCSVResponse = io.Reader
 
 func (s *ExportService) CSV(ctx context.Context, req ExportCSVRequest) (ExportCSVResponse, error) {
-	// TODO: cleanup code
-	keys := req.Keys.Unique()
-	iter, err := s.framer.Iterator.Open(ctx, framer.IteratorConfig{
-		Keys:   keys,
-		Bounds: req.TimeRange,
-	})
-	if err != nil {
-		return nil, err
-	}
 	r, w := io.Pipe()
-
 	go func() {
+		var err error
+		defer w.CloseWithError(err)
+		keys := req.Keys.Unique()
+		iter, err := s.framer.Iterator.Open(ctx, framer.IteratorConfig{
+			Keys:   keys,
+			Bounds: req.TimeRange,
+		})
+		if err != nil {
+			return
+		}
 		defer iter.Close()
 		channels := make([]channel.Channel, len(keys))
-		if err := s.WithTx(ctx, func(tx gorp.Tx) error {
+		if err = s.WithTx(ctx, func(tx gorp.Tx) error {
 			return (*s.channel).NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, tx)
 		}); err != nil {
-			w.CloseWithError(err)
 			return
 		}
 		headerRecords := binary.NewCSVRecords(1, len(keys))
 		headerRecords[0] = lo.Map(channels, func(c channel.Channel, _ int) string {
+			if name, ok := req.ChannelNames[c.Key()]; ok {
+				return name
+			}
 			return c.Name
 		})
-		if err := (&binary.CSVCodec{}).EncodeStream(ctx, w, headerRecords); err != nil {
-			w.CloseWithError(err)
+		if err = (&binary.CSVCodec{}).EncodeStream(ctx, w, headerRecords); err != nil {
 			return
 		}
 		for ok := iter.SeekFirst() && iter.Next(iterator.AutoSpan); ok; ok = iter.Next(iterator.AutoSpan) {
-			if err := (&binary.CSVCodec{}).EncodeStream(ctx, w, iter.Value()); err != nil {
-				w.CloseWithError(err)
+			if err = (&binary.CSVCodec{}).EncodeStream(ctx, w, iter.Value()); err != nil {
 				return
 			}
 		}
-		if err := iter.Error(); err != nil {
-			w.CloseWithError(err)
-			return
-		}
-		w.Close()
+		err = iter.Error()
 	}()
 
 	return r, nil
