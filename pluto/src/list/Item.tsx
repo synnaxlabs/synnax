@@ -50,6 +50,7 @@ export const Item = <K extends record.Key>({
   selected = false,
   translate,
   onSelect,
+  onClick,
   hovered,
   style,
   ...rest
@@ -57,7 +58,10 @@ export const Item = <K extends record.Key>({
   <Align.Space
     id={itemKey.toString()}
     direction={direction}
-    onClick={() => onSelect?.(itemKey)}
+    onClick={(e) => {
+      onSelect?.(itemKey);
+      onClick?.(e);
+    }}
     tabIndex={0}
     className={CSS(
       className,

@@ -84,18 +84,9 @@ export const List = <
   data,
   useItem,
 }: ListProps<K, E>): ReactElement => {
-  const contextValue = useMemo(
-    () => ({
-      data,
-      useItem,
-    }),
-    [data, useItem],
-  );
-
+  const contextValue = useMemo(() => ({ data, useItem }), [data, useItem]);
   return (
-    <Context.Provider value={contextValue as unknown as ContextValue<K, E>}>
-      {children}
-    </Context.Provider>
+    <Context.Provider value={contextValue as ContextValue}>{children}</Context.Provider>
   );
 };
 

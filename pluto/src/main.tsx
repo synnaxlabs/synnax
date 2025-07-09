@@ -28,9 +28,16 @@ const ListItem = ({
   ...rest
 }: List.ItemRenderProps<ranger.Key>): ReactElement | null => {
   const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
-  // const [selected, onSelect] = Select.useItemState<ranger.Key>(itemKey);
+  const { selected, hovered, onSelect } = Select.useItemState<ranger.Key>(itemKey);
+  console.log(itemKey, selected, hovered);
   return (
-    <List.Item itemKey={itemKey} {...rest}>
+    <List.Item
+      itemKey={itemKey}
+      {...rest}
+      selected={selected}
+      hovered={hovered}
+      onSelect={onSelect}
+    >
       <Text.Text level="p">{item?.name}</Text.Text>
     </List.Item>
   );
@@ -40,23 +47,35 @@ const listItem = Component.renderProp(ListItem);
 
 const RangeList = () => {
   const { data, useListItem, retrieve } = Ranger.useList();
-  const [value, setValue] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [selected, setSelected] = useState<string>("");
+  const selectProps = Select.useSingle({
+    data,
+    onChange: setSelected,
+    value: selected,
+  });
   return (
     <Align.Space x>
-      <Input.Text
-        value={value}
-        onChange={(v) => {
-          setValue(v);
-          retrieve((p) => ({
-            term: v,
-            offset: 0,
-            limit: 10,
-          }));
-        }}
-      />
-      <List.List data={data} useItem={useListItem}>
-        <List.Items>{listItem}</List.Items>
-      </List.List>
+      <Align.Space y>
+        <Input.Text
+          value={searchTerm}
+          onChange={(v) => {
+            setSearchTerm(v);
+            retrieve(() => ({
+              term: v,
+              offset: 0,
+              limit: 10,
+            }));
+          }}
+        />
+        {selected}
+        {selectProps.hover}
+      </Align.Space>
+      <Select.Provider value={selected} {...selectProps}>
+        <List.List data={data} useItem={useListItem}>
+          <List.Items>{listItem}</List.Items>
+        </List.List>
+      </Select.Provider>
     </Align.Space>
   );
 };

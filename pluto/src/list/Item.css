@@ -12,7 +12,7 @@
 .pluto-list__item {
     position: relative;
     cursor: pointer;
-    padding: 2rem;
+    padding: 1rem 2rem;
     border-color: var(--pluto-gray-l2);
 
     &.pluto--selectable:is(:hover, .pluto--hovered) {

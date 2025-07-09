@@ -33,12 +33,14 @@ interface ContextValue<K extends record.Key = record.Key> {
   value: K[];
   onSelect: (key: K) => void;
   clear: () => void;
+  hover?: K;
 }
 
 export interface ProviderProps<K extends record.Key = record.Key>
   extends Omit<ContextValue<K>, "value">,
     PropsWithChildren {
   value: K | K[] | null | undefined;
+  hover?: K;
 }
 
 export const Provider = <K extends record.Key = record.Key>({
@@ -46,18 +48,29 @@ export const Provider = <K extends record.Key = record.Key>({
   onSelect,
   clear,
   children,
+  hover,
 }: ProviderProps<K>): ReactElement => {
   const ctx = useMemo(
-    () => ({ value: array.toArray(value), onSelect, clear }),
-    [value, onSelect, clear],
+    () => ({ value: array.toArray(value), onSelect, clear, hover }),
+    [value, onSelect, clear, hover],
   );
   return <Context.Provider value={ctx}>{children}</Context.Provider>;
 };
 
-export const useItemState = <K extends record.Key>(key: K): [boolean, () => void] => {
-  const { value, onSelect } = useRequiredContext(Context);
+export interface UseItemStateReturn {
+  selected: boolean;
+  hovered: boolean;
+  onSelect: () => void;
+}
+
+export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn => {
+  const { value, onSelect, hover } = useRequiredContext(Context);
   const handleSelect = useCallback(() => onSelect(key), [key, onSelect]);
-  return [isSelected(value, key), handleSelect];
+  return {
+    selected: isSelected(value, key),
+    hovered: hover === key,
+    onSelect: handleSelect,
+  };
 };
 
 export const useSelection = <K extends record.Key>(): K[] => {

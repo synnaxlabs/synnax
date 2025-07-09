@@ -11,6 +11,7 @@ import { array, type Optional, type record, unique } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks/ref";
+import { useHover, type UseHoverProps, type UseHoverReturn } from "@/select/useHover";
 import { Triggers } from "@/triggers";
 
 /**
@@ -43,20 +44,23 @@ export interface UseSingleRequiredProps<K extends record.Key> extends BaseProps<
 type UseSingleInternalProps<K extends record.Key> =
   | UseSingleAllowNoneProps<K>
   | UseSingleRequiredProps<K>;
-
 export type UseSingleProps<K extends record.Key> = Optional<
   UseSingleInternalProps<K>,
   "allowNone"
->;
+> &
+  Omit<UseHoverProps<K>, "onSelect">;
 
-export interface UseMultipleProps<K extends record.Key> extends BaseProps<K> {
+export interface UseMultipleProps<K extends record.Key>
+  extends BaseProps<K>,
+    Omit<UseHoverProps<K>, "onSelect"> {
   allowMultiple?: true;
   value: K[];
   onChange: (next: K[], extra: UseOnChangeExtra<K>) => void;
 }
 
 /** Return value for the {@link useMultiple} hook. */
-export interface UseReturn<K extends record.Key = record.Key> {
+export interface UseReturn<K extends record.Key = record.Key>
+  extends UseHoverReturn<K> {
   onSelect: (key: K) => void;
   clear: () => void;
 }
@@ -74,6 +78,7 @@ export const useSingle = <K extends record.Key>({
   data = [],
   allowNone = false,
   onChange,
+  initialHover,
 }: UseSingleProps<K>): UseReturn<K> => {
   const dataRef = useSyncedRef(data);
   const handleSelect = useCallback(
@@ -83,11 +88,12 @@ export const useSingle = <K extends record.Key>({
     },
     [dataRef, onChange],
   );
+  const hoverRes = useHover({ data, initialHover, onSelect: handleSelect });
   const clear = useCallback(() => {
     if (allowNone)
       onChange(null as unknown as K, { clicked: null, clickedIndex: null });
   }, [onChange, allowNone]);
-  return { onSelect: handleSelect, clear };
+  return { onSelect: handleSelect, clear, ...hoverRes };
 };
 
 export const useMultiple = <K extends record.Key>({
@@ -95,6 +101,7 @@ export const useMultiple = <K extends record.Key>({
   value = [],
   replaceOnSingle = false,
   onChange,
+  initialHover,
 }: UseMultipleProps<K>): UseReturn<K> => {
   const shiftValueRef = useRef<K | null>(null);
   const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
@@ -150,5 +157,6 @@ export const useMultiple = <K extends record.Key>({
     (): void => onChange([], { clicked: null, clickedIndex: 0 }),
     [onChange],
   );
-  return { onSelect, clear };
+  const hoverRes = useHover({ data, initialHover, onSelect });
+  return { onSelect, clear, ...hoverRes };
 };

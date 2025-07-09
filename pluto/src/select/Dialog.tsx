@@ -70,7 +70,7 @@ export const Dialog = <
   const [triggerChild, dialogChild] = children;
   return (
     <Provider value={value} onSelect={onSelect} clear={clear}>
-      <List.List ref={ref} data={data} useItem={useItem} virtualizer={virtualizer}>
+      <List.List data={data} useItem={useItem}>
         <Core.Dialog {...rest}>
           {triggerChild}
           <Core.Content>{dialogChild}</Core.Content>
