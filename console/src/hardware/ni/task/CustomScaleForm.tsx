@@ -11,7 +11,7 @@ import { Align, Form, Input, type List, Select, state } from "@synnaxlabs/pluto"
 import { binary, deep, type record } from "@synnaxlabs/x";
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { FS } from "@/fs";
 import {

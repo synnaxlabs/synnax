@@ -9,7 +9,7 @@
 
 import { type channel, type MultiSeries } from "@synnaxlabs/client";
 import { useCallback, useEffect } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { useSyncedRef } from "@/hooks";
 import { useAddListener } from "@/sync/Context";

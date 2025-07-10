@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { deep, map, observe, type status, zod } from "@synnaxlabs/x";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 export interface FieldState<V = unknown> {
   value: V;

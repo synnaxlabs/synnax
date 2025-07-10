@@ -9,7 +9,7 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 

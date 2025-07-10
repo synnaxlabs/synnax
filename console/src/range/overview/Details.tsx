@@ -22,7 +22,7 @@ import {
 import { type change, deep } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";

@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";

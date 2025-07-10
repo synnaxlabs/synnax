@@ -10,7 +10,7 @@
 import { control as clientControl } from "@synnaxlabs/client";
 import { type status, TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useCallback, useEffect } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Button } from "@/button";

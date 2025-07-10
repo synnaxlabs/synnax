@@ -9,7 +9,7 @@
 
 import { deep, type Destructor, type status } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import {
   type BindFunc,

@@ -9,7 +9,7 @@
 
 import { color, notation } from "@synnaxlabs/x";
 import { box, location, scale, xy } from "@synnaxlabs/x/spatial";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";

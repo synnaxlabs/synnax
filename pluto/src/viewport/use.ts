@@ -17,7 +17,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";

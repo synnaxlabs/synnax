@@ -22,7 +22,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type change, color, uuid } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";

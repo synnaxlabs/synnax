@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status, zod } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const keyZ = z.uint32();
 export type Key = z.infer<typeof keyZ>;

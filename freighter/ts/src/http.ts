@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type binary, errors, type URL } from "@synnaxlabs/x";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
 import { type Context, MiddlewareCollector } from "@/middleware";
