@@ -609,12 +609,6 @@ importers:
       '@synnaxlabs/x':
         specifier: workspace:^
         version: link:../../x/ts
-      node-fetch:
-        specifier: ^2.7.0
-        version: 2.7.0
-      ws:
-        specifier: ^8.18.2
-        version: 8.18.2
       zod:
         specifier: 'catalog:'
         version: 3.25.64

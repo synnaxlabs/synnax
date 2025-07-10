@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, errors, runtime, type URL } from "@synnaxlabs/x";
+import { type binary, errors, type URL } from "@synnaxlabs/x";
 import { type z } from "zod/v4";
 
 import { Unreachable } from "@/errors";
@@ -15,18 +15,6 @@ import { type Context, MiddlewareCollector } from "@/middleware";
 import { type UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
-
-const resolveFetchAPI = (protocol: "http" | "https"): typeof fetch => {
-  if (runtime.RUNTIME !== "node") return fetch;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const _fetch: typeof fetch = require("node-fetch");
-  if (protocol === "http") return _fetch;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const https = require("https");
-  const agent = new https.Agent({ rejectUnauthorized: false });
-  // @ts-expect-error - TS doesn't know about qhis option
-  return async (info, init) => await _fetch(info, { ...init, agent });
-};
 
 const shouldCastToUnreachable = (err: Error): boolean =>
   ("code" in err && err.code === "ECONNREFUSED") ||
@@ -44,13 +32,11 @@ const HTTP_STATUS_BAD_REQUEST = 400;
 export class HTTPClient extends MiddlewareCollector implements UnaryClient {
   endpoint: URL;
   encoder: binary.Codec;
-  fetch: typeof fetch;
 
   constructor(endpoint: URL, encoder: binary.Codec, secure: boolean = false) {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;
-    this.fetch = resolveFetchAPI(this.endpoint.protocol as "http" | "https");
 
     return new Proxy(this, {
       get: (target, prop, receiver) => {
@@ -93,8 +79,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         };
         let httpRes: Response;
         try {
-          const f = resolveFetchAPI(ctx.protocol as "http" | "https");
-          httpRes = await f(ctx.target, request);
+          httpRes = await fetch(ctx.target, request);
         } catch (err_) {
           let err = err_ as Error;
           if (shouldCastToUnreachable(err)) err = new Unreachable({ url });

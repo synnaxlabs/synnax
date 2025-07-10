@@ -7,25 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type binary,
-  buildQueryString,
-  errors,
-  runtime,
-  type URL,
-} from "@synnaxlabs/x";
+import { type binary, buildQueryString, errors, type URL } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { EOF, StreamClosed } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
-
-const resolveWebSocketConstructor = (): ((target: string) => WebSocket) => {
-  if (runtime.RUNTIME !== "node") return (t) => new WebSocket(t);
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return (t) => new (require("ws").WebSocket)(t, { rejectUnauthorized: false });
-};
 
 const wsMessageZ = z.object({
   type: z.enum(["data", "close", "open"]),
@@ -187,12 +175,11 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     reqSchema: RQ,
     resSchema: RS,
   ): Promise<Stream<RQ, RS>> {
-    const SocketConstructor = resolveWebSocketConstructor();
     let stream: Stream<RQ, RS> | undefined;
     const [, error] = await this.executeMiddleware(
       { target, protocol: "websocket", params: {}, role: "client" },
       async (ctx: Context): Promise<[Context, Error | null]> => {
-        const ws = SocketConstructor(this.buildURL(target, ctx));
+        const ws = new WebSocket(this.buildURL(target, ctx));
         const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
         const streamOrErr = await this.wrapSocket(ws, reqSchema, resSchema);
