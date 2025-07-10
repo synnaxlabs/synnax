@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type PropsWithChildren, type ReactElement } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Context, type ContextValue } from "@/form/Context";
 

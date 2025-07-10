@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type binary, errors, type URL } from "@synnaxlabs/x";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
 import { type Context, MiddlewareCollector } from "@/middleware";
@@ -17,8 +17,10 @@ import { type UnaryClient } from "@/unary";
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 
 const shouldCastToUnreachable = (err: Error): boolean =>
-  ("code" in err && err.code === "ECONNREFUSED") ||
-  err.message.toLowerCase().includes("load failed");
+  typeof err.cause === "object" &&
+  err.cause !== null &&
+  "code" in err.cause &&
+  err.cause.code === "ECONNREFUSED";
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 
@@ -86,10 +88,9 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         let httpRes: Response;
         try {
           httpRes = await fetch(ctx.target, request);
-        } catch (err) {
-          if (!(err instanceof Error)) throw err;
-          if (shouldCastToUnreachable(err)) return [outCtx, new Unreachable({ url })];
-          return [outCtx, err];
+        } catch (e) {
+          if (!(e instanceof Error)) throw e;
+          return [outCtx, shouldCastToUnreachable(e) ? new Unreachable({ url }) : e];
         }
         let data = new ArrayBuffer();
         if (httpRes.ok) {

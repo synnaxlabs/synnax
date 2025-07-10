@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type binary, buildQueryString, errors, type URL } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { EOF, StreamClosed } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";

@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  bounds,
-  convertRenderV,
-  type direction,
-  type Key,
-  type Keyed,
-} from "@synnaxlabs/x";
+import { bounds, convertRenderV, type direction, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 export interface TableColumn<K extends record.Key, E extends record.Keyed<K>> {
@@ -40,7 +34,7 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
   columns,
   data,
   highlights = [],
-}: TableProps<Key, E>): ReactElement => (
+}: TableProps<K, E>): ReactElement => (
   <div style={{ overflowX: "auto", paddingLeft: 2 }}>
     <table>
       <thead>

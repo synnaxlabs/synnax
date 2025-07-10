@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 interface UseContextValue
   extends z.ZodObject<{

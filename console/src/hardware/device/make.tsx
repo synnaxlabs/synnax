@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { LabJack } from "@/hardware/labjack";
 import { NI } from "@/hardware/ni";

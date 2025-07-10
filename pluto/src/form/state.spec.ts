@@ -8,18 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it, vi } from "vitest";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { State } from "@/form/state";
 
 const basicSchema = z
   .object({
     name: z.string().min(1, "Name is required"),
-    email: z.string().email("Invalid email format"),
+    email: z.email("Invalid email format"),
     age: z.number().min(0, "Age must be positive").max(120, "Age must be realistic"),
     profile: z.object({
       bio: z.string().optional(),
-      website: z.string().url("Invalid URL").optional(),
+      website: z.url("Invalid URL").optional(),
     }),
     tags: z.array(z.string()),
     isActive: z.boolean(),

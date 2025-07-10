@@ -12,7 +12,7 @@ import { Align, Eraser, Status, Synnax, Text, useSyncedRef } from "@synnaxlabs/p
 import { useQuery } from "@tanstack/react-query";
 import { type FC } from "react";
 import { useStore } from "react-redux";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { NULL_CLIENT_ERROR } from "@/errors";
 import { Layout } from "@/layout";
