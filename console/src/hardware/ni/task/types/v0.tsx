@@ -142,8 +142,8 @@ export type Units = z.infer<typeof unitsZ>;
 export const LINEAR_SCALE_TYPE = "linear";
 const linearScaleZ = z.object({
   type: z.literal(LINEAR_SCALE_TYPE),
-  slope: z.number().finite(),
-  yIntercept: z.number().finite(),
+  slope: z.number(),
+  yIntercept: z.number(),
   preScaledUnits: unitsZ,
   scaledUnits: z.string(),
 });
@@ -160,10 +160,10 @@ export const MAP_SCALE_TYPE = "map";
 const mapScaleZ = z
   .object({
     type: z.literal(MAP_SCALE_TYPE),
-    preScaledMin: z.number().finite(),
-    preScaledMax: z.number().finite(),
-    scaledMin: z.number().finite(),
-    scaledMax: z.number().finite(),
+    preScaledMin: z.number(),
+    preScaledMax: z.number(),
+    scaledMin: z.number(),
+    scaledMax: z.number(),
     preScaledUnits: unitsZ,
     scaledUnits: z.string(),
   })
@@ -190,8 +190,8 @@ export const TABLE_SCALE_TYPE = "table";
 const tableScaleZ = z
   .object({
     type: z.literal(TABLE_SCALE_TYPE),
-    preScaledVals: z.number().finite().array(),
-    scaledVals: z.number().finite().array(),
+    preScaledVals: z.number().array(),
+    scaledVals: z.number().array(),
     preScaledUnits: unitsZ,
     scaledUnits: z.string(),
   })
@@ -751,7 +751,7 @@ const aiThrmcplChanWithBuiltInCJCSourceZ = baseAIThrmcplChanZ.extend({
 });
 const aiThrmcplChanWithConstCJCSourceZ = baseAIThrmcplChanZ.extend({
   cjcSource: z.literal(CONST_VAL),
-  cjcVal: z.number().finite(),
+  cjcVal: z.number(),
 });
 const aiThrmcplChanWithChanCJCSourceZ = baseAIThrmcplChanZ.extend({
   cjcSource: z.literal(CHAN),

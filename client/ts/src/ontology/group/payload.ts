@@ -10,7 +10,7 @@
 import { array } from "@synnaxlabs/x/array";
 import { z } from "zod";
 
-export const keyZ = z.string().uuid();
+export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export const nameZ = z.string();
 export type Name = z.infer<typeof nameZ>;

@@ -13,7 +13,7 @@ import { actionZ } from "@/access/payload";
 import { ontology } from "@/ontology";
 import { nullableArrayZ } from "@/util/zod";
 
-export const keyZ = z.string().uuid();
+export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 export const policyZ = z.object({

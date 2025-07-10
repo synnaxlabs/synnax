@@ -33,7 +33,7 @@ describe("connectivity", () => {
     );
     const state = await connectivity.check();
     expect(state.status).toEqual("connected");
-    expect(z.string().uuid().safeParse(state.clusterKey).success).toBe(true);
+    expect(z.uuid().safeParse(state.clusterKey).success).toBe(true);
   });
   describe("version compatibility", () => {
     it("should pull the server and client versions", async () => {

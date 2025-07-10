@@ -43,7 +43,7 @@ export type GetOptions<V> =
   | DefaultGetOptions<V>
   | ExtensionGetOptions<V>;
 
-const getVariant = (issue: z.ZodIssue): status.Variant => {
+const getVariant = (issue: z.core.$ZodIssue): status.Variant => {
   if (issue.code === "custom" && issue.params != null && "variant" in issue.params)
     return issue.params.variant;
   return "error";
