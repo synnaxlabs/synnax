@@ -166,7 +166,10 @@ export const useForm = <
       if (client == null) throw NULL_CLIENT_ERROR;
       if (initialTask.snapshot) return;
       if (!(await methods.validateAsync())) return;
-      const { name, config } = methods.value();
+      const { name, config } = methods.value() as {
+        name: string;
+        config: z.infer<Config>;
+      };
       if (config == null) throw new Error("Config is required");
       const [newConfig, rackKey] = await onConfigure(
         client,
