@@ -12,7 +12,7 @@
     "fix": "eslint --cache --fix"
   },
   "dependencies": {
-    "stylelint": "^16.20.0",
+    "stylelint": "^16.21.1",
     "stylelint-config-standard": "^38.0.0"
   },
   "devDependencies": {
