@@ -21,7 +21,7 @@ import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type UseMutateFunction, useMutation } from "@tanstack/react-query";
 import { type FC, useCallback, useEffect, useState as useReactState } from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { NULL_CLIENT_ERROR } from "@/errors";
@@ -166,7 +166,10 @@ export const useForm = <
       if (client == null) throw NULL_CLIENT_ERROR;
       if (initialTask.snapshot) return;
       if (!(await methods.validateAsync())) return;
-      const { name, config } = methods.value();
+      const { name, config } = methods.value() as {
+        name: string;
+        config: z.infer<Config>;
+      };
       if (config == null) throw new Error("Config is required");
       const [newConfig, rackKey] = await onConfigure(
         client,

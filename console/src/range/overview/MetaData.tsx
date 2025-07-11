@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type change, compare, deep, kv, link } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useMemo } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";

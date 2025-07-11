@@ -9,7 +9,7 @@
 
 import { type Destructor } from "@synnaxlabs/x";
 import { createContext, use } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { type FieldState, type State } from "@/form/state";
 
