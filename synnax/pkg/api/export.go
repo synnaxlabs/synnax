@@ -55,7 +55,7 @@ func (s *ExportService) CSV(ctx context.Context, req ExportCSVRequest) (ExportCS
 		indexKeys := make(channel.Keys, len(keys))
 		if err = s.WithTx(ctx, func(tx gorp.Tx) error {
 			var channels []channel.Channel
-			if err := (*s.channel).NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, tx); err != nil {
+			if err := s.channel.NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, tx); err != nil {
 				return err
 			}
 			for i, c := range channels {
@@ -68,7 +68,7 @@ func (s *ExportService) CSV(ctx context.Context, req ExportCSVRequest) (ExportCS
 		allKeys := append(keys, indexKeys...).Unique()
 		channels := make([]channel.Channel, len(allKeys))
 		if err = s.WithTx(ctx, func(tx gorp.Tx) error {
-			return (*s.channel).NewRetrieve().WhereKeys(allKeys...).Entries(&channels).Exec(ctx, tx)
+			return s.channel.NewRetrieve().WhereKeys(allKeys...).Entries(&channels).Exec(ctx, tx)
 		}); err != nil {
 			return
 		}
