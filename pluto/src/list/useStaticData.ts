@@ -19,7 +19,7 @@ export interface UseStaticDataReturn<
 > {
   useListItem: (key?: K) => E | undefined;
   data: K[];
-  retrieve: state.Setter<RetrieveParams, RetrieveParams | {}>;
+  retrieve: state.Setter<RetrieveParams, Partial<RetrieveParams>>;
 }
 
 export interface RetrieveParams {

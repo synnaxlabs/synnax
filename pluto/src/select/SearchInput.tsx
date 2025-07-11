@@ -10,21 +10,16 @@
 import { useState } from "react";
 
 import { Input } from "@/input";
-import { type state } from "@/state";
 
-export interface SearchParams {
-  term?: string;
-}
-
-export interface SearchInputProps<P extends SearchParams> {
+export interface SearchInputProps {
   searchPlaceholder?: string;
-  onSearch?: state.Setter<P, P | {}>;
+  onSearch?: (term: string) => void;
 }
 
-export const SearchInput = <P extends SearchParams>({
+export const SearchInput = ({
   searchPlaceholder = "Search...",
   onSearch,
-}: SearchInputProps<P>) => {
+}: SearchInputProps) => {
   const [term, setTerm] = useState<string>("");
   return (
     <Input.Text
@@ -34,7 +29,7 @@ export const SearchInput = <P extends SearchParams>({
       borderShade={6}
       onChange={(v) => {
         setTerm(v);
-        onSearch?.((prev) => ({ ...prev, term: v }) as P);
+        onSearch?.(v);
       }}
     />
   );

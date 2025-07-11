@@ -15,6 +15,7 @@ import { Button } from "@/button";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { useContext } from "@/dialog/Dialog";
+import { type Icon } from "@/icon";
 
 export interface TriggerProps extends Button.ButtonProps {}
 
@@ -23,17 +24,20 @@ export const Trigger = ({
   className,
   ...rest
 }: TriggerProps): ReactElement => {
-  const { open, visible } = useContext();
+  const { toggle, visible, variant } = useContext();
+  let endIcon: Icon.ReactElement | undefined;
+  if (variant !== "modal")
+    endIcon = (
+      <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />
+    );
   return (
     <Button.Button
       className={CSS(CSS.BE("dialog", "trigger"))}
       onClick={(e) => {
         onClick?.(e);
-        open();
+        toggle();
       }}
-      endIcon={
-        <Caret.Animated enabled={visible} enabledLoc="left" disabledLoc="left" />
-      }
+      endIcon={endIcon}
       {...rest}
     />
   );

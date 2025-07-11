@@ -66,8 +66,8 @@ export const SelectPort = ({
           <Dialog.Trigger>{selected?.alias ?? selected?.key}</Dialog.Trigger>
           {children}
         </Align.Pack>
-        <Select.Dialog<string, List.RetrieveParams>
-          onSearch={retrieve}
+        <Select.Dialog<string>
+          onSearch={(term) => retrieve({ term })}
           searchPlaceholder="Search Ports..."
           emptyContent={emptyContent}
         >

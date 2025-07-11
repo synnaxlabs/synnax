@@ -13,10 +13,11 @@ import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { useAliases } from "@/channel/AliasContext";
-import { type ListParams, useList } from "@/channel/queries";
+import { useList } from "@/channel/queries";
 import { HAUL_TYPE } from "@/channel/types";
 import { Component } from "@/component";
 import { Dialog } from "@/dialog";
+import { Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -70,6 +71,7 @@ export const SelectMultiple = ({
   ...rest
 }: SelectMultipleProps): ReactElement => {
   const { data, useListItem, retrieve } = useList();
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
     <Select.Frame<channel.Key, channel.Channel | undefined>
       multiple
@@ -77,11 +79,12 @@ export const SelectMultiple = ({
       onChange={onChange}
       useListItem={useListItem}
       data={data}
+      onFetchMore={onFetchMore}
       {...rest}
     >
       <Select.MultipleTrigger haulType={HAUL_TYPE} />
-      <Select.Dialog<channel.Key, ListParams>
-        onSearch={retrieve}
+      <Select.Dialog<channel.Key>
+        onSearch={onSearch}
         searchPlaceholder="Search channels..."
         emptyContent={emptyContent}
       >
@@ -115,8 +118,8 @@ export const SelectSingle = ({
         allowNone={allowNone}
       >
         <Select.SingleTrigger haulType={HAUL_TYPE} icon={<Icon.Channel />} />
-        <Select.Dialog<channel.Key, ListParams>
-          onSearch={retrieve}
+        <Select.Dialog<channel.Key>
+          onSearch={(term) => retrieve({ term, offset: 0, limit: 10 })}
           searchPlaceholder="Search channels..."
           emptyContent={emptyContent}
         >

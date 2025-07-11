@@ -11,6 +11,7 @@ import { type record } from "@synnaxlabs/x";
 
 import { Component } from "@/component";
 import { Dialog } from "@/dialog";
+import { Flux } from "@/flux";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
 import { type ItemRenderProp } from "@/list/Item";
@@ -57,16 +58,18 @@ export const Simple = <K extends record.Key, E extends record.KeyedNamed<K>>({
   ...rest
 }: SimpleProps<K, E>) => {
   const { retrieve, ...listProps } = List.useStaticData<K, E>({ data, filter });
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
     <Dialog.Frame {...rest}>
       <Frame<K, E>
         value={value}
         onChange={onChange}
         allowNone={allowNone}
+        onFetchMore={onFetchMore}
         {...listProps}
       >
         <SingleTrigger disabled={disabled} />
-        <SelectDialog onSearch={retrieve} emptyContent={emptyContent}>
+        <SelectDialog onSearch={onSearch} emptyContent={emptyContent}>
           {children}
         </SelectDialog>
       </Frame>

@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 
 import { Component } from "@/component";
 import { Dialog } from "@/dialog";
-import { type Flux } from "@/flux";
+import { Flux } from "@/flux";
 import { useList } from "@/hardware/rack/queries";
 import { List } from "@/list";
 import { type ListParams } from "@/ranger/queries";
@@ -26,7 +26,7 @@ export interface SelectSingleProps
     >,
     Flux.UseListArgs<ListParams, rack.Key, rack.Rack>,
     Omit<Dialog.FrameProps, "onChange">,
-    Pick<Select.DialogProps<rack.Key, ListParams>, "emptyContent"> {}
+    Pick<Select.DialogProps<rack.Key>, "emptyContent"> {}
 
 const listItemRenderProp = Component.renderProp(
   ({ itemKey }: List.ItemRenderProps<rack.Key>) => {
@@ -44,6 +44,7 @@ export const SelectSingle = ({
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, useListItem, retrieve } = useList();
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
     <Dialog.Frame {...rest}>
       <Select.Frame<rack.Key, rack.Rack | undefined>
@@ -52,10 +53,11 @@ export const SelectSingle = ({
         useListItem={useListItem}
         data={data}
         allowNone={allowNone}
+        onFetchMore={onFetchMore}
       >
         <Select.SingleTrigger />
-        <Select.Dialog<rack.Key, ListParams>
-          onSearch={retrieve}
+        <Select.Dialog<rack.Key>
+          onSearch={onSearch}
           searchPlaceholder="Search Racks..."
           emptyContent={emptyContent}
         >

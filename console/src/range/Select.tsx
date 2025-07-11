@@ -92,7 +92,7 @@ const SelectMultipleRanges = ({
           <RangeTag key={key} itemKey={key} />
         ))}
       </Dialog.Trigger>
-      <Select.Dialog<string, List.RetrieveParams>
+      <Select.Dialog<string>
         searchPlaceholder="Search Ranges..."
         emptyContent={<SelectEmptyContent />}
       >
@@ -111,7 +111,7 @@ const SelectRange = ({ value, onChange }: SelectSingleRangeProps): ReactElement 
       <Dialog.Trigger>
         {value != null ? <RangeTag itemKey={value} /> : null}
       </Dialog.Trigger>
-      <Select.Dialog<string, List.RetrieveParams>
+      <Select.Dialog<string>
         searchPlaceholder="Search Ranges..."
         emptyContent={<SelectEmptyContent />}
       >

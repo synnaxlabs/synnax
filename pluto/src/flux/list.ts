@@ -9,7 +9,7 @@
 
 import { type Synnax } from "@synnaxlabs/client";
 import { compare, type MultiSeries, type record } from "@synnaxlabs/x";
-import { useCallback, useRef, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 
 import { useMountListeners } from "@/flux/listeners";
 import { type Params } from "@/flux/params";
@@ -20,11 +20,7 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import {
-  type AsyncOptions,
-  type CreateRetrieveArgs,
-  type UseStatefulRetrieveReturn,
-} from "@/flux/retrieve";
+import { type AsyncOptions, type CreateRetrieveArgs } from "@/flux/retrieve";
 import { type Sync } from "@/flux/sync";
 import {
   useCombinedStateAndRef,
@@ -39,11 +35,23 @@ interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   (keys: K[]): E[];
 }
 
+interface AsyncListOptions extends AsyncOptions {
+  mode?: "append" | "replace";
+}
+
 export type UseListReturn<
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,
-> = Omit<UseStatefulRetrieveReturn<RetrieveParams, K[]>, "data"> & {
+> = Omit<Result<K[]>, "data"> & {
+  retrieve: (
+    params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
+    options?: AsyncListOptions,
+  ) => void;
+  retrieveAsync: (
+    params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
+    options?: AsyncListOptions,
+  ) => Promise<void>;
   data: K[];
   useListItem: (key?: K) => E | undefined;
   getItem: GetItem<K, E>;
@@ -131,21 +139,27 @@ export const createList =
       listeners: new Map(),
     }));
     const [result, setResult, resultRef] = useCombinedStateAndRef<Result<K[]>>(
-      pendingResult<K[]>(name, "retrieving", []),
+      pendingResult<K[]>(name, "retrieving"),
     );
+    const hasMoreRef = useRef(true);
 
     const paramsRef = useRef<P | null>(initialParams ?? null);
 
     const mountListeners = useMountListeners();
     const retrieveAsync = useCallback(
-      async (paramsSetter: state.SetArg<P, P | {}>, options: AsyncOptions = {}) => {
-        const { signal } = options;
+      async (paramsSetter: state.SetArg<P, P | {}>, options: AsyncListOptions = {}) => {
+        const { signal, mode = "replace" } = options;
         const params = state.executeSetter(paramsSetter, paramsRef.current ?? {});
         paramsRef.current = params;
         try {
           if (client == null) return setResult(nullClientResult<K[]>(name, "retrieve"));
-          setResult(pendingResult<K[]>(name, "retrieving", resultRef.current.data));
+          setResult((p) => pendingResult(name, "retrieving", p.data ?? []));
+          if (mode === "replace") {
+            dataRef.current.clear();
+            hasMoreRef.current = true;
+          } else if (mode === "append" && !hasMoreRef.current) return;
           const value = await retrieve({ client, params });
+          if (value.length === 0) hasMoreRef.current = false;
           const keys = value.map((v) => v.key);
           if (
             resultRef.current.data != null &&
@@ -194,7 +208,15 @@ export const createList =
                 })(),
             })),
           );
-          return setResult(successResult(name, "retrieved", keys));
+          return setResult((prev) => {
+            if (mode === "replace" || prev.data == null)
+              return successResult(name, "retrieved", keys);
+            const keysSet = new Set(keys);
+            return successResult(name, "retrieved", [
+              ...prev.data.filter((k) => !keysSet.has(k)),
+              ...keys,
+            ]);
+          });
         } catch (error) {
           setResult(errorResult<K[]>(name, "retrieve", error));
         }
@@ -265,7 +287,7 @@ export const createList =
     }, []);
 
     const retrieveSync = useDebouncedCallback(
-      (params: state.SetArg<P, P | {}>, options: AsyncOptions = {}) =>
+      (params: state.SetArg<P, P | {}>, options: AsyncListOptions = {}) =>
         void retrieveAsync(params, options),
       100,
       [retrieveAsync],
@@ -280,3 +302,36 @@ export const createList =
       data: result?.data ?? [],
     };
   };
+
+export interface PagerParams extends Params {
+  term?: string;
+  offset?: number;
+  limit?: number;
+}
+
+export interface UsePagerReturn {
+  onFetchMore: () => void;
+  onSearch: (term: string) => void;
+}
+
+export interface UsePagerArgs
+  extends Pick<UseListReturn<PagerParams, any, any>, "retrieve"> {
+  pageSize?: number;
+}
+
+export const usePager = ({ retrieve, pageSize = 10 }: UsePagerArgs): UsePagerReturn =>
+  useMemo(
+    () => ({
+      onFetchMore: () =>
+        retrieve(
+          ({ offset = -pageSize, term }) => ({
+            offset: offset + pageSize,
+            limit: pageSize,
+            term,
+          }),
+          { mode: "append" },
+        ),
+      onSearch: (term) => retrieve({ term, offset: 0, limit: pageSize }),
+    }),
+    [retrieve],
+  );

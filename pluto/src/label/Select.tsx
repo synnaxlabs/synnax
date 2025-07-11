@@ -12,8 +12,9 @@ import { type ReactElement } from "react";
 
 import { Component } from "@/component";
 import { Dialog } from "@/dialog";
+import { Flux } from "@/flux";
 import { Icon } from "@/icon";
-import { type ListParams, useList } from "@/label/queries";
+import { useList } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -47,7 +48,7 @@ export interface SelectMultipleProps
       Select.MultipleFrameProps<label.Key, label.Label | undefined>,
       "data" | "useListItem" | "multiple"
     >,
-    Pick<Select.DialogProps<label.Key, ListParams>, "emptyContent">,
+    Pick<Select.DialogProps<label.Key>, "emptyContent">,
     Omit<Dialog.FrameProps, "onChange"> {}
 
 export const SelectMultiple = ({
@@ -57,6 +58,7 @@ export const SelectMultiple = ({
   ...rest
 }: SelectMultipleProps): ReactElement => {
   const { data, retrieve, useListItem } = useList();
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
     <Dialog.Frame {...rest}>
       <Select.Frame<label.Key, label.Label | undefined>
@@ -65,10 +67,11 @@ export const SelectMultiple = ({
         data={data}
         useListItem={useListItem}
         onChange={onChange}
+        onFetchMore={onFetchMore}
       >
         <Select.MultipleTrigger haulType={HAUL_TYPE} />
-        <Select.Dialog<label.Key, ListParams>
-          onSearch={retrieve}
+        <Select.Dialog<label.Key>
+          onSearch={onSearch}
           searchPlaceholder="Search labels..."
           emptyContent={emptyContent}
         >
@@ -85,7 +88,7 @@ export interface SelectSingleProps
       "data" | "useListItem"
     >,
     Omit<Dialog.FrameProps, "onChange">,
-    Pick<Select.DialogProps<label.Key, ListParams>, "emptyContent"> {}
+    Pick<Select.DialogProps<label.Key>, "emptyContent"> {}
 
 export const SelectSingle = ({
   onChange,
@@ -95,6 +98,7 @@ export const SelectSingle = ({
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, useListItem, retrieve } = useList();
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
     <Dialog.Frame {...rest}>
       <Select.Frame
@@ -103,10 +107,11 @@ export const SelectSingle = ({
         data={data}
         useListItem={useListItem}
         allowNone={allowNone}
+        onFetchMore={onFetchMore}
       >
         <Select.SingleTrigger haulType={HAUL_TYPE} />
-        <Select.Dialog<label.Key, ListParams>
-          onSearch={retrieve}
+        <Select.Dialog<label.Key>
+          onSearch={onSearch}
           searchPlaceholder="Search labels..."
           emptyContent={emptyContent}
         >

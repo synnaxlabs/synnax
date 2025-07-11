@@ -10,7 +10,7 @@ import {
   useRef,
 } from "react";
 
-import { useRequiredContext } from "@/hooks";
+import { useRequiredContext, useSyncedRef } from "@/hooks";
 
 export interface ItemSpec<K extends record.Key = record.Key> {
   key: K;
@@ -91,12 +91,13 @@ export const Frame = <
   onFetchMore,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
+  const onFetchMoreRef = useSyncedRef(onFetchMore);
   const refCallback = useCallback(
     (el: HTMLDivElement) => {
       ref.current = el;
-      onFetchMore?.();
+      onFetchMoreRef.current?.();
     },
-    [onFetchMore],
+    [onFetchMoreRef],
   );
   const virtualizer = useVirtualizer({
     count: data.length,

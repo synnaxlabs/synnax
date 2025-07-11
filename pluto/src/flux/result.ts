@@ -51,13 +51,13 @@ export const pendingResult = <Data extends state.State>(
 export const successResult = <Data extends state.State>(
   name: string,
   op: string,
-  value: Data,
+  data: Data,
 ): Result<Data> => ({
   ...status.create<undefined, "success">({
     variant: "success",
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
-  data: value,
+  data,
   error: null,
 });
 

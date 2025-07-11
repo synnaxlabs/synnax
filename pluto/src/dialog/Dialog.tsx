@@ -85,12 +85,14 @@ export interface ContextValue {
   open: () => void;
   toggle: () => void;
   visible: boolean;
+  variant: Variant;
 }
 
 const Context = createContext<ContextValue>({
   close: () => {},
   open: () => {},
   toggle: () => {},
+  variant: "floating",
   visible: false,
 });
 
@@ -207,14 +209,13 @@ export const Frame = ({
     () => ({
       ref: combinedDialogRef,
       location: dialogLoc,
-      variant,
       style: dialogStyle,
     }),
     [combinedDialogRef, dialogLoc, variant, dialogStyle],
   );
 
   const ctxValue = useMemo(
-    () => ({ close, open, toggle, visible, onPointerEnter }),
+    () => ({ close, open, toggle, visible, onPointerEnter, variant }),
     [close, open, toggle, visible],
   );
 
@@ -290,7 +291,6 @@ const CONNECTED_TRANSLATE_AMOUNT: number = 0.5;
 interface InternalContextValue {
   ref: RefCallback<HTMLDivElement>;
   location: loc.XY;
-  variant: Variant;
   style: CSSProperties;
 }
 
@@ -352,8 +352,8 @@ export interface DialogProps extends Align.SpaceProps {
 }
 
 export const Dialog = ({ zIndex, style, background = 0, ...rest }: DialogProps) => {
-  const { ref, location, variant, style: ctxStyle } = useInternalContext();
-  const { visible } = useContext();
+  const { ref, location, style: ctxStyle } = useInternalContext();
+  const { visible, variant } = useContext();
   if (!visible) return null;
   let dialog = (
     <Align.Pack

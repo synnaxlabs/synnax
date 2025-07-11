@@ -11,24 +11,20 @@ import { type record } from "@synnaxlabs/x";
 
 import { Dialog as CoreDialog } from "@/dialog";
 import { List } from "@/list";
-import {
-  SearchInput,
-  type SearchInputProps,
-  type SearchParams,
-} from "@/select/SearchInput";
+import { SearchInput, type SearchInputProps } from "@/select/SearchInput";
 
-export interface DialogProps<K extends record.Key, P extends SearchParams>
+export interface DialogProps<K extends record.Key>
   extends Omit<CoreDialog.DialogProps, "children">,
-    SearchInputProps<P>,
+    SearchInputProps,
     Pick<List.ItemsProps<K>, "emptyContent" | "children"> {}
 
-export const Dialog = <K extends record.Key, P extends SearchParams>({
+export const Dialog = <K extends record.Key>({
   onSearch,
   children,
   emptyContent,
   searchPlaceholder,
   ...rest
-}: DialogProps<K, P>) => (
+}: DialogProps<K>) => (
   <CoreDialog.Dialog {...rest}>
     {onSearch != null && (
       <SearchInput onSearch={onSearch} searchPlaceholder={searchPlaceholder} />

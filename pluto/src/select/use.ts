@@ -10,6 +10,7 @@
 import { array, type Optional, type record, unique } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 
+import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
 import { useHover, type UseHoverReturn } from "@/select/useHover";
@@ -72,13 +73,15 @@ export const useSingle = <K extends record.Key>({
   onChange,
 }: UseSingleProps<K>): UseReturn<K> => {
   const { data } = List.useData<K>();
+  const { close } = Dialog.useContext();
   const dataRef = useSyncedRef(data);
   const handleSelect = useCallback(
     (key: K): void => {
       const clickedIndex = dataRef.current.findIndex((v) => v === key);
       onChange(key, { clicked: key, clickedIndex });
+      close();
     },
-    [dataRef, onChange],
+    [dataRef, onChange, close],
   );
   const clear = useCallback(() => {
     if (allowNone)

@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
 import { Dialog } from "@/dialog";
-import { type Flux } from "@/flux";
+import { Flux } from "@/flux";
 import { type ListParams, useList } from "@/hardware/device/queries";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -53,6 +53,7 @@ export const SelectSingle = ({
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, useListItem, retrieve } = useList({ filter, initialParams });
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
     <Dialog.Frame {...rest}>
       <Select.Frame
@@ -60,10 +61,11 @@ export const SelectSingle = ({
         useListItem={useListItem}
         data={data}
         onChange={onChange}
+        onFetchMore={onFetchMore}
       >
         <Select.SingleTrigger />
-        <Select.Dialog<device.Key, ListParams>
-          onSearch={retrieve}
+        <Select.Dialog<device.Key>
+          onSearch={onSearch}
           searchPlaceholder="Search Devices..."
           emptyContent={emptyContent}
         >

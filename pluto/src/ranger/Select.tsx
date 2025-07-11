@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Component } from "@/component";
 import { Dialog } from "@/dialog";
-import { type Flux } from "@/flux";
+import { Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { type ListParams, useList } from "@/ranger/queries";
@@ -75,10 +75,22 @@ export const SelectMultiple = ({
         data={data}
         useListItem={useListItem}
         onChange={onChange}
+        onFetchMore={useCallback(
+          () =>
+            retrieve(
+              (p) => ({
+                ...p,
+                offset: (p?.offset ?? -10) + 10,
+                limit: 10,
+              }),
+              { mode: "append" },
+            ),
+          [retrieve],
+        )}
       >
         <Select.MultipleTrigger haulType={HAUL_TYPE} />
-        <Select.Dialog<ranger.Key, ListParams>
-          onSearch={retrieve}
+        <Select.Dialog<ranger.Key>
+          onSearch={(term) => retrieve({ term, offset: 0, limit: 10 })}
           searchPlaceholder="Search Ranges..."
           emptyContent={emptyContent}
         >
@@ -103,29 +115,27 @@ export const SelectSingle = ({
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, useListItem, retrieve } = useList({ filter, initialParams });
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Dialog.Frame {...rest}>
+    <Dialog.Frame variant="floating" {...rest}>
       <Select.Frame
         value={value}
         onChange={onChange}
         data={data}
         useListItem={useListItem}
         allowNone={allowNone}
-        // onFetchMore={() => retrieve({ ...initialParams, offset: data.length })}
+        onFetchMore={onFetchMore}
       >
         <Select.SingleTrigger
           haulType={HAUL_TYPE}
           placeholder="Select a Range..."
           icon={<Icon.Range />}
         />
-        <Select.Dialog<ranger.Key, ListParams>
-          onSearch={retrieve}
+        <Select.Dialog<ranger.Key>
+          onSearch={onSearch}
           searchPlaceholder="Search Ranges..."
           emptyContent={emptyContent}
-          style={{
-            width: 500,
-            height: 500,
-          }}
+          style={{ width: 500, height: 500 }}
         >
           {listItemRenderProp}
         </Select.Dialog>
