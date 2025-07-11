@@ -130,7 +130,7 @@ export const useDeleteSynchronizer = (onDelete: (key: label.Key) => void): void 
     }),
   });
 
-interface ListParams extends Flux.Params {
+export interface ListParams extends Flux.Params {
   term?: string;
   offset?: number;
   limit?: number;

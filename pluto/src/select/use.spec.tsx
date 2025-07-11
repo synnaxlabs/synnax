@@ -13,8 +13,6 @@ import { describe, expect, it } from "vitest";
 
 import { Select } from "@/select";
 
-const data: string[] = ["1", "2", "3"];
-
 interface UseSelectMultipleWrapperReturn {
   value: string[];
   clear: () => void;
@@ -27,7 +25,6 @@ const useMultipleWrapper = (
   const [value, onChange] = useState<string[]>([]);
   const { clear, onSelect } = Select.useMultiple<string>({
     ...props,
-    data,
     value,
     onChange,
   });
@@ -47,7 +44,6 @@ const useSelectSingleWrapper = (
   const { clear, onSelect } = Select.useSingle<string>({
     allowNone: true,
     ...props,
-    data,
     value,
     onChange,
   });

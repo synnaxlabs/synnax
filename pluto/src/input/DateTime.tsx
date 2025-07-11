@@ -241,11 +241,6 @@ const AISelector = ({
     setValue("");
     setEntries([]);
   };
-  const selectProps = Select.useSingle<string>({
-    value: undefined,
-    onChange: handleSelect,
-    data,
-  });
   return (
     <Align.Pack y className={CSS.B("ai-selector")} background={1}>
       <InputText
@@ -254,33 +249,28 @@ const AISelector = ({
         autoFocus
         placeholder="AI Suggestion"
       />
-      <Select.Provider {...selectProps} value={value}>
-        <List.Frame
-          data={data}
-          useListItem={useItem}
-          ref={ref}
-          virtualizer={virtualizer}
-          // emptyContent={
-          //   <Align.Center empty grow>
-          //     <Align.Space y size="tiny">
-          //       <Text.Text level="small" color="var(--pluto-gray-l7)">
-          //         "April 1 at 2PM"
-          //       </Text.Text>
-          //       <Text.Text level="small" color="var(--pluto-gray-l7)">
-          //         "Add 2 two hours"
-          //       </Text.Text>
-          //       <Text.Text level="small" color="var(--pluto-gray-l7)">
-          //         "Next Friday"
-          //       </Text.Text>
-          //     </Align.Space>
-          //   </Align.Center>
-          // }
+      <Select.Frame data={data} allowNone onChange={handleSelect} useListItem={useItem}>
+        <List.Items<string, AISuggestion>
+          className={CSS.B("ai-list")}
+          emptyContent={
+            <Align.Center empty grow>
+              <Align.Space y size="tiny">
+                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                  "April 1 at 2PM"
+                </Text.Text>
+                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                  "Add 2 two hours"
+                </Text.Text>
+                <Text.Text level="small" color="var(--pluto-gray-l7)">
+                  "Next Friday"
+                </Text.Text>
+              </Align.Space>
+            </Align.Center>
+          }
         >
-          <List.Items<string, AISuggestion> className={CSS.B("ai-list")}>
-            {aiListItem}
-          </List.Items>
-        </List.Frame>
-      </Select.Provider>
+          {aiListItem}
+        </List.Items>
+      </Select.Frame>
     </Align.Pack>
   );
 };
@@ -399,22 +389,18 @@ export const createTimeList = (count: number): FC<TimeListProps> => {
   const useItem = (key?: number): record.KeyedNamed<number> | undefined =>
     key == null ? undefined : { key, name: key.toString() };
 
-  const TimeList = ({ value, onChange }: TimeListProps): ReactElement => {
-    const selectProps = Select.useSingle({
-      value,
-      onChange: (next: number) => onChange(next),
-      data,
-    });
-    return (
-      <List.Frame<number, record.KeyedNamed<number>> data={data} useListItem={useItem}>
-        <Select.Provider {...selectProps} value={value}>
-          <List.Items<number, record.KeyedNamed<number>> className={CSS.B("time-list")}>
-            {timeListItem}
-          </List.Items>
-        </Select.Provider>
-      </List.Frame>
-    );
-  };
+  const TimeList = ({ value, onChange }: TimeListProps): ReactElement => (
+    <Select.Frame<number, record.KeyedNamed<number>>
+      data={data}
+      value={value}
+      onChange={onChange}
+      useListItem={useItem}
+    >
+      <List.Items<number, record.KeyedNamed<number>> className={CSS.B("time-list")}>
+        {timeListItem}
+      </List.Items>
+    </Select.Frame>
+  );
   TimeList.displayName = "TimeList";
   return TimeList;
 };

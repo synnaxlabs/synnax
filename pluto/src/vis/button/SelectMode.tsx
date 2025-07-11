@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 import { Select } from "@/select";
 import { type Mode, MODES } from "@/vis/button/use";
 
-interface SelectButtonModeProps extends Select.SingleProps<Mode> {}
+interface SelectButtonModeProps extends Omit<Select.ButtonsProps<Mode>, "keys"> {}
 
 export const SelectMode = (props: SelectButtonModeProps): ReactElement => (
   <Select.Buttons {...props} keys={MODES}>

@@ -12,7 +12,8 @@ import { type ReactElement } from "react";
 import { type Size, SIZES } from "@/component/size";
 import { Select } from "@/select";
 
-export interface SelectComponentSizeProps extends Select.SingleProps<Size> {}
+export interface SelectComponentSizeProps
+  extends Omit<Select.ButtonsProps<Size>, "keys"> {}
 
 export const SelectSize = (props: SelectComponentSizeProps): ReactElement => (
   <Select.Buttons {...props} keys={SIZES}>

@@ -9,15 +9,15 @@
 
 import "@/tree/Tree.css";
 
-import { type record, unique } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { type Component } from "@/component";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { state } from "@/state";
-import { flatten, type Node, type Shape } from "@/tree/core";
+import { type state } from "@/state";
+import { flatten, type Node } from "@/tree/core";
 import { Triggers } from "@/triggers";
 
 export const HAUL_TYPE = "tree-item";
@@ -36,35 +36,38 @@ export interface UseProps<K extends record.Key = string> {
   nodes: Node<K>[];
 }
 
-export interface UseReturn<K extends record.Key = string> extends Select.UseReturn<K> {
-  selected: K[];
-  expanded: K[];
-  expand: (key: K) => void;
-  contract: (...keys: K[]) => void;
-  clearExpanded: () => void;
-  shape: Shape<K>;
-}
-
 const SHIFT_TRIGGERS: Triggers.Trigger[] = [["Shift"]];
 
-export const use = <K extends record.Key = string>({
-  onExpand,
+export interface ItemProps<K extends record.Key = string>
+  extends List.ItemRenderProps<K> {
+  depth: number;
+}
+
+export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
+  extends Omit<
+      Select.MultipleFrameProps<K, E>,
+      "children" | "ref" | "virtualizer" | "data"
+    >,
+    Omit<List.ItemsProps<K>, "children" | "onChange"> {
+  children: Component.RenderProp<ItemProps<K>>;
+  showRules?: boolean;
+  initialExpanded?: K[];
+  onExpand?: (props: HandleExpandProps<K>) => void;
+  nodes: Node<K>[];
+}
+
+export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
+  children,
   nodes,
   initialExpanded = [],
-  selected: propsSelected,
-  onSelectedChange,
-}: UseProps<K>): UseReturn<K> => {
-  const [expanded, setExpanded, expandedRef] =
-    useCombinedStateAndRef<K[]>(initialExpanded);
-  const [selected, setSelected] = state.usePassthrough<K[]>({
-    initial: [],
-    value: propsSelected,
-    onChange: onSelectedChange,
-  });
-  const data = useMemo(() => flatten<K>({ nodes, expanded }), [nodes, expanded]);
+  onExpand,
+  useListItem,
+}: TreeProps<K, E>): ReactElement => {
   const nodesRef = useSyncedRef(nodes);
-
   const shiftRef = Triggers.useHeldRef({ triggers: SHIFT_TRIGGERS });
+
+  const [expanded, setExpanded, expandedRef] = useCombinedStateAndRef(initialExpanded);
+  const [selected, setSelected] = useCombinedStateAndRef<K[]>([]);
 
   const handleSelect: Select.UseMultipleProps<K>["onChange"] = useCallback(
     (keys: K[], { clicked }: Select.UseOnChangeExtra<K>): void => {
@@ -86,84 +89,22 @@ export const use = <K extends record.Key = string>({
     [onExpand, nodesRef, setExpanded, setSelected],
   );
 
-  const handleExpand = useCallback(
-    (key: K): void => {
-      setExpanded((expanded) => unique.unique([...expanded, key]));
-      onExpand?.({ current: expanded, action: "expand", clicked: key });
-    },
-    [setExpanded],
+  const { keys, depths } = useMemo(
+    () => flatten<K>({ nodes, expanded }),
+    [nodes, expanded],
   );
 
-  const handleContract = useCallback(
-    (...keys: K[]): void => {
-      setExpanded((expanded) => expanded.filter((k) => !keys.includes(k)));
-      // Call onExpand for each contracted key
-      keys.forEach((key) => {
-        onExpand?.({ current: expanded, action: "contract", clicked: key });
-      });
-    },
-    [setExpanded],
-  );
-
-  const clearExpanded = useCallback(() => setExpanded([]), [setExpanded]);
-
-  const { onSelect, clear } = Select.useMultiple({
-    value: selected,
-    onChange: handleSelect,
-    data: data.keys,
-  });
-
-  return {
-    selected,
-    expanded,
-    contract: handleContract,
-    expand: handleExpand,
-    clearExpanded,
-    shape: data,
-    onSelect,
-    clear,
-  };
-};
-
-export interface ItemProps<K extends record.Key = string>
-  extends List.ItemRenderProps<K> {
-  depth: number;
-}
-
-export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Omit<List.ListProps<K, E>, "children" | "ref" | "virtualizer" | "data">,
-    Omit<List.ItemsProps<K>, "children" | "onSelect"> {
-  selected: K[];
-  children: Component.RenderProp<ItemProps<K>>;
-  onSelect: (key: K) => void;
-  clearSelected: () => void;
-  showRules?: boolean;
-  shape: Shape<K>;
-}
-
-export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
-  shape,
-  children,
-  selected,
-  clearSelected,
-  onSelect,
-  useItem,
-  ...rest
-}: TreeProps<K, E>): ReactElement => {
-  const { keys, depths } = shape;
   return (
-    <Select.Provider value={selected} onSelect={onSelect} clear={clearSelected}>
-      <List.Frame
-        ref={ref}
-        data={keys}
-        virtualizer={virtualizer}
-        useListItem={useItem}
-        {...rest}
-      >
-        <List.Items<K, E>>
-          {({ index, ...rest }) => children({ index, depth: depths[index], ...rest })}
-        </List.Items>
-      </List.Frame>
-    </Select.Provider>
+    <Select.Frame<K, E>
+      multiple
+      data={keys}
+      value={selected}
+      onChange={handleSelect}
+      useListItem={useListItem}
+    >
+      <List.Items<K, E>>
+        {({ index, ...rest }) => children({ index, depth: depths[index], ...rest })}
+      </List.Items>
+    </Select.Frame>
   );
 };

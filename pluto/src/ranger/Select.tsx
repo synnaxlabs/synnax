@@ -57,12 +57,7 @@ const ListItem = ({
 const listItemRenderProp = Component.renderProp(ListItem);
 
 export interface SelectMultipleProps
-  extends Omit<
-      Select.MultipleFrameProps<ranger.Key, ranger.Payload | undefined>,
-      "data" | "useListItem" | "multiple"
-    >,
-    Pick<Select.DialogProps<ranger.Key, ListParams>, "emptyContent">,
-    Omit<Dialog.FrameProps, "onChange"> {}
+  extends Select.MultipleProps<ranger.Key, ranger.Payload | undefined> {}
 
 export const SelectMultiple = ({
   onChange,
@@ -94,13 +89,8 @@ export const SelectMultiple = ({
 };
 
 export interface SelectSingleProps
-  extends Omit<
-      Select.SingleFrameProps<ranger.Key, ranger.Payload | undefined>,
-      "data" | "useListItem"
-    >,
-    Pick<Flux.UseListArgs<ranger.Key, ranger.Payload>, "filter">,
-    Omit<Dialog.FrameProps, "onChange">,
-    Pick<Select.DialogProps<ranger.Key, ListParams>, "emptyContent"> {}
+  extends Select.SingleProps<ranger.Key, ranger.Payload | undefined>,
+    Pick<Flux.UseListArgs<ranger.Key, ranger.Payload>, "filter"> {}
 
 export const SelectSingle = ({
   onChange,

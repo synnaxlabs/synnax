@@ -110,7 +110,6 @@ export const Create: Layout.Renderer = ({ onClose }) => {
                 <Telem.SelectDataType
                   {...p}
                   disabled={isIndex}
-                  maxHeight="small"
                   zIndex={100}
                   hideVariableDensity={!isVirtual}
                 />

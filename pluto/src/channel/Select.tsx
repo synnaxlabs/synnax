@@ -59,12 +59,7 @@ const listItemRenderProp = Component.renderProp(
 );
 
 export interface SelectMultipleProps
-  extends Omit<
-      Select.MultipleFrameProps<channel.Key, channel.Channel | undefined>,
-      "data" | "useListItem" | "multiple"
-    >,
-    Pick<Select.DialogProps<channel.Key, ListParams>, "emptyContent">,
-    Omit<Dialog.FrameProps, "onChange"> {
+  extends Select.MultipleProps<channel.Key, channel.Channel | undefined> {
   searchOptions?: channel.RetrieveOptions;
 }
 
@@ -97,12 +92,7 @@ export const SelectMultiple = ({
 };
 
 export interface SelectSingleProps
-  extends Omit<
-      Select.SingleFrameProps<channel.Key, channel.Channel | undefined>,
-      "data" | "useListItem"
-    >,
-    Pick<Select.DialogProps<channel.Key, ListParams>, "emptyContent">,
-    Omit<Dialog.FrameProps, "onChange"> {
+  extends Select.SingleProps<channel.Key, channel.Channel | undefined> {
   searchOptions?: channel.RetrieveOptions;
 }
 

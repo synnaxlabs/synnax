@@ -14,7 +14,7 @@ import { type text } from "@/text/core";
 
 const DATA = [250, 400, 500, 600];
 
-export interface WeightProps extends Select.SingleProps<text.Weight> {}
+export interface WeightProps extends Omit<Select.ButtonsProps<text.Weight>, "keys"> {}
 
 export const Weight = (props: WeightProps): ReactElement => (
   <Select.Buttons {...props} keys={DATA}>

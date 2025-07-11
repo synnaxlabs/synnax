@@ -40,13 +40,8 @@ const listItemRenderProp = Component.renderProp(
 );
 
 export interface SelectSingleProps
-  extends Omit<
-      Select.SingleFrameProps<device.Key, device.Device | undefined>,
-      "data" | "useListItem"
-    >,
-    Pick<Flux.UseListArgs<device.Key, device.Device>, "filter">,
-    Omit<Dialog.FrameProps, "onChange">,
-    Pick<Select.DialogProps<device.Key, ListParams>, "emptyContent"> {}
+  extends Select.SingleProps<device.Key, device.Device | undefined>,
+    Pick<Flux.UseListArgs<device.Key, device.Device>, "filter"> {}
 
 export const SelectSingle = ({
   onChange,

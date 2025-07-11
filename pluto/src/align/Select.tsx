@@ -13,7 +13,7 @@ import { type Alignment, ALIGNMENTS } from "@/align/Space";
 import { Icon } from "@/icon";
 import { Select as Core } from "@/select";
 
-export interface SelectProps extends Core.SingleProps<Alignment> {}
+export interface SelectProps extends Omit<Core.ButtonsProps<Alignment>, "keys"> {}
 
 export const Select = ({ value, ...rest }: SelectProps): ReactElement => (
   <Core.Buttons {...rest} value={value} keys={ALIGNMENTS}>

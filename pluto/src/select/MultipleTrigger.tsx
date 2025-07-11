@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type ranger } from "@synnaxlabs/client";
 import { array, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
@@ -35,20 +44,23 @@ const MultipleTag = ({
 
 export interface MultipleTriggerProps {
   haulType?: string;
+  disabled?: boolean;
 }
 
 export const canDrop = <K extends record.Key>(
   { items: entities }: Haul.DraggingState,
   haulType: string,
   value: K[] | readonly K[],
+  disabled?: boolean,
 ): boolean => {
-  if (haulType === "") return false;
+  if (haulType === "" || disabled === true) return false;
   const f = Haul.filterByType(haulType, entities);
   return f.length > 0 && !f.every((h) => value.includes(h.key as K));
 };
 
 export const MultipleTrigger = ({
   haulType = "",
+  disabled,
 }: MultipleTriggerProps): ReactElement => {
   const value = Select.useSelection<ranger.Key>();
   const { open } = Dialog.useContext();
@@ -56,8 +68,8 @@ export const MultipleTrigger = ({
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
     type: haulType,
     canDrop: useCallback(
-      (hauled) => canDrop(hauled, haulType, array.toArray(value)),
-      [haulType, value],
+      (hauled) => canDrop(hauled, haulType, array.toArray(value), disabled),
+      [haulType, value, disabled],
     ),
     onDrop: Haul.useFilterByTypeCallback(
       haulType,

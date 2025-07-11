@@ -133,7 +133,6 @@ export const Calculated: Layout.Renderer = ({ layoutKey }): ReactElement => {
                 <Telem.SelectDataType
                   {...p}
                   disabled={isIndex}
-                  maxHeight="small"
                   zIndex={100}
                   style={{ width: 150 }}
                 />

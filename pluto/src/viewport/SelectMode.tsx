@@ -34,7 +34,7 @@ const Tooltip = ({ mode, triggers }: TooltipProps): ReactElement => (
   </Align.Space>
 );
 
-export interface SelectModeProps extends Select.SingleProps<Mode> {
+export interface SelectModeProps extends Select.ButtonsProps<Mode> {
   triggers: UseTriggers;
   disable?: Mode[];
 }

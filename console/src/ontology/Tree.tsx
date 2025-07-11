@@ -23,7 +23,6 @@ import {
   useCombinedStateAndRef,
   useInitializerRef,
   useRequiredContext,
-  useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { array, type observe } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
@@ -250,13 +249,6 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     },
     [],
   );
-
-  const { shape, expand, contract, onSelect, clear } = Core.use({
-    nodes,
-    onExpand: handleExpand,
-    onSelectedChange: setSelected,
-  });
-  const shapeRef = useSyncedRef(shape);
 
   const setResource = useCallback(
     (resource: ontology.Resource | ontology.Resource[]) => {
