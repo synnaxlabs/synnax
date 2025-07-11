@@ -90,7 +90,7 @@ export const SelectMultiple = ({
 
 export interface SelectSingleProps
   extends Select.SingleProps<ranger.Key, ranger.Payload | undefined>,
-    Pick<Flux.UseListArgs<ranger.Key, ranger.Payload>, "filter"> {}
+    Flux.UseListArgs<ListParams, ranger.Key, ranger.Payload> {}
 
 export const SelectSingle = ({
   onChange,
@@ -98,9 +98,10 @@ export const SelectSingle = ({
   filter,
   allowNone,
   emptyContent,
+  initialParams,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, useListItem, retrieve } = useList({ filter });
+  const { data, useListItem, retrieve } = useList({ filter, initialParams });
   return (
     <Dialog.Frame {...rest}>
       <Select.Frame

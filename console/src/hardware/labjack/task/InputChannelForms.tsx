@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Align, Divider, Form as PForm, Select } from "@synnaxlabs/pluto";
-import { deep, type record } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { deep, type Optional, type record } from "@synnaxlabs/x";
+import { type FC, useMemo } from "react";
 
 import { Device } from "@/hardware/labjack/device";
 import {
@@ -138,7 +138,8 @@ const TemperatureUnitsField = PForm.buildSelectField<
 
 interface CJCSourceEntry extends record.KeyedNamed<string> {}
 
-interface SelectCJCSourceFieldProps extends Select.SingleProps<string> {
+interface SelectCJCSourceFieldProps
+  extends Optional<Select.SimpleProps<string, CJCSourceEntry>, "data"> {
   model: Device.Model;
 }
 
@@ -148,8 +149,10 @@ const DEFAULT_CJC_SOURCE_ENTRIES: CJCSourceEntry[] = [
 ];
 
 const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => {
-  const ports: CJCSourceEntry[] = Device.PORTS[model][Device.AI_PORT_TYPE];
-  const data = [...DEFAULT_CJC_SOURCE_ENTRIES, ...ports];
+  const data = useMemo(() => {
+    const ports: CJCSourceEntry[] = Device.PORTS[model][Device.AI_PORT_TYPE];
+    return [...DEFAULT_CJC_SOURCE_ENTRIES, ...ports];
+  }, [model]);
   return (
     <Select.Simple<string, CJCSourceEntry> data={data} allowNone={false} {...rest} />
   );

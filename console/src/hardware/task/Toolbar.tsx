@@ -143,7 +143,7 @@ const Content = () => {
       });
       const tasksToExecute = getItem(filteredKeys);
       tasksToExecute.forEach((t) => {
-        t.executeCommandSync(command, TimeSpan.fromSeconds(10), {});
+        void t.executeCommandSync(command, TimeSpan.fromSeconds(10), {});
         // setTasks(
         //   updateTaskStatus(t.key, (prev) => ({
         //     ...prev,
@@ -180,13 +180,6 @@ const Content = () => {
       startOrStop({ command, keys: [key] }),
     [startOrStop],
   );
-  const listProps = List.use({ data });
-  const selectProps = Select.useMultiple({
-    data,
-    value: selected,
-    onChange: setSelected,
-    replaceOnSingle: true,
-  });
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
       <Align.Space
@@ -199,20 +192,24 @@ const Content = () => {
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
           <Toolbar.Actions>{actions}</Toolbar.Actions>
         </Toolbar.Header>
-        <List.List data={data} useItem={useListItem} {...listProps}>
-          <Select.Provider value={selected} {...selectProps}>
-            <List.Items<task.Key, task.Task> emptyContent={<EmptyContent />}>
-              {({ key, ...p }) => (
-                <TaskListItem
-                  key={key}
-                  {...p}
-                  onStopStart={(command) => handleListItemStopStart(command, key)}
-                  onRename={(name) => rename({ name, key })}
-                />
-              )}
-            </List.Items>
-          </Select.Provider>
-        </List.List>
+        <Select.Frame
+          multiple
+          data={data}
+          useListItem={useListItem}
+          value={selected}
+          onChange={setSelected}
+        >
+          <List.Items<task.Key, task.Task> emptyContent={<EmptyContent />}>
+            {({ key, ...p }) => (
+              <TaskListItem
+                key={key}
+                {...p}
+                onStopStart={(command) => handleListItemStopStart(command, key)}
+                onRename={(name) => rename({ name, key })}
+              />
+            )}
+          </List.Items>
+        </Select.Frame>
       </Align.Space>
     </PMenu.ContextMenu>
   );

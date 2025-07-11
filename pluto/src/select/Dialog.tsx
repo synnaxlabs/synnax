@@ -12,7 +12,7 @@ interface SearchParams {
 
 export interface SearchInputProps<P extends SearchParams> {
   searchPlaceholder?: string;
-  onSearch: state.Setter<P, P | {}>;
+  onSearch?: state.Setter<P, P | {}>;
 }
 
 export const SearchInput = <P extends SearchParams>({
@@ -27,7 +27,7 @@ export const SearchInput = <P extends SearchParams>({
       borderShade={6}
       onChange={(v) => {
         setTerm(v);
-        onSearch((prev) => ({ ...prev, term: v }) as P);
+        onSearch?.((prev) => ({ ...prev, term: v }) as P);
       }}
     />
   );
@@ -36,9 +36,7 @@ export const SearchInput = <P extends SearchParams>({
 export interface DialogProps<K extends record.Key, P extends SearchParams>
   extends Omit<CoreDialog.DialogProps, "children">,
     SearchInputProps<P>,
-    Pick<List.ItemsProps<K>, "emptyContent" | "children"> {
-  onSearch: state.Setter<P, P | {}>;
-}
+    Pick<List.ItemsProps<K>, "emptyContent" | "children"> {}
 
 export const Dialog = <K extends record.Key, P extends SearchParams>({
   onSearch,
@@ -48,7 +46,9 @@ export const Dialog = <K extends record.Key, P extends SearchParams>({
   ...rest
 }: DialogProps<K, P>) => (
   <CoreDialog.Dialog {...rest}>
-    <SearchInput onSearch={onSearch} searchPlaceholder={searchPlaceholder} />
+    {onSearch != null && (
+      <SearchInput onSearch={onSearch} searchPlaceholder={searchPlaceholder} />
+    )}
     <List.Items emptyContent={emptyContent} bordered borderShade={6}>
       {children}
     </List.Items>

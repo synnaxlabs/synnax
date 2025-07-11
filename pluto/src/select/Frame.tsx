@@ -139,7 +139,7 @@ export interface MultipleProps<
   E extends record.Keyed<K> | undefined,
 > extends Omit<MultipleFrameProps<K, E>, "multiple" | "data" | "useListItem">,
     Pick<List.ItemsProps<K>, "emptyContent">,
-    Omit<Dialog.DialogProps, "onChange" | "children"> {}
+    Omit<Dialog.FrameProps, "onChange" | "children"> {}
 
 export interface SingleFrameProps<
   K extends record.Key = record.Key,
@@ -154,7 +154,7 @@ export interface SingleProps<
   E extends record.Keyed<K> | undefined,
 > extends Omit<SingleFrameProps<K, E>, "multiple" | "data" | "useListItem">,
     Pick<List.ItemsProps<K>, "emptyContent">,
-    Omit<Dialog.DialogProps, "onChange" | "children">,
+    Omit<Dialog.FrameProps, "onChange" | "children">,
     Pick<SingleTriggerProps, "disabled" | "placeholder" | "icon"> {}
 
 export type FrameProps<

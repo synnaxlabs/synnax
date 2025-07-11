@@ -105,7 +105,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
     handleClose();
   };
   return (
-    <Dialog.Dialog
+    <Dialog.Frame
       onVisibleChange={handleClose}
       visible={focused}
       style={{ width: "100%", height: "100%" }}
@@ -113,8 +113,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
       variant="modal"
       background={focused ? 0 : undefined}
     >
-      {null}
-      <Dialog.Content>
+      <Dialog.Dialog>
         <PNav.Bar
           location="top"
           size="5rem"
@@ -144,8 +143,8 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
           )}
         </PNav.Bar>
         <Portal.Out node={node} />
-      </Dialog.Content>
-    </Dialog.Dialog>
+      </Dialog.Dialog>
+    </Dialog.Frame>
   );
 };
 

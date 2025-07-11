@@ -17,8 +17,8 @@ export interface SimplyEntry<K extends record.Key> extends record.KeyedNamed<K> 
 export interface SimpleProps<
   K extends record.Key,
   E extends SimplyEntry<K> = SimplyEntry<K>,
-> extends Omit<SingleProps<K, E>, "children"> {
-  data: E[];
+> extends Omit<SingleProps<K, E>, "children">,
+    List.UseStaticDataArgs<K, E> {
   children?: ItemRenderProp<K>;
 }
 
@@ -37,7 +37,8 @@ const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
 });
 
 export const Simple = <K extends record.Key, E extends record.KeyedNamed<K>>({
-  data: entries,
+  data,
+  filter,
   children = listItem,
   emptyContent,
   allowNone,
@@ -46,15 +47,14 @@ export const Simple = <K extends record.Key, E extends record.KeyedNamed<K>>({
   disabled,
   ...rest
 }: SimpleProps<K, E>) => {
-  const { data, useItem, retrieve } = List.useStaticData<K, E>(entries);
+  const { retrieve, ...listProps } = List.useStaticData<K, E>({ data, filter });
   return (
     <Dialog.Frame {...rest}>
       <Frame<K, E>
-        data={data}
-        useListItem={useItem}
         value={value}
         onChange={onChange}
         allowNone={allowNone}
+        {...listProps}
       >
         <SingleTrigger disabled={disabled} />
         <SelectDialog onSearch={retrieve} emptyContent={emptyContent}>

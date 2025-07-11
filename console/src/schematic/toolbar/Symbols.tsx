@@ -69,11 +69,10 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
     [startDrag],
   );
 
-  const { data, useItem, retrieve } = List.useStaticData(LIST_DATA);
-  const listProps = List.use({ data });
+  const { data, useListItem, retrieve } = List.useStaticData({ data: LIST_DATA });
   const [search, setSearch] = useState("");
   return (
-    <List.List data={data} useItem={useItem} {...listProps}>
+    <List.Frame data={data} useListItem={useListItem}>
       <Align.Space style={{ padding: "1rem", borderBottom: "var(--pluto-border)" }}>
         <Input.Text
           value={search}
@@ -103,7 +102,7 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
           />
         )}
       </List.Items>
-    </List.List>
+    </List.Frame>
   );
 };
 

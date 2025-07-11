@@ -7,4 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as TableCells from "@/table/cells/external";
+export * from "@/table/cells/Cells";
+export * from "@/table/cells/Forms";
+export * from "@/table/cells/registry";

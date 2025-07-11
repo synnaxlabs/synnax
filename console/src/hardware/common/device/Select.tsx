@@ -54,7 +54,7 @@ export const Select = ({
         <Device.SelectSingle
           value={value}
           onChange={onChange}
-          params={{ makes: [make] }}
+          initialParams={{ makes: [make] }}
           emptyContent={
             typeof emptyContent === "string" ? (
               <Align.Center>

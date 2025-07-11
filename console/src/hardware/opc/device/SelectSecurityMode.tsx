@@ -22,17 +22,15 @@ const DATA: SecurityMode[] = [
   SIGN_AND_ENCRYPT_SECURITY_MODE,
 ];
 
-export interface SelectSecurityModeProps extends Select.SingleProps<SecurityMode> {}
+export interface SelectSecurityModeProps
+  extends Omit<Select.ButtonsProps<SecurityMode>, "keys"> {}
 
-export const SelectSecurityMode = ({ value, onChange }: SelectSecurityModeProps) => {
-  const selectProps = Select.useSingle({ data: DATA, value, onChange });
-  return (
-    <Select.Buttons value={value} {...selectProps}>
-      <Select.Button itemKey={NO_SECURITY_MODE}>None</Select.Button>
-      <Select.Button itemKey={SIGN_SECURITY_MODE}>Sign</Select.Button>
-      <Select.Button itemKey={SIGN_AND_ENCRYPT_SECURITY_MODE}>
-        Sign And Encrypt
-      </Select.Button>
-    </Select.Buttons>
-  );
-};
+export const SelectSecurityMode = (props: SelectSecurityModeProps) => (
+  <Select.Buttons {...props} keys={DATA}>
+    <Select.Button itemKey={NO_SECURITY_MODE}>None</Select.Button>
+    <Select.Button itemKey={SIGN_SECURITY_MODE}>Sign</Select.Button>
+    <Select.Button itemKey={SIGN_AND_ENCRYPT_SECURITY_MODE}>
+      Sign And Encrypt
+    </Select.Button>
+  </Select.Buttons>
+);

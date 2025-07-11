@@ -17,7 +17,9 @@ import {
   type PortType,
 } from "@/hardware/labjack/device/types";
 
-export interface SelectPortProps extends Select.SingleProps<string> {
+export interface SelectPortProps
+  extends Select.SingleProps<string, Port | undefined>,
+    Omit<List.UseStaticDataArgs<string, Port>, "data"> {
   model: Model;
   portType: PortType;
   children?: ReactNode;
@@ -47,32 +49,31 @@ export const SelectPort = ({
   value,
   onChange,
   children,
+  allowNone,
+  emptyContent,
+  filter,
   ...rest
 }: SelectPortProps) => {
-  const { data, useItem } = List.useStaticData<string, Port>(PORTS[model][portType]);
-  const listProps = List.use({ data });
-  const selectProps = Select.useSingle({
-    data,
-    allowNone: false,
-    value,
-    onChange,
+  const { data, useListItem, retrieve } = List.useStaticData<string, Port>({
+    data: PORTS[model][portType],
+    filter,
   });
-  const selected = useItem(value);
+  const selected = useListItem(value);
   return (
-    <Select.Dialog
-      {...selectProps}
-      {...listProps}
-      data={data}
-      useItem={useItem}
-      {...rest}
-    >
-      <Align.Pack x>
-        <Dialog.Trigger>{selected?.alias ?? selected?.key}</Dialog.Trigger>
-        {children}
-      </Align.Pack>
-      <Dialog.Content>
-        <List.Items<string, Port> {...listProps}>{listItem}</List.Items>
-      </Dialog.Content>
-    </Select.Dialog>
+    <Dialog.Frame {...rest}>
+      <Select.Frame data={data} useListItem={useListItem} onChange={onChange}>
+        <Align.Pack x>
+          <Dialog.Trigger>{selected?.alias ?? selected?.key}</Dialog.Trigger>
+          {children}
+        </Align.Pack>
+        <Select.Dialog<string, List.RetrieveParams>
+          onSearch={retrieve}
+          searchPlaceholder="Search Ports..."
+          emptyContent={emptyContent}
+        >
+          {listItem}
+        </Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
   );
 };

@@ -17,7 +17,7 @@ export interface UseStaticDataReturn<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > {
-  useItem: (key?: K) => E | undefined;
+  useListItem: (key?: K) => E | undefined;
   data: K[];
   retrieve: state.Setter<RetrieveParams, RetrieveParams | {}>;
 }
@@ -28,12 +28,21 @@ export interface RetrieveParams {
   limit?: number;
 }
 
+export interface UseStaticDataArgs<
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> = record.Keyed<K>,
+> {
+  data: E[];
+  filter?: (item: E, params: RetrieveParams) => boolean;
+}
+
 export const useStaticData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
->(
-  data: E[],
-): UseStaticDataReturn<K, E> => {
+>({
+  data,
+  filter,
+}: UseStaticDataArgs<K, E>): UseStaticDataReturn<K, E> => {
   const fuse = useMemo(
     () =>
       new Fuse(data, {
@@ -45,9 +54,15 @@ export const useStaticData = <
   const [params, setParams] = useState<RetrieveParams>({});
 
   const res = useMemo(() => {
-    const keys = fuse.search(params.term ?? "").map((d) => d.item.key);
-    const useItem = useCallback((key?: K) => data.find((d) => d.key === key), [data]);
-    return { useItem, data: keys };
-  }, [data, params]);
+    const keys = fuse
+      .search(params.term ?? "")
+      .filter((d) => filter?.(d.item, params) ?? true)
+      .map((d) => d.item.key);
+    const useListItem = useCallback(
+      (key?: K) => data.find((d) => d.key === key),
+      [data],
+    );
+    return { useListItem, data: keys };
+  }, [data, filter, params]);
   return { ...res, retrieve: setParams };
 };

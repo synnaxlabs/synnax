@@ -81,9 +81,7 @@ export const listItem = Component.renderProp(
 export const useCommandList = (): UseListReturn<Command> => {
   const store = useStore<RootState, RootAction>();
   const { commands } = useCommandContext();
-  const filtered = commands.filter(
-    ({ visible }) => visible?.(store.getState()) ?? true,
-  );
+  const data = commands.filter(({ visible }) => visible?.(store.getState()) ?? true);
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const client = PSynnax.use();
@@ -108,8 +106,8 @@ export const useCommandList = (): UseListReturn<Command> => {
     },
     [addStatus, client, confirm, handleError, placeLayout, rename, store],
   );
-  const { data, useItem, retrieve } = List.useStaticData<string, Command>(filtered);
-  return { data, useListItem: useItem, handleSelect, retrieve, listItem };
+  const listProps = List.useStaticData<string, Command>({ data });
+  return { ...listProps, handleSelect, listItem };
 };
 
 export interface CommandSelectionContext {

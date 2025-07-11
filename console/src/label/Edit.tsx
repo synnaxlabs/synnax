@@ -120,16 +120,11 @@ export const Edit: Layout.Renderer = () => {
     typeof formSchema
   >("labels", { ctx });
   const theme = Layout.useSelectTheme();
-  const listProps = List.use({ data });
 
   return (
     <Align.Space y style={{ padding: "2rem" }} grow>
       <Form.Form<typeof formSchema> {...ctx}>
-        <List.List<label.Key, label.Label>
-          data={data}
-          useItem={useListItem}
-          {...listProps}
-        >
+        <List.Frame<label.Key, label.Label> data={data} useListItem={useListItem}>
           <Align.Space x justify="spaceBetween">
             <Button.Button
               onClick={() => {
@@ -164,7 +159,7 @@ export const Edit: Layout.Renderer = () => {
           >
             {listItem}
           </List.Items>
-        </List.List>
+        </List.Frame>
       </Form.Form>
     </Align.Space>
   );

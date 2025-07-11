@@ -41,7 +41,7 @@ const listItemRenderProp = Component.renderProp(
 
 export interface SelectSingleProps
   extends Select.SingleProps<device.Key, device.Device | undefined>,
-    Pick<Flux.UseListArgs<device.Key, device.Device>, "filter"> {}
+    Flux.UseListArgs<ListParams, device.Key, device.Device> {}
 
 export const SelectSingle = ({
   onChange,
@@ -49,9 +49,10 @@ export const SelectSingle = ({
   filter,
   allowNone,
   emptyContent,
+  initialParams,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, useListItem, retrieve } = useList({ filter });
+  const { data, useListItem, retrieve } = useList({ filter, initialParams });
   return (
     <Dialog.Frame {...rest}>
       <Select.Frame

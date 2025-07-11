@@ -62,7 +62,7 @@ export const Palette = ({
   return (
     <Tooltip.Dialog location="bottom" hide={visible}>
       <TooltipContent triggerConfig={triggerConfig} />
-      <Dialog.Dialog
+      <Dialog.Frame
         visible={visible}
         onVisibleChange={setVisible}
         className={CSS.B("palette")}
@@ -89,7 +89,7 @@ export const Palette = ({
           onChange={setValue}
           commandSymbol={commandSymbol}
         />
-      </Dialog.Dialog>
+      </Dialog.Frame>
     </Tooltip.Dialog>
   );
 };
@@ -109,32 +109,30 @@ const DialogContent = ({
   const { handleSelect, data, useListItem, listItem } = value.startsWith(commandSymbol)
     ? commandProps
     : resourceProps;
-  const listProps = List.use({ data });
   return (
-    <List.List<string, Command | ontology.Resource>
+    <Select.Frame<string, Command | ontology.Resource>
       data={data}
-      useItem={useListItem}
-      {...listProps}
+      useListItem={useListItem}
+      value={value}
+      onChange={handleSelect}
     >
-      <Select.Provider value={null} onSelect={handleSelect} clear={() => {}}>
-        <Align.Pack className={CSS.BE("palette", "content")} y bordered={false}>
-          <Input.Text
-            className={CSS(CSS.BE("palette", "input"))}
-            placeholder={
-              <Text.WithIcon level="h3" startIcon={<Icon.Search />}>
-                Type to search or {commandSymbol} to view commands
-              </Text.WithIcon>
-            }
-            size="huge"
-            autoFocus
-            onChange={onChange}
-            value={value}
-            autoComplete="off"
-            onKeyDown={Triggers.matchCallback([["Escape"]], () => close())}
-          />
-          <List.Items className={CSS.BE("palette", "list")}>{listItem}</List.Items>
-        </Align.Pack>
-      </Select.Provider>
-    </List.List>
+      <Align.Pack className={CSS.BE("palette", "content")} y bordered={false}>
+        <Input.Text
+          className={CSS(CSS.BE("palette", "input"))}
+          placeholder={
+            <Text.WithIcon level="h3" startIcon={<Icon.Search />}>
+              Type to search or {commandSymbol} to view commands
+            </Text.WithIcon>
+          }
+          size="huge"
+          autoFocus
+          onChange={onChange}
+          value={value}
+          autoComplete="off"
+          onKeyDown={Triggers.matchCallback([["Escape"]], () => close())}
+        />
+        <List.Items className={CSS.BE("palette", "list")}>{listItem}</List.Items>
+      </Align.Pack>
+    </Select.Frame>
   );
 };

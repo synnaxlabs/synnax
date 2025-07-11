@@ -38,7 +38,7 @@ const calculateOffset = (window?: WindowProps): number => {
 export const Modal = ({ state, remove }: ModalProps) => {
   const { key, name, window, icon } = state;
   return (
-    <Dialog.Dialog
+    <Dialog.Frame
       key={key}
       variant="modal"
       visible
@@ -47,23 +47,25 @@ export const Modal = ({ state, remove }: ModalProps) => {
       modalOffset={calculateOffset(window)}
       background={0}
     >
-      {window?.navTop && (
-        <Nav.Bar location="top" size="6rem" bordered>
-          {(window?.showTitle ?? true) && (
-            <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-              <Breadcrumb.Breadcrumb icon={icon} hideFirst={false}>
-                {name}
-              </Breadcrumb.Breadcrumb>
-            </Nav.Bar.Start>
-          )}
-          <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-            <Button.Icon onClick={() => remove(key)} size="small">
-              <Icon.Close style={{ color: "var(--pluto-gray-l10)" }} />
-            </Button.Icon>
-          </Nav.Bar.End>
-        </Nav.Bar>
-      )}
-      <Content layoutKey={key} />
-    </Dialog.Dialog>
+      <Dialog.Dialog>
+        {window?.navTop && (
+          <Nav.Bar location="top" size="6rem" bordered>
+            {(window?.showTitle ?? true) && (
+              <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
+                <Breadcrumb.Breadcrumb icon={icon} hideFirst={false}>
+                  {name}
+                </Breadcrumb.Breadcrumb>
+              </Nav.Bar.Start>
+            )}
+            <Nav.Bar.End style={{ paddingRight: "1rem" }}>
+              <Button.Icon onClick={() => remove(key)} size="small">
+                <Icon.Close style={{ color: "var(--pluto-gray-l10)" }} />
+              </Button.Icon>
+            </Nav.Bar.End>
+          </Nav.Bar>
+        )}
+        <Content layoutKey={key} />
+      </Dialog.Dialog>
+    </Dialog.Frame>
   );
 };

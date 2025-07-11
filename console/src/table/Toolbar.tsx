@@ -11,18 +11,14 @@ import { table } from "@synnaxlabs/client";
 import {
   Align,
   Breadcrumb,
-  Component,
-  Dialog,
   Form,
   Icon,
-  List,
-  Select,
   Status,
   Table,
   TableCells,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { deep, type record } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -34,7 +30,6 @@ import { type RootState } from "@/store";
 import { useExport } from "@/table/export";
 import {
   selectCell,
-  useSelectCellType,
   useSelectSelectedCellPos,
   useSelectSelectedCells,
 } from "@/table/selectors";
@@ -84,10 +79,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
         <Align.Space x align="center">
           <Breadcrumb.Breadcrumb level="p">{breadCrumbs}</Breadcrumb.Breadcrumb>
           {isSingleCellSelected && (
-            <SelectCellTypeField
-              tableKey={layoutKey}
-              cellKey={firstCell.key}
-              onChange={(variant) => handleVariantChange(variant, firstCell.key)}
+            <TableCells.SelectVariant
+              allowNone={false}
+              value={firstCell.variant}
+              onChange={(variant: TableCells.Variant) =>
+                handleVariantChange(variant, firstCell.key)
+              }
             />
           )}
         </Align.Space>
@@ -141,53 +138,6 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
     <Form.Form {...methods}>
       <F onVariantChange={onVariantChange} />
     </Form.Form>
-  );
-};
-
-type CellEntry = record.KeyedNamed<TableCells.Variant> & {
-  icon: Icon.ReactElement;
-};
-
-const CELL_TYPE_OPTIONS: CellEntry[] = [
-  { key: TableCells.CELLS.text.key, name: "Text", icon: <Icon.Text /> },
-  { key: TableCells.CELLS.value.key, name: "Value", icon: <Icon.Value /> },
-];
-
-interface SelectCellTypeFieldProps {
-  tableKey: string;
-  cellKey: string;
-  onChange: (variant: TableCells.Variant) => void;
-}
-
-const listItem = Component.renderProp((props: List.ItemProps<TableCells.Variant>) => {
-  const { itemKey } = props;
-  const item = List.useItem<TableCells.Variant, CellEntry>(itemKey);
-  return <List.Item {...props}>{item?.name}</List.Item>;
-});
-
-const SelectCellTypeField = ({
-  tableKey,
-  cellKey,
-  onChange,
-}: SelectCellTypeFieldProps) => {
-  const value = useSelectCellType(tableKey, cellKey);
-  const { data, useItem } = List.useStaticData<TableCells.Variant, CellEntry>(
-    CELL_TYPE_OPTIONS,
-  );
-  const selectProps = Select.useSingle({ data, value, onChange, allowNone: false });
-  const item = useItem(value);
-  return (
-    <Select.Dialog<TableCells.Variant, CellEntry>
-      value={value}
-      data={data}
-      useItem={useItem}
-      {...selectProps}
-    >
-      <Dialog.Trigger>{item?.name}</Dialog.Trigger>
-      <Dialog.Content>
-        <List.Items>{listItem}</List.Items>
-      </Dialog.Content>
-    </Select.Dialog>
   );
 };
 

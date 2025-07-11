@@ -467,7 +467,10 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <Divider.Divider x padded="bottom" />
-        <ForceUnitsField path={prefix} inputProps={{ omit: ["KilogramForce"] }} />
+        <ForceUnitsField
+          path={prefix}
+          inputProps={{ filter: ({ key }) => key !== "KilogramForce" }}
+        />
         <SensitivityField
           path={prefix}
           inputProps={{

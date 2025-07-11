@@ -183,13 +183,13 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
   </Align.Space>
 );
 
-const VARIANT_DATA: Select.SimplyEntry<Variant>[] = [
+export const VARIANT_DATA: Select.SimplyEntry<Variant>[] = [
   { key: "text", name: "Text", icon: <Icon.Text /> },
   { key: "value", name: "Value", icon: <Icon.Channel /> },
 ];
 
-interface SelectVariantProps extends Omit<Select.SimpleProps<Variant>, "data"> {}
+export interface SelectVariantProps extends Omit<Select.SimpleProps<Variant>, "data"> {}
 
-const SelectVariant = (props: SelectVariantProps) => (
+export const SelectVariant = (props: SelectVariantProps) => (
   <Select.Simple data={VARIANT_DATA} {...props} />
 );

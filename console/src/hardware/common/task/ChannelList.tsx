@@ -153,13 +153,6 @@ export const ChannelList = <C extends Channel>({
     [onSelect, path],
   );
   const menuProps = PMenu.useContextMenu();
-  const selectProps = Select.useMultiple<string>({
-    value: selected,
-    onChange: handleChange,
-    data,
-    replaceOnSingle: true,
-  });
-  const listProps = List.use({ data });
   return (
     <Align.Space className={CSS.B("channel-list")} empty grow={grow}>
       {header}
@@ -169,21 +162,25 @@ export const ChannelList = <C extends Channel>({
         onDragOver={onDragOver}
         onDrop={onDrop}
       >
-        <List.List<string, C> {...listProps} data={data} useItem={useListItem}>
-          <Select.Provider<string> {...selectProps} value={selected}>
-            <List.Items<string, C>
-              onDragOver={onDragOver}
-              onDrop={onDrop}
-              className={menuProps.className}
-              onContextMenu={menuProps.open}
-              emptyContent={emptyContent}
-            >
-              {(props) =>
-                listItem({ isSnapshot, path: `${path}.${props.key}`, ...props })
-              }
-            </List.Items>
-          </Select.Provider>
-        </List.List>
+        <Select.Frame<string, C>
+          multiple
+          data={data}
+          useListItem={useListItem}
+          value={selected}
+          onChange={handleChange}
+        >
+          <List.Items<string, C>
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+            className={menuProps.className}
+            onContextMenu={menuProps.open}
+            emptyContent={emptyContent}
+          >
+            {(props) =>
+              listItem({ isSnapshot, path: `${path}.${props.key}`, ...props })
+            }
+          </List.Items>
+        </Select.Frame>
       </PMenu.ContextMenu>
     </Align.Space>
   );

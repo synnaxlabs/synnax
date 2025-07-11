@@ -88,29 +88,19 @@ const List = (): ReactElement => {
 
   const menuProps = PMenu.useContextMenu();
 
-  const selectProps = Select.useSingle({
-    data,
-    value: activeRange?.key,
-    onChange: handleSelect,
-    allowNone: true,
-  });
-
-  const listProps = CoreList.use({ data });
-
   return (
-    <CoreList.List<string, StaticRange>
+    <Select.Frame<string, StaticRange>
       data={data}
-      useItem={useSelectStatic}
-      {...listProps}
+      value={activeRange?.key}
+      useListItem={useSelectStatic}
+      onChange={handleSelect}
     >
       <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
-        <Select.Provider value={activeRange?.key} {...selectProps}>
-          <CoreList.Items emptyContent={<NoRanges />} {...listProps} {...dropProps}>
-            {listItem}
-          </CoreList.Items>
-        </Select.Provider>
+        <CoreList.Items emptyContent={<NoRanges />} {...dropProps}>
+          {listItem}
+        </CoreList.Items>
       </PMenu.ContextMenu>
-    </CoreList.List>
+    </Select.Frame>
   );
 };
 

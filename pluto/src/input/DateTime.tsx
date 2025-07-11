@@ -193,7 +193,7 @@ const AISelector = ({
 }: AISelectorProps): ReactElement => {
   const [value, setValue] = useState<string>("");
   const [entries, setEntries] = useState<AISuggestion[]>([]);
-  const { data, useItem } = List.useStaticData<string>(entries);
+  const { data, useListItem: useItem } = List.useStaticData<string>({ data: entries });
 
   const handleChange = (next: string): void => {
     const processed = nlp(next) as DatesMethods;

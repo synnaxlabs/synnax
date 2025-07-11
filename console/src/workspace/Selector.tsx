@@ -71,19 +71,12 @@ export const Selector = (): ReactElement => {
     [active, client, dispatch, close, handleError],
   );
 
-  const selectProps = Select.useSingle({
-    value: active?.key,
-    onChange: handleChange,
-    data,
-  });
-
   return (
-    <Select.Dialog
-      variant="floating"
-      className={CSS(CSS.BE("workspace", "selector"))}
+    <Select.Frame
       data={data}
-      useItem={useListItem}
-      {...selectProps}
+      useListItem={useListItem}
+      value={active?.key}
+      onChange={handleChange}
     >
       <Dialog.Trigger
         startIcon={<Icon.Workspace key="workspace" />}
@@ -95,7 +88,7 @@ export const Selector = (): ReactElement => {
       >
         {active?.name ?? "No Workspace"}
       </Dialog.Trigger>
-      <Dialog.Content>
+      <Dialog.Dialog>
         <Cluster.NoneConnectedBoundary bordered borderShade={5} background={1}>
           <Input.Text
             size="large"
@@ -137,8 +130,8 @@ export const Selector = (): ReactElement => {
           </Input.Text>
           <List.Items>{Component.renderProp(SelectorListItem)}</List.Items>
         </Cluster.NoneConnectedBoundary>
-      </Dialog.Content>
-    </Select.Dialog>
+      </Dialog.Dialog>
+    </Select.Frame>
   );
 };
 

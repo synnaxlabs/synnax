@@ -21,17 +21,11 @@ export interface OutputChannelTypeEntry extends record.KeyedNamed<OutputChannelT
 const DATA: OutputChannelType[] = [AO_CHANNEL_TYPE, DO_CHANNEL_TYPE];
 
 export interface SelectOutputChannelTypeProps
-  extends Select.SingleProps<OutputChannelType> {}
+  extends Omit<Select.ButtonsProps<OutputChannelType>, "keys"> {}
 
-export const SelectOutputChannelType = ({
-  value,
-  onChange,
-}: SelectOutputChannelTypeProps) => {
-  const selectProps = Select.useSingle({ data: DATA, value, onChange });
-  return (
-    <Select.Buttons value={value} {...selectProps}>
-      <Select.Button itemKey={AO_CHANNEL_TYPE}>Analog</Select.Button>
-      <Select.Button itemKey={DO_CHANNEL_TYPE}>Digital</Select.Button>
-    </Select.Buttons>
-  );
-};
+export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => (
+  <Select.Buttons {...props} keys={DATA}>
+    <Select.Button itemKey={AO_CHANNEL_TYPE}>Analog</Select.Button>
+    <Select.Button itemKey={DO_CHANNEL_TYPE}>Digital</Select.Button>
+  </Select.Buttons>
+);

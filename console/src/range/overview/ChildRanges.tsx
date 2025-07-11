@@ -57,15 +57,14 @@ export interface ChildRangesProps {
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const { useListItem, data } = Ranger.useChildren();
   const placeLayout = Layout.usePlacer();
-  const listProps = List.use({ data });
   return (
     <Align.Space y>
       <Text.Text level="h4" shade={11} weight={450}>
         Child Ranges
       </Text.Text>
-      <List.List {...listProps} useItem={useListItem} data={data}>
+      <List.Frame data={data} useListItem={useListItem}>
         <List.Items>{childRangeListItem}</List.Items>
-      </List.List>
+      </List.Frame>
       <Button.Button
         size="medium"
         shade={10}

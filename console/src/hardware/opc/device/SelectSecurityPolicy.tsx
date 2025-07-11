@@ -28,29 +28,24 @@ const DATA: SecurityPolicy[] = [
   AES256_SHA256_RSAPSS_SECURITY_POLICY,
 ];
 
-export interface SelectSecurityPolicyProps extends Select.SingleProps<SecurityPolicy> {}
+export interface SelectSecurityPolicyProps
+  extends Omit<Select.ButtonsProps<SecurityPolicy>, "keys"> {}
 
-export const SelectSecurityPolicy = ({
-  value,
-  onChange,
-}: SelectSecurityPolicyProps) => {
-  const selectProps = Select.useSingle({ data: DATA, value, onChange });
-  return (
-    <Select.Buttons value={value} {...selectProps}>
-      <Select.Button itemKey={NO_SECURITY_POLICY}>None</Select.Button>
-      <Select.Button itemKey={BASIC128_RSA15_SECURITY_POLICY}>
-        Basic 128-bit RSA
-      </Select.Button>
-      <Select.Button itemKey={BASIC256_SECURITY_POLICY}>Basic 256-bit</Select.Button>
-      <Select.Button itemKey={BASIC256_SHA256_SECURITY_POLICY}>
-        Basic 256-bit with SHA-256
-      </Select.Button>
-      <Select.Button itemKey={AES128_SHA256_RSAOAEP_SECURITY_POLICY}>
-        AES 128-bit with SHA-256
-      </Select.Button>
-      <Select.Button itemKey={AES256_SHA256_RSAPSS_SECURITY_POLICY}>
-        AES 256-bit with SHA-256
-      </Select.Button>
-    </Select.Buttons>
-  );
-};
+export const SelectSecurityPolicy = (props: SelectSecurityPolicyProps) => (
+  <Select.Buttons {...props} keys={DATA}>
+    <Select.Button itemKey={NO_SECURITY_POLICY}>None</Select.Button>
+    <Select.Button itemKey={BASIC128_RSA15_SECURITY_POLICY}>
+      Basic 128-bit RSA
+    </Select.Button>
+    <Select.Button itemKey={BASIC256_SECURITY_POLICY}>Basic 256-bit</Select.Button>
+    <Select.Button itemKey={BASIC256_SHA256_SECURITY_POLICY}>
+      Basic 256-bit with SHA-256
+    </Select.Button>
+    <Select.Button itemKey={AES128_SHA256_RSAOAEP_SECURITY_POLICY}>
+      AES 128-bit with SHA-256
+    </Select.Button>
+    <Select.Button itemKey={AES256_SHA256_RSAPSS_SECURITY_POLICY}>
+      AES 256-bit with SHA-256
+    </Select.Button>
+  </Select.Buttons>
+);

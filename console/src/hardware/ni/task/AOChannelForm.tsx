@@ -26,34 +26,27 @@ import {
   type WaveType,
 } from "@/hardware/ni/task/types";
 
-interface SelectWaveTypeProps extends Select.SingleProps<WaveType> {}
+interface SelectWaveTypeProps extends Omit<Select.ButtonsProps<WaveType>, "keys"> {}
 
 const WAVE_TYPE_DATA = [...WAVE_TYPES];
 
-const SelectWaveType = ({ value, onChange, ...rest }: SelectWaveTypeProps) => {
-  const selectProps = Select.useSingle({
-    data: WAVE_TYPE_DATA,
-    value,
-    onChange,
-    allowNone: false,
-  });
-  return (
-    <Select.Buttons value={value} {...selectProps} {...rest}>
-      <Select.Button itemKey={SINE_WAVE_TYPE} startIcon={<Icon.Wave.Sine />}>
-        Sine
-      </Select.Button>
-      <Select.Button itemKey={TRIANGLE_WAVE_TYPE} startIcon={<Icon.Wave.Triangle />}>
-        Triangle
-      </Select.Button>
-      <Select.Button itemKey={SQUARE_WAVE_TYPE} startIcon={<Icon.Wave.Square />}>
-        Square
-      </Select.Button>
-      <Select.Button itemKey={SAWTOOTH_WAVE_TYPE} startIcon={<Icon.Wave.Sawtooth />}>
-        Sawtooth
-      </Select.Button>
-    </Select.Buttons>
-  );
-};
+const SelectWaveType = (props: SelectWaveTypeProps) => (
+  <Select.Buttons {...props} keys={WAVE_TYPE_DATA}>
+    <Select.Button itemKey={SINE_WAVE_TYPE} startIcon={<Icon.Wave.Sine />}>
+      Sine
+    </Select.Button>
+    <Select.Button itemKey={TRIANGLE_WAVE_TYPE} startIcon={<Icon.Wave.Triangle />}>
+      Triangle
+    </Select.Button>
+    <Select.Button itemKey={SQUARE_WAVE_TYPE} startIcon={<Icon.Wave.Square />}>
+      Square
+    </Select.Button>
+    <Select.Button itemKey={SAWTOOTH_WAVE_TYPE} startIcon={<Icon.Wave.Sawtooth />}>
+      Sawtooth
+    </Select.Button>
+  </Select.Buttons>
+);
+
 interface FormProps {
   path: string;
 }

@@ -29,7 +29,7 @@ import { CREATE_LAYOUT } from "@/range/Create";
 import { useSelect, useSelectKeys } from "@/range/selectors";
 import { type Range } from "@/range/slice";
 
-interface SelectMultipleRangesProps extends Select.MultipleProps<string> {}
+interface SelectMultipleRangesProps extends Select.MultipleProps<string, Range> {}
 
 const dynamicIcon = (
   <Icon.Dynamic style={{ color: "var(--pluto-error-p1)", filter: "opacity(0.8)" }} />
@@ -56,16 +56,16 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
 
 interface RenderTagProps {
   itemKey: string;
-  onClose: (itemKey: string) => void;
 }
 
-const RangeTag = ({ itemKey, onClose }: RenderTagProps): ReactElement | null => {
+const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
   const range = List.useItem<string, Range>(itemKey);
+  const { onSelect } = Select.useItemState(itemKey);
   if (range == null) return null;
   return (
     <Tag.Tag
       icon={range?.variant === "dynamic" ? dynamicIcon : <Icon.Range />}
-      onClose={() => onClose(itemKey)}
+      onClose={onSelect}
       shade={11}
       level="small"
     >
@@ -79,36 +79,45 @@ const SelectMultipleRanges = ({
   onChange,
 }: SelectMultipleRangesProps): ReactElement => {
   const data = useSelectKeys();
-  const { onSelect, ...selectProps } = Select.useMultiple({ data, value, onChange });
   return (
-    <Select.Dialog data={data} useItem={useSelect} onSelect={onSelect} {...selectProps}>
+    <Select.Frame
+      multiple
+      data={data}
+      useListItem={useSelect}
+      onChange={onChange}
+      value={value}
+    >
       <Dialog.Trigger>
         {value.map((key) => (
-          <RangeTag key={key} itemKey={key} onClose={onSelect} />
+          <RangeTag key={key} itemKey={key} />
         ))}
       </Dialog.Trigger>
-      <Dialog.Content>
-        <List.Items emptyContent={<SelectEmptyContent />}>{listItem}</List.Items>
-      </Dialog.Content>
-    </Select.Dialog>
+      <Select.Dialog<string, List.RetrieveParams>
+        searchPlaceholder="Search Ranges..."
+        emptyContent={<SelectEmptyContent />}
+      >
+        {listItem}
+      </Select.Dialog>
+    </Select.Frame>
   );
 };
 
-interface SelectSingleRangeProps extends Select.SingleProps<string> {}
+interface SelectSingleRangeProps extends Select.SingleProps<string, Range> {}
 
 const SelectRange = ({ value, onChange }: SelectSingleRangeProps): ReactElement => {
   const data = useSelectKeys();
-  const { onSelect, ...selectProps } = Select.useSingle({ data, value, onChange });
-  const item = useSelect(value);
   return (
-    <Select.Dialog data={data} useItem={useSelect} onSelect={onSelect} {...selectProps}>
+    <Select.Frame data={data} useListItem={useSelect} onChange={onChange} value={value}>
       <Dialog.Trigger>
-        {item != null ? <RangeTag itemKey={item.key} onClose={onSelect} /> : null}
+        {value != null ? <RangeTag itemKey={value} /> : null}
       </Dialog.Trigger>
-      <Dialog.Content>
-        <List.Items emptyContent={<SelectEmptyContent />}>{listItem}</List.Items>
-      </Dialog.Content>
-    </Select.Dialog>
+      <Select.Dialog<string, List.RetrieveParams>
+        searchPlaceholder="Search Ranges..."
+        emptyContent={<SelectEmptyContent />}
+      >
+        {listItem}
+      </Select.Dialog>
+    </Select.Frame>
   );
 };
 

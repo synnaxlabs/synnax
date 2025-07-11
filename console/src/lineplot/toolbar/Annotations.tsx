@@ -87,67 +87,63 @@ const List = ({
   onLabelChange,
 }: ListProps): ReactElement => {
   const menuProps = PMenu.useContextMenu();
-  const { data, useItem } = PList.useStaticData<string, RuleState>(rules);
-  const listProps = PList.use({ data });
-  const selectProps = Select.useMultiple({ data, value: selected, onChange });
+  const { data, useListItem } = PList.useStaticData<string, RuleState>({ data: rules });
   return (
     <Align.Space x empty style={{ width: "20%" }}>
       <Button.Icon tooltip="Add Rule" size="small" onClick={onCreate}>
         <Icon.Add />
       </Button.Icon>
       <Divider.Divider y />
-      <PList.List<string, RuleState> {...listProps} useItem={useItem} data={data}>
-        <Select.Provider value={selected} {...selectProps}>
-          <PMenu.ContextMenu
-            menu={({ keys }) => (
-              <PMenu.Menu
-                onChange={{ remove: () => onRemoveAnnotations(keys) }}
-                level="small"
-              >
-                <PMenu.Item itemKey="remove" size="small" startIcon={<Icon.Delete />}>
-                  Delete
-                </PMenu.Item>
-                <Divider.Divider x />
-                <Menu.HardReloadItem />
-              </PMenu.Menu>
-            )}
-            {...menuProps}
-          >
-            <PList.Items<string, RuleState>
-              onContextMenu={menuProps.open}
-              className={menuProps.className}
+      <Select.Frame<string, RuleState>
+        multiple
+        data={data}
+        useListItem={useListItem}
+        value={selected}
+        onChange={onChange}
+      >
+        <PMenu.ContextMenu
+          menu={({ keys }) => (
+            <PMenu.Menu
+              onChange={{ remove: () => onRemoveAnnotations(keys) }}
+              level="small"
             >
-              {({ key, ...rest }) => (
-                <ListItem
-                  key={key}
-                  {...rest}
-                  onChangeLabel={(v) => onLabelChange(v, key)}
-                />
-              )}
-            </PList.Items>
-          </PMenu.ContextMenu>
-        </Select.Provider>
-      </PList.List>
+              <PMenu.Item itemKey="remove" size="small" startIcon={<Icon.Delete />}>
+                Delete
+              </PMenu.Item>
+              <Divider.Divider x />
+              <Menu.HardReloadItem />
+            </PMenu.Menu>
+          )}
+          {...menuProps}
+        >
+          <PList.Items<string, RuleState>
+            onContextMenu={menuProps.open}
+            className={menuProps.className}
+          >
+            {({ key, ...rest }) => (
+              <ListItem
+                key={key}
+                {...rest}
+                onChangeLabel={(v) => onLabelChange(v, key)}
+              />
+            )}
+          </PList.Items>
+        </PMenu.ContextMenu>
+      </Select.Frame>
     </Align.Space>
   );
 };
 
 const AXIS_DATA: AxisKey[] = [Y1, Y2];
 
-const SelectAxis = ({ value, onChange }: Select.SingleProps<AxisKey>): ReactElement => {
-  const selectProps = Select.useSingle({
-    data: AXIS_DATA,
-    value,
-    onChange,
-    allowNone: false,
-  });
-  return (
-    <Select.Buttons value={value} {...selectProps}>
-      <Select.Button itemKey={Y1} />
-      <Select.Button itemKey={Y2} />
-    </Select.Buttons>
-  );
-};
+const SelectAxis = (
+  props: Omit<Select.ButtonsProps<AxisKey>, "keys">,
+): ReactElement => (
+  <Select.Buttons {...props} keys={AXIS_DATA}>
+    <Select.Button itemKey={Y1} />
+    <Select.Button itemKey={Y2} />
+  </Select.Buttons>
+);
 
 interface RuleContentProps {
   rule: RuleState;

@@ -58,20 +58,20 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
     </Align.Center>
   );
 
-  const listProps = List.use({ data: lineKeys });
-  const useItem = useCallback(
+  const useListItem = useCallback(
     (key?: string) => useSelectLine(layoutKey, key),
     [layoutKey],
   );
+
   return (
-    <List.List data={lineKeys} useItem={useItem} {...listProps}>
+    <List.Frame data={lineKeys} useListItem={useListItem}>
       <List.Items<string, LineState>
         style={{ height: "calc(100% - 28px)" }}
         emptyContent={emptyContent}
       >
         {(p) => <Line onChange={handleChange} {...p} />}
       </List.Items>
-    </List.List>
+    </List.Frame>
   );
 };
 
