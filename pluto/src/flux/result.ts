@@ -20,13 +20,13 @@ import { type state } from "@/state";
  * - `success` - Data was successfully fetched and is available in the `data` field.
  */
 export type Result<Data extends state.State> =
-  | (status.Status<undefined, "loading"> & {
-      data: null;
-      error: null;
-    })
   | (status.Status<status.ExceptionDetails, "error"> & {
       data: null;
       error: unknown;
+    })
+  | (status.Status<undefined, "loading"> & {
+      data: null | Data;
+      error: null;
     })
   | (status.Status<undefined, "success"> & {
       data: Data;
@@ -37,12 +37,13 @@ export type Result<Data extends state.State> =
 export const pendingResult = <Data extends state.State>(
   name: string,
   op: string,
+  data: Data | null = null,
 ): Result<Data> => ({
   ...status.create<undefined, "loading">({
     variant: "loading",
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
-  data: null,
+  data,
   error: null,
 });
 
@@ -50,13 +51,13 @@ export const pendingResult = <Data extends state.State>(
 export const successResult = <Data extends state.State>(
   name: string,
   op: string,
-  value: Data,
+  data: Data,
 ): Result<Data> => ({
   ...status.create<undefined, "success">({
     variant: "success",
     message: `${caseconv.capitalize(op)} ${name}`,
   }),
-  data: value,
+  data,
   error: null,
 });
 

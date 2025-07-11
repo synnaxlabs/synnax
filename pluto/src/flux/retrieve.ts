@@ -166,8 +166,8 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
       );
       paramsRef.current = params;
       try {
-        if (client == null) return onChange(nullClientResult(name, "retrieve"));
-        onChange(pendingResult(name, "retrieving"));
+        if (client == null) return onChange(nullClientResult<Data>(name, "retrieve"));
+        onChange((p) => pendingResult(name, "retrieving", p.data));
         const value = await retrieve({ client, params });
         if (signal?.aborted) return;
         mountListeners(
@@ -190,14 +190,14 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
                     },
                   });
                 } catch (error) {
-                  onChange(errorResult(name, "retrieve", error));
+                  onChange(errorResult<Data>(name, "retrieve", error));
                 }
               })(),
           })),
         );
         onChange(successResult(name, "retrieved", value));
       } catch (error) {
-        onChange(errorResult(name, "retrieve", error));
+        onChange(errorResult<Data>(name, "retrieve", error));
       }
     },
     [client, name, mountListeners],
@@ -215,21 +215,23 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   };
 };
 
-const useStateful = <RetrieveParams extends Params, V extends state.State>(
-  args: CreateRetrieveArgs<RetrieveParams, V>,
-): UseStatefulRetrieveReturn<RetrieveParams, V> => {
-  const [state, setState] = useState<Result<V>>(pendingResult(args.name, "retrieving"));
+const useStateful = <RetrieveParams extends Params, Data extends state.State>(
+  args: CreateRetrieveArgs<RetrieveParams, Data>,
+): UseStatefulRetrieveReturn<RetrieveParams, Data> => {
+  const [state, setState] = useState<Result<Data>>(
+    pendingResult<Data>(args.name, "retrieving"),
+  );
   return {
     ...state,
     ...useObservable({ ...args, onChange: setState }),
   };
 };
 
-const useDirect = <RetrieveParams extends Params, V extends state.State>({
+const useDirect = <RetrieveParams extends Params, Data extends state.State>({
   params,
   ...restArgs
 }: UseDirectRetrieveArgs<RetrieveParams> &
-  CreateRetrieveArgs<RetrieveParams, V>): UseDirectRetrieveReturn<V> => {
+  CreateRetrieveArgs<RetrieveParams, Data>): UseDirectRetrieveReturn<Data> => {
   const { retrieveAsync, retrieve: _, ...rest } = useStateful(restArgs);
   const memoParams = useMemoDeepEqual(params);
   useAsyncEffect(
@@ -239,12 +241,12 @@ const useDirect = <RetrieveParams extends Params, V extends state.State>({
   return rest;
 };
 
-const useEffect = <RetrieveParams extends Params, V extends state.State>({
+const useEffect = <RetrieveParams extends Params, Data extends state.State>({
   params,
   ...restArgs
-}: UseEffectRetrieveArgs<RetrieveParams, V> &
-  CreateRetrieveArgs<RetrieveParams, V>): void => {
-  const { retrieveAsync } = useObservable<RetrieveParams, V>(restArgs);
+}: UseEffectRetrieveArgs<RetrieveParams, Data> &
+  CreateRetrieveArgs<RetrieveParams, Data>): void => {
+  const { retrieveAsync } = useObservable<RetrieveParams, Data>(restArgs);
   const memoParams = useMemoDeepEqual(params);
   useAsyncEffect(
     async (signal) => await retrieveAsync(memoParams, { signal }),
@@ -252,14 +254,14 @@ const useEffect = <RetrieveParams extends Params, V extends state.State>({
   );
 };
 
-export const createRetrieve = <RetrieveParams extends Params, V extends state.State>(
-  factoryArgs: CreateRetrieveArgs<RetrieveParams, V>,
-): CreateRetrieveReturn<RetrieveParams, V> => ({
-  useObservable: (args: UseObservableRetrieveArgs<V>) =>
+export const createRetrieve = <RetrieveParams extends Params, Data extends state.State>(
+  factoryArgs: CreateRetrieveArgs<RetrieveParams, Data>,
+): CreateRetrieveReturn<RetrieveParams, Data> => ({
+  useObservable: (args: UseObservableRetrieveArgs<Data>) =>
     useObservable({ ...factoryArgs, ...args }),
   useStateful: () => useStateful(factoryArgs),
   useDirect: (args: UseDirectRetrieveArgs<RetrieveParams>) =>
     useDirect({ ...factoryArgs, ...args }),
-  useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, V>) =>
+  useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, Data>) =>
     useEffect({ ...factoryArgs, ...args }),
 });

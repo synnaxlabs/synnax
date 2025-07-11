@@ -20,11 +20,7 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import {
-  type AsyncOptions,
-  type CreateRetrieveArgs,
-  type UseStatefulRetrieveReturn,
-} from "@/flux/retrieve";
+import { type AsyncOptions, type CreateRetrieveArgs } from "@/flux/retrieve";
 import { type Sync } from "@/flux/sync";
 import { useInitializerRef } from "@/hooks";
 import { state } from "@/state";
@@ -35,11 +31,23 @@ interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   (keys: K[]): E[];
 }
 
+interface AsyncListOptions extends AsyncOptions {
+  mode?: "append" | "replace";
+}
+
 export type UseListReturn<
   RetrieveParams extends Params,
   K extends record.Key,
   E extends record.Keyed<K>,
-> = Omit<UseStatefulRetrieveReturn<RetrieveParams, K[]>, "data"> & {
+> = Omit<Result<K[]>, "data"> & {
+  retrieve: (
+    params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+    options?: AsyncListOptions,
+  ) => void;
+  retrieveAsync: (
+    params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+    options?: AsyncListOptions,
+  ) => Promise<void>;
   data: K[];
   useListItem: (key: K) => E | undefined;
   getItem: GetItem<K, E>;
@@ -127,20 +135,21 @@ export const createList =
       listeners: new Map(),
     }));
     const [result, setResult] = useState<Result<K[]>>(
-      pendingResult(name, "retrieving"),
+      pendingResult<K[]>(name, "retrieving"),
     );
 
     const paramsRef = useRef<P | null>(initialParams ?? null);
 
     const mountListeners = useMountListeners();
     const retrieveAsync = useCallback(
-      async (paramsSetter: state.SetArg<P, P | {}>, options: AsyncOptions = {}) => {
-        const { signal } = options;
+      async (paramsSetter: state.SetArg<P, P | {}>, options: AsyncListOptions = {}) => {
+        const { signal, mode = "replace" } = options;
         const params = state.executeSetter(paramsSetter, paramsRef.current ?? {});
         paramsRef.current = params;
         try {
-          if (client == null) return setResult(nullClientResult(name, "retrieve"));
-          setResult(pendingResult(name, "retrieving"));
+          if (client == null) return setResult(nullClientResult<K[]>(name, "retrieve"));
+          setResult((p) => pendingResult(name, "retrieving", p.data ?? []));
+          if (mode === "replace") dataRef.current.clear();
           const value = await retrieve({ client, params });
           const keys = value.map((v) => v.key);
           value.forEach((v) => {
@@ -179,14 +188,17 @@ export const createList =
                       },
                     });
                   } catch (error) {
-                    setResult(errorResult(name, "retrieve", error));
+                    setResult(errorResult<K[]>(name, "retrieve", error));
                   }
                 })(),
             })),
           );
-          return setResult(successResult(name, "retrieved", keys));
+          return setResult((prev) => {
+            if (mode === "replace") return successResult(name, "retrieved", keys);
+            return successResult(name, "retrieved", [...(prev.data ?? []), ...keys]);
+          });
         } catch (error) {
-          setResult(errorResult(name, "retrieve", error));
+          setResult(errorResult<K[]>(name, "retrieve", error));
         }
       },
       [client, name, mountListeners],
@@ -210,7 +222,7 @@ export const createList =
               if (k === key) listener();
             });
           } catch (error) {
-            setResult(errorResult(name, "retrieve", error));
+            setResult(errorResult<K[]>(name, "retrieve", error));
           }
         })();
       },
@@ -250,7 +262,7 @@ export const createList =
     };
 
     const retrieveSync = useCallback(
-      (params: state.SetArg<P, P | {}>, options: AsyncOptions = {}) =>
+      (params: state.SetArg<P, P | {}>, options: AsyncListOptions = {}) =>
         void retrieveAsync(params, options),
       [retrieveAsync],
     );
