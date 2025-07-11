@@ -71,7 +71,7 @@ var _ = Describe("Relay", func() {
 					defer GinkgoRecover()
 					Expect(w.Close()).To(Succeed())
 				}()
-				writeF := frame.MultiFrame(
+				writeF := frame.NewMulti(
 					keys,
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
@@ -84,7 +84,7 @@ var _ = Describe("Relay", func() {
 				for range s.resCount {
 					var res relay.Response
 					Eventually(readerRes.Outlet()).Should(Receive(&res))
-					f = frame.MergeFrames([]frame.Frame{f, res.Frame})
+					f = frame.Merge([]frame.Frame{f, res.Frame})
 				}
 				Expect(f.Count()).To(Equal(3))
 				for i, k := range f.KeysSlice() {

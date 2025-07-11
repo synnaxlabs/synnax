@@ -453,7 +453,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (fr framer.Frame, err error) {
 	}
 
 	if fgs.allChannelsPresent {
-		fr = frame.AllocFrame(len(cState.keys))
+		fr = frame.NewPreallocated(len(cState.keys))
 		for _, k := range cState.keys {
 			if err = decodeSeries(k); err != nil {
 				return

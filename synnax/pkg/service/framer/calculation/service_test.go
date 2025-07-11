@@ -88,7 +88,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		time.Sleep(sleepInterval)
-		MustSucceed(w.Write(frame.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		MustSucceed(w.Write(frame.NewUnary(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
@@ -125,7 +125,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
-		MustSucceed(w.Write(frame.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		MustSucceed(w.Write(frame.NewUnary(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		Consistently(sOutlet.Outlet(), 500*time.Millisecond).ShouldNot(Receive())
 		Expect(w.Close()).To(Succeed())
 	})
@@ -160,7 +160,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
-		MustSucceed(w.Write(frame.UnaryFrame(
+		MustSucceed(w.Write(frame.NewUnary(
 			baseCH.Key(),
 			telem.NewSeriesV[int64](1, 2),
 		)))
@@ -224,7 +224,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 
-		MustSucceed(w.Write(frame.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
+		MustSucceed(w.Write(frame.NewUnary(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		var res framer.StreamerResponse
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
 		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calc2CH.Key()}))
@@ -295,7 +295,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 
 		time.Sleep(5 * time.Millisecond)
-		MustSucceed(w.Write(frame.UnaryFrame(
+		MustSucceed(w.Write(frame.NewUnary(
 			baseCH.Key(),
 			telem.NewSeriesV[int64](1, 2),
 		)))

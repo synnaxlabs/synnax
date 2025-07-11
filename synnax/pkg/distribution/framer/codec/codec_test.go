@@ -11,6 +11,7 @@ package codec_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"math/rand"
 	"testing"
@@ -35,7 +36,7 @@ var _ = Describe("Codec", func() {
 		fr framer.Frame,
 	) {
 		cdc := codec.NewStatic(channels, dataTypes)
-		encoded := MustSucceed(cdc.Encode(nil, fr))
+		encoded := MustSucceed(cdc.Encode(context.TODO(), fr))
 		decoded := MustSucceed(cdc.Decode(encoded))
 		Expect(fr.Frame).To(telem.MatchFrame(decoded.Frame))
 	},
@@ -43,7 +44,7 @@ var _ = Describe("Codec", func() {
 		Entry("All Channels Present, In Order",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Int64T, telem.Float32T, telem.Float64T},
-			frame.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3),
@@ -55,7 +56,7 @@ var _ = Describe("Codec", func() {
 		Entry("All Channels Present, Out of Order",
 			channel.Keys{3, 1, 2},
 			[]telem.DataType{telem.Float64T, telem.Int64T, telem.Float32T},
-			frame.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{2, 3, 1},
 				[]telem.Series{
 					telem.NewSeriesV[float32](3, 2, 1),
@@ -67,7 +68,7 @@ var _ = Describe("Codec", func() {
 		Entry("Some Channels Present, In Order",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
-			frame.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 3},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1, 2, 3),
@@ -78,7 +79,7 @@ var _ = Describe("Codec", func() {
 		Entry("Some Channels Present, Out of Order",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
-			frame.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{3, 1},
 				[]telem.Series{
 					telem.NewSeriesV[float64](7, 8, 9),
@@ -89,7 +90,7 @@ var _ = Describe("Codec", func() {
 		Entry("All Same Time Range",
 			channel.Keys{1, 2},
 			[]telem.DataType{telem.Uint8T, telem.Float32T},
-			frame.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2},
 				[]telem.Series{
 					{
@@ -108,7 +109,7 @@ var _ = Describe("Codec", func() {
 		Entry("Different Time Ranges",
 			channel.Keys{1, 2},
 			[]telem.DataType{telem.Uint8T, telem.Float32T},
-			frame.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2},
 				[]telem.Series{
 					{
@@ -127,7 +128,7 @@ var _ = Describe("Codec", func() {
 		Entry("Partial Present, Different Lengths",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
-			frame.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 3},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1),
@@ -138,7 +139,7 @@ var _ = Describe("Codec", func() {
 		Entry("Same Alignments",
 			channel.Keys{1, 2},
 			[]telem.DataType{telem.Uint8T, telem.Float32T},
-			frame.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2},
 				[]telem.Series{
 					{
@@ -157,7 +158,7 @@ var _ = Describe("Codec", func() {
 		Entry("Different Alignments",
 			channel.Keys{1, 2},
 			[]telem.DataType{telem.Uint8T, telem.Float32T},
-			frame.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2},
 				[]telem.Series{
 					{
@@ -176,7 +177,7 @@ var _ = Describe("Codec", func() {
 		Entry("Variable Data Types",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.StringT, telem.JSONT},
-			frame.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1, 2, 3),
@@ -191,7 +192,7 @@ var _ = Describe("Codec", func() {
 		Entry("Multiple Series for the Same Channel",
 			channel.Keys{1, 2},
 			[]telem.DataType{telem.Uint8T, telem.Float32T},
-			frame.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2, 2, 1, 2},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1, 2, 3),
@@ -215,7 +216,7 @@ var _ = Describe("Codec", func() {
 			for i := range float32Data {
 				float32Data[i] = 1.234 + float32(i)*rand.Float32()
 			}
-			s2 := telem.NewSeries[float32](float32Data)
+			s2 := telem.NewSeries(float32Data)
 			s2.TimeRange = telem.NewRangeSeconds(3, 5)
 			s2.Alignment = 10
 			s3 := telem.NewSeriesStringsV("cat", "dog", "rabbit", "frog")
@@ -224,7 +225,7 @@ var _ = Describe("Codec", func() {
 			s4 := telem.MakeSeries(telem.Uint8T, 5000)
 			s4.Alignment = cesium.LeadingAlignment(5000, 5)
 			s4.TimeRange = telem.NewRangeSeconds(9999999, 999999999)
-			originalFrame := frame.MultiFrame(
+			originalFrame := frame.NewMulti(
 				keys,
 				[]telem.Series{s1, s2, s3, s4},
 			)
@@ -242,7 +243,7 @@ var _ = Describe("Codec", func() {
 				[]channel.Key{1, 2, 3},
 				[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
 			)
-			fr := frame.UnaryFrame(4, telem.NewSeriesSecondsTSV(1, 2, 3))
+			fr := frame.NewUnary(4, telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded, err := c.Encode(ctx, fr)
 			Expect(encoded).To(HaveLen(0))
 			Expect(err).To(HaveOccurredAs(validate.Error))
@@ -253,7 +254,7 @@ var _ = Describe("Codec", func() {
 				[]channel.Key{1},
 				[]telem.DataType{telem.Uint8T},
 			)
-			fr := frame.UnaryFrame(1, telem.NewSeriesSecondsTSV(1, 2, 3))
+			fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded, err := c.Encode(ctx, fr)
 			Expect(encoded).To(HaveLen(0))
 			Expect(err).To(HaveOccurredAs(validate.Error))
@@ -293,7 +294,7 @@ var _ = Describe("Codec", func() {
 		It("Should allow the caller to update the list of channels", func() {
 			codec := codec.NewDynamic(channelSvc)
 			Expect(codec.Update(ctx, []channel.Key{dataCh.Key(), idxCh.Key()})).To(Succeed())
-			fr := frame.MultiFrame(
+			fr := frame.NewMulti(
 				channel.Keys{dataCh.Key(), idxCh.Key()},
 				[]telem.Series{
 					telem.NewSeriesV[float32](1, 2, 3, 4),
@@ -302,7 +303,7 @@ var _ = Describe("Codec", func() {
 			)
 			encoded := MustSucceed(codec.Encode(ctx, fr))
 			decoded := MustSucceed(codec.Decode(encoded))
-			Expect(fr.Frame).To(telem.MatchFrame[channel.Key](decoded.Frame))
+			Expect(fr.Frame).To(telem.MatchFrame(decoded.Frame))
 		})
 
 		Describe("Initialized", func() {
@@ -333,26 +334,26 @@ var _ = Describe("Codec", func() {
 			Expect(decoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
 			Expect(encoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
 
-			frame1 := frame.UnaryFrame(idxCh.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
+			frame1 := frame.NewUnary(idxCh.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded := MustSucceed(encoder.Encode(ctx, frame1))
 			decoded := MustSucceed(decoder.Decode(encoded))
-			Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame1.Frame))
+			Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
 			By("Correctly using the previous encoding state when the two codecs are out of sync")
 			Expect(decoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
 
 			encoded = MustSucceed(encoder.Encode(ctx, frame1))
 			decoded = MustSucceed(decoder.Decode(encoded))
-			Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame1.Frame))
+			Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
 			By("Correctly using he most up to date state after the codec are in sync again")
 			Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
 			_, err := encoder.Encode(ctx, frame1)
 			Expect(err).To(HaveOccurredAs(validate.Error))
-			frame2 := frame.UnaryFrame(dataCh.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
+			frame2 := frame.NewUnary(dataCh.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
 			encoded = MustSucceed(encoder.Encode(ctx, frame2))
 			decoded = MustSucceed(decoder.Decode(encoded))
-			Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame2.Frame))
+			Expect(decoded.Frame).To(telem.MatchFrame(frame2.Frame))
 		})
 	})
 })
@@ -360,17 +361,17 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncode(b *testing.B) {
 	dataTypes := []telem.DataType{"int32"}
 	keys := channel.Keys{1}
-	fr := frame.MultiFrame(
+	fr := frame.NewMulti(
 		keys,
 		[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 	)
 	cd := codec.NewStatic(keys, dataTypes)
 	w := bytes.NewBuffer(nil)
-	if err := cd.EncodeStream(nil, w, fr); err != nil {
+	if err := cd.EncodeStream(context.TODO(), w, fr); err != nil {
 		b.Fatalf("failed to encode stream: %v", err)
 	}
 	for b.Loop() {
-		if err := cd.EncodeStream(nil, w, fr); err != nil {
+		if err := cd.EncodeStream(context.TODO(), w, fr); err != nil {
 			b.Fatalf("failed to encode stream: %v", err)
 		}
 		w.Reset()
@@ -379,7 +380,7 @@ func BenchmarkEncode(b *testing.B) {
 
 func BenchmarkJSONEncode(b *testing.B) {
 	keys := channel.Keys{1}
-	fr := frame.MultiFrame(
+	fr := frame.NewMulti(
 		keys,
 		[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 	)
@@ -394,12 +395,12 @@ func BenchmarkDecode(b *testing.B) {
 	var (
 		dataTypes = []telem.DataType{"int32"}
 		keys      = channel.Keys{1}
-		fr        = frame.MultiFrame(
+		fr        = frame.NewMulti(
 			keys,
 			[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 		)
 		cd         = codec.NewStatic(keys, dataTypes)
-		encoded, _ = cd.Encode(nil, fr)
+		encoded, _ = cd.Encode(context.TODO(), fr)
 		r          = bytes.NewReader(encoded)
 	)
 	for b.Loop() {
@@ -414,7 +415,7 @@ func BenchmarkDecode(b *testing.B) {
 
 func BenchmarkJSONDecode(b *testing.B) {
 	keys := channel.Keys{1}
-	encoded, err := json.Marshal(frame.MultiFrame(
+	encoded, err := json.Marshal(frame.NewMulti(
 		keys,
 		[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 	))

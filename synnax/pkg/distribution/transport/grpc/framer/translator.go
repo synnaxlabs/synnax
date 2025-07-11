@@ -229,7 +229,7 @@ func (w relayResponseTranslator) Forward(
 func translateFrameForward(fr *framerv1.Frame) framer.Frame {
 	keys := channel.KeysFromUint32(fr.Keys)
 	series := telem.TranslateManySeriesBackward(fr.Series)
-	return frame.MultiFrame(keys, series)
+	return frame.NewMulti(keys, series)
 }
 
 func translateFrameBackward(frame framer.Frame) *framerv1.Frame {

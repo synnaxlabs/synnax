@@ -167,7 +167,7 @@ func (s *Service) setStatus(
 	_ context.Context,
 	status Status,
 ) {
-	if _, err := s.w.Write(frame.UnaryFrame(
+	if _, err := s.w.Write(frame.NewUnary(
 		s.stateKey,
 		telem.NewSeriesStaticJSONV(status),
 	)); err != nil {

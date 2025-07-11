@@ -44,19 +44,19 @@ var _ = Describe("Iterator", func() {
 						Start: 10 * telem.SecondTS,
 						Sync:  config.True(),
 					}))
-					MustSucceed(writer.Write(frame.MultiFrame(
+					MustSucceed(writer.Write(frame.NewMulti(
 						s.keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 11, 12),
 						},
 					)))
-					MustSucceed(writer.Write(frame.MultiFrame(
+					MustSucceed(writer.Write(frame.NewMulti(
 						s.keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(13, 14, 15, 16, 17),
 						},
 					)))
-					MustSucceed(writer.Write(frame.MultiFrame(
+					MustSucceed(writer.Write(frame.NewMulti(
 						s.keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(18, 19, 20, 21, 22),

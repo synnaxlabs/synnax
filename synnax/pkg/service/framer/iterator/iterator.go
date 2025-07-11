@@ -276,7 +276,7 @@ func (i *Iterator) Value() frame.Frame {
 	for i, v := range i.value {
 		frames[i] = v.Frame
 	}
-	return frame.MergeFrames(frames)
+	return frame.Merge(frames)
 }
 
 func (i *Iterator) exec(req Request) bool {

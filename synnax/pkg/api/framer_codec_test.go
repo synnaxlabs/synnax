@@ -34,7 +34,7 @@ var _ = Describe("FramerCodec", func() {
 			}
 			req := api.FrameWriterRequest{
 				Command: writer.Write,
-				Frame: frame.MultiFrame(
+				Frame: frame.NewMulti(
 					keys,
 					[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 				),
@@ -62,7 +62,7 @@ var _ = Describe("FramerCodec", func() {
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
 			res := api.FrameStreamerResponse{
-				Frame: frame.MultiFrame(
+				Frame: frame.NewMulti(
 					keys,
 					[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 				),

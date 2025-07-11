@@ -28,22 +28,22 @@ func (f Frame) Append(key channel.Key, series telem.Series) Frame {
 	return Frame{f.Frame.Append(key, series)}
 }
 
-// UnaryFrame creates a new frame containing a single key-series pair. This is useful
-// for creating frames with a single channel's data.
-func UnaryFrame(key channel.Key, series telem.Series) Frame {
+// NewUnary creates a new frame containing a single key-series pair. This is useful for
+// creating frames with a single channel's data.
+func NewUnary(key channel.Key, series telem.Series) Frame {
 	return Frame{telem.UnaryFrame(key, series)}
 }
 
-// MultiFrame creates a new frame containing multiple key-series pairs. The keys and
-// series slices must be of equal length, or MultiFrame will panic.
-func MultiFrame(keys []channel.Key, series []telem.Series) Frame {
+// NewMulti creates a new frame containing multiple key-series pairs. The keys and
+// series slices must be of equal length, or NewMulti will panic.
+func NewMulti(keys []channel.Key, series []telem.Series) Frame {
 	return Frame{telem.MultiFrame(keys, series)}
 }
 
-// AllocFrame allocates a new frame with a capacity that can hold up to the specified
-// number of series before a re-allocation, This is useful for pre-allocating frames
-// when the expected number of series is known.
-func AllocFrame(cap int) Frame {
+// NewPreallocated allocates a new frame with a capacity that can hold up to the
+// specified number of series before a re-allocation, This is useful for pre-allocating
+// frames when the expected number of series is known.
+func NewPreallocated(cap int) Frame {
 	return Frame{telem.AllocFrame[channel.Key](cap)}
 }
 
@@ -98,10 +98,10 @@ func (f Frame) ShallowCopy() Frame {
 	return Frame{f.Frame.ShallowCopy()}
 }
 
-// MergeFrames combines multiple frames into a single frame. If the input slice is
-// empty, returns an empty frame. If the input slice contains only one frame, returns
-// that frame. Otherwise, merges all frames by appending their entries.
-func MergeFrames(frames []Frame) Frame {
+// Merge combines multiple frames into a single frame. If the input slice is empty,
+// returns an empty frame. If the input slice contains only one frame, returns that
+// frame. Otherwise, merges all frames by appending their entries.
+func Merge(frames []Frame) Frame {
 	if len(frames) == 0 {
 		return Frame{}
 	}
@@ -117,8 +117,7 @@ func MergeFrames(frames []Frame) Frame {
 	return f
 }
 
-// NewFrameFromStorage creates a new distribution layer frame from a storage layer
-// frame.
-func NewFrameFromStorage(frame ts.Frame) Frame {
+// NewStorage creates a new distribution layer frame from a storage layer frame.
+func NewStorage(frame ts.Frame) Frame {
 	return Frame{telem.UnsafeReinterpretFrameKeysAs[cesium.ChannelKey, channel.Key](frame)}
 }
