@@ -13,6 +13,12 @@ import { z } from "zod";
 import { nullableArrayZ } from "@/util/zod";
 
 export const keyZ = z.number();
+export const keyStringZ = z
+  .string()
+  .refine((val) => !isNaN(Number(val)), {
+    message: "Key must be  a number",
+  })
+  .transform((val) => Number(val));
 export type Key = z.infer<typeof keyZ>;
 export type Keys = Key[];
 export const nameZ = z.string();

@@ -16,7 +16,7 @@ import { channel } from "@/channel";
 const csvRequestZ = z.object({
   keys: channel.keyZ.array(),
   timeRange: TimeRange.z,
-  channelNames: z.record(channel.keyZ, z.string()).optional(),
+  channelNames: z.record(channel.keyStringZ, z.string()).optional(),
 });
 
 type CSVRequest = z.infer<typeof csvRequestZ>;
