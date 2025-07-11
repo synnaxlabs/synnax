@@ -11,22 +11,16 @@ package fmock
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-)
-
-var (
-	_ freighter.UnaryClient[types.Nil, any] = (*UnaryClient[types.Nil, any])(nil)
-	_ freighter.UnaryServer[types.Nil, any] = (*UnaryServer[types.Nil, any])(nil)
 )
 
 // UnaryServer implements the freighter.UnaryServer interface using go channels as the
 // transport.
 type UnaryServer[RQ, RS freighter.Payload] struct {
 	// Network is the network the server is listening on. In the case where a server is
-	// directly connected to a client (i.e. via NewUnaryPair), this is nil.
+	// directly connected to a client, this is nil.
 	Network *Network[RQ, RS]
 	// Address of the server on the network. This field is only defined if network is
 	// not nil.
@@ -36,6 +30,8 @@ type UnaryServer[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
 }
+
+var _ freighter.UnaryServer[any, any] = (*UnaryServer[any, any])(nil)
 
 // BindHandler implements the freighter.UnaryServer interface.
 func (us *UnaryServer[RQ, RS]) BindHandler(handler func(context.Context, RQ) (RS, error)) {
@@ -68,6 +64,8 @@ type UnaryClient[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
 }
+
+var _ freighter.UnaryClient[any, any] = (*UnaryClient[any, any])(nil)
 
 // Send implements the freighter.UnaryClient interface.
 func (uc *UnaryClient[RQ, RS]) Send(

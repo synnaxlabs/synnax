@@ -11,18 +11,10 @@ package fmock
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
-)
-
-var (
-	_ freighter.StreamClient[int, types.Nil] = (*StreamClient[int, types.Nil])(nil)
-	_ freighter.StreamServer[types.Nil, int] = (*StreamServer[types.Nil, int])(nil)
-	_ freighter.ServerStream[int, types.Nil] = (*ServerStream[int, types.Nil])(nil)
-	_ freighter.ClientStream[int, types.Nil] = (*ClientStream[int, types.Nil])(nil)
 )
 
 // NewStreamPair creates a new stream client and server pair that are directly linked to
@@ -72,6 +64,8 @@ type StreamServer[RQ, RS freighter.Payload] struct {
 	freighter.MiddlewareCollector
 }
 
+var _ freighter.StreamServer[any, any] = (*StreamServer[any, any])(nil)
+
 // BindHandler implements the freighter.StreamServer interface.
 func (ss *StreamServer[RQ, RS]) BindHandler(handler func(
 	ctx context.Context,
@@ -104,6 +98,8 @@ type StreamClient[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
 }
+
+var _ freighter.StreamClient[any, any] = (*StreamClient[any, any])(nil)
 
 // Stream implements the freighter.StreamClient interface.
 func (sc *StreamClient[RQ, RS]) Stream(
@@ -169,6 +165,8 @@ type ServerStream[RQ, RS freighter.Payload] struct {
 	receiveErr   error
 	sendErr      error
 }
+
+var _ freighter.ServerStream[any, any] = (*ServerStream[any, any])(nil)
 
 // Send implements the freighter.StreamSender interface.
 func (ss *ServerStream[RQ, RS]) Send(res RS) error {
@@ -238,6 +236,8 @@ type ClientStream[RQ, RS freighter.Payload] struct {
 	sendErr      error
 	receiveErr   error
 }
+
+var _ freighter.ClientStream[any, any] = (*ClientStream[any, any])(nil)
 
 func (cs *ClientStream[RQ, RS]) Send(req RQ) error {
 	if cs.sendErr != nil {

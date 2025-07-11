@@ -26,6 +26,8 @@ var (
 	// ErrStreamClosed is returned when a caller attempts to send or receive a message
 	// from a stream that is already closed.
 	ErrStreamClosed = errors.New("[freighter] - stream closed")
+	// ErrUnreachable is returned when a target cannot be reached.
+	ErrUnreachable = errors.New("[freighter] - target unreachable")
 )
 
 const (

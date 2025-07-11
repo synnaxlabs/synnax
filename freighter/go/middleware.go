@@ -46,9 +46,7 @@ func (mc *MiddlewareCollector) Exec(fCtx Context, finalizer middleware.Finalizer
 }
 
 // Use maintains the middleware.Collector interface.
-func (mc *MiddlewareCollector) Use(m ...Middleware) {
-	mc.Chain = append(mc.Chain, m...)
-}
+func (mc *MiddlewareCollector) Use(m ...Middleware) { mc.Chain = append(mc.Chain, m...) }
 
 // MiddlewareFunc is a utility type so that functions can implement Middleware.
 type MiddlewareFunc func(Context, Next) (Context, error)
@@ -56,8 +54,8 @@ type MiddlewareFunc func(Context, Next) (Context, error)
 var _ Middleware = MiddlewareFunc(nil)
 
 // Exec implements Middleware.
-func (m MiddlewareFunc) Exec(fCtx Context, next Next) (Context, error) {
-	return m(fCtx, next)
+func (mf MiddlewareFunc) Exec(ctx Context, next Next) (Context, error) {
+	return mf(ctx, next)
 }
 
 // FinalizerFunc is a utility type so that functions can implement Finalizer.
@@ -69,8 +67,8 @@ func (f FinalizerFunc) Finalize(req Context) (Context, error) {
 }
 
 // NoopFinalizer is a Finalizer that returns the request metadata unmodified.
-var NoopFinalizer = FinalizerFunc(func(md Context) (Context, error) {
-	return md, nil
+var NoopFinalizer = FinalizerFunc(func(ctx Context) (Context, error) {
+	return ctx, nil
 })
 
 func UseOnAll(middlewares []Middleware, transports ...Transport) {
