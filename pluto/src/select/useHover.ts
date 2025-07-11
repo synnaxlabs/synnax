@@ -2,6 +2,8 @@ import { type record, TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
+import { List } from "@/list";
+import { state } from "@/state";
 import { Triggers } from "@/triggers";
 
 export interface UseHoverProps<K extends record.Key> {
@@ -29,8 +31,17 @@ export const useHover = <K extends record.Key>({
 }: UseHoverProps<K>): UseHoverReturn<K> => {
   const dataRef = useSyncedRef(data);
   const [hover, setHover, hoverRef] = useCombinedStateAndRef<number>(initialHover);
+  const { scrollToIndex } = List.useScroller();
+  const updateHover = useCallback(
+    (setArg: state.SetArg<number>) => {
+      const next = state.executeSetter(setArg, hoverRef.current);
+      setHover(next);
+      scrollToIndex(next);
+    },
+    [scrollToIndex],
+  );
   useEffect(() => {
-    if (hover >= data.length) setHover(0);
+    if (hover >= data.length) updateHover(0);
   }, [data.length]);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -52,9 +63,9 @@ export const useHover = <K extends record.Key>({
       const move = () => {
         const data = dataRef.current;
         if (Triggers.match(triggers, [UP_TRIGGER], { loose: true }))
-          setHover((pos) => (pos <= 0 ? data.length - 1 : pos - 1));
+          updateHover((pos) => (pos <= 0 ? data.length - 1 : pos - 1));
         else if (Triggers.match(triggers, [DOWN_TRIGGER], { loose: true }))
-          setHover((pos) => (pos >= data.length - 1 ? 0 : pos + 1));
+          updateHover((pos) => (pos >= data.length - 1 ? 0 : pos + 1));
       };
       move();
       intervalRef.current = setTimeout(() => {

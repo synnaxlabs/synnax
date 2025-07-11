@@ -14,30 +14,19 @@ import { type Mode, MODES } from "@/vis/button/use";
 
 interface SelectButtonModeProps extends Select.SingleProps<Mode> {}
 
-const DATA = [...MODES];
-
-export const SelectMode = ({
-  value,
-  onChange,
-}: SelectButtonModeProps): ReactElement => {
-  const selectProps = Select.useSingle({ data: DATA, value, onChange });
-  return (
-    <Select.Buttons value={value} {...selectProps}>
-      <Select.Button itemKey="fire" tooltip="Output true when clicked">
-        Fire
-      </Select.Button>
-      <Select.Button
-        itemKey="momentary"
-        tooltip="Output true on press, false on release"
-      >
-        Momentary
-      </Select.Button>
-      <Select.Button
-        itemKey="pulse"
-        tooltip="Output true and then immediately output false on click"
-      >
-        Pulse
-      </Select.Button>
-    </Select.Buttons>
-  );
-};
+export const SelectMode = (props: SelectButtonModeProps): ReactElement => (
+  <Select.Buttons {...props} keys={MODES}>
+    <Select.Button itemKey="fire" tooltip="Output true when clicked">
+      Fire
+    </Select.Button>
+    <Select.Button itemKey="momentary" tooltip="Output true on press, false on release">
+      Momentary
+    </Select.Button>
+    <Select.Button
+      itemKey="pulse"
+      tooltip="Output true and then immediately output false on click"
+    >
+      Pulse
+    </Select.Button>
+  </Select.Buttons>
+);

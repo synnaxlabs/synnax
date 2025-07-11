@@ -11,29 +11,20 @@ import { type ReactElement } from "react";
 
 import { type Alignment, ALIGNMENTS } from "@/align/Space";
 import { Icon } from "@/icon";
-import { Select as CoreSelect } from "@/select";
+import { Select as Core } from "@/select";
 
-const DATA: Alignment[] = [...ALIGNMENTS];
+export interface SelectProps extends Core.SingleProps<Alignment> {}
 
-export interface SelectProps extends CoreSelect.SingleProps<Alignment> {}
-
-export const Select = ({ onChange, value, ...rest }: SelectProps): ReactElement => {
-  const { onSelect, ...selectProps } = CoreSelect.useSingle({
-    value,
-    onChange,
-    data: DATA,
-  });
-  return (
-    <CoreSelect.Buttons {...rest} {...selectProps} value={value} onSelect={onSelect}>
-      <CoreSelect.ButtonIcon itemKey="start">
-        <Icon.TextAlign.Left />
-      </CoreSelect.ButtonIcon>
-      <CoreSelect.ButtonIcon itemKey="center">
-        <Icon.TextAlign.Center />
-      </CoreSelect.ButtonIcon>
-      <CoreSelect.ButtonIcon itemKey="end">
-        <Icon.TextAlign.Right />
-      </CoreSelect.ButtonIcon>
-    </CoreSelect.Buttons>
-  );
-};
+export const Select = ({ value, ...rest }: SelectProps): ReactElement => (
+  <Core.Buttons {...rest} value={value} keys={ALIGNMENTS}>
+    <Core.ButtonIcon itemKey="start">
+      <Icon.TextAlign.Left />
+    </Core.ButtonIcon>
+    <Core.ButtonIcon itemKey="center">
+      <Icon.TextAlign.Center />
+    </Core.ButtonIcon>
+    <Core.ButtonIcon itemKey="end">
+      <Icon.TextAlign.Right />
+    </Core.ButtonIcon>
+  </Core.Buttons>
+);

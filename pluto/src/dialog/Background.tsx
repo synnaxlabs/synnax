@@ -24,7 +24,7 @@ export const Background = ({
   ...rest
 }: BackgroundProps): ReactElement => (
   <Align.Space
-    className={CSS(CSS.BE("modal", "bg"), CSS.visible(visible))}
+    className={CSS(CSS.BE("dialog", "bg"), CSS.visible(visible))}
     empty
     align="center"
     {...rest}

@@ -20,8 +20,8 @@ import {
 import {
   createContext,
   type CSSProperties,
+  type PropsWithChildren,
   type ReactElement,
-  type ReactNode,
   type RefCallback,
   useCallback,
   useContext as reactUseContext,
@@ -51,17 +51,17 @@ import { getRootElement } from "@/util/rootElement";
 export type Variant = "connected" | "floating" | "modal";
 
 /** Props for the {@link Frame} component. */
-export interface DialogProps
-  extends Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty"> {
+export interface FrameProps
+  extends Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty">,
+    PropsWithChildren {
+  initialVisible?: boolean;
+  visible?: boolean;
+  onVisibleChange?: state.Setter<boolean>;
   location?: loc.Y | loc.XY;
-  children: ReactNode;
   variant?: Variant;
   maxHeight?: Component.Size | number;
   zIndex?: number;
   modalOffset?: number;
-  visible?: boolean;
-  onVisibleChange?: state.Setter<boolean>;
-  initialVisible?: boolean;
 }
 
 interface State {
@@ -80,7 +80,6 @@ const ZERO_STATE: State = {
 
 const Z_INDEX_VARIABLE = "--pluto-dropdown-z-index";
 
-/** Return type for the {@link use} hook. */
 export interface ContextValue {
   close: () => void;
   open: () => void;
@@ -110,27 +109,26 @@ export const useContext = (): ContextValue => reactUseContext(Context);
 export const Frame = ({
   children,
   location: propsLocation = "bottom",
-  visible: propsVisible,
-  onVisibleChange: propsOnVisibleChange,
-  initialVisible = false,
+  onPointerEnter,
   className,
   variant = "connected",
   maxHeight,
   zIndex = 5,
-  bordered = false,
   modalOffset = 20,
+  initialVisible = false,
+  visible: propsVisible,
+  onVisibleChange: propsOnVisibleChange,
   ...rest
-}: DialogProps): ReactElement => {
+}: FrameProps): ReactElement => {
   const [visible, setVisible] = state.usePassthrough({
     initial: initialVisible,
     value: propsVisible,
     onChange: propsOnVisibleChange,
   });
-  const visibleRef = useSyncedRef(visible);
   const close = useCallback(() => setVisible(false), [setVisible]);
   const open = useCallback(() => setVisible(true), [setVisible]);
   const toggle = useCallback(() => setVisible((prev) => !prev), [setVisible]);
-  const ctxValue = useMemo(() => ({ close, open, toggle, visible }), [visible]);
+  const visibleRef = useSyncedRef(visible);
   const parentRef = useRef<HTMLDivElement>(null);
   const prevLocation = useRef<location.XY | undefined>(undefined);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -213,6 +211,11 @@ export const Frame = ({
       style: dialogStyle,
     }),
     [combinedDialogRef, dialogLoc, variant, dialogStyle],
+  );
+
+  const ctxValue = useMemo(
+    () => ({ close, open, toggle, visible, onPointerEnter }),
+    [close, open, toggle, visible],
   );
 
   return (
@@ -348,7 +351,7 @@ export interface DialogProps extends Align.SpaceProps {
   zIndex?: number;
 }
 
-export const Dialog = ({ zIndex, style, ...rest }: DialogProps) => {
+export const Dialog = ({ zIndex, style, background = 0, ...rest }: DialogProps) => {
   const { ref, location, variant, style: ctxStyle } = useInternalContext();
   const { visible } = useContext();
   if (!visible) return null;
@@ -356,6 +359,7 @@ export const Dialog = ({ zIndex, style, ...rest }: DialogProps) => {
     <Align.Pack
       ref={ref}
       y
+      background={background}
       className={CSS(
         CSS.BE("dialog", "dialog"),
         CSS.loc(location.x),

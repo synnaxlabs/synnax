@@ -12,26 +12,12 @@ import { type ReactElement } from "react";
 import { type Size, SIZES } from "@/component/size";
 import { Select } from "@/select";
 
-const SIZE_DATA = [...SIZES];
-
 export interface SelectComponentSizeProps extends Select.SingleProps<Size> {}
 
-export const SelectSize = ({
-  value,
-  onChange,
-  ...rest
-}: SelectComponentSizeProps): ReactElement => {
-  const { onSelect, ...selectProps } = Select.useSingle({
-    data: SIZE_DATA,
-    value,
-    onChange,
-    ...rest,
-  });
-  return (
-    <Select.Buttons {...rest} {...selectProps} onSelect={onSelect} value={value}>
-      <Select.ButtonIcon itemKey="tiny">L</Select.ButtonIcon>
-      <Select.ButtonIcon itemKey="small">M</Select.ButtonIcon>
-      <Select.ButtonIcon itemKey="medium">L</Select.ButtonIcon>
-    </Select.Buttons>
-  );
-};
+export const SelectSize = (props: SelectComponentSizeProps): ReactElement => (
+  <Select.Buttons {...props} keys={SIZES}>
+    <Select.ButtonIcon itemKey="tiny">L</Select.ButtonIcon>
+    <Select.ButtonIcon itemKey="small">M</Select.ButtonIcon>
+    <Select.ButtonIcon itemKey="medium">L</Select.ButtonIcon>
+  </Select.Buttons>
+);

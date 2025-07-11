@@ -12,7 +12,8 @@
 .pluto-list__item {
     position: relative;
     cursor: pointer;
-    padding: 1rem 2rem;
+    padding: 1.5rem 2rem;
+    padding-left: 3rem;
     width: 100%;
     border-color: var(--pluto-gray-l2);
     outline: none;
@@ -31,9 +32,9 @@
     }
 
     &.pluto--selected {
-        --pluto-bg: var(--pluto-gray-l2) !important;
+        --pluto-bg: var(--pluto-gray-l1);
         background: var(--pluto-bg);
-        box-shadow: inset 2px 0 0 var(--pluto-primary-z);
+        box-shadow: inset 3px 0 0 var(--pluto-primary-z);
         &.pluto--right-aligned {
             box-shadow: inset -2px 0 0 var(--pluto-primary-z);
         }

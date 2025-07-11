@@ -166,8 +166,8 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
       );
       paramsRef.current = params;
       try {
-        if (client == null) return onChange(nullClientResult(name, "retrieve"));
-        onChange(pendingResult(name, "retrieving"));
+        if (client == null) return onChange(nullClientResult<Data>(name, "retrieve"));
+        onChange(pendingResult<Data>(name, "retrieving"));
         const value = await retrieve({ client, params });
         if (signal?.aborted) return;
         mountListeners(
@@ -190,14 +190,14 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
                     },
                   });
                 } catch (error) {
-                  onChange(errorResult(name, "retrieve", error));
+                  onChange(errorResult<Data>(name, "retrieve", error));
                 }
               })(),
           })),
         );
-        onChange(successResult(name, "retrieved", value));
+        onChange(successResult<Data>(name, "retrieved", value));
       } catch (error) {
-        onChange(errorResult(name, "retrieve", error));
+        onChange(errorResult<Data>(name, "retrieve", error));
       }
     },
     [client, name, mountListeners],
@@ -218,7 +218,9 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
 const useStateful = <RetrieveParams extends Params, V extends state.State>(
   args: CreateRetrieveArgs<RetrieveParams, V>,
 ): UseStatefulRetrieveReturn<RetrieveParams, V> => {
-  const [state, setState] = useState<Result<V>>(pendingResult(args.name, "retrieving"));
+  const [state, setState] = useState<Result<V>>(
+    pendingResult<V>(args.name, "retrieving"),
+  );
   return {
     ...state,
     ...useObservable({ ...args, onChange: setState }),

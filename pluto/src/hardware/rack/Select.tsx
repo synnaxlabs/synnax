@@ -8,29 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { type rack } from "@synnaxlabs/client";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
 import { Component } from "@/component";
 import { Dialog } from "@/dialog";
+import { type Flux } from "@/flux";
 import { useList } from "@/hardware/rack/queries";
-import { Input } from "@/input";
 import { List } from "@/list";
 import { type ListParams } from "@/ranger/queries";
 import { Select } from "@/select";
-import { type state } from "@/state";
 import { Text } from "@/text";
 
-export interface SelectSingleProps extends Select.SingleProps<rack.Key> {}
-
-const SingleTrigger = (): ReactElement => {
-  const [value] = Select.useSelection<rack.Key>();
-  const item = List.useItem<rack.Key, rack.Rack>(value);
-  return (
-    <Dialog.Trigger>
-      <Text.Text level="p">{item?.name}</Text.Text>
-    </Dialog.Trigger>
-  );
-};
+export interface SelectSingleProps
+  extends Omit<
+      Select.SingleFrameProps<rack.Key, rack.Rack | undefined>,
+      "data" | "useListItem"
+    >,
+    Pick<Flux.UseListArgs<rack.Key, rack.Rack>, "filter">,
+    Omit<Dialog.FrameProps, "onChange">,
+    Pick<Select.DialogProps<rack.Key, ListParams>, "emptyContent"> {}
 
 const listItemRenderProp = Component.renderProp(
   ({ itemKey }: List.ItemRenderProps<rack.Key>) => {
@@ -39,43 +35,33 @@ const listItemRenderProp = Component.renderProp(
   },
 );
 
-interface DialogContentProps {
-  retrieve: state.Setter<ListParams>;
-}
-
-const DialogContent = ({ retrieve }: DialogContentProps): ReactElement => {
-  const [search, setSearch] = useState("");
-  return (
-    <Dialog.Frame>
-      <Input.Text
-        value={search}
-        onChange={(v) => {
-          setSearch(v);
-          retrieve((prev) => ({ ...prev, search: v }));
-        }}
-      />
-      <List.Items>{listItemRenderProp}</List.Items>
-    </Dialog.Frame>
-  );
-};
 export const SelectSingle = ({
   value,
   onChange,
+  filter,
+  allowNone,
+  emptyContent,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, useListItem, retrieve } = useList();
-  const { onSelect, ...selectProps } = Select.useSingle({ value, onChange, data });
   return (
-    <Select.Dialog<rack.Key, rack.Rack | undefined>
-      value={value}
-      onSelect={onSelect}
-      useItem={useListItem}
-      data={data}
-      {...rest}
-      {...selectProps}
-    >
-      <SingleTrigger />
-      <DialogContent retrieve={retrieve} />
-    </Select.Dialog>
+    <Dialog.Frame {...rest}>
+      <Select.Frame<rack.Key, rack.Rack | undefined>
+        value={value}
+        onChange={onChange}
+        useListItem={useListItem}
+        data={data}
+        allowNone={allowNone}
+      >
+        <Select.SingleTrigger />
+        <Select.Dialog<rack.Key, ListParams>
+          onSearch={retrieve}
+          searchPlaceholder="Search Racks..."
+          emptyContent={emptyContent}
+        >
+          {listItemRenderProp}
+        </Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
   );
 };

@@ -44,13 +44,6 @@ export const useClickOutside = ({
           if (exclude(e)) return;
         } else if (exclude.some((r) => r.current?.contains(e.target as Node))) return;
 
-      console.log({
-        elNull: el == null,
-        elContains: el?.contains(e.target as Node),
-        boxContains: box.contains(el, pos),
-        windowBoxContains: box.contains(windowBox, pos),
-      });
-
       if (
         el == null ||
         el.contains(e.target as Node) ||

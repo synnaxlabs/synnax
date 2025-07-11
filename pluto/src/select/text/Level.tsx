@@ -10,26 +10,16 @@
 import { type ReactElement } from "react";
 
 import { Select } from "@/select";
-import { Buttons } from "@/select/Button";
 import { text } from "@/text/core";
 
 export interface LevelProps extends Select.SingleProps<text.Level> {}
 
-const DATA = [...text.LEVELS];
-
-export const Level = ({ value, onChange, ...rest }: LevelProps): ReactElement => {
-  const { onSelect, ...selectProps } = Select.useSingle({
-    value,
-    onChange,
-    data: DATA,
-  });
-  return (
-    <Buttons {...rest} {...selectProps} value={value} onSelect={onSelect}>
-      <Select.Button itemKey="h2">XL</Select.Button>
-      <Select.Button itemKey="h3">L</Select.Button>
-      <Select.Button itemKey="h4">M</Select.Button>
-      <Select.Button itemKey="h5">S</Select.Button>
-      <Select.Button itemKey="small">XS</Select.Button>
-    </Buttons>
-  );
-};
+export const Level = ({ value, onChange, ...rest }: LevelProps): ReactElement => (
+  <Select.Buttons {...rest} keys={text.LEVELS} value={value} onChange={onChange}>
+    <Select.Button itemKey="h2">XL</Select.Button>
+    <Select.Button itemKey="h3">L</Select.Button>
+    <Select.Button itemKey="h4">M</Select.Button>
+    <Select.Button itemKey="h5">S</Select.Button>
+    <Select.Button itemKey="small">XS</Select.Button>
+  </Select.Buttons>
+);

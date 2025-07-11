@@ -1,4 +1,4 @@
-/*
+/* 
  * Copyright 2025 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
@@ -28,11 +28,9 @@
 .pluto-dialog__dialog {
     position: fixed;
     overflow: hidden;
-
     border-radius: var(--pluto-pack-br);
 
     &.pluto--connected {
-        background: var(--pluto-gray-l1);
         border: var(--pluto-border-l5);
     }
 
@@ -98,18 +96,18 @@
         }
 
         & > div {
-            position: relative;
+            /* position: relative;
             animation: var(--pluto-dialog-animation);
             z-index: 11;
             min-width: 400px;
             min-height: 150px;
             overflow: hidden;
             box-shadow: var(--pluto-shadow-v1);
-            border-radius: 1rem;
+            border-radius: 1rem; */
         }
 
         @media (max-height: 800px) {
-            .pluto-dialog__dialog {
+            .pluto-dropdown__dialog {
                 top: 10%;
             }
         }

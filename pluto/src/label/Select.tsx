@@ -133,14 +133,14 @@ export const SelectMultiple = ({
 
   const dragging = Haul.useDraggingState();
   return (
-    <Select.Dialog<label.Key, label.Label | undefined>
+    <Select.Frame<label.Key, label.Label | undefined>
       className={CSS(
         className,
         CSS.dropRegion(canDrop(dragging, array.toArray(value))),
       )}
       value={value}
       onSelect={onSelect}
-      useItem={useListItem}
+      useListItem={useListItem}
       data={data}
       {...dropProps}
       {...selectProps}
@@ -148,7 +148,7 @@ export const SelectMultiple = ({
     >
       <MultipleTrigger onTagDragStart={onTagDragStart} />
       <DialogContent retrieve={retrieve} />
-    </Select.Dialog>
+    </Select.Frame>
   );
 };
 
@@ -214,14 +214,14 @@ export const SelectSingle = ({
   );
 
   return (
-    <Select.Dialog<label.Key, label.Label | undefined>
+    <Select.Frame<label.Key, label.Label | undefined>
       className={CSS(
         className,
         CSS.dropRegion(canDrop(dragging, array.toArray(value))),
       )}
       value={value}
       onSelect={onSelect}
-      useItem={useListItem}
+      useListItem={useListItem}
       data={data}
       onDragStart={onDragStart}
       {...dragProps}
@@ -230,6 +230,6 @@ export const SelectSingle = ({
     >
       <SingleTrigger />
       <DialogContent retrieve={retrieve} />
-    </Select.Dialog>
+    </Select.Frame>
   );
 };

@@ -18,7 +18,7 @@ export const isSetter = <S extends State, PS = S>(
 ): arg is SetFunc<S, PS> => typeof arg === "function";
 
 export type SetArg<S extends State, PS = S> = S | SetFunc<S, PS>;
-export type Setter<S extends State> = (value: SetArg<S>) => void;
+export type Setter<S extends State, PS = S> = (value: SetArg<S, PS>) => void;
 export type PureSetter<S extends State> = (value: S) => void;
 export type Initial<S extends State> = S | (() => S);
 

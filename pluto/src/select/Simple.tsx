@@ -1,68 +1,67 @@
 import { type record } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
 
 import { Component } from "@/component";
 import { Dialog } from "@/dialog";
-import { Input } from "@/input";
+import { type Icon } from "@/icon";
 import { List } from "@/list";
 import { type ItemRenderProp } from "@/list/Item";
-import { Dialog as SelectDialog, type SingleProps } from "@/select/Dialog";
-import { useSingle } from "@/select/use";
+import { Dialog as SelectDialog } from "@/select/Dialog";
+import { Frame, type SingleFrameProps } from "@/select/Frame";
+import { SingleTrigger } from "@/select/SingleTrigger";
 import { Text } from "@/text";
 
-export interface SimpleProps<K extends record.Key, E extends record.KeyedNamed<K>>
-  extends SingleProps<K> {
+export interface SimplyEntry<K extends record.Key> extends record.KeyedNamed<K> {
+  icon?: Icon.ReactElement;
+}
+
+export interface SimpleProps<
+  K extends record.Key,
+  E extends SimplyEntry<K> = SimplyEntry<K>,
+> extends Omit<SingleFrameProps<K, E>, "data" | "children" | "useListItem">,
+    Pick<List.ItemsProps<K>, "emptyContent">,
+    Omit<Dialog.DialogProps, "onChange" | "children"> {
   data: E[];
   children?: ItemRenderProp<K>;
 }
 
-interface SearchInputProps {
-  onSearch: (term: string) => void;
-}
-
-const SearchInput = ({ onSearch }: SearchInputProps) => {
-  const [search, setSearch] = useState("");
-  const handleChange = useCallback(
-    (v: string) => {
-      setSearch(v);
-      onSearch(v);
-    },
-    [onSearch],
-  );
-  return <Input.Text value={search} onChange={handleChange} />;
-};
-
 const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   const { itemKey } = p;
-  const item = List.useItem<record.Key, record.KeyedNamed<record.Key>>(itemKey);
+  const item = List.useItem<record.Key, SimplyEntry<record.Key>>(itemKey);
   if (item == null) return null;
-  const { name } = item;
+  const { name, icon } = item;
   return (
     <List.Item {...p}>
-      <Text.Text level="p">{name}</Text.Text>
+      <Text.WithIcon level="p" startIcon={icon}>
+        {name}
+      </Text.WithIcon>
     </List.Item>
   );
 });
 
 export const Simple = <K extends record.Key, E extends record.KeyedNamed<K>>({
   data: entries,
+  children = listItem,
+  emptyContent,
+  allowNone,
   value,
   onChange,
-  allowNone,
-  children = listItem,
   ...rest
 }: SimpleProps<K, E>) => {
   const { data, useItem, retrieve } = List.useStaticData<K, E>(entries);
-  const selectProps = useSingle<K>({ data, value, onChange });
-  const selected = useItem(value);
-  const handleSearch = useCallback((term: string) => retrieve({ term }), [retrieve]);
   return (
-    <SelectDialog {...rest} {...selectProps} data={data} useItem={useItem}>
-      <Dialog.Trigger variant="outlined">{selected?.name ?? "Select"}</Dialog.Trigger>
-      <Dialog.Frame>
-        <SearchInput onSearch={handleSearch} />
-        <List.Items>{children}</List.Items>
-      </Dialog.Frame>
-    </SelectDialog>
+    <Dialog.Frame {...rest}>
+      <Frame<K, E>
+        data={data}
+        useListItem={useItem}
+        value={value}
+        onChange={onChange}
+        allowNone={allowNone}
+      >
+        <SingleTrigger />
+        <SelectDialog onSearch={retrieve} emptyContent={emptyContent}>
+          {children}
+        </SelectDialog>
+      </Frame>
+    </Dialog.Frame>
   );
 };

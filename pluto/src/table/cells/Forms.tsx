@@ -7,20 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, color, deep, type record, scale } from "@synnaxlabs/x";
+import { type bounds, color, deep, scale } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
-import { Component } from "@/component";
-import { Dialog } from "@/dialog";
 import { Form } from "@/form";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
-import { List } from "@/list";
 import { Select } from "@/select";
 import { type Variant } from "@/table/cells/registry";
 import { Tabs } from "@/tabs";
-import { Text } from "@/text";
+import { type Text } from "@/text";
 import { Value } from "@/vis/value";
 
 export interface FormProps {
@@ -185,35 +183,13 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
   </Align.Space>
 );
 
-type VariantEntry = record.KeyedNamed<Variant>;
-
-const VARIANT_DATA: VariantEntry[] = [
-  { key: "text", name: "Text" },
-  { key: "value", name: "Value" },
+const VARIANT_DATA: Select.SimplyEntry<Variant>[] = [
+  { key: "text", name: "Text", icon: <Icon.Text /> },
+  { key: "value", name: "Value", icon: <Icon.Channel /> },
 ];
 
-interface SelectVariantProps extends Select.SingleProps<Variant> {}
+interface SelectVariantProps extends Omit<Select.SimpleProps<Variant>, "data"> {}
 
-const variantListRenderProp = Component.renderProp(
-  ({ itemKey, ...rest }: List.ItemRenderProps<Variant>) => {
-    const item = List.useItem<Variant, VariantEntry>(itemKey);
-    return (
-      <List.Item itemKey={itemKey} {...rest}>
-        <Text.Text level="p">{item?.name}</Text.Text>
-      </List.Item>
-    );
-  },
+const SelectVariant = (props: SelectVariantProps) => (
+  <Select.Simple data={VARIANT_DATA} {...props} />
 );
-
-const SelectVariant = ({ value, onChange }: SelectVariantProps) => {
-  const { data, useItem } = List.useStaticData<Variant, VariantEntry>(VARIANT_DATA);
-  const selectProps = Select.useSingle({ data, value, onChange });
-  return (
-    <Select.Dialog value={value} data={data} useItem={useItem} {...selectProps}>
-      <Dialog.Trigger></Dialog.Trigger>
-      <Dialog.Dialog>
-        <List.Items>{variantListRenderProp}</List.Items>
-      </Dialog.Dialog>
-    </Select.Dialog>
-  );
-};

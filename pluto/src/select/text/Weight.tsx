@@ -16,18 +16,11 @@ const DATA = [250, 400, 500, 600];
 
 export interface WeightProps extends Select.SingleProps<text.Weight> {}
 
-export const Weight = ({ value, onChange, ...rest }: WeightProps): ReactElement => {
-  const { onSelect, ...selectProps } = Select.useSingle({
-    value,
-    onChange,
-    data: DATA,
-  });
-  return (
-    <Select.Buttons {...rest} {...selectProps} value={value} onSelect={onSelect}>
-      <Select.Button itemKey={250}>Light</Select.Button>
-      <Select.Button itemKey={400}>Normal</Select.Button>
-      <Select.Button itemKey={500}>Medium</Select.Button>
-      <Select.Button itemKey={600}>Bold</Select.Button>
-    </Select.Buttons>
-  );
-};
+export const Weight = (props: WeightProps): ReactElement => (
+  <Select.Buttons {...props} keys={DATA}>
+    <Select.Button itemKey={250}>Light</Select.Button>
+    <Select.Button itemKey={400}>Normal</Select.Button>
+    <Select.Button itemKey={500}>Medium</Select.Button>
+    <Select.Button itemKey={600}>Bold</Select.Button>
+  </Select.Buttons>
+);

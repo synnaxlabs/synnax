@@ -20,7 +20,7 @@ import { Text } from "@/text";
 
 export interface SwatchProps
   extends BaseSwatchProps,
-    Pick<Dialog.DialogProps, "visible" | "onVisibleChange" | "initialVisible">,
+    Pick<Dialog.FrameProps, "visible" | "onVisibleChange" | "initialVisible">,
     Pick<PickerProps, "onDelete" | "position"> {
   allowChange?: boolean;
 }

@@ -224,6 +224,7 @@
     transition: var(--pluto-btn-transition);
     background: var(--pluto-bg);
     border: var(--pluto-border-width) solid var(--pluto-border-color);
+    cursor: pointer;
     &.pluto--outlined {
         &.pluto--shade-0 {
             --pluto-bg: var(--pluto-gray-l2);

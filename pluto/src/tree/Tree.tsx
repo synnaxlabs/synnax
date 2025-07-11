@@ -153,17 +153,17 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   const { keys, depths } = shape;
   return (
     <Select.Provider value={selected} onSelect={onSelect} clear={clearSelected}>
-      <List.List
+      <List.Frame
         ref={ref}
         data={keys}
         virtualizer={virtualizer}
-        useItem={useItem}
+        useListItem={useItem}
         {...rest}
       >
         <List.Items<K, E>>
           {({ index, ...rest }) => children({ index, depth: depths[index], ...rest })}
         </List.Items>
-      </List.List>
+      </List.Frame>
     </Select.Provider>
   );
 };

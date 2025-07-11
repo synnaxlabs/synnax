@@ -12,26 +12,13 @@ import { type ReactElement } from "react";
 
 import { Select as CoreSelect } from "@/select";
 
-const DATA = [...notation.NOTATIONS];
-
 export interface SelectNotationProps
   extends CoreSelect.SingleProps<notation.Notation> {}
 
-export const Select = ({
-  value,
-  onChange,
-  ...rest
-}: SelectNotationProps): ReactElement => {
-  const { onSelect, ...selectProps } = CoreSelect.useSingle({
-    value,
-    onChange,
-    data: DATA,
-  });
-  return (
-    <CoreSelect.Buttons {...rest} {...selectProps} value={value} onSelect={onSelect}>
-      <CoreSelect.Button itemKey="standard">Standard</CoreSelect.Button>
-      <CoreSelect.Button itemKey="scientific">Scientific</CoreSelect.Button>
-      <CoreSelect.Button itemKey="engineering">Engineering</CoreSelect.Button>
-    </CoreSelect.Buttons>
-  );
-};
+export const Select = (props: SelectNotationProps): ReactElement => (
+  <CoreSelect.Buttons {...props} keys={notation.NOTATIONS}>
+    <CoreSelect.Button itemKey="standard">Standard</CoreSelect.Button>
+    <CoreSelect.Button itemKey="scientific">Scientific</CoreSelect.Button>
+    <CoreSelect.Button itemKey="engineering">Engineering</CoreSelect.Button>
+  </CoreSelect.Buttons>
+);

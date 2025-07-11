@@ -8,27 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
 import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
 import { Dialog } from "@/dialog";
+import { type Flux } from "@/flux";
 import { type ListParams, useList } from "@/hardware/device/queries";
-import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { type state } from "@/state";
 import { Text } from "@/text";
-
-const SingleTrigger = (): ReactElement => {
-  const [value] = Select.useSelection<device.Key>();
-  const item = List.useItem<device.Key, device.Device>(value);
-  return (
-    <Dialog.Trigger>
-      <Text.Text level="p">{item?.name}</Text.Text>
-    </Dialog.Trigger>
-  );
-};
 
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
@@ -50,56 +39,41 @@ const listItemRenderProp = Component.renderProp(
   },
 );
 
-interface DialogContentProps {
-  emptyContent?: ReactElement;
-  params?: ListParams;
-  retrieve: state.Setter<ListParams>;
-}
-
-const DialogContent = ({
-  emptyContent,
-  retrieve,
-  params,
-}: DialogContentProps): ReactElement => {
-  const [search, setSearch] = useState("");
-  return (
-    <Dialog.Frame>
-      <Input.Text
-        value={search}
-        onChange={(v) => {
-          setSearch(v);
-          retrieve((prev) => ({ ...prev, ...params, search: v }));
-        }}
-      />
-      <List.Items emptyContent={emptyContent}>{listItemRenderProp}</List.Items>
-    </Dialog.Frame>
-  );
-};
-
-export interface SelectSingleProps extends Select.SingleProps<device.Key> {
-  params?: ListParams;
-}
+export interface SelectSingleProps
+  extends Omit<
+      Select.SingleFrameProps<device.Key, device.Device | undefined>,
+      "data" | "useListItem"
+    >,
+    Pick<Flux.UseListArgs<device.Key, device.Device>, "filter">,
+    Omit<Dialog.FrameProps, "onChange">,
+    Pick<Select.DialogProps<device.Key, ListParams>, "emptyContent"> {}
 
 export const SelectSingle = ({
-  value,
   onChange,
+  value,
+  filter,
+  allowNone,
   emptyContent,
-  params,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, useListItem, retrieve } = useList();
-  const { onSelect, ...selectProps } = Select.useSingle({ value, onChange, data });
+  const { data, useListItem, retrieve } = useList({ filter });
   return (
-    <Select.Dialog<device.Key, device.Device | undefined>
-      value={value}
-      onSelect={onSelect}
-      useItem={useListItem}
-      data={data}
-      {...rest}
-      {...selectProps}
-    >
-      <SingleTrigger />
-      <DialogContent emptyContent={emptyContent} params={params} retrieve={retrieve} />
-    </Select.Dialog>
+    <Dialog.Frame {...rest}>
+      <Select.Frame
+        value={value}
+        useListItem={useListItem}
+        data={data}
+        onChange={onChange}
+      >
+        <Select.SingleTrigger />
+        <Select.Dialog<device.Key, ListParams>
+          onSearch={retrieve}
+          searchPlaceholder="Search Devices..."
+          emptyContent={emptyContent}
+        >
+          {listItemRenderProp}
+        </Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
   );
 };

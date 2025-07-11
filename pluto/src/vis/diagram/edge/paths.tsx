@@ -11,9 +11,6 @@ import { color, type direction, type record, xy } from "@synnaxlabs/x";
 import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
 import { type FC, type ReactElement } from "react";
 
-import { Component } from "@/component";
-import { Dialog } from "@/dialog";
-import { List } from "@/list";
 import { Select } from "@/select";
 
 export const offsetPath = (path: xy.XY[], miters: xy.XY[]): xy.XY[] =>
@@ -234,16 +231,14 @@ export const calcPath = (coords: xy.XY[]): string => {
   return path;
 };
 
-const PATH_TYPES = [
-  "pipe",
-  "electric",
-  "secondary",
-  "jacketed",
-  "hydraulic",
-  "pneumatic",
-  "data",
-] as const;
-export type PathType = (typeof PATH_TYPES)[number];
+export type PathType =
+  | "pipe"
+  | "electric"
+  | "secondary"
+  | "jacketed"
+  | "hydraulic"
+  | "pneumatic"
+  | "data";
 
 export const PATHS: Record<PathType, FC<PathProps>> = {
   pipe: Pipe,
@@ -257,11 +252,7 @@ export const PATHS: Record<PathType, FC<PathProps>> = {
 
 export const DefaultPath = Pipe;
 
-export interface SelectPathTypeProps extends Select.SingleProps<PathType> {}
-
-const DATA = [...PATH_TYPES];
-
-const DATA_NAMES: record.KeyedNamed<PathType>[] = [
+const DATA: record.KeyedNamed<PathType>[] = [
   { key: "pipe", name: "Pipe" },
   { key: "electric", name: "Electric Signal" },
   { key: "secondary", name: "Secondary" },
@@ -271,45 +262,9 @@ const DATA_NAMES: record.KeyedNamed<PathType>[] = [
   { key: "data", name: "Data" },
 ];
 
-const useListItem = (key?: PathType): record.KeyedNamed<PathType> | undefined =>
-  DATA_NAMES.find((d) => d.key === key);
+export interface SelectPathTypeProps
+  extends Omit<Select.SimpleProps<PathType>, "data"> {}
 
-const listItemRenderProp = Component.renderProp(
-  ({ itemKey, ...props }: List.ItemRenderProps<PathType>) => {
-    const item = useListItem(itemKey);
-    return (
-      <List.Item {...props} itemKey={itemKey}>
-        {item?.name}
-      </List.Item>
-    );
-  },
+export const SelectPathType = (props: SelectPathTypeProps): ReactElement => (
+  <Select.Simple data={DATA} {...props} />
 );
-
-export const SelectPathType = ({
-  value,
-  onChange,
-  ...rest
-}: SelectPathTypeProps): ReactElement => {
-  const { onSelect, ...selectProps } = Select.useSingle({
-    value,
-    onChange,
-    data: DATA,
-  });
-  return (
-    <Select.Dialog
-      value={value}
-      onSelect={onSelect}
-      data={DATA}
-      useItem={useListItem}
-      {...rest}
-      {...selectProps}
-    >
-      <Dialog.Trigger>
-        {DATA_NAMES.find((d) => d.key === value)?.name ?? "Select"}
-      </Dialog.Trigger>
-      <Dialog.Dialog>
-        <List.Items>{listItemRenderProp}</List.Items>
-      </Dialog.Dialog>
-    </Select.Dialog>
-  );
-};

@@ -255,9 +255,9 @@ const AISelector = ({
         placeholder="AI Suggestion"
       />
       <Select.Provider {...selectProps} value={value}>
-        <List.List
+        <List.Frame
           data={data}
-          useItem={useItem}
+          useListItem={useItem}
           ref={ref}
           virtualizer={virtualizer}
           // emptyContent={
@@ -279,7 +279,7 @@ const AISelector = ({
           <List.Items<string, AISuggestion> className={CSS.B("ai-list")}>
             {aiListItem}
           </List.Items>
-        </List.List>
+        </List.Frame>
       </Select.Provider>
     </Align.Pack>
   );
@@ -406,13 +406,13 @@ export const createTimeList = (count: number): FC<TimeListProps> => {
       data,
     });
     return (
-      <List.List<number, record.KeyedNamed<number>> data={data} useItem={useItem}>
+      <List.Frame<number, record.KeyedNamed<number>> data={data} useListItem={useItem}>
         <Select.Provider {...selectProps} value={value}>
           <List.Items<number, record.KeyedNamed<number>> className={CSS.B("time-list")}>
             {timeListItem}
           </List.Items>
         </Select.Provider>
-      </List.List>
+      </List.Frame>
     );
   };
   TimeList.displayName = "TimeList";

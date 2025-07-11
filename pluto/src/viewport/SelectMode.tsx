@@ -36,61 +36,46 @@ const Tooltip = ({ mode, triggers }: TooltipProps): ReactElement => (
 
 export interface SelectModeProps extends Select.SingleProps<Mode> {
   triggers: UseTriggers;
-  disable?: FilteredMode[];
+  disable?: Mode[];
 }
 
 export const SelectMode = ({
   triggers,
   value,
   onChange,
-  disable: propsDisabled = ["zoomReset", "click"],
+  disable = ["zoomReset", "click", "cancel"],
   ...rest
 }: SelectModeProps): ReactElement => {
-  const { disabled, data } = useMemo(() => {
-    const disabled = new Set([...propsDisabled, "cancel"]);
-    const data = MODES.filter((m) => !disabled.has(m));
-    return { disabled, data };
-  }, [propsDisabled]);
-  const { onSelect, clear } = Select.useSingle({ data, value, onChange });
+  const data = useMemo(() => MODES.filter((m) => !disable.includes(m)), [disable]);
   return (
-    <Select.Buttons {...rest} onSelect={onSelect} clear={clear} value={value}>
-      {!disabled.has("zoom") && (
-        <Select.ButtonIcon
-          itemKey="zoom"
-          tooltip={<Tooltip mode="zoom" triggers={triggers.zoom} />}
-        >
-          <Icon.Zoom />
-        </Select.ButtonIcon>
-      )}
-      {!disabled.has("pan") && (
-        <Select.ButtonIcon
-          itemKey="pan"
-          tooltip={<Tooltip mode="pan" triggers={triggers.pan} />}
-        >
-          <Icon.Pan />
-        </Select.ButtonIcon>
-      )}
-      {!disabled.has("select") && (
-        <Select.ButtonIcon
-          itemKey="select"
-          tooltip={<Tooltip mode="select" triggers={triggers.select} />}
-        >
-          <Icon.Selection />
-        </Select.ButtonIcon>
-      )}
-      {!disabled.has("zoomReset") && (
-        <Select.ButtonIcon
-          itemKey="zoomReset"
-          tooltip={<Tooltip mode="zoomReset" triggers={triggers.zoomReset} />}
-        >
-          <Icon.Expand />
-        </Select.ButtonIcon>
-      )}
-      {!disabled.has("click") && (
-        <Select.ButtonIcon itemKey="click">
-          <Icon.Bolt />
-        </Select.ButtonIcon>
-      )}
+    <Select.Buttons {...rest} keys={data} value={value} onChange={onChange}>
+      <Select.ButtonIcon
+        itemKey="zoom"
+        tooltip={<Tooltip mode="zoom" triggers={triggers.zoom} />}
+      >
+        <Icon.Zoom />
+      </Select.ButtonIcon>
+      <Select.ButtonIcon
+        itemKey="pan"
+        tooltip={<Tooltip mode="pan" triggers={triggers.pan} />}
+      >
+        <Icon.Pan />
+      </Select.ButtonIcon>
+      <Select.ButtonIcon
+        itemKey="select"
+        tooltip={<Tooltip mode="select" triggers={triggers.select} />}
+      >
+        <Icon.Selection />
+      </Select.ButtonIcon>
+      <Select.ButtonIcon
+        itemKey="zoomReset"
+        tooltip={<Tooltip mode="zoomReset" triggers={triggers.zoomReset} />}
+      >
+        <Icon.Expand />
+      </Select.ButtonIcon>
+      <Select.ButtonIcon itemKey="click">
+        <Icon.Bolt />
+      </Select.ButtonIcon>
     </Select.Buttons>
   );
 };
