@@ -46,16 +46,16 @@ type ExportCSVRequest struct {
 
 type ExportCSVResponse = io.Reader
 
-func (s *ExportService) CSV(ctx context.Context, req ExportCSVRequest) (ExportCSVResponse, error) {
+func (es *ExportService) CSV(ctx context.Context, req ExportCSVRequest) (ExportCSVResponse, error) {
 	r, w := io.Pipe()
 	go func() {
 		var err error
 		defer w.CloseWithError(err)
 		keys := req.Keys.Unique()
 		indexKeys := make(channel.Keys, len(keys))
-		if err = s.WithTx(ctx, func(tx gorp.Tx) error {
+		if err = es.WithTx(ctx, func(tx gorp.Tx) error {
 			var channels []channel.Channel
-			if err := s.channel.NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, tx); err != nil {
+			if err := es.channel.NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, tx); err != nil {
 				return err
 			}
 			for i, c := range channels {
@@ -67,8 +67,8 @@ func (s *ExportService) CSV(ctx context.Context, req ExportCSVRequest) (ExportCS
 		}
 		allKeys := append(keys, indexKeys...).Unique()
 		channels := make([]channel.Channel, len(allKeys))
-		if err = s.WithTx(ctx, func(tx gorp.Tx) error {
-			return s.channel.NewRetrieve().WhereKeys(allKeys...).Entries(&channels).Exec(ctx, tx)
+		if err = es.WithTx(ctx, func(tx gorp.Tx) error {
+			return es.channel.NewRetrieve().WhereKeys(allKeys...).Entries(&channels).Exec(ctx, tx)
 		}); err != nil {
 			return
 		}
@@ -83,7 +83,7 @@ func (s *ExportService) CSV(ctx context.Context, req ExportCSVRequest) (ExportCS
 		if err = codec.EncodeStream(ctx, w, headerRecords); err != nil {
 			return
 		}
-		iter, err := s.framer.Iterator.Open(ctx, framer.IteratorConfig{
+		iter, err := es.framer.Iterator.Open(ctx, framer.IteratorConfig{
 			Keys:   allKeys,
 			Bounds: req.TimeRange,
 		})

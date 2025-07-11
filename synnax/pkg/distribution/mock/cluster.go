@@ -74,45 +74,45 @@ func NewCluster(cfgs ...distribution.Config) *Cluster {
 	}
 }
 
-func (b *Cluster) Provision(
+func (c *Cluster) Provision(
 	ctx context.Context,
 	cfgs ...distribution.Config,
 ) Node {
 	var (
-		peers             = b.addrFactory.Generated()
-		addr              = b.addrFactory.Next()
-		storageLayer      = b.storage.Provision(ctx)
+		peers             = c.addrFactory.Generated()
+		addr              = c.addrFactory.Next()
+		storageLayer      = c.storage.Provision(ctx)
 		distributionLayer = MustSucceed(distribution.Open(ctx, append([]distribution.Config{{
 			Storage: storageLayer,
 			FrameTransport: mockFramerTransport{
-				iter:    b.iterNet.New(addr, 1),
-				writer:  b.writerNet.New(addr, 1),
-				relay:   b.relayNet.New(addr, 1),
-				deleter: b.deleteNet.New(addr),
+				iter:    c.iterNet.New(addr, 1),
+				writer:  c.writerNet.New(addr, 1),
+				relay:   c.relayNet.New(addr, 1),
+				deleter: c.deleteNet.New(addr),
 			},
-			ChannelTransport: b.channelNet.New(addr),
-			AspenTransport:   b.aspenNet.NewTransport(),
+			ChannelTransport: c.channelNet.New(addr),
+			AspenTransport:   c.aspenNet.NewTransport(),
 			AdvertiseAddress: addr,
 			PeerAddresses:    peers,
 			AspenOptions: []aspen.Option{
 				aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 			},
 			GorpCodec: &binary.JSONCodec{},
-		}, b.cfg}, cfgs...)...))
+		}, c.cfg}, cfgs...)...))
 	)
 	node := Node{Layer: distributionLayer, Storage: storageLayer}
-	b.Nodes[distributionLayer.Cluster.HostKey()] = node
-	b.WaitForTopologyToStabilize()
+	c.Nodes[distributionLayer.Cluster.HostKey()] = node
+	c.WaitForTopologyToStabilize()
 	return node
 }
 
 // WaitForTopologyToStabilize waits for all nodes in the cluster to be aware of each
 // other.
-func (b *Cluster) WaitForTopologyToStabilize() {
-	for _, node := range b.Nodes {
+func (c *Cluster) WaitForTopologyToStabilize() {
+	for _, node := range c.Nodes {
 		gomega.Eventually(func() int {
 			return len(node.Cluster.Nodes())
-		}).Should(gomega.Equal(len(b.Nodes)))
+		}).Should(gomega.Equal(len(c.Nodes)))
 	}
 }
 
@@ -134,32 +134,22 @@ type mockFramerTransport struct {
 
 var _ framer.Transport = (*mockFramerTransport)(nil)
 
-func (m mockFramerTransport) Iterator() iterator.Transport {
-	return m.iter
-}
+func (mft mockFramerTransport) Iterator() iterator.Transport { return mft.iter }
 
-func (m mockFramerTransport) Writer() writer.Transport {
-	return m.writer
-}
+func (mft mockFramerTransport) Writer() writer.Transport { return mft.writer }
 
-func (m mockFramerTransport) Relay() relay.Transport {
-	return m.relay
-}
+func (mft mockFramerTransport) Relay() relay.Transport { return mft.relay }
 
-func (m mockFramerTransport) Deleter() deleter.Transport {
-	return m.deleter
-}
+func (mft mockFramerTransport) Deleter() deleter.Transport { return mft.deleter }
 
-type StaticHostProvider struct {
-	Node cluster.Node
-}
+type StaticHostProvider struct{ Node cluster.Node }
 
 var _ cluster.HostProvider = StaticHostProvider{}
 
-func StaticHostKeyProvider(key cluster.NodeKey) StaticHostProvider {
+func NewStaticHostProvider(key cluster.NodeKey) StaticHostProvider {
 	return StaticHostProvider{Node: cluster.Node{Key: key}}
 }
 
-func (s StaticHostProvider) Host() cluster.Node { return s.Node }
+func (shp StaticHostProvider) Host() cluster.Node { return shp.Node }
 
-func (s StaticHostProvider) HostKey() cluster.NodeKey { return s.Node.Key }
+func (shp StaticHostProvider) HostKey() cluster.NodeKey { return shp.Node.Key }

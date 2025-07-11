@@ -41,7 +41,7 @@ var _ = Describe("Device", Ordered, func() {
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
+			HostProvider: mock.NewStaticHostProvider(1),
 		}))
 		svc = MustSucceed(device.OpenService(ctx, device.Config{
 			DB:       db,
@@ -214,7 +214,7 @@ var _ = Describe("Migration", func() {
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
+			HostProvider: mock.NewStaticHostProvider(1),
 		}))
 		svc := MustSucceed(device.OpenService(ctx, device.Config{
 			DB:       db,

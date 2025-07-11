@@ -38,7 +38,7 @@ var _ = Describe("Rack", Ordered, func() {
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
+			HostProvider: mock.NewStaticHostProvider(1),
 		}))
 	})
 	BeforeEach(func() {
@@ -134,7 +134,7 @@ var _ = Describe("Migration", func() {
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
+			HostProvider: mock.NewStaticHostProvider(1),
 		}))
 		Expect(svc.EmbeddedKey).To(Equal(rack.Key(65538)))
 		// Retrieve the embedded rack
