@@ -47,9 +47,7 @@ func (c Chain[I, O]) Exec(in I, finalizer Finalizer[I, O]) (O, error) {
 }
 
 // Collector allows middleware to be collected and executed in a chain.
-type Collector[I, O any] struct {
-	Chain[I, O]
-}
+type Collector[I, O any] struct{ Chain[I, O] }
 
 // Use adds middleware to the collector.
 func (c *Collector[I, O]) Use(middlewares ...Middleware[I, O]) {

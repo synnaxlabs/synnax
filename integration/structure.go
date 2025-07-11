@@ -67,28 +67,24 @@ func (tn *TestNode) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		tn.Params = params
-		break
 	case Read:
 		var params ReadParams
 		if err := json.Unmarshal(raw["params"], &params); err != nil {
 			return err
 		}
 		tn.Params = params
-		break
 	case Stream:
 		var params StreamParams
 		if err := json.Unmarshal(raw["params"], &params); err != nil {
 			return err
 		}
 		tn.Params = params
-		break
 	case Delete:
 		var params DeleteParams
 		if err := json.Unmarshal(raw["params"], &params); err != nil {
 			return err
 		}
 		tn.Params = params
-		break
 	default:
 		return fmt.Errorf("unknown operation: %s", tn.Op)
 	}

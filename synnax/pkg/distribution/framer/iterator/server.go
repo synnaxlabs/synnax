@@ -55,9 +55,9 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	}
 
 	pipe := plumber.New()
-	plumber.SetSegment[ts.IteratorRequest, ts.IteratorResponse](pipe, "storage", iter)
-	plumber.SetSource[ts.IteratorRequest](pipe, "receiver", receiver)
-	plumber.SetSink[ts.IteratorResponse](pipe, "sender", sender)
+	plumber.SetSegment(pipe, "storage", iter)
+	plumber.SetSource(pipe, "receiver", receiver)
+	plumber.SetSink(pipe, "sender", sender)
 	plumber.MustConnect[ts.IteratorRequest](pipe, "receiver", "storage", 1)
 	plumber.MustConnect[ts.IteratorResponse](pipe, "storage", "sender", 1)
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
