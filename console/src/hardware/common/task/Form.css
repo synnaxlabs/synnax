@@ -74,13 +74,15 @@
     }
 
     .console-task__channel-name {
-        max-width: 150px;
+        width: 0;
         text-overflow: ellipsis;
         overflow: hidden;
         white-space: nowrap;
         font-weight: 500;
         color: var(--pluto-gray-l10);
         flex-shrink: 1;
+        flex-grow: 1;
+        max-width: fit-content;
     }
 }
 
