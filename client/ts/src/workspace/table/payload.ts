@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { record } from "@synnaxlabs/x/record";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
-export const keyZ = z.string().uuid();
+export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
 

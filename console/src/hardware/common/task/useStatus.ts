@@ -10,7 +10,7 @@
 import { type task } from "@synnaxlabs/client";
 import { Task, useSyncedRef } from "@synnaxlabs/pluto";
 import { useCallback, useState as useReactState } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { shouldExecuteCommand } from "@/hardware/common/task/shouldExecuteCommand";
 

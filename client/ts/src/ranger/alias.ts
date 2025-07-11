@@ -9,7 +9,7 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type change } from "@synnaxlabs/x/change";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { channel } from "@/channel";
 import { type framer } from "@/framer";

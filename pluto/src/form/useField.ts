@@ -9,7 +9,7 @@
 
 import { array, type compare, shallowCopy, type status } from "@synnaxlabs/x";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { type ContextValue, useContext } from "@/form/Context";
 import {

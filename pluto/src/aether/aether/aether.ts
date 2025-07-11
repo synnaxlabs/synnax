@@ -17,7 +17,7 @@ import {
   shallowCopy,
 } from "@synnaxlabs/x";
 import { deep } from "@synnaxlabs/x/deep";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type AetherMessage, type MainMessage } from "@/aether/message";
 import { state } from "@/state";

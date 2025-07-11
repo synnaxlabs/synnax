@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import {
   type CellProps,

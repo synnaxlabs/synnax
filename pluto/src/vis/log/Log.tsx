@@ -11,7 +11,7 @@ import "@/vis/log/Log.css";
 
 import { box, location, type Optional } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { type Align } from "@/align";

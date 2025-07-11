@@ -11,7 +11,7 @@ import { type device, type rack, task } from "@synnaxlabs/client";
 import { Status, Task } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 import { useStore } from "react-redux";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
