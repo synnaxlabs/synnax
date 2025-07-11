@@ -154,10 +154,8 @@ export const createList =
         try {
           if (client == null) return setResult(nullClientResult<K[]>(name, "retrieve"));
           setResult((p) => pendingResult(name, "retrieving", p.data ?? []));
-          if (mode === "replace") {
-            dataRef.current.clear();
-            hasMoreRef.current = true;
-          } else if (mode === "append" && !hasMoreRef.current) return;
+          if (mode === "replace") hasMoreRef.current = true;
+          else if (mode === "append" && !hasMoreRef.current) return;
           const value = await retrieve({ client, params });
           if (value.length === 0) hasMoreRef.current = false;
           const keys = value.map((v) => v.key);

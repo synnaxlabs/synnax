@@ -107,7 +107,8 @@ export const Frame = <
     onChange: useCallback(
       (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {
         const items = v.getVirtualItems();
-        if (items[items.length - 1].index === data.length - 1) onFetchMore?.();
+        if (items.length > 0 && items[items.length - 1].index === data.length - 1)
+          onFetchMore?.();
       },
       [data.length, onFetchMore],
     ),
