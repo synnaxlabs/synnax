@@ -17,25 +17,25 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var _ Codec = (*MsgPackCodec)(nil)
-
-// MsgPackCodec is a msgpack implementation of Codec.
+// MsgPackCodec is a MessagePack implementation of Codec.
 type MsgPackCodec struct{}
 
+var _ Codec = (*MsgPackCodec)(nil)
+
 // Encode implements the Encoder interface.
-func (m *MsgPackCodec) Encode(_ context.Context, value any) ([]byte, error) {
+func (mpc *MsgPackCodec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := msgpack.Marshal(value)
 	return b, sugarEncodingErr(value, err)
 }
 
 // Decode implements the Decoder interface.
-func (m *MsgPackCodec) Decode(ctx context.Context, data []byte, value any) error {
-	err := m.DecodeStream(ctx, bytes.NewReader(data), value)
+func (mpc *MsgPackCodec) Decode(ctx context.Context, data []byte, value any) error {
+	err := mpc.DecodeStream(ctx, bytes.NewReader(data), value)
 	return sugarDecodingErr(data, value, err)
 }
 
 // DecodeStream implements the Decoder interface.
-func (m *MsgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (mpc *MsgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := msgpack.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return sugarDecodingErr(data, value, err)
@@ -44,8 +44,8 @@ func (m *MsgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any) e
 }
 
 // EncodeStream implements the Encoder interface.
-func (m *MsgPackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := m.Encode(ctx, value)
+func (mpc *MsgPackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	b, err := mpc.Encode(ctx, value)
 	if err != nil {
 		return sugarEncodingErr(value, err)
 	}

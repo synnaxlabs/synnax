@@ -22,38 +22,39 @@ type decodeFallbackCodec struct {
 	Codecs []Codec
 }
 
+var _ Codec = (*decodeFallbackCodec)(nil)
+
 func NewDecodeFallbackCodec(base Codec, codecs ...Codec) Codec {
 	return &decodeFallbackCodec{Codecs: append([]Codec{base}, codecs...)}
 }
 
-var _ Codec = (*decodeFallbackCodec)(nil)
-
 // Encode implements the Encoder interface.
-func (f *decodeFallbackCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	return f.Codecs[0].Encode(ctx, value)
+func (dfc *decodeFallbackCodec) Encode(ctx context.Context, value any) ([]byte, error) {
+	return dfc.Codecs[0].Encode(ctx, value)
 }
 
-func (f *decodeFallbackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	return f.Codecs[0].EncodeStream(ctx, w, value)
+func (dfc *decodeFallbackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	return dfc.Codecs[0].EncodeStream(ctx, w, value)
 }
 
 // Decode implements the Decoder interface.
-func (f *decodeFallbackCodec) Decode(ctx context.Context, data []byte, value any) error {
-	for _, c := range f.Codecs {
-		if err := c.Decode(ctx, data, value); err == nil {
-			return err
+func (dfc *decodeFallbackCodec) Decode(ctx context.Context, data []byte, value any) error {
+	var err error
+	for _, c := range dfc.Codecs {
+		if err = c.Decode(ctx, data, value); err == nil {
+			return nil
 		}
 	}
-	return nil
+	return err
 }
 
 // DecodeStream implements the Decoder interface.
-func (f *decodeFallbackCodec) DecodeStream(
+func (dfc *decodeFallbackCodec) DecodeStream(
 	ctx context.Context,
 	r io.Reader,
 	value any,
 ) error {
-	if len(f.Codecs) == 0 {
+	if len(dfc.Codecs) == 0 {
 		panic("[binary] - no codecs provided to decodeFallbackCodec")
 	}
 	// We need to read out all the data here, otherwise an initial codec that fails will
@@ -62,9 +63,9 @@ func (f *decodeFallbackCodec) DecodeStream(
 	if err != nil {
 		return err
 	}
-	for _, c := range f.Codecs {
+	for _, c := range dfc.Codecs {
 		if err = c.DecodeStream(ctx, bytes.NewReader(data), value); err == nil {
-			return err
+			return nil
 		}
 	}
 	return err

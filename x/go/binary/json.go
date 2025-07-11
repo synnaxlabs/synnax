@@ -18,30 +18,19 @@ import (
 	"github.com/samber/lo"
 )
 
+// JSONCodec is a JSON implementation of Codec.
+type JSONCodec struct{}
+
 var _ Codec = (*JSONCodec)(nil)
 
-// JSONCodec is a JSON implementation of Codec.
-type JSONCodec struct {
-	// Pretty indicates whether the JSON should be pretty printed.
-	Pretty bool
-}
-
 // Encode implements the Encoder interface.
-func (j *JSONCodec) Encode(_ context.Context, value any) ([]byte, error) {
-	var (
-		b   []byte
-		err error
-	)
-	if j.Pretty {
-		b, err = json.MarshalIndent(value, "", "  ")
-	} else {
-		b, err = json.Marshal(value)
-	}
+func (jc *JSONCodec) Encode(_ context.Context, value any) ([]byte, error) {
+	b, err := json.Marshal(value)
 	return b, sugarEncodingErr(value, err)
 }
 
 // Decode implements the Decoder interface.
-func (j *JSONCodec) Decode(_ context.Context, data []byte, value any) error {
+func (jc *JSONCodec) Decode(_ context.Context, data []byte, value any) error {
 	if err := json.Unmarshal(data, value); err != nil {
 		return sugarDecodingErr(data, value, err)
 	}
@@ -49,7 +38,7 @@ func (j *JSONCodec) Decode(_ context.Context, data []byte, value any) error {
 }
 
 // DecodeStream implements the Decoder interface.
-func (j *JSONCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (jc *JSONCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := json.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return sugarDecodingErr(data, value, err)
@@ -58,17 +47,12 @@ func (j *JSONCodec) DecodeStream(_ context.Context, r io.Reader, value any) erro
 }
 
 // EncodeStream implements the Encoder interface.
-func (j *JSONCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	var err error
-	if j.Pretty {
-		err = json.NewEncoder(w).Encode(value)
-	} else {
-		b, err := j.Encode(ctx, value)
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(b)
+func (jc *JSONCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	b, err := jc.Encode(ctx, value)
+	if err != nil {
+		return err
 	}
+	_, err = w.Write(b)
 	return sugarEncodingErr(value, err)
 }
 

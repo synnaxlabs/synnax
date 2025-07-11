@@ -16,26 +16,23 @@ import (
 	"io"
 )
 
-var _ Codec = (*GobCodec)(nil)
-
 // GobCodec is a gob implementation of the Codec interface.
 type GobCodec struct{}
 
+var _ Codec = (*GobCodec)(nil)
+
 // Encode implements the Encoder interface.
-func (g *GobCodec) Encode(_ context.Context, value any) ([]byte, error) {
-	var (
-		buff bytes.Buffer
-		err  = gob.NewEncoder(&buff).Encode(value)
-		b    = buff.Bytes()
-	)
+func (gc *GobCodec) Encode(_ context.Context, value any) ([]byte, error) {
+	var buff bytes.Buffer
+	err := gob.NewEncoder(&buff).Encode(value)
 	if err != nil {
 		return nil, sugarEncodingErr(value, err)
 	}
-	return b, nil
+	return buff.Bytes(), nil
 }
 
 // EncodeStream implements the Encoder interface.
-func (g *GobCodec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (gc *GobCodec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	err := gob.NewEncoder(w).Encode(value)
 	if err != nil {
 		return sugarEncodingErr(value, err)
@@ -44,8 +41,8 @@ func (g *GobCodec) EncodeStream(_ context.Context, w io.Writer, value any) error
 }
 
 // Decode implements the Decoder interface.
-func (g *GobCodec) Decode(ctx context.Context, data []byte, value any) error {
-	err := g.DecodeStream(ctx, bytes.NewReader(data), value)
+func (gc *GobCodec) Decode(ctx context.Context, data []byte, value any) error {
+	err := gc.DecodeStream(ctx, bytes.NewReader(data), value)
 	if err != nil {
 		return sugarDecodingErr(data, value, err)
 	}
@@ -53,7 +50,7 @@ func (g *GobCodec) Decode(ctx context.Context, data []byte, value any) error {
 }
 
 // DecodeStream implements the Decoder interface.
-func (g *GobCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (gc *GobCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := gob.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return sugarDecodingErr(data, value, err)
