@@ -17,30 +17,24 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type ClientFactoryConfig struct {
-	Codec httputil.Codec
-}
+type ClientFactoryConfig struct{ Codec httputil.Codec }
 
 var _ config.Config[ClientFactoryConfig] = ClientFactoryConfig{}
 
-func (c ClientFactoryConfig) Validate() error {
+func (cfc ClientFactoryConfig) Validate() error {
 	v := validate.New("[ws.streamClient]")
-	validate.NotNil(v, "Codec", c.Codec)
+	validate.NotNil(v, "Codec", cfc.Codec)
 	return v.Error()
 }
 
-func (c ClientFactoryConfig) Override(other ClientFactoryConfig) ClientFactoryConfig {
-	c.Codec = override.Nil(c.Codec, other.Codec)
-	return c
+func (cfc ClientFactoryConfig) Override(other ClientFactoryConfig) ClientFactoryConfig {
+	cfc.Codec = override.Nil(cfc.Codec, other.Codec)
+	return cfc
 }
 
-var DefaultClientConfig = ClientFactoryConfig{
-	Codec: httputil.MsgPackCodec,
-}
+var DefaultClientConfig = ClientFactoryConfig{Codec: httputil.MsgPackCodec}
 
-type ClientFactory struct {
-	ClientFactoryConfig
-}
+type ClientFactory struct{ ClientFactoryConfig }
 
 func NewClientFactory(cfgs ...ClientFactoryConfig) *ClientFactory {
 	cfg, err := config.New(DefaultClientConfig, cfgs...)
@@ -50,10 +44,10 @@ func NewClientFactory(cfgs ...ClientFactoryConfig) *ClientFactory {
 	return &ClientFactory{ClientFactoryConfig: cfg}
 }
 
-func StreamClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.StreamClient[RQ, RS] {
-	return &streamClient[RQ, RS]{codec: c.Codec}
+func StreamClient[RQ, RS freighter.Payload](cf *ClientFactory) freighter.StreamClient[RQ, RS] {
+	return &streamClient[RQ, RS]{codec: cf.Codec}
 }
 
-func UnaryClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.UnaryClient[RQ, RS] {
-	return &unaryClient[RQ, RS]{codec: c.Codec}
+func UnaryClient[RQ, RS freighter.Payload](cf *ClientFactory) freighter.UnaryClient[RQ, RS] {
+	return &unaryClient[RQ, RS]{codec: cf.Codec}
 }

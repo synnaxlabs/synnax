@@ -38,13 +38,13 @@ type RouterConfig struct {
 var _ config.Config[RouterConfig] = RouterConfig{}
 
 // Validate implements config.Config.
-func (r RouterConfig) Validate() error { return nil }
+func (rc RouterConfig) Validate() error { return nil }
 
 // Override implements config.Config.
-func (r RouterConfig) Override(other RouterConfig) RouterConfig {
-	r.Instrumentation = override.Zero(r.Instrumentation, other.Instrumentation)
-	r.StreamWriteDeadline = override.Numeric(r.StreamWriteDeadline, other.StreamWriteDeadline)
-	return r
+func (rc RouterConfig) Override(other RouterConfig) RouterConfig {
+	rc.Instrumentation = override.Zero(rc.Instrumentation, other.Instrumentation)
+	rc.StreamWriteDeadline = override.Numeric(rc.StreamWriteDeadline, other.StreamWriteDeadline)
+	return rc
 }
 
 func NewRouter(cfgs ...RouterConfig) *Router {
@@ -95,9 +95,7 @@ func (r *Router) BindTo(app *fiber.App) {
 	}
 }
 
-func (r *Router) Report() alamos.Report {
-	return alamos.Report{}
-}
+func (r *Router) Report() alamos.Report { return alamos.Report{} }
 
 func (r *Router) Use(middlewares ...freighter.Middleware) {
 	for _, route := range r.routes {
