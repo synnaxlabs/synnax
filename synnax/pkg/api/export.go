@@ -52,32 +52,47 @@ func (s *ExportService) CSV(ctx context.Context, req ExportCSVRequest) (ExportCS
 		var err error
 		defer w.CloseWithError(err)
 		keys := req.Keys.Unique()
-		iter, err := s.framer.Iterator.Open(ctx, framer.IteratorConfig{
-			Keys:   keys,
-			Bounds: req.TimeRange,
-		})
-		if err != nil {
-			return
-		}
-		defer iter.Close()
-		channels := make([]channel.Channel, len(keys))
+		indexKeys := make(channel.Keys, len(keys))
 		if err = s.WithTx(ctx, func(tx gorp.Tx) error {
-			return (*s.channel).NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, tx)
+			var channels []channel.Channel
+			if err := (*s.channel).NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, tx); err != nil {
+				return err
+			}
+			for i, c := range channels {
+				indexKeys[i] = c.Index()
+			}
+			return nil
 		}); err != nil {
 			return
 		}
-		headerRecords := binary.NewCSVRecords(1, len(keys))
+		allKeys := append(keys, indexKeys...).Unique()
+		channels := make([]channel.Channel, len(allKeys))
+		if err = s.WithTx(ctx, func(tx gorp.Tx) error {
+			return (*s.channel).NewRetrieve().WhereKeys(allKeys...).Entries(&channels).Exec(ctx, tx)
+		}); err != nil {
+			return
+		}
+		headerRecords := binary.NewCSVRecords(1, len(allKeys))
 		headerRecords[0] = lo.Map(channels, func(c channel.Channel, _ int) string {
 			if name, ok := req.ChannelNames[c.Key()]; ok {
 				return name
 			}
 			return c.Name
 		})
-		if err = (&binary.CSVCodec{}).EncodeStream(ctx, w, headerRecords); err != nil {
+		codec := &binary.CSVCodec{}
+		if err = codec.EncodeStream(ctx, w, headerRecords); err != nil {
 			return
 		}
+		iter, err := s.framer.Iterator.Open(ctx, framer.IteratorConfig{
+			Keys:   allKeys,
+			Bounds: req.TimeRange,
+		})
+		if err != nil {
+			return
+		}
+		defer iter.Close()
 		for ok := iter.SeekFirst() && iter.Next(iterator.AutoSpan); ok; ok = iter.Next(iterator.AutoSpan) {
-			if err = (&binary.CSVCodec{}).EncodeStream(ctx, w, iter.Value()); err != nil {
+			if err = codec.EncodeStream(ctx, w, iter.Value()); err != nil {
 				return
 			}
 		}
