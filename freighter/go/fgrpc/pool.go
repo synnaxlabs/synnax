@@ -34,14 +34,10 @@ func (c *ClientConn) Acquire() error {
 }
 
 // Release implements pool.Adapter.
-func (c *ClientConn) Release() {
-	c.demand.Decrease(1)
-}
+func (c *ClientConn) Release() { c.demand.Decrease(1) }
 
 // Close implements pool.Adapter.
-func (c *ClientConn) Close() error {
-	return c.ClientConn.Close()
-}
+func (c *ClientConn) Close() error { return c.ClientConn.Close() }
 
 // Healthy implements pool.Adapter
 func (c *ClientConn) Healthy() bool {

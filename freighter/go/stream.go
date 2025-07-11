@@ -36,11 +36,11 @@ type StreamServer[RQ, RS Payload] interface {
 	//
 	// Transient errors (errors that may be fatal to a request, but not to the stream)
 	// should be returned as part of the response itself. This is typically in the form
-	// of an 'Details' struct field in the response type RS.
+	// of a 'Details' struct field in the response type RS.
 	//
 	// Fatal errors (errors that prevent the server from processing any future requests)
 	// should be returned from the handler itself. If the handler returns nil, the
-	// server will close the stream, returning a final freighter.EOF error to the
+	// server will close the stream, returning a final freighter.ErrEOF error to the
 	// client. If the handler returns an error, the server will close the stream and
 	// return the error to the client.
 	//
@@ -58,7 +58,7 @@ type ClientStream[RQ, RS Payload] interface {
 	// Failure Behavior:
 	//
 	// 1. If the server closed the stream -> If the server closed the stream with a nil
-	// error, returns freighter.EOF. Otherwise, returns the error the server closed
+	// error, returns freighter.ErrEOF. Otherwise, returns the error the server closed
 	// with.
 	//
 	// 2. If the client called CloseSend -> Has no effect on the behavior of Receive.
@@ -78,7 +78,7 @@ type ClientStream[RQ, RS Payload] interface {
 	//
 	// Failure Behavior:
 	//
-	// 1. If the server closed the stream -> Returns a freighter.EOF error regardless of
+	// 1. If the server closed the stream -> Returns a freighter.ErrEOF error regardless of
 	// the error the server exited with (even a nil error). The caller can discover the
 	// error by calling Receive.
 	//
@@ -104,7 +104,7 @@ type ServerStream[RQ, RS Payload] interface {
 	//
 	// Failure Behavior:
 	//
-	// 1. If the client called CloseSend -> Returns a freighter.EOF error.
+	// 1. If the client called CloseSend -> Returns a freighter.ErrEOF error.
 	//
 	// 2. If the server handler has returned -> This is most likely a programming
 	// error where a separate goroutine is writing to the stream after the handler
@@ -159,6 +159,4 @@ type SenderNoopCloser[P Payload] struct{ StreamSender[P] }
 var _ StreamSenderCloser[any] = SenderNoopCloser[any]{}
 
 // CloseSend implements the StreamCloser interface.
-func (c SenderNoopCloser[P]) CloseSend() error {
-	return nil
-}
+func (c SenderNoopCloser[P]) CloseSend() error { return nil }

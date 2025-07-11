@@ -27,9 +27,7 @@ func (ss StreamServer[RQ, RS]) Use(...freighter.Middleware) {}
 func (ss StreamServer[RQ, RS]) BindHandler(func(context.Context, freighter.ServerStream[RQ, RS]) error) {
 }
 
-type StreamClient[RQ, RS freighter.Payload] struct {
-	freighter.Reporter
-}
+type StreamClient[RQ, RS freighter.Payload] struct{ freighter.Reporter }
 
 var _ freighter.StreamClient[any, any] = (*StreamClient[any, any])(nil)
 

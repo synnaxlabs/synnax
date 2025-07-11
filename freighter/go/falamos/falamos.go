@@ -111,17 +111,13 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 	}), nil
 }
 
-type carrier struct {
-	freighter.Context
-}
+type carrier struct{ freighter.Context }
 
 var _ alamos.TraceCarrier = carrier{}
 
 const keyPrefix = "alamos"
 
-func keyF(k string) string {
-	return keyPrefix + "-" + k
-}
+func keyF(k string) string { return keyPrefix + "-" + k }
 
 // Get implements alamos.TraceCarrier.
 func (c carrier) Get(key string) string {
@@ -137,9 +133,7 @@ func (c carrier) Get(key string) string {
 }
 
 // Set implements alamos.TraceCarrier.
-func (c carrier) Set(key, value string) {
-	c.Context.Params.Set(keyF(key), value)
-}
+func (c carrier) Set(key, value string) { c.Context.Params.Set(keyF(key), value) }
 
 // Keys implements alamos.TraceCarrier.
 func (c carrier) Keys() []string {

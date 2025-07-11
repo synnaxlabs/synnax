@@ -88,6 +88,4 @@ func (p Params) Get(k string) (any, bool) {
 }
 
 // Set sets the value of the given key.
-func (p Params) Set(k string, v any) {
-	p[k] = v
-}
+func (p Params) Set(k string, v any) { p[k] = v }
