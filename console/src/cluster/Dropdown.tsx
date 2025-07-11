@@ -214,15 +214,14 @@ export const Dropdown = (): ReactElement => {
     [active?.key, handleConnect, handleRemove],
   );
 
-  const selectProps = Select.useSingle({
-    value: selected,
-    onChange: handleConnect,
-    data: keys,
-  });
-
   return (
     <Align.Pack>
-      <Select.Dialog data={keys} useItem={useSelect} {...selectProps}>
+      <Select.Frame
+        data={keys}
+        useListItem={useSelect}
+        value={selected}
+        onChange={handleConnect}
+      >
         <Dialog.Trigger
           startIcon={disconnected ? <Icon.Connect /> : <Icon.Cluster />}
           justify="center"
@@ -231,7 +230,7 @@ export const Dropdown = (): ReactElement => {
         >
           {cluster?.name ?? "Connect Cluster"}
         </Dialog.Trigger>
-        <Dialog.Content>
+        <Dialog.Dialog>
           <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
             <Header.Header grow bordered borderShade={5} size="small">
               <Header.Title level="h5" startIcon={<Icon.Cluster />}>
@@ -258,8 +257,8 @@ export const Dropdown = (): ReactElement => {
               )}
             </CoreList.Items>
           </PMenu.ContextMenu>
-        </Dialog.Content>
-      </Select.Dialog>
+        </Dialog.Dialog>
+      </Select.Frame>
       <ConnectionBadge />
     </Align.Pack>
   );

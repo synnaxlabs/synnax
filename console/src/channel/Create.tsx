@@ -45,7 +45,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
   const [createMore, setCreateMore] = useState(false);
   const { form, variant, save } = Channel.useForm({
     params: {},
-    afterSave: async ({ form }) => {
+    afterSave: ({ form }) => {
       if (createMore) form.reset();
       else onClose();
     },
@@ -124,7 +124,6 @@ export const Create: Layout.Renderer = ({ onClose }) => {
                 onChange={onChange}
                 searchOptions={{ isIndex: true }}
                 disabled={isIndex || isVirtual}
-                maxHeight="small"
                 allowNone={false}
                 zIndex={100}
               />
