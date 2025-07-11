@@ -24,6 +24,8 @@ import (
 // marshaled representation.
 type String string
 
+var _ json.Unmarshaler = (*String)(nil)
+
 var detailsCodec = &binary.JSONCodec{}
 
 // NewStaticString creates a new String from static data. The data is encoded using

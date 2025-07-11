@@ -14,13 +14,14 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/types"
 )
 
-// Sample represents any numeric value that can be stored in a Series.
-// It must satisfy the Sample interface.
+// Sample represents any numeric value that can be stored in a Series. It must satisfy
+// the Sample interface.
 type Sample interface{ types.Numeric }
 
 // NewSeries creates a new Series from a slice of numeric values. It automatically
@@ -28,7 +29,7 @@ type Sample interface{ types.Numeric }
 func NewSeries[T Sample](data []T) Series {
 	return Series{
 		DataType: InferDataType[T](),
-		Data:     MarshalSlice[T](data),
+		Data:     MarshalSlice(data),
 	}
 }
 
@@ -42,9 +43,9 @@ func MakeSeries(dt DataType, len int) Series {
 	return Series{DataType: dt, Data: make([]byte, len*int(dt.Density()))}
 }
 
-// NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input timestamps
-// are multiplied by SecondTS to convert them to the standard time unit used in the
-// system.
+// NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input
+// timestamps are multiplied by SecondTS to convert them to the standard time unit used
+// in the system.
 func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 	for i := range data {
 		data[i] *= SecondTS
@@ -52,15 +53,24 @@ func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 	return Series{DataType: TimeStampT, Data: MarshalSlice(data)}
 }
 
-// NewSeriesStrings creates a new Series from a slice of strings. The strings are stored with
-// newline characters as delimiters.
+// NewSeriesStrings creates a new Series from a slice of strings. The strings are stored
+// with newline characters as delimiters.
 func NewSeriesStrings(data []string) Series {
-	return Series{DataType: StringT, Data: MarshalStrings(data, StringT)}
+	return Series{DataType: StringT, Data: MarshalStrings(data)}
 }
 
-// NewSeriesStringsV is a variadic version of NewSeriesStrings that creates a new Series from
-// individual string values.
+// NewSeriesStringsV is a variadic version of NewSeriesStrings that creates a new Series
+// from individual string values.
 func NewSeriesStringsV(data ...string) Series { return NewSeriesStrings(data) }
+
+// NewSeriesUUIDs creates a new Series from a slice of UUIDs.
+func NewSeriesUUIDs(data uuid.UUIDs) Series {
+	return Series{DataType: UUIDT, Data: MarshalUUIDs(data)}
+}
+
+// NewSeriesUUIDsV is a variadic version of NewSeriesUUIDs that creates a new Series
+// from individual UUID values.
+func NewSeriesUUIDsV(data ...uuid.UUID) Series { return NewSeriesUUIDs(data) }
 
 // NewSeriesStaticJSONV constructs a new series from an arbitrary set of JSON values,
 // marshaling each one in the process.
@@ -70,7 +80,7 @@ func NewSeriesStaticJSONV[T any](data ...T) (series Series) {
 	for i, v := range data {
 		strings[i] = xbinary.MustEncodeJSONToString(v)
 	}
-	series.Data = MarshalStrings(strings, series.DataType)
+	series.Data = MarshalStrings(strings)
 	return series
 }
 
@@ -78,10 +88,7 @@ const newLine = '\n'
 
 // MarshalStrings converts a slice of strings into a byte slice. Each string is
 // terminated with a newline character. Panics if the DataType is not variable.
-func MarshalStrings(data []string, dt DataType) []byte {
-	if !dt.IsVariable() {
-		panic("data type must be variable length")
-	}
+func MarshalStrings(data []string) []byte {
 	total := lo.SumBy(data, func(s string) int64 { return int64(len(s)) + 1 })
 	b := make([]byte, total)
 	offset := 0
@@ -109,6 +116,24 @@ func UnmarshalStrings(b []byte) []string {
 		offset = end + 1
 	}
 	return data
+}
+
+// MarshalUUIDs marshals a slice of UUIDs into a byte slice.
+func MarshalUUIDs(uuids uuid.UUIDs) []byte {
+	b := make([]byte, 16*len(uuids))
+	for i, id := range uuids {
+		copy(b[i*16:], id[:])
+	}
+	return b
+}
+
+// UnmarshalUUIDs unmarshals a byte slice into a slice of UUIDs.
+func UnmarshalUUIDs(b []byte) uuid.UUIDs {
+	uuids := make([]uuid.UUID, len(b)/16)
+	for i := range uuids {
+		uuids[i] = uuid.UUID(b[i*16 : (i+1)*16])
+	}
+	return uuids
 }
 
 // MarshalSlice converts a slice of numeric values into a byte slice according to the
@@ -143,50 +168,50 @@ func UnmarshalSeries[T Sample](series Series) []T {
 	return UnmarshalSlice[T](series.Data, series.DataType)
 }
 
-// ByteOrder is the standard order for encoding/decoding numeric values across
-// the Synnax telemetry ecosystem.
+// ByteOrder is the standard order for encoding/decoding numeric values across the
+// Synnax telemetry ecosystem.
 var ByteOrder = binary.LittleEndian
 
-// MarshalInt8 casts the value to uint8 and marshals it into the byte slice.
-// The byte slice should have a length of at least 1.
+// MarshalInt8 casts the value to uint8 and marshals it into the byte slice. The byte
+// slice should have a length of at least 1.
 func MarshalInt8[T Sample](b []byte, v T) { b[0] = byte(v) }
 
-// MarshalInt16 casts the value to int64 and marshals it into the byte slice.
-// The byte slice should have a length of at least 2.
+// MarshalInt16 casts the value to int64 and marshals it into the byte slice. The byte
+// slice should have a length of at least 2.
 func MarshalInt16[T Sample](b []byte, v T) { ByteOrder.PutUint16(b, uint16(v)) }
 
-// MarshalInt32 casts the value to int32 and marshals it into the byte slice.
-// The byte slice should have a length of at least 4.
+// MarshalInt32 casts the value to int32 and marshals it into the byte slice. The byte
+// slice should have a length of at least 4.
 func MarshalInt32[T Sample](b []byte, v T) { ByteOrder.PutUint32(b, uint32(v)) }
 
-// MarshalInt64 casts the value to int64 and marshals it into the byte slice.
-// The byte slice should have a length of at least 8.
+// MarshalInt64 casts the value to int64 and marshals it into the byte slice. The byte
+// slice should have a length of at least 8.
 func MarshalInt64[T Sample](b []byte, v T) { ByteOrder.PutUint64(b, uint64(v)) }
 
-// MarshalUint8 casts the value to uint8 and marshals it into the byte slice.
-// The byte slice should have a length of at least 1.
+// MarshalUint8 casts the value to uint8 and marshals it into the byte slice. The byte
+// slice should have a length of at least 1.
 func MarshalUint8[T Sample](b []byte, v T) { b[0] = byte(v) }
 
-// MarshalUint16 casts the value to uint16 and marshals it into the byte slice.
-// The byte slice should have a length of at least 2.
+// MarshalUint16 casts the value to uint16 and marshals it into the byte slice. The byte
+// slice should have a length of at least 2.
 func MarshalUint16[T Sample](b []byte, v T) { ByteOrder.PutUint16(b, uint16(v)) }
 
-// MarshalUint32 casts the value to uint32 and marshals it into the byte slice.
-// The byte slice should have a length of at least 4.
+// MarshalUint32 casts the value to uint32 and marshals it into the byte slice. The byte
+// slice should have a length of at least 4.
 func MarshalUint32[T Sample](b []byte, v T) { ByteOrder.PutUint32(b, uint32(v)) }
 
-// MarshalUint64 casts the value to uint64 and marshals it into the byte slice.
-// The byte slice should have a length of at least 8.
+// MarshalUint64 casts the value to uint64 and marshals it into the byte slice. The byte
+// slice should have a length of at least 8.
 func MarshalUint64[T Sample](b []byte, v T) { ByteOrder.PutUint64(b, uint64(v)) }
 
-// MarshalFloat32 casts the value to float32 and marshals it into the byte slice.
-// The byte slice should have a length of at least 4.
+// MarshalFloat32 casts the value to float32 and marshals it into the byte slice. The
+// byte slice should have a length of at least 4.
 func MarshalFloat32[T Sample](b []byte, v T) {
 	ByteOrder.PutUint32(b, math.Float32bits(float32(v)))
 }
 
-// MarshalFloat64 casts the value to float64 and marshals it into the byte slice.
-// The byte slice should have a length of at least 8.
+// MarshalFloat64 casts the value to float64 and marshals it into the byte slice. The
+// byte slice should have a length of at least 8.
 func MarshalFloat64[T Sample](b []byte, v T) {
 	ByteOrder.PutUint64(b, math.Float64bits(float64(v)))
 }

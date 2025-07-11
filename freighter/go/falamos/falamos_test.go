@@ -31,7 +31,7 @@ var _ = Describe("Falamos", func() {
 					Role:    freighter.Client,
 					Params:  make(freighter.Params),
 				},
-				freighter.NopFinalizer,
+				freighter.NoopFinalizer,
 			))
 			_, ok := oCtx.Params.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())
@@ -46,7 +46,7 @@ var _ = Describe("Falamos", func() {
 					Role:    freighter.Server,
 					Params:  oCtx.Params,
 				},
-				freighter.NopFinalizer,
+				freighter.NoopFinalizer,
 			))
 			_, ok = oCtx.Params.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())

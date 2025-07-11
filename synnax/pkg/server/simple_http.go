@@ -40,7 +40,7 @@ func NewSimpleHTTPBranch(
 func (h *SimpleHTTPBranch) Key() string { return "http_redirect" }
 
 // Routing implements Branch.
-func (h *SimpleHTTPBranch) Routing() (i BranchRouting) {
+func (h *SimpleHTTPBranch) Routing() BranchRouting {
 	// Don't serve this branch if we're running in insecure mode.
 	return BranchRouting{
 		Policy:   h.policy,

@@ -18,6 +18,7 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { errorsMiddleware } from "@/errors";
+import { export as export_ } from "@/export";
 import { framer } from "@/framer";
 import { hardware } from "@/hardware";
 import { device } from "@/hardware/device";
@@ -68,6 +69,7 @@ export default class Synnax extends framer.Client {
   readonly labels: label.Client;
   readonly hardware: hardware.Client;
   readonly control: control.Client;
+  readonly export: export_.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -141,6 +143,7 @@ export default class Synnax extends framer.Client {
       this.labels,
       this.ontology,
     );
+    this.export = new export_.Client(this.transport.unary);
     this.access = new access.Client(this.transport.unary);
     this.user = new user.Client(this.transport.unary);
     this.workspaces = new workspace.Client(this.transport.unary);

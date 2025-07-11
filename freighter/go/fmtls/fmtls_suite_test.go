@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package compress_test
+package fmtls_test
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestCompress(t *testing.T) {
+func TestFMTLS(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Compress Suite")
+	RunSpecs(t, "FMTLS Suite")
 }

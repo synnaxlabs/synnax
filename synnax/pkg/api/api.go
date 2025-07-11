@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package api implements the client interfaces for interacting with the Synnax cluster.
-// The top level package is transport agnostic, and provides freighter
-// compatible interfaces for all of its services. sub-packages in this directory wrap
-// the core API services to provide transport-specific implementations.
+// The top level package is transport agnostic, and provides freighter-compatible
+// interfaces for all of its services. Packages in this directory wrap the core API
+// services to provide transport-specific implementations.
 package api
 
 import (
@@ -35,10 +35,7 @@ type Config struct {
 	Distribution *distribution.Layer
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
-)
+var _ config.Config[Config] = Config{}
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
@@ -57,29 +54,30 @@ func (c Config) Override(other Config) Config {
 }
 
 type Transport struct {
-	// AUTH
 	AuthLogin          freighter.UnaryServer[AuthLoginRequest, AuthLoginResponse]
 	AuthChangePassword freighter.UnaryServer[AuthChangePasswordRequest, types.Nil]
-	// USER
+
 	UserRename         freighter.UnaryServer[UserRenameRequest, types.Nil]
 	UserChangeUsername freighter.UnaryServer[UserChangeUsernameRequest, types.Nil]
 	UserCreate         freighter.UnaryServer[UserCreateRequest, UserCreateResponse]
 	UserDelete         freighter.UnaryServer[UserDeleteRequest, types.Nil]
 	UserRetrieve       freighter.UnaryServer[UserRetrieveRequest, UserRetrieveResponse]
-	// CHANNEL
+
 	ChannelCreate        freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
 	ChannelRetrieve      freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
 	ChannelDelete        freighter.UnaryServer[ChannelDeleteRequest, types.Nil]
 	ChannelRename        freighter.UnaryServer[ChannelRenameRequest, types.Nil]
-	ChannelRetrieveGroup freighter.UnaryServer[ChannelRetrieveGroupRequest, ChannelRetrieveGroupResponse]
-	// CONNECTIVITY
+	ChannelRetrieveGroup freighter.UnaryServer[types.Nil, ChannelRetrieveGroupResponse]
+
 	ConnectivityCheck freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
-	// FRAME
+
+	ExportCSV freighter.UnaryServer[ExportCSVRequest, ExportCSVResponse]
+
 	FrameWriter   freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
 	FrameIterator freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
 	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
 	FrameDelete   freighter.UnaryServer[FrameDeleteRequest, types.Nil]
-	// RANGE
+
 	RangeCreate       freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
 	RangeRetrieve     freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
 	RangeDelete       freighter.UnaryServer[RangeDeleteRequest, types.Nil]
@@ -91,53 +89,52 @@ type Transport struct {
 	RangeAliasList    freighter.UnaryServer[RangeAliasListRequest, RangeAliasListResponse]
 	RangeRename       freighter.UnaryServer[RangeRenameRequest, types.Nil]
 	RangeAliasDelete  freighter.UnaryServer[RangeAliasDeleteRequest, types.Nil]
-	// ONTOLOGY
+
 	OntologyRetrieve       freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 	OntologyAddChildren    freighter.UnaryServer[OntologyAddChildrenRequest, types.Nil]
 	OntologyRemoveChildren freighter.UnaryServer[OntologyRemoveChildrenRequest, types.Nil]
 	OntologyMoveChildren   freighter.UnaryServer[OntologyMoveChildrenRequest, types.Nil]
-	// GROUP
-	OntologyGroupCreate freighter.UnaryServer[OntologyCreateGroupRequest, OntologyCreateGroupResponse]
-	OntologyGroupDelete freighter.UnaryServer[OntologyDeleteGroupRequest, types.Nil]
-	OntologyGroupRename freighter.UnaryServer[OntologyRenameGroupRequest, types.Nil]
-	// WORKSPACE
+	OntologyGroupCreate    freighter.UnaryServer[OntologyCreateGroupRequest, OntologyCreateGroupResponse]
+	OntologyGroupDelete    freighter.UnaryServer[OntologyDeleteGroupRequest, types.Nil]
+	OntologyGroupRename    freighter.UnaryServer[OntologyRenameGroupRequest, types.Nil]
+
 	WorkspaceCreate    freighter.UnaryServer[WorkspaceCreateRequest, WorkspaceCreateResponse]
 	WorkspaceRetrieve  freighter.UnaryServer[WorkspaceRetrieveRequest, WorkspaceRetrieveResponse]
 	WorkspaceDelete    freighter.UnaryServer[WorkspaceDeleteRequest, types.Nil]
 	WorkspaceRename    freighter.UnaryServer[WorkspaceRenameRequest, types.Nil]
 	WorkspaceSetLayout freighter.UnaryServer[WorkspaceSetLayoutRequest, types.Nil]
-	// SCHEMATIC
+
 	SchematicCreate   freighter.UnaryServer[SchematicCreateRequest, SchematicCreateResponse]
 	SchematicRetrieve freighter.UnaryServer[SchematicRetrieveRequest, SchematicRetrieveResponse]
 	SchematicDelete   freighter.UnaryServer[SchematicDeleteRequest, types.Nil]
 	SchematicRename   freighter.UnaryServer[SchematicRenameRequest, types.Nil]
 	SchematicSetData  freighter.UnaryServer[SchematicSetDataRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[SchematicCopyRequest, SchematicCopyResponse]
-	// LOG
+
 	LogCreate   freighter.UnaryServer[LogCreateRequest, LogCreateResponse]
 	LogRetrieve freighter.UnaryServer[LogRetrieveRequest, LogRetrieveResponse]
 	LogDelete   freighter.UnaryServer[LogDeleteRequest, types.Nil]
 	LogRename   freighter.UnaryServer[LogRenameRequest, types.Nil]
 	LogSetData  freighter.UnaryServer[LogSetDataRequest, types.Nil]
-	// TABLE
+
 	TableCreate   freighter.UnaryServer[TableCreateRequest, TableCreateResponse]
 	TableRetrieve freighter.UnaryServer[TableRetrieveRequest, TableRetrieveResponse]
 	TableDelete   freighter.UnaryServer[TableDeleteRequest, types.Nil]
 	TableRename   freighter.UnaryServer[TableRenameRequest, types.Nil]
 	TableSetData  freighter.UnaryServer[TableSetDataRequest, types.Nil]
-	// LINE PLOT
+
 	LinePlotCreate   freighter.UnaryServer[LinePlotCreateRequest, LinePlotCreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[LinePlotRetrieveRequest, LinePlotRetrieveResponse]
 	LinePlotDelete   freighter.UnaryServer[LinePlotDeleteRequest, types.Nil]
 	LinePlotRename   freighter.UnaryServer[LinePlotRenameRequest, types.Nil]
 	LinePlotSetData  freighter.UnaryServer[LinePlotSetDataRequest, types.Nil]
-	// LABEL
+
 	LabelCreate   freighter.UnaryServer[LabelCreateRequest, LabelCreateResponse]
 	LabelRetrieve freighter.UnaryServer[LabelRetrieveRequest, LabelRetrieveResponse]
 	LabelDelete   freighter.UnaryServer[LabelDeleteRequest, types.Nil]
 	LabelAdd      freighter.UnaryServer[LabelAddRequest, types.Nil]
 	LabelRemove   freighter.UnaryServer[LabelRemoveRequest, types.Nil]
-	// DEVICE
+
 	HardwareCreateRack     freighter.UnaryServer[HardwareCreateRackRequest, HardwareCreateRackResponse]
 	HardwareRetrieveRack   freighter.UnaryServer[HardwareRetrieveRackRequest, HardwareRetrieveRackResponse]
 	HardwareDeleteRack     freighter.UnaryServer[HardwareDeleteRackRequest, types.Nil]
@@ -148,19 +145,20 @@ type Transport struct {
 	HardwareCreateDevice   freighter.UnaryServer[HardwareCreateDeviceRequest, HardwareCreateDeviceResponse]
 	HardwareRetrieveDevice freighter.UnaryServer[HardwareRetrieveDeviceRequest, HardwareRetrieveDeviceResponse]
 	HardwareDeleteDevice   freighter.UnaryServer[HardwareDeleteDeviceRequest, types.Nil]
-	// ACCESS
+
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
 }
 
-// Layer wraps all implemented API services into a single container. Protocol-specific Layer
-// implementations should use this struct during instantiation.
+// Layer wraps all implemented API services into a single container. Protocol-specific
+// Layer implementations should use this struct during instantiation.
 type Layer struct {
 	provider     Provider
 	config       Config
 	Auth         *AuthService
 	User         *UserService
+	Export       *ExportService
 	Framer       *FrameService
 	Channel      *ChannelService
 	Connectivity *ConnectivityService
@@ -177,15 +175,13 @@ type Layer struct {
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
-func (a *Layer) BindTo(t Transport) {
+func (l *Layer) BindTo(t Transport) {
 	var (
-		tk                 = tokenMiddleware(a.provider.auth.token)
-		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
+		tk                 = tokenMiddleware(l.provider.auth.token)
+		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: l.config.Instrumentation}))
 		insecureMiddleware = []freighter.Middleware{instrumentation}
-		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
+		secureMiddleware   = []freighter.Middleware{instrumentation, tk}
 	)
-	copy(secureMiddleware, insecureMiddleware)
-	secureMiddleware = append(secureMiddleware, tk)
 
 	freighter.UseOnAll(
 		insecureMiddleware,
@@ -196,41 +192,36 @@ func (a *Layer) BindTo(t Transport) {
 	freighter.UseOnAll(
 		secureMiddleware,
 
-		// AUTH
 		t.AuthChangePassword,
 
-		// USER
 		t.UserRename,
 		t.UserChangeUsername,
 		t.UserCreate,
 		t.UserDelete,
 		t.UserRetrieve,
 
-		// CHANNEL
 		t.ChannelCreate,
 		t.ChannelRetrieve,
 		t.ChannelDelete,
 		t.ChannelRename,
 		t.ChannelRetrieveGroup,
 
-		// FRAME
+		t.ExportCSV,
+
 		t.FrameWriter,
 		t.FrameIterator,
 		t.FrameStreamer,
 		t.FrameDelete,
 
-		// ONTOLOGY
 		t.OntologyRetrieve,
 		t.OntologyAddChildren,
 		t.OntologyRemoveChildren,
 		t.OntologyMoveChildren,
 
-		// GROUP
 		t.OntologyGroupCreate,
 		t.OntologyGroupDelete,
 		t.OntologyGroupRename,
 
-		// RANGE
 		t.RangeCreate,
 		t.RangeRetrieve,
 		t.RangeDelete,
@@ -243,14 +234,12 @@ func (a *Layer) BindTo(t Transport) {
 		t.RangeRename,
 		t.RangeAliasDelete,
 
-		// WORKSPACE
 		t.WorkspaceDelete,
 		t.WorkspaceCreate,
 		t.WorkspaceRetrieve,
 		t.WorkspaceRename,
 		t.WorkspaceSetLayout,
 
-		// SCHEMATIC
 		t.SchematicCreate,
 		t.SchematicRetrieve,
 		t.SchematicDelete,
@@ -258,35 +247,30 @@ func (a *Layer) BindTo(t Transport) {
 		t.SchematicSetData,
 		t.SchematicCopy,
 
-		// LINE PLOT
 		t.LinePlotCreate,
 		t.LinePlotRename,
 		t.LinePlotSetData,
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
 
-		// LOG
 		t.LogCreate,
 		t.LogRetrieve,
 		t.LogDelete,
 		t.LogRename,
 		t.LogSetData,
 
-		// TABLE
 		t.TableCreate,
 		t.TableRetrieve,
 		t.TableDelete,
 		t.TableRename,
 		t.TableSetData,
 
-		// LABEL
 		t.LabelCreate,
 		t.LabelRetrieve,
 		t.LabelDelete,
 		t.LabelAdd,
 		t.LabelRemove,
 
-		// HARDWARE
 		t.HardwareCreateRack,
 		t.HardwareDeleteRack,
 		t.HardwareRetrieveRack,
@@ -299,144 +283,131 @@ func (a *Layer) BindTo(t Transport) {
 		t.HardwareRetrieveDevice,
 		t.HardwareDeleteDevice,
 
-		// ACCESS
 		t.AccessCreatePolicy,
 		t.AccessDeletePolicy,
 		t.AccessRetrievePolicy,
 	)
 
-	// AUTH
-	t.AuthLogin.BindHandler(a.Auth.Login)
-	t.AuthChangePassword.BindHandler(a.Auth.ChangePassword)
+	t.AuthLogin.BindHandler(l.Auth.Login)
+	t.AuthChangePassword.BindHandler(l.Auth.ChangePassword)
 
-	// USER
-	t.UserRename.BindHandler(a.User.Rename)
-	t.UserChangeUsername.BindHandler(a.User.ChangeUsername)
-	t.UserCreate.BindHandler(a.User.Create)
-	t.UserDelete.BindHandler(a.User.Delete)
-	t.UserRetrieve.BindHandler(a.User.Retrieve)
+	t.UserRename.BindHandler(l.User.Rename)
+	t.UserChangeUsername.BindHandler(l.User.ChangeUsername)
+	t.UserCreate.BindHandler(l.User.Create)
+	t.UserDelete.BindHandler(l.User.Delete)
+	t.UserRetrieve.BindHandler(l.User.Retrieve)
 
-	// CHANNEL
-	t.ChannelCreate.BindHandler(a.Channel.Create)
-	t.ChannelRetrieve.BindHandler(a.Channel.Retrieve)
-	t.ConnectivityCheck.BindHandler(a.Connectivity.Check)
-	t.ChannelDelete.BindHandler(a.Channel.Delete)
-	t.ChannelRename.BindHandler(a.Channel.Rename)
-	t.ChannelRetrieveGroup.BindHandler(a.Channel.RetrieveGroup)
+	t.ChannelCreate.BindHandler(l.Channel.Create)
+	t.ChannelRetrieve.BindHandler(l.Channel.Retrieve)
+	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
+	t.ChannelDelete.BindHandler(l.Channel.Delete)
+	t.ChannelRename.BindHandler(l.Channel.Rename)
+	t.ChannelRetrieveGroup.BindHandler(l.Channel.RetrieveGroup)
 
-	// FRAME
-	t.FrameWriter.BindHandler(a.Framer.Write)
-	t.FrameIterator.BindHandler(a.Framer.Iterate)
-	t.FrameStreamer.BindHandler(a.Framer.Stream)
-	t.FrameDelete.BindHandler(a.Framer.FrameDelete)
+	t.ExportCSV.BindHandler(l.Export.CSV)
 
-	// ONTOLOGY
-	t.OntologyRetrieve.BindHandler(a.Ontology.Retrieve)
-	t.OntologyAddChildren.BindHandler(a.Ontology.AddChildren)
-	t.OntologyRemoveChildren.BindHandler(a.Ontology.RemoveChildren)
-	t.OntologyMoveChildren.BindHandler(a.Ontology.MoveChildren)
+	t.FrameWriter.BindHandler(l.Framer.Write)
+	t.FrameIterator.BindHandler(l.Framer.Iterate)
+	t.FrameStreamer.BindHandler(l.Framer.Stream)
+	t.FrameDelete.BindHandler(l.Framer.FrameDelete)
 
-	// GROUP
-	t.OntologyGroupCreate.BindHandler(a.Ontology.CreateGroup)
-	t.OntologyGroupDelete.BindHandler(a.Ontology.DeleteGroup)
-	t.OntologyGroupRename.BindHandler(a.Ontology.RenameGroup)
+	t.OntologyRetrieve.BindHandler(l.Ontology.Retrieve)
+	t.OntologyAddChildren.BindHandler(l.Ontology.AddChildren)
+	t.OntologyRemoveChildren.BindHandler(l.Ontology.RemoveChildren)
+	t.OntologyMoveChildren.BindHandler(l.Ontology.MoveChildren)
 
-	// RANGE
-	t.RangeRetrieve.BindHandler(a.Range.Retrieve)
-	t.RangeCreate.BindHandler(a.Range.Create)
-	t.RangeDelete.BindHandler(a.Range.Delete)
-	t.RangeRename.BindHandler(a.Range.Rename)
-	t.RangeKVGet.BindHandler(a.Range.KVGet)
-	t.RangeKVSet.BindHandler(a.Range.KVSet)
-	t.RangeKVDelete.BindHandler(a.Range.KVDelete)
-	t.RangeAliasSet.BindHandler(a.Range.AliasSet)
-	t.RangeAliasResolve.BindHandler(a.Range.AliasResolve)
-	t.RangeAliasList.BindHandler(a.Range.AliasList)
-	t.RangeAliasDelete.BindHandler(a.Range.AliasDelete)
+	t.OntologyGroupCreate.BindHandler(l.Ontology.CreateGroup)
+	t.OntologyGroupDelete.BindHandler(l.Ontology.DeleteGroup)
+	t.OntologyGroupRename.BindHandler(l.Ontology.RenameGroup)
 
-	// WORKSPACE
-	t.WorkspaceCreate.BindHandler(a.Workspace.Create)
-	t.WorkspaceDelete.BindHandler(a.Workspace.Delete)
-	t.WorkspaceRetrieve.BindHandler(a.Workspace.Retrieve)
-	t.WorkspaceRename.BindHandler(a.Workspace.Rename)
-	t.WorkspaceSetLayout.BindHandler(a.Workspace.SetLayout)
+	t.RangeRetrieve.BindHandler(l.Range.Retrieve)
+	t.RangeCreate.BindHandler(l.Range.Create)
+	t.RangeDelete.BindHandler(l.Range.Delete)
+	t.RangeRename.BindHandler(l.Range.Rename)
+	t.RangeKVGet.BindHandler(l.Range.KVGet)
+	t.RangeKVSet.BindHandler(l.Range.KVSet)
+	t.RangeKVDelete.BindHandler(l.Range.KVDelete)
+	t.RangeAliasSet.BindHandler(l.Range.AliasSet)
+	t.RangeAliasResolve.BindHandler(l.Range.AliasResolve)
+	t.RangeAliasList.BindHandler(l.Range.AliasList)
+	t.RangeAliasDelete.BindHandler(l.Range.AliasDelete)
 
-	// SCHEMATIC
-	t.SchematicCreate.BindHandler(a.Schematic.Create)
-	t.SchematicRetrieve.BindHandler(a.Schematic.Retrieve)
-	t.SchematicDelete.BindHandler(a.Schematic.Delete)
-	t.SchematicRename.BindHandler(a.Schematic.Rename)
-	t.SchematicSetData.BindHandler(a.Schematic.SetData)
-	t.SchematicCopy.BindHandler(a.Schematic.Copy)
+	t.WorkspaceCreate.BindHandler(l.Workspace.Create)
+	t.WorkspaceDelete.BindHandler(l.Workspace.Delete)
+	t.WorkspaceRetrieve.BindHandler(l.Workspace.Retrieve)
+	t.WorkspaceRename.BindHandler(l.Workspace.Rename)
+	t.WorkspaceSetLayout.BindHandler(l.Workspace.SetLayout)
 
-	// LINE PLOT
-	t.LinePlotCreate.BindHandler(a.LinePlot.Create)
-	t.LinePlotRename.BindHandler(a.LinePlot.Rename)
-	t.LinePlotSetData.BindHandler(a.LinePlot.SetData)
-	t.LinePlotRetrieve.BindHandler(a.LinePlot.Retrieve)
-	t.LinePlotDelete.BindHandler(a.LinePlot.Delete)
+	t.SchematicCreate.BindHandler(l.Schematic.Create)
+	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
+	t.SchematicDelete.BindHandler(l.Schematic.Delete)
+	t.SchematicRename.BindHandler(l.Schematic.Rename)
+	t.SchematicSetData.BindHandler(l.Schematic.SetData)
+	t.SchematicCopy.BindHandler(l.Schematic.Copy)
 
-	// LOG
-	t.LogCreate.BindHandler(a.Log.Create)
-	t.LogRetrieve.BindHandler(a.Log.Retrieve)
-	t.LogDelete.BindHandler(a.Log.Delete)
-	t.LogRename.BindHandler(a.Log.Rename)
-	t.LogSetData.BindHandler(a.Log.SetData)
+	t.LinePlotCreate.BindHandler(l.LinePlot.Create)
+	t.LinePlotRename.BindHandler(l.LinePlot.Rename)
+	t.LinePlotSetData.BindHandler(l.LinePlot.SetData)
+	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
+	t.LinePlotDelete.BindHandler(l.LinePlot.Delete)
 
-	// TABLE
-	t.TableCreate.BindHandler(a.Table.Create)
-	t.TableRetrieve.BindHandler(a.Table.Retrieve)
-	t.TableDelete.BindHandler(a.Table.Delete)
-	t.TableRename.BindHandler(a.Table.Rename)
-	t.TableSetData.BindHandler(a.Table.SetData)
+	t.LogCreate.BindHandler(l.Log.Create)
+	t.LogRetrieve.BindHandler(l.Log.Retrieve)
+	t.LogDelete.BindHandler(l.Log.Delete)
+	t.LogRename.BindHandler(l.Log.Rename)
+	t.LogSetData.BindHandler(l.Log.SetData)
 
-	// LABEL
-	t.LabelCreate.BindHandler(a.Label.Create)
-	t.LabelRetrieve.BindHandler(a.Label.Retrieve)
-	t.LabelDelete.BindHandler(a.Label.Delete)
-	t.LabelAdd.BindHandler(a.Label.Add)
-	t.LabelRemove.BindHandler(a.Label.Remove)
+	t.TableCreate.BindHandler(l.Table.Create)
+	t.TableRetrieve.BindHandler(l.Table.Retrieve)
+	t.TableDelete.BindHandler(l.Table.Delete)
+	t.TableRename.BindHandler(l.Table.Rename)
+	t.TableSetData.BindHandler(l.Table.SetData)
 
-	// HARDWARE
-	t.HardwareCreateRack.BindHandler(a.Hardware.CreateRack)
-	t.HardwareRetrieveRack.BindHandler(a.Hardware.RetrieveRack)
-	t.HardwareDeleteRack.BindHandler(a.Hardware.DeleteRack)
-	t.HardwareCreateTask.BindHandler(a.Hardware.CreateTask)
-	t.HardwareRetrieveTask.BindHandler(a.Hardware.RetrieveTask)
-	t.HardwareDeleteTask.BindHandler(a.Hardware.DeleteTask)
-	t.HardwareCreateDevice.BindHandler(a.Hardware.CreateDevice)
-	t.HardwareRetrieveDevice.BindHandler(a.Hardware.RetrieveDevice)
-	t.HardwareDeleteDevice.BindHandler(a.Hardware.DeleteDevice)
-	t.HardwareCopyTask.BindHandler(a.Hardware.CopyTask)
+	t.LabelCreate.BindHandler(l.Label.Create)
+	t.LabelRetrieve.BindHandler(l.Label.Retrieve)
+	t.LabelDelete.BindHandler(l.Label.Delete)
+	t.LabelAdd.BindHandler(l.Label.Add)
+	t.LabelRemove.BindHandler(l.Label.Remove)
 
-	// ACCESS
-	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
-	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
-	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
+	t.HardwareCreateRack.BindHandler(l.Hardware.CreateRack)
+	t.HardwareRetrieveRack.BindHandler(l.Hardware.RetrieveRack)
+	t.HardwareDeleteRack.BindHandler(l.Hardware.DeleteRack)
+	t.HardwareCreateTask.BindHandler(l.Hardware.CreateTask)
+	t.HardwareRetrieveTask.BindHandler(l.Hardware.RetrieveTask)
+	t.HardwareDeleteTask.BindHandler(l.Hardware.DeleteTask)
+	t.HardwareCreateDevice.BindHandler(l.Hardware.CreateDevice)
+	t.HardwareRetrieveDevice.BindHandler(l.Hardware.RetrieveDevice)
+	t.HardwareDeleteDevice.BindHandler(l.Hardware.DeleteDevice)
+	t.HardwareCopyTask.BindHandler(l.Hardware.CopyTask)
+
+	t.AccessCreatePolicy.BindHandler(l.Access.CreatePolicy)
+	t.AccessDeletePolicy.BindHandler(l.Access.DeletePolicy)
+	t.AccessRetrievePolicy.BindHandler(l.Access.RetrievePolicy)
 }
 
-// New instantiates the server API layer using the provided Config. This should only be called
-// once.
-func New(configs ...Config) (*Layer, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+// New instantiates the server API layer using the provided Config. This should only be
+// called once.
+func New(cfgs ...Config) (*Layer, error) {
+	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	api := &Layer{config: cfg, provider: NewProvider(cfg)}
-	api.Auth = NewAuthService(api.provider)
-	api.User = NewUserService(api.provider)
-	api.Access = NewAccessService(api.provider)
-	api.Framer = NewFrameService(api.provider)
-	api.Channel = NewChannelService(api.provider)
-	api.Connectivity = NewConnectivityService(api.provider)
-	api.Ontology = NewOntologyService(api.provider)
-	api.Range = NewRangeService(api.provider)
-	api.Workspace = NewWorkspaceService(api.provider)
-	api.Schematic = NewSchematicService(api.provider)
-	api.LinePlot = NewLinePlotService(api.provider)
-	api.Label = NewLabelService(api.provider)
-	api.Hardware = NewHardwareService(api.provider)
-	api.Log = NewLogService(api.provider)
-	api.Table = NewTableService(api.provider)
-	return api, nil
+	layer := &Layer{config: cfg, provider: NewProvider(cfg)}
+	layer.Auth = NewAuthService(layer.provider)
+	layer.User = NewUserService(layer.provider)
+	layer.Access = NewAccessService(layer.provider)
+	layer.Export = NewExportService(layer.provider)
+	layer.Framer = NewFrameService(layer.provider)
+	layer.Channel = NewChannelService(layer.provider)
+	layer.Connectivity = NewConnectivityService(layer.provider)
+	layer.Ontology = NewOntologyService(layer.provider)
+	layer.Range = NewRangeService(layer.provider)
+	layer.Workspace = NewWorkspaceService(layer.provider)
+	layer.Schematic = NewSchematicService(layer.provider)
+	layer.LinePlot = NewLinePlotService(layer.provider)
+	layer.Label = NewLabelService(layer.provider)
+	layer.Hardware = NewHardwareService(layer.provider)
+	layer.Log = NewLogService(layer.provider)
+	layer.Table = NewTableService(layer.provider)
+	return layer, nil
 }

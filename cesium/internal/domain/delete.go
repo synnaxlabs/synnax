@@ -13,7 +13,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 

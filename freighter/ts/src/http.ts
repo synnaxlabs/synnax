@@ -25,8 +25,7 @@ const shouldCastToUnreachable = (err: Error): boolean =>
 const HTTP_STATUS_BAD_REQUEST = 400;
 
 /**
- * HTTPClientFactory provides a POST and GET implementation of the Unary
- * protocol.
+ * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
  *
  * @param url - The base URL of the API.
  * @param encoder - The encoder/decoder to use for the request/response.
@@ -49,23 +48,33 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
   }
 
   get headers(): Record<string, string> {
-    return {
-      [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
-    };
+    return { [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType };
   }
 
-  async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
+  async send<RQ extends z.ZodType>(
+    target: string,
+    req: z.input<RQ>,
+    reqSchema: RQ,
+  ): Promise<[Response, null] | [null, Error]>;
+  async send<RQ extends z.ZodType, RS extends z.ZodType>(
+    target: string,
+    req: z.input<RQ>,
+    reqSchema: RQ,
+    resSchema: RS,
+  ): Promise<[z.infer<RS>, null] | [null, Error]>;
+  async send<RQ extends z.ZodType, RS extends z.ZodType>(
     target: string,
     req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
-    resSchema: RS,
-  ): Promise<[z.infer<RS>, null] | [null, Error]> {
+    resSchema?: RS,
+  ): Promise<[Response, null] | [z.infer<RS>, null] | [null, Error]> {
+    const shouldDecodeResponseBody = resSchema != null;
     req = reqSchema?.parse(req);
-    let res: z.infer<RS> | null = null;
+    let res: z.infer<RS> | Response | null = null;
     const url = this.endpoint.child(target);
     const request: RequestInit = {};
     request.method = "POST";
-    request.body = this.encoder.encode(req ?? {});
+    request.body = this.encoder.encode(req ?? {}) as BodyInit;
     const [, err] = await this.executeMiddleware(
       {
         target: url.toString(),
@@ -75,10 +84,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
       },
       async (ctx: Context): Promise<[Context, Error | null]> => {
         const outCtx: Context = { ...ctx, params: {} };
-        request.headers = {
-          ...this.headers,
-          ...ctx.params,
-        };
+        request.headers = { ...this.headers, ...ctx.params };
         let httpRes: Response;
         try {
           httpRes = await fetch(ctx.target, request);
@@ -86,9 +92,13 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           if (!(e instanceof Error)) throw e;
           return [outCtx, shouldCastToUnreachable(e) ? new Unreachable({ url }) : e];
         }
-        const data = await httpRes.arrayBuffer();
-        if (httpRes?.ok) {
-          if (resSchema != null) res = this.encoder.decode<RS>(data, resSchema);
+        let data = new ArrayBuffer();
+        if (httpRes.ok) {
+          if (shouldDecodeResponseBody) {
+            data = await httpRes.arrayBuffer();
+            res = this.encoder.decode<RS>(data, resSchema);
+          } else res = httpRes;
+
           return [outCtx, null];
         }
         try {
@@ -98,18 +108,16 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           const decoded = errors.decode(err);
           return [outCtx, decoded];
         } catch (e) {
+          if (!(e instanceof Error)) throw e;
           return [
             outCtx,
             new Error(
-              `[freighter] - failed to decode error: ${httpRes.statusText}: ${
-                (e as Error).message
-              }`,
+              `[freighter] - failed to decode error: ${httpRes.statusText}: ${e.message}`,
             ),
           ];
         }
       },
     );
-
     if (err != null) return [null, err];
     if (res == null) throw new Error("Response must be defined");
     return [res, null];
