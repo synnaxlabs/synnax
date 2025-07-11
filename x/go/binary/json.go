@@ -65,7 +65,7 @@ func UnmarshalJSONStringInt64(b []byte) (int64, error) {
 	}
 	var str string
 	if err := json.Unmarshal(b, &str); err != nil {
-		return n, err
+		return 0, err
 	}
 	return strconv.ParseInt(str, 10, 64)
 }
@@ -79,7 +79,7 @@ func UnmarshalJSONStringUint64(b []byte) (uint64, error) {
 	}
 	var str string
 	if err := json.Unmarshal(b, &str); err != nil {
-		return n, err
+		return 0, err
 	}
 	return strconv.ParseUint(str, 10, 64)
 }

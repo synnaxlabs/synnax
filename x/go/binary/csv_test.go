@@ -18,18 +18,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type marshaller struct {
-	records [][]string
-}
+type marshaller struct{ records [][]string }
 
 var (
-	_ CSVMarshaler   = (*CSVRecords)(nil)
-	_ CSVUnmarshaler = (*CSVRecords)(nil)
+	_ CSVMarshaler   = (*marshaller)(nil)
+	_ CSVUnmarshaler = (*marshaller)(nil)
 )
 
-func (m marshaller) MarshalCSV() ([][]string, error) {
-	return m.records, nil
-}
+func (m marshaller) MarshalCSV() ([][]string, error) { return m.records, nil }
 
 func (m *marshaller) UnmarshalCSV(records [][]string) error {
 	m.records = records
@@ -37,41 +33,46 @@ func (m *marshaller) UnmarshalCSV(records [][]string) error {
 }
 
 var _ = Describe("CSV", func() {
-	var records [][]string
-	BeforeEach(func() {
-		records = [][]string{{"a", "b"}, {"c", "d"}}
-	})
+	records := [][]string{{"a", "b"}, {"c", "d"}}
 	Describe("MarshalCSV", func() {
-		It("should marshal the records", func() {
+		DescribeTable("should marshal the records", func(records [][]string) {
 			m := &marshaller{records: records}
 			Expect(MarshalCSV(m)).To(Equal(records))
-		})
+		},
+			Entry("basic", [][]string{{"a", "b"}, {"c", "d"}}),
+			Entry("zero length", [][]string{}),
+			Entry("zero length rows", [][]string{{}, {}}),
+		)
+		DescribeTable("should return an error", func(records [][]string) {
+			m := &marshaller{records: records}
+			Expect(MarshalCSV(m)).Error().To(HaveOccurred())
+		},
+			Entry("different lengths", [][]string{{"a", "b"}, {"c"}}),
+			Entry("first row has zero length but the rest do not", [][]string{{}, {"c", "d"}}),
+		)
 		It("should return an error if the value does not implement CSVMarshaler", func() {
 			Expect(MarshalCSV(struct{}{})).Error().To(HaveOccurred())
 		})
 	})
 	Describe("UnmarshalCSV", func() {
-		It("should unmarshal the records", func() {
+		DescribeTable("should unmarshal the records", func(records [][]string) {
 			u := marshaller{}
 			Expect(UnmarshalCSV(records, &u)).To(Succeed())
 			Expect(u.records).To(Equal(records))
-		})
+		},
+			Entry("basic", [][]string{{"a", "b"}, {"c", "d"}}),
+			Entry("zero length", [][]string{}),
+			Entry("zero length rows", [][]string{{}, {}}),
+		)
 		It("should return an error if the value does not implement CSVUnmarshaler", func() {
-			v := struct{}{}
-			Expect(UnmarshalCSV(records, &v)).Error().To(HaveOccurred())
+			Expect(UnmarshalCSV(records, &struct{}{})).Error().To(HaveOccurred())
 		})
 	})
 	Describe("Codec", func() {
 		DescribeTableSubtree("Encoding and decoding valid CSV", func(records [][]string, encoded []byte) {
-			var codec *CSVCodec
-			BeforeEach(func() {
-				codec = &CSVCodec{}
-			})
+			codec := &CSVCodec{}
 			Describe("Encoding", func() {
-				var marshaler *marshaller
-				BeforeEach(func() {
-					marshaler = &marshaller{records: records}
-				})
+				marshaler := &marshaller{records: records}
 				It("Regular", func() {
 					Expect(codec.Encode(context.Background(), marshaler)).To(Equal(encoded))
 				})
@@ -80,10 +81,7 @@ var _ = Describe("CSV", func() {
 				})
 			})
 			Describe("Decoding", func() {
-				var unmarshaler *marshaller
-				BeforeEach(func() {
-					unmarshaler = &marshaller{}
-				})
+				unmarshaler := &marshaller{}
 				It("Regular", func() {
 					Expect(codec.Decode(context.Background(), encoded, unmarshaler)).To(Succeed())
 					Expect(unmarshaler.records).To(Equal(records))
@@ -107,19 +105,10 @@ var _ = Describe("CSV", func() {
 			// The decoding tests just make sure that no errors are returned. Since we
 			// don't call Decode or DecodeStream for CSVs, we don't need to worry about
 			// this yet.
-			var (
-				codec   *CSVCodec
-				encoded []byte
-			)
-			BeforeEach(func() {
-				codec = &CSVCodec{}
-				encoded = []byte("a,b\r\n\"\r\n\",d\r\n")
-			})
+			codec := &CSVCodec{}
+			encoded := []byte("a,b\r\n\"\r\n\",d\r\n")
 			Describe("Encoding", func() {
-				var marshaler *marshaller
-				BeforeEach(func() {
-					marshaler = &marshaller{records: [][]string{{"a", "b"}, {"\r\n", "d"}}}
-				})
+				marshaler := &marshaller{records: [][]string{{"a", "b"}, {"\r\n", "d"}}}
 				It("Regular", func() {
 					Expect(codec.Encode(context.Background(), marshaler)).To(Equal(encoded))
 				})
@@ -128,10 +117,7 @@ var _ = Describe("CSV", func() {
 				})
 			})
 			Describe("Decoding", func() {
-				var unmarshaler *marshaller
-				BeforeEach(func() {
-					unmarshaler = &marshaller{}
-				})
+				unmarshaler := &marshaller{}
 				It("Regular", func() {
 					Expect(codec.Decode(context.Background(), encoded, unmarshaler)).To(Succeed())
 				})
@@ -141,15 +127,9 @@ var _ = Describe("CSV", func() {
 			})
 		})
 		Describe("Row length errors", func() {
-			var codec *CSVCodec
-			BeforeEach(func() {
-				codec = &CSVCodec{}
-			})
+			codec := &CSVCodec{}
 			Describe("Encoding", func() {
-				var marshaler *marshaller
-				BeforeEach(func() {
-					marshaler = &marshaller{records: [][]string{{"a", "b"}, {"c"}}}
-				})
+				marshaler := &marshaller{records: [][]string{{"a", "b"}, {"c"}}}
 				It("Regular", func() {
 					Expect(codec.Encode(context.Background(), marshaler)).Error().To(HaveOccurred())
 				})
@@ -158,12 +138,8 @@ var _ = Describe("CSV", func() {
 				})
 			})
 			Describe("Decoding", func() {
-				var unmarshaler *marshaller
-				var encoded []byte
-				BeforeEach(func() {
-					unmarshaler = &marshaller{}
-					encoded = []byte("a,b\r\nc")
-				})
+				unmarshaler := &marshaller{}
+				encoded := []byte("a,b\r\nc")
 				It("Regular", func() {
 					Expect(codec.Decode(context.Background(), encoded, unmarshaler)).To(HaveOccurred())
 				})
@@ -190,18 +166,15 @@ var _ = Describe("CSV", func() {
 		})
 	})
 	Describe("NewCSVRecords", func() {
-		It("should create a new CSVRecords", func() {
-			records := NewCSVRecords(2, 2)
-			Expect(records).To(Equal(CSVRecords{{"", ""}, {"", ""}}))
-		})
-		It("should create a new CSVRecords with zero rows", func() {
-			records := NewCSVRecords(0, 2)
-			Expect(records).To(Equal(CSVRecords{}))
-		})
-		It("should create a new CSVRecords with zero columns", func() {
-			records := NewCSVRecords(2, 0)
-			Expect(records).To(Equal(CSVRecords{{}, {}}))
-		})
+		DescribeTable("should create a new CSVRecords", func(rows int, cols int, expected CSVRecords) {
+			records := NewCSVRecords(rows, cols)
+			Expect(records).To(Equal(expected))
+		},
+			Entry("basic", 2, 2, CSVRecords{{"", ""}, {"", ""}}),
+			Entry("zero rows", 0, 2, CSVRecords{}),
+			Entry("zero columns", 2, 0, CSVRecords{{}, {}}),
+			Entry("zero rows and columns", 0, 0, CSVRecords{}),
+		)
 		It("should error if the number of rows is negative", func() {
 			Expect(func() { NewCSVRecords(-1, 2) }).To(Panic())
 		})

@@ -19,9 +19,7 @@ import (
 )
 
 // CSVMarshaler is a type that can marshal itself to a CSV representation.
-type CSVMarshaler interface {
-	MarshalCSV() ([][]string, error)
-}
+type CSVMarshaler interface{ MarshalCSV() ([][]string, error) }
 
 // MarshalCSV marshals a value to a CSV representation. If each row in the CSV
 // representation has a different length, an error will be returned.
@@ -34,22 +32,25 @@ func MarshalCSV(value any) ([][]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(records) == 0 || len(records[0]) == 0 {
+	if len(records) == 0 {
 		return records, nil
 	}
 	rowLength := len(records[0])
 	for i, row := range records {
 		if len(row) != rowLength {
-			return nil, errors.Newf("all rows must have the same length. Row %d has length %d, expected %d", i, len(row), rowLength)
+			return nil, errors.Newf(
+				"all rows must have the same length. Row %d has length %d, expected %d",
+				i,
+				len(row),
+				rowLength,
+			)
 		}
 	}
 	return records, nil
 }
 
 // CSVUnmarshaler is a type that can unmarshal itself from a CSV representation.
-type CSVUnmarshaler interface {
-	UnmarshalCSV([][]string) error
-}
+type CSVUnmarshaler interface{ UnmarshalCSV([][]string) error }
 
 // UnmarshalCSV unmarshals a value from a CSV representation.
 func UnmarshalCSV(data [][]string, value any) error {
@@ -66,13 +67,10 @@ type CSVCodec struct{}
 var _ Codec = (*CSVCodec)(nil)
 
 // Encode encodes a value to its CSV representation in bytes.
-func (c *CSVCodec) Encode(ctx context.Context, value any) ([]byte, error) {
+func (cc *CSVCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	records, err := MarshalCSV(value)
 	if err != nil {
 		return nil, sugarEncodingErr(value, err)
-	}
-	if len(records) == 0 {
-		return []byte{}, nil
 	}
 	buf := bytes.NewBuffer(nil)
 	csvWriter := csv.NewWriter(buf)
@@ -80,25 +78,24 @@ func (c *CSVCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	if err := csvWriter.WriteAll(records); err != nil {
 		return nil, sugarEncodingErr(value, err)
 	}
-	if err := csvWriter.Error(); err != nil {
-		return nil, sugarEncodingErr(value, err)
-	}
 	return buf.Bytes(), nil
 }
 
 // EncodeStream encodes a value to a CSV representation in bytes and writes it to a
 // writer.
-func (c *CSVCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
+func (cc *CSVCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	records, err := MarshalCSV(value)
 	if err != nil {
 		return sugarEncodingErr(value, err)
 	}
-	_, err = w.Write(b)
+	csvWriter := csv.NewWriter(w)
+	csvWriter.UseCRLF = true
+	err = csvWriter.WriteAll(records)
 	return sugarEncodingErr(value, err)
 }
 
 // Decode decodes a value from a CSV representation in bytes.
-func (c *CSVCodec) Decode(ctx context.Context, data []byte, value any) error {
+func (cc *CSVCodec) Decode(ctx context.Context, data []byte, value any) error {
 	csvReader := csv.NewReader(bytes.NewReader(data))
 	csvReader.ReuseRecord = true
 	records, err := csvReader.ReadAll()
@@ -116,14 +113,15 @@ func (c *CSVCodec) Decode(ctx context.Context, data []byte, value any) error {
 
 // DecodeStream decodes a value from a CSV representation in bytes and reads it from a
 // reader.
-func (c *CSVCodec) DecodeStream(ctx context.Context, r io.Reader, value any) error {
+func (cc *CSVCodec) DecodeStream(ctx context.Context, r io.Reader, value any) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return sugarDecodingErr(data, value, err)
 	}
-	return c.Decode(ctx, data, value)
+	return cc.Decode(ctx, data, value)
 }
 
+// CSVRecords implements the CSVMarshaler and CSVUnmarshaler interfaces on [][]string.
 type CSVRecords [][]string
 
 var (
@@ -131,15 +129,18 @@ var (
 	_ CSVUnmarshaler = (*CSVRecords)(nil)
 )
 
-func (r CSVRecords) MarshalCSV() ([][]string, error) {
-	return r, nil
+// MarshalCSV returns the CSVRecords as a [][]string.
+func (cr CSVRecords) MarshalCSV() ([][]string, error) {
+	return cr, nil
 }
 
-func (r *CSVRecords) UnmarshalCSV(data [][]string) error {
-	*r = data
+// UnmarshalCSV sets the CSVRecords to data.
+func (cr *CSVRecords) UnmarshalCSV(data [][]string) error {
+	*cr = data
 	return nil
 }
 
+// NewCSVRecords creates a new CSVRecords with the given number of rows and columns.
 func NewCSVRecords(rows int, cols int) CSVRecords {
 	records := make([][]string, rows)
 	for i := range records {
