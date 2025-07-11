@@ -218,7 +218,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 			if err = gorp.NewRetrieve[task.Key, task.Status]().
 				WhereKeys(tsk.Key).
 				Entry(&taskState).
-				Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.DecodeError) {
+				Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.ErrDecode) {
 				return nil, err
 			}
 			rck.TaskStatuses[tsk.Key] = taskState
@@ -240,7 +240,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 		if err = gorp.NewRetrieve[string, device.Status]().
 			WhereKeys(dev.Key).
 			Entry(&deviceState).
-			Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.DecodeError) {
+			Exec(ctx, cfg.DB); err != nil && !errors.IsAny(err, query.NotFound, binary.ErrDecode) {
 			return nil, err
 		}
 		t.mu.Devices[dev.Key] = deviceState
@@ -466,7 +466,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 			}
 			t.stateWriter.Inlet() <- framer.WriterRequest{
 				Command: writer.Write,
-				Frame:   frame.UnaryFrame(t.taskStateChannelKey, telem.NewSeriesStaticJSONV(s)),
+				Frame:   frame.NewUnary(t.taskStateChannelKey, telem.NewSeriesStaticJSONV(s)),
 			}
 		}
 	}
