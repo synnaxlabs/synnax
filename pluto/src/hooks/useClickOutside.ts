@@ -34,7 +34,6 @@ export const useClickOutside = ({
   const handleClickOutside = useCallback(
     (e: MouseEvent): void => {
       const el = ref.current;
-      console.log(el);
       const windowBox = box.construct(window.document.documentElement);
       const pos = xy.construct(e);
 

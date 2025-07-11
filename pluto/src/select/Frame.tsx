@@ -45,20 +45,30 @@ interface ContextValue<K extends record.Key = record.Key> {
   hover?: K;
 }
 
-const MultipleProvider = <K extends record.Key = record.Key>(
-  props: UseMultipleProps<K> & PropsWithChildren,
-): ReactElement => {
-  const { value } = props;
-  const res = useMultiple(props);
-  return <Provider value={value} {...res} />;
+const MultipleProvider = <K extends record.Key = record.Key>({
+  children,
+  ...rest
+}: UseMultipleProps<K> & PropsWithChildren): ReactElement => {
+  const { value } = rest;
+  const res = useMultiple(rest);
+  return (
+    <Provider value={value} {...res}>
+      {children}
+    </Provider>
+  );
 };
 
-const SingleProvider = <K extends record.Key = record.Key>(
-  props: UseSingleProps<K> & PropsWithChildren,
-): ReactElement => {
-  const { value } = props;
-  const res = useSingle(props);
-  return <Provider<K> value={value} {...res} />;
+const SingleProvider = <K extends record.Key = record.Key>({
+  children,
+  ...rest
+}: UseSingleProps<K> & PropsWithChildren): ReactElement => {
+  const { value } = rest;
+  const res = useSingle(rest);
+  return (
+    <Provider<K> value={value} {...res}>
+      {children}
+    </Provider>
+  );
 };
 
 interface ProviderProps<K extends record.Key = record.Key>
@@ -164,6 +174,7 @@ export const Frame = <
   value,
   onChange,
   multiple,
+  onFetchMore,
   ...rest
 }: FrameProps<K, E>): ReactElement => {
   let child: ReactElement;
@@ -171,7 +182,7 @@ export const Frame = <
     child = <MultipleProvider value={value} onChange={onChange} {...rest} />;
   else child = <SingleProvider value={value} onChange={onChange} {...rest} />;
   return (
-    <List.Frame<K, E> data={data} useListItem={useListItem}>
+    <List.Frame<K, E> data={data} useListItem={useListItem} onFetchMore={onFetchMore}>
       {child}
     </List.Frame>
   );

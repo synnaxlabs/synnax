@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 import { Component } from "@/component";
 import { Dialog } from "@/dialog";
 import { type Flux } from "@/flux";
+import { Icon } from "@/icon";
 import { List } from "@/list";
 import { type ListParams, useList } from "@/ranger/queries";
 import { TimeRangeChip } from "@/ranger/TimeRangeChip";
@@ -110,12 +111,21 @@ export const SelectSingle = ({
         data={data}
         useListItem={useListItem}
         allowNone={allowNone}
+        // onFetchMore={() => retrieve({ ...initialParams, offset: data.length })}
       >
-        <Select.SingleTrigger haulType={HAUL_TYPE} />
+        <Select.SingleTrigger
+          haulType={HAUL_TYPE}
+          placeholder="Select a Range..."
+          icon={<Icon.Range />}
+        />
         <Select.Dialog<ranger.Key, ListParams>
           onSearch={retrieve}
           searchPlaceholder="Search Ranges..."
           emptyContent={emptyContent}
+          style={{
+            width: 500,
+            height: 500,
+          }}
         >
           {listItemRenderProp}
         </Select.Dialog>

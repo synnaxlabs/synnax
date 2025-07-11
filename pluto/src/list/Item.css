@@ -13,7 +13,6 @@
     position: relative;
     cursor: pointer;
     padding: 1.5rem 2rem;
-    padding-left: 3rem;
     width: 100%;
     border-color: var(--pluto-gray-l2);
     outline: none;

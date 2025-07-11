@@ -1,10 +1,11 @@
 import { type record } from "@synnaxlabs/x";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
   createContext,
   type PropsWithChildren,
   type ReactElement,
-  type RefObject,
+  type RefCallback,
+  useCallback,
   useMemo,
   useRef,
 } from "react";
@@ -14,6 +15,7 @@ import { useRequiredContext } from "@/hooks";
 export interface ItemSpec<K extends record.Key = record.Key> {
   key: K;
   index: number;
+  translate: number;
 }
 
 export interface DataContextValue<K extends record.Key = record.Key> {
@@ -26,7 +28,7 @@ export interface UtilContextValue<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > {
-  ref: RefObject<HTMLDivElement | null>;
+  ref: RefCallback<HTMLDivElement | null>;
   useListItem: (key?: K) => E | undefined;
   scrollToIndex: (index: number) => void;
 }
@@ -40,6 +42,7 @@ export interface FrameProps<
 > extends PropsWithChildren {
   data: K[];
   useListItem: (key?: K) => E | undefined;
+  onFetchMore?: () => void;
 }
 
 const useDataContext = <K extends record.Key = record.Key>(): DataContextValue<K> =>
@@ -85,29 +88,47 @@ export const Frame = <
   data,
   useListItem,
   children,
+  onFetchMore,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
+  const refCallback = useCallback(
+    (el: HTMLDivElement) => {
+      ref.current = el;
+      onFetchMore?.();
+    },
+    [onFetchMore],
+  );
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => ref.current,
     estimateSize: () => 36,
+    overscan: 10,
+    onChange: useCallback(
+      (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {
+        const items = v.getVirtualItems();
+        if (items[items.length - 1].index === data.length - 1) onFetchMore?.();
+      },
+      [data.length, onFetchMore],
+    ),
   });
+  const items = virtualizer.getVirtualItems().map((item) => ({
+    key: data[item.index],
+    index: item.index,
+    translate: item.start,
+  }));
   const dataCtxValue = useMemo<DataContextValue<K>>(
     () => ({
-      ref,
+      ref: refCallback,
       useListItem,
       data,
       getTotalSize: () => virtualizer.getTotalSize(),
-      getItems: () =>
-        virtualizer
-          .getVirtualItems()
-          .map((item) => ({ key: data[item.index], index: item.index })),
+      getItems: () => items,
     }),
-    [ref, virtualizer, data, useListItem],
+    [refCallback, virtualizer, data, useListItem, items],
   );
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
-    () => ({ ref, useListItem, scrollToIndex: virtualizer.scrollToIndex }),
-    [ref, virtualizer, useListItem],
+    () => ({ ref: refCallback, useListItem, scrollToIndex: virtualizer.scrollToIndex }),
+    [refCallback, virtualizer, useListItem],
   );
   return (
     <DataContext.Provider value={dataCtxValue}>

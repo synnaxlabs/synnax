@@ -111,7 +111,7 @@ export const Frame = ({
   location: propsLocation = "bottom",
   onPointerEnter,
   className,
-  variant = "connected",
+  variant = "floating",
   maxHeight,
   zIndex = 5,
   modalOffset = 20,

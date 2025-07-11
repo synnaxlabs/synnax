@@ -41,7 +41,9 @@ const BaseItems = <
         className={CSS.BE("list", "virtualizer")}
         style={{ minHeight: getTotalSize() }}
       >
-        {visibleData.map(({ key, index }) => children({ key, index, itemKey: key }))}
+        {visibleData.map(({ key, index, translate }) =>
+          children({ key, index, itemKey: key, translate }),
+        )}
       </div>
     );
   return (
