@@ -189,9 +189,9 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         return;
       }
       tabKeys.forEach((tabKey) => {
-        const res = ontology.stringIDZ.safeParse(tabKey);
+        const res = ontology.idZ.safeParse(tabKey);
         if (res.success) {
-          const id = new ontology.ID(res.data);
+          const id = res.data;
           if (client == null) return;
           services[id.type].onMosaicDrop?.({
             client,

@@ -18,12 +18,13 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	channelsignals "github.com/synnaxlabs/synnax/pkg/distribution/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
+	ontologysignals "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
@@ -294,9 +295,18 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
+	var channelSignalsCloser io.Closer
+	if channelSignalsCloser, err = channelsignals.Publish(
+		ctx,
+		l.Signals,
+		l.DB,
+	); !ok(err, channelSignalsCloser) {
+		return nil, err
+	}
+
 	if l.Cluster.HostKey() == cluster.Bootstrapper {
 		var ontologyCDCCloser io.Closer
-		if ontologyCDCCloser, err = ontologycdc.Publish(
+		if ontologyCDCCloser, err = ontologysignals.Publish(
 			ctx,
 			l.Signals,
 			l.Ontology,

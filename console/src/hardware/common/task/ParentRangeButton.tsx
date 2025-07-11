@@ -19,7 +19,7 @@ export interface ParentRangeButtonProps {
 
 export const ParentRangeButton = ({ taskKey }: ParentRangeButtonProps) => {
   const parentRange =
-    Ontology.useParents(task.ontologyID(taskKey))?.find(
+    Ontology.useParents(task.ontologyID(taskKey))?.data?.find(
       ({ id: { type } }) => type === ranger.ONTOLOGY_TYPE,
     ) ?? null;
   const placeLayout = Layout.usePlacer();

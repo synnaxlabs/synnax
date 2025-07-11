@@ -11,6 +11,7 @@ package freightfluence_test
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Receiver", func() {
@@ -74,7 +76,7 @@ var _ = Describe("Receiver", func() {
 			Expect(v).To(Equal(1))
 			cancel()
 			_, err = stream.Receive()
-			Expect(err).To(Equal(context.Canceled))
+			Expect(err).To(HaveOccurredAs(context.Canceled))
 			By("Closing the receive server on exit")
 			_, ok := <-receiverStream.Outlet()
 			Expect(ok).To(BeFalse())

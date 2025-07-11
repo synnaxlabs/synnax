@@ -26,8 +26,8 @@ export interface Policy extends z.infer<typeof policyZ> {}
 
 export const newZ = z.object({
   key: keyZ.optional(),
-  subjects: ontology.crudeIDZ.array().or(ontology.crudeIDZ),
-  objects: ontology.crudeIDZ.array().or(ontology.crudeIDZ),
+  subjects: ontology.idZ.array().or(ontology.idZ),
+  objects: ontology.idZ.array().or(ontology.idZ),
   actions: actionZ.array().or(actionZ),
 });
 export interface New extends z.input<typeof newZ> {}

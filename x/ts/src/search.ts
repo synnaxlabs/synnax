@@ -39,4 +39,5 @@ export interface AsyncTermSearcher<T, K extends record.Key, E extends record.Key
   search: (term: T) => Promise<E[]>;
   retrieve: (keys: K[]) => Promise<E[]>;
   page: (offset: number, limit: number) => Promise<E[]>;
+  onChange?: (handler: (e: E[]) => void) => void;
 }

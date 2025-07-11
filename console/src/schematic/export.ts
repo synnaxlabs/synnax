@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NULL_CLIENT_ERROR } from "@/errors";
+import { DisconnectedError } from "@synnaxlabs/client";
+
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { selectOptional } from "@/schematic/selectors";
@@ -18,7 +19,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   let state = selectOptional(storeState, key);
   let name = Layout.select(storeState, key)?.name;
   if (state == null || name == null) {
-    if (client == null) throw NULL_CLIENT_ERROR;
+    if (client == null) throw new DisconnectedError();
     const schematic = await client.workspaces.schematic.retrieve(key);
     state ??= {
       ...(schematic.data as unknown as State),
