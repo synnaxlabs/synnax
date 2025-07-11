@@ -49,6 +49,8 @@ type Frame[K types.Numeric] struct {
 	}
 }
 
+var _ binary.CSVMarshaler = Frame[int]{}
+
 // UnsafeReinterpretFrameKeysAs reinterprets the keys of the frame as a different type. This
 // method performs no static type checking and is unsafe. Caveat emptor.
 func UnsafeReinterpretFrameKeysAs[I, O types.Numeric](f Frame[I]) Frame[O] {
@@ -499,8 +501,6 @@ func (f Frame[K]) FilterKeys(keys []K) Frame[K] {
 	return Frame[K]{keys: fKeys, series: fSeries}
 }
 
-var _ binary.CSVMarshaler = Frame[int]{}
-
 func (f Frame[K]) getLargestSeriesLength() int64 {
 	var length int64
 	for s := range f.Series() {
@@ -511,12 +511,15 @@ func (f Frame[K]) getLargestSeriesLength() int64 {
 	return length
 }
 
+// MarshalCSV converts the frame into a CSV representation. Each series corresponds to a
+// different column in the CSV. If the keys are not unique, the series will be repeated
+// for each occurrence of the key.
 func (f Frame[K]) MarshalCSV() ([][]string, error) {
-	rowCount := int(f.getLargestSeriesLength())
+	rowCount := f.getLargestSeriesLength()
 	records := make([][]string, rowCount)
 	for s := range f.Series() {
 		seriesAsStrings := s.AsCSVStrings()
-		for i := range rowCount {
+		for i := range int(rowCount) {
 			if i < len(seriesAsStrings) {
 				records[i] = append(records[i], seriesAsStrings[i])
 			} else {

@@ -230,11 +230,14 @@ var _ = Describe("Series", func() {
 		})
 
 		Describe("MarshalUUIDs", func() {
-			It("Should correctly marshal a UUID", func() {
+			It("should marshal a single uuid", func() {
 				ids := uuid.UUIDs{uuid.New()}
 				Expect(telem.MarshalUUIDs(ids)).To(Equal([]byte(ids[0][:])))
 			})
-			It("should correctly unmarshal multiple uuids", func() {
+			It("should marshal zero uuids", func() {
+				Expect(telem.MarshalUUIDs(uuid.UUIDs{})).To(Equal([]byte{}))
+			})
+			It("should correctly marshal multiple uuids", func() {
 				ids := uuid.UUIDs{uuid.New(), uuid.New()}
 				bytes := []byte(ids[0][:])
 				bytes = append(bytes, ids[1][:]...)
@@ -242,7 +245,14 @@ var _ = Describe("Series", func() {
 			})
 		})
 		Describe("UnmarshalUUIDs", func() {
-			It("should correctly unmarshal multiple uuids", func() {
+			It("should unmarshal a single UUID", func() {
+				ids := uuid.UUIDs{uuid.New()}
+				Expect(telem.UnmarshalUUIDs([]byte(ids[0][:]))).To(Equal(ids))
+			})
+			It("should unmarshal zero uuids", func() {
+				Expect(telem.UnmarshalUUIDs([]byte{})).To(Equal(uuid.UUIDs{}))
+			})
+			It("should unmarshal multiple uuids", func() {
 				ids := uuid.UUIDs{uuid.New(), uuid.New()}
 				bytes := []byte(ids[0][:])
 				bytes = append(bytes, ids[1][:]...)
@@ -270,6 +280,12 @@ var _ = Describe("Series", func() {
 				Expect(s.At(0)).To(Equal([]byte(ids[0][:])))
 				Expect(s.At(1)).To(Equal([]byte(ids[1][:])))
 			})
+			It("should work with zero length slices", func() {
+				ids := uuid.UUIDs{}
+				s := telem.NewSeriesUUIDs(ids)
+				Expect(s.Len()).To(Equal(int64(0)))
+				Expect(s.Data).To(Equal([]byte{}))
+			})
 		})
 
 		Describe("NewSeriesUUIDsV", func() {
@@ -279,6 +295,11 @@ var _ = Describe("Series", func() {
 				Expect(s.Len()).To(Equal(int64(2)))
 				Expect(s.At(0)).To(Equal([]byte(ids[0][:])))
 				Expect(s.At(1)).To(Equal([]byte(ids[1][:])))
+			})
+			It("should work with zero length slices", func() {
+				s := telem.NewSeriesUUIDsV()
+				Expect(s.Len()).To(Equal(int64(0)))
+				Expect(s.Data).To(Equal([]byte{}))
 			})
 		})
 	})
@@ -411,10 +432,7 @@ var _ = Describe("Series", func() {
 			})
 		})
 
-		var u1, u2, u3 uuid.UUID
-		BeforeEach(func() {
-			u1, u2, u3 = uuid.New(), uuid.New(), uuid.New()
-		})
+		u1, u2, u3 := uuid.New(), uuid.New(), uuid.New()
 		DescribeTable("DataString", func(s telem.Series, expected string) {
 			Expect(s.DataString()).To(Equal(expected))
 		},

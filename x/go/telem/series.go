@@ -298,7 +298,7 @@ func (s Series) AsCSVStrings() []string {
 			return v.String()
 		})
 	default:
-		return UnmarshalStrings(s.Data)
+		panic(fmt.Sprintf("unsupported data type: %v", s.DataType))
 	}
 }
 

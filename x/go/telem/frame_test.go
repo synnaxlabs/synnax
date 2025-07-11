@@ -1323,7 +1323,6 @@ var _ = Describe("Frame", func() {
 			Expect(filtered.ShouldExcludeRaw(9)).To(BeFalse())
 		})
 	})
-
 	Describe("MarshalCSV", func() {
 		It("Should return a CSV representation of the frame", func() {
 			fr := telem.MultiFrame(
@@ -1333,9 +1332,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
 				})
-			records, err := fr.MarshalCSV()
-			Expect(err).To(BeNil())
-			Expect(records).To(Equal([][]string{
+			Expect(fr.MarshalCSV()).To(Equal([][]string{
 				{"1", "4", "7"},
 				{"2", "5", "8"},
 				{"3", "6", "9"},
@@ -1351,9 +1348,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesSecondsTSV(1, 2, 3),
 					telem.NewSeriesUUIDsV(u1, u2, u3),
 				})
-			records, err := fr.MarshalCSV()
-			Expect(err).To(BeNil())
-			Expect(records).To(Equal([][]string{
+			Expect(fr.MarshalCSV()).To(Equal([][]string{
 				{"1", "a", "1000000000", u1.String()},
 				{"2", "b", "2000000000", u2.String()},
 				{"3", "c", "3000000000", u3.String()},
@@ -1367,12 +1362,24 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 				})
-			records, err := fr.MarshalCSV()
-			Expect(err).To(BeNil())
-			Expect(records).To(Equal([][]string{
+			Expect(fr.MarshalCSV()).To(Equal([][]string{
 				{"1", "2", "4"},
 				{"", "3", "5"},
 				{"", "", "6"},
+			}))
+		})
+		It("should work if the keys in the frame are repeated", func() {
+			fr := telem.MultiFrame(
+				[]int{1, 3, 1},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+					telem.NewSeriesV[int32](7, 8, 9),
+				})
+			Expect(fr.MarshalCSV()).To(Equal([][]string{
+				{"1", "4", "7"},
+				{"2", "5", "8"},
+				{"3", "6", "9"},
 			}))
 		})
 	})
