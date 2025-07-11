@@ -64,7 +64,12 @@ export interface CreateListArgs<
   filter?: (item: E) => boolean;
 }
 
-export interface UseListArgs<K extends record.Key, E extends record.Keyed<K>> {
+export interface UseListArgs<
+  RetrieveParams extends Params,
+  K extends record.Key,
+  E extends record.Keyed<K>,
+> {
+  initialParams?: RetrieveParams;
   filter?: (item: E) => boolean;
 }
 
@@ -73,7 +78,7 @@ export interface UseList<
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
-  (args?: UseListArgs<K, E>): UseListReturn<RetrieveParams, K, E>;
+  (args?: UseListArgs<RetrieveParams, K, E>): UseListReturn<RetrieveParams, K, E>;
 }
 
 interface ListListenerExtraArgs<
@@ -113,8 +118,8 @@ export const createList =
     retrieve,
     retrieveByKey,
   }: CreateListArgs<P, K, E>): UseList<P, K, E> =>
-  (args: UseListArgs<K, E> = {}) => {
-    const { filter = defaultFilter } = args;
+  (args: UseListArgs<P, K, E> = {}) => {
+    const { filter = defaultFilter, initialParams } = args;
     const client = PSynnax.use();
     const dataRef = useRef<Map<K, E>>(new Map());
     const listenersRef = useInitializerRef<ListenersRef<K>>(() => ({
@@ -125,7 +130,7 @@ export const createList =
       pendingResult(name, "retrieving"),
     );
 
-    const paramsRef = useRef<P | null>(null);
+    const paramsRef = useRef<P | null>(initialParams ?? null);
 
     const mountListeners = useMountListeners();
     const retrieveAsync = useCallback(
