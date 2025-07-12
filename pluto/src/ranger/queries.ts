@@ -9,7 +9,7 @@
 
 import { label, ontology, ranger } from "@synnaxlabs/client";
 import { type Optional, primitive } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";

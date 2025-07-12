@@ -11,7 +11,7 @@ import { type channel, DataType, type MultiSeries } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { useEffect } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { useAddListener } from "@/flux/sync/Context";
 import { Status } from "@/status";

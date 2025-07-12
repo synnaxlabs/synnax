@@ -23,6 +23,7 @@ import {
   useCombinedStateAndRef,
   useInitializerRef,
   useRequiredContext,
+  useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { array, type observe } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
@@ -40,6 +41,7 @@ import { Layout } from "@/layout";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
 import {
   type BaseProps,
+  type GetResource,
   type TreeContextMenuProps,
   type TreeItemProps,
   type TreeState,
@@ -102,6 +104,7 @@ const itemRenderProp = Component.renderProp((props: Core.ItemProps<string>) => {
   return (
     <Item
       {...props}
+      id={id}
       onDrop={handleDrop}
       onDoubleClick={handleDoubleClick}
       icon={icon as Icon.ReactElement}
@@ -145,7 +148,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     [loadingListenersRef],
   );
 
-  const useResource = useCallback((key: string | null) => {
+  const useResource = useCallback((key?: string) => {
     const abortControllerRef = useRef<AbortController | null>(null);
     return useSyncExternalStore<ontology.Resource | undefined>(
       useCallback(
@@ -250,6 +253,13 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     [],
   );
 
+  const { shape, expand, contract, onSelect } = Core.use({
+    nodes,
+    onExpand: handleExpand,
+    onSelectedChange: setSelected,
+  });
+  const shapeRef = useSyncedRef(shape);
+
   const setResource = useCallback(
     (resource: ontology.Resource | ontology.Resource[]) => {
       const resources = array.toArray(resource);
@@ -263,12 +273,19 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   );
 
   const getResource = useCallback(
-    (id: ontology.ID) => {
-      const resource = resourcesRef.current.get(ontology.idToString(id));
-      if (resource == null)
-        throw new Error(`Resource ${ontology.idToString(id)} not found`);
-      return resource;
-    },
+    ((id: ontology.ID | ontology.ID[]) => {
+      const isSingle = !Array.isArray(id);
+      const ids = array.toArray(id);
+      const resources = ids.map((id) =>
+        resourcesRef.current.get(ontology.idToString(id)),
+      );
+      if (isSingle) {
+        if (resources[0] == null)
+          throw new Error(`Resource ${ontology.idToString(id)} not found`);
+        return resources[0];
+      }
+      return resources;
+    }) as GetResource,
     [resourcesRef],
   );
 
@@ -509,13 +526,10 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
       <Core.Tree<string, ontology.Resource>
         showRules
-        onContextMenu={menuProps.open}
-        className={menuProps.className}
         shape={shape}
         selected={selected}
         onSelect={onSelect}
-        clearSelected={clear}
-        useItem={useResource}
+        useListItem={useResource}
       >
         {itemRenderProp}
       </Core.Tree>

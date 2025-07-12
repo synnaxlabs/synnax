@@ -11,7 +11,7 @@ import { deep, type record } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Form } from "@/form";
 import { Input } from "@/input";

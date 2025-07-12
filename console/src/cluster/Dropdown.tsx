@@ -216,49 +216,55 @@ export const Dropdown = (): ReactElement => {
 
   return (
     <Align.Pack>
-      <Select.Frame
-        data={keys}
-        useListItem={useSelect}
-        value={selected}
-        onChange={handleConnect}
-      >
-        <Dialog.Trigger
-          startIcon={disconnected ? <Icon.Connect /> : <Icon.Cluster />}
-          justify="center"
-          shade={2}
-          variant={disconnected ? "filled" : "outlined"}
+      <Dialog.Frame>
+        <Select.Frame
+          data={keys}
+          useListItem={useSelect}
+          value={selected}
+          onChange={handleConnect}
         >
-          {cluster?.name ?? "Connect Cluster"}
-        </Dialog.Trigger>
-        <Dialog.Dialog>
-          <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-            <Header.Header grow bordered borderShade={5} size="small">
-              <Header.Title level="h5" startIcon={<Icon.Cluster />}>
-                Clusters
-              </Header.Title>
-            </Header.Header>
-            <Button.Button
-              variant="filled"
-              size="large"
-              iconSpacing="small"
-              startIcon={<Icon.Connect />}
-              onClick={() => placeLayout(CONNECT_LAYOUT)}
-              className={CSS.B("cluster-list-add")}
-            >
-              Connect
-            </Button.Button>
+          <Dialog.Trigger
+            startIcon={disconnected ? <Icon.Connect /> : <Icon.Cluster />}
+            justify="center"
+            shade={2}
+            variant={disconnected ? "filled" : "outlined"}
+          >
+            {cluster?.name ?? "Connect Cluster"}
+          </Dialog.Trigger>
+          <Dialog.Dialog>
+            <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
+            <Align.Pack x>
+              <Header.Header grow bordered borderShade={5} size="small" x>
+                <Header.Title level="h5" startIcon={<Icon.Cluster />}>
+                  Clusters
+                </Header.Title>
+              </Header.Header>
+              <Button.Button
+                variant="filled"
+                size="large"
+                iconSpacing="small"
+                startIcon={<Icon.Connect />}
+                onClick={() => placeLayout(CONNECT_LAYOUT)}
+                className={CSS.B("cluster-list-add")}
+              >
+                Connect
+              </Button.Button>
+            </Align.Pack>
+
             <CoreList.Items<string, Cluster>
               style={{ height: 190, width: "100%" }}
               onContextMenu={menuProps.open}
               className={menuProps.className}
+              bordered
+              borderShade={6}
             >
               {({ itemKey, ...p }) => (
                 <ListItem itemKey={itemKey} {...p} validateName={validateName} />
               )}
             </CoreList.Items>
-          </PMenu.ContextMenu>
-        </Dialog.Dialog>
-      </Select.Frame>
+          </Dialog.Dialog>
+        </Select.Frame>
+      </Dialog.Frame>
       <ConnectionBadge />
     </Align.Pack>
   );

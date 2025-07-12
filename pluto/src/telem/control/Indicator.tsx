@@ -11,7 +11,7 @@ import "@/telem/control/Indicator.css";
 
 import { color, TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";

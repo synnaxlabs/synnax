@@ -11,7 +11,7 @@ import { newTestClient, type Synnax } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";

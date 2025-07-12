@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, rack, type task } from "@synnaxlabs/client";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const TYPE = "sequence";
 export const typeZ = z.literal(TYPE);

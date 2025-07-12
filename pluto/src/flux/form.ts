@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useCallback } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { type Params } from "@/flux/params";
 import { errorResult, pendingResult, type Result } from "@/flux/result";

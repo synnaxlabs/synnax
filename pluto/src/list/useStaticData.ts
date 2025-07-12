@@ -52,17 +52,14 @@ export const useStaticData = <
     [data],
   );
   const [params, setParams] = useState<RetrieveParams>({});
-
+  const useListItem = useCallback((key?: K) => data.find((d) => d.key === key), [data]);
   const res = useMemo(() => {
     const keys = fuse
       .search(params.term ?? "")
       .filter((d) => filter?.(d.item, params) ?? true)
       .map((d) => d.item.key);
-    const useListItem = useCallback(
-      (key?: K) => data.find((d) => d.key === key),
-      [data],
-    );
+
     return { useListItem, data: keys };
-  }, [data, filter, params]);
+  }, [data, filter, params, useListItem]);
   return { ...res, retrieve: setParams };
 };

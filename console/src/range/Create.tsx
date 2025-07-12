@@ -22,7 +22,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { Label } from "@/label";

@@ -32,7 +32,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";

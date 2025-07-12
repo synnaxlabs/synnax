@@ -21,15 +21,17 @@ import { type FC } from "react";
 import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
 
+export interface GetResource {
+  (id: ontology.ID): ontology.Resource;
+  (ids: ontology.ID[]): ontology.Resource[];
+}
+
 export interface TreeState {
   nodes: Tree.Node[];
   shape: Tree.Shape;
   setNodes: (nodes: Tree.Node[]) => void;
   setResource: (resource: ontology.Resource | ontology.Resource[]) => void;
-  getResource: {
-    (id: ontology.ID): ontology.Resource;
-    (ids: ontology.ID[]): ontology.Resource[];
-  };
+  getResource: GetResource;
   setSelection: (keys: string[]) => void;
   expand: (key: string) => void;
   contract: (key: string) => void;

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Middleware, sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { ExpiredTokenError, InvalidTokenError } from "@/errors";
 import { user } from "@/user";

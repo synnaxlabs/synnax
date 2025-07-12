@@ -10,7 +10,7 @@
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type CrudeTimeRange, observe, TimeRange } from "@synnaxlabs/x";
 import { type Series } from "@synnaxlabs/x/telem";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { MultipleFoundError, NotFoundError, QueryError } from "@/errors";

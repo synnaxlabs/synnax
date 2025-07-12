@@ -9,7 +9,7 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { observe, strings } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";

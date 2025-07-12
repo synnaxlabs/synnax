@@ -11,7 +11,7 @@ import "@/table/cells/Cells.css";
 
 import { bounds, type box, color, location, type record, scale } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Menu } from "@/menu";

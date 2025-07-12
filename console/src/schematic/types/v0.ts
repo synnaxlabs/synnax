@@ -9,7 +9,7 @@
 
 import { type Control, control, Diagram, Schematic, Viewport } from "@synnaxlabs/pluto";
 import { color, type migrate, xy } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const VERSION = "0.0.0";
 export type Version = typeof VERSION;

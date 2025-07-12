@@ -72,66 +72,68 @@ export const Selector = (): ReactElement => {
   );
 
   return (
-    <Select.Frame
-      data={data}
-      useListItem={useListItem}
-      value={active?.key}
-      onChange={handleChange}
-    >
-      <Dialog.Trigger
-        startIcon={<Icon.Workspace key="workspace" />}
-        variant="text"
-        size="medium"
-        className={CSS.B("trigger")}
-        shade={2}
-        weight={400}
+    <Dialog.Frame>
+      <Select.Frame
+        data={data}
+        useListItem={useListItem}
+        value={active?.key}
+        onChange={handleChange}
       >
-        {active?.name ?? "No Workspace"}
-      </Dialog.Trigger>
-      <Dialog.Dialog>
-        <Cluster.NoneConnectedBoundary bordered borderShade={5} background={1}>
-          <Input.Text
-            size="large"
-            placeholder={
-              <Text.WithIcon level="p" startIcon={<Icon.Search key="search" />}>
-                Search Workspaces
-              </Text.WithIcon>
-            }
-            value={search}
-            onChange={(v) => {
-              setSearch(v);
-              retrieve((p) => ({ ...p, search: v }));
-            }}
-          >
-            <Button.Button
-              startIcon={<Icon.Close />}
+        <Dialog.Trigger
+          startIcon={<Icon.Workspace key="workspace" />}
+          variant="text"
+          size="medium"
+          className={CSS.B("trigger")}
+          shade={2}
+          weight={400}
+        >
+          {active?.name ?? "No Workspace"}
+        </Dialog.Trigger>
+        <Dialog.Dialog>
+          <Cluster.NoneConnectedBoundary bordered borderShade={5} background={1}>
+            <Input.Text
               size="large"
-              variant="outlined"
-              onClick={() => handleChange(null)}
-              iconSpacing="small"
-              tooltip="Switch to no workspace"
-            >
-              Clear
-            </Button.Button>
-            <Button.Button
-              size="large"
-              startIcon={<Icon.Add />}
-              variant="outlined"
-              onClick={() => {
-                close();
-                placeLayout(CREATE_LAYOUT);
+              placeholder={
+                <Text.WithIcon level="p" startIcon={<Icon.Search key="search" />}>
+                  Search Workspaces
+                </Text.WithIcon>
+              }
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                retrieve((p) => ({ ...p, search: v }));
               }}
-              iconSpacing="small"
-              tooltip="Create a new workspace"
-              tooltipLocation={{ y: "bottom" }}
             >
-              New
-            </Button.Button>
-          </Input.Text>
-          <List.Items>{Component.renderProp(SelectorListItem)}</List.Items>
-        </Cluster.NoneConnectedBoundary>
-      </Dialog.Dialog>
-    </Select.Frame>
+              <Button.Button
+                startIcon={<Icon.Close />}
+                size="large"
+                variant="outlined"
+                onClick={() => handleChange(null)}
+                iconSpacing="small"
+                tooltip="Switch to no workspace"
+              >
+                Clear
+              </Button.Button>
+              <Button.Button
+                size="large"
+                startIcon={<Icon.Add />}
+                variant="outlined"
+                onClick={() => {
+                  close();
+                  placeLayout(CREATE_LAYOUT);
+                }}
+                iconSpacing="small"
+                tooltip="Create a new workspace"
+                tooltipLocation={{ y: "bottom" }}
+              >
+                New
+              </Button.Button>
+            </Input.Text>
+            <List.Items>{Component.renderProp(SelectorListItem)}</List.Items>
+          </Cluster.NoneConnectedBoundary>
+        </Dialog.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
   );
 };
 
