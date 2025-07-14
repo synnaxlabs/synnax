@@ -72,7 +72,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 					Expect(res).To(Equal(response{ID: 1, Message: "hello"}))
 				})
 			})
-			Describe("streaming", Focus, func() {
+			Describe("streaming", func() {
 				It("should allow for stream processing", func() {
 					streamingServer.BindHandler(func(context.Context, types.Nil) (io.Reader, error) {
 						r, w := io.Pipe()
