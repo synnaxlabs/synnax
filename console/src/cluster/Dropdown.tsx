@@ -49,7 +49,7 @@ interface ListItemProps extends CoreList.ItemProps<string> {
 
 const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null => {
   const dispatch = useDispatch();
-  const item = CoreList.useItem<string, Cluster>(rest.itemKey);
+  const item = useSelect(rest.itemKey);
   const { selected, onSelect } = Select.useItemState(rest.itemKey);
   const handleChange = (value: string) => {
     if (!validateName(value) || item == null) return;
@@ -221,7 +221,6 @@ export const Dropdown = (): ReactElement => {
     <Dialog.Frame>
       <Select.Frame
         data={keys}
-        useListItem={useSelect}
         value={selected}
         onChange={handleConnect}
         itemHeight={54}

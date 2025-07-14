@@ -141,7 +141,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   children,
   selected,
   onSelect,
-  useListItem,
+  getItem,
 }: TreeProps<K, E>): ReactElement => {
   const { keys, depths } = shape;
   return (
@@ -150,7 +150,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
       value={selected}
       onChange={onSelect}
       data={keys}
-      useListItem={useListItem}
+      getItem={getItem}
     >
       <List.Items<K, E>>
         {({ index, ...rest }) => children({ index, depth: depths[index], ...rest })}

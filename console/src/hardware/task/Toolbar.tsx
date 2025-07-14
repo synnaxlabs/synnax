@@ -73,7 +73,7 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
-  const { data, useListItem, getItem } = Task.useList();
+  const { data, getItem, subscribe } = Task.useList();
 
   const rename = useMutation({
     onMutate: ({ key }) => getItem(key)?.name ?? "task",
@@ -195,7 +195,8 @@ const Content = () => {
         <Select.Frame
           multiple
           data={data}
-          useListItem={useListItem}
+          getItem={getItem}
+          subscribe={subscribe}
           value={selected}
           onChange={setSelected}
         >

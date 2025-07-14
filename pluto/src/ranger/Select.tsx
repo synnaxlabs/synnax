@@ -66,14 +66,14 @@ export const SelectMultiple = ({
   emptyContent,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, retrieve, useListItem } = useList();
+  const { data, retrieve, ...listProps } = useList();
   return (
     <Dialog.Frame {...rest}>
       <Select.Frame<ranger.Key, ranger.Payload | undefined>
         multiple
         value={value}
         data={data}
-        useListItem={useListItem}
+        {...listProps}
         onChange={onChange}
         onFetchMore={useCallback(
           () =>
@@ -114,7 +114,7 @@ export const SelectSingle = ({
   initialParams,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, useListItem, retrieve } = useList({ filter, initialParams });
+  const { data, retrieve, subscribe, getItem } = useList({ filter, initialParams });
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
     <Dialog.Frame variant="floating" {...rest}>
@@ -122,9 +122,10 @@ export const SelectSingle = ({
         value={value}
         onChange={onChange}
         data={data}
-        useListItem={useListItem}
         allowNone={allowNone}
         onFetchMore={onFetchMore}
+        getItem={getItem}
+        subscribe={subscribe}
       >
         <Select.SingleTrigger
           haulType={HAUL_TYPE}

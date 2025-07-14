@@ -51,7 +51,7 @@ const listItem = Component.renderProp((props: OntologyListItemProps) => {
 });
 
 export const useResourceList = (): UseListReturn<ontology.Resource> => {
-  const { data, useListItem, retrieve, getItem } = POntology.useResourceList();
+  const { data, getItem, subscribe, retrieve } = POntology.useResourceList();
   const services = Ontology.useServices();
   const client = PSynnax.use();
   const store = useStore<RootState, RootAction>();
@@ -78,5 +78,5 @@ export const useResourceList = (): UseListReturn<ontology.Resource> => {
     [client, services, store, addStatus, placeLayout, removeLayout, handleError],
   );
 
-  return { data, useListItem, handleSelect, listItem, retrieve };
+  return { data, getItem, subscribe, handleSelect, listItem, retrieve };
 };

@@ -54,14 +54,14 @@ export const SelectPort = ({
   filter,
   ...rest
 }: SelectPortProps) => {
-  const { data, useListItem, retrieve } = List.useStaticData<string, Port>({
+  const { data, getItem, retrieve } = List.useStaticData<string, Port>({
     data: PORTS[model][portType],
     filter,
   });
-  const selected = useListItem(value);
+  const selected = getItem?.(value);
   return (
     <Dialog.Frame {...rest}>
-      <Select.Frame data={data} useListItem={useListItem} onChange={onChange}>
+      <Select.Frame data={data} getItem={getItem} onChange={onChange}>
         <Align.Pack x>
           <Dialog.Trigger>{selected?.alias ?? selected?.key}</Dialog.Trigger>
           {children}

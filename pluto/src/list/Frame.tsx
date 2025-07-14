@@ -8,6 +8,7 @@ import {
   useCallback,
   useMemo,
   useRef,
+  useSyncExternalStore,
 } from "react";
 
 import { Dialog } from "@/dialog";
@@ -30,7 +31,8 @@ export interface UtilContextValue<
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > {
   ref: RefCallback<HTMLDivElement | null>;
-  useListItem: (key?: K) => E | undefined;
+  getItem?: (key?: K) => E | undefined;
+  subscribe?: (callback: () => void, key?: K) => () => void;
   scrollToIndex: (index: number) => void;
 }
 
@@ -40,10 +42,10 @@ const UtilContext = createContext<UtilContextValue | null>(null);
 export interface FrameProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
-> extends PropsWithChildren {
+> extends PropsWithChildren,
+    Pick<UtilContextValue<K, E>, "getItem" | "subscribe"> {
   data: K[];
   itemHeight?: number;
-  useListItem: (key?: K) => E | undefined;
   onFetchMore?: () => void;
 }
 
@@ -70,8 +72,17 @@ export const useItem = <
 >(
   key?: K,
 ): E | undefined => {
-  const { useListItem } = useUtilContext<K, E>();
-  return useListItem(key);
+  const { getItem, subscribe } = useUtilContext<K, E>();
+  return useSyncExternalStore(
+    useCallback(
+      (callback) => {
+        if (subscribe == null) return () => {};
+        return subscribe(callback, key);
+      },
+      [key, subscribe],
+    ),
+    useCallback(() => getItem?.(key), [getItem, key]),
+  );
 };
 
 export const useData = <
@@ -79,8 +90,8 @@ export const useData = <
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >(): DataContextValue<K> & UtilContextValue<K, E> => {
   const { data, getItems, getTotalSize } = useDataContext<K>();
-  const { ref, useListItem, scrollToIndex } = useUtilContext<K, E>();
-  return { data, getItems, getTotalSize, ref, useListItem, scrollToIndex };
+  const { ref, getItem, scrollToIndex, subscribe } = useUtilContext<K, E>();
+  return { data, getItems, getTotalSize, ref, getItem, scrollToIndex, subscribe };
 };
 
 export const Frame = <
@@ -88,7 +99,8 @@ export const Frame = <
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >({
   data,
-  useListItem,
+  getItem,
+  subscribe,
   children,
   onFetchMore,
   itemHeight = 36,
@@ -125,16 +137,22 @@ export const Frame = <
   const dataCtxValue = useMemo<DataContextValue<K>>(
     () => ({
       ref: refCallback,
-      useListItem,
+      getItem,
       data,
+      subscribe,
       getTotalSize: () => virtualizer.getTotalSize(),
       getItems: () => items,
     }),
-    [refCallback, virtualizer, data, useListItem, items],
+    [refCallback, virtualizer, data, getItem, items],
   );
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
-    () => ({ ref: refCallback, useListItem, scrollToIndex: virtualizer.scrollToIndex }),
-    [refCallback, virtualizer, useListItem],
+    () => ({
+      ref: refCallback,
+      getItem,
+      scrollToIndex: virtualizer.scrollToIndex,
+      subscribe,
+    }),
+    [refCallback, virtualizer, getItem, subscribe],
   );
   return (
     <DataContext.Provider value={dataCtxValue}>

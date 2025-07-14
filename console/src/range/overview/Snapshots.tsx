@@ -100,7 +100,7 @@ export interface SnapshotsProps {
 }
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
-  const { useListItem, data } = Ontology.useChildren({
+  const { data, getItem, subscribe } = Ontology.useChildren({
     initialParams: { id: ranger.ontologyID(rangeKey) },
     filter: (item) => item.data?.snapshot === true,
   });
@@ -109,7 +109,7 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
       <Text.Text level="h4" shade={10} weight={500}>
         Snapshots
       </Text.Text>
-      <List.Frame data={data} useListItem={useListItem}>
+      <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
         <List.Items emptyContent={EMPTY_LIST_CONTENT}>{snapshotsListItem}</List.Items>
       </List.Frame>
     </Align.Space>

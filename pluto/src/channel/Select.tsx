@@ -70,7 +70,7 @@ export const SelectMultiple = ({
   emptyContent,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, useListItem, retrieve } = useList();
+  const { data, retrieve, getItem, subscribe } = useList();
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
     <Dialog.Frame>
@@ -78,9 +78,10 @@ export const SelectMultiple = ({
         multiple
         value={value}
         onChange={onChange}
-        useListItem={useListItem}
         data={data}
         onFetchMore={onFetchMore}
+        getItem={getItem}
+        subscribe={subscribe}
         {...rest}
       >
         <Select.MultipleTrigger haulType={HAUL_TYPE} />
@@ -109,14 +110,15 @@ export const SelectSingle = ({
   className,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, useListItem, retrieve } = useList();
+  const { data, retrieve, getItem, subscribe } = useList();
   return (
     <Dialog.Frame {...rest}>
       <Select.Frame<channel.Key, channel.Channel | undefined>
         value={value}
         onChange={onChange}
         data={data}
-        useListItem={useListItem}
+        getItem={getItem}
+        subscribe={subscribe}
         allowNone={allowNone}
       >
         <Select.SingleTrigger haulType={HAUL_TYPE} icon={<Icon.Channel />} />

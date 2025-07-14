@@ -193,7 +193,7 @@ const AISelector = ({
 }: AISelectorProps): ReactElement => {
   const [value, setValue] = useState<string>("");
   const [entries, setEntries] = useState<AISuggestion[]>([]);
-  const { data, useListItem: useItem } = List.useStaticData<string>({ data: entries });
+  const { data, getItem } = List.useStaticData<string>({ data: entries });
 
   const handleChange = (next: string): void => {
     const processed = nlp(next) as DatesMethods;
@@ -249,7 +249,7 @@ const AISelector = ({
         autoFocus
         placeholder="AI Suggestion"
       />
-      <Select.Frame data={data} allowNone onChange={handleSelect} useListItem={useItem}>
+      <Select.Frame data={data} allowNone onChange={handleSelect} getItem={getItem}>
         <List.Items<string, AISuggestion>
           className={CSS.B("ai-list")}
           emptyContent={
@@ -386,7 +386,7 @@ const timeListItem = renderProp(TimeListItem);
 
 export const createTimeList = (count: number): FC<TimeListProps> => {
   const data = Array.from({ length: count }, (_, i) => i);
-  const useItem = (key?: number): record.KeyedNamed<number> | undefined =>
+  const getItem = (key?: number): record.KeyedNamed<number> | undefined =>
     key == null ? undefined : { key, name: key.toString() };
 
   const TimeList = ({ value, onChange }: TimeListProps): ReactElement => (
@@ -394,7 +394,7 @@ export const createTimeList = (count: number): FC<TimeListProps> => {
       data={data}
       value={value}
       onChange={onChange}
-      useListItem={useItem}
+      getItem={getItem}
     >
       <List.Items<number, record.KeyedNamed<number>> className={CSS.B("time-list")}>
         {timeListItem}

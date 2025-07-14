@@ -11,13 +11,13 @@ import { type record } from "@synnaxlabs/x";
 import Fuse from "fuse.js";
 import { useCallback, useMemo, useState } from "react";
 
+import { type FrameProps } from "@/list/Frame";
 import { type state } from "@/state";
 
 export interface UseStaticDataReturn<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
-> {
-  useListItem: (key?: K) => E | undefined;
+> extends Pick<FrameProps<K, E>, "getItem"> {
   data: K[];
   retrieve: state.Setter<RetrieveParams, Partial<RetrieveParams>>;
 }
@@ -52,14 +52,13 @@ export const useStaticData = <
     [data],
   );
   const [params, setParams] = useState<RetrieveParams>({});
-  const useListItem = useCallback((key?: K) => data.find((d) => d.key === key), [data]);
+  const getItem = useCallback((key?: K) => data.find((d) => d.key === key), [data]);
   const res = useMemo(() => {
     const keys = fuse
       .search(params.term ?? "")
       .filter((d) => filter?.(d.item, params) ?? true)
       .map((d) => d.item.key);
-
-    return { useListItem, data: keys };
-  }, [data, filter, params, useListItem]);
+    return { getItem, data: keys };
+  }, [data, filter, params, getItem]);
   return { ...res, retrieve: setParams };
 };

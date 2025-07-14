@@ -140,7 +140,7 @@ export interface MultipleFrameProps<
 export interface MultipleProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
-> extends Omit<MultipleFrameProps<K, E>, "multiple" | "data" | "useListItem">,
+> extends Omit<MultipleFrameProps<K, E>, "multiple" | "data" | "getItem" | "subscribe">,
     Pick<List.ItemsProps<K>, "emptyContent">,
     Omit<Dialog.FrameProps, "onChange" | "children"> {}
 
@@ -155,7 +155,7 @@ export interface SingleFrameProps<
 export interface SingleProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
-> extends Omit<SingleFrameProps<K, E>, "multiple" | "data" | "useListItem">,
+> extends Omit<SingleFrameProps<K, E>, "multiple" | "data" | "getItem" | "subscribe">,
     Pick<List.ItemsProps<K>, "emptyContent">,
     Omit<Dialog.FrameProps, "onChange" | "children">,
     Pick<SingleTriggerProps, "disabled" | "placeholder" | "icon"> {}
@@ -170,7 +170,8 @@ export const Frame = <
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
 >({
   data,
-  useListItem,
+  getItem,
+  subscribe,
   itemHeight,
   value,
   onChange,
@@ -185,7 +186,8 @@ export const Frame = <
   return (
     <List.Frame<K, E>
       data={data}
-      useListItem={useListItem}
+      getItem={getItem}
+      subscribe={subscribe}
       onFetchMore={onFetchMore}
       itemHeight={itemHeight}
     >

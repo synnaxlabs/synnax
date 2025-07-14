@@ -69,10 +69,10 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
     [startDrag],
   );
 
-  const { data, useListItem, retrieve } = List.useStaticData({ data: LIST_DATA });
+  const { data, retrieve } = List.useStaticData({ data: LIST_DATA });
   const [search, setSearch] = useState("");
   return (
-    <List.Frame data={data} useListItem={useListItem}>
+    <List.Frame data={data}>
       <Align.Space style={{ padding: "1rem", borderBottom: "var(--pluto-border)" }}>
         <Input.Text
           value={search}
@@ -118,7 +118,7 @@ const ListItem = ({
   startDrag,
   itemKey,
 }: SymbolsButtonProps): ReactElement | null => {
-  const spec = List.useItem<Schematic.Variant, Schematic.Spec>(itemKey);
+  const spec = Schematic.SYMBOLS[itemKey];
   const defaultProps_ = useMemo(() => spec?.defaultProps(theme), [spec, theme]);
   if (spec == null) return null;
   const { name, Preview } = spec;

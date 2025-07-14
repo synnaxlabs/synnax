@@ -113,7 +113,7 @@ export interface MetaDataProps {
 }
 
 export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement => {
-  const { data, useListItem } = Ranger.useListKV({
+  const { data, getItem, subscribe } = Ranger.useListKV({
     initialParams: { rangeKey },
   });
   return (
@@ -121,7 +121,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement => {
       <Text.Text level="h4" shade={11} weight={450}>
         Metadata
       </Text.Text>
-      <List.Frame<string, kv.Pair> data={data} useListItem={useListItem}>
+      <List.Frame<string, kv.Pair> data={data} getItem={getItem} subscribe={subscribe}>
         <List.Items>{metaDataItem}</List.Items>
       </List.Frame>
     </Align.Space>

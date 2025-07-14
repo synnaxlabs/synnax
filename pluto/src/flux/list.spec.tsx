@@ -79,7 +79,7 @@ describe("list", () => {
     it("should return a pre-retrieved list item", async () => {
       const { result } = renderHook(
         () => {
-          const { useListItem, retrieve } = Flux.createList<
+          const { getItem, retrieve } = Flux.createList<
             {},
             number,
             record.Keyed<number>
@@ -88,7 +88,7 @@ describe("list", () => {
             retrieve: async () => [{ key: 1 }, { key: 2 }],
             retrieveByKey: async ({ key }) => ({ key }),
           })();
-          return { retrieve, value: useListItem(1) };
+          return { retrieve, value: getItem(1) };
         },
         { wrapper: newWrapper(client) },
       );
@@ -111,7 +111,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () => {
-          const { useListItem, retrieve } = Flux.createList<
+          const { getItem, retrieve } = Flux.createList<
             RangeParams,
             ranger.Key,
             ranger.Payload
@@ -129,7 +129,7 @@ describe("list", () => {
               },
             ],
           })();
-          return { retrieve, value: useListItem(rng.key) };
+          return { retrieve, value: getItem(rng.key) };
         },
         { wrapper: newWrapper(client) },
       );
@@ -161,7 +161,7 @@ describe("list", () => {
       });
       const { result, unmount } = renderHook(
         () => {
-          const { useListItem, retrieve } = Flux.createList<
+          const { getItem, retrieve } = Flux.createList<
             RangeParams,
             ranger.Key,
             ranger.Payload
@@ -179,7 +179,7 @@ describe("list", () => {
               },
             ],
           })();
-          return { retrieve, value: useListItem(rng.key) };
+          return { retrieve, value: getItem(rng.key) };
         },
         { wrapper: newWrapper(client) },
       );

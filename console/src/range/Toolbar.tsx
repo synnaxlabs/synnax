@@ -33,7 +33,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { ContextMenu } from "@/range/ContextMenu";
 import { CREATE_LAYOUT } from "@/range/Create";
-import { select, useSelect, useSelectKeys, useSelectStatic } from "@/range/selectors";
+import { select, useSelect, useSelectKeys } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
 import { type RootState } from "@/store";
 
@@ -92,7 +92,6 @@ const List = (): ReactElement => {
     <Select.Frame<string, StaticRange>
       data={data}
       value={activeRange?.key}
-      useListItem={useSelectStatic}
       onChange={handleSelect}
     >
       <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
@@ -121,10 +120,10 @@ export const useRename = (key: string) => {
 
 const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
   const { itemKey } = props;
-  const entry = CoreList.useItem<string, StaticRange>(itemKey);
+  const entry = useSelect(itemKey);
   const labels = Ranger.useLabels(itemKey)?.data ?? [];
   const onRename = useRename(itemKey);
-  if (entry == null) return null;
+  if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange, persisted } = entry;
 
   return (

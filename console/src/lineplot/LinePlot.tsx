@@ -74,7 +74,7 @@ import {
   type AxisState,
   internalCreate,
   type LineState,
-  selectRule,
+  setSelectedRule,
   setActiveToolbarTab,
   setAxis,
   setControlState,
@@ -483,7 +483,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
-          onSelectRule={(ruleKey) => dispatch(selectRule({ key: layoutKey, ruleKey }))}
+          onSelectRule={(ruleKey) =>
+            dispatch(setSelectedRule({ key: layoutKey, ruleKey }))
+          }
           onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
           rangeAnnotationProvider={rangeAnnotationProvider}
         >

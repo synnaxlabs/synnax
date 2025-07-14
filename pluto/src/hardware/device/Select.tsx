@@ -52,14 +52,15 @@ export const SelectSingle = ({
   initialParams,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, useListItem, retrieve } = useList({ filter, initialParams });
+  const { data, retrieve, getItem, subscribe } = useList({ filter, initialParams });
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
     <Dialog.Frame {...rest}>
       <Select.Frame
         value={value}
-        useListItem={useListItem}
         data={data}
+        getItem={getItem}
+        subscribe={subscribe}
         onChange={onChange}
         onFetchMore={onFetchMore}
       >

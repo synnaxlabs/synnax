@@ -224,7 +224,6 @@ export const fieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
 export interface UseFieldListReturn<K extends record.Key, E extends record.Keyed<K>>
   extends FieldListUtils<K, E> {
   data: K[];
-  useListItem: (key?: K) => E | undefined;
 }
 
 export const useFieldList = <
@@ -241,15 +240,8 @@ export const useFieldList = <
     bind,
     useCallback(() => get<E[]>(path).value.map(({ key }) => key), [path, get]),
   );
-  const useListItem = useCallback(
-    (key?: K) => {
-      if (key == null) return undefined;
-      return useFieldValue<E>(`${path}.${key}`, opts);
-    },
-    [path, opts],
-  );
   return useMemo(
-    () => ({ data, useListItem, ...fieldListUtils<K, E>(ctx, path) }),
-    [data, ctx, path, useListItem],
+    () => ({ data, ...fieldListUtils<K, E>(ctx, path) }),
+    [data, ctx, path],
   );
 };

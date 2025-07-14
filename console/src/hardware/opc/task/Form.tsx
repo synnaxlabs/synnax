@@ -49,7 +49,7 @@ const ChannelListItem = <C extends Channel>({
   getChannelKeyAndID,
   ...rest
 }: ChannelListItemProps<C>) => {
-  const item = List.useItem<C["key"], C>();
+  const item = PForm.useFieldValue<C>(path);
   if (item == null) return null;
   const { nodeName, nodeId } = item;
   const opcNode = nodeId.length > 0 ? nodeId : "No Node Selected";

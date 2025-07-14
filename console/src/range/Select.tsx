@@ -37,7 +37,7 @@ const dynamicIcon = (
 
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { itemKey } = props;
-  const range = List.useItem<string, Range>(itemKey);
+  const range = useSelect(itemKey);
   if (range == null) return null;
   const { variant, name } = range;
   return (
@@ -59,7 +59,7 @@ interface RenderTagProps {
 }
 
 const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
-  const range = List.useItem<string, Range>(itemKey);
+  const range = useSelect(itemKey);
   const { onSelect } = Select.useItemState(itemKey);
   if (range == null) return null;
   return (
@@ -81,13 +81,7 @@ const SelectMultipleRanges = ({
   const data = useSelectKeys();
   return (
     <Dialog.Frame>
-      <Select.Frame
-        multiple
-        data={data}
-        useListItem={useSelect}
-        onChange={onChange}
-        value={value}
-      >
+      <Select.Frame multiple data={data} onChange={onChange} value={value}>
         <Dialog.Trigger>
           {value.map((key) => (
             <RangeTag key={key} itemKey={key} />
@@ -110,12 +104,7 @@ const SelectRange = ({ value, onChange }: SelectSingleRangeProps): ReactElement 
   const data = useSelectKeys();
   return (
     <Dialog.Frame>
-      <Select.Frame
-        data={data}
-        useListItem={useSelect}
-        onChange={onChange}
-        value={value}
-      >
+      <Select.Frame data={data} onChange={onChange} value={value}>
         <Dialog.Trigger>
           {value != null ? <RangeTag itemKey={value} /> : null}
         </Dialog.Trigger>

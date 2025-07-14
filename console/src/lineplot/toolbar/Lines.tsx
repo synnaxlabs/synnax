@@ -18,7 +18,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { useSelectLine, useSelectLineKeys } from "@/lineplot/selectors";
@@ -58,32 +58,29 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
     </Align.Center>
   );
 
-  const useListItem = useCallback(
-    (key?: string) => useSelectLine(layoutKey, key),
-    [layoutKey],
-  );
-
   return (
-    <List.Frame data={lineKeys} useListItem={useListItem}>
+    <List.Frame data={lineKeys}>
       <List.Items<string, LineState>
         style={{ height: "calc(100% - 28px)" }}
         emptyContent={emptyContent}
       >
-        {(p) => <Line onChange={handleChange} {...p} />}
+        {(p) => <Line layoutKey={layoutKey} onChange={handleChange} {...p} />}
       </List.Items>
     </List.Frame>
   );
 };
 
 interface LinePlotLineControlsProps extends Omit<List.ItemProps<string>, "onChange"> {
+  layoutKey: string;
   onChange: (line: LineState) => void;
 }
 
 const Line = ({
   itemKey,
   onChange,
+  layoutKey,
 }: LinePlotLineControlsProps): ReactElement | null => {
-  const line = List.useItem<string, LineState>(itemKey);
+  const line = useSelectLine(layoutKey, itemKey);
   if (line == null) return null;
   const handleLabelChange: Input.Control<string>["onChange"] = (value: string) => {
     onChange({ ...line, label: value });

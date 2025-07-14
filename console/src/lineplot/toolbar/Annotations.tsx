@@ -27,8 +27,8 @@ import { useDispatch } from "react-redux";
 import { Menu } from "@/components";
 import { Layout } from "@/layout";
 import { type AxisKey, Y1, Y2 } from "@/lineplot/axis";
-import { useSelectAxes, useSelectRules } from "@/lineplot/selectors";
-import { removeRule, type RuleState, selectRule, setRule } from "@/lineplot/slice";
+import { useSelectAxes, useSelectRule, useSelectRules } from "@/lineplot/selectors";
+import { removeRule, type RuleState, setRule, setSelectedRule } from "@/lineplot/slice";
 
 interface EmptyContentProps {
   onCreateRule: () => void;
@@ -51,7 +51,7 @@ interface ListItemProps extends PList.ItemProps<string> {
 
 const ListItem = ({ onChangeLabel, ...rest }: ListItemProps): ReactElement | null => {
   const { itemKey } = rest;
-  const entry = PList.useItem<string, RuleState>(itemKey);
+  const entry = useSelectRule(itemKey);
   if (entry == null) return null;
   const { label } = entry;
   return (
@@ -87,7 +87,7 @@ const List = ({
   onLabelChange,
 }: ListProps): ReactElement => {
   const menuProps = PMenu.useContextMenu();
-  const { data, useListItem } = PList.useStaticData<string, RuleState>({ data: rules });
+  const { data } = PList.useStaticData<string, RuleState>({ data: rules });
   return (
     <Align.Space x empty style={{ width: "20%" }}>
       <Button.Icon tooltip="Add Rule" size="small" onClick={onCreate}>
@@ -97,7 +97,6 @@ const List = ({
       <Select.Frame<string, RuleState>
         multiple
         data={data}
-        useListItem={useListItem}
         value={selected}
         onChange={onChange}
       >
@@ -220,7 +219,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
     .map((rule) => rule.key);
   const dispatch = useDispatch();
   const setSelectedRuleKeys = (keys: string[]): void => {
-    dispatch(selectRule({ key: linePlotKey, ruleKey: keys }));
+    dispatch(setSelectedRule({ key: linePlotKey, ruleKey: keys }));
   };
   const shownRuleKey = selectedRuleKeys[selectedRuleKeys.length - 1];
   const shownRule = rules.find((rule) => rule.key === shownRuleKey);

@@ -7,9 +7,9 @@ export interface RetrieveParams extends Flux.Params {
   limit?: number;
 }
 
-export interface UseListReturn<E extends record.Keyed<string>> {
+export interface UseListReturn<E extends record.Keyed<string>>
+  extends Pick<List.FrameProps<string, E>, "getItem" | "subscribe"> {
   data: string[];
-  useListItem: (key?: string) => E | undefined;
   handleSelect: (key: string) => void;
   listItem: Component.RenderProp<List.ItemProps<string>>;
   retrieve: (params: RetrieveParams) => void;

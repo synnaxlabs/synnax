@@ -35,7 +35,7 @@ import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/workspace/Create";
-import { useSelectActive } from "@/workspace/selectors";
+import { useSelect, useSelectActive } from "@/workspace/selectors";
 import { add, setActive } from "@/workspace/slice";
 
 export const Selector = (): ReactElement => {
@@ -44,7 +44,7 @@ export const Selector = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   const active = useSelectActive();
   const handleError = Status.useErrorHandler();
-  const { data, useListItem, retrieve } = Workspace.useList();
+  const { data, retrieve } = Workspace.useList();
   const [search, setSearch] = useState("");
   const handleChange = useCallback(
     (v: string | null) => {
@@ -73,12 +73,7 @@ export const Selector = (): ReactElement => {
 
   return (
     <Dialog.Frame>
-      <Select.Frame
-        data={data}
-        useListItem={useListItem}
-        value={active?.key}
-        onChange={handleChange}
-      >
+      <Select.Frame data={data} value={active?.key} onChange={handleChange}>
         <Dialog.Trigger
           startIcon={<Icon.Workspace key="workspace" />}
           variant="text"
@@ -141,7 +136,7 @@ export const SelectorListItem = ({
   onSelect,
   ...rest
 }: List.ItemProps<workspace.Key>): ReactElement | null => {
-  const ws = List.useItem<workspace.Key, workspace.Workspace>();
+  const ws = useSelect(rest.itemKey);
   const handleSelect: MouseEventHandler = (e): void => {
     e.stopPropagation();
     onSelect?.(ws?.key ?? "");

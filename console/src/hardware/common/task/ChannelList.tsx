@@ -29,10 +29,7 @@ export interface ContextMenuItemProps<C extends Channel> {
 }
 
 interface ContextMenuProps<C extends Channel>
-  extends Pick<
-    Form.UseFieldListReturn<C["key"], C>,
-    "data" | "useListItem" | "remove" | "value"
-  > {
+  extends Pick<Form.UseFieldListReturn<C["key"], C>, "data" | "remove" | "value"> {
   keys: string[];
   allowTare?: (keys: string[], channels: C[]) => boolean;
   isSnapshot: boolean;
@@ -131,7 +128,6 @@ export interface ChannelListProps<C extends Channel>
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
-  useListItem: (key?: C["key"]) => C | undefined;
   listItem: RenderProp<ChannelListItemProps>;
   selected: string[];
 }
@@ -147,7 +143,7 @@ export const ChannelList = <C extends Channel>({
   grow,
   ...rest
 }: ChannelListProps<C>) => {
-  const { isSnapshot, onSelect, path, data, useListItem } = rest;
+  const { isSnapshot, onSelect, path, data } = rest;
   const handleChange = useCallback(
     (keys: string[]) => onSelect(keys.map((k) => `${path}.${k}`)),
     [onSelect, path],
@@ -165,7 +161,6 @@ export const ChannelList = <C extends Channel>({
         <Select.Frame<string, C>
           multiple
           data={data}
-          useListItem={useListItem}
           value={selected}
           onChange={handleChange}
         >

@@ -22,7 +22,7 @@ export interface ButtonsProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
 > extends Omit<Align.PackProps, "onSelect" | "onChange">,
-    Omit<SingleFrameProps<K, E>, "useListItem" | "data"> {
+    Omit<SingleFrameProps<K, E>, "getItem" | "subscribe" | "data"> {
   keys: K[] | readonly K[];
 }
 

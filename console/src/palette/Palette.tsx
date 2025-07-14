@@ -106,13 +106,16 @@ const DialogContent = ({
   const { close } = Dialog.useContext();
   const resourceProps = useResourceList();
   const commandProps = useCommandList();
-  const { handleSelect, data, useListItem, listItem } = value.startsWith(commandSymbol)
+  const { handleSelect, data, getItem, subscribe, listItem } = value.startsWith(
+    commandSymbol,
+  )
     ? commandProps
     : resourceProps;
   return (
     <Select.Frame<string, Command | ontology.Resource>
       data={data}
-      useListItem={useListItem}
+      getItem={getItem}
+      subscribe={subscribe}
       value={value}
       onChange={handleSelect}
     >

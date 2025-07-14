@@ -112,6 +112,18 @@ export const selectRules = (state: StoreState, key: string): RuleState[] =>
 export const useSelectRules = (key: string): RuleState[] =>
   useMemoSelect((state: StoreState) => selectRules(state, key), [key]);
 
+export const selectRule = (
+  state: StoreState,
+  key: string,
+  ruleKey?: string,
+): RuleState | undefined => {
+  if (ruleKey == null) return undefined;
+  return select(state, key).rules.find(({ key: k }) => k === ruleKey);
+};
+
+export const useSelectRule = (key: string, ruleKey?: string): RuleState | undefined =>
+  useMemoSelect((state: StoreState) => selectRule(state, key, ruleKey), [key, ruleKey]);
+
 export const selectLines = (state: StoreState, key: string): LineState[] =>
   select(state, key).lines;
 

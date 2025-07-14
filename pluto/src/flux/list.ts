@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax } from "@synnaxlabs/client";
-import { compare, type MultiSeries, type record } from "@synnaxlabs/x";
-import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
+import { compare, type Destructor, type MultiSeries, type record } from "@synnaxlabs/x";
+import { useCallback, useMemo, useRef } from "react";
 
 import { useMountListeners } from "@/flux/listeners";
 import { type Params } from "@/flux/params";
@@ -31,7 +31,7 @@ import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
 interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
-  (key: K): E | undefined;
+  (key?: K): E | undefined;
   (keys: K[]): E[];
 }
 
@@ -53,8 +53,8 @@ export type UseListReturn<
     options?: AsyncListOptions,
   ) => Promise<void>;
   data: K[];
-  useListItem: (key?: K) => E | undefined;
   getItem: GetItem<K, E>;
+  subscribe: (callback: () => void, key?: K) => Destructor;
 };
 
 export interface RetrieveByKeyArgs<
@@ -252,36 +252,23 @@ export const createList =
     );
 
     const getItem = useCallback(
-      ((key: K | K[]) => {
+      ((key?: K | K[]) => {
+        if (key == null) return undefined;
         if (Array.isArray(key))
-          return key.map((k) => dataRef.current.get(k)).filter((v) => v != null);
-        return dataRef.current.get(key);
+          return key.map((k) => getItem(k)).filter((v) => v != null);
+        const res = dataRef.current.get(key);
+        if (res == null) retrieveSingle(key);
+        return res;
       }) as GetItem<K, E>,
       [],
     );
 
-    const useListItem = useCallback((key?: K) => {
-      if (key == null) return undefined;
-      const abortControllerRef = useRef<AbortController | null>(null);
-      return useSyncExternalStore<E | undefined>(
-        useCallback(
-          (callback) => {
-            abortControllerRef.current = new AbortController();
-            listenersRef.current.listeners.set(callback, key);
-            return () => {
-              listenersRef.current.listeners.delete(callback);
-              abortControllerRef.current?.abort();
-            };
-          },
-          [key],
-        ),
-        useCallback(() => {
-          const res = dataRef.current.get(key);
-          if (res === undefined)
-            retrieveSingle(key, { signal: abortControllerRef.current?.signal });
-          return res ?? undefined;
-        }, [key]),
-      );
+    const subscribe = useCallback((callback: () => void, key?: K) => {
+      if (key == null) return () => {};
+      listenersRef.current.listeners.set(callback, key);
+      return () => {
+        listenersRef.current.listeners.delete(callback);
+      };
     }, []);
 
     const retrieveSync = useDebouncedCallback(
@@ -294,7 +281,7 @@ export const createList =
     return {
       retrieve: retrieveSync,
       retrieveAsync,
-      useListItem,
+      subscribe,
       getItem,
       ...result,
       data: result?.data ?? [],

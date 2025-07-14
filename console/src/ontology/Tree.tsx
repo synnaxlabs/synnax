@@ -529,7 +529,6 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         shape={shape}
         selected={selected}
         onSelect={onSelect}
-        useListItem={useResource}
       >
         {itemRenderProp}
       </Core.Tree>

@@ -57,7 +57,7 @@ export const SelectMultiple = ({
   emptyContent,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, retrieve, useListItem } = useList();
+  const { data, retrieve, getItem, subscribe } = useList();
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
     <Dialog.Frame {...rest}>
@@ -65,7 +65,8 @@ export const SelectMultiple = ({
         multiple
         value={value}
         data={data}
-        useListItem={useListItem}
+        getItem={getItem}
+        subscribe={subscribe}
         onChange={onChange}
         onFetchMore={onFetchMore}
       >
@@ -97,7 +98,7 @@ export const SelectSingle = ({
   emptyContent,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, useListItem, retrieve } = useList();
+  const { data, retrieve, getItem, subscribe } = useList();
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
     <Dialog.Frame {...rest}>
@@ -105,7 +106,8 @@ export const SelectSingle = ({
         value={value}
         onChange={onChange}
         data={data}
-        useListItem={useListItem}
+        getItem={getItem}
+        subscribe={subscribe}
         allowNone={allowNone}
         onFetchMore={onFetchMore}
       >

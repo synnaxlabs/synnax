@@ -114,17 +114,16 @@ export const Edit: Layout.Renderer = () => {
     },
   });
 
-  const { data, useListItem, push } = Form.useFieldList<
-    label.Key,
-    label.Label,
-    typeof formSchema
-  >("labels", { ctx });
+  const { data, push } = Form.useFieldList<label.Key, label.Label, typeof formSchema>(
+    "labels",
+    { ctx },
+  );
   const theme = Layout.useSelectTheme();
 
   return (
     <Align.Space y style={{ padding: "2rem" }} grow>
       <Form.Form<typeof formSchema> {...ctx}>
-        <List.Frame<label.Key, label.Label> data={data} useListItem={useListItem}>
+        <List.Frame<label.Key, label.Label> data={data}>
           <Align.Space x justify="spaceBetween">
             <Button.Button
               onClick={() => {
