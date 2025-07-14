@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/dialog/Dialog";
+export * from "@/dialog/Frame";
 export * from "@/dialog/Trigger";

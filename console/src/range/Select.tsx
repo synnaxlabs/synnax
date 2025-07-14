@@ -80,25 +80,27 @@ const SelectMultipleRanges = ({
 }: SelectMultipleRangesProps): ReactElement => {
   const data = useSelectKeys();
   return (
-    <Select.Frame
-      multiple
-      data={data}
-      useListItem={useSelect}
-      onChange={onChange}
-      value={value}
-    >
-      <Dialog.Trigger>
-        {value.map((key) => (
-          <RangeTag key={key} itemKey={key} />
-        ))}
-      </Dialog.Trigger>
-      <Select.Dialog<string>
-        searchPlaceholder="Search Ranges..."
-        emptyContent={<SelectEmptyContent />}
+    <Dialog.Frame>
+      <Select.Frame
+        multiple
+        data={data}
+        useListItem={useSelect}
+        onChange={onChange}
+        value={value}
       >
-        {listItem}
-      </Select.Dialog>
-    </Select.Frame>
+        <Dialog.Trigger>
+          {value.map((key) => (
+            <RangeTag key={key} itemKey={key} />
+          ))}
+        </Dialog.Trigger>
+        <Select.Dialog<string>
+          searchPlaceholder="Search Ranges..."
+          emptyContent={<SelectEmptyContent />}
+        >
+          {listItem}
+        </Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
   );
 };
 
@@ -107,17 +109,24 @@ interface SelectSingleRangeProps extends Select.SingleProps<string, Range> {}
 const SelectRange = ({ value, onChange }: SelectSingleRangeProps): ReactElement => {
   const data = useSelectKeys();
   return (
-    <Select.Frame data={data} useListItem={useSelect} onChange={onChange} value={value}>
-      <Dialog.Trigger>
-        {value != null ? <RangeTag itemKey={value} /> : null}
-      </Dialog.Trigger>
-      <Select.Dialog<string>
-        searchPlaceholder="Search Ranges..."
-        emptyContent={<SelectEmptyContent />}
+    <Dialog.Frame>
+      <Select.Frame
+        data={data}
+        useListItem={useSelect}
+        onChange={onChange}
+        value={value}
       >
-        {listItem}
-      </Select.Dialog>
-    </Select.Frame>
+        <Dialog.Trigger>
+          {value != null ? <RangeTag itemKey={value} /> : null}
+        </Dialog.Trigger>
+        <Select.Dialog<string>
+          searchPlaceholder="Search Ranges..."
+          emptyContent={<SelectEmptyContent />}
+        >
+          {listItem}
+        </Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
   );
 };
 

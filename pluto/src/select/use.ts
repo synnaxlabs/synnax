@@ -71,12 +71,19 @@ export const selectValueIsZero = <K extends record.Key>(
 export const useSingle = <K extends record.Key>({
   allowNone = false,
   onChange,
+  value,
 }: UseSingleProps<K>): UseReturn<K> => {
+  const valueRef = useSyncedRef(value);
   const { data } = List.useData<K>();
   const { close } = Dialog.useContext();
   const dataRef = useSyncedRef(data);
   const handleSelect = useCallback(
     (key: K): void => {
+      if (valueRef.current === key) {
+        if (allowNone)
+          onChange(null as unknown as K, { clicked: null, clickedIndex: null });
+        return;
+      }
       const clickedIndex = dataRef.current.findIndex((v) => v === key);
       onChange(key, { clicked: key, clickedIndex });
       close();

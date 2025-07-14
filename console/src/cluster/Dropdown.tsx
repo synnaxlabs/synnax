@@ -50,6 +50,7 @@ interface ListItemProps extends CoreList.ItemProps<string> {
 const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null => {
   const dispatch = useDispatch();
   const item = CoreList.useItem<string, Cluster>(rest.itemKey);
+  const { selected, onSelect } = Select.useItemState(rest.itemKey);
   const handleChange = (value: string) => {
     if (!validateName(value) || item == null) return;
     dispatch(rename({ key: item.key, name: value }));
@@ -61,6 +62,8 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
       className={CSS(CSS.B("cluster-list-item"))}
       x
       align="center"
+      selected={selected}
+      onSelect={onSelect}
       {...rest}
     >
       <Align.Space y justify="spaceBetween" size="tiny" grow>
@@ -215,57 +218,65 @@ export const Dropdown = (): ReactElement => {
   );
 
   return (
-    <Align.Pack>
-      <Dialog.Frame>
-        <Select.Frame
-          data={keys}
-          useListItem={useSelect}
-          value={selected}
-          onChange={handleConnect}
-        >
+    <Dialog.Frame>
+      <Select.Frame
+        data={keys}
+        useListItem={useSelect}
+        value={selected}
+        onChange={handleConnect}
+        itemHeight={54}
+        allowNone
+      >
+        <Align.Pack>
           <Dialog.Trigger
             startIcon={disconnected ? <Icon.Connect /> : <Icon.Cluster />}
             justify="center"
             shade={2}
             variant={disconnected ? "filled" : "outlined"}
+            hideCaret
           >
             {cluster?.name ?? "Connect Cluster"}
           </Dialog.Trigger>
-          <Dialog.Dialog>
-            <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
-            <Align.Pack x>
-              <Header.Header grow bordered borderShade={5} size="small" x>
-                <Header.Title level="h5" startIcon={<Icon.Cluster />}>
-                  Clusters
-                </Header.Title>
-              </Header.Header>
-              <Button.Button
-                variant="filled"
-                size="large"
-                iconSpacing="small"
-                startIcon={<Icon.Connect />}
-                onClick={() => placeLayout(CONNECT_LAYOUT)}
-                className={CSS.B("cluster-list-add")}
-              >
-                Connect
-              </Button.Button>
-            </Align.Pack>
-
-            <CoreList.Items<string, Cluster>
-              style={{ height: 190, width: "100%" }}
-              onContextMenu={menuProps.open}
-              className={menuProps.className}
-              bordered
-              borderShade={6}
+          <ConnectionBadge />
+        </Align.Pack>
+        <Dialog.Dialog style={{ minWidth: 300, width: 400 }}>
+          <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
+          <Align.Pack x>
+            <Header.Header grow bordered borderShade={5} size="small" x>
+              <Header.Title level="h5" startIcon={<Icon.Cluster />}>
+                Clusters
+              </Header.Title>
+            </Header.Header>
+            <Button.Button
+              variant="filled"
+              size="large"
+              iconSpacing="small"
+              startIcon={<Icon.Connect />}
+              onClick={() => placeLayout(CONNECT_LAYOUT)}
+              className={CSS.B("cluster-list-add")}
             >
-              {({ itemKey, ...p }) => (
-                <ListItem itemKey={itemKey} {...p} validateName={validateName} />
-              )}
-            </CoreList.Items>
-          </Dialog.Dialog>
-        </Select.Frame>
-      </Dialog.Frame>
-      <ConnectionBadge />
-    </Align.Pack>
+              Connect
+            </Button.Button>
+          </Align.Pack>
+
+          <CoreList.Items<string, Cluster>
+            style={{ height: 190, width: "100%" }}
+            onContextMenu={menuProps.open}
+            className={menuProps.className}
+            bordered
+            borderShade={6}
+          >
+            {({ itemKey, key, ...p }) => (
+              <ListItem
+                key={key}
+                itemKey={itemKey}
+                {...p}
+                validateName={validateName}
+              />
+            )}
+          </CoreList.Items>
+        </Dialog.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
   );
 };

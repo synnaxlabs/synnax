@@ -96,14 +96,16 @@
         }
 
         & > div {
-            /* position: relative;
+            position: relative;
+            border: var(--pluto-border);
+            border-color: var(--pluto-gray-l6);
             animation: var(--pluto-dialog-animation);
             z-index: 11;
             min-width: 400px;
             min-height: 150px;
             overflow: hidden;
             box-shadow: var(--pluto-shadow-v1);
-            border-radius: 1rem; */
+            border-radius: 1rem;
         }
 
         @media (max-height: 800px) {

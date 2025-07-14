@@ -14,19 +14,22 @@ import { type ReactElement } from "react";
 import { Button } from "@/button";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
-import { useContext } from "@/dialog/Dialog";
+import { useContext } from "@/dialog/Frame";
 import { type Icon } from "@/icon";
 
-export interface TriggerProps extends Button.ButtonProps {}
+export interface TriggerProps extends Button.ButtonProps {
+  hideCaret?: boolean;
+}
 
 export const Trigger = ({
   onClick,
   className,
+  hideCaret = false,
   ...rest
 }: TriggerProps): ReactElement => {
   const { toggle, visible, variant } = useContext();
   let endIcon: Icon.ReactElement | undefined;
-  if (variant !== "modal")
+  if (variant !== "modal" && !hideCaret)
     endIcon = (
       <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />
     );

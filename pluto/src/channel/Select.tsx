@@ -73,24 +73,26 @@ export const SelectMultiple = ({
   const { data, useListItem, retrieve } = useList();
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Select.Frame<channel.Key, channel.Channel | undefined>
-      multiple
-      value={value}
-      onChange={onChange}
-      useListItem={useListItem}
-      data={data}
-      onFetchMore={onFetchMore}
-      {...rest}
-    >
-      <Select.MultipleTrigger haulType={HAUL_TYPE} />
-      <Select.Dialog<channel.Key>
-        onSearch={onSearch}
-        searchPlaceholder="Search channels..."
-        emptyContent={emptyContent}
+    <Dialog.Frame>
+      <Select.Frame<channel.Key, channel.Channel | undefined>
+        multiple
+        value={value}
+        onChange={onChange}
+        useListItem={useListItem}
+        data={data}
+        onFetchMore={onFetchMore}
+        {...rest}
       >
-        {listItemRenderProp}
-      </Select.Dialog>
-    </Select.Frame>
+        <Select.MultipleTrigger haulType={HAUL_TYPE} />
+        <Select.Dialog<channel.Key>
+          onSearch={onSearch}
+          searchPlaceholder="Search channels..."
+          emptyContent={emptyContent}
+        >
+          {listItemRenderProp}
+        </Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
   );
 };
 

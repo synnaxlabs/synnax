@@ -171,6 +171,7 @@ export const Frame = <
 >({
   data,
   useListItem,
+  itemHeight,
   value,
   onChange,
   multiple,
@@ -182,7 +183,12 @@ export const Frame = <
     child = <MultipleProvider value={value} onChange={onChange} {...rest} />;
   else child = <SingleProvider value={value} onChange={onChange} {...rest} />;
   return (
-    <List.Frame<K, E> data={data} useListItem={useListItem} onFetchMore={onFetchMore}>
+    <List.Frame<K, E>
+      data={data}
+      useListItem={useListItem}
+      onFetchMore={onFetchMore}
+      itemHeight={itemHeight}
+    >
       {child}
     </List.Frame>
   );

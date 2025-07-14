@@ -10,6 +10,7 @@ import {
   useRef,
 } from "react";
 
+import { Dialog } from "@/dialog";
 import { useRequiredContext, useSyncedRef } from "@/hooks";
 
 export interface ItemSpec<K extends record.Key = record.Key> {
@@ -41,6 +42,7 @@ export interface FrameProps<
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > extends PropsWithChildren {
   data: K[];
+  itemHeight?: number;
   useListItem: (key?: K) => E | undefined;
   onFetchMore?: () => void;
 }
@@ -68,8 +70,8 @@ export const useItem = <
 >(
   key?: K,
 ): E | undefined => {
-  const { useListItem: useItem } = useUtilContext<K, E>();
-  return useItem(key);
+  const { useListItem } = useUtilContext<K, E>();
+  return useListItem(key);
 };
 
 export const useData = <
@@ -89,20 +91,22 @@ export const Frame = <
   useListItem,
   children,
   onFetchMore,
+  itemHeight = 36,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
   const onFetchMoreRef = useSyncedRef(onFetchMore);
+  const { visible } = Dialog.useContext();
   const refCallback = useCallback(
     (el: HTMLDivElement) => {
       ref.current = el;
       onFetchMoreRef.current?.();
     },
-    [onFetchMoreRef],
+    [onFetchMoreRef, visible],
   );
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => ref.current,
-    estimateSize: () => 36,
+    estimateSize: () => itemHeight,
     overscan: 10,
     onChange: useCallback(
       (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {

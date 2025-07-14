@@ -43,11 +43,10 @@ export const Modal = ({ state, remove }: ModalProps) => {
       variant="modal"
       visible
       onVisibleChange={() => remove(key)}
-      style={layoutCSS(window)}
       modalOffset={calculateOffset(window)}
       background={0}
     >
-      <Dialog.Dialog>
+      <Dialog.Dialog style={layoutCSS(window)}>
         {window?.navTop && (
           <Nav.Bar location="top" size="6rem" bordered>
             {(window?.showTitle ?? true) && (
