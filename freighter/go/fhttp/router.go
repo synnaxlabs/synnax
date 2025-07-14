@@ -139,7 +139,6 @@ func UnaryServer[RQ, RS freighter.Payload](r *Router, path string, opts ...Serve
 	us := &unaryServer[RQ, RS]{
 		serverOptions: newServerOptions(opts),
 		Reporter:      unaryReporter,
-		path:          path,
 	}
 	r.register(path, "POST", us, us.fiberHandler)
 	return us

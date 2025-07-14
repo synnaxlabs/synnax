@@ -11,6 +11,8 @@ package freighter_test
 
 import (
 	"context"
+	"go/types"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -22,15 +24,18 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/httputil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type (
-	unaryServer = freighter.UnaryServer[request, response]
-	unaryClient = freighter.UnaryClient[request, response]
+	unaryServer     = freighter.UnaryServer[request, response]
+	unaryClient     = freighter.UnaryClient[request, response]
+	streamingClient = freighter.UnaryClient[types.Nil, io.Reader]
+	streamingServer = freighter.UnaryServer[types.Nil, io.Reader]
 )
 
 type unaryImplementation interface {
-	start(address.Address) (unaryServer, unaryClient)
+	start(address.Address) (unaryServer, unaryClient, streamingServer, streamingClient)
 	stop() error
 }
 
@@ -40,13 +45,15 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 	Describe("Implementation Tests", func() {
 		for _, impl := range unaryImplementations {
 			var (
-				addr   address.Address
-				server unaryServer
-				client unaryClient
+				addr            address.Address
+				server          unaryServer
+				client          unaryClient
+				streamingServer streamingServer
+				streamingClient streamingClient
 			)
 			BeforeAll(func() {
 				addr = "localhost:8081"
-				server, client = impl.start(addr)
+				server, client, streamingServer, streamingClient = impl.start(addr)
 			})
 			AfterAll(func() {
 				Expect(impl.stop()).To(Succeed())
@@ -64,6 +71,24 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 					Expect(err).To(Succeed())
 					Expect(res).To(Equal(response{ID: 1, Message: "hello"}))
 				})
+			})
+			Describe("streaming", Focus, func() {
+				It("should allow for stream processing", func() {
+					streamingServer.BindHandler(func(context.Context, types.Nil) (io.Reader, error) {
+						r, w := io.Pipe()
+						go func() {
+							for i := range 5 {
+								w.Write([]byte{byte(i)})
+							}
+							w.Close()
+						}()
+						return r, nil
+					})
+					reader := MustSucceed(streamingClient.Send(context.Background(), addr+"/streaming", types.Nil{}))
+					data := MustSucceed(io.ReadAll(reader))
+					Expect(data).To(Equal([]byte{0, 1, 2, 3, 4}))
+				})
+
 			})
 			Describe("Details Handling", func() {
 				It("Should correctly return a custom error to the client", func() {
@@ -97,11 +122,11 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 	})
 })
 
-type httpUnaryImplementation struct {
-	app *fiber.App
-}
+type httpUnaryImplementation struct{ app *fiber.App }
 
-func (h *httpUnaryImplementation) start(host address.Address) (unaryServer, unaryClient) {
+var _ unaryImplementation = &httpUnaryImplementation{}
+
+func (h *httpUnaryImplementation) start(host address.Address) (unaryServer, unaryClient, streamingServer, streamingClient) {
 	h.app = fiber.New(fiber.Config{DisableStartupMessage: true})
 	router := fhttp.NewRouter(fhttp.RouterConfig{})
 	factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
@@ -109,6 +134,8 @@ func (h *httpUnaryImplementation) start(host address.Address) (unaryServer, unar
 	})
 	server := fhttp.UnaryServer[request, response](router, "/")
 	client := fhttp.UnaryClient[request, response](factory)
+	streamingClient := fhttp.UnaryClient[types.Nil, io.Reader](factory)
+	streamingServer := fhttp.UnaryServer[types.Nil, io.Reader](router, "/streaming")
 	router.BindTo(h.app)
 	h.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
@@ -122,9 +149,7 @@ func (h *httpUnaryImplementation) start(host address.Address) (unaryServer, unar
 		_, err := http.Get("http://" + host.String() + "/health")
 		g.Expect(err).ToNot(HaveOccurred())
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
-	return server, client
+	return server, client, streamingServer, streamingClient
 }
 
-func (h *httpUnaryImplementation) stop() error {
-	return h.app.Shutdown()
-}
+func (h *httpUnaryImplementation) stop() error { return h.app.Shutdown() }

@@ -35,10 +35,8 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 	serverOptions
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	requestParser func(*fiber.Ctx, httputil.Codec) (RQ, error)
-	handle        func(context.Context, RQ) (RS, error)
-	internal      bool
-	path          string
+	handle   func(context.Context, RQ) (RS, error)
+	internal bool
 }
 
 var _ freighter.UnaryServer[any, any] = (*unaryServer[any, any])(nil)
