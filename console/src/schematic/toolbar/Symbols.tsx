@@ -9,16 +9,7 @@
 
 import "@/schematic/toolbar/Symbols.css";
 
-import {
-  Align,
-  CSS as PCSS,
-  Haul,
-  Input,
-  List,
-  Schematic,
-  Text,
-  Theming,
-} from "@synnaxlabs/pluto";
+import { Align, Haul, Input, List, Schematic, Text, Theming } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -69,10 +60,12 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
     [startDrag],
   );
 
-  const { data, retrieve } = List.useStaticData({ data: LIST_DATA });
+  const { data, retrieve } = List.useStaticData<Schematic.Variant, Schematic.Spec>({
+    data: LIST_DATA,
+  });
   const [search, setSearch] = useState("");
   return (
-    <List.Frame data={data}>
+    <>
       <Align.Space style={{ padding: "1rem", borderBottom: "var(--pluto-border)" }}>
         <Input.Text
           value={search}
@@ -84,25 +77,20 @@ export const Symbols = ({ layoutKey }: SymbolsProps): ReactElement => {
           size="small"
         />
       </Align.Space>
-      <List.Items<Schematic.Variant, Schematic.Spec>
-        className={CSS(
-          CSS.B("schematic-symbols"),
-          PCSS.BE("symbol", "container"),
-          PCSS.M("editable"),
-        )}
-      >
-        {(p) => (
+      <Align.Space x className={CSS.B("schematic-symbols")} wrap>
+        {data.map((key: Schematic.Variant, i: number) => (
           <ListItem
-            {...p}
-            key={p.key}
-            onClick={() => handleAddElement(p.itemKey)}
+            key={key}
+            index={i}
+            itemKey={key}
+            onClick={() => handleAddElement(key)}
             theme={theme}
             startDrag={handleDragStart}
             onDragEnd={onDragEnd}
           />
-        )}
-      </List.Items>
-    </List.Frame>
+        ))}
+      </Align.Space>
+    </>
   );
 };
 

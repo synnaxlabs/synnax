@@ -26,7 +26,7 @@ export const Dialog = <K extends record.Key>({
   style,
   ...rest
 }: DialogProps<K>) => (
-  <CoreDialog.Dialog {...rest} style={{ ...style, height: 325 }}>
+  <CoreDialog.Dialog {...rest} style={{ ...style }}>
     {onSearch != null && (
       <SearchInput onSearch={onSearch} searchPlaceholder={searchPlaceholder} />
     )}

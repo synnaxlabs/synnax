@@ -35,7 +35,7 @@ import { useDispatch } from "react-redux";
 import { ConnectionBadge } from "@/cluster/Badges";
 import { CONNECT_LAYOUT } from "@/cluster/Connect";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
-import { type Cluster, remove, rename, setActive } from "@/cluster/slice";
+import { remove, rename, setActive } from "@/cluster/slice";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -241,7 +241,7 @@ export const Dropdown = (): ReactElement => {
         <Dialog.Dialog style={{ minWidth: 300, width: 400 }}>
           <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
           <Align.Pack x>
-            <Header.Header grow bordered borderShade={5} size="small" x>
+            <Header.Header grow bordered borderShade={6} size="small" x>
               <Header.Title level="h5" startIcon={<Icon.Cluster />}>
                 Clusters
               </Header.Title>
@@ -257,23 +257,11 @@ export const Dropdown = (): ReactElement => {
               Connect
             </Button.Button>
           </Align.Pack>
-
-          <CoreList.Items<string, Cluster>
-            style={{ height: 190, width: "100%" }}
-            onContextMenu={menuProps.open}
-            className={menuProps.className}
-            bordered
-            borderShade={6}
-          >
-            {({ itemKey, key, ...p }) => (
-              <ListItem
-                key={key}
-                itemKey={itemKey}
-                {...p}
-                validateName={validateName}
-              />
-            )}
-          </CoreList.Items>
+          <Align.Space empty bordered borderShade={6} style={{ height: 190 }}>
+            {keys.map((key, i) => (
+              <ListItem key={key} index={i} itemKey={key} validateName={validateName} />
+            ))}
+          </Align.Space>
         </Dialog.Dialog>
       </Select.Frame>
     </Dialog.Frame>
