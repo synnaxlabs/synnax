@@ -168,7 +168,6 @@ export const Frame = ({
   if (typeof maxHeight === "number") dialogStyle.maxHeight = maxHeight;
   if (visible) dialogStyle = { ...dialogStyle, zIndex } as CSSProperties;
 
-  const C = variant === "connected" ? Align.Pack : Align.Space;
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
@@ -208,7 +207,7 @@ export const Frame = ({
   return (
     <Context.Provider value={ctxValue}>
       <InternalContext.Provider value={internalContextValue}>
-        <C
+        <Align.Space
           {...rest}
           ref={combinedParentRef}
           className={CSS(
@@ -223,7 +222,7 @@ export const Frame = ({
           reverse={dialogLoc.y === "top"}
         >
           {children}
-        </C>
+        </Align.Space>
       </InternalContext.Provider>
     </Context.Provider>
   );

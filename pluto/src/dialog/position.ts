@@ -44,7 +44,7 @@ const CONNECTED_PROPS: Partial<position.DialogProps> = {
   initial: { x: "center" },
   prefer: [{ y: "bottom" }],
 };
-const CONNECTED_TRANSLATE_AMOUNT: number = 0;
+const CONNECTED_TRANSLATE_AMOUNT: number = -3;
 
 const positionConnectedDialog = ({
   target,

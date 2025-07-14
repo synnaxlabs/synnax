@@ -111,6 +111,7 @@ export const Frame = <
   const refCallback = useCallback(
     (el: HTMLDivElement) => {
       ref.current = el;
+      console.log("ref", el);
       onFetchMoreRef.current?.();
     },
     [onFetchMoreRef, visible],

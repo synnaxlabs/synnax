@@ -136,9 +136,15 @@ export const MultipleTrigger = <K extends record.Key>({
       grow
     >
       {value.length === 0 && (
-        <Text.Text level="p" shade={8} weight={400} style={{ marginLeft: "1rem" }}>
+        <Text.WithIcon
+          level="p"
+          shade={8}
+          weight={400}
+          style={{ marginLeft: "1rem" }}
+          startIcon={icon}
+        >
           {placeholder}
-        </Text.Text>
+        </Text.WithIcon>
       )}
       {value.map((v) =>
         children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon }),

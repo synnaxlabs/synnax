@@ -21,6 +21,8 @@ export interface DialogProps<K extends record.Key>
   status?: Pick<status.Status, "variant" | "message">;
 }
 
+const DEFAULT_HEIGHT = 250;
+
 export const Dialog = <K extends record.Key>({
   onSearch,
   children,
@@ -32,14 +34,25 @@ export const Dialog = <K extends record.Key>({
 }: DialogProps<K>) => {
   if (status?.variant !== "success")
     emptyContent = (
-      <Status.Text variant={status?.variant}>{status?.message}</Status.Text>
+      <Status.Text.Centered
+        variant={status?.variant}
+        style={{ height: DEFAULT_HEIGHT }}
+      >
+        {status?.message}
+      </Status.Text.Centered>
     );
   return (
     <CoreDialog.Dialog {...rest} style={{ ...style }}>
       {onSearch != null && (
         <SearchInput onSearch={onSearch} searchPlaceholder={searchPlaceholder} />
       )}
-      <List.Items emptyContent={emptyContent} bordered borderShade={6}>
+      <List.Items
+        emptyContent={emptyContent}
+        bordered
+        borderShade={6}
+        grow
+        style={{ maxHeight: DEFAULT_HEIGHT }}
+      >
         {children}
       </List.Items>
     </CoreDialog.Dialog>

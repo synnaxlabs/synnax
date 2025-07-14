@@ -51,7 +51,7 @@
         --pluto-pack--x-last-y-last: var(--br);
         --pluto-pack--x-last-y-only: var(--r);
 
-        .pluto-pack--reverse {
+        &.pluto-pack--reverse {
             --pluto-pack--first: var(--r);
             --pluto-pack--last: var(--l);
             --pluto-pack--x-margin: 0 calc(-1 * var(--pluto-pack-border-width)) 0 0 !important;
