@@ -10,8 +10,8 @@
 import { type Middleware } from "@/middleware";
 
 /**
- * Transport is a based interface that represents a general transport for exchanging
- * messages between a client and a server.
+ * Transport is an interface that represents a general transport for exchanging messages
+ * between a client and a server.
  */
 export interface Transport {
   /**

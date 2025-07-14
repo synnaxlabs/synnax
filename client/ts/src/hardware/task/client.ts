@@ -310,7 +310,7 @@ export class Client {
     const res = await sendRequired(
       this.client,
       CREATE_ENDPOINT,
-      { tasks: array.toArray(task) } as z.infer<typeof createReq>,
+      { tasks: array.toArray(task) } as z.input<typeof createReq>,
       createReq,
       createRes,
     );

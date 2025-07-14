@@ -26,14 +26,17 @@ export interface UnaryClient extends Transport {
    * @param reqSchema - The schema to validate the request against.
    * @param resSchema - The schema to validate the response against.
    */
-  send: <RQ extends z.ZodType, RS extends z.ZodType | undefined = undefined>(
+  send<RQ extends z.ZodType>(
     target: string,
-    req: z.input<RQ> | z.infer<RQ>,
+    req: z.input<RQ>,
     reqSchema: RQ,
-    resSchema?: RS,
-  ) => RS extends z.ZodType
-    ? Promise<[z.infer<RS>, null] | [null, Error]>
-    : Promise<[Response, null] | [null, Error]>;
+  ): Promise<[Response, null] | [null, Error]>;
+  send<RQ extends z.ZodType, RS extends z.ZodType>(
+    target: string,
+    req: z.input<RQ>,
+    reqSchema: RQ,
+    resSchema: RS,
+  ): Promise<[z.infer<RS>, null] | [null, Error]>;
 }
 
 export const unaryWithBreaker = (
@@ -62,19 +65,26 @@ export const unaryWithBreaker = (
       reqSchema: RQ,
       resSchema: RS,
     ): Promise<[z.infer<RS>, null] | [null, Error]>;
-    async send<RQ extends z.ZodType, RS extends z.ZodType | undefined>(
+    async send<RQ extends z.ZodType, RS extends z.ZodType>(
       target: string,
-      req: z.input<RQ> | z.infer<RQ>,
+      req: z.input<RQ>,
       reqSchema: RQ,
       resSchema?: RS,
     ): Promise<[Response, null] | [z.infer<RS>, null] | [null, Error]> {
       const brk = new breaker.Breaker(cfg);
-      do {
-        const [res, err] = await this.wrapped.send(target, req, reqSchema, resSchema);
-        if (err == null) return [res as z.infer<RS>, null];
-        if (!Unreachable.matches(err)) return [null, err];
-        if (!(await brk.wait())) return [res, err];
-      } while (true);
+      do
+        if (resSchema == null) {
+          const [res, err] = await this.wrapped.send(target, req, reqSchema);
+          if (err == null) return [res, null];
+          if (!Unreachable.matches(err)) return [null, err];
+          if (!(await brk.wait())) return [res, err];
+        } else {
+          const [res, err] = await this.wrapped.send(target, req, reqSchema, resSchema);
+          if (err == null) return [res, null];
+          if (!Unreachable.matches(err)) return [null, err];
+          if (!(await brk.wait())) return [res, err];
+        }
+      while (true);
     }
   }
   return new WithBreaker(base);
@@ -83,11 +93,11 @@ export const unaryWithBreaker = (
 export const sendRequired = async <RQ extends z.ZodType, RS extends z.ZodType>(
   client: UnaryClient,
   target: string,
-  req: z.input<RQ> | z.infer<RQ>,
+  req: z.input<RQ>,
   reqSchema: RQ,
   resSchema: RS,
 ): Promise<z.infer<RS>> => {
   const [res, err] = await client.send(target, req, reqSchema, resSchema);
   if (err != null) throw err;
-  return res as z.infer<RS>;
+  return res;
 };

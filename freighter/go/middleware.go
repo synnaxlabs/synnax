@@ -39,9 +39,9 @@ type MiddlewareCollector struct {
 }
 
 // Exec maintains the middleware.Chain interface.
-func (mc *MiddlewareCollector) Exec(fCtx Context, finalizer middleware.Finalizer[Context, Context]) (Context, error) {
-	return mc.Chain.Exec(fCtx, FinalizerFunc(func(md Context) (Context, error) {
-		return finalizer.Finalize(md)
+func (mc *MiddlewareCollector) Exec(ctx Context, finalizer middleware.Finalizer[Context, Context]) (Context, error) {
+	return mc.Chain.Exec(ctx, FinalizerFunc(func(inCtx Context) (Context, error) {
+		return finalizer.Finalize(inCtx)
 	}))
 }
 
