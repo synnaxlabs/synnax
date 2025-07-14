@@ -46,6 +46,18 @@ describe("http", () => {
     expect(response).toBeNull();
   });
 
+  test("getReader", async () => {
+    const [response, error] = await client.send(
+      "/getReader",
+      { id: 1, message: "hello" },
+      messageZ,
+    );
+    expect(error).toBeNull();
+    expect(response).toBeInstanceOf(Response);
+    const body = await response?.text();
+    expect(body).toEqual("hello");
+  });
+
   test("middleware", async () => {
     client.use(async (md, next) => {
       md.params.Test = "test";
