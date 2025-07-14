@@ -13,6 +13,8 @@ import { Align, type Button, Status } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { createPortal } from "react-dom";
 
+import { CSS } from "@/css";
+
 export interface Sugared extends Status.NotificationSpec {
   actions?: ReactElement | Button.ButtonProps[];
   content?: ReactElement;
@@ -36,7 +38,7 @@ export const Notifications = ({ adapters }: NotificationsProps): ReactElement =>
     return status;
   }) as Sugared[];
   return createPortal(
-    <Align.Space y>
+    <Align.Space y className={CSS.B("notifications")}>
       {sugared.map((status) => (
         <Status.Notification key={status.key} status={status} silence={silence}>
           {status.content}

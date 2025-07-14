@@ -63,8 +63,6 @@ export const ButtonIcon = <K extends record.Key = record.Key>({
 }: Omit<CoreButton.ToggleIconProps, "onChange" | "value"> & {
   itemKey: K;
 }): ReactElement | null => {
-  const item = List.useItem(itemKey);
   const { selected, onSelect } = useItemState<K>(itemKey);
-  if (item == null) return null;
-  return <CoreButton.ToggleIcon {...rest} onChange={onSelect} value={selected} />;
+  return <CoreButton.ToggleIcon {...rest} value={selected} onChange={onSelect} />;
 };

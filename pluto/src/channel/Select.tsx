@@ -11,7 +11,6 @@ import { channel } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { useAliases } from "@/channel/AliasContext";
 import { useList } from "@/channel/queries";
 import { HAUL_TYPE } from "@/channel/types";
@@ -50,10 +49,9 @@ const listItemRenderProp = Component.renderProp(
         hovered={hovered}
         {...rest}
       >
-        <Align.Space direction="x" size="small" align="center">
-          <Icon />
-          <Text.Text level="p">{displayName}</Text.Text>
-        </Align.Space>
+        <Text.WithIcon startIcon={<Icon />} level="p" align="center">
+          {displayName}
+        </Text.WithIcon>
       </List.Item>
     );
   },
@@ -73,7 +71,7 @@ export const SelectMultiple = ({
   const { data, retrieve, getItem, subscribe } = useList();
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Dialog.Frame>
+    <Dialog.Frame {...rest} variant="connected">
       <Select.Frame<channel.Key, channel.Channel | undefined>
         multiple
         value={value}
@@ -82,9 +80,12 @@ export const SelectMultiple = ({
         onFetchMore={onFetchMore}
         getItem={getItem}
         subscribe={subscribe}
-        {...rest}
       >
-        <Select.MultipleTrigger haulType={HAUL_TYPE} />
+        <Select.MultipleTrigger
+          haulType={HAUL_TYPE}
+          placeholder="Select channels..."
+          icon={<Icon.Channel />}
+        />
         <Select.Dialog<channel.Key>
           onSearch={onSearch}
           searchPlaceholder="Search channels..."
@@ -112,7 +113,7 @@ export const SelectSingle = ({
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe } = useList();
   return (
-    <Dialog.Frame {...rest}>
+    <Dialog.Frame {...rest} variant="connected">
       <Select.Frame<channel.Key, channel.Channel | undefined>
         value={value}
         onChange={onChange}

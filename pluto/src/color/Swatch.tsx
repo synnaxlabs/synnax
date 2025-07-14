@@ -70,11 +70,11 @@ export const Swatch = ({
       onVisibleChange={setVisible}
       className={CSS.BE("color-swatch", "dropdown")}
       variant="floating"
-      zIndex={100}
-      style={style}
     >
       {swatch}
-      <Picker value={value} onChange={onChange} />
+      <Dialog.Dialog rounded={1}>
+        <Picker value={value} onChange={onChange} />
+      </Dialog.Dialog>
     </Dialog.Frame>
   );
 };

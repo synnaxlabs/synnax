@@ -221,7 +221,6 @@ export const Frame = ({
           )}
           y
           reverse={dialogLoc.y === "top"}
-          style={{ ...rest.style, zIndex } as CSSProperties}
         >
           {children}
         </C>

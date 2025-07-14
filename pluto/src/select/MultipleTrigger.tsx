@@ -9,20 +9,29 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { array, type record, unique } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Button } from "@/button";
+import { Caret } from "@/caret";
+import { Component } from "@/component";
+import { type RenderProp } from "@/component/renderProp";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
-import { Icon } from "@/icon";
+import { type Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
 
+interface MultipleTagProps extends Omit<Tag.TagProps, "onDragStart"> {
+  itemKey: ranger.Key;
+  onDragStart: (key: ranger.Key) => void;
+}
+
 const MultipleTag = ({
   itemKey,
   onDragStart,
+  icon,
 }: Omit<Tag.TagProps, "onDragStart"> & {
   itemKey: ranger.Key;
   onDragStart: (key: ranger.Key) => void;
@@ -35,16 +44,21 @@ const MultipleTag = ({
       onDragStart={() => onDragStart(itemKey)}
       draggable
       size="small"
-      icon={<Icon.Range />}
+      icon={icon}
     >
       {item?.name}
     </Tag.Tag>
   );
 };
 
+const multipleTag = Component.renderProp(MultipleTag);
+
 export interface MultipleTriggerProps {
   haulType?: string;
   disabled?: boolean;
+  placeholder?: ReactNode;
+  icon?: Icon.ReactElement;
+  children?: RenderProp<MultipleTagProps>;
 }
 
 export const canDrop = <K extends record.Key>(
@@ -61,9 +75,12 @@ export const canDrop = <K extends record.Key>(
 export const MultipleTrigger = ({
   haulType = "",
   disabled,
+  placeholder = "Select...",
+  icon,
+  children = multipleTag,
 }: MultipleTriggerProps): ReactElement => {
   const value = Select.useSelection<ranger.Key>();
-  const { open } = Dialog.useContext();
+  const { toggle, visible } = Dialog.useContext();
   const { onSelect } = Select.useContext();
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
     type: haulType,
@@ -101,22 +118,28 @@ export const MultipleTrigger = ({
   );
   return (
     <Tag.Tags
-      onClick={open}
+      onClick={toggle}
+      {...dropProps}
       actions={
-        <Button.Icon size="small" onClick={() => open()} shade={2} variant="outlined">
-          <Icon.Add />
+        <Button.Icon variant="outlined" onClick={toggle}>
+          <Caret.Animated
+            enabled={visible}
+            enabledLoc="bottom"
+            disabledLoc="left"
+            color={8}
+          />
         </Button.Icon>
       }
-      {...dropProps}
+      grow
     >
       {value.length === 0 && (
         <Text.Text level="p" shade={8} weight={400} style={{ marginLeft: "1rem" }}>
-          Select Ranges...
+          {placeholder}
         </Text.Text>
       )}
-      {value.map((v) => (
-        <MultipleTag key={v} itemKey={v} onDragStart={onTagDragStart} />
-      ))}
+      {value.map((v) =>
+        children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon }),
+      )}
     </Tag.Tags>
   );
 };

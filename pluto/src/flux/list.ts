@@ -61,7 +61,7 @@ export interface RetrieveByKeyArgs<
   RetrieveParams extends Params,
   K extends record.Key,
 > {
-  params: RetrieveParams;
+  params: Partial<RetrieveParams>;
   key: K;
   client: Synnax;
 }
@@ -71,7 +71,7 @@ export interface CreateListArgs<
   K extends record.Key,
   E extends record.Keyed<K>,
 > extends Omit<CreateRetrieveArgs<RetrieveParams, E[]>, "listeners"> {
-  retrieveByKey: (args: RetrieveByKeyArgs<RetrieveParams, K>) => Promise<E>;
+  retrieveByKey: (args: RetrieveByKeyArgs<RetrieveParams, K>) => Promise<E | undefined>;
   listeners?: ListListenerConfig<RetrieveParams, K, E>[];
   filter?: (item: E) => boolean;
 }
@@ -227,12 +227,13 @@ export const createList =
         const { signal } = options;
         void (async () => {
           try {
-            if (client == null || paramsRef.current == null) return;
+            if (client == null) return;
             const item = await retrieveByKey({
               client,
               key,
-              params: paramsRef.current,
+              params: paramsRef.current ?? {},
             });
+            if (item == null) return;
             if (!filter(item)) {
               dataRef.current.set(key, null);
               return;
@@ -257,7 +258,7 @@ export const createList =
         if (Array.isArray(key))
           return key.map((k) => getItem(k)).filter((v) => v != null);
         const res = dataRef.current.get(key);
-        if (res == null) retrieveSingle(key);
+        if (res === undefined) retrieveSingle(key);
         return res;
       }) as GetItem<K, E>,
       [],

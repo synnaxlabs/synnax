@@ -52,29 +52,23 @@ export const SelectMode = ({
       <Select.ButtonIcon
         itemKey="zoom"
         tooltip={<Tooltip mode="zoom" triggers={triggers.zoom} />}
+        size="small"
       >
         <Icon.Zoom />
       </Select.ButtonIcon>
       <Select.ButtonIcon
         itemKey="pan"
         tooltip={<Tooltip mode="pan" triggers={triggers.pan} />}
+        size="small"
       >
         <Icon.Pan />
       </Select.ButtonIcon>
       <Select.ButtonIcon
         itemKey="select"
         tooltip={<Tooltip mode="select" triggers={triggers.select} />}
+        size="small"
       >
         <Icon.Selection />
-      </Select.ButtonIcon>
-      <Select.ButtonIcon
-        itemKey="zoomReset"
-        tooltip={<Tooltip mode="zoomReset" triggers={triggers.zoomReset} />}
-      >
-        <Icon.Expand />
-      </Select.ButtonIcon>
-      <Select.ButtonIcon itemKey="click">
-        <Icon.Bolt />
       </Select.ButtonIcon>
     </Select.Buttons>
   );

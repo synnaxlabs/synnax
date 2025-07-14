@@ -13,6 +13,7 @@ import {
   Component,
   type Icon,
   List,
+  Select,
   Status,
   Synnax as PSynnax,
   Text,
@@ -59,6 +60,7 @@ export const listItem = Component.renderProp(
   (props: CommandListItemProps): ReactElement | null => {
     const { itemKey } = props;
     const cmd = List.useItem<string, Command>(itemKey);
+    const selectProps = Select.useItemState(itemKey);
     if (cmd == null) return null;
     const { icon, name, endContent } = cmd;
     return (
@@ -67,6 +69,7 @@ export const listItem = Component.renderProp(
         style={{ height: "6.5rem" }}
         justify="spaceBetween"
         align="center"
+        {...selectProps}
         {...props}
       >
         <Text.WithIcon startIcon={icon} level="p" weight={400} shade={11} size="medium">
@@ -90,7 +93,7 @@ export const useCommandList = (): UseListReturn<Command> => {
   const rename = Modals.useRename();
   const handleSelect = useCallback(
     (key: string) => {
-      const cmd = List.useItem<string, Command>(key);
+      const cmd = commands.find((c) => c.key === key);
       if (cmd == null) return;
       cmd.onSelect({
         addStatus,

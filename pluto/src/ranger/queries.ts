@@ -356,6 +356,7 @@ export const useListKV = Flux.createList<ListKVParams, string, ranger.KVPair>({
     }));
   },
   retrieveByKey: async ({ client, key, params: { rangeKey } }) => {
+    if (rangeKey == null) return undefined;
     const kv = client.ranges.getKV(rangeKey);
     const value = await kv.get(key);
     return { key, value, range: rangeKey };

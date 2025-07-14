@@ -21,7 +21,13 @@ export interface DialogProps extends Align.SpaceProps {
   zIndex?: number;
 }
 
-export const Dialog = ({ zIndex, style, background = 0, ...rest }: DialogProps) => {
+export const Dialog = ({
+  zIndex = 5,
+  style,
+  background = 0,
+  className,
+  ...rest
+}: DialogProps) => {
   const { ref, location, style: ctxStyle } = useInternalContext();
   const { visible, variant } = useContext();
   if (!visible) return null;
@@ -36,10 +42,11 @@ export const Dialog = ({ zIndex, style, background = 0, ...rest }: DialogProps) 
         CSS.loc(location.y),
         CSS.visible(visible),
         CSS.M(variant),
+        className,
       )}
       role="dialog"
       empty
-      style={{ ...ctxStyle, ...style }}
+      style={{ ...ctxStyle, ...style, zIndex }}
       {...rest}
     />
   );

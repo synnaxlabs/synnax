@@ -39,6 +39,7 @@ export const SelectMultipleAxesInputItem = ({
       searchOptions={SEARCH_OPTIONS}
       onChange={useCallback((v: channel.Key[]) => onChange(axis, v), [onChange, axis])}
       {...selectProps}
+      style={{ width: "100%" }}
     />
   </Input.Item>
 );
@@ -63,6 +64,7 @@ export const SelectAxisInputItem = ({
       value={value}
       searchOptions={SEARCH_OPTIONS}
       {...selectProps}
+      style={{ width: "100%" }}
     />
   </Input.Item>
 );

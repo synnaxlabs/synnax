@@ -38,15 +38,18 @@ const dynamicIcon = (
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const range = useSelect(itemKey);
+  const { selected, onSelect } = Select.useItemState(itemKey);
   if (range == null) return null;
   const { variant, name } = range;
   return (
-    <List.Item {...props}>
-      <Text.Text level="p">{name}</Text.Text>
+    <List.Item {...props} selected={selected} onSelect={onSelect}>
+      <Text.Text level="p" style={{ width: 100 }}>
+        {name}
+      </Text.Text>
       {variant === "dynamic" ? (
-        <Text.Text level="p" shade={11}>
+        <Text.WithIcon level="p" shade={11} startIcon={dynamicIcon}>
           {new TimeSpan(range.span).toString()}
-        </Text.Text>
+        </Text.WithIcon>
       ) : (
         <Ranger.TimeRangeChip level="small" timeRange={range.timeRange} />
       )}
@@ -68,6 +71,7 @@ const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
       onClose={onSelect}
       shade={11}
       level="small"
+      size="small"
     >
       {range.name}
     </Tag.Tag>
@@ -77,16 +81,15 @@ const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
 const SelectMultipleRanges = ({
   value,
   onChange,
+  ...rest
 }: SelectMultipleRangesProps): ReactElement => {
   const data = useSelectKeys();
   return (
-    <Dialog.Frame>
+    <Dialog.Frame variant="connected" {...rest}>
       <Select.Frame multiple data={data} onChange={onChange} value={value}>
-        <Dialog.Trigger>
-          {value.map((key) => (
-            <RangeTag key={key} itemKey={key} />
-          ))}
-        </Dialog.Trigger>
+        <Select.MultipleTrigger>
+          {(props) => <RangeTag {...props} />}
+        </Select.MultipleTrigger>
         <Select.Dialog<string>
           searchPlaceholder="Search Ranges..."
           emptyContent={<SelectEmptyContent />}

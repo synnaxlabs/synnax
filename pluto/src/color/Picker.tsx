@@ -18,6 +18,7 @@ import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
 import { useFrequent, useFrequentUpdater } from "@/color/Provider";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { useDebouncedCallback } from "@/hooks";
 import { Icon } from "@/icon";
 import { type Input } from "@/input";

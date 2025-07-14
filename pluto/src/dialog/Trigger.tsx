@@ -11,6 +11,7 @@ import "@/dialog/Trigger.css";
 
 import { type ReactElement } from "react";
 
+import { Align } from "@/align";
 import { Button } from "@/button";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";

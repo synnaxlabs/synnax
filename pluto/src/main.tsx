@@ -14,14 +14,19 @@ import { type ReactElement, useState } from "react";
 import ReactDOM from "react-dom/client";
 
 import { Align } from "@/align";
+import { Button } from "@/button";
 import { Pluto } from "@/pluto";
 import { Ranger } from "@/ranger";
 
 const RangeList = () => {
-  const [selected, setSelected] = useState<string>("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [visible, setVisible] = useState(false);
   return (
     <Align.Space y style={{ padding: "10rem" }}>
-      <Ranger.SelectSingle value={selected} onChange={setSelected} />
+      {visible ? (
+        <Ranger.SelectMultiple value={selected} onChange={setSelected} />
+      ) : null}
+      <Button.Button onClick={() => setVisible(!visible)}>Toggle</Button.Button>
     </Align.Space>
   );
 };

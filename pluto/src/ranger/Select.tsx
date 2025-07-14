@@ -66,14 +66,16 @@ export const SelectMultiple = ({
   emptyContent,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, retrieve, ...listProps } = useList();
+  const { data, retrieve, getItem, subscribe } = useList();
+  console.log(data);
   return (
-    <Dialog.Frame {...rest}>
+    <Dialog.Frame {...rest} variant="connected">
       <Select.Frame<ranger.Key, ranger.Payload | undefined>
         multiple
         value={value}
         data={data}
-        {...listProps}
+        getItem={getItem}
+        subscribe={subscribe}
         onChange={onChange}
         onFetchMore={useCallback(
           () =>

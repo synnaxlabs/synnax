@@ -30,10 +30,6 @@
     overflow: hidden;
     border-radius: var(--pluto-pack-br);
 
-    &.pluto--connected {
-        border: var(--pluto-border-l5);
-    }
-
     &.pluto--floating {
         transition: opacity 0.075s ease-in-out;
     }
