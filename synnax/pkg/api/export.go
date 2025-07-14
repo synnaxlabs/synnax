@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -44,43 +45,42 @@ type ExportCSVRequest struct {
 	ChannelNames map[channel.Key]string `json:"channel_names" msgpack:"channel_names"`
 }
 
-type ExportCSVResponse = io.Reader
+type ExportCSVResponse = *io.PipeReader
 
-func (es *ExportService) CSV(ctx context.Context, req ExportCSVRequest) (ExportCSVResponse, error) {
+func (es *ExportService) ExportCSV(ctx context.Context, req ExportCSVRequest) (ExportCSVResponse, error) {
+	keys := req.Keys.Unique()
+	indexKeys := make(channel.Keys, len(keys))
+	if err := es.WithTx(ctx, func(tx gorp.Tx) error {
+		var channels []channel.Channel
+		if err := es.channel.NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, tx); err != nil {
+			return err
+		}
+		for i, c := range channels {
+			indexKeys[i] = c.Index()
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	allKeys := append(keys, indexKeys...).Unique()
+	channels := make([]channel.Channel, len(allKeys))
+	if err := es.WithTx(ctx, func(tx gorp.Tx) error {
+		return es.channel.NewRetrieve().WhereKeys(allKeys...).Entries(&channels).Exec(ctx, tx)
+	}); err != nil {
+		return nil, err
+	}
+	headerRecords := binary.NewCSVRecords(1, len(allKeys))
+	headerRecords[0] = lo.Map(channels, func(c channel.Channel, _ int) string {
+		if name, ok := req.ChannelNames[c.Key()]; ok {
+			return name
+		}
+		return c.Name
+	})
 	r, w := io.Pipe()
 	go func() {
-		var err error
-		defer w.CloseWithError(err)
-		keys := req.Keys.Unique()
-		indexKeys := make(channel.Keys, len(keys))
-		if err = es.WithTx(ctx, func(tx gorp.Tx) error {
-			var channels []channel.Channel
-			if err := es.channel.NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, tx); err != nil {
-				return err
-			}
-			for i, c := range channels {
-				indexKeys[i] = c.Index()
-			}
-			return nil
-		}); err != nil {
-			return
-		}
-		allKeys := append(keys, indexKeys...).Unique()
-		channels := make([]channel.Channel, len(allKeys))
-		if err = es.WithTx(ctx, func(tx gorp.Tx) error {
-			return es.channel.NewRetrieve().WhereKeys(allKeys...).Entries(&channels).Exec(ctx, tx)
-		}); err != nil {
-			return
-		}
-		headerRecords := binary.NewCSVRecords(1, len(allKeys))
-		headerRecords[0] = lo.Map(channels, func(c channel.Channel, _ int) string {
-			if name, ok := req.ChannelNames[c.Key()]; ok {
-				return name
-			}
-			return c.Name
-		})
 		codec := &binary.CSVCodec{}
-		if err = codec.EncodeStream(ctx, w, headerRecords); err != nil {
+		if err := codec.EncodeStream(ctx, w, headerRecords); err != nil {
+			w.CloseWithError(err)
 			return
 		}
 		iter, err := es.framer.Iterator.Open(ctx, framer.IteratorConfig{
@@ -88,15 +88,17 @@ func (es *ExportService) CSV(ctx context.Context, req ExportCSVRequest) (ExportC
 			Bounds: req.TimeRange,
 		})
 		if err != nil {
+			w.CloseWithError(err)
 			return
 		}
-		defer iter.Close()
 		for ok := iter.SeekFirst() && iter.Next(iterator.AutoSpan); ok; ok = iter.Next(iterator.AutoSpan) {
 			if err = codec.EncodeStream(ctx, w, iter.Value()); err != nil {
+				w.CloseWithError(errors.Combine(err, iter.Close()))
 				return
 			}
 		}
-		err = iter.Error()
+		// TODO: handle iter.Error()
+		w.CloseWithError(iter.Close())
 	}()
 
 	return r, nil

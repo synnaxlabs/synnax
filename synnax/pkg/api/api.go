@@ -304,7 +304,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ChannelRename.BindHandler(l.Channel.Rename)
 	t.ChannelRetrieveGroup.BindHandler(l.Channel.RetrieveGroup)
 
-	t.ExportCSV.BindHandler(l.Export.CSV)
+	t.ExportCSV.BindHandler(l.Export.ExportCSV)
 
 	t.FrameWriter.BindHandler(l.Framer.Write)
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
