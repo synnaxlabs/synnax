@@ -12,10 +12,9 @@ import { DataType } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { useAliases } from "@/channel/AliasContext";
-import { useList } from "@/channel/queries";
+import { type ListParams, useList } from "@/channel/queries";
 import { HAUL_TYPE } from "@/channel/types";
 import { Component } from "@/component";
-import { Dialog } from "@/dialog";
 import { Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
@@ -58,79 +57,84 @@ const listItemRenderProp = Component.renderProp(
 );
 
 export interface SelectMultipleProps
-  extends Select.MultipleProps<channel.Key, channel.Channel | undefined> {
-  searchOptions?: channel.RetrieveOptions;
-}
+  extends Omit<
+      Select.MultipleProps<channel.Key, channel.Channel | undefined>,
+      "resourceName" | "data" | "getItem" | "subscribe" | "children"
+    >,
+    Flux.UseListArgs<ListParams, channel.Key, channel.Channel> {}
 
 export const SelectMultiple = ({
   onChange,
   value,
   emptyContent,
+  initialParams,
+  filter,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe } = useList();
+  const { data, retrieve, getItem, subscribe, ...status } = useList({
+    initialParams,
+    filter,
+  });
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Dialog.Frame {...rest} variant="connected">
-      <Select.Frame<channel.Key, channel.Channel | undefined>
-        multiple
-        value={value}
-        onChange={onChange}
-        data={data}
-        onFetchMore={onFetchMore}
-        getItem={getItem}
-        subscribe={subscribe}
-      >
-        <Select.MultipleTrigger
-          haulType={HAUL_TYPE}
-          placeholder="Select channels..."
-          icon={<Icon.Channel />}
-        />
-        <Select.Dialog<channel.Key>
-          onSearch={onSearch}
-          searchPlaceholder="Search channels..."
-          emptyContent={emptyContent}
-        >
-          {listItemRenderProp}
-        </Select.Dialog>
-      </Select.Frame>
-    </Dialog.Frame>
+    <Select.Multiple<channel.Key, channel.Channel | undefined>
+      resourceName="Channel"
+      value={value}
+      onChange={onChange}
+      data={data}
+      haulType={HAUL_TYPE}
+      getItem={getItem}
+      subscribe={subscribe}
+      onFetchMore={onFetchMore}
+      onSearch={onSearch}
+      emptyContent={emptyContent}
+      status={status}
+      icon={<Icon.Channel />}
+      {...rest}
+    >
+      {listItemRenderProp}
+    </Select.Multiple>
   );
 };
 
 export interface SelectSingleProps
-  extends Select.SingleProps<channel.Key, channel.Channel | undefined> {
-  searchOptions?: channel.RetrieveOptions;
-}
+  extends Omit<
+      Select.SingleProps<channel.Key, channel.Channel | undefined>,
+      "data" | "getItem" | "subscribe" | "children" | "resourceName"
+    >,
+    Flux.UseListArgs<ListParams, channel.Key, channel.Channel> {}
 
 export const SelectSingle = ({
   onChange,
   value,
   allowNone,
   emptyContent,
-  className,
+  initialParams,
+  filter,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe } = useList();
+  const { data, retrieve, getItem, subscribe, ...status } = useList({
+    initialParams,
+    filter,
+  });
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Dialog.Frame {...rest} variant="connected">
-      <Select.Frame<channel.Key, channel.Channel | undefined>
-        value={value}
-        onChange={onChange}
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        allowNone={allowNone}
-      >
-        <Select.SingleTrigger haulType={HAUL_TYPE} icon={<Icon.Channel />} />
-        <Select.Dialog<channel.Key>
-          onSearch={(term) => retrieve({ term, offset: 0, limit: 10 })}
-          searchPlaceholder="Search channels..."
-          emptyContent={emptyContent}
-        >
-          {listItemRenderProp}
-        </Select.Dialog>
-      </Select.Frame>
-    </Dialog.Frame>
+    <Select.Single<channel.Key, channel.Channel | undefined>
+      resourceName="Channel"
+      onChange={onChange}
+      value={value}
+      allowNone={allowNone}
+      emptyContent={emptyContent}
+      onFetchMore={onFetchMore}
+      onSearch={onSearch}
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      status={status}
+      icon={<Icon.Channel />}
+      {...rest}
+    >
+      {listItemRenderProp}
+    </Select.Single>
   );
 };

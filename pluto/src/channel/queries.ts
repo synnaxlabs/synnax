@@ -121,7 +121,7 @@ export const useCalculatedForm = (
     listeners: [],
   })(args);
 
-export interface ListParams extends Flux.Params {
+export interface ListParams extends Flux.Params, channel.RetrieveOptions {
   term?: string;
   rangeKey?: string;
   internal?: boolean;

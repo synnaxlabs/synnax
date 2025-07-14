@@ -16,10 +16,8 @@ import {
   useMemo,
 } from "react";
 
-import { type Dialog } from "@/dialog";
 import { useRequiredContext } from "@/hooks";
 import { List } from "@/list";
-import { type SingleTriggerProps } from "@/select/SingleTrigger";
 import {
   useMultiple,
   type UseMultipleProps,
@@ -137,13 +135,6 @@ export interface MultipleFrameProps<
   multiple: true;
 }
 
-export interface MultipleProps<
-  K extends record.Key,
-  E extends record.Keyed<K> | undefined,
-> extends Omit<MultipleFrameProps<K, E>, "multiple" | "data" | "getItem" | "subscribe">,
-    Pick<List.ItemsProps<K>, "emptyContent">,
-    Omit<Dialog.FrameProps, "onChange" | "children"> {}
-
 export interface SingleFrameProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
@@ -151,14 +142,6 @@ export interface SingleFrameProps<
     UseSingleProps<K> {
   multiple?: false;
 }
-
-export interface SingleProps<
-  K extends record.Key,
-  E extends record.Keyed<K> | undefined,
-> extends Omit<SingleFrameProps<K, E>, "multiple" | "data" | "getItem" | "subscribe">,
-    Pick<List.ItemsProps<K>, "emptyContent">,
-    Omit<Dialog.FrameProps, "onChange" | "children">,
-    Pick<SingleTriggerProps, "disabled" | "placeholder" | "icon"> {}
 
 export type FrameProps<
   K extends record.Key = record.Key,

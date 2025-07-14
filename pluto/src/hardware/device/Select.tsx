@@ -12,7 +12,6 @@ import { type ReactElement } from "react";
 
 import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
-import { Dialog } from "@/dialog";
 import { Flux } from "@/flux";
 import { type ListParams, useList } from "@/hardware/device/queries";
 import { List } from "@/list";
@@ -40,7 +39,10 @@ const listItemRenderProp = Component.renderProp(
 );
 
 export interface SelectSingleProps
-  extends Select.SingleProps<device.Key, device.Device | undefined>,
+  extends Omit<
+      Select.SingleProps<device.Key, device.Device | undefined>,
+      "resourceName" | "data" | "getItem" | "subscribe" | "children"
+    >,
     Flux.UseListArgs<ListParams, device.Key, device.Device> {}
 
 export const SelectSingle = ({
@@ -50,29 +52,30 @@ export const SelectSingle = ({
   allowNone,
   emptyContent,
   initialParams,
+  disabled,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe } = useList({ filter, initialParams });
+  const { data, retrieve, getItem, subscribe, ...status } = useList({
+    filter,
+    initialParams,
+  });
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Dialog.Frame {...rest}>
-      <Select.Frame
-        value={value}
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        onChange={onChange}
-        onFetchMore={onFetchMore}
-      >
-        <Select.SingleTrigger />
-        <Select.Dialog<device.Key>
-          onSearch={onSearch}
-          searchPlaceholder="Search Devices..."
-          emptyContent={emptyContent}
-        >
-          {listItemRenderProp}
-        </Select.Dialog>
-      </Select.Frame>
-    </Dialog.Frame>
+    <Select.Single<device.Key, device.Device | undefined>
+      resourceName="Device"
+      value={value}
+      onChange={onChange}
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      onFetchMore={onFetchMore}
+      onSearch={onSearch}
+      emptyContent={emptyContent}
+      status={status}
+      disabled={disabled}
+      {...rest}
+    >
+      {listItemRenderProp}
+    </Select.Single>
   );
 };

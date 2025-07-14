@@ -7,17 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { type Optional, type record } from "@synnaxlabs/x";
 
 import { Component } from "@/component";
-import { Dialog } from "@/dialog";
 import { Flux } from "@/flux";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
-import { type ItemRenderProp } from "@/list/Item";
-import { Dialog as SelectDialog } from "@/select/Dialog";
-import { Frame, type SingleProps } from "@/select/Frame";
-import { SingleTrigger } from "@/select/SingleTrigger";
+import { Single, type SingleProps } from "@/select/Single";
 import { Text } from "@/text";
 
 export interface SimplyEntry<K extends record.Key> extends record.KeyedNamed<K> {
@@ -27,10 +23,11 @@ export interface SimplyEntry<K extends record.Key> extends record.KeyedNamed<K> 
 export interface SimpleProps<
   K extends record.Key,
   E extends SimplyEntry<K> = SimplyEntry<K>,
-> extends Omit<SingleProps<K, E>, "children">,
-    List.UseStaticDataArgs<K, E> {
-  children?: ItemRenderProp<K>;
-}
+> extends Optional<
+      Omit<SingleProps<K, E>, "data" | "getItem" | "subscribe">,
+      "children"
+    >,
+    List.UseStaticDataArgs<K, E> {}
 
 const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   const { itemKey } = p;
@@ -60,19 +57,16 @@ export const Simple = <K extends record.Key, E extends record.KeyedNamed<K>>({
   const { retrieve, ...listProps } = List.useStaticData<K, E>({ data, filter });
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Dialog.Frame {...rest}>
-      <Frame<K, E>
-        value={value}
-        onChange={onChange}
-        allowNone={allowNone}
-        onFetchMore={onFetchMore}
-        {...listProps}
-      >
-        <SingleTrigger disabled={disabled} />
-        <SelectDialog onSearch={onSearch} emptyContent={emptyContent}>
-          {children}
-        </SelectDialog>
-      </Frame>
-    </Dialog.Frame>
+    <Single<K, E>
+      {...rest}
+      {...listProps}
+      allowNone={allowNone}
+      emptyContent={emptyContent}
+      onChange={onChange}
+      onFetchMore={onFetchMore}
+      onSearch={onSearch}
+    >
+      {children}
+    </Single>
   );
 };

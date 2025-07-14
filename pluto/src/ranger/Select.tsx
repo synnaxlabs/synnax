@@ -8,10 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Component } from "@/component";
-import { Dialog } from "@/dialog";
 import { Flux } from "@/flux";
 import { Icon } from "@/icon";
 import { List } from "@/list";
@@ -58,53 +57,50 @@ const ListItem = ({
 const listItemRenderProp = Component.renderProp(ListItem);
 
 export interface SelectMultipleProps
-  extends Select.MultipleProps<ranger.Key, ranger.Payload | undefined> {}
+  extends Omit<
+      Select.MultipleProps<ranger.Key, ranger.Payload | undefined>,
+      "resourceName" | "data" | "getItem" | "subscribe" | "children"
+    >,
+    Flux.UseListArgs<ListParams, ranger.Key, ranger.Payload> {}
 
 export const SelectMultiple = ({
   onChange,
   value,
   emptyContent,
+  filter,
+  initialParams,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe } = useList();
-  console.log(data);
+  const { data, retrieve, getItem, subscribe, ...status } = useList({
+    filter,
+    initialParams,
+  });
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Dialog.Frame {...rest} variant="connected">
-      <Select.Frame<ranger.Key, ranger.Payload | undefined>
-        multiple
-        value={value}
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        onChange={onChange}
-        onFetchMore={useCallback(
-          () =>
-            retrieve(
-              (p) => ({
-                ...p,
-                offset: (p?.offset ?? -10) + 10,
-                limit: 10,
-              }),
-              { mode: "append" },
-            ),
-          [retrieve],
-        )}
-      >
-        <Select.MultipleTrigger haulType={HAUL_TYPE} />
-        <Select.Dialog<ranger.Key>
-          onSearch={(term) => retrieve({ term, offset: 0, limit: 10 })}
-          searchPlaceholder="Search Ranges..."
-          emptyContent={emptyContent}
-        >
-          {listItemRenderProp}
-        </Select.Dialog>
-      </Select.Frame>
-    </Dialog.Frame>
+    <Select.Multiple<ranger.Key, ranger.Payload | undefined>
+      resourceName="Range"
+      haulType={HAUL_TYPE}
+      value={value}
+      onChange={onChange}
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      onFetchMore={onFetchMore}
+      onSearch={onSearch}
+      emptyContent={emptyContent}
+      status={status}
+      {...rest}
+    >
+      {listItemRenderProp}
+    </Select.Multiple>
   );
 };
 
 export interface SelectSingleProps
-  extends Select.SingleProps<ranger.Key, ranger.Payload | undefined>,
+  extends Omit<
+      Select.SingleProps<ranger.Key, ranger.Payload | undefined>,
+      "resourceName" | "data" | "getItem" | "subscribe" | "children"
+    >,
     Flux.UseListArgs<ListParams, ranger.Key, ranger.Payload> {}
 
 export const SelectSingle = ({
@@ -116,33 +112,29 @@ export const SelectSingle = ({
   initialParams,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, subscribe, getItem } = useList({ filter, initialParams });
+  const { data, retrieve, subscribe, getItem, ...status } = useList({
+    filter,
+    initialParams,
+  });
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Dialog.Frame variant="floating" {...rest}>
-      <Select.Frame
-        value={value}
-        onChange={onChange}
-        data={data}
-        allowNone={allowNone}
-        onFetchMore={onFetchMore}
-        getItem={getItem}
-        subscribe={subscribe}
-      >
-        <Select.SingleTrigger
-          haulType={HAUL_TYPE}
-          placeholder="Select a Range..."
-          icon={<Icon.Range />}
-        />
-        <Select.Dialog<ranger.Key>
-          onSearch={onSearch}
-          searchPlaceholder="Search Ranges..."
-          emptyContent={emptyContent}
-          style={{ width: 500, height: 500 }}
-        >
-          {listItemRenderProp}
-        </Select.Dialog>
-      </Select.Frame>
-    </Dialog.Frame>
+    <Select.Single<ranger.Key, ranger.Payload | undefined>
+      resourceName="Range"
+      value={value}
+      onChange={onChange}
+      data={data}
+      allowNone={allowNone}
+      haulType={HAUL_TYPE}
+      onFetchMore={onFetchMore}
+      getItem={getItem}
+      subscribe={subscribe}
+      status={status}
+      onSearch={onSearch}
+      emptyContent={emptyContent}
+      icon={<Icon.Range />}
+      {...rest}
+    >
+      {listItemRenderProp}
+    </Select.Single>
   );
 };

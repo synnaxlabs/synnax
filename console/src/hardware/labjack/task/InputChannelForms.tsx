@@ -139,7 +139,10 @@ const TemperatureUnitsField = PForm.buildSelectField<
 interface CJCSourceEntry extends record.KeyedNamed<string> {}
 
 interface SelectCJCSourceFieldProps
-  extends Optional<Select.SimpleProps<string, CJCSourceEntry>, "data"> {
+  extends Optional<
+    Select.SimpleProps<string, CJCSourceEntry>,
+    "data" | "resourceName"
+  > {
   model: Device.Model;
 }
 
@@ -154,7 +157,12 @@ const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => 
     return [...DEFAULT_CJC_SOURCE_ENTRIES, ...ports];
   }, [model]);
   return (
-    <Select.Simple<string, CJCSourceEntry> data={data} allowNone={false} {...rest} />
+    <Select.Simple<string, CJCSourceEntry>
+      data={data}
+      allowNone={false}
+      {...rest}
+      resourceName="CJC Source"
+    />
   );
 };
 

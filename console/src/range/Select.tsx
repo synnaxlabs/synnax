@@ -8,28 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Align,
-  Button,
   Component,
-  Dialog,
   Icon,
   Input,
   List,
   Ranger,
   Select,
-  Status,
   Tag,
   Text,
   TimeSpan,
 } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Layout } from "@/layout";
-import { CREATE_LAYOUT } from "@/range/Create";
 import { useSelect, useSelectKeys } from "@/range/selectors";
 import { type Range } from "@/range/slice";
 
-interface SelectMultipleRangesProps extends Select.MultipleProps<string, Range> {}
+interface SelectMultipleRangesProps
+  extends Omit<
+    Select.MultipleProps<string, Range>,
+    "resourceName" | "data" | "children"
+  > {}
 
 const dynamicIcon = (
   <Icon.Dynamic style={{ color: "var(--pluto-error-p1)", filter: "opacity(0.8)" }} />
@@ -78,6 +76,8 @@ const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
   );
 };
 
+export const renderTag = Component.renderProp(RangeTag);
+
 const SelectMultipleRanges = ({
   value,
   onChange,
@@ -85,64 +85,46 @@ const SelectMultipleRanges = ({
 }: SelectMultipleRangesProps): ReactElement => {
   const data = useSelectKeys();
   return (
-    <Dialog.Frame variant="connected" {...rest}>
-      <Select.Frame multiple data={data} onChange={onChange} value={value}>
-        <Select.MultipleTrigger>
-          {(props) => <RangeTag {...props} />}
-        </Select.MultipleTrigger>
-        <Select.Dialog<string>
-          searchPlaceholder="Search Ranges..."
-          emptyContent={<SelectEmptyContent />}
-        >
-          {listItem}
-        </Select.Dialog>
-      </Select.Frame>
-    </Dialog.Frame>
+    <Select.Multiple<string, Range>
+      resourceName="Range"
+      value={value}
+      onChange={onChange}
+      data={data}
+      renderTag={renderTag}
+      {...rest}
+    >
+      {listItem}
+    </Select.Multiple>
   );
 };
 
-interface SelectSingleRangeProps extends Select.SingleProps<string, Range> {}
+interface SelectSingleRangeProps
+  extends Omit<
+    Select.SingleProps<string, Range>,
+    "resourceName" | "data" | "children"
+  > {}
 
 const SelectRange = ({ value, onChange }: SelectSingleRangeProps): ReactElement => {
   const data = useSelectKeys();
   return (
-    <Dialog.Frame>
-      <Select.Frame data={data} onChange={onChange} value={value}>
-        <Dialog.Trigger>
-          {value != null ? <RangeTag itemKey={value} /> : null}
-        </Dialog.Trigger>
-        <Select.Dialog<string>
-          searchPlaceholder="Search Ranges..."
-          emptyContent={<SelectEmptyContent />}
-        >
-          {listItem}
-        </Select.Dialog>
-      </Select.Frame>
-    </Dialog.Frame>
+    <Select.Single<string, Range>
+      resourceName="Range"
+      value={value}
+      onChange={onChange}
+      data={data}
+    >
+      {listItem}
+    </Select.Single>
   );
 };
 
 interface SelectMultipleInputItemProps
-  extends Omit<Input.ItemProps, "label" | "onChange">,
+  extends Omit<Input.ItemProps, "label" | "onChange" | "children">,
     SelectMultipleRangesProps {
   value: string[];
   onChange: (value: string[]) => void;
   selectProps?: Partial<SelectMultipleRangesProps>;
 }
-
-const SelectEmptyContent = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
-  return (
-    <Align.Center style={{ height: 150 }} x>
-      <Status.Text variant="disabled" hideIcon>
-        No Ranges:
-      </Status.Text>
-      <Button.Button variant="outlined" onClick={() => placeLayout(CREATE_LAYOUT)}>
-        Define a Range
-      </Button.Button>
-    </Align.Center>
-  );
-};
 
 export const SelectMultipleInputItem = ({
   value,
@@ -156,7 +138,7 @@ export const SelectMultipleInputItem = ({
 );
 
 interface SelectInputItemProps
-  extends Omit<Input.ItemProps, "label" | "onChange">,
+  extends Omit<Input.ItemProps, "label" | "onChange" | "children">,
     SelectSingleRangeProps {
   selectProps?: Partial<SelectSingleRangeProps>;
 }

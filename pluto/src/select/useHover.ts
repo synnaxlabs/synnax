@@ -10,6 +10,7 @@
 import { type record, TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
+import { Dialog } from "@/dialog";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { state } from "@/state";
@@ -40,6 +41,8 @@ export const useHover = <K extends record.Key>({
 }: UseHoverProps<K>): UseHoverReturn<K> => {
   const dataRef = useSyncedRef(data);
   const [hover, setHover, hoverRef] = useCombinedStateAndRef<number>(initialHover);
+  const { visible } = Dialog.useContext();
+  const visibleRef = useSyncedRef(visible);
   const { scrollToIndex } = List.useScroller();
   const updateHover = useCallback(
     (setArg: state.SetArg<number>) => {
@@ -57,6 +60,7 @@ export const useHover = <K extends record.Key>({
 
   const handleTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
+      if (!visibleRef.current) return;
       if (intervalRef.current != null) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
 import { array, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
@@ -23,42 +22,46 @@ import { Select } from "@/select";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
 
-interface MultipleTagProps extends Omit<Tag.TagProps, "onDragStart"> {
-  itemKey: ranger.Key;
-  onDragStart: (key: ranger.Key) => void;
+export interface MultipleEntry<K extends record.Key> extends record.KeyedNamed<K> {
+  icon?: Icon.ReactElement;
 }
 
-const MultipleTag = ({
+export interface MultipleTagProps<K extends record.Key>
+  extends Omit<Tag.TagProps, "onDragStart"> {
+  itemKey: K;
+  onDragStart: (key: K) => void;
+}
+
+const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   itemKey,
-  onDragStart,
   icon,
-}: Omit<Tag.TagProps, "onDragStart"> & {
-  itemKey: ranger.Key;
-  onDragStart: (key: ranger.Key) => void;
-}): ReactElement => {
-  const item = List.useItem<ranger.Key, ranger.Payload>(itemKey);
+  onDragStart,
+}: MultipleTagProps<K>): ReactElement | null => {
+  const item = List.useItem<K, E>(itemKey);
   const { onSelect } = Select.useItemState(itemKey);
+  if (item == null) return null;
+  const { name, icon: itemIcon } = item;
   return (
     <Tag.Tag
       onClose={onSelect}
       onDragStart={() => onDragStart(itemKey)}
       draggable
       size="small"
-      icon={icon}
+      icon={itemIcon ?? icon}
     >
-      {item?.name}
+      {name}
     </Tag.Tag>
   );
 };
 
 const multipleTag = Component.renderProp(MultipleTag);
 
-export interface MultipleTriggerProps {
+export interface MultipleTriggerProps<K extends record.Key> {
   haulType?: string;
   disabled?: boolean;
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;
-  children?: RenderProp<MultipleTagProps>;
+  children?: RenderProp<MultipleTagProps<K>>;
 }
 
 export const canDrop = <K extends record.Key>(
@@ -72,14 +75,14 @@ export const canDrop = <K extends record.Key>(
   return f.length > 0 && !f.every((h) => value.includes(h.key as K));
 };
 
-export const MultipleTrigger = ({
+export const MultipleTrigger = <K extends record.Key>({
   haulType = "",
   disabled,
   placeholder = "Select...",
   icon,
-  children = multipleTag,
-}: MultipleTriggerProps): ReactElement => {
-  const value = Select.useSelection<ranger.Key>();
+  children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
+}: MultipleTriggerProps<K>): ReactElement => {
+  const value = Select.useSelection<K>();
   const { toggle, visible } = Dialog.useContext();
   const { onSelect } = Select.useContext();
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
@@ -94,7 +97,7 @@ export const MultipleTrigger = ({
         onSelect(
           ...unique.unique([
             ...array.toArray(value),
-            ...(items.map((c) => c.key) as ranger.Keys),
+            ...(items.map((c) => c.key) as K[]),
           ]),
         );
         return items;
@@ -113,7 +116,7 @@ export const MultipleTrigger = ({
   );
 
   const onTagDragStart = useCallback(
-    (key: ranger.Key) => startDrag([{ key, type: haulType }], handleSuccessfulDrop),
+    (key: K) => startDrag([{ key, type: haulType }], handleSuccessfulDrop),
     [startDrag, handleSuccessfulDrop, haulType],
   );
   return (

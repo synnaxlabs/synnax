@@ -18,7 +18,10 @@ import {
 } from "@/hardware/labjack/device/types";
 
 export interface SelectPortProps
-  extends Select.SingleProps<string, Port | undefined>,
+  extends Omit<
+      Select.SingleProps<string, Port | undefined>,
+      "resourceName" | "data" | "children"
+    >,
     Omit<List.UseStaticDataArgs<string, Port>, "data"> {
   model: Model;
   portType: PortType;

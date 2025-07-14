@@ -119,10 +119,9 @@ export const Create: Layout.Renderer = ({ onClose }) => {
           <Form.Field<channel.Key> path="index" label="Index">
             {({ value, onChange }) => (
               <Channel.SelectSingle
-                placeholder="Select Index"
                 value={value}
                 onChange={onChange}
-                searchOptions={{ isIndex: true }}
+                initialParams={{ isIndex: true }}
                 disabled={isIndex || isVirtual}
                 allowNone={false}
                 zIndex={100}

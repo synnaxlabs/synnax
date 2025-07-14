@@ -66,6 +66,7 @@ export const SingleTrigger = <K extends record.Key>({
       )}
       {...dropProps}
       {...rest}
+      textShade={name == null ? 8 : undefined}
     >
       {name ?? placeholder}
     </Dialog.Trigger>

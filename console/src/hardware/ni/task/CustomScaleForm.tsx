@@ -233,6 +233,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
         <Align.Space x>
           <Input.Item label="Raw Column" padHelpText grow>
             <Select.Simple
+              resourceName="Raw Column"
               value={rawCol}
               onChange={handleRawColChange}
               data={colOptions}
@@ -240,6 +241,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           </Input.Item>
           <Input.Item label="Scaled Column" padHelpText grow>
             <Select.Simple
+              resourceName="Scaled Column"
               value={scaledCol}
               onChange={handleScaledColChange}
               data={colOptions}

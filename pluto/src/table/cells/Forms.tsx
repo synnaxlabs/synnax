@@ -188,8 +188,9 @@ export const VARIANT_DATA: Select.SimplyEntry<Variant>[] = [
   { key: "value", name: "Value", icon: <Icon.Channel /> },
 ];
 
-export interface SelectVariantProps extends Omit<Select.SimpleProps<Variant>, "data"> {}
+export interface SelectVariantProps
+  extends Omit<Select.SimpleProps<Variant>, "data" | "resourceName"> {}
 
 export const SelectVariant = (props: SelectVariantProps) => (
-  <Select.Simple data={VARIANT_DATA} {...props} />
+  <Select.Simple data={VARIANT_DATA} {...props} resourceName="Variant" />
 );

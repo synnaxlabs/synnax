@@ -11,7 +11,7 @@ import { type rack } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Component } from "@/component";
-import { Dialog } from "@/dialog";
+import { type Dialog } from "@/dialog";
 import { Flux } from "@/flux";
 import { useList } from "@/hardware/rack/queries";
 import { List } from "@/list";
@@ -41,30 +41,29 @@ export const SelectSingle = ({
   filter,
   allowNone,
   emptyContent,
+  initialParams,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe } = useList();
+  const { data, retrieve, getItem, subscribe, ...status } = useList({
+    initialParams,
+    filter,
+  });
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Dialog.Frame {...rest}>
-      <Select.Frame<rack.Key, rack.Rack | undefined>
-        value={value}
-        onChange={onChange}
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        allowNone={allowNone}
-        onFetchMore={onFetchMore}
-      >
-        <Select.SingleTrigger />
-        <Select.Dialog<rack.Key>
-          onSearch={onSearch}
-          searchPlaceholder="Search Racks..."
-          emptyContent={emptyContent}
-        >
-          {listItemRenderProp}
-        </Select.Dialog>
-      </Select.Frame>
-    </Dialog.Frame>
+    <Select.Single<rack.Key, rack.Rack | undefined>
+      resourceName="Rack"
+      value={value}
+      onChange={onChange}
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      onFetchMore={onFetchMore}
+      onSearch={onSearch}
+      emptyContent={emptyContent}
+      status={status}
+      {...rest}
+    >
+      {listItemRenderProp}
+    </Select.Single>
   );
 };
