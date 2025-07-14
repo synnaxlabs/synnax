@@ -92,6 +92,7 @@ func (uc *unaryClient[RQ, RS]) Send(
 			Context:  ctx,
 			Protocol: unaryReporter.Protocol,
 			Target:   target,
+			Params:   make(freighter.Params),
 		},
 		freighter.FinalizerFunc(func(inCtx freighter.Context) (freighter.Context, error) {
 			b, err := uc.codec.Encode(inCtx, req)
@@ -181,7 +182,7 @@ func parseSecurityInfo(ctx *fiber.Ctx) freighter.SecurityInfo {
 func setRequestCtx(req *http.Request, ctx freighter.Context) {
 	for k, v := range ctx.Params {
 		if vStr, ok := v.(string); ok {
-			req.Header.Set(freighterCtxPrefix+k, vStr)
+			req.Header.Set(k, vStr)
 		}
 	}
 }
@@ -189,7 +190,7 @@ func setRequestCtx(req *http.Request, ctx freighter.Context) {
 func setResponseCtx(fiberCtx *fiber.Ctx, freighterCtx freighter.Context) {
 	for k, v := range freighterCtx.Params {
 		if vStr, ok := v.(string); ok {
-			fiberCtx.Set(freighterCtxPrefix+k, vStr)
+			fiberCtx.Set(k, vStr)
 		}
 	}
 }

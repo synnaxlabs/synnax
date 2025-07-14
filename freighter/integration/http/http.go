@@ -12,18 +12,24 @@ package http
 import (
 	"context"
 	"go/types"
+	"io"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fhttp"
+	"github.com/synnaxlabs/freighter/integration/payload"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 )
 
-func BindTo(f *fiber.App) {
+type Message = payload.Message
+type ServerStream = payload.ServerStream
+
+func BindTo(app *fiber.App) {
 	router := fhttp.NewRouter(fhttp.RouterConfig{
 		Instrumentation:     testutil.Instrumentation("freighter-integration"),
 		StreamWriteDeadline: 50 * time.Millisecond,
@@ -49,6 +55,9 @@ func BindTo(f *fiber.App) {
 	unaryGetEchoServer := fhttp.UnaryServer[Message, Message](router, "/unary/echo")
 	unaryGetEchoServer.BindHandler(unaryEcho)
 
+	unaryGetReaderServer := fhttp.UnaryServer[Message, io.Reader](router, "/unary/getReader")
+	unaryGetReaderServer.BindHandler(unaryGetReader)
+
 	unaryMiddlewareCheckServer := fhttp.UnaryServer[Message, Message](router, "/unary/middlewareCheck")
 	unaryMiddlewareCheckServer.BindHandler(unaryEcho)
 	unaryMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
@@ -65,12 +74,15 @@ func BindTo(f *fiber.App) {
 	streamEventuallyResponseWithMessageServer := fhttp.StreamServer[Message, Message](router, "/stream/eventuallyResponseWithMessage")
 	streamEventuallyResponseWithMessageServer.BindHandler(streamEventuallyResponseWithMessage)
 
-	router.BindTo(f)
+	router.BindTo(app)
 }
 
-func checkMiddleware(ctx freighter.Context, next freighter.Next) (freighter.Context, error) {
+func checkMiddleware(
+	ctx freighter.Context,
+	next freighter.Next,
+) (freighter.Context, error) {
 	if ctx.Params["Test"] != "test" {
-		return ctx, TestError{Message: "test param not found", Code: 1}
+		return ctx, payload.Error{Message: "test param not found", Code: 1}
 	}
 	return next(ctx)
 }
@@ -78,6 +90,10 @@ func checkMiddleware(ctx freighter.Context, next freighter.Next) (freighter.Cont
 func unaryEcho(_ context.Context, req Message) (Message, error) {
 	req.ID++
 	return req, nil
+}
+
+func unaryGetReader(_ context.Context, req Message) (io.Reader, error) {
+	return strings.NewReader(req.Message), nil
 }
 
 func streamEcho(_ context.Context, stream ServerStream) error {
@@ -93,10 +109,7 @@ func streamEcho(_ context.Context, stream ServerStream) error {
 	}
 }
 
-func streamRespondWithTenMessages(
-	_ context.Context,
-	stream ServerStream,
-) error {
+func streamRespondWithTenMessages(_ context.Context, stream ServerStream) error {
 	for i := range 10 {
 		if err := stream.Send(Message{Message: "hello", ID: i}); err != nil {
 			return err
@@ -110,10 +123,7 @@ var (
 	timeouts  map[string]types.Nil = make(map[string]types.Nil)
 )
 
-func streamSlamMessages(
-	_ context.Context,
-	stream ServerStream,
-) error {
+func streamSlamMessages(_ context.Context, stream ServerStream) error {
 	msg, err := stream.Receive()
 	if err != nil {
 		return err
@@ -129,10 +139,7 @@ func streamSlamMessages(
 	return nil
 }
 
-func streamEventuallyResponseWithMessage(
-	_ context.Context,
-	stream ServerStream,
-) error {
+func streamEventuallyResponseWithMessage(_ context.Context, stream ServerStream) error {
 	_, err := stream.Receive()
 	if err != nil {
 		return err
@@ -141,10 +148,7 @@ func streamEventuallyResponseWithMessage(
 	return stream.Send(Message{Message: "hello", ID: 1})
 }
 
-func slamMessagesTimeoutCheckHandler(
-	_ context.Context,
-	msg Message,
-) (Message, error) {
+func slamMessagesTimeoutCheckHandler(_ context.Context, msg payload.Message) (payload.Message, error) {
 	timeoutMu.Lock()
 	defer timeoutMu.Unlock()
 	if _, ok := timeouts[msg.Message]; ok {
@@ -153,10 +157,7 @@ func slamMessagesTimeoutCheckHandler(
 	return Message{Message: "success"}, nil
 }
 
-func streamSendMessageAfterClientClose(
-	_ context.Context,
-	stream ServerStream,
-) error {
+func streamSendMessageAfterClientClose(_ context.Context, stream ServerStream) error {
 	for {
 		msg, err := stream.Receive()
 		if errors.Is(err, freighter.ErrEOF) {
@@ -169,27 +170,16 @@ func streamSendMessageAfterClientClose(
 	}
 }
 
-func streamReceiveAndExitWithErr(
-	_ context.Context,
-	stream ServerStream,
-) error {
+func streamReceiveAndExitWithErr(_ context.Context, stream ServerStream) error {
 	_, err := stream.Receive()
 	if err != nil {
 		return err
 	}
-	return TestError{Code: 1, Message: "unexpected error"}
+	return payload.Error{Code: 1, Message: "unexpected error"}
 }
 
-func streamImmediatelyExitWithErr(
-	context.Context,
-	ServerStream,
-) error {
-	return TestError{Code: 1, Message: "unexpected error"}
+func streamImmediatelyExitWithErr(context.Context, ServerStream) error {
+	return payload.Error{Code: 1, Message: "unexpected error"}
 }
 
-func streamImmediatelyExitNominally(
-	context.Context,
-	ServerStream,
-) error {
-	return nil
-}
+func streamImmediatelyExitNominally(context.Context, ServerStream) error { return nil }
