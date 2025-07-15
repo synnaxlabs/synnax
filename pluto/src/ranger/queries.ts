@@ -56,7 +56,7 @@ export const useChildren = (
 ): Flux.UseDirectRetrieveReturn<ranger.Range[]> => {
   const res = Ontology.useChildren(ranger.ontologyID(key));
   const client = Synnax.use();
-  if (res.variant !== "success") return res;
+  if (res.variant !== "success") return { ...res, data: null };
   if (client == null) return { ...res, data: [] };
   return {
     ...res,
@@ -71,7 +71,7 @@ export const useParent = (
 ): Flux.UseDirectRetrieveReturn<ranger.Range | null> => {
   const res = Ontology.useParents(ranger.ontologyID(key));
   const client = Synnax.use();
-  if (res.variant !== "success") return res;
+  if (res.variant !== "success") return { ...res, data: null };
   const parent = res.data.find(({ id: { type } }) => type === ranger.ONTOLOGY_TYPE);
   if (parent == null || client == null) return { ...res, data: null };
   return { ...res, data: client.ranges.sugarOntologyResource(parent) };

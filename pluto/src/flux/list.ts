@@ -82,7 +82,6 @@ export interface CreateListArgs<
 > extends Omit<CreateRetrieveArgs<RetrieveParams, E[]>, "listeners"> {
   retrieveByKey: (args: RetrieveByKeyArgs<RetrieveParams, K>) => Promise<E | undefined>;
   listeners?: ListListenerConfig<RetrieveParams, K, E>[];
-  filter?: (item: E) => boolean;
 }
 
 export interface UseListArgs<
