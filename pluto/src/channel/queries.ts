@@ -131,7 +131,11 @@ export interface ListParams extends Flux.Params, channel.RetrieveOptions {
 
 export const useList = Flux.createList<ListParams, channel.Key, channel.Channel>({
   name: "Channels",
-  retrieve: async ({ client, params }) => await client.channels.retrieve(params),
+  retrieve: async ({ client, params }) =>
+    await client.channels.retrieve({
+      ...params,
+      search: params.term,
+    }),
   retrieveByKey: async ({ client, key }) => await client.channels.retrieve(key),
   listeners: [],
 });

@@ -14,6 +14,7 @@ import { Button } from "@/button";
 import { Caret } from "@/caret";
 import { Component } from "@/component";
 import { type RenderProp } from "@/component/renderProp";
+import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type Icon } from "@/icon";
@@ -64,7 +65,7 @@ export interface MultipleTriggerProps<K extends record.Key> {
   children?: RenderProp<MultipleTagProps<K>>;
 }
 
-export const canDrop = <K extends record.Key>(
+export const staticCanDrop = <K extends record.Key>(
   { items: entities }: Haul.DraggingState,
   haulType: string,
   value: K[] | readonly K[],
@@ -85,12 +86,14 @@ export const MultipleTrigger = <K extends record.Key>({
   const value = Select.useSelection<K>();
   const { setSelected } = Select.useContext<K>();
   const { toggle, visible } = Dialog.useContext();
+  const canDrop = useCallback(
+    (hauled: Haul.DraggingState) =>
+      staticCanDrop(hauled, haulType, array.toArray(value), disabled),
+    [haulType, value, disabled],
+  );
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
     type: haulType,
-    canDrop: useCallback(
-      (hauled) => canDrop(hauled, haulType, array.toArray(value), disabled),
-      [haulType, value, disabled],
-    ),
+    canDrop,
     onDrop: Haul.useFilterByTypeCallback(
       haulType,
       ({ items }) => {
@@ -117,10 +120,12 @@ export const MultipleTrigger = <K extends record.Key>({
     },
     [startDrag, handleSuccessfulDrop, haulType],
   );
+  const dragging = Haul.useDraggingState();
   return (
     <Tag.Tags
       onClick={toggle}
       {...dropProps}
+      className={CSS(CSS.dropRegion(canDrop(dragging)), CSS.BE("select", "trigger"))}
       actions={
         <Button.Icon variant="outlined" onClick={toggle}>
           <Caret.Animated

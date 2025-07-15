@@ -16,7 +16,7 @@ export interface TagsProps extends Align.SpaceProps {
   actions?: ReactNode;
 }
 
-export const Tags = ({ children, onClick, actions, ...rest }: TagsProps) => (
+export const Tags = ({ children, onClick, actions, className, ...rest }: TagsProps) => (
   <Align.Pack {...rest}>
     <Align.Space
       x
@@ -25,6 +25,7 @@ export const Tags = ({ children, onClick, actions, ...rest }: TagsProps) => (
         CSS.M("outlined"),
         CSS.shade(1),
         CSS.size("medium"),
+        className,
       )}
       bordered
       borderShade={5}

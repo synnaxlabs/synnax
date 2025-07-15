@@ -295,4 +295,9 @@
             --pluto-border-color: var(--pluto-active-border-color);
         }
     }
+
+    &.pluto-haul-drop-region {
+        --pluto-bg: var(--haul-background) !important;
+        --pluto-border-color: var(--haul-border-color) !important;
+    }
 }

@@ -318,7 +318,7 @@ export class Client {
   /**
    * Retrieves a channel from the database using the given key or name.
    *
-   * @param channel - The key or name of the channel to retrieve.
+   * @param params - The key or name of the channel to retrieve.
    * @param options - Optional parameters to control the retrieval process.
    * @param options.dataTypes - Limits the query to only channels with the specified data
    * type.
@@ -337,13 +337,13 @@ export class Client {
    * const channel = await client.channels.retrieve(1);
    * ```
    */
-  async retrieve(channel: KeyOrName, options?: RetrieveOptions): Promise<Channel>;
+  async retrieve(params: KeyOrName, options?: RetrieveOptions): Promise<Channel>;
 
   /**
    * Retrieves multiple channels from the database using the provided keys or the
    * provided names.
    *
-   * @param channels - The keys or the names of the channels to retrieve. Note that
+   * @param params - The keys or the names of the channels to retrieve. Note that
    * this method does not support mixing keys and names in the same call.
    * @param options - Optional parameters to control the retrieval process.
    * @param options.dataTypes - Limits the query to only channels with the specified data
@@ -351,9 +351,9 @@ export class Client {
    * @param options.notDataTypes - Limits the query to only channels without the specified
    *
    */
-  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Channel[]>;
+  async retrieve(params: Params, options?: RetrieveOptions): Promise<Channel[]>;
 
-  async retrieve(request: RetrieveRequest): Promise<Channel[]>;
+  async retrieve(params: RetrieveRequest): Promise<Channel[]>;
 
   /**
    * Retrieves a channel from the database using the given parameters.
@@ -363,24 +363,24 @@ export class Client {
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
   async retrieve(
-    channels: Params | RetrieveRequest,
+    params: Params | RetrieveRequest,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
-    if (typeof channels === "object" && !Array.isArray(channels))
-      return this.sugar(await this.retriever.retrieve(channels));
+    if (typeof params === "object" && !Array.isArray(params))
+      return this.sugar(await this.retriever.retrieve(params));
 
-    const isSingle = !Array.isArray(channels);
-    const res = this.sugar(await this.retriever.retrieve(channels, options));
-    checkForMultipleOrNoResults("channel", channels as Params, res, isSingle);
+    const isSingle = !Array.isArray(params);
+    const res = this.sugar(await this.retriever.retrieve(params, options));
+    checkForMultipleOrNoResults("channel", params as Params, res, isSingle);
     return isSingle ? res[0] : res;
   }
 
   /***
    * Deletes channels from the database using the given keys or names.
-   * @param channels - The keys or names of the channels to delete.
+   * @param params - The keys or names of the channels to delete.
    */
-  async delete(channels: Params): Promise<void> {
-    const { normalized, variant } = analyzeParams(channels);
+  async delete(params: Params): Promise<void> {
+    const { normalized, variant } = analyzeParams(params);
     if (variant === "keys")
       return await this.writer.delete({ keys: normalized as Key[] });
     return await this.writer.delete({ names: normalized as string[] });

@@ -16,7 +16,7 @@ import { Haul } from "@/haul";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
 import { useContext, useSelection } from "@/select/Frame";
-import { canDrop } from "@/select/MultipleTrigger";
+import { staticCanDrop } from "@/select/MultipleTrigger";
 
 export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
@@ -36,34 +36,36 @@ export const SingleTrigger = <K extends record.Key>({
   ...rest
 }: SingleTriggerProps) => {
   const allSelected = useSelection<K>();
-  const { onSelect } = useContext<K>();
+  const { setSelected } = useContext<K>();
   const [selected] = allSelected;
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
   const { name, icon } = item ?? {};
+  const canDrop = useCallback(
+    (hauled: Haul.DraggingState) =>
+      staticCanDrop(hauled, haulType, allSelected, disabled),
+    [haulType, allSelected, disabled],
+  );
   const dropProps = Haul.useDrop({
     type: haulType,
-    canDrop: useCallback(
-      (hauled) => canDrop(hauled, haulType, allSelected, disabled),
-      [haulType, allSelected, disabled],
-    ),
+    canDrop,
     onDrop: Haul.useFilterByTypeCallback(
       haulType,
       ({ items }) => {
-        if (items.length !== 0) onSelect(items[0].key as K);
+        console.log("onDrop", items);
+        if (items.length !== 0) setSelected([items[0].key as K]);
         return items;
       },
-      [onSelect],
+      [setSelected],
     ),
   });
   const dragging = Haul.useDraggingState();
+  console.log("canDrop", canDrop(dragging));
   return (
     <Dialog.Trigger
       variant="outlined"
       iconSpacing="small"
       startIcon={icon ?? baseIcon}
-      className={CSS(
-        CSS.dropRegion(canDrop(dragging, haulType, allSelected, disabled)),
-      )}
+      className={CSS(CSS.dropRegion(canDrop(dragging)))}
       {...dropProps}
       {...rest}
       textShade={name == null ? 8 : undefined}

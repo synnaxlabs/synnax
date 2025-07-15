@@ -298,6 +298,8 @@ export class Client {
 
   async retrieve({ key }: { key: string } & RetrieveOptions): Promise<Task>;
 
+  async retrieve(request: RetrieveRequest): Promise<Task[]>;
+
   async retrieve<
     Type extends z.ZodLiteral<string>,
     Config extends z.ZodType,

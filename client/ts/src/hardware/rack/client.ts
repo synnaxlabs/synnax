@@ -95,21 +95,27 @@ export class Client {
 
   async retrieve(key: string | Key, options?: RetrieveOptions): Promise<Rack>;
   async retrieve(keys: Key[], options?: RetrieveOptions): Promise<Rack[]>;
+  async retrieve(request: RetrieveRequest): Promise<Rack[]>;
+
   async retrieve(
-    racks: string | Key | Key[],
+    racks: string | Key | Key[] | RetrieveRequest,
     options?: RetrieveOptions,
   ): Promise<Rack | Rack[]> {
-    const { variant, normalized, single } = analyzeParams(racks, {
-      string: "names",
-      number: "keys",
-    });
+    let request: RetrieveRequest;
+    let single = false;
+    if (typeof racks === "object" && !Array.isArray(racks)) request = racks;
+    else {
+      const res = analyzeParams(racks, { string: "names", number: "keys" });
+      single = res.single;
+      request = {
+        [res.variant]: res.normalized,
+        includeStatus: options?.includeStatus,
+      };
+    }
     const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
-      {
-        [variant]: normalized,
-        includeStatus: options?.includeStatus,
-      },
+      request,
       retrieveReqZ,
       retrieveResZ,
     );

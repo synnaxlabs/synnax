@@ -131,6 +131,7 @@ export const SelectSingle = ({
       getItem={getItem}
       subscribe={subscribe}
       status={status}
+      haulType={HAUL_TYPE}
       icon={<Icon.Channel />}
       {...rest}
     >
