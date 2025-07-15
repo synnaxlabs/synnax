@@ -59,6 +59,4 @@ func decodeErr(_ context.Context, pld errors.Payload) (error, bool) {
 	return nil, false
 }
 
-func init() {
-	errors.Register(encodeErr, decodeErr)
-}
+func init() { errors.Register(encodeErr, decodeErr) }

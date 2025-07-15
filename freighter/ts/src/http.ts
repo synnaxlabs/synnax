@@ -68,13 +68,12 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     reqSchema: RQ,
     resSchema?: RS,
   ): Promise<[Response, null] | [z.infer<RS>, null] | [null, Error]> {
-    const shouldDecodeResponseBody = resSchema != null;
-    req = reqSchema?.parse(req);
+    const parsedReq = reqSchema.parse(req);
     let res: z.infer<RS> | Response | null = null;
     const url = this.endpoint.child(target);
     const request: RequestInit = {};
     request.method = "POST";
-    request.body = this.encoder.encode(req ?? {}) as BodyInit;
+    request.body = this.encoder.encode(parsedReq) as BodyInit;
     const [, err] = await this.executeMiddleware(
       {
         target: url.toString(),
@@ -94,7 +93,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         }
         let data = new ArrayBuffer();
         if (httpRes.ok) {
-          if (shouldDecodeResponseBody) {
+          if (resSchema != null) {
             data = await httpRes.arrayBuffer();
             res = this.encoder.decode<RS>(data, resSchema);
           } else res = httpRes;
