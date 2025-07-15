@@ -4,13 +4,13 @@ import { useCallback, useEffect, useRef } from "react";
 import { Sync } from "@/flux/sync";
 import { Synnax as PSynnax } from "@/synnax";
 
-interface ListenerRef {
+interface SynchronizerRef {
   mounted: boolean;
   destructor: Destructor;
 }
 
-export const useMountListeners = (): ((listeners?: Sync.Subscriber[]) => void) => {
-  const ref = useRef<ListenerRef>({
+export const useMountSynchronizers = (): ((listeners?: Sync.Subscriber[]) => void) => {
+  const ref = useRef<SynchronizerRef>({
     mounted: false,
     destructor: () => {},
   });

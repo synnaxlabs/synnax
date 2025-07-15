@@ -11,7 +11,7 @@ import { type channel, type Synnax } from "@synnaxlabs/client";
 import { type MultiSeries } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 
-import { useMountListeners } from "@/flux/listeners";
+import { useMountSynchronizers } from "@/flux/listeners";
 import { type Params } from "@/flux/params";
 import {
   errorResult,
@@ -100,11 +100,11 @@ export interface AsyncOptions {
 
 export interface UseObservableRetrieveReturn<RetrieveParams extends Params> {
   retrieve: (
-    params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+    params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
     options?: AsyncOptions,
   ) => void;
   retrieveAsync: (
-    params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+    params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
     options?: AsyncOptions,
   ) => Promise<void>;
 }
@@ -131,13 +131,13 @@ export interface CreateRetrieveReturn<
   RetrieveParams extends Params,
   V extends state.State,
 > {
+  useDirect: (
+    args: UseDirectRetrieveArgs<RetrieveParams>,
+  ) => UseDirectRetrieveReturn<V>;
   useObservable: (
     args: UseObservableRetrieveArgs<V>,
   ) => UseObservableRetrieveReturn<RetrieveParams>;
   useStateful: () => UseStatefulRetrieveReturn<RetrieveParams, V>;
-  useDirect: (
-    args: UseDirectRetrieveArgs<RetrieveParams>,
-  ) => UseDirectRetrieveReturn<V>;
   useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, V>) => void;
 }
 
@@ -153,14 +153,14 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   >): UseObservableRetrieveReturn<RetrieveParams> => {
   const client = PSynnax.use();
   const paramsRef = useRef<RetrieveParams | null>(null);
-  const mountListeners = useMountListeners();
+  const mountListeners = useMountSynchronizers();
   const retrieveAsync = useCallback(
     async (
-      paramsSetter: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+      paramsSetter: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
       options: AsyncOptions = {},
     ) => {
       const { signal } = options;
-      const params = state.executeSetter<RetrieveParams, RetrieveParams | {}>(
+      const params = state.executeSetter<RetrieveParams, Partial<RetrieveParams>>(
         paramsSetter,
         paramsRef.current ?? {},
       );
@@ -195,7 +195,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
               })(),
           })),
         );
-        onChange(successResult(name, "retrieved", value));
+        onChange(successResult<Data>(name, "retrieved", value));
       } catch (error) {
         onChange(errorResult<Data>(name, "retrieve", error));
       }
@@ -204,7 +204,7 @@ const useObservable = <RetrieveParams extends Params, Data extends state.State>(
   );
   const retrieveSync = useCallback(
     (
-      params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+      params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
       options?: { signal?: AbortSignal },
     ) => void retrieveAsync(params, options),
     [retrieveAsync],

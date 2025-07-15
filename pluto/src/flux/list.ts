@@ -8,10 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax } from "@synnaxlabs/client";
-import { type MultiSeries, type record } from "@synnaxlabs/x";
-import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import {
+  compare,
+  type CrudeTimeSpan,
+  type Destructor,
+  type MultiSeries,
+  primitive,
+  type record,
+  TimeSpan,
+} from "@synnaxlabs/x";
+import { useCallback, useRef, useSyncExternalStore } from "react";
 
-import { useMountListeners } from "@/flux/listeners";
+import { useMountSynchronizers } from "@/flux/listeners";
 import { type Params } from "@/flux/params";
 import {
   errorResult,
@@ -22,12 +30,17 @@ import {
 } from "@/flux/result";
 import { type AsyncOptions, type CreateRetrieveArgs } from "@/flux/retrieve";
 import { type Sync } from "@/flux/sync";
-import { useInitializerRef } from "@/hooks";
+import {
+  useCombinedStateAndRef,
+  useDebouncedCallback,
+  useInitializerRef,
+  useSyncedRef,
+} from "@/hooks";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
 interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
-  (key: K): E | undefined;
+  (key?: K): E | undefined;
   (keys: K[]): E[];
 }
 
@@ -41,23 +54,23 @@ export type UseListReturn<
   E extends record.Keyed<K>,
 > = Omit<Result<K[]>, "data"> & {
   retrieve: (
-    params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+    params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
     options?: AsyncListOptions,
   ) => void;
   retrieveAsync: (
-    params: state.SetArg<RetrieveParams, RetrieveParams | {}>,
+    params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
     options?: AsyncListOptions,
   ) => Promise<void>;
   data: K[];
-  useListItem: (key: K) => E | undefined;
   getItem: GetItem<K, E>;
+  subscribe: (callback: () => void, key?: K) => Destructor;
 };
 
 export interface RetrieveByKeyArgs<
   RetrieveParams extends Params,
   K extends record.Key,
 > {
-  params: RetrieveParams;
+  params: Partial<RetrieveParams>;
   key: K;
   client: Synnax;
 }
@@ -67,8 +80,8 @@ export interface CreateListArgs<
   K extends record.Key,
   E extends record.Keyed<K>,
 > extends Omit<CreateRetrieveArgs<RetrieveParams, E[]>, "listeners"> {
-  retrieveByKey: (args: RetrieveByKeyArgs<RetrieveParams, K>) => Promise<E>;
-  listeners?: ListListenerConfig<RetrieveParams | {}, K, E>[];
+  retrieveByKey: (args: RetrieveByKeyArgs<RetrieveParams, K>) => Promise<E | undefined>;
+  listeners?: ListListenerConfig<RetrieveParams, K, E>[];
   filter?: (item: E) => boolean;
 }
 
@@ -79,6 +92,7 @@ export interface UseListArgs<
 > {
   initialParams?: RetrieveParams;
   filter?: (item: E) => boolean;
+  retrieveDebounce?: CrudeTimeSpan;
 }
 
 export interface UseList<
@@ -118,6 +132,7 @@ interface ListenersRef<K extends record.Key> {
 }
 
 const defaultFilter = () => true;
+const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
 
 export const createList =
   <P extends Params, K extends record.Key, E extends record.Keyed<K>>({
@@ -127,36 +142,67 @@ export const createList =
     retrieveByKey,
   }: CreateListArgs<P, K, E>): UseList<P, K, E> =>
   (args: UseListArgs<P, K, E> = {}) => {
-    const { filter = defaultFilter, initialParams } = args;
+    const {
+      filter = defaultFilter,
+      initialParams,
+      retrieveDebounce = DEFAULT_RETRIEVE_DEBOUNCE,
+    } = args;
+    const filterRef = useSyncedRef(filter);
     const client = PSynnax.use();
-    const dataRef = useRef<Map<K, E>>(new Map());
+    const dataRef = useRef<Map<K, E | null>>(new Map());
     const listenersRef = useInitializerRef<ListenersRef<K>>(() => ({
       mounted: false,
       listeners: new Map(),
     }));
-    const [result, setResult] = useState<Result<K[]>>(
+    const [result, setResult, resultRef] = useCombinedStateAndRef<Result<K[]>>(
       pendingResult<K[]>(name, "retrieving"),
     );
-
+    const hasMoreRef = useRef(true);
     const paramsRef = useRef<P | null>(initialParams ?? null);
 
-    const mountListeners = useMountListeners();
+    const mountSynchronizers = useMountSynchronizers();
+
+    const notifyListeners = useCallback(
+      (changed: K) =>
+        listenersRef.current.listeners.forEach((key, notify) => {
+          if (key === changed) notify();
+        }),
+      [listenersRef],
+    );
+
     const retrieveAsync = useCallback(
       async (paramsSetter: state.SetArg<P, P | {}>, options: AsyncListOptions = {}) => {
         const { signal, mode = "replace" } = options;
+
         const params = state.executeSetter(paramsSetter, paramsRef.current ?? {});
         paramsRef.current = params;
+
         try {
           if (client == null) return setResult(nullClientResult<K[]>(name, "retrieve"));
-          setResult((p) => pendingResult(name, "retrieving", p.data ?? []));
-          if (mode === "replace") dataRef.current.clear();
-          const value = await retrieve({ client, params });
-          const keys = value.map((v) => v.key);
-          value.forEach((v) => {
-            if (filter(v)) dataRef.current.set(v.key, v);
-          });
+          setResult((p) => pendingResult(name, "retrieving", p.data));
+
+          // If we're in replace mode, we're 'resetting' the infinite scroll position
+          // of the query, so we start from the top again.
+          if (mode === "replace") hasMoreRef.current = true;
+          else if (mode === "append" && !hasMoreRef.current) return;
+
+          let value = await retrieve({ client, params });
           if (signal?.aborted) return;
-          mountListeners(
+          value = value.filter(filterRef.current);
+          if (value.length === 0) hasMoreRef.current = false;
+          const keys = value.map((v) => v.key);
+
+          // If we've already retrieved the initial data, and it's the same as the
+          // data we just retrieved, then don't notify listeners.
+          if (
+            resultRef.current.data != null &&
+            compare.primitiveArrays(resultRef.current.data, keys) === compare.EQUAL
+          )
+            return setResult((p) => successResult(name, "retrieved", p.data ?? []));
+
+          value.forEach((v) => dataRef.current.set(v.key, v));
+
+          mountSynchronizers(
             listeners?.map((l) => ({
               channel: l.channel,
               handler: (frame) =>
@@ -169,22 +215,17 @@ export const createList =
                       changed: frame.get(l.channel),
                       onDelete: (k) => {
                         dataRef.current.delete(k);
-                        setResult(
-                          (p) =>
-                            ({
-                              ...p,
-                              data: p.data?.filter((key) => key !== k),
-                            }) as Result<K[]>,
-                        );
+                        setResult((p) => {
+                          if (p.data == null) return p;
+                          return { ...p, data: p.data.filter((key) => key !== k) };
+                        });
                       },
                       onChange: (k, setter) => {
                         const v = dataRef.current.get(k);
-                        if (v == null || !filter(v)) return;
+                        if (v == null || !filterRef.current(v)) return;
                         const res = state.executeSetter(setter, v);
                         dataRef.current.set(k, res);
-                        listenersRef.current.listeners.forEach((key, listener) => {
-                          if (key === k) listener();
-                        });
+                        notifyListeners(k);
                       },
                     });
                   } catch (error) {
@@ -194,14 +235,19 @@ export const createList =
             })),
           );
           return setResult((prev) => {
-            if (mode === "replace") return successResult(name, "retrieved", keys);
-            return successResult(name, "retrieved", [...(prev.data ?? []), ...keys]);
+            if (mode === "replace" || prev.data == null)
+              return successResult(name, "retrieved", keys);
+            const keysSet = new Set(keys);
+            return successResult(name, "retrieved", [
+              ...prev.data.filter((k) => !keysSet.has(k)),
+              ...keys,
+            ]);
           });
         } catch (error) {
           setResult(errorResult<K[]>(name, "retrieve", error));
         }
       },
-      [client, name, mountListeners],
+      [client, name, mountSynchronizers, filterRef],
     );
 
     const retrieveSingle = useCallback(
@@ -209,70 +255,75 @@ export const createList =
         const { signal } = options;
         void (async () => {
           try {
-            if (client == null || paramsRef.current == null) return;
+            if (client == null || primitive.isZero(key)) return;
             const item = await retrieveByKey({
               client,
               key,
-              params: paramsRef.current,
+              params: paramsRef.current ?? {},
             });
-            if (!filter(item)) return;
+            if (item == null) return;
+            if (!filterRef.current(item)) {
+              dataRef.current.set(key, null);
+              return;
+            }
             dataRef.current.set(key, item);
             if (signal?.aborted) return;
-            listenersRef.current.listeners.forEach((k, listener) => {
-              if (k === key) listener();
-            });
+            notifyListeners(key);
           } catch (error) {
+            dataRef.current.set(key, null);
             setResult(errorResult<K[]>(name, "retrieve", error));
           }
         })();
       },
-      [dataRef, retrieveByKey, client],
+      [retrieveByKey, client, notifyListeners],
     );
 
     const getItem = useCallback(
-      ((key: K | K[]) => {
+      ((key?: K | K[]) => {
+        if (key == null) return undefined;
         if (Array.isArray(key))
-          return key.map((k) => dataRef.current.get(k)).filter((v) => v != null);
-        return dataRef.current.get(key);
+          return key.map((k) => getItem(k)).filter((v) => v != null);
+        const res = dataRef.current.get(key);
+        if (res === undefined) retrieveSingle(key);
+        return res;
       }) as GetItem<K, E>,
-      [],
+      [retrieveSingle],
     );
 
-    const useListItem = (key: K) => {
-      const abortControllerRef = useRef<AbortController | null>(null);
-      return useSyncExternalStore<E | undefined>(
-        useCallback(
-          (callback) => {
-            abortControllerRef.current = new AbortController();
-            listenersRef.current.listeners.set(callback, key);
-            return () => {
-              listenersRef.current.listeners.delete(callback);
-              abortControllerRef.current?.abort();
-            };
-          },
-          [key],
-        ),
-        useCallback(() => {
-          const res = dataRef.current.get(key);
-          if (res == null)
-            retrieveSingle(key, { signal: abortControllerRef.current?.signal });
-          return res;
-        }, [key]),
-      );
-    };
+    const subscribe = useCallback((callback: () => void, key?: K) => {
+      if (key == null) return () => {};
+      listenersRef.current.listeners.set(callback, key);
+      return () => listenersRef.current.listeners.delete(callback);
+    }, []);
 
-    const retrieveSync = useCallback(
+    const retrieveSync = useDebouncedCallback(
       (params: state.SetArg<P, P | {}>, options: AsyncListOptions = {}) =>
         void retrieveAsync(params, options),
+      new TimeSpan(retrieveDebounce).milliseconds,
       [retrieveAsync],
     );
 
     return {
       retrieve: retrieveSync,
       retrieveAsync,
-      useListItem,
+      subscribe,
       getItem,
       ...result,
       data: result?.data ?? [],
     };
   };
+
+export interface UseListItemArgs<K extends record.Key, E extends record.Keyed<K>>
+  extends Pick<UseListReturn<Params, K, E>, "subscribe" | "getItem"> {
+  key?: K;
+}
+
+export const useListItem = <K extends record.Key, E extends record.Keyed<K>>({
+  key,
+  subscribe,
+  getItem,
+}: UseListItemArgs<K, E>) =>
+  useSyncExternalStore(
+    useCallback((callback) => subscribe(callback, key), [subscribe, key]),
+    useCallback(() => getItem(key), [getItem, key]),
+  );

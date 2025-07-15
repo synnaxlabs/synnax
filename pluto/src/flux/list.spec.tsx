@@ -79,7 +79,7 @@ describe("list", () => {
     it("should return a pre-retrieved list item", async () => {
       const { result } = renderHook(
         () => {
-          const { useListItem, retrieve } = Flux.createList<
+          const { retrieve, subscribe, getItem } = Flux.createList<
             {},
             number,
             record.Keyed<number>
@@ -88,7 +88,12 @@ describe("list", () => {
             retrieve: async () => [{ key: 1 }, { key: 2 }],
             retrieveByKey: async ({ key }) => ({ key }),
           })();
-          return { retrieve, value: useListItem(1) };
+          const value = Flux.useListItem<number, record.Keyed<number>>({
+            subscribe,
+            getItem,
+            key: 1,
+          });
+          return { retrieve, value };
         },
         { wrapper: newWrapper(client) },
       );
@@ -111,7 +116,7 @@ describe("list", () => {
 
       const { result } = renderHook(
         () => {
-          const { useListItem, retrieve } = Flux.createList<
+          const { getItem, subscribe, retrieve } = Flux.createList<
             RangeParams,
             ranger.Key,
             ranger.Payload
@@ -129,7 +134,12 @@ describe("list", () => {
               },
             ],
           })();
-          return { retrieve, value: useListItem(rng.key) };
+          const value = Flux.useListItem<ranger.Key, ranger.Payload>({
+            subscribe,
+            getItem,
+            key: rng.key,
+          });
+          return { retrieve, value };
         },
         { wrapper: newWrapper(client) },
       );
@@ -161,7 +171,7 @@ describe("list", () => {
       });
       const { result, unmount } = renderHook(
         () => {
-          const { useListItem, retrieve } = Flux.createList<
+          const { getItem, retrieve } = Flux.createList<
             RangeParams,
             ranger.Key,
             ranger.Payload
@@ -179,7 +189,7 @@ describe("list", () => {
               },
             ],
           })();
-          return { retrieve, value: useListItem(rng.key) };
+          return { retrieve, value: getItem(rng.key) };
         },
         { wrapper: newWrapper(client) },
       );
@@ -191,9 +201,7 @@ describe("list", () => {
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
       });
-      await act(async () => {
-        await client.ranges.delete(rng.key);
-      });
+      await act(async () => await client.ranges.delete(rng.key));
       await waitFor(() => {
         expect(result.current.value?.key).not.toEqual(rng.key);
       });
