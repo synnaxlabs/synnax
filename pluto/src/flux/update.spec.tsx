@@ -7,25 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, newTestClient, type Synnax } from "@synnaxlabs/client";
+import { DisconnectedError, newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
-import { Synnax as PSynnax } from "@/synnax";
+import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
-
-const newWrapper =
-  (client: Synnax | null) =>
-  // eslint-disable-next-line react/display-name
-  (props: PropsWithChildren) => (
-    <PSynnax.TestProvider client={client}>
-      <Sync.Provider {...props} />
-    </PSynnax.TestProvider>
-  );
 
 describe("update", () => {
   describe("basic update", () => {
@@ -58,7 +47,7 @@ describe("update", () => {
             name: "Resource",
             update,
           }).useDirect({ params: {} }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       act(() => result.current.update(12, { signal: controller.signal }));
       await waitFor(() => {
@@ -75,7 +64,7 @@ describe("update", () => {
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
           }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
         result.current.update(12, { signal: controller.signal });
@@ -96,7 +85,7 @@ describe("update", () => {
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
           }),
-        { wrapper: newWrapper(null) },
+        { wrapper: newSynnaxWrapper(null) },
       );
       act(() => {
         result.current.update(12, { signal: controller.signal });
@@ -123,7 +112,7 @@ describe("update", () => {
           Flux.createUpdate<{}, number>({ name: "Resource", update }).useDirect({
             params: {},
           }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
         result.current.update(12, { signal: controller.signal });
