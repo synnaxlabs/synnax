@@ -38,7 +38,7 @@ describe("list", () => {
   });
   describe("initial list", () => {
     it("should return a loading result as its initial state", () => {
-      const { result } = renderHook(
+      const { result, unmount } = renderHook(
         () =>
           Flux.createList({
             name: "Resource",
@@ -47,14 +47,15 @@ describe("list", () => {
           })(),
         { wrapper: newWrapper(client) },
       );
-      expect(result.current.variant).toEqual("loading");
+      expect(result.current.status).toEqual("loading");
       expect(result.current.data).toEqual([]);
       expect(result.current.error).toEqual(null);
+      unmount();
     });
 
     it("should return a success result when the list is retrieved", async () => {
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
-      const { result } = renderHook(
+      const { result, unmount } = renderHook(
         () =>
           Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
@@ -68,10 +69,11 @@ describe("list", () => {
       });
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
-        expect(result.current.variant).toEqual("success");
+        expect(result.current.status).toEqual("success");
         expect(result.current.data).toEqual([1, 2]);
         expect(result.current.error).toEqual(null);
       });
+      unmount();
     });
 
     it("should return an error result when the query fails to execute", async () => {
@@ -90,7 +92,7 @@ describe("list", () => {
       });
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
-        expect(result.current.variant).toEqual("error");
+        expect(result.current.status).toEqual("error");
         expect(result.current.error).toEqual(new Error("Test Error"));
       });
       unmount();
@@ -146,7 +148,7 @@ describe("list", () => {
 
   describe("useListItem", () => {
     it("should return a pre-retrieved list item", async () => {
-      const { result } = renderHook(
+      const { result, unmount } = renderHook(
         () => {
           const { retrieve, subscribe, getItem } = Flux.createList<
             {},
@@ -169,12 +171,13 @@ describe("list", () => {
       await waitFor(() => {
         expect(result.current.value).toEqual({ key: 1 });
       });
+      unmount();
     });
 
     it("should move the query to an error state when the retrieveByKey fails to execute", async () => {
       const retrieveMock = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
       const retrieveByKeyMock = vi.fn().mockRejectedValue(new Error("Test Error"));
-      const { result } = renderHook(
+      const { result, unmount } = renderHook(
         () => {
           const result = Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
@@ -194,9 +197,10 @@ describe("list", () => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
-        expect(result.current.variant).toEqual("error");
+        expect(result.current.status).toEqual("error");
         expect(result.current.error).toEqual(new Error("Test Error"));
       });
+      unmount();
     });
   });
 
@@ -211,7 +215,7 @@ describe("list", () => {
         }),
       });
 
-      const { result } = renderHook(
+      const { result, unmount } = renderHook(
         () => {
           const { getItem, subscribe, retrieve } = Flux.createList<
             RangeParams,
@@ -254,6 +258,7 @@ describe("list", () => {
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range 2");
       });
+      unmount();
     });
 
     it("should correctly remove a list item when it gets deleted", async () => {

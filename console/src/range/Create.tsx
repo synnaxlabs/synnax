@@ -65,7 +65,7 @@ export const Create: Layout.Renderer = (props) => {
 
   const client = Synnax.use();
   const clientExists = client != null;
-  const { form, save } = Ranger.useForm({
+  const { form, save, variant } = Ranger.useForm({
     params: { key: args.key },
     autoSave: false,
     initialValues: {
@@ -168,16 +168,16 @@ export const Create: Layout.Renderer = (props) => {
           <Button.Button
             variant="outlined"
             onClick={save}
-            disabled={status === "loading"}
+            disabled={variant === "loading"}
           >
             Save Locally
           </Button.Button>
           <Button.Button
             onClick={save}
-            disabled={!clientExists || status === "loading"}
+            disabled={!clientExists || variant === "loading"}
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}
             tooltipLocation="bottom"
-            loading={status === "loading"}
+            loading={variant === "loading"}
             triggers={Triggers.SAVE}
           >
             Save to Synnax
