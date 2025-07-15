@@ -24,7 +24,6 @@
 
     &.pluto--rounded {
         --pluto-pack-br: var(--pluto-back-br, var(--pluto-border-radius));
-        border-radius: 0 !important;
     }
 
     &.pluto--bordered {

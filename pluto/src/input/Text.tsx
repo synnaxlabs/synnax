@@ -62,7 +62,7 @@ export const Text = ({
   disabled,
   resetOnBlurIfEmpty = false,
   status,
-  shade,
+  shade = 1,
   weight,
   style,
   outlineColor,
@@ -138,7 +138,6 @@ export const Text = ({
         CSS.B("input"),
         CSS.disabled(disabled),
         level == null && CSS.size(size),
-        shade != null && CSS.shade(shade),
         CSS.M(variant),
         CSS.sharp(sharp),
         hasCustomColor && CSS.BM("input", "custom-color"),
@@ -157,7 +156,7 @@ export const Text = ({
           CSS.size(size),
           CSS.M("clickable"),
           CSS.M("outlined"),
-          CSS.shade(0),
+          shade != null && CSS.shade(shade),
         )}
       >
         {showPlaceholder && (

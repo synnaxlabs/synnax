@@ -140,6 +140,7 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
             loading={loading === "submit"}
             disabled={loading !== null}
             triggers={Triggers.SAVE}
+            variant="filled"
           >
             Connect
           </Button.Button>

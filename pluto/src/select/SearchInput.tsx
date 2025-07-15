@@ -26,7 +26,7 @@ export const SearchInput = ({
       value={term}
       autoFocus
       placeholder={searchPlaceholder}
-      borderShade={6}
+      shade={3}
       onChange={(v) => {
         setTerm(v);
         onSearch?.(v);

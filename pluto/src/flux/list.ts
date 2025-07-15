@@ -341,12 +341,14 @@ export const createList =
 
         try {
           if (client == null) return setResult(nullClientResult<K[]>(name, "retrieve"));
+          console.log("retrieving", name);
           setResult((p) => pendingResult(name, "retrieving", p.data));
 
           // If we're in replace mode, we're 'resetting' the infinite scroll position
           // of the query, so we start from the top again.
           if (mode === "replace") hasMoreRef.current = true;
-          else if (mode === "append" && !hasMoreRef.current) return;
+          else if (mode === "append" && !hasMoreRef.current)
+            return setResult((p) => successResult(name, "retrieved", p.data ?? []));
 
           let value = await retrieve({ client, params });
           if (signal?.aborted) return;

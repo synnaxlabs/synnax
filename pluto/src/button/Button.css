@@ -256,6 +256,16 @@
             --pluto-active-border-color: var(--pluto-gray-l7);
         }
 
+        &.pluto--shade-3 {
+            --pluto-bg: var(--pluto-gray-l2);
+            --pluto-hover-bg: var(--pluto-gray-l3);
+            --pluto-active-bg: var(--pluto-gray-l4);
+
+            --pluto-border-color: var(--pluto-gray-l6);
+            --pluto-hover-border-color: var(--pluto-gray-l7);
+            --pluto-active-border-color: var(--pluto-gray-l8);
+        }
+
         &.pluto-btn--custom-color {
             --pluto-border-color: rgba(var(--pluto-btn-color), 1);
             --pluto-hover-border-color: rgba(var(--pluto-btn-color), 0.6);

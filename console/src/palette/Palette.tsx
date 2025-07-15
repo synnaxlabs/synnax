@@ -131,6 +131,7 @@ const DialogContent = ({
             }
             size="huge"
             autoFocus
+            shade={3}
             onChange={onChange}
             value={value}
             autoComplete="off"

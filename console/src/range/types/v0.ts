@@ -51,7 +51,7 @@ export const ZERO_SLICE_STATE: SliceState = {
   activeRange: null,
   ranges: {
     rolling30s: {
-      key: "recent",
+      key: "rolling30s",
       variant: "dynamic",
       name: "Rolling 30s",
       span: Number(TimeSpan.seconds(30)),

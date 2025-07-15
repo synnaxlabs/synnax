@@ -23,10 +23,16 @@ export interface DialogProps<K extends record.Key>
 
 const DEFAULT_HEIGHT = 250;
 
+const defaultEmptyContent = (
+  <Status.Text.Centered variant="disabled" style={{ height: DEFAULT_HEIGHT }}>
+    No results
+  </Status.Text.Centered>
+);
+
 export const Dialog = <K extends record.Key>({
   onSearch,
   children,
-  emptyContent,
+  emptyContent = defaultEmptyContent,
   searchPlaceholder,
   style,
   status,

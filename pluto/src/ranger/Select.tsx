@@ -84,6 +84,7 @@ export const SelectMultiple = ({
       onChange={onChange}
       data={data}
       getItem={getItem}
+      icon={<Icon.Range />}
       subscribe={subscribe}
       onFetchMore={onFetchMore}
       onSearch={onSearch}

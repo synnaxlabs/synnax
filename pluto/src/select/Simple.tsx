@@ -13,6 +13,7 @@ import { Component } from "@/component";
 import { Flux } from "@/flux";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
+import { Select } from "@/select";
 import { Single, type SingleProps } from "@/select/Single";
 import { Text } from "@/text";
 
@@ -32,10 +33,11 @@ export interface SimpleProps<
 const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   const { itemKey } = p;
   const item = List.useItem<record.Key, SimplyEntry<record.Key>>(itemKey);
+  const selectProps = Select.useItemState(itemKey);
   if (item == null) return null;
   const { name, icon } = item;
   return (
-    <List.Item {...p}>
+    <List.Item {...p} {...selectProps}>
       <Text.WithIcon level="p" startIcon={icon}>
         {name}
       </Text.WithIcon>
@@ -47,11 +49,6 @@ export const Simple = <K extends record.Key, E extends record.KeyedNamed<K>>({
   data,
   filter,
   children = listItem,
-  emptyContent,
-  allowNone,
-  value,
-  onChange,
-  disabled,
   ...rest
 }: SimpleProps<K, E>) => {
   const { retrieve, ...listProps } = List.useStaticData<K, E>({ data, filter });
@@ -60,9 +57,6 @@ export const Simple = <K extends record.Key, E extends record.KeyedNamed<K>>({
     <Single<K, E>
       {...rest}
       {...listProps}
-      allowNone={allowNone}
-      emptyContent={emptyContent}
-      onChange={onChange}
       onFetchMore={onFetchMore}
       onSearch={onSearch}
     >

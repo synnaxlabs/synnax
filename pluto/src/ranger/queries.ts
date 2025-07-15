@@ -314,7 +314,7 @@ export interface ListParams extends Flux.Params {
 }
 
 export const useList = Flux.createList<ListParams, ranger.Key, ranger.Payload>({
-  name: "Range",
+  name: "Ranges",
   retrieve: async ({ client, params }) => await client.ranges.retrieve(params),
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
   listeners: [

@@ -20,13 +20,15 @@ import { Ranger } from "@/ranger";
 
 const RangeList = () => {
   const [selected, setSelected] = useState<string[]>([]);
-  const [visible, setVisible] = useState(false);
+  const [singleSelected, setSingleSelected] = useState<string | undefined>(undefined);
   return (
     <Align.Space y style={{ padding: "10rem" }}>
-      {visible ? (
-        <Ranger.SelectMultiple value={selected} onChange={setSelected} />
-      ) : null}
-      <Button.Button onClick={() => setVisible(!visible)}>Toggle</Button.Button>
+      <Ranger.SelectMultiple value={selected} onChange={setSelected} />
+      <Ranger.SelectSingle
+        value={singleSelected}
+        onChange={setSingleSelected}
+        allowNone
+      />
     </Align.Space>
   );
 };

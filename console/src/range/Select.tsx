@@ -9,6 +9,7 @@
 
 import {
   Component,
+  Flux,
   Icon,
   Input,
   List,
@@ -20,7 +21,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useSelect, useSelectKeys } from "@/range/selectors";
+import { useSelect, useSelectKeys, useSelectMultiple } from "@/range/selectors";
 import { type Range } from "@/range/slice";
 
 interface SelectMultipleRangesProps
@@ -78,20 +79,19 @@ const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
 
 export const renderTag = Component.renderProp(RangeTag);
 
-const SelectMultipleRanges = ({
-  value,
-  onChange,
-  ...rest
-}: SelectMultipleRangesProps): ReactElement => {
-  const data = useSelectKeys();
+const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => {
+  const entries = useSelectMultiple();
+  const { data, retrieve } = List.useStaticData<string>({ data: entries });
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
     <Select.Multiple<string, Range>
       resourceName="Range"
-      value={value}
-      onChange={onChange}
       data={data}
+      icon={<Icon.Range />}
       renderTag={renderTag}
-      {...rest}
+      onFetchMore={onFetchMore}
+      onSearch={onSearch}
+      {...props}
     >
       {listItem}
     </Select.Multiple>
@@ -112,6 +112,7 @@ const SelectRange = ({ value, onChange }: SelectSingleRangeProps): ReactElement 
       value={value}
       onChange={onChange}
       data={data}
+      icon={<Icon.Range />}
     >
       {listItem}
     </Select.Single>
