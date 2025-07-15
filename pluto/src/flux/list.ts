@@ -162,16 +162,14 @@ export const createList =
           setResult((p) => pendingResult(name, "retrieving", p.data ?? []));
           if (mode === "replace") hasMoreRef.current = true;
           else if (mode === "append" && !hasMoreRef.current) return;
-          console.log("retrieving", params);
           const value = await retrieve({ client, params });
-          console.log("value", value);
           if (value.length === 0) hasMoreRef.current = false;
           const keys = value.map((v) => v.key);
           if (
             resultRef.current.data != null &&
             compare.primitiveArrays(resultRef.current.data, keys) === compare.EQUAL
           )
-            return;
+            return setResult((p) => successResult(name, "retrieved", p.data ?? []));
 
           value.forEach((v) => {
             if (filter(v)) dataRef.current.set(v.key, v);
