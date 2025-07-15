@@ -16,6 +16,5 @@ export * from "@/list/Item";
 export * from "@/list/List";
 export * from "@/list/Search";
 export * from "@/list/Selector";
-export * from "@/list/Synchronizer";
 export * from "@/list/types";
 export * from "@/list/useSelect";
