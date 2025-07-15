@@ -91,15 +91,15 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           if (!(e instanceof Error)) throw e;
           return [outCtx, shouldCastToUnreachable(e) ? new Unreachable({ url }) : e];
         }
-        let data = new ArrayBuffer();
         if (httpRes.ok) {
           if (resSchema != null) {
-            data = await httpRes.arrayBuffer();
+            const data = await httpRes.arrayBuffer();
             res = this.encoder.decode<RS>(data, resSchema);
           } else res = httpRes;
 
           return [outCtx, null];
         }
+        const data = await httpRes.arrayBuffer();
         try {
           if (httpRes.status !== HTTP_STATUS_BAD_REQUEST)
             return [outCtx, new Error(httpRes.statusText)];
