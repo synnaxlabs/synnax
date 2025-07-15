@@ -15,11 +15,11 @@ import { channel } from "@/channel";
 
 const csvRequestZ = z.object({
   keys: channel.keyZ.array(),
-  timeRange: TimeRange.z,
+  timeRange: TimeRange.z.default(TimeRange.MAX),
   channelNames: z.record(channel.keyStringZ, z.string()).optional(),
 });
 
-type CSVRequest = z.infer<typeof csvRequestZ>;
+interface CSVRequest extends z.input<typeof csvRequestZ> {}
 
 export class Client {
   private readonly client: UnaryClient;
