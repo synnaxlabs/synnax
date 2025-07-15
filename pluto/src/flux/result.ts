@@ -13,27 +13,59 @@ import { caseconv, status } from "@synnaxlabs/x";
 import { type state } from "@/state";
 
 /**
- * The result of a query. The query can be in one of three states:
- * - `loading` - Data is currently being fetched.
+ * The result of a query operation that can be in one of three states:
+ * - `loading` - Data is currently being fetched from the server
  * - `error` - An error occurred while fetching data, or while handling values provided
- * to a listener.
- * - `success` - Data was successfully fetched and is available in the `data` field.
+ *   to a listener
+ * - `success` - Data was successfully fetched and is available in the `data` field
+ *
+ * @template Data The type of data being retrieved, must extend state.State
+ *
+ * @example
+ * ```typescript
+ * const result: Result<User[]> = {
+ *   variant: "success",
+ *   data: [{ id: 1, name: "John" }],
+ *   error: null,
+ *   message: "Retrieved users"
+ * };
+ * ```
  */
 export type Result<Data extends state.State> =
   | (status.Status<status.ExceptionDetails, "error"> & {
+      /** The data payload, null when in error state */
       data: null;
+      /** The error that occurred during the operation */
       error: unknown;
     })
   | (status.Status<undefined, "loading"> & {
+      /** The data payload, may be null or contain previous data while loading */
       data: null | Data;
+      /** No error in loading state */
       error: null;
     })
   | (status.Status<undefined, "success"> & {
+      /** The successfully retrieved data */
       data: Data;
+      /** No error in success state */
       error: null;
     });
 
-/** A factory function to create a loading result. */
+/**
+ * Factory function to create a loading result state.
+ *
+ * @template Data The type of data being retrieved
+ * @param name The name of the resource being retrieved (used in status messages)
+ * @param op The operation being performed (e.g., "retrieving", "updating")
+ * @param data Optional existing data to preserve during loading
+ * @returns A Result object in loading state
+ *
+ * @example
+ * ```typescript
+ * const loadingResult = pendingResult<User[]>("users", "retrieving");
+ * // Returns: { variant: "loading", data: null, error: null, message: "Retrieving users" }
+ * ```
+ */
 export const pendingResult = <Data extends state.State>(
   name: string,
   op: string,
@@ -47,7 +79,21 @@ export const pendingResult = <Data extends state.State>(
   error: null,
 });
 
-/** A factory function to create a success result. */
+/**
+ * Factory function to create a success result state.
+ *
+ * @template Data The type of data being retrieved
+ * @param name The name of the resource being retrieved (used in status messages)
+ * @param op The operation that was performed (e.g., "retrieved", "updated")
+ * @param data The successfully retrieved data
+ * @returns A Result object in success state
+ *
+ * @example
+ * ```typescript
+ * const successResult = successResult<User[]>("users", "retrieved", userList);
+ * // Returns: { variant: "success", data: userList, error: null, message: "Retrieved users" }
+ * ```
+ */
 export const successResult = <Data extends state.State>(
   name: string,
   op: string,
@@ -61,7 +107,21 @@ export const successResult = <Data extends state.State>(
   error: null,
 });
 
-/** A factory function to create an error result. */
+/**
+ * Factory function to create an error result state.
+ *
+ * @template Data The type of data being retrieved
+ * @param name The name of the resource being retrieved (used in status messages)
+ * @param op The operation that failed (e.g., "retrieve", "update")
+ * @param error The error that occurred
+ * @returns A Result object in error state
+ *
+ * @example
+ * ```typescript
+ * const errorResult = errorResult<User[]>("users", "retrieve", new Error("Network error"));
+ * // Returns: { variant: "error", data: null, error: Error, message: "Failed to retrieve users" }
+ * ```
+ */
 export const errorResult = <Data extends state.State>(
   name: string,
   op: string,
@@ -72,6 +132,20 @@ export const errorResult = <Data extends state.State>(
   error,
 });
 
+/**
+ * Factory function to create an error result for operations that require a connected client.
+ *
+ * @template Data The type of data being retrieved
+ * @param name The name of the resource being retrieved
+ * @param opName The operation that cannot be performed
+ * @returns A Result object in error state with a DisconnectedError
+ *
+ * @example
+ * ```typescript
+ * const result = nullClientResult<User[]>("users", "retrieve");
+ * // Returns error result with message: "Cannot retrieve users because no cluster is connected."
+ * ```
+ */
 export const nullClientResult = <Data extends state.State>(
   name: string,
   opName: string,

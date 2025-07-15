@@ -12,7 +12,7 @@ import { type MultiSeries } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 
 import { useMountSynchronizers } from "@/flux/listeners";
-import { type Params } from "@/flux/params";
+import { type AsyncOptions, type Params } from "@/flux/params";
 import {
   errorResult,
   nullClientResult,
@@ -26,12 +26,21 @@ import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
+/**
+ * Extra arguments passed to retrieve listener handlers.
+ *
+ * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Data The type of data being retrieved
+ */
 interface RetrieveListenerExtraArgs<
   RetrieveParams extends Params,
   Data extends state.State,
 > {
+  /** The current retrieve parameters */
   params: RetrieveParams;
+  /** The Synnax client instance */
   client: Synnax;
+  /** Function that updates the query data when a new value is received */
   onChange: state.Setter<Data>;
 }
 
@@ -41,14 +50,17 @@ interface RetrieveListenerExtraArgs<
  * choose to update the state of the query by calling the `onChange` function.
  *
  * The listener will not be called if the query is in a loading or an error state.
+ *
+ * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Data The type of data being retrieved
  */
 export interface RetrieveListenerConfig<
   RetrieveParams extends Params,
   Data extends state.State,
 > {
-  /** The channel to listen to. */
+  /** The channel to listen to for real-time updates */
   channel: channel.Name;
-  /** The function to call when a new value is received. */
+  /** The function to call when a new value is received from the channel */
   onChange: Sync.ListenerHandler<
     MultiSeries,
     RetrieveListenerExtraArgs<RetrieveParams, Data>
@@ -56,89 +68,137 @@ export interface RetrieveListenerConfig<
 }
 
 /**
- * Arguments passed to the `retrieve` function on the query.
+ * Arguments passed to the `retrieve` function when executing a query.
+ *
+ * @template RetrieveParams The type of parameters for the retrieve operation
  */
 export interface RetrieveArgs<RetrieveParams extends Params> {
+  /** The Synnax client instance for making requests */
   client: Synnax;
+  /** The parameters for the retrieve operation */
   params: RetrieveParams;
 }
 
 /**
- * Arguments passed to the `useBase` hook.
- * @template QParams - The type of the parameters for the query.
- * @template Data - The type of the data being retrieved.
+ * Configuration arguments for creating a retrieve query.
+ *
+ * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Data The type of data being retrieved
  */
 export interface CreateRetrieveArgs<
   RetrieveParams extends Params,
   Data extends state.State,
 > {
   /**
-   * The name of the resource being retrieve. This is used to make pretty messages for
+   * The name of the resource being retrieved. This is used to make pretty messages for
    * the various query states.
    */
   name: string;
-  /** Executed when the query is first created, or whenever the query parameters change. */
+  /** Function executed when the query is evaluated or the query parameters change. */
   retrieve: (args: RetrieveArgs<RetrieveParams>) => Promise<Data>;
   /**
    * Listeners to mount to the query. These listeners will be re-mounted when
-   * the query parameters changed and/or the client disconnects/re-connects or clusters
+   * the query parameters change and/or the client disconnects/re-connects or clusters
    * are switched.
    *
    * These listeners will NOT be remounted when the identity of the onChange function
-   * changes.
+   * changes, as the onChange function should be static.
    */
   listeners?: RetrieveListenerConfig<RetrieveParams, Data>[];
 }
 
+/**
+ * Arguments for the observable retrieve hook.
+ *
+ * @template V The type of data being retrieved
+ */
 export interface UseObservableRetrieveArgs<V extends state.State> {
+  /** Callback function to handle state changes */
   onChange: state.Setter<Result<V>>;
 }
 
-export interface AsyncOptions {
-  signal?: AbortSignal;
-}
-
+/**
+ * Return type for the observable retrieve hook.
+ *
+ * @template RetrieveParams The type of parameters for the retrieve operation
+ */
 export interface UseObservableRetrieveReturn<RetrieveParams extends Params> {
+  /** Function to trigger a retrieve operation (fire-and-forget) */
   retrieve: (
     params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
     options?: AsyncOptions,
   ) => void;
+  /** Function to trigger a retrieve operation and await the result */
   retrieveAsync: (
     params: state.SetArg<RetrieveParams, Partial<RetrieveParams>>,
     options?: AsyncOptions,
   ) => Promise<void>;
 }
 
+/**
+ * Return type for the stateful retrieve hook, combining result state with retrieve functions.
+ *
+ * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Data The type of data being retrieved
+ */
 export type UseStatefulRetrieveReturn<
-  P extends Params,
-  V extends state.State,
-> = Result<V> & UseObservableRetrieveReturn<P>;
+  RetrieveParams extends Params,
+  Data extends state.State,
+> = Result<Data> & UseObservableRetrieveReturn<RetrieveParams>;
 
+/**
+ * Arguments for the direct retrieve hook.
+ *
+ * @template RetrieveParams The type of parameters for the retrieve operation
+ */
 export interface UseDirectRetrieveArgs<RetrieveParams extends Params> {
+  /** Parameters for the retrieve operation */
   params: RetrieveParams;
 }
 
-export type UseDirectRetrieveReturn<V extends state.State> = Result<V>;
+/**
+ * Return type for the direct retrieve hook.
+ *
+ * @template Data The type of data being retrieved
+ */
+export type UseDirectRetrieveReturn<Data extends state.State> = Result<Data>;
 
+/**
+ * Arguments for the effect retrieve hook.
+ *
+ * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Data The type of data being retrieved
+ */
 export interface UseEffectRetrieveArgs<
   RetrieveParams extends Params,
-  V extends state.State,
-> extends UseObservableRetrieveArgs<V> {
+  Data extends state.State,
+> extends UseObservableRetrieveArgs<Data> {
+  /** Parameters for the retrieve operation */
   params: RetrieveParams;
 }
 
+/**
+ * Return type for the createRetrieve function.
+ *
+ * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Data The type of data being retrieved
+ */
 export interface CreateRetrieveReturn<
   RetrieveParams extends Params,
-  V extends state.State,
+  Data extends state.State,
 > {
+  /** Hook that provides retrieve functions with external state management */
   useDirect: (
     args: UseDirectRetrieveArgs<RetrieveParams>,
-  ) => UseDirectRetrieveReturn<V>;
+  ) => UseDirectRetrieveReturn<Data>;
+  /** Hook that provides retrieve functions for external state management */
   useObservable: (
-    args: UseObservableRetrieveArgs<V>,
+    args: UseObservableRetrieveArgs<Data>,
   ) => UseObservableRetrieveReturn<RetrieveParams>;
-  useStateful: () => UseStatefulRetrieveReturn<RetrieveParams, V>;
-  useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, V>) => void;
+  /** Hook that provides retrieve functions with internal state management */
+  useStateful: () => UseStatefulRetrieveReturn<RetrieveParams, Data>;
+  /** Hook that automatically triggers retrieve operations based on parameter changes */
+  useEffect: (args: UseEffectRetrieveArgs<RetrieveParams, Data>) => void;
 }
 
 const useObservable = <RetrieveParams extends Params, Data extends state.State>({
@@ -254,6 +314,66 @@ const useEffect = <RetrieveParams extends Params, Data extends state.State>({
   );
 };
 
+/**
+ * Creates a retrieve query system that provides hooks for fetching data.
+ *
+ * This function creates a set of React hooks that handle data retrieval with
+ * proper loading states, error handling, caching, and real-time updates. It provides
+ * multiple hook variants for different use cases:
+ *
+ * - `useObservable`: For external state management.
+ * - `useStateful`: For internal state management with manual control of query execution.
+ * - `useDirect`: For automatic retrieval based on parameters.
+ * - `useEffect`: For side-effect based retrieval.
+ *
+ * @template RetrieveParams The type of parameters for the retrieve operation
+ * @template Data The type of data being retrieved
+ * @param factoryArgs Configuration object containing the retrieve function and resource name
+ * @returns Object containing hooks for different retrieve patterns
+ *
+ * @example
+ * ```typescript
+ * interface UserRetrieveParams extends Params {
+ *   userId: number;
+ *   includeProfile?: boolean;
+ * }
+ *
+ * interface User {
+ *   id: number;
+ *   name: string;
+ *   email: string;
+ * }
+ *
+ * const userRetrieve = createRetrieve<UserRetrieveParams, User>({
+ *   name: "user",
+ *   retrieve: async ({ params, client }) => {
+ *     return await client.users.get(params.userId, {
+ *       includeProfile: params.includeProfile
+ *     });
+ *   },
+ *   listeners: [
+ *     {
+ *       channel: "user_updates",
+ *       onChange: ({ changed, params, onChange }) => {
+ *         const updatedUser = changed.get("user_updates");
+ *         if (updatedUser.id === params.userId) {
+ *           onChange(updatedUser);
+ *         }
+ *       }
+ *     }
+ *   ]
+ * });
+ *
+ * // Usage with automatic retrieval
+ * const { data, variant, error } = userRetrieve.useDirect({
+ *   params: { userId: 123, includeProfile: true }
+ * });
+ *
+ * // Usage with manual control
+ * const { data, variant, error, retrieve } = userRetrieve.useStateful();
+ * retrieve({ userId: 123 });
+ * ```
+ */
 export const createRetrieve = <RetrieveParams extends Params, Data extends state.State>(
   factoryArgs: CreateRetrieveArgs<RetrieveParams, Data>,
 ): CreateRetrieveReturn<RetrieveParams, Data> => ({

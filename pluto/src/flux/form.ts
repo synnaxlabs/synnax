@@ -18,6 +18,12 @@ import { Form } from "@/form";
 import { useCombinedStateAndRef } from "@/hooks";
 import { state } from "@/state";
 
+/**
+ * Configuration arguments for creating a form query.
+ *
+ * @template FormParams The type of parameters for the form query
+ * @template DataSchema The Zod schema type for form validation
+ */
 export interface CreateFormArgs<
   FormParams extends Params,
   DataSchema extends z.ZodObject,
@@ -25,9 +31,15 @@ export interface CreateFormArgs<
     CreateUpdateArgs<FormParams, z.infer<DataSchema>> {
   /** Zod schema for form validation */
   schema: DataSchema;
+  /** Default values to use when creating new forms */
   initialValues: z.infer<DataSchema>;
 }
 
+/**
+ * Return type for the form hook, providing form management utilities.
+ *
+ * @template DataSchema The Zod schema type for form validation
+ */
 export type UseFormReturn<DataSchema extends z.ZodObject> = Omit<
   Result<z.infer<DataSchema>>,
   "data"
@@ -38,32 +50,89 @@ export type UseFormReturn<DataSchema extends z.ZodObject> = Omit<
   save: () => void;
 };
 
+/**
+ * Arguments passed to the afterSave callback.
+ *
+ * @template FormParams The type of parameters for the form query
+ * @template Z The Zod schema type for form validation
+ */
 export interface AfterSaveArgs<FormParams extends Params, Z extends z.ZodObject> {
+  /** The form management utilities */
   form: Form.UseReturn<Z>;
+  /** The current form parameters */
   params: FormParams;
 }
 
+/**
+ * Arguments for using a form hook.
+ *
+ * @template FormParams The type of parameters for the form query
+ * @template Z The Zod schema type for form validation
+ */
 export interface UseFormArgs<FormParams extends Params, Z extends z.ZodObject> {
   /** Initial values for the form fields */
   initialValues?: z.infer<Z>;
   /** Whether to automatically save form changes (not currently implemented) */
   autoSave?: boolean;
+  /** Parameters for the form query */
   params: FormParams;
+  /** Callback function called after successful save */
   afterSave?: (args: AfterSaveArgs<FormParams, Z>) => void;
 }
 
+/**
+ * Form hook function signature.
+ *
+ * @template FormParams The type of parameters for the form query
+ * @template Z The Zod schema type for form validation
+ */
 export interface UseForm<FormParams extends Params, Z extends z.ZodObject> {
   (args: UseFormArgs<FormParams, Z>): UseFormReturn<Z>;
 }
 
 /**
- * Form query hook that combines data fetching, form management, and real-time updates.
- * Automatically handles form validation, saving, and syncing with server state.
+ * Creates a form query hook that combines data fetching, form management, and real-time updates.
  *
- * @template K - The type of the key parameter (must be a primitive value)
- * @template Z - The Zod schema type for form validation
- * @param config - Configuration object with form schema, update function, and query settings
- * @returns Form management utilities and query state
+ * This function creates a React hook that automatically handles:
+ * - Data fetching with loading states
+ * - Form validation using Zod schemas
+ * - Automatic form saving and persistence
+ * - Real-time synchronization with server state
+ * - Error handling and user feedback
+ *
+ * @template FormParams The type of parameters for the form query
+ * @template Schema The Zod schema type for form validation
+ * @param config Configuration object with form schema, update function, and query settings
+ * @returns A React hook for managing the form
+ *
+ * @example
+ * ```typescript
+ * const userSchema = z.object({
+ *   name: z.string().min(1),
+ *   email: z.string().email(),
+ *   age: z.number().optional()
+ * });
+ *
+ * const useUserForm = createForm({
+ *   name: "user",
+ *   schema: userSchema,
+ *   initialValues: { name: "", email: "", age: undefined },
+ *   retrieve: async ({ params, client }) => {
+ *     return await client.users.retrieve(params.userId);
+ *   },
+ *   update: async ({ value, params, client }) => {
+ *     await client.users.update(params.userId, value);
+ *   }
+ * });
+ *
+ * // Usage in component
+ * const { form, save, variant } = useUserForm({
+ *   params: { userId: 123 },
+ *   afterSave: ({ form }) => {
+ *     console.log("User saved:", form.value());
+ *   }
+ * });
+ * ```
  */
 export const createForm = <FormParams extends Params, Schema extends z.ZodObject>({
   name,
@@ -79,6 +148,7 @@ export const createForm = <FormParams extends Params, Schema extends z.ZodObject
     listeners,
   });
   const updateHook = createUpdate<FormParams, z.infer<Schema>>({ name, update });
+
   return ({ params, initialValues, autoSave = false, afterSave }) => {
     const [result, setResult, resultRef] = useCombinedStateAndRef<
       Result<z.infer<Schema> | null>
