@@ -7,16 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package compress_test
+package payload
 
-import (
-	"testing"
+import "github.com/synnaxlabs/freighter"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-func TestCompress(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Compress Suite")
+type Message struct {
+	ID      int    `json:"id" msgpack:"id"`
+	Message string `json:"message" msgpack:"message"`
 }
+
+type ServerStream = freighter.ServerStream[Message, Message]

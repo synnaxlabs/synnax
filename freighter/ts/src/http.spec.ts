@@ -30,12 +30,9 @@ const messageZ = z.object({
 
 describe("http", () => {
   test("echo", async () => {
-    const [response, error] = await client.send<typeof messageZ>(
+    const [response, error] = await client.send(
       "/echo",
-      {
-        id: 1,
-        message: "hello",
-      },
+      { id: 1, message: "hello" },
       messageZ,
       messageZ,
     );
@@ -44,14 +41,21 @@ describe("http", () => {
   });
 
   test("not found", async () => {
-    const [response, error] = await client.send<typeof messageZ>(
-      "/not-found",
-      {},
-      messageZ,
-      messageZ,
-    );
+    const [response, error] = await client.send("/not-found", {}, messageZ, messageZ);
     expect(error?.message).toEqual("Not Found");
     expect(response).toBeNull();
+  });
+
+  test("getReader", async () => {
+    const [response, error] = await client.send(
+      "/getReader",
+      { id: 1, message: "hello" },
+      messageZ,
+    );
+    expect(error).toBeNull();
+    expect(response).toBeInstanceOf(Response);
+    const body = await response?.text();
+    expect(body).toEqual("hello");
   });
 
   test("middleware", async () => {
@@ -59,7 +63,7 @@ describe("http", () => {
       md.params.Test = "test";
       return await next(md);
     });
-    const [response, error] = await client.send<typeof messageZ>(
+    const [response, error] = await client.send(
       "/middlewareCheck",
       {},
       messageZ,
@@ -79,12 +83,7 @@ describe("http", () => {
       }),
       new binary.JSONCodec(),
     );
-    const [response, error] = await c.send<typeof messageZ>(
-      "/unreachable",
-      {},
-      messageZ,
-      messageZ,
-    );
+    const [response, error] = await c.send("/unreachable", {}, messageZ, messageZ);
     expect(error).toBeInstanceOf(Unreachable);
     expect(error?.message).toEqual("Unreachable");
     expect(response).toBeNull();

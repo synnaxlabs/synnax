@@ -162,15 +162,15 @@ func embeddedGuard(r Rack) error {
 func (svc *HardwareService) DeleteRack(
 	ctx context.Context,
 	req HardwareDeleteRackRequest,
-) (res types.Nil, _ error) {
+) (types.Nil, error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
 		Objects: rack.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, svc.WithTx(ctx, func(tx gorp.Tx) error {
 		exists, err := svc.internal.Device.NewRetrieve().WhereRacks(req.Keys...).Exists(ctx, tx)
 		if err != nil {
 			return err
@@ -304,15 +304,15 @@ type HardwareDeleteTaskRequest struct {
 func (svc *HardwareService) DeleteTask(
 	ctx context.Context,
 	req HardwareDeleteTaskRequest,
-) (res types.Nil, _ error) {
+) (types.Nil, error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
 		Objects: task.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, svc.WithTx(ctx, func(tx gorp.Tx) error {
 		w := svc.internal.Task.NewWriter(tx)
 		for _, k := range req.Keys {
 			if err := w.Delete(ctx, k, false); err != nil {
@@ -475,15 +475,15 @@ type HardwareDeleteDeviceRequest struct {
 	Keys []string `json:"keys" msgpack:"keys"`
 }
 
-func (svc *HardwareService) DeleteDevice(ctx context.Context, req HardwareDeleteDeviceRequest) (res types.Nil, _ error) {
+func (svc *HardwareService) DeleteDevice(ctx context.Context, req HardwareDeleteDeviceRequest) (types.Nil, error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
 		Objects: device.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, svc.WithTx(ctx, func(tx gorp.Tx) error {
 		w := svc.internal.Device.NewWriter(tx)
 		for _, k := range req.Keys {
 			if err := w.Delete(ctx, k); err != nil {

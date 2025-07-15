@@ -103,8 +103,21 @@ jobs:
   integration:
     name: Test - Integration
     needs: changes
-    runs-on: ubuntu-latest
     if: needs.changes.outputs.integration == 'true'
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
+        exclude:
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'macos-latest' }}
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'windows-latest' }}
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -116,7 +129,12 @@ jobs:
           cache-dependency-path: go.work.sum
 
       - name: Check Formatting
+        if: matrix.format
         run: ./scripts/check-gofmt.sh freighter/integration
+
+      - name: Test
+        run: go run github.com/onsi/ginkgo/v2/ginkgo -r --github-output
+        working-directory: freighter/integration
 
   py:
     name: Test - Python

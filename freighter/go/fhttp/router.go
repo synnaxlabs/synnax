@@ -38,17 +38,17 @@ type RouterConfig struct {
 var _ config.Config[RouterConfig] = RouterConfig{}
 
 // Validate implements config.Config.
-func (r RouterConfig) Validate() error { return nil }
+func (rc RouterConfig) Validate() error { return nil }
 
 // Override implements config.Config.
-func (r RouterConfig) Override(other RouterConfig) RouterConfig {
-	r.Instrumentation = override.Zero(r.Instrumentation, other.Instrumentation)
-	r.StreamWriteDeadline = override.Numeric(r.StreamWriteDeadline, other.StreamWriteDeadline)
-	return r
+func (rc RouterConfig) Override(other RouterConfig) RouterConfig {
+	rc.Instrumentation = override.Zero(rc.Instrumentation, other.Instrumentation)
+	rc.StreamWriteDeadline = override.Numeric(rc.StreamWriteDeadline, other.StreamWriteDeadline)
+	return rc
 }
 
-func NewRouter(configs ...RouterConfig) *Router {
-	cfg, err := config.New(RouterConfig{}, configs...)
+func NewRouter(cfgs ...RouterConfig) *Router {
+	cfg, err := config.New(RouterConfig{}, cfgs...)
 	if err != nil {
 		panic(err)
 	}
@@ -95,13 +95,11 @@ func (r *Router) BindTo(app *fiber.App) {
 	}
 }
 
-func (r *Router) Report() alamos.Report {
-	return alamos.Report{}
-}
+func (r *Router) Report() alamos.Report { return alamos.Report{} }
 
-func (r *Router) Use(middleware ...freighter.Middleware) {
+func (r *Router) Use(middlewares ...freighter.Middleware) {
 	for _, route := range r.routes {
-		route.transport.Use(middleware...)
+		route.transport.Use(middlewares...)
 	}
 }
 
@@ -141,7 +139,6 @@ func UnaryServer[RQ, RS freighter.Payload](r *Router, path string, opts ...Serve
 	us := &unaryServer[RQ, RS]{
 		serverOptions: newServerOptions(opts),
 		Reporter:      unaryReporter,
-		path:          path,
 	}
 	r.register(path, "POST", us, us.fiberHandler)
 	return us

@@ -18,9 +18,8 @@ import (
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/control"
@@ -91,7 +90,7 @@ func translateFrameBackward(f *gapi.Frame) api.Frame {
 	if f == nil {
 		return api.Frame{}
 	}
-	return core.MultiFrame(
+	return frame.NewMulti(
 		translateChannelKeysBackward(f.Keys),
 		telem.TranslateManySeriesBackward(f.Series),
 	)

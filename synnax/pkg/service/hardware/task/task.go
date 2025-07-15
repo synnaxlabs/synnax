@@ -10,6 +10,7 @@
 package task
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -21,6 +22,8 @@ import (
 )
 
 type Key uint64
+
+var _ json.Unmarshaler = (*Key)(nil)
 
 func NewKey(rack rack.Key, localKey uint32) Key {
 	return Key(uint64(rack)<<32 | uint64(localKey))

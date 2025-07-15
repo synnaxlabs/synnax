@@ -10,10 +10,11 @@
 package deleter
 
 import (
+	"go/types"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 )
 
 type (

@@ -14,7 +14,6 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -40,7 +39,7 @@ type ClusterInfo struct {
 type ConnectivityCheckResponse = ClusterInfo
 
 // Check does nothing except return a success response.
-func (c *ConnectivityService) Check(_ context.Context, _ types.Nil) (ConnectivityCheckResponse, error) {
+func (c *ConnectivityService) Check(context.Context, types.Nil) (ConnectivityCheckResponse, error) {
 	return ConnectivityCheckResponse{
 		ClusterKey:  c.clusterProvider.cluster.Key().String(),
 		NodeVersion: version.Get(),

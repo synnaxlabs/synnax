@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package latency
+package fmtls_test
 
 import (
-	"github.com/synnaxlabs/freighter"
-	"time"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func Middleware(delay time.Duration) freighter.Middleware {
-	return freighter.MiddlewareFunc(func(
-		ctx freighter.Context,
-		next freighter.Next,
-	) (oMD freighter.Context, err error) {
-		time.Sleep(delay)
-		return next(ctx)
-	})
+func TestFMTLS(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "FMTLS Suite")
 }
