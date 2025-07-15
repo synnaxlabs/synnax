@@ -92,10 +92,6 @@ export const Selector = (): ReactElement => {
       <Align.Pack y style={{ width: 500, height: 200 }}>
         <Cluster.NoneConnectedBoundary bordered borderShade={5} background={1}>
           <List.List>
-            <List.Synchronizer
-              useSetSynchronizer={Workspace.useSetSynchronizer}
-              useDeleteSynchronizer={Workspace.useDeleteSynchronizer}
-            />
             <List.Selector
               value={active?.key ?? null}
               onChange={handleChange}
