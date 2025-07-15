@@ -125,14 +125,6 @@ describe("Task", async () => {
     });
   });
 
-  describe("list", () => {
-    it("should list all tasks", async () => {
-      await testRack.createTask({ name: "test", config: { a: "dog" }, type: "ni" });
-      const tasks = await client.hardware.tasks.list();
-      expect(tasks.length).toBeGreaterThan(0);
-    });
-  });
-
   describe("executeCommand", () => {
     it("should execute a command on a task", async () => {
       const type = "testCmd";
@@ -160,35 +152,6 @@ describe("Task", async () => {
         type: "ni",
       });
       await expect(t.executeCommandSync("test", 0)).rejects.toThrow("timed out");
-    });
-    it("should execute synchronously if timeout is large enough", async () => {
-      const t = await testRack.createTask({
-        name: "test",
-        config: {},
-        type: "ni",
-      });
-      const commandObs = await t.openCommandObserver();
-      const w = await client.openWriter([task.STATUS_CHANNEL_NAME]);
-      commandObs.onChange((cmd) => {
-        void (async () => {
-          const status: task.Status = {
-            key: cmd.key,
-            variant: "success",
-            details: { task: cmd.task, running: false, data: { beacons: "lit" } },
-            message: "test",
-            time: TimeStamp.now(),
-          };
-          await w.write(task.STATUS_CHANNEL_NAME, [status]);
-        })();
-      });
-      const status = await t.executeCommandSync("test", TimeSpan.fromSeconds(1));
-      expect(status.variant).toBe("success");
-      expect(status.details).toMatchObject({
-        data: { beacons: "lit" },
-        running: false,
-      });
-      await w.close();
-      await commandObs.close();
     });
   });
 });

@@ -88,27 +88,5 @@ describe("Ontology", () => {
       expect(rel.to.type).toEqual("schematic");
       expect(rel.to.key).toEqual("keyB");
     });
-    it("should correctly propagate resource changes to the ontology", async () => {
-      const change = await client.ontology.openChangeTracker();
-      const p = new Promise<ontology.ResourceChange[]>((resolve) =>
-        change.resources.onChange((changes) => resolve(changes)),
-      );
-      await client.ontology.groups.create(ontology.ROOT_ID, randomName());
-      const c = await p;
-      expect(c.length).toBeGreaterThan(0);
-      await change.close();
-    });
-    it("should correctly propagate relationship changes to the ontology", async () => {
-      const change = await client.ontology.openChangeTracker();
-      const p = new Promise<ontology.RelationshipChange[]>((resolve) => {
-        change.relationships.onChange((changes) => {
-          resolve(changes);
-        });
-      });
-      await client.ontology.groups.create(ontology.ROOT_ID, randomName());
-      const c = await p;
-      expect(c.length).toBeGreaterThan(0);
-      await change.close();
-    });
   });
 });

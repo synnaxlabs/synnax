@@ -90,7 +90,7 @@ export interface ListParams extends Flux.Params {
 export const useList = Flux.createList<ListParams, task.Key, task.Task>({
   name: "Task",
   retrieve: async ({ client, params }) =>
-    await client.hardware.tasks.list({ ...params, includeStatus: true }),
+    await client.hardware.tasks.retrieve({ ...params, includeStatus: true }),
   retrieveByKey: async ({ client, key }) =>
     await client.hardware.tasks.retrieve({ key }),
   listeners: [

@@ -30,7 +30,11 @@ export class MockRetriever implements channel.Retriever {
     throw new Error("Method not implemented.");
   }
 
-  async retrieve(channels: channel.Params): Promise<channel.Payload[]> {
+  async retrieve(
+    channels: channel.Params | channel.RetrieveRequest,
+  ): Promise<channel.Payload[]> {
+    if (typeof channels === "object" && !Array.isArray(channels))
+      throw new Error("not implemented");
     const { normalized } = channel.analyzeParams(channels);
     return normalized.map(
       (key) =>

@@ -19,7 +19,6 @@ export interface ListParams extends Flux.Params {
 
 export const useList = Flux.createList<ListParams, rack.Key, rack.Rack>({
   name: "Racks",
-  retrieve: async ({ client, params }) =>
-    await client.hardware.racks.search(params.term ?? ""),
+  retrieve: async ({ client, params }) => await client.hardware.racks.retrieve(params),
   retrieveByKey: async ({ client, key }) => await client.hardware.racks.retrieve(key),
 });

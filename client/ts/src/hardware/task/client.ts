@@ -13,12 +13,9 @@ import { array } from "@synnaxlabs/x/array";
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
-import { framer } from "@/framer";
+import { type framer } from "@/framer";
 import { keyZ as rackKeyZ } from "@/hardware/rack/payload";
 import {
-  type Command,
-  type CommandObservable,
-  commandZ,
   type Key,
   keyZ,
   type New,
@@ -26,14 +23,12 @@ import {
   ONTOLOGY_TYPE,
   type Payload,
   type Schemas,
-  type StateObservable,
   type Status,
   statusZ,
   taskZ,
 } from "@/hardware/task/payload";
 import { type ontology } from "@/ontology";
 import { type ranger } from "@/ranger";
-import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
 
 export const STATUS_CHANNEL_NAME = "sy_task_status";
@@ -146,46 +141,6 @@ export class Task<
       this.name,
       this.schemas?.statusDataSchema,
       args,
-    );
-  }
-
-  async openStateObserver(): Promise<StateObservable<StatusData>> {
-    if (this.frameClient == null) throw NOT_CREATED_ERROR;
-    return new framer.ObservableStreamer<Status<StatusData>>(
-      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
-      (frame) => {
-        const s = frame.get(STATUS_CHANNEL_NAME);
-        if (s.length === 0) return [null, false];
-        const parse = statusZ<StatusData>(this.schemas?.statusDataSchema).safeParse(
-          s.at(-1),
-        );
-        if (!parse.success) {
-          console.error(parse.error);
-          return [null, false];
-        }
-        const status = parse.data;
-        if (status.details.task !== this.key) return [null, false];
-        return [status, true];
-      },
-    );
-  }
-
-  async openCommandObserver(): Promise<CommandObservable> {
-    if (this.frameClient == null) throw NOT_CREATED_ERROR;
-    return new framer.ObservableStreamer<Command>(
-      await this.frameClient.openStreamer(COMMAND_CHANNEL_NAME),
-      (frame) => {
-        const s = frame.get(COMMAND_CHANNEL_NAME);
-        if (s.length === 0) return [null, false];
-        const parse = commandZ.safeParse(s.at(-1));
-        if (!parse.success) {
-          console.error(parse.error);
-          return [null, false];
-        }
-        const cmd = parse.data;
-        if (cmd.task !== this.key) return [null, false];
-        return [cmd, true];
-      },
     );
   }
 
@@ -329,18 +284,6 @@ export class Client {
       deleteReqZ,
       deleteResZ,
     );
-  }
-
-  async search(term: string): Promise<Payload[]> {
-    return await this.execRetrieve({ keys: [term] });
-  }
-
-  async page(offset: number, limit: number): Promise<Payload[]> {
-    return await this.execRetrieve({ offset, limit });
-  }
-
-  async list(options: RetrieveOptions = {}): Promise<Task[]> {
-    return this.sugar(await this.execRetrieve(options));
   }
 
   async retrieve<
@@ -535,54 +478,6 @@ export class Client {
       name ?? retrieveName,
       statusDataZ,
       args,
-    );
-  }
-
-  async openTracker(): Promise<signals.Observable<string, string>> {
-    return await signals.openObservable<string, string>(
-      this.frameClient,
-      SET_CHANNEL_NAME,
-      DELETE_CHANNEL_NAME,
-      (variant, data) =>
-        Array.from(data).map((k) => ({
-          variant,
-          key: k.toString(),
-          value: k.toString(),
-        })),
-    );
-  }
-
-  async openStateObserver<StatusData extends z.ZodType = z.ZodType>(
-    stateSchema: z.ZodType<StatusData> = z.unknown() as unknown as z.ZodType<StatusData>,
-  ): Promise<StateObservable<StatusData>> {
-    return new framer.ObservableStreamer<Status<StatusData>>(
-      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
-      (frame) => {
-        const s = frame.get(STATUS_CHANNEL_NAME);
-        if (s.length === 0) return [null, false];
-        const parse = statusZ(stateSchema).safeParse(s.at(-1));
-        if (!parse.success) {
-          console.error(parse.error);
-          return [null, false];
-        }
-        return [parse.data, true];
-      },
-    );
-  }
-
-  async openCommandObserver(): Promise<CommandObservable> {
-    return new framer.ObservableStreamer<Command>(
-      await this.frameClient.openStreamer(COMMAND_CHANNEL_NAME),
-      (frame) => {
-        const s = frame.get(COMMAND_CHANNEL_NAME);
-        if (s.length === 0) return [null, false];
-        const parse = commandZ.safeParse(s.at(-1) as unknown as Command);
-        if (!parse.success) {
-          console.error(parse.error);
-          return [null, false];
-        }
-        return [parse.data, true];
-      },
     );
   }
 }

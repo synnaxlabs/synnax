@@ -40,7 +40,6 @@ export * from "@/renderable";
 export * from "@/replace";
 export * from "@/runtime";
 export * from "@/runtime";
-export * from "@/search";
 export * from "@/shallowCopy";
 export * from "@/sleep";
 export * from "@/spatial";

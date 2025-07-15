@@ -9,7 +9,6 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import {
   type CrudeDensity,
   type CrudeTimeStamp,
@@ -37,6 +36,7 @@ import {
   DebouncedBatchRetriever,
   type RetrieveOptions,
   type Retriever,
+  type RetrieveRequest,
 } from "@/channel/retriever";
 import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
@@ -216,7 +216,7 @@ const retrieveGroupResZ = z.object({ group: group.groupZ });
  * cluster. This class should not be instantiated directly, and instead should be used
  * through the `channels` property of an {@link Synnax} client.
  */
-export class Client implements AsyncTermSearcher<string, Key, Channel> {
+export class Client {
   readonly type = ONTOLOGY_TYPE;
   private readonly frameClient: framer.Client;
   private readonly client: UnaryClient;
@@ -353,6 +353,8 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    */
   async retrieve(channels: Params, options?: RetrieveOptions): Promise<Channel[]>;
 
+  async retrieve(request: RetrieveRequest): Promise<Channel[]>;
+
   /**
    * Retrieves a channel from the database using the given parameters.
    *
@@ -361,17 +363,16 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
   async retrieve(
-    channels: Params,
+    channels: Params | RetrieveRequest,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
+    if (typeof channels === "object" && !Array.isArray(channels))
+      return this.sugar(await this.retriever.retrieve(channels));
+
     const isSingle = !Array.isArray(channels);
     const res = this.sugar(await this.retriever.retrieve(channels, options));
-    checkForMultipleOrNoResults("channel", channels, res, isSingle);
+    checkForMultipleOrNoResults("channel", channels as Params, res, isSingle);
     return isSingle ? res[0] : res;
-  }
-
-  async search(term: string, options?: RetrieveOptions): Promise<Channel[]> {
-    return this.sugar(await this.retriever.search(term, options));
   }
 
   /***
@@ -389,26 +390,6 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   async rename(keys: Key[], names: string[]): Promise<void>;
   async rename(keys: Key | Key[], names: string | string[]): Promise<void> {
     return await this.writer.rename(array.toArray(keys), array.toArray(names));
-  }
-
-  newSearcherWithOptions(
-    options: RetrieveOptions,
-  ): AsyncTermSearcher<string, Key, Channel> {
-    return {
-      type: this.type,
-      search: async (term: string) => await this.search(term, options),
-      retrieve: async (keys: Key[]) => await this.retrieve(keys, options),
-      page: async (offset: number, limit: number) =>
-        await this.page(offset, limit, options),
-    };
-  }
-
-  async page(
-    offset: number,
-    limit: number,
-    options?: Omit<RetrieveOptions, "limit" | "offset">,
-  ): Promise<Channel[]> {
-    return this.sugar(await this.retriever.page(offset, limit, options));
   }
 
   createDebouncedBatchRetriever(deb: number = 10): Retriever {

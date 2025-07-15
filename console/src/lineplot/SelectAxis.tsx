@@ -63,6 +63,7 @@ export const SelectAxisInputItem = ({
     <Channel.SelectSingle
       onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
       value={value}
+      allowNone
       initialParams={SEARCH_OPTIONS}
       {...selectProps}
       style={{ width: "100%" }}

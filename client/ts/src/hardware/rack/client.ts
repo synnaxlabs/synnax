@@ -9,10 +9,8 @@
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x/array";
-import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
-import { framer } from "@/framer";
 import {
   type Key,
   keyZ,
@@ -22,7 +20,6 @@ import {
   type Payload,
   rackZ,
   type Status,
-  statusZ,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
 import { type ontology } from "@/ontology";
@@ -60,20 +57,14 @@ const deleteResZ = z.object({});
 
 export interface RetrieveOptions extends Pick<RetrieveRequest, "includeStatus"> {}
 
-export class Client implements AsyncTermSearcher<string, Key, Payload> {
+export class Client {
   readonly type = ONTOLOGY_TYPE;
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
-  private readonly frameClient: framer.Client;
 
-  constructor(
-    client: UnaryClient,
-    taskClient: task.Client,
-    frameClient: framer.Client,
-  ) {
+  constructor(client: UnaryClient, taskClient: task.Client) {
     this.client = client;
     this.tasks = taskClient;
-    this.frameClient = frameClient;
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
@@ -102,28 +93,6 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     return sugared;
   }
 
-  async search(term: string): Promise<Rack[]> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { search: term },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return this.sugar(res.racks);
-  }
-
-  async page(offset: number, limit: number): Promise<Rack[]> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { offset, limit },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return this.sugar(res.racks);
-  }
-
   async retrieve(key: string | Key, options?: RetrieveOptions): Promise<Rack>;
   async retrieve(keys: Key[], options?: RetrieveOptions): Promise<Rack[]>;
   async retrieve(
@@ -147,16 +116,6 @@ export class Client implements AsyncTermSearcher<string, Key, Payload> {
     const sugared = this.sugar(res.racks);
     checkForMultipleOrNoResults("Rack", racks, sugared, single);
     return single ? sugared[0] : sugared;
-  }
-
-  async openStatusObserver(): Promise<framer.ObservableStreamer<Status[]>> {
-    return new framer.ObservableStreamer<Status[]>(
-      await this.frameClient.openStreamer(STATUS_CHANNEL_NAME),
-      (fr) => {
-        const data = fr.get(STATUS_CHANNEL_NAME);
-        return [data.parseJSON(statusZ), data.length > 0];
-      },
-    );
   }
 
   sugar(payload: Payload): Rack;

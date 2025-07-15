@@ -12,9 +12,7 @@ import { array } from "@synnaxlabs/x/array";
 import { isObject } from "@synnaxlabs/x/identity";
 import { z } from "zod";
 
-import { type framer } from "@/framer";
 import { type Key, keyZ } from "@/ranger/payload";
-import { signals } from "@/signals";
 import { nullableArrayZ } from "@/util/zod";
 
 export const KV_SET_CHANNEL = "sy_range_kv_set";
@@ -40,12 +38,10 @@ export class KV {
   private static readonly DELETE_ENDPOINT = "/range/kv/delete";
   private readonly rangeKey: Key;
   private readonly client: UnaryClient;
-  private readonly frameClient: framer.Client;
 
-  constructor(rng: Key, client: UnaryClient, frameClient: framer.Client) {
+  constructor(rng: Key, client: UnaryClient) {
     this.rangeKey = rng;
     this.client = client;
-    this.frameClient = frameClient;
   }
 
   async get(key: string): Promise<string>;
@@ -93,26 +89,6 @@ export class KV {
       { range: this.rangeKey, keys: array.toArray(key) },
       deleteReqZ,
       z.unknown(),
-    );
-  }
-
-  async openTracker(): Promise<signals.Observable<string, KVPair>> {
-    return await signals.openObservable<string, KVPair>(
-      this.frameClient,
-      KV_SET_CHANNEL,
-      KV_DELETE_CHANNEL,
-      (variant, data) => {
-        if (variant === "delete")
-          return data.toStrings().map((combinedKey) => {
-            const [range, key] = combinedKey.split("<--->", 2);
-            return { variant, key: combinedKey, value: { range, key, value: "" } };
-          });
-        return data.parseJSON(kvPairZ).map((pair) => ({
-          variant,
-          key: `${pair.range}${pair.key}`,
-          value: pair,
-        }));
-      },
     );
   }
 }

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { observe, strings } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { QueryError } from "@/errors";
@@ -16,17 +16,10 @@ import { type framer } from "@/framer";
 import { group } from "@/ontology/group";
 import {
   type ID,
-  idsEqual,
   idToString,
   idZ,
-  oppositeRelationshipDirection,
-  PARENT_OF_RELATIONSHIP_TYPE,
   parseIDs,
-  type RelationshipChange,
-  type RelationshipDirection,
-  relationShipZ,
   type Resource,
-  type ResourceChange,
   resourceTypeZ,
   resourceZ,
 } from "@/ontology/payload";
@@ -184,22 +177,6 @@ export class Client {
     return await this.writer.moveChildren(from, to, ...children);
   }
 
-  /**
-   * Opens an observable that can be used to subscribe to changes in both the ontology's
-   * resources and relationships.
-   * @link ChangeTracker for more information.
-   * @returns An observable that emits changes to the ontology's resources and relationships.
-   */
-  async openChangeTracker(): Promise<ChangeTracker> {
-    return await ChangeTracker.open(this.framer, this);
-  }
-
-  async openDependentTracker(
-    props: DependentTrackerProps,
-  ): Promise<observe.ObservableAsyncCloseable<Resource[]>> {
-    return await DependentTracker.open(props, this.framer, this);
-  }
-
   private async execRetrieve(request: RetrieveRequest): Promise<Resource[]> {
     const { resources } = await sendRequired(
       this.client,
@@ -216,215 +193,3 @@ export const RESOURCE_SET_CHANNEL_NAME = "sy_ontology_resource_set";
 export const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
 export const RELATIONSHIP_SET_CHANNEL_NAME = "sy_ontology_relationship_set";
 export const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete";
-
-/**
- * A class that tracks changes to the ontology's resources and relationships.
- */
-export class ChangeTracker {
-  /**
-   * An observable that emits changes to the ontology's relationships.
-   */
-  readonly relationships: observe.Observable<RelationshipChange[]>;
-  /**
-   * An observable that emits changes to the ontology's resources.
-   */
-  readonly resources: observe.Observable<ResourceChange[]>;
-
-  private readonly resourceObs: observe.Observer<ResourceChange[]>;
-  private readonly relationshipObs: observe.Observer<RelationshipChange[]>;
-  private readonly streamer: framer.Streamer;
-  private readonly client: Client;
-  private readonly closePromise: Promise<void>;
-
-  constructor(streamer: framer.Streamer, client: Client) {
-    this.relationshipObs = new observe.Observer<RelationshipChange[]>();
-    this.relationships = this.relationshipObs;
-    this.resourceObs = new observe.Observer<ResourceChange[]>();
-    this.resources = this.resourceObs;
-    this.client = client;
-    this.streamer = streamer;
-    this.closePromise = this.start();
-  }
-
-  async close(): Promise<void> {
-    this.streamer.close();
-    await this.closePromise;
-  }
-
-  private async start(): Promise<void> {
-    for await (const frame of this.streamer) await this.update(frame);
-  }
-
-  private async update(frame: framer.Frame): Promise<void> {
-    const resSets = await this.parseResourceSets(frame);
-    const resDeletes = this.parseResourceDeletes(frame);
-    const allResources = resSets.concat(resDeletes);
-    if (allResources.length > 0) this.resourceObs.notify(resSets.concat(resDeletes));
-    const relSets = this.parseRelationshipSets(frame);
-    const relDeletes = this.parseRelationshipDeletes(frame);
-    const allRelationships = relSets.concat(relDeletes);
-    if (allRelationships.length > 0)
-      this.relationshipObs.notify(relSets.concat(relDeletes));
-  }
-
-  private parseRelationshipSets(frame: framer.Frame): RelationshipChange[] {
-    const relationships = frame.get(RELATIONSHIP_SET_CHANNEL_NAME);
-    if (relationships.length === 0) return [];
-    return Array.from(relationships.as("string")).map((rel) => ({
-      variant: "set",
-      key: relationShipZ.parse(rel),
-      value: undefined,
-    }));
-  }
-
-  private parseRelationshipDeletes(frame: framer.Frame): RelationshipChange[] {
-    const relationships = frame.get(RELATIONSHIP_DELETE_CHANNEL_NAME);
-    if (relationships.length === 0) return [];
-    return Array.from(relationships.as("string")).map((rel) => ({
-      variant: "delete",
-      key: relationShipZ.parse(rel),
-    }));
-  }
-
-  private async parseResourceSets(frame: framer.Frame): Promise<ResourceChange[]> {
-    const sets = frame.get(RESOURCE_SET_CHANNEL_NAME);
-    if (sets.length === 0) return [];
-    // We should only ever get one series of sets
-    const ids = parseIDs(Array.from(sets.as("string")));
-    try {
-      const resources = await this.client.retrieve(ids);
-      return resources.map((resource) => ({
-        variant: "set",
-        key: resource.id,
-        value: resource,
-      }));
-    } catch (e) {
-      if (e instanceof QueryError) return [];
-      throw e;
-    }
-  }
-
-  private parseResourceDeletes(frame: framer.Frame): ResourceChange[] {
-    const deletes = frame.get(RESOURCE_DELETE_CHANNEL_NAME);
-    if (deletes.length === 0) return [];
-    // We should only ever get one series of deletes
-    return Array.from(deletes.as("string")).map((str) => ({
-      variant: "delete",
-      key: idZ.parse(str),
-    }));
-  }
-
-  static async open(client: framer.Client, retriever: Client): Promise<ChangeTracker> {
-    const streamer = await client.openStreamer([
-      RESOURCE_SET_CHANNEL_NAME,
-      RESOURCE_DELETE_CHANNEL_NAME,
-      RELATIONSHIP_SET_CHANNEL_NAME,
-      RELATIONSHIP_DELETE_CHANNEL_NAME,
-    ]);
-    return new ChangeTracker(streamer, retriever);
-  }
-}
-
-interface DependentTrackerProps {
-  target: ID;
-  dependents: Resource[];
-  relationshipType?: string;
-  relationshipDirection?: RelationshipDirection;
-  resourceType?: string;
-}
-
-/**
- * A class that tracks a resource (called the 'target' resource) and related resources
- * (called 'dependents') of a particular type (called the 'type') in a Synnax cluster
- * ontology.
- */
-export class DependentTracker
-  extends observe.Observer<Resource[]>
-  implements observe.ObservableAsyncCloseable<Resource[]>
-{
-  private readonly internal: ChangeTracker;
-  private readonly target: ID;
-  private readonly relDir: RelationshipDirection;
-  private readonly resourceType?: string;
-  private dependents: Resource[];
-  private readonly client: Client;
-  private readonly relType: string;
-
-  private constructor(
-    {
-      target,
-      dependents,
-      relationshipType = PARENT_OF_RELATIONSHIP_TYPE,
-      relationshipDirection = "from",
-      resourceType,
-    }: DependentTrackerProps,
-    internal: ChangeTracker,
-    client: Client,
-  ) {
-    super();
-    this.resourceType = resourceType;
-    this.internal = internal;
-    this.target = target;
-    this.dependents = dependents;
-    if (this.resourceType != null)
-      this.dependents = this.dependents.filter((r) => r.id.type === this.resourceType);
-    this.client = client;
-    this.relType = relationshipType;
-    this.relDir = relationshipDirection;
-    this.internal.resources.onChange(this.handleResourceChange);
-    this.internal.relationships.onChange(this.handleRelationshipChange);
-  }
-  static async open(
-    props: DependentTrackerProps,
-    framer: framer.Client,
-    client: Client,
-  ): Promise<DependentTracker> {
-    const internal = await ChangeTracker.open(framer, client);
-    return new DependentTracker(props, internal, client);
-  }
-
-  private handleResourceChange = (changes: ResourceChange[]): void => {
-    this.dependents = this.dependents.map((child) => {
-      const change = changes.find((c) => idToString(c.key) == idToString(child.id));
-      if (change == null || change.variant === "delete") return child;
-      return change.value;
-    });
-    this.notify(this.dependents);
-  };
-
-  private handleRelationshipChange = (changes: RelationshipChange[]): void => {
-    const deletes = changes.filter(
-      (c) =>
-        c.variant === "delete" &&
-        idsEqual(c.key[this.relDir], this.target) &&
-        (this.resourceType == null ||
-          c.key[oppositeRelationshipDirection(this.relDir)].type === this.resourceType),
-    );
-    this.dependents = this.dependents.filter(
-      (child) =>
-        !deletes.some(
-          (del) => idsEqual(del.key.to, child.id) && del.key.type === this.relType,
-        ),
-    );
-    const sets = changes.filter(
-      (c) =>
-        c.variant === "set" &&
-        c.key.type === this.relType &&
-        idsEqual(c.key[this.relDir], this.target) &&
-        (this.resourceType == null ||
-          c.key[oppositeRelationshipDirection(this.relDir)].type === this.resourceType),
-    );
-    if (sets.length === 0) return this.notify(this.dependents);
-    this.client
-      .retrieve(sets.map((s) => s.key.to))
-      .then((resources) => {
-        this.dependents = this.dependents.concat(resources);
-        this.notify(this.dependents);
-      })
-      .catch(console.error);
-  };
-
-  async close(): Promise<void> {
-    await this.internal.close();
-  }
-}
