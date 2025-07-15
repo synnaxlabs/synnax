@@ -7,30 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  channel,
-  DisconnectedError,
-  newTestClient,
-  type Synnax,
-} from "@synnaxlabs/client";
+import { channel, DisconnectedError, newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
-import { Synnax as PSynnax } from "@/synnax";
+import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
-
-const newWrapper =
-  (client: Synnax | null): FC<PropsWithChildren> =>
-  // eslint-disable-next-line react/display-name
-  (props) => (
-    <PSynnax.TestProvider client={client}>
-      <Sync.Provider {...props} />
-    </PSynnax.TestProvider>
-  );
 
 describe("retrieve", () => {
   describe("basic retrieval", () => {
@@ -42,7 +26,7 @@ describe("retrieve", () => {
             name: "Resource",
             retrieve: async () => 0,
           }).useDirect({ params: {} }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual(null);
@@ -57,7 +41,7 @@ describe("retrieve", () => {
             name: "Resource",
             retrieve: async () => 12,
           }).useDirect({ params: {} }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -76,7 +60,7 @@ describe("retrieve", () => {
               throw new Error("test");
             },
           }).useDirect({ params: {} }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
@@ -94,7 +78,7 @@ describe("retrieve", () => {
             name: "Resource",
             retrieve: async () => 0,
           }).useDirect({ params: {} }),
-        { wrapper: newWrapper(null) },
+        { wrapper: newSynnaxWrapper(null) },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
@@ -137,7 +121,7 @@ describe("retrieve", () => {
               },
             ],
           }).useDirect({ params: { key: ch.key } }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -176,7 +160,7 @@ describe("retrieve", () => {
               },
             ],
           }).useDirect({ params: { key: ch.key } }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");

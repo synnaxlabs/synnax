@@ -7,26 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newTestClient, ranger, type Synnax } from "@synnaxlabs/client";
+import { newTestClient, ranger } from "@synnaxlabs/client";
 import { type record, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { act, type FC, type PropsWithChildren } from "react";
+import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
-import { Synnax as PSynnax } from "@/synnax";
+import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
-
-const newWrapper =
-  (client: Synnax | null): FC<PropsWithChildren> =>
-  // eslint-disable-next-line react/display-name
-  (props) => (
-    <PSynnax.TestProvider client={client}>
-      <Sync.Provider {...props} />
-    </PSynnax.TestProvider>
-  );
 
 describe("list", () => {
   let controller: AbortController;
@@ -38,42 +29,40 @@ describe("list", () => {
   });
   describe("initial list", () => {
     it("should return a loading result as its initial state", () => {
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () =>
           Flux.createList({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey: async () => ({ key: 12 }),
           })(),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
-      expect(result.current.status).toEqual("loading");
+      expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([]);
       expect(result.current.error).toEqual(null);
-      unmount();
     });
 
     it("should return a success result when the list is retrieved", async () => {
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
-      const { result, unmount } = renderHook(
+      const { result } = renderHook(
         () =>
           Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
             retrieve,
             retrieveByKey: async () => ({ key: 12 }),
           })(),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
-        expect(result.current.status).toEqual("success");
+        expect(result.current.variant).toEqual("success");
         expect(result.current.data).toEqual([1, 2]);
         expect(result.current.error).toEqual(null);
       });
-      unmount();
     });
 
     it("should return an error result when the query fails to execute", async () => {
@@ -85,14 +74,14 @@ describe("list", () => {
             retrieve,
             retrieveByKey: async () => ({ key: 12 }),
           })(),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
-        expect(result.current.status).toEqual("error");
+        expect(result.current.variant).toEqual("error");
         expect(result.current.error).toEqual(new Error("Test Error"));
       });
       unmount();
@@ -108,7 +97,7 @@ describe("list", () => {
             retrieve: async () => [{ key: 1 }, { key: 2 }],
             retrieveByKey: async ({ key }) => ({ key }),
           })({ filter: (item) => item.key === 1 }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -134,7 +123,7 @@ describe("list", () => {
           });
           return { ...result, value };
         },
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -166,7 +155,7 @@ describe("list", () => {
           });
           return { retrieve, value };
         },
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       await waitFor(() => {
         expect(result.current.value).toEqual({ key: 1 });
@@ -191,13 +180,13 @@ describe("list", () => {
           });
           return { ...result, value };
         },
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => {
-        expect(result.current.status).toEqual("error");
+        expect(result.current.variant).toEqual("error");
         expect(result.current.error).toEqual(new Error("Test Error"));
       });
       unmount();
@@ -242,7 +231,7 @@ describe("list", () => {
           });
           return { retrieve, value };
         },
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
 
       act(() => {
@@ -291,7 +280,7 @@ describe("list", () => {
           })();
           return { retrieve, value: getItem(rng.key) };
         },
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
 
       act(() => {

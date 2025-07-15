@@ -10,17 +10,15 @@
 import { newTestClient } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { act, type PropsWithChildren, useEffect, useState } from "react";
+import { act, useEffect, useState } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Sync } from "@/flux/sync";
+import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("sync", () => {
   it("should add a basic listener", async () => {
     const client = newTestClient();
-    const Wrapper = (props: PropsWithChildren) => (
-      <Sync.Provider useClient={() => client} {...props} />
-    );
     const testChannelName = `sync_test_channel_${id.create()}`;
     await client.channels.create({
       name: testChannelName,
@@ -49,7 +47,7 @@ describe("sync", () => {
         );
         return { data, open };
       },
-      { wrapper: Wrapper },
+      { wrapper: newSynnaxWrapper(client) },
     );
     await waitFor(async () => expect(result.current.open).toEqual(true));
     await act(
