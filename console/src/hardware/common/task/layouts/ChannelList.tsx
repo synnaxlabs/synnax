@@ -73,11 +73,12 @@ export const ChannelList = <C extends Channel>({
   createChannels,
   onSelect,
   path = "config.channels",
+  listItem,
+  selected,
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
-  const fiedList = Form.useFieldList<C["key"], C>(path);
-  const { push } = fiedList;
+  const { data, push, remove, value } = Form.useFieldList<C["key"], C>(path);
   const handleAdd = useCallback(() => {
     const channels = ctx.get<C[]>(path).value;
     const channel = createChannel(channels);
@@ -102,8 +103,11 @@ export const ChannelList = <C extends Channel>({
       path={path}
       onSelect={onSelect}
       onDuplicate={handleDuplicate}
-      {...fiedList}
-      {...rest}
+      data={data}
+      listItem={listItem}
+      selected={selected}
+      remove={remove}
+      value={value}
     />
   );
 };

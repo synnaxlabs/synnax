@@ -59,14 +59,13 @@ export const SelectAxisInputItem = ({
   selectProps,
   ...rest
 }: SelectAxisInputItemProps): ReactElement => (
-  <Input.Item x label={axisLabel(axis)} {...rest}>
+  <Input.Item x label={axisLabel(axis)} {...rest} grow>
     <Channel.SelectSingle
       onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
       value={value}
       allowNone
       initialParams={SEARCH_OPTIONS}
       {...selectProps}
-      style={{ width: "100%" }}
     />
   </Input.Item>
 );

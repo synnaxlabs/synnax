@@ -69,6 +69,7 @@ export interface ContextValue {
   toggle: () => void;
   visible: boolean;
   variant: Variant;
+  location: xlocation.XY;
 }
 
 const Context = createContext<ContextValue>({
@@ -77,6 +78,7 @@ const Context = createContext<ContextValue>({
   toggle: () => {},
   variant: "floating",
   visible: false,
+  location: xlocation.BOTTOM_LEFT,
 });
 
 interface InternalContextValue {
@@ -196,12 +198,20 @@ export const Frame = ({
       location: dialogLoc,
       style: dialogStyle,
     }),
-    [combinedDialogRef, dialogLoc, variant, dialogStyle],
+    [combinedDialogRef, dialogLoc, dialogStyle],
   );
 
   const ctxValue = useMemo(
-    () => ({ close, open, toggle, visible, onPointerEnter, variant }),
-    [close, open, toggle, visible],
+    () => ({
+      close,
+      open,
+      toggle,
+      visible,
+      onPointerEnter,
+      variant,
+      location: dialogLoc,
+    }),
+    [close, open, toggle, visible, dialogLoc],
   );
 
   return (

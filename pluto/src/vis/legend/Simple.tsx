@@ -56,7 +56,7 @@ export const LegendSwatches = memo(
         .map(({ key, color, label, visible = true }) => (
           <Align.Space
             key={key}
-            style={{ cursor: "pointer" }}
+            style={{ cursor: "pointer", height: "3rem" }}
             x
             align="center"
             size="small"

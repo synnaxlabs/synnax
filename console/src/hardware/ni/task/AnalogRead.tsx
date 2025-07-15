@@ -117,8 +117,9 @@ const Form: FC<
     configured,
   } as Common.Task.UseTareProps<AIChannel>);
   const listItem = useCallback(
-    ({ itemKey, ...rest }: Common.Task.ChannelListItemProps) => (
+    ({ key, itemKey, ...rest }: Common.Task.ChannelListItemProps) => (
       <ChannelListItem
+        key={key}
         itemKey={itemKey}
         {...rest}
         onTare={tare}

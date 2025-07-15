@@ -83,14 +83,11 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
           onChange={(v) => handleRangeSelect("x1", v)}
           value={vis.ranges.x1}
           grow
-          style={{ width: "50%" }}
-          selectProps={SELECT_PROPS}
         />
         <SelectAxisInputItem
           axis="x1"
           onChange={handleXChannelSelect}
           value={vis.channels.x1}
-          grow
           selectProps={SELECT_PROPS}
         />
       </Align.Space>

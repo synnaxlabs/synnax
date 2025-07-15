@@ -341,7 +341,6 @@ export const createList =
 
         try {
           if (client == null) return setResult(nullClientResult<K[]>(name, "retrieve"));
-          console.log("retrieving", name);
           setResult((p) => pendingResult(name, "retrieving", p.data));
 
           // If we're in replace mode, we're 'resetting' the infinite scroll position

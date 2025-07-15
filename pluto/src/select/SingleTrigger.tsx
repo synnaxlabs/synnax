@@ -51,7 +51,6 @@ export const SingleTrigger = <K extends record.Key>({
     onDrop: Haul.useFilterByTypeCallback(
       haulType,
       ({ items }) => {
-        console.log("onDrop", items);
         if (items.length !== 0) setSelected([items[0].key as K]);
         return items;
       },
@@ -59,7 +58,6 @@ export const SingleTrigger = <K extends record.Key>({
     ),
   });
   const dragging = Haul.useDraggingState();
-  console.log("canDrop", canDrop(dragging));
   return (
     <Dialog.Trigger
       variant="outlined"
