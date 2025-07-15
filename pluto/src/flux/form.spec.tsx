@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newTestClient, type Synnax } from "@synnaxlabs/client";
+import { newTestClient } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { Sync } from "@/flux/sync";
-import { Synnax as PSynnax } from "@/synnax";
+import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const formSchema = z.object({
   key: z.string(),
@@ -28,15 +26,6 @@ interface Params extends Flux.Params {
 }
 
 const client = newTestClient();
-
-const newWrapper =
-  (client: Synnax | null): FC<PropsWithChildren> =>
-  // eslint-disable-next-line react/display-name
-  (props) => (
-    <PSynnax.TestProvider client={client}>
-      <Sync.Provider {...props} />
-    </PSynnax.TestProvider>
-  );
 
 describe("useForm", () => {
   describe("no existing entity", () => {
@@ -56,7 +45,7 @@ describe("useForm", () => {
             retrieve,
             update,
           })({ params: {} }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       expect(result.current.form.value()).toEqual({
         key: "",
@@ -90,7 +79,7 @@ describe("useForm", () => {
             retrieve,
             update: vi.fn(),
           })({ params: {} }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
@@ -119,7 +108,7 @@ describe("useForm", () => {
           retrieve,
           update,
         })({ params: {} }),
-      { wrapper: newWrapper(client) },
+      { wrapper: newSynnaxWrapper(client) },
     );
 
     act(() => {
@@ -147,7 +136,7 @@ describe("useForm", () => {
           retrieve,
           update,
         })({ params: {} }),
-      { wrapper: newWrapper(client) },
+      { wrapper: newSynnaxWrapper(client) },
     );
     act(() => {
       result.current.save();
@@ -180,7 +169,7 @@ describe("useForm", () => {
             retrieve,
             update,
           })({ params: {} }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       expect(result.current.form.value()).toEqual({
         key: "",
@@ -219,7 +208,7 @@ describe("useForm", () => {
           retrieve,
           update,
         })({ params: {} }),
-      { wrapper: newWrapper(client) },
+      { wrapper: newSynnaxWrapper(client) },
     );
     act(() => {
       result.current.form.set("name", "Jane Doe");
@@ -248,7 +237,7 @@ describe("useForm", () => {
             retrieve,
             update: ({ value }) => update(value.name),
           })({ params: {}, autoSave: true }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
         result.current.form.set("name", "Jane Doe");
@@ -280,7 +269,7 @@ describe("useForm", () => {
             retrieve,
             update: ({ value }) => update(value.name),
           })({ params: {} }),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);

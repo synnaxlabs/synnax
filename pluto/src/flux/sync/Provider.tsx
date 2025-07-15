@@ -19,23 +19,12 @@ import { Synnax } from "@/synnax";
 
 export interface ProviderProps extends PropsWithChildren {}
 
-interface Client {
-  openStreamer: framer.StreamOpener;
-}
-
-export interface ProviderProps extends PropsWithChildren {
-  useClient?: () => Client | null;
-}
-
 interface MutexValue {
   streamer: framer.ObservableStreamer | null;
 }
 
-export const Provider = ({
-  useClient = () => Synnax.use(),
-  children,
-}: ProviderProps): ReactElement => {
-  const client = useClient();
+export const Provider = ({ children }: ProviderProps): ReactElement => {
+  const client = Synnax.use();
   const handlersRef = useRef(new Map<FrameHandler, channel.Name>());
   const streamerRef = useRef<sync.Mutex<MutexValue>>(sync.newMutex({ streamer: null }));
   const handleError = Status.useErrorHandler();

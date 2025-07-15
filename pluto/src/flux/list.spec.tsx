@@ -7,26 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newTestClient, ranger, type Synnax } from "@synnaxlabs/client";
+import { newTestClient, ranger } from "@synnaxlabs/client";
 import { type record, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { act, type FC, type PropsWithChildren } from "react";
+import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Flux } from "@/flux";
 import { Sync } from "@/flux/sync";
-import { Synnax as PSynnax } from "@/synnax";
+import { newSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = newTestClient();
-
-const newWrapper =
-  (client: Synnax | null): FC<PropsWithChildren> =>
-  // eslint-disable-next-line react/display-name
-  (props) => (
-    <PSynnax.TestProvider client={client}>
-      <Sync.Provider {...props} />
-    </PSynnax.TestProvider>
-  );
 
 describe("list", () => {
   let controller: AbortController;
@@ -45,7 +36,7 @@ describe("list", () => {
             retrieve: async () => [],
             retrieveByKey: async () => ({ key: 12 }),
           })(),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([]);
@@ -61,7 +52,7 @@ describe("list", () => {
             retrieve,
             retrieveByKey: async () => ({ key: 12 }),
           })(),
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
@@ -73,13 +64,82 @@ describe("list", () => {
         expect(result.current.error).toEqual(null);
       });
     });
+
+    it("should return an error result when the query fails to execute", async () => {
+      const retrieve = vi.fn().mockRejectedValue(new Error("Test Error"));
+      const { result, unmount } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async () => ({ key: 12 }),
+          })(),
+        { wrapper: newSynnaxWrapper(client) },
+      );
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+      await waitFor(() => {
+        expect(retrieve).toHaveBeenCalledTimes(1);
+        expect(result.current.variant).toEqual("error");
+        expect(result.current.error).toEqual(new Error("Test Error"));
+      });
+      unmount();
+    });
+  });
+
+  describe("filter", () => {
+    it("should allow the caller to provide a custom filter function", async () => {
+      const { result, unmount } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve: async () => [{ key: 1 }, { key: 2 }],
+            retrieveByKey: async ({ key }) => ({ key }),
+          })({ filter: (item) => item.key === 1 }),
+        { wrapper: newSynnaxWrapper(client) },
+      );
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+      await waitFor(() => {
+        expect(result.current.data).toEqual([1]);
+      });
+      unmount();
+    });
+
+    it("should respect the filter function when retrieving a list item", async () => {
+      const { result, unmount } = renderHook(
+        () => {
+          const result = Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve: async () => [{ key: 1 }, { key: 2 }],
+            retrieveByKey: async ({ key }) => ({ key }),
+          })({ filter: (item) => item.key === 1 });
+          const value = Flux.useListItem<number, record.Keyed<number>>({
+            subscribe: result.subscribe,
+            getItem: result.getItem,
+            key: 2,
+          });
+          return { ...result, value };
+        },
+        { wrapper: newSynnaxWrapper(client) },
+      );
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+      await waitFor(() => {
+        expect(result.current.value).toEqual(undefined);
+      });
+      unmount();
+    });
   });
 
   describe("useListItem", () => {
     it("should return a pre-retrieved list item", async () => {
-      const { result } = renderHook(
+      const { result, unmount } = renderHook(
         () => {
-          const { getItem, retrieve } = Flux.createList<
+          const { retrieve, subscribe, getItem } = Flux.createList<
             {},
             number,
             record.Keyed<number>
@@ -88,13 +148,48 @@ describe("list", () => {
             retrieve: async () => [{ key: 1 }, { key: 2 }],
             retrieveByKey: async ({ key }) => ({ key }),
           })();
-          return { retrieve, value: getItem(1) };
+          const value = Flux.useListItem<number, record.Keyed<number>>({
+            subscribe,
+            getItem,
+            key: 1,
+          });
+          return { retrieve, value };
         },
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
       await waitFor(() => {
         expect(result.current.value).toEqual({ key: 1 });
       });
+      unmount();
+    });
+
+    it("should move the query to an error state when the retrieveByKey fails to execute", async () => {
+      const retrieveMock = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
+      const retrieveByKeyMock = vi.fn().mockRejectedValue(new Error("Test Error"));
+      const { result, unmount } = renderHook(
+        () => {
+          const result = Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve: retrieveMock,
+            retrieveByKey: retrieveByKeyMock,
+          })();
+          const value = Flux.useListItem<number, record.Keyed<number>>({
+            subscribe: result.subscribe,
+            getItem: result.getItem,
+            key: 1,
+          });
+          return { ...result, value };
+        },
+        { wrapper: newSynnaxWrapper(client) },
+      );
+      act(() => {
+        result.current.retrieve({}, { signal: controller.signal });
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("error");
+        expect(result.current.error).toEqual(new Error("Test Error"));
+      });
+      unmount();
     });
   });
 
@@ -109,9 +204,9 @@ describe("list", () => {
         }),
       });
 
-      const { result } = renderHook(
+      const { result, unmount } = renderHook(
         () => {
-          const { getItem, retrieve } = Flux.createList<
+          const { getItem, subscribe, retrieve } = Flux.createList<
             RangeParams,
             ranger.Key,
             ranger.Payload
@@ -129,9 +224,14 @@ describe("list", () => {
               },
             ],
           })();
-          return { retrieve, value: getItem(rng.key) };
+          const value = Flux.useListItem<ranger.Key, ranger.Payload>({
+            subscribe,
+            getItem,
+            key: rng.key,
+          });
+          return { retrieve, value };
         },
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
 
       act(() => {
@@ -142,13 +242,12 @@ describe("list", () => {
         expect(result.current.value?.name).toEqual("Test Range");
       });
 
-      await act(async () => {
-        await client.ranges.rename(rng.key, "Test Range 2");
-      });
+      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
 
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range 2");
       });
+      unmount();
     });
 
     it("should correctly remove a list item when it gets deleted", async () => {
@@ -181,7 +280,7 @@ describe("list", () => {
           })();
           return { retrieve, value: getItem(rng.key) };
         },
-        { wrapper: newWrapper(client) },
+        { wrapper: newSynnaxWrapper(client) },
       );
 
       act(() => {
@@ -191,9 +290,7 @@ describe("list", () => {
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
       });
-      await act(async () => {
-        await client.ranges.delete(rng.key);
-      });
+      await act(async () => await client.ranges.delete(rng.key));
       await waitFor(() => {
         expect(result.current.value?.key).not.toEqual(rng.key);
       });

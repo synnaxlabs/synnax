@@ -10,7 +10,7 @@
 import { type Synnax } from "@synnaxlabs/client";
 import { useCallback, useState } from "react";
 
-import { type Params } from "@/flux/params";
+import { type AsyncOptions, type Params } from "@/flux/params";
 import {
   errorResult,
   nullClientResult,
@@ -18,12 +18,19 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import { type AsyncOptions } from "@/flux/retrieve";
 import { type state } from "@/state";
 import { Synnax as PSynnax } from "@/synnax";
 
+/**
+ * Arguments passed to the update function.
+ *
+ * @template UpdateParams The type of parameters for the update operation
+ * @template Data The type of data being updated
+ */
 export interface UpdateArgs<UpdateParams extends Params, Data extends state.State> {
+  /** The data to be updated */
   value: Data;
+  /** Parameters for the update operation */
   params: UpdateParams;
   /** The Synnax client instance for making requests */
   client: Synnax;
@@ -31,44 +38,90 @@ export interface UpdateArgs<UpdateParams extends Params, Data extends state.Stat
   onChange: state.PureSetter<Data>;
 }
 
+/**
+ * Configuration arguments for creating an update query.
+ *
+ * @template UpdateParams The type of parameters for the update operation
+ * @template Data The type of data being updated
+ */
 export interface CreateUpdateArgs<
   UpdateParams extends Params,
   Data extends state.State,
 > {
+  /** The name of the resource being updated (used for status messages) */
   name: string;
+  /** Function that performs the actual update operation */
   update: (args: UpdateArgs<UpdateParams, Data>) => Promise<void>;
 }
 
+/**
+ * Return type for the observable update hook.
+ *
+ * @template Data The type of data being updated
+ */
 export interface UseObservableUpdateReturn<Data extends state.State> {
+  /** Function to trigger an update (fire-and-forget) */
   update: (value: Data, opts?: AsyncOptions) => void;
+  /** Function to trigger an update and await the result */
   updateAsync: (value: Data, opts?: AsyncOptions) => Promise<void>;
 }
 
+/**
+ * Arguments for the observable update hook.
+ *
+ * @template UpdateParams The type of parameters for the update operation
+ * @template Data The type of data being updated
+ */
 export interface UseObservableUpdateArgs<
   UpdateParams extends Params,
   Data extends state.State,
 > {
+  /** Callback function to handle state changes */
   onChange: state.Setter<Result<Data | null>>;
+  /** Parameters for the update operation */
   params: UpdateParams;
 }
 
+/**
+ * Arguments for the direct update hook.
+ *
+ * @template UpdateParams The type of parameters for the update operation
+ */
 export interface UseDirectUpdateArgs<UpdateParams extends Params> {
+  /** Parameters for the update operation */
   params: UpdateParams;
 }
 
+/**
+ * Return type for the direct update hook, combining result state with update functions.
+ *
+ * @template Data The type of data being updated
+ */
 export type UseDirectUpdateReturn<Data extends state.State> = Result<Data | null> &
   UseObservableUpdateReturn<Data>;
 
+/**
+ * Return type for the createUpdate function.
+ *
+ * @template UpdateParams The type of parameters for the update operation
+ * @template Data The type of data being updated
+ */
 export interface CreateUpdateReturn<
   UpdateParams extends Params,
   Data extends state.State,
 > {
+  /** Hook that provides update functions with external state management */
   useObservable: (
     args: UseObservableUpdateArgs<UpdateParams, Data>,
   ) => UseObservableUpdateReturn<Data>;
+  /** Hook that provides update functions with internal state management */
   useDirect: (args: UseDirectUpdateArgs<UpdateParams>) => UseDirectUpdateReturn<Data>;
 }
 
+/**
+ * Internal hook for observable updates with external state management.
+ * @internal
+ */
 const useObservable = <UpdateParams extends Params, Data extends state.State>({
   onChange,
   params,
@@ -107,6 +160,10 @@ const useObservable = <UpdateParams extends Params, Data extends state.State>({
   };
 };
 
+/**
+ * Internal hook for direct updates with internal state management.
+ * @internal
+ */
 const useDirect = <UpdateParams extends Params, Data extends state.State>({
   params,
   name,
@@ -116,15 +173,63 @@ const useDirect = <UpdateParams extends Params, Data extends state.State>({
   const [result, setResult] = useState<Result<Data | null>>(
     successResult(name, "updated", null),
   );
-  const ret = useObservable<UpdateParams, Data>({
+  const methods = useObservable<UpdateParams, Data>({
     ...restArgs,
     name,
     onChange: setResult,
     params,
   });
-  return { ...result, ...ret };
+  return { ...result, ...methods };
 };
 
+/**
+ * Creates an update query system that provides hooks for updating data.
+ *
+ * This function creates a set of React hooks that handle data updates with
+ * proper loading states, error handling, and optimistic updates. It provides
+ * both observable and direct variants for different use cases.
+ *
+ * @template UpdateParams The type of parameters for the update operation
+ * @template Data The type of data being updated
+ * @param createArgs Configuration object containing the update function and resource name
+ * @returns Object containing hooks for different update patterns
+ *
+ * @example
+ * ```typescript
+ * interface UserUpdateParams extends Params {
+ *   userId: number;
+ * }
+ *
+ * interface User {
+ *   id: number;
+ *   name: string;
+ *   email: string;
+ * }
+ *
+ * const userUpdate = createUpdate<UserUpdateParams, User>({
+ *   name: "user",
+ *   update: async ({ value, params, client }) => {
+ *     await client.users.update(params.userId, value);
+ *   }
+ * });
+ *
+ * // Usage with external state management
+ * const { update, updateAsync } = userUpdate.useObservable({
+ *   params: { userId: 123 },
+ *   onChange: (result) => {
+ *     console.log("Update result:", result);
+ *   }
+ * });
+ *
+ * // Usage with internal state management
+ * const { update, updateAsync, variant, error } = userUpdate.useDirect({
+ *   params: { userId: 123 }
+ * });
+ *
+ * // Trigger update
+ * await updateAsync({ id: 123, name: "John", email: "john@example.com" });
+ * ```
+ */
 export const createUpdate = <UpdateParams extends Params, Data extends state.State>(
   createArgs: CreateUpdateArgs<UpdateParams, Data>,
 ): CreateUpdateReturn<UpdateParams, Data> => ({
