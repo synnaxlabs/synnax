@@ -30,15 +30,25 @@
     overflow: hidden;
     border-radius: var(--pluto-pack-br);
 
-    &.pluto--floating {
-        transition: opacity 0.075s ease-in-out;
-    }
-
     & > .pluto-pack.pluto--rounded {
         --pluto-pack-br: 6px;
     }
 
+    &.pluto--modal {
+        animation: var(--pluto-modal-animation);
+        position: relative;
+        border: var(--pluto-border);
+        border-color: var(--pluto-gray-l6);
+        z-index: 11;
+        min-width: 400px;
+        min-height: 150px;
+        overflow: hidden;
+        box-shadow: var(--pluto-shadow-v1);
+        border-radius: 1rem;
+    }
+
     &:not(.pluto--modal) {
+        animation: var(--pluto-dialog-animation);
         box-shadow: var(--pluto-shadow-v1);
         max-height: 360px;
         &.pluto-height-small {
@@ -89,19 +99,6 @@
         background: var(--pluto-gray-l7-30);
         @media (prefers-color-scheme: dark) {
             background: var(--pluto-gray-l1-60);
-        }
-
-        & > div {
-            position: relative;
-            border: var(--pluto-border);
-            border-color: var(--pluto-gray-l6);
-            animation: var(--pluto-dialog-animation);
-            z-index: 11;
-            min-width: 400px;
-            min-height: 150px;
-            overflow: hidden;
-            box-shadow: var(--pluto-shadow-v1);
-            border-radius: 1rem;
         }
 
         @media (max-height: 800px) {

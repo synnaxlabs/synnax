@@ -83,8 +83,8 @@ export const MultipleTrigger = <K extends record.Key>({
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
 }: MultipleTriggerProps<K>): ReactElement => {
   const value = Select.useSelection<K>();
+  const { setSelected } = Select.useContext<K>();
   const { toggle, visible } = Dialog.useContext();
-  const { onSelect } = Select.useContext();
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
     type: haulType,
     canDrop: useCallback(
@@ -94,29 +94,27 @@ export const MultipleTrigger = <K extends record.Key>({
     onDrop: Haul.useFilterByTypeCallback(
       haulType,
       ({ items }) => {
-        onSelect(
-          ...unique.unique([
-            ...array.toArray(value),
-            ...(items.map((c) => c.key) as K[]),
-          ]),
+        setSelected(
+          unique.unique([...array.toArray(value), ...(items.map((c) => c.key) as K[])]),
         );
         return items;
       },
-      [onSelect, value],
+      [setSelected, value],
     ),
   });
 
   const handleSuccessfulDrop = useCallback(
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
-      onSelect(
-        ...array.toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
-      );
+      const res = value.filter((key) => !dropped.some((h) => h.key === key));
+      setSelected(res);
     },
-    [onSelect, value],
+    [setSelected, value],
   );
 
   const onTagDragStart = useCallback(
-    (key: K) => startDrag([{ key, type: haulType }], handleSuccessfulDrop),
+    (key: K) => {
+      startDrag([{ key, type: haulType }], handleSuccessfulDrop);
+    },
     [startDrag, handleSuccessfulDrop, haulType],
   );
   return (

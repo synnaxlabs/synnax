@@ -56,6 +56,7 @@ export interface UseMultipleProps<K extends record.Key> {
 /** Return value for the {@link useMultiple} hook. */
 export interface UseReturn<K extends record.Key> extends UseHoverReturn<K> {
   onSelect: (key: K) => void;
+  setSelected: (keys: K[]) => void;
   clear: () => void;
 }
 
@@ -95,8 +96,13 @@ export const useSingle = <K extends record.Key>({
       onChange(null as unknown as K, { clicked: null, clickedIndex: null });
   }, [onChange, allowNone]);
 
+  const setSelected = useCallback(
+    (keys: K[]): void => onChange(keys[0], { clicked: null, clickedIndex: null }),
+    [onChange],
+  );
+
   const hover = useHover({ data, onSelect: handleSelect });
-  return { onSelect: handleSelect, clear, ...hover };
+  return { onSelect: handleSelect, setSelected, clear, ...hover };
 };
 
 export const useMultiple = <K extends record.Key>({
@@ -159,6 +165,10 @@ export const useMultiple = <K extends record.Key>({
     (): void => onChange([], { clicked: null, clickedIndex: 0 }),
     [onChange],
   );
+  const setSelected = useCallback(
+    (keys: K[]): void => onChange(keys, { clicked: null, clickedIndex: 0 }),
+    [onChange],
+  );
   const hover = useHover({ data, onSelect });
-  return { onSelect, clear, ...hover };
+  return { onSelect, setSelected, clear, ...hover };
 };

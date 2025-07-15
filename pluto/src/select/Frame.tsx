@@ -38,7 +38,8 @@ const isSelected = <K extends record.Key>(
 
 interface ContextValue<K extends record.Key = record.Key> {
   value: K[];
-  onSelect: (...keys: K[]) => void;
+  onSelect: (key: K) => void;
+  setSelected: (keys: K[]) => void;
   clear: () => void;
   hover?: K;
 }
@@ -79,12 +80,13 @@ const Provider = <K extends record.Key = record.Key>({
   value,
   onSelect,
   clear,
+  setSelected,
   children,
   hover,
 }: ProviderProps<K>): ReactElement => {
   const ctx = useMemo(
-    () => ({ value: array.toArray(value), onSelect, clear, hover }),
-    [value, onSelect, clear, hover],
+    () => ({ value: array.toArray(value), onSelect, setSelected, clear, hover }),
+    [value, onSelect, setSelected, clear, hover],
   );
   return <Context.Provider value={ctx}>{children}</Context.Provider>;
 };
