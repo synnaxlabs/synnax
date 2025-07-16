@@ -309,7 +309,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.FrameWriter.BindHandler(l.Framer.Write)
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
-	t.FrameDelete.BindHandler(l.Framer.FrameDelete)
+	t.FrameDelete.BindHandler(l.Framer.Delete)
 
 	t.OntologyRetrieve.BindHandler(l.Ontology.Retrieve)
 	t.OntologyAddChildren.BindHandler(l.Ontology.AddChildren)

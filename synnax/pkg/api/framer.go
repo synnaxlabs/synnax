@@ -78,7 +78,7 @@ type FrameDeleteRequest struct {
 	Names  []string        `json:"names" msgpack:"names" validate:"names"`
 }
 
-func (s *FrameService) FrameDelete(
+func (s *FrameService) Delete(
 	ctx context.Context,
 	req FrameDeleteRequest,
 ) (types.Nil, error) {
@@ -231,46 +231,53 @@ func (s *FrameService) openStreamer(
 }
 
 type FrameWriterConfig struct {
-	// Authorities is the authority to use when writing to the channels. We set this
-	// as an int and not control.Authorities because msgpack has a tough time decoding
+	// Authorities is the authority to use when writing to the channels. We set this as
+	// an int and not control.Authorities because msgpack has a tough time decoding
 	// lists of uint8.
 	Authorities []uint32 `json:"authorities" msgpack:"authorities"`
 	// ControlSubject is an identifier for the writer.
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
 	// Start marks the starting timestamp of the first sample in the first frame. If
-	// telemetry occupying the given timestamp already exists for the provided keys,
-	// the writer will fail to open.
+	// telemetry occupying the given timestamp already exists for the provided keys, the
+	// writer will fail to open.
+	//
 	// [REQUIRED]
 	Start telem.TimeStamp `json:"start" msgpack:"start"`
-	// Keys is keys to write to. At least one key must be provided. All keys must
-	// have the same data rate OR the same index. All Frames written to the Writer must
-	// have an array specified for each key, and all series must be the same length (i.e.
+	// Keys is keys to write to. At least one key must be provided. All keys must have
+	// the same data rate OR the same index. All Frames written to the Writer must have
+	// an array specified for each key, and all series must be the same length (i.e.
 	// calls to Frame.Even must return true).
+	//
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
+	//
 	// [OPTIONAL]
 	Mode writer.Mode `json:"mode" msgpack:"mode"`
 	// ErrOnUnauthorized controls whether the writer will return an error when
-	// attempting to write to a channel that it does not have authority over.
-	// In non-control scenarios, this value should be set to true. In scenarios
-	// that require control handoff, this value should be set to false.
+	// attempting to write to a channel that it does not have authority over. In
+	// non-control scenarios, this value should be set to true. In scenarios that
+	// require control handoff, this value should be set to false.
+	//
 	// [OPTIONAL] - Defaults to false.
 	ErrOnUnauthorized bool `json:"err_on_unauthorized" msgpack:"err_on_unauthorized"`
-	// EnableAutoCommit determines whether the writer will automatically commit after each write.
-	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
+	// EnableAutoCommit determines whether the writer will automatically commit after
+	// each write. If EnableAutoCommit is true, then the writer will commit after each
+	// write, and will flush that commit to index on FS after the specified
+	// AutoIndexPersistInterval.
+	//
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
-	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
-	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
-	// to AlwaysAutoPersist.
+	// AutoIndexPersistInterval is the interval at which commits to the index will be
+	// persisted. To persist every commit to guarantee minimal loss of data, set
+	// AutoIndexPersistInterval to AlwaysAutoPersist.
+	//
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 }
 
-// FrameWriterRequest represents a request to write CreateNet data for a set of channels.
+// FrameWriterRequest represents a request to write data to a set of channels.
 type FrameWriterRequest struct {
 	Config  FrameWriterConfig `json:"config" msgpack:"config"`
 	Command WriterCommand     `json:"command" msgpack:"command"`
@@ -294,36 +301,34 @@ const (
 	writerRequestBufferSize  = 50
 )
 
-// Write exposes a high-level api for writing segmented telemetry to Synnax0
-// cluster. The client is expected to send an initial request containing the
-// keys of the channels to write to. The server will acquire an exclusive lock on
-// these channels. If the channels are already locked, Write will return with
-// an error. After sending the initial request, the client is free to send segments.
-// The server will route the segments to the appropriate nodes in the cluster,
-// persisting them to disk.
+// Write exposes a high-level api for writing segmented telemetry to a Synnax cluster.
+// The client is expected to send an initial request containing the keys of the channels
+// to write to. The server will acquire an exclusive lock on these channels. If the
+// channels are already locked, Write will return with an error. After sending the
+// initial request, the client is free to send segments. The server will route the
+// segments to the appropriate nodes in the cluster, persisting them to disk.
 //
-// If the client cancels the provided context, the server will immediately
-// abort all pending writes, release the locks, and return errors.Canceled.
+// If the client cancels the provided context, the server will immediately abort all
+// pending writes, release the locks, and return errors.Canceled.
 //
-// To ensure writes are durable, the client can issue a Close request
-// (i.e. calling freighter.ClientStream.close_send()) after sending all segments,
-// and then wait for the server to acknowledge the request with a Close response
-// of its own.
+// To ensure writes are durable, the client can issue a Close request (i.e. calling
+// freighter.ClientStream.close_send()) after sending all segments, and then wait for
+// the server to acknowledge the request with a Close response of its own.
 //
-// Concrete api implementations (GRPC, Websocket, etc.) are expected to
-// implement the FrameWriterStream interface according to the protocol defined in
-// the freighter.StreamServer interface.
+// Concrete api implementations (GRPC, Websocket, etc.) are expected to implement the
+// FrameWriterStream interface according to the protocol defined in the
+// freighter.StreamServer interface.
 //
-// When Write returns an error that is not errors.Canceled, the api
-// implementation is expected to return a FrameWriterResponse.CloseMsg with the error,
-// and then wait for a reasonable amount of time for the client to close the
-// connection before forcibly terminating the connection.
+// When Write returns an error that is not errors.Canceled, the api implementation is
+// expected to return a FrameWriterResponse.CloseMsg with the error, and then wait for a
+// reasonable amount of time for the client to close the connection before forcibly
+// terminating the connection.
 func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) error {
 	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_writer")))
-	// cancellation here would occur for one of two reasons. Either we encounter
-	// a fatal error (transport or writer internal) and we need to free all
-	// resources, OR the client executed the close command on the writer (in
-	// which case resources have already been freed and cancel does nothing).
+	// cancellation here would occur for one of two reasons. Either we encounter a fatal
+	// error (transport or writer internal) and we need to free all resources, OR the
+	// client executed the close command on the writer (in which case resources have
+	// already been freed and cancel does nothing).
 	defer cancel()
 
 	w, err := s.openWriter(ctx, getSubject(_ctx), stream)
@@ -336,7 +341,8 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 		Transform: func(_ context.Context, req FrameWriterRequest) (framer.WriterRequest, bool, error) {
 			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
 			if r.Command == writer.SetAuthority {
-				// We decode like this because msgpack has a tough time decoding slices of uint8.
+				// We decode like this because msgpack has a tough time decoding slices
+				// of uint8.
 				r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
 				for i, a := range req.Config.Authorities {
 					r.Config.Authorities[i] = control.Authority(a)
@@ -592,9 +598,7 @@ func (c *WSFramerCodec) decodeStreamRequest(
 	return c.Update(ctx, v.Payload.Keys)
 }
 
-func (c *WSFramerCodec) ContentType() string {
-	return framerContentType
-}
+func (c *WSFramerCodec) ContentType() string { return framerContentType }
 
 const framerContentType = "application/sy-framer"
 
