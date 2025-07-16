@@ -211,7 +211,7 @@ func (s *FrameService) openStreamer(
 	ctx context.Context,
 	subject ontology.ID,
 	stream StreamerStream,
-) (streamer framer.Streamer, err error) {
+) (framer.Streamer, error) {
 	req, err := stream.Receive()
 	if err != nil {
 		return nil, err
@@ -323,15 +323,15 @@ const (
 // expected to return a FrameWriterResponse.CloseMsg with the error, and then wait for a
 // reasonable amount of time for the client to close the connection before forcibly
 // terminating the connection.
-func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) error {
-	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_writer")))
+func (s *FrameService) Write(ctx context.Context, stream FrameWriterStream) error {
+	cancelCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_writer")))
 	// cancellation here would occur for one of two reasons. Either we encounter a fatal
 	// error (transport or writer internal) and we need to free all resources, OR the
 	// client executed the close command on the writer (in which case resources have
 	// already been freed and cancel does nothing).
 	defer cancel()
 
-	w, err := s.openWriter(ctx, getSubject(_ctx), stream)
+	w, err := s.openWriter(cancelCtx, getSubject(ctx), stream)
 	if err != nil {
 		return err
 	}
@@ -354,11 +354,13 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	}
 	sender := &freightfluence.TransformSender[framer.WriterResponse, FrameWriterResponse]{
 		Sender: freighter.SenderNoopCloser[FrameWriterResponse]{StreamSender: stream},
-		Transform: func(ctx context.Context, i framer.WriterResponse) (o FrameWriterResponse, ok bool, err error) {
-			o.Command = i.Command
-			o.Authorized = i.Authorized
-			o.Err = errors.Encode(ctx, i.Err, false)
-			o.End = i.End
+		Transform: func(ctx context.Context, i framer.WriterResponse) (FrameWriterResponse, bool, error) {
+			o := FrameWriterResponse{
+				Command:    i.Command,
+				Authorized: i.Authorized,
+				Err:        errors.Encode(ctx, i.Err, false),
+				End:        i.End,
+			}
 			return o, true, nil
 		},
 	}
@@ -371,8 +373,8 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	plumber.MustConnect[framer.WriterRequest](pipe, frameReceiverAddr, frameWriterAddr, writerRequestBufferSize)
 	plumber.MustConnect[framer.WriterResponse](pipe, frameWriterAddr, frameSenderAddr, writerResponseBufferSize)
 
-	pipe.Flow(ctx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
-	err = ctx.Wait()
+	pipe.Flow(cancelCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
+	err = cancelCtx.Wait()
 	return err
 }
 
@@ -603,10 +605,10 @@ func (c *WSFramerCodec) ContentType() string { return framerContentType }
 const framerContentType = "application/sy-framer"
 
 func NewHTTPCodecResolver(channel channel.Readable) httputil.CodecResolver {
-	return func(ct string) (httputil.Codec, error) {
-		if ct == framerContentType {
+	return func(contentType string) (httputil.Codec, error) {
+		if contentType == framerContentType {
 			return NewWSFramerCodec(channel), nil
 		}
-		return httputil.ResolveCodec(ct)
+		return httputil.ResolveCodec(contentType)
 	}
 }

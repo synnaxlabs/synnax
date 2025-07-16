@@ -14,28 +14,27 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Codec is an interface that extends binary.Codec to
-// add an HTTP content-type.
+// Codec is an interface that extends binary.Codec to add an HTTP content-type.
 type Codec interface {
 	ContentType() string
 	binary.Codec
 }
 
 type typedCodec struct {
-	ct string
+	contentType string
 	binary.Codec
 }
 
-func (t typedCodec) ContentType() string { return t.ct }
+func (tc typedCodec) ContentType() string { return tc.contentType }
 
 var (
 	JSONCodec = typedCodec{
-		ct:    "application/json",
-		Codec: &binary.JSONCodec{},
+		contentType: "application/json",
+		Codec:       &binary.JSONCodec{},
 	}
 	MsgPackCodec = typedCodec{
-		ct:    "application/msgpack",
-		Codec: &binary.MsgPackCodec{},
+		contentType: "application/msgpack",
+		Codec:       &binary.MsgPackCodec{},
 	}
 )
 
@@ -55,9 +54,9 @@ func ResolveCodec(contentType string) (Codec, error) {
 var _ CodecResolver = ResolveCodec
 
 func SupportedContentTypes() []string {
-	var contentTypes []string
-	for _, ecd := range codecs {
-		contentTypes = append(contentTypes, ecd.ContentType())
+	contentTypes := make([]string, len(codecs))
+	for i, ecd := range codecs {
+		contentTypes[i] = ecd.ContentType()
 	}
 	return contentTypes
 }
