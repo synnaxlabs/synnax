@@ -121,6 +121,7 @@ export const SelectSingle = ({
   return (
     <Select.Single<ranger.Key, ranger.Payload | undefined>
       resourceName="Range"
+      variant="modal"
       value={value}
       onChange={onChange}
       data={data}

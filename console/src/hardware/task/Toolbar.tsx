@@ -13,6 +13,7 @@ import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Align,
   Button,
+  Flux,
   Icon,
   List,
   Menu as PMenu,
@@ -73,7 +74,8 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
-  const { data, getItem, subscribe } = Task.useList();
+  const { data, getItem, subscribe, retrieve } = Task.useList();
+  const { onSearch, onFetchMore } = Flux.usePager({ retrieve });
 
   const rename = useMutation({
     onMutate: ({ key }) => getItem(key)?.name ?? "task",
@@ -199,6 +201,7 @@ const Content = () => {
           subscribe={subscribe}
           value={selected}
           onChange={setSelected}
+          onFetchMore={onFetchMore}
         >
           <List.Items<task.Key, task.Task> emptyContent={<EmptyContent />}>
             {({ key, ...p }) => (
@@ -235,6 +238,7 @@ interface TaskListItemProps extends List.ItemProps<task.Key> {
 const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
   const { itemKey } = rest;
   const task = List.useItem<task.Key, task.Task>(itemKey);
+  const selectProps = Select.useItemState(itemKey);
   const details = task?.status?.details;
   let variant = task?.status?.variant;
   const icon = getIcon(task?.type ?? "");
@@ -250,7 +254,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
     [isRunning, onStopStart],
   );
   return (
-    <List.Item {...rest} justify="spaceBetween" align="center">
+    <List.Item {...rest} justify="spaceBetween" align="center" {...selectProps}>
       <Align.Space y size="small" grow className={CSS.BE("task", "metadata")}>
         <Align.Space x align="center" size="small">
           <Status.Indicator

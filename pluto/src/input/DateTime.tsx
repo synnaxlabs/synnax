@@ -132,35 +132,37 @@ const DateTimeModal = ({
   onChange,
   close,
 }: DateTimeModalProps): ReactElement => (
-  <Align.Space className={CSS.B("datetime-modal")} empty>
-    <Align.Space className={CSS.B("content")}>
-      <Align.Space x className={CSS.B("header")}>
-        <Text.DateTime level="h3" format="preciseDate">
-          {value}
-        </Text.DateTime>
+  <Dialog.Dialog>
+    <Align.Space className={CSS.B("datetime-modal")} empty>
+      <Align.Space className={CSS.B("content")}>
+        <Align.Space x className={CSS.B("header")}>
+          <Text.DateTime level="h3" format="preciseDate">
+            {value}
+          </Text.DateTime>
+        </Align.Space>
+        <Button.Icon variant="text" className={CSS.B("close-btn")} onClick={close}>
+          <Icon.Close />
+        </Button.Icon>
+        <Align.Space x className={CSS.B("content")}>
+          <AISelector value={value} onChange={onChange} close={close} />
+          <Calendar value={value} onChange={onChange} />
+        </Align.Space>
       </Align.Space>
-      <Button.Icon variant="text" className={CSS.B("close-btn")} onClick={close}>
-        <Icon.Close />
-      </Button.Icon>
-      <Align.Space x className={CSS.B("content")}>
-        <AISelector value={value} onChange={onChange} close={close} />
-        <Calendar value={value} onChange={onChange} />
-      </Align.Space>
+      <Nav.Bar location="bottom" size="7rem">
+        <Nav.Bar.Start size="small">
+          <Triggers.Text shade={11} level="small" trigger={SAVE_TRIGGER} />
+          <Text.Text shade={11} level="small">
+            To Finish
+          </Text.Text>
+        </Nav.Bar.Start>
+        <Nav.Bar.End>
+          <Button.Button onClick={close} variant="outlined">
+            Done
+          </Button.Button>
+        </Nav.Bar.End>
+      </Nav.Bar>
     </Align.Space>
-    <Nav.Bar location="bottom" size="7rem">
-      <Nav.Bar.Start size="small">
-        <Triggers.Text shade={11} level="small" trigger={SAVE_TRIGGER} />
-        <Text.Text shade={11} level="small">
-          To Finish
-        </Text.Text>
-      </Nav.Bar.Start>
-      <Nav.Bar.End>
-        <Button.Button onClick={close} variant="outlined">
-          Done
-        </Button.Button>
-      </Nav.Bar.End>
-    </Nav.Bar>
-  </Align.Space>
+  </Dialog.Dialog>
 );
 
 interface AISuggestion {

@@ -68,12 +68,14 @@ export const Item = <K extends record.Key>({
       className,
       CONTEXT_TARGET,
       selected && CONTEXT_SELECTED,
-      allowSelect && CSS.M("selectable"),
       hovered && CSS.M("hovered"),
       rightAligned && CSS.M("right-aligned"),
       highlightHovered && CSS.M("highlight-hover"),
       CSS.BE("list", "item"),
       CSS.selected(selected),
+      CSS.shade(0),
+      allowSelect && CSS.M("clickable"),
+      CSS.M("text"),
     )}
     style={{
       position: translate != null ? "absolute" : "relative",

@@ -44,9 +44,10 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   status,
   icon,
   children,
+  variant = "connected",
   ...rest
 }: SingleProps<K, E>): ReactElement => (
-  <Dialog.Frame {...rest} variant="connected">
+  <Dialog.Frame {...rest} variant={variant}>
     <Frame<K, E>
       value={value}
       onChange={onChange}

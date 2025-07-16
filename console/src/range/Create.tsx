@@ -66,7 +66,7 @@ export const Create: Layout.Renderer = (props) => {
   const client = Synnax.use();
   const clientExists = client != null;
   const { form, save, variant } = Ranger.useForm({
-    params: { key: args.key },
+    params: { key: args?.key },
     autoSave: false,
     initialValues: {
       key: "",
@@ -80,8 +80,8 @@ export const Create: Layout.Renderer = (props) => {
 
   // Makes sure the user doesn't have the option to select the range itself as a parent
   const recursiveParentFilter = useCallback(
-    (data: ranger.Payload) => data.key !== args.key,
-    [args.key],
+    (data: ranger.Payload) => data.key !== args?.key,
+    [args?.key],
   );
 
   return (
@@ -137,14 +137,11 @@ export const Create: Layout.Renderer = (props) => {
       <Modals.BottomNavBar>
         <Triggers.SaveHelpText action="Save to Synnax" />
         <Nav.Bar.End>
-          <Button.Button
-            variant="outlined"
-            onClick={save}
-            disabled={variant === "loading"}
-          >
+          <Button.Button onClick={save} disabled={variant === "loading"}>
             Save Locally
           </Button.Button>
           <Button.Button
+            variant="filled"
             onClick={save}
             disabled={!clientExists || variant === "loading"}
             tooltip={clientExists ? "Save to Cluster" : "No Cluster Connected"}

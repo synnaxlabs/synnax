@@ -59,6 +59,7 @@ export const use = <Z extends z.ZodType>({
 
   const setCurrentStateAsInitialValues = useCallback(() => {
     ref.current.setCurrentStateAsInitialValues();
+    onHasTouchedRef.current?.(false);
   }, []);
 
   const bind: BindFunc = useCallback(

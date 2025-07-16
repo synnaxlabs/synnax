@@ -43,25 +43,24 @@ export const useStaticData = <
   data,
   filter,
 }: UseStaticDataArgs<K, E>): UseStaticDataReturn<K, E> => {
-  const fuse = useMemo(
-    () =>
-      new Fuse(data, {
-        keys: Object.keys(data[0]),
-        threshold: 0.3,
-      }),
-    [data],
-  );
+  const fuse = useMemo(() => {
+    if (data.length === 0) return null;
+    return new Fuse(data, {
+      keys: Object.keys(data[0]),
+      threshold: 0.3,
+    });
+  }, [data]);
   const [params, setParams] = useState<RetrieveParams>({});
   const getItem = useCallback((key?: K) => data.find((d) => d.key === key), [data]);
   const res = useMemo(() => {
     let keys = data.map((d) => d.key);
-    if (params.term != null && params.term.length > 0)
+    if (params.term != null && params.term.length > 0 && fuse != null)
       keys = fuse
         .search(params.term)
         .filter((d) => filter?.(d.item, params) ?? true)
         .map((d) => d.item.key);
 
     return { getItem, data: keys };
-  }, [data, filter, params, getItem]);
+  }, [data, filter, params, getItem, fuse]);
   return { ...res, retrieve: setParams };
 };

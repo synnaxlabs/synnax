@@ -18,11 +18,7 @@
     outline: none;
     min-height: 6rem;
 
-    &.pluto--selectable:is(:hover, .pluto--hovered) {
-        --pluto-bg: var(--pluto-gray-l2);
-        background: var(--pluto-bg);
-        border-top-color: var(--pluto-bg);
-
+    &.pluto--clickable:is(:hover, .pluto--hovered) {
         &.pluto--highlight-hover {
             box-shadow: inset 2px 0 0 var(--pluto-primary-z);
             &.pluto--right-aligned {
@@ -32,8 +28,7 @@
     }
 
     &.pluto--selected {
-        --pluto-bg: var(--pluto-gray-l1);
-        background: var(--pluto-bg);
+        background: var(--pluto-hover-bg);
         box-shadow: inset 3px 0 0 var(--pluto-primary-z);
         &.pluto--right-aligned {
             box-shadow: inset -2px 0 0 var(--pluto-primary-z);
