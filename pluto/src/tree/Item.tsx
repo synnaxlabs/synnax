@@ -3,6 +3,7 @@ import { type FC } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Select } from "@/select";
 import { type ItemProps } from "@/tree/Tree";
 
 interface BaseProps {
@@ -10,10 +11,19 @@ interface BaseProps {
   style: React.CSSProperties;
 }
 const createItem = (Base: FC<BaseProps>) => {
-  const Item = <K extends record.Key>({ index, ...rest }: ItemProps<K>) => {
-    const style = { marginLeft: `${index * 2.5 + 1.5}rem` };
+  const Item = <K extends record.Key>({ depth, itemKey, ...rest }: ItemProps<K>) => {
+    const style = { marginLeft: `${depth * 2.5 + 1.5}rem` };
     const className = CSS.B("tree-item");
-    return <Base style={style} className={className} {...rest} />;
+    const { onSelect } = Select.useItemState<K>(itemKey);
+    return (
+      <Base
+        variant="text"
+        style={style}
+        className={className}
+        {...rest}
+        onClick={onSelect}
+      />
+    );
   };
   return Item;
 };

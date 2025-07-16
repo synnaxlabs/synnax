@@ -69,6 +69,7 @@ export const use = <K extends record.Key = string>({
 
   const handleSelect: Select.UseMultipleProps<K>["onChange"] = useCallback(
     (keys: K[], { clicked }: Select.UseOnChangeExtra<K>): void => {
+      console.log(keys, clicked);
       setSelected(keys);
       const n = nodesRef.current.find((node) => node.key === clicked);
       if (n?.children == null) return;
@@ -142,15 +143,17 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   selected,
   onSelect,
   getItem,
+  subscribe,
 }: TreeProps<K, E>): ReactElement => {
   const { keys, depths } = shape;
   return (
     <Select.Frame
       multiple
       value={selected}
-      onChange={onSelect}
       data={keys}
+      onChange={onSelect}
       getItem={getItem}
+      subscribe={subscribe}
     >
       <List.Items<K, E>>
         {({ index, ...rest }) => children({ index, depth: depths[index], ...rest })}

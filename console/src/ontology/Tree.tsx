@@ -15,6 +15,7 @@ import {
   List,
   Menu,
   Ontology,
+  Select,
   Status,
   Synnax as PSynnax,
   Text,
@@ -81,6 +82,7 @@ const itemRenderProp = Component.renderProp((props: Core.ItemProps<string>) => {
   const { itemKey } = props;
   const id = ontology.idZ.parse(itemKey);
   const resource = List.useItem<string, ontology.Resource>(itemKey);
+  const selectProps = Select.useItemState<string>(itemKey);
   const service = useServices()[id.type];
   const Item = service.Item ?? DefaultItem;
   const context = useContext();
@@ -111,6 +113,7 @@ const itemRenderProp = Component.renderProp((props: Core.ItemProps<string>) => {
       resource={resource}
       loading={loading}
       onRename={handleRename}
+      {...selectProps}
     />
   );
 });
@@ -148,34 +151,26 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     [loadingListenersRef],
   );
 
-  const useResource = useCallback((key?: string) => {
-    const abortControllerRef = useRef<AbortController | null>(null);
-    return useSyncExternalStore<ontology.Resource | undefined>(
-      useCallback(
-        (callback) => {
-          if (key == null) return () => {};
-          abortControllerRef.current = new AbortController();
-          listenersRef.current.set(callback, key);
-          return () => {
-            listenersRef.current.delete(callback);
-            abortControllerRef.current?.abort();
-          };
-        },
-        [key],
-      ),
-      useCallback(() => {
-        if (key == null) return undefined;
-        return resourcesRef.current.get(key);
-      }, [key]),
-    );
+  const subscribe = useCallback((callback: () => void, key?: string): (() => void) => {
+    if (key == null) return () => {};
+    listenersRef.current.set(callback, key);
+    return () => {
+      listenersRef.current.delete(callback);
+    };
+  }, []);
+
+  const getItem = useCallback((key?: string) => {
+    if (key == null) return undefined;
+    return resourcesRef.current.get(key);
   }, []);
 
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
-      const children = await client.ontology.retrieveChildren(root);
+      const resources = await client.ontology.retrieveChildren(root);
+      resources.forEach((r) => resourcesRef.current.set(ontology.idToString(r.id), r));
       if (signal.aborted) return;
-      const nodes = children.map((c) => ({
+      const nodes = resources.map((c) => ({
         key: ontology.idToString(c.id),
         children: [],
       }));
@@ -189,6 +184,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       handleError(async () => {
         if (client == null) return;
         const resource = await client.ontology.retrieve(id);
+        console.log(resourcesRef.current.size);
         resourcesRef.current.set(ontology.idToString(id), resource);
       });
     },
@@ -521,6 +517,9 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     }),
     [handleRename, handleDrop, handleDoubleClick, useLoading],
   );
+
+  console.log(shape);
+
   return (
     <Context.Provider value={contextValue}>
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
@@ -529,6 +528,8 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         shape={shape}
         selected={selected}
         onSelect={onSelect}
+        subscribe={subscribe}
+        getItem={getItem}
       >
         {itemRenderProp}
       </Core.Tree>

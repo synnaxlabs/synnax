@@ -39,6 +39,8 @@ export const flatten = <K extends record.Key = string>({
   const flattened: Shape<K> = { keys: [], depths: [] };
   nodes.forEach((node) => {
     const expand = shouldExpand(node, expanded);
+    flattened.keys.push(node.key);
+    flattened.depths.push(depth);
     if (expand && node.children != null) {
       const { keys, depths } = flatten({
         nodes: node.children,
