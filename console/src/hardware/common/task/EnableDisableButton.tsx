@@ -28,7 +28,7 @@ export const EnableDisableButton = ({
     <Button.ToggleIcon
       disabled={isSnapshot}
       onChange={(v) => set(path, v)}
-      size="small"
+      size="tiny"
       onClick={stopPropagation}
       tooltip={
         isSnapshot ? undefined : (

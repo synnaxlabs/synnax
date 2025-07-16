@@ -21,8 +21,9 @@ import { Text } from "@/text";
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
     const item = List.useItem<device.Key, device.Device>(itemKey);
+    const selectProps = Select.useItemState(itemKey);
     return (
-      <List.Item itemKey={itemKey} {...rest}>
+      <List.Item itemKey={itemKey} {...rest} {...selectProps}>
         <Text.Text level="p">{item?.name}</Text.Text>
         <Breadcrumb.Breadcrumb
           level="small"

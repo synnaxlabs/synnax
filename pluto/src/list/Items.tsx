@@ -10,7 +10,7 @@
 import "@/list/Items.css";
 
 import { type record } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import { memo, type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -20,7 +20,7 @@ import { type ItemRenderProp } from "@/list/Item";
 export interface ItemsProps<K extends record.Key = record.Key>
   extends Omit<Align.SpaceProps, "children" | "ref"> {
   children: ItemRenderProp<K>;
-  emptyContent?: ReactElement;
+  emptyContent?: ReactNode;
 }
 
 const BaseItems = <

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Align, Device, Form, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { Device, Form, Status, Synnax } from "@synnaxlabs/pluto";
 import { type JSX, useCallback } from "react";
 
 import { Layout } from "@/layout";
@@ -55,17 +55,7 @@ export const Select = ({
           value={value}
           onChange={onChange}
           initialParams={{ makes: [make] }}
-          emptyContent={
-            typeof emptyContent === "string" ? (
-              <Align.Center>
-                <Text.Text level="p" shade={10}>
-                  {emptyContent}
-                </Text.Text>
-              </Align.Center>
-            ) : (
-              emptyContent
-            )
-          }
+          emptyContent={emptyContent}
           grow
         />
       )}

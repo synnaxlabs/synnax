@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
-import { Align, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
+import { Align, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -87,9 +87,10 @@ const ChannelListItem = ({
   deviceModel,
   ...rest
 }: ChannelListItemProps) => {
-  const entry = List.useItem<InputChannel["key"], InputChannel>();
-  if (entry == null) return null;
-  const { channel, port, enabled, type } = entry;
+  const channel = PForm.useFieldValue<channel.Key>(`${path}.channel`);
+  const port = PForm.useFieldValue<string>(`${path}.port`);
+  const enabled = PForm.useFieldValue<boolean>(`${path}.enabled`);
+  const type = PForm.useFieldValue<InputChannelType>(`${path}.type`);
   const hasTareButton = channel !== 0 && type === AI_CHANNEL_TYPE && !isSnapshot;
   const canTare = enabled && isRunning;
   const renderedPort = getRenderedPort(port, deviceModel, type);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form, Text } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/pluto";
 import { deep, type record } from "@synnaxlabs/x";
 
 import {
@@ -20,24 +20,6 @@ import {
 } from "@/hardware/ni/task/types";
 
 export interface Entry extends record.KeyedNamed<AIChannelType> {}
-
-interface ChannelTypeProps {
-  type: AIChannelType;
-}
-
-const ChannelType = ({ type }: ChannelTypeProps) => {
-  const Icon = AI_CHANNEL_TYPE_ICONS[type];
-  return (
-    <Text.WithIcon
-      level="p"
-      startIcon={
-        <Icon style={{ transform: "scale(0.9)", color: "var(--pluto-gray-l7)" }} />
-      }
-    >
-      {AI_CHANNEL_TYPE_NAMES[type]}
-    </Text.WithIcon>
-  );
-};
 
 export type SelectAIChannelTypeFieldProps = Form.SelectFieldProps<AIChannelType, Entry>;
 
@@ -59,10 +41,14 @@ export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType, Ent
     },
   },
   inputProps: {
-    children: ({ itemKey }) => <ChannelType type={itemKey} />,
-    data: Object.keys(AI_CHANNEL_TYPE_NAMES).map((key) => ({
-      key: key as AIChannelType,
-      name: key,
-    })),
+    data: Object.keys(AI_CHANNEL_TYPE_NAMES).map((key) => {
+      const type = key as AIChannelType;
+      const Icon = AI_CHANNEL_TYPE_ICONS[type];
+      return {
+        key: type,
+        name: AI_CHANNEL_TYPE_NAMES[type],
+        icon: <Icon style={{ transform: "scale(0.9)" }} color={8} />,
+      };
+    }),
   },
 });

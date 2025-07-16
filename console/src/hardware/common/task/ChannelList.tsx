@@ -145,7 +145,7 @@ export const ChannelList = <C extends Channel>({
 }: ChannelListProps<C>) => {
   const { isSnapshot, onSelect, path, data } = rest;
   const handleChange = useCallback(
-    (keys: string[]) => onSelect(keys.map((k) => `${path}.${k}`)),
+    (keys: string[]) => onSelect(keys),
     [onSelect, path],
   );
   const menuProps = PMenu.useContextMenu();
@@ -163,6 +163,7 @@ export const ChannelList = <C extends Channel>({
           data={data}
           value={selected}
           onChange={handleChange}
+          replaceOnSingle
         >
           <List.Items<string, C>
             onDragOver={onDragOver}

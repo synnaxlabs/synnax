@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Align, Component, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
+import { Align, Component, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
@@ -69,10 +69,10 @@ const ChannelListItem = ({
   isRunning,
   ...rest
 }: ChannelListItemProps) => {
-  const { itemKey } = rest;
-  const item = List.useItem<string, AIChannel>(itemKey);
-  if (item == null) return null;
-  const { channel, enabled, port, type } = item;
+  const port = PForm.useFieldValue<number>(`${path}.port`);
+  const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
+  const channel = PForm.useFieldValue<channel.Key>(`${path}.channel`);
+  const enabled = PForm.useFieldValue<boolean>(`${path}.enabled`);
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];

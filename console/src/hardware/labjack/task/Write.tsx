@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Align, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
@@ -64,9 +64,10 @@ const ChannelListItem = ({
   ...rest
 }: ChannelListItemProps) => {
   const { set } = PForm.useContext();
-  const item = List.useItem<OutputChannel["key"], OutputChannel>();
-  if (item == null) return null;
-  const { port, type, cmdChannel, stateChannel } = item;
+  const port = PForm.useFieldValue<string>(`${path}.port`);
+  const type = PForm.useFieldValue<OutputChannelType>(`${path}.type`);
+  const cmdChannel = PForm.useFieldValue<channel.Key>(`${path}.cmdChannel`);
+  const stateChannel = PForm.useFieldValue<channel.Key>(`${path}.stateChannel`);
   return (
     <List.Item
       {...rest}
@@ -80,13 +81,13 @@ const ChannelListItem = ({
           path={`${path}.port`}
           showLabel={false}
           hideIfNull
-          onChange={(value) => {
+          onChange={(value, ctx) => {
             if (port === value) return;
             const existingCommandStatePair =
               device.properties[type].channels[value] ??
               Common.Device.ZERO_COMMAND_STATE_PAIR;
             set(path, {
-              ...item,
+              ...ctx.get(path),
               cmdChannel: existingCommandStatePair.command,
               stateChannel: existingCommandStatePair.state,
               port: value,

@@ -103,10 +103,13 @@ export class Client {
     options?: RetrieveOptions,
   ): Promise<Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>> {
     let request: RetrieveRequest;
+    let isSingle = false;
     if (Array.isArray(keys)) request = { keys: array.toArray(keys), ...options };
     else if (typeof keys === "object") request = keys;
-    else request = { keys: [keys], ...options };
-    const isSingle = !Array.isArray(keys);
+    else {
+      request = { keys: [keys], ...options };
+      isSingle = true;
+    }
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,

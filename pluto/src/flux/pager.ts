@@ -75,7 +75,7 @@ export const usePager = ({ retrieve, pageSize = 10 }: UsePagerArgs): UsePagerRet
    */
   const onFetchMore = useCallback(() => {
     retrieve(
-      ({ offset = -pageSize, term }) => ({
+      ({ offset = -pageSize, term = "" }) => ({
         offset: offset + pageSize,
         limit: pageSize,
         term,

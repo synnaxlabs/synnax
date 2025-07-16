@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Align, List, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Align, List, Select, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { cloneElement, type JSX } from "react";
 
@@ -67,9 +67,11 @@ export const ListAndDetailsChannelItem = <K extends string>({
   const hasStateChannel = stateChannel != null;
   const hasIcon = icon != null;
   const channelNameProps = getChannelNameProps(hasIcon);
+  const selectProps = Select.useItemState(itemKey);
   return (
     <List.Item
       {...rest}
+      {...selectProps}
       justify="spaceBetween"
       align="center"
       style={{ padding: "1.25rem 2rem" }}

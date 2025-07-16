@@ -18,7 +18,7 @@ export interface DialogProps<K extends record.Key>
   extends Omit<CoreDialog.DialogProps, "children">,
     SearchInputProps,
     Pick<List.ItemsProps<K>, "emptyContent" | "children"> {
-  status?: Pick<status.Status, "variant" | "message">;
+  status?: status.Status;
 }
 
 const DEFAULT_HEIGHT = 250;
@@ -43,8 +43,15 @@ export const Dialog = <K extends record.Key>({
       <Status.Text.Centered
         variant={status?.variant}
         style={{ height: DEFAULT_HEIGHT }}
+        description={status?.description}
       >
         {status?.message}
+      </Status.Text.Centered>
+    );
+  else if (typeof emptyContent === "string")
+    emptyContent = (
+      <Status.Text.Centered variant="disabled" style={{ height: DEFAULT_HEIGHT }}>
+        {emptyContent}
       </Status.Text.Centered>
     );
   return (
