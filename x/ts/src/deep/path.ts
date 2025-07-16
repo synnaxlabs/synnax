@@ -185,7 +185,24 @@ export const set = <V>(
     result = v as record.Unknown;
   }
   try {
-    result[parts[parts.length - 1]] = value;
+    if (!Array.isArray(result)) {
+      result[parts[parts.length - 1]] = value;
+      return;
+    }
+    if (result.length === 0) return;
+    const index = parseInt(parts[parts.length - 1]);
+    if (isNaN(index)) {
+      const first = result[0];
+      if (typeof first === "object" && "key" in first) {
+        const objIndex = result.findIndex((o) => o.key === parts[parts.length - 1]);
+        if (objIndex !== -1) {
+          result[objIndex] = value;
+          return;
+        }
+      }
+      return;
+    }
+    result[index] = value;
   } catch (e) {
     console.error("failed to set value", value, "at path", path, "on object", obj);
     throw e;

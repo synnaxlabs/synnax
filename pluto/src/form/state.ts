@@ -52,8 +52,8 @@ const getVariant = (issue: z.core.$ZodIssue): status.Variant => {
 export class State<Z extends z.ZodType> extends observe.Observer<void> {
   private readonly schema?: Z;
   values: z.infer<Z>;
-
   initialValues: z.infer<Z>;
+
   private readonly statuses: Map<string, status.Crude>;
   private readonly touched: Set<string>;
   private readonly cachedRefs: Map<string, {}>;
@@ -217,7 +217,11 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
 
   private updateCachedRefs(parentPath: string) {
     this.cachedRefs.forEach((_, childPath) => {
-      if (deep.pathsMatch(childPath, parentPath)) this.cachedRefs.set(childPath, {});
+      if (
+        deep.pathsMatch(childPath, parentPath) ||
+        deep.pathsMatch(parentPath, childPath)
+      )
+        this.cachedRefs.set(childPath, {});
     });
   }
 }

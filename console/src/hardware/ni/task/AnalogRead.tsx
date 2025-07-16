@@ -69,10 +69,7 @@ const ChannelListItem = ({
   isRunning,
   ...rest
 }: ChannelListItemProps) => {
-  const port = PForm.useFieldValue<number>(`${path}.port`);
-  const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
-  const channel = PForm.useFieldValue<channel.Key>(`${path}.channel`);
-  const enabled = PForm.useFieldValue<boolean>(`${path}.enabled`);
+  const { port, type, channel, enabled } = PForm.useFieldValue<AIChannel>(path);
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];

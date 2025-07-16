@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, compare, type record, shallowCopy, type status } from "@synnaxlabs/x";
-import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
+import {
+  array,
+  type compare,
+  type record,
+  shallowCopy,
+  type status,
+} from "@synnaxlabs/x";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { type z } from "zod";
 
 import { type ContextValue, useContext } from "@/form/Context";
@@ -156,13 +162,7 @@ export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
 export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   path: string,
   opts?: GetOptions<O> & ContextOptions<Z>,
-): O | null => {
-  const { get, bind } = useContext(opts?.ctx);
-  return useSyncExternalStore(
-    bind,
-    useCallback(() => get<O>(path, opts)?.value ?? null, [path, get, opts]),
-  );
-}) as UseFieldValue;
+): O | null => useFieldState(path, opts)?.value ?? null) as UseFieldValue;
 
 export const useFieldValid = (path: string): boolean =>
   useFieldState(path, { optional: true })?.status?.variant === "success";
@@ -229,19 +229,9 @@ export const useFieldList = <
   opts: ContextOptions<Z> = {},
 ): UseFieldListReturn<K, E> => {
   const ctx = useContext(opts?.ctx);
-  const { get, bind } = ctx;
-  const keysRef = useRef<K[]>([]);
-  const data = useSyncExternalStore(
-    bind,
-    useCallback(() => {
-      const keys = get<E[]>(path).value.map(({ key }) => key);
-      if (compare.primitiveArrays(keysRef.current, keys) !== compare.EQUAL)
-        keysRef.current = keys;
-      return keysRef.current;
-    }, [path, get]),
-  );
+  const value = useFieldValue<E[]>(path, opts);
   return useMemo(
-    () => ({ data, ...fieldListUtils<K, E>(ctx, path) }),
-    [data, ctx, path],
+    () => ({ data: value.map(({ key }) => key), ...fieldListUtils<K, E>(ctx, path) }),
+    [value, ctx, path],
   );
 };

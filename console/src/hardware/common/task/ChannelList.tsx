@@ -29,7 +29,7 @@ export interface ContextMenuItemProps<C extends Channel> {
 }
 
 interface ContextMenuProps<C extends Channel>
-  extends Pick<Form.UseFieldListReturn<C["key"], C>, "data" | "remove" | "value"> {
+  extends Pick<Form.UseFieldListReturn<C["key"], C>, "data" | "remove"> {
   keys: string[];
   allowTare?: (keys: string[], channels: C[]) => boolean;
   isSnapshot: boolean;
@@ -44,7 +44,6 @@ const ContextMenu = <C extends Channel>({
   allowTare,
   keys,
   isSnapshot,
-  value,
   onDuplicate,
   onSelect,
   onTare,
@@ -53,13 +52,16 @@ const ContextMenu = <C extends Channel>({
   contextMenuItems,
 }: ContextMenuProps<C>) => {
   const handleRemove = () => onSelect(array.toArray(remove(keys)[0]));
-  const channels = value();
   const { set } = Form.useContext();
-  const handleDuplicate = () => onDuplicate?.(value(), keys);
+  const channels = Form.useFieldValue<C[]>(path);
+  const handleDuplicate = () => onDuplicate?.(channels, keys);
   const handleDisable = () =>
     keys.forEach((key) => set(`${path}.${key}.enabled`, false));
   const handleEnable = () => keys.forEach((key) => set(`${path}.${key}.enabled`, true));
-  const handleTare = useCallback(() => onTare?.(keys, value()), [onTare, keys, value]);
+  const handleTare = useCallback(
+    () => onTare?.(keys, channels),
+    [onTare, keys, channels],
+  );
   const handleSelect: Record<string, () => void> = {
     remove: handleRemove,
     disable: handleDisable,

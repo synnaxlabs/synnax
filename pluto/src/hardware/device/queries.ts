@@ -62,8 +62,11 @@ export interface ListParams extends Flux.Params {
 
 export const useList = Flux.createList<ListParams, device.Key, device.Device>({
   name: "Devices",
-  retrieve: async ({ client, params }) =>
-    await client.hardware.devices.retrieve(params),
+  retrieve: async ({ client, params }) => {
+    console.log(params);
+
+    return await client.hardware.devices.retrieve(params);
+  },
   retrieveByKey: async ({ client, key }) => await client.hardware.devices.retrieve(key),
   listeners: [
     {

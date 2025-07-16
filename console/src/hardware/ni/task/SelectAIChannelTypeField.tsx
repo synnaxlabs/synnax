@@ -34,10 +34,11 @@ export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType, Ent
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<AIChannel>(parentPath).value;
       const schema = AI_CHANNEL_SCHEMAS[value];
-      set(parentPath, {
+      const nextValue = {
         ...deep.overrideValidItems(next, prevParent, schema),
         type: next.type,
-      });
+      };
+      set(parentPath, nextValue);
     },
   },
   inputProps: {

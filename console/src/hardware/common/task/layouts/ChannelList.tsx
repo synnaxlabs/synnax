@@ -75,10 +75,9 @@ export const ChannelList = <C extends Channel>({
   path = "config.channels",
   listItem,
   selected,
-  ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
-  const { data, push, remove, value } = Form.useFieldList<C["key"], C>(path);
+  const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
   const handleAdd = useCallback(() => {
     const channels = ctx.get<C[]>(path).value;
     const channel = createChannel(channels);
@@ -107,7 +106,6 @@ export const ChannelList = <C extends Channel>({
       listItem={listItem}
       selected={selected}
       remove={remove}
-      value={value}
     />
   );
 };

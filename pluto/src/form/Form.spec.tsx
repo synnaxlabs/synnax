@@ -39,7 +39,7 @@ const initialFormValues: z.infer<typeof basicFormSchema> = {
   name: "John Doe",
   age: 42,
   nested: { ssn: "123-45-6789", ein: "" },
-  array: [{ key: "1", name: "John Doe" }],
+  array: [{ key: "key1", name: "John Doe" }],
 };
 
 const FormContainer = (props: PropsWithChildren): ReactElement => {
@@ -317,7 +317,7 @@ describe("Form", () => {
       const { result } = renderHook(() => Form.useFieldValue("array"), {
         wrapper,
       });
-      expect(result.current).toEqual([{ name: "John Doe" }]);
+      expect(result.current).toEqual([{ key: "key1", name: "John Doe" }]);
     });
 
     it("should return array element values correctly", () => {
@@ -332,6 +332,36 @@ describe("Form", () => {
         wrapper,
       });
       expect(result.current).toEqual({ ssn: "123-45-6789", ein: "" });
+    });
+
+    it("should update a parent value state when a child value changes", async () => {
+      const { result } = renderHook(
+        () => {
+          const child = Form.useField("nested.ssn");
+          const parent = Form.useField<{ ssn: string }>("nested");
+          return { child, parent };
+        },
+        {
+          wrapper,
+        },
+      );
+      act(() => result.current.child.onChange("123-45-6786"));
+      expect(result.current.parent.value?.ssn).toEqual("123-45-6786");
+    });
+
+    it("should update an array parent when a child in the array changes", () => {
+      const { result } = renderHook(
+        () => {
+          const ctx = Form.useContext();
+          const parent = Form.useFieldValue<string[]>("array");
+          return { ctx, parent };
+        },
+        {
+          wrapper,
+        },
+      );
+      act(() => result.current.ctx.set("array.key1.name", "Cat"));
+      expect(result.current.parent).toEqual([{ key: "key1", name: "Cat" }]);
     });
   });
 
@@ -449,28 +479,26 @@ describe("Form", () => {
     });
   });
 
-  describe("useFieldArray", () => {
+  describe("useFieldLIst", () => {
     it("should return the array as the value", () => {
       const res = renderHook(() => Form.useFieldList("array"), { wrapper });
-      expect(res.result.current.data).toEqual([{ name: "John Doe" }]);
+      expect(res.result.current.data).toEqual(["key1"]);
     });
     it("should correctly push a value onto the start of the array", () => {
       const res = renderHook(
         () => Form.useFieldList<string, record.KeyedNamed>("array"),
         { wrapper },
       );
-      res.result.current.push({ key: "2", name: "Jane Doe" });
+      res.result.current.push({ key: "key2", name: "Jane Doe" });
       res.rerender();
-      expect(res.result.current.data).toEqual([
-        { key: "1", name: "John Doe" },
-        { key: "2", name: "Jane Doe" },
-      ]);
+      expect(res.result.current.data).toEqual(["key1", "key2"]);
     });
 
     it("should correctly remove the given index from the array", () => {
       const res = renderHook(() => Form.useFieldList("array"), { wrapper });
-      res.result.current.remove(0);
-      res.rerender();
+      act(() => {
+        res.result.current.remove("key1");
+      });
       expect(res.result.current.data).toEqual([]);
     });
 
@@ -479,11 +507,11 @@ describe("Form", () => {
         () => Form.useFieldList<string, record.KeyedNamed>("array"),
         { wrapper },
       );
-      res.result.current.push({ key: "2", name: "Jane Doe" });
+      res.result.current.push({ key: "key2", name: "Jane Doe" });
       res.rerender();
-      res.result.current.keepOnly("2");
+      res.result.current.keepOnly("key2");
       res.rerender();
-      expect(res.result.current.data).toEqual([{ name: "Jane Doe" }]);
+      expect(res.result.current.data).toEqual(["key2"]);
     });
   });
 

@@ -31,9 +31,10 @@ export interface SelectPortProps
 const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const port = List.useItem<string, Port>(props.itemKey);
   if (port == null) return null;
+  const selectProps = Select.useItemState(props.itemKey);
   const { alias, key } = port;
   return (
-    <List.Item {...props}>
+    <List.Item {...props} {...selectProps}>
       <Text.Text level="p" shade={11}>
         {alias ?? key}
       </Text.Text>

@@ -75,7 +75,8 @@ export const usePager = ({ retrieve, pageSize = 10 }: UsePagerArgs): UsePagerRet
    */
   const onFetchMore = useCallback(() => {
     retrieve(
-      ({ offset = -pageSize, term = "" }) => ({
+      ({ offset = -pageSize, term = "", ...prev }) => ({
+        ...prev,
         offset: offset + pageSize,
         limit: pageSize,
         term,
@@ -88,7 +89,7 @@ export const usePager = ({ retrieve, pageSize = 10 }: UsePagerArgs): UsePagerRet
    * Performs a search with the given term, resetting to the first page.
    */
   const onSearch = useCallback(
-    (term: string) => retrieve({ term, offset: 0, limit: pageSize }),
+    (term: string) => retrieve((p) => ({ ...p, term, offset: 0, limit: pageSize })),
     [retrieve, pageSize],
   );
 

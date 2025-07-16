@@ -9,7 +9,7 @@
 
 import "@/hardware/ni/task/DigitalChannelList.css";
 
-import { Align, Form, List, type RenderProp, Text } from "@synnaxlabs/pluto";
+import { Align, Form, List, type RenderProp, Select, Text } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
@@ -27,12 +27,13 @@ const ListItem = <C extends DigitalChannel>({
   isSnapshot,
   ...rest
 }: ListItemProps<C>) => {
-  const { itemKey } = rest;
-  const channel = List.useItem<C["key"], C>(itemKey);
+  const channel = Form.useFieldValue<C>(path);
+  const selectProps = Select.useItemState(path);
   if (channel == null) return null;
   return (
     <List.Item
       {...rest}
+      {...selectProps}
       align="center"
       x
       justify="spaceBetween"

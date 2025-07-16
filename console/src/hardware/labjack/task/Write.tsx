@@ -64,10 +64,8 @@ const ChannelListItem = ({
   ...rest
 }: ChannelListItemProps) => {
   const { set } = PForm.useContext();
-  const port = PForm.useFieldValue<string>(`${path}.port`);
-  const type = PForm.useFieldValue<OutputChannelType>(`${path}.type`);
-  const cmdChannel = PForm.useFieldValue<channel.Key>(`${path}.cmdChannel`);
-  const stateChannel = PForm.useFieldValue<channel.Key>(`${path}.stateChannel`);
+  const item = PForm.useFieldValue<OutputChannel>(path);
+  const { port, type, cmdChannel, stateChannel } = item;
   return (
     <List.Item
       {...rest}
