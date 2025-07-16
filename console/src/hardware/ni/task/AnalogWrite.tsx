@@ -59,8 +59,7 @@ const Properties = () => (
 interface ChannelListItemProps extends Common.Task.ChannelListItemProps {}
 
 const ChannelListItem = ({ path, isSnapshot, ...rest }: ChannelListItemProps) => {
-  const { itemKey } = rest;
-  const item = List.useItem<string, AOChannel>(itemKey);
+  const item = PForm.useFieldValue<AOChannel>(path);
   if (item == null) return null;
   const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];

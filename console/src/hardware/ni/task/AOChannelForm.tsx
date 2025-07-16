@@ -28,10 +28,8 @@ import {
 
 interface SelectWaveTypeProps extends Omit<Select.ButtonsProps<WaveType>, "keys"> {}
 
-const WAVE_TYPE_DATA = [...WAVE_TYPES];
-
 const SelectWaveType = (props: SelectWaveTypeProps) => (
-  <Select.Buttons {...props} keys={WAVE_TYPE_DATA}>
+  <Select.Buttons {...props} keys={WAVE_TYPES}>
     <Select.Button itemKey={SINE_WAVE_TYPE} startIcon={<Icon.Wave.Sine />}>
       Sine
     </Select.Button>

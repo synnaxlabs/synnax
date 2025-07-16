@@ -7,14 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  array,
-  type compare,
-  type record,
-  shallowCopy,
-  type status,
-} from "@synnaxlabs/x";
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { array, compare, type record, shallowCopy, type status } from "@synnaxlabs/x";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 import { type z } from "zod";
 
 import { type ContextValue, useContext } from "@/form/Context";
@@ -236,9 +230,15 @@ export const useFieldList = <
 ): UseFieldListReturn<K, E> => {
   const ctx = useContext(opts?.ctx);
   const { get, bind } = ctx;
+  const keysRef = useRef<K[]>([]);
   const data = useSyncExternalStore(
     bind,
-    useCallback(() => get<E[]>(path).value.map(({ key }) => key), [path, get]),
+    useCallback(() => {
+      const keys = get<E[]>(path).value.map(({ key }) => key);
+      if (compare.primitiveArrays(keysRef.current, keys) !== compare.EQUAL)
+        keysRef.current = keys;
+      return keysRef.current;
+    }, [path, get]),
   );
   return useMemo(
     () => ({ data, ...fieldListUtils<K, E>(ctx, path) }),
