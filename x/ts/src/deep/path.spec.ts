@@ -127,31 +127,29 @@ describe("path", () => {
       expect(a).toEqual(b);
     });
 
-    describe("regression", () => {
-      it("should set a key in the array", () => {
-        const data = {
-          config: {
-            channels: [{ key: "tMnAnJeQmn6", type: "ai_voltage" }],
-          },
-        };
-        deep.set(data, "config.channels.tMnAnJeQmn6.type", "ai_force_bridge_table");
-        expect(data.config.channels[0].type).toEqual("ai_force_bridge_table");
-      });
+    it("should set a value on a nested object in the array by key", () => {
+      const data = {
+        config: {
+          channels: [{ key: "tMnAnJeQmn6", type: "ai_voltage" }],
+        },
+      };
+      deep.set(data, "config.channels.tMnAnJeQmn6.type", "ai_force_bridge_table");
+      expect(data.config.channels[0].type).toEqual("ai_force_bridge_table");
+    });
 
-      it("should set an entire item in the array by its key", () => {
-        const data = {
-          config: {
-            channels: [{ key: "tMnAnJeQmn6", type: "ai_voltage" }],
-          },
-        };
-        deep.set(data, "config.channels.tMnAnJeQmn6", {
-          key: "tMnAnJeQmn6",
-          type: "ai_force_bridge_table",
-        });
-        expect(data.config.channels[0]).toEqual({
-          key: "tMnAnJeQmn6",
-          type: "ai_force_bridge_table",
-        });
+    it("should set an entire item in the array by its key", () => {
+      const data = {
+        config: {
+          channels: [{ key: "tMnAnJeQmn6", type: "ai_voltage" }],
+        },
+      };
+      deep.set(data, "config.channels.tMnAnJeQmn6", {
+        key: "tMnAnJeQmn6",
+        type: "ai_force_bridge_table",
+      });
+      expect(data.config.channels[0]).toEqual({
+        key: "tMnAnJeQmn6",
+        type: "ai_force_bridge_table",
       });
     });
   });
