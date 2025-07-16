@@ -1888,6 +1888,7 @@ export const Button = ({
 }: ButtonProps): ReactElement => (
   <Div orientation={orientation}>
     <CoreButton.Button
+      variant="filled"
       onClick={onClick}
       onMouseDown={onMouseDown}
       onMouseUp={onMouseUp}
