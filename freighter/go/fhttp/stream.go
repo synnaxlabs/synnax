@@ -379,7 +379,8 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx *fiber.Ctx) error {
 		return upgradeCtx.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	// Upgrade the connection to a websocket connection.
-	return fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, codec, c) })(upgradeCtx)
+	handler := fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, codec, c) })
+	return handler(upgradeCtx)
 }
 
 func (s *streamServer[RQ, RS]) handleSocket(
