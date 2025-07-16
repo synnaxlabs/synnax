@@ -22,4 +22,5 @@
     position: relative;
     user-select: none;
     -webkit-user-select: none;
+    transition: height 0.2s ease-in-out;
 }

@@ -1,4 +1,4 @@
-import { type Component, type Flux, type List } from "@synnaxlabs/pluto";
+import { type Component, type Flux, type List, type state } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
 export interface RetrieveParams extends Flux.Params {
@@ -12,5 +12,5 @@ export interface UseListReturn<E extends record.Keyed<string>>
   data: string[];
   handleSelect: (key: string) => void;
   listItem: Component.RenderProp<List.ItemProps<string>>;
-  retrieve: (params: RetrieveParams) => void;
+  retrieve: (params: state.SetArg<RetrieveParams>) => void;
 }

@@ -41,7 +41,6 @@
         border-color: var(--pluto-gray-l6);
         z-index: 11;
         min-width: 400px;
-        min-height: 150px;
         overflow: hidden;
         box-shadow: var(--pluto-shadow-v1);
         border-radius: 1rem;

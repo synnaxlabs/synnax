@@ -57,7 +57,7 @@ export const useStaticData = <
     let keys = data.map((d) => d.key);
     if (params.term != null && params.term.length > 0)
       keys = fuse
-        .search(params.term ?? "")
+        .search(params.term)
         .filter((d) => filter?.(d.item, params) ?? true)
         .map((d) => d.item.key);
 

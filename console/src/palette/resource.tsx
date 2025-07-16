@@ -12,6 +12,7 @@ import {
   Component,
   List,
   Ontology as POntology,
+  Select,
   Status,
   Synnax as PSynnax,
   Text,
@@ -27,16 +28,24 @@ import { type RootAction, type RootState } from "@/store";
 interface OntologyListItemProps extends List.ItemProps<string> {}
 
 const listItem = Component.renderProp((props: OntologyListItemProps) => {
-  const item = List.useItem<string, ontology.Resource>(props.itemKey);
-  if (item == null) return null;
-  const { name, id } = item;
+  const { itemKey } = props;
+  const id = ontology.idZ.parse(itemKey);
+  const item = List.useItem<string, ontology.Resource>(itemKey);
   const { icon, onSelect, PaletteListItem } = Ontology.useService(id.type);
+  const selectProps = Select.useItemState(itemKey);
+  if (item == null) return null;
+  const { name } = item;
   // return null if the ontology service does not have an onSelect method, that way we
   // don't show pointless items in the palette.
   return onSelect == null ? null : PaletteListItem != null ? (
     <PaletteListItem {...props} />
   ) : (
-    <List.Item style={{ padding: "1.5rem" }} highlightHovered {...props}>
+    <List.Item
+      style={{ padding: "1.5rem" }}
+      highlightHovered
+      {...props}
+      {...selectProps}
+    >
       <Text.WithIcon
         startIcon={isValidElement(icon) ? icon : icon(item)}
         level="p"

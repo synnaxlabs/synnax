@@ -32,10 +32,10 @@ const BaseItems = <
   emptyContent,
   ...rest
 }: ItemsProps<K>): ReactElement => {
-  const { ref, getItems, getTotalSize } = useData<K, E>();
+  const { ref, getItems, getTotalSize, data } = useData<K, E>();
   const visibleData = getItems();
   let content = emptyContent;
-  if (visibleData.length > 0)
+  if (data.length > 0)
     content = (
       <div
         className={CSS.BE("list", "virtualizer")}

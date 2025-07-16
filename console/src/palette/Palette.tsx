@@ -14,6 +14,7 @@ import {
   Align,
   Button,
   Dialog,
+  Flux,
   Icon,
   Input,
   List,
@@ -107,11 +108,17 @@ const DialogContent = ({
   const { close } = Dialog.useContext();
   const resourceProps = useResourceList();
   const commandProps = useCommandList();
-  const { handleSelect, data, getItem, subscribe, listItem } = value.startsWith(
-    commandSymbol,
-  )
-    ? commandProps
-    : resourceProps;
+  const { handleSelect, data, getItem, subscribe, listItem, retrieve } =
+    value.startsWith(commandSymbol) ? commandProps : resourceProps;
+  const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
+  const handleSearch = useCallback(
+    (v: string) => {
+      onChange(v);
+      if (v.startsWith(commandSymbol)) v = v.slice(commandSymbol.length);
+      onSearch(v);
+    },
+    [onSearch, onChange],
+  );
   return (
     <Dialog.Dialog rounded={1}>
       <Select.Frame<string, Command | ontology.Resource>
@@ -120,6 +127,7 @@ const DialogContent = ({
         subscribe={subscribe}
         value={value}
         onChange={handleSelect}
+        onFetchMore={onFetchMore}
       >
         <Align.Pack className={CSS.BE("palette", "content")} y bordered={false}>
           <Input.Text
@@ -132,7 +140,7 @@ const DialogContent = ({
             size="huge"
             autoFocus
             shade={3}
-            onChange={onChange}
+            onChange={handleSearch}
             value={value}
             autoComplete="off"
             onKeyDown={Triggers.matchCallback([["Escape"]], () => close())}
