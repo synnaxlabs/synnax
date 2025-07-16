@@ -35,12 +35,15 @@ type state struct {
 	hasVariableDataTypes bool
 }
 
-func readTimeRange(reader io.Reader) (tr telem.TimeRange, err error) {
-	if err = read(reader, &tr.Start); err != nil {
-		return
+func readTimeRange(r io.Reader) (telem.TimeRange, error) {
+	var tr telem.TimeRange
+	if err := read(r, &tr.Start); err != nil {
+		return telem.TimeRange{}, err
 	}
-	err = read(reader, &tr.End)
-	return
+	if err := read(r, &tr.End); err != nil {
+		return telem.TimeRange{}, err
+	}
+	return tr, nil
 }
 
 func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
@@ -49,19 +52,19 @@ func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
 }
 
 // Codec is a high-performance encoder/decoder specifically designed for moving
-// telemetry frames over the network. Codec is stateful, meaning that both the
-// encoding and decoding sides must agree on the set of channels and their order
-// before any encoding or decoding can occur.
+// telemetry frames over the network. Codec is stateful, meaning that both the encoding
+// and decoding sides must agree on the set of channels and their order before any
+// encoding or decoding can occur.
 type Codec struct {
 	// mu is non-routine safe structures that must be used carefully.
 	mu struct {
-		// states is the current backlog of encoding states. We keep multiple states
-		// to allow for temporary de-sync between the encoding and decoding sides. For
+		// states is the current backlog of encoding states. We keep multiple states to
+		// allow for temporary de-sync between the encoding and decoding sides. For
 		// example, when updating the keys of a streamer, the receiving codec may get
 		// the updated set of channel in its state before the sending codec may get
-		// updated, which means that the receiving codec needs to decode according
-		// to the previous state. seqNum and the states backlog are used to keep the
-		// two in sync.
+		// updated, which means that the receiving codec needs to decode according to
+		// the previous state. seqNum and the states backlog are used to keep the two in
+		// sync.
 		states map[uint32]state
 		// seqNum corresponds to the most recent update in states. This is incremented
 		// and communicated each time a state is added.
@@ -71,21 +74,21 @@ type Codec struct {
 		// boolean is more performant than using a non-blocking select on every
 		// encode/decode operation.
 		updateAvailable atomic.Bool
-		// updates is a channel that the routine in Update pushes a new state down
-		// for processing within Encode/Decode.
+		// updates is a channel that the routine in Update pushes a new state down for
+		// processing within Encode/Decode.
 		updates chan state
 	}
 	// buf is reused for each encode operation.
 	buf *xbinary.Writer
-	// channels used in dynamic codecs to retrieve information about channels
-	// when Update is called.
+	// channels used in dynamic codecs to retrieve information about channels when
+	// Update is called.
 	channels channel.Readable
 }
 
 var byteOrder = telem.ByteOrder
 
-// NewStatic creates a new codec that uses the given channel keys and data types as
-// its encoding state. It is not safe to call Update on a codec instantiated using
+// NewStatic creates a new codec that uses the given channel keys and data types as its
+// encoding state. It is not safe to call Update on a codec instantiated using
 // NewStatic.
 func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
 	if len(dataTypes) != len(channelKeys) {
@@ -101,8 +104,8 @@ func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
 }
 
 // NewDynamic creates a new codec that can be dynamically updated by retrieving channels
-// from the provided channel store. Codec.Update must be called before the first call
-// to Codec.Encode and Codec.Decode.
+// from the provided channel store. Codec.Update must be called before the first call to
+// Codec.Encode and Codec.Decode.
 func NewDynamic(channels channel.Readable) *Codec {
 	c := newCodec()
 	c.channels = channels
@@ -133,8 +136,8 @@ func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
 	return nil
 }
 
-// Initialized returns true if the codec was initialized using NewStatic or Update
-// has been called at least once when using NewDynamic.
+// Initialized returns true if the codec was initialized using NewStatic or Update has
+// been called at least once when using NewDynamic.
 func (c *Codec) Initialized() bool {
 	return c.mu.seqNum > 0 || c.mu.updateAvailable.Load()
 }
@@ -178,8 +181,8 @@ type flags struct {
 	// equalTimeRanges is true when all series in the frame have the same time range.
 	// This lets use consolidate all time ranges into one, 16-byte section.
 	equalTimeRanges bool
-	// timeRangesZero is true when the start and end timestamps are all zero.
-	// This lets us omit time ranges entirely.
+	// timeRangesZero is true when the start and end timestamps are all zero. This lets
+	// us omit time ranges entirely.
 	timeRangesZero bool
 	// allChannelsPresent is true if all channels for the codec are also present in the
 	// frame. This lets us omit the channel mapping from the frame.
@@ -232,9 +235,7 @@ func newFlags() flags {
 	}
 }
 
-func read(r io.Reader, data any) error {
-	return binary.Read(r, byteOrder, data)
-}
+func read(r io.Reader, data any) error { return binary.Read(r, byteOrder, data) }
 
 // Encode encodes the given frame into bytes.
 func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
@@ -256,7 +257,7 @@ const (
 
 // EncodeStream encodes the given frame into the provided io writer, returning any
 // encoding errors encountered.
-func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame) (err error) {
+func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame) error {
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
 	var (
@@ -368,17 +369,17 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 			c.buf.Uint64(uint64(s.Alignment))
 		}
 	}
-	_, err = w.Write(c.buf.Bytes())
+	_, err := w.Write(c.buf.Bytes())
 	return err
 }
 
 // Decode decodes a frame from the given src bytes.
-func (c *Codec) Decode(src []byte) (dst framer.Frame, err error) {
+func (c *Codec) Decode(src []byte) (framer.Frame, error) {
 	return c.DecodeStream(bytes.NewReader(src))
 }
 
 // DecodeStream decodes a frame from the given io reader.
-func (c *Codec) DecodeStream(reader io.Reader) (fr framer.Frame, err error) {
+func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	c.processUpdates()
 	c.panicIfNotUpdated("Decode")
 	var (
@@ -387,42 +388,44 @@ func (c *Codec) DecodeStream(reader io.Reader) (fr framer.Frame, err error) {
 		refAlignment telem.Alignment
 		seqNum       uint32
 		flagB        byte
+		err          error
 	)
 	if err = read(reader, &flagB); err != nil {
-		return
+		return framer.Frame{}, err
 	}
 	if err = read(reader, &seqNum); err != nil {
-		return
+		return framer.Frame{}, err
 	}
 	cState, ok := c.mu.states[seqNum]
 	if !ok {
 		states := lo.Keys(c.mu.states)
-		err = errors.Wrapf(validate.Error, "[framer.codec] - remote sent invalid sequence number %d. Valid values are %v", seqNum, states)
-		return
+		return framer.Frame{}, errors.Wrapf(validate.Error, "[framer.codec] - remote sent invalid sequence number %d. Valid values are %v", seqNum, states)
 	}
 	fgs := decodeFlags(flagB)
 	if fgs.equalLens {
 		if err = read(reader, &dataLen); err != nil {
-			return
+			return framer.Frame{}, err
 		}
 	}
 	if fgs.equalTimeRanges && !fgs.timeRangesZero {
 		if refTr, err = readTimeRange(reader); err != nil {
-			return
+			return framer.Frame{}, err
 		}
 	}
 	if fgs.equalAlignments && !fgs.zeroAlignments {
 		if err = read(reader, &refAlignment); err != nil {
-			return
+			return framer.Frame{}, err
 		}
 	}
 
-	decodeSeries := func(key channel.Key) (err error) {
+	var fr framer.Frame
+	decodeSeries := func(key channel.Key) error {
+		var err error
 		s := telem.Series{TimeRange: refTr, Alignment: refAlignment}
 		dataLenOrSize := dataLen
 		if !fgs.equalLens {
-			if err = read(reader, &dataLenOrSize); err != nil {
-				return
+			if err := read(reader, &dataLenOrSize); err != nil {
+				return err
 			}
 		}
 		dataType, exists := cState.keyDataTypes[key]
@@ -435,41 +438,43 @@ func (c *Codec) DecodeStream(reader io.Reader) (fr framer.Frame, err error) {
 		} else {
 			s.Data = make([]byte, dataType.Density().Size(int64(dataLenOrSize)))
 		}
-		if _, err = io.ReadFull(reader, s.Data); err != nil {
+		if _, err := io.ReadFull(reader, s.Data); err != nil {
 			return err
 		}
 		if !fgs.equalTimeRanges {
 			if s.TimeRange, err = readTimeRange(reader); err != nil {
-				return
+				return err
 			}
 		}
 		if !fgs.equalAlignments {
-			if err = read(reader, &s.Alignment); err != nil {
-				return
+			if err := read(reader, &s.Alignment); err != nil {
+				return err
 			}
 		}
 		fr = fr.Append(key, s)
-		return
+		return nil
 	}
 
 	if fgs.allChannelsPresent {
 		fr = frame.NewPreallocated(len(cState.keys))
 		for _, k := range cState.keys {
 			if err = decodeSeries(k); err != nil {
-				return
+				return framer.Frame{}, err
 			}
 		}
-		return
+		return fr, nil
 	}
 
 	var k channel.Key
 	for {
 		if err = read(reader, &k); err != nil {
-			err = errors.Skip(err, io.EOF)
-			return
+			if err == io.EOF {
+				return fr, nil
+			}
+			return frame.Frame{}, err
 		}
 		if err = decodeSeries(k); err != nil {
-			return
+			return framer.Frame{}, err
 		}
 	}
 }

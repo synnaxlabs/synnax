@@ -431,7 +431,7 @@ type WSFramerCodec struct {
 	LowerPerfCodec xbinary.Codec
 }
 
-func NewWSFramerCodec(channels channel.Readable) httputil.Codec {
+func NewWSFramerCodec(channels channel.Readable) *WSFramerCodec {
 	return &WSFramerCodec{
 		LowerPerfCodec: httputil.JSONCodec,
 		Codec:          codec.NewDynamic(channels),
@@ -439,6 +439,7 @@ func NewWSFramerCodec(channels channel.Readable) httputil.Codec {
 }
 
 var _ xbinary.Codec = (*WSFramerCodec)(nil)
+var _ httputil.Codec = (*WSFramerCodec)(nil)
 
 func (c *WSFramerCodec) Decode(
 	ctx context.Context,
