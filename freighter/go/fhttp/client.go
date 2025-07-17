@@ -22,8 +22,8 @@ type ClientFactoryConfig struct{ Codec httputil.Codec }
 var _ config.Config[ClientFactoryConfig] = ClientFactoryConfig{}
 
 func (cfc ClientFactoryConfig) Validate() error {
-	v := validate.New("[ws.streamClient]")
-	validate.NotNil(v, "Codec", cfc.Codec)
+	v := validate.New("fhttp.ClientFactoryConfig")
+	validate.NotNil(v, "codec", cfc.Codec)
 	return v.Error()
 }
 

@@ -21,19 +21,19 @@ import (
 
 // Sender wraps freighter.StreamSenderCloser to provide a confluence compatible
 // interface for sending messages over a network freighter.
-type Sender[M freighter.Payload] struct {
-	Sender freighter.StreamSenderCloser[M]
-	UnarySink[M]
+type Sender[P freighter.Payload] struct {
+	Sender freighter.StreamSenderCloser[P]
+	UnarySink[P]
 }
 
 var _ Flow = (*Sender[any])(nil)
 
 // Flow implements Flow.
-func (s *Sender[M]) Flow(ctx signal.Context, opts ...Option) {
+func (s *Sender[P]) Flow(ctx signal.Context, opts ...Option) {
 	ctx.Go(s.send, NewOptions(opts).Signal...)
 }
 
-func (s *Sender[M]) send(ctx context.Context) error {
+func (s *Sender[P]) send(ctx context.Context) error {
 	var err error
 	defer func() {
 		err = errors.Combine(s.Sender.CloseSend(), err)

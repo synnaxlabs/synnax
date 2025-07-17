@@ -293,7 +293,7 @@ func (s *streamClient[RQ, RS]) Stream(
 			Protocol: s.Reporter.Protocol,
 			Params:   make(freighter.Params),
 		},
-		freighter.MiddlewareHandler(func(fCtx freighter.Context) (freighter.Context, error) {
+		func(fCtx freighter.Context) (freighter.Context, error) {
 			fCtx.Params[fiber.HeaderContentType] = s.codec.ContentType()
 			conn, res, err := s.dialer.DialContext(fCtx, "ws://"+target.String(), ctxToHeaders(fCtx))
 			oCtx := parseResponseCtx(res, target)
@@ -320,7 +320,7 @@ func (s *streamClient[RQ, RS]) Stream(
 			}
 			stream = &clientStream[RQ, RS]{streamCore: core}
 			return oCtx, nil
-		}),
+		},
 	)
 	return stream, err
 }
@@ -397,7 +397,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 	defer s.wg.Done()
 	_, handlerErr := s.MiddlewareCollector.Exec(
 		ctx,
-		freighter.MiddlewareHandler(func(ctx freighter.Context) (freighter.Context, error) {
+		func(ctx freighter.Context) (freighter.Context, error) {
 			oCtx := ctx
 			oCtx.Params = make(freighter.Params)
 			// Send a confirmation message to the client that the stream is open.
@@ -405,7 +405,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 				return oCtx, err
 			}
 			return oCtx, s.handler(ctx, stream)
-		}),
+		},
 	)
 	if err := stream.close(handlerErr); err != nil {
 		s.L.Error("error closing connection", zap.Error(err))

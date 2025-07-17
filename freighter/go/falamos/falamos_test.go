@@ -42,7 +42,7 @@ var _ = Describe("FAlamos", func() {
 		})
 	})
 	Describe("Middleware", func() {
-		It("should correctly attach tracing metadata to client requests", Focus, func() {
+		It("should correctly attach tracing metadata to client requests", func() {
 			clientIns := Instrumentation(
 				"falamos",
 				InstrumentationConfig{Trace: config.True()},

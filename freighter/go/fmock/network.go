@@ -46,7 +46,7 @@ func (n *Network[RQ, RS]) UnaryServer(host address.Address) *UnaryServer[RQ, RS]
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	pHost := n.parseTarget(host)
-	s := &UnaryServer[RQ, RS]{Network: n, Address: pHost}
+	s := &UnaryServer[RQ, RS]{Address: pHost}
 	n.mu.unaryRoutes[pHost] = s
 	return s
 }
@@ -54,10 +54,12 @@ func (n *Network[RQ, RS]) UnaryServer(host address.Address) *UnaryServer[RQ, RS]
 func (n *Network[RQ, RS]) UnaryClient() *UnaryClient[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	return &UnaryClient[RQ, RS]{Network: n}
+	return &UnaryClient[RQ, RS]{network: n}
 }
 
-func (n *Network[RQ, RS]) resolveUnaryTarget(target address.Address) (*UnaryServer[RQ, RS], bool) {
+func (n *Network[RQ, RS]) resolveUnaryTarget(
+	target address.Address,
+) (*UnaryServer[RQ, RS], bool) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	t, ok := n.mu.unaryRoutes[target]
@@ -67,7 +69,10 @@ func (n *Network[RQ, RS]) resolveUnaryTarget(target address.Address) (*UnaryServ
 // StreamServer returns a new freighter.Stream hosted at the given address. This
 // transport is not reachable by other hosts in the network until
 // freighter.Stream.ServeHTTP is called.
-func (n *Network[RQ, RS]) StreamServer(host address.Address, buffers ...int) *StreamServer[RQ, RS] {
+func (n *Network[RQ, RS]) StreamServer(
+	host address.Address,
+	buffers ...int,
+) *StreamServer[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	addr := n.parseTarget(host)
@@ -79,13 +84,12 @@ func (n *Network[RQ, RS]) StreamServer(host address.Address, buffers ...int) *St
 
 func (n *Network[RQ, RS]) StreamClient(buffers ...int) *StreamClient[RQ, RS] {
 	b, _ := parseBuffers(buffers)
-	return &StreamClient[RQ, RS]{
-		Network:    n,
-		BufferSize: b,
-	}
+	return &StreamClient[RQ, RS]{Network: n, BufferSize: b}
 }
 
-func (n *Network[RQ, RS]) resolveStreamTarget(target address.Address) (*StreamServer[RQ, RS], bool) {
+func (n *Network[RQ, RS]) resolveStreamTarget(
+	target address.Address,
+) (*StreamServer[RQ, RS], bool) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	t, ok := n.mu.streamRoutes[target]
@@ -94,12 +98,19 @@ func (n *Network[RQ, RS]) resolveStreamTarget(target address.Address) (*StreamSe
 
 func (n *Network[RQ, RS]) parseTarget(target address.Address) address.Address {
 	if target == "" {
-		return address.Address(fmt.Sprintf("localhost:%v", len(n.mu.unaryRoutes)+len(n.mu.streamRoutes)))
+		return address.Address(
+			fmt.Sprintf("localhost:%v", len(n.mu.unaryRoutes)+len(n.mu.streamRoutes)),
+		)
 	}
 	return target
 }
 
-func (n *Network[RQ, RS]) appendEntry(target address.Address, req RQ, res RS, err error) {
+func (n *Network[RQ, RS]) appendEntry(
+	target address.Address,
+	req RQ,
+	res RS,
+	err error,
+) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.Entries = append(n.Entries, NetworkEntry[RQ, RS]{

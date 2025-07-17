@@ -97,7 +97,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 			Params:   make(freighter.Params),
 			Variant:  freighter.Unary,
 		},
-		freighter.MiddlewareHandler(func(iCtx freighter.Context) (oCtx freighter.Context, err error) {
+		func(iCtx freighter.Context) (oCtx freighter.Context, err error) {
 			iCtx = attachContext(iCtx)
 			conn, err := u.Pool.Acquire(target)
 			if err != nil {
@@ -122,7 +122,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 			}
 			res, err = u.ResponseTranslator.Backward(iCtx, tRes)
 			return oCtx, err
-		}),
+		},
 	)
 	return res, err
 }
@@ -131,7 +131,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRes RST, err error) {
 	oCtx, err := u.MiddlewareCollector.Exec(
 		parseServerContext(ctx, u.ServiceDesc.ServiceName, freighter.Unary),
-		freighter.MiddlewareHandler(func(ctx freighter.Context) (freighter.Context, error) {
+		func(ctx freighter.Context) (freighter.Context, error) {
 			oCtx := freighter.Context{
 				Context:  ctx.Context,
 				Protocol: Reporter.Protocol,
@@ -154,7 +154,6 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRe
 			tRes, err = u.ResponseTranslator.Forward(ctx, res)
 			return oCtx, err
 		},
-		),
 	)
 	oCtx = attachContext(oCtx)
 	if err == nil {

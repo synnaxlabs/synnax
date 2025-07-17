@@ -82,10 +82,10 @@ func (ss *StreamServer[RQ, RS]) exec(
 	}
 	return ss.MiddlewareCollector.Exec(
 		ctx,
-		freighter.MiddlewareHandler(func(md freighter.Context) (freighter.Context, error) {
+		func(md freighter.Context) (freighter.Context, error) {
 			go srv.exec(ctx, ss.Handler)
 			return freighter.Context{Target: ss.Address, Protocol: ss.Protocol, Params: make(freighter.Params)}, nil
-		}),
+		},
 	)
 }
 
@@ -114,7 +114,7 @@ func (sc *StreamClient[RQ, RS]) Stream(
 			Protocol: sc.Protocol,
 			Params:   make(freighter.Params),
 		},
-		freighter.MiddlewareHandler(func(ctx freighter.Context) (freighter.Context, error) {
+		func(ctx freighter.Context) (freighter.Context, error) {
 			if target == "" {
 				target = "localhost:0"
 			}
@@ -136,7 +136,7 @@ func (sc *StreamClient[RQ, RS]) Stream(
 			var serverStream *ServerStream[RQ, RS]
 			stream, serverStream = NewStreams[RQ, RS](ctx, sc.BufferSize, targetBufferSize)
 			return server.exec(ctx, serverStream)
-		}),
+		},
 	)
 	return stream, err
 }
