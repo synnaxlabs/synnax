@@ -371,7 +371,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx *fiber.Ctx) error {
 	// stream stops processing values, we need to use the underlying server ctx as the
 	// valid context instead of the fiber context itself.
 	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path))
-	headerContentType := iCtx.Params.GetDefault(fiber.HeaderContentType, "").(string)
+	headerContentType := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
 	codec, err := s.codecResolver(headerContentType)
 	if err != nil {
 		// If we can't determine the encoder/decoder, we can't continue, so we send a

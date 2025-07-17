@@ -129,7 +129,7 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 			})
 			It("should pass middleware parameters", func() {
 				unaryEcho.Use(freighter.MiddlewareFunc(func(ctx freighter.Context, next freighter.MiddlewareHandler) (freighter.Context, error) {
-					ctx.Params.Set("Test", "test")
+					ctx.Set("Test", "test")
 					return next(ctx)
 				}))
 				req := message{ID: 10, Message: "middleware test"}
