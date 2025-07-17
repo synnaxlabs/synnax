@@ -32,7 +32,7 @@ var ErrAuth = errors.Wrapf(
 func GateMiddleware(expectedCNs ...string) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
-		next freighter.Next,
+		next freighter.MiddlewareHandler,
 	) (freighter.Context, error) {
 		if !ctx.SecurityInfo.TLS.Used ||
 			(len(ctx.SecurityInfo.TLS.VerifiedChains) == 0 || len(ctx.SecurityInfo.TLS.VerifiedChains[0]) == 0) ||

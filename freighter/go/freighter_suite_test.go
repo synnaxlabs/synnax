@@ -18,12 +18,13 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-type request struct {
-	ID      int    `json:"id" msgpack:"id"`
-	Message string `json:"message" msgpack:"message"`
-}
-
-type response = request
+type (
+	request = struct {
+		ID      int
+		Message string
+	}
+	response = request
+)
 
 var myCustomError = errors.New("my custom error")
 

@@ -293,7 +293,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					c := 0
 					server.Use(freighter.MiddlewareFunc(func(
 						ctx freighter.Context,
-						next freighter.Next,
+						next freighter.MiddlewareHandler,
 					) (freighter.Context, error) {
 						c++
 						oMd, err := next(ctx)
@@ -321,7 +321,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					})
 					server.Use(freighter.MiddlewareFunc(func(
 						ctx freighter.Context,
-						_ freighter.Next,
+						_ freighter.MiddlewareHandler,
 					) (freighter.Context, error) {
 						return ctx, errors.New("middleware error")
 					}))

@@ -128,7 +128,7 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 				Expect(payloadErr.Code).To(Equal(1))
 			})
 			It("should pass middleware parameters", func() {
-				unaryEcho.Use(freighter.MiddlewareFunc(func(ctx freighter.Context, next freighter.Next) (freighter.Context, error) {
+				unaryEcho.Use(freighter.MiddlewareFunc(func(ctx freighter.Context, next freighter.MiddlewareHandler) (freighter.Context, error) {
 					ctx.Params.Set("Test", "test")
 					return next(ctx)
 				}))
@@ -258,7 +258,7 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 			})
 
 			It("should pass middleware parameters", func() {
-				streamEcho.Use(freighter.MiddlewareFunc(func(ctx freighter.Context, next freighter.Next) (freighter.Context, error) {
+				streamEcho.Use(freighter.MiddlewareFunc(func(ctx freighter.Context, next freighter.MiddlewareHandler) (freighter.Context, error) {
 					if ctx.Params == nil {
 						ctx.Params = make(freighter.Params)
 					}

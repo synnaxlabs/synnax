@@ -77,7 +77,7 @@ func Middleware(cfgs ...Config) (freighter.Middleware, error) {
 	}
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
-		next freighter.Next,
+		next freighter.MiddlewareHandler,
 	) (freighter.Context, error) {
 		var (
 			span     alamos.Span

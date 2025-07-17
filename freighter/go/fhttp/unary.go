@@ -57,7 +57,7 @@ func (us *unaryServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 	var res RS
 	oMD, err := us.MiddlewareCollector.Exec(
 		parseRequestCtx(fiberCtx.Context(), fiberCtx, address.Address(fiberCtx.Path())),
-		freighter.FinalizerFunc(func(freighterCtx freighter.Context) (freighter.Context, error) {
+		freighter.MiddlewareHandler(func(freighterCtx freighter.Context) (freighter.Context, error) {
 			var req RQ
 			err := codec.Decode(freighterCtx, fiberCtx.BodyRaw(), &req)
 			oCtx := freighter.Context{Protocol: freighterCtx.Protocol, Params: make(freighter.Params)}
@@ -96,7 +96,7 @@ func (uc *unaryClient[RQ, RS]) Send(
 			Target:   target,
 			Params:   make(freighter.Params),
 		},
-		freighter.FinalizerFunc(func(inCtx freighter.Context) (freighter.Context, error) {
+		freighter.MiddlewareHandler(func(inCtx freighter.Context) (freighter.Context, error) {
 			b, err := uc.codec.Encode(inCtx, req)
 			if err != nil {
 				return freighter.Context{}, err

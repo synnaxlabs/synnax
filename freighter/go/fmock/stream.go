@@ -82,7 +82,7 @@ func (ss *StreamServer[RQ, RS]) exec(
 	}
 	return ss.MiddlewareCollector.Exec(
 		ctx,
-		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
+		freighter.MiddlewareHandler(func(md freighter.Context) (freighter.Context, error) {
 			go srv.exec(ctx, ss.Handler)
 			return freighter.Context{Target: ss.Address, Protocol: ss.Protocol, Params: make(freighter.Params)}, nil
 		}),
@@ -114,7 +114,7 @@ func (sc *StreamClient[RQ, RS]) Stream(
 			Protocol: sc.Protocol,
 			Params:   make(freighter.Params),
 		},
-		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
+		freighter.MiddlewareHandler(func(ctx freighter.Context) (freighter.Context, error) {
 			if target == "" {
 				target = "localhost:0"
 			}

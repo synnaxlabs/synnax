@@ -42,7 +42,7 @@ func (us *UnaryServer[RQ, RS]) exec(ctx freighter.Context, req RQ) (RS, freighte
 	var res RS
 	oMD, err := us.MiddlewareCollector.Exec(
 		ctx,
-		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
+		freighter.MiddlewareHandler(func(ctx freighter.Context) (freighter.Context, error) {
 			var err error
 			res, err = us.Handler(ctx, req)
 			return freighter.Context{
@@ -76,7 +76,7 @@ func (uc *UnaryClient[RQ, RS]) Send(
 	var res RS
 	_, err := uc.MiddlewareCollector.Exec(
 		freighter.Context{Context: ctx, Target: target, Protocol: uc.Reporter.Protocol},
-		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
+		freighter.MiddlewareHandler(func(ctx freighter.Context) (freighter.Context, error) {
 			var (
 				handler func(freighter.Context, RQ) (RS, freighter.Context, error)
 				oMD     freighter.Context

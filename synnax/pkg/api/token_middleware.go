@@ -29,7 +29,7 @@ const tokenRefreshHeader = "Refresh-Token"
 func tokenMiddleware(svc *token.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
-		next freighter.Next,
+		next freighter.MiddlewareHandler,
 	) (freighter.Context, error) {
 		tk, err := tryParseToken(ctx.Params)
 		if err != nil {
@@ -88,7 +88,7 @@ func setSubject(p freighter.Params, subject ontology.ID) {
 }
 
 func getSubject(ctx context.Context) ontology.ID {
-	s, ok := freighter.MDFromContext(ctx).Params.Get(subjectKey)
+	s, ok := freighter.ExtractContext(ctx).Params.Get(subjectKey)
 	if !ok {
 		zap.S().DPanic("[api] - no subject found in context")
 		return user.OntologyID(uuid.Nil)

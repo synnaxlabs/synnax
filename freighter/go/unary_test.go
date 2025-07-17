@@ -103,7 +103,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			Describe("Middleware", func() {
 				It("Should correctly call the middleware", func() {
 					c := 0
-					server.Use(freighter.MiddlewareFunc(func(ctx freighter.Context, next freighter.Next) (freighter.Context, error) {
+					server.Use(freighter.MiddlewareFunc(func(ctx freighter.Context, next freighter.MiddlewareHandler) (freighter.Context, error) {
 						c++
 						oMd, err := next(ctx)
 						c++

@@ -79,7 +79,7 @@ func BindTo(app *fiber.App) {
 
 func checkMiddleware(
 	ctx freighter.Context,
-	next freighter.Next,
+	next freighter.MiddlewareHandler,
 ) (freighter.Context, error) {
 	if ctx.Params["Test"] != "test" {
 		return ctx, payload.Error{Message: "test param not found", Code: 1}
