@@ -335,8 +335,8 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		})
 	}
 	Describe("SenderNoopCloser", func() {
-		It("Should implement the freighter.StreamSenderCloser interface", func() {
-			closer := freighter.SenderNoopCloser[int]{}
+		It("Should always succeed when calling CloseSend", func() {
+			closer := freighter.SenderNoopCloser[any]{}
 			Expect(closer.CloseSend()).To(Succeed())
 		})
 	})

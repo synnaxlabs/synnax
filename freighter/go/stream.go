@@ -134,14 +134,10 @@ type ServerStream[RQ, RS Payload] interface {
 }
 
 // StreamReceiver is an entity that can receive payloads.
-type StreamReceiver[P Payload] interface {
-	Receive() (P, error)
-}
+type StreamReceiver[P Payload] interface{ Receive() (P, error) }
 
 // StreamSender is an entity that can send payloads.
-type StreamSender[P Payload] interface {
-	Send(P) error
-}
+type StreamSender[P Payload] interface{ Send(P) error }
 
 // StreamSenderCloser is a type that can send messages as well as close the sending end
 // of a stream.
@@ -152,7 +148,7 @@ type StreamSenderCloser[P Payload] interface {
 
 // SenderNoopCloser wraps a StreamSender so that it can satisfy the StreamSenderCloser
 // interface. This is useful for types that deal with both ServerStream and ClientStream
-// side applications. This allows a ServerStream. StreamSender to be used with
+// side applications. This allows a ServerStream StreamSender to be used with
 // client-side code.
 type SenderNoopCloser[P Payload] struct{ StreamSender[P] }
 
