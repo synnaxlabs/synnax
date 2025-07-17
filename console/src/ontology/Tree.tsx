@@ -9,6 +9,7 @@
 
 import { DisconnectedError, ontology, type Synnax } from "@synnaxlabs/client";
 import {
+  Align,
   Component,
   Haul,
   Icon,
@@ -71,10 +72,21 @@ const DefaultItem = ({
   onDrop,
   onRename,
   icon,
+  id,
   ...rest
 }: TreeItemProps) => (
   <Core.Item {...rest}>
-    <Text.Editable level="p" value={resource.name} onChange={onRename} />
+    <Align.Space size="small" x align="center">
+      {icon}
+      <Text.Editable
+        id={ontology.idToString(id)}
+        level="p"
+        value={resource.name}
+        onChange={onRename}
+        allowDoubleClick={false}
+        style={{ userSelect: "none" }}
+      />
+    </Align.Space>
   </Core.Item>
 );
 
@@ -127,6 +139,11 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   const listenersRef = useInitializerRef(
     () => new Map<observe.Handler<void>, string>(),
   );
+  const notifyListeners = useCallback((keys: string[]) => {
+    listenersRef.current.forEach((key, listener) => {
+      if (keys.includes(key)) listener();
+    });
+  }, []);
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
   const handleError = Status.useErrorHandler();
   const client = PSynnax.use();
@@ -172,7 +189,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       if (signal.aborted) return;
       const nodes = resources.map((c) => ({
         key: ontology.idToString(c.id),
-        children: [],
+        children: services[c.id.type].hasChildren ? [] : undefined,
       }));
       setNodes(nodes);
     },
@@ -184,8 +201,8 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       handleError(async () => {
         if (client == null) return;
         const resource = await client.ontology.retrieve(id);
-        console.log(resourcesRef.current.size);
         resourcesRef.current.set(ontology.idToString(id), resource);
+        notifyListeners([ontology.idToString(id)]);
       });
     },
     [client, handleError, resourcesRef],
@@ -209,11 +226,13 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     setNodes((prevNodes) => {
       let destination: string | null = ontology.idToString(from);
       if (ontology.idsEqual(from, root)) destination = null;
-      return Core.setNode({
-        tree: prevNodes,
-        destination,
-        additions: [{ key: ontology.idToString(to), children: [] }],
-      });
+      return [
+        ...Core.setNode({
+          tree: prevNodes,
+          destination,
+          additions: [{ key: ontology.idToString(to), children: [] }],
+        }),
+      ];
     });
   }, []);
   Ontology.useRelationshipSetSynchronizer(handleSyncRelationshipSet);
@@ -231,11 +250,11 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         );
         const converted = resources.map((r) => ({
           key: ontology.idToString(r.id),
-          children: [],
+          children: services[r.id.type].hasChildren ? [] : undefined,
         }));
         const resourceIDs = new Set(resources.map((r) => ontology.idToString(r.id)));
-        setNodes((prevNodes) =>
-          Core.updateNodeChildren({
+        setNodes((prevNodes) => [
+          ...Core.updateNodeChildren({
             tree: prevNodes,
             parent: clickedStringID,
             updater: (prevNodes) => [
@@ -243,7 +262,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
               ...converted,
             ],
           }),
-        );
+        ]);
       });
     },
     [],
@@ -252,6 +271,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   const { shape, expand, contract, onSelect } = Core.use({
     nodes,
     onExpand: handleExpand,
+    selected,
     onSelectedChange: setSelected,
   });
   const shapeRef = useSyncedRef(shape);
@@ -518,8 +538,6 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     [handleRename, handleDrop, handleDoubleClick, useLoading],
   );
 
-  console.log(shape);
-
   return (
     <Context.Provider value={contextValue}>
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
@@ -530,6 +548,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         onSelect={onSelect}
         subscribe={subscribe}
         getItem={getItem}
+        onContextMenu={menuProps.open}
       >
         {itemRenderProp}
       </Core.Tree>

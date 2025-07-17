@@ -149,7 +149,9 @@ const FallBackRenderContent = ({
             </Text.Text>
             <Align.Space x>
               {onTryAgain && (
-                <Button.Button onClick={onTryAgain}>Try again</Button.Button>
+                <Button.Button variant="filled" onClick={onTryAgain}>
+                  Try again
+                </Button.Button>
               )}
               {onClear && (
                 <Button.Button onClick={onClear} variant="outlined">

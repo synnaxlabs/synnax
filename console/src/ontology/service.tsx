@@ -95,7 +95,7 @@ export interface AllowRename {
 
 export interface PaletteListItem extends FC<List.ItemProps<string>> {}
 
-export interface TreeItemProps extends Tree.ItemProps<string> {
+export interface TreeItemProps extends Omit<Tree.ItemProps<string>, "id" | "resource"> {
   id: ontology.ID;
   icon: Icon.ReactElement;
   loading: boolean;

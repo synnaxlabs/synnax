@@ -10,30 +10,46 @@
 import "@/index.css";
 import "@/main.css";
 
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 import ReactDOM from "react-dom/client";
 
-import { Align } from "@/align";
-import { Button } from "@/button";
+import { Component } from "@/component";
 import { Pluto } from "@/pluto";
-import { Ranger } from "@/ranger";
+import { Text } from "@/text";
+import { Tree } from "@/tree";
 
-const RangeList = () => {
-  const [selected, setSelected] = useState<string[]>([]);
-  const [singleSelected, setSingleSelected] = useState<string | undefined>(undefined);
-  return (
-    <Align.Space y style={{ padding: "10rem" }}>
-      <Ranger.SelectMultiple value={selected} onChange={setSelected} />
-      <Ranger.SelectSingle
-        value={singleSelected}
-        onChange={setSingleSelected}
-        allowNone
-      />
-    </Align.Space>
-  );
+const nodes: Tree.Node[] = [
+  {
+    key: "1",
+    children: [
+      {
+        key: "1.1",
+      },
+    ],
+  },
+];
+
+const data = {
+  "1": {
+    name: "Cat",
+  },
+  "1.1": {
+    name: "Dog",
+  },
 };
 
-const Content = (): ReactElement => <RangeList />;
+const treeItem = Component.renderProp((props: Tree.ItemProps<string>) => (
+  <Tree.Item {...props}>
+    {/* <Text.Text level="p">{data[props.itemKey].name}</Text.Text> */}
+  </Tree.Item>
+));
+
+const Content = () => {
+  const treeProps = Tree.use({
+    nodes,
+  });
+  return <Tree.Tree {...treeProps}>{treeItem}</Tree.Tree>;
+};
 
 const Main = (): ReactElement => (
   <Pluto.Provider

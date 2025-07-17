@@ -1,32 +1,58 @@
-import { type record } from "@synnaxlabs/x";
-import { type FC } from "react";
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-import { Button } from "@/button";
+import "@/tree/Item.css";
+
+import { type record } from "@synnaxlabs/x";
+
+import { Caret } from "@/caret";
 import { CSS } from "@/css";
+import { List } from "@/list";
 import { Select } from "@/select";
 import { type ItemProps } from "@/tree/Tree";
 
-interface BaseProps {
-  className: string;
-  style: React.CSSProperties;
-}
-const createItem = (Base: FC<BaseProps>) => {
-  const Item = <K extends record.Key>({ depth, itemKey, ...rest }: ItemProps<K>) => {
-    const style = { marginLeft: `${depth * 2.5 + 1.5}rem` };
-    const className = CSS.B("tree-item");
-    const { onSelect } = Select.useItemState<K>(itemKey);
-    return (
-      <Base
-        variant="text"
-        style={style}
-        className={className}
-        {...rest}
-        onClick={onSelect}
-      />
-    );
-  };
-  return Item;
+export const Item = <K extends record.Key>({
+  depth,
+  hasChildren,
+  expanded,
+  children,
+  style,
+  showRules = true,
+  ...rest
+}: ItemProps<K>) => {
+  const { itemKey } = rest;
+  const selectProps = Select.useItemState(itemKey);
+  return (
+    <List.Item
+      className={CSS(
+        CSS.BE("tree", "item"),
+        showRules && depth !== 0 && CSS.M("show-rules"),
+      )}
+      style={{
+        [CSS.var("tree-item-offset")]: `${depth * 2.5 + 1.5}rem`,
+        ...style,
+      }}
+      size="small"
+      align="center"
+      {...rest}
+      {...selectProps}
+    >
+      {hasChildren && (
+        <Caret.Animated
+          className={CSS.BE("tree", "expansion-indicator")}
+          key="caret"
+          enabled={expanded}
+          enabledLoc="bottom"
+          disabledLoc="right"
+        />
+      )}
+      {children}
+    </List.Item>
+  );
 };
-
-export const Item = createItem(Button.Button);
-export const ItemLink = createItem(Button.Link);

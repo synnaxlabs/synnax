@@ -17,7 +17,7 @@ import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { state } from "@/state";
-import { flatten, type Node, type Shape } from "@/tree/core";
+import { flatten, type Node, type NodeShape, type Shape } from "@/tree/core";
 import { Triggers } from "@/triggers";
 
 export const HAUL_TYPE = "tree-item";
@@ -69,8 +69,10 @@ export const use = <K extends record.Key = string>({
 
   const handleSelect: Select.UseMultipleProps<K>["onChange"] = useCallback(
     (keys: K[], { clicked }: Select.UseOnChangeExtra<K>): void => {
-      console.log(keys, clicked);
-      setSelected(keys);
+      setSelected((p): K[] => {
+        if (keys.length === 0 && p.length > 0) return p.slice(0, 1);
+        return keys;
+      });
       const n = nodesRef.current.find((node) => node.key === clicked);
       if (n?.children == null) return;
       if (clicked == null || shiftRef.current.held) return;
@@ -121,15 +123,17 @@ export const use = <K extends record.Key = string>({
 };
 
 export interface ItemProps<K extends record.Key = string>
-  extends List.ItemRenderProps<K> {
-  depth: number;
+  extends List.ItemProps<K>,
+    NodeShape {
+  showRules?: boolean;
 }
 
 export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
   extends Omit<
-    Select.FrameProps<K, E>,
-    "children" | "ref" | "virtualizer" | "data" | "onChange"
-  > {
+      Select.FrameProps<K, E>,
+      "children" | "ref" | "virtualizer" | "data" | "onChange"
+    >,
+    Omit<List.ItemsProps<K>, "children" | "onSelect"> {
   selected: Select.UseMultipleProps<K>["value"];
   onSelect: Select.UseMultipleProps<K>["onChange"];
   children: Component.RenderProp<ItemProps<K>>;
@@ -144,19 +148,22 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   onSelect,
   getItem,
   subscribe,
+  ...rest
 }: TreeProps<K, E>): ReactElement => {
-  const { keys, depths } = shape;
+  const { keys, nodes } = shape;
   return (
     <Select.Frame
       multiple
       value={selected}
+      replaceOnSingle
       data={keys}
       onChange={onSelect}
       getItem={getItem}
       subscribe={subscribe}
+      itemHeight={27}
     >
-      <List.Items<K, E>>
-        {({ index, ...rest }) => children({ index, depth: depths[index], ...rest })}
+      <List.Items<K, E> {...rest}>
+        {({ index, ...rest }) => children({ index, ...nodes[index], ...rest })}
       </List.Items>
     </Select.Frame>
   );

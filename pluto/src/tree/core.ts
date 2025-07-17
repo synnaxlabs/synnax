@@ -14,9 +14,15 @@ export interface Node<K extends record.Key = string> {
   children?: Node<K>[];
 }
 
+export interface NodeShape {
+  depth: number;
+  expanded: boolean;
+  hasChildren: boolean;
+}
+
 export interface Shape<K extends record.Key = string> {
   keys: K[];
-  depths: number[];
+  nodes: NodeShape[];
 }
 
 export const shouldExpand = <K extends record.Key = string>(
@@ -36,19 +42,23 @@ export const flatten = <K extends record.Key = string>({
   expanded,
   depth = 0,
 }: FlattenProps<K>): Shape<K> => {
-  const flattened: Shape<K> = { keys: [], depths: [] };
+  const flattened: Shape<K> = { keys: [], nodes: [] };
   nodes.forEach((node) => {
     const expand = shouldExpand(node, expanded);
     flattened.keys.push(node.key);
-    flattened.depths.push(depth);
+    flattened.nodes.push({
+      depth,
+      expanded: expand,
+      hasChildren: node.children != null,
+    });
     if (expand && node.children != null) {
-      const { keys, depths } = flatten({
+      const { keys, nodes } = flatten({
         nodes: node.children,
         expanded,
         depth: depth + 1,
       });
       flattened.keys.push(...keys);
-      flattened.depths.push(...depths);
+      flattened.nodes.push(...nodes);
     }
   });
   return flattened;
@@ -263,11 +273,11 @@ export const filterShape = <K extends record.Key = string>(
   shape: Shape<K>,
   match: (key: K, depth: number) => boolean,
 ): Shape<K> => {
-  const filtered: Shape<K> = { keys: [], depths: [] };
+  const filtered: Shape<K> = { keys: [], nodes: [] };
   shape.keys.forEach((key, index) => {
-    if (!match(key, shape.depths[index])) return;
+    if (!match(key, shape.nodes[index].depth)) return;
     filtered.keys.push(key);
-    filtered.depths.push(shape.depths[index]);
+    filtered.nodes.push(shape.nodes[index]);
   });
   return filtered;
 };
@@ -275,11 +285,11 @@ export const filterShape = <K extends record.Key = string>(
 export const getAllNodesOfMinDepth = <K extends record.Key = string>(
   data: Shape<K>,
 ): K[] => {
-  const minDepth = Math.min(...data.depths);
-  return data.keys.filter((_, index) => data.depths[index] === minDepth);
+  const minDepth = Math.min(...data.nodes.map((node) => node.depth));
+  return data.keys.filter((_, index) => data.nodes[index].depth === minDepth);
 };
 
 export const getDepth = (key: string, state: Shape<string>) => {
   const index = state.keys.findIndex((k) => k === key);
-  return state.depths[index];
+  return state.nodes[index].depth;
 };

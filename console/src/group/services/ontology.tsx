@@ -33,7 +33,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const firstResource = getResource(firstID);
   const onSelect = useAsyncActionMenu({
     ungroup: () => ungroup(props),
-    rename: () => Text.edit(resourceIDs[0].key),
+    rename: () => Text.edit(ontology.idToString(firstID)),
     newGroup: () => createEmptyGroup(props),
     group: () => createFromSelection(props),
     link: () => handleLink({ name: firstResource.name, ontologyID: firstID }),

@@ -9,6 +9,7 @@
 
 import { channel, isCalculated, ontology } from "@synnaxlabs/client";
 import {
+  Align,
   Channel as PChannel,
   type Haul,
   Icon,
@@ -156,7 +157,9 @@ export const useSetAlias = (): ((props: Ontology.TreeContextMenuProps) => void) 
       state: { getResource },
     }) => {
       const resources = getResource(resourceIDs);
-      const [value, renamed] = await Text.asyncEdit(resourceIDs[0].key);
+      const [value, renamed] = await Text.asyncEdit(
+        ontology.idToString(resourceIDs[0]),
+      );
       if (!renamed) return;
       const activeRange = Range.select(store.getState());
       if (activeRange == null) return;
@@ -183,7 +186,9 @@ export const useRename = (): ((props: Ontology.TreeContextMenuProps) => void) =>
       state: { getResource },
     }) => {
       const resources = getResource(resourceIDs);
-      const [value, renamed] = await Text.asyncEdit(resourceIDs[0].key);
+      const [value, renamed] = await Text.asyncEdit(
+        ontology.idToString(resourceIDs[0]),
+      );
       if (!renamed) return;
       await client.channels.rename(Number(resources[0].id.key), value);
     },
@@ -320,19 +325,21 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 export const Item = ({ id, resource, onRename, ...rest }: Ontology.TreeItemProps) => {
   const alias = PChannel.useAlias(Number(id.key));
-  const { itemKey } = rest;
   const data = resource.data as channel.Payload;
   const I = PChannel.resolveIcon(data);
   return (
-    <Tree.Item {...rest} icon={<I style={{ color: "var(--pluto-gray-l10" }} />}>
-      <Text.MaybeEditable
-        id={`text-${itemKey}`}
-        level="p"
-        allowDoubleClick={false}
-        value={alias ?? resource.name}
-        disabled={!allowRename(resource)}
-        onChange={onRename}
-      />
+    <Tree.Item {...rest}>
+      <Align.Space size="small" x align="center">
+        <I style={{ color: "var(--pluto-gray-l10" }} />
+        <Text.MaybeEditable
+          id={ontology.idToString(id)}
+          level="p"
+          allowDoubleClick={false}
+          value={alias ?? resource.name}
+          disabled={!allowRename(resource)}
+          onChange={onRename}
+        />
+      </Align.Space>
       {data.virtual && (
         <Icon.Virtual
           style={{ color: "var(--pluto-gray-l8)", transform: "scale(1)" }}
