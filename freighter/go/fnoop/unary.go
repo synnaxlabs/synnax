@@ -16,14 +16,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
-type UnaryServer[RQ, RS freighter.Payload] struct{ freighter.Reporter }
-
-var _ freighter.UnaryServer[any, any] = (*UnaryServer[any, any])(nil)
-
-func (us UnaryServer[RQ, RS]) Use(...freighter.Middleware) {}
-
-func (us UnaryServer[RQ, RS]) BindHandler(func(context.Context, RQ) (RS, error)) {}
-
 type UnaryClient[RQ, RS freighter.Payload] struct{ freighter.Reporter }
 
 var _ freighter.UnaryClient[any, any] = (*UnaryClient[any, any])(nil)
@@ -34,3 +26,11 @@ func (uc UnaryClient[RQ, RS]) Send(context.Context, address.Address, RQ) (RS, er
 	var res RS
 	return res, nil
 }
+
+type UnaryServer[RQ, RS freighter.Payload] struct{ freighter.Reporter }
+
+var _ freighter.UnaryServer[any, any] = (*UnaryServer[any, any])(nil)
+
+func (us UnaryServer[RQ, RS]) Use(...freighter.Middleware) {}
+
+func (us UnaryServer[RQ, RS]) BindHandler(func(context.Context, RQ) (RS, error)) {}
