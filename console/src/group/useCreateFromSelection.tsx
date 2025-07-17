@@ -28,17 +28,24 @@ export const useCreateFromSelection = (): CreateFromSelection => {
   const create = useMutation<void, Error, CreateArgs, Tree.Node[]>({
     onMutate: async ({
       selection,
-      state: { nodes, setNodes, setSelection, shape },
+      state: { nodes, setNodes, setSelection, shape, setResource },
       newID,
     }) => {
       if (selection.parentID == null) return;
       const resourcesToGroup = getResourcesToGroup(selection.resourceIDs, shape);
       const prevNodes = Tree.deepCopy(nodes);
+      const res: ontology.Resource = {
+        key: ontology.idToString(newID),
+        id: newID,
+        name: "",
+      };
+      setResource(res);
+      const destination = ontology.idsEqual(selection.rootID, selection.parentID)
+        ? null
+        : ontology.idToString(selection.parentID);
       let nextNodes = Tree.setNode({
         tree: nodes,
-        destination: ontology.idsEqual(selection.rootID, selection.parentID)
-          ? null
-          : ontology.idToString(selection.parentID),
+        destination,
         additions: {
           key: ontology.idToString(newID),
           children: [],

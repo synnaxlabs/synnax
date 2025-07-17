@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type record, unique } from "@synnaxlabs/x";
+import { array, type compare, type record, unique } from "@synnaxlabs/x";
 
 export interface Node<K extends record.Key = string> {
   key: K;
@@ -33,6 +33,7 @@ export const shouldExpand = <K extends record.Key = string>(
 export interface FlattenProps<K extends record.Key = string> {
   nodes: Node<K>[];
   expanded: K[];
+  sort?: compare.CompareF<Node<K>>;
   depth?: number;
   path?: string;
 }
@@ -40,9 +41,11 @@ export interface FlattenProps<K extends record.Key = string> {
 export const flatten = <K extends record.Key = string>({
   nodes,
   expanded,
+  sort,
   depth = 0,
 }: FlattenProps<K>): Shape<K> => {
   const flattened: Shape<K> = { keys: [], nodes: [] };
+  if (sort != null) nodes.sort(sort);
   nodes.forEach((node) => {
     const expand = shouldExpand(node, expanded);
     flattened.keys.push(node.key);
@@ -55,6 +58,7 @@ export const flatten = <K extends record.Key = string>({
       const { keys, nodes } = flatten({
         nodes: node.children,
         expanded,
+        sort,
         depth: depth + 1,
       });
       flattened.keys.push(...keys);
@@ -292,4 +296,12 @@ export const getAllNodesOfMinDepth = <K extends record.Key = string>(
 export const getDepth = (key: string, state: Shape<string>) => {
   const index = state.keys.findIndex((k) => k === key);
   return state.nodes[index].depth;
+};
+
+export const getNodeShape = <K extends record.Key = string>(
+  shape: Shape<K>,
+  key: K,
+): NodeShape | null => {
+  const index = shape.keys.findIndex((k) => k === key);
+  return shape.nodes[index];
 };

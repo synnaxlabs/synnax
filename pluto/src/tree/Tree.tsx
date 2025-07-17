@@ -9,7 +9,7 @@
 
 import "@/tree/Tree.css";
 
-import { type record, unique } from "@synnaxlabs/x";
+import { type compare, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { type Component } from "@/component";
@@ -17,7 +17,13 @@ import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { state } from "@/state";
-import { flatten, type Node, type NodeShape, type Shape } from "@/tree/core";
+import {
+  flatten,
+  getNodeShape,
+  type Node,
+  type NodeShape,
+  type Shape,
+} from "@/tree/core";
 import { Triggers } from "@/triggers";
 
 export const HAUL_TYPE = "tree-item";
@@ -31,6 +37,7 @@ export interface HandleExpandProps<K extends record.Key = string> {
 export interface UseProps<K extends record.Key = string> {
   onExpand?: (props: HandleExpandProps<K>) => void;
   selected?: K[];
+  sort?: compare.CompareF<Node<K>>;
   onSelectedChange?: state.Setter<K[]>;
   initialExpanded?: K[];
   nodes: Node<K>[];
@@ -54,6 +61,7 @@ export const use = <K extends record.Key = string>({
   initialExpanded = [],
   selected: propsSelected,
   onSelectedChange,
+  sort,
 }: UseProps<K>): UseReturn<K> => {
   const [expanded, setExpanded, expandedRef] =
     useCombinedStateAndRef<K[]>(initialExpanded);
@@ -62,8 +70,12 @@ export const use = <K extends record.Key = string>({
     value: propsSelected,
     onChange: onSelectedChange,
   });
-  const data = useMemo(() => flatten<K>({ nodes, expanded }), [nodes, expanded]);
+  const shape = useMemo(
+    () => flatten<K>({ nodes, expanded, sort }),
+    [nodes, expanded, sort],
+  );
   const nodesRef = useSyncedRef(nodes);
+  const shapeRef = useSyncedRef(shape);
 
   const shiftRef = Triggers.useHeldRef({ triggers: SHIFT_TRIGGERS });
 
@@ -73,9 +85,9 @@ export const use = <K extends record.Key = string>({
         if (keys.length === 0 && p.length > 0) return p.slice(0, 1);
         return keys;
       });
-      const n = nodesRef.current.find((node) => node.key === clicked);
-      if (n?.children == null) return;
       if (clicked == null || shiftRef.current.held) return;
+      const n = getNodeShape(shapeRef.current, clicked);
+      if (n == null || !n.hasChildren) return;
       const currentlyExpanded = expandedRef.current;
       const action = currentlyExpanded.some((key) => key === clicked)
         ? "contract"
@@ -117,7 +129,7 @@ export const use = <K extends record.Key = string>({
     contract: handleContract,
     expand: handleExpand,
     clearExpanded,
-    shape: data,
+    shape,
     onSelect: handleSelect,
   };
 };

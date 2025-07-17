@@ -230,7 +230,12 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         ...Core.setNode({
           tree: prevNodes,
           destination,
-          additions: [{ key: ontology.idToString(to), children: [] }],
+          additions: [
+            {
+              key: ontology.idToString(to),
+              children: services[to.type].hasChildren ? [] : undefined,
+            },
+          ],
         }),
       ];
     });
@@ -240,6 +245,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   const handleExpand = useCallback(
     ({ action, clicked: clickedStringID }: Core.HandleExpandProps<string>): void => {
       if (action !== "expand") return;
+      console.log(clickedStringID);
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         if (!resourcesRef.current.has(clickedStringID)) return;
@@ -267,14 +273,6 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     },
     [],
   );
-
-  const { shape, expand, contract, onSelect } = Core.use({
-    nodes,
-    onExpand: handleExpand,
-    selected,
-    onSelectedChange: setSelected,
-  });
-  const shapeRef = useSyncedRef(shape);
 
   const setResource = useCallback(
     (resource: ontology.Resource | ontology.Resource[]) => {
@@ -305,6 +303,29 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     [resourcesRef],
   );
 
+  const sort = useCallback(
+    (a: Core.Node<string>, b: Core.Node<string>) => {
+      const [aResource] = getResource([ontology.idZ.parse(a.key)]);
+      const [bResource] = getResource([ontology.idZ.parse(b.key)]);
+      if (aResource == null && bResource == null) return 0;
+      if (aResource == null) return 1;
+      if (bResource == null) return -1;
+      if (aResource.id.type === "group" && bResource.id.type !== "group") return -1;
+      if (aResource.id.type !== "group" && bResource.id.type === "group") return 1;
+      return aResource.name.localeCompare(bResource.name);
+    },
+    [getResource],
+  );
+
+  const { shape, expand, contract, onSelect } = Core.use({
+    nodes,
+    onExpand: handleExpand,
+    selected,
+    onSelectedChange: setSelected,
+    sort,
+  });
+  const shapeRef = useSyncedRef(shape);
+
   const getState = useCallback(
     (): TreeState => ({
       nodes: nodesRef.current,
@@ -315,9 +336,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       setLoading,
       setResource,
       getResource,
-      setSelection: (keys: string[]) => {
-        setNodes(Core.findNodes({ tree: nodesRef.current, keys }));
-      },
+      setSelection: setSelected,
     }),
     [expand, contract, setLoading, handleError, resourcesRef, nodesRef, setNodes],
   );
