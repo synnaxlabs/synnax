@@ -50,6 +50,7 @@ export type UseSingleProps<K extends record.Key> = Optional<
 
 export interface UseMultipleProps<K extends record.Key> {
   allowMultiple?: true;
+  allowNone?: boolean;
   value: K[];
   onChange: (next: K[], extra: UseOnChangeExtra<K>) => void;
   replaceOnSingle?: boolean;
@@ -114,6 +115,7 @@ export const useMultiple = <K extends record.Key>({
   value = [],
   replaceOnSingle = false,
   onChange,
+  allowNone = true,
   closeDialogOnSelect = false,
 }: UseMultipleProps<K>): UseReturn<K> => {
   const { data } = List.useData<K>();
@@ -159,7 +161,10 @@ export const useMultiple = <K extends record.Key>({
         else nextSelected = [...value, key];
       }
       const v = unique.unique(nextSelected);
-      if (v.length === 0) shiftValueRef.current = null;
+      if (v.length === 0) {
+        if (!allowNone) return;
+        shiftValueRef.current = null;
+      }
       onChange(v, {
         clicked: key,
         clickedIndex: data.findIndex((v) => v === key),
