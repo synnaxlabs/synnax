@@ -18,5 +18,5 @@ import (
 
 func TestFNoop(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Fnoop Suite")
+	RunSpecs(t, "FNoop Suite")
 }
