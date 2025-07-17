@@ -12,13 +12,13 @@ import { type DataType } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
-  payloadZ,
   type Key,
   keyZ,
   nameZ,
   type New,
   newZ,
   type Payload,
+  payloadZ,
 } from "@/channel/payload";
 import { type CacheRetriever } from "@/channel/retriever";
 
