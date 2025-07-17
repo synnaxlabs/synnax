@@ -110,18 +110,22 @@ const useUngroupSelection = (): ((props: Ontology.TreeContextMenuProps) => void)
     );
     const prevNodes = Tree.deepCopy(nodes);
     setNodes([
-      ...selection.resourceIDs.reduce((acc, { key }) => {
-        const children = Tree.findNode({ tree: nodes, key })?.children ?? [];
-        acc = Tree.moveNode({
-          tree: acc,
-          destination: ontology.idsEqual(selection.parentID, selection.rootID)
-            ? null
-            : ontology.idToString(selection.parentID),
-          keys: children.map((c) => c.key),
-        });
-        acc = Tree.removeNode({ tree: acc, keys: key });
-        return acc;
-      }, nodes),
+      ...selection.resourceIDs.reduce(
+        (acc, id) => {
+          const key = ontology.idToString(id);
+          const children = Tree.findNode({ tree: nodes, key })?.children ?? [];
+          acc = Tree.moveNode({
+            tree: acc,
+            destination: ontology.idsEqual(selection.parentID, selection.rootID)
+              ? null
+              : ontology.idToString(selection.parentID),
+            keys: children.map((c) => c.key),
+          });
+          acc = Tree.removeNode({ tree: acc, keys: key });
+          return [...acc];
+        },
+        [...nodes],
+      ),
     ]);
     mut.mutate({ ...props, state: { ...props.state, nodes: prevNodes } });
   };

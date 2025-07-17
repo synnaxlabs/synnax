@@ -135,6 +135,7 @@ export const Frame = <
     index: item.index,
     translate: item.start,
   }));
+  console.log(data.length);
   const dataCtxValue = useMemo<DataContextValue<K>>(
     () => ({
       ref: refCallback,

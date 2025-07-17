@@ -27,7 +27,7 @@ import {
   useRequiredContext,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { array, type observe } from "@synnaxlabs/x";
+import { array, deep, type observe } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import {
   createContext,
@@ -543,7 +543,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
       <Core.Tree<string, ontology.Resource>
         showRules
-        shape={shape}
+        shape={deep.copy(shape)}
         selected={selected}
         onSelect={onSelect}
         subscribe={subscribe}
