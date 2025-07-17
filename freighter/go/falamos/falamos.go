@@ -44,8 +44,8 @@ type Config struct {
 
 // Validate implements config.Config
 func (c Config) Validate() error {
-	v := validate.New("falamos.Properties")
-	validate.NotNil(v, "Instrumentation", c.Instrumentation)
+	v := validate.New("falamos.Config")
+	validate.NotNil(v, "instrumentation", c.Instrumentation)
 	return v.Error()
 }
 
@@ -60,8 +60,8 @@ func (c Config) Override(other Config) Config {
 
 var _ config.Config[Config] = Config{}
 
-// Default is the default configuration for the tracing middleware.
-var Default = Config{
+// DefaultConfig is the default configuration for the tracing middleware.
+var DefaultConfig = Config{
 	Level:             alamos.Prod,
 	EnableTracing:     config.True(),
 	EnablePropagation: config.True(),
@@ -71,7 +71,7 @@ var Default = Config{
 // Middleware adds traces and logs to incoming and outgoing requests and ensures that
 // they are propagated across the network.
 func Middleware(cfgs ...Config) (freighter.Middleware, error) {
-	cfg, err := config.New(Default, cfgs...)
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -105,8 +105,10 @@ func Middleware(cfgs ...Config) (freighter.Middleware, error) {
 		if *cfg.EnableTracing {
 			_ = span.EndWith(err)
 		}
-
-		return oCtx, err
+		if err != nil {
+			return freighter.Context{}, err
+		}
+		return oCtx, nil
 	}), nil
 }
 
@@ -114,9 +116,9 @@ type carrier struct{ freighter.Context }
 
 var _ alamos.TraceCarrier = carrier{}
 
-const keyPrefix = "alamos"
+const keyPrefix = "alamos-"
 
-func keyF(k string) string { return keyPrefix + "-" + k }
+func keyF(k string) string { return keyPrefix + k }
 
 // Get implements alamos.TraceCarrier.
 func (c carrier) Get(key string) string {
@@ -132,14 +134,14 @@ func (c carrier) Get(key string) string {
 }
 
 // Set implements alamos.TraceCarrier.
-func (c carrier) Set(key, value string) { c.Context.Params.Set(keyF(key), value) }
+func (c carrier) Set(key, value string) { c.Context.Set(keyF(key), value) }
 
 // Keys implements alamos.TraceCarrier.
 func (c carrier) Keys() []string {
 	keys := make([]string, 0, len(c.Context.Params))
 	for k := range c.Context.Params {
-		if strings.HasPrefix(k, keyPrefix) {
-			keys = append(keys, strings.TrimPrefix(k, keyPrefix+"-"))
+		if cut, found := strings.CutPrefix(k, keyPrefix); found {
+			keys = append(keys, cut)
 		}
 	}
 	return keys
@@ -152,8 +154,11 @@ func log(ctx freighter.Context, err error, cfg Config) {
 		zap.Stringer("role", ctx.Role),
 	}
 	if err != nil {
-		cfg.L.Warn(ctx.Target.String(), append(args, zap.String("error", err.Error()))...)
-	} else {
-		cfg.L.Debug(ctx.Target.String(), args...)
+		cfg.L.Warn(
+			ctx.Target.String(),
+			append(args, zap.String("error", err.Error()))...,
+		)
+		return
 	}
+	cfg.L.Debug(ctx.Target.String(), args...)
 }

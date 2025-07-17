@@ -18,10 +18,35 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Falamos", func() {
-	Describe("Name", func() {
-		It("Should correctly attach tracing metadata", func() {
-			clientIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
+var _ = Describe("FAlamos", func() {
+	Describe("Config", func() {
+		Describe("Validate", func() {
+			It("should validate any config", func() {
+				cfg := falamos.Config{}
+				Expect(cfg.Validate()).To(Succeed())
+			})
+		})
+		Describe("Override", func() {
+			It("should override fields in the base config", func() {
+				cfg := falamos.Config{
+					EnableTracing:     config.True(),
+					EnablePropagation: config.True(),
+					EnableLogging:     config.False(),
+				}
+				override := falamos.Config{EnableLogging: config.False()}
+				cfg = cfg.Override(override)
+				Expect(*cfg.EnableTracing).To(BeTrue())
+				Expect(*cfg.EnablePropagation).To(BeFalse())
+				Expect(*cfg.EnableLogging).To(BeFalse())
+			})
+		})
+	})
+	Describe("Middleware", func() {
+		It("should correctly attach tracing metadata to client requests", Focus, func() {
+			clientIns := Instrumentation(
+				"falamos",
+				InstrumentationConfig{Trace: config.True()},
+			)
 			clientMw := MustSucceed(falamos.Middleware(falamos.Config{
 				Instrumentation: clientIns,
 			}))
@@ -33,10 +58,12 @@ var _ = Describe("Falamos", func() {
 				},
 				freighter.NoopMiddlewareHandler,
 			))
-			_, ok := oCtx.Params.Get("alamos-traceparent")
+			_, ok := oCtx.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())
-
-			serverIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
+			serverIns := Instrumentation(
+				"falamos",
+				InstrumentationConfig{Trace: config.True()},
+			)
 			serverMw := MustSucceed(falamos.Middleware(falamos.Config{
 				Instrumentation: serverIns,
 			}))
@@ -48,7 +75,7 @@ var _ = Describe("Falamos", func() {
 				},
 				freighter.NoopMiddlewareHandler,
 			))
-			_, ok = oCtx.Params.Get("alamos-traceparent")
+			_, ok = oCtx.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())
 		})
 	})
