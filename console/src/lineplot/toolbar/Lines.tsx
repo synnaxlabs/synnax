@@ -126,14 +126,8 @@ const Line = ({
         value={line.downsample ?? 1}
         onChange={handleDownsampleChange}
         variant="shadow"
-        dragScale={{
-          x: 0.1,
-          y: 0.1,
-        }}
-        bounds={{
-          lower: 1,
-          upper: 51,
-        }}
+        dragScale={{ x: 0.1, y: 0.1 }}
+        bounds={{ lower: 1, upper: 51 }}
       />
       <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
     </Align.Space>
