@@ -35,7 +35,7 @@ export const Item = <K extends record.Key>({
         showRules && depth !== 0 && CSS.M("show-rules"),
       )}
       style={{
-        [CSS.var("tree-item-offset")]: `${depth * 2.5 + 0.75}rem`,
+        [CSS.var("tree-item-offset")]: `${depth * 2.5 + 1.25}rem`,
         ...style,
       }}
       size="small"

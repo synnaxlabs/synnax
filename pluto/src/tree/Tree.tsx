@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/tree/Tree.css";
-
 import { type compare, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { type Component } from "@/component";
+import { CSS } from "@/css";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -160,6 +159,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   onSelect,
   getItem,
   subscribe,
+  className,
   ...rest
 }: TreeProps<K, E>): ReactElement => {
   const { keys, nodes } = shape;
@@ -174,7 +174,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
       subscribe={subscribe}
       itemHeight={27}
     >
-      <List.Items<K, E> {...rest}>
+      <List.Items<K, E> className={CSS(CSS.B("tree"), className)} {...rest}>
         {({ index, ...rest }) => children({ index, ...nodes[index], ...rest })}
       </List.Items>
     </Select.Frame>

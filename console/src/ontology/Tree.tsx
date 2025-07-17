@@ -73,6 +73,7 @@ const DefaultItem = ({
   onRename,
   icon,
   id,
+  loading,
   ...rest
 }: TreeItemProps) => (
   <Core.Item {...rest}>
@@ -87,6 +88,7 @@ const DefaultItem = ({
         style={{ userSelect: "none" }}
       />
     </Align.Space>
+    {loading && <Icon.Loading />}
   </Core.Item>
 );
 
@@ -250,6 +252,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         if (client == null) throw new DisconnectedError();
         if (!resourcesRef.current.has(clickedStringID)) return;
         const clickedID = ontology.idZ.parse(clickedStringID);
+        setLoading(clickedStringID);
         const resources = await client.ontology.retrieveChildren(clickedID);
         resources.forEach((r) =>
           resourcesRef.current.set(ontology.idToString(r.id), r),
@@ -269,6 +272,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
             ],
           }),
         ]);
+        setLoading(false);
       });
     },
     [],

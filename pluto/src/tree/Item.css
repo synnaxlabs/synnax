@@ -9,13 +9,23 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-tree__item {
-    min-height: 4.5rem;
-    padding: 0;
-    padding-left: var(--pluto-tree-item-offset);
+.pluto-tree {
+    .pluto-tree__item {
+        min-height: 4.5rem;
+        padding: 0;
+        padding-left: var(--pluto-tree-item-offset);
 
-    &.pluto--show-rules {
-        &::after {
+        & .pluto-tree__expansion-indicator {
+            height: 2.5rem;
+            width: 2.5rem;
+        }
+        & .pluto-icon:not(.pluto-tree__expansion-indicator) {
+            height: 2.5rem;
+            width: 2.5rem;
+            color: var(--pluto-gray-l10);
+        }
+
+        &.pluto--show-rules::after {
             content: "";
             position: absolute;
             left: calc(var(--pluto-tree-item-offset) - 1.5rem);
@@ -23,16 +33,12 @@
             bottom: 0;
             width: 2px;
             background-color: var(--pluto-gray-l4);
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
         }
     }
 
-    & .pluto-tree__expansion-indicator {
-        height: 2.5rem;
-        width: 2.5rem;
-    }
-    & .pluto-icon:not(.pluto-tree__expansion-indicator) {
-        height: 2.5rem;
-        width: 2.5rem;
-        color: var(--pluto-gray-l10);
+    &:hover .pluto-tree__item.pluto--show-rules::after {
+        opacity: 1;
     }
 }
