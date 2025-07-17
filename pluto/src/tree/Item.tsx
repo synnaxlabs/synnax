@@ -23,6 +23,7 @@ export const Item = <K extends record.Key>({
   expanded,
   children,
   style,
+  className,
   showRules = true,
   ...rest
 }: ItemProps<K>) => {
@@ -33,9 +34,10 @@ export const Item = <K extends record.Key>({
       className={CSS(
         CSS.BE("tree", "item"),
         showRules && depth !== 0 && CSS.M("show-rules"),
+        className,
       )}
       style={{
-        [CSS.var("tree-item-offset")]: `${depth * 2.5 + 1.25}rem`,
+        [CSS.var("tree-item-offset")]: `${depth * 2.5 + 1.5}rem`,
         ...style,
       }}
       size="small"

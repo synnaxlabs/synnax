@@ -31,10 +31,12 @@ import { array, deep, type observe } from "@synnaxlabs/x";
 import { type MutationFunction, useMutation } from "@tanstack/react-query";
 import {
   createContext,
+  type DragEvent,
   type ReactElement,
   useCallback,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
 } from "react";
 import { useStore } from "react-redux";
@@ -58,6 +60,8 @@ interface InternalProps {
 interface ContextValue {
   onRename: (key: string, name: string) => void;
   onDrop: (key: string, props: Haul.OnDropProps) => Haul.Item[];
+  onDragStart: (itemKey: string) => void;
+  onDragEnd: (e: DragEvent) => void;
   onDoubleClick: (key: string) => void;
   useLoading: (key: string) => boolean;
 }
@@ -69,7 +73,6 @@ const useContext = (): ContextValue => useRequiredContext(Context);
 const DefaultItem = ({
   onDoubleClick,
   resource,
-  onDrop,
   onRename,
   icon,
   id,
@@ -92,45 +95,68 @@ const DefaultItem = ({
   </Core.Item>
 );
 
-const itemRenderProp = Component.renderProp((props: Core.ItemProps<string>) => {
-  const { itemKey } = props;
-  const id = ontology.idZ.parse(itemKey);
-  const resource = List.useItem<string, ontology.Resource>(itemKey);
-  const selectProps = Select.useItemState<string>(itemKey);
-  const service = useServices()[id.type];
-  const Item = service.Item ?? DefaultItem;
-  const context = useContext();
-  const handleRename = useCallback(
-    (name: string) => context.onRename(itemKey, name),
-    [context, itemKey],
-  );
-  const handleDrop = useCallback(
-    (props: Haul.OnDropProps) => context.onDrop(itemKey, props),
-    [context, itemKey],
-  );
-  const handleDoubleClick = useCallback(
-    () => context.onDoubleClick(itemKey),
-    [context, itemKey],
-  );
-  const loading = context.useLoading(itemKey);
-  if (resource == null) return null;
-  const icon = Icon.resolve(
-    typeof service.icon === "function" ? service.icon(resource) : service.icon,
-  );
-  return (
-    <Item
-      {...props}
-      id={id}
-      onDrop={handleDrop}
-      onDoubleClick={handleDoubleClick}
-      icon={icon as Icon.ReactElement}
-      resource={resource}
-      loading={loading}
-      onRename={handleRename}
-      {...selectProps}
-    />
-  );
-});
+const itemRenderProp = Component.renderProp(
+  ({ onDrop: _, ...rest }: Core.ItemProps<string>) => {
+    const { itemKey } = rest;
+    const id = ontology.idZ.parse(itemKey);
+    const resource = List.useItem<string, ontology.Resource>(itemKey);
+    const selectProps = Select.useItemState<string>(itemKey);
+    const service = useServices()[id.type];
+    const Item = service.Item ?? DefaultItem;
+    const { onRename, onDrop, onDoubleClick, useLoading, onDragStart, onDragEnd } =
+      useContext();
+    const handleRename = useCallback(
+      (name: string) => onRename(itemKey, name),
+      [onRename, itemKey],
+    );
+    const handleDoubleClick = useCallback(
+      () => onDoubleClick(itemKey),
+      [onDoubleClick, itemKey],
+    );
+    const handleDragStart = useCallback(
+      () => onDragStart(itemKey),
+      [onDragStart, itemKey],
+    );
+    const loading = useLoading(itemKey);
+    if (resource == null) return null;
+    const icon = Icon.resolve(
+      typeof service.icon === "function" ? service.icon(resource) : service.icon,
+    );
+
+    const [draggingOver, setDraggingOver] = useState(false);
+
+    const onDropDrops = Haul.useDrop({
+      type: "Tree.Item",
+      key: itemKey,
+      canDrop: useCallback(({ items: entities, source }) => {
+        const keys = entities.map((item) => item.key);
+        setDraggingOver(false);
+        return source.type === "Tree.Item" && !keys.includes(itemKey);
+      }, []),
+      onDrop: useCallback((props) => onDrop(itemKey, props) ?? [], [onDrop, itemKey]),
+      onDragOver: useCallback(() => setDraggingOver(true), []),
+    });
+
+    return (
+      <Item
+        {...rest}
+        draggingOver={draggingOver}
+        onDragStart={handleDragStart}
+        draggable
+        id={id}
+        {...onDropDrops}
+        onDragLeave={() => setDraggingOver(false)}
+        onDragEnd={onDragEnd}
+        onDoubleClick={handleDoubleClick}
+        icon={icon as Icon.ReactElement}
+        resource={resource}
+        loading={loading}
+        onRename={handleRename}
+        {...selectProps}
+      />
+    );
+  },
+);
 
 const Internal = ({ root }: InternalProps): ReactElement => {
   const services = useServices();
@@ -247,7 +273,6 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   const handleExpand = useCallback(
     ({ action, clicked: clickedStringID }: Core.HandleExpandProps<string>): void => {
       if (action !== "expand") return;
-      console.log(clickedStringID);
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         if (!resourcesRef.current.has(clickedStringID)) return;
@@ -469,6 +494,43 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     [client, contract, root],
   );
 
+  const { startDrag, onDragEnd } = Haul.useDrag({
+    type: "Tree.Item",
+  });
+
+  const handleDragStart = useCallback(
+    (itemKey: string) => {
+      const selectedResources = getResource(ontology.parseIDs(selectedRef.current));
+      if (selectedRef.current.includes(itemKey)) {
+        const selectedHaulItems = selectedResources.flatMap((res) => {
+          const haulItems = services[res.id.type].haulItems(res);
+          const depth = Core.getDepth(itemKey, shapeRef.current);
+          return [
+            {
+              type: Core.HAUL_TYPE,
+              key: ontology.idToString(res.id),
+              data: { depth },
+            },
+            ...(haulItems?.map((item) => ({
+              ...item,
+              data: { ...item.data, depth },
+            })) ?? []),
+          ];
+        });
+        return startDrag(selectedHaulItems);
+      }
+      const haulItems = services[ontology.idZ.parse(itemKey).type].haulItems(
+        getResource(ontology.idZ.parse(itemKey)),
+      );
+      const depth = Core.getDepth(itemKey, shapeRef.current);
+      startDrag([
+        { type: Core.HAUL_TYPE, key: itemKey, data: { depth } },
+        ...haulItems.map((item) => ({ ...item, data: { depth } })),
+      ]);
+    },
+    [getResource, selectedRef],
+  );
+
   const handleRename = useCallback(
     (key: string, name: string) => rename.mutate({ key, name }),
     [rename],
@@ -557,8 +619,10 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       onDrop: handleDrop,
       useLoading,
       onDoubleClick: handleDoubleClick,
+      onDragStart: handleDragStart,
+      onDragEnd,
     }),
-    [handleRename, handleDrop, handleDoubleClick, useLoading],
+    [handleRename, handleDrop, handleDoubleClick, useLoading, onDragEnd],
   );
 
   return (

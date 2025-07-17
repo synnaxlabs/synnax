@@ -256,7 +256,7 @@
         }
     }
     &:not(.pluto--disabled):not(:focus-within) {
-        &:hover {
+        &:is(:hover, .pluto--hovered) {
             --pluto-bg: var(--pluto-hover-bg);
             --pluto-border-color: var(--pluto-hover-border-color);
         }

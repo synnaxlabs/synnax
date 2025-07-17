@@ -101,7 +101,6 @@ export interface TreeItemProps extends Omit<Tree.ItemProps<string>, "id" | "reso
   loading: boolean;
   resource: ontology.Resource;
   onRename: (name: string) => void;
-  onDrop: (props: Haul.OnDropProps) => Haul.Item[];
   onDoubleClick: () => void;
 }
 

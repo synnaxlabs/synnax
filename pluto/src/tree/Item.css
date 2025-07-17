@@ -13,6 +13,7 @@
     .pluto-tree__item {
         min-height: 4.5rem;
         padding: 0;
+        padding-right: 1.5rem;
         padding-left: var(--pluto-tree-item-offset);
 
         & .pluto-tree__expansion-indicator {

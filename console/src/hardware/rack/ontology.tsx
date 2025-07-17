@@ -12,7 +12,6 @@ import "@/hardware/rack/ontology.css";
 import { ontology, rack } from "@synnaxlabs/client";
 import {
   Icon,
-  List,
   Menu as PMenu,
   Rack,
   Status,
@@ -78,10 +77,8 @@ const handleRename: Ontology.HandleTreeRename = {
   },
 };
 
-const Item = (props: Ontology.TreeItemProps) => {
-  const { itemKey, onRename } = props;
-  const entry = List.useItem<string, ontology.Resource>(itemKey);
-  const id = ontology.idZ.parse(itemKey);
+const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
+  const { itemKey } = rest;
   const status = Rack.useStatus(Number(id.key));
   const heartRef = useRef<SVGSVGElement>(null);
 
@@ -95,15 +92,13 @@ const Item = (props: Ontology.TreeItemProps) => {
     requestAnimationFrame(() => heart.classList.add("synnax-rack-heartbeat--beat"));
   }, [status]);
 
-  if (entry == null) return null;
-
   return (
-    <Tree.Item {...props}>
+    <Tree.Item {...rest}>
       <Text.MaybeEditable
         id={`text-${itemKey}`}
         level="p"
         allowDoubleClick={false}
-        value={entry?.name}
+        value={resource.name}
         onChange={(name) => onRename?.(name)}
         style={{
           textOverflow: "ellipsis",
