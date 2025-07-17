@@ -19,6 +19,7 @@
         & .pluto-tree__expansion-indicator {
             height: 2.5rem;
             width: 2.5rem;
+            flex-shrink: 0;
         }
         & .pluto-icon:not(.pluto-tree__expansion-indicator) {
             height: 2.5rem;

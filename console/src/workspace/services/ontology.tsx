@@ -268,7 +268,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const first = resources[0];
   const handleSelect = {
     delete: () => handleDelete(props),
-    rename: () => Text.edit(first.id.key),
+    rename: () => Text.edit(ontology.idToString(first.id)),
     group: () => group(props),
     createLog: () => createLog(props),
     createPlot: () => createPlot(props),

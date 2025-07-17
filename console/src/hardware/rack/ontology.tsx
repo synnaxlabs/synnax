@@ -7,21 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/rack/ontology.css";
-
 import { ontology, rack } from "@synnaxlabs/client";
-import {
-  Icon,
-  Menu as PMenu,
-  Rack,
-  Status,
-  Text,
-  Tooltip,
-  Tree,
-} from "@synnaxlabs/pluto";
+import { Icon, Menu as PMenu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
@@ -80,26 +69,17 @@ const handleRename: Ontology.HandleTreeRename = {
 const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
   const { itemKey } = rest;
   const status = Rack.useStatus(Number(id.key));
-  const heartRef = useRef<SVGSVGElement>(null);
-
-  const variant = status?.variant ?? "disabled";
-
-  useEffect(() => {
-    if (variant !== "success") return;
-    const heart = heartRef.current;
-    if (!heart) return;
-    heart.classList.remove("synnax-rack-heartbeat--beat");
-    requestAnimationFrame(() => heart.classList.add("synnax-rack-heartbeat--beat"));
-  }, [status]);
 
   return (
     <Tree.Item {...rest}>
+      <Icon.Rack />
       <Text.MaybeEditable
-        id={`text-${itemKey}`}
+        id={itemKey}
         level="p"
         allowDoubleClick={false}
         value={resource.name}
         onChange={(name) => onRename?.(name)}
+        noWrap
         style={{
           textOverflow: "ellipsis",
           width: 0,
@@ -107,16 +87,7 @@ const Item = ({ id, onRename, resource, ...rest }: Ontology.TreeItemProps) => {
           flexGrow: 1,
         }}
       />
-      <Tooltip.Dialog location="right">
-        <Status.Text variant={variant} hideIcon level="small" weight={450}>
-          {status?.message}
-        </Status.Text>
-        <Icon.Heart
-          ref={heartRef}
-          className="synnax-rack-heartbeat"
-          style={{ color: Status.VARIANT_COLORS[variant] }}
-        />
-      </Tooltip.Dialog>
+      <Rack.StatusIndicator status={status} />
     </Tree.Item>
   );
 };
@@ -143,7 +114,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
   const onSelect = {
     group: () => group(props),
-    rename: () => Text.edit(resourceIDs[0].key),
+    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
     createSequence,
     copy: () => copyKeyToClipboard(props),
     delete: () => handleDelete(props),

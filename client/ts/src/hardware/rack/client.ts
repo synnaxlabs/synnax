@@ -31,6 +31,8 @@ const CREATE_ENDPOINT = "/hardware/rack/create";
 const DELETE_ENDPOINT = "/hardware/rack/delete";
 
 export const STATUS_CHANNEL_NAME = "sy_rack_status";
+export const SET_CHANNEL_NAME = "sy_rack_set";
+export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),

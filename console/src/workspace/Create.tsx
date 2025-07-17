@@ -83,6 +83,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
         <Nav.Bar.End>
           <Button.Button
             type="submit"
+            variant="filled"
             form="create-workspace"
             loading={isPending}
             disabled={isPending || client == null}

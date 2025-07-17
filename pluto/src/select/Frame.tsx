@@ -13,10 +13,10 @@ import {
   type PropsWithChildren,
   type ReactElement,
   useCallback,
+  useContext as reactUseContext,
   useMemo,
 } from "react";
 
-import { useRequiredContext } from "@/hooks";
 import { List } from "@/list";
 import {
   useMultiple,
@@ -25,7 +25,12 @@ import {
   type UseSingleProps,
 } from "@/select/use";
 
-const Context = createContext<ContextValue<any> | null>(null);
+const Context = createContext<ContextValue<any>>({
+  value: [],
+  onSelect: () => {},
+  setSelected: () => {},
+  clear: () => {},
+});
 
 const isSelected = <K extends record.Key>(
   value: K | K[] | null | undefined,
@@ -98,10 +103,10 @@ export interface UseItemStateReturn {
 }
 
 export const useContext = <K extends record.Key = record.Key>(): ContextValue<K> =>
-  useRequiredContext(Context) as unknown as ContextValue<K>;
+  reactUseContext(Context) as unknown as ContextValue<K>;
 
 export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn => {
-  const { value, onSelect, hover } = useRequiredContext(Context);
+  const { value, onSelect, hover } = useContext();
   const handleSelect = useCallback(() => onSelect(key), [key, onSelect]);
   return {
     selected: isSelected(value, key),
@@ -110,12 +115,9 @@ export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn =
   };
 };
 
-export const useSelection = <K extends record.Key>(): K[] => {
-  const { value } = useRequiredContext(Context);
-  return value;
-};
+export const useSelection = <K extends record.Key>(): K[] => useContext().value as K[];
 
-export const useClear = () => useRequiredContext(Context).clear;
+export const useClear = () => useContext().clear;
 
 export interface TriggerProps<
   K extends record.Key,

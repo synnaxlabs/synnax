@@ -32,7 +32,7 @@ export const parsedHandler =
   async (args) => {
     let parsed: z.output<Z>[];
     if (!args.changed.dataType.equals(DataType.JSON))
-      parsed = args.changed.toStrings().map((s) => schema.parse(s));
+      parsed = Array.from(args.changed).map((s) => schema.parse(s));
     else parsed = args.changed.parseJSON(schema);
     for (const value of parsed) await onChange({ ...args, changed: value });
   };

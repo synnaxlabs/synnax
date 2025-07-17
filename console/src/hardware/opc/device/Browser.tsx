@@ -140,7 +140,7 @@ export const Browser = ({ device }: BrowserProps) => {
       Error loading nodes. {expand.error.message}
     </Status.Text.Centered>
   ) : (
-    <Tree.Tree loading={loading} {...treeProps} />
+    <Tree.Tree {...treeProps} />
   );
   return (
     <Align.Space empty className={CSS.B("opc-browser")}>

@@ -30,12 +30,14 @@ export interface UseSingleAllowNoneProps<K extends record.Key> {
   allowNone?: true;
   value?: K;
   onChange: (next: K | null, extra: UseOnChangeExtra<K>) => void;
+  closeDialogOnSelect?: boolean;
 }
 
 export interface UseSingleRequiredProps<K extends record.Key> {
   allowNone: false | undefined;
   value: K;
   onChange: (next: K, extra: UseOnChangeExtra<K>) => void;
+  closeDialogOnSelect?: boolean;
 }
 
 type UseSingleInternalProps<K extends record.Key> =
@@ -51,6 +53,7 @@ export interface UseMultipleProps<K extends record.Key> {
   value: K[];
   onChange: (next: K[], extra: UseOnChangeExtra<K>) => void;
   replaceOnSingle?: boolean;
+  closeDialogOnSelect?: boolean;
 }
 
 /** Return value for the {@link useMultiple} hook. */
@@ -73,6 +76,7 @@ export const useSingle = <K extends record.Key>({
   allowNone = false,
   onChange,
   value,
+  closeDialogOnSelect = true,
 }: UseSingleProps<K>): UseReturn<K> => {
   const valueRef = useSyncedRef(value);
   const { data } = List.useData<K>();
@@ -83,11 +87,12 @@ export const useSingle = <K extends record.Key>({
       if (valueRef.current === key) {
         if (allowNone)
           onChange(null as unknown as K, { clicked: null, clickedIndex: null });
+        if (closeDialogOnSelect) close();
         return;
       }
       const clickedIndex = dataRef.current.findIndex((v) => v === key);
       onChange(key, { clicked: key, clickedIndex });
-      close();
+      if (closeDialogOnSelect) close();
     },
     [dataRef, onChange, close],
   );
@@ -109,6 +114,7 @@ export const useMultiple = <K extends record.Key>({
   value = [],
   replaceOnSingle = false,
   onChange,
+  closeDialogOnSelect = false,
 }: UseMultipleProps<K>): UseReturn<K> => {
   const { data } = List.useData<K>();
   const shiftValueRef = useRef<K | null>(null);
@@ -158,6 +164,7 @@ export const useMultiple = <K extends record.Key>({
         clicked: key,
         clickedIndex: data.findIndex((v) => v === key),
       });
+      if (closeDialogOnSelect) close();
     },
     [valueRef, dataRef, onChange],
   );

@@ -13,7 +13,9 @@ import { type ReactElement } from "react";
 import { Component } from "@/component";
 import { type Dialog } from "@/dialog";
 import { Flux } from "@/flux";
+import { Rack } from "@/hardware/rack";
 import { useList } from "@/hardware/rack/queries";
+import { Icon } from "@/icon";
 import { List } from "@/list";
 import { type ListParams } from "@/ranger/queries";
 import { Select } from "@/select";
@@ -21,17 +23,24 @@ import { Text } from "@/text";
 
 export interface SelectSingleProps
   extends Omit<
-      Select.SingleFrameProps<rack.Key, rack.Rack | undefined>,
+      Select.SingleFrameProps<rack.Key, rack.Payload | undefined>,
       "data" | "useListItem"
     >,
-    Flux.UseListArgs<ListParams, rack.Key, rack.Rack>,
+    Flux.UseListArgs<ListParams, rack.Key, rack.Payload>,
     Omit<Dialog.FrameProps, "onChange">,
     Pick<Select.DialogProps<rack.Key>, "emptyContent"> {}
 
 const listItemRenderProp = Component.renderProp(
-  ({ itemKey }: List.ItemRenderProps<rack.Key>) => {
+  (props: List.ItemRenderProps<rack.Key>) => {
+    const { itemKey } = props;
     const item = List.useItem<rack.Key, rack.Rack>(itemKey);
-    return <Text.Text level="p">{item?.name}</Text.Text>;
+    const selectProps = Select.useItemState(itemKey);
+    return (
+      <List.Item {...props} {...selectProps} align="center" justify="spaceBetween">
+        <Text.Text level="p">{item?.name}</Text.Text>
+        <Rack.StatusIndicator status={item?.status} tooltipLocation="left" />
+      </List.Item>
+    );
   },
 );
 
@@ -45,13 +54,13 @@ export const SelectSingle = ({
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, ...status } = useList({
-    initialParams,
+    initialParams: { includeStatus: true, ...initialParams },
     filter,
   });
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Select.Single<rack.Key, rack.Rack | undefined>
-      resourceName="Rack"
+    <Select.Single<rack.Key, rack.Payload | undefined>
+      resourceName="Driver"
       value={value}
       onChange={onChange}
       data={data}
@@ -61,6 +70,7 @@ export const SelectSingle = ({
       onSearch={onSearch}
       emptyContent={emptyContent}
       status={status}
+      icon={<Icon.Rack />}
       {...rest}
     >
       {listItemRenderProp}

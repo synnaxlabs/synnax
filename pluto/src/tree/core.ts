@@ -260,7 +260,10 @@ export const findNodeParent = <K extends record.Key = string>({
 };
 
 export const deepCopy = <K extends record.Key = string>(nodes: Node<K>[]): Node<K>[] =>
-  nodes.map((node) => ({ ...node, children: deepCopy(node.children ?? []) }));
+  nodes.map((node) => ({
+    ...node,
+    children: node.children != null ? deepCopy(node.children) : undefined,
+  }));
 
 export const getDescendants = <K extends record.Key = string>(
   ...node: Node<K>[]

@@ -38,6 +38,7 @@ export const Buttons = <K extends record.Key = record.Key>({
       value={value}
       onChange={onChange}
       multiple={false}
+      closeDialogOnSelect={false}
       {...listProps}
     >
       <Align.Pack {...rest} />

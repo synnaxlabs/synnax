@@ -252,7 +252,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const viewDetails = useViewDetails();
   const handleSelect = {
     delete: () => handleDelete(props),
-    rename: () => Text.edit(resourceIDs[0].key),
+    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
     setAsActive: () => activate(props),
     addToActivePlot: () => addToActivePlot(props),
     addToNewPlot: () => addToNewPlot(props),

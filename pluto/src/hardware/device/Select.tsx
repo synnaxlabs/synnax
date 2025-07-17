@@ -10,10 +10,13 @@
 import { type device } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
+import { Align } from "@/align";
 import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
 import { Flux } from "@/flux";
+import { Device } from "@/hardware/device";
 import { type ListParams, useList } from "@/hardware/device/queries";
+import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { Text } from "@/text";
@@ -23,17 +26,26 @@ const listItemRenderProp = Component.renderProp(
     const item = List.useItem<device.Key, device.Device>(itemKey);
     const selectProps = Select.useItemState(itemKey);
     return (
-      <List.Item itemKey={itemKey} {...rest} {...selectProps}>
-        <Text.Text level="p">{item?.name}</Text.Text>
-        <Breadcrumb.Breadcrumb
-          level="small"
-          shade={9}
-          weight={450}
-          style={{ marginTop: "0.25rem" }}
-          size="tiny"
-        >
-          {item?.location ?? ""}
-        </Breadcrumb.Breadcrumb>
+      <List.Item
+        itemKey={itemKey}
+        {...rest}
+        {...selectProps}
+        justify="spaceBetween"
+        align="center"
+      >
+        <Align.Space x>
+          <Text.Text level="p">{item?.name}</Text.Text>
+          <Breadcrumb.Breadcrumb
+            level="small"
+            shade={9}
+            weight={450}
+            style={{ marginTop: "0.25rem" }}
+            size="tiny"
+          >
+            {item?.location ?? ""}
+          </Breadcrumb.Breadcrumb>
+        </Align.Space>
+        <Device.StatusIndicator status={item?.status} />
       </List.Item>
     );
   },
@@ -54,6 +66,7 @@ export const SelectSingle = ({
   emptyContent,
   initialParams,
   disabled,
+  icon = <Icon.Device />,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, ...status } = useList({
@@ -74,6 +87,7 @@ export const SelectSingle = ({
       emptyContent={emptyContent}
       status={status}
       disabled={disabled}
+      icon={icon}
       {...rest}
     >
       {listItemRenderProp}

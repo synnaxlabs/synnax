@@ -85,7 +85,7 @@ const useCopy = (): ((props: Ontology.TreeContextMenuProps) => void) =>
         additions: otg,
       });
       setNodes([...nextTree]);
-      Text.edit(otg[0].id.key);
+      Text.edit(ontology.idToString(otg[0].id));
     },
     onError: (err, { handleError }) => {
       handleError(err, "Failed to copy schematic");
@@ -122,7 +122,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     delete: () => del(props),
     copy: () => copy(props),
     rangeSnapshot: () => snapshot(props),
-    rename: () => Text.edit(firstID.key),
+    rename: () => Text.edit(ontology.idToString(firstID)),
     export: () => handleExport(first.id.key),
     group: () => group(props),
     link: () => handleLink({ name: first.name, ontologyID: firstID }),

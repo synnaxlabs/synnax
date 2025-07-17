@@ -66,6 +66,8 @@ interface StartStopArgs {
   keys: task.Key[];
 }
 
+const filterExternal = (task: task.Task) => task.internal === false;
+
 const Content = () => {
   const client = Synnax.use();
   const [selected, setSelected] = useState<task.Key[]>([]);
@@ -74,8 +76,10 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
-  const { data, getItem, subscribe, retrieve } = Task.useList();
-  const { onSearch, onFetchMore } = Flux.usePager({ retrieve });
+  const { data, getItem, subscribe, retrieve } = Task.useList({
+    filter: filterExternal,
+  });
+  const { onFetchMore } = Flux.usePager({ retrieve });
 
   const rename = useMutation({
     onMutate: ({ key }) => getItem(key)?.name ?? "task",

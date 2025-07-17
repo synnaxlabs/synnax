@@ -10,16 +10,7 @@
 import "@/hardware/device/ontology.css";
 
 import { device, ontology } from "@synnaxlabs/client";
-import {
-  Align,
-  Device,
-  Icon,
-  Menu as PMenu,
-  Status,
-  Text,
-  Tooltip,
-  Tree,
-} from "@synnaxlabs/pluto";
+import { Align, Device, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 
@@ -139,7 +130,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleSelect = {
     configure: () => handleConfigure(props),
     delete: () => handleDelete(props),
-    rename: () => Text.edit(resourceIDs[0].key),
+    rename: () => Text.edit(ontology.idToString(resourceIDs[0])),
     group: () => group(props),
     changeIdentifier: () => handleChangeIdentifier(props),
   };
@@ -194,30 +185,25 @@ const Item = ({
   onRename,
   ...rest
 }: Ontology.TreeItemProps) => {
-  const devStatus = Device.useRetrieve()({ params: { key: id.key } });
-  const variant = devStatus?.variant;
-  const message = devStatus?.message ?? "Device Status Unknown";
+  const { itemKey } = rest;
+  const devStatus = Device.useRetrieve()({ params: { key: id.key } }).data?.status;
   return (
     <Tree.Item className={CSS(className, CSS.B("device-ontology-item"))} {...rest}>
       <Align.Space x grow align="center" className={CSS.B("name-location")}>
         <Text.MaybeEditable
-          id={`text-${id.key}`}
+          id={itemKey}
           level="p"
           className={CSS.B("name")}
           allowDoubleClick={false}
           value={resource.name}
           onChange={onRename}
+          noWrap
         />
-        <Text.Text level="small" shade={9} className={CSS.B("location")}>
+        <Text.Text level="small" shade={9} className={CSS.B("location")} noWrap>
           {resource.data?.location as string}
         </Text.Text>
       </Align.Space>
-      <Tooltip.Dialog location="right">
-        <Status.Text variant={variant ?? "error"} hideIcon level="small" weight={450}>
-          {message}
-        </Status.Text>
-        <Status.Indicator variant={variant ?? "disabled"} />
-      </Tooltip.Dialog>
+      <Device.StatusIndicator status={devStatus} />
     </Tree.Item>
   );
 };

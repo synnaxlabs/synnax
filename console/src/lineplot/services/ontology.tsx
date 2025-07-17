@@ -70,7 +70,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const first = getResource(firstID);
   const onSelect = {
     delete: () => del(props),
-    rename: () => Text.edit(firstID.key),
+    rename: () => Text.edit(ontology.idToString(firstID)),
     link: () => handleLink({ name: first.name, ontologyID: firstID }),
     export: () => handleExport(first.id.key),
     group: () => group(props),

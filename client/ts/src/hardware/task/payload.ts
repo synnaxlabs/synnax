@@ -24,6 +24,10 @@ export type Key = z.infer<typeof keyZ>;
 export const statusDetailsZ = <D extends z.ZodType>(data: D) =>
   z.object({ task: keyZ, running: z.boolean(), data });
 
+export type StatusDetails<D extends z.ZodType> = z.infer<
+  ReturnType<typeof statusDetailsZ<D>>
+>;
+
 export const statusZ = <D extends z.ZodType>(data: D) =>
   status.statusZ(statusDetailsZ(data));
 

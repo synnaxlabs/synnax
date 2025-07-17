@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Device, Form, Status, Synnax } from "@synnaxlabs/pluto";
+import { Device, Form, type Icon, Status, Synnax } from "@synnaxlabs/pluto";
 import { type JSX, useCallback } from "react";
 
 import { Layout } from "@/layout";
@@ -19,6 +19,7 @@ export interface SelectProps {
   label?: string;
   make: string;
   path?: string;
+  icon?: Icon.ReactElement;
 }
 
 export const Select = ({
@@ -27,6 +28,7 @@ export const Select = ({
   label = "Device",
   make,
   path = "config.device",
+  icon,
 }: SelectProps) => {
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
@@ -57,6 +59,7 @@ export const Select = ({
           initialParams={{ makes: [make] }}
           emptyContent={emptyContent}
           grow
+          icon={icon}
         />
       )}
     </Form.Field>

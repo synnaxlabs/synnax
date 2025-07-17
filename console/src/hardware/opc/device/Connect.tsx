@@ -239,6 +239,7 @@ const Internal = ({ initialValues, layoutKey, onClose, properties }: InternalPro
             disabled={isPending}
             loading={connectMutation.isPending}
             onClick={() => connectMutation.mutate()}
+            variant="filled"
           >
             Save
           </Button.Button>

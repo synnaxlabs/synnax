@@ -33,7 +33,7 @@ export const useRetrieve = <
   Flux.createRetrieve<RetrieveParams, device.Device<Properties, Make, Model>>({
     name: "Device",
     retrieve: async ({ client, params }) =>
-      await client.hardware.devices.retrieve(params.key),
+      await client.hardware.devices.retrieve(params.key, { includeStatus: true }),
     listeners: [
       {
         channel: device.SET_CHANNEL_NAME,
@@ -63,7 +63,7 @@ export interface ListParams extends Flux.Params {
 export const useList = Flux.createList<ListParams, device.Key, device.Device>({
   name: "Devices",
   retrieve: async ({ client, params }) =>
-    await client.hardware.devices.retrieve(params),
+    await client.hardware.devices.retrieve({ includeStatus: true, ...params }),
   retrieveByKey: async ({ client, key }) => await client.hardware.devices.retrieve(key),
   listeners: [
     {
@@ -81,10 +81,7 @@ export const useList = Flux.createList<ListParams, device.Key, device.Device>({
     {
       channel: device.STATUS_CHANNEL_NAME,
       onChange: Sync.parsedHandler(device.statusZ, async ({ changed, onChange }) =>
-        onChange(changed.key, (p) => {
-          p.status = changed;
-          return p;
-        }),
+        onChange(changed.key, (p) => (p == null ? p : { ...p, status: changed })),
       ),
     },
   ],

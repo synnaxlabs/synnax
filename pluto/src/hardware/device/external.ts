@@ -9,3 +9,4 @@
 
 export * from "@/hardware/device/queries";
 export * from "@/hardware/device/Select";
+export * from "@/hardware/device/StatusIndicator";

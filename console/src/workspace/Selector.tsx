@@ -23,57 +23,71 @@ import {
   Text,
   Workspace,
 } from "@synnaxlabs/pluto";
-import {
-  type MouseEventHandler,
-  type ReactElement,
-  useCallback,
-  useState,
-} from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/workspace/Create";
-import { useSelect, useSelectActive } from "@/workspace/selectors";
+import { useSelectActive } from "@/workspace/selectors";
 import { add, setActive } from "@/workspace/slice";
+
+export const selectorListItem = Component.renderProp(
+  (props: List.ItemProps<workspace.Key>): ReactElement | null => {
+    const { itemKey } = props;
+    const ws = List.useItem<workspace.Key, workspace.Workspace>(itemKey);
+    const selectProps = Select.useItemState(itemKey);
+    if (ws == null) return null;
+    return (
+      <List.Item {...props} {...selectProps}>
+        <Text.Text level="p">{ws.name}</Text.Text>
+      </List.Item>
+    );
+  },
+);
 
 export const Selector = (): ReactElement => {
   const client = Synnax.use();
   const dispatch = useDispatch();
-  const placeLayout = Layout.usePlacer();
   const active = useSelectActive();
+  const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
-  const { data, retrieve } = Workspace.useList();
+  const { data, retrieve, getItem, subscribe } = Workspace.useList();
   const [search, setSearch] = useState("");
   const handleChange = useCallback(
     (v: string | null) => {
-      close();
       if (v === null) {
         dispatch(setActive(null));
         dispatch(Layout.clearWorkspace());
         return;
       }
       if (client == null) return;
-      client.workspaces
-        .retrieve(v)
-        .then((ws) => {
-          dispatch(add(ws));
-          dispatch(
-            Layout.setWorkspace({
-              slice: ws.layout as Layout.SliceState,
-              keepNav: false,
-            }),
-          );
-        })
-        .catch((e) => handleError(e, "Failed to switch workspace"));
+      handleError(async () => {
+        const ws = await client.workspaces.retrieve(v);
+        dispatch(add(ws));
+        dispatch(
+          Layout.setWorkspace({
+            slice: ws.layout as Layout.SliceState,
+            keepNav: false,
+          }),
+        );
+      }, "Failed to switch workspace");
     },
     [active, client, dispatch, close, handleError],
   );
 
   return (
     <Dialog.Frame>
-      <Select.Frame data={data} value={active?.key} onChange={handleChange}>
+      <Select.Frame
+        data={data}
+        value={active?.key}
+        onChange={handleChange}
+        getItem={getItem}
+        subscribe={subscribe}
+        onFetchMore={() => retrieve({})}
+        allowNone
+      >
         <Dialog.Trigger
           startIcon={<Icon.Workspace key="workspace" />}
           variant="text"
@@ -84,8 +98,8 @@ export const Selector = (): ReactElement => {
         >
           {active?.name ?? "No Workspace"}
         </Dialog.Trigger>
-        <Dialog.Dialog>
-          <Cluster.NoneConnectedBoundary bordered borderShade={5} background={1}>
+        <Dialog.Dialog style={{ minHeight: 200, minWidth: 400 }}>
+          <Cluster.NoneConnectedBoundary>
             <Input.Text
               size="large"
               placeholder={
@@ -93,6 +107,7 @@ export const Selector = (): ReactElement => {
                   Search Workspaces
                 </Text.WithIcon>
               }
+              shade={0}
               value={search}
               onChange={(v) => {
                 setSearch(v);
@@ -124,27 +139,12 @@ export const Selector = (): ReactElement => {
                 New
               </Button.Button>
             </Input.Text>
-            <List.Items>{Component.renderProp(SelectorListItem)}</List.Items>
+            <List.Items bordered borderShade={6} grow>
+              {selectorListItem}
+            </List.Items>
           </Cluster.NoneConnectedBoundary>
         </Dialog.Dialog>
       </Select.Frame>
     </Dialog.Frame>
-  );
-};
-
-export const SelectorListItem = ({
-  onSelect,
-  ...rest
-}: List.ItemProps<workspace.Key>): ReactElement | null => {
-  const ws = useSelect(rest.itemKey);
-  const handleSelect: MouseEventHandler = (e): void => {
-    e.stopPropagation();
-    onSelect?.(ws?.key ?? "");
-  };
-  if (ws == null) return null;
-  return (
-    <List.Item {...rest} onClick={handleSelect}>
-      <Text.Text level="p">{ws.name}</Text.Text>
-    </List.Item>
   );
 };

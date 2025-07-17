@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -90,7 +91,10 @@ export interface ListParams extends Flux.Params {
 export const useList = Flux.createList<ListParams, task.Key, task.Task>({
   name: "Task",
   retrieve: async ({ client, params }) =>
-    await client.hardware.tasks.retrieve({ ...params, includeStatus: true }),
+    await client.hardware.tasks.retrieve({
+      includeStatus: true,
+      ...params,
+    }),
   retrieveByKey: async ({ client, key }) =>
     await client.hardware.tasks.retrieve({ key }),
   listeners: [
@@ -112,23 +116,32 @@ export const useList = Flux.createList<ListParams, task.Key, task.Task>({
       channel: task.STATUS_CHANNEL_NAME,
       onChange: Sync.parsedHandler(
         task.statusZ(z.unknown()),
-        async ({ changed, onChange }) => {
+        async ({ changed, onChange, client }) => {
           onChange(changed.details.task, (prev) => {
-            prev.status = changed;
-            return prev;
+            if (prev == null) return prev;
+            return client.hardware.tasks.sugar({ ...prev, status: changed });
           });
         },
       ),
     },
     {
       channel: task.COMMAND_CHANNEL_NAME,
-      onChange: Sync.parsedHandler(task.commandZ, async ({ changed, onChange }) => {
-        onChange(changed.task, (prev) => {
-          if (prev.status == null) return prev;
-          prev.status.variant = "loading";
-          return prev;
-        });
-      }),
+      onChange: Sync.parsedHandler(
+        task.commandZ,
+        async ({ changed, onChange, client }) => {
+          onChange(changed.task, (prev) => {
+            if (prev == null) return prev;
+            return client.hardware.tasks.sugar({
+              ...prev,
+              status: status.create<task.StatusDetails<z.ZodUnknown>>({
+                variant: "loading",
+                message: "Executing command...",
+                details: { task: changed.task, running: true, data: {} },
+              }),
+            });
+          });
+        },
+      ),
     },
   ],
 });

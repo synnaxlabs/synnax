@@ -79,8 +79,8 @@ const DefaultItem = ({
   loading,
   ...rest
 }: TreeItemProps) => (
-  <Core.Item {...rest}>
-    <Align.Space size="small" x align="center">
+  <Core.Item {...rest} onDoubleClick={onDoubleClick}>
+    <Align.Space size="small" x align="center" grow>
       {icon}
       <Text.Editable
         id={ontology.idToString(id)}
@@ -88,7 +88,14 @@ const DefaultItem = ({
         value={resource.name}
         onChange={onRename}
         allowDoubleClick={false}
-        style={{ userSelect: "none" }}
+        style={{
+          userSelect: "none",
+          textOverflow: "ellipsis",
+          width: 0,
+          overflow: "hidden",
+          flexGrow: 1,
+        }}
+        noWrap
       />
     </Align.Space>
     {loading && <Icon.Loading />}
@@ -118,10 +125,6 @@ const itemRenderProp = Component.renderProp(
       [onDragStart, itemKey],
     );
     const loading = useLoading(itemKey);
-    if (resource == null) return null;
-    const icon = Icon.resolve(
-      typeof service.icon === "function" ? service.icon(resource) : service.icon,
-    );
 
     const [draggingOver, setDraggingOver] = useState(false);
 
@@ -136,6 +139,11 @@ const itemRenderProp = Component.renderProp(
       onDrop: useCallback((props) => onDrop(itemKey, props) ?? [], [onDrop, itemKey]),
       onDragOver: useCallback(() => setDraggingOver(true), []),
     });
+
+    if (resource == null) return null;
+    const icon = Icon.resolve(
+      typeof service.icon === "function" ? service.icon(resource) : service.icon,
+    );
 
     return (
       <Item

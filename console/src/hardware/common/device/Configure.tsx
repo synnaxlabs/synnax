@@ -166,6 +166,7 @@ const Internal = <
             disabled={isPending}
             loading={isPending}
             onClick={() => mutate()}
+            variant="filled"
             triggers={Triggers.SAVE}
             type="submit"
           >

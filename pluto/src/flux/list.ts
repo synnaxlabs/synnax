@@ -182,7 +182,7 @@ interface ListListenerExtraArgs<
   /** The Synnax client instance */
   client: Synnax;
   /** Function to update a specific item in the list */
-  onChange: (key: K, e: state.SetArg<E>) => void;
+  onChange: (key: K, e: state.SetArg<E | null>) => void;
   /** Function to remove an item from the list */
   onDelete: (key: K) => void;
 }
@@ -384,10 +384,16 @@ export const createList =
                         });
                       },
                       onChange: (k, setter) => {
-                        const v = dataRef.current.get(k);
-                        if (v == null || !filterRef.current(v)) return;
-                        const res = state.executeSetter(setter, v);
-                        dataRef.current.set(k, res);
+                        const prev = dataRef.current.get(k) ?? null;
+                        if (prev != null && !filterRef.current(prev)) return;
+                        const res = state.executeSetter(setter, prev);
+                        if (res == null) return;
+                        if (prev == null)
+                          setResult((p) => {
+                            if (p.data == null) return p;
+                            return { ...p, data: [...p.data, k] };
+                          });
+                        dataRef.current.set(k, { ...res });
                         notifyListeners(k);
                       },
                     });

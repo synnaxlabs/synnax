@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/pluto";
+
 import { Common } from "@/hardware/common";
 import { CONFIGURE_LAYOUT } from "@/hardware/ni/device/Configure";
 import { MAKE } from "@/hardware/ni/device/types";
@@ -23,5 +25,6 @@ export const Select = (props: SelectProps) => (
     configureLayout={CONFIGURE_LAYOUT}
     emptyContent="No NI devices connected."
     make={MAKE}
+    icon={<Icon.Logo.NI />}
   />
 );
