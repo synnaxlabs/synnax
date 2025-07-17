@@ -70,6 +70,7 @@ const NoCluster = (): ReactElement => {
           startIcon={<Icon.Cluster />}
           onClick={handleCluster}
           size="large"
+          variant="filled"
         >
           Connect a Cluster
         </Button.Button>
@@ -77,6 +78,7 @@ const NoCluster = (): ReactElement => {
           startIcon={<Icon.Visualize />}
           onClick={handleVisualize}
           size="large"
+          variant="filled"
         >
           Create a Visualization
         </Button.Button>
