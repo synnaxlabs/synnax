@@ -56,8 +56,8 @@ func nodeNotFoundErr(key node.Key) error {
 // Cluster state from storage (see Config.Storage and Config.StorageKey).
 // If provisioning a new Cluster, ensure that all storage for previous clusters
 // is removed and provide no peers.
-func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
-	cfg, err := newConfig(ctx, configs)
+func Open(ctx context.Context, cfgs ...Config) (*Cluster, error) {
+	cfg, err := newConfig(ctx, cfgs)
 	if err != nil {
 		return nil, err
 	}
@@ -248,8 +248,8 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	return state, err
 }
 
-func newConfig(ctx context.Context, configs []Config) (Config, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func newConfig(ctx context.Context, cfgs []Config) (Config, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return Config{}, err
 	}

@@ -87,8 +87,8 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-func Open(ctx context.Context, configs ...Config) (*DB, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

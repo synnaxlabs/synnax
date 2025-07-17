@@ -138,8 +138,8 @@ type Relay struct {
 	shutdown io.Closer
 }
 
-func Open(configs ...Config) (*Relay, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(cfgs ...Config) (*Relay, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

@@ -263,8 +263,8 @@ type Service struct {
 
 // OpenService opens the writer service using the given configuration. Also binds a
 // server to the given transport for receiving writes from other nodes in the cluster.
-func OpenService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+func OpenService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	return &Service{ServiceConfig: cfg, server: startServer(cfg)}, err
 }
 

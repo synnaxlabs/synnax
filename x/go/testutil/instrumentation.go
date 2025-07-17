@@ -11,6 +11,8 @@ package testutil
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -20,7 +22,6 @@ import (
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
-	"os"
 )
 
 type InstrumentationConfig struct {
@@ -82,8 +83,8 @@ func newReports() *alamos.Reporter {
 	return MustSucceed(alamos.NewReporter())
 }
 
-func Instrumentation(key string, configs ...InstrumentationConfig) alamos.Instrumentation {
-	cfg, err := config.New(DefaultInstrumentationConfig, configs...)
+func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumentation {
+	cfg, err := config.New(DefaultInstrumentationConfig, cfgs...)
 	if err != nil {
 		zap.S().Fatal(err)
 	}

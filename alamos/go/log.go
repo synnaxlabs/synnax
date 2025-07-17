@@ -51,8 +51,8 @@ type Logger struct {
 }
 
 // NewLogger creates a new Logger with the given configuration.
-func NewLogger(configs ...LoggerConfig) (*Logger, error) {
-	cfg, err := config.New(DefaultLoggerConfig, configs...)
+func NewLogger(cfgs ...LoggerConfig) (*Logger, error) {
+	cfg, err := config.New(DefaultLoggerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -148,11 +148,11 @@ func (l *Logger) WithOptions(opts ...zap.Option) *Logger {
 	return nil
 }
 
-func (l *Logger) WithConfig(configs ...LoggerConfig) (*Logger, error) {
+func (l *Logger) WithConfig(cfgs ...LoggerConfig) (*Logger, error) {
 	if l == nil {
 		return nil, nil
 	}
-	l2, err := NewLogger(configs...)
+	l2, err := NewLogger(cfgs...)
 	if err != nil {
 		return nil, err
 	}

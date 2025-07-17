@@ -73,8 +73,8 @@ type Factory struct {
 }
 
 // NewFactory creates a new Factory.
-func NewFactory(configs ...FactoryConfig) (*Factory, error) {
-	cfg, err := config.New(DefaultFactoryConfig, configs...)
+func NewFactory(cfgs ...FactoryConfig) (*Factory, error) {
+	cfg, err := config.New(DefaultFactoryConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

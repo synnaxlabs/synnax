@@ -107,8 +107,8 @@ var DefaultConfig = ServiceConfig{}
 
 const groupName = "Channels"
 
-func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func New(ctx context.Context, cfgs ...ServiceConfig) (Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

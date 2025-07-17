@@ -14,6 +14,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"io"
+	"io/fs"
+	"os"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -21,9 +25,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"io"
-	"io/fs"
-	"os"
 )
 
 // LoaderConfig is the configuration for creating a new Loader.
@@ -102,8 +103,8 @@ type Loader struct{ LoaderConfig }
 // NewLoader creates a new Loader using the given configuration. Returns an error if the
 // configuration is invalid. If the directory at LoaderConfig.CertsDir does not exist,
 // it is created.
-func NewLoader(configs ...LoaderConfig) (*Loader, error) {
-	cfg, err := config.New(DefaultLoaderConfig, configs...)
+func NewLoader(cfgs ...LoaderConfig) (*Loader, error) {
+	cfg, err := config.New(DefaultLoaderConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

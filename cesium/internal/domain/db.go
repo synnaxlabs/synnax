@@ -117,8 +117,8 @@ func (c Config) Override(other Config) Config {
 
 // Open opens a DB using a merged view of the provided configurations (where the next
 // configuration overrides the previous).
-func Open(configs ...Config) (*DB, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(cfgs ...Config) (*DB, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

@@ -178,8 +178,8 @@ var legacyChannelNames = map[string]string{
 
 // Open opens a new hardware state tracker with the provided configuration. The Tracker
 // must be closed after use.
-func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(ctx context.Context, cfgs ...Config) (*Tracker, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
