@@ -26,9 +26,9 @@ type CompoundBindableTransport []BindableTransport
 
 var _ BindableTransport = CompoundBindableTransport{}
 
-func (cbt CompoundBindableTransport) Use(middlewares ...freighter.Middleware) {
+func (cbt CompoundBindableTransport) Use(middleware ...freighter.Middleware) {
 	for _, t := range cbt {
-		t.Use(middlewares...)
+		t.Use(middleware...)
 	}
 }
 

@@ -12,13 +12,12 @@ package falamos
 import (
 	"strings"
 
-	"go.uber.org/zap"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // Config is the configuration for the instrumentation Middleware.
@@ -71,8 +70,8 @@ var Default = Config{
 
 // Middleware adds traces and logs to incoming and outgoing requests and ensures that
 // they are propagated across the network.
-func Middleware(configs ...Config) (freighter.Middleware, error) {
-	cfg, err := config.New(Default, configs...)
+func Middleware(cfgs ...Config) (freighter.Middleware, error) {
+	cfg, err := config.New(Default, cfgs...)
 	if err != nil {
 		return nil, err
 	}

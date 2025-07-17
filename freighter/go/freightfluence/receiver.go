@@ -41,7 +41,7 @@ func (r *Receiver[M]) receive(ctx context.Context) error {
 			return ctx.Err()
 		default:
 			msg, rErr := r.Receiver.Receive()
-			if errors.Is(rErr, freighter.ErrEOF) {
+			if errors.Is(rErr, freighter.EOF) {
 				return nil
 			}
 			if rErr != nil {
@@ -77,7 +77,7 @@ o:
 			return ctx.Err()
 		default:
 			res, err := tr.Receiver.Receive()
-			if errors.Is(err, freighter.ErrEOF) {
+			if errors.Is(err, freighter.EOF) {
 				return nil
 			}
 			if err != nil {
@@ -137,7 +137,7 @@ func (fr *FilterReceiver[I]) receive(ctx context.Context) error {
 			return ctx.Err()
 		default:
 			res, err := fr.Receiver.Receive()
-			if errors.Is(err, freighter.ErrEOF) {
+			if errors.Is(err, freighter.EOF) {
 				return nil
 			}
 			if err != nil {

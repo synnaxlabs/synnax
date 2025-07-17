@@ -23,14 +23,11 @@ type request struct {
 	Message string `json:"message" msgpack:"message"`
 }
 
-type response struct {
-	ID      int    `json:"id" msgpack:"id"`
-	Message string `json:"message" msgpack:"message"`
-}
+type response = request
 
 var myCustomError = errors.New("my custom error")
 
-func TestGo(t *testing.T) {
+func TestFreighter(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Freighter Suite")
 }
@@ -39,10 +36,7 @@ var _ = BeforeSuite(func() {
 	errors.Register(
 		func(_ context.Context, err error) (errors.Payload, bool) {
 			if errors.Is(err, myCustomError) {
-				return errors.Payload{
-					Type: "myCustomError",
-					Data: err.Error(),
-				}, true
+				return errors.Payload{Type: "myCustomError", Data: err.Error()}, true
 			}
 			return errors.Payload{}, false
 		},

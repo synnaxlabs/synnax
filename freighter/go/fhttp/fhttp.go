@@ -20,9 +20,7 @@ type BindableTransport interface {
 	BindTo(*fiber.App)
 }
 
-type serverOptions struct {
-	codecResolver httputil.CodecResolver
-}
+type serverOptions struct{ codecResolver httputil.CodecResolver }
 
 type ServerOption func(*serverOptions)
 

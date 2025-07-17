@@ -43,7 +43,10 @@ func (rc RouterConfig) Validate() error { return nil }
 // Override implements config.Config.
 func (rc RouterConfig) Override(other RouterConfig) RouterConfig {
 	rc.Instrumentation = override.Zero(rc.Instrumentation, other.Instrumentation)
-	rc.StreamWriteDeadline = override.Numeric(rc.StreamWriteDeadline, other.StreamWriteDeadline)
+	rc.StreamWriteDeadline = override.Numeric(
+		rc.StreamWriteDeadline,
+		other.StreamWriteDeadline,
+	)
 	return rc
 }
 
@@ -97,9 +100,9 @@ func (r *Router) BindTo(app *fiber.App) {
 
 func (r *Router) Report() alamos.Report { return alamos.Report{} }
 
-func (r *Router) Use(middlewares ...freighter.Middleware) {
+func (r *Router) Use(middleware ...freighter.Middleware) {
 	for _, route := range r.routes {
-		route.transport.Use(middlewares...)
+		route.transport.Use(middleware...)
 	}
 }
 
@@ -135,7 +138,11 @@ func StreamServer[RQ, RS freighter.Payload](
 	return s
 }
 
-func UnaryServer[RQ, RS freighter.Payload](r *Router, path string, opts ...ServerOption) freighter.UnaryServer[RQ, RS] {
+func UnaryServer[RQ, RS freighter.Payload](
+	r *Router,
+	path string,
+	opts ...ServerOption,
+) freighter.UnaryServer[RQ, RS] {
 	us := &unaryServer[RQ, RS]{
 		serverOptions: newServerOptions(opts),
 		Reporter:      unaryReporter,

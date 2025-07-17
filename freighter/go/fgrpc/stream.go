@@ -228,7 +228,7 @@ type GRPCClientStream[RQ, RS freighter.Payload] interface {
 
 func translateGRPCError(err error) error {
 	if errors.Is(err, io.EOF) {
-		return freighter.ErrEOF
+		return freighter.EOF
 	}
 	return errors.WithStackDepth(err, 1)
 }

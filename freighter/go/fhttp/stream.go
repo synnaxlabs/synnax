@@ -140,7 +140,7 @@ func (c *streamCore[I, O]) Receive() (pld I, err error) {
 	msg, err := c.receiveRaw()
 	if err != nil {
 		if ws.IsCloseError(err, normalCloseCode) {
-			c.peerCloseErr = freighter.ErrEOF
+			c.peerCloseErr = freighter.EOF
 		} else if ws.IsCloseError(err, contextCancelledCloseCode) {
 			c.peerCloseErr = context.Canceled
 		} else {
@@ -151,7 +151,7 @@ func (c *streamCore[I, O]) Receive() (pld I, err error) {
 	if msg.Type == WSMessageTypeClose {
 		c.peerCloseErr = errors.Decode(context.TODO(), msg.Err)
 		if c.peerCloseErr == nil {
-			c.peerCloseErr = freighter.ErrEOF
+			c.peerCloseErr = freighter.EOF
 		}
 	}
 	return msg.Payload, c.peerCloseErr
@@ -173,7 +173,7 @@ type serverStream[RQ, RS freighter.Payload] struct{ streamCore[RQ, RS] }
 // Send implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) Send(req RQ) error {
 	if s.peerCloseErr != nil {
-		return freighter.ErrEOF
+		return freighter.EOF
 	}
 	if s.sendClosed {
 		return freighter.ErrStreamClosed
@@ -206,7 +206,7 @@ func (s *serverStream[RQ, RS]) Send(res RS) error {
 
 func (s *serverStream[RQ, RS]) close(err error) error {
 	if err == nil {
-		err = freighter.ErrEOF
+		err = freighter.EOF
 	}
 	closeCode := contextCancelledCloseCode
 	if !errors.Is(err, context.Canceled) {

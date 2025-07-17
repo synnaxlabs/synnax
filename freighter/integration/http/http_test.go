@@ -161,7 +161,7 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 				}
 
 				Expect(stream.CloseSend()).To(Succeed())
-				Expect(stream.Receive()).Error().To(MatchError(freighter.ErrEOF))
+				Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
 			})
 		})
 
@@ -182,14 +182,14 @@ var _ = Describe("HTTP Integration", Ordered, Serial, func() {
 				}
 
 				// Should receive EOF after ten messages
-				Expect(stream.Receive()).Error().To(MatchError(freighter.ErrEOF))
+				Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
 			})
 		})
 
 		Describe("/stream/immediatelyExitNominally", func() {
 			It("Should exit immediately without error", func() {
 				stream := MustSucceed(streamEcho.Stream(ctx, addr+"/stream/immediatelyExitNominally"))
-				Expect(stream.Receive()).Error().To(MatchError(freighter.ErrEOF))
+				Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
 			})
 		})
 

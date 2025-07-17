@@ -36,7 +36,7 @@ type (
 
 type streamImplementation interface {
 	name() string
-	start(host address.Address, ins alamos.Instrumentation) (streamServer, streamClient)
+	start(address.Address, alamos.Instrumentation) (streamServer, streamClient)
 	stop() error
 }
 
@@ -49,7 +49,6 @@ var streamImplementations = []streamImplementation{
 
 var _ = Describe("Stream", Ordered, Serial, func() {
 	for _, impl := range streamImplementations {
-		impl := impl
 		var (
 			addr   address.Address
 			server streamServer
@@ -76,7 +75,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 							req, err := server.Receive()
 							if err != nil {
 								By("Receiving a transport EOF error from the client")
-								Expect(err).To(HaveOccurredAs(freighter.ErrEOF))
+								Expect(err).To(HaveOccurredAs(freighter.EOF))
 								return err
 							}
 							if err := server.Send(response{ID: req.ID + 1, Message: req.Message}); err != nil {
@@ -106,7 +105,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 
 					By("Receiving a freighter.ErrEOF error from the server")
 					_, err = client.Receive()
-					Expect(err).To(HaveOccurredAs(freighter.ErrEOF))
+					Expect(err).To(HaveOccurredAs(freighter.EOF))
 					Eventually(closed).Should(BeClosed())
 				})
 
@@ -116,7 +115,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						defer GinkgoRecover()
 						defer close(serverClosed)
 						_, err := server.Receive()
-						Expect(err).To(HaveOccurredAs(freighter.ErrEOF))
+						Expect(err).To(HaveOccurredAs(freighter.EOF))
 						Expect(server.Send(response{ID: 1, Message: "Hello"})).To(Succeed())
 						return nil
 					})
@@ -127,7 +126,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					Expect(msg.ID).To(Equal(1))
 					Expect(msg.Message).To(Equal("Hello"))
 					_, err = client.Receive()
-					Expect(err).To(HaveOccurredAs(freighter.ErrEOF))
+					Expect(err).To(HaveOccurredAs(freighter.EOF))
 					Eventually(serverClosed).Should(BeClosed())
 				})
 
@@ -202,7 +201,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						_, err = client.Receive()
 						Expect(err).To(HaveOccurredAs(errors.New("zero is not allowed!")))
 						err = client.Send(request{ID: 0, Message: "Hello"})
-						Expect(err).To(HaveOccurredAs(freighter.ErrEOF))
+						Expect(err).To(HaveOccurredAs(freighter.EOF))
 						Eventually(serverClosed).Should(BeClosed())
 					})
 
@@ -235,7 +234,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 							defer close(serverClosed)
 							defer GinkgoRecover()
 							_, err := server.Receive()
-							Expect(err).To(HaveOccurredAs(freighter.ErrEOF))
+							Expect(err).To(HaveOccurredAs(freighter.EOF))
 							return nil
 						})
 
@@ -250,7 +249,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 
 						_, err = client.Receive()
 
-						Expect(err).To(HaveOccurredAs(freighter.ErrEOF))
+						Expect(err).To(HaveOccurredAs(freighter.EOF))
 						Eventually(serverClosed).Should(BeClosed())
 					})
 
@@ -275,7 +274,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						client, err := client.Stream(ctx, addr)
 						Expect(err).ToNot(HaveOccurred())
 						Eventually(func(g Gomega) {
-							g.Expect(client.Send(request{ID: 0, Message: "Hello"})).To(HaveOccurredAs(freighter.ErrEOF))
+							g.Expect(client.Send(request{ID: 0, Message: "Hello"})).To(HaveOccurredAs(freighter.EOF))
 						}).WithPolling(10 * time.Millisecond).Should(Succeed())
 						Eventually(serverClosed).Should(BeClosed())
 					})
@@ -288,7 +287,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						defer close(serverClosed)
 						defer GinkgoRecover()
 						_, err := server.Receive()
-						Expect(err).To(HaveOccurredAs(freighter.ErrEOF))
+						Expect(err).To(HaveOccurredAs(freighter.EOF))
 						return nil
 					})
 					c := 0
@@ -307,7 +306,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(client.CloseSend()).To(Succeed())
 					_, err = client.Receive()
-					Expect(err).To(HaveOccurredAs(freighter.ErrEOF))
+					Expect(err).To(HaveOccurredAs(freighter.EOF))
 					Eventually(serverClosed).Should(BeClosed())
 					Expect(c).To(Equal(2))
 				})
@@ -317,7 +316,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						defer close(serverClosed)
 						defer GinkgoRecover()
 						_, err := server.Receive()
-						Expect(err).To(HaveOccurredAs(freighter.ErrEOF))
+						Expect(err).To(HaveOccurredAs(freighter.EOF))
 						return nil
 					})
 					server.Use(freighter.MiddlewareFunc(func(
@@ -343,9 +342,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	})
 })
 
-type httpStreamImplementation struct {
-	app *fiber.App
-}
+type httpStreamImplementation struct{ app *fiber.App }
+
+var _ streamImplementation = (*httpStreamImplementation)(nil)
 
 func (impl *httpStreamImplementation) name() string { return "HTTP" }
 
@@ -382,6 +381,8 @@ func (impl *httpStreamImplementation) stop() error {
 type mockStreamImplementation struct {
 	net *fmock.Network[request, response]
 }
+
+var _ streamImplementation = (*mockStreamImplementation)(nil)
 
 func (impl *mockStreamImplementation) name() string { return "Mock" }
 

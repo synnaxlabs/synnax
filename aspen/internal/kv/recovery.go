@@ -160,7 +160,7 @@ func runSingleNodeRecovery(
 		for {
 			resp, err := stream.Receive()
 			if err != nil {
-				if errors.Is(err, freighter.ErrEOF) {
+				if errors.Is(err, freighter.EOF) {
 					break
 				}
 				return err

@@ -218,7 +218,7 @@ func (ss *ServerStream[RQ, RS]) exec(
 	err := handler(ctx, ss)
 	errPayload := errors.Encode(ctx, err, true)
 	if errPayload.Type == errors.TypeNil {
-		errPayload = errors.Encode(ctx, freighter.ErrEOF, true)
+		errPayload = errors.Encode(ctx, freighter.EOF, true)
 	}
 	close(ss.serverClosed)
 	ss.responses <- message[RS]{error: errPayload}
@@ -244,7 +244,7 @@ func (cs *ClientStream[RQ, RS]) Send(req RQ) error {
 		return cs.sendErr
 	}
 	if cs.receiveErr != nil {
-		return freighter.ErrEOF
+		return freighter.EOF
 	}
 	if cs.ctx.Err() != nil {
 		return cs.ctx.Err()
@@ -257,7 +257,7 @@ func (cs *ClientStream[RQ, RS]) Send(req RQ) error {
 	case <-cs.serverClosed:
 		// If the server was serverClosed, we set the sendErr to EOF and let the client
 		// discover the server error by calling Receive.
-		cs.sendErr = freighter.ErrEOF
+		cs.sendErr = freighter.EOF
 		return cs.sendErr
 	case cs.requests <- message[RQ]{payload: req}:
 		return nil
@@ -292,7 +292,7 @@ func (cs *ClientStream[RQ, RS]) CloseSend() error {
 		return nil
 	}
 	cs.sendErr = freighter.ErrStreamClosed
-	cs.requests <- message[RQ]{error: errors.Encode(cs.ctx, freighter.ErrEOF, true)}
+	cs.requests <- message[RQ]{error: errors.Encode(cs.ctx, freighter.EOF, true)}
 	close(cs.clientClosed)
 	return nil
 }

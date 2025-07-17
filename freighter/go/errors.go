@@ -18,9 +18,9 @@ import (
 )
 
 var (
-	// ErrEOF is returned when either the receiving or sending end of a Stream exits
+	// EOF is returned when either the receiving or sending end of a Stream exits
 	// normally.
-	ErrEOF = io.EOF
+	EOF = io.EOF
 	// ErrSecurity is returned when a security error occurs.
 	ErrSecurity = errors.New("[freighter] - security error")
 	// ErrStreamClosed is returned when a caller attempts to send or receive a message
@@ -37,7 +37,7 @@ const (
 )
 
 func encodeErr(_ context.Context, err error) (errors.Payload, bool) {
-	if errors.Is(err, ErrEOF) {
+	if errors.Is(err, EOF) {
 		return errors.Payload{Type: eofErrorType, Data: err.Error()}, true
 	}
 	if errors.Is(err, ErrStreamClosed) {
@@ -49,7 +49,7 @@ func encodeErr(_ context.Context, err error) (errors.Payload, bool) {
 func decodeErr(_ context.Context, pld errors.Payload) (error, bool) {
 	switch pld.Type {
 	case eofErrorType:
-		return ErrEOF, true
+		return EOF, true
 	case streamClosedErrorType:
 		return ErrStreamClosed, true
 	}

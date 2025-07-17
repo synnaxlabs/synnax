@@ -41,7 +41,9 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 
 var _ freighter.UnaryServer[any, any] = (*unaryServer[any, any])(nil)
 
-func (us *unaryServer[RQ, RS]) BindHandler(handler func(context.Context, RQ) (RS, error)) {
+func (us *unaryServer[RQ, RS]) BindHandler(
+	handler func(context.Context, RQ) (RS, error),
+) {
 	us.handle = handler
 }
 

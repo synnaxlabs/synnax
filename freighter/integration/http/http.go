@@ -160,7 +160,7 @@ func slamMessagesTimeoutCheckHandler(_ context.Context, msg payload.Message) (pa
 func streamSendMessageAfterClientClose(_ context.Context, stream ServerStream) error {
 	for {
 		msg, err := stream.Receive()
-		if errors.Is(err, freighter.ErrEOF) {
+		if errors.Is(err, freighter.EOF) {
 			return stream.Send(Message{Message: "Close Acknowledged"})
 		}
 		if err != nil {
