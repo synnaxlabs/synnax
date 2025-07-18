@@ -1947,6 +1947,7 @@ export const TextBox = ({
       {...rest}
     >
       <Text.MaybeEditable
+        className={CSS.BE("symbol", "label")}
         color={color.cssString(colorVal)}
         level={level}
         value={value}

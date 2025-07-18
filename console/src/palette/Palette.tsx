@@ -19,6 +19,7 @@ import {
   Input,
   List,
   Select,
+  Status,
   Text,
   Tooltip,
   Triggers,
@@ -100,6 +101,12 @@ export interface PaletteDialogProps extends Input.Control<string> {
   commandSymbol: string;
 }
 
+const emptyContent = (
+  <Align.Center>
+    <Status.Text variant="disabled">No results found.</Status.Text>
+  </Align.Center>
+);
+
 const DialogContent = ({
   commandSymbol,
   onChange,
@@ -143,9 +150,11 @@ const DialogContent = ({
             onChange={handleSearch}
             value={value}
             autoComplete="off"
-            onKeyDown={Triggers.matchCallback([["Escape"]], () => close())}
+            onKeyDown={Triggers.matchCallback([["Escape"]], close)}
           />
-          <List.Items className={CSS.BE("palette", "list")}>{listItem}</List.Items>
+          <List.Items className={CSS.BE("palette", "list")} emptyContent={emptyContent}>
+            {listItem}
+          </List.Items>
         </Align.Pack>
       </Select.Frame>
     </Dialog.Dialog>

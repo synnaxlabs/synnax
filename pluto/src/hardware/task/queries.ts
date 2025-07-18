@@ -66,7 +66,11 @@ export const createRetrieveQuery = <
     name: "Task",
     retrieve: async ({ client, params: { key } }) => {
       if (key == null) return null;
-      return await client.hardware.tasks.retrieve({ key, schemas });
+      return await client.hardware.tasks.retrieve({
+        key,
+        includeStatus: true,
+        schemas,
+      });
     },
     listeners: [
       {

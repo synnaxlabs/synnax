@@ -9,7 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-device__status-indicator {
-    height: 2.25rem;
-    width: 2.25rem;
+.pluto-device__list-item {
+    & p:first-child {
+        min-width: 120px;
+    }
 }

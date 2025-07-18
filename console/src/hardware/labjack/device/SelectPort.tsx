@@ -34,8 +34,8 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const selectProps = Select.useItemState(props.itemKey);
   const { alias, key } = port;
   return (
-    <List.Item {...props} {...selectProps}>
-      <Text.Text level="p" shade={11}>
+    <List.Item {...props} {...selectProps} align="center">
+      <Text.Text level="p" shade={11} style={{ width: 50 }}>
         {alias ?? key}
       </Text.Text>
       {alias != null && (
@@ -64,7 +64,7 @@ export const SelectPort = ({
   });
   const selected = getItem?.(value);
   return (
-    <Dialog.Frame {...rest}>
+    <Dialog.Frame location="bottom" {...rest}>
       <Select.Frame data={data} getItem={getItem} onChange={onChange}>
         <Align.Pack x>
           <Dialog.Trigger>{selected?.alias ?? selected?.key}</Dialog.Trigger>

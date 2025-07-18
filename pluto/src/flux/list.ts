@@ -393,7 +393,7 @@ export const createList =
                             if (p.data == null) return p;
                             return { ...p, data: [...p.data, k] };
                           });
-                        dataRef.current.set(k, { ...res });
+                        dataRef.current.set(k, res);
                         notifyListeners(k);
                       },
                     });

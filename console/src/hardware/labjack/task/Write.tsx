@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, NotFoundError } from "@synnaxlabs/client";
+import { NotFoundError } from "@synnaxlabs/client";
 import { Align, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
@@ -79,13 +79,13 @@ const ChannelListItem = ({
           path={`${path}.port`}
           showLabel={false}
           hideIfNull
-          onChange={(value, ctx) => {
+          onChange={(value) => {
             if (port === value) return;
             const existingCommandStatePair =
               device.properties[type].channels[value] ??
               Common.Device.ZERO_COMMAND_STATE_PAIR;
             set(path, {
-              ...ctx.get(path),
+              ...item,
               cmdChannel: existingCommandStatePair.command,
               stateChannel: existingCommandStatePair.state,
               port: value,

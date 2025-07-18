@@ -186,10 +186,12 @@ const Item = ({
   ...rest
 }: Ontology.TreeItemProps) => {
   const { itemKey } = rest;
-  const devStatus = Device.useRetrieve()({ params: { key: id.key } }).data?.status;
+  const devStatus = Device.retrieve().useDirect({ params: { key: id.key } }).data
+    ?.status;
   return (
     <Tree.Item className={CSS(className, CSS.B("device-ontology-item"))} {...rest}>
       <Align.Space x grow align="center" className={CSS.B("name-location")}>
+        {icon(resource)}
         <Text.MaybeEditable
           id={itemKey}
           level="p"

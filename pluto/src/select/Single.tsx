@@ -21,7 +21,7 @@ export interface SingleProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
 > extends Omit<SingleFrameProps<K, E>, "multiple" | "children">,
-    Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch">,
+    Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions">,
     Omit<Dialog.FrameProps, "onChange" | "children">,
     Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,
     Pick<List.ItemsProps<K>, "children"> {
@@ -45,6 +45,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   icon,
   children,
   variant = "connected",
+  actions,
   ...rest
 }: SingleProps<K, E>): ReactElement => (
   <Dialog.Frame {...rest} variant={variant}>
@@ -56,6 +57,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
       subscribe={subscribe}
       allowNone={allowNone}
       onFetchMore={onFetchMore}
+      virtual
     >
       <Select.SingleTrigger
         haulType={haulType}
@@ -68,6 +70,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         searchPlaceholder={`Search ${resourceName}s...`}
         emptyContent={emptyContent}
         status={status}
+        actions={actions}
       >
         {children}
       </Select.Dialog>

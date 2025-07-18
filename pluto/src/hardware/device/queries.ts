@@ -25,7 +25,7 @@ export interface RetrieveParams extends Flux.Params {
   key: device.Key;
 }
 
-export const useRetrieve = <
+export const retrieve = <
   Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
   Model extends string = string,
@@ -51,7 +51,7 @@ export const useRetrieve = <
         ),
       },
     ],
-  }).useDirect;
+  });
 
 export interface ListParams extends Flux.Params {
   term?: string;

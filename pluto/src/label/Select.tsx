@@ -11,10 +11,9 @@ import { type label } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Component } from "@/component";
-import { Dialog } from "@/dialog";
 import { Flux } from "@/flux";
 import { Icon } from "@/icon";
-import { useList } from "@/label/queries";
+import { type ListParams, useList } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -45,81 +44,82 @@ const listItemRenderProp = Component.renderProp(ListItem);
 
 export interface SelectMultipleProps
   extends Omit<
-      Select.MultipleFrameProps<label.Key, label.Label | undefined>,
-      "data" | "useListItem" | "multiple"
+      Select.MultipleProps<label.Key, label.Label | undefined>,
+      "data" | "multiple" | "resourceName" | "subscribe" | "children"
     >,
-    Pick<Select.DialogProps<label.Key>, "emptyContent">,
-    Omit<Dialog.FrameProps, "onChange"> {}
+    Flux.UseListArgs<ListParams, label.Key, label.Label> {}
 
 export const SelectMultiple = ({
   onChange,
   value,
   emptyContent,
+  filter,
+  initialParams,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe } = useList();
+  const { data, retrieve, getItem, subscribe, ...status } = useList({
+    filter,
+    initialParams,
+  });
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Dialog.Frame {...rest}>
-      <Select.Frame<label.Key, label.Label | undefined>
-        multiple
-        value={value}
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        onChange={onChange}
-        onFetchMore={onFetchMore}
-      >
-        <Select.MultipleTrigger haulType={HAUL_TYPE} />
-        <Select.Dialog<label.Key>
-          onSearch={onSearch}
-          searchPlaceholder="Search labels..."
-          emptyContent={emptyContent}
-        >
-          {listItemRenderProp}
-        </Select.Dialog>
-      </Select.Frame>
-    </Dialog.Frame>
+    <Select.Multiple<label.Key, label.Label | undefined>
+      resourceName="Label"
+      haulType={HAUL_TYPE}
+      value={value}
+      onChange={onChange}
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      onFetchMore={onFetchMore}
+      onSearch={onSearch}
+      emptyContent={emptyContent}
+      status={status}
+      {...rest}
+    >
+      {listItemRenderProp}
+    </Select.Multiple>
   );
 };
 
 export interface SelectSingleProps
   extends Omit<
-      Select.SingleFrameProps<label.Key, label.Label | undefined>,
-      "data" | "useListItem"
+      Select.SingleProps<label.Key, label.Label | undefined>,
+      "data" | "useListItem" | "resourceName" | "subscribe" | "children"
     >,
-    Omit<Dialog.FrameProps, "onChange">,
-    Pick<Select.DialogProps<label.Key>, "emptyContent"> {}
+    Flux.UseListArgs<ListParams, label.Key, label.Label> {}
 
 export const SelectSingle = ({
   onChange,
   value,
   allowNone,
   emptyContent,
+  filter,
+  initialParams,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe } = useList();
+  const { data, retrieve, getItem, subscribe, ...status } = useList({
+    filter,
+    initialParams,
+  });
   const { onFetchMore, onSearch } = Flux.usePager({ retrieve });
   return (
-    <Dialog.Frame {...rest}>
-      <Select.Frame
-        value={value}
-        onChange={onChange}
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        allowNone={allowNone}
-        onFetchMore={onFetchMore}
-      >
-        <Select.SingleTrigger haulType={HAUL_TYPE} />
-        <Select.Dialog<label.Key>
-          onSearch={onSearch}
-          searchPlaceholder="Search labels..."
-          emptyContent={emptyContent}
-        >
-          {listItemRenderProp}
-        </Select.Dialog>
-      </Select.Frame>
-    </Dialog.Frame>
+    <Select.Single<label.Key, label.Label | undefined>
+      resourceName="Label"
+      value={value}
+      onChange={onChange}
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      allowNone={allowNone}
+      onFetchMore={onFetchMore}
+      onSearch={onSearch}
+      emptyContent={emptyContent}
+      status={status}
+      haulType={HAUL_TYPE}
+      {...rest}
+    >
+      {listItemRenderProp}
+    </Select.Single>
   );
 };

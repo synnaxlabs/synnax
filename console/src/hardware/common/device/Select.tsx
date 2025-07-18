@@ -9,6 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Device, Form, type Icon, Status, Synnax } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type JSX, useCallback } from "react";
 
 import { Layout } from "@/layout";
@@ -35,7 +36,7 @@ export const Select = ({
   const handleError = Status.useErrorHandler();
   const handleDeviceChange = useCallback(
     (key: device.Key) => {
-      if (client == null) return;
+      if (client == null || primitive.isZero(key)) return;
       handleError(async () => {
         const { configured } = await client.hardware.devices.retrieve(key);
         if (configured) return;

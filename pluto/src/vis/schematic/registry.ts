@@ -11,10 +11,10 @@ import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { z } from "zod";
 
+import { removeProps } from "@/component/removeProps";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
-import { removeProps } from "@/component/removeProps";
 import {
   BoxForm,
   ButtonForm,
@@ -38,8 +38,6 @@ import {
   type CylinderProps,
   DEFAULT_BORDER_RADIUS,
   DEFAULT_POLYGON_SIDE_LENGTH,
-  TextBox,
-  type TextBoxProps,
 } from "@/vis/schematic/primitives/Primitives";
 import {
   Agitator,
@@ -215,7 +213,9 @@ import {
   Tank,
   TankPreview,
   type TankProps,
+  TextBox,
   TextBoxPreview,
+  type TextBoxProps,
   ThreeWayBallValve,
   type ThreeWayBallValveProps,
   ThreeWayValve,

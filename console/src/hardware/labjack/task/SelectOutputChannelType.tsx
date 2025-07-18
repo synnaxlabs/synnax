@@ -25,7 +25,9 @@ export interface SelectOutputChannelTypeProps
 
 export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => (
   <Select.Buttons {...props} keys={DATA}>
-    <Select.Button itemKey={AO_CHANNEL_TYPE}>Analog</Select.Button>
+    <Select.Button itemKey={AO_CHANNEL_TYPE} style={{ borderRadius: 0 }}>
+      Analog
+    </Select.Button>
     <Select.Button itemKey={DO_CHANNEL_TYPE}>Digital</Select.Button>
   </Select.Buttons>
 );

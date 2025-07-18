@@ -14,11 +14,13 @@ import { Input } from "@/input";
 export interface SearchInputProps {
   searchPlaceholder?: string;
   onSearch?: (term: string) => void;
+  actions?: Input.TextProps["children"];
 }
 
 export const SearchInput = ({
   searchPlaceholder = "Search...",
   onSearch,
+  actions,
 }: SearchInputProps) => {
   const [term, setTerm] = useState<string>("");
   return (
@@ -31,6 +33,8 @@ export const SearchInput = ({
         setTerm(v);
         onSearch?.(v);
       }}
-    />
+    >
+      {actions}
+    </Input.Text>
   );
 };

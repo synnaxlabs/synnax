@@ -17,13 +17,13 @@ import { useRequiredContext, useSyncedRef } from "@/hooks";
 export interface ItemSpec<K extends record.Key = record.Key> {
   key: K;
   index: number;
-  translate: number;
+  translate?: number;
 }
 
 export interface DataContextValue<K extends record.Key = record.Key> {
   data: K[];
   getItems: () => ItemSpec<K>[];
-  getTotalSize: () => number;
+  getTotalSize: () => number | undefined;
 }
 
 export interface UtilContextValue<
@@ -45,6 +45,7 @@ export interface FrameProps<
 > extends PropsWithChildren,
     Pick<UtilContextValue<K, E>, "getItem" | "subscribe"> {
   data: K[];
+  virtual?: boolean;
   itemHeight?: number;
   onFetchMore?: () => void;
 }
@@ -94,7 +95,7 @@ export const useData = <
   return { data, getItems, getTotalSize, ref, getItem, scrollToIndex, subscribe };
 };
 
-export const Frame = <
+const VirtualFrame = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >({
@@ -163,3 +164,63 @@ export const Frame = <
     </DataContext.Provider>
   );
 };
+
+const StaticFrame = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>({
+  data,
+  getItem,
+  subscribe,
+  children,
+  onFetchMore,
+}: FrameProps<K, E>): ReactElement => {
+  const ref = useRef<HTMLDivElement>(null);
+  const { visible } = Dialog.useContext();
+  const onFetchMoreRef = useSyncedRef(onFetchMore);
+  const refCallback = useCallback(
+    (el: HTMLDivElement) => {
+      ref.current = el;
+      if (ref.current == null) return;
+      onFetchMoreRef.current?.();
+    },
+    [onFetchMoreRef, visible],
+  );
+  const items = data.map((key, index) => ({ key, index }));
+  const dataCtxValue = useMemo<DataContextValue<K>>(
+    () => ({
+      ref: refCallback,
+      getItem,
+      data,
+      subscribe,
+      getTotalSize: () => undefined,
+      getItems: () => items,
+    }),
+    [refCallback, data, getItem, subscribe],
+  );
+  const utilCtxValue = useMemo<UtilContextValue<K, E>>(
+    () => ({
+      ref: refCallback,
+      getItem,
+      scrollToIndex: () => {},
+      subscribe,
+    }),
+    [refCallback, getItem, subscribe],
+  );
+  return (
+    <DataContext.Provider value={dataCtxValue}>
+      <UtilContext.Provider value={utilCtxValue as unknown as UtilContextValue}>
+        {children}
+      </UtilContext.Provider>
+    </DataContext.Provider>
+  );
+};
+
+export const Frame = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>({
+  virtual = false,
+  ...rest
+}: FrameProps<K, E>): ReactElement =>
+  virtual ? <VirtualFrame {...rest} /> : <StaticFrame {...rest} />;

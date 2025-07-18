@@ -36,6 +36,7 @@ export const Dialog = <K extends record.Key>({
   searchPlaceholder,
   style,
   status,
+  actions,
   ...rest
 }: DialogProps<K>) => {
   if (status?.variant !== "success")
@@ -57,7 +58,11 @@ export const Dialog = <K extends record.Key>({
   return (
     <CoreDialog.Dialog {...rest} style={{ ...style }}>
       {onSearch != null && (
-        <SearchInput onSearch={onSearch} searchPlaceholder={searchPlaceholder} />
+        <SearchInput
+          onSearch={onSearch}
+          searchPlaceholder={searchPlaceholder}
+          actions={actions}
+        />
       )}
       <List.Items
         emptyContent={emptyContent}

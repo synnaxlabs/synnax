@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/hardware/device/Select.css";
+
 import { type device } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { Align } from "@/align";
 import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
+import { CSS } from "@/css";
 import { Flux } from "@/flux";
 import { Device } from "@/hardware/device";
 import { type ListParams, useList } from "@/hardware/device/queries";
@@ -30,22 +32,25 @@ const listItemRenderProp = Component.renderProp(
         itemKey={itemKey}
         {...rest}
         {...selectProps}
+        className={CSS.BE("device", "list-item")}
         justify="spaceBetween"
         align="center"
       >
-        <Align.Space x>
-          <Text.Text level="p">{item?.name}</Text.Text>
-          <Breadcrumb.Breadcrumb
-            level="small"
-            shade={9}
-            weight={450}
-            style={{ marginTop: "0.25rem" }}
-            size="tiny"
-          >
-            {item?.location ?? ""}
-          </Breadcrumb.Breadcrumb>
-        </Align.Space>
-        <Device.StatusIndicator status={item?.status} />
+        <Text.WithIcon
+          level="p"
+          startIcon={<Device.StatusIndicator status={item?.status} />}
+        >
+          {item?.name}
+        </Text.WithIcon>
+        <Breadcrumb.Breadcrumb
+          level="small"
+          shade={9}
+          weight={450}
+          style={{ marginTop: "0.25rem" }}
+          size="tiny"
+        >
+          {item?.location ?? ""}
+        </Breadcrumb.Breadcrumb>
       </List.Item>
     );
   },

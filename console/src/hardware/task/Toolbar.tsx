@@ -23,7 +23,7 @@ import {
   Task,
   Text,
 } from "@synnaxlabs/pluto";
-import { errors, strings, TimeSpan } from "@synnaxlabs/x";
+import { errors, strings, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -72,6 +72,7 @@ const Content = () => {
   const client = Synnax.use();
   const [selected, setSelected] = useState<task.Key[]>([]);
   const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
@@ -100,13 +101,6 @@ const Content = () => {
       await client.hardware.tasks.create({ ...tsk, name });
     },
     onError: (e, { name }, oldName) => {
-      // if (oldName != null)
-      //   setTasks((prev) =>
-      //     prev.map((tsk) => {
-      //       if (tsk.key === key) tsk.name = oldName;
-      //       return tsk;
-      //     }),
-      //   );
       handleError(e, `Failed to rename ${oldName ?? "task"} to ${name}`);
     },
   }).mutate;
@@ -149,14 +143,9 @@ const Content = () => {
       });
       const tasksToExecute = getItem(filteredKeys);
       tasksToExecute.forEach((t) => {
-        void t.executeCommandSync(command, TimeSpan.fromSeconds(10), {});
-        // setTasks(
-        //   updateTaskStatus(t.key, (prev) => ({
-        //     ...prev,
-        //     variant: "error",
-        //     message: e.message,
-        //   })),
-        // );
+        t.executeCommandSync(command, TimeSpan.fromSeconds(10), {})
+          .then((res) => addStatus({ ...res, time: TimeStamp.now() }))
+          .catch(handleError);
       });
     },
     onError: (e, { command }) => handleError(e, `Failed to ${command} tasks`),
@@ -206,6 +195,7 @@ const Content = () => {
           value={selected}
           onChange={setSelected}
           onFetchMore={onFetchMore}
+          replaceOnSingle
         >
           <List.Items<task.Key, task.Task> emptyContent={<EmptyContent />}>
             {({ key, ...p }) => (

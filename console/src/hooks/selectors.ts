@@ -43,5 +43,7 @@ export const selectByKey = <K extends record.Key, S extends record.Keyed<K>>(
 ): S | undefined => {
   key ??= defaultKey;
   if (key == null) return undefined;
-  return state[key];
+  const res = state[key];
+  if (res != null) return res;
+  return Object.values(state).find((s) => s.key === key);
 };

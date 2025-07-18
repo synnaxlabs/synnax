@@ -164,6 +164,7 @@ export const Frame = <
   onChange,
   multiple,
   onFetchMore,
+  virtual,
   ...rest
 }: FrameProps<K, E>): ReactElement => {
   let child: ReactElement;
@@ -177,6 +178,7 @@ export const Frame = <
       subscribe={subscribe}
       onFetchMore={onFetchMore}
       itemHeight={itemHeight}
+      virtual={virtual}
     >
       {child}
     </List.Frame>

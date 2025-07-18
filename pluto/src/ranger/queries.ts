@@ -364,12 +364,9 @@ export const useListKV = Flux.createList<ListKVParams, string, ranger.KVPair>({
   listeners: [
     {
       channel: ranger.KV_SET_CHANNEL,
-      onChange: Sync.parsedHandler(ranger.kvPairZ, async ({ changed, onChange }) => {
-        onChange(changed.key, (prev) => {
-          if (prev == null) return prev;
-          return changed;
-        });
-      }),
+      onChange: Sync.parsedHandler(ranger.kvPairZ, async ({ changed, onChange }) =>
+        onChange(changed.key, changed),
+      ),
     },
     {
       channel: ranger.KV_DELETE_CHANNEL,
