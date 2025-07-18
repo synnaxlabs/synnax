@@ -97,6 +97,10 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to &binary.MsgPackCodec
 	GorpCodec binary.Codec
+	// EnableChannelSignals sets whether to enable CDC signal propagation for changes
+	// to channel data structures.
+	// [OPTIONAL] - Defaults to true.
+	EnableChannelSignals *bool
 }
 
 var (
@@ -105,8 +109,9 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultConfig = Config{
-		EnableSearch: config.True(),
-		GorpCodec:    &binary.MsgPackCodec{},
+		EnableSearch:         config.True(),
+		GorpCodec:            &binary.MsgPackCodec{},
+		EnableChannelSignals: config.True(),
 	}
 )
 
@@ -124,6 +129,7 @@ func (c Config) Override(other Config) Config {
 	c.TestingIntOverflowCheck = override.Nil(c.TestingIntOverflowCheck, other.TestingIntOverflowCheck)
 	c.EnableSearch = override.Nil(c.EnableSearch, other.EnableSearch)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
+	c.EnableChannelSignals = override.Nil(c.EnableChannelSignals, other.EnableChannelSignals)
 	return c
 }
 
@@ -138,6 +144,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "aspen_transport", c.AspenTransport)
 	validate.NotNil(v, "enable_search", c.EnableSearch)
 	validate.NotNil(v, "codec", c.GorpCodec)
+	validate.NotNil(v, "enable_channel_signals", c.EnableChannelSignals)
 	return v.Error()
 }
 
@@ -295,13 +302,15 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
-	var channelSignalsCloser io.Closer
-	if channelSignalsCloser, err = channelsignals.Publish(
-		ctx,
-		l.Signals,
-		l.DB,
-	); !ok(err, channelSignalsCloser) {
-		return nil, err
+	if *cfg.EnableChannelSignals {
+		var channelSignalsCloser io.Closer
+		if channelSignalsCloser, err = channelsignals.Publish(
+			ctx,
+			l.Signals,
+			l.DB,
+		); !ok(err, channelSignalsCloser) {
+			return nil, err
+		}
 	}
 
 	if l.Cluster.HostKey() == cluster.Bootstrapper {
