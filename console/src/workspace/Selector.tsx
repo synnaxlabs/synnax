@@ -21,6 +21,7 @@ import {
   Status,
   Synnax,
   Text,
+  Workspace,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";

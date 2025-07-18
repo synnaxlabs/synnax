@@ -359,10 +359,8 @@ export class Client {
       req.names = [name];
       isMultiple = false;
     }
-    if (type != null) {
-      req.types = [type];
-      isMultiple = false;
-    }
+    if (type != null) req.types = [type];
+
     const tasks = await this.execRetrieve<Type, Config, StatusData>(req);
     const sugared = this.sugar<Type, Config, StatusData>(
       tasks,

@@ -171,15 +171,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const loadingRef = useRef<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node<string>[]>([]);
-  const resourcesRef = useInitializerRef(() => new Map<string, ontology.Resource>());
-  const listenersRef = useInitializerRef(
-    () => new Map<observe.Handler<void>, string>(),
-  );
-  const notifyListeners = useCallback((keys: string[]) => {
-    listenersRef.current.forEach((key, listener) => {
-      if (keys.includes(key)) listener();
-    });
-  }, []);
+  const resourceStore = List.useMapData<string, ontology.Resource>();
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
   const handleError = Status.useErrorHandler();
   const client = PSynnax.use();
@@ -204,24 +196,11 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     [loadingListenersRef],
   );
 
-  const subscribe = useCallback((callback: () => void, key?: string): (() => void) => {
-    if (key == null) return () => {};
-    listenersRef.current.set(callback, key);
-    return () => {
-      listenersRef.current.delete(callback);
-    };
-  }, []);
-
-  const getItem = useCallback((key?: string) => {
-    if (key == null) return undefined;
-    return resourcesRef.current.get(key);
-  }, []);
-
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
       const resources = await client.ontology.retrieveChildren(root);
-      resources.forEach((r) => resourcesRef.current.set(ontology.idToString(r.id), r));
+      resources.forEach((r) => resourceStore.setItem(r));
       if (signal.aborted) return;
       const nodes = resources.map((c) => ({
         key: ontology.idToString(c.id),
@@ -236,12 +215,10 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     (id: ontology.ID) => {
       handleError(async () => {
         if (client == null) return;
-        const resource = await client.ontology.retrieve(id);
-        resourcesRef.current.set(ontology.idToString(id), resource);
-        notifyListeners([ontology.idToString(id)]);
+        resourceStore.setItem(await client.ontology.retrieve(id));
       });
     },
-    [client, handleError, resourcesRef],
+    [client, handleError, resourceStore.setItem],
   );
   Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
   const handleSyncRelationshipDelete = useCallback((rel: ontology.Relationship) => {
@@ -283,13 +260,11 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       if (action !== "expand") return;
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
-        if (!resourcesRef.current.has(clickedStringID)) return;
+        if (!resourceStore.hasItem(clickedStringID)) return;
         const clickedID = ontology.idZ.parse(clickedStringID);
         setLoading(clickedStringID);
         const resources = await client.ontology.retrieveChildren(clickedID);
-        resources.forEach((r) =>
-          resourcesRef.current.set(ontology.idToString(r.id), r),
-        );
+        resources.forEach((r) => resourceStore.setItem(r));
         const converted = resources.map((r) => ({
           key: ontology.idToString(r.id),
           children: services[r.id.type].hasChildren ? [] : undefined,
@@ -311,25 +286,11 @@ const Internal = ({ root }: InternalProps): ReactElement => {
     [],
   );
 
-  const setResource = useCallback(
-    (resource: ontology.Resource | ontology.Resource[]) => {
-      const resources = array.toArray(resource);
-      const resourceIDs = new Set(resources.map((r) => ontology.idToString(r.id)));
-      resources.forEach((r) => resourcesRef.current.set(ontology.idToString(r.id), r));
-      listenersRef.current.forEach((key, listener) => {
-        if (resourceIDs.has(key)) listener();
-      });
-    },
-    [],
-  );
-
   const getResource = useCallback(
     ((id: ontology.ID | ontology.ID[]) => {
       const isSingle = !Array.isArray(id);
       const ids = array.toArray(id);
-      const resources = ids.map((id) =>
-        resourcesRef.current.get(ontology.idToString(id)),
-      );
+      const resources = resourceStore.getItem(ids.map((id) => ontology.idToString(id)));
       if (isSingle) {
         if (resources[0] == null)
           throw new Error(`Resource ${ontology.idToString(id)} not found`);
@@ -337,7 +298,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       }
       return resources;
     }) as GetResource,
-    [resourcesRef],
+    [resourceStore.getItem],
   );
 
   const sort = useCallback(
@@ -371,11 +332,19 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       expand,
       contract,
       setLoading,
-      setResource,
+      setResource: resourceStore.setItem,
       getResource,
       setSelection: setSelected,
     }),
-    [expand, contract, setLoading, handleError, resourcesRef, nodesRef, setNodes],
+    [
+      expand,
+      contract,
+      setLoading,
+      handleError,
+      resourceStore.setItem,
+      nodesRef,
+      setNodes,
+    ],
   );
 
   const getBaseProps = useCallback(
@@ -411,7 +380,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       svc.onRename?.eager?.({ id, name: newName, state, ...getBaseProps(client) });
       const prev = state.getResource(id);
       prev.name = newName;
-      setResource(prev);
+      resourceStore.setItem(prev);
       return { prevName };
     },
     mutationFn: useCallback<MutationFunction<void, { key: string; name: string }>>(
@@ -615,7 +584,7 @@ const Internal = ({ root }: InternalProps): ReactElement => {
       services,
       placeLayout,
       removeLayout,
-      resourcesRef,
+      resourceStore.getItem,
       nodesRef,
       setSelected,
     ],
@@ -641,8 +610,8 @@ const Internal = ({ root }: InternalProps): ReactElement => {
         shape={deep.copy(shape)}
         selected={selected}
         onSelect={onSelect}
-        subscribe={subscribe}
-        getItem={getItem}
+        subscribe={resourceStore.subscribe}
+        getItem={resourceStore.getItem}
         onContextMenu={menuProps.open}
       >
         {itemRenderProp}

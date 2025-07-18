@@ -31,7 +31,7 @@
     }
 }
 
-.pluto-dialog__frame {
+.pluto-dialog__trigger {
     .pluto-caret-animated {
         transform: rotate(270deg) scale(0.8);
     }
