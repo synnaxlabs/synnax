@@ -803,7 +803,7 @@ describe("Series", () => {
     });
 
     it("should return an series of length 0 if the series is empty", () => {
-      const s = new Series({ data: new Float32Array([]), dataType: DataType.STRING });
+      const s = new Series({ data: [], dataType: DataType.STRING });
       const outStrings = s.toStrings();
       expect(outStrings).toEqual([]);
     });
@@ -1800,6 +1800,81 @@ describe("MultiSeries", () => {
       expect(() => multiSeries1.push(multiSeries2)).toThrow(
         "cannot push a int64 series to a float32 multi-series",
       );
+    });
+  });
+
+  describe("toStrings", () => {
+    interface Spec {
+      name: string;
+      series: Array<CrudeSeries>;
+      expected: string[];
+      dataType?: CrudeDataType;
+    }
+    const SPECS: Spec[] = [
+      {
+        name: "string",
+        series: [
+          ["apple", "banana"],
+          ["carrot", "date"],
+        ],
+        expected: ["apple", "banana", "carrot", "date"],
+      },
+      {
+        name: "json",
+        series: [
+          [
+            { a: 1, b: "apple" },
+            { a: 2, b: "banana" },
+          ],
+          [
+            { a: 3, b: "carrot" },
+            { a: 4, b: "date" },
+          ],
+        ],
+        expected: [
+          '{"a":1,"b":"apple"}',
+          '{"a":2,"b":"banana"}',
+          '{"a":3,"b":"carrot"}',
+          '{"a":4,"b":"date"}',
+        ],
+        dataType: "json",
+      },
+      {
+        name: "number",
+        series: [
+          [1, 2, 3],
+          [4, 5, 6],
+        ],
+        expected: ["1", "2", "3", "4", "5", "6"],
+      },
+      {
+        name: "bigint",
+        series: [
+          [BigInt(1), BigInt(2)],
+          [BigInt(3), BigInt(4)],
+        ],
+        expected: ["1", "2", "3", "4"],
+      },
+    ];
+    SPECS.forEach(({ name, series, expected }) => {
+      it(`should correctly convert a ${name} multi-series to strings`, () => {
+        const multiSeries = new MultiSeries(series.map((s) => new Series({ data: s })));
+        expect(multiSeries.toStrings()).toEqual(expected);
+      });
+    });
+
+    it("should return an empty array if the multi-series is empty", () => {
+      const multiSeries = new MultiSeries();
+      const outStrings = multiSeries.toStrings();
+      expect(outStrings).toEqual([]);
+    });
+
+    it("should handle multi-series with empty series", () => {
+      const series1 = new Series({ data: ["apple", "banana"] });
+      const series2 = new Series({ data: [], dataType: DataType.STRING });
+      const series3 = new Series({ data: ["carrot"] });
+      const multiSeries = new MultiSeries([series1, series2, series3]);
+      expect(multiSeries.toStrings()).toEqual(["apple", "banana", "carrot"]);
     });
   });
 });

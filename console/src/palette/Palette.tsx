@@ -175,7 +175,7 @@ const PaletteDialog = ({
         return;
       }
       if (client == null) return;
-      const { type } = new ontology.ID(key);
+      const { type } = ontology.idZ.parse(key);
       services[type].onSelect?.({
         services,
         store,

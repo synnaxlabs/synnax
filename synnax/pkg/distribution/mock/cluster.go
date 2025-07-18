@@ -97,7 +97,8 @@ func (b *Cluster) Provision(
 			AspenOptions: []aspen.Option{
 				aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 			},
-			GorpCodec: &binary.JSONCodec{},
+			GorpCodec:            &binary.JSONCodec{},
+			EnableChannelSignals: config.False(),
 		}, b.cfg}, cfgs...)...))
 	)
 	node := Node{Layer: distributionLayer, Storage: storageLayer}

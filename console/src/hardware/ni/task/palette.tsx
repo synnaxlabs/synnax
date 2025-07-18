@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnexpectedError } from "@synnaxlabs/client";
+import { DisconnectedError, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
-import { NULL_CLIENT_ERROR } from "@/errors";
 import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
 import { ANALOG_WRITE_LAYOUT } from "@/hardware/ni/task/AnalogWrite";
 import { DIGITAL_READ_LAYOUT } from "@/hardware/ni/task/DigitalRead";
@@ -52,7 +51,7 @@ const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
   icon: <Icon.Logo.NI />,
   onSelect: ({ client, addStatus, handleError }) => {
     handleError(async () => {
-      if (client == null) throw NULL_CLIENT_ERROR;
+      if (client == null) throw new DisconnectedError();
       const scanTasks = await client.hardware.tasks.retrieve({
         type: SCAN_TYPE,
         schemas: SCAN_SCHEMAS,
