@@ -137,5 +137,21 @@ export const useList = Flux.createList<ListParams, channel.Key, channel.Channel>
       search: params.term,
     }),
   retrieveByKey: async ({ client, key }) => await client.channels.retrieve(key),
-  listeners: [],
+  listeners: [
+    {
+      channel: channel.SET_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(
+        channel.keyZ,
+        async ({ changed, onChange, client }) => {
+          onChange(changed, await client.channels.retrieve(changed));
+        },
+      ),
+    },
+    {
+      channel: channel.DELETE_CHANNEL_NAME,
+      onChange: Sync.parsedHandler(channel.keyZ, async ({ changed, onDelete }) =>
+        onDelete(changed),
+      ),
+    },
+  ],
 });
