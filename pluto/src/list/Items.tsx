@@ -51,7 +51,7 @@ const BaseItems = <
     );
 
   let height: number | undefined;
-  if (itemHeight != null && visibleData.length > 0)
+  if (itemHeight != null && isFinite(displayItems) && visibleData.length > 0)
     height = Math.min(displayItems, visibleData.length) * itemHeight;
   return (
     <Align.Space

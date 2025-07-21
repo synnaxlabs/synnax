@@ -174,7 +174,11 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
       subscribe={subscribe}
       itemHeight={27}
     >
-      <List.Items<K, E> className={CSS(CSS.B("tree"), className)} {...rest}>
+      <List.Items<K, E>
+        className={CSS(CSS.B("tree"), className)}
+        {...rest}
+        displayItems={Infinity}
+      >
         {({ index, ...rest }) => children({ index, ...nodes[index], ...rest })}
       </List.Items>
     </Select.Frame>

@@ -46,9 +46,10 @@ export const useHover = <K extends record.Key>({
   const { scrollToIndex } = List.useScroller();
   const updateHover = useCallback(
     (setArg: state.SetArg<number>) => {
-      const next = state.executeSetter(setArg, hoverRef.current);
+      const prev = hoverRef.current;
+      const next = state.executeSetter(setArg, prev);
       setHover(next);
-      scrollToIndex(next);
+      scrollToIndex(next, prev > next ? "bottom" : "top");
     },
     [scrollToIndex],
   );

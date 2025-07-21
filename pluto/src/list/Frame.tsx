@@ -1,4 +1,4 @@
-import { type record } from "@synnaxlabs/x";
+import { bounds, type location, type record } from "@synnaxlabs/x";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
   createContext,
@@ -34,7 +34,7 @@ export interface UtilContextValue<
   ref: RefCallback<HTMLDivElement | null>;
   getItem?: (key?: K) => E | undefined;
   subscribe?: (callback: () => void, key?: K) => () => void;
-  scrollToIndex: (index: number) => void;
+  scrollToIndex: (index: number, direction?: location.Y) => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -165,7 +165,7 @@ const VirtualFrame = <
     () => ({
       ref: refCallback,
       getItem,
-      scrollToIndex: virtualizer.scrollToIndex,
+      scrollToIndex: (index) => virtualizer.scrollToIndex(index),
       subscribe,
     }),
     [refCallback, virtualizer, getItem, subscribe],
@@ -194,6 +194,25 @@ const StaticFrame = <
   const ref = useRef<HTMLDivElement>(null);
   const { visible } = Dialog.useContext();
   const onFetchMoreRef = useSyncedRef(onFetchMore);
+
+  const scrollToIndex = useCallback((index: number, direction?: location.Y) => {
+    const container = ref.current?.children[0];
+    if (!container) return;
+    const dirMultiplier = direction === "top" ? 1 : -1;
+    let scrollTo: number;
+    const idealHover = index + dirMultiplier;
+    if (bounds.contains({ lower: 0, upper: container.children.length }, idealHover))
+      scrollTo = index + dirMultiplier;
+    else scrollTo = index;
+    const child = container.children[scrollTo] as HTMLElement | undefined;
+    if (child)
+      child.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+        behavior: "smooth",
+      });
+  }, []);
+
   const refCallback = useCallback(
     (el: HTMLDivElement) => {
       ref.current = el;
@@ -219,10 +238,10 @@ const StaticFrame = <
     () => ({
       ref: refCallback,
       getItem,
-      scrollToIndex: () => {},
+      scrollToIndex,
       subscribe,
     }),
-    [refCallback, getItem, subscribe],
+    [refCallback, getItem, subscribe, scrollToIndex],
   );
   return (
     <DataContext.Provider value={dataCtxValue}>
