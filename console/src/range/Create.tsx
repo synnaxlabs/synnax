@@ -77,7 +77,7 @@ export const Create: Layout.Renderer = (props) => {
       parent: "",
       ...args,
     },
-    afterSave: onClose,
+    afterSave: () => onClose(),
   });
 
   // Makes sure the user doesn't have the option to select the range itself as a parent

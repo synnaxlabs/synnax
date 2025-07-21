@@ -31,12 +31,11 @@
     min-height: 96px;
     width: 95vw;
     max-width: 1200px;
-    overflow: hidden;
     padding-bottom: 1rem;
 
     .pluto-input__internal {
         border-color: var(--pluto-primary-z);
-        border-width: 1px;
+        border-width: 1px !important;
         border-top-left-radius: 1rem !important;
         border-top-right-radius: 1rem !important;
     }
@@ -46,6 +45,7 @@
     overflow-y: auto;
     border-bottom-left-radius: 1rem;
     border-bottom-right-radius: 1rem;
+    position: relative;
 
     & .pluto-status-text {
         height: 150px;
