@@ -160,6 +160,7 @@ const VirtualFrame = <
     }),
     [refCallback, virtualizer, data, getItem, items, itemHeight],
   );
+
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
     () => ({
       ref: refCallback,
@@ -169,6 +170,7 @@ const VirtualFrame = <
     }),
     [refCallback, virtualizer, getItem, subscribe],
   );
+
   return (
     <DataContext.Provider value={dataCtxValue}>
       <UtilContext.Provider value={utilCtxValue as unknown as UtilContextValue}>
@@ -187,7 +189,7 @@ const StaticFrame = <
   subscribe,
   children,
   onFetchMore,
-  itemHeight = 36,
+  itemHeight,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
   const { visible } = Dialog.useContext();
