@@ -10,11 +10,11 @@
  */
 
 .pluto-list__items {
-    height: 100%;
-    max-height: 100%;
     user-select: none;
     overflow: auto;
     -webkit-user-select: none;
+    transition: height 0.1s ease-in-out;
+    height: 100%;
 }
 
 .pluto-list__items > .pluto-list__virtualizer {
@@ -22,5 +22,4 @@
     position: relative;
     user-select: none;
     -webkit-user-select: none;
-    transition: height 0.2s ease-in-out;
 }

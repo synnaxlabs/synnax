@@ -24,6 +24,7 @@ export interface DataContextValue<K extends record.Key = record.Key> {
   data: K[];
   getItems: () => ItemSpec<K>[];
   getTotalSize: () => number | undefined;
+  itemHeight?: number;
 }
 
 export interface UtilContextValue<
@@ -46,6 +47,7 @@ export interface FrameProps<
     Pick<UtilContextValue<K, E>, "getItem" | "subscribe"> {
   data: K[];
   virtual?: boolean;
+  overscan?: number;
   itemHeight?: number;
   onFetchMore?: () => void;
 }
@@ -90,9 +92,18 @@ export const useData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >(): DataContextValue<K> & UtilContextValue<K, E> => {
-  const { data, getItems, getTotalSize } = useDataContext<K>();
+  const { data, getItems, getTotalSize, itemHeight } = useDataContext<K>();
   const { ref, getItem, scrollToIndex, subscribe } = useUtilContext<K, E>();
-  return { data, getItems, getTotalSize, ref, getItem, scrollToIndex, subscribe };
+  return {
+    data,
+    getItems,
+    getTotalSize,
+    ref,
+    getItem,
+    scrollToIndex,
+    subscribe,
+    itemHeight,
+  };
 };
 
 const VirtualFrame = <
@@ -104,6 +115,7 @@ const VirtualFrame = <
   subscribe,
   children,
   onFetchMore,
+  overscan = 10,
   itemHeight = 36,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
@@ -121,7 +133,7 @@ const VirtualFrame = <
     count: data.length,
     getScrollElement: () => ref.current,
     estimateSize: () => itemHeight,
-    overscan: 10,
+    overscan,
     onChange: useCallback(
       (v: Virtualizer<HTMLDivElement, HTMLDivElement>) => {
         const items = v.getVirtualItems();
@@ -144,8 +156,9 @@ const VirtualFrame = <
       subscribe,
       getTotalSize: () => virtualizer.getTotalSize(),
       getItems: () => items,
+      itemHeight,
     }),
-    [refCallback, virtualizer, data, getItem, items],
+    [refCallback, virtualizer, data, getItem, items, itemHeight],
   );
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
     () => ({
@@ -174,6 +187,7 @@ const StaticFrame = <
   subscribe,
   children,
   onFetchMore,
+  itemHeight = 36,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
   const { visible } = Dialog.useContext();
@@ -195,8 +209,9 @@ const StaticFrame = <
       subscribe,
       getTotalSize: () => undefined,
       getItems: () => items,
+      itemHeight,
     }),
-    [refCallback, data, getItem, subscribe],
+    [refCallback, data, getItem, subscribe, itemHeight],
   );
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
     () => ({

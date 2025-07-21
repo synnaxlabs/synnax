@@ -37,12 +37,11 @@ export const selectorListItem = Component.renderProp(
   (props: List.ItemProps<workspace.Key>): ReactElement | null => {
     const { itemKey } = props;
     const ws = List.useItem<workspace.Key, workspace.Workspace>(itemKey);
-    const selectProps = Select.useItemState(itemKey);
     if (ws == null) return null;
     return (
-      <List.Item {...props} {...selectProps}>
+      <Select.ListItem {...props}>
         <Text.Text level="p">{ws.name}</Text.Text>
-      </List.Item>
+      </Select.ListItem>
     );
   },
 );

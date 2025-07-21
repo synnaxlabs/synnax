@@ -33,15 +33,14 @@ export interface SimpleProps<
 const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   const { itemKey } = p;
   const item = List.useItem<record.Key, SimplyEntry<record.Key>>(itemKey);
-  const selectProps = Select.useItemState(itemKey);
   if (item == null) return null;
   const { name, icon } = item;
   return (
-    <List.Item {...p} {...selectProps}>
+    <Select.ListItem {...p}>
       <Text.WithIcon level="p" startIcon={icon}>
         {name}
       </Text.WithIcon>
-    </List.Item>
+    </Select.ListItem>
   );
 });
 

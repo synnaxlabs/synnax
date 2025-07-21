@@ -26,12 +26,10 @@ import { Text } from "@/text";
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
     const item = List.useItem<device.Key, device.Device>(itemKey);
-    const selectProps = Select.useItemState(itemKey);
     return (
-      <List.Item
+      <Select.ListItem
         itemKey={itemKey}
         {...rest}
-        {...selectProps}
         className={CSS.BE("device", "list-item")}
         justify="spaceBetween"
         align="center"
@@ -51,7 +49,7 @@ const listItemRenderProp = Component.renderProp(
         >
           {item?.location ?? ""}
         </Breadcrumb.Breadcrumb>
-      </List.Item>
+      </Select.ListItem>
     );
   },
 );

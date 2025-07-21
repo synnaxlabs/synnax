@@ -60,23 +60,21 @@ export const listItem = Component.renderProp(
   (props: CommandListItemProps): ReactElement | null => {
     const { itemKey } = props;
     const cmd = List.useItem<string, Command>(itemKey);
-    const selectProps = Select.useItemState(itemKey);
     if (cmd == null) return null;
     const { icon, name, endContent } = cmd;
     return (
-      <List.Item
+      <Select.ListItem
         highlightHovered
         style={{ height: "6.5rem" }}
         justify="spaceBetween"
         align="center"
-        {...selectProps}
         {...props}
       >
         <Text.WithIcon startIcon={icon} level="p" weight={400} shade={11} size="medium">
           {name}
         </Text.WithIcon>
         {endContent != null && <Align.Space x>{endContent}</Align.Space>}
-      </List.Item>
+      </Select.ListItem>
     );
   },
 );

@@ -81,7 +81,7 @@ export const MultipleTrigger = <K extends record.Key>({
   haulType = "",
   disabled,
   placeholder = "Select...",
-  variant = "text",
+  variant = "outlined",
   icon,
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
 }: MultipleTriggerProps<K>): ReactElement => {

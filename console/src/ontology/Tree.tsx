@@ -16,7 +16,6 @@ import {
   List,
   Menu,
   Ontology,
-  Select,
   Status,
   Synnax as PSynnax,
   Text,
@@ -107,7 +106,6 @@ const itemRenderProp = Component.renderProp(
     const { itemKey } = rest;
     const id = ontology.idZ.parse(itemKey);
     const resource = List.useItem<string, ontology.Resource>(itemKey);
-    const selectProps = Select.useItemState<string>(itemKey);
     const service = useServices()[id.type];
     const Item = service.Item ?? DefaultItem;
     const { onRename, onDrop, onDoubleClick, useLoading, onDragStart, onDragEnd } =
@@ -160,7 +158,6 @@ const itemRenderProp = Component.renderProp(
         resource={resource}
         loading={loading}
         onRename={handleRename}
-        {...selectProps}
       />
     );
   },
