@@ -12,12 +12,13 @@ package fgrpc
 import (
 	"context"
 	"crypto/tls"
+	"net"
+
 	"github.com/cockroachdb/cmux"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/credentials"
-	"net"
 )
 
 // MuxCredentials implements the grpc.TransportCredentials interface that allows
@@ -38,8 +39,8 @@ type MuxCredentials struct {
 
 var _ credentials.TransportCredentials = (*MuxCredentials)(nil)
 
-// ClientHandshake will panic if called. It is here purely for the purpose of implementing
-// the grpc.TransportCredentials interface.
+// ClientHandshake will panic if called. It is here purely for the purpose of
+// implementing the grpc.TransportCredentials interface.
 func (*MuxCredentials) ClientHandshake(
 	context.Context, string, net.Conn,
 ) (net.Conn, credentials.AuthInfo, error) {
@@ -52,10 +53,10 @@ const (
 )
 
 // ServerHandshake implements the grpc.TransportCredentials interface by extracting the
-// underlying TLS connection from the cmux.MuxConn and passing it the gRPC server through
-// its ServerHandshake method. If the given connection is not a cmux.MuxConn, or if the
-// underlying connection is not a TLS connection, MuxCredentials will panic
-// in development mode and return an error in production mode.
+// underlying TLS connection from the cmux.MuxConn and passing it the gRPC server
+// through its ServerHandshake method. If the given connection is not a cmux.MuxConn, or
+// if the underlying connection is not a TLS connection, MuxCredentials will panic in
+// development mode and return an error in production mode.
 func (c *MuxCredentials) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	muxConn, ok := conn.(*cmux.MuxConn)
 	if !ok {

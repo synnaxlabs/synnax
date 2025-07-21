@@ -54,7 +54,7 @@ func (n *Network[RQ, RS]) UnaryServer(host address.Address) *UnaryServer[RQ, RS]
 func (n *Network[RQ, RS]) UnaryClient() *UnaryClient[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	return &UnaryClient[RQ, RS]{network: n}
+	return &UnaryClient[RQ, RS]{Network: n}
 }
 
 func (n *Network[RQ, RS]) resolveUnaryTarget(

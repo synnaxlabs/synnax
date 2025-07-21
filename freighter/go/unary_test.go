@@ -78,9 +78,9 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 						r, w := io.Pipe()
 						go func() {
 							for i := range 5 {
-								w.Write([]byte{byte(i)})
+								Expect(w.Write([]byte{byte(i)})).To(Succeed())
 							}
-							w.Close()
+							Expect(w.Close()).To(Succeed())
 						}()
 						return r, nil
 					})
