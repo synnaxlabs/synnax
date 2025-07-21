@@ -9,9 +9,9 @@
 
 import { array } from "@synnaxlabs/x/array";
 import { TimeRange } from "@synnaxlabs/x/telem";
-import { z } from "zod/v4";
+import { z } from "zod";
 
-export const keyZ = z.string().uuid();
+export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export const nameZ = z.string().min(1);
 export type Name = z.infer<typeof nameZ>;

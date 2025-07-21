@@ -10,7 +10,7 @@
 import { Drift } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const VERSION = "0.0.0";
 

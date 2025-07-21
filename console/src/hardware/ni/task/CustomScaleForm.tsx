@@ -11,7 +11,7 @@ import { Align, Form, Input, type List, Select, state } from "@synnaxlabs/pluto"
 import { binary, deep, type record } from "@synnaxlabs/x";
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { FS } from "@/fs";
 import {
@@ -181,8 +181,8 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
     const [path, setPath] = state.usePersisted<string>("", `${prefix}.path`);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const tableSchema = z.record(z.string(), z.array(z.unknown()));
-    const preScaledField = Form.useField<number[]>({ path: `${prefix}.preScaledVals` });
-    const scaledField = Form.useField<number[]>({ path: `${prefix}.scaledVals` });
+    const preScaledField = Form.useField<number[]>(`${prefix}.preScaledVals`);
+    const scaledField = Form.useField<number[]>(`${prefix}.scaledVals`);
     const currValueRef = useRef<Record<string, unknown[]>>({});
 
     const updateValue = () => {

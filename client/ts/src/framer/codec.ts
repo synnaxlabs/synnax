@@ -15,7 +15,7 @@ import {
   TimeRange,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";

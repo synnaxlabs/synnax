@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type change, compare, deep, kv, link } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useMemo } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -196,7 +196,9 @@ export const MetaData = ({ rangeKey }: MetaDataProps) => {
       await kv.set(pair.key, pair.value);
     },
   });
-  const arr = Form.useFieldArray<kv.Pair>({ path: "pairs", ctx: formCtx });
+  const arr = Form.useFieldArray<kv.Pair, typeof metaDataFormSchema>("pairs", {
+    ctx: formCtx,
+  });
   const sorted = useMemo(() => arr.value.sort(), [arr.value]);
   return (
     <Align.Space y>

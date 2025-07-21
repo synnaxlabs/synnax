@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useEffect } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { useMemoDeepEqualProps } from "@/memo";

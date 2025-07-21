@@ -24,7 +24,7 @@ import {
 import { deep, unique } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useState } from "react";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
 import { baseFormSchema, ZERO_CHANNEL } from "@/channel/Create";
@@ -143,11 +143,9 @@ const Internal = ({ onClose, initialValues }: InternalProps): ReactElement => {
     },
   });
 
-  const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>(
-    "isIndex",
-    false,
-    methods,
-  );
+  const isIndex = Form.useFieldValue<boolean, boolean, typeof schema>("isIndex", {
+    ctx: methods,
+  });
 
   const globals = usePhantomGlobals({
     language: Lua.LANGUAGE,

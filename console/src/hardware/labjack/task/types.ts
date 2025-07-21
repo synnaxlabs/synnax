@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type task } from "@synnaxlabs/client";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/labjack/device";
@@ -27,8 +27,8 @@ export type LinearScaleType = typeof LINEAR_SCALE_TYPE;
 
 const linearScaleZ = z.object({
   type: z.literal(LINEAR_SCALE_TYPE),
-  slope: z.number().finite(),
-  offset: z.number().finite(),
+  slope: z.number(),
+  offset: z.number(),
 });
 interface LinearScale extends z.infer<typeof linearScaleZ> {}
 const ZERO_LINEAR_SCALE: LinearScale = { type: LINEAR_SCALE_TYPE, slope: 1, offset: 0 };
@@ -57,7 +57,7 @@ export type AIChannelType = typeof AI_CHANNEL_TYPE;
 
 const aiChannelZ = Common.Task.readChannelZ.extend({
   type: z.literal(AI_CHANNEL_TYPE),
-  range: z.number().positive().finite().optional(),
+  range: z.number().positive().optional(),
   scale: scaleZ,
   port: portZ.regex(
     Device.AIN_PORT_REGEX,
@@ -127,8 +127,8 @@ const tcChannelZ = aiChannelZ.omit({ type: true, range: true }).extend({
   posChan: z.number().int(),
   negChan: z.number().int(),
   cjcSource: z.string().min(1, "CJC Source must be specified"),
-  cjcSlope: z.number().finite(),
-  cjcOffset: z.number().finite(),
+  cjcSlope: z.number(),
+  cjcOffset: z.number(),
   units: temperatureUnitsZ,
 });
 interface TCChannel extends z.infer<typeof tcChannelZ> {}

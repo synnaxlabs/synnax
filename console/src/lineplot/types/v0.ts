@@ -9,7 +9,7 @@
 
 import { Text, Viewport } from "@synnaxlabs/pluto";
 import { bounds, box, dimensions, direction, xy } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import {
   type AxisKey,

@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
-import { type z } from "zod/v4";
+import { type z } from "zod";
 
 interface UseContextValue
   extends z.ZodObject<{
@@ -82,20 +82,16 @@ export const use = <
     },
     [ctx.value, client?.key],
   );
-  Form.useFieldListener<string, UseContextValue>({
-    ctx,
-    path: "config.device",
-    onChange: useCallback(
-      (fs) => {
-        if (!fs.touched || fs.status.variant !== "success" || client == null) return;
-        client.hardware.devices
-          .retrieve<Properties, Make, Model>(fs.value)
-          .then(setDev)
-          .catch(handleExc);
-      },
-      [client?.key, setDev, handleExc],
-    ),
-  });
+  const device = Form.useFieldValue<string>("config.device", { ctx });
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null) return;
+      const d = await client.hardware.devices.retrieve<Properties, Make, Model>(device);
+      if (signal.aborted) return;
+      setDev(d);
+    },
+    [device, client?.key],
+  );
   const handleSet = useCallback(
     (d: device.Device) => {
       if (d.key === dev?.key) setDev(d as device.Device<Properties, Make, Model>);
